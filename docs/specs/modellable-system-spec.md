@@ -2,24 +2,18 @@
 
 ## 1. Purpose
 
-Modellable is a platform for defining domain-owned data models and using those models across systems through versioned projections, subsets, aggregations, and streaming replicas.
+Modellable is a **meta-model framework** for defining, tracing, and governing domain-owned data models across disparate systems. It acts as a semantic layer on top of existing infrastructure (databases, APIs, message brokers) to ensure maximum traceability and understandability of every single data property.
 
-The system must let each domain define its own canonical models while allowing other domains and systems to consume derived contracts without directly coupling to the source database or internal implementation.
+The framework ensures that any property—whether it appears in a database table, an API response, or a streaming event—can be traced back to the specific domain and canonical model that owns it.
 
-The platform must support:
+Modellable provides:
 
-- Domain-owned canonical data models.
-- Immutable model versions.
-- Projections that select, rename, transform, join, and aggregate data.
-- Cross-domain model dependencies.
-- Versioned consumer-facing contracts.
-- Streaming data between systems.
-- Materialized projected replicas.
-- Multiple database backends.
-- Multiple streaming platforms.
-- Compatibility checks and lineage tracking.
+- **Universal Lineage:** Tracking the origin and transformation of every field across system boundaries.
+- **Domain-Owned Contracts:** Explicit ownership and lifecycle for canonical models.
+- **Explicit Mapping:** A declarative way to project, subset, and join models while maintaining property-level "back-references."
+- **Platform-Agnostic Governance:** Applying policies (PII, security, retention) at the source and propagating them to all consumers.
 
-The platform should not require every system to use the same database, programming language, serialization format, or message broker.
+Modellable is not a database; it is the **lineage backbone** that makes data movement and consumption predictable and auditable.
 
 ## 2. Design Principles
 
@@ -29,21 +23,33 @@ Each model is owned by exactly one domain. The owning domain controls the canoni
 
 Other domains may consume source models only through explicitly declared projections or subscriptions.
 
-### 2.2 Immutable Contracts
+### 2.2 Property-Level Traceability
+
+Every single property in the system must be traceable. If a field exists in a consumer's projection, the framework must be able to answer:
+- Which source model and field did this come from?
+- Who owns that source model?
+- What transformations (if any) were applied?
+- What are the governance constraints (e.g., PII) inherited from the source?
+
+### 2.3 Immutable Contracts
 
 Published model versions and projection versions are immutable. Any incompatible change must create a new version.
 
 Mutable drafts may exist before publication, but published contracts must be stable so downstream systems can rely on them.
 
-### 2.3 Platform-Neutral Definitions
+### 2.4 Platform-Neutral Definitions
 
 Model and projection definitions must not depend on a specific database or streaming platform.
 
 Database and stream integrations are expressed through adapter bindings. The same logical model should be usable with PostgreSQL, MongoDB, Kafka, Pulsar, NATS, or other supported systems when the adapter capabilities are sufficient.
 
-### 2.4 Explicit Derivation
+### 2.5 Explicit Derivation
 
 All derived data must be declared. Field renames, type conversions, computed fields, filters, joins, aggregations, and materialized replicas must be traceable back to their source models and source fields.
+
+### 2.6 Framework-First Integration
+
+Modellable is designed to wrap existing systems. It should not require a "rip and replace" of current infrastructure, but rather provide the mapping layer that makes existing data "modellable" and traceable.
 
 ### 2.5 Compatibility Before Runtime
 
