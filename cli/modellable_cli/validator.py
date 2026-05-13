@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .loader import detect_doc_type
+from .languages import VALID_ARTIFACT_FORMAT_IDS
 
 VALID_FIELD_TYPES = {
     "string", "boolean", "integer", "decimal", "float",
@@ -143,6 +144,25 @@ def validate_projection(doc: dict[str, Any], errors: list, warnings: list) -> No
         strategy = mat.get("strategy")
         if strategy and strategy not in VALID_MATERIALISATION_STRATEGIES:
             _err(errors, f"{base}.materialisation", f"Unknown strategy '{strategy}'")
+
+    artifacts = doc.get("artifacts", [])
+    for i, artifact in enumerate(artifacts or []):
+        apath = f"{base}.artifacts[{i}]"
+        if not isinstance(artifact, dict):
+            _err(errors, apath, "Artifact entry must be a mapping")
+            continue
+        fmt = artifact.get("format")
+        if not fmt:
+            _err(errors, apath, "Missing required field 'format'")
+        elif fmt not in VALID_ARTIFACT_FORMAT_IDS:
+            _err(
+                errors,
+                apath,
+                f"Unknown artifact format '{fmt}'. "
+                f"Run 'modellable codegen list' to see all supported formats.",
+            )
+        if not artifact.get("outputPath"):
+            _warn(warnings, apath, "Missing 'outputPath' — recommended for artifact generation")
 
 
 def validate_binding(doc: dict[str, Any], errors: list, warnings: list) -> None:
