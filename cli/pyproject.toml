@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "modellable-cli"
+version = "0.1.0"
+description = "CLI for creating, validating, and describing Modellable definitions"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1",
+    "pyyaml>=6.0",
+    "anthropic>=0.40",
+    "rich>=13.0",
+]
+
+[project.scripts]
+modellable = "modellable_cli.main:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["modellable_cli"]

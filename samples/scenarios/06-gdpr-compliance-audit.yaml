@@ -1,0 +1,810 @@
+scenario: gdpr-compliance-audit
+title: "GDPR Compliance, Right-to-Erasure, and Immutable Audit Trail"
+platform: audit-compliance
+description: |
+  A healthcare-adjacent SaaS platform operating under GDPR (EU) and HIPAA-adjacent
+  obligations needs to satisfy three compliance requirements simultaneously:
+
+  1. Data Subject Access Requests (DSAR): Produce a complete export of all personal
+     data held for a specific individual within 30 days of request.
+
+  2. Right-to-erasure: When an erasure request arrives, anonymise all operational
+     projections while retaining a tombstone record in the audit trail so regulators
+     can verify the erasure was performed.
+
+  3. Immutable billing audit trail: Seven-year retention of financial records in
+     WORM storage with cryptographic proof of immutability. Records must be readable
+     by auditors but cannot be modified or deleted — even by platform operators.
+
+  Modellable addresses these through three distinct projection strategies:
+  - DSAR export: point-in-time snapshot with every PII-classified field included,
+    access-gated to compliance-officer role, access events logged.
+  - Erasure tombstone: an anonymised upsert projection that replaces PII with a
+    deletion marker and preserves the erasure request metadata.
+  - Billing audit: append-only immutable projection in WORM storage with
+    encryption-at-rest and a lineage evidence package for auditors.
+complexity: high
+tags: [gdpr, compliance, audit, worm, erasure, dsar, pii, immutable, retention]
+
+---
+domain: compliance
+owner: compliance-team
+contact: compliance@example.com
+description: |
+  GDPR compliance projections, consent management, erasure handling, and
+  regulatory evidence packages.
+policies:
+  defaultClassification: confidential
+  piiHandling: strict_masking
+  retentionYears: 7
+  requiresAuditLog: true
+
+---
+domain: customer
+owner: customer-platform-team
+contact: customer-platform@example.com
+description: Customer identity and lifecycle including personal data.
+policies:
+  defaultClassification: internal
+  piiHandling: pseudonymise_before_export
+  retentionYears: 7
+
+---
+domain: billing
+owner: finance-team
+contact: finance@example.com
+description: Billing transactions, invoices, and subscription events.
+policies:
+  defaultClassification: confidential
+  retentionYears: 7
+  requiresImmutableRecord: true
+
+---
+domain: audit
+owner: security-team
+contact: security@example.com
+description: Platform-level access, data processing, and security audit events.
+policies:
+  defaultClassification: confidential
+  retentionYears: 10
+
+---
+domain: customer
+model: Customer
+kind: entity
+version: 3
+status: published
+description: Customer identity record with all personal data fields.
+
+identity:
+  key: customerId
+
+fields:
+  customerId:
+    type: uuid
+    required: true
+  email:
+    type: string
+    format: email
+    classification: pii
+    required: true
+  firstName:
+    type: string
+    classification: pii
+    required: true
+  lastName:
+    type: string
+    classification: pii
+    required: true
+  dateOfBirth:
+    type: date
+    classification: pii
+    nullable: true
+  phoneNumber:
+    type: string
+    classification: pii
+    nullable: true
+  nationalIdHash:
+    type: string
+    classification: sensitive
+    nullable: true
+    description: HMAC of national ID — stored hashed, never plaintext.
+  addressLine1:
+    type: string
+    classification: pii
+    nullable: true
+  addressLine2:
+    type: string
+    classification: pii
+    nullable: true
+  city:
+    type: string
+    classification: pii
+    nullable: true
+  postalCode:
+    type: string
+    classification: pii
+    nullable: true
+  countryCode:
+    type: string
+    format: iso3166_alpha2
+    required: true
+  marketingConsent:
+    type: boolean
+    required: true
+    default: false
+  dataProcessingLegalBasis:
+    type: enum
+    values: [consent, contract, legitimate_interest, legal_obligation, vital_interest, public_task]
+    required: true
+  accountStatus:
+    type: enum
+    values: [active, suspended, deleted, erasure_requested, erased]
+    required: true
+  createdAt:
+    type: timestamp
+    required: true
+  updatedAt:
+    type: timestamp
+    required: true
+  deletionRequestedAt:
+    type: timestamp
+    nullable: true
+  erasedAt:
+    type: timestamp
+    nullable: true
+
+---
+domain: compliance
+model: DataProcessingConsent
+kind: event
+version: 1
+status: published
+description: |
+  Consent lifecycle event. Records every consent grant, withdrawal, and scope
+  change as an immutable append. Required for GDPR Article 7 demonstration
+  of valid consent.
+
+identity:
+  key: consentEventId
+
+fields:
+  consentEventId:
+    type: uuid
+    required: true
+  customerId:
+    type: uuid
+    required: true
+    references:
+      domain: customer
+      model: Customer
+      field: customerId
+  action:
+    type: enum
+    values: [granted, withdrawn, updated, expired]
+    required: true
+  consentScopes:
+    type: array
+    items:
+      type: string
+    description: E.g. marketing_email, analytics, third_party_sharing.
+    required: true
+  legalBasis:
+    type: enum
+    values: [consent, contract, legitimate_interest, legal_obligation, vital_interest, public_task]
+    required: true
+  ipAddress:
+    type: string
+    classification: pii
+    nullable: true
+    description: IP at time of consent event.
+  userAgent:
+    type: string
+    nullable: true
+  consentText:
+    type: string
+    nullable: true
+    description: Verbatim consent text shown to the user.
+  consentTextVersion:
+    type: string
+    nullable: true
+  recordedAt:
+    type: timestamp
+    required: true
+
+---
+domain: billing
+model: BillingTransaction
+kind: event
+version: 2
+status: published
+description: |
+  Billing transaction record including subscription charges, refunds, and
+  adjustments. Subject to 7-year financial record retention requirements.
+
+identity:
+  key: transactionId
+
+fields:
+  transactionId:
+    type: uuid
+    required: true
+  customerId:
+    type: uuid
+    required: true
+    references:
+      domain: customer
+      model: Customer
+      field: customerId
+  subscriptionId:
+    type: uuid
+    nullable: true
+  invoiceId:
+    type: string
+    required: true
+  transactionType:
+    type: enum
+    values: [charge, refund, credit, adjustment, writeoff]
+    required: true
+  description:
+    type: string
+    required: true
+  amountCents:
+    type: integer
+    required: true
+  currencyCode:
+    type: string
+    format: iso4217
+    required: true
+  taxAmountCents:
+    type: integer
+    required: true
+    default: 0
+  taxJurisdiction:
+    type: string
+    nullable: true
+  paymentMethod:
+    type: enum
+    values: [card, bank_transfer, wallet, credit_balance, manual]
+    required: true
+  paymentReference:
+    type: string
+    classification: confidential
+    nullable: true
+    description: Processor reference. Stored for reconciliation; not surfaced externally.
+  billingName:
+    type: string
+    classification: pii
+    required: true
+  billingAddressLine1:
+    type: string
+    classification: pii
+    required: true
+  billingCity:
+    type: string
+    required: true
+  billingCountryCode:
+    type: string
+    format: iso3166_alpha2
+    required: true
+  billingPostalCode:
+    type: string
+    required: true
+  status:
+    type: enum
+    values: [pending, settled, failed, refunded, disputed]
+    required: true
+  createdAt:
+    type: timestamp
+    required: true
+  settledAt:
+    type: timestamp
+    nullable: true
+
+---
+domain: compliance
+model: ErasureRequest
+kind: event
+version: 1
+status: published
+description: |
+  GDPR Article 17 erasure request event. Records the request, verification
+  steps, and execution status. The erasure workflow reads this event and
+  applies anonymisation to all operational projections.
+
+identity:
+  key: erasureRequestId
+
+fields:
+  erasureRequestId:
+    type: uuid
+    required: true
+  customerId:
+    type: uuid
+    required: true
+    references:
+      domain: customer
+      model: Customer
+      field: customerId
+  requestChannel:
+    type: enum
+    values: [email, in_app, postal, regulator]
+    required: true
+  verificationMethod:
+    type: enum
+    values: [email_confirmed, id_verified, account_login, none]
+    required: true
+  requestStatus:
+    type: enum
+    values: [received, verified, in_progress, completed, rejected, deferred]
+    required: true
+  rejectionReason:
+    type: string
+    nullable: true
+    description: If rejected, the legal basis for retention (e.g. legal_obligation).
+  deferralReason:
+    type: string
+    nullable: true
+  requestedAt:
+    type: timestamp
+    required: true
+  verifiedAt:
+    type: timestamp
+    nullable: true
+  completedAt:
+    type: timestamp
+    nullable: true
+  dueByAt:
+    type: timestamp
+    required: true
+    description: 30-day statutory deadline from request receipt.
+  handledBy:
+    type: string
+    required: true
+    description: System or operator identifier that processed the erasure.
+
+---
+domain: audit
+model: DataAccessEvent
+kind: event
+version: 1
+status: published
+description: |
+  Access audit event emitted whenever a sensitive or PII-classified projection
+  is read. Provides the evidence trail required by GDPR Article 30 (records of
+  processing activities) and SOC 2 CC6.
+
+identity:
+  key: accessEventId
+
+fields:
+  accessEventId:
+    type: uuid
+    required: true
+  principalId:
+    type: string
+    required: true
+    description: Identity of the caller (user ID, service account, API key ID).
+  principalType:
+    type: enum
+    values: [user, service_account, api_key, automated_process]
+    required: true
+  projectionName:
+    type: string
+    required: true
+  projectionVersion:
+    type: integer
+    required: true
+  subjectCustomerId:
+    type: uuid
+    nullable: true
+    description: Customer whose data was accessed, if applicable.
+  fieldsAccessed:
+    type: array
+    items:
+      type: string
+    description: Names of fields returned in the response.
+  queryParams:
+    type: map
+    nullable: true
+    description: Sanitised query parameters (no values that are themselves PII).
+  ipAddress:
+    type: string
+    classification: pii
+    required: true
+  requestId:
+    type: string
+    required: true
+  accessedAt:
+    type: timestamp
+    required: true
+
+---
+domain: compliance
+projection: GdprDataSubjectExport
+version: 1
+status: published
+description: |
+  Point-in-time snapshot of all personal data held for a specific customer.
+  Used to respond to Data Subject Access Requests within the 30-day statutory
+  window. All PII-classified fields are included; access is restricted to
+  the compliance-officer role and every read is logged via auditLog.
+
+  The snapshot captures data from three source models: customer identity,
+  consent history, and billing records (redacting the payment reference).
+
+sources:
+  - domain: customer
+    model: Customer
+    version: 3
+    alias: cust
+  - domain: compliance
+    model: DataProcessingConsent
+    version: 1
+    alias: con
+    joinOn:
+      left: cust.customerId
+      right: con.customerId
+    joinType: left
+  - domain: billing
+    model: BillingTransaction
+    version: 2
+    alias: txn
+    joinOn:
+      left: cust.customerId
+      right: txn.customerId
+    joinType: left
+
+filter:
+  expression: "cust.accountStatus != 'erased'"
+
+fields:
+  subject_id:
+    from: cust.customerId
+  email:
+    from: cust.email
+    classification: pii
+  first_name:
+    from: cust.firstName
+    classification: pii
+  last_name:
+    from: cust.lastName
+    classification: pii
+  date_of_birth:
+    from: cust.dateOfBirth
+    classification: pii
+  phone_number:
+    from: cust.phoneNumber
+    classification: pii
+  address_line1:
+    from: cust.addressLine1
+    classification: pii
+  address_line2:
+    from: cust.addressLine2
+    classification: pii
+  city:
+    from: cust.city
+    classification: pii
+  postal_code:
+    from: cust.postalCode
+    classification: pii
+  country_code:
+    from: cust.countryCode
+  marketing_consent:
+    from: cust.marketingConsent
+  data_processing_legal_basis:
+    from: cust.dataProcessingLegalBasis
+  account_status:
+    from: cust.accountStatus
+  account_created_at:
+    from: cust.createdAt
+  consent_events:
+    expression: "collect(con.*, orderBy: con.recordedAt)"
+    type: array
+    description: Full consent event history ordered chronologically.
+  billing_transactions:
+    expression: "collect({id: txn.transactionId, type: txn.transactionType, description: txn.description, amountCents: txn.amountCents, currency: txn.currencyCode, date: txn.createdAt}, orderBy: txn.createdAt)"
+    type: array
+    description: Billing records with payment reference redacted.
+
+materialisation:
+  strategy: snapshot
+  retentionYears: 7
+  immutable: false
+  encryption: aes256_at_rest
+  binding: s3-compliance-worm-sink
+
+access:
+  requiredRole: compliance-officer
+  auditLog: true
+  auditLogBinding: postgres-audit-log-sink
+
+---
+domain: compliance
+projection: ConsentHistory
+version: 1
+status: published
+description: |
+  Append-only consent change log. Every consent event is appended; no records
+  are ever updated or deleted. This provides the chronological evidence of consent
+  state required by GDPR Article 7(1).
+
+sources:
+  - domain: compliance
+    model: DataProcessingConsent
+    version: 1
+    alias: con
+
+fields:
+  consent_event_id:
+    from: con.consentEventId
+  customer_id:
+    from: con.customerId
+  action:
+    from: con.action
+  consent_scopes:
+    from: con.consentScopes
+  legal_basis:
+    from: con.legalBasis
+  consent_text_version:
+    from: con.consentTextVersion
+  recorded_at:
+    from: con.recordedAt
+
+materialisation:
+  strategy: append
+  immutable: true
+  partitionBy: recorded_at
+  granularity: month
+  binding: postgres-audit-log-sink
+  targetTable: consent_history
+
+access:
+  requiredRole: compliance-officer
+  auditLog: true
+
+---
+domain: billing
+projection: BillingAuditTrail
+version: 1
+status: published
+description: |
+  Immutable seven-year billing audit record required for financial regulatory
+  compliance. Written to a WORM S3 bucket with object-lock enabled and also
+  mirrored to immudb for cryptographic tamper-detection.
+
+  All billing transaction events are captured as append-only rows. The payment
+  reference (confidential) is excluded from the audit trail; only the billing
+  address and financial amounts are retained. Access is logged on every read.
+
+sources:
+  - domain: billing
+    model: BillingTransaction
+    version: 2
+    alias: txn
+
+fields:
+  transaction_id:
+    from: txn.transactionId
+  customer_id:
+    from: txn.customerId
+  invoice_id:
+    from: txn.invoiceId
+  transaction_type:
+    from: txn.transactionType
+  description:
+    from: txn.description
+  amount_cents:
+    from: txn.amountCents
+  currency_code:
+    from: txn.currencyCode
+  tax_amount_cents:
+    from: txn.taxAmountCents
+  tax_jurisdiction:
+    from: txn.taxJurisdiction
+  payment_method:
+    from: txn.paymentMethod
+  billing_name:
+    from: txn.billingName
+    classification: pii
+  billing_address_line1:
+    from: txn.billingAddressLine1
+    classification: pii
+  billing_city:
+    from: txn.billingCity
+  billing_country_code:
+    from: txn.billingCountryCode
+  status:
+    from: txn.status
+  created_at:
+    from: txn.createdAt
+  settled_at:
+    from: txn.settledAt
+
+materialisation:
+  strategy: append
+  immutable: true
+  retentionYears: 7
+  encryption: aes256_at_rest
+  partitionBy: created_at
+  granularity: month
+  binding: s3-compliance-worm-sink
+  targetPrefix: billing-audit/
+
+access:
+  requiredRole: finance-auditor
+  auditLog: true
+  auditLogBinding: postgres-audit-log-sink
+
+---
+domain: compliance
+projection: ErasureTombstone
+version: 1
+status: published
+description: |
+  Post-erasure tombstone record. When an erasure request is completed, all PII
+  fields in this record are replaced with a deletion marker and the erasure
+  metadata is preserved. This allows auditors to verify that erasure was performed
+  and when, without retaining the original personal data.
+
+  This record is itself immutable after the erasure event — the tombstone cannot
+  be deleted.
+
+sources:
+  - domain: customer
+    model: Customer
+    version: 3
+    alias: cust
+  - domain: compliance
+    model: ErasureRequest
+    version: 1
+    alias: er
+    joinOn:
+      left: cust.customerId
+      right: er.customerId
+
+filter:
+  expression: "cust.accountStatus == 'erased' || cust.accountStatus == 'erasure_requested'"
+
+fields:
+  customer_id:
+    from: cust.customerId
+  email:
+    expression: "'[ERASED]'"
+    type: string
+    description: PII replaced with erasure marker.
+  first_name:
+    expression: "'[ERASED]'"
+    type: string
+  last_name:
+    expression: "'[ERASED]'"
+    type: string
+  date_of_birth:
+    expression: "null"
+    type: date
+    nullable: true
+  phone_number:
+    expression: "'[ERASED]'"
+    type: string
+  country_code:
+    from: cust.countryCode
+    description: Country code retained for aggregate compliance reporting; not PII.
+  account_created_at:
+    from: cust.createdAt
+  account_status:
+    from: cust.accountStatus
+  deletion_requested_at:
+    from: cust.deletionRequestedAt
+  erased_at:
+    from: cust.erasedAt
+  erasure_request_id:
+    from: er.erasureRequestId
+  erasure_legal_basis_for_retention:
+    from: er.rejectionReason
+    description: If any data was retained under legal obligation, the basis is recorded here.
+  erasure_handler:
+    from: er.handledBy
+  erasure_completed_at:
+    from: er.completedAt
+
+materialisation:
+  strategy: upsert
+  key: customer_id
+  immutable: true
+  binding: postgres-audit-log-sink
+  targetTable: erasure_tombstones
+
+access:
+  requiredRole: compliance-officer
+  auditLog: true
+
+---
+domain: audit
+projection: SensitiveDataAccessLog
+version: 1
+status: published
+description: |
+  Append-only log of every access to sensitive or PII-classified projections.
+  Provides the evidence trail required by GDPR Article 30 and SOC 2 CC6.3.
+  Access log records are themselves immutable.
+
+sources:
+  - domain: audit
+    model: DataAccessEvent
+    version: 1
+    alias: dae
+
+fields:
+  access_event_id:
+    from: dae.accessEventId
+  principal_id:
+    from: dae.principalId
+  principal_type:
+    from: dae.principalType
+  projection_name:
+    from: dae.projectionName
+  projection_version:
+    from: dae.projectionVersion
+  subject_customer_id:
+    from: dae.subjectCustomerId
+  fields_accessed:
+    from: dae.fieldsAccessed
+  request_id:
+    from: dae.requestId
+  accessed_at:
+    from: dae.accessedAt
+
+materialisation:
+  strategy: append
+  immutable: true
+  partitionBy: accessed_at
+  granularity: day
+  binding: postgres-audit-log-sink
+  targetTable: sensitive_data_access_log
+  retentionYears: 10
+
+---
+binding: s3-compliance-worm-sink
+adapter: object_storage
+role: sink
+config:
+  provider: aws_s3
+  region: eu-west-1
+  bucket: compliance-immutable-records
+  credentialSecret: s3-compliance-write-role
+  objectLock: true
+  objectLockMode: COMPLIANCE
+  objectLockRetentionYears: 7
+  serverSideEncryption: aws:kms
+  kmsKeyArn: "arn:aws:kms:eu-west-1:123456789:key/compliance-records-key"
+  format: parquet
+  compression: snappy
+
+---
+binding: postgres-audit-log-sink
+adapter: postgres
+role: sink
+config:
+  host: postgres.audit.internal
+  port: 5432
+  database: audit_log
+  credentialSecret: postgres-audit-write-creds
+  sslMode: require
+  appendOnly: true
+  partitioning: range
+  partitionBy: created_at
+  schema: audit
+  maxConnections: 10
+  statementTimeoutMs: 5000
+
+---
+binding: immudb-billing-sink
+adapter: immudb
+role: sink
+config:
+  host: immudb.billing.internal
+  port: 3322
+  database: billing_audit
+  credentialSecret: immudb-billing-creds
+  verifiedWrite: true
+  description: Cryptographically verifiable append-only store for billing records.
