@@ -6,6 +6,7 @@ from .commands.scenario import scenario
 from .commands.create import create
 from .commands.validate_cmd import validate
 from .commands.llm_cmd import describe, generate
+from .commands.codegen_cmd import codegen
 
 
 @click.group()
@@ -20,6 +21,7 @@ def cli() -> None:
       validate   Validate YAML definition files
       describe   Explain definitions in plain English using AI
       generate   Generate definitions from a natural language description
+      codegen    Explore supported artifact formats and type mappings
 
     \b
     Quick start:
@@ -28,6 +30,8 @@ def cli() -> None:
       modellable validate ./my-project/
       modellable describe ./my-project/01-ecommerce-data-warehouse.yaml
       modellable generate --platform data-warehouse
+      modellable codegen list
+      modellable codegen types typescript
     """
 
 
@@ -36,3 +40,4 @@ cli.add_command(create)
 cli.add_command(validate)
 cli.add_command(describe)
 cli.add_command(generate)
+cli.add_command(codegen)

@@ -178,6 +178,96 @@ config:
   defaultTtlSeconds: 3600
 ```
 
+## Artifact Formats (for projections with `artifacts:` list)
+
+Each artifact entry requires `format` (one of the IDs below) and `outputPath`.
+
+### API Specification
+| Format ID      | Name            | Extension |
+|---------------|-----------------|-----------|
+| openapi_3_1   | OpenAPI 3.1     | .yaml     |
+| openapi_3_0   | OpenAPI 3.0     | .yaml     |
+| json_schema   | JSON Schema     | .json     |
+| graphql       | GraphQL SDL     | .graphql  |
+| asyncapi_3    | AsyncAPI 3      | .yaml     |
+| grpc          | gRPC (proto3)   | .proto    |
+
+### Typed Programming Language
+| Format ID          | Name                    | Extension |
+|-------------------|-------------------------|-----------|
+| typescript        | TypeScript              | .d.ts     |
+| javascript        | JavaScript (JSDoc)      | .js       |
+| python_pydantic   | Python (Pydantic v2)    | .py       |
+| python_dataclass  | Python (dataclass)      | .py       |
+| go                | Go                      | .go       |
+| java              | Java                    | .java     |
+| kotlin            | Kotlin                  | .kt       |
+| rust              | Rust                    | .rs       |
+| csharp            | C#                      | .cs       |
+| swift             | Swift                   | .swift    |
+| scala             | Scala                   | .scala    |
+| ruby              | Ruby                    | .rb       |
+| php               | PHP                     | .php      |
+| dart              | Dart / Flutter          | .dart     |
+| elixir            | Elixir                  | .ex       |
+
+### Binary Serialization
+| Format ID       | Name                    | Extension |
+|----------------|-------------------------|-----------|
+| protobuf       | Protocol Buffers (proto3)| .proto   |
+| avro           | Apache Avro             | .avsc     |
+| thrift         | Apache Thrift           | .thrift   |
+| flatbuffers    | FlatBuffers             | .fbs      |
+| capnproto      | Cap'n Proto             | .capnp    |
+| msgpack_schema | MessagePack (schema)    | .yaml     |
+
+### SQL / DDL
+| Format ID         | Name                  | Extension |
+|------------------|-----------------------|-----------|
+| sql_postgresql   | SQL — PostgreSQL      | .sql      |
+| sql_mysql        | SQL — MySQL/MariaDB   | .sql      |
+| sql_clickhouse   | SQL — ClickHouse      | .sql      |
+| sql_snowflake    | SQL — Snowflake       | .sql      |
+| sql_bigquery     | SQL — BigQuery        | .sql      |
+| sql_sqlite       | SQL — SQLite          | .sql      |
+
+### Data Tool / Infrastructure
+| Format ID      | Name                       | Extension |
+|---------------|----------------------------|-----------|
+| dbt           | dbt (schema.yml)           | .yml      |
+| terraform     | Terraform (HCL schema)     | .tf       |
+| markdown_docs | Markdown Documentation     | .md       |
+
+### Example projection with artifacts
+```yaml
+domain: marketplace-api
+projection: PartnerProductCatalog
+version: 1
+status: published
+sources:
+  - domain: catalogue
+    model: ProductListing
+    version: 3
+    alias: pl
+fields:
+  product_id:
+    from: pl.productId
+  name:
+    from: pl.name
+artifacts:
+  - format: openapi_3_1
+    outputPath: artifacts/openapi/partner-product-catalog-v1.yaml
+  - format: typescript
+    outputPath: artifacts/typescript/partner-product-catalog-v1.d.ts
+  - format: python_pydantic
+    outputPath: artifacts/python/partner_product_catalog_v1.py
+  - format: protobuf
+    outputPath: artifacts/proto/partner_product_catalog_v1.proto
+    packageName: marketplace.api.v1
+  - format: sql_postgresql
+    outputPath: artifacts/sql/partner_product_catalog_v1.sql
+```
+
 ## Key Rules
 1. Published model/projection versions are immutable — incompatible changes need a new version.
 2. PII fields must not reach sinks that do not declare a masking/pseudonymisation policy.
@@ -185,6 +275,13 @@ config:
 4. Every derived field in a projection must trace back to a source field via `from` or `expression`.
 5. CEL expressions must be deterministic and side-effect-free.
 6. Cross-domain data access goes through projections, never direct model references.
+7. When generating artifacts for a projection, choose formats appropriate to the platform type:
+   - api-consumer: prefer openapi_3_1, typescript, protobuf, json_schema
+   - event-driven-microservices: prefer avro, protobuf, asyncapi_3
+   - ml-feature-store: prefer python_pydantic, sql_bigquery, sql_snowflake, dbt
+   - data-warehouse: prefer sql_clickhouse, sql_snowflake, sql_bigquery, dbt
+   - high-performance-service: prefer protobuf, typescript, python_pydantic
+   - audit-compliance: prefer sql_postgresql, json_schema, markdown_docs
 """
 
 

@@ -9,6 +9,8 @@ import yaml
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
+from ..languages import ARTIFACT_FORMATS, CATEGORY_ORDER, formats_by_category
+
 console = Console()
 
 FIELD_TYPES = [
@@ -56,6 +58,45 @@ def _prompt_fields() -> dict:
             field["nullable"] = True
         fields[name] = field
     return fields
+
+
+def _prompt_artifacts() -> list[dict]:
+    """Interactively collect artifact format targets for a projection."""
+    artifacts: list[dict] = []
+    by_cat = formats_by_category()
+
+    console.print("\n[bold]Available artifact formats:[/bold]")
+    all_ids: list[str] = []
+    for cat in CATEGORY_ORDER:
+        fmts = by_cat.get(cat, [])
+        if not fmts:
+            continue
+        from ..languages import CATEGORY_LABELS  # local to avoid circular at module level
+        console.print(f"  [cyan]{CATEGORY_LABELS[cat]}:[/cyan]")
+        for fmt in fmts:
+            console.print(f"    [green]{fmt.id}[/green]  {fmt.name}")
+            all_ids.append(fmt.id)
+
+    console.print("\n[bold]Add artifact targets[/bold] (empty format id to finish):")
+    while True:
+        fmt_id = Prompt.ask("  Format ID", default="").strip()
+        if not fmt_id:
+            break
+        if fmt_id not in ARTIFACT_FORMATS:
+            console.print(f"  [red]Unknown format '{fmt_id}'. Try one of the IDs listed above.[/red]")
+            continue
+        fmt = ARTIFACT_FORMATS[fmt_id]
+        default_path = f"artifacts/{fmt.category}/{fmt_id}{fmt.file_extension}"
+        out_path = Prompt.ask("  Output path", default=default_path).strip()
+        entry: dict = {"format": fmt_id, "outputPath": out_path}
+        if fmt_id in ("protobuf", "grpc"):
+            pkg = Prompt.ask("  Package name (e.g. myorg.api.v1, leave empty to skip)", default="").strip()
+            if pkg:
+                entry["packageName"] = pkg
+        artifacts.append(entry)
+        console.print(f"  [green]✓[/green] Added [bold]{fmt_id}[/bold] → {out_path}")
+
+    return artifacts
 
 
 @click.group()
@@ -204,6 +245,10 @@ def create_projection(output_dir: str) -> None:
             fdef["classification"] = cls
         fields[fname] = fdef
     doc["fields"] = fields
+
+    # Artifacts
+    if Confirm.ask("\nAdd artifact generation targets?", default=False):
+        doc["artifacts"] = _prompt_artifacts()
 
     # Materialisation
     if Confirm.ask("\nAdd materialisation config?", default=True):
