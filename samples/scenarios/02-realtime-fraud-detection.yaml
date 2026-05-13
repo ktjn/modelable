@@ -1,0 +1,483 @@
+scenario: realtime-fraud-detection
+title: "Real-Time Fraud Detection Service"
+platform: high-performance-service
+description: |
+  A payment processor needs sub-millisecond fraud signal lookup during payment
+  authorisation. For each incoming transaction the fraud engine performs a single-key
+  read against a Redis hash that aggregates customer risk, device trust, merchant
+  reputation, and velocity window counts into one denormalised document.
+
+  All four source models are owned by different teams. Modellable materialises a
+  per-customer FraudCheckSignals document by joining them at write time, so the
+  fraud service never queries multiple systems at authorisation latency.
+
+  Signals are refreshed continuously via Kafka subscriptions. The binding declares a
+  TTL of 24 hours: if no event arrives for a customer within that window the record
+  expires, forcing a fresh evaluation on next transaction rather than serving stale data.
+complexity: high
+tags: [fraud, payments, redis, sub-millisecond, denormalized-join, velocity, ttl]
+
+---
+domain: fraud
+owner: fraud-prevention-team
+contact: fraud@example.com
+description: Fraud risk signals, device trust, and real-time decision read models.
+policies:
+  defaultClassification: confidential
+  piiHandling: strict_masking
+  retentionYears: 5
+
+---
+domain: risk
+owner: risk-intelligence-team
+contact: risk@example.com
+description: Merchant risk scores, chargeback rates, and device fingerprint trust scores.
+policies:
+  defaultClassification: confidential
+
+---
+domain: payments
+owner: payments-team
+contact: payments@example.com
+description: Payment transaction processing and velocity aggregates.
+policies:
+  defaultClassification: confidential
+  piiHandling: strict_masking
+
+---
+domain: fraud
+model: CustomerRiskProfile
+kind: entity
+version: 2
+status: published
+description: |
+  Per-customer fraud risk profile maintained by the fraud intelligence pipeline.
+  Updated after every transaction outcome and chargeback event.
+
+identity:
+  key: customerId
+
+fields:
+  customerId:
+    type: uuid
+    required: true
+  riskScore:
+    type: decimal
+    description: Composite fraud risk score 0.0–1.0.
+    required: true
+  riskBand:
+    type: enum
+    values: [low, medium, high, blocked]
+    required: true
+  isWatchlisted:
+    type: boolean
+    required: true
+    default: false
+  chargebackCount90d:
+    type: integer
+    required: true
+    default: 0
+  disputeCount90d:
+    type: integer
+    required: true
+    default: 0
+  confirmedFraudCount:
+    type: integer
+    required: true
+    default: 0
+  accountAgeDays:
+    type: integer
+    required: true
+  knownIpAddresses:
+    type: array
+    items:
+      type: string
+    description: Set of trusted IPs seen in last 30 days. Not PII-classified at IP level.
+  lastReviewedAt:
+    type: timestamp
+    nullable: true
+  updatedAt:
+    type: timestamp
+    required: true
+
+---
+domain: payments
+model: TransactionVelocity
+kind: aggregate
+version: 1
+status: published
+description: |
+  Rolling velocity counters per customer across multiple time windows. Recomputed
+  on each transaction event by the payments stream processor.
+
+identity:
+  key: customerId
+
+fields:
+  customerId:
+    type: uuid
+    required: true
+  txCount1h:
+    type: integer
+    required: true
+    default: 0
+    description: Transaction attempts in the last 1 hour.
+  txCount24h:
+    type: integer
+    required: true
+    default: 0
+  txCount7d:
+    type: integer
+    required: true
+    default: 0
+  declinedCount1h:
+    type: integer
+    required: true
+    default: 0
+  declinedCount24h:
+    type: integer
+    required: true
+    default: 0
+  uniqueMerchants24h:
+    type: integer
+    required: true
+    default: 0
+  uniqueCountries24h:
+    type: integer
+    required: true
+    default: 0
+  totalAmountCents24h:
+    type: integer
+    required: true
+    default: 0
+  maxSingleTransactionCents24h:
+    type: integer
+    required: true
+    default: 0
+  lastTransactionAt:
+    type: timestamp
+    nullable: true
+  windowComputedAt:
+    type: timestamp
+    required: true
+
+---
+domain: risk
+model: MerchantRiskScore
+kind: entity
+version: 1
+status: published
+description: |
+  Per-merchant fraud and chargeback risk signals maintained by the risk intelligence
+  team. Used during payment authorisation to factor in merchant-side fraud propensity.
+
+identity:
+  key: merchantId
+
+fields:
+  merchantId:
+    type: string
+    required: true
+  merchantCategory:
+    type: string
+    description: ISO 18245 MCC code.
+    nullable: true
+  riskTier:
+    type: enum
+    values: [standard, elevated, high_risk, suspended]
+    required: true
+  chargebackRate30d:
+    type: decimal
+    description: Chargeback rate as a fraction 0.0–1.0 over the last 30 days.
+    required: true
+    default: 0.0
+  fraudRate30d:
+    type: decimal
+    required: true
+    default: 0.0
+  isOnBlocklist:
+    type: boolean
+    required: true
+    default: false
+  requiresManualReview:
+    type: boolean
+    required: true
+    default: false
+  updatedAt:
+    type: timestamp
+    required: true
+
+---
+domain: risk
+model: DeviceFingerprint
+kind: entity
+version: 1
+status: published
+description: |
+  Device trust profile linked to one or more customer accounts. A single device
+  linked to multiple customer accounts is a strong fraud signal.
+
+identity:
+  key: deviceId
+
+fields:
+  deviceId:
+    type: string
+    required: true
+  trustScore:
+    type: decimal
+    description: Device trust 0.0–1.0. Low scores indicate emulators or known fraud tools.
+    required: true
+  deviceType:
+    type: enum
+    values: [mobile, desktop, tablet, bot, unknown]
+    required: true
+  linkedCustomerCount:
+    type: integer
+    required: true
+    default: 1
+    description: Number of distinct customer accounts seen on this device.
+  linkedCustomerIds:
+    type: array
+    items:
+      type: uuid
+    description: Customer accounts linked to this device (capped at 20).
+  isEmulator:
+    type: boolean
+    required: true
+    default: false
+  isVpn:
+    type: boolean
+    required: true
+    default: false
+  isTorExit:
+    type: boolean
+    required: true
+    default: false
+  countryCode:
+    type: string
+    format: iso3166_alpha2
+    nullable: true
+  firstSeenAt:
+    type: timestamp
+    required: true
+  lastSeenAt:
+    type: timestamp
+    required: true
+
+---
+domain: fraud
+projection: CustomerFraudCheckSignals
+version: 2
+status: published
+description: |
+  Denormalised read model for the fraud decision engine. Joins customer risk profile,
+  transaction velocity, the most-recently-seen device fingerprint, and a snapshot of
+  the top-3 high-risk merchants transacted with in the last 24 hours.
+
+  A single Redis HGETALL by customer ID retrieves all signals needed for an
+  authorisation decision without any further lookups.
+
+sources:
+  - domain: fraud
+    model: CustomerRiskProfile
+    version: 2
+    alias: crp
+  - domain: payments
+    model: TransactionVelocity
+    version: 1
+    alias: vel
+    joinOn:
+      left: crp.customerId
+      right: vel.customerId
+    joinType: left
+
+identity:
+  key: customerId
+
+fields:
+  customerId:
+    from: crp.customerId
+  riskScore:
+    from: crp.riskScore
+  riskBand:
+    from: crp.riskBand
+  isWatchlisted:
+    from: crp.isWatchlisted
+  chargebackCount90d:
+    from: crp.chargebackCount90d
+  confirmedFraudCount:
+    from: crp.confirmedFraudCount
+  accountAgeDays:
+    from: crp.accountAgeDays
+  knownIpAddresses:
+    from: crp.knownIpAddresses
+  txCount1h:
+    from: vel.txCount1h
+  txCount24h:
+    from: vel.txCount24h
+  declinedCount1h:
+    from: vel.declinedCount1h
+  declinedCount24h:
+    from: vel.declinedCount24h
+  uniqueCountries24h:
+    from: vel.uniqueCountries24h
+  totalAmountCents24h:
+    from: vel.totalAmountCents24h
+  maxSingleTransactionCents24h:
+    from: vel.maxSingleTransactionCents24h
+  lastTransactionAt:
+    from: vel.lastTransactionAt
+  velocityDeclineRatio1h:
+    expression: "vel.txCount1h > 0 ? decimal(vel.declinedCount1h) / decimal(vel.txCount1h) : 0.0"
+    type: decimal
+    description: Fraction of last-hour transactions that were declined.
+  isHighVelocity:
+    expression: "vel.txCount1h > 10 || vel.declinedCount1h > 3"
+    type: boolean
+  signalsUpdatedAt:
+    expression: "max(crp.updatedAt, vel.windowComputedAt)"
+    type: timestamp
+
+materialisation:
+  strategy: upsert
+  key: customerId
+  binding: redis-fraud-signals
+  ttlSeconds: 86400
+
+---
+domain: fraud
+projection: MerchantFraudLookup
+version: 1
+status: published
+description: |
+  Per-merchant fraud signal read model for inline authorisation checks.
+  Includes computed flags the decision engine evaluates without CEL at runtime.
+
+sources:
+  - domain: risk
+    model: MerchantRiskScore
+    version: 1
+    alias: mrs
+
+identity:
+  key: merchantId
+
+fields:
+  merchantId:
+    from: mrs.merchantId
+  merchantCategory:
+    from: mrs.merchantCategory
+  riskTier:
+    from: mrs.riskTier
+  chargebackRate30d:
+    from: mrs.chargebackRate30d
+  fraudRate30d:
+    from: mrs.fraudRate30d
+  isOnBlocklist:
+    from: mrs.isOnBlocklist
+  requiresManualReview:
+    from: mrs.requiresManualReview
+  isHighRiskMcc:
+    expression: "mrs.merchantCategory in ['7995', '6051', '6211', '5933']"
+    type: boolean
+    description: True for gambling, crypto, and pawn MCC codes.
+  combinedRiskFlag:
+    expression: "mrs.chargebackRate30d > 0.02 || mrs.fraudRate30d > 0.01 || mrs.isOnBlocklist"
+    type: boolean
+
+materialisation:
+  strategy: upsert
+  key: merchantId
+  binding: redis-fraud-signals
+  keyPrefix: "merchant:"
+  ttlSeconds: 3600
+
+---
+domain: fraud
+projection: DeviceTrustProfile
+version: 1
+status: published
+description: |
+  Device trust read model. Includes a flag for multi-account abuse — one of the
+  strongest signals for account takeover and synthetic identity fraud.
+
+sources:
+  - domain: risk
+    model: DeviceFingerprint
+    version: 1
+    alias: dfp
+
+identity:
+  key: deviceId
+
+fields:
+  deviceId:
+    from: dfp.deviceId
+  trustScore:
+    from: dfp.trustScore
+  deviceType:
+    from: dfp.deviceType
+  isEmulator:
+    from: dfp.isEmulator
+  isVpn:
+    from: dfp.isVpn
+  isTorExit:
+    from: dfp.isTorExit
+  linkedCustomerCount:
+    from: dfp.linkedCustomerCount
+  linkedCustomerIds:
+    from: dfp.linkedCustomerIds
+  isMultiAccountDevice:
+    expression: "dfp.linkedCustomerCount > 1"
+    type: boolean
+  isAnomalousDevice:
+    expression: "dfp.isEmulator || dfp.isTorExit || dfp.trustScore < 0.2"
+    type: boolean
+  lastSeenAt:
+    from: dfp.lastSeenAt
+
+materialisation:
+  strategy: upsert
+  key: deviceId
+  binding: redis-fraud-signals
+  keyPrefix: "device:"
+  ttlSeconds: 43200
+
+---
+binding: redis-fraud-signals
+adapter: redis
+role: sink
+config:
+  host: redis.fraud.internal
+  port: 6380
+  tls: true
+  tlsCertSecret: redis-fraud-client-cert
+  keyPrefix: "fraud:customer:"
+  defaultTtlSeconds: 86400
+  serialisation: msgpack
+  maxConnections: 50
+  connectTimeoutMs: 100
+  readTimeoutMs: 50
+  onWriteFailure: log_and_continue
+
+---
+binding: kafka-risk-events-source
+adapter: kafka
+role: stream
+config:
+  brokers:
+    - kafka-1.internal:9092
+    - kafka-2.internal:9092
+  tls: true
+  saslMechanism: SCRAM-SHA-512
+  credentialSecret: kafka-fraud-consumer-creds
+  consumerGroup: fraud-signals-materialiser
+  maxPollRecords: 500
+  sessionTimeoutMs: 30000
+  topics:
+    - fraud.customer_risk_profile.v2
+    - payments.transaction_velocity.v1
+    - risk.merchant_risk_score.v1
+    - risk.device_fingerprint.v1
+  deadLetterTopic: fraud-signals-materialiser.dlq
