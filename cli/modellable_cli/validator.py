@@ -18,7 +18,16 @@ VALID_CLASSIFICATIONS = {
     "public", "internal", "confidential", "pii", "sensitive", "restricted",
 }
 
-VALID_MODEL_KINDS = {"entity", "event", "value_object", "aggregate"}
+VALID_MODEL_KINDS = {"entity", "event", "value_object", "aggregate", "read_model", "cache", "replica"}
+
+# Derived kinds require explicit provenance so their data origin is never ambiguous.
+DERIVED_MODEL_KINDS = {"read_model", "cache", "replica"}
+
+VALID_PROVENANCE_VIA = {
+    "subscription", "cache", "api_call", "event", "cdc", "periodic_sync", "webhook",
+}
+
+VALID_SYNC_STRATEGIES = {"eventual", "strong", "periodic"}
 
 VALID_STATUSES = {"draft", "published", "deprecated", "retired"}
 
@@ -63,14 +72,52 @@ def validate_domain(doc: dict[str, Any], errors: list, warnings: list) -> None:
         _warn(warnings, base, "Missing 'description' — consider adding one for lineage documentation")
 
 
+def _validate_provenance(doc: dict[str, Any], base: str, errors: list, warnings: list) -> None:
+    kind = doc.get("kind")
+    prov = doc.get("provenance") or {}
+
+    if kind in DERIVED_MODEL_KINDS and not prov:
+        _err(errors, base, f"Kind '{kind}' requires a 'provenance' block declaring its data origin")
+        return
+
+    if not prov:
+        return
+
+    ppath = f"{base}.provenance"
+
+    if kind == "replica":
+        if not prov.get("sourceSystem"):
+            _err(errors, ppath, "Kind 'replica' requires 'provenance.sourceSystem'")
+    elif kind in ("read_model", "cache"):
+        if not prov.get("sourceModel"):
+            _err(errors, ppath, f"Kind '{kind}' requires 'provenance.sourceModel' (format: domain.Model.vN)")
+
+    via = prov.get("via")
+    if via and via not in VALID_PROVENANCE_VIA:
+        _err(errors, ppath, f"Unknown 'via' value '{via}'. Must be one of: {', '.join(sorted(VALID_PROVENANCE_VIA))}")
+
+    sync = prov.get("syncStrategy")
+    if sync and sync not in VALID_SYNC_STRATEGIES:
+        _err(errors, ppath, f"Unknown 'syncStrategy' '{sync}'. Must be one of: {', '.join(sorted(VALID_SYNC_STRATEGIES))}")
+
+    if kind == "cache":
+        if not prov.get("ttlSeconds") and not prov.get("cacheKey"):
+            _warn(warnings, ppath, "Cache model should declare 'ttlSeconds' and/or 'cacheKey' for clarity")
+
+    if not prov.get("system"):
+        _warn(warnings, ppath, "Consider adding 'provenance.system' to identify which service owns this derived model")
+
+
 def validate_model(doc: dict[str, Any], errors: list, warnings: list) -> None:
     name = f"{doc.get('domain', '?')}.{doc.get('model', '?')}.v{doc.get('version', '?')}"
     base = f"model:{name}"
 
     if not doc.get("kind"):
-        _err(errors, base, "Missing required field 'kind' (entity|event|value_object|aggregate)")
+        _err(errors, base, "Missing required field 'kind' (entity|event|value_object|aggregate|read_model|cache|replica)")
     elif doc["kind"] not in VALID_MODEL_KINDS:
         _err(errors, base, f"Invalid 'kind' '{doc['kind']}'. Must be one of: {', '.join(sorted(VALID_MODEL_KINDS))}")
+    else:
+        _validate_provenance(doc, base, errors, warnings)
 
     if not doc.get("version"):
         _err(errors, base, "Missing required field 'version'")

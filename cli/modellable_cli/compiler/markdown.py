@@ -28,6 +28,39 @@ def model_to_markdown(doc: dict[str, Any]) -> str:
     if doc.get("description"):
         lines.extend(["", doc["description"]])
 
+    # Provenance — present on derived kinds (read_model, cache, replica)
+    prov = doc.get("provenance")
+    if prov:
+        lines.extend(["", "## Provenance", ""])
+        lines.append("This model derives its data from an external source. Its values should never be treated as an independent truth.")
+        lines.append("")
+        if prov.get("sourceModel"):
+            lines.append(f"| Property | Value |")
+            lines.append(f"|---|---|")
+            lines.append(f"| Source Model | `{prov['sourceModel']}` |")
+            if prov.get("via"):
+                lines.append(f"| Transport | `{prov['via']}` |")
+            if prov.get("system"):
+                lines.append(f"| Owning System | `{prov['system']}` |")
+            if prov.get("syncStrategy"):
+                lines.append(f"| Sync Strategy | `{prov['syncStrategy']}` |")
+            if prov.get("ttlSeconds"):
+                lines.append(f"| TTL (seconds) | `{prov['ttlSeconds']}` |")
+            if prov.get("cacheKey"):
+                lines.append(f"| Cache Key | `{prov['cacheKey']}` |")
+        elif prov.get("sourceSystem"):
+            lines.append(f"| Property | Value |")
+            lines.append(f"|---|---|")
+            lines.append(f"| Source System | `{prov['sourceSystem']}` |")
+            if prov.get("via"):
+                lines.append(f"| Transport | `{prov['via']}` |")
+            if prov.get("system"):
+                lines.append(f"| Owning System | `{prov['system']}` |")
+            if prov.get("syncStrategy"):
+                lines.append(f"| Sync Strategy | `{prov['syncStrategy']}` |")
+            if prov.get("syncIntervalMinutes"):
+                lines.append(f"| Sync Interval | `{prov['syncIntervalMinutes']} minutes` |")
+
     # Sources (projections only)
     sources = doc.get("sources") or []
     if sources:

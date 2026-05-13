@@ -27,7 +27,13 @@ _TYPE_MAP: dict[str, dict[str, str]] = {
 
 
 def _field_schema(
-    domain: str, model_name: str, version: int, field_name: str, fdef: dict[str, Any]
+    domain: str,
+    model_name: str,
+    version: int,
+    field_name: str,
+    fdef: dict[str, Any],
+    *,
+    resolved_origin: str | None = None,
 ) -> dict[str, Any]:
     ftype = fdef.get("type", "string")
     prop: dict[str, Any] = dict(_TYPE_MAP.get(ftype, {"type": "string"}))
@@ -48,7 +54,14 @@ def _field_schema(
     if fdef.get("description"):
         prop["description"] = fdef["description"]
 
+    # Fully-qualified identity: where this field lives in the model graph
     prop["x-modellable-field"] = f"{domain}.{model_name}.v{version}.{field_name}"
+
+    # For derived fields: where the value actually comes from
+    if resolved_origin:
+        prop["x-modellable-origin"] = resolved_origin
+    elif "from" in fdef:
+        prop["x-modellable-origin"] = fdef["from"]
 
     if fdef.get("classification"):
         prop["x-modellable-classification"] = fdef["classification"]
@@ -73,10 +86,31 @@ def model_to_json_schema(doc: dict[str, Any]) -> dict[str, Any]:
     properties: dict[str, Any] = {}
     required: list[str] = []
 
+    # Build source alias map for projections so field origins resolve to fully-qualified paths
+    source_map: dict[str, dict[str, Any]] = {}
+    if is_projection:
+        for src in (doc.get("sources") or []):
+            key = src.get("alias") or src.get("model", "")
+            source_map[key] = src
+
     for fname, fdef in fields.items():
         if not isinstance(fdef, dict):
             continue
-        properties[fname] = _field_schema(domain, name, version, fname, fdef)
+
+        resolved_origin: str | None = None
+        if is_projection and "from" in fdef:
+            src_ref: str = fdef["from"]
+            alias, _, src_field = src_ref.partition(".")
+            src_info = source_map.get(alias)
+            if src_info:
+                resolved_origin = (
+                    f"{src_info.get('domain', '?')}."
+                    f"{src_info.get('model', '?')}."
+                    f"v{src_info.get('version', '?')}."
+                    f"{src_field}"
+                )
+
+        properties[fname] = _field_schema(domain, name, version, fname, fdef, resolved_origin=resolved_origin)
         if fdef.get("required"):
             required.append(fname)
 
@@ -96,12 +130,19 @@ def model_to_json_schema(doc: dict[str, Any]) -> dict[str, Any]:
     if properties:
         schema["properties"] = properties
 
-    schema["x-modellable"] = {
+    x_modellable: dict[str, Any] = {
         "kind": kind,
         "domain": domain,
         "name": name,
         "version": version,
+        "fqn": f"{domain}.{name}.v{version}",
     }
+
+    prov = doc.get("provenance")
+    if prov:
+        x_modellable["provenance"] = {k: v for k, v in prov.items()}
+
+    schema["x-modellable"] = x_modellable
 
     return schema
 

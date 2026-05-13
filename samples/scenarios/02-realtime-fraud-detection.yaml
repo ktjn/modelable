@@ -481,3 +481,80 @@ config:
     - risk.merchant_risk_score.v1
     - risk.device_fingerprint.v1
   deadLetterTopic: fraud-signals-materialiser.dlq
+
+---
+# read_model: the fraud service's local, eventually-consistent view of customer risk.
+# Origin is explicit — consumers know this is NOT the canonical risk entity.
+domain: fraud
+model: CustomerRiskSnapshot
+kind: read_model
+version: 1
+status: published
+description: |
+  Eventually-consistent snapshot of CustomerRiskProfile used by the fraud decision
+  engine. Populated via a Kafka subscription and intentionally scoped to only the
+  fields needed for an authorisation check — no audit or chargeback history.
+
+provenance:
+  sourceModel: fraud.CustomerRiskProfile.v2
+  via: subscription
+  system: fraud-decision-engine
+  syncStrategy: eventual
+
+identity:
+  key: customerId
+
+fields:
+  customerId:
+    type: uuid
+    required: true
+  riskScore:
+    type: decimal
+    required: true
+  riskBand:
+    type: enum
+    values: [low, medium, high, blocked]
+    required: true
+  isWatchlisted:
+    type: boolean
+    required: true
+  snapshotAt:
+    type: timestamp
+    required: true
+    description: Timestamp when this snapshot was last refreshed from the source.
+
+---
+# cache: short-lived, in-process cache of merchant risk scores for hot-path lookups.
+# Origin and TTL are declared so no consumer can treat this as a fresh source of truth.
+domain: fraud
+model: MerchantRiskCache
+kind: cache
+version: 1
+status: published
+description: |
+  In-process cache of MerchantRiskScore data held inside the fraud-decision-engine
+  process. Entries expire after 60 seconds to limit stale-signal exposure. On a
+  cache miss the engine falls back to the Redis read model.
+
+provenance:
+  sourceModel: risk.MerchantRiskScore.v1
+  via: cache
+  system: fraud-decision-engine
+  ttlSeconds: 60
+  cacheKey: merchantId
+
+fields:
+  merchantId:
+    type: string
+    required: true
+  riskTier:
+    type: enum
+    values: [standard, elevated, high_risk, suspended]
+    required: true
+  isOnBlocklist:
+    type: boolean
+    required: true
+  cachedAt:
+    type: timestamp
+    required: true
+    description: Wall-clock time when this entry was loaded into the cache.
