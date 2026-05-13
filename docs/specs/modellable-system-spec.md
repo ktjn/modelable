@@ -680,18 +680,79 @@ The system must answer:
 
 ## 11. Generated Artifacts
 
-The system should generate artifacts from the canonical internal representation.
+The system generates artifacts from the normalized model graph. External tools consume these artifacts; they do not feed back into the internal model.
 
-Supported initial artifacts:
+```
+Modellable DSL
+   |
+   v
+Parser + Semantic Validator
+   |
+   v
+Normalized Model Graph
+   |
+   |-- JSON Schema
+   |-- Markdown docs
+   |-- TypeScript types
+   |-- OpenMetadata metadata
+   |-- ODCS export
+   `-- Registry artifacts (Apicurio)
+```
 
-- JSON Schema.
-- OpenAPI schemas.
-- SQL DDL.
-- TypeScript types.
-- Avro schemas.
-- Protobuf schemas.
+### Incorporation Order
 
-Generated artifacts must include model version metadata.
+Artifacts are introduced in phases. Later phases depend on the normalized graph being stable.
+
+**Phase 1 — Local modelling compiler:**
+
+- JSON Schema 2020-12 (first generated contract format)
+- Markdown documentation
+- TypeScript types (via `json-schema-to-typescript`)
+
+**Phase 2 — Artifact registry:**
+
+- Apicurio Registry (stores and versions generated schemas)
+
+**Phase 3 — Catalog / governance sync:**
+
+- OpenMetadata export (domains, assets, lineage, classification tags)
+
+**Phase 4 — Contract interchange:**
+
+- Open Data Contract Standard (ODCS) export
+- Data Contract CLI compatibility
+
+**Phase 5 — Event and API targets:**
+
+- Avro (event schemas, Kafka contracts)
+- Protobuf + Buf (gRPC, binary wire format)
+- OpenAPI (REST API contracts)
+- AsyncAPI (event contract documentation)
+
+### External Tool Boundaries
+
+| External Tool | Role | What Modellable Does Not Delegate |
+| :--- | :--- | :--- |
+| JSON Schema / jsonschema | Generated contract format and validation | Internal DSL definition |
+| Apicurio Registry | Artifact storage and versioning | Source of truth |
+| OpenMetadata | Catalog UI, ownership, lineage visualization | Projection resolution |
+| ODCS / Data Contract CLI | Interchange and CI validation | Internal model shape |
+| json-schema-to-typescript | TypeScript type generation | Custom TS generator |
+
+### JSON Schema Extensions
+
+Generated JSON Schema documents use `x-modellable-*` vendor extensions to carry Modellable-specific metadata:
+
+| Extension | Purpose |
+| :--- | :--- |
+| `x-modellable` | Model kind, domain, name, and version block |
+| `x-modellable-field` | Fully qualified field reference for lineage |
+| `x-modellable-classification` | Field classification (pii, internal, confidential, etc.) |
+| `x-modellable-lineage` | Source field reference for derived fields |
+| `x-modellable-ref` | Cross-model reference |
+| `x-modellable-por` | Portable ownership record reference |
+
+All generated artifacts must include model version metadata.
 
 ## 12. Storage Model for Registry
 
@@ -825,22 +886,58 @@ PII and restricted fields must not be exposed to projections unless explicitly p
 
 ## 17. MVP Scope
 
-The first version should include:
+The first version implements the local modelling compiler (Phase 1). Runtime materialization is deferred.
+
+### Implementation Stack
+
+```
+Core implementation:
+  Python
+  pydantic        (internal parser models)
+  ruamel.yaml     (YAML parsing with round-trip fidelity)
+  jsonschema      (validation of generated JSON Schema and document shape)
+  referencing     ($ref resolution across schemas)
+
+Generated artifacts:
+  JSON Schema 2020-12  (first generated contract format)
+  Markdown             (human-readable model docs)
+  TypeScript           (via json-schema-to-typescript)
+```
+
+### CLI Commands
+
+```bash
+modellable validate ./models
+modellable resolve customer.Customer.v1
+modellable lineage billing.BillingCustomer.v1
+modellable diff customer.Customer.v1 customer.Customer.v2
+modellable compile customer.Customer.v1 --target json-schema
+modellable compile customer.Customer.v1 --target typescript
+modellable docs ./models --out ./dist/docs
+```
+
+### Included
 
 - Domain registry.
 - Model definition and immutable publishing.
-- Projection definition with field selection, rename, simple expressions, and filters.
+- Projection definition with field selection, rename, simple expressions (CEL), and filters.
 - Exact source version references.
 - Compatibility checks for additive and breaking changes.
 - Lineage tracking.
-- PostgreSQL storage adapter.
-- Kafka stream adapter.
-- Materialized projection into PostgreSQL.
-- JSON Schema and TypeScript generation.
-- Basic CLI or API for publishing and validating definitions.
+- JSON Schema 2020-12 generation with `x-modellable-*` extensions.
+- TypeScript type generation via `json-schema-to-typescript`.
+- Markdown documentation generation.
+- Basic CLI for publishing, validating, compiling, and exporting definitions.
 
-The first version should defer:
+### Deferred
 
+- PostgreSQL storage adapter (Phase 5).
+- Kafka stream adapter (Phase 5).
+- Materialized projection into PostgreSQL (Phase 5).
+- Apicurio Registry integration (Phase 2).
+- OpenMetadata integration (Phase 3).
+- ODCS / Data Contract CLI integration (Phase 4).
+- Avro, Protobuf, OpenAPI, AsyncAPI generation (Phase 5).
 - Multi-source joins.
 - Stateful aggregations.
 - Windowed aggregations.
@@ -849,6 +946,7 @@ The first version should defer:
 - Advanced policy engine.
 - Visual modeling UI.
 - Automatic migration generation.
+- Kafka runtime provisioning, Redis materialisers, ClickHouse loaders, Feast, API gateways, dbt, Great Expectations, Soda.
 
 ## 18. Non-Goals
 
@@ -865,11 +963,17 @@ It may integrate with those systems, but its primary responsibility is versioned
 
 ## 19. Open Design Decisions
 
-These decisions should be resolved before implementation:
+The following have been resolved:
+
+- **Definition DSL:** YAML-first, parsed with `ruamel.yaml`.
+- **Expression language for computed fields:** CEL (Common Expression Language). Deterministic, non-Turing-complete, sandboxable.
+- **Internal parser models:** `pydantic`. Not exposed as the external contract format.
+- **First generated artifact:** JSON Schema 2020-12.
+- **TypeScript generation:** Delegated to `json-schema-to-typescript`. No custom generator.
+
+The following remain open:
 
 - Whether versions are integers, semantic versions, or both.
-- Whether the definition DSL is YAML-first, JSON-first, or code-first.
-- Which expression language to use for computed fields.
 - Whether model identity supports composite keys in MVP.
 - Whether projections can reference compatible version ranges in MVP.
 - Whether registry state is stored relationally, document-first, or both.

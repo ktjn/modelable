@@ -6,6 +6,38 @@ This document describes how Modellable is used across different platform categor
 
 Modellable's platform-neutral design means the same canonical model definitions apply regardless of the target system. What changes per scenario is the adapter binding configuration, materialization strategy, and operational expectations.
 
+### Data Modelling Phase Boundary
+
+The scenarios in this document represent **Phase 5** of the Modellable implementation roadmap — runtime and event/API targets. They must not be built before the logical data modelling layer is stable.
+
+The preceding phases focus on logical modelling only:
+
+| Phase | Focus | Key Tools |
+| :--- | :--- | :--- |
+| 1 | Local modelling compiler | Python, pydantic, ruamel.yaml, jsonschema, json-schema-to-typescript, Markdown |
+| 2 | Artifact registry | Apicurio Registry |
+| 3 | Catalog / governance sync | OpenMetadata |
+| 4 | Contract interchange | ODCS, Data Contract CLI |
+| 5 | Runtime targets (this document) | CDC, streaming, materialization, event/API formats |
+
+The following runtime integrations are explicitly deferred until Phase 5:
+
+```
+Kafka runtime provisioning
+Redis materialisers
+ClickHouse loaders
+Feast integration
+API gateways (Kong, AWS API Gateway, Zilla)
+Confluent stream governance
+dbt execution
+Great Expectations execution
+Soda execution
+Custom registry
+Custom UI
+```
+
+These pull the design into runtime concerns before the logical model is stable. All scenarios in this document should be read as forward-looking specifications for Phase 5, not immediate implementation targets.
+
 ---
 
 ## 2. Scenario Index
