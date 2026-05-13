@@ -308,9 +308,33 @@ The POR reference must be embedded in every generated artifact.
 
 **JSON Schema extension:**
 
+The POR reference is embedded alongside the standard `x-modellable-*` vendor extensions. A complete generated schema looks like:
+
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "modellable://customer/Customer/v2",
+  "title": "customer.Customer.v2",
+  "type": "object",
+  "required": ["customerId", "email"],
+  "properties": {
+    "customerId": {
+      "type": "string",
+      "format": "uuid",
+      "x-modellable-field": "customer.Customer.v2.customerId"
+    },
+    "email": {
+      "type": "string",
+      "x-modellable-classification": "pii",
+      "x-modellable-field": "customer.Customer.v2.email"
+    }
+  },
+  "x-modellable": {
+    "kind": "Model",
+    "domain": "customer",
+    "name": "Customer",
+    "version": 2
+  },
   "x-modellable-por": {
     "model": "customer.Customer.v2",
     "issuer": "modellable-registry.customer-platform.example",

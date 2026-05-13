@@ -2,6 +2,8 @@
 
 This document evaluates the technologies for building the Modellable runtime, including source database capture, streaming transport, and target materialization.
 
+> **Phase note:** The technologies in this document correspond to **Phase 5** of the Modellable implementation roadmap — event and API targets. They should not be incorporated until the logical data modelling layer (Phases 1–4) is stable. See the [External Tools document](../external-tools-data-modelling.md) for the full phased plan.
+
 ## 1. Source Database & CDC (Change Data Capture)
 
 The platform must capture changes from canonical source models without direct coupling.
@@ -66,3 +68,31 @@ To meet the requirement in Section 6.2, the system should implement:
 | **Materialization Sink** | PostgreSQL |
 | **Join Strategy** | Upsert-based Lookup Joins |
 | **Consistency Mode** | Effectively-Once (via Idempotent Upserts) |
+
+---
+
+## 6. Deferred: Do Not Incorporate in the Data Modelling Phase
+
+The following runtime and materialisation technologies must not be incorporated until the logical model layer is stable. Pulling them in early ties the design to runtime concerns before the DSL and model graph are proven.
+
+```
+Kafka runtime provisioning
+Redis materialisers
+ClickHouse loaders
+Feast integration
+API gateways (Kong, AWS API Gateway, Zilla)
+Confluent stream governance
+dbt execution
+Great Expectations execution
+Soda execution
+```
+
+These belong to Phase 5 of the external tools roadmap. The preceding phases are:
+
+| Phase | Focus | Key Tools |
+| :--- | :--- | :--- |
+| 1 | Local modelling compiler | Python, pydantic, ruamel.yaml, jsonschema, referencing, json-schema-to-typescript, Markdown |
+| 2 | Artifact registry | Apicurio Registry |
+| 3 | Catalog / governance sync | OpenMetadata |
+| 4 | Contract interchange | Open Data Contract Standard, Data Contract CLI |
+| 5 | Event and API targets | Avro, Protobuf, Buf, OpenAPI, AsyncAPI, then the runtime stack in this document |

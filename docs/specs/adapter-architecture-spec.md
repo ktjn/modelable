@@ -124,3 +124,118 @@ The **Model Registry** (Section 7.1 of the Spec) stores these bindings. When a p
 2.  Loads the **Transport Binding** to identify the Stream adapter.
 3.  Loads the **Target Binding** to identify the Storage adapter.
 4.  Validates that all three adapters are compatible with the required projection logic (e.g., ensuring the target supports `upsert` if requested).
+
+---
+
+## 7. Artifact Output Adapters
+
+The runtime adapters above (Sections 2–5) handle live data movement. A separate set of **artifact output adapters** handles export from the normalized model graph to external tools. These are compiler-phase concerns, not runtime concerns.
+
+```
+Modellable DSL
+   |
+   v
+Parser + Semantic Validator
+   |
+   v
+Normalized Model Graph
+   |
+   |-- JSON Schema       -> Apicurio Registry
+   |-- Markdown docs     -> Static site (MkDocs, Docusaurus, GitHub Pages)
+   |-- TypeScript types  -> Consumer SDKs
+   |-- OpenMetadata JSON -> OpenMetadata catalog
+   |-- ODCS export       -> Data Contract CLI
+   `-- Registry artifacts
+```
+
+### 7.1 Apicurio Registry Adapter
+
+Stores generated artifacts and manages version lifecycle.
+
+| Artifact Type | Apicurio Content Type |
+| :--- | :--- |
+| JSON Schema | `JSON` |
+| Avro | `AVRO` |
+| Protobuf | `PROTOBUF` |
+| OpenAPI | `OPENAPI` |
+| AsyncAPI | `ASYNCAPI` |
+
+Artifact IDs follow the convention `<domain>.<name>.v<version>`:
+
+```
+customer.Customer.v1
+billing.BillingCustomer.v1
+commerce.OrderPlaced.v3
+```
+
+CLI commands:
+
+```bash
+modellable compile ./models --target json-schema --out ./dist/jsonschema
+modellable publish apicurio ./dist/jsonschema
+modellable pull apicurio customer.Customer.v1
+```
+
+Apicurio is an artifact registry only. It is not the Modellable source of truth.
+
+### 7.2 OpenMetadata Catalog Adapter
+
+Exports model and lineage metadata to OpenMetadata for catalog UI, ownership, classification tags, and lineage visualization.
+
+Modellable → OpenMetadata mapping:
+
+| Modellable | OpenMetadata |
+| :--- | :--- |
+| Domain | Domain |
+| Model | Custom asset or table-like asset |
+| Projection | Data product or custom asset |
+| Field classification | Tags / Glossary terms |
+| Ownership | Owner / Steward |
+| Lineage | Lineage edges |
+
+CLI commands:
+
+```bash
+modellable export openmetadata ./models --out ./dist/openmetadata.json
+modellable publish openmetadata ./dist/openmetadata.json
+```
+
+OpenMetadata is used for visibility and governance workflows. It is not the projection resolver.
+
+### 7.3 ODCS / Data Contract CLI Adapter
+
+Exports model and projection definitions as Open Data Contract Standard (ODCS) documents for interoperability and CI validation.
+
+Modellable → ODCS mapping:
+
+| Modellable | ODCS |
+| :--- | :--- |
+| Model | Data contract schema |
+| Projection | Dataset / data product contract |
+| Field classification | Classification / custom property |
+| Owner | Owner |
+
+CLI commands:
+
+```bash
+modellable export odcs customer.Customer.v1 --out ./dist/customer.contract.yaml
+datacontract lint ./dist/customer.contract.yaml
+```
+
+ODCS is an export and interchange format. Modellable's internal model is not forced into ODCS shape.
+
+---
+
+## 8. Phase Notes
+
+The runtime adapters (Sections 2–5) and artifact output adapters (Section 7) belong to different implementation phases:
+
+| Phase | Adapter Category | Key Adapters |
+| :--- | :--- | :--- |
+| 1 | Compiler output (local) | JSON Schema generator, Markdown generator, TypeScript generator |
+| 2 | Artifact registry | Apicurio Registry adapter |
+| 3 | Catalog / governance | OpenMetadata adapter |
+| 4 | Contract interchange | ODCS / Data Contract CLI adapter |
+| 5 | Runtime (this document) | StoragePort, StreamPort, CapturePort |
+
+Do not build runtime adapters before the normalized model graph is stable.

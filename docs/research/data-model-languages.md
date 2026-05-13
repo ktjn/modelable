@@ -73,8 +73,79 @@ Adopt **LinkML** as the core definition format.
 
 ---
 
-## 5. Next Steps for Prototyping
+## 5. Implementation Stack
+
+The custom YAML DSL is implemented in Python. The following libraries form the internal parser and validation layer.
+
+| Library | Role |
+| :--- | :--- |
+| `ruamel.yaml` | Parse YAML DSL documents with round-trip fidelity. |
+| `pydantic` | Strongly typed internal parser models (not the external contract). |
+| `jsonschema` | Validate generated JSON Schema output and Modellable document shape. |
+| `referencing` | Resolve `$ref` links within and across generated schemas. |
+
+### Internal Compilation Flow
+
+```
+YAML DSL
+  -> ruamel.yaml parse
+  -> pydantic parser model
+  -> semantic validation
+  -> normalized model graph
+  -> JSON Schema output
+  -> jsonschema validation
+```
+
+`pydantic` models are used internally for type-safe graph construction. They are not exposed as the external contract format.
+
+JSON Schema 2020-12 is the **first generated output target**. All other artifact formats (TypeScript, Avro, Protobuf, OpenAPI) are derived from or alongside JSON Schema.
+
+### x-modellable Extensions in JSON Schema
+
+Generated JSON Schema documents embed Modellable metadata using vendor extensions:
+
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "modellable://customer/Customer/v1",
+  "title": "customer.Customer.v1",
+  "type": "object",
+  "properties": {
+    "customerId": {
+      "type": "string",
+      "format": "uuid",
+      "x-modellable-field": "customer.Customer.v1.customerId"
+    },
+    "email": {
+      "type": "string",
+      "x-modellable-classification": "pii",
+      "x-modellable-field": "customer.Customer.v1.email"
+    }
+  },
+  "x-modellable": {
+    "kind": "Model",
+    "domain": "customer",
+    "name": "Customer",
+    "version": 1
+  }
+}
+```
+
+### TypeScript Type Generation
+
+TypeScript types are generated from JSON Schema using `json-schema-to-typescript` (or `quicktype` as an alternative). Modellable does not write a custom TypeScript generator.
+
+```bash
+json2ts -i dist/jsonschema/customer.Customer.v1.schema.json -o dist/types/customer.Customer.v1.ts
+```
+
+---
+
+## 6. Next Steps for Prototyping
 
 1.  **Draft the Internal Schema:** Define how the "Registry" stores these definitions (JSON/Relational).
 2.  **Prototype a CEL Validator:** Confirm that simple projection expressions can be validated against the source model schema.
 3.  **Map PRQL to SQL/Streams:** Experiment with translating a pipelined projection into both a PostgreSQL `VIEW` and a Kafka transformation logic.
+4.  **Implement JSON Schema export:** Generate a valid JSON Schema 2020-12 document from the normalized model graph, including `x-modellable` extensions.
+5.  **Validate with jsonschema:** Run the generated schema through the `jsonschema` library to confirm structural correctness.
+6.  **Integrate json-schema-to-typescript:** Confirm TypeScript types are generated correctly from the JSON Schema output.
