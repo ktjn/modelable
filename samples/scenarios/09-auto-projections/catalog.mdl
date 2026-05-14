@@ -1,0 +1,70 @@
+// Product catalog domain.
+// Demonstrates auto projections with default rules and inline customisation.
+
+domain catalog {
+  owner: "catalog-team"
+  contact: "catalog-team@example.com"
+  description: "Product and category definitions for the storefront."
+
+  // ── Entity definition ─────────────────────────────────────────────────────
+  //
+  // @server marks fields assigned by the server at write time.
+  // These fields are excluded from the generated request model automatically.
+
+  entity Product @ 1 (additive) {
+    @key         productId:    uuid
+                 sku:          string
+                 name:         string
+                 description?: string
+                 priceCents:   int
+                 currency:     string
+                 status:       enum(draft, active, discontinued)
+    @server      createdAt:    timestamp
+    @server      updatedAt?:   timestamp
+  }
+
+  // ── Auto projections ──────────────────────────────────────────────────────
+  //
+  // Four models are generated from the single entity above:
+  //
+  //   ProductDb @ 1        — all fields; used for Postgres DDL and storage bindings
+  //   ProductRequest @ 1   — client write model; @server fields excluded
+  //   ProductReply @ 1     — API read model; all fields
+  //   ProductEvent @ 1     — change event; all fields; emitted on create/update/delete
+
+  auto projections Product @ 1 {
+    db
+    request
+    reply
+    event
+  }
+
+
+  // ── A second entity with customised auto projections ──────────────────────
+  //
+  // Category has a user-provided key (slug) and no updatedAt.
+  // The reply model excludes internal metadata; the event fires only on create and delete.
+
+  entity Category @ 1 (additive) {
+    @key         categoryId:   uuid
+                 slug:         string
+                 label:        string
+                 parentId?:    uuid
+    @classification("internal")
+                 sortOrder:    int
+    @server      createdAt:    timestamp
+  }
+
+  auto projections Category @ 1 {
+    db
+
+    request
+      exclude [sortOrder]           // clients do not set sort order
+
+    reply
+      exclude [@classification("internal")]   // hide internal fields from API consumers
+
+    event
+      on [created, deleted]         // category updates do not need to trigger downstream sync
+  }
+}

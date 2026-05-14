@@ -180,7 +180,62 @@ domain billing {
 }
 ```
 
-### 3.5 Subscription
+### 3.5 Auto Projections
+
+An auto projection is a shorthand declaration that instructs the compiler to generate four standard derived models from a single `entity` or `aggregate` definition. The four generated models cover the most common use cases for any addressable entity:
+
+| Kind | Generated name | Purpose |
+|:-----|:---------------|:--------|
+| `db` | `{Entity}Db` | Persistence contract — the full entity schema used for SQL DDL and storage bindings |
+| `request` | `{Entity}Request` | Write model — fields a client provides when creating or updating an entity; `@server`-assigned fields are excluded by default |
+| `reply` | `{Entity}Reply` | Read model — fields returned in API responses |
+| `event` | `{Entity}Event` | Change event — emitted on entity state transitions (`created`, `updated`, `deleted`) |
+
+Auto projections require no hand-authored field mappings. The compiler expands each kind into a fully explicit projection with complete property-level lineage, identical in semantics to a hand-authored projection. The expansion appears in the plan document and is inspectable.
+
+Example:
+
+```mdl
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key       customerId:   uuid
+               legalName:    string
+    @pii       email:        string
+               phoneNumber?: string
+               status:       enum(active, suspended, deleted)
+    @server    createdAt:    timestamp
+    @server    updatedAt?:   timestamp
+  }
+
+  auto projections Customer @ 1 {
+    db
+    request
+    reply
+    event
+  }
+}
+```
+
+The compiler generates `CustomerDb @ 1`, `CustomerRequest @ 1`, `CustomerReply @ 1`, and `CustomerEvent @ 1`. Each is an immutable, versioned projection registered in the lineage graph.
+
+Individual kinds support inline customisation:
+
+```mdl
+auto projections Customer @ 1 {
+  db
+  request exclude [status]
+  reply   exclude [@pii]
+  event   on [created, deleted]
+}
+```
+
+`exclude` accepts field names, annotation filters (`@pii`, `@classification("restricted")`), or both. `on` accepts any subset of `[created, updated, deleted]`.
+
+Auto projections may only target `entity` or `aggregate` models. The four generated names are reserved; defining an explicit projection with the same name for the same entity version is a compile error. For use cases requiring joins, aggregations, or computed fields, hand-authored projections remain necessary.
+
+See [idl-design-spec.md](idl-design-spec.md) section 3.7 for the full IDL syntax and compiler expansion rules.
+
+### 3.6 Subscription
 
 A subscription declares how a projection is kept up to date from one or more source streams or change sources.
 
@@ -218,7 +273,7 @@ subscription billing-customer-replica {
 }
 ```
 
-### 3.6 Adapter Binding
+### 3.7 Adapter Binding
 
 An adapter binding connects a logical model, projection, subscription, or materialization to a concrete backend.
 
@@ -270,6 +325,7 @@ Field modifiers:
 - `@classification("level")` — governance classification (`public`, `internal`, `confidential`, `restricted`)
 - `@deprecated(replacedBy: "fieldName")` — marks field as deprecated
 - `@owner("team")` — field-level ownership override
+- `@server` — field is assigned by the server at write time (e.g. auto-generated identifiers, audit timestamps). Excluded from `request` auto projections by default.
 
 Example:
 
@@ -974,7 +1030,9 @@ See the [Modellable CLI Specification](cli-spec.md) for the full command referen
 
 - Domain registry.
 - Model definition and immutable publishing.
+- `@server` field annotation.
 - Projection definition with field selection, rename, simple expressions (CEL), and filters.
+- Auto projections (`db`, `request`, `reply`, `event`) with compiler expansion and full lineage tracking.
 - Exact source version references.
 - Compatibility checks for additive and breaking changes.
 - Lineage tracking.
@@ -982,6 +1040,7 @@ See the [Modellable CLI Specification](cli-spec.md) for the full command referen
 - TypeScript type generation via `json-schema-to-typescript`.
 - Markdown documentation generation.
 - Basic CLI for publishing, validating, compiling, and exporting definitions.
+- `modellable inspect <Entity>@<v> --auto` command to display the compiler-expanded auto projections.
 
 ### Deferred
 

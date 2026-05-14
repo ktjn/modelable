@@ -1,0 +1,13 @@
+workspace {
+  name: "auto-projections-example"
+  description: "Demonstrates auto projections: generating a db model, request model, reply model, and event model from a single entity definition."
+
+  generate {
+    docs          -> "./generated/docs/"
+    typescript    -> "./generated/types/"
+    jsonschema    -> "./generated/jsonschema/"
+    sql(postgres) -> "./generated/sql/"
+    openapi       -> "./generated/api/"
+    asyncapi      -> "./generated/events/"
+  }
+}

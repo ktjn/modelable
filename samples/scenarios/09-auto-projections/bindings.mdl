@@ -1,0 +1,71 @@
+// Adapter bindings for the auto-projections scenario.
+// The auto-projected db models are bound to Postgres tables.
+// The event models are bound to a Kafka topic.
+
+binding catalog-postgres {
+  adapter: postgres
+  role: sink
+  config: {
+    host:     "postgres.catalog.internal"
+    port:     5432
+    database: "catalog_db"
+  }
+}
+
+binding catalog-kafka {
+  adapter: kafka
+  role: stream
+  config: {
+    brokers: ["kafka.internal:9092"]
+    tls:     true
+  }
+}
+
+// Bind ProductDb to a Postgres table.
+// The auto-projected db model carries all entity fields and is ready for DDL generation.
+binding product-db-table {
+  model:   catalog.ProductDb @ 1
+  adapter: catalog-postgres
+  table:   "products"
+  fields: {
+    productId   -> product_id
+    sku         -> sku
+    name        -> name
+    description -> description
+    priceCents  -> price_cents
+    currency    -> currency
+    status      -> status
+    createdAt   -> created_at
+    updatedAt   -> updated_at
+  }
+}
+
+// Bind CategoryDb to a Postgres table.
+binding category-db-table {
+  model:   catalog.CategoryDb @ 1
+  adapter: catalog-postgres
+  table:   "categories"
+  fields: {
+    categoryId -> category_id
+    slug       -> slug
+    label      -> label
+    parentId   -> parent_id
+    sortOrder  -> sort_order
+    createdAt  -> created_at
+  }
+}
+
+// Bind ProductEvent to a Kafka topic.
+// Consumers subscribe to this topic to receive typed change events for products.
+binding product-events-topic {
+  model:   catalog.ProductEvent @ 1
+  adapter: catalog-kafka
+  topic:   "catalog.product-events.v1"
+}
+
+// Bind CategoryEvent to a Kafka topic.
+binding category-events-topic {
+  model:   catalog.CategoryEvent @ 1
+  adapter: catalog-kafka
+  topic:   "catalog.category-events.v1"
+}
