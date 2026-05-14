@@ -140,6 +140,4 @@ modellable validate scenarios/01-ecommerce-data-warehouse/
 modellable compile scenarios/01-ecommerce-data-warehouse/ --target typescript --out ./dist/
 ```
 
-> **Legacy YAML:** The original YAML definitions have been moved to `scenarios/legacy/` for historical reference.
-
 
