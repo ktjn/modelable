@@ -130,7 +130,7 @@ Projections: `GdprDataSubjectExport`, `ConsentHistory`, `BillingAuditTrail`, `Er
 
 ## File Format
 
-> **Note:** These scenario files are legacy YAML examples created before the Modellable IDL was designed. They will be migrated to `.mdl` format as part of the Phase 1 implementation. The canonical file format going forward is `.mdl` — see the [IDL design spec](../docs/superpowers/specs/2026-05-14-modellable-idl-design.md) and the [CLI spec](../docs/specs/cli-spec.md#4-file-format) for details.
+> **Note:** These scenario files are legacy YAML examples created before the Modellable IDL was designed. They will be migrated to `.mdl` format as part of the Phase 1 implementation. The canonical file format going forward is `.mdl` — see the [IDL design spec](../docs/idl-design-spec.md) and the [CLI spec](../docs/cli-spec.md#4-file-format) for details.
 
 The new `.mdl` format uses brace-delimited blocks, `@decorator` annotations, and explicit lineage operators:
 
@@ -186,3 +186,5 @@ modellable compile ./my-project --target typescript --out ./dist/types
 3. Update binding configs with your actual infrastructure endpoints and credential secret names
 4. Validate: `modellable validate ./my-defs/`
 5. Use `modellable generate --context ./my-defs/` to add new projections with LLM assistance
+
+

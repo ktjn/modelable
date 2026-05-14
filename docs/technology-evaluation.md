@@ -2,7 +2,7 @@
 
 This document evaluates the technologies for building the Modellable runtime, including source database capture, streaming transport, and target materialization.
 
-> **Phase note:** The technologies in this document correspond to **Phase 5** of the Modellable implementation roadmap — event and API targets. They should not be incorporated until the logical data modelling layer (Phases 1–4) is stable. See the [External Tools document](../external-tools-data-modelling.md) for the full phased plan.
+> **Phase note:** The technologies in this document correspond to **Phase 5** of the Modellable implementation roadmap — event and API targets. They should not be incorporated until the logical data modelling layer (Phases 1–4) is stable. See the [External Tools document](external-tools-data-modelling.md) for the full phased plan.
 
 ## 1. Source Database & CDC (Change Data Capture)
 
@@ -96,3 +96,5 @@ These belong to Phase 5 of the external tools roadmap. The preceding phases are:
 | 3 | Catalog / governance sync | OpenMetadata |
 | 4 | Contract interchange | Open Data Contract Standard, Data Contract CLI |
 | 5 | Event and API targets | Avro, Protobuf, Buf, OpenAPI, AsyncAPI, then the runtime stack in this document |
+
+

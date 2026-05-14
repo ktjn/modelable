@@ -1789,3 +1789,5 @@ git commit -m "feat: add compiler orchestration and CLI validate command"
 | CLI validate command | Task 7 |
 
 **Not in this plan (separate plans):** Emitters, LSP, LLM commands, `compile` CLI command, `diff`, `lineage`, `docs` commands.
+
+

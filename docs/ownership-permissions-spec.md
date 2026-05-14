@@ -524,3 +524,5 @@ The ownership and permissions model is complete when:
 - `checkPermission` correctly evaluates grant and default rules for entity and property scope.
 - Audit log entries are written for every ownership declaration and access policy change.
 - An ownership history entry is created when ownership is transferred.
+
+

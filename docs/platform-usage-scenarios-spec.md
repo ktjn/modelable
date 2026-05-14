@@ -671,3 +671,5 @@ Multiple scenarios often apply to the same deployment. Use this table to identif
 | Partner integrations and public APIs | [Third-Party Consumers](#7-third-party-and-api-consumers) | [High-Performance Services](#4-internet-facing-high-performance-services) |
 | Regulatory reporting, GDPR, audit trails | [Audit & Compliance](#8-audit-compliance-and-regulatory-systems) | [Data Warehouse](#3-data-warehouse-analytical--olap) |
 l--olap) |
+
+

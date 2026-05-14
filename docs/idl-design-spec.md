@@ -333,7 +333,7 @@ LLM commands operate on `.mdl` text output — reviewable, diffable, committable
 
 | File | Purpose |
 |---|---|
-| `docs/specs/idl-spec.md` | Full IDL language reference (grammar, all constructs, type system) |
+| `idl-spec.md` | Full IDL language reference (grammar, all constructs, type system) |
 | `cli/grammar/modellable.lark` | Lark EBNF grammar |
 | `cli/parser/` | Parse tree → Pydantic IR |
 | `cli/emitters/` | One module per output target |
@@ -349,3 +349,5 @@ LLM commands operate on `.mdl` text output — reviewable, diffable, committable
 - Catalog / governance sync (Phase 3)
 - GraphQL target (post-MVP)
 - Non-Python parser implementations
+
+

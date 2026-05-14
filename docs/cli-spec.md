@@ -607,4 +607,6 @@ modellable docs ./my-models --out ./dist/docs
 
 **Resolved:**
 
-- **Definition format:** Custom text IDL (`.mdl`), parsed with Lark (Earley). See `docs/superpowers/specs/2026-05-14-modellable-idl-design.md`.
+- **Definition format:** Custom text IDL (`.mdl`), parsed with Lark (Earley). See `idl-design-spec.md`.
+
+

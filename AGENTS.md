@@ -4,11 +4,11 @@
 
 These instructions apply to the entire repository.
 
-This repository currently contains the Modellable system specification, centered on `docs/specs/modellable-system-spec.md`. Treat that specification as the product source of truth unless the user explicitly changes direction.
+This repository currently contains the Modellable system specification, centered on `docs/modellable-system-spec.md`. Treat that specification as the product source of truth unless the user explicitly changes direction.
 
 ## Repository Shape
 
-- `docs/specs/` contains system and product specifications.
+- `docs/` contains system and product specifications, research, and plans.
 - There is no application source tree yet.
 - There are no checked-in package manifests, build scripts, or test runners yet.
 - The `.gitignore` already anticipates future frontend, Rust, Docker/Helm, and script artifacts, but those tools are not present in the repo yet.
@@ -53,3 +53,4 @@ Before claiming verification, inspect the repository for newly added manifests o
 - Do not revert user changes.
 - Keep commits focused if the user asks you to commit.
 - Avoid committing local artifacts such as `node_modules/`, `target/`, `dist/`, test result folders, `.env.local`, `.worktrees/`, fetched Helm dependencies, and Python cache directories.
+

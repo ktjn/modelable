@@ -975,7 +975,7 @@ All design decisions have been resolved.
 
 **Resolved:**
 
-- **Definition IDL:** Custom text IDL (`.mdl` files), parsed with Lark (Earley grammar). See `docs/superpowers/specs/2026-05-14-modellable-idl-design.md` for the full design rationale and syntax reference.
+- **Definition IDL:** Custom text IDL (`.mdl` files), parsed with Lark (Earley grammar). See [idl-design-spec.md](idl-design-spec.md) for the full design rationale and syntax reference.
 - **Expression language for computed fields:** CEL (Common Expression Language). Deterministic, non-Turing-complete, sandboxable.
 - **Internal parser models:** `pydantic`. Not exposed as the external contract format.
 - **First generated artifact:** JSON Schema 2020-12.
@@ -999,4 +999,6 @@ The system is acceptable when:
 - The materialization can be replayed or rebuilt.
 - The model and projection can be exported as JSON Schema and TypeScript types.
 - Unauthorized projection of restricted fields is rejected.
+
+
 

@@ -4,7 +4,7 @@ This document evaluates existing data modeling languages and Domain-Specific Lan
 
 ## 1. Evaluation Criteria
 
-Based on the [Modellable System Specification](../specs/modellable-system-spec.md), the chosen language(s) must support:
+Based on the [Modellable System Specification](modellable-system-spec.md), the chosen language(s) must support:
 
 - **Platform-Neutral Definitions:** Decoupled from specific databases or brokers.
 - **Explicit Derivation:** Ability to trace projected fields back to source fields.
@@ -66,7 +66,7 @@ Three options were evaluated during design:
 - **Option B — Extend TypeSpec:** Gets OpenAPI/Protobuf emitters for free, but TypeSpec's API-centric model does not fit projection lineage and domain governance naturally.
 - **Option C — Custom text IDL (chosen):** Purpose-built grammar in a text IDL (`.mdl` files). More expressive than YAML for derivation logic, LLM-friendly due to explicit delimiters and consistent structure, enables a language server.
 
-**Chosen: Option C.** See `docs/superpowers/specs/2026-05-14-modellable-idl-design.md` for the full design rationale and syntax reference.
+**Chosen: Option C.** See `idl-design-spec.md` for the full design rationale and syntax reference.
 
 **Expression language for computed fields:** CEL (Common Expression Language). Deterministic, non-Turing-complete, sandboxable. Expressions are stored as raw strings in the IR and evaluated by the Phase 5 runtime. The compiler extracts field references from expressions for lineage tracking.
 
@@ -142,7 +142,7 @@ json2ts -i dist/jsonschema/customer.Customer.v1.schema.json -o dist/types/custom
 
 ## 6. Implementation Plan
 
-The implementation plan for Phase 1 (parser, IR, validation, and CLI) is at `docs/superpowers/plans/2026-05-14-idl-parser-ir-validation.md`.
+The implementation plan for Phase 1 (parser, IR, validation, and CLI) is at `idl-parser-implementation-plan.md`.
 
 Planned implementation sequence:
 1.  **Lark grammar** (`cli/src/modellable/grammar/modellable.lark`) — EBNF for domains, models, projections, generate blocks, bindings.
@@ -151,3 +151,5 @@ Planned implementation sequence:
 4.  **Semantic validation** (`cli/src/modellable/validation/semantic.py`) — enforce domain rules.
 5.  **Compiler + CLI validate** — orchestration and `modellable validate` command.
 6.  **Phase 1 emitters** — JSON Schema 2020-12, Markdown, TypeScript (separate plan).
+
+

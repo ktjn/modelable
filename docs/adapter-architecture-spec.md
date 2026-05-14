@@ -239,3 +239,5 @@ The runtime adapters (Sections 2–5) and artifact output adapters (Section 7) b
 | 5 | Runtime & Targets | StoragePort, StreamPort, CapturePort, Avro, Proto, OpenAPI |
 
 Do not build runtime adapters before the normalized model graph is stable.
+
+
