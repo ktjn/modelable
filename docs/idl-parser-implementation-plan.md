@@ -6,7 +6,7 @@
 
 **Architecture:** A Lark EBNF grammar parses `.mdl` files into a parse tree; a Lark `Transformer` converts that tree into typed Pydantic IR objects; a semantic validator enforces domain rules. A thin `Compiler` class orchestrates the pipeline. The CLI `validate` command runs the full pipeline and reports errors.
 
-**Tech Stack:** Python 3.11+, Lark ≥ 1.1 (Earley parser), Pydantic v2, Click ≥ 8.1, pytest ≥ 7.0, Hatchling
+**Tech Stack:** Python 3.11+, Lark ≥ 1.1 (Earley parser), Pydantic v2, Click ≥ 8.1, pytest ≥ 7.0, Hatchling (build backend), uv (package and environment manager)
 
 **Scope:** Parser + IR + validation only. Emitters (OpenAPI, Avro, SQL, TypeScript), LSP, and LLM commands are separate plans.
 
@@ -82,6 +82,14 @@ dependencies = [
     "pydantic>=2.0",
     "rich>=13.0",
     "anthropic>=0.40",
+    "jsonschema>=4.23",
+    "referencing>=0.35",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
 ]
 
 [project.scripts]
@@ -92,6 +100,15 @@ packages = ["src/modellable"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/modellable"]
+```
+
+Also create `cli/.python-version`:
+
+```
+3.11
 ```
 
 - [ ] **Step 3: Write package markers**
@@ -122,7 +139,7 @@ def test_import():
 
 - [ ] **Step 6: Install package and verify test fails**
 
-Run from `cli/`: `pip install -e . && pytest tests/test_grammar.py -v`
+Run from `cli/`: `uv sync --extra dev && uv run pytest tests/test_grammar.py -v`
 
 Expected: `ModuleNotFoundError: No module named 'modellable.parser.parse'`
 
@@ -135,7 +152,7 @@ def parse_text(text: str):
 
 - [ ] **Step 8: Run test — expect it to pass**
 
-Run: `pytest tests/test_grammar.py::test_import -v`
+Run: `uv run pytest tests/test_grammar.py::test_import -v`
 
 Expected: PASS
 
@@ -143,7 +160,7 @@ Expected: PASS
 
 ```bash
 git add cli/
-git commit -m "feat: scaffold modellable CLI package with Hatchling"
+git commit -m "feat: scaffold modellable CLI package with uv and Hatchling"
 ```
 
 ---
