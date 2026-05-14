@@ -629,6 +629,23 @@ Potentially incompatible changes:
 - Change nullability from nullable to non-nullable.
 - Change validation constraints in a stricter way.
 
+### 8.1.1 `changeKind` Declaration and Enforcement
+
+When publishing a new model version (`status: published`), authors must declare `changeKind`:
+
+- `additive` — only backward-compatible changes were made. The set of compatible changes is defined in section 8.1 above. Existing projections that pin an earlier version or use a compatible version range remain valid without re-publication.
+- `breaking` — at least one incompatible change was made. The set of potentially incompatible changes is defined in section 8.1 above.
+
+**Planner enforcement for `breaking` versions:**
+
+When a new version with `changeKind: breaking` is published, the planner marks all projections that reference any version of that model as requiring re-validation. Subscriptions backed by an affected projection are blocked from planning until the projection author explicitly re-publishes a new projection version that references a valid source version. The registry must expose a `listAffectedProjections(domain, model, breakingVersion)` query to support this workflow.
+
+**Planner enforcement for `additive` versions:**
+
+Projections with exact version pins are unaffected. Projections using version ranges are automatically re-validated against the new version (see section 8.2). If re-validation passes, no author action is required.
+
+**Draft versions:** `changeKind` is not required and is ignored for `draft` status versions.
+
 ### 8.2 Projection Versioning
 
 Projection versions are immutable once published.
