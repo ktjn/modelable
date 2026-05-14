@@ -233,7 +233,7 @@ auto projections Customer @ 1 {
 
 Auto projections may only target `entity` or `aggregate` models. The four generated names are reserved; defining an explicit projection with the same name for the same entity version is a compile error. For use cases requiring joins, aggregations, or computed fields, hand-authored projections remain necessary.
 
-See [idl-design-spec.md](idl-design-spec.md) section 3.7 for the full IDL syntax and compiler expansion rules.
+> For the full IDL syntax, compiler expansion rules, and inline customization options, see `idl-design-spec.md` §3.7.
 
 ### 3.6 Subscription
 
@@ -323,7 +323,7 @@ Field modifiers:
 - `@key` — identity field (required for `entity` and `aggregate` models)
 - `@pii` — marks field as personally identifiable information
 - `@classification("level")` — governance classification (`public`, `internal`, `confidential`, `restricted`)
-- `@deprecated(replacedBy: "fieldName")` — marks field as deprecated
+- `@deprecated(replacedBy: "field")` — marks field as deprecated
 - `@owner("team")` — field-level ownership override
 - `@server` — field is assigned by the server at write time (e.g. auto-generated identifiers, audit timestamps). Excluded from `request` auto projections by default.
 

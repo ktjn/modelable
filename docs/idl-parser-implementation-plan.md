@@ -217,6 +217,8 @@ start: statement+
 statement: domain_decl
          | binding_decl
          | workspace_decl
+         | import_domain_stmt
+         | consumer_decl
 
 // ── Domain ───────────────────────────────────────────────────────────────────
 
@@ -226,6 +228,7 @@ domain_item: owner_attr
            | desc_attr
            | model_decl
            | projection_decl
+           | auto_projections_decl
            | generate_block
 
 owner_attr: "owner" ":" ESCAPED_STRING
@@ -250,6 +253,7 @@ annotation: "@key"                                                  -> ann_key
           | "@classification" "(" ESCAPED_STRING ")"               -> ann_classification
           | "@deprecated" "(" "replacedBy" ":" ESCAPED_STRING ")"  -> ann_deprecated
           | "@owner" "(" ESCAPED_STRING ")"                        -> ann_owner
+          | "@server"                                                -> ann_server
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -333,7 +337,58 @@ field_mapping: IDENT "->" IDENT
 
 // ── Workspace ────────────────────────────────────────────────────────────────
 
-workspace_decl: "workspace" "{" generate_block "}"
+workspace_decl: "workspace" ESCAPED_STRING? "{" workspace_item* "}"
+
+workspace_item: generate_block
+              | registry_block
+              | peers_list
+
+auto_projections_decl: "auto" "projections" IDENT "@" INT "{" auto_kind* "}"
+
+auto_kind: "db"
+         | "request" auto_filter?
+         | "reply" auto_filter?
+         | "event" auto_filter?
+
+auto_filter: "exclude" "[" auto_filter_item ("," auto_filter_item)* "]"
+           | "on" "[" auto_event_op ("," auto_event_op)* "]"
+
+auto_filter_item: IDENT
+                | annotation
+
+auto_event_op: "created"
+             | "updated"
+             | "deleted"
+
+// ── Import domain ────────────────────────────────────────────────────────────
+
+import_domain_stmt: "import" "domain" IDENT "from" "registry" ESCAPED_STRING
+                  | "import" "domain" IDENT "from" "registry" ESCAPED_STRING "at" qualified_name "@" INT "#" IDENT
+
+// ── Consumer (written by CLI, not hand-authored) ─────────────────────────────
+
+consumer_decl: "consumer" "{" consumer_attr* "}"
+
+consumer_attr: "registry"    ":" ESCAPED_STRING
+             | "projection" ":" ESCAPED_STRING
+             | "uses"       ":" "[" ESCAPED_STRING ("," ESCAPED_STRING)* "]"
+
+// ── Registry block (inside workspace) ─────────────────────────────────────────
+
+registry_block: "registry" "{" registry_attr* "}"
+
+registry_attr: "id"   ":" ESCAPED_STRING
+             | "owns" ":" "[" ESCAPED_STRING ("," ESCAPED_STRING)* "]"
+
+peers_list: "peers" ":" "[" peer_entry ("," peer_entry)* "]"
+
+peer_entry: "{" peer_attr* "}"
+
+peer_attr: "id"        ":" ESCAPED_STRING
+         | "git"       ":" ESCAPED_STRING
+         | "branch"    ":" ESCAPED_STRING
+         | "sync"      ":" ESCAPED_STRING
+         | "writeback" ":" ESCAPED_STRING
 
 // ── Terminals ────────────────────────────────────────────────────────────────
 
@@ -345,6 +400,8 @@ IDENT: /[a-zA-Z_][a-zA-Z0-9_]*/
 %ignore WS
 %ignore /\/\/[^\n]*/
 ```
+
+> **Grammar completeness note:** This grammar includes distributed-mode constructs (`@server`, `import domain`, `consumer`, `registry`, `peers`, `auto projections`) that are defined in `idl-design-spec.md` and `distributed-lineage-spec.md`. The initial scaffold (Task 1) need only handle local-mode syntax; distributed constructs may be implemented in a follow-up task once the core parser is stable.
 
 - [ ] **Step 4: Implement `parse_text` in `cli/src/modellable/parser/parse.py`**
 

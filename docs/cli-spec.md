@@ -67,7 +67,9 @@ Definition files use the Modellable IDL with the `.mdl` extension. The grammar i
 | `targetField <- alias.sourceField` | Direct mapping — lineage is unambiguous |
 | `targetField = expression` | Computed field — compiler extracts source field references from the CEL expression |
 
-**Model references** use the form `domain.ModelName @ version` (e.g., `customer.Customer @ 2`) or a range (`customer.Customer @ >=2 <3`).
+**Model references** use the form `domain.ModelName@version` (e.g., `customer.Customer@2`) or a range (`customer.Customer@>=2<3`).
+
+> For the complete type system, grammar, and advanced features (joins, aggregations, auto projections, federation), see `idl-design-spec.md`.
 
 ## 5. Commands
 
@@ -598,7 +600,7 @@ modellable docs ./my-models --out ./dist/docs
 - All human-readable output uses `rich` for colored, formatted terminal output.
 - Exit code `0` indicates success.
 - Exit code `1` indicates a validation error, resolution failure, or unrecoverable CLI error.
-- Commands that produce no input (e.g., no YAML files found) exit `0` with a warning message.
+- Commands that produce no output (e.g., no matching models found) exit `0` with a warning message.
 
 ## 9. Open Design Decisions
 
@@ -611,5 +613,87 @@ modellable docs ./my-models --out ./dist/docs
 **Resolved:**
 
 - **Definition format:** Custom text IDL (`.mdl`), parsed with Lark (Earley). See `idl-design-spec.md`.
+
+---
+
+## 10. Deferred and Federated Commands
+
+The following commands are defined in other specifications and will be added to the CLI in later phases. They are collected here to keep the CLI specification complete.
+
+### 10.1 `inspect` — Inspect compiler-expanded definitions
+
+```text
+modellable inspect <Entity>@<version> --auto [--path PATH]
+```
+
+Displays the compiler-expanded auto projections (`db`, `request`, `reply`, `event`) for a given entity version. The output is a `.mdl`-like representation of the generated projection fields with full lineage annotations.
+
+**Defined in:** `idl-design-spec.md` §3.7, `modellable-system-spec.md` §17.
+
+### 10.2 `transform` — Emit and explain a target artifact
+
+```text
+modellable transform <Entity>@<version> --to <target> [--explain] [--path PATH]
+```
+
+Emits the target artifact (e.g., Avro schema, JSON Schema) for a single model version and optionally prints an explanation of mapping decisions.
+
+**Defined in:** `idl-design-spec.md` §5.1.
+
+### 10.3 `suggest-projection` — AI-assisted projection proposal
+
+```text
+modellable suggest-projection --source <Domain.Model@version> --consumer <domain>
+```
+
+Proposes a projection definition with field derivations tailored to a consuming domain, using the AI integration described in §3.7.
+
+**Defined in:** `idl-design-spec.md` §5.1.
+
+### 10.4 `registry` — Federated registry management
+
+```text
+modellable registry init --id <registry-id> --owns <domain>[,<domain>...]
+modellable registry peer add --id <peer-id> --git <url> [--branch <branch>] [--sync <mode>] [--writeback <mode>]
+modellable registry graph
+modellable registry sync [--peer <peer-id>]
+```
+
+- `registry init` — Initialize a workspace as a named registry node.
+- `registry peer add` — Register an upstream peer registry.
+- `registry graph` — Print the federation DAG with sync state.
+- `registry sync` — Force-sync all peers (or a single peer) regardless of sync mode.
+
+**Defined in:** `distributed-lineage-spec.md` §5.
+
+### 10.5 `dependents` — List downstream consumers
+
+```text
+modellable dependents <Domain.Model@version>
+```
+
+Lists all downstream projections and consumer entries that depend on the given model version. Reads the `consumers/` tree across the workspace and peer mirrors.
+
+**Defined in:** `distributed-lineage-spec.md` §6.
+
+### 10.6 `lineage verify` — Verify content signatures
+
+```text
+modellable lineage verify <REF>
+```
+
+Verifies that the content signature (SHA-256) of the given model or projection matches the cached mirror. Reports mismatches that indicate upstream drift.
+
+**Defined in:** `distributed-lineage-spec.md` §6.
+
+### 10.7 `lineage export` — Export lineage as NDJSON
+
+```text
+modellable lineage export --format ndjson --output <path>
+```
+
+Exports the full lineage graph from `registry.db` as NDJSON for external catalog ingestion.
+
+**Defined in:** `distributed-lineage-spec.md` §6.
 
 

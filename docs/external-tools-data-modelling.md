@@ -151,8 +151,9 @@ Do not expose Pydantic as the contract model.
 ### Suggested Internal Flow
 
 ```text
-YAML
-  -> pydantic parser model
+.mdl text IDL
+  -> Lark parser tree
+  -> Pydantic IR
   -> semantic validation
   -> normalized graph
   -> JSON Schema output

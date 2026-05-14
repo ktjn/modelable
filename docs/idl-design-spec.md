@@ -38,7 +38,7 @@ domain customer {
   owner: "customer-platform"
   description: "Customer identity and lifecycle data."
 
-  model Customer @ 2 (additive) {
+  entity Customer @ 2 (additive) {
     @key       customerId: uuid
                legalName:  string
     @pii       email?:     string
@@ -607,7 +607,7 @@ consumer {
 
 | File | Purpose |
 |---|---|
-| `idl-spec.md` | Full IDL language reference (grammar, all constructs, type system) |
+| `idl-design-spec.md` | Full IDL language reference (grammar, all constructs, type system) — this document |
 | `cli/grammar/modellable.lark` | Lark EBNF grammar |
 | `cli/parser/` | Parse tree → Pydantic IR |
 | `cli/emitters/` | One module per output target |

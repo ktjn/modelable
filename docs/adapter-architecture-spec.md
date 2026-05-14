@@ -73,6 +73,8 @@ To ensure interoperability, all internal events will follow the **CloudEvents 1.
 }
 ```
 
+The CloudEvents `data` attribute carries the Modellable-specific envelope defined in `modellable-system-spec.md` §6.1 (`domain`, `model`, `version`, `operation`, `key`, `sequence`, `timestamp`, `payload`). Modellable-defined fields that do not fit standard CloudEvents attributes are placed as CloudEvents extension attributes (e.g., `modellable_version`, `modellable_domain`). The `source` attribute encodes the model path so that consumers can route events without parsing the payload.
+
 ---
 
 ## 4. Interaction Flow: Cross-Backend Projection
@@ -150,15 +152,7 @@ Normalized Model Graph
 
 ### 7.1 Apicurio Registry Adapter
 
-Stores generated artifacts and manages version lifecycle.
-
-| Artifact Type | Apicurio Content Type |
-| :--- | :--- |
-| JSON Schema | `JSON` |
-| Avro | `AVRO` |
-| Protobuf | `PROTOBUF` |
-| OpenAPI | `OPENAPI` |
-| AsyncAPI | `ASYNCAPI` |
+Stores generated artifacts and manages version lifecycle. Supported formats: JSON Schema, Avro, Protobuf, OpenAPI, AsyncAPI, and GraphQL (post-MVP).
 
 Artifact IDs follow the convention `<domain>.<name>.v<version>`:
 
@@ -178,20 +172,11 @@ modellable pull apicurio customer.Customer.v1
 
 Apicurio is an artifact registry only. It is not the Modellable source of truth.
 
+For the full mapping tables and boundaries, see `external-tools-data-modelling.md` §4.
+
 ### 7.2 OpenMetadata Catalog Adapter
 
 Exports model and lineage metadata to OpenMetadata for catalog UI, ownership, classification tags, and lineage visualization.
-
-Modellable → OpenMetadata mapping:
-
-| Modellable | OpenMetadata |
-| :--- | :--- |
-| Domain | Domain |
-| Model | Custom asset or table-like asset |
-| Projection | Data product or custom asset |
-| Field classification | Tags / Glossary terms |
-| Ownership | Owner / Steward |
-| Lineage | Lineage edges |
 
 CLI commands:
 
@@ -202,18 +187,11 @@ modellable publish openmetadata ./dist/openmetadata.json
 
 OpenMetadata is used for visibility and governance workflows. It is not the projection resolver.
 
+For the full mapping tables and export shape, see `external-tools-data-modelling.md` §5.
+
 ### 7.3 ODCS / Data Contract CLI Adapter
 
 Exports model and projection definitions as Open Data Contract Standard (ODCS) documents for interoperability and CI validation.
-
-Modellable → ODCS mapping:
-
-| Modellable | ODCS |
-| :--- | :--- |
-| Model | Data contract schema |
-| Projection | Dataset / data product contract |
-| Field classification | Classification / custom property |
-| Owner | Owner |
 
 CLI commands:
 
@@ -223,6 +201,8 @@ datacontract lint ./dist/customer.contract.yaml
 ```
 
 ODCS is an export and interchange format. Modellable's internal model is not forced into ODCS shape.
+
+For the full mapping tables, see `external-tools-data-modelling.md` §6.
 
 ---
 

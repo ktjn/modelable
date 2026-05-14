@@ -50,6 +50,9 @@ These pull the design into runtime concerns before the logical model is stable. 
 | [Machine Learning and Feature Stores](#6-machine-learning-and-feature-stores) | Point-in-time correct features, training sets | DuckDB, Redis, Feast, custom stores |
 | [Third-Party and API Consumers](#7-third-party-and-api-consumers) | Stable contracts, versioned access, policy enforcement | REST APIs, GraphQL, gRPC, OpenAPI |
 | [Audit, Compliance, and Regulatory Systems](#8-audit-compliance-and-regulatory-systems) | Immutable history, lineage evidence, data classification | Append-only stores, object storage, WORM |
+| Multi-System Master Data | Cross-system entity resolution, golden record | Master data hubs, sync pipelines | See `samples/scenarios/07-multi-system-master-data` |
+| Distributed Multi-Registry | Federated registries, peer sync, consumer write-backs | Git mirrors, DAG topology | See `samples/scenarios/08-distributed-multi-registry` |
+| Auto Projections | Compiler-generated persistence, request, reply, and event contracts | Same-domain entity projections | See `samples/scenarios/09-auto-projections` |
 
 ---
 
@@ -670,6 +673,5 @@ Multiple scenarios often apply to the same deployment. Use this table to identif
 | Training ML models and serving predictions | [ML and Feature Stores](#6-machine-learning-and-feature-stores) | [Data Warehouse](#3-data-warehouse-analytical--olap) |
 | Partner integrations and public APIs | [Third-Party Consumers](#7-third-party-and-api-consumers) | [High-Performance Services](#4-internet-facing-high-performance-services) |
 | Regulatory reporting, GDPR, audit trails | [Audit & Compliance](#8-audit-compliance-and-regulatory-systems) | [Data Warehouse](#3-data-warehouse-analytical--olap) |
-l--olap) |
 
 

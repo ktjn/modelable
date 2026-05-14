@@ -1,6 +1,6 @@
 # Sample Scenarios
 
-This directory contains seven complete sample scenarios covering a range of Modellable platform types and architectural patterns. Each scenario is defined using the canonical **Modellable IDL (`.mdl`)** format, demonstrating production-realistic definitions across multiple domains.
+This directory contains complete sample scenarios covering a range of Modellable platform types and architectural patterns. Each scenario is defined using the canonical **Modellable IDL (`.mdl`)** format, demonstrating production-realistic definitions across multiple domains.
 
 Use these as a starting point for your own definitions or validate them with the CLI (`modellable validate scenarios/<id>/`).
 
@@ -8,15 +8,17 @@ Use these as a starting point for your own definitions or validate them with the
 
 ## Scenario Index
 
-| # | ID | Title | Platform | Complexity |
-|---|:---|:------|:---------|:-----------|
-| 1 | `01-ecommerce-data-warehouse` | E-commerce Analytics Data Warehouse | Data Warehouse | High |
-| 2 | `02-realtime-fraud-detection` | Real-Time Fraud Detection Service | High-Performance Service | High |
-| 3 | `03-order-saga-microservices` | Order Fulfillment Saga | Event-Driven Microservices | High |
-| 4 | `04-credit-risk-feature-store` | Credit Risk ML Feature Store | ML Feature Store | High |
-| 5 | `05-partner-marketplace-api` | Partner Marketplace API | API Consumer | High |
-| 6 | `06-gdpr-compliance-audit` | GDPR Compliance and Immutable Audit Trail | Audit & Compliance | High |
-| 7 | `07-multi-system-master-data` | Enterprise Multi-System Master Data Architecture | Master Data / Data Platform | Very High |
+| # | ID | Title | Platform | Complexity | Relevant Spec |
+|---|:---|:------|:---------|:-----------|:--------------|
+| 1 | `01-ecommerce-data-warehouse` | E-commerce Analytics Data Warehouse | Data Warehouse | High | `platform-usage-scenarios-spec.md` §3 |
+| 2 | `02-realtime-fraud-detection` | Real-Time Fraud Detection Service | High-Performance Service | High | `platform-usage-scenarios-spec.md` §4 |
+| 3 | `03-order-saga-microservices` | Order Fulfillment Saga | Event-Driven Microservices | High | `platform-usage-scenarios-spec.md` §5 |
+| 4 | `04-credit-risk-feature-store` | Credit Risk ML Feature Store | ML Feature Store | High | `platform-usage-scenarios-spec.md` §6 |
+| 5 | `05-partner-marketplace-api` | Partner Marketplace API | API Consumer | High | `platform-usage-scenarios-spec.md` §7 |
+| 6 | `06-gdpr-compliance-audit` | GDPR Compliance and Immutable Audit Trail | Audit & Compliance | High | `platform-usage-scenarios-spec.md` §8 |
+| 7 | `07-multi-system-master-data` | Enterprise Multi-System Master Data Architecture | Master Data / Data Platform | Very High | `distributed-lineage-spec.md` |
+| 8 | `08-distributed-multi-registry` | Federated Registry Network | Federation / Peer Sync | High | `distributed-lineage-spec.md` |
+| 9 | `09-auto-projections` | Compiler-Generated Projection Contracts | Core Language | Medium | `idl-design-spec.md` §3.7 |
 
 ---
 
@@ -136,6 +138,35 @@ Domains: `crm`, `iam`, `pim`, `cpq`, `wms`, `psp`, `orders`, `ods`, `datamart`
 
 ---
 
+### 8. Distributed Multi-Registry (`scenarios/08-distributed-multi-registry/`)
+
+A federation of three independent teams (customer platform, orders platform, analytics) each maintain their own Modellable registry in separate git repositories. The analytics team consumes models from both upstream platforms via `import domain` declarations, pins versions with content signatures, and writes back consumer entries via automated PRs.
+
+Key techniques demonstrated:
+- `registry` and `peers` blocks in `workspace.mdl`
+- `import domain … from registry "…"` with `#`-pinned version references
+- Content signature verification (`modellable lineage verify`)
+- Consumer write-backs as pull requests (`writeback: pr`)
+- Registry DAG visualization (`modellable registry graph`)
+
+See `distributed-lineage-spec.md` for the full federation design.
+
+---
+
+### 9. Auto Projections (`scenarios/09-auto-projections/`)
+
+A simple domain demonstrates the four compiler-generated projections (`db`, `request`, `reply`, `event`) for an `Order` entity, including inline customization with `exclude` and `on` filters.
+
+Key techniques demonstrated:
+- `auto projections Order @ 1 { db, request, reply, event }`
+- `exclude` with field names and annotation filters (`@pii`, `@server`)
+- `on` with operation subsets (`created`, `updated`, `deleted`)
+- Inspecting expanded projections with `modellable inspect Order@1 --auto`
+
+See `idl-design-spec.md` §3.7 and `modellable-system-spec.md` §3.5 for the full auto-projection rules.
+
+---
+
 ## File Structure
 
 Each scenario is organized by domain, with a `workspace.mdl` file defining global configuration:
@@ -172,5 +203,3 @@ modellable validate scenarios/01-ecommerce-data-warehouse/
 # Compile and generate artifacts
 modellable compile scenarios/01-ecommerce-data-warehouse/ --target typescript --out ./dist/
 ```
-
-
