@@ -19,9 +19,12 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 
 - **Language:** Python 3.11+
 - **Framework:** Click
-- **Entry point:** `modellable` (installed via `pip install -e cli/`)
-- **Build system:** Hatchling (`pyproject.toml`)
+- **Package manager:** [uv](https://docs.astral.sh/uv/) — handles virtual environment, dependency resolution, lock file, and CLI installation
+- **Build backend:** Hatchling (`pyproject.toml`)
+- **Entry point:** `modellable` (installed via `uv tool install cli/` for end users; `uv sync --extra dev` for development)
 - **Required dependencies:** `click>=8.1`, `lark>=1.1`, `pydantic>=2.0`, `anthropic>=0.40`, `rich>=13.0`, `jsonschema>=4.23`, `referencing>=0.35`
+
+For full tooling setup, developer workflow, and CI integration, see `cli-tooling-spec.md`.
 
 AI-powered commands (`describe`, `generate`) additionally require the `ANTHROPIC_API_KEY` environment variable.
 

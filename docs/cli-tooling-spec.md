@@ -1,0 +1,304 @@
+# Modellable CLI — Python Tooling Specification
+
+## 1. Language and Runtime
+
+- **Language:** Python 3.11+
+- **Package manager / environment manager:** [uv](https://docs.astral.sh/uv/)
+- **Build backend:** Hatchling (via `hatchling` — uv is compatible with all PEP 517 backends)
+- **Lock file:** `cli/uv.lock` — committed to source control; ensures reproducible installs
+
+uv handles virtual environment creation, dependency resolution, lock file management, test execution, and tool installation. No separate `pip`, `venv`, or `virtualenv` invocations are needed.
+
+---
+
+## 2. Project Layout
+
+```
+cli/
+  pyproject.toml          # package metadata, dependencies, entry point
+  uv.lock                 # pinned dependency graph (committed)
+  .python-version         # pins the Python interpreter version for uv
+  src/
+    modellable/
+      __init__.py
+      cli.py              # Click root group
+      grammar/
+        __init__.py
+        modellable.lark   # EBNF grammar (Lark Earley)
+      parser/
+        __init__.py
+        ir.py             # Pydantic IR models
+        transformer.py    # Lark tree → IR
+        parse.py          # parse_text() / parse_file() public API
+      validation/
+        __init__.py
+        semantic.py       # semantic validation rules
+      compiler/
+        __init__.py
+        compiler.py       # compile() orchestration
+      emitters/
+        __init__.py
+        json_schema.py
+        typescript.py
+        markdown.py
+  tests/
+    conftest.py
+    fixtures/
+      customer.mdl
+      billing_projection.mdl
+    test_grammar.py
+    test_transformer.py
+    test_semantic.py
+    test_compiler.py
+    test_cli.py
+```
+
+---
+
+## 3. `pyproject.toml`
+
+```toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "modellable"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1",
+    "lark>=1.1",
+    "pydantic>=2.0",
+    "rich>=13.0",
+    "anthropic>=0.40",
+    "jsonschema>=4.23",
+    "referencing>=0.35",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.scripts]
+modellable = "modellable.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/modellable"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/modellable"]
+```
+
+---
+
+## 4. Development Workflow
+
+All commands are run from the `cli/` directory unless otherwise noted.
+
+### 4.1 First-time setup
+
+```bash
+# Install uv (once per machine)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create the virtual environment and install all dependencies (including dev extras)
+uv sync --extra dev
+```
+
+`uv sync` reads `pyproject.toml` and `uv.lock`, creates `.venv/` in `cli/`, and installs the package in editable mode. No separate `pip install -e .` is needed.
+
+### 4.2 Run the CLI during development
+
+```bash
+uv run modellable --help
+uv run modellable validate ./models
+uv run modellable compile ./models --target json-schema
+```
+
+`uv run` activates the managed virtual environment for the duration of the command. Do not activate `.venv/` manually.
+
+### 4.3 Add a dependency
+
+```bash
+uv add click                  # runtime dependency
+uv add --dev pytest-cov       # dev-only dependency
+```
+
+`uv add` updates `pyproject.toml` and regenerates `uv.lock`. Commit both files together.
+
+### 4.4 Update dependencies
+
+```bash
+uv lock --upgrade             # resolve latest versions satisfying constraints
+uv sync --extra dev           # install updated lockfile
+```
+
+### 4.5 Run tests
+
+```bash
+uv run pytest                          # all tests
+uv run pytest tests/test_grammar.py    # single file
+uv run pytest -x --tb=short            # fail fast, short tracebacks
+uv run pytest --cov --cov-report=term  # with coverage
+```
+
+### 4.6 Build a distribution
+
+```bash
+uv build                      # produces dist/modellable-*.whl and dist/modellable-*.tar.gz
+```
+
+### 4.7 Install as a global tool
+
+```bash
+uv tool install .             # makes `modellable` available on PATH globally
+uv tool uninstall modellable  # remove it
+```
+
+`uv tool install` creates an isolated environment for the CLI. This is the recommended installation method for end users who do not need to modify source code.
+
+### 4.8 Run a one-off command in a fresh environment
+
+```bash
+uv run --no-project python -c "import lark; print(lark.__version__)"
+```
+
+---
+
+## 5. `.python-version`
+
+The file `cli/.python-version` pins the Python interpreter uv selects:
+
+```
+3.11
+```
+
+uv respects this file automatically. Update it when the minimum supported version changes; always bump `requires-python` in `pyproject.toml` at the same time.
+
+---
+
+## 6. Lock File Policy
+
+- `cli/uv.lock` is **committed to source control**.
+- Developers must run `uv sync --extra dev` after pulling changes that modify `pyproject.toml` or `uv.lock`.
+- CI must run `uv sync --extra dev --frozen` to refuse installs if the lockfile is out of date.
+- The lockfile is regenerated by `uv lock`; do not edit it by hand.
+
+---
+
+## 7. CI Integration
+
+```yaml
+# Example GitHub Actions step
+- name: Install uv
+  uses: astral-sh/setup-uv@v4
+
+- name: Sync dependencies
+  run: uv sync --extra dev --frozen
+  working-directory: cli
+
+- name: Run tests
+  run: uv run pytest --tb=short
+  working-directory: cli
+```
+
+`--frozen` ensures CI fails if a developer forgot to commit an updated lockfile rather than silently re-resolving.
+
+---
+
+## 8. Dependencies Reference
+
+| Package | Minimum | Purpose |
+|:--------|:--------|:--------|
+| `click` | 8.1 | CLI framework — commands, options, arguments |
+| `lark` | 1.1 | Earley parser for `.mdl` grammar |
+| `pydantic` | 2.0 | IR model definitions and validation |
+| `rich` | 13.0 | Colored terminal output, tables, progress bars |
+| `anthropic` | 0.40 | Claude API for `describe` and `generate` commands |
+| `jsonschema` | 4.23 | JSON Schema validation in emitter tests |
+| `referencing` | 0.35 | JSON Schema `$ref` resolution |
+| `pytest` *(dev)* | 7.0 | Test runner |
+| `pytest-cov` *(dev)* | 4.0 | Coverage reporting |
+
+---
+
+## 9. Bootstrap Script
+
+### 9.1 Purpose
+
+`bin/modellable` is a shell script at the repository root that serves as the zero-prerequisite entry point to the CLI. A developer who has just cloned the repo can run it without any prior setup — it installs uv if missing, syncs the virtual environment, and forwards to the real CLI.
+
+### 9.2 Location
+
+```
+bin/modellable       # executable shell script, committed to source control
+```
+
+The script must be committed with the executable bit set (`chmod +x`).
+
+### 9.3 Behaviour
+
+The script executes the following steps in order:
+
+1. **Detect uv.** Check whether `uv` is on `PATH` using `command -v uv`.
+
+2. **Install uv if absent.** If `uv` is not found, download and run the official installer:
+
+   ```
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+   After installation, source `$HOME/.local/bin/env` (the path uv's installer writes) so the current shell session can find `uv` without requiring the user to open a new terminal.
+
+3. **Sync the virtual environment.** Run `uv sync` from the `cli/` directory. On first run this creates `.venv/` and installs all runtime dependencies. On subsequent runs it is a no-op if `uv.lock` has not changed.
+
+4. **Exec the CLI.** Replace the shell process with `uv run modellable`, forwarding all arguments and the current working directory unchanged:
+
+   ```
+   exec uv run --project "$(dirname "$0")/../cli" modellable "$@"
+   ```
+
+   Using `exec` means the bootstrap process does not linger after the CLI starts.
+
+### 9.4 Idempotency
+
+Steps 1–3 are safe to repeat. `uv sync` is a no-op when the environment is already up to date. The script must not print anything to stdout during a clean (already-set-up) run — all diagnostic output during installation goes to stderr.
+
+### 9.5 Failure modes
+
+| Condition | Expected behaviour |
+|:----------|:------------------|
+| `curl` not available | Print an error to stderr explaining that uv must be installed manually from `https://docs.astral.sh/uv/` and exit non-zero |
+| `uv sync` fails (e.g. Python not found) | Let the uv error propagate to the terminal unchanged; exit with uv's exit code |
+| CLI itself errors | Let the CLI error propagate; exit with the CLI's exit code |
+
+### 9.6 Usage
+
+```bash
+# First run — installs uv and syncs, then starts the CLI
+./bin/modellable --help
+
+# Subsequent runs — syncs (no-op) and starts the CLI
+./bin/modellable validate ./models
+./bin/modellable compile ./models --target json-schema
+```
+
+---
+
+## 10. Excluded Tooling
+
+The following tools are **not** used in this project:
+
+| Tool | Reason |
+|:-----|:-------|
+| `pip` | Replaced by `uv` for all install and sync operations |
+| `virtualenv` / `venv` | uv manages the virtual environment automatically |
+| `poetry` | uv covers all the same use cases with better performance |
+| `tox` | uv run + pytest is sufficient for a single Python version target |
+| `setuptools` | Replaced by Hatchling as the build backend |
