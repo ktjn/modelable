@@ -175,6 +175,8 @@ modellable compile SOURCE --target TARGET [--out DIR] [--path PATH]
 
 Compiles model and projection definitions to a target artifact format. `SOURCE` can be a path to a YAML file or directory, or a model reference (`domain.ModelName.vVersion`).
 
+In addition to the requested artifact format, `compile` always writes a `registry.db` SQLite index and plan documents to `.modellable/` in the current directory. These derived files are build artifacts — not source files — and should be added to `.gitignore`.
+
 **Options:**
 
 | Flag | Required | Default | Description |
