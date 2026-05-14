@@ -1,0 +1,407 @@
+# Modellable MVP Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement milestone tasks. Keep task checkboxes current as work is completed.
+
+**Date:** 2026-05-14
+**Status:** Draft
+**Scope:** Phase 1 local modelling compiler
+
+---
+
+## Goal
+
+Deliver a usable local Modellable compiler that can parse `.mdl` files, validate domain-owned canonical models and projections, compile a derived registry index, answer compatibility and lineage questions, and emit JSON Schema, Markdown documentation, and TypeScript types.
+
+The MVP is successful when the acceptance criteria in `modellable-system-spec.md` section 20 pass through CLI workflows against representative local `.mdl` files.
+
+## Source Documents
+
+This plan is intentionally a delivery plan, not a replacement specification. The implementation must follow:
+
+- `modellable-system-spec.md` - product source of truth and Phase 1 scope.
+- `idl-design-spec.md` - `.mdl` syntax, auto projections, version ranges, and target catalog.
+- `idl-parser-implementation-plan.md` - detailed parser, IR, semantic validator, and initial CLI `validate` work.
+- `cli-spec.md` - command behavior, arguments, output directories, and exit codes.
+- `cli-tooling-spec.md` - Python, uv, Hatchling, package layout, and bootstrap expectations.
+- `emitter-spec.md` - JSON Schema, TypeScript, and Markdown output requirements.
+- `cel-integration-spec.md` - Phase 1 CEL validation and lineage extraction.
+- `ownership-permissions-spec.md` - MVP ownership, access, and POR requirements.
+
+## MVP Boundary
+
+### Included
+
+- Python CLI package under `cli/` using uv and Hatchling.
+- Lark parser and Pydantic IR for local `.mdl` files.
+- Semantic validation for domains, model versions, fields, projections, auto projections, version references, ownership, permissions, and supported CEL expressions.
+- Local file-first registry compiler that derives `.modellable/registry.db`.
+- Plan documents under `.modellable/plans/` for projections and auto projections.
+- Field-level lineage graph for canonical fields, direct mappings, computed expressions, and auto projection expansion.
+- Compatibility checks for additive and breaking model changes.
+- Governance checks that reject unauthorized or unsafe projection fields.
+- JSON Schema 2020-12 emitter with `x-modellable-*` extensions.
+- Markdown documentation emitter.
+- TypeScript generation via `json-schema-to-typescript`.
+- CLI commands required for MVP workflows: `validate`, `resolve`, `lineage`, `diff`, `compile`, `docs`, `inspect <Entity>@<v> --auto`, and `codegen`.
+- A curated MVP sample or fixture set that avoids Phase 5 runtime-only constructs unless they are parsed as deferred metadata.
+- Tests for parser, IR, validation, planner, compatibility, lineage, emitters, CLI commands, and sample scenarios.
+
+### Deferred
+
+- Runtime materialization, subscriptions, stream processing, replay, and dead-letter handling.
+- PostgreSQL, Kafka, CDC, and other runtime adapters.
+- Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI, AsyncAPI, and SQL DDL outputs.
+- Distributed registry peer sync and consumer write-back execution.
+- LSP implementation.
+- AI commands such as `generate`, `describe`, `transform`, and `suggest-projection`.
+- Cryptographic POR signing and ownership transfer workflow.
+
+## Delivery Strategy
+
+Use a vertical-slice sequence. Each milestone should add a user-visible CLI capability backed by tests, instead of building all internals before any command works.
+
+Three strategies were considered:
+
+| Strategy | Trade-off | Decision |
+|---|---|---|
+| Parser-first foundation | Fastest way to stabilize syntax and IR; user-visible value begins with `validate`. | Use this as the starting point because `idl-parser-implementation-plan.md` is already detailed. |
+| Emitter-first prototype | Produces visible artifacts quickly but risks ad hoc parsing and weak lineage. | Reject for MVP because it weakens contract semantics. |
+| Registry-first architecture | Strong internal shape but too much infrastructure before feedback. | Use after parser validation, when the normalized graph exists. |
+
+## Milestone 0: Tooling Baseline
+
+**Goal:** Make the repository executable as a Python CLI project.
+
+**Primary files:**
+
+- `cli/pyproject.toml`
+- `cli/.python-version`
+- `cli/uv.lock`
+- `bin/modellable`
+- `.github/workflows/ci.yml`
+
+**Tasks:**
+
+- [ ] Create the `cli/` package scaffold described in `cli-tooling-spec.md`.
+- [ ] Add runtime dependencies: `click`, `lark`, `pydantic`, `rich`, `jsonschema`, `referencing`.
+- [ ] Add development dependencies: `pytest`, `pytest-cov`.
+- [ ] Add the root `bin/modellable` bootstrap script.
+- [ ] Add CI that runs `uv sync --extra dev --frozen` and `uv run pytest --tb=short`.
+- [ ] Verify `uv run modellable --help` exits `0`.
+
+**Acceptance checks:**
+
+```bash
+cd cli
+uv sync --extra dev
+uv run modellable --help
+uv run pytest
+```
+
+## Milestone 1: Parser, IR, and Base Validation
+
+**Goal:** Parse local `.mdl` files into a typed normalized IR and reject basic invalid definitions.
+
+**Primary files:**
+
+- `cli/src/modellable/grammar/modellable.lark`
+- `cli/src/modellable/parser/ir.py`
+- `cli/src/modellable/parser/transformer.py`
+- `cli/src/modellable/parser/parse.py`
+- `cli/src/modellable/validation/semantic.py`
+- `cli/src/modellable/compiler/compiler.py`
+- `cli/src/modellable/cli.py`
+- `cli/tests/test_grammar.py`
+- `cli/tests/test_transformer.py`
+- `cli/tests/test_semantic.py`
+- `cli/tests/test_compiler.py`
+- `cli/tests/test_cli.py`
+
+**Tasks:**
+
+- [ ] Execute `idl-parser-implementation-plan.md` through the `validate` command.
+- [ ] Ensure grammar covers domains, owners, descriptions, model kinds, field annotations, primitive and composite types, projections, joins, aggregations, version ranges, generate blocks, bindings, workspace blocks, and auto projection declarations.
+- [ ] Represent immutable model and projection versions explicitly in Pydantic IR.
+- [ ] Preserve source location metadata for diagnostics.
+- [ ] Validate entity and aggregate keys, event and value key absence, version ordering, projection mappings, aggregation usage, known annotations, and known types.
+- [ ] Add parse and validation coverage for the curated MVP sample set.
+
+**Acceptance checks:**
+
+```bash
+cd cli
+uv run pytest tests/test_grammar.py tests/test_transformer.py tests/test_semantic.py tests/test_compiler.py tests/test_cli.py
+uv run modellable validate ../samples/scenarios/09-auto-projections
+```
+
+## Milestone 2: Local Registry Graph and Resolver
+
+**Goal:** Compile all local `.mdl` files into a deterministic model graph and derived SQLite registry index.
+
+**Primary files:**
+
+- `cli/src/modellable/registry/schema.sql`
+- `cli/src/modellable/registry/index.py`
+- `cli/src/modellable/registry/resolver.py`
+- `cli/src/modellable/registry/references.py`
+- `cli/src/modellable/compiler/workspace.py`
+- `cli/tests/test_registry_index.py`
+- `cli/tests/test_resolver.py`
+
+**Tasks:**
+
+- [ ] Add workspace discovery that loads all `.mdl` files from a file or directory path.
+- [ ] Merge definitions across files while preserving domain ownership boundaries.
+- [ ] Detect duplicate domains, duplicate model versions, duplicate projection versions, and generated-name conflicts.
+- [ ] Resolve references in the form `domain.Model@version` and `domain.Model@>=min<max`.
+- [ ] Resolve version ranges to the highest matching published version at compile time.
+- [ ] Create `.modellable/registry.db` as a rebuildable artifact.
+- [ ] Populate registry tables for domains, models, model versions, fields, projections, projection versions, projection sources, projection fields, field mappings, lineage edges, adapter bindings, compatibility reports, and access policies.
+- [ ] Keep source `.mdl` files as the only source of truth.
+
+**Acceptance checks:**
+
+```bash
+cd cli
+uv run pytest tests/test_registry_index.py tests/test_resolver.py
+uv run modellable compile ../samples/scenarios/09-auto-projections --target markdown --out ../dist/docs
+```
+
+## Milestone 3: Planner, Auto Projections, CEL, and Lineage
+
+**Goal:** Turn validated definitions into inspectable plan documents with deterministic field-level lineage.
+
+**Primary files:**
+
+- `cli/src/modellable/planner/planner.py`
+- `cli/src/modellable/planner/auto_projection.py`
+- `cli/src/modellable/planner/lineage.py`
+- `cli/src/modellable/expressions/cel.py`
+- `cli/src/modellable/expressions/lineage.py`
+- `cli/tests/test_planner.py`
+- `cli/tests/test_auto_projection.py`
+- `cli/tests/test_cel_validation.py`
+- `cli/tests/test_lineage.py`
+
+**Tasks:**
+
+- [ ] Expand auto projections into explicit generated projection versions for `db`, `request`, `reply`, and `event`.
+- [ ] Enforce generated projection name reservations.
+- [ ] Apply auto projection exclusions for field names, `@pii`, and `@classification("level")`.
+- [ ] Validate `event on [created, updated, deleted]` operation subsets.
+- [ ] Build projection plan documents containing resolved source versions, field mappings, CEL expressions, join descriptors, aggregation descriptors, and planner metadata.
+- [ ] Parse or validate the MVP CEL subset enough to reject unknown aliases, unknown fields, unsupported functions, aggregate misuse, and non-deterministic expressions.
+- [ ] Extract source field references from computed fields, joins, filters, and aggregate arguments.
+- [ ] Write `.modellable/plans/<domain>.<Projection>.v<version>.plan.json`.
+- [ ] Implement `modellable inspect <Entity>@<v> --auto` to display generated projections.
+
+**Acceptance checks:**
+
+```bash
+cd cli
+uv run pytest tests/test_planner.py tests/test_auto_projection.py tests/test_cel_validation.py tests/test_lineage.py
+uv run modellable inspect customer.Customer@1 --auto --path ../samples/scenarios/09-auto-projections
+```
+
+## Milestone 4: Compatibility and Governance
+
+**Goal:** Enforce published-contract semantics and prevent unsafe projection of governed fields.
+
+**Primary files:**
+
+- `cli/src/modellable/compat/diff.py`
+- `cli/src/modellable/compat/checker.py`
+- `cli/src/modellable/governance/ownership.py`
+- `cli/src/modellable/governance/permissions.py`
+- `cli/src/modellable/governance/por.py`
+- `cli/tests/test_compatibility.py`
+- `cli/tests/test_governance.py`
+- `cli/tests/test_por.py`
+
+**Tasks:**
+
+- [ ] Compare consecutive model versions for additions, removals, renames, type changes, enum changes, identity changes, and nullability changes.
+- [ ] Verify `(additive)` declarations only contain compatible changes.
+- [ ] Verify `(breaking)` declarations mark affected projections as requiring re-validation.
+- [ ] Implement `modellable diff REF_A REF_B --path PATH`.
+- [ ] Implement default same-domain permissions when no `access` block exists.
+- [ ] Implement entity and property grants for `read`, `project`, `subscribe`, and `write`.
+- [ ] Reject projections where the consuming domain lacks `project` on the source model or `read` on a referenced source field.
+- [ ] Preserve source classification on projected fields and reject attempts to lower classification.
+- [ ] Generate unsigned POR metadata and embed POR references in registry metadata for JSON Schema emission.
+
+**Acceptance checks:**
+
+```bash
+cd cli
+uv run pytest tests/test_compatibility.py tests/test_governance.py tests/test_por.py
+uv run modellable diff customer.Customer@1 customer.Customer@2 --path ../samples/scenarios/01-ecommerce-data-warehouse
+```
+
+## Milestone 5: Phase 1 Emitters
+
+**Goal:** Generate deterministic external artifacts from the normalized graph without weakening Modellable semantics.
+
+**Primary files:**
+
+- `cli/src/modellable/emitters/base.py`
+- `cli/src/modellable/emitters/json_schema.py`
+- `cli/src/modellable/emitters/markdown.py`
+- `cli/src/modellable/emitters/typescript.py`
+- `cli/src/modellable/emitters/diagnostics.py`
+- `cli/tests/test_emit_json_schema.py`
+- `cli/tests/test_emit_markdown.py`
+- `cli/tests/test_emit_typescript.py`
+
+**Tasks:**
+
+- [ ] Define a deterministic emitter interface returning artifact metadata and diagnostics.
+- [ ] Emit JSON Schema draft 2020-12 for models and projections.
+- [ ] Map all MVP Modellable types to JSON Schema according to `emitter-spec.md`.
+- [ ] Mark non-optional fields as required and optional fields as nullable or absent from `required` according to JSON Schema 2020-12 conventions.
+- [ ] Add `x-modellable`, `x-modellable-field`, `x-modellable-classification`, `x-modellable-lineage`, `x-modellable-ref`, and `x-modellable-por`.
+- [ ] Validate generated JSON Schema with `jsonschema`.
+- [ ] Emit Markdown docs with domain metadata, field tables, projection source tables, and lineage tables.
+- [ ] Generate TypeScript from JSON Schema through `json-schema-to-typescript`.
+- [ ] Return clear deferred-target diagnostics for targets outside Phase 1.
+
+**Acceptance checks:**
+
+```bash
+cd cli
+uv run pytest tests/test_emit_json_schema.py tests/test_emit_markdown.py tests/test_emit_typescript.py
+uv run modellable compile ../samples/scenarios/09-auto-projections --target json-schema --out ../dist/jsonschema
+uv run modellable compile ../samples/scenarios/09-auto-projections --target markdown --out ../dist/docs
+uv run modellable compile ../samples/scenarios/09-auto-projections --target typescript --out ../dist/types
+```
+
+## Milestone 6: CLI Workflows
+
+**Goal:** Provide the complete local authoring workflow described for MVP.
+
+**Primary files:**
+
+- `cli/src/modellable/cli.py`
+- `cli/src/modellable/commands/validate.py`
+- `cli/src/modellable/commands/resolve.py`
+- `cli/src/modellable/commands/lineage.py`
+- `cli/src/modellable/commands/diff.py`
+- `cli/src/modellable/commands/compile.py`
+- `cli/src/modellable/commands/docs.py`
+- `cli/src/modellable/commands/inspect.py`
+- `cli/src/modellable/commands/codegen.py`
+- `cli/src/modellable/commands/scenario.py`
+- `cli/tests/test_cli_workflows.py`
+
+**Tasks:**
+
+- [ ] Split command implementations into focused command modules once `cli.py` becomes too large.
+- [ ] Implement `validate [PATH] [--strict]`.
+- [ ] Implement `resolve REF [--path PATH]`.
+- [ ] Implement `lineage REF [--path PATH]`.
+- [ ] Implement `diff REF_A REF_B [--path PATH]`.
+- [ ] Implement `compile SOURCE --target TARGET [--out DIR] [--path PATH]`.
+- [ ] Implement `docs SOURCE [--out DIR]` as a wrapper around markdown compilation.
+- [ ] Implement `inspect <Entity>@<version> --auto [--path PATH]`.
+- [ ] Implement `codegen formats` and `codegen types [--format FORMAT]`.
+- [ ] Implement `scenario list`, `scenario show`, and `scenario load` for bundled local samples.
+- [ ] Ensure exit codes match `cli-spec.md`.
+
+**Acceptance checks:**
+
+```bash
+cd cli
+uv run pytest tests/test_cli_workflows.py
+uv run modellable validate ../samples/scenarios/09-auto-projections --strict
+uv run modellable resolve customer.Customer@1 --path ../samples/scenarios/09-auto-projections
+uv run modellable lineage customer.CustomerReply@1 --path ../samples/scenarios/09-auto-projections
+uv run modellable docs ../samples/scenarios/09-auto-projections --out ../dist/docs
+uv run modellable codegen formats
+uv run modellable scenario list
+```
+
+## Milestone 7: MVP Hardening and Release Candidate
+
+**Goal:** Make the MVP reliable enough for local use and future phase work.
+
+**Primary files:**
+
+- `README.md`
+- `docs/README.md`
+- `samples/README.md`
+- `samples/scenarios/*`
+- `cli/tests/test_samples.py`
+- `.gitignore`
+
+**Tasks:**
+
+- [ ] Add an MVP smoke test that validates and compiles the curated MVP sample.
+- [ ] Decide which existing sample scenarios are expected to pass Phase 1 strict validation and document future-phase exceptions.
+- [ ] Ensure `.modellable/`, `dist/`, `.venv/`, and generated TypeScript output directories are ignored unless explicitly documented otherwise.
+- [ ] Document the MVP quick-start workflow in `README.md`.
+- [ ] Document the known deferred commands and targets in CLI help.
+- [ ] Run the full test suite and sample smoke workflow from a clean checkout.
+
+**Acceptance checks:**
+
+```bash
+cd cli
+uv sync --extra dev --frozen
+uv run pytest --tb=short
+uv run modellable validate ../samples/scenarios/09-auto-projections --strict
+uv run modellable compile ../samples/scenarios/09-auto-projections --target json-schema --out ../dist/jsonschema
+uv run modellable compile ../samples/scenarios/09-auto-projections --target markdown --out ../dist/docs
+uv run modellable compile ../samples/scenarios/09-auto-projections --target typescript --out ../dist/types
+```
+
+## MVP Acceptance Matrix
+
+| System spec acceptance criterion | Milestone coverage |
+|---|---|
+| A domain can publish a model version. | Milestones 1, 2, 6 |
+| Another domain can define and publish a projection over that model. | Milestones 1, 2, 3, 6 |
+| The system can validate the projection before runtime. | Milestones 1, 3, 4, 6 |
+| The system can detect whether a model change breaks existing projections. | Milestone 4 |
+| The system can show lineage from projection fields to source fields. | Milestones 3, 6 |
+| The model and projection can be exported as JSON Schema and TypeScript types. | Milestones 5, 6 |
+| Unauthorized projection of restricted fields is rejected. | Milestone 4 |
+
+## Suggested Implementation Order
+
+1. Complete `idl-parser-implementation-plan.md` unchanged unless a contradiction with the current specs is found.
+2. Add local graph resolution and SQLite indexing before emitters.
+3. Add planner and lineage before compatibility and governance, because governance depends on resolved source fields.
+4. Add JSON Schema first, then Markdown, then TypeScript.
+5. Finish CLI workflows after internals are stable enough to avoid command-specific behavior forks.
+6. Harden with sample scenarios and clean-checkout CI.
+
+## Verification Policy
+
+Before claiming an MVP milestone complete:
+
+- Run the milestone-specific tests.
+- Run any CLI acceptance commands listed for the milestone.
+- Review generated artifacts for deterministic names, version metadata, lineage metadata, and absence of runtime-only commitments.
+- Check `git status --short` and avoid committing generated artifacts.
+
+Before claiming MVP complete:
+
+- Run the full CLI test suite.
+- Validate the curated MVP sample with `--strict`.
+- Compile JSON Schema, Markdown, and TypeScript from the curated MVP sample.
+- Confirm the generated JSON Schema validates with `jsonschema`.
+- Confirm unauthorized field projection tests fail with clear diagnostics.
+
+## Risks and Decisions to Track
+
+| Topic | Current decision | Risk |
+|---|---|---|
+| CEL implementation | Validate the MVP subset and extract lineage during Phase 1. | A full CEL parser may be larger than needed; keep the supported subset explicit. |
+| Published state | Use version declarations in `.mdl` as immutable published contracts for MVP. | A future publish workflow may add registry state, but must not mutate source files. |
+| Ownership syntax | Follow existing specs and preserve metadata in IR and artifacts. | The current `.mdl` grammar may need explicit ownership/access block syntax before governance is fully enforceable. |
+| TypeScript generation | Delegate to `json-schema-to-typescript`. | Requires Node or a package invocation strategy; document the dependency clearly. |
+| Samples | Some samples include future-phase constructs. | Strict MVP validation needs a curated sample or clear per-sample expectations. |
+
+## Out of Scope
+
+Do not add runtime adapters, streaming execution, materializers, external registries, catalog sync, LSP, or AI authoring commands while completing this MVP unless the product direction changes explicitly.

@@ -20,6 +20,7 @@ This directory contains the system specifications, design documents, and impleme
 | [platform-usage-scenarios-spec.md](platform-usage-scenarios-spec.md) | Phase 5 runtime deployment scenarios — warehouse, microservices, ML, compliance | external-tools-data-modelling.md |
 | [technology-evaluation.md](technology-evaluation.md) | Phase 5 runtime technology evaluation — CDC, streaming, materialization backends | external-tools-data-modelling.md |
 | [cli-tooling-spec.md](cli-tooling-spec.md) | Python development environment — uv, Hatchling, project layout, bootstrap script | cli-spec.md |
+| [mvp-implementation-plan.md](mvp-implementation-plan.md) | Phase 1 MVP delivery plan — milestones, acceptance checks, verification policy | modellable-system-spec.md, cli-spec.md, emitter-spec.md |
 | [idl-parser-implementation-plan.md](idl-parser-implementation-plan.md) | Step-by-step implementation guide for Phase 1 parser, IR, transformer, semantic validation, compiler | idl-design-spec.md, cli-tooling-spec.md |
 | [data-model-languages.md](data-model-languages.md) | Research — evaluated DSLs and expression languages (Smithy, TypeSpec, LinkML, CEL, etc.) | — |
 | [emitter-spec.md](emitter-spec.md) | Output target generation — JSON Schema, TypeScript, Avro, Protobuf, SQL DDL, AsyncAPI, Markdown | idl-design-spec.md, adapter-architecture-spec.md |

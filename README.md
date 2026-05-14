@@ -19,6 +19,7 @@ All documentation is located in the [docs/](docs/) directory.
 - [Platform Usage Scenarios](docs/platform-usage-scenarios-spec.md) — Common use cases and patterns.
 
 ### Current Implementation Plans
+- [MVP Implementation Plan](docs/mvp-implementation-plan.md) — Phase 1 delivery sequence and acceptance checks.
 - [IDL Parser, IR, and Validation](docs/idl-parser-implementation-plan.md) — Phase 1 implementation plan.
 
 ## Project Structure
