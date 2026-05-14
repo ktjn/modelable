@@ -102,7 +102,8 @@ A model version is an immutable schema and semantic contract for a model.
 
 Required properties:
 
-- `version`: Integer or semantic version.
+- `version`: Integer version number. Must be greater than the previous published version for the same model.
+- `changeKind`: `additive` or `breaking`. Required when `status` is `published`. Omit for `draft`. See section 8.1 for enforcement rules.
 - `status`: `draft`, `published`, `deprecated`, or `retired`.
 - `fields`: Field definitions.
 - `identity`: Identity fields for entities and aggregates.
@@ -115,10 +116,16 @@ Example:
 domain: customer
 model: Customer
 version: 2
+changeKind: additive
 status: published
 
+# single key
 identity:
   key: customerId
+
+# composite key (order line item example)
+# identity:
+#   key: [orderId, lineItemId]
 
 fields:
   customerId:
