@@ -768,7 +768,7 @@ The registry uses a **file-first, SQLite-indexed** storage model.
 
 SQLite is used because it provides efficient relational queries for lineage traversal, consumer lookup, and compatibility checks without requiring a server or any setup for local use.
 
-**Output layout (post-compile):**
+**Output layout (post-compile, local mode):**
 
 ```
 .modellable/
@@ -801,6 +801,32 @@ SQLite is used because it provides efficient relational queries for lineage trav
 - `access_policies`
 
 Published definitions are stored as complete immutable `.mdl` documents within the source files to preserve exact historical contracts. The SQLite index is derived from these documents, not the other way around.
+
+### 12.1 Distributed Mode
+
+When a `registry` block is present in `workspace.mdl`, the compiler operates in **distributed mode**. Two additional SQLite files and an append-only event log directory are created:
+
+```
+.modellable/
+  registry.db                          # owned domains — derived from .mdl files
+  mirror.db                            # read-only foreign model replicas
+  lineage.db                           # lineage index — derived from lineage-log/
+  lineage-log/
+    2026-05-14.ndjson                  # append-only lineage events (source of truth)
+  plans/
+    billing.BillingCustomer.v1.plan.json
+  artifacts/
+    billing/
+      BillingCustomer.v1.json
+      BillingCustomer.v1.ts
+      BillingCustomer.v1.md
+```
+
+The `lineage-log/` directory is the only artifact that must be committed to source control or backed up. All SQLite files are derived from `.mdl` source files plus the event log.
+
+Every published model version receives a **content signature** — a SHA-256 hash of the canonical model definition. The signature is stored on `model_versions` and included in cross-registry lineage edges, enabling tamper-evident, offline-verifiable lineage chains.
+
+See [distributed-lineage-spec.md](distributed-lineage-spec.md) for the full design: federation topology, event types, Merkle hash chain, peer sync modes, failure modes, and migration path.
 
 ## 13. APIs
 
@@ -955,6 +981,9 @@ See the [Modellable CLI Specification](cli-spec.md) for the full command referen
 - Visual modeling UI.
 - Automatic migration generation.
 - Kafka runtime provisioning, Redis materialisers, ClickHouse loaders, Feast, API gateways, dbt, Great Expectations, Soda.
+- Distributed registry peer server (registry API endpoint, mTLS, peer sync HTTP handlers) — Phase 2.
+- Lineage event streaming to Kafka / NATS JetStream — Phase 5.
+- Transparency log integration for checkpoint hash publication — Phase 3.
 
 ## 18. Non-Goals
 
@@ -983,7 +1012,7 @@ All design decisions have been resolved.
 - **Version scheme:** Integer versions with a required `changeKind: additive | breaking` declaration on publish. See section 8.1.
 - **Composite keys:** Supported in MVP. `identity.key` accepts a string (single field) or a list (composite). See section 3.3.
 - **Version ranges in projections:** Allowed in MVP. The planner resolves to the highest satisfying published version at plan time. See section 8.2.
-- **Registry storage:** File-first (YAML source of truth) with a SQLite derived index written by `compile`. See section 12.
+- **Registry storage:** File-first (`.mdl` source of truth) with a SQLite derived index written by `compile`. In distributed mode a `lineage-log/` NDJSON append-only log is the source of truth for cross-registry lineage, and `lineage.db` is derived from it. See section 12 and [distributed-lineage-spec.md](distributed-lineage-spec.md).
 - **Runtime plan execution:** Interpreted plan documents (structured JSON artifacts). Not generated code. See section 7.2.
 
 ## 20. Acceptance Criteria

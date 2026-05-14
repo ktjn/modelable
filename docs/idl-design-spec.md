@@ -329,7 +329,101 @@ LLM commands operate on `.mdl` text output — reviewable, diffable, committable
 
 ---
 
-## 6. Files to Create
+## 6. Registry Federation and Imports
+
+See [distributed-lineage-spec.md](distributed-lineage-spec.md) for the full design. This section covers only the IDL additions.
+
+### 6.1 `registry` Block in `workspace.mdl`
+
+A `registry` block turns the workspace into a named federation node.
+
+```mdl
+workspace "ecommerce-platform" {
+  description: "E-commerce platform registry."
+
+  registry {
+    id:       "billing-registry"
+    owns:     ["billing"]
+    endpoint: "https://reg.billing.example.com"
+  }
+
+  peers: [
+    { id: "customer-platform-registry", endpoint: "https://reg.customer-platform.example.com", sync: lazy  },
+    { id: "orders-registry",            endpoint: "https://reg.orders.example.com",            sync: eager }
+  ]
+
+  generate {
+    docs       -> "./generated/docs/"
+    typescript -> "./generated/types/"
+    jsonschema -> "./generated/jsonschema/"
+  }
+}
+```
+
+**`registry` block fields:**
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | Yes | Stable unique name for this node; used as `registryId` in lineage events. |
+| `owns` | Yes | Domains this node is authoritative for. |
+| `endpoint` | No | Base URL of this node's Registry API (required for peers to sync from this node). |
+
+**`peers` entry fields:**
+
+| Field | Required | Description |
+|---|---|---|
+| `id` | Yes | Peer registry identifier; used in `import … from registry "…"`. |
+| `endpoint` | Yes | Base URL of the peer's Registry API. |
+| `sync` | No | `eager`, `lazy` (default), or `pinned`. |
+| `auth` | No | `mtls`, `bearer`, or omit for unauthenticated local dev. |
+
+A workspace without a `registry` block operates in **local mode** (no event log, no peer syncs). This is the default and requires no migration from existing workspaces.
+
+### 6.2 `import domain` Declaration
+
+Makes a foreign domain available within the current workspace. Place these at the top of any `.mdl` file that references a foreign domain, before any `domain`, `projection`, or `binding` block.
+
+```mdl
+import domain customer from registry "customer-platform-registry"
+import domain orders   from registry "orders-registry"
+```
+
+A pinned import locks to a specific model version and content signature:
+
+```mdl
+import domain customer from registry "customer-platform-registry"
+  at customer.Customer@3#a3f8b2c1d4e5f6a7
+```
+
+The compiler rejects the import if the fetched model's content does not hash to the declared value.
+
+### 6.3 Content Signature Suffix in References
+
+Any `from … @` version reference may append `#<hash>` to lock to a specific content signature:
+
+```mdl
+projection BillingCustomer @ 1
+  from customer.Customer @ 2#a3f8b2c1d4e5f6a7 as c
+{
+  billingCustomerId  <- c.customerId
+  invoiceEmail       <- c.email
+}
+```
+
+The `#` suffix is optional in hand-authored files. The compiler always writes it into plan documents and lineage records.
+
+### 6.4 LSP Changes for Federation
+
+The language server is extended to:
+
+- Resolve `import domain … from registry "…"` by querying the local `mirror.db`.
+- Provide autocomplete for foreign model names, field names, and version numbers from the mirror.
+- Show a diagnostic warning when an import references a peer registry that is not declared in `workspace.mdl`.
+- Show a diagnostic error when a `#`-pinned reference does not match the mirrored model.
+
+---
+
+## 7. Files to Create
 
 | File | Purpose |
 |---|---|
@@ -339,10 +433,11 @@ LLM commands operate on `.mdl` text output — reviewable, diffable, committable
 | `cli/emitters/` | One module per output target |
 | `cli/lsp/` | pygls language server |
 | `editors/vscode/` | VS Code extension |
+| `cli/registry/` | Federation peer sync, lineage log writer, cross-registry edge push |
 
 ---
 
-## 7. Out of Scope for This Design
+## 8. Out of Scope for This Design
 
 - Subscription runtime execution (Phase 5)
 - Registry server integration (Phase 2)

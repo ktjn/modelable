@@ -1,0 +1,68 @@
+// orders-registry — authoritative source for the orders and shipping domains.
+// This file lives in the orders team's own repository.
+
+domain orders {
+  owner:   "orders-team"
+  contact: "platform@orders.example.com"
+  description: "Order lifecycle: placement, fulfilment, and cancellation. Cross-references customer identity from customer-platform-registry."
+
+  // The orders domain references customer.Customer from a foreign registry.
+  // The import declaration tells the compiler where to resolve it.
+  // (In a real file this import line appears at the top before the domain block.)
+
+  entity Order @ 3 (additive) {
+    @key  orderId:           uuid
+          customerId:        ref<customer.Customer>    // cross-registry reference
+          status:            enum(pending, confirmed, shipped, delivered, cancelled, refunded)
+          currencyCode:      string    // format: iso4217
+          subtotalCents:     int
+          taxCents:          int
+          shippingCents:     int
+          totalAmountCents:  int
+          placedAt:          timestamp
+          updatedAt:         timestamp
+  }
+
+  entity OrderLine @ 2 (additive) {
+    @key  lineId:            uuid
+          orderId:           ref<orders.Order>
+          productId:         uuid
+          productName:       string
+          quantityOrdered:   int
+          unitPriceCents:    int
+          lineTotalCents:    int
+  }
+
+  event OrderPlaced @ 1 {
+    @key  eventId:           uuid
+          orderId:           ref<orders.Order>
+          customerId:        ref<customer.Customer>
+          totalAmountCents:  int
+          placedAt:          timestamp
+  }
+
+  event OrderStatusChanged @ 1 {
+    @key  eventId:           uuid
+          orderId:           ref<orders.Order>
+          previousStatus:    string
+          newStatus:         string
+          occurredAt:        timestamp
+  }
+}
+
+domain shipping {
+  owner:   "orders-team"
+  contact: "platform@orders.example.com"
+  description: "Shipment tracking and delivery events."
+
+  entity Shipment @ 1 (additive) {
+    @key  shipmentId:        uuid
+          orderId:           ref<orders.Order>
+          carrier:           string
+          trackingNumber?:   string
+          estimatedDelivery: date
+          status:            enum(preparing, dispatched, in_transit, delivered, failed)
+          dispatchedAt?:     timestamp
+          deliveredAt?:      timestamp
+  }
+}

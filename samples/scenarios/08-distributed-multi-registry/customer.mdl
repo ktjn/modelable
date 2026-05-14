@@ -1,0 +1,32 @@
+// customer-platform-registry — authoritative source for the customer domain.
+// This file lives in the customer-platform team's own repository.
+// Other registries mirror it read-only; they never write to it.
+
+domain customer {
+  owner:   "customer-platform"
+  contact: "platform@customer.example.com"
+  description: "Customer identity and lifecycle. Source of truth for all customer-related data across the organisation."
+
+  entity Customer @ 3 (additive) {
+    @key  customerId:       uuid
+    @pii  email:            string
+    @pii  fullName:         string
+    @pii  phoneNumber?:     string
+          customerType:     enum(b2c, b2b)
+          countryCode:      string      // format: iso3166_alpha2
+          preferredLocale:  string      // format: bcp47
+          acquisitionDate:  date
+          status:           enum(prospect, active, churned, blocked)
+          createdAt:        timestamp
+          updatedAt:        timestamp
+  }
+
+  event CustomerStatusChanged @ 1 {
+    @key  eventId:          uuid
+          customerId:       ref<customer.Customer>
+          previousStatus:   string
+          newStatus:        string
+          reason?:          string
+          occurredAt:       timestamp
+  }
+}

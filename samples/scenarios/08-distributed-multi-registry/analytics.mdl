@@ -1,0 +1,133 @@
+// analytics-registry — owned by the analytics team.
+// Projects across customer (customer-platform-registry) and orders
+// (orders-registry) without those teams needing to coordinate.
+//
+// Each import pins the source to a specific model version and content
+// signature so the analytics team's build is reproducible and tamper-evident.
+// The compiler emits CrossRegistryRef lineage events for every field that
+// maps a foreign source, allowing each upstream registry to discover
+// which downstream projections depend on their models.
+
+import domain customer from registry "customer-platform-registry"
+  at customer.Customer@3#a3f8b2c1d4e5f6a7
+
+import domain orders   from registry "orders-registry"
+  at orders.Order@3#f9d2e1b3a4c5d6e7
+
+domain analytics {
+  owner:   "analytics-team"
+  contact: "data@analytics.example.com"
+  description: "Customer-order analytics projections. All source data is mirrored read-only from upstream registries. Lineage is tracked across registry boundaries via the distributed lineage event log."
+
+  // ── CustomerOrderSummary ──────────────────────────────────────────
+  // Denormalised view combining customer identity with order aggregates.
+  // Used by the data warehouse and BI tools.
+  // Cross-registry lineage edges: customer.Customer@3, orders.Order@3
+
+  aggregate CustomerOrderSummary @ 1 (additive) {
+    @key  customerId:           uuid
+          email:                string      // @pii propagated from customer.Customer
+          fullName:             string      // @pii propagated from customer.Customer
+          customerType:         enum(b2c, b2b)
+          countryCode:          string
+          acquisitionDate:      date
+          customerStatus:       enum(prospect, active, churned, blocked)
+          totalOrderCount:      int
+          completedOrderCount:  int
+          totalSpentCents:      int
+          averageOrderCents:    int
+          firstOrderAt?:        timestamp
+          lastOrderAt?:         timestamp
+          lastUpdatedAt:        timestamp
+  }
+
+  // ── DailyOrderMetrics ────────────────────────────────────────────
+  // Pre-aggregated daily order volume and revenue for dashboard queries.
+  // Cross-registry lineage edges: orders.Order@3
+
+  aggregate DailyOrderMetrics @ 1 (additive) {
+    @key  metricDate:           date
+    @key  countryCode:          string
+          ordersPlaced:         int
+          ordersDelivered:      int
+          ordersCancelled:      int
+          grossRevenueCents:    int
+          netRevenueCents:      int
+          averageOrderCents:    int
+  }
+
+  // ── OrderFulfilmentView ───────────────────────────────────────────
+  // Tracks fulfilment lifecycle per order for SLA monitoring.
+  // Cross-registry lineage edges: orders.Order@3, shipping.Shipment@1
+
+  aggregate OrderFulfilmentView @ 1 (additive) {
+    @key  orderId:              uuid
+          customerId:           uuid
+          orderStatus:          string
+          orderPlacedAt:        timestamp
+          shipmentStatus?:      string
+          estimatedDelivery?:   date
+          dispatchedAt?:        timestamp
+          deliveredAt?:         timestamp
+          fulfilmentSlaHours?:  int     // hours between placedAt and deliveredAt
+  }
+}
+
+// ── Projections ────────────────────────────────────────────────────
+// Projections that produce the aggregates above from cross-registry sources.
+// Each <- mapping produces a FieldMapped or CrossRegistryRef lineage event.
+
+projection CustomerOrderSummary @ 1
+  from customer.Customer @ 3#a3f8b2c1d4e5f6a7 as c
+  join orders.Order @ 3#f9d2e1b3a4c5d6e7 as o
+    on o.customerId == c.customerId
+  group by c.customerId
+{
+  customerId          <- c.customerId
+  email               <- c.email
+  fullName            <- c.fullName
+  customerType        <- c.customerType
+  countryCode         <- c.countryCode
+  acquisitionDate     <- c.acquisitionDate
+  customerStatus      <- c.status
+  totalOrderCount      = count(o.orderId)
+  completedOrderCount  = count(o.orderId) where o.status == "delivered"
+  totalSpentCents      = sum(o.totalAmountCents)
+  averageOrderCents    = avg(o.totalAmountCents)
+  firstOrderAt         = min(o.placedAt)
+  lastOrderAt          = max(o.placedAt)
+  lastUpdatedAt        = max(o.updatedAt, c.updatedAt)
+}
+
+projection DailyOrderMetrics @ 1
+  from orders.Order @ 3#f9d2e1b3a4c5d6e7 as o
+  join customer.Customer @ 3#a3f8b2c1d4e5f6a7 as c
+    on c.customerId == o.customerId
+  group by date(o.placedAt), c.countryCode
+{
+  metricDate          = date(o.placedAt)
+  countryCode         <- c.countryCode
+  ordersPlaced         = count(o.orderId)
+  ordersDelivered      = count(o.orderId) where o.status == "delivered"
+  ordersCancelled      = count(o.orderId) where o.status == "cancelled"
+  grossRevenueCents    = sum(o.totalAmountCents)
+  netRevenueCents      = sum(o.totalAmountCents) where o.status != "refunded"
+  averageOrderCents    = avg(o.totalAmountCents)
+}
+
+projection OrderFulfilmentView @ 1
+  from orders.Order @ 3#f9d2e1b3a4c5d6e7 as o
+  join shipping.Shipment @ 1 as s
+    on s.orderId == o.orderId
+    cardinality: one-to-one
+{
+  orderId             <- o.orderId
+  customerId          <- o.customerId
+  orderStatus         <- o.status
+  orderPlacedAt       <- o.placedAt
+  shipmentStatus      <- s.status
+  estimatedDelivery   <- s.estimatedDelivery
+  dispatchedAt        <- s.dispatchedAt
+  deliveredAt         <- s.deliveredAt
+  fulfilmentSlaHours   = duration_hours(o.placedAt, s.deliveredAt)
+}

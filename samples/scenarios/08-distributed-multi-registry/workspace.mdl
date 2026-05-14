@@ -1,0 +1,51 @@
+// Scenario 08 — Distributed multi-registry with cross-team lineage
+//
+// Three independent teams each own a registry node:
+//
+//   customer-platform-registry  →  owns: customer
+//   orders-registry             →  owns: orders, shipping
+//   analytics-registry          →  owns: analytics
+//
+// The analytics team projects from both customer and orders without
+// any central coordinator. Lineage flows across registry boundaries
+// via the append-only lineage event log.
+//
+// Each team's workspace.mdl is shown below. In a real deployment these
+// would live in separate repositories. They are co-located here for
+// illustration only.
+
+// ─────────────────────────────────────────────────────────────────────
+// analytics-registry/workspace.mdl  (the "consuming" registry)
+// ─────────────────────────────────────────────────────────────────────
+
+workspace "analytics-platform" {
+  description: "Analytics registry — projects across customer and orders without owning either source domain."
+
+  registry {
+    id:       "analytics-registry"
+    owns:     ["analytics"]
+    endpoint: "https://reg.analytics.example.com"
+  }
+
+  peers: [
+    {
+      id:       "customer-platform-registry"
+      endpoint: "https://reg.customer-platform.example.com"
+      sync:     eager
+      auth:     "mtls"
+    },
+    {
+      id:       "orders-registry"
+      endpoint: "https://reg.orders.example.com"
+      sync:     eager
+      auth:     "mtls"
+    }
+  ]
+
+  generate {
+    docs         -> "./generated/docs/"
+    typescript   -> "./generated/types/"
+    jsonschema   -> "./generated/jsonschema/"
+    sql(postgres) -> "./generated/sql/"
+  }
+}
