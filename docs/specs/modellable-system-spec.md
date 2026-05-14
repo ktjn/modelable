@@ -803,9 +803,29 @@ All generated artifacts must include model version metadata.
 
 ## 12. Storage Model for Registry
 
-The registry should be persisted using relational tables or equivalent collections.
+The registry uses a **file-first, SQLite-indexed** storage model.
 
-Minimum logical entities:
+**Source of truth: YAML files on disk.** Authors write and version-control YAML definition files. The registry never modifies these files. All definitions live in source control alongside application code.
+
+**Derived index: SQLite.** The `modellable compile` command reads all YAML files and writes a derived `registry.db` (SQLite) file to the `.modellable/` output directory. The database is a build artifact — never edited directly. Deleting it and re-running `compile` must produce an identical result.
+
+SQLite is used because it provides efficient relational queries for lineage traversal, consumer lookup, and compatibility checks without requiring a server or any setup for local use.
+
+**Output layout (post-compile):**
+
+```
+.modellable/
+  registry.db                          # derived — rebuilt by `modellable compile`
+  plans/
+    customer.Customer.v2.plan.json     # interpreted plan document
+  artifacts/
+    customer/
+      Customer.v2.json                 # generated JSON Schema
+      Customer.v2.md                   # generated Markdown
+      Customer.v2.ts                   # generated TypeScript types
+```
+
+**Minimum logical entities in `registry.db`:**
 
 - `domains`
 - `models`
@@ -823,7 +843,7 @@ Minimum logical entities:
 - `lineage_edges`
 - `access_policies`
 
-Published definitions should also be stored as complete immutable documents to preserve exact historical contracts.
+Published definitions are also stored as complete immutable YAML documents within the source files to preserve exact historical contracts. The SQLite index is derived from these documents, not the other way around.
 
 ## 13. APIs
 
