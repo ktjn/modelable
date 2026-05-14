@@ -1,6 +1,6 @@
 # Sample Scenarios
 
-This directory contains six complete sample scenarios — one for each Modellable platform type. Each scenario is now defined using the canonical **Modellable IDL (`.mdl`)** format, demonstrating production-realistic definitions across multiple domains.
+This directory contains seven complete sample scenarios covering a range of Modellable platform types and architectural patterns. Each scenario is defined using the canonical **Modellable IDL (`.mdl`)** format, demonstrating production-realistic definitions across multiple domains.
 
 Use these as a starting point for your own definitions or validate them with the CLI (`modellable validate scenarios/<id>/`).
 
@@ -16,6 +16,7 @@ Use these as a starting point for your own definitions or validate them with the
 | 4 | `04-credit-risk-feature-store` | Credit Risk ML Feature Store | ML Feature Store | High |
 | 5 | `05-partner-marketplace-api` | Partner Marketplace API | API Consumer | High |
 | 6 | `06-gdpr-compliance-audit` | GDPR Compliance and Immutable Audit Trail | Audit & Compliance | High |
+| 7 | `07-multi-system-master-data` | Enterprise Multi-System Master Data Architecture | Master Data / Data Platform | Very High |
 
 ---
 
@@ -116,6 +117,25 @@ Domains: `compliance`, `customer`, `billing`, `audit`
 
 ---
 
+### 7. Enterprise Multi-System Master Data Architecture (`scenarios/07-multi-system-master-data/`)
+
+Six authoritative source systems — CRM, IAM, PIM, CPQ, WMS, and PSP — each own a slice of the enterprise master record. They share data through cross-domain `ref<>` links rather than point-to-point APIs. A thin `orders` domain acts as the shared joining point. An ODS layer consolidates these systems into near-real-time operational views for checkout, support, and operations. A ClickHouse data mart provides pre-aggregated facts and snapshots for BI and ML.
+
+Key techniques demonstrated:
+- Six authoritative source systems with explicit cross-domain `ref<>` links (CRM → CPQ tier, PIM → CPQ pricing, WMS → PIM stock, PSP → CRM customer)
+- Loose coupling via `orderId: uuid` where circular domain deps would otherwise arise (WMS and PSP reference orders by UUID rather than `ref<orders.Order>`)
+- ODS read-optimised views materialised as `upsert` into PostgreSQL: `ProductAvailabilityView`, `TierPricingView`, `CustomerSalesView`, `OrderSupportView`, `LowStockAlertView`, `SalesRepWorkloadView`
+- Separation of ODS (operational, minutes-lag, PostgreSQL) from data mart (analytical, ClickHouse) with distinct materialisation strategies per layer
+- Data mart with five distinct fact/snapshot patterns: `append` (sales, logistics), `snapshot` (inventory, customer segments), `overwrite_partition` (pricing effectiveness)
+- HMAC pseudonymisation of customer PII before any data mart landing
+- RFM scoring and churn-risk signal computed entirely in CEL within `CustomerValueSegmentFact`
+- Price change audit as an append-only fact table (`PriceChangeAuditFact`) for regulatory traceability
+- Multi-binding workspace: PostgreSQL ODS + ClickHouse mart + Redis checkout cache + Kafka CDC stream + S3 lake archive
+
+Domains: `crm`, `iam`, `pim`, `cpq`, `wms`, `psp`, `orders`, `ods`, `datamart`
+
+---
+
 ## File Structure
 
 Each scenario is organized by domain, with a `workspace.mdl` file defining global configuration:
@@ -128,6 +148,19 @@ scenarios/01-ecommerce-data-warehouse/
   ├── payments.mdl       # Payments domain & models
   ├── analytics.mdl      # Analytics domain & projections
   └── bindings.mdl       # Adapter bindings
+
+scenarios/07-multi-system-master-data/
+  ├── workspace.mdl      # Workspace configuration & generation targets
+  ├── crm.mdl            # Customer & Account master (source of truth for identity)
+  ├── iam.mdl            # Internal User master (employees, roles, org hierarchy)
+  ├── pim.mdl            # Product master (catalogue, variants, physical attributes)
+  ├── cpq.mdl            # Pricing master (tiers, price lists, discount rules)
+  ├── wms.mdl            # Logistics master (warehouses, stock levels, shipments)
+  ├── psp.mdl            # Payment master (instruments, transactions, refunds)
+  ├── orders.mdl         # Thin shared order domain (joins all six masters)
+  ├── ods.mdl            # ODS read-optimised views (PostgreSQL, near-real-time)
+  ├── datamart.mdl       # Analytics facts & snapshots (ClickHouse data mart/lake)
+  └── bindings.mdl       # PostgreSQL ODS + ClickHouse mart + Redis + Kafka + S3
 ```
 
 ## Using with the CLI

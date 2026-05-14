@@ -1,0 +1,37 @@
+domain orders {
+  owner: "commerce-team"
+  contact: "commerce@example.com"
+  description: "Order lifecycle: shared reference domain linking all six master systems. An order ties together a CRM customer, a CPQ price tier, PIM products, WMS shipments, and PSP payments. Kept deliberately thin; each master system owns its own slice of the order context."
+
+  entity Order @ 2 (additive) {
+    @key             orderId:              uuid
+                     customerId:           ref<crm.Customer>
+                     accountId?:           ref<crm.Account>       // B2B orders against a corporate account
+                     assignedSalesRepId?:  ref<iam.InternalUser>  // populated for sales-assisted orders
+                     priceTierId:          ref<cpq.PriceTier>     // tier active at time of order creation
+                     status:               enum(draft, submitted, confirmed, in_fulfillment, shipped, delivered, cancelled, refunded)
+                     currencyCode:         string    // format: iso4217
+                     subtotalCents:        int
+                     discountCents:        int = 0
+                     shippingCostCents:    int = 0
+                     taxCents:             int = 0
+                     totalAmountCents:     int
+                     channelCode:          enum(web, mobile_ios, mobile_android, sales_portal, api, in_store, edi)
+                     createdAt:            timestamp
+                     confirmedAt?:         timestamp
+                     cancelledAt?:         timestamp
+  }
+
+  entity OrderLineItem @ 1 (additive) {
+    @key             lineItemId:           uuid
+                     orderId:              ref<orders.Order>
+                     productId:            ref<pim.Product>
+                     variantId?:           ref<pim.ProductVariant>
+                     priceListEntryId?:    ref<cpq.PriceListEntry>  // which CPQ entry was applied
+                     quantity:             int
+                     unitPriceCents:       int
+                     listPriceCents:       int
+                     discountCents:        int = 0
+                     lineTotalCents:       int
+  }
+}

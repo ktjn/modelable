@@ -1,0 +1,257 @@
+domain datamart {
+  owner: "analytics-team"
+  contact: "analytics@example.com"
+  description: "Analytics data mart and lake: pre-aggregated fact tables and dimensional snapshots materialised into ClickHouse for BI, executive reporting, and ML feature extraction. All PII is pseudonymised before landing. Grain and materialisation strategy are declared per projection."
+
+  // ---------------------------------------------------------------------------
+  // Sales performance fact — line-item grain
+  // Core revenue fact table joining all six master systems. One row per order
+  // line item on a confirmed, shipped, or delivered order with a captured payment.
+  // Append-only; historical corrections are handled as new correction rows.
+  // ---------------------------------------------------------------------------
+  projection SalesPerformanceFact @ 1
+    from orders.OrderLineItem @ 1 as li
+    join orders.Order @ 2 as ord on li.orderId == ord.orderId
+    join pim.Product @ 3 as prod on li.productId == prod.productId
+    join crm.Customer @ 2 as cust on ord.customerId == cust.customerId
+    join cpq.PriceTier @ 1 as tier on ord.priceTierId == tier.priceTierId
+    left join iam.InternalUser @ 2 as rep on ord.assignedSalesRepId == rep.userId
+    left join psp.PaymentTransaction @ 2 as pay on ord.orderId == pay.orderId
+    where ord.status in ["confirmed", "shipped", "delivered"] && pay.status == "captured"
+  {
+    lineItemId                  <- li.lineItemId
+    orderId                     <- ord.orderId
+    customerIdHash              = hmac_sha256(cust.customerId, env.PII_HMAC_SECRET)
+    customerType                <- cust.customerType
+    customerCountryCode         <- cust.countryCode
+    acquisitionChannel          <- cust.acquisitionChannel
+    accountId                   <- ord.accountId
+    repUserId                   <- ord.assignedSalesRepId
+    repRegion                   <- rep.region
+    repDepartment               <- rep.department
+    tierCode                    <- tier.tierCode
+    productId                   <- li.productId
+    productSku                  <- prod.sku
+    productBrand                <- prod.brand
+    productCategory             <- prod.category
+    productSubcategory          <- prod.subcategory
+    taxClass                    <- prod.taxClass
+    isDigital                   <- prod.isDigital
+    channelCode                 <- ord.channelCode
+    currencyCode                <- ord.currencyCode
+    orderDate                   = truncate(ord.confirmedAt, "day")
+    orderWeek                   = truncate(ord.confirmedAt, "week")
+    orderMonth                  = truncate(ord.confirmedAt, "month")
+    quantity                    <- li.quantity
+    listPriceCents              <- li.listPriceCents
+    unitPriceCents              <- li.unitPriceCents
+    discountCents               <- li.discountCents
+    lineTotalCents              <- li.lineTotalCents
+    effectiveMarginBps          = li.listPriceCents > 0
+                                    ? round((li.lineTotalCents * 10000.0) / (li.listPriceCents * li.quantity))
+                                    : 0
+    paymentAmountCents          <- pay.amountCents
+    capturedAt                  <- pay.capturedAt
+
+    materialisation {
+      strategy:  append
+      binding:   "clickhouse-datamart-sink"
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Inventory daily snapshot — product × warehouse grain
+  // Nightly capture of stock levels for trend analysis, stockout modelling,
+  // and demand forecasting. Physical products only.
+  // ---------------------------------------------------------------------------
+  projection InventoryDailySnapshot @ 1
+    from wms.StockLevel @ 2 as stock
+    join pim.Product @ 3 as prod on stock.productId == prod.productId
+    join wms.Warehouse @ 1 as wh on stock.warehouseId == wh.warehouseId
+    where prod.isActive == true && prod.isDigital == false
+  {
+    snapshotDate                = truncate(now(), "day")
+    warehouseId                 <- stock.warehouseId
+    warehouseCode               <- wh.warehouseCode
+    warehouseRegion             <- wh.region
+    warehouseCountryCode        <- wh.countryCode
+    productId                   <- stock.productId
+    productSku                  <- prod.sku
+    productCategory             <- prod.category
+    productBrand                <- prod.brand
+    supplierId                  <- prod.supplierId
+    quantityOnHand              <- stock.quantityOnHand
+    quantityReserved            <- stock.quantityReserved
+    quantityAvailable           <- stock.quantityAvailable
+    reorderPoint                <- stock.reorderPoint
+    isBelowReorder              = stock.quantityAvailable <= stock.reorderPoint
+    isStockedOut                = stock.quantityAvailable <= 0
+
+    materialisation {
+      strategy:    snapshot
+      snapshotAt:  "00:00 UTC"
+      binding:     "clickhouse-datamart-sink"
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Logistics performance fact — shipment grain
+  // Carrier and SLA analytics for terminal shipments (delivered, failed, returned).
+  // Enables on-time delivery rate by carrier, service level, and region.
+  // ---------------------------------------------------------------------------
+  projection LogisticsPerformanceFact @ 1
+    from wms.Shipment @ 2 as ship
+    join wms.Warehouse @ 1 as wh on ship.fromWarehouseId == wh.warehouseId
+    join crm.Customer @ 2 as cust on ship.customerId == cust.customerId
+    where ship.status in ["delivered", "failed", "returned"]
+  {
+    shipmentId                  <- ship.shipmentId
+    orderId                     <- ship.orderId
+    customerType                <- cust.customerType
+    customerCountryCode         <- cust.countryCode
+    fromWarehouseId             <- ship.fromWarehouseId
+    warehouseCode               <- wh.warehouseCode
+    warehouseRegion             <- wh.region
+    carrier                     <- ship.carrier
+    serviceLevel                <- ship.serviceLevel
+    finalStatus                 <- ship.status
+    shippingCostCents           <- ship.shippingCostCents
+    estimatedWeightGrams        <- ship.estimatedWeightGrams
+    dispatchedDate              = truncate(ship.dispatchedAt, "day")
+    deliveredDate               = truncate(ship.deliveredAt, "day")
+    transitDays                 = ship.deliveredAt != null
+                                    ? date_diff("day", ship.dispatchedAt, ship.deliveredAt)
+                                    : null
+    deliveredOnTime             = ship.estimatedDeliveryAt != null && ship.deliveredAt != null
+                                    ? ship.deliveredAt <= ship.estimatedDeliveryAt
+                                    : null
+    wasReturned                 = ship.status == "returned"
+    wasFailed                   = ship.status == "failed"
+
+    materialisation {
+      strategy:  append
+      binding:   "clickhouse-datamart-sink"
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pricing effectiveness fact — month × category × tier grain
+  // Pre-aggregated rollup for pricing strategy and promotional analysis.
+  // Shows discount depth, revenue impact, and margin leakage per tier and period.
+  // Overwrites the partition on recompute so late-arriving orders are included.
+  // ---------------------------------------------------------------------------
+  projection PricingEffectivenessFact @ 1
+    from orders.OrderLineItem @ 1 as li
+    join orders.Order @ 2 as ord on li.orderId == ord.orderId
+    join pim.Product @ 3 as prod on li.productId == prod.productId
+    join cpq.PriceTier @ 1 as tier on ord.priceTierId == tier.priceTierId
+    where ord.status in ["confirmed", "shipped", "delivered"]
+    group by orderMonth, prod.category, prod.brand, tier.tierCode, tier.tierName
+  {
+    orderMonth                  = truncate(ord.confirmedAt, "month")
+    productCategory             <- prod.category
+    productBrand                <- prod.brand
+    tierCode                    <- tier.tierCode
+    tierName                    <- tier.tierName
+    orderCount                  = count_distinct(ord.orderId)
+    lineItemCount               = count(li.lineItemId)
+    totalQuantity               = sum(li.quantity)
+    totalListValueCents         = sum(li.listPriceCents * li.quantity)
+    totalSoldValueCents         = sum(li.lineTotalCents)
+    totalDiscountCents          = sum(li.discountCents)
+    avgDiscountBps              = sum(li.listPriceCents * li.quantity) > 0
+                                    ? round(sum(li.discountCents) * 10000.0
+                                            / sum(li.listPriceCents * li.quantity))
+                                    : 0
+
+    materialisation {
+      strategy:         overwrite_partition
+      partitionBy:      "orderMonth"
+      binding:          "clickhouse-datamart-sink"
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Customer value segmentation snapshot — customer grain
+  // RFM-style lifetime value and churn-risk signals for marketing, retention,
+  // and tier upgrade campaigns. PII pseudonymised; safe to share with ML teams.
+  // ---------------------------------------------------------------------------
+  projection CustomerValueSegmentFact @ 1
+    from crm.Customer @ 2 as cust
+    left join orders.Order @ 2 as ord on cust.customerId == ord.customerId
+    left join psp.PaymentTransaction @ 2 as pay on ord.orderId == pay.orderId
+    left join cpq.PriceTier @ 1 as tier on cust.priceTierId == tier.priceTierId
+    group by cust.customerId, cust.customerType, cust.countryCode,
+             cust.defaultCurrencyCode, cust.acquisitionChannel,
+             cust.acquisitionDate, tier.tierCode
+  {
+    customerIdHash              = hmac_sha256(cust.customerId, env.PII_HMAC_SECRET)
+    customerType                <- cust.customerType
+    countryCode                 <- cust.countryCode
+    defaultCurrencyCode         <- cust.defaultCurrencyCode
+    acquisitionChannel          <- cust.acquisitionChannel
+    acquisitionCohortMonth      = truncate(cust.acquisitionDate, "month")
+    tierCode                    <- tier.tierCode
+    totalOrderCount             = count(ord.orderId)
+    completedOrderCount         = countif(ord.status in ["shipped", "delivered"])
+    cancelledOrderCount         = countif(ord.status == "cancelled")
+    lifetimeRevenueCents        = sum(pay.amountCents) where pay.status == "captured"
+    avgOrderValueCents          = avg(ord.totalAmountCents)
+                                    where ord.status in ["confirmed", "shipped", "delivered"]
+    firstOrderDate              = min(ord.confirmedAt)
+    lastOrderDate               = max(ord.confirmedAt)
+    daysSinceLastOrder          = date_diff("day", max(ord.confirmedAt), now())
+    rfmRecencyScore             = date_diff("day", max(ord.confirmedAt), now()) <= 30  ? 5
+                                : date_diff("day", max(ord.confirmedAt), now()) <= 90  ? 4
+                                : date_diff("day", max(ord.confirmedAt), now()) <= 180 ? 3
+                                : date_diff("day", max(ord.confirmedAt), now()) <= 365 ? 2
+                                : 1
+    isAtChurnRisk               = date_diff("day", max(ord.confirmedAt), now()) > 90
+                                    && countif(ord.status in ["confirmed", "shipped", "delivered"]) >= 2
+
+    materialisation {
+      strategy:    snapshot
+      snapshotAt:  "02:00 UTC"
+      binding:     "clickhouse-datamart-sink"
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Price change audit fact — append-only pricing history
+  // Captures every CPQ price change event for audit, regulatory review, and
+  // price elasticity analysis. Joins to PIM and IAM for full context.
+  // ---------------------------------------------------------------------------
+  projection PriceChangeAuditFact @ 1
+    from cpq.PriceListEntryChanged @ 1 as evt
+    join pim.Product @ 3 as prod on evt.productId == prod.productId
+    join cpq.PriceTier @ 1 as tier on evt.priceTierId == tier.priceTierId
+    join iam.InternalUser @ 2 as changer on evt.changedByUserId == changer.userId
+  {
+    eventId                     <- evt.eventId
+    entryId                     <- evt.entryId
+    productId                   <- evt.productId
+    productSku                  <- prod.sku
+    productBrand                <- prod.brand
+    productCategory             <- prod.category
+    priceTierId                 <- evt.priceTierId
+    tierCode                    <- tier.tierCode
+    currencyCode                <- evt.currencyCode
+    previousUnitPriceCents      <- evt.previousUnitPriceCents
+    newUnitPriceCents           <- evt.newUnitPriceCents
+    priceChangeBps              = evt.previousUnitPriceCents > 0
+                                    ? round((evt.newUnitPriceCents - evt.previousUnitPriceCents)
+                                            * 10000.0 / evt.previousUnitPriceCents)
+                                    : 0
+    changedByUserId             <- evt.changedByUserId
+    changerDepartment           <- changer.department
+    changerRole                 <- changer.role
+    changedAt                   <- evt.occurredAt
+    changedDate                 = truncate(evt.occurredAt, "day")
+    changedMonth                = truncate(evt.occurredAt, "month")
+
+    materialisation {
+      strategy:  append
+      binding:   "clickhouse-datamart-sink"
+    }
+  }
+}
