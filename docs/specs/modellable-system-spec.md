@@ -51,7 +51,7 @@ All derived data must be declared. Field renames, type conversions, computed fie
 
 Modellable is designed to wrap existing systems. It should not require a "rip and replace" of current infrastructure, but rather provide the mapping layer that makes existing data "modellable" and traceable.
 
-### 2.5 Compatibility Before Runtime
+### 2.7 Compatibility Before Runtime
 
 The system should reject invalid or incompatible definitions before runtime when possible. Runtime failures should be reserved for operational issues such as unavailable streams, write conflicts, bad source payloads, or adapter outages.
 
