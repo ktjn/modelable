@@ -1,0 +1,12 @@
+// Written by the analytics-registry compiler during `modellable compile`.
+// Committed to this repo (customer-platform-registry) by the CLI write-back.
+// Do not edit by hand.
+
+consumer {
+  registry:   "analytics-registry"
+  projection: "analytics.DailyOrderMetrics@1"
+  uses: [
+    "customer.Customer@3#a3f8b2c1d4e5f6a7"
+  ]
+  registeredAt: "2026-05-14T09:06:00Z"
+}

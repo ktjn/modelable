@@ -1,51 +1,59 @@
 // Scenario 08 — Distributed multi-registry with cross-team lineage
 //
-// Three independent teams each own a registry node:
+// Three independent teams each own a registry node (git repository):
 //
 //   customer-platform-registry  →  owns: customer
 //   orders-registry             →  owns: orders, shipping
 //   analytics-registry          →  owns: analytics
 //
-// The analytics team projects from both customer and orders without
-// any central coordinator. Lineage flows across registry boundaries
-// via the append-only lineage event log.
+// The analytics team imports from both upstream repos. The topology is a DAG:
 //
-// Each team's workspace.mdl is shown below. In a real deployment these
-// would live in separate repositories. They are co-located here for
-// illustration only.
-
-// ─────────────────────────────────────────────────────────────────────
-// analytics-registry/workspace.mdl  (the "consuming" registry)
-// ─────────────────────────────────────────────────────────────────────
+//   customer-platform-registry
+//         ↓
+//   orders-registry          (orders domain refs customer.Customer)
+//         ↓
+//   analytics-registry       (projects across customer + orders)
+//
+// On every `modellable compile` the CLI:
+//   1. Builds the graph from this file and import declarations
+//   2. Topologically sorts the dependency order
+//   3. git-fetches each peer in order (customer first, then orders)
+//   4. Verifies content signatures on pinned imports
+//   5. Compiles projections against the mirrored models
+//   6. Appends CrossRegistryRef events to lineage-log/
+//   7. Writes consumers/ entries back to each peer repo
+//
+// No running server is required.
 
 workspace "analytics-platform" {
   description: "Analytics registry — projects across customer and orders without owning either source domain."
 
   registry {
-    id:       "analytics-registry"
-    owns:     ["analytics"]
-    endpoint: "https://reg.analytics.example.com"
+    id:   "analytics-registry"
+    owns: ["analytics"]
   }
 
   peers: [
     {
-      id:       "customer-platform-registry"
-      endpoint: "https://reg.customer-platform.example.com"
-      sync:     eager
-      auth:     "mtls"
+      id:        "customer-platform-registry"
+      git:       "git@github.com:acme/customer-models.git"
+      branch:    "main"
+      sync:      eager
+      writeback: pr
     },
     {
-      id:       "orders-registry"
-      endpoint: "https://reg.orders.example.com"
-      sync:     eager
-      auth:     "mtls"
+      id:        "orders-registry"
+      git:       "git@github.com:acme/orders-models.git"
+      branch:    "main"
+      sync:      eager
+      writeback: commit
     }
   ]
 
   generate {
-    docs         -> "./generated/docs/"
-    typescript   -> "./generated/types/"
-    jsonschema   -> "./generated/jsonschema/"
+    docs          -> "./generated/docs/"
+    typescript    -> "./generated/types/"
+    jsonschema    -> "./generated/jsonschema/"
     sql(postgres) -> "./generated/sql/"
   }
 }

@@ -331,25 +331,36 @@ LLM commands operate on `.mdl` text output — reviewable, diffable, committable
 
 ## 6. Registry Federation and Imports
 
-See [distributed-lineage-spec.md](distributed-lineage-spec.md) for the full design. This section covers only the IDL additions.
+See [distributed-lineage-spec.md](distributed-lineage-spec.md) for the full design. This section covers only the IDL syntax.
 
 ### 6.1 `registry` Block in `workspace.mdl`
 
-A `registry` block turns the workspace into a named federation node.
+A `registry` block turns the workspace into a named node in the federation graph. Peers are other git repositories that own domains this workspace depends on.
 
 ```mdl
-workspace "ecommerce-platform" {
-  description: "E-commerce platform registry."
+workspace "analytics-platform" {
+  description: "Analytics registry — projects across customer and orders."
 
   registry {
-    id:       "billing-registry"
-    owns:     ["billing"]
-    endpoint: "https://reg.billing.example.com"
+    id:   "analytics-registry"
+    owns: ["analytics"]
   }
 
   peers: [
-    { id: "customer-platform-registry", endpoint: "https://reg.customer-platform.example.com", sync: lazy  },
-    { id: "orders-registry",            endpoint: "https://reg.orders.example.com",            sync: eager }
+    {
+      id:        "customer-platform-registry"
+      git:       "git@github.com:acme/customer-models.git"
+      branch:    "main"
+      sync:      eager
+      writeback: pr
+    },
+    {
+      id:        "orders-registry"
+      git:       "git@github.com:acme/orders-models.git"
+      branch:    "main"
+      sync:      eager
+      writeback: commit
+    }
   ]
 
   generate {
@@ -364,24 +375,24 @@ workspace "ecommerce-platform" {
 
 | Field | Required | Description |
 |---|---|---|
-| `id` | Yes | Stable unique name for this node; used as `registryId` in lineage events. |
+| `id` | Yes | Stable unique name for this node. Used as `registryId` in lineage events and as the directory name written into peer `consumers/` trees. |
 | `owns` | Yes | Domains this node is authoritative for. |
-| `endpoint` | No | Base URL of this node's Registry API (required for peers to sync from this node). |
 
 **`peers` entry fields:**
 
 | Field | Required | Description |
 |---|---|---|
-| `id` | Yes | Peer registry identifier; used in `import … from registry "…"`. |
-| `endpoint` | Yes | Base URL of the peer's Registry API. |
-| `sync` | No | `eager`, `lazy` (default), or `pinned`. |
-| `auth` | No | `mtls`, `bearer`, or omit for unauthenticated local dev. |
+| `id` | Yes | Peer registry identifier. Must match the peer's own `registry.id`. Used in `import … from registry "…"`. |
+| `git` | Yes | Git remote URL. The CLI runs `git fetch` against this remote to sync the mirror. Authentication uses the host machine's git credential configuration. |
+| `branch` | No | Branch to track. Default: `main`. |
+| `sync` | No | `eager` — sync on every `compile`; `lazy` — sync on first reference (default); `pinned` — never sync, always use local mirror. |
+| `writeback` | No | How consumer entries are pushed back to the peer: `commit` — push directly; `pr` — open a pull request via the git hosting API; `none` — skip. Default: `commit`. |
 
-A workspace without a `registry` block operates in **local mode** (no event log, no peer syncs). This is the default and requires no migration from existing workspaces.
+A workspace without a `registry` block operates in **local mode** — no sync, no write-back, no lineage log. This is the default for single-team workspaces and requires no migration.
 
 ### 6.2 `import domain` Declaration
 
-Makes a foreign domain available within the current workspace. Place these at the top of any `.mdl` file that references a foreign domain, before any `domain`, `projection`, or `binding` block.
+Placed at the top of any `.mdl` file that references a foreign domain, before any `domain`, `projection`, or `binding` block.
 
 ```mdl
 import domain customer from registry "customer-platform-registry"
@@ -395,11 +406,11 @@ import domain customer from registry "customer-platform-registry"
   at customer.Customer@3#a3f8b2c1d4e5f6a7
 ```
 
-The compiler rejects the import if the fetched model's content does not hash to the declared value.
+The compiler rejects the import if the fetched model does not hash to the declared value.
 
 ### 6.3 Content Signature Suffix in References
 
-Any `from … @` version reference may append `#<hash>` to lock to a specific content signature:
+Any `from … @` version reference may append `#<hash>` to pin to a specific content:
 
 ```mdl
 projection BillingCustomer @ 1
@@ -412,14 +423,28 @@ projection BillingCustomer @ 1
 
 The `#` suffix is optional in hand-authored files. The compiler always writes it into plan documents and lineage records.
 
-### 6.4 LSP Changes for Federation
+### 6.4 Consumer Entry (Written by the CLI)
 
-The language server is extended to:
+The compiler writes a small MDL file back to each upstream peer's `consumers/` directory during the write-back phase. This file is never authored by hand.
 
-- Resolve `import domain … from registry "…"` by querying the local `mirror.db`.
-- Provide autocomplete for foreign model names, field names, and version numbers from the mirror.
-- Show a diagnostic warning when an import references a peer registry that is not declared in `workspace.mdl`.
-- Show a diagnostic error when a `#`-pinned reference does not match the mirrored model.
+```mdl
+// consumers/analytics-registry/CustomerOrderSummary@1.mdl
+consumer {
+  registry:   "analytics-registry"
+  projection: "analytics.CustomerOrderSummary@1"
+  uses: [
+    "customer.Customer@3#a3f8b2c1d4e5f6a7"
+  ]
+  registeredAt: "2026-05-14T09:05:00Z"
+}
+```
+
+### 6.5 LSP Changes for Federation
+
+- Resolve `import domain … from registry "…"` against the local `mirror/` directory.
+- Autocomplete foreign model names, field names, and version numbers from the mirror.
+- Warn when an import references a peer not declared in `workspace.mdl`.
+- Error when a `#`-pinned reference does not match the mirrored model.
 
 ---
 
@@ -433,14 +458,14 @@ The language server is extended to:
 | `cli/emitters/` | One module per output target |
 | `cli/lsp/` | pygls language server |
 | `editors/vscode/` | VS Code extension |
-| `cli/registry/` | Federation peer sync, lineage log writer, cross-registry edge push |
+| `cli/registry/` | Graph traversal, git fetch/push, lineage log writer, consumer write-back |
 
 ---
 
 ## 8. Out of Scope for This Design
 
 - Subscription runtime execution (Phase 5)
-- Registry server integration (Phase 2)
+- Registry HTTP server (no server needed for dev-time use; deferred if ever needed)
 - Catalog / governance sync (Phase 3)
 - GraphQL target (post-MVP)
 - Non-Python parser implementations

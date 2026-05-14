@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-14  
 **Status:** Approved  
-**Scope:** Eliminating the single point of failure in the registry and lineage store; enabling cross-team, cross-repository data lineage without a central authority
+**Scope:** Eliminating the single point of failure in the registry and lineage store; enabling cross-team, cross-repository data lineage without a central authority or any running server infrastructure
 
 ---
 
@@ -15,18 +15,18 @@ The baseline architecture stores all domain models, lineage edges, and compatibi
 - **Availability SPOF:** Downstream projections cannot be validated if the single registry is unavailable.
 - **Integrity gap:** Cross-domain references carry only a logical name and version number; there is no mechanism to verify that the referenced model is the one that was originally depended on.
 
-This spec defines a **Federated Registry Network** — a set of cooperating registry nodes that each own a subset of domains, share lineage facts via an append-only distributed event log, and verify cross-domain dependencies using content-addressed model signatures.
+This spec defines a **Federated Registry Network** where every registry is a node in a directed dependency graph, the transport between nodes is plain git, and the CLI owns graph traversal and sync automatically at compile time. No running server is required for dev-time use.
 
 ---
 
 ## 1. Design Goals
 
-1. **No central authority.** Any registry node can be lost and the system continues operating from surviving nodes and local caches.
-2. **Tamper-evident lineage.** Lineage chains are verifiable without querying the original registry.
-3. **Team autonomy.** Each team publishes and evolves its own domains independently.
-4. **Offline-first compilation.** The local compiler works with cached foreign model replicas; no live network call is required to compile or validate.
-5. **Incremental adoption.** A single-node workspace is a degenerate case of a federated registry and requires no new configuration to keep working.
-6. **Transport-agnostic propagation.** Lineage events can flow over Kafka, NATS JetStream, shared git, or plain HTTP webhooks, depending on the deployment environment.
+1. **No central authority.** Any registry node can be lost and the system continues operating from the remaining nodes and local caches.
+2. **No server required at dev time.** The only infrastructure needed is a git remote — the same one every team already has.
+3. **CLI-owned sync.** The developer runs `modellable compile`. The CLI resolves the dependency graph, fetches foreign models, compiles, and writes back lineage. No manual sync step.
+4. **Every node is both producer and consumer.** A repo that owns domain A and imports domain B is a master for A and a slave to B simultaneously. The graph has no fixed hierarchy.
+5. **Tamper-evident lineage.** Lineage chains are verifiable without querying the original registry.
+6. **Incremental adoption.** A single-node workspace is a degenerate case of the graph and requires no new configuration.
 
 ---
 
@@ -34,33 +34,50 @@ This spec defines a **Federated Registry Network** — a set of cooperating regi
 
 ### 2.1 Registry Node
 
-A registry node is a running instance of the Modellable registry for a specific team or service boundary.
+A registry node is a **git repository** containing `.mdl` source files, a `workspace.mdl` that declares its identity and peer edges, and a `.modellable/` output directory.
 
 A node:
 
-- **Owns** one or more domains. It is the authoritative source for those domains' model versions, compatibility history, and access policies.
-- **Mirrors** foreign domains as read-only replicas. A mirror is refreshed from the owning node on demand or on a schedule.
-- **Participates** in lineage event propagation, both as a producer (when one of its projections maps a foreign field) and as a consumer (when a foreign projection maps one of its fields).
+- **Owns** one or more domains — it is the authoritative source for those domains' model versions, compatibility history, and access policies.
+- **Imports** foreign domains from peer nodes — the compiler fetches these via `git fetch` into a local `mirror/` directory.
+- **Writes back** to peer repos at compile time — consumer registration entries and lineage events flow back to the repos they depend on.
 
 A node does **not**:
 
 - Modify foreign domain definitions.
 - Override another node's access policies.
-- Serve as a relay or broker between other nodes.
+- Require a running HTTP service for dev-time compilation.
 
-### 2.2 Content-Addressed Model Signature
+### 2.2 The Registry Graph
+
+Every federation is a **directed acyclic graph (DAG)** of registry nodes. An edge `A → B` means A imports at least one domain from B.
+
+A node can have both incoming and outgoing edges. Owning domain X and importing domain Y makes a node simultaneously a master (for X) and a slave (to Y). There is no global root.
+
+```
+iam-registry            (master: iam)
+      ↓
+customer-registry       (master: customer    slave: iam)
+      ↓           ↘
+orders-registry         (master: orders      slave: customer)
+      ↓
+analytics-registry      (master: analytics   slave: customer + orders)
+```
+
+`customer-registry` is a master to `orders` and `analytics`, a slave to `iam`. Cycles are a hard error detected at compile time.
+
+### 2.3 Content-Addressed Model Signature
 
 Every published model version receives a deterministic **content signature** — a SHA-256 hash computed over the canonical form of the model definition.
 
-**Canonical form** is the normalised, whitespace-collapsed, deterministically serialised MDL representation of the model block. It covers:
+**Canonical form** covers:
 
 - Domain name.
 - Model name and kind (`entity`, `aggregate`, `event`, `value`).
 - Version number and `changeKind`.
-- All field definitions (names, types, annotations, optionality).
-- Order of fields (sorted by field name to remove authoring order as a variable).
+- All field definitions (names, types, annotations, optionality), sorted by field name.
 
-The signature is stored on the `model_versions` table alongside the version number.
+The signature is stored on the `model_versions` table and written into `mirror/` files and plan documents.
 
 **Fully qualified model reference with signature:**
 
@@ -68,229 +85,145 @@ The signature is stored on the `model_versions` table alongside the version numb
 customer.Customer@3#a3f8b2c1d4e5f6a7
 ```
 
-The short form (without `#`) is still valid for local references. The hash suffix is required when referencing a model across registry boundaries.
+The short form is valid for local references. The hash suffix is written by the compiler into all cross-registry references, plan documents, and lineage events.
 
-### 2.3 Lineage Event
+### 2.4 Lineage Event Log
 
-A lineage event is an immutable, timestamped fact about a relationship in the data model. Events are the source of truth for distributed lineage; `lineage.db` is derived from them.
+Each registry node maintains an **append-only lineage event log** — NDJSON files in `.modellable/lineage-log/`, one per day. The log is committed to the same git repository as the `.mdl` source files.
+
+The log is the durable source of truth. `lineage.db` is a derived index rebuilt from it by `modellable compile`, exactly like `registry.db` is rebuilt from `.mdl` files.
 
 **Event types:**
 
 | Event type | When emitted |
 | :--- | :--- |
-| `ModelPublished` | A model version is published on any node. |
-| `ProjectionPublished` | A projection version is published on any node. |
-| `FieldMapped` | The compiler resolves a field mapping from a target field to a source field. |
+| `ModelPublished` | A model version is published. |
+| `ProjectionPublished` | A projection version is published. |
+| `FieldMapped` | The compiler resolves a field mapping within this registry. |
 | `CrossRegistryRef` | A field mapping spans two different registry nodes. |
-| `ForeignModelMirrored` | A node caches a replica of a foreign domain model. |
-| `ModelDeprecated` | A model version is marked deprecated on the owning node. |
+| `ForeignModelMirrored` | The compiler fetched and cached a foreign model. |
+| `ConsumerRegistered` | This node wrote a consumer entry to a peer repo. |
+| `ModelDeprecated` | A model version is deprecated. |
 
-**Common envelope fields (all event types):**
+**Common envelope fields:**
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `eventId` | `uuid` | Unique identifier for this event. |
-| `eventType` | `string` | One of the types listed above. |
+| `eventId` | `uuid` | Unique identifier. |
+| `eventType` | `string` | One of the types above. |
 | `timestamp` | `timestamp` | UTC time of emission. |
-| `registryId` | `string` | Identifier of the emitting registry node. |
-| `eventHash` | `string` | SHA-256 of the canonical JSON of this event (excluding `eventHash` itself). |
-| `prevHash?` | `string` | Hash of the immediately preceding event in this registry's log, forming a hash chain. |
-
-**`FieldMapped` payload:**
-
-```json
-{
-  "projectionRef": "billing.BillingCustomer@1",
-  "targetField": "invoiceEmail",
-  "kind": "direct",
-  "sourceRef": "customer.Customer@2.email",
-  "sourceModelSignature": "a3f8b2c1d4e5f6a7",
-  "expression": null
-}
-```
-
-**`CrossRegistryRef` payload:**
-
-```json
-{
-  "projectionRef": "billing.BillingCustomer@1",
-  "projectionRegistry": "billing-registry",
-  "targetField": "invoiceEmail",
-  "sourceRef": "customer.Customer@2.email",
-  "sourceRegistry": "customer-platform-registry",
-  "sourceModelSignature": "a3f8b2c1d4e5f6a7"
-}
-```
-
-### 2.4 Lineage Event Log
-
-Each registry node maintains a local **lineage event log** — an append-only sequence of NDJSON records, one per line, stored in `.modellable/lineage-log/`.
-
-Log files are named by date: `2026-05-14.ndjson`. A new file is started each day. Files from previous days are never modified.
-
-The log is the durable source of truth. `lineage.db` is a derived index, rebuilt from the log by `modellable compile` exactly like `registry.db` is rebuilt from `.mdl` files.
-
-Committing the `lineage-log/` directory to the same git repository as the `.mdl` files provides a free, replicated, versioned backup without any additional infrastructure.
+| `registryId` | `string` | Emitting registry node identifier. |
+| `eventHash` | `string` | SHA-256 of the canonical JSON of this event (excluding `eventHash`). |
+| `prevHash?` | `string` | Hash of the previous event in this log, forming a hash chain. |
 
 ### 2.5 Merkle Hash Chain
 
-Events within a single registry's log form a **Merkle hash chain**: each event's `prevHash` field references the `eventHash` of the previous event. This creates a tamper-evident sequence.
+Events in a single registry's log form a Merkle hash chain via `prevHash`. Any insertion, deletion, or modification of a past event breaks the chain and is detectable by recomputing from a known checkpoint.
 
-A verifier can confirm that no event has been inserted, deleted, or modified by recomputing the hash chain from any known checkpoint.
+Cross-registry lineage forms a content-addressed DAG: each `CrossRegistryRef` event embeds the source model's content signature, so the lineage chain is verifiable without contacting the upstream registry.
 
-Cross-registry lineage also forms a **directed acyclic graph (DAG)** of content-addressed edges. A downstream team can verify the integrity of an upstream model without contacting the upstream registry, as long as they hold the upstream model's content signature.
+### 2.6 Consumer Registration
+
+When the compiler resolves a cross-registry field mapping it writes a small MDL file into the upstream peer's `consumers/` directory:
+
+```
+<peer-repo>/
+  consumers/
+    analytics-registry/
+      CustomerOrderSummary@1.mdl
+```
+
+This file declares the dependency from the upstream repo's perspective. The upstream team sees their dependents by reading their own `consumers/` directory — no central catalog query required.
+
+The upstream team can gate breaking changes behind all `consumers/` entries being updated to the new version before the breaking model version is merged.
 
 ---
 
-## 3. Federated Registry Architecture
+## 3. CLI Graph Traversal
 
-### 3.1 Registry Node Topology
+The CLI owns sync entirely. The developer only ever runs `modellable compile`.
+
+### 3.1 Steps on Every `compile`
+
+1. **Parse workspace.mdl** — read the node's `registry` block and `peers` list.
+2. **Resolve import declarations** — collect all `import domain … from registry "…"` statements across all `.mdl` files in the workspace.
+3. **Build the dependency subgraph** — construct the adjacency list of nodes reachable from this workspace via import edges.
+4. **Topological sort** — order nodes so every dependency is synced before the node that needs it.
+5. **Cycle detection** — if a cycle exists, abort with a clear error naming the cycle.
+6. **Sync in order** — for each peer in dependency order: `git fetch <remote>`, sparse-checkout the peer's `.mdl` files and `lineage-log/` into `mirror/<peer-id>/`.
+7. **Verify signatures** — for any pinned import (`at Model@v#hash`), recompute the hash of the fetched model and reject on mismatch.
+8. **Compile owned domains** — build `registry.db` from local `.mdl` files as normal.
+9. **Compile projections** — resolve foreign field references against `mirror/`.
+10. **Write lineage events** — append `FieldMapped` and `CrossRegistryRef` events to today's log file.
+11. **Write consumer entries** — for each new cross-registry edge, write the `consumers/<this-registry-id>/<Projection>@<v>.mdl` file into the peer's working copy (staged, not yet pushed).
+12. **Push write-backs** — commit and push the consumer entries to the relevant peer remotes (or open a PR if the peer requires review — controlled by `writeback: commit | pr`).
+
+Steps 11–12 are the **two-way binding**: git is both the source (pull) and the sink (push) for registry metadata.
+
+### 3.2 Cycle Detection
+
+The compiler uses Kahn's algorithm over the peer graph. A cycle produces an error like:
 
 ```
-┌─────────────────────────────────┐      ┌─────────────────────────────────┐
-│   customer-platform-registry    │      │       orders-registry           │
-│                                 │      │                                 │
-│  owns: customer, billing        │      │  owns: orders, shipping         │
-│  mirrors: orders (read-only)    │◄────►│  mirrors: customer (read-only)  │
-│                                 │      │                                 │
-│  registry.db   (owned)          │      │  registry.db   (owned)          │
-│  mirror.db     (foreign)        │      │  mirror.db     (foreign)        │
-│  lineage.db    (derived)        │      │  lineage.db    (derived)        │
-│  lineage-log/  (source of truth)│      │  lineage-log/  (source of truth)│
-└────────────┬────────────────────┘      └──────────────┬──────────────────┘
-             │ CrossRegistryRef events                  │
-             │◄────────────────────────────────────────►│
-             │                                          │
-             └───────────────┐       ┌──────────────────┘
-                             │       │
-                   ┌─────────▼───────▼──────────┐
-                   │    analytics-registry       │
-                   │                             │
-                   │  owns: analytics            │
-                   │  mirrors: customer, orders  │
-                   │                             │
-                   │  projects across both       │
-                   └─────────────────────────────┘
+error: circular registry dependency detected
+  analytics-registry → orders-registry → analytics-registry
+  Break the cycle by removing one of these import declarations.
 ```
 
-### 3.2 Peer Discovery
+### 3.3 Peer Graph Visualisation
 
-Peers are declared in the `workspace.mdl` file using a `registry` block (see Section 5 for IDL syntax). The declared endpoint is the base URL of the peer's Registry API.
+```bash
+modellable registry graph
+```
 
-Nodes do not broadcast or auto-discover; the workspace manifest is the explicit, version-controlled record of the federation topology.
+Prints the DAG of all reachable peers with sync state and last-fetched timestamps:
 
-### 3.3 Foreign Model Mirroring
-
-When a node needs a foreign model (referenced in a projection or by a `import domain` declaration), it:
-
-1. Checks `mirror.db` for a cached replica.
-2. If no cache or if `sync: eager` is configured, fetches the model version from the peer's Registry API.
-3. Verifies the fetched model's content signature against the declared `#hash` in the reference (if present).
-4. Stores the replica in `mirror.db` with a `mirrored_at` timestamp.
-5. Emits a `ForeignModelMirrored` event to the local lineage log.
-
-If the peer is unreachable and a cache exists, the node uses the cached replica and logs a warning. If no cache exists, compilation fails with a descriptive error.
-
-**Sync modes:**
-
-| Mode | Behaviour |
-| :--- | :--- |
-| `eager` | Mirror all models from the peer at registry startup and on any `compile`. |
-| `lazy` | Mirror on first reference (default). |
-| `pinned` | Always use the local cache; never contact the peer. For air-gapped or offline environments. |
-
-### 3.4 Cross-Registry Lineage Propagation
-
-When the compiler resolves a field mapping that spans registry boundaries, it:
-
-1. Records a `CrossRegistryRef` event in the local lineage log.
-2. If the peer is reachable, sends the event to the peer's `/lineage/ingest` API endpoint.
-3. The peer stores the event in its own lineage log as an incoming cross-registry edge.
-4. The peer can now answer "which downstream registries depend on this model?" without contacting the downstream node.
-
-If the peer is unreachable, the event is queued for delivery. Queued events are retried with exponential backoff (2 s, 4 s, 8 s, 16 s, then per-hour indefinitely). The local lineage store remains complete regardless.
-
-### 3.5 Conflict Resolution
-
-Model version immutability eliminates most conflicts: once published, a version's content signature never changes.
-
-The only conflict scenario is **duplicate event IDs** during log merges (e.g., when two nodes independently discover the same upstream change and both emit `ForeignModelMirrored` for it). These are resolved by deduplication on `eventId` during log replay.
+```
+iam-registry              git@github.com:acme/iam-models.git         ✓ synced 2m ago
+  └─ customer-registry    git@github.com:acme/customer-models.git    ✓ synced 2m ago
+       ├─ orders-registry git@github.com:acme/orders-models.git      ✓ synced 1m ago
+       │    └─ (this)     analytics-registry
+       └─ (this)          analytics-registry
+```
 
 ---
 
-## 4. Storage Model (Distributed Mode)
+## 4. IDL Changes
 
-The distributed storage layout extends the local layout with three additions:
+### 4.1 `registry` Block in `workspace.mdl`
 
-```
-.modellable/
-  registry.db                        # owned domains — derived from .mdl files
-  mirror.db                          # foreign model replicas — derived from peer syncs
-  lineage.db                         # lineage index — derived from lineage-log/
-  lineage-log/
-    2026-05-14.ndjson                 # append-only lineage events (source of truth)
-    2026-05-13.ndjson
-  plans/
-    billing.BillingCustomer.v1.plan.json
-  artifacts/
-    billing/
-      BillingCustomer.v1.json
-      BillingCustomer.v1.ts
-      BillingCustomer.v1.md
-```
-
-### 4.1 `mirror.db` Schema (additions)
-
-| Table | Key columns | Purpose |
-| :--- | :--- | :--- |
-| `registry_peers` | `peer_id`, `endpoint`, `sync_mode` | Declared peer registry nodes. |
-| `mirrored_domains` | `domain`, `peer_id`, `mirrored_at` | Which foreign domains have been mirrored. |
-| `mirrored_model_versions` | `domain`, `model`, `version`, `content_signature`, `raw_mdl` | Cached foreign model versions with integrity proofs. |
-
-### 4.2 `lineage.db` Schema (additions to `lineage_edges`)
-
-Two columns are added to the existing `lineage_edges` table:
-
-| Column | Type | Description |
-| :--- | :--- | :--- |
-| `source_content_signature` | `text` | Content hash of the source model version at mapping time. |
-| `is_cross_registry` | `boolean` | True when source and target are owned by different registry nodes. |
-| `source_registry_id` | `text?` | Owning registry of the source model (null for local). |
-| `event_hash` | `text` | Hash of the originating lineage event. Ties back to the log. |
-
-### 4.3 Rebuild Guarantee
-
-The same guarantee as for `registry.db` applies: deleting all derived databases (`.db` files) and re-running `modellable compile` from the `.mdl` source files plus the `lineage-log/` directory must produce an identical result.
-
-The `lineage-log/` directory is therefore the only artifact that must be preserved in source control or backed up externally.
-
----
-
-## 5. IDL Changes
-
-### 5.1 Registry Block in `workspace.mdl`
-
-A `registry` block declares this workspace as a registry node and lists peer nodes.
+The `registry` block declares this workspace as a named node and lists peer nodes by git remote.
 
 ```mdl
-workspace "ecommerce-platform" {
-  description: "E-commerce platform model registry."
+workspace "analytics-platform" {
+  description: "Analytics registry — projects across customer and orders."
 
   registry {
-    id: "billing-registry"
-    owns: ["billing"]
-    endpoint: "https://reg.billing.example.com"
+    id:   "analytics-registry"
+    owns: ["analytics"]
   }
 
   peers: [
-    { id: "customer-platform-registry", endpoint: "https://reg.customer-platform.example.com", sync: lazy  },
-    { id: "orders-registry",            endpoint: "https://reg.orders.example.com",            sync: eager }
+    {
+      id:        "customer-platform-registry"
+      git:       "git@github.com:acme/customer-models.git"
+      branch:    "main"
+      sync:      eager
+      writeback: pr
+    },
+    {
+      id:        "orders-registry"
+      git:       "git@github.com:acme/orders-models.git"
+      branch:    "main"
+      sync:      eager
+      writeback: commit
+    }
   ]
 
   generate {
-    docs       -> "./generated/docs/"
-    typescript -> "./generated/types/"
-    jsonschema -> "./generated/jsonschema/"
+    docs         -> "./generated/docs/"
+    typescript   -> "./generated/types/"
+    jsonschema   -> "./generated/jsonschema/"
   }
 }
 ```
@@ -299,45 +232,42 @@ workspace "ecommerce-platform" {
 
 | Field | Required | Description |
 | :--- | :--- | :--- |
-| `id` | Yes | Stable, unique identifier for this registry node. Used as the `registryId` in lineage events. |
-| `owns` | Yes | Array of domain names this node is authoritative for. |
-| `endpoint` | No | Base URL of this node's Registry API. Required if peers need to sync from this node. |
+| `id` | Yes | Stable unique name for this node. Used as `registryId` in lineage events and as the directory name in peer `consumers/` trees. |
+| `owns` | Yes | Domains this node is authoritative for. |
 
 **`peers` entry fields:**
 
 | Field | Required | Description |
 | :--- | :--- | :--- |
-| `id` | Yes | Peer registry identifier. Used in `import … from registry "…"` declarations. |
-| `endpoint` | Yes | Base URL of the peer's Registry API. |
-| `sync` | No | `eager`, `lazy` (default), or `pinned`. |
+| `id` | Yes | Peer registry identifier. Matches the peer's own `registry.id`. |
+| `git` | Yes | Git remote URL. The compiler runs `git fetch` against this remote. |
+| `branch` | No | Branch to track (default: `main`). |
+| `sync` | No | `eager` — sync on every `compile`; `lazy` — sync on first reference; `pinned` — never sync, use local mirror only. Default: `lazy`. |
+| `writeback` | No | `commit` — push consumer entries directly; `pr` — open a pull request; `none` — skip write-back. Default: `commit`. |
 
-A workspace without a `registry` block operates in **local mode**: lineage is stored only in `lineage.db` (no log files, no peer syncs). This is the default for single-team workspaces and requires no migration.
+A workspace without a `registry` block operates in **local mode** — no sync, no write-back, lineage stored only in `lineage.db`. This is the default for single-team workspaces.
 
-### 5.2 `import domain` Declaration
+### 4.2 `import domain` Declaration
 
-The `import domain` declaration makes a foreign domain available within the current workspace's `.mdl` files.
+Placed at the top of any `.mdl` file that references a foreign domain:
 
 ```mdl
-import domain orders   from registry "orders-registry"
 import domain customer from registry "customer-platform-registry"
+import domain orders   from registry "orders-registry"
 ```
 
-Import declarations appear at the top of any `.mdl` file that uses a foreign domain, before any `domain`, `projection`, or `binding` block.
-
-After an import, the foreign domain's models are referenceable using the standard `domain.Model@version` syntax and the `ref<domain.Model>` type.
-
-A pinned import (for audit and reproducibility) includes the content signature:
+A pinned import locks to a specific model version and content signature:
 
 ```mdl
 import domain customer from registry "customer-platform-registry"
   at customer.Customer@3#a3f8b2c1d4e5f6a7
 ```
 
-The `at` clause pins the import to a specific model version and signature. The compiler rejects the import if the fetched model does not match the declared signature.
+The compiler rejects the import if the fetched model does not hash to the declared value.
 
-### 5.3 Content Signature in Cross-Domain References
+### 4.3 Content Signature Suffix in References
 
-When a projection or model field references a foreign model, the content signature may be appended to strengthen the dependency:
+Any `from … @` version reference may include `#<hash>` to pin to a specific content:
 
 ```mdl
 projection BillingCustomer @ 1
@@ -348,84 +278,175 @@ projection BillingCustomer @ 1
 }
 ```
 
-The `#` suffix is optional in authoring but is always written by the compiler into generated plan documents and lineage records.
+The `#` suffix is optional in hand-authored files. The compiler always writes it into plan documents and lineage records.
 
 ---
 
-## 6. CLI Extensions
+## 5. Storage Layout (Distributed Mode)
 
-### 6.1 Registry Management
+```
+<workspace>/
+  workspace.mdl
+  <domain files>.mdl
+  consumers/
+    <peer-registry-id>/
+      <Projection>@<v>.mdl        # written here by peer compilers (two-way write-back)
+
+.modellable/
+  registry.db                     # owned domains — derived from .mdl files
+  mirror/
+    customer-platform-registry/   # sparse checkout of peer's .mdl files
+      customer.mdl
+      lineage-log/
+        2026-05-14.ndjson
+    orders-registry/
+      orders.mdl
+      lineage-log/
+        2026-05-14.ndjson
+  lineage.db                      # lineage index — derived from lineage-log/
+  lineage-log/
+    2026-05-14.ndjson             # append-only (source of truth for this node)
+  plans/
+    analytics.CustomerOrderSummary.v1.plan.json
+  artifacts/
+    analytics/
+      CustomerOrderSummary.v1.json
+      CustomerOrderSummary.v1.ts
+```
+
+### 5.1 `mirror/` Directory
+
+The `mirror/` directory is a read-only snapshot of each peer's `.mdl` files and lineage log, written by the CLI during sync. It is a build artifact — never edited by hand, fully rebuildable by re-running `modellable compile` (subject to peer availability).
+
+### 5.2 `mirror.db` Schema
+
+| Table | Key columns | Purpose |
+| :--- | :--- | :--- |
+| `registry_peers` | `peer_id`, `git_remote`, `branch`, `sync_mode`, `writeback_mode` | Declared peer nodes. |
+| `mirrored_domains` | `domain`, `peer_id`, `fetched_at`, `git_sha` | Which foreign domains are cached and at what git SHA. |
+| `mirrored_model_versions` | `domain`, `model`, `version`, `content_signature`, `raw_mdl` | Cached foreign model versions with integrity proofs. |
+
+### 5.3 `lineage_edges` Schema (additions)
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `source_content_signature` | `text` | Content hash of the source model version at mapping time. |
+| `is_cross_registry` | `boolean` | True when source and target are owned by different nodes. |
+| `source_registry_id` | `text?` | Owning node of the source model (null for local). |
+| `event_hash` | `text` | Hash of the originating lineage event. |
+
+### 5.4 `consumers/` Directory
+
+The `consumers/` directory holds incoming write-backs from downstream registries. Each entry is a small MDL file declaring the dependency:
+
+```mdl
+// consumers/analytics-registry/CustomerOrderSummary@1.mdl
+// Written by analytics-registry compiler during modellable compile.
+// Do not edit by hand.
+
+consumer {
+  registry:   "analytics-registry"
+  projection: "analytics.CustomerOrderSummary@1"
+  uses: [
+    "customer.Customer@3#a3f8b2c1d4e5f6a7"
+  ]
+  registeredAt: "2026-05-14T09:05:00Z"
+}
+```
+
+Ownership teams use this directory to understand their downstream blast radius:
 
 ```bash
-# Initialise this workspace as a named registry node
-modellable registry init --id "billing-registry" --owns billing
+modellable dependents customer.Customer@3
+# reads consumers/ recursively across the workspace
+```
 
-# Add a peer registry
+### 5.5 Rebuild Guarantee
+
+Deleting all derived files (`.db` files, `mirror/`, `artifacts/`) and re-running `modellable compile` must produce an identical result, subject to peer availability. The only sources of truth that must be preserved are:
+
+- `.mdl` source files (including `consumers/`).
+- `.modellable/lineage-log/` NDJSON files.
+
+Both must be committed to the repository's git history.
+
+---
+
+## 6. CLI Reference
+
+### 6.1 `modellable compile`
+
+The primary command. No flags needed for sync — the CLI resolves the graph automatically.
+
+```bash
+modellable compile
+```
+
+Internally: build graph → topological sort → cycle check → sync peers in order → compile → write lineage → write-back consumer entries.
+
+Add `--dry-run` to preview what would be synced and written back without making any changes.
+
+### 6.2 Registry Management
+
+```bash
+# Declare this workspace as a registry node
+modellable registry init --id "analytics-registry" --owns analytics
+
+# Add a peer (writes the peers entry into workspace.mdl)
 modellable registry peer add \
-  --id "customer-platform-registry" \
-  --endpoint "https://reg.customer-platform.example.com" \
-  --sync lazy
+  --id  "customer-platform-registry" \
+  --git "git@github.com:acme/customer-models.git" \
+  --sync eager \
+  --writeback pr
 
-# List known peers and their sync state
-modellable registry peers
+# Print the full dependency graph with sync state
+modellable registry graph
 
-# Sync (re-mirror) all foreign domains from their owning peers
+# Force-sync all peers regardless of sync mode
 modellable registry sync
 
-# Sync a specific domain
-modellable registry sync --domain customer
+# Force-sync a specific peer
+modellable registry sync --peer customer-platform-registry
 ```
 
-### 6.2 Lineage Verification
+### 6.3 Lineage Commands
 
 ```bash
-# Verify the full lineage chain for a projection or model
-# Re-computes content signatures and checks the hash chain in the log
-modellable lineage verify billing.BillingCustomer@1
+# Show lineage for a model or projection (cross-registry aware)
+modellable lineage analytics.CustomerOrderSummary@1
 
-# Cross-registry lineage: show upstream and downstream across all known nodes
-modellable lineage billing.BillingCustomer@1 --cross-registry
+# Show all downstream consumers across the graph
+modellable lineage customer.Customer@3 --downstream
 
-# Show all downstream dependents of a model, including foreign registries
-modellable lineage customer.Customer@2 --downstream --cross-registry
-```
+# Verify content signatures and hash chain integrity
+modellable lineage verify analytics.CustomerOrderSummary@1
 
-Sample output of `modellable lineage verify billing.BillingCustomer@1`:
+# List registered consumers of a model (reads consumers/ directory)
+modellable dependents customer.Customer@3
 
-```
-billing.BillingCustomer@1 — lineage verification
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  billingCustomerId  [direct]
-    customer.Customer@2.customerId
-    ✓ signature a3f8b2c1d4e5f6a7 matches cached mirror
-
-  invoiceEmail  [direct]
-    customer.Customer@2.email
-    ✓ signature a3f8b2c1d4e5f6a7 matches cached mirror
-
-  isBillable  [computed]  customer.status == "active"
-    customer.Customer@2.status
-    ✓ signature a3f8b2c1d4e5f6a7 matches cached mirror
-
-  totalSpent  [aggregation]  sum(orders.Order@3.totalAmount)
-    orders.Order@3.totalAmount
-    ✓ signature f9d2e1b3a4c5d6e7 matches cached mirror
-
-Hash chain integrity: ✓  (12 events, no gaps)
-Cross-registry edges: 2  (customer-platform-registry, orders-registry)
-```
-
-### 6.3 Lineage Log Export
-
-```bash
-# Export lineage log as NDJSON for ingestion into an external catalog
+# Export lineage log as NDJSON
 modellable lineage export --format ndjson --output lineage-export.ndjson
 
-# Export only cross-registry edges
-modellable lineage export --format ndjson --cross-registry-only
-
-# Replay the log into a fresh lineage.db (disaster recovery)
+# Rebuild lineage.db from the event log (disaster recovery)
 modellable lineage rebuild
+```
+
+Sample output of `modellable lineage verify analytics.CustomerOrderSummary@1`:
+
+```
+analytics.CustomerOrderSummary@1 — lineage verification
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  customerId     [direct]   customer.Customer@3.customerId
+                            ✓ #a3f8b2c1 matches mirror (git sha abc123)
+
+  email          [direct]   customer.Customer@3.email
+                            ✓ #a3f8b2c1 matches mirror (git sha abc123)
+
+  totalSpentCents [aggregation] sum(orders.Order@3.totalAmountCents)
+                            ✓ #f9d2e1b3 matches mirror (git sha def456)
+
+Hash chain integrity: ✓  (13 events, no gaps)
+Cross-registry edges: 2  (customer-platform-registry, orders-registry)
 ```
 
 ---
@@ -434,52 +455,41 @@ modellable lineage rebuild
 
 | Failure scenario | System behaviour |
 | :--- | :--- |
-| Registry node disk failure | Rebuild `registry.db` from `.mdl` files and `lineage.db` from `lineage-log/` (both in source control). Foreign mirror data is re-fetched from peers on next compile. |
-| Peer registry unreachable at compile time | Use cached `mirror.db` replica. Compilation succeeds. A warning is logged. |
-| Peer registry unreachable for lineage push | Queue the `CrossRegistryRef` event locally. Retry with exponential backoff. Full local lineage remains complete. |
-| Content signature mismatch on mirror fetch | Compilation fails with an integrity error. The cached replica is kept but flagged as unverified. The operator must investigate. |
-| `lineage-log/` directory deleted | Lineage history is lost. `lineage.db` cannot be rebuilt. `registry.db` and compiled artifacts remain intact. Mitigation: commit `lineage-log/` to git or back up to object storage. |
-| Split-brain (two nodes claim to own the same domain) | The compiler rejects the configuration at validate time. Domain ownership must be declared in exactly one `registry.owns` list per federation. |
-| Event deduplication conflict | `eventId` uniqueness is enforced on log replay. Duplicate events are skipped and logged. |
+| Registry node disk failure | Rebuild `registry.db` from `.mdl` files and `lineage.db` from `lineage-log/` (git history). `mirror/` is rebuilt by re-running `compile`. |
+| Peer git remote unreachable at compile time | Use cached `mirror/` snapshot. Compilation succeeds with a warning if mirror exists. Fails with a clear error if no mirror and sync is not `pinned`. |
+| Content signature mismatch on mirror fetch | Compilation fails with an integrity error. Cached mirror is kept but flagged. The operator must investigate whether the upstream model was legitimately changed. |
+| `lineage-log/` directory deleted | Lineage history is lost for this node. `registry.db` and compiled artifacts are intact. Mitigation: `lineage-log/` must be committed to git. |
+| Split-brain (two nodes claim to own the same domain) | `modellable compile` detects the conflict during graph resolution and aborts with a clear error. |
+| Cycle in the dependency graph | `modellable compile` detects the cycle during topological sort and aborts, naming the cycle. |
+| Write-back push rejected by peer remote | The consumer entry is staged locally and a warning is printed. The developer must resolve the push conflict or open a PR manually. |
+| Event deduplication conflict | `eventId` uniqueness is enforced on log replay. Duplicate events (e.g., from mirror merges) are skipped with a log entry. |
 
 ---
 
-## 8. Security Considerations
+## 8. Security
 
 ### 8.1 Peer Authentication
 
-Requests between registry nodes must be authenticated. Supported mechanisms:
+Authentication to peer git remotes uses the host machine's normal git credential configuration — SSH keys, HTTPS tokens, or git credential helpers. No additional auth configuration is needed in `workspace.mdl`.
 
-- **Mutual TLS (mTLS):** Each node presents a client certificate. Recommended for production.
-- **Shared bearer token:** Simpler for intranet deployments.
-- **No auth:** Permitted only for local development (`endpoint: "http://localhost:…"`).
+This means access control is enforced by the git hosting provider (GitHub, GitLab, etc.) using mechanisms teams already manage.
 
-The `peers` declaration accepts an optional `auth` field:
+### 8.2 Write-back Permissions
 
-```mdl
-peers: [
-  {
-    id:       "orders-registry"
-    endpoint: "https://reg.orders.example.com"
-    sync:     lazy
-    auth:     "mtls"
-  }
-]
+For `writeback: commit`, the compiler needs write access to the peer remote. For `writeback: pr`, only read access is required to fetch; the PR is opened via the git hosting API using the standard `GH_TOKEN` / `GITLAB_TOKEN` environment variables.
+
+### 8.3 Signature Pinning
+
+Pinning content signatures in `import … at …` declarations is analogous to hash-pinning in `go.sum` or `package-lock.json`. It should be enforced in CI:
+
+```bash
+# CI step: verify no unsigned cross-registry imports exist
+modellable validate --require-pinned-imports
 ```
 
-### 8.2 Signature Pinning
+### 8.4 Lineage Log Tamper Detection
 
-Pinning content signatures in `import … at …` declarations provides a supply-chain integrity guarantee equivalent to hash-pinning in package managers (e.g., `go.sum`, npm lockfiles). Pinning should be enforced in CI pipelines that validate model definitions.
-
-### 8.3 Lineage Log Tamper Detection
-
-The Merkle hash chain allows any party with the log to detect:
-
-- **Inserted events:** The chain breaks at the insertion point.
-- **Deleted events:** A gap in `prevHash` references is detected.
-- **Modified events:** The `eventHash` of the modified event no longer matches its content.
-
-Detection requires a known-good checkpoint hash. Nodes should publish checkpoint hashes out-of-band (e.g., in a shared git commit or a transparency log) to enable independent verification.
+The Merkle hash chain lets any party with the log detect insertions, deletions, or modifications by recomputing `eventHash` and `prevHash` from a known checkpoint. Checkpoint hashes can be embedded in git commit messages for out-of-band verification.
 
 ---
 
@@ -487,59 +497,49 @@ Detection requires a known-good checkpoint hash. Nodes should publish checkpoint
 
 ### 9.1 Single-Node Workspace (No Change)
 
-A workspace without a `registry` block continues to work exactly as before. No migration is required. All lineage is stored in `lineage.db` only. `lineage-log/` is not created.
+A workspace without a `registry` block continues to work exactly as before. No migration needed.
 
-### 9.2 Enabling the Event Log on an Existing Single-Node Workspace
+### 9.2 Enabling the Event Log on an Existing Workspace
 
-1. Add a `registry { id: "…" owns: ["…"] }` block to `workspace.mdl`.
-2. Run `modellable compile`. The compiler creates `lineage-log/` and backfills one `FieldMapped` event per existing lineage edge (with `timestamp` set to the compilation time and `prevHash: null` for the first entry).
+1. Add `registry { id: "…" owns: ["…"] }` to `workspace.mdl`.
+2. Run `modellable compile`. The compiler creates `lineage-log/` and backfills one `FieldMapped` event per existing lineage edge.
 3. Commit `.modellable/lineage-log/` to source control.
 
-### 9.3 Splitting a Single Registry into Multiple Nodes
+### 9.3 Splitting a Monorepo Registry into Multiple Nodes
 
-1. Create separate workspace directories for each owning team.
-2. Add `registry` blocks declaring ownership and peer references.
-3. Add `import domain` declarations in projection files that reference foreign domains.
-4. Run `modellable compile` on each workspace. The compiler syncs foreign models and re-resolves lineage.
-5. Distribute the `lineage-log/` export to each new node as the historical baseline.
+1. Create a separate git repository per owning team and move the relevant `.mdl` files.
+2. Add `registry` and `peers` blocks to each `workspace.mdl`.
+3. Add `import domain` declarations in files that reference foreign domains.
+4. Run `modellable compile` on each workspace. The CLI builds the graph, syncs mirrors, and writes consumer entries.
+5. Use `modellable lineage export` from the original repo to seed the historical `lineage-log/` baseline in each new node.
 
 ---
 
-## 10. Example Lineage Record (Distributed Form)
+## 10. Example: Two-Way Binding in Practice
 
-A field mapping that crosses registry boundaries produces the following lineage record in `lineage.db`:
+When the analytics team runs `modellable compile` for the first time after publishing `CustomerOrderSummary@1`:
 
-| Column | Value |
-| :--- | :--- |
-| `target_model` | `billing.BillingCustomer` |
-| `target_version` | `1` |
-| `target_field` | `invoiceEmail` |
-| `source_model` | `customer.Customer` |
-| `source_version` | `2` |
-| `source_field` | `email` |
-| `kind` | `direct` |
-| `source_content_signature` | `a3f8b2c1d4e5f6a7` |
-| `is_cross_registry` | `true` |
-| `source_registry_id` | `customer-platform-registry` |
-| `event_hash` | `7f3a9b2c1d4e5f6a` |
-
-And the corresponding event in the log file:
-
-```json
-{
-  "eventId": "01906c3e-8b2a-7f4d-a9c1-3e5f8d2b4a1c",
-  "eventType": "CrossRegistryRef",
-  "timestamp": "2026-05-14T10:23:45.123456Z",
-  "registryId": "billing-registry",
-  "eventHash": "7f3a9b2c1d4e5f6a8b9c0d1e2f3a4b5c",
-  "prevHash": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d",
-  "payload": {
-    "projectionRef": "billing.BillingCustomer@1",
-    "projectionRegistry": "billing-registry",
-    "targetField": "invoiceEmail",
-    "sourceRef": "customer.Customer@2.email",
-    "sourceRegistry": "customer-platform-registry",
-    "sourceModelSignature": "a3f8b2c1d4e5f6a7"
-  }
-}
 ```
+modellable compile
+  → parse workspace.mdl
+  → build graph: analytics → customer, analytics → orders
+  → topological order: [customer, orders, analytics]
+  → git fetch git@github.com:acme/customer-models.git main
+      → mirror/customer-platform-registry/ updated (git sha abc123)
+  → git fetch git@github.com:acme/orders-models.git main
+      → mirror/orders-registry/ updated (git sha def456)
+  → verify signatures: customer.Customer@3#a3f8b2c1 ✓  orders.Order@3#f9d2e1b3 ✓
+  → compile analytics.CustomerOrderSummary@1
+  → append to lineage-log/2026-05-14.ndjson:
+      CrossRegistryRef  analytics.CustomerOrderSummary@1.email  ← customer.Customer@3.email
+      CrossRegistryRef  analytics.CustomerOrderSummary@1.totalSpentCents ← orders.Order@3.totalAmountCents
+      ... (one event per cross-registry field)
+  → write consumers/analytics-registry/CustomerOrderSummary@1.mdl
+      into mirror/customer-platform-registry/  (staged for push)
+      into mirror/orders-registry/             (staged for push)
+  → git push git@github.com:acme/customer-models.git  (writeback: commit)
+  → open PR  git@github.com:acme/orders-models.git    (writeback: pr)
+  → compile complete
+```
+
+The customer team now sees `consumers/analytics-registry/CustomerOrderSummary@1.mdl` in their own repo. When they plan `customer.Customer@4 (breaking)`, `modellable dependents customer.Customer@3` lists the analytics projection and CI can enforce that the analytics team has updated their projection before the breaking version is merged.

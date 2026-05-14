@@ -2,11 +2,13 @@
 // Projects across customer (customer-platform-registry) and orders
 // (orders-registry) without those teams needing to coordinate.
 //
-// Each import pins the source to a specific model version and content
-// signature so the analytics team's build is reproducible and tamper-evident.
-// The compiler emits CrossRegistryRef lineage events for every field that
-// maps a foreign source, allowing each upstream registry to discover
-// which downstream projections depend on their models.
+// Pinned imports lock each foreign model to a specific version and content
+// signature. The compiler verifies the signature on every git fetch, making
+// the build reproducible and tamper-evident (equivalent to go.sum / package-lock).
+//
+// On compile the CLI writes a consumers/ entry back to each upstream repo so
+// the customer and orders teams can see their downstream blast radius without
+// querying any central catalog.
 
 import domain customer from registry "customer-platform-registry"
   at customer.Customer@3#a3f8b2c1d4e5f6a7
