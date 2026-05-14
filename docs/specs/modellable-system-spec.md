@@ -157,9 +157,11 @@ Required properties:
 - `domain`: Domain that owns the projection.
 - `name`: Projection name.
 - `version`: Projection version.
-- `sources`: Source model versions.
+- `sources`: Source model versions with optional joins and filters.
 - `identity`: Target identity, if materializable.
-- `fields`: Target fields and derivation rules.
+- `fields`: Target fields and derivation rules (map-based).
+- `materialisation`: Optional strategy for persistence (strategy, key, partitionBy, binding, etc.).
+- `subscription`: Optional stream/change source configuration (source, adapter, fromOffset, filter, etc.).
 
 Example:
 
@@ -884,39 +886,20 @@ The system must support:
 
 PII and restricted fields must not be exposed to projections unless explicitly permitted.
 
-## 17. MVP Scope
+## 17. MVP Scope (Phase 1)
 
-The first version implements the local modelling compiler (Phase 1). Runtime materialization is deferred.
+The first version implements the local modelling compiler. Runtime materialization and external registry integrations are deferred.
 
-### Implementation Stack
+### 17.1 Implementation Stack
 
-```
-Core implementation:
-  Python
-  pydantic        (internal parser models)
-  ruamel.yaml     (YAML parsing with round-trip fidelity)
-  jsonschema      (validation of generated JSON Schema and document shape)
-  referencing     ($ref resolution across schemas)
+- **Core:** Python 3.11+, `pydantic`, `ruamel.yaml`, `jsonschema`, `referencing`.
+- **Output:** JSON Schema 2020-12, Markdown, TypeScript (via `json-schema-to-typescript`).
 
-Generated artifacts:
-  JSON Schema 2020-12  (first generated contract format)
-  Markdown             (human-readable model docs)
-  TypeScript           (via json-schema-to-typescript)
-```
+### 17.2 CLI Commands
 
-### CLI Commands
+See the [Modellable CLI Specification](cli-spec.md) for the full command reference.
 
-```bash
-modellable validate ./models
-modellable resolve customer.Customer.v1
-modellable lineage billing.BillingCustomer.v1
-modellable diff customer.Customer.v1 customer.Customer.v2
-modellable compile customer.Customer.v1 --target json-schema
-modellable compile customer.Customer.v1 --target typescript
-modellable docs ./models --out ./dist/docs
-```
-
-### Included
+### 17.3 Included in MVP
 
 - Domain registry.
 - Model definition and immutable publishing.

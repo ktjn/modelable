@@ -611,7 +611,7 @@ modellable export odcs customer.Customer.v1 --out ./dist/customer.contract.yaml
 datacontract lint ./dist/customer.contract.yaml
 ```
 
-## Phase 5: Event/API Targets
+## Phase 5: Runtime & Targets
 
 Incorporate:
 

@@ -230,12 +230,12 @@ ODCS is an export and interchange format. Modellable's internal model is not for
 
 The runtime adapters (Sections 2–5) and artifact output adapters (Section 7) belong to different implementation phases:
 
-| Phase | Adapter Category | Key Adapters |
+| Phase | Scope | Key Adapters |
 | :--- | :--- | :--- |
-| 1 | Compiler output (local) | JSON Schema generator, Markdown generator, TypeScript generator |
-| 2 | Artifact registry | Apicurio Registry adapter |
-| 3 | Catalog / governance | OpenMetadata adapter |
-| 4 | Contract interchange | ODCS / Data Contract CLI adapter |
-| 5 | Runtime (this document) | StoragePort, StreamPort, CapturePort |
+| 1 | Local Compiler | JSON Schema generator, Markdown generator, TypeScript generator |
+| 2 | Artifact Registry | Apicurio Registry adapter |
+| 3 | Catalog Sync | OpenMetadata adapter |
+| 4 | Interchange | ODCS / Data Contract CLI adapter |
+| 5 | Runtime & Targets | StoragePort, StreamPort, CapturePort, Avro, Proto, OpenAPI |
 
 Do not build runtime adapters before the normalized model graph is stable.

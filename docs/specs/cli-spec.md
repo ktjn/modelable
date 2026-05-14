@@ -37,7 +37,7 @@ Definition files use multi-document YAML (documents separated by `---`). The CLI
 | `domain` + `projection` | Projection definition |
 | `binding` | Adapter binding |
 
-Model references use the format `domain.ModelName.vVersion` (e.g., `customer.Customer.v1`).
+Model references use the format `domain.ModelName.vVersion` (e.g., `customer.Customer.v1`). Versions are typically integers but may be semantic versions if the domain chooses.
 
 ## 5. Commands
 

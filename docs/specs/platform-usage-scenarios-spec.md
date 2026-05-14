@@ -431,20 +431,23 @@ domain: ml-platform
 sources:
   - model: Customer
     version: "2"
+    alias: c
   - model: OrderAggregate
     version: "1"
+    alias: oa
     joinOn:
-      left: Customer.id
-      right: OrderAggregate.customerId
+      left: c.id
+      right: oa.customerId
+    joinType: left
 fields:
-  - source: Customer.id
-    as: customer_id
-  - source: Customer.accountAgeDays
-    as: account_age_days
-  - source: OrderAggregate.lifetimeOrderCount
-    as: ltv_order_count
-  - source: OrderAggregate.avgOrderValueCents
-    as: avg_order_value_cents
+  customer_id:
+    from: c.id
+  account_age_days:
+    from: c.accountAgeDays
+  ltv_order_count:
+    from: oa.lifetimeOrderCount
+  avg_order_value_cents:
+    from: oa.avgOrderValueCents
 materialisation:
   strategy: snapshot
   snapshotAt: "{{ training_cutoff_timestamp }}"
@@ -461,12 +464,12 @@ sources:
   - model: Customer
     version: "2"
 fields:
-  - source: id
-    as: customer_id
-  - source: accountAgeDays
-    as: account_age_days
-  - source: loyaltyTierId
-    as: loyalty_tier
+  customer_id:
+    from: id
+  account_age_days:
+    from: accountAgeDays
+  loyalty_tier:
+    from: loyaltyTierId
 materialisation:
   strategy: upsert
   key: customer_id
@@ -667,3 +670,4 @@ Multiple scenarios often apply to the same deployment. Use this table to identif
 | Training ML models and serving predictions | [ML and Feature Stores](#6-machine-learning-and-feature-stores) | [Data Warehouse](#3-data-warehouse-analytical--olap) |
 | Partner integrations and public APIs | [Third-Party Consumers](#7-third-party-and-api-consumers) | [High-Performance Services](#4-internet-facing-high-performance-services) |
 | Regulatory reporting, GDPR, audit trails | [Audit & Compliance](#8-audit-compliance-and-regulatory-systems) | [Data Warehouse](#3-data-warehouse-analytical--olap) |
+l--olap) |
