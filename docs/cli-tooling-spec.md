@@ -228,7 +228,70 @@ uv respects this file automatically. Update it when the minimum supported versio
 
 ---
 
-## 9. Excluded Tooling
+## 9. Bootstrap Script
+
+### 9.1 Purpose
+
+`bin/modellable` is a shell script at the repository root that serves as the zero-prerequisite entry point to the CLI. A developer who has just cloned the repo can run it without any prior setup — it installs uv if missing, syncs the virtual environment, and forwards to the real CLI.
+
+### 9.2 Location
+
+```
+bin/modellable       # executable shell script, committed to source control
+```
+
+The script must be committed with the executable bit set (`chmod +x`).
+
+### 9.3 Behaviour
+
+The script executes the following steps in order:
+
+1. **Detect uv.** Check whether `uv` is on `PATH` using `command -v uv`.
+
+2. **Install uv if absent.** If `uv` is not found, download and run the official installer:
+
+   ```
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+   After installation, source `$HOME/.local/bin/env` (the path uv's installer writes) so the current shell session can find `uv` without requiring the user to open a new terminal.
+
+3. **Sync the virtual environment.** Run `uv sync` from the `cli/` directory. On first run this creates `.venv/` and installs all runtime dependencies. On subsequent runs it is a no-op if `uv.lock` has not changed.
+
+4. **Exec the CLI.** Replace the shell process with `uv run modellable`, forwarding all arguments and the current working directory unchanged:
+
+   ```
+   exec uv run --project "$(dirname "$0")/../cli" modellable "$@"
+   ```
+
+   Using `exec` means the bootstrap process does not linger after the CLI starts.
+
+### 9.4 Idempotency
+
+Steps 1–3 are safe to repeat. `uv sync` is a no-op when the environment is already up to date. The script must not print anything to stdout during a clean (already-set-up) run — all diagnostic output during installation goes to stderr.
+
+### 9.5 Failure modes
+
+| Condition | Expected behaviour |
+|:----------|:------------------|
+| `curl` not available | Print an error to stderr explaining that uv must be installed manually from `https://docs.astral.sh/uv/` and exit non-zero |
+| `uv sync` fails (e.g. Python not found) | Let the uv error propagate to the terminal unchanged; exit with uv's exit code |
+| CLI itself errors | Let the CLI error propagate; exit with the CLI's exit code |
+
+### 9.6 Usage
+
+```bash
+# First run — installs uv and syncs, then starts the CLI
+./bin/modellable --help
+
+# Subsequent runs — syncs (no-op) and starts the CLI
+./bin/modellable validate ./models
+./bin/modellable compile ./models --target json-schema
+```
+
+---
+
+## 10. Excluded Tooling
 
 The following tools are **not** used in this project:
 
