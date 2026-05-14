@@ -660,7 +660,14 @@ sources:
     version: ">=2 <3"
 ```
 
-Version ranges must be resolved to concrete versions at planning time.
+**Version range resolution rules:**
+
+- Ranges are resolved to the **highest published version** that satisfies the constraint at plan time.
+- Since model versions are integers, range syntax uses integer comparisons: `>=2 <3` means "version 2 only", `>=2` means "version 2 or higher".
+- Exact version pins (`version: 2`) are resolved immediately and are not affected by future publications. They are recommended for production projections that require maximum stability.
+- When a new compatible (`changeKind: additive`) version is published within the declared range, the planner **automatically re-validates** the projection against the new resolved version. If re-validation passes, no projection author action is required.
+- When a new version with `changeKind: breaking` is published and falls within the declared range, the planner raises a validation error and blocks the subscription. The projection author must update the version range and re-publish.
+- The resolved concrete version is recorded in the plan document (see section 7.2). Re-planning uses the latest resolved version, not the version that was resolved at the last plan time.
 
 ### 8.3 Deprecation
 
