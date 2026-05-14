@@ -1,0 +1,64 @@
+domain psp {
+  owner: "payments-team"
+  contact: "payments@example.com"
+  description: "Payment master: vaulted payment instruments, transaction lifecycle, and settlement records. Source of truth for all payment state consumed by the ODS (order support views), analytics (revenue and refund trends), and finance reconciliation."
+
+  entity PaymentMethod @ 2 (additive) {
+    @key             paymentMethodId:      uuid
+                     customerId:           ref<crm.Customer>
+    @pii             cardLast4?:           string    // tokenised; only last 4 digits stored
+    @pii             cardHolderName?:      string
+                     methodType:           enum(card_credit, card_debit, bank_transfer, wallet_paypal, wallet_apple_pay, wallet_google_pay, invoice_net30, invoice_net60)
+                     issuingBank?:         string
+                     issuingCountry?:      string    // format: iso3166_alpha2
+                     expiryMonth?:         int       // cards only
+                     expiryYear?:          int       // cards only
+                     gatewayToken:         string    // opaque PSP-side vault reference; never logged
+                     isDefault:            bool
+                     isActive:             bool
+                     createdAt:            timestamp
+                     updatedAt:            timestamp
+  }
+
+  event PaymentTransaction @ 2 (additive) {
+    @key             transactionId:        uuid
+                     orderId:              uuid      // loose ref to orders system
+                     customerId:           ref<crm.Customer>
+                     paymentMethodId:      ref<psp.PaymentMethod>
+                     amountCents:          int
+                     currencyCode:         string    // format: iso4217
+                     status:               enum(initiated, authorised, captured, declined, refunded, partially_refunded, chargeback, voided)
+                     gatewayReference?:    string
+                     processorCode?:       string
+                     failureReason?:       string
+                     initiatedAt:          timestamp
+                     authorisedAt?:        timestamp
+                     capturedAt?:          timestamp
+                     settledAt?:           timestamp
+                     refundedAt?:          timestamp
+  }
+
+  event PaymentRefunded @ 1 {
+    @key             eventId:              uuid
+                     originalTransactionId: ref<psp.PaymentTransaction>
+                     refundTransactionId:  ref<psp.PaymentTransaction>
+                     orderId:              uuid
+                     customerId:           ref<crm.Customer>
+                     refundAmountCents:    int
+                     reason:               enum(customer_request, fraud, damaged_goods, not_as_described, duplicate_charge)
+                     initiatedByUserId:    ref<iam.InternalUser>
+                     occurredAt:           timestamp
+  }
+
+  event ChargebackReceived @ 1 {
+    @key             eventId:              uuid
+                     transactionId:        ref<psp.PaymentTransaction>
+                     orderId:              uuid
+                     customerId:           ref<crm.Customer>
+                     chargebackAmountCents: int
+                     reason:               string
+                     deadlineAt:           timestamp  // response window from issuer
+                     assignedToUserId?:    ref<iam.InternalUser>
+                     occurredAt:           timestamp
+  }
+}

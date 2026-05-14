@@ -1,0 +1,89 @@
+// ODS sink — PostgreSQL for near-real-time operational views
+// All ods.* projections materialise here via upsert on their @key field.
+binding postgres-ods-sink {
+  adapter: postgres
+  role: sink
+  config: {
+    host:              "postgres-ods.internal"
+    port:              5432
+    database:          "operational_data_store"
+    schema:            "ods"
+    username:          "modellable_ods_writer"
+    passwordSecret:    "postgres-ods-write-password"
+    tls:               true
+    poolSize:          20
+    statementTimeoutMs: 5000
+  }
+}
+
+// Data mart sink — ClickHouse for analytics and BI queries
+// All datamart.* projections materialise here; engines are set per projection strategy.
+binding clickhouse-datamart-sink {
+  adapter: clickhouse
+  role: sink
+  config: {
+    host:              "clickhouse.datamart.internal"
+    port:              8443
+    database:          "data_mart"
+    tls:               true
+    username:          "modellable_mart_writer"
+    passwordSecret:    "clickhouse-datamart-write-password"
+    batchSize:         50000
+    flushIntervalMs:   10000
+  }
+}
+
+// Checkout cache — Redis for sub-millisecond pricing and stock reads
+// Downstream service populates this from TierPricingView and ProductAvailabilityView.
+binding redis-checkout-cache {
+  adapter: redis
+  role: sink
+  config: {
+    host:               "redis.checkout.internal"
+    port:               6379
+    tls:                true
+    keyPrefix:          "checkout:"
+    defaultTtlSeconds:  300      // 5-minute freshness; rehydrated on ODS upsert
+    serialisation:      "msgpack"
+  }
+}
+
+// Change-data stream — Kafka topics fed by source-system CDC connectors
+// One topic per domain; each domain's entities and events land here before ODS.
+binding kafka-master-data-stream {
+  adapter: kafka
+  role: stream
+  config: {
+    brokers:                  ["kafka-1.internal:9092", "kafka-2.internal:9092", "kafka-3.internal:9092"]
+    tls:                      true
+    saslMechanism:            "SCRAM-SHA-512"
+    credentialSecret:         "kafka-master-data-consumer-creds"
+    consumerGroup:            "modellable-ods-consumer"
+    enableIdempotentProducer: true
+    acks:                     "all"
+    topics: {
+      crm:    "master.crm.changes"
+      iam:    "master.iam.changes"
+      pim:    "master.pim.changes"
+      cpq:    "master.cpq.changes"
+      wms:    "master.wms.changes"
+      psp:    "master.psp.changes"
+      orders: "master.orders.changes"
+    }
+  }
+}
+
+// Lake archive — S3-compatible object store for raw and snapshot data
+// InventoryDailySnapshot and CustomerValueSegmentFact also land here as Parquet.
+binding s3-data-lake-sink {
+  adapter: s3
+  role: sink
+  config: {
+    endpoint:          "https://s3.us-east-1.amazonaws.com"
+    bucket:            "company-data-lake"
+    credentialSecret:  "s3-data-lake-write-creds"
+    format:            "parquet"
+    compression:       "snappy"
+    partitionTemplate: "domain={domain}/year={year}/month={month}/day={day}/"
+  }
+}

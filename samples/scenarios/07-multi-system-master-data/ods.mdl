@@ -1,0 +1,242 @@
+domain ods {
+  owner: "data-platform-team"
+  contact: "data-platform@example.com"
+  description: "Operational Data Store: near-real-time consolidated views materialised from all six master systems into PostgreSQL. Consumers (checkout, support, ops, sales) read here instead of querying source systems directly, keeping source systems decoupled and protected from read traffic."
+
+  // ---------------------------------------------------------------------------
+  // Checkout and catalogue browsing
+  // Consolidates PIM product attributes with aggregated WMS stock availability.
+  // Pricing is resolved at query time by the consumer filtering on priceTierId,
+  // so this view is keyed on (productId) and separate PriceListEntry rows are
+  // joined by the checkout service using the customer's assigned tier.
+  // ---------------------------------------------------------------------------
+  projection ProductAvailabilityView @ 1
+    from pim.Product @ 3 as prod
+    left join wms.StockLevel @ 2 as stock on prod.productId == stock.productId
+    where prod.isActive == true
+    group by prod.productId, prod.sku, prod.name, prod.brand, prod.category,
+             prod.subcategory, prod.taxClass, prod.isDigital, prod.isHazardous,
+             prod.weightGrams, prod.supplierId
+  {
+    @key productId              <- prod.productId
+    sku                         <- prod.sku
+    name                        <- prod.name
+    brand                       <- prod.brand
+    category                    <- prod.category
+    subcategory                 <- prod.subcategory
+    taxClass                    <- prod.taxClass
+    isDigital                   <- prod.isDigital
+    isHazardous                 <- prod.isHazardous
+    weightGrams                 <- prod.weightGrams
+    supplierId                  <- prod.supplierId
+    totalAvailableUnits         = sum(stock.quantityAvailable)
+    warehouseCount              = count_distinct(stock.warehouseId)
+    isInStock                   = sum(stock.quantityAvailable) > 0
+    hasLowStock                 = sum(stock.quantityAvailable) > 0 && sum(stock.quantityAvailable) <= sum(stock.reorderPoint)
+
+    materialisation {
+      strategy:   upsert
+      binding:    "postgres-ods-sink"
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Checkout — per-tier pricing read optimised view
+  // One row per (productId, priceTierId, currencyCode) combination.
+  // Checkout service looks up the customer's priceTierId from CustomerSalesView
+  // then fetches this view for the active price. TTL-cached in Redis downstream.
+  // ---------------------------------------------------------------------------
+  projection TierPricingView @ 1
+    from cpq.PriceListEntry @ 2 as price
+    join pim.Product @ 3 as prod on price.productId == prod.productId
+    join cpq.PriceTier @ 1 as tier on price.priceTierId == tier.priceTierId
+    where price.isActive == true && prod.isActive == true
+          && (price.effectiveTo == null || price.effectiveTo >= today())
+  {
+    @key entryId                <- price.entryId
+    productId                   <- price.productId
+    sku                         <- prod.sku
+    productName                 <- prod.name
+    priceTierId                 <- price.priceTierId
+    tierCode                    <- tier.tierCode
+    tierName                    <- tier.tierName
+    currencyCode                <- price.currencyCode
+    unitPriceCents              <- price.unitPriceCents
+    listPriceCents              <- price.listPriceCents
+    discountBps                 = price.listPriceCents > 0
+                                    ? round((1.0 - price.unitPriceCents / price.listPriceCents) * 10000)
+                                    : 0
+    minQuantity                 <- price.minQuantity
+    effectiveFrom               <- price.effectiveFrom
+    effectiveTo                 <- price.effectiveTo
+
+    materialisation {
+      strategy:   upsert
+      binding:    "postgres-ods-sink"
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sales portal — B2C and B2B customer context
+  // Joins CRM customer to their account, price tier, and assigned rep for
+  // the sales portal, onboarding flows, and account management UIs.
+  // ---------------------------------------------------------------------------
+  projection CustomerSalesView @ 1
+    from crm.Customer @ 2 as cust
+    left join crm.Account @ 1 as acc on cust.accountId == acc.accountId
+    left join cpq.PriceTier @ 1 as tier on cust.priceTierId == tier.priceTierId
+    left join iam.InternalUser @ 2 as rep on cust.assignedSalesRepId == rep.userId
+  {
+    @key customerId             <- cust.customerId
+    @pii email                  <- cust.email
+    @pii fullName               <- cust.fullName
+    customerType                <- cust.customerType
+    countryCode                 <- cust.countryCode
+    preferredLocale             <- cust.preferredLocale
+    defaultCurrencyCode         <- cust.defaultCurrencyCode
+    status                      <- cust.status
+    acquisitionChannel          <- cust.acquisitionChannel
+    acquisitionDate             <- cust.acquisitionDate
+    accountId                   <- cust.accountId
+    @pii accountLegalName       <- acc.legalName
+    accountIndustry             <- acc.industry
+    accountRegion               <- acc.region
+    accountStatus               <- acc.status
+    creditLimitCents            <- acc.creditLimitCents
+    priceTierId                 <- cust.priceTierId
+    tierCode                    <- tier.tierCode
+    tierName                    <- tier.tierName
+    baseDiscountBps             <- tier.baseDiscountBps
+    assignedSalesRepId          <- cust.assignedSalesRepId
+    @pii repFullName            <- rep.fullName
+    repEmail                    <- rep.email
+    repRegion                   <- rep.region
+    repIsActive                 <- rep.isActive
+
+    materialisation {
+      strategy:   upsert
+      binding:    "postgres-ods-sink"
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Customer support — single-pane order view
+  // Joins order to customer identity, payment status, and shipment tracking
+  // so support agents can resolve enquiries without accessing source systems.
+  // ---------------------------------------------------------------------------
+  projection OrderSupportView @ 1
+    from orders.Order @ 2 as ord
+    join crm.Customer @ 2 as cust on ord.customerId == cust.customerId
+    left join psp.PaymentTransaction @ 2 as pay on ord.orderId == pay.orderId
+    left join wms.Shipment @ 2 as ship on ord.orderId == ship.orderId
+    left join iam.InternalUser @ 2 as rep on ord.assignedSalesRepId == rep.userId
+  {
+    @key orderId                <- ord.orderId
+    customerId                  <- ord.customerId
+    @pii customerEmail          <- cust.email
+    @pii customerFullName       <- cust.fullName
+    customerType                <- cust.customerType
+    accountId                   <- ord.accountId
+    orderStatus                 <- ord.status
+    channelCode                 <- ord.channelCode
+    currencyCode                <- ord.currencyCode
+    totalAmountCents            <- ord.totalAmountCents
+    discountCents               <- ord.discountCents
+    shippingCostCents           <- ord.shippingCostCents
+    createdAt                   <- ord.createdAt
+    confirmedAt                 <- ord.confirmedAt
+    cancelledAt                 <- ord.cancelledAt
+    paymentStatus               <- pay.status
+    paymentAmountCents          <- pay.amountCents
+    paymentMethodType           = null  // resolved by join to psp.PaymentMethod if needed
+    paymentCapturedAt           <- pay.capturedAt
+    paymentRefundedAt           <- pay.refundedAt
+    shipmentStatus              <- ship.status
+    carrier                     <- ship.carrier
+    serviceLevel                <- ship.serviceLevel
+    trackingNumber              <- ship.trackingNumber
+    estimatedDeliveryAt         <- ship.estimatedDeliveryAt
+    deliveredAt                 <- ship.deliveredAt
+    assignedRepName             <- rep.fullName
+    assignedRepEmail            <- rep.email
+
+    materialisation {
+      strategy:   upsert
+      binding:    "postgres-ods-sink"
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Warehouse operations — low-stock and reorder alert view
+  // Surfaces products at or below reorder point per warehouse, enriched with
+  // PIM supplier metadata so the procurement team can raise purchase orders.
+  // Physical products only (isDigital == false).
+  // ---------------------------------------------------------------------------
+  projection LowStockAlertView @ 1
+    from wms.StockLevel @ 2 as stock
+    join pim.Product @ 3 as prod on stock.productId == prod.productId
+    join wms.Warehouse @ 1 as wh on stock.warehouseId == wh.warehouseId
+    where stock.quantityAvailable <= stock.reorderPoint
+          && prod.isActive == true
+          && prod.isDigital == false
+  {
+    @key stockId                <- stock.stockId
+    warehouseId                 <- stock.warehouseId
+    warehouseCode               <- wh.warehouseCode
+    warehouseName               <- wh.name
+    warehouseRegion             <- wh.region
+    productId                   <- stock.productId
+    sku                         <- prod.sku
+    productName                 <- prod.name
+    productCategory             <- prod.category
+    supplierId                  <- prod.supplierId
+    supplierSku                 <- prod.supplierSku
+    harmonisedCode              <- prod.harmonisedCode
+    quantityOnHand              <- stock.quantityOnHand
+    quantityReserved            <- stock.quantityReserved
+    quantityAvailable           <- stock.quantityAvailable
+    reorderPoint                <- stock.reorderPoint
+    reorderQuantity             <- stock.reorderQuantity
+    stockoutRisk                = stock.quantityAvailable <= 0
+                                    ? "critical"
+                                    : (stock.quantityAvailable <= stock.reorderPoint * 0.25
+                                        ? "high"
+                                        : "medium")
+    updatedAt                   <- stock.updatedAt
+
+    materialisation {
+      strategy:   upsert
+      binding:    "postgres-ods-sink"
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sales manager dashboard — rep workload and pipeline view
+  // Aggregates active customer count, pipeline value, and open order count
+  // per sales rep for supervisor dashboards and territory planning.
+  // ---------------------------------------------------------------------------
+  projection SalesRepWorkloadView @ 1
+    from iam.InternalUser @ 2 as rep
+    left join crm.Customer @ 2 as cust on rep.userId == cust.assignedSalesRepId
+    left join orders.Order @ 2 as ord on cust.customerId == ord.customerId
+    where rep.role in ["sales_rep", "sales_manager"] && rep.isActive == true
+    group by rep.userId, rep.fullName, rep.email, rep.region, rep.department
+  {
+    @key repUserId              <- rep.userId
+    @pii repFullName            <- rep.fullName
+    repEmail                    <- rep.email
+    region                      <- rep.region
+    department                  <- rep.department
+    activeCustomerCount         = countif(cust.status == "active")
+    prospectCount               = countif(cust.status == "prospect")
+    openOrderCount              = countif(ord.status in ["submitted", "confirmed", "in_fulfillment"])
+    openOrderValueCents         = sum(ord.totalAmountCents)
+                                    where ord.status in ["submitted", "confirmed", "in_fulfillment"]
+    lastOrderCreatedAt          = max(ord.createdAt)
+
+    materialisation {
+      strategy:   upsert
+      binding:    "postgres-ods-sink"
+    }
+  }
+}

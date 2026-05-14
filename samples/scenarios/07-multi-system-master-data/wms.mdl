@@ -1,0 +1,83 @@
+domain wms {
+  owner: "logistics-team"
+  contact: "logistics@example.com"
+  description: "Logistics master: warehouses, real-time stock levels, and outbound shipment lifecycle. Source of truth for inventory and fulfillment state consumed by the ODS (low-stock alerts, order tracking) and data mart (carrier performance, inventory health)."
+
+  entity Warehouse @ 1 (additive) {
+    @key             warehouseId:          uuid
+                     warehouseCode:        string
+                     name:                 string
+                     region:               string
+                     countryCode:          string    // format: iso3166_alpha2
+                     timezone:             string    // format: iana_tz
+                     isActive:             bool
+                     managerId:            ref<iam.InternalUser>
+  }
+
+  entity StockLevel @ 2 (additive) {
+    @key             stockId:              uuid
+                     warehouseId:          ref<wms.Warehouse>
+                     productId:            ref<pim.Product>
+                     variantId?:           ref<pim.ProductVariant>
+                     quantityOnHand:       int
+                     quantityReserved:     int
+                     quantityAvailable:    int       // maintained as onHand - reserved
+                     reorderPoint:         int
+                     reorderQuantity:      int
+                     lastStocktakeAt?:     timestamp
+                     updatedAt:            timestamp
+  }
+
+  entity Shipment @ 2 (additive) {
+    @key             shipmentId:           uuid
+                     orderId:              uuid      // loose ref to orders system; avoids circular domain dep
+                     customerId:           ref<crm.Customer>
+                     fromWarehouseId:      ref<wms.Warehouse>
+                     trackingNumber?:      string
+                     carrier:              enum(fedex, ups, dhl, usps, royal_mail, local_courier, own_fleet)
+                     serviceLevel:         enum(standard, express, overnight, same_day, economy)
+                     estimatedWeightGrams: int
+                     shippingCostCents:    int
+                     status:               enum(pending, picking, packed, dispatched, in_transit, out_for_delivery, delivered, failed, returned)
+                     assignedStaffId?:     ref<iam.InternalUser>
+                     dispatchedAt?:        timestamp
+                     estimatedDeliveryAt?: timestamp
+                     deliveredAt?:         timestamp
+                     failedAt?:            timestamp
+                     returnInitiatedAt?:   timestamp
+                     createdAt:            timestamp
+                     updatedAt:            timestamp
+  }
+
+  event ShipmentStatusChanged @ 1 {
+    @key             eventId:              uuid
+                     shipmentId:           ref<wms.Shipment>
+                     orderId:              uuid
+                     previousStatus:       string
+                     newStatus:            string
+                     locationCode?:        string
+                     carrierEventCode?:    string
+                     occurredAt:           timestamp
+  }
+
+  event StockLevelChanged @ 1 {
+    @key             eventId:              uuid
+                     stockId:              ref<wms.StockLevel>
+                     warehouseId:          ref<wms.Warehouse>
+                     productId:            ref<pim.Product>
+                     variantId?:           ref<pim.ProductVariant>
+                     previousQuantityOnHand: int
+                     newQuantityOnHand:    int
+                     changeReason:         enum(sale, return, adjustment, stocktake, damage, supplier_receipt)
+                     occurredAt:           timestamp
+  }
+
+  event StocktakeCompleted @ 1 {
+    @key             eventId:              uuid
+                     warehouseId:          ref<wms.Warehouse>
+                     conductedByUserId:    ref<iam.InternalUser>
+                     productCount:         int
+                     varianceUnits:        int
+                     occurredAt:           timestamp
+  }
+}

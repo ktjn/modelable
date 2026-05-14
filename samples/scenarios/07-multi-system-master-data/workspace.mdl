@@ -1,0 +1,13 @@
+workspace {
+  name: "multi-system-master-data"
+  description: "Enterprise multi-system master data architecture: six authoritative source systems (CRM, IAM, PIM, CPQ, WMS, PSP) sharing data via cross-domain references, consolidated into a near-real-time ODS layer, and projected into an analytics data mart and lake."
+
+  generate {
+    docs         -> "./generated/docs/"
+    typescript   -> "./generated/types/"
+    jsonschema   -> "./generated/jsonschema/"
+    sql(postgres) -> "./generated/sql/ods/"
+    sql(clickhouse) -> "./generated/sql/datamart/"
+    avro         -> "./generated/avro/"
+  }
+}

@@ -1,0 +1,69 @@
+domain crm {
+  owner: "crm-team"
+  contact: "crm@example.com"
+  description: "Customer master: B2C individuals and B2B corporate accounts. Source of truth for customer identity, segmentation, price-tier assignment, and sales ownership. Consumed by orders, payments, logistics, and all analytics layers."
+
+  entity Customer @ 2 (additive) {
+    @key             customerId:           uuid
+    @pii             email:                string
+    @pii             fullName:             string
+    @pii             phoneNumber?:         string
+    @pii             dateOfBirth?:         date      // B2C only; used for age-gated product eligibility
+                     customerType:         enum(b2c, b2b)
+                     accountId?:           ref<crm.Account>       // B2B: parent corporate account
+                     countryCode:          string    // format: iso3166_alpha2
+                     preferredLocale:      string    // format: bcp47
+                     defaultCurrencyCode:  string    // format: iso4217
+                     assignedSalesRepId?:  ref<iam.InternalUser>
+                     priceTierId:          ref<cpq.PriceTier>
+                     acquisitionChannel:   enum(organic, paid_search, social, referral, partner, direct, import)
+                     acquisitionDate:      date
+                     status:               enum(prospect, active, churned, blocked)
+                     createdAt:            timestamp
+                     updatedAt:            timestamp
+  }
+
+  entity Account @ 1 (additive) {
+    @pii             legalName:            string
+    @pii             taxId?:               string    // VAT / EIN; jurisdiction-specific
+    @pii             registrationNumber?:  string
+    @key             accountId:            uuid
+                     industry:             string
+                     region:               string
+                     countryCode:          string    // format: iso3166_alpha2
+                     creditLimitCents?:    int       // 0 = no credit extended
+                     priceTierId:          ref<cpq.PriceTier>
+                     assignedSalesRepId?:  ref<iam.InternalUser>
+                     status:               enum(prospect, active, suspended, closed)
+                     createdAt:            timestamp
+                     updatedAt:            timestamp
+  }
+
+  event CustomerStatusChanged @ 1 {
+    @key             eventId:              uuid
+                     customerId:           ref<crm.Customer>
+                     previousStatus:       string
+                     newStatus:            string
+                     changedByUserId:      ref<iam.InternalUser>
+                     reason?:              string
+                     occurredAt:           timestamp
+  }
+
+  event AccountCreditLimitChanged @ 1 {
+    @key             eventId:              uuid
+                     accountId:            ref<crm.Account>
+                     previousLimitCents?:  int
+                     newLimitCents?:       int
+                     approvedByUserId:     ref<iam.InternalUser>
+                     occurredAt:           timestamp
+  }
+
+  event SalesRepReassigned @ 1 {
+    @key             eventId:              uuid
+                     customerId:           ref<crm.Customer>
+                     previousRepId?:       ref<iam.InternalUser>
+                     newRepId:             ref<iam.InternalUser>
+                     reassignedByUserId:   ref<iam.InternalUser>
+                     occurredAt:           timestamp
+  }
+}

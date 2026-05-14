@@ -1,0 +1,69 @@
+domain pim {
+  owner: "product-catalog-team"
+  contact: "catalog@example.com"
+  description: "Product master: canonical product catalogue, variants, and physical attributes. Source of truth consumed by CPQ (pricing), WMS (logistics and stock), orders (line items), and all analytics layers. A product record here is the single reference for anything sold."
+
+  entity Product @ 3 (additive) {
+    @key             productId:            uuid
+                     sku:                  string
+                     name:                 string
+                     shortDescription?:    string
+                     brand:                string
+                     category:             string
+                     subcategory?:         string
+                     weightGrams?:         int
+                     dimensions?:          value Dimensions
+                     baseUnitOfMeasure:    enum(unit, kg, litre, metre, pair, set)
+                     isActive:             bool
+                     isDigital:            bool      // digital products bypass WMS entirely
+                     isHazardous:          bool      // restricts eligible carriers in WMS
+                     taxClass:             enum(standard, reduced, zero, exempt)
+                     supplierId?:          string    // external supplier registry; loose ref
+                     supplierSku?:         string
+                     harmonisedCode?:      string    // HS tariff code for cross-border customs
+                     tags?:                array<string>
+                     createdAt:            timestamp
+                     updatedAt:            timestamp
+  }
+
+  entity ProductVariant @ 2 (additive) {
+    @key             variantId:            uuid
+                     productId:            ref<pim.Product>
+                     variantSku:           string
+                     attributes:           map<string, string>   // e.g. {color: "red", size: "M"}
+                     additionalWeightGrams: int = 0
+                     isActive:             bool
+                     createdAt:            timestamp
+  }
+
+  value Dimensions {
+    lengthCm: float
+    widthCm:  float
+    heightCm: float
+  }
+
+  event ProductActivated @ 1 {
+    @key             eventId:              uuid
+                     productId:            ref<pim.Product>
+                     activatedByUserId:    ref<iam.InternalUser>
+                     occurredAt:           timestamp
+  }
+
+  event ProductDeactivated @ 1 {
+    @key             eventId:              uuid
+                     productId:            ref<pim.Product>
+                     reason:               string
+                     deactivatedByUserId:  ref<iam.InternalUser>
+                     occurredAt:           timestamp
+  }
+
+  event ProductAttributeChanged @ 1 {
+    @key             eventId:              uuid
+                     productId:            ref<pim.Product>
+                     changedField:         string
+                     previousValue?:       string
+                     newValue?:            string
+                     changedByUserId:      ref<iam.InternalUser>
+                     occurredAt:           timestamp
+  }
+}

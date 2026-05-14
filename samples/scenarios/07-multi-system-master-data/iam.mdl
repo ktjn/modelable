@@ -1,0 +1,51 @@
+domain iam {
+  owner: "hr-platform-team"
+  contact: "hr-platform@example.com"
+  description: "Internal user master: employees, roles, and organisational hierarchy. Source of truth for workforce identity across CRM (sales assignment), CPQ (price approvals), WMS (warehouse staff), and PSP (refund authorisation)."
+
+  entity InternalUser @ 2 (additive) {
+    @key             userId:               uuid
+    @pii             email:                string
+    @pii             fullName:             string
+    @pii             phoneExtension?:      string
+                     employeeId:           string    // HR payroll code; immutable after hire
+                     department:           enum(sales, support, warehouse, finance, product, engineering, hr, executive)
+                     role:                 enum(sales_rep, sales_manager, support_agent, support_lead, warehouse_staff, warehouse_manager, finance_analyst, product_manager, admin, viewer)
+                     region?:              string
+                     costCentreCode:       string
+                     managerId?:           ref<iam.InternalUser>
+                     isActive:             bool
+                     hiredAt:              date
+                     deactivatedAt?:       timestamp
+                     lastLoginAt?:         timestamp
+                     createdAt:            timestamp
+                     updatedAt:            timestamp
+  }
+
+  event UserRoleChanged @ 1 {
+    @key             eventId:              uuid
+                     userId:               ref<iam.InternalUser>
+                     previousRole:         string
+                     newRole:              string
+                     changedByUserId:      ref<iam.InternalUser>
+                     effectiveAt:          date
+                     occurredAt:           timestamp
+  }
+
+  event UserDeactivated @ 1 {
+    @key             eventId:              uuid
+                     userId:               ref<iam.InternalUser>
+                     reason:               enum(resigned, terminated, leave_of_absence, transfer)
+                     approvedByManagerId:  ref<iam.InternalUser>
+                     occurredAt:           timestamp
+  }
+
+  event ManagerChanged @ 1 {
+    @key             eventId:              uuid
+                     userId:               ref<iam.InternalUser>
+                     previousManagerId?:   ref<iam.InternalUser>
+                     newManagerId:         ref<iam.InternalUser>
+                     effectiveAt:          date
+                     occurredAt:           timestamp
+  }
+}
