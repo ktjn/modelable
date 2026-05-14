@@ -21,23 +21,50 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 - **Framework:** Click
 - **Entry point:** `modellable` (installed via `pip install -e cli/`)
 - **Build system:** Hatchling (`pyproject.toml`)
-- **Required dependencies:** `click>=8.1`, `pyyaml>=6.0`, `ruamel.yaml>=0.18`, `anthropic>=0.40`, `rich>=13.0`, `jsonschema>=4.23`, `referencing>=0.35`
+- **Required dependencies:** `click>=8.1`, `lark>=1.1`, `pydantic>=2.0`, `anthropic>=0.40`, `rich>=13.0`, `jsonschema>=4.23`, `referencing>=0.35`
 
 AI-powered commands (`describe`, `generate`) additionally require the `ANTHROPIC_API_KEY` environment variable.
 
 ## 4. File Format
 
-Definition files use multi-document YAML (documents separated by `---`). The CLI infers each document's type from its top-level keys:
+Definition files use the Modellable IDL with the `.mdl` extension. The grammar is defined in `cli/src/modellable/grammar/modellable.lark` and parsed by Lark (Earley).
 
-| Top-level keys present | Inferred document type |
-|:-----------------------|:----------------------|
-| `scenario` | Scenario metadata |
-| `domain` only (no `model`, `projection`, `binding`) | Domain definition |
-| `domain` + `model` | Model definition |
-| `domain` + `projection` | Projection definition |
-| `binding` | Adapter binding |
+**Syntax summary:**
 
-Model references use the format `domain.ModelName.vVersion` (e.g., `customer.Customer.v1`). Versions are typically integers but may be semantic versions if the domain chooses.
+- Brace-delimited blocks — no significant whitespace, LLM-friendly
+- `@decorator` annotations inline before field declarations
+- `@` pins a version on a model or projection declaration: `Customer @ 2`
+- `(additive)` or `(breaking)` follows the version number
+- `?` suffix marks an optional field
+- `//` line comments
+
+**Top-level constructs:**
+
+| Keyword | Purpose |
+|:--------|:--------|
+| `domain` | Owns models, projections, and a `generate` block |
+| `binding` | Wires a model to a concrete adapter instance |
+| `workspace` | Workspace-level `generate` block |
+
+**Within a domain:**
+
+| Keyword | Purpose |
+|:--------|:--------|
+| `entity` | Addressable business entity (requires `@key`) |
+| `aggregate` | Consistency boundary (requires `@key`) |
+| `event` | Immutable fact (no `@key`) |
+| `value` | Embedded value object (no `@key`) |
+| `projection` | Versioned derived contract |
+| `generate` | Output target declarations |
+
+**Projection field operators:**
+
+| Operator | Meaning |
+|:---------|:--------|
+| `targetField <- alias.sourceField` | Direct mapping — lineage is unambiguous |
+| `targetField = expression` | Computed field — compiler extracts source field references from the CEL expression |
+
+**Model references** use the form `domain.ModelName @ version` (e.g., `customer.Customer @ 2`) or a range (`customer.Customer @ >=2 <3`).
 
 ## 5. Commands
 
@@ -47,7 +74,7 @@ Model references use the format `domain.ModelName.vVersion` (e.g., `customer.Cus
 modellable validate [PATH] [--strict]
 ```
 
-Validates Modellable YAML definitions at `PATH` (file or directory). Defaults to the current directory.
+Validates Modellable `.mdl` definitions at `PATH` (file or directory). Defaults to the current directory.
 
 **Options:**
 
@@ -57,20 +84,22 @@ Validates Modellable YAML definitions at `PATH` (file or directory). Defaults to
 
 **Checks performed:**
 
-- Domains have `owner` and `description`
-- Models have valid `kind`, `version`, `status`, and `fields`
-- Field types are from the supported type list
-- Field classifications are valid values
-- Projections have at least one source and fields with `from` or `expression`
-- Materialisation strategies are valid
-- Bindings have `adapter` and `role`
+- Syntax: `.mdl` files parse without errors against the Lark grammar
+- `entity` and `aggregate` models have exactly one `@key` field
+- `event` and `value` models have no `@key` field
+- Field types are from the supported type list (section 4 of system spec)
+- Field annotations are valid (`@pii`, `@classification`, `@deprecated`, `@owner`)
+- Model versions are strictly ascending within a domain block
+- Projection fields each have exactly one mapping operator (`<-` or `=`)
+- Aggregation functions (`count`, `sum`, `min`, `max`, `avg`) only appear in projections with `group by`
+- Version ranges resolve to at least one published version
 
 **Exit codes:** `0` on success (or warnings-only without `--strict`); `1` on validation errors.
 
 **Examples:**
 
 ```bash
-modellable validate samples/scenarios/01-ecommerce-data-warehouse.yaml
+modellable validate models/customer/Customer.mdl
 modellable validate ./my-project/
 modellable validate ./my-project/ --strict
 ```
@@ -83,25 +112,25 @@ modellable validate ./my-project/ --strict
 modellable resolve REF [--path PATH]
 ```
 
-Resolves a model or projection by its fully-qualified reference and prints the raw YAML document.
+Resolves a model or projection by its fully-qualified reference and prints the normalized definition.
 
 **Arguments:**
 
 | Argument | Description |
 |:---------|:------------|
-| `REF` | Model reference in the form `domain.ModelName.vVersion` |
+| `REF` | Model reference in the form `domain.ModelName@version` (e.g., `customer.Customer@2`) |
 
 **Options:**
 
 | Flag | Default | Description |
 |:-----|:--------|:------------|
-| `--path`, `-p` | `.` | Directory to search for YAML definitions |
+| `--path`, `-p` | `.` | Directory to search for `.mdl` definitions |
 
 **Examples:**
 
 ```bash
-modellable resolve customer.Customer.v1
-modellable resolve billing.BillingCustomer.v1 --path ./models
+modellable resolve customer.Customer@2
+modellable resolve billing.BillingCustomer@1 --path ./models
 ```
 
 ---
@@ -121,19 +150,19 @@ Shows field-level lineage for a model or projection.
 
 | Argument | Description |
 |:---------|:------------|
-| `REF` | Model or projection reference in the form `domain.ModelName.vVersion` |
+| `REF` | Model or projection reference in the form `domain.ModelName@version` |
 
 **Options:**
 
 | Flag | Default | Description |
 |:-----|:--------|:------------|
-| `--path`, `-p` | `.` | Directory to search for YAML definitions |
+| `--path`, `-p` | `.` | Directory to search for `.mdl` definitions |
 
 **Examples:**
 
 ```bash
-modellable lineage billing.BillingCustomer.v1
-modellable lineage customer.Customer.v2
+modellable lineage billing.BillingCustomer@1
+modellable lineage customer.Customer@2
 ```
 
 ---
@@ -150,19 +179,19 @@ Compares two model or projection versions field by field and reports additions, 
 
 | Argument | Description |
 |:---------|:------------|
-| `REF_A` | First model reference (`domain.ModelName.vVersion`) |
-| `REF_B` | Second model reference (`domain.ModelName.vVersion`) |
+| `REF_A` | First model reference (`domain.ModelName@version`) |
+| `REF_B` | Second model reference (`domain.ModelName@version`) |
 
 **Options:**
 
 | Flag | Default | Description |
 |:-----|:--------|:------------|
-| `--path`, `-p` | `.` | Directory to search for YAML definitions |
+| `--path`, `-p` | `.` | Directory to search for `.mdl` definitions |
 
 **Examples:**
 
 ```bash
-modellable diff customer.Customer.v1 customer.Customer.v2
+modellable diff customer.Customer@1 customer.Customer@2
 ```
 
 ---
@@ -173,7 +202,7 @@ modellable diff customer.Customer.v1 customer.Customer.v2
 modellable compile SOURCE --target TARGET [--out DIR] [--path PATH]
 ```
 
-Compiles model and projection definitions to a target artifact format. `SOURCE` can be a path to a YAML file or directory, or a model reference (`domain.ModelName.vVersion`).
+Compiles model and projection definitions to a target artifact format. `SOURCE` can be a path to a `.mdl` file or directory, or a model reference (`domain.ModelName@version`).
 
 In addition to the requested artifact format, `compile` always writes a `registry.db` SQLite index and plan documents to `.modellable/` in the current directory. These derived files are build artifacts — not source files — and should be added to `.gitignore`.
 
@@ -199,8 +228,8 @@ In addition to the requested artifact format, `compile` always writes a `registr
 
 ```bash
 modellable compile ./models --target json-schema --out ./dist/jsonschema
-modellable compile customer.Customer.v1 --target json-schema
-modellable compile customer.Customer.v1 --target typescript
+modellable compile customer.Customer@2 --target json-schema
+modellable compile customer.Customer@2 --target typescript
 modellable compile ./models --target markdown --out ./dist/docs
 ```
 
@@ -212,7 +241,7 @@ modellable compile ./models --target markdown --out ./dist/docs
 modellable docs SOURCE [--out DIR]
 ```
 
-Generates Markdown documentation for all definitions in a YAML file or directory. This is a convenience wrapper around `compile --target markdown`.
+Generates Markdown documentation for all definitions in a `.mdl` file or directory. This is a convenience wrapper around `compile --target markdown`.
 
 **Options:**
 
@@ -281,7 +310,7 @@ modellable create model  [--output-dir DIR]
 modellable create projection [--output-dir DIR]
 ```
 
-Walks through an interactive prompt sequence and writes a YAML definition file.
+Walks through an interactive prompt sequence and writes a `.mdl` definition file.
 
 **Subcommands:**
 
@@ -315,21 +344,21 @@ modellable describe PATH
 
 Requires `ANTHROPIC_API_KEY`.
 
-Reads a YAML definition file and uses Claude to explain it in plain English, covering:
+Reads a `.mdl` definition file and uses Claude to explain it in plain English, covering:
 
 - What problem the scenario solves
 - Which domains are involved and what they own
 - What each projection does and why it is designed that way
 - Notable design decisions (e.g., why PIT joins, why specific materialisation strategies)
 
-The Modellable DSL specification is sent as a cached system prompt. Repeated calls within a session reuse the cached context and respond faster.
+The Modellable IDL specification is sent as a cached system prompt. Repeated calls within a session reuse the cached context and respond faster.
 
 **Examples:**
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-modellable describe samples/scenarios/03-order-saga-microservices.yaml
-modellable describe ./my-project/my-definitions.yaml
+modellable describe models/orders/Order.mdl
+modellable describe ./my-project/
 ```
 
 ---
@@ -342,7 +371,7 @@ modellable generate [--platform PLATFORM] [--suggest-platform] [--context FILE] 
 
 Requires `ANTHROPIC_API_KEY`.
 
-Generates Modellable YAML definitions from a natural language description using Claude. When `--output` is provided, the result is also automatically validated.
+Generates Modellable `.mdl` definitions from a natural language description or existing schemas (DDL, JSON Schema) using Claude. When `--output` is provided, the result is automatically validated through the Lark parser pipeline before writing.
 
 **Options:**
 
@@ -527,44 +556,38 @@ datacontract lint ./dist/customer.contract.yaml
 
 The `describe` and `generate` commands use the Claude API (model: `claude-opus-4-7`).
 
-- The full Modellable DSL specification is sent as a cached system prompt.
+- The Modellable IDL specification and grammar reference are sent as a cached system prompt.
 - Repeated calls within a session reuse the cached prompt and respond faster.
-- Generated YAML is automatically validated when `--output` is supplied to `generate`.
+- Generated `.mdl` output is validated through the Lark parser pipeline when `--output` is supplied to `generate`. Malformed output is caught before writing to disk.
 - Complex scenario generation may take 10–30 seconds.
 
 ## 7. Quick-Start Workflow
 
 ```bash
-# 1. Start from the closest sample scenario
-modellable scenario load realtime-fraud-detection --output-dir ./fraud-signals
+# 1. Create a domain definition
+modellable create domain --output-dir ./my-models
 
-# 2. Validate it
-modellable validate ./fraud-signals/
+# 2. Add a model with AI assistance
+modellable generate --platform event-driven-microservices --output ./my-models/Order.mdl
 
-# 3. Understand what it does
-modellable describe ./fraud-signals/02-realtime-fraud-detection.yaml
+# 3. Validate the new file
+modellable validate ./my-models/Order.mdl
 
-# 4. Extend it with AI
-modellable generate \
-  --platform high-performance-service \
-  --context ./fraud-signals/02-realtime-fraud-detection.yaml \
-  --output ./fraud-signals/03-new-account-signals.yaml
+# 4. Understand what it does
+modellable describe ./my-models/Order.mdl
 
-# 5. Validate the new file
-modellable validate ./fraud-signals/03-new-account-signals.yaml
+# 5. Inspect lineage
+modellable lineage billing.BillingCustomer@1 --path ./my-models
 
-# 6. Inspect lineage
-modellable lineage billing.BillingCustomer.v1 --path ./fraud-signals
+# 6. Compare versions
+modellable diff customer.Customer@1 customer.Customer@2 --path ./my-models
 
-# 7. Compare versions
-modellable diff customer.Customer.v1 customer.Customer.v2 --path ./fraud-signals
+# 7. Compile to JSON Schema and TypeScript
+modellable compile ./my-models --target json-schema --out ./dist/jsonschema
+modellable compile ./my-models --target typescript --out ./dist/types
 
-# 8. Compile to JSON Schema and TypeScript
-modellable compile ./fraud-signals --target json-schema --out ./dist/jsonschema
-modellable compile ./fraud-signals --target typescript --out ./dist/types
-
-# 9. Generate documentation
-modellable docs ./fraud-signals --out ./dist/docs
+# 8. Generate documentation
+modellable docs ./my-models --out ./dist/docs
 ```
 
 ## 8. Output and Exit Codes
@@ -576,8 +599,12 @@ modellable docs ./fraud-signals --out ./dist/docs
 
 ## 9. Open Design Decisions
 
-- **Schema validation backend:** The current validator performs structural checks. Whether to adopt JSON Schema Draft 2020-12 as the authoritative validation schema for definition files is an open decision.
 - **Plugin architecture for compilers:** The compile targets are currently hard-coded. A plugin registry for third-party targets is deferred.
 - **Authentication for registry commands:** Apicurio and OpenMetadata authentication mechanisms (API keys, OAuth, mTLS) are not yet specified.
 - **Incremental compilation:** Whether `compile` should track which files changed and only recompile affected artifacts is deferred.
 - **Version pinning for AI model:** The `describe`/`generate` commands currently hard-code `claude-opus-4-7`. Whether to make this configurable or always use the latest capable model is an open decision.
+- **LSP parser mode:** The language server currently uses Lark Earley for correctness. Whether to migrate to LALR for lower-latency IDE responses is deferred.
+
+**Resolved:**
+
+- **Definition format:** Custom text IDL (`.mdl`), parsed with Lark (Earley). See `docs/superpowers/specs/2026-05-14-modellable-idl-design.md`.

@@ -70,10 +70,11 @@ Required properties:
 
 Example:
 
-```yaml
-domain: customer
-owner: customer-platform
-description: Customer identity and lifecycle data.
+```mdl
+domain customer {
+  owner: "customer-platform"
+  description: "Customer identity and lifecycle data."
+}
 ```
 
 ### 3.2 Model
@@ -90,10 +91,12 @@ Required properties:
 
 Example:
 
-```yaml
-domain: customer
-model: Customer
-kind: entity
+```mdl
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
 ```
 
 ### 3.3 Model Version
@@ -112,37 +115,29 @@ Required properties:
 
 Example:
 
-```yaml
-domain: customer
-model: Customer
-version: 2
-changeKind: additive
-status: published
+```mdl
+domain customer {
+  entity Customer @ 2 (additive) {
+    @key        customerId: uuid
+                legalName:  string
+    @pii        email?:     string
+                status:     enum(active, blocked, deleted)
+                createdAt:  timestamp
+  }
+}
+```
 
-# single key
-identity:
-  key: customerId
+Composite key example:
 
-# composite key (order line item example)
-# identity:
-#   key: [orderId, lineItemId]
-
-fields:
-  customerId:
-    type: string
-    required: true
-  legalName:
-    type: string
-    required: true
-  email:
-    type: string
-    format: email
-    classification: pii
-  status:
-    type: enum
-    values: [active, blocked, deleted]
-  createdAt:
-    type: timestamp
+```mdl
+domain orders {
+  entity OrderLineItem @ 1 (additive) {
+    @key orderId:    uuid
+    @key lineItemId: uuid
+    sku:             string
+    quantity:        int
+  }
+}
 ```
 
 ### 3.4 Projection
@@ -172,29 +167,17 @@ Required properties:
 
 Example:
 
-```yaml
-domain: billing
-projection: BillingCustomer
-version: 1
-
-sources:
-  - domain: customer
-    model: Customer
-    version: 2
-    alias: c
-
-identity:
-  key: billingCustomerId
-
-fields:
-  billingCustomerId:
-    from: c.customerId
-  name:
-    from: c.legalName
-  invoiceEmail:
-    from: c.email
-  isBillable:
-    expression: c.status == "active"
+```mdl
+domain billing {
+  projection BillingCustomer @ 1
+    from customer.Customer @ 2 as c
+  {
+    billingCustomerId <- c.customerId
+    name             <- c.legalName
+    @pii invoiceEmail <- c.email
+    isBillable        = c.status == "active"
+  }
+}
 ```
 
 ### 3.5 Subscription
@@ -210,25 +193,29 @@ Required properties:
 - `delivery`: Delivery and retry semantics.
 - `state`: Optional state management for joins and aggregations.
 
-Example:
+Example (Phase 5 — subscription IDL syntax is defined in the Phase 5 spec):
 
-```yaml
-subscription: billing-customer-replica
-projection: billing.BillingCustomer.v1
+```mdl
+subscription billing-customer-replica {
+  projection: billing.BillingCustomer @ 1
 
-source:
-  type: stream
-  model: customer.Customer.v2
+  source {
+    type: stream
+    model: customer.Customer @ 2
+  }
 
-target:
-  type: database
-  adapter: postgres
-  table: billing_customers
+  target {
+    type: database
+    adapter: postgres
+    table: "billing_customers"
+  }
 
-delivery:
-  mode: at_least_once
-  idempotencyKey: billingCustomerId
-  deadLetter: billing-customer-replica-dlq
+  delivery {
+    mode: at_least_once
+    idempotencyKey: billingCustomerId
+    deadLetter: "billing-customer-replica-dlq"
+  }
+}
 ```
 
 ### 3.6 Adapter Binding
@@ -239,159 +226,125 @@ Adapter bindings must be separate from model definitions.
 
 Example:
 
-```yaml
-binding: customer-postgres
-model: customer.Customer.v2
-adapter: postgres
-
-storage:
-  table: customers
-  primaryKey: customer_id
-
-fieldMappings:
-  customerId: customer_id
-  legalName: legal_name
-  createdAt: created_at
+```mdl
+binding customer-postgres {
+  model:   customer.Customer @ 2
+  adapter: postgres
+  table:   "customers"
+  fields: {
+    customerId -> customer_id
+    legalName  -> legal_name
+    createdAt  -> created_at
+  }
+}
 ```
 
 ## 4. Type System
 
 The core type system must support:
 
-- `string`
-- `boolean`
-- `integer`
-- `decimal`
-- `float`
-- `timestamp`
-- `date`
-- `time`
-- `duration`
-- `uuid`
-- `binary`
-- `enum`
-- `array`
-- `object`
-- `map`
-- `reference`
+| IDL type | Description |
+|:---------|:------------|
+| `string` | UTF-8 string |
+| `bool` | Boolean |
+| `int` | 64-bit integer |
+| `float` | 64-bit float |
+| `decimal(p,s)` | Arbitrary-precision decimal |
+| `uuid` | UUID v4 |
+| `timestamp` | UTC datetime with microsecond precision |
+| `date` | Calendar date (no time component) |
+| `time` | Time of day (no date component) |
+| `duration` | ISO 8601 duration |
+| `binary` | Raw bytes |
+| `enum(a, b, c)` | Inline enumeration |
+| `array<T>` | Ordered list of type T |
+| `map<K, V>` | Key-value map |
+| `ref<Domain.Model>` | Cross-domain model reference |
+| Named type (bare `IDENT`) | Reference to a `value` object in the same domain |
 
-Each field may declare:
+Field modifiers:
 
-- `required`
-- `nullable`
-- `default`
-- `description`
-- `format`
-- `classification`
-- `deprecated`
-- `replacedBy`
-- `constraints`
+- `?` suffix — optional field (nullable / not required)
+- `@key` — identity field (required for `entity` and `aggregate` models)
+- `@pii` — marks field as personally identifiable information
+- `@classification("level")` — governance classification (`public`, `internal`, `confidential`, `restricted`)
+- `@deprecated(replacedBy: "fieldName")` — marks field as deprecated
+- `@owner("team")` — field-level ownership override
 
 Example:
 
-```yaml
-email:
-  type: string
-  format: email
-  required: false
-  classification: pii
-  description: Primary customer email address.
+```mdl
+@pii
+@classification("confidential")
+email?: string
 ```
 
 ## 5. Projection Semantics
 
 ### 5.1 Field Selection
 
-A projection may expose a subset of source fields.
+A projection may expose a subset of source fields. The `<-` operator declares a direct mapping and makes lineage unambiguous.
 
-```yaml
-fields:
-  customerId:
-    from: c.customerId
-  name:
-    from: c.legalName
+```mdl
+customerId <- c.customerId
+name       <- c.legalName
 ```
 
 ### 5.2 Field Rename
 
-Renames must be expressed as projection mappings, not as implicit aliases.
+Renames are expressed as projection mappings with a different target name on the left.
 
-```yaml
-fields:
-  invoiceEmail:
-    from: c.email
+```mdl
+invoiceEmail <- c.email
 ```
 
 ### 5.3 Computed Fields
 
-Computed fields may use deterministic expressions over source fields.
+Computed fields use the `=` operator with a CEL expression over source fields. The compiler records which source fields appear in the expression for lineage tracking.
 
-```yaml
-fields:
-  isActive:
-    expression: c.status == "active"
+```mdl
+isActive = c.status == "active"
 ```
 
 The expression language must be deterministic, side-effect free, and validateable by the planner.
 
 ### 5.4 Filters
 
-A projection may filter source records.
-
-```yaml
-filter: c.status != "deleted"
-```
+Row-level filters are expressed as `join` conditions or as boolean computed fields. A dedicated `where` clause may be added in a future version.
 
 ### 5.5 Joins
 
-A projection may join multiple source models when join keys and cardinality are declared.
+A projection may join multiple source models. The `on` expression is a CEL equality comparison between aliased fields.
 
-```yaml
-sources:
-  - domain: order
-    model: Order
-    version: 3
-    alias: o
-  - domain: customer
-    model: Customer
-    version: 2
-    alias: c
-
-joins:
-  - type: left
-    left: o.customerId
-    right: c.customerId
+```mdl
+projection OrderWithCustomer @ 1
+  from orders.Order @ 3 as o
+  join customer.Customer @ 2 as c on o.customerId == c.customerId
+{
+  orderId      <- o.orderId
+  customerName <- c.legalName
+  total        <- o.totalAmount
+}
 ```
 
 The planner must reject joins that cannot be executed by the selected runtime or adapters.
 
 ### 5.6 Aggregations
 
-Aggregations are projections with grouping and aggregate functions.
+Aggregations use `group by` on the source alias and aggregate functions (`count`, `sum`, `min`, `max`, `avg`) in computed fields.
 
-```yaml
-domain: analytics
-projection: CustomerOrderSummary
-version: 1
-
-sources:
-  - domain: order
-    model: Order
-    version: 3
-    alias: o
-
-groupBy:
-  customerId: o.customerId
-
-fields:
-  customerId:
-    from: o.customerId
-  totalOrders:
-    aggregate: count(o.orderId)
-  lifetimeValue:
-    aggregate: sum(o.totalAmount)
-  lastOrderAt:
-    aggregate: max(o.createdAt)
+```mdl
+domain analytics {
+  projection CustomerOrderSummary @ 1
+    from orders.Order @ 3 as o
+    group by o.customerId
+  {
+    customerId    <- o.customerId
+    totalOrders    = count(o.orderId)
+    lifetimeValue  = sum(o.totalAmount)
+    lastOrderAt    = max(o.createdAt)
+  }
+}
 ```
 
 Supported initial aggregate functions:
@@ -591,17 +544,20 @@ Adapter categories:
 
 Each adapter must publish its capabilities so the planner can determine support.
 
-Example:
+Adapter capabilities are declared internally by each adapter implementation and are not authored in `.mdl` files. The planner queries adapter capability metadata at plan time. Example capability shape (internal representation):
 
-```yaml
-adapter: postgres
-capabilities:
-  storage: true
-  transactions: true
-  joins: true
-  aggregations: true
-  jsonFields: true
-  cdc: logical_decoding
+```json
+{
+  "adapter": "postgres",
+  "capabilities": {
+    "storage": true,
+    "transactions": true,
+    "joins": true,
+    "aggregations": true,
+    "jsonFields": true,
+    "cdc": "logical_decoding"
+  }
+}
 ```
 
 ## 8. Versioning and Compatibility
@@ -654,10 +610,12 @@ A projection version must declare exact source model versions unless explicitly 
 
 Example:
 
-```yaml
-sources:
-  - model: customer.Customer
-    version: ">=2 <3"
+```mdl
+projection BillingCustomer @ 1
+  from customer.Customer @ >=2 <3 as c
+{
+  ...
+}
 ```
 
 **Version range resolution rules:**
@@ -673,13 +631,12 @@ sources:
 
 Deprecation must be explicit and traceable.
 
-```yaml
-email:
-  type: string
-  deprecated: true
-  replacedBy: primaryEmail
-  removalAfter: 2027-01-01
+```mdl
+@deprecated(replacedBy: "primaryEmail")
+email?: string
 ```
+
+The `removalAfter` date is tracked in registry metadata outside the IDL field declaration.
 
 The registry must be able to list consumers affected by a planned deprecation.
 
@@ -730,13 +687,13 @@ The system must answer:
 The system generates artifacts from the normalized model graph. External tools consume these artifacts; they do not feed back into the internal model.
 
 ```
-Modellable DSL
+Modellable IDL (.mdl files)
    |
    v
-Parser + Semantic Validator
+Lark Parser + Semantic Validator
    |
    v
-Normalized Model Graph
+Normalized Model Graph (Pydantic IR)
    |
    |-- JSON Schema
    |-- Markdown docs
@@ -805,9 +762,9 @@ All generated artifacts must include model version metadata.
 
 The registry uses a **file-first, SQLite-indexed** storage model.
 
-**Source of truth: YAML files on disk.** Authors write and version-control YAML definition files. The registry never modifies these files. All definitions live in source control alongside application code.
+**Source of truth: `.mdl` files on disk.** Authors write and version-control `.mdl` definition files using the Modellable IDL. The registry never modifies these files. All definitions live in source control alongside application code.
 
-**Derived index: SQLite.** The `modellable compile` command reads all YAML files and writes a derived `registry.db` (SQLite) file to the `.modellable/` output directory. The database is a build artifact — never edited directly. Deleting it and re-running `compile` must produce an identical result.
+**Derived index: SQLite.** The `modellable compile` command reads all `.mdl` files and writes a derived `registry.db` (SQLite) file to the `.modellable/` output directory. The database is a build artifact — never edited directly. Deleting it and re-running `compile` must produce an identical result.
 
 SQLite is used because it provides efficient relational queries for lineage traversal, consumer lookup, and compatibility checks without requiring a server or any setup for local use.
 
@@ -843,7 +800,7 @@ SQLite is used because it provides efficient relational queries for lineage trav
 - `lineage_edges`
 - `access_policies`
 
-Published definitions are also stored as complete immutable YAML documents within the source files to preserve exact historical contracts. The SQLite index is derived from these documents, not the other way around.
+Published definitions are stored as complete immutable `.mdl` documents within the source files to preserve exact historical contracts. The SQLite index is derived from these documents, not the other way around.
 
 ## 13. APIs
 
@@ -957,8 +914,11 @@ The first version implements the local modelling compiler. Runtime materializati
 
 ### 17.1 Implementation Stack
 
-- **Core:** Python 3.11+, `pydantic`, `ruamel.yaml`, `jsonschema`, `referencing`.
+- **Parser:** `lark>=1.1` (Earley parser, EBNF grammar in `cli/src/modellable/grammar/modellable.lark`).
+- **IR:** `pydantic>=2.0` (typed internal model graph; not exposed as the external contract format).
+- **Output validation:** `jsonschema>=4.23`, `referencing>=0.35`.
 - **Output:** JSON Schema 2020-12, Markdown, TypeScript (via `json-schema-to-typescript`).
+- **CLI:** `click>=8.1`, `rich>=13.0`, `anthropic>=0.40`.
 
 ### 17.2 CLI Commands
 
@@ -1015,7 +975,7 @@ All design decisions have been resolved.
 
 **Resolved:**
 
-- **Definition DSL:** YAML-first, parsed with `ruamel.yaml`.
+- **Definition IDL:** Custom text IDL (`.mdl` files), parsed with Lark (Earley grammar). See `docs/superpowers/specs/2026-05-14-modellable-idl-design.md` for the full design rationale and syntax reference.
 - **Expression language for computed fields:** CEL (Common Expression Language). Deterministic, non-Turing-complete, sandboxable.
 - **Internal parser models:** `pydantic`. Not exposed as the external contract format.
 - **First generated artifact:** JSON Schema 2020-12.

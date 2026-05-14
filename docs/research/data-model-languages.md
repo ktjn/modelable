@@ -58,42 +58,41 @@ For logic that must be evaluated at runtime (e.g., `isBillable: status == 'activ
 
 ---
 
-## 4. Recommendations
+## 4. Decision
 
-### Option A: The "Best-of-Breed" Hybrid (Recommended)
-Build a custom YAML-based DSL that incorporates the best patterns from these languages:
-1.  **Structure:** Use **Smithy/TypeSpec** concepts for shapes and metadata.
-2.  **Transformations:** Use a **PRQL-inspired** pipeline syntax for projections.
-3.  **Logic:** Embed **CEL** for all expression-based computed fields.
+Three options were evaluated during design:
 
-### Option B: The "LinkML-First" Path
-Adopt **LinkML** as the core definition format.
-- **Pros:** Standardized; handles both models and mappings; strong Python ecosystem.
-- **Cons:** Might feel "academic" or overly verbose for standard application developers.
+- **Option A — Custom YAML DSL:** Full control, but verbose for complex projection derivation logic and every emitter must be written from scratch.
+- **Option B — Extend TypeSpec:** Gets OpenAPI/Protobuf emitters for free, but TypeSpec's API-centric model does not fit projection lineage and domain governance naturally.
+- **Option C — Custom text IDL (chosen):** Purpose-built grammar in a text IDL (`.mdl` files). More expressive than YAML for derivation logic, LLM-friendly due to explicit delimiters and consistent structure, enables a language server.
+
+**Chosen: Option C.** See `docs/superpowers/specs/2026-05-14-modellable-idl-design.md` for the full design rationale and syntax reference.
+
+**Expression language for computed fields:** CEL (Common Expression Language). Deterministic, non-Turing-complete, sandboxable. Expressions are stored as raw strings in the IR and evaluated by the Phase 5 runtime. The compiler extracts field references from expressions for lineage tracking.
 
 ---
 
 ## 5. Implementation Stack
 
-The custom YAML DSL is implemented in Python. The following libraries form the internal parser and validation layer.
+The Modellable IDL is implemented in Python. The following libraries form the internal parser and validation layer.
 
 | Library | Role |
 | :--- | :--- |
-| `ruamel.yaml` | Parse YAML DSL documents with round-trip fidelity. |
-| `pydantic` | Strongly typed internal parser models (not the external contract). |
-| `jsonschema` | Validate generated JSON Schema output and Modellable document shape. |
+| `lark>=1.1` | Parse `.mdl` IDL files using an EBNF grammar (Earley parser). |
+| `pydantic>=2.0` | Strongly typed internal IR models (not the external contract format). |
+| `jsonschema` | Validate generated JSON Schema output. |
 | `referencing` | Resolve `$ref` links within and across generated schemas. |
 
 ### Internal Compilation Flow
 
 ```
-YAML DSL
-  -> ruamel.yaml parse
-  -> pydantic parser model
+.mdl IDL file
+  -> Lark parser (Earley, EBNF grammar)
+  -> parse tree
+  -> Lark Transformer -> Pydantic IR
   -> semantic validation
   -> normalized model graph
-  -> JSON Schema output
-  -> jsonschema validation
+  -> target emitters (JSON Schema, TypeScript, OpenAPI, Avro, SQL DDL, …)
 ```
 
 `pydantic` models are used internally for type-safe graph construction. They are not exposed as the external contract format.
@@ -141,11 +140,14 @@ json2ts -i dist/jsonschema/customer.Customer.v1.schema.json -o dist/types/custom
 
 ---
 
-## 6. Next Steps for Prototyping
+## 6. Implementation Plan
 
-1.  **Draft the Internal Schema:** Define how the "Registry" stores these definitions (JSON/Relational).
-2.  **Prototype a CEL Validator:** Confirm that simple projection expressions can be validated against the source model schema.
-3.  **Map PRQL to SQL/Streams:** Experiment with translating a pipelined projection into both a PostgreSQL `VIEW` and a Kafka transformation logic.
-4.  **Implement JSON Schema export:** Generate a valid JSON Schema 2020-12 document from the normalized model graph, including `x-modellable` extensions.
-5.  **Validate with jsonschema:** Run the generated schema through the `jsonschema` library to confirm structural correctness.
-6.  **Integrate json-schema-to-typescript:** Confirm TypeScript types are generated correctly from the JSON Schema output.
+The implementation plan for Phase 1 (parser, IR, validation, and CLI) is at `docs/superpowers/plans/2026-05-14-idl-parser-ir-validation.md`.
+
+Planned implementation sequence:
+1.  **Lark grammar** (`cli/src/modellable/grammar/modellable.lark`) — EBNF for domains, models, projections, generate blocks, bindings.
+2.  **Pydantic IR** (`cli/src/modellable/parser/ir.py`) — typed model graph.
+3.  **Lark Transformer** (`cli/src/modellable/parser/transformer.py`) — parse tree → IR.
+4.  **Semantic validation** (`cli/src/modellable/validation/semantic.py`) — enforce domain rules.
+5.  **Compiler + CLI validate** — orchestration and `modellable validate` command.
+6.  **Phase 1 emitters** — JSON Schema 2020-12, Markdown, TypeScript (separate plan).

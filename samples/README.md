@@ -130,15 +130,31 @@ Projections: `GdprDataSubjectExport`, `ConsentHistory`, `BillingAuditTrail`, `Er
 
 ## File Format
 
-Each scenario file is a multi-document YAML (`---` separated). Each document is one definition:
+> **Note:** These scenario files are legacy YAML examples created before the Modellable IDL was designed. They will be migrated to `.mdl` format as part of the Phase 1 implementation. The canonical file format going forward is `.mdl` — see the [IDL design spec](../docs/superpowers/specs/2026-05-14-modellable-idl-design.md) and the [CLI spec](../docs/specs/cli-spec.md#4-file-format) for details.
 
-| Top-level key present | Document type |
-|:----------------------|:-------------|
-| `scenario` | Scenario metadata |
-| `domain` only (no `model`, `projection`, `binding`) | Domain definition |
-| `domain` + `model` | Model version definition |
-| `domain` + `projection` | Projection definition |
-| `binding` | Adapter binding configuration |
+The new `.mdl` format uses brace-delimited blocks, `@decorator` annotations, and explicit lineage operators:
+
+```mdl
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 2 (additive) {
+    @key   customerId: uuid
+           legalName:  string
+    @pii   email?:     string
+  }
+}
+
+domain billing {
+  projection BillingCustomer @ 1
+    from customer.Customer @ 2 as c
+  {
+    billingCustomerId <- c.customerId
+    name             <- c.legalName
+    isBillable        = c.status == "active"
+  }
+}
+```
 
 ## Using with the CLI
 
@@ -146,29 +162,27 @@ Each scenario file is a multi-document YAML (`---` separated). Each document is 
 # Install the CLI
 pip install -e cli/
 
-# List all scenarios
-modellable scenario list
+# Validate .mdl definitions
+modellable validate ./my-project/
 
-# Show a scenario with syntax highlighting
-modellable scenario show ecommerce-data-warehouse
-
-# Load scenario files into a working directory
-modellable scenario load credit-risk-feature-store --output-dir ./my-project
-
-# Validate scenario definitions
-modellable validate samples/scenarios/01-ecommerce-data-warehouse.yaml
-
-# Ask an LLM to explain a scenario in plain English
-modellable describe samples/scenarios/03-order-saga-microservices.yaml
+# Ask an LLM to explain definitions
+modellable describe ./my-project/
 
 # Generate new definitions from a natural language description
-modellable generate
+modellable generate --output ./my-project/NewModel.mdl
+
+# Inspect lineage
+modellable lineage billing.BillingCustomer@1 --path ./my-project
+
+# Compile to JSON Schema and TypeScript
+modellable compile ./my-project --target json-schema --out ./dist/jsonschema
+modellable compile ./my-project --target typescript --out ./dist/types
 ```
 
 ## Adapting a Scenario
 
-1. Load the closest scenario to your use case: `modellable scenario load <id> --output-dir ./my-defs`
-2. Edit the domain, model, and projection YAML files for your specific entities
+1. Use `modellable generate` with a description of your use case to create a starting `.mdl` file
+2. Edit the domain, model, and projection definitions for your specific entities
 3. Update binding configs with your actual infrastructure endpoints and credential secret names
 4. Validate: `modellable validate ./my-defs/`
-5. Use `modellable generate` to add new projections with LLM assistance
+5. Use `modellable generate --context ./my-defs/` to add new projections with LLM assistance
