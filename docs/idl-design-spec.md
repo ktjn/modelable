@@ -105,6 +105,7 @@ The type system is platform-neutral. Target emitters map each type to the closes
 | `@classification("level")` | Governance classification (restricted, internal, public) |
 | `@deprecated(replacedBy: "field")` | Field is deprecated |
 | `@owner("team")` | Field-level ownership override |
+| `@server` | Field is assigned by the server at write time (e.g. auto-generated IDs, timestamps). Excluded from `request` auto projections by default. |
 
 ### 2.4 Model kinds
 
@@ -219,6 +220,160 @@ Resolved to the highest published version satisfying the constraint at compile t
 | `invoiceEmail` | direct | `customer.Customer@2.email` |
 | `isBillable` | computed | `customer.Customer@2.status` |
 | `totalSpent` | aggregation | `orders.Order@3.totalAmount` |
+
+---
+
+### 3.7 Auto Projections
+
+Auto projections generate four standard derived models from a single `entity` or `aggregate` definition. They eliminate the need to hand-author repetitive projection boilerplate for the most common use cases: a persistence contract, an API write model, an API read model, and a change event.
+
+#### Kinds
+
+| Kind | Generated name | Purpose | Excludes by default |
+|---|---|---|---|
+| `db` | `{Entity}Db` | Persistence contract; used for SQL DDL generation | Nothing |
+| `request` | `{Entity}Request` | Write model for API create/update | Fields annotated `@server` |
+| `reply` | `{Entity}Reply` | Read model for API responses | Nothing |
+| `event` | `{Entity}Event` | Change event emitted on entity state transitions | Nothing |
+
+#### Syntax
+
+```mdl
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key       customerId:   uuid
+               legalName:    string
+    @pii       email:        string
+               phoneNumber?: string
+               status:       enum(active, suspended, deleted)
+    @server    createdAt:    timestamp
+    @server    updatedAt?:   timestamp
+  }
+
+  auto projections Customer @ 1 {
+    db
+    request
+    reply
+    event
+  }
+}
+```
+
+The compiler expands this into four fully explicit projections, each carrying complete field-level lineage. The expansion is included in the plan document and is inspectable with `modellable inspect Customer@1 --auto`.
+
+#### Compiler expansion
+
+The example above expands to the following four projections:
+
+```mdl
+// CustomerDb — full entity, for persistence layer
+projection CustomerDb @ 1
+  from customer.Customer @ 1 as c
+{
+  customerId   <- c.customerId
+  legalName    <- c.legalName
+  email        <- c.email
+  phoneNumber  <- c.phoneNumber
+  status       <- c.status
+  createdAt    <- c.createdAt
+  updatedAt    <- c.updatedAt
+}
+
+// CustomerRequest — write model, @server fields excluded
+projection CustomerRequest @ 1
+  from customer.Customer @ 1 as c
+{
+  legalName    <- c.legalName
+  email        <- c.email
+  phoneNumber  <- c.phoneNumber
+  status       <- c.status
+}
+
+// CustomerReply — read model, all fields
+projection CustomerReply @ 1
+  from customer.Customer @ 1 as c
+{
+  customerId   <- c.customerId
+  legalName    <- c.legalName
+  email        <- c.email
+  phoneNumber  <- c.phoneNumber
+  status       <- c.status
+  createdAt    <- c.createdAt
+  updatedAt    <- c.updatedAt
+}
+
+// CustomerEvent — change event, all fields
+event CustomerEvent @ 1
+  from customer.Customer @ 1 as c
+  on [created, updated, deleted]
+{
+  customerId   <- c.customerId
+  legalName    <- c.legalName
+  email        <- c.email
+  phoneNumber  <- c.phoneNumber
+  status       <- c.status
+  createdAt    <- c.createdAt
+  updatedAt    <- c.updatedAt
+}
+```
+
+The event model maps to the standard change event envelope defined in the system spec (section 6.1). The `on` list controls which operations emit events. When omitted, all operations (`created`, `updated`, `deleted`) are included.
+
+#### Customisation
+
+Individual kinds can be customised with inline options. Unspecified kinds use their defaults.
+
+```mdl
+auto projections Customer @ 1 {
+  db
+
+  // Exclude a specific field from the write model
+  request exclude [status]
+
+  // Exclude all PII from API responses
+  reply   exclude [@pii]
+
+  // Emit events only on creation and deletion
+  event   on [created, deleted]
+}
+```
+
+**`exclude` accepts:**
+- A list of field names: `exclude [fieldName, ...]`
+- An annotation filter: `exclude [@pii]`, `exclude [@classification("restricted")]`
+- A combination: `exclude [internalScore, @pii]`
+
+**`on` accepts:** any subset of `[created, updated, deleted]`.
+
+#### Versioning
+
+Each `auto projections` block is bound to one entity version. When the entity is updated to a new version, add a new `auto projections` block for that version.
+
+```mdl
+entity Customer @ 2 (additive) {
+  @key       customerId:   uuid
+             legalName:    string
+  @pii       email:        string
+             tier:         enum(standard, premium)   // new field
+  @server    createdAt:    timestamp
+}
+
+auto projections Customer @ 2 {
+  db
+  request
+  reply
+  event
+}
+```
+
+The compiler generates `CustomerDb @ 2`, `CustomerRequest @ 2`, `CustomerReply @ 2`, and `CustomerEvent @ 2` — each a distinct immutable projection version, separately tracked in lineage records.
+
+#### Constraints
+
+- `auto projections` may only target `entity` or `aggregate` models.
+- The generated names (`CustomerDb`, `CustomerRequest`, `CustomerReply`, `CustomerEvent`) are reserved for the entity in that domain. Defining an explicit projection with one of those names for the same entity version is a compile error.
+- All auto-generated projections follow the same immutability rules as hand-authored projections.
+- Auto projections do not support joins, aggregations, or computed fields. Use explicit projections for those cases.
 
 ---
 

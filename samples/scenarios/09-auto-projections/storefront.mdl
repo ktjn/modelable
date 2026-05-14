@@ -1,0 +1,29 @@
+// Storefront domain.
+// Consumes auto-projected read models from the catalog domain
+// and combines them with pricing into an explicit multi-source projection.
+
+domain storefront {
+  owner: "storefront-team"
+  contact: "storefront-team@example.com"
+  description: "Customer-facing product display contracts."
+
+  // ── Explicit projection ───────────────────────────────────────────────────
+  //
+  // Combines catalog.ProductReply (the auto-projected read model) with a
+  // separately owned pricing override to produce a display contract.
+  //
+  // This shows that auto-projected models are first-class projection sources:
+  // they can be referenced with `from` exactly like hand-authored projections.
+
+  projection ProductDisplay @ 1
+    from catalog.ProductReply @ 1 as p
+  {
+    @key  productId    <- p.productId
+          sku          <- p.sku
+          name         <- p.name
+          description  <- p.description
+          priceCents   <- p.priceCents
+          currency     <- p.currency
+          status       <- p.status
+  }
+}
