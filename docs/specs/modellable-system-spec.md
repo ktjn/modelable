@@ -1011,21 +1011,20 @@ It may integrate with those systems, but its primary responsibility is versioned
 
 ## 19. Open Design Decisions
 
-The following have been resolved:
+All design decisions have been resolved.
+
+**Resolved:**
 
 - **Definition DSL:** YAML-first, parsed with `ruamel.yaml`.
 - **Expression language for computed fields:** CEL (Common Expression Language). Deterministic, non-Turing-complete, sandboxable.
 - **Internal parser models:** `pydantic`. Not exposed as the external contract format.
 - **First generated artifact:** JSON Schema 2020-12.
 - **TypeScript generation:** Delegated to `json-schema-to-typescript`. No custom generator.
-
-The following remain open:
-
-- Whether versions are integers, semantic versions, or both.
-- Whether model identity supports composite keys in MVP.
-- Whether projections can reference compatible version ranges in MVP.
-- Whether registry state is stored relationally, document-first, or both.
-- Whether runtime plans are interpreted or compiled into generated code.
+- **Version scheme:** Integer versions with a required `changeKind: additive | breaking` declaration on publish. See section 8.1.
+- **Composite keys:** Supported in MVP. `identity.key` accepts a string (single field) or a list (composite). See section 3.3.
+- **Version ranges in projections:** Allowed in MVP. The planner resolves to the highest satisfying published version at plan time. See section 8.2.
+- **Registry storage:** File-first (YAML source of truth) with a SQLite derived index written by `compile`. See section 12.
+- **Runtime plan execution:** Interpreted plan documents (structured JSON artifacts). Not generated code. See section 7.2.
 
 ## 20. Acceptance Criteria
 
