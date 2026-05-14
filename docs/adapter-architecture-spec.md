@@ -167,7 +167,7 @@ CLI commands:
 ```bash
 modellable compile ./models --target json-schema --out ./dist/jsonschema
 modellable publish apicurio ./dist/jsonschema
-modellable pull apicurio customer.Customer.v1
+modellable pull apicurio customer.Customer@1
 ```
 
 Apicurio is an artifact registry only. It is not the Modellable source of truth.
@@ -196,7 +196,7 @@ Exports model and projection definitions as Open Data Contract Standard (ODCS) d
 CLI commands:
 
 ```bash
-modellable export odcs customer.Customer.v1 --out ./dist/customer.contract.yaml
+modellable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
 datacontract lint ./dist/customer.contract.yaml
 ```
 
@@ -219,5 +219,4 @@ The runtime adapters (Sections 2–5) and artifact output adapters (Section 7) b
 | 5 | Runtime & Targets | StoragePort, StreamPort, CapturePort, Avro, Proto, OpenAPI |
 
 Do not build runtime adapters before the normalized model graph is stable.
-
 

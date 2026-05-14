@@ -12,7 +12,7 @@ domain pim {
                      category:             string
                      subcategory?:         string
                      weightGrams?:         int
-                     dimensions?:          value Dimensions
+                     dimensions?:          Dimensions
                      baseUnitOfMeasure:    enum(unit, kg, litre, metre, pair, set)
                      isActive:             bool
                      isDigital:            bool      // digital products bypass WMS entirely

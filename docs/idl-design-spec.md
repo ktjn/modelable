@@ -302,8 +302,8 @@ projection CustomerReply @ 1
   updatedAt    <- c.updatedAt
 }
 
-// CustomerEvent — change event, all fields
-event CustomerEvent @ 1
+// CustomerEvent — change-event projection, all fields
+projection CustomerEvent @ 1
   from customer.Customer @ 1 as c
   on [created, updated, deleted]
 {
@@ -317,7 +317,7 @@ event CustomerEvent @ 1
 }
 ```
 
-The event model maps to the standard change event envelope defined in the system spec (section 6.1). The `on` list controls which operations emit events. When omitted, all operations (`created`, `updated`, `deleted`) are included.
+The event projection maps to the standard change event envelope defined in the system spec (section 6.1). The `on` list controls which operations emit events. When omitted, all operations (`created`, `updated`, `deleted`) are included.
 
 #### Customisation
 
@@ -394,6 +394,21 @@ workspace {
 }
 ```
 
+### 4.1.1 Workspace-level AI configuration
+
+LLM-backed CLI commands may read optional AI defaults from `workspace.mdl`. Command flags and environment variables take precedence over this block.
+
+```mdl
+workspace "commerce-platform" {
+  ai {
+    provider: "anthropic"
+    model:    "claude-opus-4-7"
+  }
+}
+```
+
+The `ai` block is authoring configuration only. It does not affect published model or projection semantics, and changing it does not require new model or projection versions.
+
 ### 4.2 Per-domain override
 
 ```mdl
@@ -444,7 +459,7 @@ binding customer-postgres {
 
 ### 5.1 Parser
 
-**Library:** Lark (Python PEG/EBNF parser)
+**Library:** Lark (Python EBNF parser)
 
 The grammar lives in `modellable.lark` alongside the CLI source. This file is the canonical language definition and is versioned with the CLI.
 
@@ -603,7 +618,7 @@ consumer {
 
 ---
 
-## 7. Files to Create
+## 7. Planned Implementation Files
 
 | File | Purpose |
 |---|---|
@@ -624,5 +639,3 @@ consumer {
 - Catalog / governance sync (Phase 3)
 - GraphQL target (post-MVP)
 - Non-Python parser implementations
-
-

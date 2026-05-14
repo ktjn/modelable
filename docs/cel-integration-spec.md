@@ -1,37 +1,149 @@
 # CEL Integration Specification
 
-> **Status:** Placeholder.
+> **Status:** Approved for Phase 1 compiler validation.
 >
-> **Scope:** How the Common Expression Language (CEL) is embedded in `.mdl` projections, parsed, validated, and used for lineage extraction.
+> **Scope:** How the Common Expression Language (CEL) is embedded in `.mdl` projections, parsed, type-checked, and used for lineage extraction.
 
-## Purpose
+## 1. Purpose
 
-CEL is the chosen expression language for computed projection fields (`target = expression`). This document defines:
+CEL is the expression language for computed projection fields, filters, join predicates, aggregation guards, and runtime parameter expressions. Modellable uses CEL because it is deterministic, side-effect free, sandboxable, and expressive enough for data-contract derivation without becoming a general programming language.
 
-1. The subset of CEL supported in `.mdl`.
-2. How field references are extracted from CEL expressions for lineage tracking.
-3. Validation rules (type checking, null safety).
-4. Integration with the semantic validator.
+The compiler owns expression validation. Runtime adapters must not accept unvalidated CEL from source files.
 
-## Supported Subset
+## 2. Expression Locations
 
-- Literals: strings, integers, floats, booleans, null.
-- Operators: arithmetic, comparison, logical, ternary.
-- Functions: string methods, timestamp/duration helpers, type casts.
-- Field references: `alias.fieldName` (qualified) and bare field names (in scope).
+CEL may appear in these `.mdl` locations:
 
-## Lineage Extraction
+| Location | Example | Phase |
+|---|---|---|
+| Computed projection field | `isBillable = c.status == "active"` | 1 |
+| Join predicate | `join customer.Customer @ 2 as c on o.customerId == c.customerId` | 1 syntax, Phase 5 execution |
+| Filter block or filter option | `filter: c.status != "deleted"` | 1 syntax, Phase 5 execution |
+| Aggregation expression argument | `sum(o.totalAmount)` | 1 syntax, Phase 5 execution |
+| Runtime parameter expression | `request.sellerId == product.sellerId` | Phase 5 |
 
-The compiler must statically extract all `alias.fieldName` references from a CEL expression and record them as lineage sources for the computed field.
+Phase 1 must parse, type-check, and extract lineage from expressions even when execution is deferred.
 
-## Open Questions
+## 3. Supported MVP Subset
 
-- Should custom CEL macros be supported (e.g., `has(alias.field)`)?
-- How are CEL validation errors surfaced in the CLI (`validate` command)?
-- Performance implications of CEL parsing on large projection files.
+The Phase 1 compiler supports:
 
-## Dependencies
+- Literals: strings, integers, decimals/floats, booleans, and `null`.
+- Field references: qualified `alias.fieldName` references only.
+- Runtime references in deferred contexts: `request.<name>`, `auth.<name>`, and `params.<name>`.
+- Operators: `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, and ternary `condition ? a : b`.
+- Parentheses for grouping.
+- List membership: `value in ["a", "b"]`.
+- Closed aggregate functions: `count`, `sum`, `min`, `max`, `avg`.
+- Closed scalar functions listed in section 4.
 
-- `idl-design-spec.md` §2 — type system
-- `idl-design-spec.md` §3 — projection operators
-- `idl-parser-implementation-plan.md` — semantic validation task
+Bare field names are not allowed in projections. Requiring `alias.fieldName` keeps lineage deterministic when projections add joins later.
+
+## 4. Function Catalog
+
+Phase 1 scalar functions:
+
+| Function | Signature | Notes |
+|---|---|---|
+| `lower` | `string -> string` | Locale-insensitive Unicode lowercase |
+| `upper` | `string -> string` | Locale-insensitive Unicode uppercase |
+| `trim` | `string -> string` | Removes leading and trailing whitespace |
+| `contains` | `string, string -> bool` | Substring check |
+| `startsWith` | `string, string -> bool` | Prefix check |
+| `endsWith` | `string, string -> bool` | Suffix check |
+| `date` | `timestamp -> date` | UTC date extraction |
+| `daysBetween` | `date, date -> int` | Signed day difference |
+| `coalesce` | `T?, T -> T` | Returns fallback when first argument is null |
+| `toString` | `T -> string` | Allowed for scalar types |
+| `toDecimal` | `int|string -> decimal` | String input must be decimal formatted |
+| `hashHmacSha256` | `string, string -> string` | For pseudonymisation examples; key argument must be a binding or parameter reference, not a literal secret |
+
+Deferred functions:
+
+- Custom CEL macros.
+- User-defined functions.
+- Non-deterministic functions such as `now()`, random values, network calls, or filesystem access.
+
+## 5. Type Checking
+
+The semantic validator builds a CEL environment from the projection sources:
+
+```text
+alias.fieldName -> Modellable field type
+request.*       -> runtime parameter type, if declared by the binding or projection
+auth.*          -> runtime principal context, if declared by the binding
+params.*        -> explicit runtime parameter declarations
+```
+
+Validation rules:
+
+- Every `alias.fieldName` must resolve to a declared source field.
+- Operators must receive compatible types.
+- Comparisons must compare compatible scalar types.
+- Logical operators require booleans.
+- Arithmetic is allowed only for numeric types.
+- String functions require string inputs.
+- Aggregate functions may only appear in projections with `group by`.
+- Nullable values must be guarded with `coalesce`, explicit null checks, or accepted by a function that supports nullable input.
+- Computed projection fields must have an inferred output type that can be emitted to JSON Schema.
+
+The compiler records the inferred output type in the normalized model graph.
+
+## 6. Lineage Extraction
+
+Lineage extraction is syntactic over the parsed CEL expression tree. The compiler records every source field reference used by the expression.
+
+Example:
+
+```mdl
+riskTier = c.status == "active" && p.failedPayments30d > 2 ? "review" : "standard"
+```
+
+Lineage:
+
+```text
+target riskTier
+  <- customer.Customer@2.status
+  <- payments.PaymentStats@1.failedPayments30d
+```
+
+Function calls do not hide lineage. For example, `hashHmacSha256(c.email, params.hashKey)` records `c.email` as a source field and records `params.hashKey` as a runtime parameter dependency.
+
+## 7. Diagnostics
+
+CEL validation errors are normal definition errors and must fail `modellable validate`.
+
+Diagnostic codes:
+
+| Code | Meaning |
+|---|---|
+| `CEL001` | Parse error |
+| `CEL002` | Unknown alias or field |
+| `CEL003` | Type mismatch |
+| `CEL004` | Nullable value used without guard |
+| `CEL005` | Unsupported function |
+| `CEL006` | Aggregate function used outside grouped projection |
+| `CEL007` | Non-deterministic or side-effecting expression |
+| `CEL008` | Runtime parameter used without declaration |
+
+Diagnostics must include file path, line, column, expression text, and a short remediation hint.
+
+## 8. Open Decisions
+
+- Whether to support CEL's `has()` macro for optional field checks.
+- Whether runtime parameter declarations live in projections, bindings, or both.
+- Whether the compiler should expose a debug command that prints the parsed CEL AST.
+
+## 9. Acceptance Criteria
+
+- Computed fields with valid CEL expressions pass validation.
+- Invalid aliases, fields, functions, and type combinations fail validation with deterministic diagnostic codes.
+- The compiler extracts all source field references from computed fields, filters, joins, and aggregate arguments.
+- Generated JSON Schema includes computed fields with inferred types and `x-modellable-lineage`.
+- Expressions with non-deterministic behavior are rejected.
+
+## 10. Dependencies
+
+- `idl-design-spec.md` — projection operators and type system
+- `idl-parser-implementation-plan.md` — parser, IR, and semantic validation tasks
+- `modellable-system-spec.md` — lineage and governance requirements

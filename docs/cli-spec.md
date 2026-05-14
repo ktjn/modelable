@@ -277,8 +277,8 @@ Manages the bundled sample scenarios shipped with the CLI.
 | Subcommand | Description |
 |:-----------|:------------|
 | `list` | Print all available scenario IDs and titles |
-| `show SCENARIO_ID` | Display the scenario YAML with syntax highlighting |
-| `load SCENARIO_ID` | Copy the scenario YAML into a working directory |
+| `show SCENARIO_ID` | Display the scenario `.mdl` files with syntax highlighting |
+| `load SCENARIO_ID` | Copy the scenario `.mdl` files into a working directory |
 
 **Options for `load`:**
 
@@ -290,19 +290,22 @@ Manages the bundled sample scenarios shipped with the CLI.
 
 | ID | Title |
 |:---|:------|
-| `ecommerce-data-warehouse` | E-Commerce Data Warehouse |
-| `realtime-fraud-detection` | Real-Time Fraud Detection |
-| `order-saga-microservices` | Order Saga Microservices |
-| `credit-risk-feature-store` | Credit Risk Feature Store |
-| `partner-marketplace-api` | Partner Marketplace API |
-| `gdpr-compliance-audit` | GDPR Compliance Audit |
+| `01-ecommerce-data-warehouse` | E-Commerce Data Warehouse |
+| `02-realtime-fraud-detection` | Real-Time Fraud Detection |
+| `03-order-saga-microservices` | Order Saga Microservices |
+| `04-credit-risk-feature-store` | Credit Risk Feature Store |
+| `05-partner-marketplace-api` | Partner Marketplace API |
+| `06-gdpr-compliance-audit` | GDPR Compliance Audit |
+| `07-multi-system-master-data` | Enterprise Multi-System Master Data |
+| `08-distributed-multi-registry` | Distributed Multi-Registry |
+| `09-auto-projections` | Auto Projections |
 
 **Examples:**
 
 ```bash
 modellable scenario list
-modellable scenario show ecommerce-data-warehouse
-modellable scenario load credit-risk-feature-store --output-dir ./my-project
+modellable scenario show 01-ecommerce-data-warehouse
+modellable scenario load 04-credit-risk-feature-store --output-dir ./my-project
 ```
 
 ---
@@ -344,7 +347,7 @@ modellable create projection --output-dir ./my-project
 ### 5.9 `describe` — Explain definitions with AI
 
 ```text
-modellable describe PATH
+modellable describe PATH [--model MODEL]
 ```
 
 Requires `ANTHROPIC_API_KEY`.
@@ -364,6 +367,7 @@ The Modellable IDL specification is sent as a cached system prompt. Repeated cal
 export ANTHROPIC_API_KEY=sk-ant-...
 modellable describe models/orders/Order.mdl
 modellable describe ./my-project/
+modellable describe ./my-project/ --model claude-opus-4-7
 ```
 
 ---
@@ -371,7 +375,7 @@ modellable describe ./my-project/
 ### 5.10 `generate` — Generate definitions with AI
 
 ```text
-modellable generate [--platform PLATFORM] [--suggest-platform] [--context FILE] [--output FILE]
+modellable generate [--platform PLATFORM] [--suggest-platform] [--context FILE] [--output FILE] [--model MODEL]
 ```
 
 Requires `ANTHROPIC_API_KEY`.
@@ -386,6 +390,7 @@ Generates Modellable `.mdl` definitions from a natural language description or e
 | `--suggest-platform` | Ask Claude to recommend a platform type before generating |
 | `--context FILE` | Existing definition file to use as context for generation |
 | `--output FILE` | Write output to a file and auto-validate (default: print to stdout) |
+| `--model MODEL` | Override the LLM model selected from environment or workspace config |
 
 **Examples:**
 
@@ -393,8 +398,9 @@ Generates Modellable `.mdl` definitions from a natural language description or e
 modellable generate
 modellable generate --platform data-warehouse
 modellable generate --suggest-platform
-modellable generate --platform high-performance-service --output my-fraud-signals.yaml
-modellable generate --context existing-domains.yaml --platform event-driven-microservices
+modellable generate --platform high-performance-service --output my-fraud-signals.mdl
+modellable generate --context existing-domains.mdl --platform event-driven-microservices
+modellable generate --platform data-warehouse --model claude-opus-4-7
 ```
 
 ---
@@ -467,7 +473,7 @@ Pulls a specific schema artifact from an Apicurio Registry instance by model ref
 modellable export openmetadata [PATH] --out FILE
 ```
 
-**Phase 3 — implemented (export only; push requires `publish openmetadata`).**
+**Phase 3 — not yet implemented.**
 
 Exports domain, model, and projection metadata to a JSON file suitable for OpenMetadata catalog ingestion.
 
@@ -516,7 +522,7 @@ Pushes the OpenMetadata export document to a live OpenMetadata instance.
 modellable export odcs REF --out FILE [--path PATH]
 ```
 
-**Phase 4 — implemented (structural export).**
+**Phase 4 — not yet implemented.**
 
 Exports a single model or projection as an Open Data Contract Standard (ODCS) v1.0.0 YAML document. The output can be linted with `datacontract lint`.
 
@@ -551,7 +557,7 @@ schema:
 **Examples:**
 
 ```bash
-modellable export odcs customer.Customer.v1 --out ./dist/customer.contract.yaml
+modellable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
 datacontract lint ./dist/customer.contract.yaml
 ```
 
@@ -559,7 +565,7 @@ datacontract lint ./dist/customer.contract.yaml
 
 ## 6. AI Integration Details
 
-The `describe` and `generate` commands use the Claude API (model: `claude-opus-4-7`).
+The `describe` and `generate` commands use the configured LLM provider. The model is configurable by command flag, environment variable, or workspace config; see [LLM Integration Specification](llm-integration-spec.md).
 
 - The Modellable IDL specification and grammar reference are sent as a cached system prompt.
 - Repeated calls within a session reuse the cached prompt and respond faster.
@@ -607,12 +613,12 @@ modellable docs ./my-models --out ./dist/docs
 - **Plugin architecture for compilers:** The compile targets are currently hard-coded. A plugin registry for third-party targets is deferred.
 - **Authentication for registry commands:** Apicurio and OpenMetadata authentication mechanisms (API keys, OAuth, mTLS) are not yet specified.
 - **Incremental compilation:** Whether `compile` should track which files changed and only recompile affected artifacts is deferred.
-- **Version pinning for AI model:** The `describe`/`generate` commands currently hard-code `claude-opus-4-7`. Whether to make this configurable or always use the latest capable model is an open decision.
 - **LSP parser mode:** The language server currently uses Lark Earley for correctness. Whether to migrate to LALR for lower-latency IDE responses is deferred.
 
 **Resolved:**
 
 - **Definition format:** Custom text IDL (`.mdl`), parsed with Lark (Earley). See `idl-design-spec.md`.
+- **AI model configuration:** LLM-backed commands use configurable model selection by flag, environment variable, workspace config, then CLI default. See `llm-integration-spec.md`.
 
 ---
 
@@ -695,5 +701,3 @@ modellable lineage export --format ndjson --output <path>
 Exports the full lineage graph from `registry.db` as NDJSON for external catalog ingestion.
 
 **Defined in:** `distributed-lineage-spec.md` §6.
-
-

@@ -7,8 +7,8 @@ domain inventory {
     @key       reservationId:      uuid
                orderId:            ref<commerce.OrderCreated>
                outcome:            enum(reserved, partial, failed)
-               reservedItems:      array<value ReservedItem>
-               failedItems:        array<value FailedItem>
+               reservedItems:      array<ReservedItem>
+               failedItems:        array<FailedItem>
                reservedAt:         timestamp
                expiresAt:          timestamp
   }

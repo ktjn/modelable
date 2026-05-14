@@ -131,7 +131,7 @@ Use:
 jsonschema
 referencing
 pydantic
-ruamel.yaml
+lark
 ```
 
 ### Use For
@@ -353,7 +353,7 @@ owner                  -> ODCS owner
 ### Example Commands
 
 ```bash
-modellable export odcs customer.Customer.v1 --out ./dist/customer.contract.yaml
+modellable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
 datacontract lint ./dist/customer.contract.yaml
 ```
 
@@ -549,7 +549,7 @@ JSON Schema 2020-12
 jsonschema
 referencing
 pydantic
-ruamel.yaml
+lark
 json-schema-to-typescript
 Markdown generation
 ```
@@ -558,11 +558,11 @@ Build commands:
 
 ```bash
 modellable validate ./models
-modellable resolve customer.Customer.v1
-modellable lineage billing.BillingCustomer.v1
-modellable diff customer.Customer.v1 customer.Customer.v2
-modellable compile customer.Customer.v1 --target json-schema
-modellable compile customer.Customer.v1 --target typescript
+modellable resolve customer.Customer@1
+modellable lineage billing.BillingCustomer@1
+modellable diff customer.Customer@1 customer.Customer@2
+modellable compile customer.Customer@1 --target json-schema
+modellable compile customer.Customer@1 --target typescript
 modellable docs ./models --out ./dist/docs
 ```
 
@@ -578,7 +578,7 @@ Build commands:
 
 ```bash
 modellable publish apicurio ./dist/jsonschema
-modellable pull apicurio customer.Customer.v1
+modellable pull apicurio customer.Customer@1
 ```
 
 ## Phase 3: Catalog / Governance Sync
@@ -608,7 +608,7 @@ Data Contract CLI
 Build commands:
 
 ```bash
-modellable export odcs customer.Customer.v1 --out ./dist/customer.contract.yaml
+modellable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
 datacontract lint ./dist/customer.contract.yaml
 ```
 
@@ -627,10 +627,10 @@ AsyncAPI
 Build commands:
 
 ```bash
-modellable compile commerce.OrderPlaced.v1 --target avro
-modellable compile commerce.OrderPlaced.v1 --target protobuf
-modellable compile partner.ProductListing.v1 --target openapi
-modellable compile commerce.OrderEvents.v1 --target asyncapi
+modellable compile commerce.OrderPlaced@1 --target avro
+modellable compile commerce.OrderPlaced@1 --target protobuf
+modellable compile partner.ProductListing@1 --target openapi
+modellable compile commerce.OrderEvents@1 --target asyncapi
 ```
 
 ---
@@ -667,8 +667,8 @@ Use this as the first practical stack:
 ```text
 Core implementation:
   Python
+  Lark
   pydantic
-  ruamel.yaml
   jsonschema
   referencing
 
@@ -704,5 +704,3 @@ Start with:
 Keep Modellable's core independent.
 
 The critical asset is the normalized model/projection/lineage graph. Everything else should be generated from that graph.
-
-

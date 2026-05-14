@@ -4,6 +4,8 @@ This directory contains complete sample scenarios covering a range of Modellable
 
 Use these as a starting point for your own definitions or validate them with the CLI (`modellable validate scenarios/<id>/`).
 
+Some scenarios intentionally include future-phase constructs such as `materialisation`, subscriptions, and runtime adapter configuration. Those examples document target platform behavior and may require Phase 5 runtime support even when the core model and projection syntax is valid for Phase 1.
+
 ---
 
 ## Scenario Index

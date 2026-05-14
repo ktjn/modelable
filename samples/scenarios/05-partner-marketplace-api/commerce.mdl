@@ -15,7 +15,7 @@ domain commerce {
                shippingCity:       string
                shippingPostalCode: string
                shippingCountryCode: string
-               items:              array<value OrderItem>
+               items:              array<OrderItem>
                status:             enum(received, acknowledged, shipped, delivered, cancelled, return_requested, returned)
                totalAmountCents:   int
                currencyCode:       string

@@ -501,6 +501,8 @@ Defer to a later phase:
 
 ## 10. Open Design Decisions
 
+POR signing remains intentionally unresolved. The MVP must keep POR metadata structured and reproducible, but must not commit to a signing algorithm or trust model until the following choices are made:
+
 - Whether POR signatures use a symmetric shared secret or asymmetric key pairs per registry instance.
 - Whether permission grants support expiry timestamps.
 - Whether `role` and `team` principal kinds are defined externally (e.g., via OIDC claims) or registered within Modellable.

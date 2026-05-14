@@ -1,32 +1,194 @@
 # Migration Guide
 
-> **Status:** Placeholder.
+> **Status:** Approved guidance for adopting Modellable from existing schema and contract formats.
 >
-> **Scope:** Guidance for migrating existing schema definitions into Modellable.
+> **Scope:** Practical migration paths from OpenAPI, JSON Schema, Protobuf, SQL DDL, Avro, and existing internal DSLs into `.mdl`.
 
-## Purpose
+## 1. Purpose
 
-Help teams adopt Modellable by migrating from existing schema and contract formats.
+This guide helps teams introduce Modellable without rewriting every system at once. Migration should start with domain-owned canonical models, then add projections and adapter bindings around existing infrastructure.
 
-## Source Formats
+The goal is not to mirror every existing table, topic, or API one-for-one. The goal is to identify the canonical domain contracts and make downstream derivation explicit.
 
-| Source | Approach | Tooling |
+## 2. Migration Principles
+
+1. Start with the owning domain, not the consuming system.
+2. Model canonical entities and events before projections.
+3. Preserve published contracts as immutable versions.
+4. Treat incompatible historical changes as new versions.
+5. Keep adapter-specific details in bindings, not model definitions.
+6. Preserve or add PII, classification, ownership, and deprecation metadata.
+7. Validate after each migrated domain before adding cross-domain projections.
+
+## 3. Source Format Mapping
+
+| Source | Primary Mapping | Notes |
 |---|---|---|
-| OpenAPI 3.x | Import paths and schemas as Modellable models; extract entities and projections | `modellable generate --from <openapi.yaml>` |
-| JSON Schema | Import as value objects or event models; annotate classifications | `modellable generate --from <schema.json>` |
-| Protobuf | Import messages as entities/events; preserve field numbers as annotations | `modellable generate --from <proto>` |
-| SQL DDL | Reverse-engineer tables into entities; infer keys and types | `modellable generate --from <ddl.sql>` |
-| Avro | Import schemas as event models; preserve logical types | `modellable generate --from <avro.json>` |
-| Existing YAML/DSL | Manual or semi-automated rewrite using `modellable generate` | LLM-assisted (`modellable describe` + `modellable generate`) |
+| OpenAPI 3.x | Request/response schemas become projections; shared schemas may become entities or value objects | Avoid treating public API shape as canonical unless that API is owned by the domain |
+| JSON Schema | Object schemas become `entity`, `event`, or `value` models | Add keys and ownership explicitly |
+| Protobuf | Messages become models; services imply projections or API targets | Preserve field numbers in metadata if needed |
+| SQL DDL | Tables become candidate entities; views become candidate projections | Move table/index/storage details to bindings |
+| Avro | Records often become event models | Preserve logical types and namespace metadata |
+| Existing YAML/DSL | Rewrite to `.mdl` with `modellable generate` assistance | Review all generated lineage and governance annotations |
 
-## Migration Principles
+## 4. Step-by-Step Workflow
 
-1. **Start with canonical entities** — Identify the core business entities in the existing schema and model them first.
-2. **Add projections incrementally** — Do not try to map every existing view/table to a projection on day one.
-3. **Preserve version history** — Map existing schema versions to Modellable versions; mark breaking changes explicitly.
-4. **Validate early and often** — Use `modellable validate` after each incremental migration step.
+### Step 1: Inventory
 
-## Dependencies
+Create a list of source artifacts:
 
-- `cli-spec.md` — `generate` and `validate` commands
-- `llm-integration-spec.md` — AI-assisted migration workflows
+```text
+source system
+owning team
+artifact path
+artifact kind
+current version
+contains PII/restricted data
+known consumers
+```
+
+### Step 2: Choose Domain Boundaries
+
+Map each artifact to an owning domain. If ownership is unclear, pause migration for that artifact. Modellable requires domain-owned canonical models.
+
+### Step 3: Extract Canonical Models
+
+For each domain, create the smallest useful set of canonical models:
+
+```mdl
+domain customer {
+  owner: "customer-platform"
+  description: "Customer identity and lifecycle."
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    @pii email?:     string
+    status:          enum(active, suspended, deleted)
+    createdAt:       timestamp
+  }
+}
+```
+
+### Step 4: Add Projections for Existing Consumers
+
+Map existing views, API responses, topics, or files to projections:
+
+```mdl
+domain billing {
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1 as c
+  {
+    billingCustomerId <- c.customerId
+    @pii invoiceEmail <- c.email
+    isActive          = c.status == "active"
+  }
+}
+```
+
+### Step 5: Add Bindings Separately
+
+Keep storage and transport details outside canonical models:
+
+```mdl
+binding customer-postgres {
+  model:   customer.Customer @ 1
+  adapter: postgres
+  table:   "customers"
+}
+```
+
+### Step 6: Validate and Diff
+
+Run:
+
+```bash
+modellable validate ./models
+modellable lineage billing.BillingCustomer@1 --path ./models
+modellable diff customer.Customer@1 customer.Customer@2 --path ./models
+```
+
+## 5. Format-Specific Guidance
+
+### 5.1 OpenAPI
+
+- Treat path operations as API surface, not source truth.
+- Convert request bodies to `request` projections.
+- Convert response bodies to `reply` projections.
+- Convert shared component schemas to value objects only when they are embedded and not independently owned.
+- Preserve operation-level security as projection or binding access policy metadata.
+
+### 5.2 JSON Schema
+
+- Use `required` to determine optionality.
+- Convert `format: uuid`, `date`, `date-time`, and binary encodings to Modellable scalar types.
+- Convert `$ref` to named value objects or `ref<Domain.Model>` depending on ownership.
+- Add `@classification` manually when source schemas lack governance metadata.
+
+### 5.3 Protobuf
+
+- Map packages to candidate domains only when package ownership matches domain ownership.
+- Preserve message names as model names where possible.
+- Map `repeated T` to `array<T>`.
+- Map `oneof` to an enum discriminator plus optional fields until union types are explicitly supported.
+- Preserve field numbers in metadata for downstream emitters.
+
+### 5.4 SQL DDL
+
+- Tables with primary keys usually become entities.
+- Append-only audit tables usually become events.
+- Lookup tables may become value objects or enums.
+- Views should become projections.
+- Foreign keys become `ref<Domain.Model>` only when they represent domain references, not merely storage joins.
+- Indexes, partitions, engines, and tablespaces belong in bindings.
+
+### 5.5 Avro
+
+- Avro records used on topics usually become event models.
+- Avro logical types map to Modellable scalar types.
+- Union with `null` maps to optional fields.
+- Registry subject names should be preserved as metadata or binding configuration, not canonical model names unless they match domain language.
+
+## 6. AI-Assisted Migration
+
+Use `modellable generate` to draft `.mdl`, then review the output:
+
+```bash
+modellable generate --from ./openapi.yaml --output ./models/customer-api.mdl
+modellable validate ./models/customer-api.mdl
+```
+
+Review checklist:
+
+- Does each model have a clear owning domain?
+- Are keys explicit?
+- Are versions and change kinds correct?
+- Are PII and restricted fields annotated?
+- Are API-specific shapes represented as projections rather than canonical models?
+- Are adapter details kept in bindings?
+
+## 7. Common Gaps
+
+| Gap | Resolution |
+|---|---|
+| No owner for a schema | Do not publish until ownership is assigned |
+| No stable key | Use an event or value model, or add a domain-approved identity |
+| API response treated as canonical model | Split into source entity and response projection |
+| Storage column names in model fields | Move physical names to bindings |
+| Missing PII classification | Add annotations before publishing |
+| Historical breaking change hidden in one version | Create separate model versions with `changeKind: breaking` |
+
+## 8. Acceptance Criteria
+
+- Migrated canonical models have owners, keys where applicable, versions, and change kinds.
+- Consumer-specific shapes are represented as projections with explicit lineage.
+- Existing adapter details are represented in bindings.
+- `modellable validate` succeeds for the migrated workspace.
+- Generated JSON Schema and TypeScript artifacts preserve model version metadata.
+- Governance annotations are present for PII, restricted, and confidential fields.
+
+## 9. Dependencies
+
+- `cli-spec.md` — `generate`, `validate`, `lineage`, and `diff`
+- `llm-integration-spec.md` — AI-assisted generation behavior
+- `ownership-permissions-spec.md` — ownership and access metadata
+- `adapter-architecture-spec.md` — binding boundaries

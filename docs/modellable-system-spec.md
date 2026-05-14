@@ -85,7 +85,7 @@ Required properties:
 
 - `domain`: Owning domain.
 - `name`: Unique model name within the domain.
-- `kind`: `entity`, `event`, `value_object`, or `aggregate`.
+- `kind`: `entity`, `event`, `value`, or `aggregate`.
 - `identity`: Key definition for addressable records when applicable. The `key` field accepts either a single field name (string) or an ordered list of field names for composite keys.
 - `versions`: Published model versions.
 
@@ -1033,7 +1033,7 @@ See the [Modellable CLI Specification](cli-spec.md) for the full command referen
 - `@server` field annotation.
 - Projection definition with field selection, rename, simple expressions (CEL), and filters.
 - Auto projections (`db`, `request`, `reply`, `event`) with compiler expansion and full lineage tracking.
-- Exact source version references.
+- Exact source version references and compatible version ranges.
 - Compatibility checks for additive and breaking changes.
 - Lineage tracking.
 - JSON Schema 2020-12 generation with `x-modellable-*` extensions.
@@ -1077,7 +1077,7 @@ It may integrate with those systems, but its primary responsibility is versioned
 
 ## 19. Open Design Decisions
 
-All design decisions have been resolved.
+System-level design decisions have been resolved. Phase-specific documents may still track implementation choices that are deferred until their phase.
 
 **Resolved:**
 
@@ -1091,20 +1091,22 @@ All design decisions have been resolved.
 - **Version ranges in projections:** Allowed in MVP. The planner resolves to the highest satisfying published version at plan time. See section 8.2.
 - **Registry storage:** File-first (`.mdl` source of truth) with a single `registry.db` SQLite derived index written by `compile`. In distributed mode peers are git remotes; `mirror/` holds sparse checkouts of foreign `.mdl` files; `consumers/` holds incoming write-backs from downstream registries. All derived data is in `registry.db`; all source of truth is in git. See section 12 and [distributed-lineage-spec.md](distributed-lineage-spec.md).
 - **Runtime plan execution:** Interpreted plan documents (structured JSON artifacts). Not generated code. See section 7.2.
+- **Sample scope:** Sample scenarios may include future-phase constructs such as `materialisation`, subscriptions, and runtime adapter bindings when they are clearly examples of deferred runtime behavior.
+- **AI model configuration:** LLM-assisted CLI commands use configurable model selection rather than a hard-coded model. See [llm-integration-spec.md](llm-integration-spec.md).
 
 ## 20. Acceptance Criteria
 
-The system is acceptable when:
+Phase 1 is acceptable when:
 
 - A domain can publish a model version.
 - Another domain can define and publish a projection over that model.
 - The system can validate the projection before runtime.
 - The system can detect whether a model change breaks existing projections.
 - The system can show lineage from projection fields to source fields.
-- A subscription can stream source changes into a materialized projected PostgreSQL table.
-- The materialization can be replayed or rebuilt.
 - The model and projection can be exported as JSON Schema and TypeScript types.
 - Unauthorized projection of restricted fields is rejected.
 
+Runtime acceptance criteria for Phase 5:
 
-
+- A subscription can stream source changes into a materialized projected PostgreSQL table.
+- The materialization can be replayed or rebuilt.

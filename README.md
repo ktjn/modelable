@@ -24,7 +24,7 @@ All documentation is located in the [docs/](docs/) directory.
 ## Project Structure
 
 - `docs/`: Consolidated documentation, specifications, research, and plans.
-- `samples/`: Legacy YAML scenario examples (to be migrated to `.mdl`).
+- `samples/`: Worked `.mdl` scenario examples.
 - `AGENTS.md`: Instructions for AI agents working on this repository.
 
 ## Getting Started

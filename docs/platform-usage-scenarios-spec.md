@@ -14,7 +14,7 @@ The preceding phases focus on logical modelling only:
 
 | Phase | Focus | Key Tools |
 | :--- | :--- | :--- |
-| 1 | Local modelling compiler | Python, pydantic, ruamel.yaml, jsonschema, json-schema-to-typescript, Markdown |
+| 1 | Local modelling compiler | Python, Lark, pydantic, jsonschema, referencing, json-schema-to-typescript, Markdown |
 | 2 | Artifact registry | Apicurio Registry |
 | 3 | Catalog / governance sync | OpenMetadata |
 | 4 | Contract interchange | ODCS, Data Contract CLI |
@@ -673,5 +673,4 @@ Multiple scenarios often apply to the same deployment. Use this table to identif
 | Training ML models and serving predictions | [ML and Feature Stores](#6-machine-learning-and-feature-stores) | [Data Warehouse](#3-data-warehouse-analytical--olap) |
 | Partner integrations and public APIs | [Third-Party Consumers](#7-third-party-and-api-consumers) | [High-Performance Services](#4-internet-facing-high-performance-services) |
 | Regulatory reporting, GDPR, audit trails | [Audit & Compliance](#8-audit-compliance-and-regulatory-systems) | [Data Warehouse](#3-data-warehouse-analytical--olap) |
-
 

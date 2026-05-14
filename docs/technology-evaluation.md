@@ -11,11 +11,11 @@ The platform must capture changes from canonical source models without direct co
 | Technology | Role | Pros | Cons |
 | :--- | :--- | :--- | :--- |
 | **Debezium** | Log-based CDC Engine | Industry standard; supports Postgres WAL, MySQL binlog, Mongo oplog. | High ops overhead; usually tied to Kafka Connect. |
-| **PostgreSQL (Logical Replication)** | Native CDC Source | Zero external dependencies for Postgres-first MVP. | Requires `wal_level = logical` and manual slot management. |
+| **PostgreSQL (Logical Replication)** | Native CDC Source | Zero external dependencies for a Postgres-first runtime. | Requires `wal_level = logical` and manual slot management. |
 | **Estuary / Flow** | Managed CDC Pipeline | Unifies batch backfill and real-time streaming; extremely low latency. | Proprietary/Managed service (Gazette-based). |
 | **Artie** | CDC-to-Warehouse | Optimized for destination sync and schema evolution. | Narrower focus (analytics sinks). |
 
-**Recommendation:** For the MVP, support **Debezium Server** (standalone) as it can push to multiple sinks (Kafka, NATS, etc.) without requiring the full Kafka Connect cluster.
+**Recommendation for Phase 5:** Support **Debezium Server** (standalone) as it can push to multiple sinks (Kafka, NATS, etc.) without requiring the full Kafka Connect cluster.
 
 ---
 
@@ -56,10 +56,10 @@ To meet the requirement in Section 6.2, the system should implement:
 - **Batch Rebuild:** Scan source database/topic from offset 0 into a temporary table, then swap.
 - **Incremental Update:** Stream changes and apply `upsert` or `delete` logic in real-time.
 - **Stateful Joins:** 
-    - For MVP: Limit to **Lookup Joins** (Stream joins against a static/slow-moving Table).
+    - For the first runtime release: Limit to **Lookup Joins** (stream joins against a static/slow-moving table).
     - Post-MVP: Use a differential engine (like Flink or Materialize) or `pg_ivm` for Stream-to-Stream joins.
 
-## 5. Summary Matrix for MVP
+## 5. Summary Matrix for First Runtime Release
 
 | Component | Choice |
 | :--- | :--- |
@@ -91,7 +91,7 @@ These belong to Phase 5 of the external tools roadmap. The preceding phases are:
 
 | Phase | Focus | Key Tools |
 | :--- | :--- | :--- |
-| 1 | Local modelling compiler | Python, pydantic, ruamel.yaml, jsonschema, referencing, json-schema-to-typescript, Markdown |
+| 1 | Local modelling compiler | Python, Lark, pydantic, jsonschema, referencing, json-schema-to-typescript, Markdown |
 | 2 | Artifact registry | Apicurio Registry |
 | 3 | Catalog / governance sync | OpenMetadata |
 | 4 | Contract interchange | Open Data Contract Standard, Data Contract CLI |

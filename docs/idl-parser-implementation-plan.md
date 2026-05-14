@@ -340,8 +340,14 @@ field_mapping: IDENT "->" IDENT
 workspace_decl: "workspace" ESCAPED_STRING? "{" workspace_item* "}"
 
 workspace_item: generate_block
+              | ai_block
               | registry_block
               | peers_list
+
+ai_block: "ai" "{" ai_attr* "}"
+
+ai_attr: "provider" ":" ESCAPED_STRING -> ai_provider
+       | "model"    ":" ESCAPED_STRING -> ai_model
 
 auto_projections_decl: "auto" "projections" IDENT "@" INT "{" auto_kind* "}"
 
@@ -894,6 +900,10 @@ class GenerateTarget(BaseModel):
     dialect: Optional[str] = None   # for sql(postgres)
     output_path: Optional[str] = None
 
+class AiConfig(BaseModel):
+    provider: Optional[str] = None
+    model: Optional[str] = None
+
 
 # ── Bindings ──────────────────────────────────────────────────────────────────
 
@@ -922,6 +932,7 @@ class DomainDef(BaseModel):
 
 class WorkspaceDef(BaseModel):
     generate_targets: list[GenerateTarget] = []
+    ai: Optional[AiConfig] = None
 
 class MdlFile(BaseModel):
     domains: list[DomainDef] = []
@@ -1318,12 +1329,31 @@ class MdlTransformer(Transformer):
 
     # ── Workspace ─────────────────────────────────────────────────────────────
 
+    def ai_provider(self, items):
+        return ("provider", _str(items[0]))
+
+    def ai_model(self, items):
+        return ("model", _str(items[0]))
+
+    def ai_attr(self, items):
+        return items[0]
+
+    def ai_block(self, items):
+        attrs = dict(items)
+        return ("ai", AiConfig(
+            provider=attrs.get("provider"),
+            model=attrs.get("model"),
+        ))
+
     def workspace_decl(self, items):
         generate_targets = []
+        ai = None
         for item in items:
             if isinstance(item, tuple) and item[0] == "generate":
                 generate_targets = item[1]
-        return WorkspaceDef(generate_targets=generate_targets)
+            elif isinstance(item, tuple) and item[0] == "ai":
+                ai = item[1]
+        return WorkspaceDef(generate_targets=generate_targets, ai=ai)
 ```
 
 - [ ] **Step 4: Add `parse_text_to_ir` to `cli/src/modellable/parser/parse.py`**
@@ -1863,5 +1893,3 @@ git commit -m "feat: add compiler orchestration and CLI validate command"
 | CLI validate command | Task 7 |
 
 **Not in this plan (separate plans):** Emitters, LSP, LLM commands, `compile` CLI command, `diff`, `lineage`, `docs` commands.
-
-

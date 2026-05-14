@@ -13,7 +13,7 @@ domain commerce {
                shippingCity:       string
                shippingCountryCode: string // format: iso3166_alpha2
                shippingPostalCode: string
-               items:              array<value Item>
+               items:              array<Item>
                totalAmountCents:   int
                currencyCode:       string
     @classification("confidential")
