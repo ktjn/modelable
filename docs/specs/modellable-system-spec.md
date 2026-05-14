@@ -85,7 +85,7 @@ Required properties:
 - `domain`: Owning domain.
 - `name`: Unique model name within the domain.
 - `kind`: `entity`, `event`, `value_object`, or `aggregate`.
-- `identity`: Key definition for addressable records when applicable.
+- `identity`: Key definition for addressable records when applicable. The `key` field accepts either a single field name (string) or an ordered list of field names for composite keys.
 - `versions`: Published model versions.
 
 Example:
