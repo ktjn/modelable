@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(superpowers:brainstorming)",
+      "Bash(Get-ChildItem -Path C:\\\\git\\\\modellable -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Skill(superpowers:writing-plans)",
+      "Skill(superpowers:subagent-driven-development)",
+      "Skill(superpowers:finishing-a-development-branch)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:smithy.io)",
+      "WebFetch(domain:specs.frictionlessdata.io)"
+    ]
+  }
+}
