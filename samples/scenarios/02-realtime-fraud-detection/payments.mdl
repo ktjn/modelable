@@ -1,0 +1,20 @@
+domain payments {
+  owner: "payments-team"
+  contact: "payments@example.com"
+  description: "Payment transaction processing and velocity aggregates."
+
+  aggregate TransactionVelocity @ 1 (additive) {
+    @key       customerId:         uuid
+               txCount1h:          int = 0
+               txCount24h:         int = 0
+               txCount7d:          int = 0
+               declinedCount1h:    int = 0
+               declinedCount24h:   int = 0
+               uniqueMerchants24h: int = 0
+               uniqueCountries24h: int = 0
+               totalAmountCents24h: int = 0
+               maxSingleTransactionCents24h: int = 0
+               lastTransactionAt?: timestamp
+               windowComputedAt:   timestamp
+  }
+}

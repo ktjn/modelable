@@ -1,0 +1,91 @@
+domain analytics {
+  owner: "data-platform-team"
+  contact: "data-platform@example.com"
+  description: "Analytics projections and materialised summaries for business intelligence."
+
+  projection CustomerLifetimeValue @ 2
+    from customer.Customer @ 3 as cust
+    left join commerce.Order @ 4 as ord on cust.customerId == ord.customerId
+    left join payments.PaymentTransaction @ 2 as pay on ord.orderId == pay.orderId
+    group by cust.customerId, cust.email, cust.countryCode, cust.acquisitionChannel, cust.acquisitionDate, cust.firstCampaignId, cust.loyaltyTier, cust.status, cust.createdAt
+  {
+    @key customerId      <- cust.customerId
+    emailHash            = hmac_sha256(cust.email, env.PII_HMAC_SECRET)
+    countryCode          <- cust.countryCode
+    acquisitionChannel   <- cust.acquisitionChannel
+    acquisitionDate      <- cust.acquisitionDate
+    firstCampaignId      <- cust.firstCampaignId
+    loyaltyTier          <- cust.loyaltyTier
+    customerStatus       <- cust.status
+    accountCreatedAt     <- cust.createdAt
+    totalOrderCount      = count(ord.orderId)
+    completedOrderCount  = countif(ord.status == "delivered")
+    cancelledOrderCount  = countif(ord.status in ["cancelled", "refunded"])
+    lifetimeRevenueCents = sum(pay.amountCents) where pay.status == "captured"
+    lifetimeProcessorFeesCents = sum(pay.processorFeesCents) where pay.status == "captured"
+    avgOrderValueCents   = avg(ord.totalAmountCents) where ord.status == "delivered"
+    firstOrderDate       = min(ord.confirmedAt)
+    lastOrderDate        = max(ord.confirmedAt)
+    daysSinceLastOrder   = date_diff("day", max(ord.confirmedAt), now())
+    preferredChannel     = mode(ord.channelCode)
+    preferredPaymentMethod = mode(pay.paymentMethod) where pay.status == "captured"
+    hasCancelledInLast90Days = countif(ord.status == "cancelled" && date_diff("day", ord.cancelledAt, now()) <= 90) > 0
+  }
+
+  projection OrderFunnelFacts @ 1
+    from commerce.Order @ 4 as ord
+  {
+    orderId          <- ord.orderId
+    customerId       <- ord.customerId
+    eventTimestamp   = coalesce(ord.cancelledAt, ord.deliveredAt, ord.shippedAt, ord.confirmedAt, ord.createdAt)
+    funnelStep       <- ord.checkoutFunnelStep
+    orderStatus      <- ord.status
+    channelCode      <- ord.channelCode
+    campaignId       <- ord.campaignId
+    couponCode       <- ord.couponCode
+    currencyCode     <- ord.currencyCode
+    totalAmountCents <- ord.totalAmountCents
+    discountCents    <- ord.discountCents
+    itemCount        <- ord.itemCount
+    revenueDate      = truncate(coalesce(ord.confirmedAt, ord.createdAt), "day")
+  }
+
+  projection DailyCohortRevenue @ 1
+    from commerce.Order @ 4 as ord
+    join customer.Customer @ 3 as cust on ord.customerId == cust.customerId
+    where ord.status == "delivered" && cust.acquisitionDate != null
+    group by cohortMonth, revenueDate, acquisitionChannel, countryCode, channelCode
+  {
+    cohortMonth        = truncate(cust.acquisitionDate, "month")
+    revenueDate        = truncate(ord.confirmedAt, "day")
+    acquisitionChannel <- cust.acquisitionChannel
+    countryCode        <- cust.countryCode
+    channelCode        <- ord.channelCode
+    uniqueCustomers    = count_distinct(ord.customerId)
+    orderCount         = count(ord.orderId)
+    totalRevenueCents  = sum(ord.totalAmountCents)
+    totalDiscountCents = sum(ord.discountCents)
+    avgOrderValueCents = avg(ord.totalAmountCents)
+  }
+
+  projection ProductRevenueAttribution @ 1
+    from commerce.OrderLineItem @ 2 as li
+    join commerce.Order @ 4 as ord on li.orderId == ord.orderId
+    where ord.status in ["confirmed", "shipped", "delivered"]
+  {
+    lineItemId        <- li.lineItemId
+    orderId           <- li.orderId
+    customerId        <- ord.customerId
+    productId         <- li.productId
+    productCategory   <- li.productCategory
+    productBrand      <- li.productBrand
+    campaignId        <- ord.campaignId
+    channelCode       <- ord.channelCode
+    currencyCode      <- ord.currencyCode
+    quantity          <- li.quantity
+    unitPriceCents    <- li.unitPriceCents
+    lineTotalCents    <- li.lineTotalCents
+    lineDiscountCents <- li.discountCents
+    orderDate         = truncate(ord.confirmedAt, "day")
+  }
+}

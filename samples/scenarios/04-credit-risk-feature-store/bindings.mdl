@@ -1,0 +1,34 @@
+binding s3-training-snapshots {
+  adapter: object_storage
+  role: sink
+  config: {
+    provider: "aws_s3"
+    region: "eu-west-1"
+    format: "parquet"
+    compression: "snappy"
+    encryption: "SSE-KMS"
+  }
+}
+
+binding redis-online-features {
+  adapter: redis
+  role: sink
+  config: {
+    host: "redis.ml.internal"
+    port: 6380
+    tls: true
+    keyPrefix: "credit:features:online:"
+    serialisation: "msgpack"
+  }
+}
+
+binding kafka-ml-features-source {
+  adapter: kafka
+  role: stream
+  config: {
+    brokers: ["kafka-1.internal:9092", "kafka-2.internal:9092"]
+    tls: true
+    saslMechanism: "SCRAM-SHA-512"
+    credentialSecret: "kafka-ml-consumer-creds"
+  }
+}

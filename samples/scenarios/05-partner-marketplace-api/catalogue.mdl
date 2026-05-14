@@ -1,0 +1,40 @@
+domain catalogue {
+  owner: "catalogue-team"
+  contact: "catalogue@example.com"
+  description: "Product listings, categories, attributes, and pricing data."
+
+  entity ProductListing @ 3 (additive) {
+    @key       productId:          string
+               sellerId:           string
+               name:               string
+               descriptionShort?:  string
+               descriptionLong?:   string
+               categoryId:         ref<catalogue.ProductCategory>
+               brandName?:         string
+               gtin?:              string
+               sku:                string
+               retailPriceCents:   int
+               salePriceCents?:    int
+               currencyCode:       string
+    @classification("confidential")
+               supplierCostCents:  int
+    @classification("confidential")
+               marginCode:         string
+               primaryImageUrl?:   string // format: uri
+               additionalImageUrls: array<string>
+               tags:               array<string>
+               availabilityStatus: enum(active, paused, out_of_stock, delisted)
+               createdAt:          timestamp
+               updatedAt:          timestamp
+  }
+
+  entity ProductCategory @ 1 (additive) {
+    @key       categoryId:         string
+               parentCategoryId?:  ref<catalogue.ProductCategory>
+               name:               string
+               slug:               string
+               level:              int
+               isLeaf:             bool
+               breadcrumbPath?:    string
+  }
+}

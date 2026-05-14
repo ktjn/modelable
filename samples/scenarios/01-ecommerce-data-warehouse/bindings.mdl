@@ -1,0 +1,25 @@
+binding clickhouse-analytics-sink {
+  adapter: clickhouse
+  role: sink
+  config: {
+    host: "clickhouse.analytics.internal"
+    port: 8443
+    database: "modellable_analytics"
+    tls: true
+    username: "modellable_writer"
+    passwordSecret: "clickhouse-analytics-write-password"
+    batchSize: 10000
+    flushIntervalMs: 5000
+  }
+}
+
+binding kafka-commerce-source {
+  adapter: kafka
+  role: stream
+  config: {
+    brokers: ["kafka-1.internal:9092", "kafka-2.internal:9092"]
+    tls: true
+    saslMechanism: "SCRAM-SHA-512"
+    credentialSecret: "kafka-analytics-consumer-creds"
+  }
+}

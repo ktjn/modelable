@@ -1,0 +1,34 @@
+domain commerce {
+  owner: "commerce-team"
+  contact: "commerce@example.com"
+  description: "Orders, line items, and order status lifecycle."
+
+  entity SellerOrder @ 2 (additive) {
+    @key       sellerOrderId:      uuid
+               orderId:            uuid
+               sellerId:           string
+               customerId:         uuid
+    @pii       customerName:       string
+    @pii       customerEmail:      string
+    @pii       shippingAddressLine1: string
+    @pii       shippingAddressLine2?: string
+               shippingCity:       string
+               shippingPostalCode: string
+               shippingCountryCode: string
+               items:              array<value OrderItem>
+               status:             enum(received, acknowledged, shipped, delivered, cancelled, return_requested, returned)
+               totalAmountCents:   int
+               currencyCode:       string
+               placedAt:           timestamp
+               acknowledgedAt?:    timestamp
+               shippedAt?:         timestamp
+               deliveredAt?:       timestamp
+  }
+
+  value OrderItem {
+    sku:            string
+    productId:      string
+    quantity:       int
+    unitPriceCents: int
+  }
+}

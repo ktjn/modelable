@@ -1,0 +1,22 @@
+domain inventory {
+  owner: "inventory-team"
+  contact: "inventory@example.com"
+  description: "Seller-level inventory quantities, reservations, and fulfilment flags."
+
+  aggregate SellerInventoryLevel @ 2 (additive) {
+    @key       sellerId:           string
+    @key       sku:                string
+    @key       warehouseId:        string
+               productId:          ref<catalogue.ProductListing>
+               warehouseName:      string
+               quantityOnHand:     int = 0
+               quantityReserved:   int = 0
+               quantityAvailable:  int
+               quantityInbound:    int = 0
+               reorderPoint?:      int
+               targetStockLevel?:  int
+               isFulfilledByMarketplace: bool = false
+               lastStocktakeAt?:   timestamp
+               updatedAt:          timestamp
+  }
+}

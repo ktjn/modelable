@@ -1,0 +1,113 @@
+domain compliance {
+  owner: "compliance-team"
+  contact: "compliance@example.com"
+  description: "GDPR compliance projections, consent management, erasure handling, and regulatory evidence packages."
+
+  event DataProcessingConsent @ 1 (additive) {
+    @key       consentEventId:     uuid
+               customerId:         ref<customer.Customer>
+               action:             enum(granted, withdrawn, updated, expired)
+               consentScopes:      array<string>
+               legalBasis:         enum(consent, contract, legitimate_interest, legal_obligation, vital_interest, public_task)
+    @pii       ipAddress?:         string
+               userAgent?:         string
+               consentText?:       string
+               consentTextVersion?: string
+               recordedAt:         timestamp
+  }
+
+  event ErasureRequest @ 1 (additive) {
+    @key       erasureRequestId:   uuid
+               customerId:         ref<customer.Customer>
+               requestChannel:     enum(email, in_app, postal, regulator)
+               verificationMethod: enum(email_confirmed, id_verified, account_login, none)
+               requestStatus:      enum(received, verified, in_progress, completed, rejected, deferred)
+               rejectionReason?:   string
+               deferralReason?:    string
+               requestedAt:        timestamp
+               verifiedAt?:        timestamp
+               completedAt?:       timestamp
+               dueByAt:            timestamp
+               handledBy:          string
+  }
+
+  projection GdprDataSubjectExport @ 1 {
+    from customer.Customer @ 3 as cust
+    left join compliance.DataProcessingConsent @ 1 as con on cust.customerId == con.customerId
+    left join billing.BillingTransaction @ 2 as txn on cust.customerId == txn.customerId
+    where cust.accountStatus != "erased"
+  }
+  {
+    subject_id          <- cust.customerId
+    @pii email          <- cust.email
+    @pii first_name     <- cust.firstName
+    @pii last_name      <- cust.lastName
+    @pii date_of_birth  <- cust.dateOfBirth
+    @pii phone_number   <- cust.phoneNumber
+    @pii address_line1  <- cust.addressLine1
+    @pii address_line2  <- cust.addressLine2
+    @pii city          <- cust.city
+    @pii postal_code    <- cust.postalCode
+    country_code        <- cust.countryCode
+    marketing_consent   <- cust.marketingConsent
+    data_processing_legal_basis <- cust.dataProcessingLegalBasis
+    account_status      <- cust.accountStatus
+    account_created_at  <- cust.createdAt
+    consent_events      = collect(con.*, orderBy: con.recordedAt)
+    billing_transactions = collect({id: txn.transactionId, type: txn.transactionType, description: txn.description, amountCents: txn.amountCents, currency: txn.currencyCode, date: txn.createdAt}, orderBy: txn.createdAt)
+
+    materialisation {
+      strategy:       snapshot
+      retentionYears: 7
+      binding:        "s3-compliance-worm-sink"
+    }
+  }
+
+  projection ConsentHistory @ 1 {
+    from compliance.DataProcessingConsent @ 1 as con
+  }
+  {
+    consent_event_id    <- con.consentEventId
+    customer_id         <- con.customerId
+    action              <- con.action
+    consent_scopes      <- con.consentScopes
+    legal_basis         <- con.legalBasis
+    consent_text_version <- con.consentTextVersion
+    recorded_at         <- con.recordedAt
+
+    materialisation {
+      strategy:  append
+      immutable: true
+      binding:   "postgres-audit-log-sink"
+    }
+  }
+
+  projection ErasureTombstone @ 1 {
+    from customer.Customer @ 3 as cust
+    join compliance.ErasureRequest @ 1 as er on cust.customerId == er.customerId
+    where cust.accountStatus == "erased" || cust.accountStatus == "erasure_requested"
+  }
+  {
+    customer_id         <- cust.customerId
+    email               = "[ERASED]"
+    first_name          = "[ERASED]"
+    last_name           = "[ERASED]"
+    date_of_birth       = null
+    phone_number        = "[ERASED]"
+    country_code        <- cust.countryCode
+    account_created_at  <- cust.createdAt
+    account_status      <- cust.accountStatus
+    deletion_requested_at <- cust.deletionRequestedAt
+    erased_at           <- cust.erasedAt
+    erasure_request_id  <- er.erasureRequestId
+    erasure_legal_basis_for_retention <- er.rejectionReason
+    erasure_handler     <- er.handledBy
+    erasure_completed_at <- er.completedAt
+
+    materialisation {
+      strategy:  upsert
+      immutable: true
+      binding:   "postgres-audit-log-sink"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+workspace {
+  name: "realtime-fraud-detection"
+  description: "Real-Time Fraud Detection Service scenario"
+
+  generate {
+    docs       -> "./generated/docs/"
+    typescript -> "./generated/types/"
+    jsonschema -> "./generated/jsonschema/"
+    asyncapi   -> "./generated/asyncapi/"
+  }
+}

@@ -1,0 +1,11 @@
+workspace {
+  name: "partner-marketplace-api"
+  description: "Partner Marketplace API — Versioned External Contracts scenario"
+
+  generate {
+    docs       -> "./generated/docs/"
+    openapi    -> "./generated/openapi/"
+    typescript -> "./generated/types/"
+    protobuf   -> "./generated/proto/"
+  }
+}

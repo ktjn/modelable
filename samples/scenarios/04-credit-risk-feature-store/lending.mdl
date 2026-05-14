@@ -1,0 +1,35 @@
+domain lending {
+  owner: "lending-team"
+  contact: "lending@example.com"
+  description: "Loan applications, approval decisions, and repayment events."
+
+  event LoanApplication @ 1 (additive) {
+    @key       applicationId:      uuid
+               customerId:         ref<customer.CustomerFinancials>
+               productCode:        string
+               requestedAmountCents: int
+               requestedTermMonths: int
+               requestedPurpose?:  enum(debt_consolidation, home_improvement, auto, medical, education, other)
+               automatedDecision:  enum(approved, declined, referred_manual, withdrawn)
+               offeredInterestRateBps?: int
+               offeredAmountCents?: int
+               declineReasonCodes: array<string>
+    @classification("confidential")
+               modelScoreAtDecision?: decimal(10,4)
+               submittedAt:        timestamp
+               decidedAt?:         timestamp
+  }
+
+  event LoanPaymentHistory @ 2 (additive) {
+    @key       paymentEventId:     uuid
+               loanId:             uuid
+               customerId:         ref<customer.CustomerFinancials>
+               scheduledDate:      date
+               scheduledAmountCents: int
+               paidAmountCents?:   int
+               paidDate?:          date
+               daysLate?:          int
+               status:             enum(on_time, late_1_30, late_31_60, late_61_90, defaulted, waived)
+               recordedAt:         timestamp
+  }
+}

@@ -1,0 +1,39 @@
+domain commerce {
+  owner: "commerce-team"
+  contact: "commerce@example.com"
+  description: "Order lifecycle, checkout funnel, line items, and campaign attribution."
+
+  event Order @ 4 (additive) {
+    @key       orderId:            uuid
+               customerId:         ref<customer.Customer>
+               status:             enum(pending, confirmed, shipped, delivered, cancelled, refunded)
+               checkoutFunnelStep: enum(cart, address, payment_entry, payment_confirm, confirmed)
+               subtotalCents:      int
+               discountCents:      int = 0
+               shippingCents:      int = 0
+               taxCents:           int = 0
+               totalAmountCents:   int
+               currencyCode:       string // format: iso4217
+               channelCode:        enum(web, mobile_ios, mobile_android, api, in_store)
+               campaignId?:        string
+               couponCode?:        string
+               itemCount:          int
+               createdAt:          timestamp
+               confirmedAt?:       timestamp
+               shippedAt?:         timestamp
+               deliveredAt?:       timestamp
+               cancelledAt?:       timestamp
+  }
+
+  entity OrderLineItem @ 2 (additive) {
+    @key       lineItemId:         uuid
+               orderId:            ref<commerce.Order>
+               productId:          string
+               productCategory?:   string
+               productBrand?:      string
+               unitPriceCents:     int
+               quantity:           int
+               discountCents:      int = 0
+               lineTotalCents:     int
+  }
+}

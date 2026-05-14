@@ -1,0 +1,23 @@
+domain payments {
+  owner: "payments-team"
+  contact: "payments@example.com"
+  description: "Payment authorisation, capture, refund, and chargeback records."
+
+  event PaymentTransaction @ 2 (additive) {
+    @key       transactionId:      uuid
+               orderId:            ref<commerce.Order>
+               customerId:         uuid // Could be ref<customer.Customer>
+               amountCents:        int
+               currencyCode:       string // format: iso4217
+               paymentMethod:      enum(card, bank_transfer, wallet, buy_now_pay_later, crypto, gift_card)
+    @classification("confidential")
+               cardBin?:           string
+               cardIssuerCountry?: string // format: iso3166_alpha2
+               processorName?:     string
+               status:             enum(pending, authorised, captured, declined, refunded, chargeback)
+               declineCode?:       string
+               processorFeesCents?: int
+               createdAt:          timestamp
+               settledAt?:         timestamp
+  }
+}

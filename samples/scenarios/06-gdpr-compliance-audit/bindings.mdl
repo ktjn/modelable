@@ -1,0 +1,36 @@
+binding s3-compliance-worm-sink {
+  adapter: object_storage
+  role: sink
+  config: {
+    provider: "aws_s3"
+    region: "eu-west-1"
+    bucket: "compliance-immutable-records"
+    objectLock: true
+    objectLockMode: "COMPLIANCE"
+    objectLockRetentionYears: 7
+    format: "parquet"
+  }
+}
+
+binding postgres-audit-log-sink {
+  adapter: postgres
+  role: sink
+  config: {
+    host: "postgres.audit.internal"
+    port: 5432
+    database: "audit_log"
+    sslMode: "require"
+    appendOnly: true
+  }
+}
+
+binding immudb-billing-sink {
+  adapter: immudb
+  role: sink
+  config: {
+    host: "immudb.billing.internal"
+    port: 3322
+    database: "billing_audit"
+    verifiedWrite: true
+  }
+}

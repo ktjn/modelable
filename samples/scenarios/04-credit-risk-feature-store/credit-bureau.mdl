@@ -1,0 +1,27 @@
+domain "credit-bureau" {
+  owner: "data-partnerships-team"
+  contact: "data-partnerships@example.com"
+  description: "Third-party credit bureau report snapshots ingested via secure file transfer."
+
+  entity BureauReport @ 1 (additive) {
+    @key       reportId:           uuid
+               customerId:         uuid // Could be ref
+               bureauName:         enum(experian, equifax, transunion, creditsafe)
+    @classification("sensitive")
+               creditScore:        int
+               creditScoreModel:   string
+               numberOfOpenAccounts?: int
+               numberOfDerogAccounts?: int
+    @classification("sensitive")
+               totalDebtCents?:    int
+    @classification("sensitive")
+               totalCreditLimitCents?: int
+               utilizationRate?:   decimal(10,4)
+               missedPaymentsLast12m?: int
+               publicRecordCount?: int
+               hardInquiriesLast6m?: int
+               oldestAccountAgeDays?: int
+               reportDate:         date
+               ingestedAt:         timestamp
+  }
+}

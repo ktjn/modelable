@@ -1,0 +1,47 @@
+domain inventory {
+  owner: "inventory-team"
+  contact: "inventory@example.com"
+  description: "Stock reservation, release, and inventory level management."
+
+  event InventoryReservation @ 1 (additive) {
+    @key       reservationId:      uuid
+               orderId:            ref<commerce.OrderCreated>
+               outcome:            enum(reserved, partial, failed)
+               reservedItems:      array<value ReservedItem>
+               failedItems:        array<value FailedItem>
+               reservedAt:         timestamp
+               expiresAt:          timestamp
+  }
+
+  value ReservedItem {
+    productId:        string
+    sku:              string
+    warehouseId:      string
+    quantityReserved: int
+  }
+
+  value FailedItem {
+    productId:         string
+    sku:               string
+    quantityRequested: int
+    quantityAvailable: int
+  }
+
+  projection OrderReservationTriggers @ 1
+    from commerce.OrderCreated @ 2 as oc
+    where oc.items.size() > 0
+  {
+    @key orderId         <- oc.orderId
+    items                <- oc.items
+    shippingCountryCode  <- oc.shippingCountryCode
+    totalAmountCents     <- oc.totalAmountCents
+    createdAt            <- oc.createdAt
+
+    subscription {
+      adapter:         "kafka-fulfillment-saga"
+      consumerGroup:   "inventory-service-reservation-sub"
+      fromOffset:      "earliest"
+      deadLetterTopic: "inventory-service-reservation-sub.dlq"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+workspace {
+  name: "gdpr-compliance-audit"
+  description: "GDPR Compliance, Right-to-Erasure, and Immutable Audit Trail scenario"
+
+  generate {
+    docs       -> "./generated/docs/"
+    typescript -> "./generated/types/"
+    jsonschema -> "./generated/jsonschema/"
+    sql(postgres) -> "./generated/sql/"
+  }
+}

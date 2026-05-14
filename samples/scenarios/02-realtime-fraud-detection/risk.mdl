@@ -1,0 +1,30 @@
+domain risk {
+  owner: "risk-intelligence-team"
+  contact: "risk@example.com"
+  description: "Merchant risk scores, chargeback rates, and device fingerprint trust scores."
+
+  entity MerchantRiskScore @ 1 (additive) {
+    @key       merchantId:         string
+               merchantCategory?:  string // MCC code
+               riskTier:           enum(standard, elevated, high_risk, suspended)
+               chargebackRate30d:  decimal(10,4) = 0.0
+               fraudRate30d:       decimal(10,4) = 0.0
+               isOnBlocklist:      bool = false
+               requiresManualReview: bool = false
+               updatedAt:          timestamp
+  }
+
+  entity DeviceFingerprint @ 1 (additive) {
+    @key       deviceId:           string
+               trustScore:         decimal(10,4)
+               deviceType:         enum(mobile, desktop, tablet, bot, unknown)
+               linkedCustomerCount: int = 1
+               linkedCustomerIds:  array<uuid>
+               isEmulator:         bool = false
+               isVpn:              bool = false
+               isTorExit:          bool = false
+               countryCode?:       string // format: iso3166_alpha2
+               firstSeenAt:        timestamp
+               lastSeenAt:         timestamp
+  }
+}

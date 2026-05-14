@@ -1,0 +1,59 @@
+domain billing {
+  owner: "finance-team"
+  contact: "finance@example.com"
+  description: "Billing transactions, invoices, and subscription events."
+
+  event BillingTransaction @ 2 (additive) {
+    @key       transactionId:      uuid
+               customerId:         ref<customer.Customer>
+               subscriptionId?:    uuid
+               invoiceId:          string
+               transactionType:    enum(charge, refund, credit, adjustment, writeoff)
+               description:        string
+               amountCents:        int
+               currencyCode:       string
+               taxAmountCents:     int = 0
+               taxJurisdiction?:   string
+               paymentMethod:      enum(card, bank_transfer, wallet, credit_balance, manual)
+    @classification("confidential")
+               paymentReference?:  string
+    @pii       billingName:        string
+    @pii       billingAddressLine1: string
+               billingCity:        string
+               billingCountryCode: string
+               billingPostalCode:  string
+               status:             enum(pending, settled, failed, refunded, disputed)
+               createdAt:          timestamp
+               settledAt?:         timestamp
+  }
+
+  projection BillingAuditTrail @ 1 {
+    from billing.BillingTransaction @ 2 as txn
+  }
+  {
+    transaction_id      <- txn.transactionId
+    customer_id         <- txn.customerId
+    invoice_id          <- txn.invoiceId
+    transaction_type    <- txn.transactionType
+    description         <- txn.description
+    amount_cents        <- txn.amountCents
+    currency_code       <- txn.currencyCode
+    tax_amount_cents    <- txn.taxAmountCents
+    tax_jurisdiction    <- txn.taxJurisdiction
+    payment_method      <- txn.paymentMethod
+    @pii billing_name   <- txn.billingName
+    @pii billing_address_line1 <- txn.billingAddressLine1
+    billing_city        <- txn.billingCity
+    billing_country_code <- txn.billingCountryCode
+    status              <- txn.status
+    created_at          <- txn.createdAt
+    settled_at          <- txn.settledAt
+
+    materialisation {
+      strategy:       append
+      immutable:      true
+      retentionYears: 7
+      binding:        "s3-compliance-worm-sink"
+    }
+  }
+}

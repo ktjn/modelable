@@ -1,0 +1,41 @@
+domain shipping {
+  owner: "logistics-team"
+  contact: "logistics@example.com"
+  description: "Shipment label creation, carrier assignments, and delivery tracking."
+
+  event ShipmentLabel @ 1 (additive) {
+    @key       shipmentId:         uuid
+               orderId:            ref<commerce.OrderCreated>
+               paymentId:          ref<payments.PaymentAuthorisation>
+               carrierCode:        string
+               trackingNumber:     string
+               labelUrl:           string // format: uri
+               warehouseId:        string
+               estimatedDeliveryDate?: date
+               shippedAt:          timestamp
+  }
+
+  projection CapturedPaymentEvents @ 1
+    from payments.PaymentAuthorisation @ 2 as pa
+    join commerce.OrderCreated @ 2 as oc on pa.orderId == oc.orderId
+    where pa.outcome == "captured"
+  {
+    @key orderId         <- pa.orderId
+    paymentId            <- pa.paymentId
+    @pii shippingName    <- oc.shippingName
+    @pii shippingAddressLine1 <- oc.shippingAddressLine1
+    @pii shippingAddressLine2 <- oc.shippingAddressLine2
+    shippingCity         <- oc.shippingCity
+    shippingCountryCode  <- oc.shippingCountryCode
+    shippingPostalCode   <- oc.shippingPostalCode
+    items                <- oc.items
+    processedAt          <- pa.processedAt
+
+    subscription {
+      adapter:         "kafka-fulfillment-saga"
+      consumerGroup:   "shipping-service-label-sub"
+      fromOffset:      "earliest"
+      deadLetterTopic: "shipping-service-label-sub.dlq"
+    }
+  }
+}

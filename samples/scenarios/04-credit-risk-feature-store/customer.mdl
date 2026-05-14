@@ -1,0 +1,27 @@
+domain customer {
+  owner: "customer-platform-team"
+  contact: "customer-platform@example.com"
+  description: "Customer identity, employment status, and declared financial profile."
+
+  aggregate CustomerFinancials @ 2 (additive) {
+    @key       customerId:         uuid
+    @classification("sensitive")
+               declaredAnnualIncomeCents?: int
+               employmentStatus?:  enum(employed_full_time, employed_part_time, self_employed, unemployed, retired, student)
+    @pii       employerName?:      string
+               monthsAtCurrentEmployer?: int
+               linkedBankAccountCount: int = 0
+    @classification("sensitive")
+               avgMonthlyInflowCents?: int
+    @classification("sensitive")
+               avgMonthlyOutflowCents?: int
+    @classification("sensitive")
+               estimatedMonthlyDebtObligationCents?: int
+               openCreditLineCount?: int
+    @classification("sensitive")
+               totalCreditLimitCents?: int
+    @classification("sensitive")
+               totalUtilisedCreditCents?: int
+               updatedAt:          timestamp
+  }
+}

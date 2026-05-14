@@ -1,0 +1,10 @@
+workspace {
+  name: "order-saga-microservices"
+  description: "Order Fulfillment Saga via Event-Driven Microservices scenario"
+
+  generate {
+    docs       -> "./generated/docs/"
+    typescript -> "./generated/types/"
+    asyncapi   -> "./generated/asyncapi/"
+  }
+}

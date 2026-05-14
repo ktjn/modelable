@@ -1,0 +1,12 @@
+binding kafka-fulfillment-saga {
+  adapter: kafka
+  role: stream
+  config: {
+    brokers: ["kafka-1.internal:9092", "kafka-2.internal:9092", "kafka-3.internal:9092"]
+    tls: true
+    saslMechanism: "SCRAM-SHA-512"
+    credentialSecret: "kafka-fulfillment-creds"
+    enableIdempotentProducer: true
+    acks: "all"
+  }
+}

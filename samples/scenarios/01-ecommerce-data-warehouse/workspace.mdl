@@ -1,0 +1,11 @@
+workspace {
+  name: "ecommerce-data-warehouse"
+  description: "E-commerce Analytics Data Warehouse scenario"
+  
+  generate {
+    docs       -> "./generated/docs/"
+    typescript -> "./generated/types/"
+    jsonschema -> "./generated/jsonschema/"
+    sql(clickhouse) -> "./generated/sql/"
+  }
+}

@@ -1,0 +1,105 @@
+domain "marketplace-api" {
+  owner: "platform-team"
+  contact: "platform@example.com"
+  description: "Externally published API projections for partner and seller integrations."
+
+  projection PartnerProductCatalogV2 @ 2 {
+    from catalogue.ProductListing @ 3 as pl
+    join catalogue.ProductCategory @ 1 as cat on pl.categoryId == cat.categoryId
+    where pl.availabilityStatus != "delisted"
+  }
+  {
+    product_id          <- pl.productId
+    seller_id           <- pl.sellerId
+    name                <- pl.name
+    description_short   <- pl.descriptionShort
+    description_long    <- pl.descriptionLong
+    sku                 <- pl.sku
+    gtin                <- pl.gtin
+    brand_name          <- pl.brandName
+    category_id         <- pl.categoryId
+    category_name       <- cat.name
+    category_path       <- cat.breadcrumbPath
+    retail_price_cents  <- pl.retailPriceCents
+    sale_price_cents    <- pl.salePriceCents
+    currency_code       <- pl.currencyCode
+    primary_image_url   <- pl.primaryImageUrl
+    additional_image_urls <- pl.additionalImageUrls
+    tags                <- pl.tags
+    availability        <- pl.availabilityStatus
+    updated_at          <- pl.updatedAt
+
+    generate {
+      openapi
+      typescript
+      protobuf
+    }
+  }
+
+  projection SellerInventoryView @ 1 {
+    from inventory.SellerInventoryLevel @ 2 as inv
+    where inv.sellerId == request.sellerId
+  }
+  {
+    sku                 <- inv.sku
+    product_id          <- inv.productId
+    warehouse_id        <- inv.warehouseId
+    warehouse_name      <- inv.warehouseName
+    quantity_available  <- inv.quantityAvailable
+    quantity_inbound    <- inv.quantityInbound
+    is_fulfilled_by_marketplace <- inv.isFulfilledByMarketplace
+    last_updated_at     <- inv.updatedAt
+
+    generate {
+      openapi
+      typescript
+    }
+  }
+
+  projection SellerOrderStatusV1 @ 1 {
+    from commerce.SellerOrder @ 2 as so
+    where so.sellerId == request.sellerId
+  }
+  {
+    seller_order_id     <- so.sellerOrderId
+    order_id            <- so.orderId
+    @pii customer_name  <- so.customerName
+    @pii customer_email <- so.customerEmail
+    @pii shipping_address_line1 <- so.shippingAddressLine1
+    @pii shipping_address_line2 <- so.shippingAddressLine2
+    shipping_city       <- so.shippingCity
+    shipping_postal_code <- so.shippingPostalCode
+    shipping_country_code <- so.shippingCountryCode
+    items               <- so.items
+    status              <- so.status
+    total_amount_cents  <- so.totalAmountCents
+    currency_code       <- so.currencyCode
+    placed_at           <- so.placedAt
+    shipped_at          <- so.shippedAt
+    delivered_at        <- so.deliveredAt
+
+    generate {
+      openapi
+    }
+  }
+
+  projection InventoryChangeWebhook @ 1 {
+    from inventory.SellerInventoryLevel @ 2 as inv
+    where inv.quantityAvailable != inv.quantityAvailable_prev
+  }
+  {
+    event_type          = "inventory.level_changed"
+    seller_id           <- inv.sellerId
+    sku                 <- inv.sku
+    product_id          <- inv.productId
+    warehouse_id        <- inv.warehouseId
+    quantity_available  <- inv.quantityAvailable
+    quantity_inbound    <- inv.quantityInbound
+    changed_at          <- inv.updatedAt
+
+    generate {
+      openapi
+      jsonschema
+    }
+  }
+}

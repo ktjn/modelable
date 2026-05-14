@@ -1,0 +1,27 @@
+binding redis-fraud-signals {
+  adapter: redis
+  role: sink
+  config: {
+    host: "redis.fraud.internal"
+    port: 6380
+    tls: true
+    keyPrefix: "fraud:customer:"
+    defaultTtlSeconds: 86400
+    serialisation: "msgpack"
+  }
+}
+
+binding kafka-risk-events-source {
+  adapter: kafka
+  role: stream
+  config: {
+    brokers: ["kafka-1.internal:9092", "kafka-2.internal:9092"]
+    tls: true
+    topics: [
+      "fraud.customer_risk_profile.v2",
+      "payments.transaction_velocity.v1",
+      "risk.merchant_risk_score.v1",
+      "risk.device_fingerprint.v1"
+    ]
+  }
+}

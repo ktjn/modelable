@@ -1,0 +1,74 @@
+domain fraud {
+  owner: "fraud-prevention-team"
+  contact: "fraud@example.com"
+  description: "Fraud risk signals, device trust, and real-time decision read models."
+
+  entity CustomerRiskProfile @ 2 (additive) {
+    @key       customerId:         uuid
+               riskScore:          decimal(10,4)
+               riskBand:           enum(low, medium, high, blocked)
+               isWatchlisted:      bool = false
+               chargebackCount90d: int = 0
+               disputeCount90d:    int = 0
+               confirmedFraudCount: int = 0
+               accountAgeDays:     int
+               knownIpAddresses:   array<string>
+               lastReviewedAt?:    timestamp
+               updatedAt:          timestamp
+  }
+
+  projection CustomerFraudCheckSignals @ 2
+    from fraud.CustomerRiskProfile @ 2 as crp
+    left join payments.TransactionVelocity @ 1 as vel on crp.customerId == vel.customerId
+  {
+    @key customerId      <- crp.customerId
+    riskScore            <- crp.riskScore
+    riskBand             <- crp.riskBand
+    isWatchlisted        <- crp.isWatchlisted
+    chargebackCount90d   <- crp.chargebackCount90d
+    confirmedFraudCount  <- crp.confirmedFraudCount
+    accountAgeDays       <- crp.accountAgeDays
+    knownIpAddresses     <- crp.knownIpAddresses
+    txCount1h            <- vel.txCount1h
+    txCount24h           <- vel.txCount24h
+    declinedCount1h      <- vel.declinedCount1h
+    declinedCount24h     <- vel.declinedCount24h
+    uniqueCountries24h   <- vel.uniqueCountries24h
+    totalAmountCents24h  <- vel.totalAmountCents24h
+    maxSingleTransactionCents24h <- vel.maxSingleTransactionCents24h
+    lastTransactionAt    <- vel.lastTransactionAt
+    velocityDeclineRatio1h = vel.txCount1h > 0 ? decimal(vel.declinedCount1h) / decimal(vel.txCount1h) : 0.0
+    isHighVelocity       = vel.txCount1h > 10 || vel.declinedCount1h > 3
+    signalsUpdatedAt     = max(crp.updatedAt, vel.windowComputedAt)
+  }
+
+  projection MerchantFraudLookup @ 1
+    from risk.MerchantRiskScore @ 1 as mrs
+  {
+    @key merchantId      <- mrs.merchantId
+    merchantCategory     <- mrs.merchantCategory
+    riskTier             <- mrs.riskTier
+    chargebackRate30d    <- mrs.chargebackRate30d
+    fraudRate30d         <- mrs.fraudRate30d
+    isOnBlocklist        <- mrs.isOnBlocklist
+    requiresManualReview <- mrs.requiresManualReview
+    isHighRiskMcc        = mrs.merchantCategory in ["7995", "6051", "6211", "5933"]
+    combinedRiskFlag     = mrs.chargebackRate30d > 0.02 || mrs.fraudRate30d > 0.01 || mrs.isOnBlocklist
+  }
+
+  projection DeviceTrustProfile @ 1
+    from risk.DeviceFingerprint @ 1 as dfp
+  {
+    @key deviceId        <- dfp.deviceId
+    trustScore           <- dfp.trustScore
+    deviceType           <- dfp.deviceType
+    isEmulator           <- dfp.isEmulator
+    isVpn                <- dfp.isVpn
+    isTorExit            <- dfp.isTorExit
+    linkedCustomerCount  <- dfp.linkedCustomerCount
+    linkedCustomerIds    <- dfp.linkedCustomerIds
+    isMultiAccountDevice = dfp.linkedCustomerCount > 1
+    isAnomalousDevice    = dfp.isEmulator || dfp.isTorExit || dfp.trustScore < 0.2
+    lastSeenAt           <- dfp.lastSeenAt
+  }
+}

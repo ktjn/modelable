@@ -1,0 +1,11 @@
+workspace {
+  name: "credit-risk-feature-store"
+  description: "Credit Risk ML Feature Store scenario"
+
+  generate {
+    docs       -> "./generated/docs/"
+    typescript -> "./generated/types/"
+    jsonschema -> "./generated/jsonschema/"
+    avro       -> "./generated/avro/"
+  }
+}

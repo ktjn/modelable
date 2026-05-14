@@ -1,0 +1,26 @@
+domain notifications {
+  owner: "platform-team"
+  contact: "platform@example.com"
+  description: "Customer-facing notification triggers derived from fulfillment events."
+
+  projection FulfillmentNotificationTriggers @ 1
+    from shipping.ShipmentLabel @ 1 as sl
+    join commerce.OrderCreated @ 2 as oc on sl.orderId == oc.orderId
+  {
+    @key orderId         <- sl.orderId
+    @pii customerEmail   <- oc.customerEmail
+    @pii shippingName    <- oc.shippingName
+    notificationType     = "order_shipped"
+    trackingNumber       <- sl.trackingNumber
+    carrierCode          <- sl.carrierCode
+    estimatedDeliveryDate <- sl.estimatedDeliveryDate
+    shippedAt            <- sl.shippedAt
+
+    subscription {
+      adapter:         "kafka-fulfillment-saga"
+      consumerGroup:   "notifications-service-fulfillment-sub"
+      fromOffset:      "earliest"
+      deadLetterTopic: "notifications-service-fulfillment-sub.dlq"
+    }
+  }
+}

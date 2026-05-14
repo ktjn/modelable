@@ -1,0 +1,45 @@
+domain commerce {
+  owner: "commerce-team"
+  contact: "commerce@example.com"
+  description: "Order creation, lifecycle events, and fulfillment state tracking."
+
+  event OrderCreated @ 2 (additive) {
+    @key       orderId:            uuid
+               customerId:         uuid
+    @pii       customerEmail:      string
+    @pii       shippingName:       string
+    @pii       shippingAddressLine1: string
+    @pii       shippingAddressLine2?: string
+               shippingCity:       string
+               shippingCountryCode: string // format: iso3166_alpha2
+               shippingPostalCode: string
+               items:              array<value Item>
+               totalAmountCents:   int
+               currencyCode:       string
+    @classification("confidential")
+               paymentMethodToken: string
+               createdAt:          timestamp
+  }
+
+  value Item {
+    productId:      string
+    sku:            string
+    warehouseId:    string
+    quantity:       int
+    unitPriceCents: int
+  }
+
+  aggregate OrderFulfillmentState @ 1 (additive) {
+    @key       orderId:            uuid
+               sagaStage:          enum(awaiting_inventory, inventory_reserved, inventory_failed, payment_pending, payment_captured, payment_declined, label_created, shipped, delivered, cancelled, refunded)
+               reservationId?:     uuid
+               paymentId?:         uuid
+               shipmentId?:        uuid
+               trackingNumber?:    string
+               carrierCode?:       string
+               estimatedDeliveryDate?: date
+               failureReason?:     string
+               lastTransitionAt:   timestamp
+               updatedAt:          timestamp
+  }
+}

@@ -1,0 +1,41 @@
+domain audit {
+  owner: "security-team"
+  contact: "security@example.com"
+  description: "Platform-level access, data processing, and security audit events."
+
+  event DataAccessEvent @ 1 (additive) {
+    @key       accessEventId:      uuid
+               principalId:        string
+               principalType:      enum(user, service_account, api_key, automated_process)
+               projectionName:     string
+               projectionVersion:  int
+               subjectCustomerId?: uuid
+               fieldsAccessed:     array<string>
+               queryParams?:       map<string, string>
+    @pii       ipAddress:          string
+               requestId:          string
+               accessedAt:         timestamp
+  }
+
+  projection SensitiveDataAccessLog @ 1 {
+    from audit.DataAccessEvent @ 1 as dae
+  }
+  {
+    access_event_id     <- dae.accessEventId
+    principal_id        <- dae.principalId
+    principal_type      <- dae.principalType
+    projection_name     <- dae.projectionName
+    projection_version  <- dae.projectionVersion
+    subject_customer_id <- dae.subjectCustomerId
+    fields_accessed     <- dae.fieldsAccessed
+    request_id          <- dae.requestId
+    accessed_at         <- dae.accessedAt
+
+    materialisation {
+      strategy:       append
+      immutable:      true
+      retentionYears: 10
+      binding:        "postgres-audit-log-sink"
+    }
+  }
+}

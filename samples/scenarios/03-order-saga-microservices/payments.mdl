@@ -1,0 +1,35 @@
+domain payments {
+  owner: "payments-team"
+  contact: "payments@example.com"
+  description: "Payment authorisation, capture, and refund processing."
+
+  event PaymentAuthorisation @ 2 (additive) {
+    @key       paymentId:          uuid
+               orderId:            ref<commerce.OrderCreated>
+               reservationId:      ref<inventory.InventoryReservation>
+               outcome:            enum(authorised, captured, declined, refunded, voided)
+               amountCents:        int
+               currencyCode:       string
+               processorTransactionId?: string
+               declineReason?:     string
+               processorFeesCents?: int
+               processedAt:        timestamp
+  }
+
+  projection ConfirmedInventoryEvents @ 1
+    from inventory.InventoryReservation @ 1 as ir
+    where ir.outcome == "reserved"
+  {
+    @key orderId         <- ir.orderId
+    reservationId        <- ir.reservationId
+    reservedAt           <- ir.reservedAt
+    expiresAt            <- ir.expiresAt
+
+    subscription {
+      adapter:         "kafka-fulfillment-saga"
+      consumerGroup:   "payments-service-capture-sub"
+      fromOffset:      "earliest"
+      deadLetterTopic: "payments-service-capture-sub.dlq"
+    }
+  }
+}

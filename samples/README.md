@@ -1,8 +1,8 @@
 # Sample Scenarios
 
-This directory contains six complete sample scenarios — one for each Modellable platform type. Each scenario demonstrates complex, production-realistic definitions across multiple domains, showing how domains, models, projections, and adapter bindings compose together.
+This directory contains six complete sample scenarios — one for each Modellable platform type. Each scenario is now defined using the canonical **Modellable IDL (`.mdl`)** format, demonstrating production-realistic definitions across multiple domains.
 
-Use these as a starting point for your own definitions or load them interactively with the CLI (`modellable scenario load <id>`).
+Use these as a starting point for your own definitions or validate them with the CLI (`modellable validate scenarios/<id>/`).
 
 ---
 
@@ -10,18 +10,18 @@ Use these as a starting point for your own definitions or load them interactivel
 
 | # | ID | Title | Platform | Complexity |
 |---|:---|:------|:---------|:-----------|
-| 1 | `ecommerce-data-warehouse` | E-commerce Analytics Data Warehouse | Data Warehouse | High |
-| 2 | `realtime-fraud-detection` | Real-Time Fraud Detection Service | High-Performance Service | High |
-| 3 | `order-saga-microservices` | Order Fulfillment Saga | Event-Driven Microservices | High |
-| 4 | `credit-risk-feature-store` | Credit Risk ML Feature Store | ML Feature Store | High |
-| 5 | `partner-marketplace-api` | Partner Marketplace API | API Consumer | High |
-| 6 | `gdpr-compliance-audit` | GDPR Compliance and Immutable Audit Trail | Audit & Compliance | High |
+| 1 | `01-ecommerce-data-warehouse` | E-commerce Analytics Data Warehouse | Data Warehouse | High |
+| 2 | `02-realtime-fraud-detection` | Real-Time Fraud Detection Service | High-Performance Service | High |
+| 3 | `03-order-saga-microservices` | Order Fulfillment Saga | Event-Driven Microservices | High |
+| 4 | `04-credit-risk-feature-store` | Credit Risk ML Feature Store | ML Feature Store | High |
+| 5 | `05-partner-marketplace-api` | Partner Marketplace API | API Consumer | High |
+| 6 | `06-gdpr-compliance-audit` | GDPR Compliance and Immutable Audit Trail | Audit & Compliance | High |
 
 ---
 
 ## Scenario Summaries
 
-### 1. E-commerce Data Warehouse (`01-ecommerce-data-warehouse.yaml`)
+### 1. E-commerce Data Warehouse (`scenarios/01-ecommerce-data-warehouse/`)
 
 A high-traffic marketplace feeds a ClickHouse analytics warehouse with customer lifetime value, acquisition-cohort revenue curves, checkout-funnel conversion rates, and multi-touch campaign attribution.
 
@@ -33,12 +33,10 @@ Key techniques demonstrated:
 - `SummingMergeTree` and `ReplacingMergeTree` engine bindings for ClickHouse
 
 Domains: `customer`, `commerce`, `payments`, `analytics`
-Models: `Customer`, `Order`, `OrderLineItem`, `PaymentTransaction`
-Projections: `CustomerLifetimeValue`, `OrderFunnelFacts`, `DailyCohortRevenue`, `ProductRevenueAttribution`
 
 ---
 
-### 2. Real-Time Fraud Detection (`02-realtime-fraud-detection.yaml`)
+### 2. Real-Time Fraud Detection (`scenarios/02-realtime-fraud-detection/`)
 
 A payment processor requires sub-millisecond fraud signal reads during payment authorisation. Four source models from different domains are denormalised into a single Redis hash per customer, refreshed continuously via Kafka.
 
@@ -50,12 +48,10 @@ Key techniques demonstrated:
 - TTL-based data freshness guarantees (86400s customer, 3600s merchant)
 
 Domains: `fraud`, `risk`, `payments`
-Models: `CustomerRiskProfile`, `TransactionVelocity`, `MerchantRiskScore`, `DeviceFingerprint`
-Projections: `CustomerFraudCheckSignals`, `MerchantFraudLookup`, `DeviceTrustProfile`
 
 ---
 
-### 3. Order Fulfillment Saga (`03-order-saga-microservices.yaml`)
+### 3. Order Fulfillment Saga (`scenarios/03-order-saga-microservices/`)
 
 A five-service order fulfillment system coordinates via Kafka choreography. Each service subscribes to a filtered projection of domain events from the previous saga step. No service calls another directly.
 
@@ -68,12 +64,10 @@ Key techniques demonstrated:
 - `enableIdempotentProducer` and `acks: all` for exactly-once-at-Kafka semantics
 
 Domains: `commerce`, `inventory`, `payments`, `shipping`, `notifications`
-Models: `OrderCreated`, `InventoryReservation`, `PaymentAuthorisation`, `ShipmentLabel`, `OrderFulfillmentState`
-Projections: `OrderReservationTriggers`, `ConfirmedInventoryEvents`, `CapturedPaymentEvents`, `FulfillmentNotificationTriggers`
 
 ---
 
-### 4. Credit Risk ML Feature Store (`04-credit-risk-feature-store.yaml`)
+### 4. Credit Risk ML Feature Store (`scenarios/04-credit-risk-feature-store/`)
 
 A lending platform's ML team trains and serves a credit scoring model with point-in-time correct features. The same projection version drives both the offline training snapshot (Parquet on S3) and the online Redis serving layer, preventing training/serving skew.
 
@@ -86,12 +80,10 @@ Key techniques demonstrated:
 - Feature staleness indicator (`bureau_report_age_days`)
 
 Domains: `ml-credit-risk`, `customer`, `lending`, `credit-bureau`
-Models: `CustomerFinancials`, `LoanApplication`, `LoanPaymentHistory`, `BureauReport`, `RiskScoreLabel`
-Projections: `CreditFeaturesOffline`, `CreditFeaturesOnline`, `BureauFeaturesAnonymised`
 
 ---
 
-### 5. Partner Marketplace API (`05-partner-marketplace-api.yaml`)
+### 5. Partner Marketplace API (`scenarios/05-partner-marketplace-api/`)
 
 A marketplace exposes catalog, inventory, and order data to 500+ seller partners through versioned projections. Modellable generates OpenAPI 3.1, TypeScript, and Protobuf artifacts directly from projection definitions. Per-seller access is enforced via runtime CEL filter parameters.
 
@@ -104,12 +96,10 @@ Key techniques demonstrated:
 - `accessControlField` declaration for API gateway integration
 
 Domains: `catalogue`, `inventory`, `commerce`, `marketplace-api`
-Models: `ProductListing`, `ProductCategory`, `SellerInventoryLevel`, `SellerOrder`
-Projections: `PartnerProductCatalogV2`, `SellerInventoryView`, `SellerOrderStatusV1`, `InventoryChangeWebhook`
 
 ---
 
-### 6. GDPR Compliance and Audit Trail (`06-gdpr-compliance-audit.yaml`)
+### 6. GDPR Compliance and Audit Trail (`scenarios/06-gdpr-compliance-audit/`)
 
 A healthcare-adjacent SaaS platform handles three simultaneous compliance obligations: GDPR Data Subject Access Requests (DSAR), right-to-erasure with tombstoning, and a 7-year immutable billing audit trail.
 
@@ -123,68 +113,33 @@ Key techniques demonstrated:
 - Retention enforcement: `retentionYears: 7` on all financial and personal data
 
 Domains: `compliance`, `customer`, `billing`, `audit`
-Models: `Customer`, `DataProcessingConsent`, `BillingTransaction`, `ErasureRequest`, `DataAccessEvent`
-Projections: `GdprDataSubjectExport`, `ConsentHistory`, `BillingAuditTrail`, `ErasureTombstone`, `SensitiveDataAccessLog`
 
 ---
 
-## File Format
+## File Structure
 
-> **Note:** These scenario files are legacy YAML examples created before the Modellable IDL was designed. They will be migrated to `.mdl` format as part of the Phase 1 implementation. The canonical file format going forward is `.mdl` — see the [IDL design spec](../docs/idl-design-spec.md) and the [CLI spec](../docs/cli-spec.md#4-file-format) for details.
+Each scenario is organized by domain, with a `workspace.mdl` file defining global configuration:
 
-The new `.mdl` format uses brace-delimited blocks, `@decorator` annotations, and explicit lineage operators:
-
-```mdl
-domain customer {
-  owner: "customer-platform"
-
-  entity Customer @ 2 (additive) {
-    @key   customerId: uuid
-           legalName:  string
-    @pii   email?:     string
-  }
-}
-
-domain billing {
-  projection BillingCustomer @ 1
-    from customer.Customer @ 2 as c
-  {
-    billingCustomerId <- c.customerId
-    name             <- c.legalName
-    isBillable        = c.status == "active"
-  }
-}
+```
+scenarios/01-ecommerce-data-warehouse/
+  ├── workspace.mdl      # Workspace configuration
+  ├── customer.mdl       # Customer domain & models
+  ├── commerce.mdl       # Commerce domain & models
+  ├── payments.mdl       # Payments domain & models
+  ├── analytics.mdl      # Analytics domain & projections
+  └── bindings.mdl       # Adapter bindings
 ```
 
 ## Using with the CLI
 
 ```bash
-# Install the CLI
-pip install -e cli/
+# Validate a specific scenario
+modellable validate scenarios/01-ecommerce-data-warehouse/
 
-# Validate .mdl definitions
-modellable validate ./my-project/
-
-# Ask an LLM to explain definitions
-modellable describe ./my-project/
-
-# Generate new definitions from a natural language description
-modellable generate --output ./my-project/NewModel.mdl
-
-# Inspect lineage
-modellable lineage billing.BillingCustomer@1 --path ./my-project
-
-# Compile to JSON Schema and TypeScript
-modellable compile ./my-project --target json-schema --out ./dist/jsonschema
-modellable compile ./my-project --target typescript --out ./dist/types
+# Compile and generate artifacts
+modellable compile scenarios/01-ecommerce-data-warehouse/ --target typescript --out ./dist/
 ```
 
-## Adapting a Scenario
-
-1. Use `modellable generate` with a description of your use case to create a starting `.mdl` file
-2. Edit the domain, model, and projection definitions for your specific entities
-3. Update binding configs with your actual infrastructure endpoints and credential secret names
-4. Validate: `modellable validate ./my-defs/`
-5. Use `modellable generate --context ./my-defs/` to add new projections with LLM assistance
+> **Legacy YAML:** The original YAML definitions have been moved to `scenarios/legacy/` for historical reference.
 
 

@@ -1,0 +1,20 @@
+domain customer {
+  owner: "customer-platform-team"
+  contact: "customer-platform@example.com"
+  description: "Customer identity, lifecycle, loyalty tier, and acquisition attribution."
+
+  entity Customer @ 3 (additive) {
+    @key       customerId:         uuid
+    @pii       email:              string
+    @pii       phoneNumber?:       string
+    @pii       fullName:           string
+               countryCode:        string // format: iso3166_alpha2
+               acquisitionChannel?: enum(organic, email, paid_search, social, referral, direct, affiliate)
+               acquisitionDate?:   date
+               firstCampaignId?:   string
+               loyaltyTier?:       enum(bronze, silver, gold, platinum)
+               status:             enum(active, suspended, deleted)
+               createdAt:          timestamp
+               updatedAt:          timestamp
+  }
+}

@@ -1,0 +1,28 @@
+domain customer {
+  owner: "customer-platform-team"
+  contact: "customer-platform@example.com"
+  description: "Customer identity and lifecycle including personal data."
+
+  entity Customer @ 3 (additive) {
+    @key       customerId:         uuid
+    @pii       email:              string
+    @pii       firstName:          string
+    @pii       lastName:           string
+    @pii       dateOfBirth?:       date
+    @pii       phoneNumber?:       string
+    @classification("sensitive")
+               nationalIdHash?:    string
+    @pii       addressLine1?:      string
+    @pii       addressLine2?:      string
+    @pii       city?:              string
+    @pii       postalCode?:        string
+               countryCode:        string
+               marketingConsent:   bool = false
+               dataProcessingLegalBasis: enum(consent, contract, legitimate_interest, legal_obligation, vital_interest, public_task)
+               accountStatus:      enum(active, suspended, deleted, erasure_requested, erased)
+               createdAt:          timestamp
+               updatedAt:          timestamp
+               deletionRequestedAt?: timestamp
+               erasedAt?:          timestamp
+  }
+}

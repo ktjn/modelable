@@ -1,0 +1,89 @@
+domain "ml-credit-risk" {
+  owner: "credit-risk-ml-team"
+  contact: "credit-risk@example.com"
+  description: "Credit risk feature definitions, training snapshots, and model serving projections."
+
+  event RiskScoreLabel @ 1 (additive) {
+    @key       labelId:            uuid
+               applicationId:      ref<lending.LoanApplication>
+               customerId:         uuid
+               observationWindowMonths: int
+               defaultedWithin12m: bool
+               defaultedWithin24m?: bool
+               maxDaysLateObserved: int
+               labelledAt:         timestamp
+               featureCutoffAt:    timestamp
+  }
+
+  projection CreditFeaturesOffline @ 3
+    from ml-credit-risk.RiskScoreLabel @ 1 as lbl
+    join lending.LoanApplication @ 1 as app on lbl.applicationId == app.applicationId
+      @pitCutoff(lbl.featureCutoffAt)
+    join customer.CustomerFinancials @ 2 as fin on lbl.customerId == fin.customerId
+      @pitCutoff(lbl.featureCutoffAt)
+    join credit-bureau.BureauReport @ 1 as bur on lbl.customerId == bur.customerId
+      @pitCutoff(lbl.featureCutoffAt)
+      @latestBefore(lbl.featureCutoffAt)
+  {
+    applicationId          <- lbl.applicationId
+    customerId             <- lbl.customerId
+    featureCutoffAt        <- lbl.featureCutoffAt
+    label_defaulted_12m    <- lbl.defaultedWithin12m
+    label_defaulted_24m    <- lbl.defaultedWithin24m
+    requested_amount_cents <- app.requestedAmountCents
+    requested_term_months  <- app.requestedTermMonths
+    loan_purpose           <- app.requestedPurpose
+    declared_income_cents  <- fin.declaredAnnualIncomeCents
+    employment_status      <- fin.employmentStatus
+    months_at_employer     <- fin.monthsAtCurrentEmployer
+    bank_avg_inflow_cents  <- fin.avgMonthlyInflowCents
+    bank_avg_outflow_cents <- fin.avgMonthlyOutflowCents
+    open_credit_lines      <- fin.openCreditLineCount
+    credit_utilisation     <- fin.totalUtilisedCreditCents
+    bureau_credit_score    <- bur.creditScore
+    bureau_utilization_rate <- bur.utilizationRate
+    bureau_derog_accounts  <- bur.numberOfDerogAccounts
+    bureau_missed_payments_12m <- bur.missedPaymentsLast12m
+    bureau_hard_inquiries_6m <- bur.hardInquiriesLast6m
+    bureau_public_records  <- bur.publicRecordCount
+    bureau_oldest_account_days <- bur.oldestAccountAgeDays
+    debt_to_income_ratio   = fin.estimatedMonthlyDebtObligationCents != null && fin.avgMonthlyInflowCents > 0 ? decimal(fin.estimatedMonthlyDebtObligationCents) / decimal(fin.avgMonthlyInflowCents) : null
+  }
+
+  projection CreditFeaturesOnline @ 3
+    from customer.CustomerFinancials @ 2 as fin
+    join credit-bureau.BureauReport @ 1 as bur on fin.customerId == bur.customerId
+      @latestOnly
+  {
+    @key customerId        <- fin.customerId
+    declared_income_cents  <- fin.declaredAnnualIncomeCents
+    employment_status      <- fin.employmentStatus
+    months_at_employer     <- fin.monthsAtCurrentEmployer
+    bank_avg_inflow_cents  <- fin.avgMonthlyInflowCents
+    bank_avg_outflow_cents <- fin.avgMonthlyOutflowCents
+    open_credit_lines      <- fin.openCreditLineCount
+    credit_utilisation_cents <- fin.totalUtilisedCreditCents
+    bureau_credit_score    <- bur.creditScore
+    bureau_utilization_rate <- bur.utilizationRate
+    bureau_derog_accounts  <- bur.numberOfDerogAccounts
+    bureau_missed_payments_12m <- bur.missedPaymentsLast12m
+    bureau_hard_inquiries_6m <- bur.hardInquiriesLast6m
+    bureau_public_records  <- bur.publicRecordCount
+    bureau_oldest_account_days <- bur.oldestAccountAgeDays
+    bureau_report_age_days = date_diff("day", bur.reportDate, today())
+    debt_to_income_ratio   = fin.estimatedMonthlyDebtObligationCents != null && fin.avgMonthlyInflowCents > 0 ? decimal(fin.estimatedMonthlyDebtObligationCents) / decimal(fin.avgMonthlyInflowCents) : null
+    featuresUpdatedAt      = max(fin.updatedAt, bur.ingestedAt)
+  }
+
+  projection BureauFeaturesAnonymised @ 2
+    from credit-bureau.BureauReport @ 1 as bur
+  {
+    bureauName             <- bur.bureauName
+    reportDate             <- bur.reportDate
+    credit_score_band      = bur.creditScore < 580 ? "poor" : bur.creditScore < 670 ? "fair" : bur.creditScore < 740 ? "good" : bur.creditScore < 800 ? "very_good" : "exceptional"
+    utilization_band       = bur.utilizationRate < 0.1 ? "very_low" : bur.utilizationRate < 0.3 ? "low" : bur.utilizationRate < 0.5 ? "medium" : bur.utilizationRate < 0.75 ? "high" : "very_high"
+    derog_count_band       = bur.numberOfDerogAccounts == 0 ? "none" : bur.numberOfDerogAccounts <= 2 ? "few" : "many"
+    has_public_records     = bur.publicRecordCount != null && bur.publicRecordCount > 0
+    inquiry_band           = bur.hardInquiriesLast6m == 0 ? "none" : bur.hardInquiriesLast6m <= 2 ? "low" : bur.hardInquiriesLast6m <= 5 ? "medium" : "high"
+  }
+}
