@@ -539,6 +539,20 @@ Planner responsibilities:
 - Determine whether execution is pushdown, runtime-based, or unsupported.
 - Produce executable projection plans.
 
+The planner's primary output is a **plan document** — a structured, serialisable artifact (JSON) that the runtime engine (Phase 5) interprets at execution time. Plan documents are not generated executable code; they are data that describes how to execute a projection. They are human-readable, diffable in git, and inspectable for debugging.
+
+A plan document contains:
+
+- Resolved source model versions (exact version numbers, not ranges).
+- Field mapping table: each target field mapped to its source field and optional transformation expression.
+- Filter expression in CEL string form.
+- Join descriptors: type (`left`, `inner`), left key, right key, and declared cardinality.
+- Aggregation descriptors: group-by fields and aggregate function per output field.
+- Adapter capability assertions evaluated during planning.
+- Planner metadata: validation timestamp and planner version.
+
+Plan documents are written to `.modellable/plans/<domain>.<Projection>.v<version>.plan.json` by the `compile` command.
+
 ### 7.3 Runtime Engine
 
 The runtime engine executes plans produced by the planner.
