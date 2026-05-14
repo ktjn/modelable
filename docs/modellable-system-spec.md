@@ -768,7 +768,7 @@ The registry uses a **file-first, SQLite-indexed** storage model.
 
 SQLite is used because it provides efficient relational queries for lineage traversal, consumer lookup, and compatibility checks without requiring a server or any setup for local use.
 
-**Output layout (post-compile):**
+**Output layout (post-compile, local mode):**
 
 ```
 .modellable/
@@ -801,6 +801,52 @@ SQLite is used because it provides efficient relational queries for lineage trav
 - `access_policies`
 
 Published definitions are stored as complete immutable `.mdl` documents within the source files to preserve exact historical contracts. The SQLite index is derived from these documents, not the other way around.
+
+### 12.1 Distributed Mode
+
+When a `registry` block is present in `workspace.mdl`, the compiler operates in **distributed mode**. Peers are other git repositories. The CLI owns graph traversal and sync — no running server is required.
+
+**Output layout (post-compile, distributed mode):**
+
+```
+<workspace>/                           # source-controlled
+  workspace.mdl
+  *.mdl
+  consumers/
+    <peer-registry-id>/
+      <Projection>@<v>.mdl             # written by peer compilers (two-way write-back)
+
+.modellable/                           # build artifacts — all rebuildable by modellable compile
+  registry.db                          # single derived database (local + mirrored models, lineage, peers)
+  mirror/
+    <peer-registry-id>/                # sparse checkout of peer .mdl files
+      *.mdl
+  plans/
+    billing.BillingCustomer.v1.plan.json
+  artifacts/
+    billing/
+      BillingCustomer.v1.json
+      BillingCustomer.v1.ts
+      BillingCustomer.v1.md
+```
+
+**Sources of truth that must be committed to git:**
+
+- All `.mdl` source files.
+- `consumers/` entries (incoming write-backs from downstream registries).
+
+Everything under `.modellable/` is a build artifact. Deleting it and running `modellable compile` reproduces it.
+
+**`registry.db` additions for distributed mode:**
+
+- `registry_peers` — declared peer nodes, git remotes, sync and writeback modes, last-fetched git SHA.
+- `mirrored_model_versions` — cached foreign model versions with content signatures.
+- `consumers` — downstream dependents derived from the `consumers/` directory.
+- Two new columns on `lineage_edges`: `source_content_signature`, `is_cross_registry`, `source_registry_id`.
+
+Every published model version receives a **content signature** — a SHA-256 hash of its canonical definition — stored in `registry.db` and written into all cross-registry references. Git's SHA chain provides tamper evidence for the source files themselves; content signatures provide it for derived cross-registry references in plan documents and `consumers/` entries.
+
+See [distributed-lineage-spec.md](distributed-lineage-spec.md) for the full design: DAG topology, CLI graph traversal, two-way write-back, peer sync modes, failure modes, and migration path.
 
 ## 13. APIs
 
@@ -955,6 +1001,7 @@ See the [Modellable CLI Specification](cli-spec.md) for the full command referen
 - Visual modeling UI.
 - Automatic migration generation.
 - Kafka runtime provisioning, Redis materialisers, ClickHouse loaders, Feast, API gateways, dbt, Great Expectations, Soda.
+- Distributed registry peer server (HTTP API for runtime lineage queries) — Phase 2, if needed.
 
 ## 18. Non-Goals
 
@@ -983,7 +1030,7 @@ All design decisions have been resolved.
 - **Version scheme:** Integer versions with a required `changeKind: additive | breaking` declaration on publish. See section 8.1.
 - **Composite keys:** Supported in MVP. `identity.key` accepts a string (single field) or a list (composite). See section 3.3.
 - **Version ranges in projections:** Allowed in MVP. The planner resolves to the highest satisfying published version at plan time. See section 8.2.
-- **Registry storage:** File-first (YAML source of truth) with a SQLite derived index written by `compile`. See section 12.
+- **Registry storage:** File-first (`.mdl` source of truth) with a single `registry.db` SQLite derived index written by `compile`. In distributed mode peers are git remotes; `mirror/` holds sparse checkouts of foreign `.mdl` files; `consumers/` holds incoming write-backs from downstream registries. All derived data is in `registry.db`; all source of truth is in git. See section 12 and [distributed-lineage-spec.md](distributed-lineage-spec.md).
 - **Runtime plan execution:** Interpreted plan documents (structured JSON artifacts). Not generated code. See section 7.2.
 
 ## 20. Acceptance Criteria

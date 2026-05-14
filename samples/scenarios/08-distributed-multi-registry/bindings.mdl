@@ -1,0 +1,102 @@
+// Adapter bindings for scenario 08.
+// The analytics team materialises its projections into ClickHouse
+// for dashboard queries and writes daily metrics to Kafka for
+// downstream consumers.
+
+// ── CustomerOrderSummary ─────────────────────────────────────────
+// Materialised into a ClickHouse ReplacingMergeTree for fast
+// aggregated customer lookups. Kept in sync via CDC on the
+// upstream Kafka topics from both registries.
+
+binding analytics-customer-order-summary-clickhouse {
+  model:   analytics.CustomerOrderSummary @ 1
+  adapter: clickhouse
+  table:   customer_order_summary
+  fields: {
+    customerId          -> customer_id
+    email               -> email
+    fullName            -> full_name
+    customerType        -> customer_type
+    countryCode         -> country_code
+    acquisitionDate     -> acquisition_date
+    customerStatus      -> customer_status
+    totalOrderCount     -> total_order_count
+    completedOrderCount -> completed_order_count
+    totalSpentCents     -> total_spent_cents
+    averageOrderCents   -> average_order_cents
+    firstOrderAt        -> first_order_at
+    lastOrderAt         -> last_order_at
+    lastUpdatedAt       -> last_updated_at
+  }
+}
+
+// ── DailyOrderMetrics ─────────────────────────────────────────────
+// Written to ClickHouse for the BI layer and republished to Kafka
+// for any downstream consumers (e.g., revenue alerting, ML pipelines).
+
+binding analytics-daily-metrics-clickhouse {
+  model:   analytics.DailyOrderMetrics @ 1
+  adapter: clickhouse
+  table:   daily_order_metrics
+  fields: {
+    metricDate         -> metric_date
+    countryCode        -> country_code
+    ordersPlaced       -> orders_placed
+    ordersDelivered    -> orders_delivered
+    ordersCancelled    -> orders_cancelled
+    grossRevenueCents  -> gross_revenue_cents
+    netRevenueCents    -> net_revenue_cents
+    averageOrderCents  -> average_order_cents
+  }
+}
+
+binding analytics-daily-metrics-kafka {
+  model:   analytics.DailyOrderMetrics @ 1
+  adapter: kafka
+  topic:   analytics.daily-order-metrics.v1
+}
+
+// ── OrderFulfilmentView ────────────────────────────────────────────
+// Materialised into PostgreSQL for SLA monitoring queries.
+
+binding analytics-fulfilment-view-postgres {
+  model:   analytics.OrderFulfilmentView @ 1
+  adapter: postgres
+  table:   order_fulfilment_view
+  fields: {
+    orderId             -> order_id
+    customerId          -> customer_id
+    orderStatus         -> order_status
+    orderPlacedAt       -> order_placed_at
+    shipmentStatus      -> shipment_status
+    estimatedDelivery   -> estimated_delivery
+    dispatchedAt        -> dispatched_at
+    deliveredAt         -> delivered_at
+    fulfilmentSlaHours  -> fulfilment_sla_hours
+  }
+}
+
+// ── Source subscriptions ───────────────────────────────────────────
+// The analytics registry subscribes to change events from both
+// upstream registries to drive continuous materialisation.
+
+subscription analytics-from-customer-platform {
+  source:     customer.CustomerStatusChanged @ 1
+  projection: analytics.CustomerOrderSummary @ 1
+  mode:       stream
+  consumer_group: analytics-cos-consumer
+}
+
+subscription analytics-from-orders {
+  source:     orders.OrderStatusChanged @ 1
+  projection: analytics.CustomerOrderSummary @ 1
+  mode:       stream
+  consumer_group: analytics-cos-consumer
+}
+
+subscription analytics-order-placed {
+  source:     orders.OrderPlaced @ 1
+  projection: analytics.DailyOrderMetrics @ 1
+  mode:       stream
+  consumer_group: analytics-daily-metrics-consumer
+}

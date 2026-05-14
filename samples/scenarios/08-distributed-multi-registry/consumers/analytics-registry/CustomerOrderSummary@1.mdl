@@ -1,0 +1,18 @@
+// Written by the analytics-registry compiler during `modellable compile`.
+// Committed to this repo (customer-platform-registry) by the CLI write-back.
+// Do not edit by hand — re-generated on each compile.
+//
+// This file answers the question: "who depends on our models?"
+// The customer team can run `modellable dependents customer.Customer@3`
+// to see this entry without querying any central catalog.
+// When customer.Customer@4 (breaking) is planned, CI can gate the merge
+// on this entry being updated to reference the new version.
+
+consumer {
+  registry:   "analytics-registry"
+  projection: "analytics.CustomerOrderSummary@1"
+  uses: [
+    "customer.Customer@3#a3f8b2c1d4e5f6a7"
+  ]
+  registeredAt: "2026-05-14T09:05:00Z"
+}
