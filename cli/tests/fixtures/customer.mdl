@@ -1,0 +1,21 @@
+domain customer {
+  owner: "customer-platform"
+  description: "Customer identity and lifecycle."
+
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    createdAt: timestamp
+  }
+
+  entity Customer @ 2 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    @pii
+    email?: string
+    status: enum(active, blocked, deleted)
+    createdAt: timestamp
+  }
+}

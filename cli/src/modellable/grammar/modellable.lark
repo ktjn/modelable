@@ -1,0 +1,149 @@
+// Modellable IDL Grammar
+// Parser: Earley
+
+start: statement+
+
+statement: domain_decl
+         | binding_decl
+         | workspace_decl
+         | import_domain_stmt
+         | consumer_decl
+
+
+// -- Domain ------------------------------------------------------------------
+
+domain_decl: "domain" IDENT "{" domain_item* "}"
+
+domain_item: owner_attr
+           | desc_attr
+           | model_decl
+           | projection_decl
+           | auto_projections_decl
+           | generate_block
+
+owner_attr: "owner" ":" ESCAPED_STRING
+desc_attr: "description" ":" ESCAPED_STRING
+
+
+// -- Model -------------------------------------------------------------------
+
+model_decl: model_kind IDENT "@" INT "(" change_kind ")" "{" field_decl* "}"
+
+model_kind: "entity"    -> mk_entity
+          | "aggregate" -> mk_aggregate
+          | "event"     -> mk_event
+          | "value"     -> mk_value
+
+change_kind: "additive" -> ck_additive
+           | "breaking" -> ck_breaking
+
+field_decl: annotation* IDENT optional_marker? ":" type_expr
+optional_marker: "?"
+
+annotation: "@key"                                                -> ann_key
+          | "@pii"                                                -> ann_pii
+          | "@classification" "(" ESCAPED_STRING ")"             -> ann_classification
+          | "@deprecated" "(" "replacedBy" ":" ESCAPED_STRING ")" -> ann_deprecated
+          | "@owner" "(" ESCAPED_STRING ")"                      -> ann_owner
+          | "@server"                                             -> ann_server
+
+
+// -- Types -------------------------------------------------------------------
+
+type_expr: primitive_type
+         | decimal_type
+         | enum_type
+         | array_type
+         | map_type
+         | ref_type
+         | object_type
+         | IDENT
+
+primitive_type: "string"
+              | "int"
+              | "float"
+              | "decimal"
+              | "bool"
+              | "date"
+              | "time"
+              | "timestamp"
+              | "uuid"
+              | "duration"
+              | "binary"
+
+decimal_type: "decimal" "(" INT "," INT ")"
+enum_type: "enum" "(" IDENT ("," IDENT)* ")"
+array_type: "array" "<" type_expr ">"
+map_type: "map" "<" type_expr "," type_expr ">"
+ref_type: "ref" "<" dotted_ref ">"
+object_type: "object" "{" field_decl* "}"
+
+
+// -- Projections --------------------------------------------------------------
+
+projection_decl: "projection" IDENT "@" INT source_clause "{" proj_field* "}"
+
+source_clause: "from" dotted_ref "@" version_spec "as" IDENT join_clause* group_clause?
+
+join_clause: "join" dotted_ref "@" version_spec "as" IDENT "on" EXPRESSION
+
+group_clause: "group" "by" qualified_field ("," qualified_field)*
+
+version_spec: INT                  -> version_exact
+            | ">=" INT "<" INT     -> version_range
+            | ">=" INT             -> version_min
+
+proj_field: annotation* IDENT "<-" qualified_field -> direct_field
+          | annotation* IDENT "=" EXPRESSION        -> computed_field
+
+qualified_field: IDENT "." IDENT
+
+
+// -- Generate ----------------------------------------------------------------
+
+generate_block: "generate" "{" generate_target* "}"
+
+generate_target: target_name ("->" ESCAPED_STRING)?
+
+target_name: "openapi"                 -> tn_openapi
+           | "typescript"              -> tn_typescript
+           | "avro"                    -> tn_avro
+           | "protobuf"                -> tn_protobuf
+           | "sql" "(" db_dialect ")"  -> tn_sql
+           | "jsonschema"              -> tn_jsonschema
+           | "asyncapi"                -> tn_asyncapi
+           | "docs"                    -> tn_docs
+
+db_dialect: "postgres" -> dd_postgres
+          | "mysql"    -> dd_mysql
+          | "sqlite"   -> dd_sqlite
+
+
+// -- Deferred top-level forms ------------------------------------------------
+// These are parsed more fully in later parser-plan tasks.
+
+binding_decl: "binding" IDENT "{" ignored_block_item* "}"
+workspace_decl: "workspace" IDENT "{" ignored_block_item* "}"
+import_domain_stmt: "import" "domain" dotted_ref version_selector?
+consumer_decl: "consumer" IDENT "{" ignored_block_item* "}"
+auto_projections_decl: "auto" "projections" "{" ignored_block_item* "}"
+
+version_selector: "@" version_expr
+version_expr: INT | VERSION_RANGE
+dotted_ref: IDENT ("." IDENT)*
+
+ignored_block_item: /[^{}]+/ | "{" ignored_block_item* "}"
+
+
+// -- Lexing ------------------------------------------------------------------
+
+VERSION_RANGE: /[<>~=^0-9.,\s]+/
+EXPRESSION: /[^\n\r{}]+/
+IDENT: /[A-Za-z_][A-Za-z0-9_]*/
+
+COMMENT: /\/\/[^\n]*/
+%import common.ESCAPED_STRING
+%import common.INT
+%import common.WS
+%ignore WS
+%ignore COMMENT
