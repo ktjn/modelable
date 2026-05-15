@@ -125,7 +125,17 @@ binding_decl: "binding" IDENT "{" ignored_block_item* "}"
 workspace_decl: "workspace" IDENT "{" ignored_block_item* "}"
 import_domain_stmt: "import" "domain" dotted_ref version_selector?
 consumer_decl: "consumer" IDENT "{" ignored_block_item* "}"
-auto_projections_decl: "auto" "projections" "{" ignored_block_item* "}"
+auto_projections_decl: "auto" "projections" IDENT "@" INT "{" auto_projection_item* "}"
+
+auto_projection_item: auto_projection_kind auto_projection_option*
+auto_projection_kind: "db"      -> apk_db
+                    | "request" -> apk_request
+                    | "reply"   -> apk_reply
+                    | "event"   -> apk_event
+
+auto_projection_option: "exclude" "[" auto_projection_exclusion ("," auto_projection_exclusion)* "]"
+                      | "on" "[" IDENT ("," IDENT)* "]"
+auto_projection_exclusion: annotation | IDENT
 
 version_selector: "@" version_expr
 version_expr: INT | VERSION_RANGE

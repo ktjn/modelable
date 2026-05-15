@@ -11,6 +11,8 @@ from modelable.parser.ir import (
     AnnPii,
     AnnServer,
     ArrayType,
+    AutoProjectionDecl,
+    AutoProjectionTarget,
     BindingDef,
     ChangeKind,
     ComputedMapping,
@@ -79,6 +81,7 @@ class MdlTransformer(Transformer):
         description = None
         models: dict[str, list[ModelVersion]] = {}
         projections: dict[str, list[ProjectionVersion]] = {}
+        auto_projections: list[AutoProjectionDecl] = []
         generate_targets: list[GenerateTarget] = []
 
         for tag, value in [item for item in items[1:] if isinstance(item, tuple)]:
@@ -92,6 +95,8 @@ class MdlTransformer(Transformer):
             elif tag == "projection":
                 projection_name, projection_version = value
                 projections.setdefault(projection_name, []).append(projection_version)
+            elif tag == "auto_projection":
+                auto_projections.append(value)
             elif tag == "generate":
                 generate_targets = value
 
@@ -101,6 +106,7 @@ class MdlTransformer(Transformer):
             description=description,
             models=models,
             projections=projections,
+            auto_projections=auto_projections,
             generate_targets=generate_targets,
         )
 
@@ -297,6 +303,40 @@ class MdlTransformer(Transformer):
         )
 
     def proj_field(self, items):
+        return items[0]
+
+    def auto_projections_decl(self, items):
+        return (
+            "auto_projection",
+            AutoProjectionDecl(
+                model=str(items[0]),
+                version=int(items[1]),
+                targets=[item for item in items[2:] if isinstance(item, AutoProjectionTarget)],
+            ),
+        )
+
+    def auto_projection_item(self, items):
+        return AutoProjectionTarget(kind=items[0])
+
+    def auto_projection_kind(self, items):
+        return items[0]
+
+    def apk_db(self, _items):
+        return "db"
+
+    def apk_request(self, _items):
+        return "request"
+
+    def apk_reply(self, _items):
+        return "reply"
+
+    def apk_event(self, _items):
+        return "event"
+
+    def auto_projection_option(self, _items):
+        return None
+
+    def auto_projection_exclusion(self, items):
         return items[0]
 
     def generate_block(self, items):

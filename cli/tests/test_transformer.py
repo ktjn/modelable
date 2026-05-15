@@ -120,6 +120,34 @@ def test_transform_version_range():
     assert projection.source.version.max_exclusive == 4
 
 
+def test_transform_auto_projection_declaration():
+    mdl = parse_text_to_ir("""
+    domain customer {
+      entity Customer @ 1 (additive) {
+        @key customerId: uuid
+      }
+
+      auto projections Customer @ 1 {
+        db
+        request
+        reply
+        event
+      }
+    }
+    """)
+
+    domain = mdl.domains[0]
+    auto_projection = domain.auto_projections[0]
+    assert auto_projection.model == "Customer"
+    assert auto_projection.version == 1
+    assert [target.kind for target in auto_projection.targets] == [
+        "db",
+        "request",
+        "reply",
+        "event",
+    ]
+
+
 def test_transform_fixture_files(fixture_path):
     from modelable.parser.parse import parse_file_to_ir
 

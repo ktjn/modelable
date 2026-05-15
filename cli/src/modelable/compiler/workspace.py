@@ -61,6 +61,7 @@ def _validate_merged_workspace(sources: list[WorkspaceSource]) -> list[tuple[Pat
     domains: dict[str, Path] = {}
     model_versions: dict[tuple[str, str, int], Path] = {}
     projection_versions: dict[tuple[str, str, int], Path] = {}
+    generated_projection_versions: dict[tuple[str, str, int], Path] = {}
 
     for source in sources:
         for domain in source.mdl.domains:
@@ -108,4 +109,47 @@ def _validate_merged_workspace(sources: list[WorkspaceSource]) -> list[tuple[Pat
                     else:
                         projection_versions[key] = source.path
 
+            for auto_projection in domain.auto_projections:
+                for target in auto_projection.targets:
+                    projection_name = _generated_projection_name(
+                        auto_projection.model, target.kind
+                    )
+                    key = (domain.name, projection_name, auto_projection.version)
+
+                    previous_generated_path = generated_projection_versions.get(key)
+                    if previous_generated_path is not None:
+                        errors.append(
+                            (
+                                source.path,
+                                "generated projection name "
+                                f"{domain.name}.{projection_name}@{auto_projection.version} "
+                                f"conflicts with auto projection declared in "
+                                f"{previous_generated_path}",
+                            )
+                        )
+                    else:
+                        generated_projection_versions[key] = source.path
+
+                    explicit_projection_path = projection_versions.get(key)
+                    if explicit_projection_path is not None:
+                        errors.append(
+                            (
+                                source.path,
+                                "generated projection name "
+                                f"{domain.name}.{projection_name}@{auto_projection.version} "
+                                f"conflicts with explicit projection declared in "
+                                f"{explicit_projection_path}",
+                            )
+                        )
+
     return errors
+
+
+def _generated_projection_name(model_name: str, kind: str) -> str:
+    suffixes = {
+        "db": "Db",
+        "request": "Request",
+        "reply": "Reply",
+        "event": "Event",
+    }
+    return f"{model_name}{suffixes[kind]}"

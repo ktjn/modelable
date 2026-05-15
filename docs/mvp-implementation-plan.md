@@ -152,9 +152,8 @@ uv run modelable validate ../samples/mvp
 
 - [x] Add workspace discovery that loads all `.mdl` files from a file or directory path.
 - [x] Merge definitions across files while preserving domain ownership boundaries.
-- [ ] Detect duplicate domains, duplicate model versions, duplicate projection versions, and generated-name conflicts.
-  - Completed: duplicate domains, duplicate model versions, and duplicate projection versions.
-  - Remaining: generated-name conflicts.
+- [x] Detect duplicate domains, duplicate model versions, duplicate projection versions, and generated-name conflicts.
+  - Completed: duplicate domains, duplicate model versions, duplicate projection versions, and generated-name conflicts.
 - [ ] Resolve references in the form `domain.Model@version` and `domain.Model@>=min<max`.
 - [ ] Resolve version ranges to the highest matching published version at compile time.
 - [x] Create `.modelable/registry.db` as a rebuildable artifact.
