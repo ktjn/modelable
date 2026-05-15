@@ -83,6 +83,53 @@ def test_aggregate_function_without_group_by_fails():
     )
 
 
+def test_valid_classification_levels_pass():
+    for level in ("open", "internal", "confidential", "secret"):
+        mdl = parse_text_to_ir(f"""
+        domain payments {{
+          entity Payment @ 1 (additive) {{
+            @key paymentId: uuid
+            @classification("{level}") cardNumber: string
+          }}
+        }}
+        """)
+        errors = validate(mdl)
+        assert errors == [], f"Expected no errors for level '{level}', got: {errors}"
+
+
+def test_invalid_classification_level_fails():
+    mdl = parse_text_to_ir("""
+    domain payments {
+      entity Payment @ 1 (additive) {
+        @key paymentId: uuid
+        @classification("top-secret") cardNumber: string
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("classification" in error.lower() for error in errors)
+    assert any("top-secret" in error for error in errors)
+
+
+def test_invalid_classification_level_on_projection_field_fails():
+    mdl = parse_text_to_ir("""
+    domain payments {
+      projection PaymentSummary @ 1
+        from payments.Payment @ 1 as p
+      {
+        @classification("classified") cardNumber <- p.cardNumber
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("classification" in error.lower() for error in errors)
+    assert any("classified" in error for error in errors)
+
+
 def test_aggregate_function_with_group_by_passes():
     mdl = parse_text_to_ir("""
     domain stats {

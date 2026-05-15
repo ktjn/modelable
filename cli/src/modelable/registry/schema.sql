@@ -30,6 +30,7 @@ create table fields (
   optional integer not null,
   is_key integer not null,
   is_pii integer not null,
+  classification text,
   primary key (domain_name, model_name, model_version, field_name)
 );
 
@@ -68,6 +69,7 @@ create table projection_fields (
   position integer not null,
   mapping_json text not null,
   is_pii integer not null,
+  classification text,
   primary key (domain_name, projection_name, projection_version, field_name)
 );
 

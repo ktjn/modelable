@@ -66,14 +66,15 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                     ),
                 )
                 for position, field in enumerate(version.fields):
+                    classification = field.classification
                     conn.execute(
                         """
                         insert into fields
                         (
                           domain_name, model_name, model_version, field_name,
-                          position, type_json, optional, is_key, is_pii
+                          position, type_json, optional, is_key, is_pii, classification
                         )
-                        values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             domain.name,
@@ -85,6 +86,7 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                             int(field.optional),
                             int(field.is_key),
                             int(field.is_pii),
+                            classification.value if classification else None,
                         ),
                     )
 
@@ -168,14 +170,15 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                         ),
                     )
                 for position, field in enumerate(version.fields):
+                    classification = field.classification
                     conn.execute(
                         """
                         insert into projection_fields
                         (
                           domain_name, projection_name, projection_version,
-                          field_name, position, mapping_json, is_pii
+                          field_name, position, mapping_json, is_pii, classification
                         )
-                        values (?, ?, ?, ?, ?, ?, ?)
+                        values (?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             domain.name,
@@ -185,6 +188,7 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                             position,
                             _to_json(field.mapping),
                             int(field.is_pii),
+                            classification.value if classification else None,
                         ),
                     )
                     _insert_field_mapping(
