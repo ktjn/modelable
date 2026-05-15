@@ -60,18 +60,17 @@ confirm links and document references are coherent
 confirm terminology matches the system specification
 ```
 
-Future implementation local gate:
+CLI implementation local gate:
 
 ```text
 git status --short
-run formatter
-run static analysis or type check when configured
+uv sync --extra dev
 run focused tests for touched behavior
-run the repository-level test command
-run any component smoke test required by the touched surface
+uv run pytest tests/ -v
+uv run modelable validate tests/fixtures/customer.mdl
 ```
 
-The exact future commands should be added here when the repository gains package manifests, build scripts, or CI definitions.
+Run these commands from `cli/`. No formatter or static-analysis command is configured yet; if one is added, update this section and `AGENTS.md` with the exact command.
 
 ## 4. Test Gates
 
@@ -80,7 +79,7 @@ Test gates are selected by risk and touched surface.
 | Touched surface | Required gate |
 |---|---|
 | Documentation only | Markdown diff review, link/reference coherence check, terminology check against the system spec |
-| `.mdl` samples or fixtures | Parser/compiler validation when available; manual grammar and semantic review until the CLI exists |
+| `.mdl` samples or fixtures | `uv run modelable validate <path>` from `cli/` when the touched file is expected to be supported by the current parser/compiler; otherwise manual grammar and semantic review with the unsupported construct stated in the handoff |
 | Parser, IR, or semantic validation | Focused parser/validation tests plus the full local compiler gate |
 | Planner, lineage, compatibility, or governance | Focused tests for changed behavior plus representative projection and governance fixtures |
 | Emitters or generated artifacts | Focused emitter tests, deterministic output comparison, and fixture regeneration review |
@@ -116,7 +115,7 @@ Review feedback is blocking when it identifies:
 
 Remote CI should eventually mirror the local gate. It should not replace local verification for ordinary development.
 
-Recommended CI gate sequence once implementation exists:
+Recommended CI gate sequence as implementation expands:
 
 ```text
 format check
@@ -132,6 +131,6 @@ CI failures must be investigated from the first failing gate. Agents should not 
 
 ## 7. Open Decisions
 
-- Exact local command names are open until project manifests and scripts are checked in.
+- Exact formatter and static-analysis commands are open until those tools are configured.
 - Whether governance findings become blocking CI failures is an open policy decision. Phase 1 treats them as visibility and process-support findings unless a policy wrapper promotes them to failures.
 - The PR template location and required status checks are open until repository hosting configuration is added.
