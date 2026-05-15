@@ -1,6 +1,7 @@
 from modelable.parser.ir import (
     AnnKey,
     ChangeKind,
+    ClassificationLevel,
     DomainDef,
     FieldDef,
     MdlFile,
@@ -146,6 +147,44 @@ def test_transform_auto_projection_declaration():
         "reply",
         "event",
     ]
+
+
+def test_transform_classification_annotation():
+    mdl = parse_text_to_ir("""
+    domain payments {
+      entity Payment @ 1 (additive) {
+        @key paymentId: uuid
+        @classification("secret") cardNumber: string
+        @classification("internal") amount: decimal(10, 2)
+        @classification("open") currency: string
+        @classification("confidential") customerId: uuid
+      }
+    }
+    """)
+
+    fields = {f.name: f for f in mdl.domains[0].models["Payment"][0].fields}
+    assert fields["cardNumber"].classification == ClassificationLevel.secret
+    assert fields["amount"].classification == ClassificationLevel.internal
+    assert fields["currency"].classification == ClassificationLevel.open
+    assert fields["customerId"].classification == ClassificationLevel.confidential
+    assert fields["paymentId"].classification is None
+
+
+def test_transform_classification_on_projection_field():
+    mdl = parse_text_to_ir("""
+    domain payments {
+      projection PaymentSummary @ 1
+        from payments.Payment @ 1 as p
+      {
+        @classification("confidential") customerId <- p.customerId
+        amount <- p.amount
+      }
+    }
+    """)
+
+    fields = {f.name: f for f in mdl.domains[0].projections["PaymentSummary"][0].fields}
+    assert fields["customerId"].classification == ClassificationLevel.confidential
+    assert fields["amount"].classification is None
 
 
 def test_transform_fixture_files(fixture_path):

@@ -26,6 +26,13 @@ class AnnPii(BaseModel):
     kind: Literal["pii"] = "pii"
 
 
+class ClassificationLevel(str, Enum):
+    open = "open"
+    internal = "internal"
+    confidential = "confidential"
+    secret = "secret"
+
+
 class AnnClassification(BaseModel):
     kind: Literal["classification"] = "classification"
     level: str
@@ -130,6 +137,16 @@ class FieldDef(BaseModel):
     def is_pii(self) -> bool:
         return any(annotation.kind == "pii" for annotation in self.annotations)
 
+    @property
+    def classification(self) -> ClassificationLevel | None:
+        for annotation in self.annotations:
+            if annotation.kind == "classification":
+                try:
+                    return ClassificationLevel(annotation.level)
+                except ValueError:
+                    return None
+        return None
+
 
 class ModelKind(str, Enum):
     entity = "entity"
@@ -210,6 +227,16 @@ class ProjectionField(BaseModel):
     @property
     def is_pii(self) -> bool:
         return any(annotation.kind == "pii" for annotation in self.annotations)
+
+    @property
+    def classification(self) -> ClassificationLevel | None:
+        for annotation in self.annotations:
+            if annotation.kind == "classification":
+                try:
+                    return ClassificationLevel(annotation.level)
+                except ValueError:
+                    return None
+        return None
 
 
 class ProjectionVersion(BaseModel):

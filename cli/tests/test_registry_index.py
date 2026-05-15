@@ -66,3 +66,33 @@ def test_build_registry_populates_domain_model_versions_and_fields(tmp_path):
             ("email", 1, 1, 0, 1),
             ("status", 2, 0, 0, 0),
         ]
+
+
+def test_build_registry_stores_classification(tmp_path):
+    source = tmp_path / "payments.mdl"
+    source.write_text(
+        """
+domain payments {
+  entity Payment @ 1 (additive) {
+    @key paymentId: uuid
+    @classification("secret") cardNumber: string
+    @classification("internal") amount: decimal(10, 2)
+    currency: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    registry_path = build_registry(workspace, tmp_path / ".modelable")
+
+    with sqlite3.connect(registry_path) as conn:
+        rows = conn.execute(
+            "select field_name, classification from fields order by position"
+        ).fetchall()
+    assert rows == [
+        ("paymentId", None),
+        ("cardNumber", "secret"),
+        ("amount", "internal"),
+        ("currency", None),
+    ]
