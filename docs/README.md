@@ -43,6 +43,8 @@ This directory contains the system specifications, design documents, and impleme
 
 See [samples/scenarios](../samples/scenarios/) for worked examples. Each scenario maps to one or more specification sections.
 
+The Phase 1 implementation plan uses a minimal `samples/mvp/` sample as the strict acceptance target. The richer `samples/scenarios/` examples are illustrative and may include future-phase constructs.
+
 ---
 
 *For agent-specific conventions and build guidance, see the root [AGENTS.md](../AGENTS.md).*
