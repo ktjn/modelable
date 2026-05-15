@@ -1,4 +1,4 @@
-# Modellable CLI — Python Tooling Specification
+# Modelable CLI — Python Tooling Specification
 
 ## 1. Language and Runtime
 
@@ -19,12 +19,12 @@ cli/
   uv.lock                 # pinned dependency graph (committed)
   .python-version         # selects the latest stable Python feature series for uv
   src/
-    modellable/
+    modelable/
       __init__.py
       cli.py              # Click root group
       grammar/
         __init__.py
-        modellable.lark   # EBNF grammar (Lark Earley)
+        modelable.lark   # EBNF grammar (Lark Earley)
       parser/
         __init__.py
         ir.py             # Pydantic IR models
@@ -63,7 +63,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "modellable"
+name = "modelable"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
@@ -82,16 +82,16 @@ dev = [
 ]
 
 [project.scripts]
-modellable = "modellable.cli:cli"
+modelable = "modelable.cli:cli"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/modellable"]
+packages = ["src/modelable"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.coverage.run]
-source = ["src/modellable"]
+source = ["src/modelable"]
 ```
 
 ---
@@ -115,9 +115,9 @@ uv sync --extra dev
 ### 4.2 Run the CLI during development
 
 ```bash
-uv run modellable --help
-uv run modellable validate ./models
-uv run modellable compile ./models --target json-schema
+uv run modelable --help
+uv run modelable validate ./models
+uv run modelable compile ./models --target json-schema
 ```
 
 `uv run` activates the managed virtual environment for the duration of the command. Do not activate `.venv/` manually.
@@ -150,14 +150,14 @@ uv run pytest --cov --cov-report=term  # with coverage
 ### 4.6 Build a distribution
 
 ```bash
-uv build                      # produces dist/modellable-*.whl and dist/modellable-*.tar.gz
+uv build                      # produces dist/modelable-*.whl and dist/modelable-*.tar.gz
 ```
 
 ### 4.7 Install as a global tool
 
 ```bash
-uv tool install .             # makes `modellable` available on PATH globally
-uv tool uninstall modellable  # remove it
+uv tool install .             # makes `modelable` available on PATH globally
+uv tool uninstall modelable  # remove it
 ```
 
 `uv tool install` creates an isolated environment for the CLI. This is the recommended installation method for end users who do not need to modify source code.
@@ -239,12 +239,12 @@ LLM provider SDKs are intentionally excluded from the Phase 1 dependency set. Ad
 
 ### 9.1 Purpose
 
-`bin/modellable` is a shell script at the repository root that serves as the zero-prerequisite entry point to the CLI. A developer who has just cloned the repo can run it without any prior setup — it installs uv if missing, syncs the virtual environment, and forwards to the real CLI.
+`bin/modelable` is a shell script at the repository root that serves as the zero-prerequisite entry point to the CLI. A developer who has just cloned the repo can run it without any prior setup — it installs uv if missing, syncs the virtual environment, and forwards to the real CLI.
 
 ### 9.2 Location
 
 ```
-bin/modellable       # executable shell script, committed to source control
+bin/modelable       # executable shell script, committed to source control
 ```
 
 The script must be committed with the executable bit set (`chmod +x`).
@@ -265,10 +265,10 @@ The script executes the following steps in order:
 
 3. **Sync the virtual environment.** Run `uv sync` from the `cli/` directory. On first run this creates `.venv/` and installs all runtime dependencies. On subsequent runs it is a no-op if `uv.lock` has not changed.
 
-4. **Exec the CLI.** Replace the shell process with `uv run modellable`, forwarding all arguments and the current working directory unchanged:
+4. **Exec the CLI.** Replace the shell process with `uv run modelable`, forwarding all arguments and the current working directory unchanged:
 
    ```
-   exec uv run --project "$(dirname "$0")/../cli" modellable "$@"
+   exec uv run --project "$(dirname "$0")/../cli" modelable "$@"
    ```
 
    Using `exec` means the bootstrap process does not linger after the CLI starts.
@@ -289,11 +289,11 @@ Steps 1–3 are safe to repeat. `uv sync` is a no-op when the environment is alr
 
 ```bash
 # First run — installs uv and syncs, then starts the CLI
-./bin/modellable --help
+./bin/modelable --help
 
 # Subsequent runs — syncs (no-op) and starts the CLI
-./bin/modellable validate ./models
-./bin/modellable compile ./models --target json-schema
+./bin/modelable validate ./models
+./bin/modelable compile ./models --target json-schema
 ```
 
 ---

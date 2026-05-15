@@ -4,7 +4,7 @@
 
 These instructions apply to the entire repository.
 
-This repository currently contains the Modellable system specification, centered on `docs/modellable-system-spec.md`. Treat that specification as the product source of truth unless the user explicitly changes direction.
+This repository currently contains the Modelable system specification, centered on `docs/modelable-system-spec.md`. Treat that specification as the product source of truth unless the user explicitly changes direction.
 
 ## Repository Shape
 
@@ -50,7 +50,7 @@ When source code is added:
 
 Agents working in this repository must treat `docs/agent-governance.md` as the operating policy for repository changes now and when coding starts. The short form is:
 
-- Preserve the product source of truth in `docs/modellable-system-spec.md`.
+- Preserve the product source of truth in `docs/modelable-system-spec.md`.
 - Keep planning, runtime, materializer, registry, adapter, and governance changes separated unless a spec explicitly joins them.
 - Use small, reviewable changes with explicit verification evidence.
 - Do not claim test coverage, compatibility, lineage, governance, or generated artifact behavior without running the relevant gate or documenting why it is unavailable.

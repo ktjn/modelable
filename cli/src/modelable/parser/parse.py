@@ -11,7 +11,7 @@ class ParseError(Exception):
 
 @cache
 def _parser() -> Lark:
-    grammar_path = files("modellable.grammar").joinpath("modellable.lark")
+    grammar_path = files("modelable.grammar").joinpath("modelable.lark")
     return Lark(
         grammar_path.read_text(encoding="utf-8"),
         parser="earley",

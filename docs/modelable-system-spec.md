@@ -1,19 +1,19 @@
-# Modellable System Specification
+# Modelable System Specification
 
 ## 1. Purpose
 
-Modellable is a **meta-model framework** for defining, tracing, and governing domain-owned data models across disparate systems. It acts as a semantic layer on top of existing infrastructure (databases, APIs, message brokers) to ensure maximum traceability and understandability of every single data property.
+Modelable is a **meta-model framework** for defining, tracing, and governing domain-owned data models across disparate systems. It acts as a semantic layer on top of existing infrastructure (databases, APIs, message brokers) to ensure maximum traceability and understandability of every single data property.
 
 The framework ensures that any property—whether it appears in a database table, an API response, or a streaming event—can be traced back to the specific domain and canonical model that owns it.
 
-Modellable provides:
+Modelable provides:
 
 - **Universal Lineage:** Tracking the origin and transformation of every field across system boundaries.
 - **Domain-Owned Contracts:** Explicit ownership and lifecycle for canonical models.
 - **Explicit Mapping:** A declarative way to project, subset, and join models while maintaining property-level "back-references."
 - **Platform-Agnostic Governance:** Applying policies (PII, security, retention) at the source and propagating them to all consumers.
 
-Modellable is not a database; it is the **lineage backbone** that makes data movement and consumption predictable and auditable.
+Modelable is not a database; it is the **lineage backbone** that makes data movement and consumption predictable and auditable.
 
 ## 2. Design Principles
 
@@ -49,7 +49,7 @@ All derived data must be declared. Field renames, type conversions, computed fie
 
 ### 2.6 Framework-First Integration
 
-Modellable is designed to wrap existing systems. It should not require a "rip and replace" of current infrastructure, but rather provide the mapping layer that makes existing data "modellable" and traceable.
+Modelable is designed to wrap existing systems. It should not require a "rip and replace" of current infrastructure, but rather provide the mapping layer that makes existing data "modelable" and traceable.
 
 ### 2.7 Compatibility Before Runtime
 
@@ -560,7 +560,7 @@ A plan document contains:
 - Adapter capability assertions evaluated during planning.
 - Planner metadata: validation timestamp and planner version.
 
-Plan documents are written to `.modellable/plans/<domain>.<Projection>.v<version>.plan.json` by the `compile` command.
+Plan documents are written to `.modelable/plans/<domain>.<Projection>.v<version>.plan.json` by the `compile` command.
 
 ### 7.3 Runtime Engine
 
@@ -743,7 +743,7 @@ The system must answer:
 The system generates artifacts from the normalized model graph. External tools consume these artifacts; they do not feed back into the internal model.
 
 ```
-Modellable IDL (.mdl files)
+Modelable IDL (.mdl files)
    |
    v
 Lark Parser + Semantic Validator
@@ -791,7 +791,7 @@ Artifacts are introduced in phases. Later phases depend on the normalized graph 
 
 ### External Tool Boundaries
 
-| External Tool | Role | What Modellable Does Not Delegate |
+| External Tool | Role | What Modelable Does Not Delegate |
 | :--- | :--- | :--- |
 | JSON Schema / jsonschema | Generated contract format and validation | Internal DSL definition |
 | Apicurio Registry | Artifact storage and versioning | Source of truth |
@@ -801,16 +801,16 @@ Artifacts are introduced in phases. Later phases depend on the normalized graph 
 
 ### JSON Schema Extensions
 
-Generated JSON Schema documents use `x-modellable-*` vendor extensions to carry Modellable-specific metadata:
+Generated JSON Schema documents use `x-modelable-*` vendor extensions to carry Modelable-specific metadata:
 
 | Extension | Purpose |
 | :--- | :--- |
-| `x-modellable` | Model kind, domain, name, and version block |
-| `x-modellable-field` | Fully qualified field reference for lineage |
-| `x-modellable-classification` | Field classification (pii, internal, confidential, etc.) |
-| `x-modellable-lineage` | Source field reference for derived fields |
-| `x-modellable-ref` | Cross-model reference |
-| `x-modellable-por` | Portable ownership record reference |
+| `x-modelable` | Model kind, domain, name, and version block |
+| `x-modelable-field` | Fully qualified field reference for lineage |
+| `x-modelable-classification` | Field classification (pii, internal, confidential, etc.) |
+| `x-modelable-lineage` | Source field reference for derived fields |
+| `x-modelable-ref` | Cross-model reference |
+| `x-modelable-por` | Portable ownership record reference |
 
 All generated artifacts must include model version metadata.
 
@@ -818,17 +818,17 @@ All generated artifacts must include model version metadata.
 
 The registry uses a **file-first, SQLite-indexed** storage model.
 
-**Source of truth: `.mdl` files on disk.** Authors write and version-control `.mdl` definition files using the Modellable IDL. The registry never modifies these files. All definitions live in source control alongside application code.
+**Source of truth: `.mdl` files on disk.** Authors write and version-control `.mdl` definition files using the Modelable IDL. The registry never modifies these files. All definitions live in source control alongside application code.
 
-**Derived index: SQLite.** The `modellable compile` command reads all `.mdl` files and writes a derived `registry.db` (SQLite) file to the `.modellable/` output directory. The database is a build artifact — never edited directly. Deleting it and re-running `compile` must produce an identical result.
+**Derived index: SQLite.** The `modelable compile` command reads all `.mdl` files and writes a derived `registry.db` (SQLite) file to the `.modelable/` output directory. The database is a build artifact — never edited directly. Deleting it and re-running `compile` must produce an identical result.
 
 SQLite is used because it provides efficient relational queries for lineage traversal, consumer lookup, and compatibility checks without requiring a server or any setup for local use.
 
 **Output layout (post-compile, local mode):**
 
 ```
-.modellable/
-  registry.db                          # derived — rebuilt by `modellable compile`
+.modelable/
+  registry.db                          # derived — rebuilt by `modelable compile`
   plans/
     customer.Customer.v2.plan.json     # interpreted plan document
   artifacts/
@@ -872,7 +872,7 @@ When a `registry` block is present in `workspace.mdl`, the compiler operates in 
     <peer-registry-id>/
       <Projection>@<v>.mdl             # written by peer compilers (two-way write-back)
 
-.modellable/                           # build artifacts — all rebuildable by modellable compile
+.modelable/                           # build artifacts — all rebuildable by modelable compile
   registry.db                          # single derived database (local + mirrored models, lineage, peers)
   mirror/
     <peer-registry-id>/                # sparse checkout of peer .mdl files
@@ -891,7 +891,7 @@ When a `registry` block is present in `workspace.mdl`, the compiler operates in 
 - All `.mdl` source files.
 - `consumers/` entries (incoming write-backs from downstream registries).
 
-Everything under `.modellable/` is a build artifact. Deleting it and running `modellable compile` reproduces it.
+Everything under `.modelable/` is a build artifact. Deleting it and running `modelable compile` reproduces it.
 
 **`registry.db` additions for distributed mode:**
 
@@ -1016,7 +1016,7 @@ The first version implements the local modelling compiler. Runtime materializati
 
 ### 17.1 Implementation Stack
 
-- **Parser:** `lark>=1.1` (Earley parser, EBNF grammar in `cli/src/modellable/grammar/modellable.lark`).
+- **Parser:** `lark>=1.1` (Earley parser, EBNF grammar in `cli/src/modelable/grammar/modelable.lark`).
 - **IR:** `pydantic>=2.0` (typed internal model graph; not exposed as the external contract format).
 - **Output validation:** `jsonschema>=4.23`, `referencing>=0.35`.
 - **Output:** JSON Schema 2020-12, Markdown, TypeScript (via `json-schema-to-typescript`).
@@ -1024,7 +1024,7 @@ The first version implements the local modelling compiler. Runtime materializati
 
 ### 17.2 CLI Commands
 
-See the [Modellable CLI Specification](cli-spec.md) for the full command reference.
+See the [Modelable CLI Specification](cli-spec.md) for the full command reference.
 
 ### 17.3 Included in MVP
 
@@ -1036,11 +1036,11 @@ See the [Modellable CLI Specification](cli-spec.md) for the full command referen
 - Exact source version references and compatible version ranges.
 - Compatibility checks for additive and breaking changes.
 - Lineage tracking.
-- JSON Schema 2020-12 generation with `x-modellable-*` extensions.
+- JSON Schema 2020-12 generation with `x-modelable-*` extensions.
 - TypeScript type generation via `json-schema-to-typescript`.
 - Markdown documentation generation.
 - Basic CLI for publishing, validating, compiling, and exporting definitions.
-- `modellable inspect <Entity>@<v> --auto` command to display the compiler-expanded auto projections.
+- `modelable inspect <Entity>@<v> --auto` command to display the compiler-expanded auto projections.
 
 ### Deferred
 

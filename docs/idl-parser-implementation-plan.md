@@ -1,4 +1,4 @@
-# Modellable IDL — Parser, IR, and Validation Implementation Plan
+# Modelable IDL — Parser, IR, and Validation Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -17,18 +17,18 @@
 | File | Purpose |
 |---|---|
 | `cli/pyproject.toml` | Package config, dependencies, entry point |
-| `cli/src/modellable/__init__.py` | Package marker |
-| `cli/src/modellable/cli.py` | Click entry point + `validate` command |
-| `cli/src/modellable/grammar/modellable.lark` | EBNF grammar — canonical language definition |
-| `cli/src/modellable/grammar/__init__.py` | Package marker for resource loading |
-| `cli/src/modellable/parser/ir.py` | Pydantic IR models + error types |
-| `cli/src/modellable/parser/transformer.py` | Lark parse tree → IR |
-| `cli/src/modellable/parser/parse.py` | `parse_text()` / `parse_file()` public API |
-| `cli/src/modellable/parser/__init__.py` | Re-exports |
-| `cli/src/modellable/validation/semantic.py` | Semantic validation rules |
-| `cli/src/modellable/validation/__init__.py` | Re-exports |
-| `cli/src/modellable/compiler/compiler.py` | `compile()` orchestration |
-| `cli/src/modellable/compiler/__init__.py` | Re-exports |
+| `cli/src/modelable/__init__.py` | Package marker |
+| `cli/src/modelable/cli.py` | Click entry point + `validate` command |
+| `cli/src/modelable/grammar/modelable.lark` | EBNF grammar — canonical language definition |
+| `cli/src/modelable/grammar/__init__.py` | Package marker for resource loading |
+| `cli/src/modelable/parser/ir.py` | Pydantic IR models + error types |
+| `cli/src/modelable/parser/transformer.py` | Lark parse tree → IR |
+| `cli/src/modelable/parser/parse.py` | `parse_text()` / `parse_file()` public API |
+| `cli/src/modelable/parser/__init__.py` | Re-exports |
+| `cli/src/modelable/validation/semantic.py` | Semantic validation rules |
+| `cli/src/modelable/validation/__init__.py` | Re-exports |
+| `cli/src/modelable/compiler/compiler.py` | `compile()` orchestration |
+| `cli/src/modelable/compiler/__init__.py` | Re-exports |
 | `cli/tests/conftest.py` | Shared fixtures |
 | `cli/tests/fixtures/customer.mdl` | Valid model fixture |
 | `cli/tests/fixtures/billing_projection.mdl` | Valid projection fixture |
@@ -44,11 +44,11 @@
 
 **Files:**
 - Create: `cli/pyproject.toml`
-- Create: `cli/src/modellable/__init__.py`
-- Create: `cli/src/modellable/grammar/__init__.py`
-- Create: `cli/src/modellable/parser/__init__.py`
-- Create: `cli/src/modellable/validation/__init__.py`
-- Create: `cli/src/modellable/compiler/__init__.py`
+- Create: `cli/src/modelable/__init__.py`
+- Create: `cli/src/modelable/grammar/__init__.py`
+- Create: `cli/src/modelable/parser/__init__.py`
+- Create: `cli/src/modelable/validation/__init__.py`
+- Create: `cli/src/modelable/compiler/__init__.py`
 - Create: `cli/tests/conftest.py`
 - Create: `cli/tests/test_grammar.py`
 
@@ -56,14 +56,14 @@
 
 ```
 cli/
-  src/modellable/grammar/
-  src/modellable/parser/
-  src/modellable/validation/
-  src/modellable/compiler/
+  src/modelable/grammar/
+  src/modelable/parser/
+  src/modelable/validation/
+  src/modelable/compiler/
   tests/fixtures/
 ```
 
-Run: `mkdir -p cli/src/modellable/grammar cli/src/modellable/parser cli/src/modellable/validation cli/src/modellable/compiler cli/tests/fixtures`
+Run: `mkdir -p cli/src/modelable/grammar cli/src/modelable/parser cli/src/modelable/validation cli/src/modelable/compiler cli/tests/fixtures`
 
 - [x] **Step 2: Write `cli/pyproject.toml`**
 
@@ -73,7 +73,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "modellable"
+name = "modelable"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
@@ -92,16 +92,16 @@ dev = [
 ]
 
 [project.scripts]
-modellable = "modellable.cli:cli"
+modelable = "modelable.cli:cli"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/modellable"]
+packages = ["src/modelable"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.coverage.run]
-source = ["src/modellable"]
+source = ["src/modelable"]
 ```
 
 Also create `cli/.python-version`:
@@ -112,7 +112,7 @@ Also create `cli/.python-version`:
 
 - [x] **Step 3: Write package markers**
 
-`cli/src/modellable/__init__.py`, `cli/src/modellable/grammar/__init__.py`, `cli/src/modellable/parser/__init__.py`, `cli/src/modellable/validation/__init__.py`, `cli/src/modellable/compiler/__init__.py` — all empty files.
+`cli/src/modelable/__init__.py`, `cli/src/modelable/grammar/__init__.py`, `cli/src/modelable/parser/__init__.py`, `cli/src/modelable/validation/__init__.py`, `cli/src/modelable/compiler/__init__.py` — all empty files.
 
 - [x] **Step 4: Write `cli/tests/conftest.py`**
 
@@ -130,7 +130,7 @@ def fixture_path():
 - [x] **Step 5: Write first failing test in `cli/tests/test_grammar.py`**
 
 ```python
-from modellable.parser.parse import parse_text
+from modelable.parser.parse import parse_text
 
 def test_import():
     assert parse_text is not None
@@ -140,9 +140,9 @@ def test_import():
 
 Run from `cli/`: `uv sync --extra dev && uv run pytest tests/test_grammar.py -v`
 
-Expected: `ModuleNotFoundError: No module named 'modellable.parser.parse'`
+Expected: `ModuleNotFoundError: No module named 'modelable.parser.parse'`
 
-- [x] **Step 7: Create stub `cli/src/modellable/parser/parse.py`**
+- [x] **Step 7: Create stub `cli/src/modelable/parser/parse.py`**
 
 ```python
 def parse_text(text: str):
@@ -159,7 +159,7 @@ Expected: PASS
 
 ```bash
 git add cli/
-git commit -m "feat: scaffold modellable CLI package with uv and Hatchling"
+git commit -m "feat: scaffold modelable CLI package with uv and Hatchling"
 ```
 
 ---
@@ -167,7 +167,7 @@ git commit -m "feat: scaffold modellable CLI package with uv and Hatchling"
 ## Task 2: Grammar — domains, models, fields, and types
 
 **Files:**
-- Create: `cli/src/modellable/grammar/modellable.lark`
+- Create: `cli/src/modelable/grammar/modelable.lark`
 - Modify: `cli/tests/test_grammar.py`
 
 - [x] **Step 1: Write failing parse test**
@@ -175,7 +175,7 @@ git commit -m "feat: scaffold modellable CLI package with uv and Hatchling"
 Add to `cli/tests/test_grammar.py`:
 
 ```python
-from modellable.parser.parse import parse_text
+from modelable.parser.parse import parse_text
 
 SIMPLE_MODEL = """
 domain customer {
@@ -205,10 +205,10 @@ Run: `pytest tests/test_grammar.py::test_parse_simple_model -v`
 
 Expected: `NotImplementedError`
 
-- [x] **Step 3: Write `cli/src/modellable/grammar/modellable.lark`**
+- [x] **Step 3: Write `cli/src/modelable/grammar/modelable.lark`**
 
 ```lark
-// Modellable IDL Grammar
+// Modelable IDL Grammar
 // Parser: Earley
 
 start: statement+
@@ -408,7 +408,7 @@ IDENT: /[a-zA-Z_][a-zA-Z0-9_]*/
 
 > **Grammar completeness note:** This grammar includes distributed-mode constructs (`@server`, `import domain`, `consumer`, `registry`, `peers`, `auto projections`) that are defined in `idl-design-spec.md` and `distributed-lineage-spec.md`. The initial scaffold (Task 1) need only handle local-mode syntax; distributed constructs may be implemented in a follow-up task once the core parser is stable.
 
-- [x] **Step 4: Implement `parse_text` in `cli/src/modellable/parser/parse.py`**
+- [x] **Step 4: Implement `parse_text` in `cli/src/modelable/parser/parse.py`**
 
 ```python
 from __future__ import annotations
@@ -417,8 +417,8 @@ import importlib.resources
 from lark import Lark, UnexpectedInput
 
 _grammar_text = (
-    importlib.resources.files("modellable.grammar")
-    .joinpath("modellable.lark")
+    importlib.resources.files("modelable.grammar")
+    .joinpath("modelable.lark")
     .read_text(encoding="utf-8")
 )
 _parser = Lark(_grammar_text, parser="earley", ambiguity="resolve")
@@ -506,7 +506,7 @@ Expected: All PASS
 - [ ] **Step 8: Commit**
 
 ```bash
-git add cli/src/modellable/grammar/modellable.lark cli/src/modellable/parser/parse.py cli/tests/test_grammar.py
+git add cli/src/modelable/grammar/modelable.lark cli/src/modelable/parser/parse.py cli/tests/test_grammar.py
 git commit -m "feat: add Lark grammar for domains, models, fields, and types"
 ```
 
@@ -587,11 +587,11 @@ Add to `cli/tests/test_grammar.py`:
 
 ```python
 def test_parse_customer_fixture(fixture_path):
-    from modellable.parser.parse import parse_file
+    from modelable.parser.parse import parse_file
     parse_file(fixture_path / "customer.mdl")
 
 def test_parse_billing_projection_fixture(fixture_path):
-    from modellable.parser.parse import parse_file
+    from modelable.parser.parse import parse_file
     parse_file(fixture_path / "billing_projection.mdl")
 
 def test_parse_direct_mapping():
@@ -662,8 +662,8 @@ git commit -m "feat: add projection grammar tests and MDL fixture files"
 ## Task 4: Pydantic IR models
 
 **Files:**
-- Create: `cli/src/modellable/parser/ir.py`
-- Modify: `cli/src/modellable/parser/__init__.py`
+- Create: `cli/src/modelable/parser/ir.py`
+- Modify: `cli/src/modelable/parser/__init__.py`
 - Create: `cli/tests/test_transformer.py` (failing stub)
 
 - [ ] **Step 1: Write failing test**
@@ -671,7 +671,7 @@ git commit -m "feat: add projection grammar tests and MDL fixture files"
 Create `cli/tests/test_transformer.py`:
 
 ```python
-from modellable.parser.ir import (
+from modelable.parser.ir import (
     MdlFile, DomainDef, ModelVersion, ModelKind, ChangeKind,
     FieldDef, PrimitiveType, EnumType, AnnKey, AnnPii,
 )
@@ -705,7 +705,7 @@ Run: `pytest tests/test_transformer.py::test_ir_model_construction -v`
 
 Expected: `ModuleNotFoundError`
 
-- [ ] **Step 3: Write `cli/src/modellable/parser/ir.py`**
+- [ ] **Step 3: Write `cli/src/modelable/parser/ir.py`**
 
 ```python
 from __future__ import annotations
@@ -948,7 +948,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add cli/src/modellable/parser/ir.py cli/tests/test_transformer.py
+git add cli/src/modelable/parser/ir.py cli/tests/test_transformer.py
 git commit -m "feat: add Pydantic IR models for MDL parse tree"
 ```
 
@@ -957,8 +957,8 @@ git commit -m "feat: add Pydantic IR models for MDL parse tree"
 ## Task 5: Transformer — models and fields
 
 **Files:**
-- Create: `cli/src/modellable/parser/transformer.py`
-- Modify: `cli/src/modellable/parser/parse.py`
+- Create: `cli/src/modelable/parser/transformer.py`
+- Modify: `cli/src/modelable/parser/parse.py`
 - Modify: `cli/tests/test_transformer.py`
 
 - [ ] **Step 1: Write failing transformer test**
@@ -966,7 +966,7 @@ git commit -m "feat: add Pydantic IR models for MDL parse tree"
 Add to `cli/tests/test_transformer.py`:
 
 ```python
-from modellable.parser.parse import parse_text_to_ir
+from modelable.parser.parse import parse_text_to_ir
 
 def test_transform_simple_model():
     mdl = parse_text_to_ir("""
@@ -1004,9 +1004,9 @@ def test_transform_simple_model():
 
 Run: `pytest tests/test_transformer.py::test_transform_simple_model -v`
 
-Expected: `AttributeError: module 'modellable.parser.parse' has no attribute 'parse_text_to_ir'`
+Expected: `AttributeError: module 'modelable.parser.parse' has no attribute 'parse_text_to_ir'`
 
-- [ ] **Step 3: Write `cli/src/modellable/parser/transformer.py`**
+- [ ] **Step 3: Write `cli/src/modelable/parser/transformer.py`**
 
 ```python
 from __future__ import annotations
@@ -1355,7 +1355,7 @@ class MdlTransformer(Transformer):
         return WorkspaceDef(generate_targets=generate_targets, ai=ai)
 ```
 
-- [ ] **Step 4: Add `parse_text_to_ir` to `cli/src/modellable/parser/parse.py`**
+- [ ] **Step 4: Add `parse_text_to_ir` to `cli/src/modelable/parser/parse.py`**
 
 ```python
 from .transformer import MdlTransformer
@@ -1424,7 +1424,7 @@ def test_transform_version_range():
     assert pv.source.version.max_exclusive == 4
 
 def test_transform_fixture_files(fixture_path):
-    from modellable.parser.parse import parse_file_to_ir
+    from modelable.parser.parse import parse_file_to_ir
     customer_mdl = parse_file_to_ir(fixture_path / "customer.mdl")
     assert customer_mdl.domains[0].name == "customer"
     billing_mdl = parse_file_to_ir(fixture_path / "billing_projection.mdl")
@@ -1440,7 +1440,7 @@ Expected: All PASS
 - [ ] **Step 8: Commit**
 
 ```bash
-git add cli/src/modellable/parser/transformer.py cli/src/modellable/parser/parse.py cli/tests/test_transformer.py
+git add cli/src/modelable/parser/transformer.py cli/src/modelable/parser/parse.py cli/tests/test_transformer.py
 git commit -m "feat: add Lark transformer converting MDL parse tree to Pydantic IR"
 ```
 
@@ -1449,8 +1449,8 @@ git commit -m "feat: add Lark transformer converting MDL parse tree to Pydantic 
 ## Task 6: Semantic validation
 
 **Files:**
-- Create: `cli/src/modellable/validation/semantic.py`
-- Modify: `cli/src/modellable/validation/__init__.py`
+- Create: `cli/src/modelable/validation/semantic.py`
+- Modify: `cli/src/modelable/validation/__init__.py`
 - Create: `cli/tests/test_semantic.py`
 
 Rules to enforce:
@@ -1466,9 +1466,9 @@ Create `cli/tests/test_semantic.py`:
 
 ```python
 import pytest
-from modellable.parser.parse import parse_text_to_ir
-from modellable.validation.semantic import validate
-from modellable.parser.ir import ValidationError
+from modelable.parser.parse import parse_text_to_ir
+from modelable.validation.semantic import validate
+from modelable.parser.ir import ValidationError
 
 
 def test_valid_entity_passes():
@@ -1561,12 +1561,12 @@ Run: `pytest tests/test_semantic.py -v`
 
 Expected: All fail with `ModuleNotFoundError`
 
-- [ ] **Step 3: Write `cli/src/modellable/validation/semantic.py`**
+- [ ] **Step 3: Write `cli/src/modelable/validation/semantic.py`**
 
 ```python
 from __future__ import annotations
 import re
-from modellable.parser.ir import MdlFile, ModelKind, ComputedMapping
+from modelable.parser.ir import MdlFile, ModelKind, ComputedMapping
 
 _AGGREGATE_FUNCTIONS = {"count", "sum", "min", "max", "avg"}
 _AGGREGATE_PATTERN = re.compile(
@@ -1643,7 +1643,7 @@ Expected: All PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add cli/src/modellable/validation/semantic.py cli/tests/test_semantic.py
+git add cli/src/modelable/validation/semantic.py cli/tests/test_semantic.py
 git commit -m "feat: add semantic validation for models and projections"
 ```
 
@@ -1652,8 +1652,8 @@ git commit -m "feat: add semantic validation for models and projections"
 ## Task 7: Compiler orchestration and CLI validate command
 
 **Files:**
-- Create: `cli/src/modellable/compiler/compiler.py`
-- Create: `cli/src/modellable/cli.py`
+- Create: `cli/src/modelable/compiler/compiler.py`
+- Create: `cli/src/modelable/cli.py`
 - Create: `cli/tests/test_compiler.py`
 - Create: `cli/tests/test_cli.py`
 
@@ -1662,7 +1662,7 @@ git commit -m "feat: add semantic validation for models and projections"
 Create `cli/tests/test_compiler.py`:
 
 ```python
-from modellable.compiler.compiler import compile_text, compile_file
+from modelable.compiler.compiler import compile_text, compile_file
 
 def test_compile_valid_model():
     mdl, errors = compile_text("""
@@ -1688,7 +1688,7 @@ def test_compile_returns_errors_not_raises():
     assert any("key" in e.lower() for e in errors)
 
 def test_compile_parse_error_raises():
-    from modellable.parser.ir import ParseError
+    from modelable.parser.ir import ParseError
     import pytest
     with pytest.raises(ParseError):
         compile_text("domain { broken yaml }")
@@ -1700,14 +1700,14 @@ Run: `pytest tests/test_compiler.py -v`
 
 Expected: `ModuleNotFoundError`
 
-- [ ] **Step 3: Write `cli/src/modellable/compiler/compiler.py`**
+- [ ] **Step 3: Write `cli/src/modelable/compiler/compiler.py`**
 
 ```python
 from __future__ import annotations
 from pathlib import Path
-from modellable.parser.parse import parse_text_to_ir, parse_file_to_ir
-from modellable.parser.ir import MdlFile
-from modellable.validation.semantic import validate
+from modelable.parser.parse import parse_text_to_ir, parse_file_to_ir
+from modelable.parser.ir import MdlFile
+from modelable.validation.semantic import validate
 
 
 def compile_text(text: str) -> tuple[MdlFile, list[str]]:
@@ -1735,7 +1735,7 @@ Create `cli/tests/test_cli.py`:
 
 ```python
 from click.testing import CliRunner
-from modellable.cli import cli
+from modelable.cli import cli
 
 def test_validate_valid_file(tmp_path):
     mdl = tmp_path / "test.mdl"
@@ -1784,9 +1784,9 @@ domain customer {
 
 Run: `pytest tests/test_cli.py -v`
 
-Expected: `ModuleNotFoundError: No module named 'modellable.cli'`
+Expected: `ModuleNotFoundError: No module named 'modelable.cli'`
 
-- [ ] **Step 7: Write `cli/src/modellable/cli.py`**
+- [ ] **Step 7: Write `cli/src/modelable/cli.py`**
 
 ```python
 import sys
@@ -1800,7 +1800,7 @@ console = Console()
 
 @click.group()
 def cli():
-    """Modellable — domain-owned data model compiler."""
+    """Modelable — domain-owned data model compiler."""
     pass
 
 
@@ -1808,9 +1808,9 @@ def cli():
 @click.argument("path", default=".", type=click.Path(exists=True))
 @click.option("--strict", is_flag=True, help="Exit non-zero on any validation error.")
 def validate(path: str, strict: bool):
-    """Validate Modellable definition files at PATH (file or directory)."""
-    from modellable.compiler.compiler import compile_text, compile_file
-    from modellable.parser.ir import ParseError as MdlParseError
+    """Validate Modelable definition files at PATH (file or directory)."""
+    from modelable.compiler.compiler import compile_text, compile_file
+    from modelable.parser.ir import ParseError as MdlParseError
 
     target = Path(path)
     files = [target] if target.is_file() else sorted(target.rglob("*.mdl"))
@@ -1852,7 +1852,7 @@ Expected: All PASS
 ```bash
 cd cli
 echo 'domain customer { entity Customer @ 1 (additive) { @key customerId: uuid } }' > /tmp/test.mdl
-modellable validate /tmp/test.mdl
+modelable validate /tmp/test.mdl
 ```
 
 Expected output: `✓ /tmp/test.mdl is valid.`
@@ -1860,7 +1860,7 @@ Expected output: `✓ /tmp/test.mdl is valid.`
 - [ ] **Step 10: Commit**
 
 ```bash
-git add cli/src/modellable/compiler/ cli/src/modellable/cli.py cli/tests/test_compiler.py cli/tests/test_cli.py
+git add cli/src/modelable/compiler/ cli/src/modelable/cli.py cli/tests/test_compiler.py cli/tests/test_cli.py
 git commit -m "feat: add compiler orchestration and CLI validate command"
 ```
 

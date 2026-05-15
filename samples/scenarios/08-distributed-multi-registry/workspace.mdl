@@ -14,7 +14,7 @@
 //         ↓
 //   analytics-registry       (projects across customer + orders)
 //
-// On every `modellable compile` the CLI:
+// On every `modelable compile` the CLI:
 //   1. Builds the graph from this file and import declarations
 //   2. Topologically sorts the dependency order
 //   3. git-fetches each peer in order (customer first, then orders)

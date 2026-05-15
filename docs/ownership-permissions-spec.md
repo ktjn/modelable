@@ -2,9 +2,9 @@
 
 ## 1. Purpose
 
-This specification defines how ownership and access permissions are declared on models, entities, and individual properties within Modellable, and how those declarations remain authoritative when model definitions or derived artifacts are transferred to external systems.
+This specification defines how ownership and access permissions are declared on models, entities, and individual properties within Modelable, and how those declarations remain authoritative when model definitions or derived artifacts are transferred to external systems.
 
-Ownership and permissions are first-class metadata on definitions, not runtime-only policies. They travel with the model artifact so that any system consuming a Modellable-exported schema retains the original access intent without requiring a live connection to the Modellable registry.
+Ownership and permissions are first-class metadata on definitions, not runtime-only policies. They travel with the model artifact so that any system consuming a Modelable-exported schema retains the original access intent without requiring a live connection to the Modelable registry.
 
 ## 2. Design Principles
 
@@ -18,7 +18,7 @@ Permissions are attached to the model version or projection version at definitio
 
 ### 2.3 Portable by Default
 
-Ownership and permission metadata must be included in every generated artifact (JSON Schema extensions, Avro metadata, Protobuf options, event envelope fields). External systems that ingest these artifacts can reference the original ownership declaration and enforce access intent without querying the Modellable registry at runtime.
+Ownership and permission metadata must be included in every generated artifact (JSON Schema extensions, Avro metadata, Protobuf options, event envelope fields). External systems that ingest these artifacts can reference the original ownership declaration and enforce access intent without querying the Modelable registry at runtime.
 
 ### 2.4 Property-Level Granularity
 
@@ -138,7 +138,7 @@ Permissions are granted to principals. Supported principal kinds:
 
 | Kind | Description |
 |------|-------------|
-| `domain` | A Modellable domain. |
+| `domain` | A Modelable domain. |
 | `team` | An organisational team. |
 | `role` | A named role, independent of team boundaries. |
 | `service` | A machine identity (service account, application). |
@@ -254,7 +254,7 @@ A domain that is not granted `project` or `read` on a source model is reported a
 
 ### 5.1 Definition
 
-A portable ownership record (POR) is a self-contained artifact that embeds ownership and permission metadata. It travels with the model definition or generated schema artifact so external systems can verify and honour access intent without querying the Modellable registry at runtime.
+A portable ownership record (POR) is a self-contained artifact that embeds ownership and permission metadata. It travels with the model definition or generated schema artifact so external systems can verify and honour access intent without querying the Modelable registry at runtime.
 
 ### 5.2 Structure
 
@@ -284,7 +284,7 @@ A portable ownership record (POR) is a self-contained artifact that embeds owner
     }
   },
   "issuedAt": "2026-05-13T00:00:00Z",
-  "issuer": "modellable-registry.customer-platform.example",
+  "issuer": "modelable-registry.customer-platform.example",
   "signature": "<base64url-encoded-signature>"
 }
 ```
@@ -308,12 +308,12 @@ The POR reference must be embedded in every generated artifact.
 
 **JSON Schema extension:**
 
-The POR reference is embedded alongside the standard `x-modellable-*` vendor extensions. A complete generated schema looks like:
+The POR reference is embedded alongside the standard `x-modelable-*` vendor extensions. A complete generated schema looks like:
 
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "modellable://customer/Customer/v2",
+  "$id": "modelable://customer/Customer/v2",
   "title": "customer.Customer.v2",
   "type": "object",
   "required": ["customerId", "email"],
@@ -321,23 +321,23 @@ The POR reference is embedded alongside the standard `x-modellable-*` vendor ext
     "customerId": {
       "type": "string",
       "format": "uuid",
-      "x-modellable-field": "customer.Customer.v2.customerId"
+      "x-modelable-field": "customer.Customer.v2.customerId"
     },
     "email": {
       "type": "string",
-      "x-modellable-classification": "pii",
-      "x-modellable-field": "customer.Customer.v2.email"
+      "x-modelable-classification": "pii",
+      "x-modelable-field": "customer.Customer.v2.email"
     }
   },
-  "x-modellable": {
+  "x-modelable": {
     "kind": "Model",
     "domain": "customer",
     "name": "Customer",
     "version": 2
   },
-  "x-modellable-por": {
+  "x-modelable-por": {
     "model": "customer.Customer.v2",
-    "issuer": "modellable-registry.customer-platform.example",
+    "issuer": "modelable-registry.customer-platform.example",
     "issuedAt": "2026-05-13T00:00:00Z"
   }
 }
@@ -352,7 +352,7 @@ The POR reference is embedded alongside the standard `x-modellable-*` vendor ext
   "namespace": "customer.v2",
   "doc": "customer.Customer.v2",
   "fields": ["..."],
-  "modellable.por": "{\"model\":\"customer.Customer.v2\",\"issuer\":\"...\",\"issuedAt\":\"...\"}"
+  "modelable.por": "{\"model\":\"customer.Customer.v2\",\"issuer\":\"...\",\"issuedAt\":\"...\"}"
 }
 ```
 
@@ -365,7 +365,7 @@ The POR reference is embedded alongside the standard `x-modellable-*` vendor ext
   "version": 2,
   "por": {
     "model": "customer.Customer.v2",
-    "issuer": "modellable-registry.customer-platform.example",
+    "issuer": "modelable-registry.customer-platform.example",
     "issuedAt": "2026-05-13T00:00:00Z"
   }
 }
@@ -390,11 +390,11 @@ Verification failures must result in one of the following, depending on the conf
 
 ### 5.5 Cross-System Transfer Invariants
 
-When a Modellable model or artifact is transferred to an external system, the following invariants must hold:
+When a Modelable model or artifact is transferred to an external system, the following invariants must hold:
 
 1. **Origin is traceable.** The POR names the issuing registry and fully qualified model reference.
 2. **Owner is preserved.** The ownership declaration in the POR is not modified by the receiving system.
-3. **Permissions are advisory.** The receiving system is expected to honour embedded permissions; Modellable cannot enforce them externally, but the POR establishes the authoritative intent of record.
+3. **Permissions are advisory.** The receiving system is expected to honour embedded permissions; Modelable cannot enforce them externally, but the POR establishes the authoritative intent of record.
 4. **Property constraints survive.** Per-property classifications and restrictions remain readable in the artifact after transfer.
 5. **History is non-repudiable.** The ownership history documents prior owners, enabling audit after transfer.
 
@@ -508,7 +508,7 @@ POR signing remains intentionally unresolved. The MVP must keep POR metadata str
 
 - Whether POR signatures use a symmetric shared secret or asymmetric key pairs per registry instance.
 - Whether permission grants support expiry timestamps.
-- Whether `role` and `team` principal kinds are defined externally (e.g., via OIDC claims) or registered within Modellable.
+- Whether `role` and `team` principal kinds are defined externally (e.g., via OIDC claims) or registered within Modelable.
 - Whether domain-level policies can declare default grants that apply to all models in that domain.
 - Whether projections inherit a permission set from the source model or must redeclare all grants explicitly.
 - Whether permission conflicts across multiple source models in a join projection are resolved by union, intersection, or explicit consumer override.

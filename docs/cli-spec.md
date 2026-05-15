@@ -1,8 +1,8 @@
-# Modellable CLI Specification
+# Modelable CLI Specification
 
 ## 1. Purpose
 
-The Modellable CLI (`modellable`) is the primary developer interface for working with Modellable definition files locally. It provides commands for validating, resolving, inspecting, compiling, and exporting domain-owned model and projection definitions.
+The Modelable CLI (`modelable`) is the primary developer interface for working with Modelable definition files locally. It provides commands for validating, resolving, inspecting, compiling, and exporting domain-owned model and projection definitions.
 
 The CLI is designed as a phased tool: early phases focus on local authoring and compilation; later phases integrate with external registries and governance catalogs.
 
@@ -21,7 +21,7 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 - **Framework:** Click
 - **Package manager:** [uv](https://docs.astral.sh/uv/) — handles virtual environment, dependency resolution, lock file, and CLI installation
 - **Build backend:** Hatchling (`pyproject.toml`)
-- **Entry point:** `modellable` (installed via `uv tool install cli/` for end users; `uv sync --extra dev` for development)
+- **Entry point:** `modelable` (installed via `uv tool install cli/` for end users; `uv sync --extra dev` for development)
 - **Required dependencies:** `click>=8.1`, `lark>=1.1`, `pydantic>=2.0`, `rich>=13.0`, `jsonschema>=4.23`, `referencing>=0.35`
 
 For full tooling setup, developer workflow, and CI integration, see `cli-tooling-spec.md`.
@@ -30,7 +30,7 @@ AI-powered commands (`describe`, `generate`) are deferred beyond Phase 1. When t
 
 ## 4. File Format
 
-Definition files use the Modellable IDL with the `.mdl` extension. The grammar is defined in `cli/src/modellable/grammar/modellable.lark` and parsed by Lark (Earley).
+Definition files use the Modelable IDL with the `.mdl` extension. The grammar is defined in `cli/src/modelable/grammar/modelable.lark` and parsed by Lark (Earley).
 
 **Syntax summary:**
 
@@ -76,10 +76,10 @@ Definition files use the Modellable IDL with the `.mdl` extension. The grammar i
 ### 5.1 `validate` — Validate definition files
 
 ```text
-modellable validate [PATH] [--strict]
+modelable validate [PATH] [--strict]
 ```
 
-Validates Modellable `.mdl` definitions at `PATH` (file or directory). Defaults to the current directory.
+Validates Modelable `.mdl` definitions at `PATH` (file or directory). Defaults to the current directory.
 
 **Options:**
 
@@ -104,9 +104,9 @@ Validates Modellable `.mdl` definitions at `PATH` (file or directory). Defaults 
 **Examples:**
 
 ```bash
-modellable validate models/customer/Customer.mdl
-modellable validate ./my-project/
-modellable validate ./my-project/ --strict
+modelable validate models/customer/Customer.mdl
+modelable validate ./my-project/
+modelable validate ./my-project/ --strict
 ```
 
 ---
@@ -114,7 +114,7 @@ modellable validate ./my-project/ --strict
 ### 5.2 `resolve` — Look up a model or projection by reference
 
 ```text
-modellable resolve REF [--path PATH]
+modelable resolve REF [--path PATH]
 ```
 
 Resolves a model or projection by its fully-qualified reference and prints the normalized definition.
@@ -134,8 +134,8 @@ Resolves a model or projection by its fully-qualified reference and prints the n
 **Examples:**
 
 ```bash
-modellable resolve customer.Customer@2
-modellable resolve billing.BillingCustomer@1 --path ./models
+modelable resolve customer.Customer@2
+modelable resolve billing.BillingCustomer@1 --path ./models
 ```
 
 ---
@@ -143,7 +143,7 @@ modellable resolve billing.BillingCustomer@1 --path ./models
 ### 5.3 `lineage` — Show field-level lineage
 
 ```text
-modellable lineage REF [--path PATH]
+modelable lineage REF [--path PATH]
 ```
 
 Shows field-level lineage for a model or projection.
@@ -166,8 +166,8 @@ Shows field-level lineage for a model or projection.
 **Examples:**
 
 ```bash
-modellable lineage billing.BillingCustomer@1
-modellable lineage customer.Customer@2
+modelable lineage billing.BillingCustomer@1
+modelable lineage customer.Customer@2
 ```
 
 ---
@@ -175,7 +175,7 @@ modellable lineage customer.Customer@2
 ### 5.4 `diff` — Compare two model versions
 
 ```text
-modellable diff REF_A REF_B [--path PATH]
+modelable diff REF_A REF_B [--path PATH]
 ```
 
 Compares two model or projection versions field by field and reports additions, removals, and type changes. Intended to support compatibility review before publishing a new version.
@@ -196,7 +196,7 @@ Compares two model or projection versions field by field and reports additions, 
 **Examples:**
 
 ```bash
-modellable diff customer.Customer@1 customer.Customer@2
+modelable diff customer.Customer@1 customer.Customer@2
 ```
 
 ---
@@ -204,12 +204,12 @@ modellable diff customer.Customer@1 customer.Customer@2
 ### 5.5 `compile` — Compile definitions to artifact formats
 
 ```text
-modellable compile SOURCE --target TARGET [--out DIR] [--path PATH]
+modelable compile SOURCE --target TARGET [--out DIR] [--path PATH]
 ```
 
 Compiles model and projection definitions to a target artifact format. `SOURCE` can be a path to a `.mdl` file or directory, or a model reference (`domain.ModelName@version`).
 
-In addition to the requested artifact format, `compile` always writes a `registry.db` SQLite index and plan documents to `.modellable/` in the current directory. These derived files are build artifacts — not source files — and should be added to `.gitignore`.
+In addition to the requested artifact format, `compile` always writes a `registry.db` SQLite index and plan documents to `.modelable/` in the current directory. These derived files are build artifacts — not source files — and should be added to `.gitignore`.
 
 **Options:**
 
@@ -232,10 +232,10 @@ In addition to the requested artifact format, `compile` always writes a `registr
 **Examples:**
 
 ```bash
-modellable compile ./models --target json-schema --out ./dist/jsonschema
-modellable compile customer.Customer@2 --target json-schema
-modellable compile customer.Customer@2 --target typescript
-modellable compile ./models --target markdown --out ./dist/docs
+modelable compile ./models --target json-schema --out ./dist/jsonschema
+modelable compile customer.Customer@2 --target json-schema
+modelable compile customer.Customer@2 --target typescript
+modelable compile ./models --target markdown --out ./dist/docs
 ```
 
 ---
@@ -243,7 +243,7 @@ modellable compile ./models --target markdown --out ./dist/docs
 ### 5.6 `docs` — Generate Markdown documentation
 
 ```text
-modellable docs SOURCE [--out DIR]
+modelable docs SOURCE [--out DIR]
 ```
 
 Generates Markdown documentation for all definitions in a `.mdl` file or directory. This is a convenience wrapper around `compile --target markdown`.
@@ -257,7 +257,7 @@ Generates Markdown documentation for all definitions in a `.mdl` file or directo
 **Examples:**
 
 ```bash
-modellable docs ./models --out ./dist/docs
+modelable docs ./models --out ./dist/docs
 ```
 
 ---
@@ -265,9 +265,9 @@ modellable docs ./models --out ./dist/docs
 ### 5.7 `scenario` — Browse and load sample scenarios
 
 ```text
-modellable scenario list
-modellable scenario show SCENARIO_ID
-modellable scenario load SCENARIO_ID [--output-dir DIR]
+modelable scenario list
+modelable scenario show SCENARIO_ID
+modelable scenario load SCENARIO_ID [--output-dir DIR]
 ```
 
 Manages the bundled sample scenarios shipped with the CLI.
@@ -303,9 +303,9 @@ Manages the bundled sample scenarios shipped with the CLI.
 **Examples:**
 
 ```bash
-modellable scenario list
-modellable scenario show 01-ecommerce-data-warehouse
-modellable scenario load 04-credit-risk-feature-store --output-dir ./my-project
+modelable scenario list
+modelable scenario show 01-ecommerce-data-warehouse
+modelable scenario load 04-credit-risk-feature-store --output-dir ./my-project
 ```
 
 ---
@@ -313,9 +313,9 @@ modellable scenario load 04-credit-risk-feature-store --output-dir ./my-project
 ### 5.8 `create` — Create definitions interactively
 
 ```text
-modellable create domain [--output-dir DIR]
-modellable create model  [--output-dir DIR]
-modellable create projection [--output-dir DIR]
+modelable create domain [--output-dir DIR]
+modelable create model  [--output-dir DIR]
+modelable create projection [--output-dir DIR]
 ```
 
 Walks through an interactive prompt sequence and writes a `.mdl` definition file.
@@ -337,9 +337,9 @@ Walks through an interactive prompt sequence and writes a `.mdl` definition file
 **Examples:**
 
 ```bash
-modellable create domain --output-dir ./my-project
-modellable create model --output-dir ./my-project
-modellable create projection --output-dir ./my-project
+modelable create domain --output-dir ./my-project
+modelable create model --output-dir ./my-project
+modelable create projection --output-dir ./my-project
 ```
 
 ---
@@ -347,7 +347,7 @@ modellable create projection --output-dir ./my-project
 ### 5.9 `describe` — Explain definitions with AI
 
 ```text
-modellable describe PATH [--model MODEL]
+modelable describe PATH [--model MODEL]
 ```
 
 Requires `ANTHROPIC_API_KEY`.
@@ -359,15 +359,15 @@ Reads a `.mdl` definition file and uses Claude to explain it in plain English, c
 - What each projection does and why it is designed that way
 - Notable design decisions (e.g., why PIT joins, why specific materialisation strategies)
 
-The Modellable IDL specification is sent as a cached system prompt. Repeated calls within a session reuse the cached context and respond faster.
+The Modelable IDL specification is sent as a cached system prompt. Repeated calls within a session reuse the cached context and respond faster.
 
 **Examples:**
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-modellable describe models/orders/Order.mdl
-modellable describe ./my-project/
-modellable describe ./my-project/ --model claude-opus-4-7
+modelable describe models/orders/Order.mdl
+modelable describe ./my-project/
+modelable describe ./my-project/ --model claude-opus-4-7
 ```
 
 ---
@@ -375,12 +375,12 @@ modellable describe ./my-project/ --model claude-opus-4-7
 ### 5.10 `generate` — Generate definitions with AI
 
 ```text
-modellable generate [--platform PLATFORM] [--suggest-platform] [--context FILE] [--output FILE] [--model MODEL]
+modelable generate [--platform PLATFORM] [--suggest-platform] [--context FILE] [--output FILE] [--model MODEL]
 ```
 
 Requires `ANTHROPIC_API_KEY`.
 
-Generates Modellable `.mdl` definitions from a natural language description or existing schemas (DDL, JSON Schema) using Claude. When `--output` is provided, the result is automatically validated through the Lark parser pipeline before writing.
+Generates Modelable `.mdl` definitions from a natural language description or existing schemas (DDL, JSON Schema) using Claude. When `--output` is provided, the result is automatically validated through the Lark parser pipeline before writing.
 
 **Options:**
 
@@ -395,12 +395,12 @@ Generates Modellable `.mdl` definitions from a natural language description or e
 **Examples:**
 
 ```bash
-modellable generate
-modellable generate --platform data-warehouse
-modellable generate --suggest-platform
-modellable generate --platform high-performance-service --output my-fraud-signals.mdl
-modellable generate --context existing-domains.mdl --platform event-driven-microservices
-modellable generate --platform data-warehouse --model claude-opus-4-7
+modelable generate
+modelable generate --platform data-warehouse
+modelable generate --suggest-platform
+modelable generate --platform high-performance-service --output my-fraud-signals.mdl
+modelable generate --context existing-domains.mdl --platform event-driven-microservices
+modelable generate --platform data-warehouse --model claude-opus-4-7
 ```
 
 ---
@@ -408,11 +408,11 @@ modellable generate --platform data-warehouse --model claude-opus-4-7
 ### 5.11 `codegen` — Explore artifact formats and type mappings
 
 ```text
-modellable codegen formats
-modellable codegen types [--format FORMAT]
+modelable codegen formats
+modelable codegen types [--format FORMAT]
 ```
 
-Displays supported artifact output formats and the type mapping from Modellable field types to each target format.
+Displays supported artifact output formats and the type mapping from Modelable field types to each target format.
 
 **Subcommands:**
 
@@ -432,7 +432,7 @@ Displays supported artifact output formats and the type mapping from Modellable 
 ### 5.12 `publish apicurio` — Push artifacts to Apicurio Registry
 
 ```text
-modellable publish apicurio PATH [--url URL] [--group GROUP]
+modelable publish apicurio PATH [--url URL] [--group GROUP]
 ```
 
 **Phase 2 — not yet implemented.**
@@ -444,13 +444,13 @@ Pushes compiled JSON Schema artifacts to an Apicurio Schema Registry instance. A
 | Flag | Default | Description |
 |:-----|:--------|:------------|
 | `--url` | — | Apicurio Registry base URL |
-| `--group` | `modellable` | Artifact group ID |
+| `--group` | `modelable` | Artifact group ID |
 
 **Intended workflow:**
 
 ```bash
-modellable compile ./models --target json-schema --out ./dist/jsonschema
-modellable publish apicurio ./dist/jsonschema --url http://localhost:8080
+modelable compile ./models --target json-schema --out ./dist/jsonschema
+modelable publish apicurio ./dist/jsonschema --url http://localhost:8080
 ```
 
 ---
@@ -458,7 +458,7 @@ modellable publish apicurio ./dist/jsonschema --url http://localhost:8080
 ### 5.13 `pull apicurio` — Pull schema artifacts
 
 ```text
-modellable pull apicurio REF [--url URL] [--out DIR]
+modelable pull apicurio REF [--url URL] [--out DIR]
 ```
 
 **Phase 2 — not yet implemented.**
@@ -470,16 +470,16 @@ Pulls a specific schema artifact from an Apicurio Registry instance by model ref
 ### 5.14 `export openmetadata` — Export catalog metadata
 
 ```text
-modellable export openmetadata [PATH] --out FILE
+modelable export openmetadata [PATH] --out FILE
 ```
 
 **Phase 3 — not yet implemented.**
 
 Exports domain, model, and projection metadata to a JSON file suitable for OpenMetadata catalog ingestion.
 
-**Modellable → OpenMetadata mapping:**
+**Modelable → OpenMetadata mapping:**
 
-| Modellable concept | OpenMetadata concept |
+| Modelable concept | OpenMetadata concept |
 |:-------------------|:--------------------|
 | Domain | Domain |
 | Model | Custom asset |
@@ -498,8 +498,8 @@ The output document contains three top-level arrays: `domains`, `assets`, and `l
 **Examples:**
 
 ```bash
-modellable export openmetadata ./models --out ./dist/openmetadata.json
-modellable publish openmetadata ./dist/openmetadata.json
+modelable export openmetadata ./models --out ./dist/openmetadata.json
+modelable publish openmetadata ./dist/openmetadata.json
 ```
 
 ---
@@ -507,7 +507,7 @@ modellable publish openmetadata ./dist/openmetadata.json
 ### 5.15 `publish openmetadata` — Push metadata to OpenMetadata
 
 ```text
-modellable publish openmetadata PATH [--url URL]
+modelable publish openmetadata PATH [--url URL]
 ```
 
 **Phase 3 — not yet implemented.**
@@ -519,7 +519,7 @@ Pushes the OpenMetadata export document to a live OpenMetadata instance.
 ### 5.16 `export odcs` — Export an Open Data Contract Standard document
 
 ```text
-modellable export odcs REF --out FILE [--path PATH]
+modelable export odcs REF --out FILE [--path PATH]
 ```
 
 **Phase 4 — not yet implemented.**
@@ -530,7 +530,7 @@ Exports a single model or projection as an Open Data Contract Standard (ODCS) v1
 
 ```yaml
 dataContractSpecification: "1.0.0"
-id: "modellable://<domain>/<name>/v<version>"
+id: "modelable://<domain>/<name>/v<version>"
 info:
   title: "<domain>.<name>.v<version>"
   version: "<version>"
@@ -557,7 +557,7 @@ schema:
 **Examples:**
 
 ```bash
-modellable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
+modelable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
 datacontract lint ./dist/customer.contract.yaml
 ```
 
@@ -567,7 +567,7 @@ datacontract lint ./dist/customer.contract.yaml
 
 The `describe` and `generate` commands use the configured LLM provider. The model is configurable by command flag, environment variable, or workspace config; see [LLM Integration Specification](llm-integration-spec.md).
 
-- The Modellable IDL specification and grammar reference are sent as a cached system prompt.
+- The Modelable IDL specification and grammar reference are sent as a cached system prompt.
 - Repeated calls within a session reuse the cached prompt and respond faster.
 - Generated `.mdl` output is validated through the Lark parser pipeline when `--output` is supplied to `generate`. Malformed output is caught before writing to disk.
 - Complex scenario generation may take 10–30 seconds.
@@ -576,29 +576,29 @@ The `describe` and `generate` commands use the configured LLM provider. The mode
 
 ```bash
 # 1. Create a domain definition
-modellable create domain --output-dir ./my-models
+modelable create domain --output-dir ./my-models
 
 # 2. Add a model with AI assistance
-modellable generate --platform event-driven-microservices --output ./my-models/Order.mdl
+modelable generate --platform event-driven-microservices --output ./my-models/Order.mdl
 
 # 3. Validate the new file
-modellable validate ./my-models/Order.mdl
+modelable validate ./my-models/Order.mdl
 
 # 4. Understand what it does
-modellable describe ./my-models/Order.mdl
+modelable describe ./my-models/Order.mdl
 
 # 5. Inspect lineage
-modellable lineage billing.BillingCustomer@1 --path ./my-models
+modelable lineage billing.BillingCustomer@1 --path ./my-models
 
 # 6. Compare versions
-modellable diff customer.Customer@1 customer.Customer@2 --path ./my-models
+modelable diff customer.Customer@1 customer.Customer@2 --path ./my-models
 
 # 7. Compile to JSON Schema and TypeScript
-modellable compile ./my-models --target json-schema --out ./dist/jsonschema
-modellable compile ./my-models --target typescript --out ./dist/types
+modelable compile ./my-models --target json-schema --out ./dist/jsonschema
+modelable compile ./my-models --target typescript --out ./dist/types
 
 # 8. Generate documentation
-modellable docs ./my-models --out ./dist/docs
+modelable docs ./my-models --out ./dist/docs
 ```
 
 ## 8. Output and Exit Codes
@@ -629,17 +629,17 @@ The following commands are defined in other specifications and will be added to 
 ### 10.1 `inspect` — Inspect compiler-expanded definitions
 
 ```text
-modellable inspect <Entity>@<version> --auto [--path PATH]
+modelable inspect <Entity>@<version> --auto [--path PATH]
 ```
 
 Displays the compiler-expanded auto projections (`db`, `request`, `reply`, `event`) for a given entity version. The output is a `.mdl`-like representation of the generated projection fields with full lineage annotations.
 
-**Defined in:** `idl-design-spec.md` §3.7, `modellable-system-spec.md` §17.
+**Defined in:** `idl-design-spec.md` §3.7, `modelable-system-spec.md` §17.
 
 ### 10.2 `transform` — Emit and explain a target artifact
 
 ```text
-modellable transform <Entity>@<version> --to <target> [--explain] [--path PATH]
+modelable transform <Entity>@<version> --to <target> [--explain] [--path PATH]
 ```
 
 Emits the target artifact (e.g., Avro schema, JSON Schema) for a single model version and optionally prints an explanation of mapping decisions.
@@ -649,7 +649,7 @@ Emits the target artifact (e.g., Avro schema, JSON Schema) for a single model ve
 ### 10.3 `suggest-projection` — AI-assisted projection proposal
 
 ```text
-modellable suggest-projection --source <Domain.Model@version> --consumer <domain>
+modelable suggest-projection --source <Domain.Model@version> --consumer <domain>
 ```
 
 Proposes a projection definition with field derivations tailored to a consuming domain, using the AI integration described in §3.7.
@@ -659,10 +659,10 @@ Proposes a projection definition with field derivations tailored to a consuming 
 ### 10.4 `registry` — Federated registry management
 
 ```text
-modellable registry init --id <registry-id> --owns <domain>[,<domain>...]
-modellable registry peer add --id <peer-id> --git <url> [--branch <branch>] [--sync <mode>] [--writeback <mode>]
-modellable registry graph
-modellable registry sync [--peer <peer-id>]
+modelable registry init --id <registry-id> --owns <domain>[,<domain>...]
+modelable registry peer add --id <peer-id> --git <url> [--branch <branch>] [--sync <mode>] [--writeback <mode>]
+modelable registry graph
+modelable registry sync [--peer <peer-id>]
 ```
 
 - `registry init` — Initialize a workspace as a named registry node.
@@ -675,7 +675,7 @@ modellable registry sync [--peer <peer-id>]
 ### 10.5 `dependents` — List downstream consumers
 
 ```text
-modellable dependents <Domain.Model@version>
+modelable dependents <Domain.Model@version>
 ```
 
 Lists all downstream projections and consumer entries that depend on the given model version. Reads the `consumers/` tree across the workspace and peer mirrors.
@@ -685,7 +685,7 @@ Lists all downstream projections and consumer entries that depend on the given m
 ### 10.6 `lineage verify` — Verify content signatures
 
 ```text
-modellable lineage verify <REF>
+modelable lineage verify <REF>
 ```
 
 Verifies that the content signature (SHA-256) of the given model or projection matches the cached mirror. Reports mismatches that indicate upstream drift.
@@ -695,7 +695,7 @@ Verifies that the content signature (SHA-256) of the given model or projection m
 ### 10.7 `lineage export` — Export lineage as NDJSON
 
 ```text
-modellable lineage export --format ndjson --output <path>
+modelable lineage export --format ndjson --output <path>
 ```
 
 Exports the full lineage graph from `registry.db` as NDJSON for external catalog ingestion.

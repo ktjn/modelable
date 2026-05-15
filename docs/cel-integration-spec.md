@@ -6,7 +6,7 @@
 
 ## 1. Purpose
 
-CEL is the expression language for computed projection fields, filters, join predicates, aggregation guards, and runtime parameter expressions. Modellable uses CEL because it is deterministic, side-effect free, sandboxable, and expressive enough for data-contract derivation without becoming a general programming language.
+CEL is the expression language for computed projection fields, filters, join predicates, aggregation guards, and runtime parameter expressions. Modelable uses CEL because it is deterministic, side-effect free, sandboxable, and expressive enough for data-contract derivation without becoming a general programming language.
 
 The compiler owns expression validation. Runtime adapters must not accept unvalidated CEL from source files.
 
@@ -69,7 +69,7 @@ Deferred functions:
 The semantic validator builds a CEL environment from the projection sources:
 
 ```text
-alias.fieldName -> Modellable field type
+alias.fieldName -> Modelable field type
 request.*       -> runtime parameter type, if declared by the binding or projection
 auth.*          -> runtime principal context, if declared by the binding
 params.*        -> explicit runtime parameter declarations
@@ -111,7 +111,7 @@ Function calls do not hide lineage. For example, `hashHmacSha256(c.email, params
 
 ## 7. Diagnostics
 
-CEL validation errors are normal definition errors and must fail `modellable validate`.
+CEL validation errors are normal definition errors and must fail `modelable validate`.
 
 Diagnostic codes:
 
@@ -139,11 +139,11 @@ Diagnostics must include file path, line, column, expression text, and a short r
 - Computed fields with valid CEL expressions pass validation.
 - Invalid aliases, fields, functions, and type combinations fail validation with deterministic diagnostic codes.
 - The compiler extracts all source field references from computed fields, filters, joins, and aggregate arguments.
-- Generated JSON Schema includes computed fields with inferred types and `x-modellable-lineage`.
+- Generated JSON Schema includes computed fields with inferred types and `x-modelable-lineage`.
 - Expressions with non-deterministic behavior are rejected.
 
 ## 10. Dependencies
 
 - `idl-design-spec.md` — projection operators and type system
 - `idl-parser-implementation-plan.md` — parser, IR, and semantic validation tasks
-- `modellable-system-spec.md` — lineage and governance requirements
+- `modelable-system-spec.md` — lineage and governance requirements

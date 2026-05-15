@@ -2,13 +2,13 @@
 
 ## 1. Purpose
 
-This document describes how Modellable is used across different platform categories. Each scenario defines the operational context, recommended adapter bindings, projection patterns, consistency guarantees, and constraints specific to that deployment target.
+This document describes how Modelable is used across different platform categories. Each scenario defines the operational context, recommended adapter bindings, projection patterns, consistency guarantees, and constraints specific to that deployment target.
 
-Modellable's platform-neutral design means the same canonical model definitions apply regardless of the target system. What changes per scenario is the adapter binding configuration, materialization strategy, and operational expectations.
+Modelable's platform-neutral design means the same canonical model definitions apply regardless of the target system. What changes per scenario is the adapter binding configuration, materialization strategy, and operational expectations.
 
 ### Data Modelling Phase Boundary
 
-The scenarios in this document represent **Phase 5** of the Modellable implementation roadmap — runtime and event/API targets. They must not be built before the logical data modelling layer is stable.
+The scenarios in this document represent **Phase 5** of the Modelable implementation roadmap — runtime and event/API targets. They must not be built before the logical data modelling layer is stable.
 
 The preceding phases focus on logical modelling only:
 
@@ -62,7 +62,7 @@ These pull the design into runtime concerns before the logical model is stable. 
 
 Data warehouses consume large volumes of domain data for historical analysis, aggregation, and business intelligence. They are typically write-once-read-many systems optimized for scan-heavy queries rather than point lookups.
 
-In a Modellable deployment, the data warehouse is a **materialisation target**—projections are pushed into it continuously or on a schedule. The warehouse does not own domain models; it consumes them.
+In a Modelable deployment, the data warehouse is a **materialisation target**—projections are pushed into it continuously or on a schedule. The warehouse does not own domain models; it consumes them.
 
 Key requirements for this scenario:
 
@@ -169,7 +169,7 @@ role: sink
 config:
   host: clickhouse.internal
   port: 8443
-  database: modellable_warehouse
+  database: modelable_warehouse
   tls: true
   batchSize: 5000
   flushIntervalMs: 2000
@@ -205,7 +205,7 @@ Internet-facing services need data that is:
 - **Consistent enough** — reads reflect writes within a bounded lag (typically seconds).
 - **Scoped** — services receive only the fields they are authorised to read; no overfetch.
 
-In this scenario Modellable materialises a per-service projection into a low-latency store (e.g., Redis, Cassandra, or MongoDB) and keeps it in sync via a stream subscription. The service reads from its local projection store; it never queries the canonical source database directly.
+In this scenario Modelable materialises a per-service projection into a low-latency store (e.g., Redis, Cassandra, or MongoDB) and keeps it in sync via a stream subscription. The service reads from its local projection store; it never queries the canonical source database directly.
 
 ### 4.2 Supported Backends
 
@@ -220,7 +220,7 @@ In this scenario Modellable materialises a per-service projection into a low-lat
 
 **Service-Scoped Read Model**
 
-Each service declares a projection containing only the fields it needs. Modellable enforces that no undeclared field reaches the service's store.
+Each service declares a projection containing only the fields it needs. Modelable enforces that no undeclared field reaches the service's store.
 
 ```yaml
 projection: customer_profile_for_checkout
@@ -289,7 +289,7 @@ config:
   host: redis.checkout.internal
   port: 6380
   tls: true
-  keyPrefix: "modellable:customer_profile:"
+  keyPrefix: "modelable:customer_profile:"
   defaultTtlSeconds: 3600
   serialisation: msgpack
 ```
@@ -297,9 +297,9 @@ config:
 ### 4.5 Consistency and Delivery Guarantees
 
 - **Replication lag:** Projections are updated within the stream's consumer lag window. Typical target: under 2 seconds end-to-end from a committed write on the source.
-- **Stale reads:** Services must tolerate bounded staleness. If strict consistency is required for a field, that field should be read from the canonical source directly (outside Modellable).
+- **Stale reads:** Services must tolerate bounded staleness. If strict consistency is required for a field, that field should be read from the canonical source directly (outside Modelable).
 - **Failure isolation:** A stream adapter outage does not take down the service's read path. The local projection store serves reads from the last-materialised state.
-- **Backpressure:** High-throughput services must configure the `consumerGroup` lag alert threshold so the Modellable runtime can signal when the projection is falling behind acceptable lag bounds.
+- **Backpressure:** High-throughput services must configure the `consumerGroup` lag alert threshold so the Modelable runtime can signal when the projection is falling behind acceptable lag bounds.
 
 ### 4.6 Operational Constraints
 
@@ -321,7 +321,7 @@ Microservices that communicate asynchronously via domain events need:
 - The ability to consume only relevant events without coupling to the publisher's internal schema.
 - Replay capability for backfill and recovery.
 
-Modellable treats each model version as an **event contract**. A service subscribes to a model's event stream and receives CloudEvents envelopes conforming to that contract.
+Modelable treats each model version as an **event contract**. A service subscribes to a model's event stream and receives CloudEvents envelopes conforming to that contract.
 
 ### 5.2 Supported Backends
 
@@ -397,7 +397,7 @@ config:
 ### 5.6 Operational Constraints
 
 - **Consumer lag alerting:** Each `consumerGroup` should be monitored. Excessive lag indicates a downstream service is not keeping up and may miss time-sensitive events.
-- **Schema compatibility:** Modellable enforces that a new model version published to a topic is backward-compatible with the previous version before the topic is created or migrated. Breaking changes require routing to a new topic (`v4`, etc.).
+- **Schema compatibility:** Modelable enforces that a new model version published to a topic is backward-compatible with the previous version before the topic is created or migrated. Breaking changes require routing to a new topic (`v4`, etc.).
 - **Dead-letter handling:** Events that fail processing after the configured retry count are routed to a dead-letter topic (`<topic>.dlq`). Operators must monitor and replay or discard DLQ events.
 - **Ordering guarantees:** Kafka partitioning uses the model's primary key by default to maintain per-entity ordering. Projections that aggregate across entities cannot rely on global ordering.
 
@@ -413,7 +413,7 @@ ML systems need data that is:
 - **Consistent between training and serving:** The same feature definition must produce the same value in both batch training pipelines and online inference requests.
 - **Governed:** Features derived from PII fields must carry that classification forward so they are not inadvertently exposed.
 
-Modellable provides the canonical source definitions and lineage backbone. Feature store integrations consume projections from Modellable rather than querying source systems directly.
+Modelable provides the canonical source definitions and lineage backbone. Feature store integrations consume projections from Modelable rather than querying source systems directly.
 
 ### 6.2 Supported Backends
 
@@ -500,7 +500,7 @@ External consumers (partner APIs, public-facing services, embedded clients) need
 - Access scoped to only the fields they are permitted to read.
 - Generated client artefacts (OpenAPI schema, TypeScript types, Protobuf) that match the projection exactly.
 
-Modellable generates these artefacts from projection definitions. The projection version becomes the API version.
+Modelable generates these artefacts from projection definitions. The projection version becomes the API version.
 
 ### 7.2 Supported Output Formats
 
@@ -551,7 +551,7 @@ access:
 ### 7.5 Operational Constraints
 
 - **API gateway integration:** The generated OpenAPI document can be imported directly into Kong, AWS API Gateway, or similar tools. The gateway enforces rate limits and authentication declared in the projection's `access` block.
-- **Webhook delivery:** Projections with `visibility: public` can be subscribed to as webhooks. The Modellable runtime signs each payload with HMAC-SHA256 using the consumer's registered secret.
+- **Webhook delivery:** Projections with `visibility: public` can be subscribed to as webhooks. The Modelable runtime signs each payload with HMAC-SHA256 using the consumer's registered secret.
 - **Versioned URLs:** Generated REST paths follow the convention `/v{version}/{resource}`. Clients should pin to a specific version; the runtime keeps prior versions active until their deprecation window closes.
 
 ---
@@ -567,7 +567,7 @@ Regulatory and compliance workloads require:
 - **Data classification enforcement:** PII, financial, and health data must be handled according to jurisdiction-specific rules.
 - **Access logging:** All reads of sensitive projections must be logged with identity and timestamp.
 
-Modellable's immutable contract model and property-level lineage make it well-suited as the source of truth for compliance artefacts.
+Modelable's immutable contract model and property-level lineage make it well-suited as the source of truth for compliance artefacts.
 
 ### 8.2 Supported Backends
 
@@ -642,7 +642,7 @@ materialisation:
 
 ### 8.4 Lineage Evidence
 
-The Modellable registry can produce a lineage report for any field in any projection. The report is a signed document containing:
+The Modelable registry can produce a lineage report for any field in any projection. The report is a signed document containing:
 
 - The source model, version, and field.
 - The projection definition at the time of materialisation.
@@ -655,7 +655,7 @@ This report can be provided to auditors as evidence that a value in a compliance
 ### 8.5 Operational Constraints
 
 - **Retention enforcement:** The `retentionYears` field is enforced by the runtime. The materialiser will not delete records within the retention window, even if a delete event arrives from the source.
-- **Right-to-erasure handling:** GDPR and similar regulations require deletion on request. Modellable separates the compliance audit trail (append-only, retained) from the operational projection (deletable). Erasure is applied to operational stores; the audit trail retains a tombstone record with PII fields replaced by a deletion marker and the request timestamp.
+- **Right-to-erasure handling:** GDPR and similar regulations require deletion on request. Modelable separates the compliance audit trail (append-only, retained) from the operational projection (deletable). Erasure is applied to operational stores; the audit trail retains a tombstone record with PII fields replaced by a deletion marker and the request timestamp.
 - **Access logging:** Projections with `auditLog: true` cause the runtime to emit an access event for every read. Access events are written to the audit log backend and include the caller identity, timestamp, and fields returned.
 - **Encryption:** Fields classified as `pii` or `confidential` in projections targeting immutable stores must declare an encryption scheme. The compiler rejects bindings that would write classified fields to an immutable store in plaintext.
 

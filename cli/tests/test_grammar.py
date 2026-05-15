@@ -1,6 +1,6 @@
 import pytest
 
-from modellable.parser.parse import ParseError, parse_file, parse_text
+from modelable.parser.parse import ParseError, parse_file, parse_text
 
 
 def test_import():

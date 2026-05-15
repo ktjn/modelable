@@ -6,7 +6,7 @@
 
 ## 1. Purpose
 
-The Modellable language server gives authors fast feedback while editing `.mdl` files. It reuses the same parser, transformer, semantic validator, and registry index logic as the CLI so IDE diagnostics match `modellable validate`.
+The Modelable language server gives authors fast feedback while editing `.mdl` files. It reuses the same parser, transformer, semantic validator, and registry index logic as the CLI so IDE diagnostics match `modelable validate`.
 
 The LSP is an authoring aid. It must not become a separate source of validation rules.
 
@@ -15,7 +15,7 @@ The LSP is an authoring aid. It must not become a separate source of validation 
 ```text
 Editor
   -> LSP JSON-RPC
-  -> modellable-lsp server
+  -> modelable-lsp server
   -> in-memory workspace index
   -> Lark parser + semantic validator
   -> diagnostics, completion, hover, definition, references
@@ -68,8 +68,8 @@ Diagnostics must include enough context to fix the issue without running the CLI
 
 Severity mapping:
 
-- Error: blocks `modellable validate`.
-- Warning: accepted by default but fails `modellable validate --strict`.
+- Error: blocks `modelable validate`.
+- Warning: accepted by default but fails `modelable validate --strict`.
 - Information: authoring hint only.
 
 ## 5. Completion Rules
@@ -104,8 +104,8 @@ Go-to-definition:
 
 When `workspace.mdl` contains a `registry` block:
 
-- The server reads mirror files from `.modellable/mirror/<peer-registry-id>/`.
-- It does not fetch peers itself in Phase 1. Users run `modellable registry sync` or `modellable compile`.
+- The server reads mirror files from `.modelable/mirror/<peer-registry-id>/`.
+- It does not fetch peers itself in Phase 1. Users run `modelable registry sync` or `modelable compile`.
 - It warns when an imported peer is not declared in `workspace.mdl`.
 - It errors when a `#`-pinned content signature does not match the mirrored model.
 - It marks stale mirrors as warnings when the mirror metadata records an out-of-date git SHA.
@@ -125,7 +125,7 @@ When `workspace.mdl` contains a `registry` block:
 
 ## 10. Acceptance Criteria
 
-- Opening a workspace reports parse and semantic diagnostics matching `modellable validate`.
+- Opening a workspace reports parse and semantic diagnostics matching `modelable validate`.
 - Completion suggests existing domains, models, versions, aliases, and fields.
 - Hover shows field type, classification, owner, and lineage when available.
 - Go-to-definition works for model references and projection source fields.

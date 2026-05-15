@@ -1,8 +1,8 @@
 # Sample Scenarios
 
-This directory contains complete sample scenarios covering a range of Modellable platform types and architectural patterns. Each scenario is defined using the canonical **Modellable IDL (`.mdl`)** format, demonstrating production-realistic definitions across multiple domains.
+This directory contains complete sample scenarios covering a range of Modelable platform types and architectural patterns. Each scenario is defined using the canonical **Modelable IDL (`.mdl`)** format, demonstrating production-realistic definitions across multiple domains.
 
-Use these as a starting point for your own definitions or validate them with the CLI (`modellable validate scenarios/<id>/`).
+Use these as a starting point for your own definitions or validate them with the CLI (`modelable validate scenarios/<id>/`).
 
 Some scenarios intentionally include future-phase constructs such as `materialisation`, subscriptions, and runtime adapter configuration. Those examples document target platform behavior and may require Phase 5 runtime support even when the core model and projection syntax is valid for Phase 1.
 
@@ -92,7 +92,7 @@ Domains: `ml-credit-risk`, `customer`, `lending`, `credit-bureau`
 
 ### 5. Partner Marketplace API (`scenarios/05-partner-marketplace-api/`)
 
-A marketplace exposes catalog, inventory, and order data to 500+ seller partners through versioned projections. Modellable generates OpenAPI 3.1, TypeScript, and Protobuf artifacts directly from projection definitions. Per-seller access is enforced via runtime CEL filter parameters.
+A marketplace exposes catalog, inventory, and order data to 500+ seller partners through versioned projections. Modelable generates OpenAPI 3.1, TypeScript, and Protobuf artifacts directly from projection definitions. Per-seller access is enforced via runtime CEL filter parameters.
 
 Key techniques demonstrated:
 - Internal-only fields (`supplierCostCents`, `marginCode`) explicitly absent from external projections
@@ -144,14 +144,14 @@ Domains: `crm`, `iam`, `pim`, `cpq`, `wms`, `psp`, `orders`, `ods`, `datamart`
 
 ### 8. Distributed Multi-Registry (`scenarios/08-distributed-multi-registry/`)
 
-A federation of three independent teams (customer platform, orders platform, analytics) each maintain their own Modellable registry in separate git repositories. The analytics team consumes models from both upstream platforms via `import domain` declarations, pins versions with content signatures, and writes back consumer entries via automated PRs.
+A federation of three independent teams (customer platform, orders platform, analytics) each maintain their own Modelable registry in separate git repositories. The analytics team consumes models from both upstream platforms via `import domain` declarations, pins versions with content signatures, and writes back consumer entries via automated PRs.
 
 Key techniques demonstrated:
 - `registry` and `peers` blocks in `workspace.mdl`
 - `import domain … from registry "…"` with `#`-pinned version references
-- Content signature verification (`modellable lineage verify`)
+- Content signature verification (`modelable lineage verify`)
 - Consumer write-backs as pull requests (`writeback: pr`)
-- Registry DAG visualization (`modellable registry graph`)
+- Registry DAG visualization (`modelable registry graph`)
 
 See `distributed-lineage-spec.md` for the full federation design.
 
@@ -165,9 +165,9 @@ Key techniques demonstrated:
 - `auto projections Order @ 1 { db, request, reply, event }`
 - `exclude` with field names and annotation filters (`@pii`, `@server`)
 - `on` with operation subsets (`created`, `updated`, `deleted`)
-- Inspecting expanded projections with `modellable inspect Order@1 --auto`
+- Inspecting expanded projections with `modelable inspect Order@1 --auto`
 
-See `idl-design-spec.md` §3.7 and `modellable-system-spec.md` §3.5 for the full auto-projection rules.
+See `idl-design-spec.md` §3.7 and `modelable-system-spec.md` §3.5 for the full auto-projection rules.
 
 ---
 
@@ -202,8 +202,8 @@ scenarios/07-multi-system-master-data/
 
 ```bash
 # Validate a specific scenario
-modellable validate scenarios/01-ecommerce-data-warehouse/
+modelable validate scenarios/01-ecommerce-data-warehouse/
 
 # Compile and generate artifacts
-modellable compile scenarios/01-ecommerce-data-warehouse/ --target typescript --out ./dist/
+modelable compile scenarios/01-ecommerce-data-warehouse/ --target typescript --out ./dist/
 ```

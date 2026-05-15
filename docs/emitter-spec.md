@@ -2,11 +2,11 @@
 
 > **Status:** Approved for Phase 1 targets; later target mappings are deferred by phase.
 >
-> **Scope:** Output target generation from the normalized Modellable model graph.
+> **Scope:** Output target generation from the normalized Modelable model graph.
 
 ## 1. Purpose
 
-Emitters transform validated Modellable definitions into external artifacts. They do not define contract semantics. The normalized model graph remains the source for lineage, compatibility, governance, and generated output.
+Emitters transform validated Modelable definitions into external artifacts. They do not define contract semantics. The normalized model graph remains the source for lineage, compatibility, governance, and generated output.
 
 Emitters must be deterministic: the same normalized graph and emitter options produce byte-for-byte equivalent artifacts, apart from documented formatting differences.
 
@@ -96,13 +96,13 @@ Requirements:
 - Use `type: object` for models and projections.
 - Map required fields from non-optional `.mdl` fields.
 - Preserve nullable fields according to JSON Schema 2020-12 conventions.
-- Emit `x-modellable`, `x-modellable-field`, `x-modellable-classification`, `x-modellable-lineage`, `x-modellable-ref`, and `x-modellable-por` where applicable.
+- Emit `x-modelable`, `x-modelable-field`, `x-modelable-classification`, `x-modelable-lineage`, `x-modelable-ref`, and `x-modelable-por` where applicable.
 - Use `$defs` for local value objects when needed.
 - Validate every generated schema with `jsonschema`.
 
 Type mapping:
 
-| Modellable | JSON Schema |
+| Modelable | JSON Schema |
 |---|---|
 | `string` | `{ "type": "string" }` |
 | `bool` | `{ "type": "boolean" }` |
@@ -119,7 +119,7 @@ Type mapping:
 | `array<T>` | `{ "type": "array", "items": <T schema> }` |
 | `map<K,V>` | `{ "type": "object", "additionalProperties": <V schema> }` |
 | Named value object | `$ref` into `$defs` |
-| `ref<Domain.Model>` | String or object reference plus `x-modellable-ref` |
+| `ref<Domain.Model>` | String or object reference plus `x-modelable-ref` |
 
 ## 7. TypeScript Emitter
 
@@ -129,7 +129,7 @@ Requirements:
 
 - Generate JSON Schema first.
 - Generate one `.ts` file per schema.
-- Preserve `x-modellable-*` metadata as JSDoc where supported.
+- Preserve `x-modelable-*` metadata as JSDoc where supported.
 - Use stable interface names derived from `<Domain><Name>V<version>`.
 - Do not hand-roll a separate TypeScript type mapper in Phase 1.
 
@@ -150,7 +150,7 @@ Markdown must avoid embedding secrets from bindings.
 
 ## 9. Deferred Target Notes
 
-Deferred emitters must preserve Modellable semantics when implemented:
+Deferred emitters must preserve Modelable semantics when implemented:
 
 - Avro: preserve logical types and field defaults; avoid incompatible schema evolution.
 - Protobuf: preserve deterministic field numbering through explicit metadata or generated registry state.
@@ -182,7 +182,7 @@ Emitter diagnostics are warnings unless the artifact cannot be generated correct
 
 - Phase 1 emits JSON Schema, TypeScript, and Markdown for models and projections.
 - JSON Schema output validates against draft 2020-12.
-- Generated artifacts include version metadata and `x-modellable-*` extensions where supported.
+- Generated artifacts include version metadata and `x-modelable-*` extensions where supported.
 - Projection artifacts include field-level lineage.
 - Deferred targets fail with clear diagnostics rather than partial output.
 

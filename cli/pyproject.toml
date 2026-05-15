@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "modellable"
+name = "modelable"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
@@ -22,13 +22,13 @@ dev = [
 ]
 
 [project.scripts]
-modellable = "modellable.cli:cli"
+modelable = "modelable.cli:cli"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/modellable"]
+packages = ["src/modelable"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.coverage.run]
-source = ["src/modellable"]
+source = ["src/modelable"]

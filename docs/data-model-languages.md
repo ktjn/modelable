@@ -1,10 +1,10 @@
-# Research: Data Model Languages for Modellable
+# Research: Data Model Languages for Modelable
 
-This document evaluates existing data modeling languages and Domain-Specific Languages (DSLs) against the requirements of the Modellable platform.
+This document evaluates existing data modeling languages and Domain-Specific Languages (DSLs) against the requirements of the Modelable platform.
 
 ## 1. Evaluation Criteria
 
-Based on the [Modellable System Specification](modellable-system-spec.md), the chosen language(s) must support:
+Based on the [Modelable System Specification](modelable-system-spec.md), the chosen language(s) must support:
 
 - **Platform-Neutral Definitions:** Decoupled from specific databases or brokers.
 - **Explicit Derivation:** Ability to trace projected fields back to source fields.
@@ -28,7 +28,7 @@ These languages are designed to define the "Source of Truth" for system boundari
 ### 2.2 Semantic & Relational Transformation (Projections)
 These languages handle how data is joined, filtered, and reshaped.
 
-| Language | Strengths | Use Case in Modellable |
+| Language | Strengths | Use Case in Modelable |
 | :--- | :--- | :--- |
 | **Malloy** | Understands relationships/joins; handles nested data naturally. | Modeling the "Semantic Layer" of cross-domain joins. |
 | **PRQL** | Pipelined flow (`from` -> `filter` -> `select`); highly readable. | Defining the step-by-step logic of a projection. |
@@ -37,7 +37,7 @@ These languages handle how data is joined, filtered, and reshaped.
 ### 2.3 Expression Languages (Computed Fields)
 For logic that must be evaluated at runtime (e.g., `isBillable: status == 'active'`).
 
-| Language | Strengths | Why for Modellable? |
+| Language | Strengths | Why for Modelable? |
 | :--- | :--- | :--- |
 | **CEL** | Fast, non-Turing complete, guaranteed termination, safe. | **Primary Choice.** Meets the spec's requirement for deterministic logic. |
 | **JSONata** | Sophisticated JSON navigation and reshaping. | Alternative if complex structural reshaping is the priority. |
@@ -45,7 +45,7 @@ For logic that must be evaluated at runtime (e.g., `isBillable: status == 'activ
 
 ---
 
-## 3. Analysis for Modellable Requirements
+## 3. Analysis for Modelable Requirements
 
 ### 3.1 Domain Ownership & Metadata
 **Smithy** and **LinkML** excel here. Their ability to attach arbitrary "traits" or "annotations" to fields allows for first-class support for `classification: pii`, `owner: team-a`, and `replacedBy: field_v2`.
@@ -54,7 +54,7 @@ For logic that must be evaluated at runtime (e.g., `isBillable: status == 'activ
 **LinkML-Map** is the only established tool that focuses on declarative "back-references." In most other languages, lineage must be inferred by parsing the code. Using a LinkML-inspired structure would make the "Registry" and "Lineage API" (Sections 7.1, 10) significantly easier to implement.
 
 ### 3.3 Platform Neutrality
-**TypeSpec** and **Smithy** are the leaders in multi-target compilation. They treat the "logical model" as a distinct entity from the "wire format" (JSON/Proto) or "storage format" (SQL), which aligns perfectly with Modellable Section 2.3.
+**TypeSpec** and **Smithy** are the leaders in multi-target compilation. They treat the "logical model" as a distinct entity from the "wire format" (JSON/Proto) or "storage format" (SQL), which aligns perfectly with Modelable Section 2.3.
 
 ---
 
@@ -74,7 +74,7 @@ Three options were evaluated during design:
 
 ## 5. Implementation Stack
 
-The Modellable IDL is implemented in Python. The following libraries form the internal parser and validation layer.
+The Modelable IDL is implemented in Python. The following libraries form the internal parser and validation layer.
 
 | Library | Role |
 | :--- | :--- |
@@ -99,29 +99,29 @@ The Modellable IDL is implemented in Python. The following libraries form the in
 
 JSON Schema 2020-12 is the **first generated output target**. All other artifact formats (TypeScript, Avro, Protobuf, OpenAPI) are derived from or alongside JSON Schema.
 
-### x-modellable Extensions in JSON Schema
+### x-modelable Extensions in JSON Schema
 
-Generated JSON Schema documents embed Modellable metadata using vendor extensions:
+Generated JSON Schema documents embed Modelable metadata using vendor extensions:
 
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "modellable://customer/Customer/v1",
+  "$id": "modelable://customer/Customer/v1",
   "title": "customer.Customer.v1",
   "type": "object",
   "properties": {
     "customerId": {
       "type": "string",
       "format": "uuid",
-      "x-modellable-field": "customer.Customer.v1.customerId"
+      "x-modelable-field": "customer.Customer.v1.customerId"
     },
     "email": {
       "type": "string",
-      "x-modellable-classification": "pii",
-      "x-modellable-field": "customer.Customer.v1.email"
+      "x-modelable-classification": "pii",
+      "x-modelable-field": "customer.Customer.v1.email"
     }
   },
-  "x-modellable": {
+  "x-modelable": {
     "kind": "Model",
     "domain": "customer",
     "name": "Customer",
@@ -132,7 +132,7 @@ Generated JSON Schema documents embed Modellable metadata using vendor extension
 
 ### TypeScript Type Generation
 
-TypeScript types are generated from JSON Schema using `json-schema-to-typescript` (or `quicktype` as an alternative). Modellable does not write a custom TypeScript generator.
+TypeScript types are generated from JSON Schema using `json-schema-to-typescript` (or `quicktype` as an alternative). Modelable does not write a custom TypeScript generator.
 
 ```bash
 json2ts -i dist/jsonschema/customer.Customer.v1.schema.json -o dist/types/customer.Customer.v1.ts
@@ -145,11 +145,11 @@ json2ts -i dist/jsonschema/customer.Customer.v1.schema.json -o dist/types/custom
 The implementation plan for Phase 1 (parser, IR, validation, and CLI) is at `idl-parser-implementation-plan.md`.
 
 Planned implementation sequence:
-1.  **Lark grammar** (`cli/src/modellable/grammar/modellable.lark`) — EBNF for domains, models, projections, generate blocks, bindings.
-2.  **Pydantic IR** (`cli/src/modellable/parser/ir.py`) — typed model graph.
-3.  **Lark Transformer** (`cli/src/modellable/parser/transformer.py`) — parse tree → IR.
-4.  **Semantic validation** (`cli/src/modellable/validation/semantic.py`) — enforce domain rules.
-5.  **Compiler + CLI validate** — orchestration and `modellable validate` command.
+1.  **Lark grammar** (`cli/src/modelable/grammar/modelable.lark`) — EBNF for domains, models, projections, generate blocks, bindings.
+2.  **Pydantic IR** (`cli/src/modelable/parser/ir.py`) — typed model graph.
+3.  **Lark Transformer** (`cli/src/modelable/parser/transformer.py`) — parse tree → IR.
+4.  **Semantic validation** (`cli/src/modelable/validation/semantic.py`) — enforce domain rules.
+5.  **Compiler + CLI validate** — orchestration and `modelable validate` command.
 6.  **Phase 1 emitters** — JSON Schema 2020-12, Markdown, TypeScript (separate plan).
 
 

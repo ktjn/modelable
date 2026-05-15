@@ -1,8 +1,8 @@
-# External Tools to Incorporate for Modellable Data Modelling
+# External Tools to Incorporate for Modelable Data Modelling
 
 ## Goal
 
-Focus Modellable on logical data modelling first.
+Focus Modelable on logical data modelling first.
 
 Use external tools for validation, schema generation, artifact storage, catalog integration, generated types, documentation, and interoperability.
 
@@ -12,7 +12,7 @@ Do not incorporate runtime/materialisation tools yet.
 
 ## Recommended Boundary
 
-Modellable should own:
+Modelable should own:
 
 - DSL
 - normalized model graph
@@ -32,7 +32,7 @@ External tools should own:
 - downstream quality/runtime integrations
 
 ```text
-Modellable DSL
+Modelable DSL
    |
    v
 Parser + Semantic Validator
@@ -72,15 +72,15 @@ JSON Schema is the best first target because it is:
 - compatible with OpenAPI 3.1
 - supported by many registries and code generators
 
-### Modellable Mapping
+### Modelable Mapping
 
 ```text
-Modellable Model       -> JSON Schema object
-Modellable Projection  -> JSON Schema object
+Modelable Model       -> JSON Schema object
+Modelable Projection  -> JSON Schema object
 Field type             -> JSON Schema type/format
-classification         -> x-modellable-classification
-lineage                -> x-modellable-lineage
-model reference        -> $ref or x-modellable-ref
+classification         -> x-modelable-classification
+lineage                -> x-modelable-lineage
+model reference        -> $ref or x-modelable-ref
 ```
 
 ### Example
@@ -88,7 +88,7 @@ model reference        -> $ref or x-modellable-ref
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "modellable://customer/Customer/v1",
+  "$id": "modelable://customer/Customer/v1",
   "title": "customer.Customer.v1",
   "type": "object",
   "required": ["customerId", "email"],
@@ -96,15 +96,15 @@ model reference        -> $ref or x-modellable-ref
     "customerId": {
       "type": "string",
       "format": "uuid",
-      "x-modellable-field": "customer.Customer.v1.customerId"
+      "x-modelable-field": "customer.Customer.v1.customerId"
     },
     "email": {
       "type": "string",
-      "x-modellable-classification": "pii",
-      "x-modellable-field": "customer.Customer.v1.email"
+      "x-modelable-classification": "pii",
+      "x-modelable-field": "customer.Customer.v1.email"
     }
   },
-  "x-modellable": {
+  "x-modelable": {
     "kind": "Model",
     "domain": "customer",
     "name": "Customer",
@@ -136,7 +136,7 @@ lark
 
 ### Use For
 
-- validating Modellable document shape
+- validating Modelable document shape
 - validating generated JSON Schema
 - resolving `$ref`
 - implementing CLI validation
@@ -183,7 +183,7 @@ quicktype
 ### Mapping
 
 ```text
-Modellable Model
+Modelable Model
   -> JSON Schema
   -> TypeScript interface/type
 ```
@@ -221,7 +221,7 @@ Do not write a custom TypeScript generator unless necessary.
 - AsyncAPI
 - GraphQL
 
-### Modellable Mapping
+### Modelable Mapping
 
 ```text
 customer.Customer.v1             -> Apicurio JSON Schema artifact
@@ -247,15 +247,15 @@ commerce.OrderPlaced.v3
 ### CLI Commands
 
 ```bash
-modellable compile ./models --target json-schema --out ./dist/jsonschema
-modellable publish apicurio ./dist/jsonschema
+modelable compile ./models --target json-schema --out ./dist/jsonschema
+modelable publish apicurio ./dist/jsonschema
 ```
 
 ### Boundary
 
 Use Apicurio as an artifact registry.
 
-Do not use Apicurio as the Modellable source of truth.
+Do not use Apicurio as the Modelable source of truth.
 
 ---
 
@@ -272,12 +272,12 @@ Do not use Apicurio as the Modellable source of truth.
 - search/discovery
 - data product browsing
 
-### Modellable Mapping
+### Modelable Mapping
 
 ```text
-Modellable Domain      -> OpenMetadata Domain
-Modellable Model       -> OpenMetadata custom asset or table-like asset
-Modellable Projection  -> OpenMetadata data product or custom asset
+Modelable Domain      -> OpenMetadata Domain
+Modelable Model       -> OpenMetadata custom asset or table-like asset
+Modelable Projection  -> OpenMetadata data product or custom asset
 Field classification   -> Tags / Glossary terms
 Ownership              -> Owner / Steward
 Lineage                -> Lineage edges
@@ -318,8 +318,8 @@ Lineage                -> Lineage edges
 ### CLI Commands
 
 ```bash
-modellable export openmetadata ./models --out ./dist/openmetadata.json
-modellable publish openmetadata ./dist/openmetadata.json
+modelable export openmetadata ./models --out ./dist/openmetadata.json
+modelable publish openmetadata ./dist/openmetadata.json
 ```
 
 ### Boundary
@@ -340,11 +340,11 @@ Do not make OpenMetadata the projection resolver.
 - compatibility with existing data contract tooling
 - external-facing contract exchange
 
-### Modellable Mapping
+### Modelable Mapping
 
 ```text
-Modellable Model       -> ODCS data contract schema
-Modellable Projection  -> ODCS dataset/data product contract
+Modelable Model       -> ODCS data contract schema
+Modelable Projection  -> ODCS dataset/data product contract
 field classification   -> ODCS classification/custom property
 quality constraints    -> ODCS quality section
 owner                  -> ODCS owner
@@ -353,7 +353,7 @@ owner                  -> ODCS owner
 ### Example Commands
 
 ```bash
-modellable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
+modelable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
 datacontract lint ./dist/customer.contract.yaml
 ```
 
@@ -361,7 +361,7 @@ datacontract lint ./dist/customer.contract.yaml
 
 Use ODCS as an export/interchange format.
 
-Do not force Modellable's internal model into ODCS if projections and lineage do not map cleanly.
+Do not force Modelable's internal model into ODCS if projections and lineage do not map cleanly.
 
 ---
 
@@ -422,7 +422,7 @@ Add this early. It makes PR review much easier.
 - schema evolution checks
 - data pipeline contracts
 
-### Modellable Mapping
+### Modelable Mapping
 
 ```text
 Model/Event      -> Avro record
@@ -436,7 +436,7 @@ Lineage          -> custom Avro property
 
 Avro has stricter type semantics than JSON Schema.
 
-Do not let Avro drive the Modellable DSL too early.
+Do not let Avro drive the Modelable DSL too early.
 
 ---
 
@@ -457,7 +457,7 @@ buf
 protoc
 ```
 
-### Modellable Mapping
+### Modelable Mapping
 
 ```text
 Model/Projection -> .proto message
@@ -470,7 +470,7 @@ Field            -> message field
 
 Protobuf requires stable numeric field tags.
 
-If Protobuf becomes a target, Modellable must store field IDs.
+If Protobuf becomes a target, Modelable must store field IDs.
 
 Example:
 
@@ -497,14 +497,14 @@ Do not add this until Protobuf is a committed target.
 - internal REST API schemas
 - API gateway import
 
-### Modellable Mapping
+### Modelable Mapping
 
 ```text
 Projection             -> OpenAPI schema
 Projection collection  -> OpenAPI paths
 Field                  -> schema property
-Classification         -> x-modellable-classification
-Lineage                -> x-modellable-lineage
+Classification         -> x-modelable-classification
+Lineage                -> x-modelable-lineage
 ```
 
 ### Caveat
@@ -524,7 +524,7 @@ Keep OpenAPI generation separate from the core model compiler.
 - publish/subscribe contracts
 - Kafka/NATS/Pulsar integration
 
-### Modellable Mapping
+### Modelable Mapping
 
 ```text
 Event model        -> AsyncAPI message
@@ -557,13 +557,13 @@ Markdown generation
 Build commands:
 
 ```bash
-modellable validate ./models
-modellable resolve customer.Customer@1
-modellable lineage billing.BillingCustomer@1
-modellable diff customer.Customer@1 customer.Customer@2
-modellable compile customer.Customer@1 --target json-schema
-modellable compile customer.Customer@1 --target typescript
-modellable docs ./models --out ./dist/docs
+modelable validate ./models
+modelable resolve customer.Customer@1
+modelable lineage billing.BillingCustomer@1
+modelable diff customer.Customer@1 customer.Customer@2
+modelable compile customer.Customer@1 --target json-schema
+modelable compile customer.Customer@1 --target typescript
+modelable docs ./models --out ./dist/docs
 ```
 
 ## Phase 2: Artifact Registry
@@ -577,8 +577,8 @@ Apicurio Registry
 Build commands:
 
 ```bash
-modellable publish apicurio ./dist/jsonschema
-modellable pull apicurio customer.Customer@1
+modelable publish apicurio ./dist/jsonschema
+modelable pull apicurio customer.Customer@1
 ```
 
 ## Phase 3: Catalog / Governance Sync
@@ -592,8 +592,8 @@ OpenMetadata
 Build commands:
 
 ```bash
-modellable export openmetadata ./models --out ./dist/openmetadata.json
-modellable publish openmetadata ./dist/openmetadata.json
+modelable export openmetadata ./models --out ./dist/openmetadata.json
+modelable publish openmetadata ./dist/openmetadata.json
 ```
 
 ## Phase 4: Contract Interchange
@@ -608,7 +608,7 @@ Data Contract CLI
 Build commands:
 
 ```bash
-modellable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
+modelable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
 datacontract lint ./dist/customer.contract.yaml
 ```
 
@@ -627,10 +627,10 @@ AsyncAPI
 Build commands:
 
 ```bash
-modellable compile commerce.OrderPlaced@1 --target avro
-modellable compile commerce.OrderPlaced@1 --target protobuf
-modellable compile partner.ProductListing@1 --target openapi
-modellable compile commerce.OrderEvents@1 --target asyncapi
+modelable compile commerce.OrderPlaced@1 --target avro
+modelable compile commerce.OrderPlaced@1 --target protobuf
+modelable compile partner.ProductListing@1 --target openapi
+modelable compile commerce.OrderEvents@1 --target asyncapi
 ```
 
 ---
@@ -701,6 +701,6 @@ Start with:
 6. OpenMetadata as the first governance/catalog integration.
 7. ODCS/Data Contract CLI as the first interoperability export.
 
-Keep Modellable's core independent.
+Keep Modelable's core independent.
 
 The critical asset is the normalized model/projection/lineage graph. Everything else should be generated from that graph.

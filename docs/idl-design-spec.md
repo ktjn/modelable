@@ -1,4 +1,4 @@
-# Design: Modellable IDL
+# Design: Modelable IDL
 
 **Date:** 2026-05-14  
 **Status:** Approved  
@@ -8,13 +8,13 @@
 
 ## Context
 
-Modellable needs a format for defining domain-owned canonical models, projections with explicit lineage, and output target declarations. Three options were evaluated:
+Modelable needs a format for defining domain-owned canonical models, projections with explicit lineage, and output target declarations. Three options were evaluated:
 
 - **Option A — Custom YAML DSL:** Full control, already partially specced, but verbose for complex projections and every emitter must be written from scratch.
-- **Option B — Extend TypeSpec:** Gets OpenAPI/Protobuf emitters for free, but TypeSpec's API-centric model fights the projection/lineage/domain-ownership concepts that are Modellable's core.
-- **Option C — Custom text IDL (chosen):** Purpose-built grammar for Modellable's concepts. More expressive than YAML for derivation logic, LLM-friendly due to explicit delimiters and consistent structure, enables a language server.
+- **Option B — Extend TypeSpec:** Gets OpenAPI/Protobuf emitters for free, but TypeSpec's API-centric model fights the projection/lineage/domain-ownership concepts that are Modelable's core.
+- **Option C — Custom text IDL (chosen):** Purpose-built grammar for Modelable's concepts. More expressive than YAML for derivation logic, LLM-friendly due to explicit delimiters and consistent structure, enables a language server.
 
-Primary authoring personas are application developers and data/platform engineers. The CLI (including LLM integration) is the primary interaction path — developers use `modellable generate` and `modellable transform` to create and evolve files, then review the output.
+Primary authoring personas are application developers and data/platform engineers. The CLI (including LLM integration) is the primary interaction path — developers use `modelable generate` and `modelable transform` to create and evolve files, then review the output.
 
 ---
 
@@ -259,7 +259,7 @@ domain customer {
 }
 ```
 
-The compiler expands this into four fully explicit projections, each carrying complete field-level lineage. The expansion is included in the plan document and is inspectable with `modellable inspect Customer@1 --auto`.
+The compiler expands this into four fully explicit projections, each carrying complete field-level lineage. The expansion is included in the plan document and is inspectable with `modelable inspect Customer@1 --auto`.
 
 #### Compiler expansion
 
@@ -428,11 +428,11 @@ domain customer {
 | Target | Output |
 |---|---|
 | `openapi` | OpenAPI 3.1 schema objects per model and projection |
-| `typescript` | TypeScript interfaces with `x-modellable` JSDoc lineage tags |
+| `typescript` | TypeScript interfaces with `x-modelable` JSDoc lineage tags |
 | `avro` | Avro Schema JSON, one file per model version |
 | `protobuf` | `.proto` file per domain |
 | `sql(postgres / mysql / sqlite)` | `CREATE TABLE` DDL |
-| `jsonschema` | JSON Schema 2020-12 with `x-modellable` vendor extensions |
+| `jsonschema` | JSON Schema 2020-12 with `x-modelable` vendor extensions |
 | `asyncapi` | AsyncAPI 3.0 message schemas for event models |
 | `docs` | Markdown documentation with lineage tables |
 
@@ -461,7 +461,7 @@ binding customer-postgres {
 
 **Library:** Lark (Python EBNF parser)
 
-The grammar lives in `modellable.lark` alongside the CLI source. This file is the canonical language definition and is versioned with the CLI.
+The grammar lives in `modelable.lark` alongside the CLI source. This file is the canonical language definition and is versioned with the CLI.
 
 ```
 .mdl file
@@ -477,7 +477,7 @@ Lark was chosen over ANTLR (no code generation step, native Python, good error m
 
 ### 5.2 Language Server (LSP)
 
-A `modellable-lsp` server (same repo, separate package) provides IDE support via the Language Server Protocol:
+A `modelable-lsp` server (same repo, separate package) provides IDE support via the Language Server Protocol:
 
 - Autocomplete for keywords, type names, domain references
 - Inline diagnostics (type mismatches, broken `ref<>` links, version conflicts, missing `@key`)
@@ -492,10 +492,10 @@ LLM commands operate on `.mdl` text output — reviewable, diffable, committable
 
 | Command | Behaviour |
 |---|---|
-| `modellable describe Customer@2` | Plain-English explanation of the model and its lineage |
-| `modellable generate --from "<description or DDL/JSON Schema>"` | Produces a `.mdl` file from freeform input |
-| `modellable transform Customer@2 --to avro --explain` | Emits the target artifact and explains mapping decisions |
-| `modellable suggest-projection --source Customer@2 --consumer billing` | Proposes a projection with field derivations |
+| `modelable describe Customer@2` | Plain-English explanation of the model and its lineage |
+| `modelable generate --from "<description or DDL/JSON Schema>"` | Produces a `.mdl` file from freeform input |
+| `modelable transform Customer@2 --to avro --explain` | Emits the target artifact and explains mapping decisions |
+| `modelable suggest-projection --source Customer@2 --consumer billing` | Proposes a projection with field derivations |
 
 ---
 
@@ -623,7 +623,7 @@ consumer {
 | File | Purpose |
 |---|---|
 | `idl-design-spec.md` | Full IDL language reference (grammar, all constructs, type system) — this document |
-| `cli/grammar/modellable.lark` | Lark EBNF grammar |
+| `cli/grammar/modelable.lark` | Lark EBNF grammar |
 | `cli/parser/` | Parse tree → Pydantic IR |
 | `cli/emitters/` | One module per output target |
 | `cli/lsp/` | pygls language server |

@@ -1,4 +1,4 @@
-// Modellable IDL Grammar
+// Modelable IDL Grammar
 // Parser: Earley
 
 start: statement+

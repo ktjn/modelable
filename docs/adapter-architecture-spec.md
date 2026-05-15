@@ -1,6 +1,6 @@
 # Design: Multi-Backend Adapter Architecture
 
-This document defines the architecture for supporting multiple databases and streaming services in the Modellable platform using the **Ports and Adapters (Hexagonal)** pattern.
+This document defines the architecture for supporting multiple databases and streaming services in the Modelable platform using the **Ports and Adapters (Hexagonal)** pattern.
 
 ## 1. Objectives
 
@@ -59,8 +59,8 @@ To ensure interoperability, all internal events will follow the **CloudEvents 1.
 {
   "specversion": "1.0",
   "id": "evt_abc123",
-  "source": "/modellable/domain/customer/model/Customer/v2",
-  "type": "modellable.event.upsert",
+  "source": "/modelable/domain/customer/model/Customer/v2",
+  "type": "modelable.event.upsert",
   "time": "2026-05-12T10:00:00Z",
   "datacontenttype": "application/json",
   "data": {
@@ -68,12 +68,12 @@ To ensure interoperability, all internal events will follow the **CloudEvents 1.
     "sequence": "00000123",
     "payload": { ... }
   },
-  "modellable_version": "2",
-  "modellable_domain": "customer"
+  "modelable_version": "2",
+  "modelable_domain": "customer"
 }
 ```
 
-The CloudEvents `data` attribute carries the Modellable-specific envelope defined in `modellable-system-spec.md` §6.1 (`domain`, `model`, `version`, `operation`, `key`, `sequence`, `timestamp`, `payload`). Modellable-defined fields that do not fit standard CloudEvents attributes are placed as CloudEvents extension attributes (e.g., `modellable_version`, `modellable_domain`). The `source` attribute encodes the model path so that consumers can route events without parsing the payload.
+The CloudEvents `data` attribute carries the Modelable-specific envelope defined in `modelable-system-spec.md` §6.1 (`domain`, `model`, `version`, `operation`, `key`, `sequence`, `timestamp`, `payload`). Modelable-defined fields that do not fit standard CloudEvents attributes are placed as CloudEvents extension attributes (e.g., `modelable_version`, `modelable_domain`). The `source` attribute encodes the model path so that consumers can route events without parsing the payload.
 
 ---
 
@@ -134,7 +134,7 @@ The **Model Registry** (Section 7.1 of the Spec) stores these bindings. When a p
 The runtime adapters above (Sections 2–5) handle live data movement. A separate set of **artifact output adapters** handles export from the normalized model graph to external tools. These are compiler-phase concerns, not runtime concerns.
 
 ```
-Modellable DSL
+Modelable DSL
    |
    v
 Parser + Semantic Validator
@@ -165,12 +165,12 @@ commerce.OrderPlaced.v3
 CLI commands:
 
 ```bash
-modellable compile ./models --target json-schema --out ./dist/jsonschema
-modellable publish apicurio ./dist/jsonschema
-modellable pull apicurio customer.Customer@1
+modelable compile ./models --target json-schema --out ./dist/jsonschema
+modelable publish apicurio ./dist/jsonschema
+modelable pull apicurio customer.Customer@1
 ```
 
-Apicurio is an artifact registry only. It is not the Modellable source of truth.
+Apicurio is an artifact registry only. It is not the Modelable source of truth.
 
 For the full mapping tables and boundaries, see `external-tools-data-modelling.md` §4.
 
@@ -181,8 +181,8 @@ Exports model and lineage metadata to OpenMetadata for catalog UI, ownership, cl
 CLI commands:
 
 ```bash
-modellable export openmetadata ./models --out ./dist/openmetadata.json
-modellable publish openmetadata ./dist/openmetadata.json
+modelable export openmetadata ./models --out ./dist/openmetadata.json
+modelable publish openmetadata ./dist/openmetadata.json
 ```
 
 OpenMetadata is used for visibility and governance workflows. It is not the projection resolver.
@@ -196,11 +196,11 @@ Exports model and projection definitions as Open Data Contract Standard (ODCS) d
 CLI commands:
 
 ```bash
-modellable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
+modelable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
 datacontract lint ./dist/customer.contract.yaml
 ```
 
-ODCS is an export and interchange format. Modellable's internal model is not forced into ODCS shape.
+ODCS is an export and interchange format. Modelable's internal model is not forced into ODCS shape.
 
 For the full mapping tables, see `external-tools-data-modelling.md` §6.
 

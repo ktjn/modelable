@@ -8,7 +8,7 @@ binding postgres-ods-sink {
     port:              5432
     database:          "operational_data_store"
     schema:            "ods"
-    username:          "modellable_ods_writer"
+    username:          "modelable_ods_writer"
     passwordSecret:    "postgres-ods-write-password"
     tls:               true
     poolSize:          20
@@ -26,7 +26,7 @@ binding clickhouse-datamart-sink {
     port:              8443
     database:          "data_mart"
     tls:               true
-    username:          "modellable_mart_writer"
+    username:          "modelable_mart_writer"
     passwordSecret:    "clickhouse-datamart-write-password"
     batchSize:         50000
     flushIntervalMs:   10000
@@ -58,7 +58,7 @@ binding kafka-master-data-stream {
     tls:                      true
     saslMechanism:            "SCRAM-SHA-512"
     credentialSecret:         "kafka-master-data-consumer-creds"
-    consumerGroup:            "modellable-ods-consumer"
+    consumerGroup:            "modelable-ods-consumer"
     enableIdempotentProducer: true
     acks:                     "all"
     topics: {

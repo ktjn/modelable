@@ -4,9 +4,9 @@ binding clickhouse-analytics-sink {
   config: {
     host: "clickhouse.analytics.internal"
     port: 8443
-    database: "modellable_analytics"
+    database: "modelable_analytics"
     tls: true
-    username: "modellable_writer"
+    username: "modelable_writer"
     passwordSecret: "clickhouse-analytics-write-password"
     batchSize: 10000
     flushIntervalMs: 5000

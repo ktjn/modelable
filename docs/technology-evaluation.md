@@ -1,8 +1,8 @@
-# Research: Technology Stack Evaluation for Modellable
+# Research: Technology Stack Evaluation for Modelable
 
-This document evaluates the technologies for building the Modellable runtime, including source database capture, streaming transport, and target materialization.
+This document evaluates the technologies for building the Modelable runtime, including source database capture, streaming transport, and target materialization.
 
-> **Phase note:** The technologies in this document correspond to **Phase 5** of the Modellable implementation roadmap — event and API targets. They should not be incorporated until the logical data modelling layer (Phases 1–4) is stable. See the [External Tools document](external-tools-data-modelling.md) for the full phased plan.
+> **Phase note:** The technologies in this document correspond to **Phase 5** of the Modelable implementation roadmap — event and API targets. They should not be incorporated until the logical data modelling layer (Phases 1–4) is stable. See the [External Tools document](external-tools-data-modelling.md) for the full phased plan.
 
 ## 1. Source Database & CDC (Change Data Capture)
 

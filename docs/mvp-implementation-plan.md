@@ -1,4 +1,4 @@
-# Modellable MVP Implementation Plan
+# Modelable MVP Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement milestone tasks. Keep task checkboxes current as work is completed.
 
@@ -10,15 +10,15 @@
 
 ## Goal
 
-Deliver a usable local Modellable compiler that can parse `.mdl` files, validate domain-owned canonical models and projections, compile a derived registry index, answer compatibility, lineage, and governance questions, and emit JSON Schema, Markdown documentation, and TypeScript types.
+Deliver a usable local Modelable compiler that can parse `.mdl` files, validate domain-owned canonical models and projections, compile a derived registry index, answer compatibility, lineage, and governance questions, and emit JSON Schema, Markdown documentation, and TypeScript types.
 
-The MVP is successful when the acceptance criteria in `modellable-system-spec.md` section 20 pass through CLI workflows against representative local `.mdl` files.
+The MVP is successful when the acceptance criteria in `modelable-system-spec.md` section 20 pass through CLI workflows against representative local `.mdl` files.
 
 ## Source Documents
 
 This plan is intentionally a delivery plan, not a replacement specification. The implementation must follow:
 
-- `modellable-system-spec.md` - product source of truth and Phase 1 scope.
+- `modelable-system-spec.md` - product source of truth and Phase 1 scope.
 - `idl-design-spec.md` - `.mdl` syntax, auto projections, version ranges, and target catalog.
 - `idl-parser-implementation-plan.md` - detailed parser, IR, semantic validator, and initial CLI `validate` work.
 - `cli-spec.md` - command behavior, arguments, output directories, and exit codes.
@@ -34,12 +34,12 @@ This plan is intentionally a delivery plan, not a replacement specification. The
 - Python CLI package under `cli/` using uv and Hatchling.
 - Lark parser and Pydantic IR for local `.mdl` files.
 - Semantic validation for domains, model versions, fields, projections, auto projections, version references, ownership metadata, access metadata, and supported CEL expressions.
-- Local file-first registry compiler that derives `.modellable/registry.db`.
-- Plan documents under `.modellable/plans/` for projections and auto projections.
+- Local file-first registry compiler that derives `.modelable/registry.db`.
+- Plan documents under `.modelable/plans/` for projections and auto projections.
 - Field-level lineage graph for canonical fields, direct mappings, computed expressions, and auto projection expansion.
 - Compatibility checks for additive and breaking model changes.
 - Governance findings that detect structurally unsafe or insufficiently documented projection of governed fields without claiming to enforce real-world organizational authorization.
-- JSON Schema 2020-12 emitter with `x-modellable-*` extensions.
+- JSON Schema 2020-12 emitter with `x-modelable-*` extensions.
 - Markdown documentation emitter.
 - First-class codegen architecture with TypeScript generation via `json-schema-to-typescript` as the Phase 1 generated-language target.
 - CLI commands required for MVP workflows: `validate`, `resolve`, `lineage`, `diff`, `compile`, `docs`, `inspect <Entity>@<v> --auto`, and `codegen`.
@@ -77,7 +77,7 @@ Three strategies were considered:
 - `cli/pyproject.toml`
 - `cli/.python-version`
 - `cli/uv.lock`
-- `bin/modellable`
+- `bin/modelable`
 - `.github/workflows/ci.yml`
 
 **Tasks:**
@@ -85,16 +85,16 @@ Three strategies were considered:
 - [x] Create the `cli/` package scaffold described in `cli-tooling-spec.md`.
 - [x] Add runtime dependencies: `click`, `lark`, `pydantic`, `rich`, `jsonschema`, `referencing`.
 - [x] Add development dependencies: `pytest`, `pytest-cov`.
-- [ ] Add the root `bin/modellable` bootstrap script.
+- [ ] Add the root `bin/modelable` bootstrap script.
 - [x] Add CI that runs `uv sync --extra dev --frozen` and `uv run pytest --tb=short`.
-- [ ] Verify `uv run modellable --help` exits `0`.
+- [ ] Verify `uv run modelable --help` exits `0`.
 
 **Acceptance checks:**
 
 ```bash
 cd cli
 uv sync --extra dev
-uv run modellable --help
+uv run modelable --help
 uv run pytest
 ```
 
@@ -104,13 +104,13 @@ uv run pytest
 
 **Primary files:**
 
-- `cli/src/modellable/grammar/modellable.lark`
-- `cli/src/modellable/parser/ir.py`
-- `cli/src/modellable/parser/transformer.py`
-- `cli/src/modellable/parser/parse.py`
-- `cli/src/modellable/validation/semantic.py`
-- `cli/src/modellable/compiler/compiler.py`
-- `cli/src/modellable/cli.py`
+- `cli/src/modelable/grammar/modelable.lark`
+- `cli/src/modelable/parser/ir.py`
+- `cli/src/modelable/parser/transformer.py`
+- `cli/src/modelable/parser/parse.py`
+- `cli/src/modelable/validation/semantic.py`
+- `cli/src/modelable/compiler/compiler.py`
+- `cli/src/modelable/cli.py`
 - `cli/tests/test_grammar.py`
 - `cli/tests/test_transformer.py`
 - `cli/tests/test_semantic.py`
@@ -131,7 +131,7 @@ uv run pytest
 ```bash
 cd cli
 uv run pytest tests/test_grammar.py tests/test_transformer.py tests/test_semantic.py tests/test_compiler.py tests/test_cli.py
-uv run modellable validate ../samples/mvp
+uv run modelable validate ../samples/mvp
 ```
 
 ## Milestone 2: Local Registry Graph and Resolver
@@ -140,11 +140,11 @@ uv run modellable validate ../samples/mvp
 
 **Primary files:**
 
-- `cli/src/modellable/registry/schema.sql`
-- `cli/src/modellable/registry/index.py`
-- `cli/src/modellable/registry/resolver.py`
-- `cli/src/modellable/registry/references.py`
-- `cli/src/modellable/compiler/workspace.py`
+- `cli/src/modelable/registry/schema.sql`
+- `cli/src/modelable/registry/index.py`
+- `cli/src/modelable/registry/resolver.py`
+- `cli/src/modelable/registry/references.py`
+- `cli/src/modelable/compiler/workspace.py`
 - `cli/tests/test_registry_index.py`
 - `cli/tests/test_resolver.py`
 
@@ -155,7 +155,7 @@ uv run modellable validate ../samples/mvp
 - [ ] Detect duplicate domains, duplicate model versions, duplicate projection versions, and generated-name conflicts.
 - [ ] Resolve references in the form `domain.Model@version` and `domain.Model@>=min<max`.
 - [ ] Resolve version ranges to the highest matching published version at compile time.
-- [ ] Create `.modellable/registry.db` as a rebuildable artifact.
+- [ ] Create `.modelable/registry.db` as a rebuildable artifact.
 - [ ] Populate registry tables for domains, models, model versions, fields, projections, projection versions, projection sources, projection fields, field mappings, lineage edges, adapter bindings, compatibility reports, and access policies.
 - [ ] Keep source `.mdl` files as the only source of truth.
 
@@ -164,7 +164,7 @@ uv run modellable validate ../samples/mvp
 ```bash
 cd cli
 uv run pytest tests/test_registry_index.py tests/test_resolver.py
-uv run modellable compile ../samples/mvp --target markdown --out ../dist/docs
+uv run modelable compile ../samples/mvp --target markdown --out ../dist/docs
 ```
 
 ## Milestone 3: Planner, Auto Projections, CEL, and Lineage
@@ -173,11 +173,11 @@ uv run modellable compile ../samples/mvp --target markdown --out ../dist/docs
 
 **Primary files:**
 
-- `cli/src/modellable/planner/planner.py`
-- `cli/src/modellable/planner/auto_projection.py`
-- `cli/src/modellable/planner/lineage.py`
-- `cli/src/modellable/expressions/cel.py`
-- `cli/src/modellable/expressions/lineage.py`
+- `cli/src/modelable/planner/planner.py`
+- `cli/src/modelable/planner/auto_projection.py`
+- `cli/src/modelable/planner/lineage.py`
+- `cli/src/modelable/expressions/cel.py`
+- `cli/src/modelable/expressions/lineage.py`
 - `cli/tests/test_planner.py`
 - `cli/tests/test_auto_projection.py`
 - `cli/tests/test_cel_validation.py`
@@ -192,15 +192,15 @@ uv run modellable compile ../samples/mvp --target markdown --out ../dist/docs
 - [ ] Build projection plan documents containing resolved source versions, field mappings, CEL expressions, join descriptors, aggregation descriptors, and planner metadata.
 - [ ] Parse or validate the MVP CEL subset enough to reject unknown aliases, unknown fields, unsupported functions, aggregate misuse, and non-deterministic expressions.
 - [ ] Extract source field references from computed fields, joins, filters, and aggregate arguments.
-- [ ] Write `.modellable/plans/<domain>.<Projection>.v<version>.plan.json`.
-- [ ] Implement `modellable inspect <Entity>@<v> --auto` to display generated projections.
+- [ ] Write `.modelable/plans/<domain>.<Projection>.v<version>.plan.json`.
+- [ ] Implement `modelable inspect <Entity>@<v> --auto` to display generated projections.
 
 **Acceptance checks:**
 
 ```bash
 cd cli
 uv run pytest tests/test_planner.py tests/test_auto_projection.py tests/test_cel_validation.py tests/test_lineage.py
-uv run modellable inspect customer.Customer@1 --auto --path ../samples/mvp
+uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
 ```
 
 ## Milestone 4: Compatibility and Governance
@@ -209,11 +209,11 @@ uv run modellable inspect customer.Customer@1 --auto --path ../samples/mvp
 
 **Primary files:**
 
-- `cli/src/modellable/compat/diff.py`
-- `cli/src/modellable/compat/checker.py`
-- `cli/src/modellable/governance/ownership.py`
-- `cli/src/modellable/governance/permissions.py`
-- `cli/src/modellable/governance/por.py`
+- `cli/src/modelable/compat/diff.py`
+- `cli/src/modelable/compat/checker.py`
+- `cli/src/modelable/governance/ownership.py`
+- `cli/src/modelable/governance/permissions.py`
+- `cli/src/modelable/governance/por.py`
 - `cli/tests/test_compatibility.py`
 - `cli/tests/test_governance.py`
 - `cli/tests/test_por.py`
@@ -223,7 +223,7 @@ uv run modellable inspect customer.Customer@1 --auto --path ../samples/mvp
 - [ ] Compare consecutive model versions for additions, removals, renames, type changes, enum changes, identity changes, and nullability changes.
 - [ ] Verify `(additive)` declarations only contain compatible changes.
 - [ ] Verify `(breaking)` declarations mark affected projections as requiring re-validation.
-- [ ] Implement `modellable diff REF_A REF_B --path PATH`.
+- [ ] Implement `modelable diff REF_A REF_B --path PATH`.
 - [ ] Preserve default same-domain access assumptions when no `access` block exists.
 - [ ] Parse and record entity and property grants for `read`, `project`, `subscribe`, and `write`.
 - [ ] Emit governance findings when a projection lacks documented `project` or `read` grants, or lacks derivation policy metadata for computed use of referenced source fields.
@@ -236,20 +236,20 @@ uv run modellable inspect customer.Customer@1 --auto --path ../samples/mvp
 ```bash
 cd cli
 uv run pytest tests/test_compatibility.py tests/test_governance.py tests/test_por.py
-uv run modellable diff customer.Customer@1 customer.Customer@2 --path ../samples/scenarios/01-ecommerce-data-warehouse
+uv run modelable diff customer.Customer@1 customer.Customer@2 --path ../samples/scenarios/01-ecommerce-data-warehouse
 ```
 
 ## Milestone 5: Phase 1 Emitters
 
-**Goal:** Generate deterministic external artifacts from the normalized graph without weakening Modellable semantics.
+**Goal:** Generate deterministic external artifacts from the normalized graph without weakening Modelable semantics.
 
 **Primary files:**
 
-- `cli/src/modellable/emitters/base.py`
-- `cli/src/modellable/emitters/json_schema.py`
-- `cli/src/modellable/emitters/markdown.py`
-- `cli/src/modellable/emitters/typescript.py`
-- `cli/src/modellable/emitters/diagnostics.py`
+- `cli/src/modelable/emitters/base.py`
+- `cli/src/modelable/emitters/json_schema.py`
+- `cli/src/modelable/emitters/markdown.py`
+- `cli/src/modelable/emitters/typescript.py`
+- `cli/src/modelable/emitters/diagnostics.py`
 - `cli/tests/test_emit_json_schema.py`
 - `cli/tests/test_emit_markdown.py`
 - `cli/tests/test_emit_typescript.py`
@@ -258,9 +258,9 @@ uv run modellable diff customer.Customer@1 customer.Customer@2 --path ../samples
 
 - [ ] Define a deterministic emitter interface returning artifact metadata and diagnostics.
 - [ ] Emit JSON Schema draft 2020-12 for models and projections.
-- [ ] Map all MVP Modellable types to JSON Schema according to `emitter-spec.md`.
+- [ ] Map all MVP Modelable types to JSON Schema according to `emitter-spec.md`.
 - [ ] Mark non-optional fields as required and optional fields as nullable or absent from `required` according to JSON Schema 2020-12 conventions.
-- [ ] Add `x-modellable`, `x-modellable-field`, `x-modellable-classification`, `x-modellable-lineage`, `x-modellable-ref`, and `x-modellable-por`.
+- [ ] Add `x-modelable`, `x-modelable-field`, `x-modelable-classification`, `x-modelable-lineage`, `x-modelable-ref`, and `x-modelable-por`.
 - [ ] Validate generated JSON Schema with `jsonschema`.
 - [ ] Emit Markdown docs with domain metadata, field tables, projection source tables, and lineage tables.
 - [ ] Generate TypeScript from JSON Schema through `json-schema-to-typescript`.
@@ -271,9 +271,9 @@ uv run modellable diff customer.Customer@1 customer.Customer@2 --path ../samples
 ```bash
 cd cli
 uv run pytest tests/test_emit_json_schema.py tests/test_emit_markdown.py tests/test_emit_typescript.py
-uv run modellable compile ../samples/mvp --target json-schema --out ../dist/jsonschema
-uv run modellable compile ../samples/mvp --target markdown --out ../dist/docs
-uv run modellable compile ../samples/mvp --target typescript --out ../dist/types
+uv run modelable compile ../samples/mvp --target json-schema --out ../dist/jsonschema
+uv run modelable compile ../samples/mvp --target markdown --out ../dist/docs
+uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 ```
 
 ## Milestone 6: CLI Workflows
@@ -282,16 +282,16 @@ uv run modellable compile ../samples/mvp --target typescript --out ../dist/types
 
 **Primary files:**
 
-- `cli/src/modellable/cli.py`
-- `cli/src/modellable/commands/validate.py`
-- `cli/src/modellable/commands/resolve.py`
-- `cli/src/modellable/commands/lineage.py`
-- `cli/src/modellable/commands/diff.py`
-- `cli/src/modellable/commands/compile.py`
-- `cli/src/modellable/commands/docs.py`
-- `cli/src/modellable/commands/inspect.py`
-- `cli/src/modellable/commands/codegen.py`
-- `cli/src/modellable/commands/scenario.py`
+- `cli/src/modelable/cli.py`
+- `cli/src/modelable/commands/validate.py`
+- `cli/src/modelable/commands/resolve.py`
+- `cli/src/modelable/commands/lineage.py`
+- `cli/src/modelable/commands/diff.py`
+- `cli/src/modelable/commands/compile.py`
+- `cli/src/modelable/commands/docs.py`
+- `cli/src/modelable/commands/inspect.py`
+- `cli/src/modelable/commands/codegen.py`
+- `cli/src/modelable/commands/scenario.py`
 - `cli/tests/test_cli_workflows.py`
 
 **Tasks:**
@@ -313,12 +313,12 @@ uv run modellable compile ../samples/mvp --target typescript --out ../dist/types
 ```bash
 cd cli
 uv run pytest tests/test_cli_workflows.py
-uv run modellable validate ../samples/mvp --strict
-uv run modellable resolve customer.Customer@1 --path ../samples/mvp
-uv run modellable lineage customer.CustomerReply@1 --path ../samples/mvp
-uv run modellable docs ../samples/mvp --out ../dist/docs
-uv run modellable codegen formats
-uv run modellable scenario list
+uv run modelable validate ../samples/mvp --strict
+uv run modelable resolve customer.Customer@1 --path ../samples/mvp
+uv run modelable lineage customer.CustomerReply@1 --path ../samples/mvp
+uv run modelable docs ../samples/mvp --out ../dist/docs
+uv run modelable codegen formats
+uv run modelable scenario list
 ```
 
 ## Milestone 7: MVP Hardening and Release Candidate
@@ -339,7 +339,7 @@ uv run modellable scenario list
 
 - [ ] Add an MVP smoke test that validates and compiles the minimal `samples/mvp/` happy-path sample.
 - [ ] Document existing `samples/scenarios/` examples as illustrative scenarios and mark future-phase exceptions rather than requiring Phase 1 strict validation.
-- [ ] Ensure `.modellable/`, `dist/`, `.venv/`, and generated TypeScript output directories are ignored unless explicitly documented otherwise.
+- [ ] Ensure `.modelable/`, `dist/`, `.venv/`, and generated TypeScript output directories are ignored unless explicitly documented otherwise.
 - [ ] Document the MVP quick-start workflow in `README.md`.
 - [ ] Document the known deferred commands and targets in CLI help.
 - [ ] Run the full test suite and sample smoke workflow from a clean checkout.
@@ -350,10 +350,10 @@ uv run modellable scenario list
 cd cli
 uv sync --extra dev --frozen
 uv run pytest --tb=short
-uv run modellable validate ../samples/mvp --strict
-uv run modellable compile ../samples/mvp --target json-schema --out ../dist/jsonschema
-uv run modellable compile ../samples/mvp --target markdown --out ../dist/docs
-uv run modellable compile ../samples/mvp --target typescript --out ../dist/types
+uv run modelable validate ../samples/mvp --strict
+uv run modelable compile ../samples/mvp --target json-schema --out ../dist/jsonschema
+uv run modelable compile ../samples/mvp --target markdown --out ../dist/docs
+uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 ```
 
 ## MVP Acceptance Matrix

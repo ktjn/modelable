@@ -1,10 +1,10 @@
 # Agent Governance
 
-This document defines how automated and human-assisted agents should change this repository now and when implementation work begins. It is process guidance, not product semantics. The product source of truth remains [modellable-system-spec.md](modellable-system-spec.md).
+This document defines how automated and human-assisted agents should change this repository now and when implementation work begins. It is process guidance, not product semantics. The product source of truth remains [modelable-system-spec.md](modelable-system-spec.md).
 
 ## 1. Purpose
 
-Agent governance exists to keep repository changes reviewable, locally verifiable, and aligned with Modellable's core contract guarantees:
+Agent governance exists to keep repository changes reviewable, locally verifiable, and aligned with Modelable's core contract guarantees:
 
 - Published model and projection versions are immutable.
 - Incompatible changes require new versions.

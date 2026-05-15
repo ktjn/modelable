@@ -1,12 +1,12 @@
 # Migration Guide
 
-> **Status:** Approved guidance for adopting Modellable from existing schema and contract formats.
+> **Status:** Approved guidance for adopting Modelable from existing schema and contract formats.
 >
 > **Scope:** Practical migration paths from OpenAPI, JSON Schema, Protobuf, SQL DDL, Avro, and existing internal DSLs into `.mdl`.
 
 ## 1. Purpose
 
-This guide helps teams introduce Modellable without rewriting every system at once. Migration should start with domain-owned canonical models, then add projections and adapter bindings around existing infrastructure.
+This guide helps teams introduce Modelable without rewriting every system at once. Migration should start with domain-owned canonical models, then add projections and adapter bindings around existing infrastructure.
 
 The goal is not to mirror every existing table, topic, or API one-for-one. The goal is to identify the canonical domain contracts and make downstream derivation explicit.
 
@@ -29,7 +29,7 @@ The goal is not to mirror every existing table, topic, or API one-for-one. The g
 | Protobuf | Messages become models; services imply projections or API targets | Preserve field numbers in metadata if needed |
 | SQL DDL | Tables become candidate entities; views become candidate projections | Move table/index/storage details to bindings |
 | Avro | Records often become event models | Preserve logical types and namespace metadata |
-| Existing YAML/DSL | Rewrite to `.mdl` with `modellable generate` assistance | Review all generated lineage and governance annotations |
+| Existing YAML/DSL | Rewrite to `.mdl` with `modelable generate` assistance | Review all generated lineage and governance annotations |
 
 ## 4. Step-by-Step Workflow
 
@@ -49,7 +49,7 @@ known consumers
 
 ### Step 2: Choose Domain Boundaries
 
-Map each artifact to an owning domain. If ownership is unclear, pause migration for that artifact. Modellable requires domain-owned canonical models.
+Map each artifact to an owning domain. If ownership is unclear, pause migration for that artifact. Modelable requires domain-owned canonical models.
 
 ### Step 3: Extract Canonical Models
 
@@ -102,9 +102,9 @@ binding customer-postgres {
 Run:
 
 ```bash
-modellable validate ./models
-modellable lineage billing.BillingCustomer@1 --path ./models
-modellable diff customer.Customer@1 customer.Customer@2 --path ./models
+modelable validate ./models
+modelable lineage billing.BillingCustomer@1 --path ./models
+modelable diff customer.Customer@1 customer.Customer@2 --path ./models
 ```
 
 ## 5. Format-Specific Guidance
@@ -120,7 +120,7 @@ modellable diff customer.Customer@1 customer.Customer@2 --path ./models
 ### 5.2 JSON Schema
 
 - Use `required` to determine optionality.
-- Convert `format: uuid`, `date`, `date-time`, and binary encodings to Modellable scalar types.
+- Convert `format: uuid`, `date`, `date-time`, and binary encodings to Modelable scalar types.
 - Convert `$ref` to named value objects or `ref<Domain.Model>` depending on ownership.
 - Add `@classification` manually when source schemas lack governance metadata.
 
@@ -144,17 +144,17 @@ modellable diff customer.Customer@1 customer.Customer@2 --path ./models
 ### 5.5 Avro
 
 - Avro records used on topics usually become event models.
-- Avro logical types map to Modellable scalar types.
+- Avro logical types map to Modelable scalar types.
 - Union with `null` maps to optional fields.
 - Registry subject names should be preserved as metadata or binding configuration, not canonical model names unless they match domain language.
 
 ## 6. AI-Assisted Migration
 
-Use `modellable generate` to draft `.mdl`, then review the output:
+Use `modelable generate` to draft `.mdl`, then review the output:
 
 ```bash
-modellable generate --from ./openapi.yaml --output ./models/customer-api.mdl
-modellable validate ./models/customer-api.mdl
+modelable generate --from ./openapi.yaml --output ./models/customer-api.mdl
+modelable validate ./models/customer-api.mdl
 ```
 
 Review checklist:
@@ -182,7 +182,7 @@ Review checklist:
 - Migrated canonical models have owners, keys where applicable, versions, and change kinds.
 - Consumer-specific shapes are represented as projections with explicit lineage.
 - Existing adapter details are represented in bindings.
-- `modellable validate` succeeds for the migrated workspace.
+- `modelable validate` succeeds for the migrated workspace.
 - Generated JSON Schema and TypeScript artifacts preserve model version metadata.
 - Governance annotations are present for PII, restricted, and confidential fields.
 

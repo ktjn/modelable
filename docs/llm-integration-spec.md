@@ -6,7 +6,7 @@
 
 ## 1. Purpose
 
-LLM integration helps authors create and understand `.mdl` definitions faster, while preserving Modellable's contract guarantees. AI output is never trusted as authoritative until it passes the normal parser, semantic validator, compatibility checks, and governance checks.
+LLM integration helps authors create and understand `.mdl` definitions faster, while preserving Modelable's contract guarantees. AI output is never trusted as authoritative until it passes the normal parser, semantic validator, compatibility checks, and governance checks.
 
 The CLI must make generated changes reviewable and reproducible enough for source control.
 
@@ -17,7 +17,7 @@ The AI model is configurable.
 Resolution order:
 
 1. Command flag: `--model MODEL`.
-2. Environment variable: `MODELLABLE_LLM_MODEL`.
+2. Environment variable: `MODELABLE_LLM_MODEL`.
 3. Workspace config in `workspace.mdl`.
 4. CLI default.
 
@@ -38,16 +38,16 @@ The CLI default should be a conservative, documented model identifier in the imp
 
 | Command | Input | Output | Writes Files |
 |---|---|---|---|
-| `modellable generate` | Natural language, DDL, JSON Schema, OpenAPI, Avro, Protobuf, or existing `.mdl` context | Proposed `.mdl` | Only with `--output` |
-| `modellable describe` | `.mdl` file, directory, model ref, or projection ref | Natural-language summary | No |
-| `modellable transform` | Model/projection ref and target | Artifact plus explanation | Optional `--out` |
-| `modellable suggest-projection` | Source ref and consumer domain | Proposed projection `.mdl` | Only with `--output` |
+| `modelable generate` | Natural language, DDL, JSON Schema, OpenAPI, Avro, Protobuf, or existing `.mdl` context | Proposed `.mdl` | Only with `--output` |
+| `modelable describe` | `.mdl` file, directory, model ref, or projection ref | Natural-language summary | No |
+| `modelable transform` | Model/projection ref and target | Artifact plus explanation | Optional `--out` |
+| `modelable suggest-projection` | Source ref and consumer domain | Proposed projection `.mdl` | Only with `--output` |
 
 ## 4. Prompt Context
 
 System prompt context must include:
 
-- Modellable design principles.
+- Modelable design principles.
 - Current `.mdl` syntax summary.
 - Versioning and immutability rules.
 - Projection and lineage requirements.
