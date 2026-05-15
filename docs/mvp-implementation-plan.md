@@ -150,14 +150,18 @@ uv run modelable validate ../samples/mvp
 
 **Tasks:**
 
-- [ ] Add workspace discovery that loads all `.mdl` files from a file or directory path.
-- [ ] Merge definitions across files while preserving domain ownership boundaries.
+- [x] Add workspace discovery that loads all `.mdl` files from a file or directory path.
+- [x] Merge definitions across files while preserving domain ownership boundaries.
 - [ ] Detect duplicate domains, duplicate model versions, duplicate projection versions, and generated-name conflicts.
+  - Completed: duplicate domains, duplicate model versions, and duplicate projection versions.
+  - Remaining: generated-name conflicts.
 - [ ] Resolve references in the form `domain.Model@version` and `domain.Model@>=min<max`.
 - [ ] Resolve version ranges to the highest matching published version at compile time.
-- [ ] Create `.modelable/registry.db` as a rebuildable artifact.
+- [x] Create `.modelable/registry.db` as a rebuildable artifact.
 - [ ] Populate registry tables for domains, models, model versions, fields, projections, projection versions, projection sources, projection fields, field mappings, lineage edges, adapter bindings, compatibility reports, and access policies.
-- [ ] Keep source `.mdl` files as the only source of truth.
+  - Completed: schema creation for the minimum logical tables; population for domains, models, model versions, fields, projections, projection versions, projection sources, projection fields, field mappings, and adapter bindings supported by the current IR.
+  - Remaining: populated lineage edges, compatibility reports, and access policies after planner, compatibility, and governance behavior exists.
+- [x] Keep source `.mdl` files as the only source of truth.
 
 **Acceptance checks:**
 
