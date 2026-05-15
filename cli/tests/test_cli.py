@@ -5,6 +5,20 @@ from click.testing import CliRunner
 from modelable.cli import cli
 
 
+def test_root_bootstrap_script_delegates_to_uv_entrypoint():
+    repo_root = Path(__file__).resolve().parents[2]
+    script = repo_root / "bin" / "modelable"
+
+    assert script.exists()
+    assert script.read_text(encoding="utf-8") == (
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        "\n"
+        'cd "$(dirname "$0")/../cli"\n'
+        'exec uv run modelable "$@"\n'
+    )
+
+
 def test_validate_valid_file(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
