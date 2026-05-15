@@ -5,6 +5,12 @@ from modelable.compiler.workspace import load_workspace
 from modelable.registry.index import build_registry
 
 
+def test_registry_package_exports_build_registry():
+    from modelable.registry import build_registry as exported
+
+    assert exported is build_registry
+
+
 def _write_customer_model(path: Path) -> None:
     path.write_text(
         """

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.parser.ir import ComputedMapping, DirectMapping
+from modelable.registry.resolver import resolved_version_spec
 
 
 def build_registry(workspace: Workspace, output_dir: str | Path = ".modelable") -> Path:
@@ -107,7 +108,13 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                         projection_name,
                         version.version,
                         version.source.model,
-                        _to_json(version.source.version),
+                        _to_json(
+                            resolved_version_spec(
+                                workspace.mdl,
+                                version.source.model,
+                                version.source.version,
+                            )
+                        ),
                         version.source.alias,
                     ),
                 )
@@ -126,7 +133,13 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                         version.version,
                         "primary",
                         version.source.model,
-                        _to_json(version.source.version),
+                        _to_json(
+                            resolved_version_spec(
+                                workspace.mdl,
+                                version.source.model,
+                                version.source.version,
+                            )
+                        ),
                         version.source.alias,
                     ),
                 )
@@ -147,7 +160,9 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                             version.version,
                             "join",
                             join.model,
-                            _to_json(join.version),
+                            _to_json(
+                                resolved_version_spec(workspace.mdl, join.model, join.version)
+                            ),
                             join.alias,
                             join.on,
                         ),
