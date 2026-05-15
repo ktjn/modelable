@@ -9,8 +9,9 @@ This repository currently contains the Modelable system specification, centered 
 ## Repository Shape
 
 - `docs/` contains system and product specifications, research, and plans.
-- There is no application source tree yet.
-- There are no checked-in package manifests, build scripts, or test runners yet.
+- `cli/` contains the Python Modelable CLI, parser, IR transformer, compiler orchestration, semantic validation, tests, and package manifest.
+- `samples/` contains `.mdl` scenario samples.
+- `cli/pyproject.toml` and `cli/uv.lock` define the current Python package and test environment.
 - The `.gitignore` already anticipates future frontend, Rust, Docker/Helm, and script artifacts, but those tools are not present in the repo yet.
 
 ## Working Principles
@@ -31,9 +32,7 @@ This repository currently contains the Modelable system specification, centered 
 - Avoid adding implementation commitments that contradict the platform-neutral design unless the user explicitly asks to narrow the design.
 - If a change affects agent workflow, test policy, PR policy, or local verification expectations, update `docs/agent-governance.md`.
 
-## Future Code Changes
-
-When source code is added:
+## Code Changes
 
 - Treat `docs/agent-governance.md` as the standing workflow for coding work, including local gates, test gates, PR handling, and verification evidence.
 - When selecting or adding frameworks, libraries, CLIs, build tools, or scaffolding commands, validate the current latest stable version and current recommended usage with a web search against official documentation, package registries, or release pages at the time of the work. Do not rely on agent training data or remembered version knowledge for "latest" choices.
@@ -58,14 +57,13 @@ Agents working in this repository must treat `docs/agent-governance.md` as the o
 
 ## Test Gates
 
-No universal test runner exists yet. Until one is introduced, use the gate that matches the touched surface:
+Use the gate that matches the touched surface:
 
 - **Documentation-only:** Review the Markdown diff, check internal links and references, and confirm terminology remains consistent with the system spec.
-- **IDL samples or `.mdl` fixtures:** Run the available parser/compiler validation command once the CLI exists; before then, manually check samples against the grammar and examples in `docs/idl-design-spec.md`.
-- **Compiler, planner, compatibility, lineage, governance, or emitters:** Run focused unit tests for the changed module and the full local CLI gate once package manifests are present.
+- **IDL samples or `.mdl` fixtures:** Run `uv run modelable validate <path>` from `cli/` for the touched fixture or sample when it is expected to be supported by the current parser/compiler; otherwise manually check samples against the grammar and examples in `docs/idl-design-spec.md` and state why CLI validation is not yet applicable.
+- **Parser, IR, semantic validation, compiler, or CLI:** Run focused tests for the changed module from `cli/`, then run `uv run pytest tests/ -v`.
+- **Compiler, planner, compatibility, lineage, governance, or emitters:** Run focused unit tests for the changed module and the full local CLI gate.
 - **Runtime, adapter, materializer, or security behavior:** Run focused unit tests plus any integration or smoke gate defined for that component.
-
-When package manifests or scripts are added, update this section with exact commands instead of relying on categories.
 
 ## Local Gate
 
@@ -92,7 +90,13 @@ When asked to prepare or update a PR:
 
 ## Commands
 
-No project-specific build, lint, or test commands are currently defined.
+Current CLI commands are run from `cli/`:
+
+```bash
+uv sync --extra dev
+uv run pytest tests/ -v
+uv run modelable validate tests/fixtures/customer.mdl
+```
 
 Before claiming verification, inspect the repository for newly added manifests or scripts and run the relevant commands. If only documentation changes were made, a reasonable verification is to review the Markdown diff and confirm links or references are coherent.
 
