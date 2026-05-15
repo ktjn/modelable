@@ -1,0 +1,271 @@
+from __future__ import annotations
+
+from enum import Enum
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field
+
+
+class ParseError(Exception):
+    """Raised when .mdl input cannot be parsed."""
+
+
+class ValidationError(Exception):
+    """Raised when .mdl input parses but fails semantic validation."""
+
+    def __init__(self, errors: list[str]):
+        self.errors = errors
+        super().__init__("\n".join(errors))
+
+
+class AnnKey(BaseModel):
+    kind: Literal["key"] = "key"
+
+
+class AnnPii(BaseModel):
+    kind: Literal["pii"] = "pii"
+
+
+class AnnClassification(BaseModel):
+    kind: Literal["classification"] = "classification"
+    level: str
+
+
+class AnnDeprecated(BaseModel):
+    kind: Literal["deprecated"] = "deprecated"
+    replaced_by: str
+
+
+class AnnOwner(BaseModel):
+    kind: Literal["owner"] = "owner"
+    team: str
+
+
+class AnnServer(BaseModel):
+    kind: Literal["server"] = "server"
+
+
+Annotation = Annotated[
+    AnnKey | AnnPii | AnnClassification | AnnDeprecated | AnnOwner | AnnServer,
+    Field(discriminator="kind"),
+]
+
+
+class PrimitiveType(BaseModel):
+    kind: Literal[
+        "string",
+        "int",
+        "float",
+        "bool",
+        "date",
+        "time",
+        "timestamp",
+        "uuid",
+        "duration",
+        "binary",
+    ]
+
+
+class DecimalType(BaseModel):
+    kind: Literal["decimal"] = "decimal"
+    precision: int
+    scale: int
+
+
+class ArrayType(BaseModel):
+    kind: Literal["array"] = "array"
+    item: FieldType
+
+
+class MapType(BaseModel):
+    kind: Literal["map"] = "map"
+    key: FieldType
+    value: FieldType
+
+
+class RefType(BaseModel):
+    kind: Literal["ref"] = "ref"
+    target: str
+
+
+class EnumType(BaseModel):
+    kind: Literal["enum"] = "enum"
+    values: list[str]
+
+
+class ObjectType(BaseModel):
+    kind: Literal["object"] = "object"
+    fields: list[FieldDef]
+
+
+class NamedType(BaseModel):
+    kind: Literal["named"] = "named"
+    name: str
+
+
+FieldType = Annotated[
+    PrimitiveType
+    | DecimalType
+    | ArrayType
+    | MapType
+    | RefType
+    | EnumType
+    | ObjectType
+    | NamedType,
+    Field(discriminator="kind"),
+]
+
+
+class FieldDef(BaseModel):
+    name: str
+    type: FieldType
+    optional: bool = False
+    annotations: list[Annotation] = Field(default_factory=list)
+
+    @property
+    def is_key(self) -> bool:
+        return any(annotation.kind == "key" for annotation in self.annotations)
+
+    @property
+    def is_pii(self) -> bool:
+        return any(annotation.kind == "pii" for annotation in self.annotations)
+
+
+class ModelKind(str, Enum):
+    entity = "entity"
+    aggregate = "aggregate"
+    event = "event"
+    value = "value"
+
+
+class ChangeKind(str, Enum):
+    additive = "additive"
+    breaking = "breaking"
+
+
+class ModelVersion(BaseModel):
+    model_kind: ModelKind
+    version: int
+    change_kind: ChangeKind
+    fields: list[FieldDef]
+
+
+class VersionExact(BaseModel):
+    kind: Literal["exact"] = "exact"
+    version: int
+
+
+class VersionRange(BaseModel):
+    kind: Literal["range"] = "range"
+    min_inclusive: int
+    max_exclusive: int
+
+
+class VersionMin(BaseModel):
+    kind: Literal["min"] = "min"
+    min_inclusive: int
+
+
+VersionSpec = Annotated[
+    VersionExact | VersionRange | VersionMin,
+    Field(discriminator="kind"),
+]
+
+
+class SourceRef(BaseModel):
+    model: str
+    version: VersionSpec
+    alias: str
+
+
+class JoinRef(BaseModel):
+    model: str
+    version: VersionSpec
+    alias: str
+    on: str
+
+
+class DirectMapping(BaseModel):
+    kind: Literal["direct"] = "direct"
+    source_alias: str
+    source_field: str
+
+
+class ComputedMapping(BaseModel):
+    kind: Literal["computed"] = "computed"
+    expression: str
+
+
+ProjectionMapping = Annotated[
+    DirectMapping | ComputedMapping,
+    Field(discriminator="kind"),
+]
+
+
+class ProjectionField(BaseModel):
+    name: str
+    mapping: ProjectionMapping
+    annotations: list[Annotation] = Field(default_factory=list)
+
+    @property
+    def is_pii(self) -> bool:
+        return any(annotation.kind == "pii" for annotation in self.annotations)
+
+
+class ProjectionVersion(BaseModel):
+    version: int
+    source: SourceRef
+    joins: list[JoinRef] = Field(default_factory=list)
+    group_by: list[str] = Field(default_factory=list)
+    fields: list[ProjectionField]
+
+
+class GenerateTarget(BaseModel):
+    name: str
+    dialect: str | None = None
+    output_path: str | None = None
+
+
+class AiConfig(BaseModel):
+    provider: str | None = None
+    model: str | None = None
+
+
+class FieldMapping(BaseModel):
+    source: str
+    target: str
+
+
+class BindingDef(BaseModel):
+    name: str
+    model: str
+    model_version: int
+    adapter: str
+    table: str | None = None
+    field_mappings: list[FieldMapping] = Field(default_factory=list)
+
+
+class DomainDef(BaseModel):
+    name: str
+    owner: str | None = None
+    description: str | None = None
+    models: dict[str, list[ModelVersion]] = Field(default_factory=dict)
+    projections: dict[str, list[ProjectionVersion]] = Field(default_factory=dict)
+    generate_targets: list[GenerateTarget] = Field(default_factory=list)
+
+
+class WorkspaceDef(BaseModel):
+    generate_targets: list[GenerateTarget] = Field(default_factory=list)
+    ai: AiConfig | None = None
+
+
+class MdlFile(BaseModel):
+    domains: list[DomainDef] = Field(default_factory=list)
+    bindings: list[BindingDef] = Field(default_factory=list)
+    workspace: WorkspaceDef | None = None
+
+
+ArrayType.model_rebuild()
+MapType.model_rebuild()
+ObjectType.model_rebuild()
+FieldDef.model_rebuild()

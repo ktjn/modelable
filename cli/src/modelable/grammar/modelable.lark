@@ -59,17 +59,16 @@ type_expr: primitive_type
          | object_type
          | IDENT
 
-primitive_type: "string"
-              | "int"
-              | "float"
-              | "decimal"
-              | "bool"
-              | "date"
-              | "time"
-              | "timestamp"
-              | "uuid"
-              | "duration"
-              | "binary"
+primitive_type: "string"    -> pt_string
+              | "int"       -> pt_int
+              | "float"     -> pt_float
+              | "bool"      -> pt_bool
+              | "date"      -> pt_date
+              | "time"      -> pt_time
+              | "timestamp" -> pt_timestamp
+              | "uuid"      -> pt_uuid
+              | "duration"  -> pt_duration
+              | "binary"    -> pt_binary
 
 decimal_type: "decimal" "(" INT "," INT ")"
 enum_type: "enum" "(" IDENT ("," IDENT)* ")"
