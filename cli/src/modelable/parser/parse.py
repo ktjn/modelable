@@ -4,12 +4,8 @@ from pathlib import Path
 
 from lark import Lark, Tree, UnexpectedInput
 
-from modelable.parser.ir import MdlFile
+from modelable.parser.ir import MdlFile, ParseError
 from modelable.parser.transformer import MdlTransformer
-
-
-class ParseError(Exception):
-    """Raised when .mdl input cannot be parsed."""
 
 
 @cache

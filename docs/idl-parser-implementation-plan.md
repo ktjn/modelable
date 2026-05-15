@@ -1657,7 +1657,7 @@ git commit -m "feat: add semantic validation for models and projections"
 - Create: `cli/tests/test_compiler.py`
 - Create: `cli/tests/test_cli.py`
 
-- [ ] **Step 1: Write failing compiler test**
+- [x] **Step 1: Write failing compiler test**
 
 Create `cli/tests/test_compiler.py`:
 
@@ -1694,13 +1694,13 @@ def test_compile_parse_error_raises():
         compile_text("domain { broken yaml }")
 ```
 
-- [ ] **Step 2: Run to verify failures**
+- [x] **Step 2: Run to verify failures**
 
 Run: `pytest tests/test_compiler.py -v`
 
 Expected: `ModuleNotFoundError`
 
-- [ ] **Step 3: Write `cli/src/modelable/compiler/compiler.py`**
+- [x] **Step 3: Write `cli/src/modelable/compiler/compiler.py`**
 
 ```python
 from __future__ import annotations
@@ -1723,13 +1723,13 @@ def compile_file(path: str | Path) -> tuple[MdlFile, list[str]]:
     return mdl, errors
 ```
 
-- [ ] **Step 4: Run compiler tests**
+- [x] **Step 4: Run compiler tests**
 
 Run: `pytest tests/test_compiler.py -v`
 
 Expected: All PASS
 
-- [ ] **Step 5: Write failing CLI test**
+- [x] **Step 5: Write failing CLI test**
 
 Create `cli/tests/test_cli.py`:
 
@@ -1780,13 +1780,13 @@ domain customer {
     assert result.exit_code != 0
 ```
 
-- [ ] **Step 6: Run CLI test to verify failure**
+- [x] **Step 6: Run CLI test to verify failure**
 
 Run: `pytest tests/test_cli.py -v`
 
 Expected: `ModuleNotFoundError: No module named 'modelable.cli'`
 
-- [ ] **Step 7: Write `cli/src/modelable/cli.py`**
+- [x] **Step 7: Write `cli/src/modelable/cli.py`**
 
 ```python
 import sys
@@ -1841,13 +1841,13 @@ def validate(path: str, strict: bool):
         sys.exit(0)
 ```
 
-- [ ] **Step 8: Run all tests**
+- [x] **Step 8: Run all tests**
 
 Run: `pytest tests/ -v`
 
 Expected: All PASS
 
-- [ ] **Step 9: Smoke test the CLI**
+- [x] **Step 9: Smoke test the CLI**
 
 ```bash
 cd cli
