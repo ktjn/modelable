@@ -666,7 +666,7 @@ git commit -m "feat: add projection grammar tests and MDL fixture files"
 - Modify: `cli/src/modelable/parser/__init__.py`
 - Create: `cli/tests/test_transformer.py` (failing stub)
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 Create `cli/tests/test_transformer.py`:
 
@@ -699,13 +699,13 @@ def test_ir_model_construction():
     assert mdl.domains[0].models["Customer"][0].fields[0].is_key
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/test_transformer.py::test_ir_model_construction -v`
 
 Expected: `ModuleNotFoundError`
 
-- [ ] **Step 3: Write `cli/src/modelable/parser/ir.py`**
+- [x] **Step 3: Write `cli/src/modelable/parser/ir.py`**
 
 ```python
 from __future__ import annotations
@@ -939,7 +939,7 @@ class MdlFile(BaseModel):
     workspace: Optional[WorkspaceDef] = None
 ```
 
-- [ ] **Step 4: Run test — expect it to pass**
+- [x] **Step 4: Run test — expect it to pass**
 
 Run: `pytest tests/test_transformer.py::test_ir_model_construction -v`
 
@@ -961,7 +961,7 @@ git commit -m "feat: add Pydantic IR models for MDL parse tree"
 - Modify: `cli/src/modelable/parser/parse.py`
 - Modify: `cli/tests/test_transformer.py`
 
-- [ ] **Step 1: Write failing transformer test**
+- [x] **Step 1: Write failing transformer test**
 
 Add to `cli/tests/test_transformer.py`:
 
@@ -1000,13 +1000,13 @@ def test_transform_simple_model():
     assert fields["status"].type.values == ["active", "blocked"]
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `pytest tests/test_transformer.py::test_transform_simple_model -v`
 
 Expected: `AttributeError: module 'modelable.parser.parse' has no attribute 'parse_text_to_ir'`
 
-- [ ] **Step 3: Write `cli/src/modelable/parser/transformer.py`**
+- [x] **Step 3: Write `cli/src/modelable/parser/transformer.py`**
 
 ```python
 from __future__ import annotations
@@ -1355,7 +1355,7 @@ class MdlTransformer(Transformer):
         return WorkspaceDef(generate_targets=generate_targets, ai=ai)
 ```
 
-- [ ] **Step 4: Add `parse_text_to_ir` to `cli/src/modelable/parser/parse.py`**
+- [x] **Step 4: Add `parse_text_to_ir` to `cli/src/modelable/parser/parse.py`**
 
 ```python
 from .transformer import MdlTransformer
@@ -1370,13 +1370,13 @@ def parse_file_to_ir(path) -> MdlFile:
     return parse_text_to_ir(Path(path).read_text(encoding="utf-8"))
 ```
 
-- [ ] **Step 5: Run test — expect it to pass**
+- [x] **Step 5: Run test — expect it to pass**
 
 Run: `pytest tests/test_transformer.py::test_transform_simple_model -v`
 
 Expected: PASS
 
-- [ ] **Step 6: Add projection transformer test**
+- [x] **Step 6: Add projection transformer test**
 
 Add to `cli/tests/test_transformer.py`:
 
@@ -1431,7 +1431,7 @@ def test_transform_fixture_files(fixture_path):
     assert "BillingCustomer" in billing_mdl.domains[0].projections
 ```
 
-- [ ] **Step 7: Run all transformer tests**
+- [x] **Step 7: Run all transformer tests**
 
 Run: `pytest tests/test_transformer.py -v`
 
