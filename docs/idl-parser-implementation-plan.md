@@ -6,7 +6,7 @@
 
 **Architecture:** A Lark EBNF grammar parses `.mdl` files into a parse tree; a Lark `Transformer` converts that tree into typed Pydantic IR objects; a semantic validator enforces domain rules. A thin `Compiler` class orchestrates the pipeline. The CLI `validate` command runs the full pipeline and reports errors.
 
-**Tech Stack:** Python 3.11+, Lark ≥ 1.1 (Earley parser), Pydantic v2, Click ≥ 8.1, pytest ≥ 7.0, Hatchling (build backend), uv (package and environment manager)
+**Tech Stack:** Python 3.14+, Lark ≥ 1.1 (Earley parser), Pydantic v2, Click ≥ 8.1, pytest ≥ 7.0, Hatchling (build backend), uv (package and environment manager)
 
 **Scope:** Parser + IR + validation only. Emitters (OpenAPI, Avro, SQL, TypeScript), LSP, and LLM commands are separate plans.
 
@@ -52,7 +52,7 @@
 - Create: `cli/tests/conftest.py`
 - Create: `cli/tests/test_grammar.py`
 
-- [ ] **Step 1: Create directory structure**
+- [x] **Step 1: Create directory structure**
 
 ```
 cli/
@@ -65,7 +65,7 @@ cli/
 
 Run: `mkdir -p cli/src/modellable/grammar cli/src/modellable/parser cli/src/modellable/validation cli/src/modellable/compiler cli/tests/fixtures`
 
-- [ ] **Step 2: Write `cli/pyproject.toml`**
+- [x] **Step 2: Write `cli/pyproject.toml`**
 
 ```toml
 [build-system]
@@ -75,13 +75,12 @@ build-backend = "hatchling.build"
 [project]
 name = "modellable"
 version = "0.1.0"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
     "click>=8.1",
     "lark>=1.1",
     "pydantic>=2.0",
     "rich>=13.0",
-    "anthropic>=0.40",
     "jsonschema>=4.23",
     "referencing>=0.35",
 ]
@@ -108,14 +107,14 @@ source = ["src/modellable"]
 Also create `cli/.python-version`:
 
 ```
-3.11
+3.14
 ```
 
-- [ ] **Step 3: Write package markers**
+- [x] **Step 3: Write package markers**
 
 `cli/src/modellable/__init__.py`, `cli/src/modellable/grammar/__init__.py`, `cli/src/modellable/parser/__init__.py`, `cli/src/modellable/validation/__init__.py`, `cli/src/modellable/compiler/__init__.py` — all empty files.
 
-- [ ] **Step 4: Write `cli/tests/conftest.py`**
+- [x] **Step 4: Write `cli/tests/conftest.py`**
 
 ```python
 import pytest
@@ -128,7 +127,7 @@ def fixture_path():
     return FIXTURES
 ```
 
-- [ ] **Step 5: Write first failing test in `cli/tests/test_grammar.py`**
+- [x] **Step 5: Write first failing test in `cli/tests/test_grammar.py`**
 
 ```python
 from modellable.parser.parse import parse_text
@@ -137,20 +136,20 @@ def test_import():
     assert parse_text is not None
 ```
 
-- [ ] **Step 6: Install package and verify test fails**
+- [x] **Step 6: Install package and verify test fails**
 
 Run from `cli/`: `uv sync --extra dev && uv run pytest tests/test_grammar.py -v`
 
 Expected: `ModuleNotFoundError: No module named 'modellable.parser.parse'`
 
-- [ ] **Step 7: Create stub `cli/src/modellable/parser/parse.py`**
+- [x] **Step 7: Create stub `cli/src/modellable/parser/parse.py`**
 
 ```python
 def parse_text(text: str):
     raise NotImplementedError
 ```
 
-- [ ] **Step 8: Run test — expect it to pass**
+- [x] **Step 8: Run test — expect it to pass**
 
 Run: `uv run pytest tests/test_grammar.py::test_import -v`
 

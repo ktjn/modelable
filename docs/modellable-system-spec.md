@@ -1020,7 +1020,7 @@ The first version implements the local modelling compiler. Runtime materializati
 - **IR:** `pydantic>=2.0` (typed internal model graph; not exposed as the external contract format).
 - **Output validation:** `jsonschema>=4.23`, `referencing>=0.35`.
 - **Output:** JSON Schema 2020-12, Markdown, TypeScript (via `json-schema-to-typescript`).
-- **CLI:** `click>=8.1`, `rich>=13.0`, `anthropic>=0.40`.
+- **CLI:** `click>=8.1`, `rich>=13.0`.
 
 ### 17.2 CLI Commands
 
