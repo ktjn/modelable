@@ -3,14 +3,14 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement milestone tasks. Keep task checkboxes current as work is completed.
 
 **Date:** 2026-05-14
-**Status:** Draft
+**Status:** Ready for execution
 **Scope:** Phase 1 local modelling compiler
 
 ---
 
 ## Goal
 
-Deliver a usable local Modellable compiler that can parse `.mdl` files, validate domain-owned canonical models and projections, compile a derived registry index, answer compatibility and lineage questions, and emit JSON Schema, Markdown documentation, and TypeScript types.
+Deliver a usable local Modellable compiler that can parse `.mdl` files, validate domain-owned canonical models and projections, compile a derived registry index, answer compatibility, lineage, and governance questions, and emit JSON Schema, Markdown documentation, and TypeScript types.
 
 The MVP is successful when the acceptance criteria in `modellable-system-spec.md` section 20 pass through CLI workflows against representative local `.mdl` files.
 
@@ -33,24 +33,24 @@ This plan is intentionally a delivery plan, not a replacement specification. The
 
 - Python CLI package under `cli/` using uv and Hatchling.
 - Lark parser and Pydantic IR for local `.mdl` files.
-- Semantic validation for domains, model versions, fields, projections, auto projections, version references, ownership, permissions, and supported CEL expressions.
+- Semantic validation for domains, model versions, fields, projections, auto projections, version references, ownership metadata, access metadata, and supported CEL expressions.
 - Local file-first registry compiler that derives `.modellable/registry.db`.
 - Plan documents under `.modellable/plans/` for projections and auto projections.
 - Field-level lineage graph for canonical fields, direct mappings, computed expressions, and auto projection expansion.
 - Compatibility checks for additive and breaking model changes.
-- Governance checks that reject unauthorized or unsafe projection fields.
+- Governance findings that detect structurally unsafe or insufficiently documented projection of governed fields without claiming to enforce real-world organizational authorization.
 - JSON Schema 2020-12 emitter with `x-modellable-*` extensions.
 - Markdown documentation emitter.
-- TypeScript generation via `json-schema-to-typescript`.
+- First-class codegen architecture with TypeScript generation via `json-schema-to-typescript` as the Phase 1 generated-language target.
 - CLI commands required for MVP workflows: `validate`, `resolve`, `lineage`, `diff`, `compile`, `docs`, `inspect <Entity>@<v> --auto`, and `codegen`.
-- A curated MVP sample or fixture set that avoids Phase 5 runtime-only constructs unless they are parsed as deferred metadata.
-- Tests for parser, IR, validation, planner, compatibility, lineage, emitters, CLI commands, and sample scenarios.
+- A minimal `samples/mvp/` happy-path sample that avoids Phase 5 runtime-only constructs.
+- Focused `cli/tests/fixtures/` coverage for parser, IR, validation, planner, compatibility, lineage, governance findings, emitters, CLI commands, and edge cases.
 
 ### Deferred
 
 - Runtime materialization, subscriptions, stream processing, replay, and dead-letter handling.
 - PostgreSQL, Kafka, CDC, and other runtime adapters.
-- Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI, AsyncAPI, and SQL DDL outputs.
+- Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI, AsyncAPI, SQL DDL outputs, and generated-language targets beyond TypeScript.
 - Distributed registry peer sync and consumer write-back execution.
 - LSP implementation.
 - AI commands such as `generate`, `describe`, `transform`, and `suggest-projection`.
@@ -124,14 +124,14 @@ uv run pytest
 - [ ] Represent immutable model and projection versions explicitly in Pydantic IR.
 - [ ] Preserve source location metadata for diagnostics.
 - [ ] Validate entity and aggregate keys, event and value key absence, version ordering, projection mappings, aggregation usage, known annotations, and known types.
-- [ ] Add parse and validation coverage for the curated MVP sample set.
+- [ ] Add parse and validation coverage for the minimal `samples/mvp/` happy-path sample.
 
 **Acceptance checks:**
 
 ```bash
 cd cli
 uv run pytest tests/test_grammar.py tests/test_transformer.py tests/test_semantic.py tests/test_compiler.py tests/test_cli.py
-uv run modellable validate ../samples/scenarios/09-auto-projections
+uv run modellable validate ../samples/mvp
 ```
 
 ## Milestone 2: Local Registry Graph and Resolver
@@ -164,7 +164,7 @@ uv run modellable validate ../samples/scenarios/09-auto-projections
 ```bash
 cd cli
 uv run pytest tests/test_registry_index.py tests/test_resolver.py
-uv run modellable compile ../samples/scenarios/09-auto-projections --target markdown --out ../dist/docs
+uv run modellable compile ../samples/mvp --target markdown --out ../dist/docs
 ```
 
 ## Milestone 3: Planner, Auto Projections, CEL, and Lineage
@@ -200,12 +200,12 @@ uv run modellable compile ../samples/scenarios/09-auto-projections --target mark
 ```bash
 cd cli
 uv run pytest tests/test_planner.py tests/test_auto_projection.py tests/test_cel_validation.py tests/test_lineage.py
-uv run modellable inspect customer.Customer@1 --auto --path ../samples/scenarios/09-auto-projections
+uv run modellable inspect customer.Customer@1 --auto --path ../samples/mvp
 ```
 
 ## Milestone 4: Compatibility and Governance
 
-**Goal:** Enforce published-contract semantics and prevent unsafe projection of governed fields.
+**Goal:** Enforce published-contract semantics and surface governance findings for unsafe or insufficiently documented projection of governed fields.
 
 **Primary files:**
 
@@ -224,10 +224,11 @@ uv run modellable inspect customer.Customer@1 --auto --path ../samples/scenarios
 - [ ] Verify `(additive)` declarations only contain compatible changes.
 - [ ] Verify `(breaking)` declarations mark affected projections as requiring re-validation.
 - [ ] Implement `modellable diff REF_A REF_B --path PATH`.
-- [ ] Implement default same-domain permissions when no `access` block exists.
-- [ ] Implement entity and property grants for `read`, `project`, `subscribe`, and `write`.
-- [ ] Reject projections where the consuming domain lacks `project` on the source model or `read` on a referenced source field.
-- [ ] Preserve source classification on projected fields and reject attempts to lower classification.
+- [ ] Preserve default same-domain access assumptions when no `access` block exists.
+- [ ] Parse and record entity and property grants for `read`, `project`, `subscribe`, and `write`.
+- [ ] Emit governance findings when a projection lacks documented `project` or `read` grants, or lacks derivation policy metadata for computed use of referenced source fields.
+- [ ] Emit governance findings when a projection exposes `@pii`, restricted, or higher-classification fields without preserving governance metadata.
+- [ ] Preserve source classification on projected fields and emit governance findings for attempts to lower or omit classification.
 - [ ] Generate unsigned POR metadata and embed POR references in registry metadata for JSON Schema emission.
 
 **Acceptance checks:**
@@ -270,9 +271,9 @@ uv run modellable diff customer.Customer@1 customer.Customer@2 --path ../samples
 ```bash
 cd cli
 uv run pytest tests/test_emit_json_schema.py tests/test_emit_markdown.py tests/test_emit_typescript.py
-uv run modellable compile ../samples/scenarios/09-auto-projections --target json-schema --out ../dist/jsonschema
-uv run modellable compile ../samples/scenarios/09-auto-projections --target markdown --out ../dist/docs
-uv run modellable compile ../samples/scenarios/09-auto-projections --target typescript --out ../dist/types
+uv run modellable compile ../samples/mvp --target json-schema --out ../dist/jsonschema
+uv run modellable compile ../samples/mvp --target markdown --out ../dist/docs
+uv run modellable compile ../samples/mvp --target typescript --out ../dist/types
 ```
 
 ## Milestone 6: CLI Workflows
@@ -312,10 +313,10 @@ uv run modellable compile ../samples/scenarios/09-auto-projections --target type
 ```bash
 cd cli
 uv run pytest tests/test_cli_workflows.py
-uv run modellable validate ../samples/scenarios/09-auto-projections --strict
-uv run modellable resolve customer.Customer@1 --path ../samples/scenarios/09-auto-projections
-uv run modellable lineage customer.CustomerReply@1 --path ../samples/scenarios/09-auto-projections
-uv run modellable docs ../samples/scenarios/09-auto-projections --out ../dist/docs
+uv run modellable validate ../samples/mvp --strict
+uv run modellable resolve customer.Customer@1 --path ../samples/mvp
+uv run modellable lineage customer.CustomerReply@1 --path ../samples/mvp
+uv run modellable docs ../samples/mvp --out ../dist/docs
 uv run modellable codegen formats
 uv run modellable scenario list
 ```
@@ -329,14 +330,15 @@ uv run modellable scenario list
 - `README.md`
 - `docs/README.md`
 - `samples/README.md`
+- `samples/mvp/*`
 - `samples/scenarios/*`
 - `cli/tests/test_samples.py`
 - `.gitignore`
 
 **Tasks:**
 
-- [ ] Add an MVP smoke test that validates and compiles the curated MVP sample.
-- [ ] Decide which existing sample scenarios are expected to pass Phase 1 strict validation and document future-phase exceptions.
+- [ ] Add an MVP smoke test that validates and compiles the minimal `samples/mvp/` happy-path sample.
+- [ ] Document existing `samples/scenarios/` examples as illustrative scenarios and mark future-phase exceptions rather than requiring Phase 1 strict validation.
 - [ ] Ensure `.modellable/`, `dist/`, `.venv/`, and generated TypeScript output directories are ignored unless explicitly documented otherwise.
 - [ ] Document the MVP quick-start workflow in `README.md`.
 - [ ] Document the known deferred commands and targets in CLI help.
@@ -348,10 +350,10 @@ uv run modellable scenario list
 cd cli
 uv sync --extra dev --frozen
 uv run pytest --tb=short
-uv run modellable validate ../samples/scenarios/09-auto-projections --strict
-uv run modellable compile ../samples/scenarios/09-auto-projections --target json-schema --out ../dist/jsonschema
-uv run modellable compile ../samples/scenarios/09-auto-projections --target markdown --out ../dist/docs
-uv run modellable compile ../samples/scenarios/09-auto-projections --target typescript --out ../dist/types
+uv run modellable validate ../samples/mvp --strict
+uv run modellable compile ../samples/mvp --target json-schema --out ../dist/jsonschema
+uv run modellable compile ../samples/mvp --target markdown --out ../dist/docs
+uv run modellable compile ../samples/mvp --target typescript --out ../dist/types
 ```
 
 ## MVP Acceptance Matrix
@@ -364,7 +366,7 @@ uv run modellable compile ../samples/scenarios/09-auto-projections --target type
 | The system can detect whether a model change breaks existing projections. | Milestone 4 |
 | The system can show lineage from projection fields to source fields. | Milestones 3, 6 |
 | The model and projection can be exported as JSON Schema and TypeScript types. | Milestones 5, 6 |
-| Unauthorized projection of restricted fields is rejected. | Milestone 4 |
+| Projection of restricted or insufficiently governed fields is detected and reported. | Milestone 4 |
 
 ## Suggested Implementation Order
 
@@ -373,7 +375,7 @@ uv run modellable compile ../samples/scenarios/09-auto-projections --target type
 3. Add planner and lineage before compatibility and governance, because governance depends on resolved source fields.
 4. Add JSON Schema first, then Markdown, then TypeScript.
 5. Finish CLI workflows after internals are stable enough to avoid command-specific behavior forks.
-6. Harden with sample scenarios and clean-checkout CI.
+6. Harden with the minimal `samples/mvp/` workflow, focused edge-case fixtures, and clean-checkout CI.
 
 ## Verification Policy
 
@@ -387,10 +389,10 @@ Before claiming an MVP milestone complete:
 Before claiming MVP complete:
 
 - Run the full CLI test suite.
-- Validate the curated MVP sample with `--strict`.
-- Compile JSON Schema, Markdown, and TypeScript from the curated MVP sample.
+- Validate `samples/mvp/` with `--strict`.
+- Compile JSON Schema, Markdown, and TypeScript from `samples/mvp/`.
 - Confirm the generated JSON Schema validates with `jsonschema`.
-- Confirm unauthorized field projection tests fail with clear diagnostics.
+- Confirm governance fixture tests emit clear findings for restricted, insufficiently documented, or classification-lowering projections.
 
 ## Risks and Decisions to Track
 
@@ -398,9 +400,9 @@ Before claiming MVP complete:
 |---|---|---|
 | CEL implementation | Validate the MVP subset and extract lineage during Phase 1. | A full CEL parser may be larger than needed; keep the supported subset explicit. |
 | Published state | Use version declarations in `.mdl` as immutable published contracts for MVP. | A future publish workflow may add registry state, but must not mutate source files. |
-| Ownership syntax | Follow existing specs and preserve metadata in IR and artifacts. | The current `.mdl` grammar may need explicit ownership/access block syntax before governance is fully enforceable. |
-| TypeScript generation | Delegate to `json-schema-to-typescript`. | Requires Node or a package invocation strategy; document the dependency clearly. |
-| Samples | Some samples include future-phase constructs. | Strict MVP validation needs a curated sample or clear per-sample expectations. |
+| Governance findings | Preserve ownership and access metadata in IR, registry metadata, POR metadata, and generated artifacts. Detect structural governance issues as findings rather than claiming to enforce organizational authorization. | Findings must be clear enough for process governance and CI policy wrappers to act on later. |
+| Codegen architecture | Make codegen a first-class extensible boundary. Implement TypeScript in Phase 1 through `json-schema-to-typescript`; treat Java, .NET, Rust, Python, and framework targets as future first-class targets. | The Phase 1 interface must not bake in TypeScript-only assumptions. |
+| Samples | Add a minimal `samples/mvp/` happy-path sample for strict acceptance. Use `cli/tests/fixtures/` for governance, compatibility, and edge-case coverage. | The MVP sample must stay approachable while tests still cover meaningful compiler risk. |
 
 ## Out of Scope
 

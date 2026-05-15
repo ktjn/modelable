@@ -25,7 +25,7 @@ All documentation is located in the [docs/](docs/) directory.
 ## Project Structure
 
 - `docs/`: Consolidated documentation, specifications, research, and plans.
-- `samples/`: Worked `.mdl` scenario examples.
+- `samples/`: Worked `.mdl` examples. `samples/mvp/` is planned as the strict Phase 1 acceptance sample; `samples/scenarios/` contains broader illustrative scenarios.
 - `AGENTS.md`: Instructions for AI agents working on this repository.
 
 ## Getting Started

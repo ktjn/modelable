@@ -238,7 +238,7 @@ When a projection field maps from a source field:
 3. The projected field inherits the source field's most restrictive classification.
 4. The projected field may not be granted permissions broader than the source field permits.
 
-The planner enforces these rules at definition time and rejects the projection if any constraint is violated.
+In Phase 1, the planner records these conditions as governance findings and keeps the ownership, access, classification, and lineage metadata reproducible. A later configured policy layer may promote selected findings to blocking errors.
 
 ### 4.7 Permission Scoping Across Domains
 
@@ -248,7 +248,7 @@ When a consumer domain defines a projection over a model in another domain:
 - If the source model grants `project` to the consumer domain, the projection may proceed.
 - Each source property is checked individually for `read` (and `derive` where required).
 
-A domain that is not granted `project` or `read` on a source model may not define projections over it, including indirectly through a chain of projections.
+A domain that is not granted `project` or `read` on a source model is reported as having an insufficiently documented projection, including indirectly through a chain of projections. Real authorization remains a governance process until a later policy enforcement layer is defined.
 
 ## 5. Portable Ownership Record
 
@@ -480,19 +480,22 @@ The first implementation should include:
 
 - Entity-level ownership declaration (`owner`, `steward`, `contact`, `declaredAt`).
 - Property-level ownership override.
-- Permission grants for `read`, `project`, `subscribe`, and `write` at entity and property level.
-- Default permission behaviour when no `access` block is declared.
-- Planner enforcement: reject projections that violate entity or property permissions.
+- Permission grants for `read`, `project`, `subscribe`, and `write` at entity and property level as structured metadata.
+- Default same-domain access assumptions when no `access` block is declared.
+- Planner governance findings for projections that lack documented entity or property grants, expose governed fields, or lower/omit source classification metadata.
 - Portable ownership record structure and issuance (without cryptographic signing).
 - POR reference embedded in JSON Schema output and the change event envelope.
-- Audit log entries for ownership declarations and access policy changes.
-- `checkPermission` API operation.
+- Reproducible ownership and access metadata in the local registry index.
+- `checkPermission` helper semantics for evaluating documented grants in tests and future policy wrappers.
+
+Phase 1 treats governance as a visibility and process-support concern. The compiler detects structural governance issues visible in `.mdl` files and generated artifacts, but it does not claim to enforce real-world organizational authorization. CI policy wrappers or later registry phases may choose to fail builds on selected findings.
 
 Defer to a later phase:
 
 - Cryptographic POR signing and signature verification by external systems.
 - Deny override rules.
 - Cross-system POR verification protocol and enforcement modes.
+- Hard authorization enforcement by identity provider, role registry, or approval workflow.
 - Ownership transfer workflow and `ownershipHistory`.
 - Automated classification propagation warnings at planning time.
 - Fine-grained `derive` and `redact` permissions.
@@ -513,17 +516,23 @@ POR signing remains intentionally unresolved. The MVP must keep POR metadata str
 
 ## 11. Acceptance Criteria
 
-The ownership and permissions model is complete when:
+The MVP ownership and permissions model is complete when:
 
 - A model version can declare an owner, steward, and contact.
 - A model version can declare an `access` block with entity and property-level permissions.
-- The planner rejects a projection from a domain that lacks `project` permission on the source model.
-- The planner rejects inclusion of a source property where the consuming domain lacks `read` permission.
-- The planner rejects use of a source property in a computed expression where the consuming domain lacks `derive` permission.
+- The planner emits a governance finding for a projection from a domain that lacks a documented `project` grant on the source model.
+- The planner emits a governance finding for inclusion of a source property where the consuming domain lacks a documented `read` grant.
+- The planner emits a governance finding for use of a source property in a computed expression where documented derivation policy metadata is absent or incompatible with source restrictions.
+- The planner emits a governance finding when a projection exposes a governed source field while lowering or omitting classification metadata.
 - A generated JSON Schema includes the POR reference fields (`model`, `issuer`, `issuedAt`).
 - A change event envelope includes the POR reference.
 - `issuePOR` returns a valid POR for any published model version.
 - `checkPermission` correctly evaluates grant and default rules for entity and property scope.
+- Ownership and access metadata are reproducibly written to the local registry index.
+
+Full policy enforcement is complete in a later phase when:
+
+- Governance findings can be promoted to blocking policy decisions by a configured policy layer.
 - Audit log entries are written for every ownership declaration and access policy change.
 - An ownership history entry is created when ownership is transferred.
 

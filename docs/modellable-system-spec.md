@@ -709,7 +709,7 @@ Example classifications:
 - `sensitive`
 - `restricted`
 
-Access checks must apply when:
+Governance checks must apply when:
 
 - Creating projections.
 - Creating subscriptions.
@@ -717,7 +717,7 @@ Access checks must apply when:
 - Materializing projections.
 - Reading registry metadata where sensitive fields are exposed.
 
-The planner must reject projections that expose unauthorized fields.
+In Phase 1, the planner reports governance findings for projections that expose restricted, insufficiently documented, or classification-lowering fields. Later policy layers may promote those findings to blocking authorization decisions.
 
 ## 10. Lineage
 
@@ -1085,7 +1085,7 @@ System-level design decisions have been resolved. Phase-specific documents may s
 - **Expression language for computed fields:** CEL (Common Expression Language). Deterministic, non-Turing-complete, sandboxable.
 - **Internal parser models:** `pydantic`. Not exposed as the external contract format.
 - **First generated artifact:** JSON Schema 2020-12.
-- **TypeScript generation:** Delegated to `json-schema-to-typescript`. No custom generator.
+- **Codegen architecture:** Codegen is a first-class extensible boundary. TypeScript generation is delegated to `json-schema-to-typescript` in Phase 1; Java, .NET, Rust, Python, and framework targets are future first-class generated-language targets.
 - **Version scheme:** Integer versions with a required `changeKind: additive | breaking` declaration on publish. See section 8.1.
 - **Composite keys:** Supported in MVP. `identity.key` accepts a string (single field) or a list (composite). See section 3.3.
 - **Version ranges in projections:** Allowed in MVP. The planner resolves to the highest satisfying published version at plan time. See section 8.2.
@@ -1104,7 +1104,7 @@ Phase 1 is acceptable when:
 - The system can detect whether a model change breaks existing projections.
 - The system can show lineage from projection fields to source fields.
 - The model and projection can be exported as JSON Schema and TypeScript types.
-- Unauthorized projection of restricted fields is rejected.
+- Projection of restricted or insufficiently governed fields is detected and reported as governance findings. Phase 1 does not claim to enforce real-world organizational authorization; enforcement remains a governance process or future policy layer.
 
 Runtime acceptance criteria for Phase 5:
 
