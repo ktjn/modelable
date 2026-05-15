@@ -5,6 +5,7 @@ from pathlib import Path
 
 from modelable.parser.ir import MdlFile
 from modelable.parser.parse import parse_file_to_ir
+from modelable.registry.resolver import validate_references
 from modelable.validation.semantic import validate
 
 
@@ -142,6 +143,12 @@ def _validate_merged_workspace(sources: list[WorkspaceSource]) -> list[tuple[Pat
                             )
                         )
 
+    merged = MdlFile()
+    for source in sources:
+        merged.domains.extend(source.mdl.domains)
+        merged.bindings.extend(source.mdl.bindings)
+
+    errors.extend((Path("<workspace>"), error) for error in validate_references(merged))
     return errors
 
 

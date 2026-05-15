@@ -154,8 +154,8 @@ uv run modelable validate ../samples/mvp
 - [x] Merge definitions across files while preserving domain ownership boundaries.
 - [x] Detect duplicate domains, duplicate model versions, duplicate projection versions, and generated-name conflicts.
   - Completed: duplicate domains, duplicate model versions, duplicate projection versions, and generated-name conflicts.
-- [ ] Resolve references in the form `domain.Model@version` and `domain.Model@>=min<max`.
-- [ ] Resolve version ranges to the highest matching published version at compile time.
+- [x] Resolve references in the form `domain.Model@version` and `domain.Model@>=min<max`.
+- [x] Resolve version ranges to the highest matching published version at compile time.
 - [x] Create `.modelable/registry.db` as a rebuildable artifact.
 - [ ] Populate registry tables for domains, models, model versions, fields, projections, projection versions, projection sources, projection fields, field mappings, lineage edges, adapter bindings, compatibility reports, and access policies.
   - Completed: schema creation for the minimum logical tables; population for domains, models, model versions, fields, projections, projection versions, projection sources, projection fields, field mappings, and adapter bindings supported by the current IR.

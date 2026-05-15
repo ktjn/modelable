@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from modelable.parser.ir import (
+    MdlFile,
+    ModelVersion,
+    VersionExact,
+    VersionMin,
+    VersionRange,
+    VersionSpec,
+)
+
+
+@dataclass(frozen=True)
+class ResolvedModelRef:
+    domain_name: str
+    model_name: str
+    version: ModelVersion
+
+
+def resolve_model_ref(
+    mdl: MdlFile,
+    model_ref: str,
+    version_spec: VersionSpec | int,
+) -> ResolvedModelRef:
+    """Resolve a model reference to a concrete published model version."""
+    domain_name, model_name = _split_model_ref(model_ref)
+    versions = _find_model_versions(mdl, domain_name, model_name)
+    if not versions:
+        raise LookupError(
+            f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}"
+        )
+
+    matching = [version for version in versions if _matches(version.version, version_spec)]
+    if not matching:
+        raise LookupError(
+            f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}"
+        )
+
+    return ResolvedModelRef(
+        domain_name=domain_name,
+        model_name=model_name,
+        version=max(matching, key=lambda version: version.version),
+    )
+
+
+def resolved_version_spec(
+    mdl: MdlFile,
+    model_ref: str,
+    version_spec: VersionSpec | int,
+) -> VersionExact:
+    """Return the concrete version selected by a model reference."""
+    resolved = resolve_model_ref(mdl, model_ref, version_spec)
+    return VersionExact(version=resolved.version.version)
+
+
+def validate_references(mdl: MdlFile) -> list[str]:
+    """Return unresolved reference errors for projections, joins, and bindings."""
+    errors: list[str] = []
+
+    for domain in mdl.domains:
+        for projection_name, projection_versions in domain.projections.items():
+            for projection_version in projection_versions:
+                context = f"{domain.name}.{projection_name}@{projection_version.version}"
+                _append_lookup_error(
+                    errors,
+                    context,
+                    projection_version.source.model,
+                    projection_version.source.version,
+                    mdl,
+                )
+                for join in projection_version.joins:
+                    _append_lookup_error(errors, context, join.model, join.version, mdl)
+
+    for binding in mdl.bindings:
+        _append_lookup_error(
+            errors,
+            f"binding {binding.name}",
+            binding.model,
+            binding.model_version,
+            mdl,
+        )
+
+    return errors
+
+
+def _append_lookup_error(
+    errors: list[str],
+    context: str,
+    model_ref: str,
+    version_spec: VersionSpec | int,
+    mdl: MdlFile,
+) -> None:
+    try:
+        resolve_model_ref(mdl, model_ref, version_spec)
+    except LookupError as exc:
+        errors.append(f"{context}: {exc}")
+
+
+def _find_model_versions(
+    mdl: MdlFile,
+    domain_name: str,
+    model_name: str,
+) -> list[ModelVersion]:
+    for domain in mdl.domains:
+        if domain.name == domain_name:
+            return domain.models.get(model_name, [])
+    return []
+
+
+def _split_model_ref(model_ref: str) -> tuple[str, str]:
+    parts = model_ref.split(".", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise LookupError(f"invalid model reference {model_ref}")
+    return parts[0], parts[1]
+
+
+def _matches(version: int, version_spec: VersionSpec | int) -> bool:
+    if isinstance(version_spec, int):
+        return version == version_spec
+    if isinstance(version_spec, VersionExact):
+        return version == version_spec.version
+    if isinstance(version_spec, VersionRange):
+        return version_spec.min_inclusive <= version < version_spec.max_exclusive
+    if isinstance(version_spec, VersionMin):
+        return version >= version_spec.min_inclusive
+    return False
+
+
+def _format_version_spec(version_spec: VersionSpec | int) -> str:
+    if isinstance(version_spec, int):
+        return str(version_spec)
+    if isinstance(version_spec, VersionExact):
+        return str(version_spec.version)
+    if isinstance(version_spec, VersionRange):
+        return f">={version_spec.min_inclusive}<{version_spec.max_exclusive}"
+    if isinstance(version_spec, VersionMin):
+        return f">={version_spec.min_inclusive}"
+    return str(version_spec)
