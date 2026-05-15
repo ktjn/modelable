@@ -220,6 +220,16 @@ class ProjectionVersion(BaseModel):
     fields: list[ProjectionField]
 
 
+class AutoProjectionTarget(BaseModel):
+    kind: Literal["db", "request", "reply", "event"]
+
+
+class AutoProjectionDecl(BaseModel):
+    model: str
+    version: int
+    targets: list[AutoProjectionTarget]
+
+
 class GenerateTarget(BaseModel):
     name: str
     dialect: str | None = None
@@ -251,6 +261,7 @@ class DomainDef(BaseModel):
     description: str | None = None
     models: dict[str, list[ModelVersion]] = Field(default_factory=dict)
     projections: dict[str, list[ProjectionVersion]] = Field(default_factory=dict)
+    auto_projections: list[AutoProjectionDecl] = Field(default_factory=list)
     generate_targets: list[GenerateTarget] = Field(default_factory=list)
 
 

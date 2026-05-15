@@ -72,3 +72,37 @@ def test_load_workspace_reports_duplicate_model_versions_across_files(tmp_path):
     workspace = load_workspace(tmp_path)
 
     assert any("duplicate model version customer.Customer@1" in error for _, error in workspace.errors)
+
+
+def test_load_workspace_reports_auto_projection_generated_name_conflict(tmp_path):
+    mdl = tmp_path / "customer.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+
+  auto projections Customer @ 1 {
+    db
+    request
+    reply
+    event
+  }
+
+  projection CustomerReply @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+
+    assert any(
+        "generated projection name customer.CustomerReply@1 conflicts" in error
+        for _, error in workspace.errors
+    )
