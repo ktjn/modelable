@@ -36,6 +36,9 @@ This repository currently contains the Modellable system specification, centered
 When source code is added:
 
 - Treat `docs/agent-governance.md` as the standing workflow for coding work, including local gates, test gates, PR handling, and verification evidence.
+- When selecting or adding frameworks, libraries, CLIs, build tools, or scaffolding commands, validate the current latest stable version and current recommended usage with a web search against official documentation, package registries, or release pages at the time of the work. Do not rely on agent training data or remembered version knowledge for "latest" choices.
+- Prefer the latest stable framework and tool versions unless the specification, compatibility constraints, existing project manifests, or an explicit user instruction require a different version. Document any deliberate pin to an older version in the handoff or PR notes.
+- For Python projects, use `uv` for Python version management, project setup, dependency management, lockfile generation, and Python tool execution unless the user explicitly asks for another tool or an existing project convention requires it.
 - Add or update tests for behavior that affects validation, compatibility checks, lineage, planning, runtime execution, security, or generated artifacts.
 - Keep registry, compiler/planner, runtime, materializer, and adapter concerns separated unless an existing local pattern says otherwise.
 - Validate definitions before runtime where feasible.

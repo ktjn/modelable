@@ -21,6 +21,10 @@ Agents must:
 - Read the relevant specification before editing.
 - Keep changes small enough for meaningful review.
 - Add or update tests with any future code change that affects parser behavior, validation, compatibility checks, lineage, planning, runtime execution, governance, security, or generated artifacts.
+- Validate current latest stable framework, library, CLI, build-tool, and scaffolding choices with a web search against official documentation, package registries, or release pages before adding or changing them.
+- Use the latest stable framework and tool versions by default, unless the specification, compatibility constraints, existing manifests, or explicit user direction require a different version.
+- Record any deliberate use of an older framework or tool version in the final handoff or PR body.
+- Use `uv` for Python version management, project setup, dependency management, lockfile generation, and Python tool execution unless an explicit user request or established project convention requires otherwise.
 - Preserve the existing domain language: domain-owned canonical models, immutable versions, projections, subscriptions, adapter bindings, planner/runtime/materializer, compatibility, lineage, and governance.
 - Prefer explicit derivation and traceability over implicit behavior.
 - Identify whether a change is MVP, deferred, non-goal, or open decision when adding requirements.
