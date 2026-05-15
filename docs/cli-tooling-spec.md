@@ -2,7 +2,7 @@
 
 ## 1. Language and Runtime
 
-- **Language:** Python 3.11+
+- **Language:** Python 3.14+
 - **Package manager / environment manager:** [uv](https://docs.astral.sh/uv/)
 - **Build backend:** Hatchling (via `hatchling` — uv is compatible with all PEP 517 backends)
 - **Lock file:** `cli/uv.lock` — committed to source control; ensures reproducible installs
@@ -17,7 +17,7 @@ uv handles virtual environment creation, dependency resolution, lock file manage
 cli/
   pyproject.toml          # package metadata, dependencies, entry point
   uv.lock                 # pinned dependency graph (committed)
-  .python-version         # pins the Python interpreter version for uv
+  .python-version         # selects the latest stable Python feature series for uv
   src/
     modellable/
       __init__.py
@@ -65,13 +65,12 @@ build-backend = "hatchling.build"
 [project]
 name = "modellable"
 version = "0.1.0"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
     "click>=8.1",
     "lark>=1.1",
     "pydantic>=2.0",
     "rich>=13.0",
-    "anthropic>=0.40",
     "jsonschema>=4.23",
     "referencing>=0.35",
 ]
@@ -173,13 +172,13 @@ uv run --no-project python -c "import lark; print(lark.__version__)"
 
 ## 5. `.python-version`
 
-The file `cli/.python-version` pins the Python interpreter uv selects:
+The file `cli/.python-version` selects the Python interpreter uv uses. It should track the latest stable Python feature series unless a documented compatibility constraint requires an older version:
 
 ```
-3.11
+3.14
 ```
 
-uv respects this file automatically. Update it when the minimum supported version changes; always bump `requires-python` in `pyproject.toml` at the same time.
+uv respects this file automatically. Update it when the latest stable Python feature series changes; always bump `requires-python` in `pyproject.toml` at the same time.
 
 ---
 
@@ -197,7 +196,14 @@ uv respects this file automatically. Update it when the minimum supported versio
 ```yaml
 # Example GitHub Actions step
 - name: Install uv
-  uses: astral-sh/setup-uv@v4
+  uses: astral-sh/setup-uv@v8.1.0
+  with:
+    enable-cache: true
+    cache-dependency-glob: cli/uv.lock
+
+- name: Install Python
+  run: uv python install 3.14
+  working-directory: cli
 
 - name: Sync dependencies
   run: uv sync --extra dev --frozen
@@ -220,11 +226,12 @@ uv respects this file automatically. Update it when the minimum supported versio
 | `lark` | 1.1 | Earley parser for `.mdl` grammar |
 | `pydantic` | 2.0 | IR model definitions and validation |
 | `rich` | 13.0 | Colored terminal output, tables, progress bars |
-| `anthropic` | 0.40 | Claude API for `describe` and `generate` commands |
 | `jsonschema` | 4.23 | JSON Schema validation in emitter tests |
 | `referencing` | 0.35 | JSON Schema `$ref` resolution |
 | `pytest` *(dev)* | 7.0 | Test runner |
 | `pytest-cov` *(dev)* | 4.0 | Coverage reporting |
+
+LLM provider SDKs are intentionally excluded from the Phase 1 dependency set. Add them with the deferred AI commands that require them.
 
 ---
 

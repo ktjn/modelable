@@ -82,11 +82,11 @@ Three strategies were considered:
 
 **Tasks:**
 
-- [ ] Create the `cli/` package scaffold described in `cli-tooling-spec.md`.
-- [ ] Add runtime dependencies: `click`, `lark`, `pydantic`, `rich`, `jsonschema`, `referencing`.
-- [ ] Add development dependencies: `pytest`, `pytest-cov`.
+- [x] Create the `cli/` package scaffold described in `cli-tooling-spec.md`.
+- [x] Add runtime dependencies: `click`, `lark`, `pydantic`, `rich`, `jsonschema`, `referencing`.
+- [x] Add development dependencies: `pytest`, `pytest-cov`.
 - [ ] Add the root `bin/modellable` bootstrap script.
-- [ ] Add CI that runs `uv sync --extra dev --frozen` and `uv run pytest --tb=short`.
+- [x] Add CI that runs `uv sync --extra dev --frozen` and `uv run pytest --tb=short`.
 - [ ] Verify `uv run modellable --help` exits `0`.
 
 **Acceptance checks:**
