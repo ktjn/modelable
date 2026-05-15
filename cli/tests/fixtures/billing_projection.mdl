@@ -1,0 +1,29 @@
+domain billing {
+  owner: "billing-platform"
+
+  projection BillingCustomer @ 1
+    from customer.Customer @ 2 as c
+  {
+    billingCustomerId <- c.customerId
+    name <- c.legalName
+    @pii
+    invoiceEmail <- c.email
+    isBillable = c.status == "active"
+  }
+
+  projection CustomerOrderStats @ 1
+    from orders.Order @ 3 as o
+    group by o.customerId
+  {
+    customerId <- o.customerId
+    orderCount = count(o.orderId)
+    totalSpent = sum(o.totalAmount)
+    lastOrderAt = max(o.createdAt)
+  }
+
+  generate {
+    openapi -> "./generated/api/"
+    typescript -> "./generated/types/"
+    sql(postgres) -> "./generated/sql/"
+  }
+}

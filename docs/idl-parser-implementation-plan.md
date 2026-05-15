@@ -170,7 +170,7 @@ git commit -m "feat: scaffold modellable CLI package with uv and Hatchling"
 - Create: `cli/src/modellable/grammar/modellable.lark`
 - Modify: `cli/tests/test_grammar.py`
 
-- [ ] **Step 1: Write failing parse test**
+- [x] **Step 1: Write failing parse test**
 
 Add to `cli/tests/test_grammar.py`:
 
@@ -199,13 +199,13 @@ def test_parse_simple_model():
     parse_text(SIMPLE_MODEL)  # must not raise
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/test_grammar.py::test_parse_simple_model -v`
 
 Expected: `NotImplementedError`
 
-- [ ] **Step 3: Write `cli/src/modellable/grammar/modellable.lark`**
+- [x] **Step 3: Write `cli/src/modellable/grammar/modellable.lark`**
 
 ```lark
 // Modellable IDL Grammar
@@ -408,7 +408,7 @@ IDENT: /[a-zA-Z_][a-zA-Z0-9_]*/
 
 > **Grammar completeness note:** This grammar includes distributed-mode constructs (`@server`, `import domain`, `consumer`, `registry`, `peers`, `auto projections`) that are defined in `idl-design-spec.md` and `distributed-lineage-spec.md`. The initial scaffold (Task 1) need only handle local-mode syntax; distributed constructs may be implemented in a follow-up task once the core parser is stable.
 
-- [ ] **Step 4: Implement `parse_text` in `cli/src/modellable/parser/parse.py`**
+- [x] **Step 4: Implement `parse_text` in `cli/src/modellable/parser/parse.py`**
 
 ```python
 from __future__ import annotations
@@ -440,13 +440,13 @@ def parse_file(path: str | Path):
     return parse_text(Path(path).read_text(encoding="utf-8"))
 ```
 
-- [ ] **Step 5: Run test — expect it to pass**
+- [x] **Step 5: Run test — expect it to pass**
 
 Run: `pytest tests/test_grammar.py::test_parse_simple_model -v`
 
 Expected: PASS
 
-- [ ] **Step 6: Add type coverage tests**
+- [x] **Step 6: Add type coverage tests**
 
 Add to `cli/tests/test_grammar.py`:
 
@@ -497,7 +497,7 @@ def test_parse_annotations():
     """)
 ```
 
-- [ ] **Step 7: Run all grammar tests**
+- [x] **Step 7: Run all grammar tests**
 
 Run: `pytest tests/test_grammar.py -v`
 
@@ -521,7 +521,7 @@ git commit -m "feat: add Lark grammar for domains, models, fields, and types"
 
 The grammar already handles projections (added as a stub in Task 2). This task validates it with real fixture files and adds projection-specific parse tests.
 
-- [ ] **Step 1: Write `cli/tests/fixtures/customer.mdl`**
+- [x] **Step 1: Write `cli/tests/fixtures/customer.mdl`**
 
 ```mdl
 domain customer {
@@ -547,7 +547,7 @@ domain customer {
 }
 ```
 
-- [ ] **Step 2: Write `cli/tests/fixtures/billing_projection.mdl`**
+- [x] **Step 2: Write `cli/tests/fixtures/billing_projection.mdl`**
 
 ```mdl
 domain billing {
@@ -581,7 +581,7 @@ domain billing {
 }
 ```
 
-- [ ] **Step 3: Write fixture parse tests**
+- [x] **Step 3: Write fixture parse tests**
 
 Add to `cli/tests/test_grammar.py`:
 
@@ -644,7 +644,7 @@ def test_parse_aggregation():
     """)
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `pytest tests/test_grammar.py -v`
 
