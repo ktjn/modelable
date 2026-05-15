@@ -1460,7 +1460,7 @@ Rules to enforce:
 4. Each projection field must have exactly one mapping (`<-` or `=`).
 5. Aggregation functions (`count`, `sum`, `min`, `max`, `avg`) may only appear in projections with `group by`.
 
-- [ ] **Step 1: Write failing validation tests**
+- [x] **Step 1: Write failing validation tests**
 
 Create `cli/tests/test_semantic.py`:
 
@@ -1555,13 +1555,13 @@ def test_aggregate_function_with_group_by_passes():
     assert errors == []
 ```
 
-- [ ] **Step 2: Run to verify failures**
+- [x] **Step 2: Run to verify failures**
 
 Run: `pytest tests/test_semantic.py -v`
 
 Expected: All fail with `ModuleNotFoundError`
 
-- [ ] **Step 3: Write `cli/src/modelable/validation/semantic.py`**
+- [x] **Step 3: Write `cli/src/modelable/validation/semantic.py`**
 
 ```python
 from __future__ import annotations
@@ -1634,7 +1634,7 @@ def _validate_projections(domain_name, projections, errors):
                         )
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `pytest tests/test_semantic.py -v`
 
