@@ -21,6 +21,7 @@ All documentation is located in the [docs/](docs/) directory.
 ### Current Implementation Plans
 - [MVP Implementation Plan](docs/mvp-implementation-plan.md) — Phase 1 delivery sequence and acceptance checks.
 - [IDL Parser, IR, and Validation](docs/idl-parser-implementation-plan.md) — Phase 1 implementation plan.
+- [Agent Governance](docs/agent-governance.md) — Agent operating policy, test gates, PR handling, and local gate expectations.
 
 ## Project Structure
 

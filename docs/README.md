@@ -28,6 +28,7 @@ This directory contains the system specifications, design documents, and impleme
 | [llm-integration-spec.md](llm-integration-spec.md) | AI-powered commands — `generate`, `describe`, `transform`, `suggest-projection` | cli-spec.md, idl-design-spec.md |
 | [cel-integration-spec.md](cel-integration-spec.md) | CEL expression language — embedding, validation, lineage extraction from computed fields | idl-design-spec.md, idl-parser-implementation-plan.md |
 | [migration-guide.md](migration-guide.md) | Migrating from OpenAPI, JSON Schema, Protobuf, SQL DDL, Avro to Modellable | cli-spec.md, llm-integration-spec.md |
+| [agent-governance.md](agent-governance.md) | Agent operating policy — local gate, test gates, PR handling, and CI expectations | AGENTS.md, modellable-system-spec.md |
 
 ## Phases at a glance
 
