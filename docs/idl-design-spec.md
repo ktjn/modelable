@@ -102,7 +102,7 @@ The type system is platform-neutral. Target emitters map each type to the closes
 |---|---|
 | `@key` | Identity field (required for `entity` and `aggregate`) |
 | `@pii` | Contains personally identifiable information |
-| `@classification("level")` | Governance classification (restricted, internal, public) |
+| `@classification("level")` | Governance classification (open, internal, confidential, secret) |
 | `@deprecated(replacedBy: "field")` | Field is deprecated |
 | `@owner("team")` | Field-level ownership override |
 | `@server` | Field is assigned by the server at write time (e.g. auto-generated IDs, timestamps). Excluded from `request` auto projections by default. |
@@ -340,7 +340,7 @@ auto projections Customer @ 1 {
 
 **`exclude` accepts:**
 - A list of field names: `exclude [fieldName, ...]`
-- An annotation filter: `exclude [@pii]`, `exclude [@classification("restricted")]`
+- An annotation filter: `exclude [@pii]`, `exclude [@classification("secret")]`
 - A combination: `exclude [internalScore, @pii]`
 
 **`on` accepts:** any subset of `[created, updated, deleted]`.

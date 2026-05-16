@@ -229,7 +229,7 @@ auto projections Customer @ 1 {
 }
 ```
 
-`exclude` accepts field names, annotation filters (`@pii`, `@classification("restricted")`), or both. `on` accepts any subset of `[created, updated, deleted]`.
+`exclude` accepts field names, annotation filters (`@pii`, `@classification("confidential")`), or both. `on` accepts any subset of `[created, updated, deleted]`.
 
 Auto projections may only target `entity` or `aggregate` models. The four generated names are reserved; defining an explicit projection with the same name for the same entity version is a compile error. For use cases requiring joins, aggregations, or computed fields, hand-authored projections remain necessary.
 
@@ -322,7 +322,7 @@ Field modifiers:
 - `?` suffix — optional field (nullable / not required)
 - `@key` — identity field (required for `entity` and `aggregate` models)
 - `@pii` — marks field as personally identifiable information
-- `@classification("level")` — governance classification (`public`, `internal`, `confidential`, `restricted`)
+- `@classification("level")` — governance classification level (`open`, `internal`, `confidential`, `secret`), ordered from least to most restricted
 - `@deprecated(replacedBy: "field")` — marks field as deprecated
 - `@owner("team")` — field-level ownership override
 - `@server` — field is assigned by the server at write time (e.g. auto-generated identifiers, audit timestamps). Excluded from `request` auto projections by default.
@@ -700,14 +700,16 @@ The registry must be able to list consumers affected by a planned deprecation.
 
 The platform must support field-level classification.
 
-Example classifications:
+Classification levels form an ordered hierarchy from least to most restricted:
 
-- `public`
-- `internal`
-- `confidential`
-- `pii`
-- `sensitive`
-- `restricted`
+| Level | Meaning |
+|:------|:--------|
+| `open` | No access restriction. Safe to expose to any consumer. |
+| `internal` | Restricted to internal consumers within the organisation. |
+| `confidential` | Restricted to explicitly authorised consumers. |
+| `secret` | Highest restriction. Requires explicit governance approval to project. |
+
+`@pii` is an orthogonal annotation that marks personally identifiable information. A field may carry both `@pii` and a classification level — they govern different aspects (data sensitivity versus access tier).
 
 Governance checks must apply when:
 
@@ -717,7 +719,7 @@ Governance checks must apply when:
 - Materializing projections.
 - Reading registry metadata where sensitive fields are exposed.
 
-In Phase 1, the planner reports governance findings for projections that expose restricted, insufficiently documented, or classification-lowering fields. Later policy layers may promote those findings to blocking authorization decisions.
+In Phase 1, the planner reports governance findings for projections that expose secret, insufficiently documented, or classification-lowering fields. Later policy layers may promote those findings to blocking authorization decisions.
 
 ## 10. Lineage
 
@@ -807,7 +809,7 @@ Generated JSON Schema documents use `x-modelable-*` vendor extensions to carry M
 | :--- | :--- |
 | `x-modelable` | Model kind, domain, name, and version block |
 | `x-modelable-field` | Fully qualified field reference for lineage |
-| `x-modelable-classification` | Field classification (pii, internal, confidential, etc.) |
+| `x-modelable-classification` | Field classification level: `open`, `internal`, `confidential`, or `secret`. Set only when `@classification` is declared; `@pii` is carried separately in `x-modelable-field`. |
 | `x-modelable-lineage` | Source field reference for derived fields |
 | `x-modelable-ref` | Cross-model reference |
 | `x-modelable-por` | Portable ownership record reference |
