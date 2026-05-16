@@ -7,14 +7,14 @@ domain "credit-bureau" {
     @key       reportId:           uuid
                customerId:         uuid // Could be ref
                bureauName:         enum(experian, equifax, transunion, creditsafe)
-    @classification("sensitive")
+    @classification("confidential")
                creditScore:        int
                creditScoreModel:   string
                numberOfOpenAccounts?: int
                numberOfDerogAccounts?: int
-    @classification("sensitive")
+    @classification("confidential")
                totalDebtCents?:    int
-    @classification("sensitive")
+    @classification("confidential")
                totalCreditLimitCents?: int
                utilizationRate?:   decimal(10,4)
                missedPaymentsLast12m?: int

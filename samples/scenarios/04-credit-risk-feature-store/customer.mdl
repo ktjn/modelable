@@ -5,22 +5,22 @@ domain customer {
 
   aggregate CustomerFinancials @ 2 (additive) {
     @key       customerId:         uuid
-    @classification("sensitive")
+    @classification("confidential")
                declaredAnnualIncomeCents?: int
                employmentStatus?:  enum(employed_full_time, employed_part_time, self_employed, unemployed, retired, student)
     @pii       employerName?:      string
                monthsAtCurrentEmployer?: int
                linkedBankAccountCount: int = 0
-    @classification("sensitive")
+    @classification("confidential")
                avgMonthlyInflowCents?: int
-    @classification("sensitive")
+    @classification("confidential")
                avgMonthlyOutflowCents?: int
-    @classification("sensitive")
+    @classification("confidential")
                estimatedMonthlyDebtObligationCents?: int
                openCreditLineCount?: int
-    @classification("sensitive")
+    @classification("confidential")
                totalCreditLimitCents?: int
-    @classification("sensitive")
+    @classification("confidential")
                totalUtilisedCreditCents?: int
                updatedAt:          timestamp
   }

@@ -10,7 +10,7 @@ domain customer {
     @pii       lastName:           string
     @pii       dateOfBirth?:       date
     @pii       phoneNumber?:       string
-    @classification("sensitive")
+    @classification("confidential")
                nationalIdHash?:    string
     @pii       addressLine1?:      string
     @pii       addressLine2?:      string
