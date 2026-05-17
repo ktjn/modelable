@@ -223,3 +223,53 @@ domain billing {
     assert "from customer.Customer @ 1 as c" in projection_result.output
     assert "billingId <- c.customerId" in projection_result.output
     assert "displayName = c.name" in projection_result.output
+
+
+def test_lineage_prints_model_and_projection_details(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    @pii
+    email?: string
+  }
+}
+
+domain billing {
+  owner: "billing-platform"
+
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1 as c
+  {
+    email <- c.email
+    domainName = "billing"
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    model_result = runner.invoke(cli, ["lineage", "customer.Customer@1", "--path", str(tmp_path)])
+    projection_result = runner.invoke(
+        cli,
+        ["lineage", "billing.BillingCustomer@1", "--path", str(tmp_path)],
+    )
+
+    assert model_result.exit_code == 0, model_result.output
+    assert "customer.Customer@1" in model_result.output
+    assert "kind: entity" in model_result.output
+    assert "customerId" in model_result.output
+    assert "classification" not in model_result.output or "pii" in model_result.output
+
+    assert projection_result.exit_code == 0, projection_result.output
+    assert "billing.BillingCustomer@1" in projection_result.output
+    assert "source: customer.Customer @ 1 as c" in projection_result.output
+    assert "- email: direct" in projection_result.output
+    assert "<- customer.Customer@1.email" in projection_result.output
+    assert "- domainName: computed" in projection_result.output
+    assert 'expr: "billing"' in projection_result.output

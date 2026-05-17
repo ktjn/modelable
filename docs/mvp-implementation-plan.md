@@ -314,7 +314,8 @@ uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 - [x] Implement `validate [PATH] [--strict]`.
 - [x] Implement `resolve REF [--path PATH]`.
   - Completed: `resolve` now prints the normalized model or projection definition using the shared renderer and resolver.
-- [ ] Implement `lineage REF [--path PATH]`.
+- [x] Implement `lineage REF [--path PATH]`.
+  - Completed: `lineage` now prints canonical field details for models and field-level source lineage for projections using the planner lineage graph.
 - [x] Implement `diff REF_A REF_B [--path PATH]`.
 - [x] Implement `compile SOURCE --target TARGET [--out DIR]` (json-schema, markdown, and typescript targets working).
 - [x] Implement `docs SOURCE [--out DIR]` as a wrapper around markdown compilation.
