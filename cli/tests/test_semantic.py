@@ -141,7 +141,7 @@ def test_aggregate_function_without_group_by_fails():
 
 
 def test_valid_classification_levels_pass():
-    for level in ("open", "internal", "confidential", "secret"):
+    for level in ("open", "internal", "confidential", "restricted", "secret"):
         mdl = parse_text_to_ir(f"""
         domain payments {{
           entity Payment @ 1 (additive) {{

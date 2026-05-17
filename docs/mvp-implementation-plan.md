@@ -237,8 +237,10 @@ uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
   - Completed: model and projection versions now support version-scoped `access { ... }` blocks with entity and property grants, and registry compilation records explicit grants instead of defaulting when a block is present.
 - [x] Emit governance findings when a projection lacks documented `project` or `read` grants, or lacks derivation policy metadata for computed use of referenced source fields.
   - Completed: plan documents now include deterministic governance findings for projections that omit explicit access documentation or computed-field derivation policy metadata for referenced source fields.
-- [ ] Emit governance findings when a projection exposes `@pii`, restricted, or higher-classification fields without preserving governance metadata.
-- [ ] Preserve source classification on projected fields and emit governance findings for attempts to lower or omit classification.
+- [x] Emit governance findings when a projection exposes `@pii`, restricted, or higher-classification fields without preserving governance metadata.
+  - Completed: projection governance findings now flag projected fields that drop `@pii` metadata or omit source classification metadata when the source field is governed.
+- [x] Preserve source classification on projected fields and emit governance findings for attempts to lower or omit classification.
+  - Completed: projected fields now inherit the source field's classification requirements for governance reporting, and lower or missing classifications are reported deterministically.
 - [ ] Generate unsigned POR metadata and embed POR references in registry metadata for JSON Schema emission.
 
 **Acceptance checks:**

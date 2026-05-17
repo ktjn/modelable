@@ -64,6 +64,69 @@ def test_projection_with_access_block_and_derivation_policy_passes():
     assert findings == []
 
 
+def test_projection_missing_governance_metadata_emits_classification_findings():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            @pii
+            @classification("restricted")
+            secretToken: string
+          }
+        }
+
+        domain billing {
+          projection BillingCustomer @ 1
+            from customer.Customer @ 1 as c
+          {
+            access {
+              entity billing [read, project]
+            }
+            token = c.secretToken
+          }
+        }
+        """
+    )
+
+    pv = mdl.domains[1].projections["BillingCustomer"][0]
+    findings = build_projection_governance_findings("billing", "BillingCustomer", pv, mdl)
+
+    assert any(f.code == "missing_pii_metadata" for f in findings)
+    assert any(f.code == "missing_classification_metadata" for f in findings)
+
+
+def test_projection_lowering_classification_emits_governance_finding():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            @classification("restricted")
+            secretToken: string
+          }
+        }
+
+        domain billing {
+          projection BillingCustomer @ 1
+            from customer.Customer @ 1 as c
+          {
+            access {
+              entity billing [read, project]
+            }
+            @classification("internal")
+            token = c.secretToken
+          }
+        }
+        """
+    )
+
+    pv = mdl.domains[1].projections["BillingCustomer"][0]
+    findings = build_projection_governance_findings("billing", "BillingCustomer", pv, mdl)
+
+    assert any(f.code == "lowered_classification" for f in findings)
+
+
 def test_plan_includes_governance_findings():
     mdl = parse_text_to_ir(
         """

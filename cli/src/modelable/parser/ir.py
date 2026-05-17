@@ -30,6 +30,7 @@ class ClassificationLevel(str, Enum):
     open = "open"
     internal = "internal"
     confidential = "confidential"
+    restricted = "restricted"
     secret = "secret"
 
 

@@ -446,6 +446,8 @@ Field classifications flow through projections. A projected field must carry at 
 
 A projection may raise the classification of a derived field but must not lower it below the source.
 
+In Phase 1, the planner reports governance findings when a projection omits the source classification or lowers it for governed fields such as `restricted` or `secret`.
+
 ### 6.4 Redaction Rules
 
 A field for which a consuming principal holds only `redact` permission must have its value replaced by a sentinel rather than transmitted in plaintext:
