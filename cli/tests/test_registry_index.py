@@ -96,3 +96,57 @@ domain payments {
         ("amount", "internal"),
         ("currency", None),
     ]
+
+
+def test_build_registry_populates_default_access_policies(tmp_path):
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    legalName: string
+  }
+}
+
+domain billing {
+  owner: "billing-platform"
+
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1 as c
+  {
+    billingCustomerId <- c.customerId
+    name <- c.legalName
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    registry_path = build_registry(workspace, tmp_path / ".modelable")
+
+    with sqlite3.connect(registry_path) as conn:
+        rows = conn.execute(
+            """
+            select subject_ref, action, grantee
+            from access_policies
+            order by subject_ref, action, grantee
+            """
+        ).fetchall()
+
+    assert rows == [
+        ("billing.BillingCustomer@1", "manage_access", "billing-platform"),
+        ("billing.BillingCustomer@1", "project", "billing"),
+        ("billing.BillingCustomer@1", "read", "billing"),
+        ("billing.BillingCustomer@1", "subscribe", "billing"),
+        ("billing.BillingCustomer@1", "transfer", "billing-platform"),
+        ("billing.BillingCustomer@1", "write", "billing-platform"),
+        ("customer.Customer@1", "manage_access", "customer-platform"),
+        ("customer.Customer@1", "project", "customer"),
+        ("customer.Customer@1", "read", "customer"),
+        ("customer.Customer@1", "subscribe", "customer"),
+        ("customer.Customer@1", "transfer", "customer-platform"),
+        ("customer.Customer@1", "write", "customer-platform"),
+    ]

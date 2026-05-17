@@ -231,7 +231,8 @@ uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
   - Completed: projection plan documents now carry `requires_revalidation` and `revalidation_reasons` when a source or join resolves to a breaking model version.
 - [x] Implement `modelable diff REF_A REF_B --path PATH`.
   - Completed: `diff` compares two published model versions and prints compatibility status plus the classified change list.
-- [ ] Preserve default same-domain access assumptions when no `access` block exists.
+- [x] Preserve default same-domain access assumptions when no `access` block exists.
+  - Completed: registry compilation now emits default same-domain `read`, `project`, and `subscribe` access policies, plus owner-only `write`, `transfer`, and `manage_access` policies, for published model and projection versions without an explicit `access` block.
 - [ ] Parse and record entity and property grants for `read`, `project`, `subscribe`, and `write`.
 - [ ] Emit governance findings when a projection lacks documented `project` or `read` grants, or lacks derivation policy metadata for computed use of referenced source fields.
 - [ ] Emit governance findings when a projection exposes `@pii`, restricted, or higher-classification fields without preserving governance metadata.

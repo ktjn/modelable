@@ -89,6 +89,12 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                             classification.value if classification else None,
                         ),
                     )
+                _insert_default_access_policies(
+                    conn,
+                    subject_ref=f"{domain.name}.{model_name}@{version.version}",
+                    same_domain=domain.name,
+                    owner=domain.owner,
+                )
 
         for projection_name, versions in domain.projections.items():
             conn.execute(
@@ -199,6 +205,12 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                         field.name,
                         field.mapping,
                     )
+                _insert_default_access_policies(
+                    conn,
+                    subject_ref=f"{domain.name}.{projection_name}@{version.version}",
+                    same_domain=domain.name,
+                    owner=domain.owner,
+                )
 
     for binding in workspace.mdl.bindings:
         conn.execute(
@@ -263,6 +275,33 @@ def _insert_field_mapping(
             mapping.expression,
         ),
     )
+
+
+def _insert_default_access_policies(
+    conn: sqlite3.Connection,
+    *,
+    subject_ref: str,
+    same_domain: str,
+    owner: str | None,
+) -> None:
+    for action in ("read", "project", "subscribe"):
+        conn.execute(
+            """
+            insert into access_policies (subject_ref, action, grantee)
+            values (?, ?, ?)
+            """,
+            (subject_ref, action, same_domain),
+        )
+
+    if owner:
+        for action in ("write", "transfer", "manage_access"):
+            conn.execute(
+                """
+                insert into access_policies (subject_ref, action, grantee)
+                values (?, ?, ?)
+                """,
+                (subject_ref, action, owner),
+            )
 
 
 def _to_json(value) -> str:
