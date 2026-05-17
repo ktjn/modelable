@@ -233,7 +233,8 @@ uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
   - Completed: `diff` compares two published model versions and prints compatibility status plus the classified change list.
 - [x] Preserve default same-domain access assumptions when no `access` block exists.
   - Completed: registry compilation now emits default same-domain `read`, `project`, and `subscribe` access policies, plus owner-only `write`, `transfer`, and `manage_access` policies, for published model and projection versions without an explicit `access` block.
-- [ ] Parse and record entity and property grants for `read`, `project`, `subscribe`, and `write`.
+- [x] Parse and record entity and property grants for `read`, `project`, `subscribe`, and `write`.
+  - Completed: model and projection versions now support version-scoped `access { ... }` blocks with entity and property grants, and registry compilation records explicit grants instead of defaulting when a block is present.
 - [ ] Emit governance findings when a projection lacks documented `project` or `read` grants, or lacks derivation policy metadata for computed use of referenced source fields.
 - [ ] Emit governance findings when a projection exposes `@pii`, restricted, or higher-classification fields without preserving governance metadata.
 - [ ] Preserve source classification on projected fields and emit governance findings for attempts to lower or omit classification.

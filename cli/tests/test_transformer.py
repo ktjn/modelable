@@ -187,6 +187,48 @@ def test_transform_classification_on_projection_field():
     assert fields["amount"].classification is None
 
 
+def test_transform_access_block():
+    mdl = parse_text_to_ir("""
+    domain customer {
+      entity Customer @ 1 (additive) {
+        @key customerId: uuid
+        access {
+          entity billing [read, project, subscribe]
+          property email billing [read]
+        }
+        email?: string
+      }
+    }
+    """)
+
+    version = mdl.domains[0].models["Customer"][0]
+    assert version.access is not None
+    assert [grant.principal for grant in version.access.entity] == ["billing"]
+    assert version.access.entity[0].permissions == ["read", "project", "subscribe"]
+    assert version.access.properties["email"][0].principal == "billing"
+    assert version.access.properties["email"][0].permissions == ["read"]
+
+
+def test_transform_projection_access_block():
+    mdl = parse_text_to_ir("""
+    domain billing {
+      projection BillingCustomer @ 1
+        from customer.Customer @ 1 as c
+      {
+        access {
+          entity billing [read, project]
+        }
+        customerId <- c.customerId
+      }
+    }
+    """)
+
+    version = mdl.domains[0].projections["BillingCustomer"][0]
+    assert version.access is not None
+    assert [grant.principal for grant in version.access.entity] == ["billing"]
+    assert version.access.entity[0].permissions == ["read", "project"]
+
+
 def test_transform_fixture_files(fixture_path):
     from modelable.parser.parse import parse_file_to_ir
 

@@ -161,3 +161,19 @@ def test_parse_aggregation():
     }
     """)
     assert tree.data == "start"
+
+
+def test_parse_access_block():
+    tree = parse_text("""
+    domain customer {
+      entity Customer @ 1 (additive) {
+        @key customerId: uuid
+        access {
+          entity billing [read, project, subscribe]
+          property email billing [read]
+        }
+        email?: string
+      }
+    }
+    """)
+    assert tree.data == "start"

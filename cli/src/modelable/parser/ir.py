@@ -160,11 +160,22 @@ class ChangeKind(str, Enum):
     breaking = "breaking"
 
 
+class AccessGrant(BaseModel):
+    principal: str
+    permissions: list[str]
+
+
+class AccessBlock(BaseModel):
+    entity: list[AccessGrant] = Field(default_factory=list)
+    properties: dict[str, list[AccessGrant]] = Field(default_factory=dict)
+
+
 class ModelVersion(BaseModel):
     model_kind: ModelKind
     version: int
     change_kind: ChangeKind
     fields: list[FieldDef]
+    access: AccessBlock | None = None
 
 
 class VersionExact(BaseModel):
@@ -246,6 +257,7 @@ class ProjectionVersion(BaseModel):
     group_by: list[str] = Field(default_factory=list)
     fields: list[ProjectionField]
     auto_generated: bool = False
+    access: AccessBlock | None = None
 
 
 class AutoProjectionTarget(BaseModel):

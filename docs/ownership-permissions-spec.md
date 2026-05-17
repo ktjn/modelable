@@ -171,6 +171,8 @@ Permissions are granted to principals. Supported principal kinds:
 
 Permissions are declared in a model version's `access` block.
 
+In `.mdl`, the same structure is expressed with version-scoped `access { ... }` blocks containing `entity` and `property` grant statements.
+
 ```yaml
 access:
   entity:

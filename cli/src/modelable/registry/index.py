@@ -6,7 +6,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
-from modelable.parser.ir import ComputedMapping, DirectMapping
+from modelable.parser.ir import AccessBlock, AccessGrant, ComputedMapping, DirectMapping
 from modelable.registry.resolver import resolved_version_spec
 
 
@@ -89,9 +89,10 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                             classification.value if classification else None,
                         ),
                     )
-                _insert_default_access_policies(
+                _insert_access_policies(
                     conn,
                     subject_ref=f"{domain.name}.{model_name}@{version.version}",
+                    access=version.access,
                     same_domain=domain.name,
                     owner=domain.owner,
                 )
@@ -205,9 +206,10 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                         field.name,
                         field.mapping,
                     )
-                _insert_default_access_policies(
+                _insert_access_policies(
                     conn,
                     subject_ref=f"{domain.name}.{projection_name}@{version.version}",
+                    access=version.access,
                     same_domain=domain.name,
                     owner=domain.owner,
                 )
@@ -277,13 +279,30 @@ def _insert_field_mapping(
     )
 
 
-def _insert_default_access_policies(
+def _insert_access_policies(
     conn: sqlite3.Connection,
     *,
     subject_ref: str,
+    access: AccessBlock | None,
     same_domain: str,
     owner: str | None,
 ) -> None:
+    if access is not None:
+        for grant in access.entity:
+            _insert_access_grant(
+                conn,
+                subject_ref=subject_ref,
+                grant=grant,
+            )
+        for field_name, grants in access.properties.items():
+            for grant in grants:
+                _insert_access_grant(
+                    conn,
+                    subject_ref=f"{subject_ref}.{field_name}",
+                    grant=grant,
+                )
+        return
+
     for action in ("read", "project", "subscribe"):
         conn.execute(
             """
@@ -302,6 +321,22 @@ def _insert_default_access_policies(
                 """,
                 (subject_ref, action, owner),
             )
+
+
+def _insert_access_grant(
+    conn: sqlite3.Connection,
+    *,
+    subject_ref: str,
+    grant: AccessGrant,
+) -> None:
+    for action in grant.permissions:
+        conn.execute(
+            """
+            insert into access_policies (subject_ref, action, grantee)
+            values (?, ?, ?)
+            """,
+            (subject_ref, action, grant.principal),
+        )
 
 
 def _to_json(value) -> str:

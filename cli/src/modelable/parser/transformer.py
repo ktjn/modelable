@@ -4,6 +4,8 @@ from lark import Transformer
 
 from modelable.parser.ir import (
     AiConfig,
+    AccessBlock,
+    AccessGrant,
     AnnClassification,
     AnnDeprecated,
     AnnKey,
@@ -121,13 +123,18 @@ class MdlTransformer(Transformer):
 
     def model_decl(self, items):
         name = str(items[1])
+        access = next((item for item in items[4:] if isinstance(item, AccessBlock)), None)
         model_version = ModelVersion(
             model_kind=items[0],
             version=int(items[2]),
             change_kind=items[3],
             fields=[item for item in items[4:] if isinstance(item, FieldDef)],
+            access=access,
         )
         return ("model", (name, model_version))
+
+    def model_body_item(self, items):
+        return items[0]
 
     def mk_entity(self, _items):
         return ModelKind.entity
@@ -246,14 +253,19 @@ class MdlTransformer(Transformer):
 
     def projection_decl(self, items):
         source, joins, group_by = items[2]
+        access = next((item for item in items[3:] if isinstance(item, AccessBlock)), None)
         projection_version = ProjectionVersion(
             version=int(items[1]),
             source=source,
             joins=joins,
             group_by=group_by,
             fields=[item for item in items[3:] if isinstance(item, ProjectionField)],
+            access=access,
         )
         return ("projection", (str(items[0]), projection_version))
+
+    def projection_body_item(self, items):
+        return items[0]
 
     def source_clause(self, items):
         joins = [item for item in items[3:] if isinstance(item, JoinRef)]
@@ -317,6 +329,65 @@ class MdlTransformer(Transformer):
                 targets=[item for item in items[2:] if isinstance(item, AutoProjectionTarget)],
             ),
         )
+
+    def access_block(self, items):
+        entity = []
+        properties: dict[str, list[AccessGrant]] = {}
+        for item in items:
+            if not isinstance(item, tuple):
+                continue
+            if item[0] == "entity":
+                entity.append(item[1])
+            elif item[0] == "property":
+                field_name, grant = item[1]
+                properties.setdefault(field_name, []).append(grant)
+        return AccessBlock(entity=entity, properties=properties)
+
+    def entity_grant(self, items):
+        return ("entity", AccessGrant(principal=str(items[0]), permissions=list(items[1])))
+
+    def property_grant(self, items):
+        field_name = str(items[0])
+        return (
+            "property",
+            (
+                field_name,
+                AccessGrant(principal=str(items[1]), permissions=list(items[2])),
+            ),
+        )
+
+    def access_item(self, items):
+        return items[0]
+
+    def principal(self, items):
+        return str(items[0])
+
+    def permission_list(self, items):
+        return [str(item) for item in items]
+
+    def p_read(self, _items):
+        return "read"
+
+    def p_project(self, _items):
+        return "project"
+
+    def p_subscribe(self, _items):
+        return "subscribe"
+
+    def p_write(self, _items):
+        return "write"
+
+    def p_transfer(self, _items):
+        return "transfer"
+
+    def p_manage_access(self, _items):
+        return "manage_access"
+
+    def p_derive(self, _items):
+        return "derive"
+
+    def p_redact(self, _items):
+        return "redact"
 
     def auto_projection_item(self, items):
         kind = items[0]

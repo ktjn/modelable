@@ -150,3 +150,41 @@ domain billing {
         ("customer.Customer@1", "transfer", "customer-platform"),
         ("customer.Customer@1", "write", "customer-platform"),
     ]
+
+
+def test_build_registry_uses_explicit_access_policies(tmp_path):
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    access {
+      entity billing [read, project]
+      property email billing [read]
+    }
+    email?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    registry_path = build_registry(workspace, tmp_path / ".modelable")
+
+    with sqlite3.connect(registry_path) as conn:
+        rows = conn.execute(
+            """
+            select subject_ref, action, grantee
+            from access_policies
+            order by subject_ref, action, grantee
+            """
+        ).fetchall()
+
+    assert rows == [
+        ("customer.Customer@1", "project", "billing"),
+        ("customer.Customer@1", "read", "billing"),
+        ("customer.Customer@1.email", "read", "billing"),
+    ]

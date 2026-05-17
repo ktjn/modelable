@@ -27,7 +27,10 @@ desc_attr: "description" ":" ESCAPED_STRING
 
 // -- Model -------------------------------------------------------------------
 
-model_decl: model_kind IDENT "@" INT "(" change_kind ")" "{" field_decl* "}"
+model_decl: model_kind IDENT "@" INT "(" change_kind ")" "{" model_body_item* "}"
+
+model_body_item: field_decl
+               | access_block
 
 model_kind: "entity"    -> mk_entity
           | "aggregate" -> mk_aggregate
@@ -80,7 +83,10 @@ object_type: "object" "{" field_decl* "}"
 
 // -- Projections --------------------------------------------------------------
 
-projection_decl: "projection" IDENT "@" INT source_clause "{" proj_field* "}"
+projection_decl: "projection" IDENT "@" INT source_clause "{" projection_body_item* "}"
+
+projection_body_item: proj_field
+                    | access_block
 
 source_clause: "from" dotted_ref "@" version_spec "as" IDENT join_clause* group_clause?
 
@@ -138,6 +144,22 @@ exclude_option: "exclude" "[" auto_projection_exclusion ("," auto_projection_exc
 on_option: "on" "[" IDENT ("," IDENT)* "]"
 auto_projection_exclusion: annotation | IDENT
 
+access_block: "access" "{" access_item* "}"
+access_item: entity_grant
+           | property_grant
+entity_grant: "entity" principal permission_list
+property_grant: "property" IDENT principal permission_list
+principal: PRINCIPAL
+permission_list: "[" permission ("," permission)* "]"
+permission: "read" -> p_read
+          | "project" -> p_project
+          | "subscribe" -> p_subscribe
+          | "write" -> p_write
+          | "transfer" -> p_transfer
+          | "manage_access" -> p_manage_access
+          | "derive" -> p_derive
+          | "redact" -> p_redact
+
 version_selector: "@" version_expr
 version_expr: INT | VERSION_RANGE
 dotted_ref: IDENT ("." IDENT)*
@@ -150,6 +172,7 @@ ignored_block_item: /[^{}]+/ | "{" ignored_block_item* "}"
 VERSION_RANGE: /[<>~=^0-9.,\s]+/
 EXPRESSION: /[^\n\r{}]+/
 IDENT: /[A-Za-z_][A-Za-z0-9_-]*/
+PRINCIPAL: /\*|[A-Za-z_][A-Za-z0-9_.-]*/
 
 COMMENT: /\/\/[^\n]*/
 %import common.ESCAPED_STRING
