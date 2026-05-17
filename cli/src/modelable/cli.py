@@ -9,9 +9,12 @@ from rich.console import Console
 
 from modelable.compiler.workspace import load_workspace
 from modelable.commands.llm import register_llm_commands
+from modelable.llm.context import parse_model_ref
+from modelable.llm.render import render_model_version, render_projection_version
 from modelable.parser.ir import ParseError
 from modelable.planner.planner import expand_auto_projections
 from modelable.registry.index import build_registry
+from modelable.registry.resolver import resolve_model_ref
 
 console = Console()
 
@@ -46,6 +49,65 @@ def validate(path: Path, strict: bool) -> None:
         console.print(f"[green]OK[/green] {len(workspace.sources)} files valid.")
 
     sys.exit(0)
+
+
+@cli.command()
+@click.argument("ref")
+@click.option("--path", "path", type=click.Path(exists=True, path_type=Path), default=".")
+def resolve(ref: str, path: Path) -> None:
+    """Resolve and print a normalized model or projection definition."""
+    try:
+        workspace = load_workspace(path)
+    except FileNotFoundError:
+        console.print("[yellow]No .mdl files found.[/yellow]")
+        sys.exit(0)
+    except ParseError as exc:
+        console.print(f"[red]ERROR[/red] {path}: Syntax error: {exc}")
+        sys.exit(1)
+
+    if workspace.errors:
+        for mdl_file, error in workspace.errors:
+            console.print(f"[red]ERROR[/red] {mdl_file}: {error}", soft_wrap=True)
+        sys.exit(1)
+
+    try:
+        model_ref = parse_model_ref(ref)
+        resolved = resolve_model_ref(workspace.mdl, model_ref.domain + "." + model_ref.name, model_ref.version)
+    except (ValueError, LookupError) as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
+
+    domain = next((d for d in workspace.mdl.domains if d.name == resolved.domain_name), None)
+    if domain is None:
+        console.print(f"[red]ERROR[/red] domain '{resolved.domain_name}' not found.")
+        sys.exit(1)
+
+    model_versions = domain.models.get(resolved.model_name, [])
+    model_version = next((version for version in model_versions if version.version == resolved.version.version), None)
+    if model_version is not None:
+        console.print(render_model_version(domain.name, resolved.model_name, model_version, domain.owner, domain.description), end="")
+        sys.exit(0)
+
+    projection_versions = domain.projections.get(resolved.model_name, [])
+    projection_version = next(
+        (version for version in projection_versions if version.version == resolved.version.version),
+        None,
+    )
+    if projection_version is not None:
+        console.print(
+            render_projection_version(
+                domain.name,
+                resolved.model_name,
+                projection_version,
+                domain.owner,
+                domain.description,
+            ),
+            end="",
+        )
+        sys.exit(0)
+
+    console.print(f"[red]ERROR[/red] unresolved reference {ref}")
+    sys.exit(1)
 
 
 @cli.command()

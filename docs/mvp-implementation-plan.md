@@ -312,7 +312,8 @@ uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 
 - [ ] Split command implementations into focused command modules once `cli.py` becomes too large.
 - [x] Implement `validate [PATH] [--strict]`.
-- [ ] Implement `resolve REF [--path PATH]`.
+- [x] Implement `resolve REF [--path PATH]`.
+  - Completed: `resolve` now prints the normalized model or projection definition using the shared renderer and resolver.
 - [ ] Implement `lineage REF [--path PATH]`.
 - [x] Implement `diff REF_A REF_B [--path PATH]`.
 - [x] Implement `compile SOURCE --target TARGET [--out DIR]` (json-schema, markdown, and typescript targets working).

@@ -177,3 +177,49 @@ domain customer {
     assert result.exit_code == 0, result.output
     assert "breaking" in result.output.lower()
     assert "removed_field name" in result.output.lower()
+
+
+def test_resolve_prints_normalized_model_and_projection(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+
+domain billing {
+  owner: "billing-platform"
+
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1 as c
+  {
+    billingId <- c.customerId
+    displayName = c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    model_result = runner.invoke(cli, ["resolve", "customer.Customer@1", "--path", str(tmp_path)])
+    projection_result = runner.invoke(
+        cli,
+        ["resolve", "billing.BillingCustomer@1", "--path", str(tmp_path)],
+    )
+
+    assert model_result.exit_code == 0, model_result.output
+    assert "entity Customer @ 1 (additive)" in model_result.output
+    assert "owner: \"customer-platform\"" in model_result.output
+    assert "name: string" in model_result.output
+
+    assert projection_result.exit_code == 0, projection_result.output
+    assert "projection BillingCustomer @ 1" in projection_result.output
+    assert "from customer.Customer @ 1 as c" in projection_result.output
+    assert "billingId <- c.customerId" in projection_result.output
+    assert "displayName = c.name" in projection_result.output
