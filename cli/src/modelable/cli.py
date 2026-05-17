@@ -37,7 +37,7 @@ def validate(path: Path, strict: bool) -> None:
 
     if workspace.errors:
         for mdl_file, error in workspace.errors:
-            console.print(f"[red]ERROR[/red] {mdl_file}: {error}")
+            console.print(f"[red]ERROR[/red] {mdl_file}: {error}", soft_wrap=True)
         sys.exit(1)
 
     if len(workspace.sources) == 1:
@@ -65,7 +65,7 @@ def inspect(ref: str, auto: bool, path: Path) -> None:
 
     if workspace.errors:
         for mdl_file, error in workspace.errors:
-            console.print(f"[red]ERROR[/red] {mdl_file}: {error}")
+            console.print(f"[red]ERROR[/red] {mdl_file}: {error}", soft_wrap=True)
         sys.exit(1)
 
     domain_name, model_name, version = _parse_entity_ref(ref)
@@ -123,7 +123,7 @@ def docs(source: Path, out_dir: Path | None) -> None:
 
     if workspace.errors:
         for mdl_file, error in workspace.errors:
-            console.print(f"[red]ERROR[/red] {mdl_file}: {error}")
+            console.print(f"[red]ERROR[/red] {mdl_file}: {error}", soft_wrap=True)
         sys.exit(1)
 
     from modelable.emitters.markdown import emit_markdown
