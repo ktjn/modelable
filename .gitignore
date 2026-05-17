@@ -13,4 +13,5 @@ scripts/__pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+.pytest_tmp/
 .venv/

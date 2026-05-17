@@ -41,7 +41,7 @@ This plan is intentionally a delivery plan, not a replacement specification. The
 - Governance findings that detect structurally unsafe or insufficiently documented projection of governed fields without claiming to enforce real-world organizational authorization.
 - JSON Schema 2020-12 emitter with `x-modelable-*` extensions.
 - Markdown documentation emitter.
-- First-class codegen architecture with TypeScript generation via `json-schema-to-typescript` as the Phase 1 generated-language target.
+- First-class codegen architecture with TypeScript generation as the Phase 1 generated-language target.
 - CLI commands required for MVP workflows: `validate`, `resolve`, `lineage`, `diff`, `compile`, `docs`, `inspect <Entity>@<v> --auto`, and `codegen`.
 - A minimal `samples/mvp/` happy-path sample that avoids Phase 5 runtime-only constructs.
 - Focused `cli/tests/fixtures/` coverage for parser, IR, validation, planner, compatibility, lineage, governance findings, emitters, CLI commands, and edge cases.
@@ -53,7 +53,7 @@ This plan is intentionally a delivery plan, not a replacement specification. The
 - Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI, AsyncAPI, SQL DDL outputs, and generated-language targets beyond TypeScript.
 - Distributed registry peer sync and consumer write-back execution.
 - LSP implementation.
-- AI commands such as `generate`, `describe`, `transform`, and `suggest-projection`.
+- AI commands such as `generate`, `describe`, `update`, `transform`, and `suggest-projection`.
 - Cryptographic POR signing and ownership transfer workflow.
 
 ## Delivery Strategy
@@ -266,10 +266,10 @@ uv run modelable diff customer.Customer@1 customer.Customer@2 --path ../samples/
 - [x] Add `x-modelable`, `x-modelable-field`, `x-modelable-classification`, `x-modelable-lineage`, `x-modelable-ref`, and `x-modelable-por`.
 - [x] Validate generated JSON Schema with `jsonschema`.
 - [x] Emit Markdown docs with domain metadata, field tables, projection source tables, and lineage tables.
-- [ ] Generate TypeScript from JSON Schema through `json-schema-to-typescript`.
+- [x] Generate TypeScript from JSON Schema through the native TypeScript emitter.
 - [x] Return clear deferred-target diagnostics for targets outside Phase 1.
 
-  > **Status (2026-05-17):** JSON Schema and Markdown emitters are complete. TypeScript generation is the remaining task.
+  > **Status (2026-05-17):** JSON Schema, Markdown, and TypeScript emitters are complete.
 
 **Acceptance checks:**
 
@@ -306,7 +306,7 @@ uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 - [ ] Implement `resolve REF [--path PATH]`.
 - [ ] Implement `lineage REF [--path PATH]`.
 - [ ] Implement `diff REF_A REF_B [--path PATH]`.
-- [x] Implement `compile SOURCE --target TARGET [--out DIR]` (json-schema and markdown targets working; typescript deferred).
+- [x] Implement `compile SOURCE --target TARGET [--out DIR]` (json-schema, markdown, and typescript targets working).
 - [x] Implement `docs SOURCE [--out DIR]` as a wrapper around markdown compilation.
 - [x] Implement `inspect <Entity>@<version> --auto [--path PATH]`.
 - [ ] Implement `codegen formats` and `codegen types [--format FORMAT]`.

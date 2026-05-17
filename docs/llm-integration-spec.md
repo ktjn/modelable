@@ -2,7 +2,7 @@
 
 > **Status:** Approved for CLI-assisted authoring.
 >
-> **Scope:** AI-powered commands: `generate`, `describe`, `transform`, and `suggest-projection`.
+> **Scope:** AI-powered commands: `generate`, `describe`, `update`, `transform`, and `suggest-projection`.
 
 ## 1. Purpose
 
@@ -40,6 +40,7 @@ The CLI default should be a conservative, documented model identifier in the imp
 |---|---|---|---|
 | `modelable generate` | Natural language, DDL, JSON Schema, OpenAPI, Avro, Protobuf, or existing `.mdl` context | Proposed `.mdl` | Only with `--output` |
 | `modelable describe` | `.mdl` file, directory, model ref, or projection ref | Natural-language summary | No |
+| `modelable update` | Model ref plus natural-language edit instruction | Updated `.mdl` | Only with `--output` |
 | `modelable transform` | Model/projection ref and target | Artifact plus explanation | Optional `--out` |
 | `modelable suggest-projection` | Source ref and consumer domain | Proposed projection `.mdl` | Only with `--output` |
 
@@ -106,7 +107,16 @@ Required options:
 
 `transform` emits a target artifact and explains mapping decisions. For Phase 1 targets, it delegates artifact creation to normal emitters and uses the LLM only for explanation. For deferred targets, it may produce a preview only if clearly labelled as non-authoritative.
 
-### 6.4 `suggest-projection`
+### 6.4 `update`
+
+`update` applies a natural-language edit instruction to an existing model version. It must:
+
+- Resolve the target model version explicitly.
+- Produce a patchable `.mdl` update rather than freeform prose.
+- Validate the edited model before writing.
+- Refuse ambiguous or unsupported edits instead of guessing.
+
+### 6.5 `suggest-projection`
 
 `suggest-projection` proposes a projection for a consumer domain. It must:
 
@@ -153,6 +163,7 @@ The CLI does not commit generated files. Git workflow remains user-controlled.
 - Sensitive binding values are redacted from prompts.
 - `describe` produces lineage and governance-aware summaries.
 - `suggest-projection` never includes restricted fields without explicit permission context.
+- `update` only writes a change when the resulting `.mdl` still passes parser and semantic validation.
 
 ## 11. Dependencies
 

@@ -8,6 +8,7 @@ import click
 from rich.console import Console
 
 from modelable.compiler.workspace import load_workspace
+from modelable.commands.llm import register_llm_commands
 from modelable.parser.ir import ParseError
 from modelable.planner.planner import expand_auto_projections
 from modelable.registry.index import build_registry
@@ -232,9 +233,24 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
             console.print(f"[green]OK[/green] {art.path}")
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "typescript":
+        from modelable.emitters.typescript import emit_typescript
+
+        artifacts = emit_typescript(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            art.path.write_text(art.content, encoding="utf-8")
+            for warning in art.warnings:
+                console.print(f"[yellow]WARN[/yellow] {warning}")
+            console.print(f"[green]OK[/green] {art.path}")
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
     else:
         from modelable.emitters.diagnostics import deferred_target
 
         console.print(f"[yellow]{deferred_target(target)}[/yellow]")
 
     sys.exit(0)
+
+
+register_llm_commands(cli)

@@ -26,7 +26,7 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 
 For full tooling setup, developer workflow, and CI integration, see `cli-tooling-spec.md`.
 
-AI-powered commands (`describe`, `generate`) are deferred beyond Phase 1. When they are implemented, provider SDK dependencies and credentials such as `ANTHROPIC_API_KEY` must be added explicitly.
+AI-powered commands (`describe`, `generate`, `update`) are implemented as CLI workflows in the current repo. Provider SDK dependencies and credentials such as `ANTHROPIC_API_KEY` are only needed when a remote provider is configured.
 
 ## 4. File Format
 
@@ -655,6 +655,16 @@ modelable suggest-projection --source <Domain.Model@version> --consumer <domain>
 Proposes a projection definition with field derivations tailored to a consuming domain, using the AI integration described in §3.7.
 
 **Defined in:** `idl-design-spec.md` §5.1.
+
+### 10.4 `update` — Natural-language model edit
+
+```text
+modelable update <Domain.Model@version> "<edit instruction>" --path PATH [--output FILE]
+```
+
+Applies a natural-language change request to an existing model version, rewrites the `.mdl` source, and validates the result before writing.
+
+**Defined in:** `llm-integration-spec.md` §6.4.
 
 ### 10.4 `registry` — Federated registry management
 
