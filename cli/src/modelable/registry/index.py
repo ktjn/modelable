@@ -6,6 +6,8 @@ from importlib.resources import files
 from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
+from modelable.compat.checker import check_model_version_compatibility
+from modelable.planner.lineage import build_projection_lineage
 from modelable.parser.ir import AccessBlock, AccessGrant, ComputedMapping, DirectMapping
 from modelable.governance.por import build_por_record
 from modelable.registry.resolver import resolved_version_spec
@@ -101,6 +103,7 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                     conn,
                     build_por_record(f"{domain.name}.{model_name}.v{version.version}").as_dict(),
                 )
+            _insert_compatibility_reports(conn, workspace, domain.name, model_name, versions)
 
         for projection_name, versions in domain.projections.items():
             conn.execute(
@@ -211,6 +214,7 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                         field.name,
                         field.mapping,
                     )
+                _insert_lineage_edges(conn, workspace, domain.name, projection_name, version)
                 _insert_access_policies(
                     conn,
                     subject_ref=f"{domain.name}.{projection_name}@{version.version}",
@@ -348,6 +352,58 @@ def _insert_access_grant(
             """,
             (subject_ref, action, grant.principal),
         )
+
+
+def _insert_compatibility_reports(
+    conn: sqlite3.Connection,
+    workspace: Workspace,
+    domain_name: str,
+    model_name: str,
+    versions,
+) -> None:
+    for previous, current in zip(versions, versions[1:]):
+        report = check_model_version_compatibility(
+            workspace.mdl,
+            domain_name,
+            model_name,
+            previous.version,
+            current.version,
+        )
+        conn.execute(
+            """
+            insert into compatibility_reports
+            (domain_name, model_name, from_version, to_version, status)
+            values (?, ?, ?, ?, ?)
+            """,
+            (
+                domain_name,
+                model_name,
+                previous.version,
+                current.version,
+                report.status,
+            ),
+        )
+
+
+def _insert_lineage_edges(
+    conn: sqlite3.Connection,
+    workspace: Workspace,
+    domain_name: str,
+    projection_name: str,
+    version,
+) -> None:
+    lineage = build_projection_lineage(domain_name, projection_name, version, workspace.mdl)
+    target_prefix = f"{domain_name}.{projection_name}@{version.version}"
+    for field_lineage in lineage.fields:
+        target_ref = f"{target_prefix}.{field_lineage.field_name}"
+        for source_ref in field_lineage.lineage:
+            conn.execute(
+                """
+                insert into lineage_edges (source_ref, target_ref, edge_kind)
+                values (?, ?, ?)
+                """,
+                (source_ref, target_ref, field_lineage.kind),
+            )
 
 
 def _insert_por_log(conn: sqlite3.Connection, por_record: dict[str, str | None]) -> None:

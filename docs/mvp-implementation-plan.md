@@ -157,9 +157,8 @@ uv run modelable validate ../samples/mvp
 - [x] Resolve references in the form `domain.Model@version` and `domain.Model@>=min<max`.
 - [x] Resolve version ranges to the highest matching published version at compile time.
 - [x] Create `.modelable/registry.db` as a rebuildable artifact.
-- [ ] Populate registry tables for domains, models, model versions, fields, projections, projection versions, projection sources, projection fields, field mappings, lineage edges, adapter bindings, compatibility reports, and access policies.
-  - Completed: schema creation for the minimum logical tables; population for domains, models, model versions, fields, projections, projection versions, projection sources, projection fields, field mappings, and adapter bindings supported by the current IR.
-  - Remaining: populated lineage edges, compatibility reports, and access policies after planner, compatibility, and governance behavior exists.
+- [x] Populate registry tables for domains, models, model versions, fields, projections, projection versions, projection sources, projection fields, field mappings, lineage edges, adapter bindings, compatibility reports, and access policies.
+  - Completed: registry compilation now populates domains, models, model versions, fields, projections, projection versions, projection sources, projection fields, field mappings, lineage edges, compatibility reports, access policies, adapter bindings, and POR metadata from the normalized workspace graph.
 - [x] Keep source `.mdl` files as the only source of truth.
 
 **Acceptance checks:**

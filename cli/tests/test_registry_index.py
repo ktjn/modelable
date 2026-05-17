@@ -188,3 +188,89 @@ domain customer {
         ("customer.Customer@1", "read", "billing"),
         ("customer.Customer@1.email", "read", "billing"),
     ]
+
+
+def test_build_registry_populates_compatibility_reports(tmp_path):
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Customer @ 2 (breaking) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    registry_path = build_registry(workspace, tmp_path / ".modelable")
+
+    with sqlite3.connect(registry_path) as conn:
+        rows = conn.execute(
+            """
+            select domain_name, model_name, from_version, to_version, status
+            from compatibility_reports
+            order by from_version, to_version
+            """
+        ).fetchall()
+
+    assert rows == [("customer", "Customer", 1, 2, "breaking")]
+
+
+def test_build_registry_populates_lineage_edges(tmp_path):
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    legalName: string
+  }
+}
+
+domain billing {
+  owner: "billing-platform"
+
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1 as c
+  {
+    billingId <- c.customerId
+    displayName = c.legalName
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    registry_path = build_registry(workspace, tmp_path / ".modelable")
+
+    with sqlite3.connect(registry_path) as conn:
+        rows = conn.execute(
+            """
+            select source_ref, target_ref, edge_kind
+            from lineage_edges
+            order by source_ref, target_ref
+            """
+        ).fetchall()
+
+    assert rows == [
+        (
+            "customer.Customer@1.customerId",
+            "billing.BillingCustomer@1.billingId",
+            "direct",
+        ),
+        (
+            "customer.Customer@1.legalName",
+            "billing.BillingCustomer@1.displayName",
+            "computed",
+        ),
+    ]
