@@ -347,6 +347,8 @@ The POR reference is embedded alongside the standard `x-modelable-*` vendor exte
 }
 ```
 
+In the MVP implementation, POR references are unsigned and deterministic. The local registry records them with the fixed issuer `modelable-registry.local` until a signed issuance workflow is introduced.
+
 **Avro schema metadata:**
 
 ```json

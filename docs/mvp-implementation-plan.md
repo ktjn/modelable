@@ -241,7 +241,8 @@ uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
   - Completed: projection governance findings now flag projected fields that drop `@pii` metadata or omit source classification metadata when the source field is governed.
 - [x] Preserve source classification on projected fields and emit governance findings for attempts to lower or omit classification.
   - Completed: projected fields now inherit the source field's classification requirements for governance reporting, and lower or missing classifications are reported deterministically.
-- [ ] Generate unsigned POR metadata and embed POR references in registry metadata for JSON Schema emission.
+- [x] Generate unsigned POR metadata and embed POR references in registry metadata for JSON Schema emission.
+  - Completed: registry indexing now records unsigned POR rows for each published model and projection version, and JSON Schema emission embeds a deterministic POR reference for each artifact.
 
 **Acceptance checks:**
 

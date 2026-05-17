@@ -110,3 +110,10 @@ create table access_policies (
   action text not null,
   grantee text not null
 );
+
+create table por_log (
+  model_ref text not null,
+  issuer text not null,
+  issued_at text not null,
+  signature text
+);

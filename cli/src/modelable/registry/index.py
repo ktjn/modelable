@@ -7,6 +7,7 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.parser.ir import AccessBlock, AccessGrant, ComputedMapping, DirectMapping
+from modelable.governance.por import build_por_record
 from modelable.registry.resolver import resolved_version_spec
 
 
@@ -95,6 +96,10 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                     access=version.access,
                     same_domain=domain.name,
                     owner=domain.owner,
+                )
+                _insert_por_log(
+                    conn,
+                    build_por_record(f"{domain.name}.{model_name}.v{version.version}").as_dict(),
                 )
 
         for projection_name, versions in domain.projections.items():
@@ -212,6 +217,12 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                     access=version.access,
                     same_domain=domain.name,
                     owner=domain.owner,
+                )
+                _insert_por_log(
+                    conn,
+                    build_por_record(
+                        f"{domain.name}.{projection_name}.v{version.version}"
+                    ).as_dict(),
                 )
 
     for binding in workspace.mdl.bindings:
@@ -337,6 +348,21 @@ def _insert_access_grant(
             """,
             (subject_ref, action, grant.principal),
         )
+
+
+def _insert_por_log(conn: sqlite3.Connection, por_record: dict[str, str | None]) -> None:
+    conn.execute(
+        """
+        insert into por_log (model_ref, issuer, issued_at, signature)
+        values (?, ?, ?, ?)
+        """,
+        (
+            por_record["model"],
+            por_record["issuer"],
+            por_record["issuedAt"],
+            por_record.get("signature"),
+        ),
+    )
 
 
 def _to_json(value) -> str:
