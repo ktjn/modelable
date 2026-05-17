@@ -9,42 +9,49 @@ from modelable.parser.ir import WorkspaceDef
 @dataclass(frozen=True)
 class LlmConfig:
     provider: str | None
-    model: str
+    model: str | None
+    base_url: str | None
     source: str
 
 
 def resolve_llm_config(
     *,
+    flag_provider: str | None = None,
     flag_model: str | None = None,
+    flag_base_url: str | None = None,
     workspace: WorkspaceDef | None = None,
     env: dict[str, str] | None = None,
     default_model: str = "modelable-local",
 ) -> LlmConfig:
     values = env or environ
-    if flag_model:
-        return LlmConfig(provider=_provider_from_model(flag_model), model=flag_model, source="flag")
 
-    env_model = values.get("MODELABLE_LLM_MODEL")
-    if env_model:
-        return LlmConfig(
-            provider=_provider_from_model(env_model),
-            model=env_model,
-            source="environment",
-        )
+    provider = (
+        flag_provider
+        or values.get("MODELABLE_LLM_PROVIDER")
+        or (workspace.ai.provider if workspace and workspace.ai and workspace.ai.provider else None)
+    )
 
-    workspace_model = workspace.ai.model if workspace and workspace.ai and workspace.ai.model else None
-    if workspace_model:
-        return LlmConfig(
-            provider=workspace.ai.provider if workspace and workspace.ai else None,
-            model=workspace_model,
-            source="workspace",
-        )
+    model = (
+        flag_model
+        or values.get("MODELABLE_LLM_MODEL")
+        or (workspace.ai.model if workspace and workspace.ai and workspace.ai.model else None)
+    )
 
-    return LlmConfig(provider=None, model=default_model, source="default")
+    base_url = (
+        flag_base_url
+        or values.get("MODELABLE_LLM_BASE_URL")
+        or values.get("OLLAMA_HOST")
+    )
 
+    source = "default"
+    if flag_provider or flag_model or flag_base_url:
+        source = "flag"
+    elif values.get("MODELABLE_LLM_PROVIDER") or values.get("MODELABLE_LLM_MODEL") or values.get("MODELABLE_LLM_BASE_URL"):
+        source = "environment"
+    elif workspace and workspace.ai:
+        source = "workspace"
 
-def _provider_from_model(model: str) -> str | None:
-    if "/" in model or model.startswith("local:"):
-        return "local"
-    return None
+    if provider is None and model is None:
+        model = default_model
 
+    return LlmConfig(provider=provider, model=model, base_url=base_url, source=source)

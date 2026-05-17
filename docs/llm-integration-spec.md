@@ -26,13 +26,13 @@ Example:
 ```mdl
 workspace "commerce-platform" {
   ai {
-    provider: "anthropic"
-    model:    "claude-opus-4-7"
+    provider: "ollama"
+    model:    "llama3.1"
   }
 }
 ```
 
-The CLI default should be a conservative, documented model identifier in the implementation release notes. The spec intentionally avoids requiring "latest" because reproducibility matters for generated contract files.
+The current implementation supports a provider-backed local Ollama workflow through `MODELABLE_LLM_PROVIDER=ollama`, `MODELABLE_LLM_MODEL=<installed-model>`, and optional `MODELABLE_LLM_BASE_URL` or `OLLAMA_HOST`. The CLI default remains the deterministic heuristic fallback when no provider is configured. The spec intentionally avoids requiring "latest" because reproducibility matters for generated contract files.
 
 ## 3. Commands
 
@@ -116,6 +116,7 @@ Required options:
 - Produce a patchable `.mdl` update rather than freeform prose.
 - Validate the edited model before writing.
 - Refuse ambiguous or unsupported edits instead of guessing.
+- Use the configured provider when `MODELABLE_LLM_PROVIDER` or workspace `ai.provider` is set, and fall back to the deterministic local path when no provider is configured.
 
 ### 6.5 `suggest-projection`
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from os import environ
 from pathlib import Path
 
 from modelable.compiler.workspace import load_workspace
@@ -14,10 +15,13 @@ from modelable.llm.context import (
     build_workspace_summary,
     parse_model_ref,
 )
+from modelable.llm.config import LlmConfig, resolve_llm_config
 from modelable.llm.importers import import_from_path, import_from_text
 from modelable.llm.qa import answer_question
+from modelable.llm.providers import LLMProvider, build_provider
 from modelable.llm.recommendations import recommend_for_model
 from modelable.llm.render import render_mdl, render_model_version, render_projection_version
+from modelable.llm.update_plan import UpdateChange, UpdatePlan, build_update_request, parse_update_plan
 from modelable.llm.validation_help import explain_validation_errors
 from modelable.parser.ir import (
     AnnKey,
@@ -163,6 +167,30 @@ def explain_validation(path: Path) -> str:
     return explain_validation_errors(workspace.errors)
 
 
+def _build_update_plan(
+    provider: LLMProvider,
+    workspace,
+    current_text: str,
+    ref: str,
+    instruction: str,
+) -> UpdatePlan:
+    current_summary = _summarize_update_target(workspace, ref)
+    request = build_update_request(
+        ref=ref,
+        current_summary=current_summary,
+        current_text=current_text,
+        instruction=instruction,
+    )
+    response = provider.complete(request)
+    try:
+        plan = parse_update_plan(response.content)
+    except Exception as exc:  # pragma: no cover - provider integration guard
+        raise ValueError(f"LLM returned an invalid update plan: {exc}") from exc
+    if plan.target != ref:
+        raise ValueError(f"LLM proposed an update for '{plan.target}' instead of '{ref}'")
+    return plan
+
+
 def update_definition(
     path: Path,
     ref: str,
@@ -170,6 +198,8 @@ def update_definition(
     *,
     output: Path | None = None,
     write: bool = True,
+    provider: LLMProvider | None = None,
+    llm_config: LlmConfig | None = None,
 ) -> UpdateResult:
     workspace = load_workspace(path)
     model_ref = parse_model_ref(ref)
@@ -187,16 +217,28 @@ def update_definition(
     warnings: list[str] = []
     updated = False
 
+    if provider is None and llm_config is None:
+        llm_config = resolve_llm_config(workspace=workspace.mdl.workspace, env=environ)
+        provider = build_provider(llm_config.provider, model=llm_config.model, base_url=llm_config.base_url)
+
     if model_ref.name in domain.models:
         version = next((item for item in domain.models[model_ref.name] if item.version == model_ref.version), None)
         if version is None:
             raise ValueError(f"Unknown model version: {ref}")
-        updated, warnings = _apply_model_update(version, instruction)
+        if provider is not None:
+            plan = _build_update_plan(provider, workspace, source_text, ref, instruction)
+            updated, warnings = _apply_update_plan_to_model(version, plan)
+        else:
+            updated, warnings = _apply_model_update(version, instruction)
     elif model_ref.name in domain.projections:
         version = next((item for item in domain.projections[model_ref.name] if item.version == model_ref.version), None)
         if version is None:
             raise ValueError(f"Unknown projection version: {ref}")
-        updated, warnings = _apply_projection_update(version, instruction)
+        if provider is not None:
+            plan = _build_update_plan(provider, workspace, source_text, ref, instruction)
+            updated, warnings = _apply_update_plan_to_projection(version, plan)
+        else:
+            updated, warnings = _apply_projection_update(version, instruction)
     else:
         raise ValueError(f"Unknown model or projection: {ref}")
 
@@ -213,6 +255,127 @@ def update_definition(
     if write:
         out_path.write_text(new_text, encoding="utf-8")
     return UpdateResult(path=out_path, original_content=original_text, content=new_text, warnings=warnings)
+
+
+def _summarize_update_target(workspace, ref: str) -> str:
+    model_ref = parse_model_ref(ref)
+    domain = next((item for item in workspace.mdl.domains if item.name == model_ref.domain), None)
+    if domain is None:
+        return f"Unknown domain: {model_ref.domain}"
+    if model_ref.name in domain.models:
+        return build_model_summary(workspace, ref)
+    if model_ref.name in domain.projections:
+        return build_projection_summary(workspace, ref)
+    return f"Unknown model or projection: {ref}"
+
+
+def _apply_update_plan_to_model(version: ModelVersion, plan: UpdatePlan) -> tuple[bool, list[str]]:
+    if plan.target_kind != "model":
+        raise ValueError(f"Update plan target kind '{plan.target_kind}' does not match model version")
+    warnings = list(plan.warnings)
+    updated = False
+    for change in plan.changes:
+        changed, change_warnings = _apply_model_change(version, change)
+        updated = updated or changed
+        warnings.extend(change_warnings)
+    return updated, warnings
+
+
+def _apply_update_plan_to_projection(version: ProjectionVersion, plan: UpdatePlan) -> tuple[bool, list[str]]:
+    if plan.target_kind != "projection":
+        raise ValueError(f"Update plan target kind '{plan.target_kind}' does not match projection version")
+    warnings = list(plan.warnings)
+    updated = False
+    for change in plan.changes:
+        changed, change_warnings = _apply_projection_change(version, change)
+        updated = updated or changed
+        warnings.extend(change_warnings)
+    return updated, warnings
+
+
+def _apply_model_change(version: ModelVersion, change: UpdateChange) -> tuple[bool, list[str]]:
+    field = next((item for item in version.fields if item.name == change.field), None)
+    warnings: list[str] = []
+    if change.kind == "add_field":
+        field_name = change.new_name or change.field
+        if any(item.name == field_name for item in version.fields):
+            warnings.append(f"Field '{field_name}' already exists; skipped add")
+            return False, warnings
+        version.fields.append(
+            FieldDef(
+                name=field_name,
+                type=_type_from_text(change.type) or _string_field(),
+                optional=False,
+            )
+        )
+        return True, warnings
+    if field is None:
+        warnings.append(f"Field '{change.field}' not found; skipped {change.kind}")
+        return False, warnings
+    if change.kind == "make_optional":
+        field.optional = True
+        return True, warnings
+    if change.kind == "make_required":
+        field.optional = False
+        return True, warnings
+    if change.kind == "rename_field":
+        if not change.new_name:
+            raise ValueError(f"rename_field for '{change.field}' requires new_name")
+        field.name = change.new_name
+        return True, warnings
+    if change.kind == "remove_field":
+        version.fields = [item for item in version.fields if item is not field]
+        return True, warnings
+    if change.kind == "change_type":
+        field.type = _type_from_text(change.type) or _string_field()
+        return True, warnings
+    raise ValueError(f"Unsupported model update change: {change.kind}")
+
+
+def _apply_projection_change(version: ProjectionVersion, change: UpdateChange) -> tuple[bool, list[str]]:
+    field = next((item for item in version.fields if item.name == change.field), None)
+    warnings: list[str] = []
+    if change.kind == "add_field":
+        field_name = change.new_name or change.field
+        if any(item.name == field_name for item in version.fields):
+            warnings.append(f"Field '{field_name}' already exists; skipped add")
+            return False, warnings
+        version.fields.append(
+            ProjectionField(
+                name=field_name,
+                mapping=DirectMapping(
+                    source_alias=version.source.alias,
+                    source_field=_normalize_source_field(change.source or field_name),
+                ),
+            )
+        )
+        return True, warnings
+    if field is None:
+        warnings.append(f"Field '{change.field}' not found; skipped {change.kind}")
+        return False, warnings
+    if change.kind == "rename_field":
+        if not change.new_name:
+            raise ValueError(f"rename_field for '{change.field}' requires new_name")
+        field.name = change.new_name
+        return True, warnings
+    if change.kind == "remove_field":
+        version.fields = [item for item in version.fields if item is not field]
+        return True, warnings
+    if change.kind == "change_source":
+        if not isinstance(field.mapping, DirectMapping):
+            warnings.append(f"Field '{change.field}' is not a direct mapping; skipped source change")
+            return False, warnings
+        if not change.source:
+            raise ValueError(f"change_source for '{change.field}' requires source")
+        field.mapping.source_field = _normalize_source_field(change.source)
+        return True, warnings
+    if change.kind == "change_type":
+        warnings.append(f"Projection field '{change.field}' does not support change_type; skipped")
+        return False, warnings
+    if change.kind in {"make_optional", "make_required"}:
+        warnings.append(f"Projection field '{change.field}' does not support {change.kind}; skipped")
+        return False, warnings
+    raise ValueError(f"Unsupported projection update change: {change.kind}")
 
 
 def validate_generated_text(text: str) -> tuple[MdlFile, list[str]]:
