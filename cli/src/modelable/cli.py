@@ -100,6 +100,47 @@ def inspect(ref: str, auto: bool, path: Path) -> None:
     sys.exit(0)
 
 
+@cli.command()
+@click.argument("source", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--out",
+    "out_dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Directory for generated documentation.",
+)
+def docs(source: Path, out_dir: Path | None) -> None:
+    """Generate Markdown documentation from Modelable definitions at SOURCE."""
+    try:
+        workspace = load_workspace(source)
+    except FileNotFoundError:
+        console.print("[yellow]No .mdl files found.[/yellow]")
+        sys.exit(0)
+    except ParseError as exc:
+        console.print(f"[red]ERROR[/red] {source}: Syntax error: {exc}")
+        sys.exit(1)
+
+    if workspace.errors:
+        for mdl_file, error in workspace.errors:
+            console.print(f"[red]ERROR[/red] {mdl_file}: {error}")
+        sys.exit(1)
+
+    from modelable.emitters.markdown import emit_markdown
+
+    output = out_dir or Path("./dist/docs")
+    output.mkdir(parents=True, exist_ok=True)
+    artifacts = emit_markdown(workspace, output)
+    for art in artifacts:
+        assert isinstance(art.content, str)
+        art.path.write_text(art.content, encoding="utf-8")
+        for warning in art.warnings:
+            console.print(f"[yellow]WARN[/yellow] {warning}")
+        console.print(f"[green]OK[/green] {art.path}")
+    if not artifacts:
+        console.print("[yellow]No artifacts generated.[/yellow]")
+    sys.exit(0)
+
+
 def _parse_entity_ref(ref: str) -> tuple[str, str, int]:
     if "@" not in ref:
         raise click.BadParameter("REF must be in the form domain.Model@version")
@@ -167,6 +208,18 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
                 json.dumps(art.content, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
+            for warning in art.warnings:
+                console.print(f"[yellow]WARN[/yellow] {warning}")
+            console.print(f"[green]OK[/green] {art.path}")
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "markdown":
+        from modelable.emitters.markdown import emit_markdown
+
+        artifacts = emit_markdown(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            art.path.write_text(art.content, encoding="utf-8")
             for warning in art.warnings:
                 console.print(f"[yellow]WARN[/yellow] {warning}")
             console.print(f"[green]OK[/green] {art.path}")

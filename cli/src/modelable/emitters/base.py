@@ -10,5 +10,5 @@ class EmittedArtifact:
     ref: str          # "domain.Name@version"
     artifact_id: str  # "domain.Name.vVersion"
     path: Path
-    content: dict
+    content: dict | str
     warnings: list[str] = field(default_factory=list)
