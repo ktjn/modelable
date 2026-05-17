@@ -676,6 +676,16 @@ modelable chat --path PATH [--ref <Domain.Model@version>] [--message TEXT] [--pr
 
 Starts a conversational session against the configured model. Without `--message`, the command prompts for turns until `/exit` or EOF. `--message` sends a single turn and exits, which is useful for tests and scripts. The chat command never writes files; editing still goes through `update`.
 
+Within the session, slash commands provide structured actions:
+
+- `/help` prints the available chat commands.
+- `/ref <ref>` sets the focused model or projection.
+- `/context` prints the current workspace or focused-ref summary.
+- `/describe [ref]` prints a summary without changing state.
+- `/recommend <ref> [consumer]` prints a recommendation from the current workspace.
+- `/ask <question>` asks a workspace question using the same reasoning helpers.
+- `/update <ref> <instruction>` shows a validated preview diff without writing.
+
 **Defined in:** `llm-integration-spec.md` §6.6.
 
 ### 10.6 `registry` — Federated registry management

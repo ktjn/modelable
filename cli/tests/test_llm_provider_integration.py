@@ -8,7 +8,7 @@ from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
-from modelable.llm.chat import chat_reply
+from modelable.llm.chat import ChatState, chat_reply, chat_turn
 from modelable.llm.config import resolve_llm_config
 from modelable.llm.engine import update_definition
 from modelable.llm.providers import LLMRequest, LLMResponse, OllamaProvider, build_provider
@@ -183,3 +183,42 @@ domain customer {
     )
     assert result.exit_code == 0, result.output
     assert "modelable update customer.Customer@1" in result.output
+
+
+def test_chat_slash_commands_cover_help_describe_recommend_and_update(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    state = ChatState()
+
+    help_text = chat_turn(workspace, "/help", path=tmp_path, state=state)
+    assert "/update <ref> <instruction>" in help_text
+
+    focus_text = chat_turn(workspace, "/ref customer.Customer@1", path=tmp_path, state=state)
+    assert "Focused on customer.Customer@1" in focus_text
+
+    describe_text = chat_turn(workspace, "/describe", path=tmp_path, state=state)
+    assert "customer.Customer@1" in describe_text
+
+    recommend_text = chat_turn(workspace, "/recommend customer.Customer@1 billing", path=tmp_path, state=state)
+    assert "billing" in recommend_text
+
+    update_text = chat_turn(
+        workspace,
+        "/update customer.Customer@1 make email optional",
+        path=tmp_path,
+        state=state,
+    )
+    assert "@@" in update_text
+    assert "email?: string" in update_text

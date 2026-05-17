@@ -138,6 +138,8 @@ Required options:
 - Use the same provider configuration as `generate` and `update`.
 - Reuse existing workspace summaries when no provider is configured.
 - Never write files directly from chat; edits must flow through `update`.
+- Support slash commands for `/help`, `/ref`, `/context`, `/describe`, `/recommend`, `/ask`, and `/update`.
+- Treat `/update` as preview-only inside chat, so authors can inspect the diff before running the write command.
 
 ## 7. Error Handling
 

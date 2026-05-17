@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import difflib
 from pathlib import Path
 
 import click
 from rich.console import Console
 
 from modelable.compiler.workspace import load_workspace
+from modelable.llm.chat import ChatState, chat_turn
 from modelable.llm.engine import (
     answer_model_question_cli,
     describe_path_or_ref,
@@ -19,7 +19,6 @@ from modelable.llm.engine import (
     transform_ref_to_target,
     validate_generated_text,
 )
-from modelable.llm.chat import chat_reply
 from modelable.llm.config import resolve_llm_config
 from modelable.llm.providers import build_provider
 
@@ -116,14 +115,9 @@ def update(ref: str, instruction: tuple[str, ...], path: Path, output: Path | No
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
     if preview:
-        diff = difflib.unified_diff(
-            result.original_content.splitlines(),
-            result.content.splitlines(),
-            fromfile=str(result.path),
-            tofile=f"{result.path} (preview)",
-            lineterm="",
-        )
-        console.print("\n".join(diff))
+        from modelable.llm.chat import _render_update_preview
+
+        console.print(_render_update_preview(result))
     else:
         console.print(result.content.rstrip())
     for warning in result.warnings:
@@ -203,20 +197,21 @@ def chat(path: Path, ref: str | None, message: str | None, provider: str | None,
         workspace=workspace.mdl.workspace,
     )
     llm_provider = build_provider(config.provider, model=config.model, base_url=config.base_url)
-    history: list[tuple[str, str]] = []
+    state = ChatState(ref=ref)
 
     if message is not None:
-        console.print(chat_reply(workspace, message, ref=ref, provider=llm_provider))
+        console.print(chat_turn(workspace, message, path=path, state=state, provider=llm_provider))
         return
 
     console.print("Modelable chat. Type /exit to quit.")
     while True:
-        user_message = click.prompt("you", prompt_suffix="> ", default="", show_default=False)
+        try:
+            user_message = click.prompt("you", prompt_suffix="> ", default="", show_default=False)
+        except (EOFError, click.Abort):
+            break
         if not user_message.strip():
             continue
-        if user_message.strip() in {"/exit", "exit", ":q", "quit"}:
+        response = chat_turn(workspace, user_message, path=path, state=state, provider=llm_provider)
+        if response == "/exit":
             break
-        response = chat_reply(workspace, user_message, ref=ref, provider=llm_provider, history=history)
         console.print(f"assistant> {response}")
-        history.append(("user", user_message))
-        history.append(("assistant", response))
