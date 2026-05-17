@@ -1,5 +1,33 @@
 # Agent Instructions
 
+## Current State (updated 2026-05-17)
+
+Phase 1 local modelling compiler is in progress. Before starting any task, run `git log --oneline -10` and check `docs/mvp-implementation-plan.md` for the latest checkbox state.
+
+| Milestone | Status |
+|---|---|
+| 0 — Tooling baseline | Complete |
+| 1 — Parser, IR, validate | Complete |
+| 2 — Registry graph, resolver | Complete (lineage_edges, compat_reports, access_policies population deferred to M3/M4) |
+| 3 — Planner, auto projections, CEL, lineage | Partial — expansion + `inspect --auto` done; CEL validation, lineage graph, plan docs not yet started |
+| 4 — Compatibility and governance | Not started |
+| 5 — Emitters | Partial — JSON Schema + Markdown done; TypeScript not done |
+| 6 — CLI workflows | Partial — `validate`, `compile`, `docs`, `inspect --auto` done; `resolve`, `lineage`, `diff`, `codegen`, `scenario` not done |
+| 7 — Hardening | Not started |
+
+**Next task:** Complete the remaining Milestone 3 items (CEL validation, lineage graph extraction, plan document writing) before moving to Milestone 4. See `docs/mvp-implementation-plan.md` Milestone 3 for the specific unchecked tasks.
+
+### Verify current state before coding
+
+```bash
+cd cli
+uv sync --extra dev
+uv run pytest tests/ --tb=short -q
+uv run modelable validate ../samples/mvp
+```
+
+---
+
 ## Scope
 
 These instructions apply to the entire repository.

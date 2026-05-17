@@ -188,15 +188,15 @@ uv run modelable compile ../samples/mvp --target markdown --out ../dist/docs
 
 **Tasks:**
 
-- [ ] Expand auto projections into explicit generated projection versions for `db`, `request`, `reply`, and `event`.
-- [ ] Enforce generated projection name reservations.
-- [ ] Apply auto projection exclusions for field names, `@pii`, and `@classification("level")`.
-- [ ] Validate `event on [created, updated, deleted]` operation subsets.
+- [x] Expand auto projections into explicit generated projection versions for `db`, `request`, `reply`, and `event`.
+- [x] Enforce generated projection name reservations.
+- [x] Apply auto projection exclusions for field names, `@pii`, and `@classification("level")`.
+- [x] Validate `event on [created, updated, deleted]` operation subsets.
 - [ ] Build projection plan documents containing resolved source versions, field mappings, CEL expressions, join descriptors, aggregation descriptors, and planner metadata.
 - [ ] Parse or validate the MVP CEL subset enough to reject unknown aliases, unknown fields, unsupported functions, aggregate misuse, and non-deterministic expressions.
 - [ ] Extract source field references from computed fields, joins, filters, and aggregate arguments.
 - [ ] Write `.modelable/plans/<domain>.<Projection>.v<version>.plan.json`.
-- [ ] Implement `modelable inspect <Entity>@<v> --auto` to display generated projections.
+- [x] Implement `modelable inspect <Entity>@<v> --auto` to display generated projections.
 
 **Acceptance checks:**
 
@@ -269,6 +269,8 @@ uv run modelable diff customer.Customer@1 customer.Customer@2 --path ../samples/
 - [ ] Generate TypeScript from JSON Schema through `json-schema-to-typescript`.
 - [x] Return clear deferred-target diagnostics for targets outside Phase 1.
 
+  > **Status (2026-05-17):** JSON Schema and Markdown emitters are complete. TypeScript generation is the remaining task.
+
 **Acceptance checks:**
 
 ```bash
@@ -304,7 +306,7 @@ uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 - [ ] Implement `resolve REF [--path PATH]`.
 - [ ] Implement `lineage REF [--path PATH]`.
 - [ ] Implement `diff REF_A REF_B [--path PATH]`.
-- [x] Implement `compile SOURCE --target TARGET [--out DIR] [--path PATH]`.
+- [x] Implement `compile SOURCE --target TARGET [--out DIR]` (json-schema and markdown targets working; typescript deferred).
 - [x] Implement `docs SOURCE [--out DIR]` as a wrapper around markdown compilation.
 - [x] Implement `inspect <Entity>@<version> --auto [--path PATH]`.
 - [ ] Implement `codegen formats` and `codegen types [--format FORMAT]`.
