@@ -192,10 +192,10 @@ uv run modelable compile ../samples/mvp --target markdown --out ../dist/docs
 - [x] Enforce generated projection name reservations.
 - [x] Apply auto projection exclusions for field names, `@pii`, and `@classification("level")`.
 - [x] Validate `event on [created, updated, deleted]` operation subsets.
-- [ ] Build projection plan documents containing resolved source versions, field mappings, CEL expressions, join descriptors, aggregation descriptors, and planner metadata.
-- [ ] Parse or validate the MVP CEL subset enough to reject unknown aliases, unknown fields, unsupported functions, aggregate misuse, and non-deterministic expressions.
-- [ ] Extract source field references from computed fields, joins, filters, and aggregate arguments.
-- [ ] Write `.modelable/plans/<domain>.<Projection>.v<version>.plan.json`.
+- [x] Build projection plan documents containing resolved source versions, field mappings, CEL expressions, join descriptors, aggregation descriptors, and planner metadata.
+- [x] Parse or validate the MVP CEL subset enough to reject unknown aliases, unknown fields, unsupported functions, aggregate misuse, and non-deterministic expressions.
+- [x] Extract source field references from computed fields, joins, filters, and aggregate arguments.
+- [x] Write `.modelable/plans/<domain>.<Projection>.v<version>.plan.json`.
 - [x] Implement `modelable inspect <Entity>@<v> --auto` to display generated projections.
 
 **Acceptance checks:**

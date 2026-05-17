@@ -63,7 +63,7 @@ uv run pytest tests/ -v
 | 0 — Tooling baseline | CLI package, uv, CI | Complete |
 | 1 — Parser + IR + validate | Parse `.mdl`, semantic validation | Complete |
 | 2 — Registry graph + resolver | SQLite index, cross-file resolution | Complete (lineage edges deferred to M3) |
-| 3 — Planner + auto projections | Auto-projection expansion, CEL, lineage | Partial — expansion + `inspect --auto` done; CEL + plan docs remaining |
+| 3 — Planner + auto projections | Auto-projection expansion, CEL, lineage | Complete — CEL validation, lineage extraction, plan docs done |
 | 4 — Compatibility + governance | `diff`, breaking-change detection, PII governance | Not started |
 | 5 — Emitters | JSON Schema, Markdown, TypeScript | Partial — JSON Schema + Markdown done; TypeScript remaining |
 | 6 — CLI workflows | `resolve`, `lineage`, `diff`, `codegen`, `scenario` | Partial — `validate`, `compile`, `docs`, `inspect --auto` done |

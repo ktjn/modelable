@@ -196,6 +196,13 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
     registry_path = build_registry(workspace, Path(".modelable"))
     console.print(f"[green]OK[/green] wrote {registry_path}")
 
+    from modelable.planner.plans import write_plans
+
+    plans_dir = Path(".modelable/plans")
+    plan_paths = write_plans(workspace, plans_dir)
+    for plan_path in plan_paths:
+        console.print(f"[green]OK[/green] wrote {plan_path}")
+
     output = out_dir or _DEFAULT_OUT_DIRS[target]
     output.mkdir(parents=True, exist_ok=True)
 

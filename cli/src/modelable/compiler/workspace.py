@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from modelable.parser.ir import MdlFile
+from modelable.expressions.cel import CelContext, parse_cel, validate_cel_expr
+from modelable.parser.ir import ComputedMapping, MdlFile
 from modelable.parser.parse import parse_file_to_ir
 from modelable.planner.planner import expand_auto_projections
-from modelable.registry.resolver import validate_references
+from modelable.registry.resolver import resolve_model_ref, validate_references
 from modelable.validation.semantic import validate
 
 
@@ -60,6 +61,7 @@ def load_workspace(path: str | Path) -> Workspace:
     errors.extend((Path("<workspace>"), error) for error in auto_projection_errors)
 
     errors.extend(_validate_merged_workspace(sources, merged))
+    errors.extend(_validate_cel(merged))
     return Workspace(sources=sources, mdl=merged, errors=errors)
 
 
@@ -156,6 +158,59 @@ def _validate_merged_workspace(
                         )
 
     errors.extend((Path("<workspace>"), error) for error in validate_references(merged))
+    return errors
+
+
+def _validate_cel(merged: MdlFile) -> list[tuple[Path, str]]:
+    """Validate CEL expressions in all projections across the merged workspace."""
+    errors: list[tuple[Path, str]] = []
+
+    for domain in merged.domains:
+        for projection_name, versions in domain.projections.items():
+            for pv in versions:
+                fqn = f"{domain.name}.{projection_name}@{pv.version}"
+
+                # Build alias -> set[field_name] from source and all joins
+                source_fields: dict[str, set[str]] = {}
+                all_sources = [(pv.source.model, pv.source.version, pv.source.alias)]
+                for join in pv.joins:
+                    all_sources.append((join.model, join.version, join.alias))
+                for model_ref, version_spec, alias in all_sources:
+                    try:
+                        resolved = resolve_model_ref(merged, model_ref, version_spec)
+                        source_fields[alias] = {f.name for f in resolved.version.fields}
+                    except LookupError:
+                        pass
+
+                ctx = CelContext(
+                    source_fields=source_fields,
+                    has_group_by=bool(pv.group_by),
+                    fqn=fqn,
+                )
+
+                for proj_field in pv.fields:
+                    if not isinstance(proj_field.mapping, ComputedMapping):
+                        continue
+                    expression = proj_field.mapping.expression
+                    ast, parse_errors = parse_cel(expression)
+                    for err in parse_errors:
+                        errors.append((Path("<workspace>"), f"{fqn}.{proj_field.name}: {err}"))
+                    if ast is not None:
+                        result = validate_cel_expr(ast, ctx)
+                        for err in result.errors:
+                            errors.append((Path("<workspace>"), f"{proj_field.name}: {err}"))
+
+                for join in pv.joins:
+                    if not join.on:
+                        continue
+                    ast, parse_errors = parse_cel(join.on)
+                    for err in parse_errors:
+                        errors.append((Path("<workspace>"), f"{fqn} join on: {err}"))
+                    if ast is not None:
+                        result = validate_cel_expr(ast, ctx)
+                        for err in result.errors:
+                            errors.append((Path("<workspace>"), f"{fqn} join on: {err}"))
+
     return errors
 
 
