@@ -259,15 +259,15 @@ uv run modelable diff customer.Customer@1 customer.Customer@2 --path ../samples/
 
 **Tasks:**
 
-- [ ] Define a deterministic emitter interface returning artifact metadata and diagnostics.
-- [ ] Emit JSON Schema draft 2020-12 for models and projections.
-- [ ] Map all MVP Modelable types to JSON Schema according to `emitter-spec.md`.
-- [ ] Mark non-optional fields as required and optional fields as nullable or absent from `required` according to JSON Schema 2020-12 conventions.
-- [ ] Add `x-modelable`, `x-modelable-field`, `x-modelable-classification`, `x-modelable-lineage`, `x-modelable-ref`, and `x-modelable-por`.
-- [ ] Validate generated JSON Schema with `jsonschema`.
-- [ ] Emit Markdown docs with domain metadata, field tables, projection source tables, and lineage tables.
+- [x] Define a deterministic emitter interface returning artifact metadata and diagnostics.
+- [x] Emit JSON Schema draft 2020-12 for models and projections.
+- [x] Map all MVP Modelable types to JSON Schema according to `emitter-spec.md`.
+- [x] Mark non-optional fields as required and optional fields as nullable or absent from `required` according to JSON Schema 2020-12 conventions.
+- [x] Add `x-modelable`, `x-modelable-field`, `x-modelable-classification`, `x-modelable-lineage`, `x-modelable-ref`, and `x-modelable-por`.
+- [x] Validate generated JSON Schema with `jsonschema`.
+- [x] Emit Markdown docs with domain metadata, field tables, projection source tables, and lineage tables.
 - [ ] Generate TypeScript from JSON Schema through `json-schema-to-typescript`.
-- [ ] Return clear deferred-target diagnostics for targets outside Phase 1.
+- [x] Return clear deferred-target diagnostics for targets outside Phase 1.
 
 **Acceptance checks:**
 
@@ -300,13 +300,13 @@ uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 **Tasks:**
 
 - [ ] Split command implementations into focused command modules once `cli.py` becomes too large.
-- [ ] Implement `validate [PATH] [--strict]`.
+- [x] Implement `validate [PATH] [--strict]`.
 - [ ] Implement `resolve REF [--path PATH]`.
 - [ ] Implement `lineage REF [--path PATH]`.
 - [ ] Implement `diff REF_A REF_B [--path PATH]`.
-- [ ] Implement `compile SOURCE --target TARGET [--out DIR] [--path PATH]`.
-- [ ] Implement `docs SOURCE [--out DIR]` as a wrapper around markdown compilation.
-- [ ] Implement `inspect <Entity>@<version> --auto [--path PATH]`.
+- [x] Implement `compile SOURCE --target TARGET [--out DIR] [--path PATH]`.
+- [x] Implement `docs SOURCE [--out DIR]` as a wrapper around markdown compilation.
+- [x] Implement `inspect <Entity>@<version> --auto [--path PATH]`.
 - [ ] Implement `codegen formats` and `codegen types [--format FORMAT]`.
 - [ ] Implement `scenario list`, `scenario show`, and `scenario load` for bundled local samples.
 - [ ] Ensure exit codes match `cli-spec.md`.
