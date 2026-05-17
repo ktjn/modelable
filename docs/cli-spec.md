@@ -668,7 +668,17 @@ When `MODELABLE_LLM_PROVIDER=ollama` and `MODELABLE_LLM_MODEL=<model>` are set, 
 
 **Defined in:** `llm-integration-spec.md` §6.4.
 
-### 10.4 `registry` — Federated registry management
+### 10.5 `chat` — Interactive model conversation
+
+```text
+modelable chat --path PATH [--ref <Domain.Model@version>] [--message TEXT] [--provider NAME] [--model MODEL] [--base-url URL]
+```
+
+Starts a conversational session against the configured model. Without `--message`, the command prompts for turns until `/exit` or EOF. `--message` sends a single turn and exits, which is useful for tests and scripts. The chat command never writes files; editing still goes through `update`.
+
+**Defined in:** `llm-integration-spec.md` §6.6.
+
+### 10.6 `registry` — Federated registry management
 
 ```text
 modelable registry init --id <registry-id> --owns <domain>[,<domain>...]

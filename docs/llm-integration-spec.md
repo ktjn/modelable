@@ -2,7 +2,7 @@
 
 > **Status:** Approved for CLI-assisted authoring.
 >
-> **Scope:** AI-powered commands: `generate`, `describe`, `update`, `transform`, and `suggest-projection`.
+> **Scope:** AI-powered commands: `generate`, `describe`, `update`, `transform`, `suggest-projection`, and `chat`.
 
 ## 1. Purpose
 
@@ -43,6 +43,7 @@ The current implementation supports a provider-backed local Ollama workflow thro
 | `modelable update` | Model or projection ref plus natural-language edit instruction | Updated `.mdl` | Only with `--output` |
 | `modelable transform` | Model/projection ref and target | Artifact plus explanation | Optional `--out` |
 | `modelable suggest-projection` | Source ref and consumer domain | Proposed projection `.mdl` | Only with `--output` |
+| `modelable chat` | Workspace path, optional ref, and natural-language message | Conversational answer or model-guided edit suggestion | No |
 
 ## 4. Prompt Context
 
@@ -127,6 +128,16 @@ Required options:
 - Exclude restricted fields unless the prompt context includes an explicit permission grant.
 - Prefer optional fields for consumer-facing additions.
 - Include comments only when they clarify a non-obvious governance or lineage choice.
+
+### 6.6 `chat`
+
+`chat` starts an interactive conversation with the configured model about the current workspace. It must:
+
+- Load the workspace summary once and reuse it across turns.
+- Support one-shot mode via `--message` for scripting and tests.
+- Use the same provider configuration as `generate` and `update`.
+- Reuse existing workspace summaries when no provider is configured.
+- Never write files directly from chat; edits must flow through `update`.
 
 ## 7. Error Handling
 

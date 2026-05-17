@@ -4,7 +4,11 @@ import json
 from urllib import request
 
 import pytest
+from click.testing import CliRunner
 
+from modelable.cli import cli
+from modelable.compiler.workspace import load_workspace
+from modelable.llm.chat import chat_reply
 from modelable.llm.config import resolve_llm_config
 from modelable.llm.engine import update_definition
 from modelable.llm.providers import LLMRequest, LLMResponse, OllamaProvider, build_provider
@@ -104,3 +108,78 @@ domain customer {
     assert "loyaltyTier: string" in result.content
     assert "review classification on email" in result.warnings
     assert mdl.read_text(encoding="utf-8") == original
+
+
+def test_chat_reply_falls_back_to_local_qa(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    response = chat_reply(workspace, "Who owns customer.Customer@1?")
+    assert "platform" in response
+
+
+def test_chat_command_uses_provider_when_available(tmp_path, monkeypatch):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    class DummyResponse:
+        def __init__(self, body: bytes):
+            self._body = body
+
+        def read(self) -> bytes:
+            return self._body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        return DummyResponse(
+            json.dumps({"message": {"content": "Use `modelable update customer.Customer@1 \"make email optional\"`."}}).encode("utf-8")
+        )
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--message",
+            "How do I make email optional?",
+            "--provider",
+            "ollama",
+            "--model",
+            "llama3.1",
+            "--base-url",
+            "http://localhost:11434",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "modelable update customer.Customer@1" in result.output

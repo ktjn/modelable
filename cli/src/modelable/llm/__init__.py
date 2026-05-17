@@ -7,6 +7,7 @@ from .context import (
     build_workspace_summary,
     parse_model_ref,
 )
+from .chat import CHAT_SYSTEM_PROMPT, ChatState, chat_reply
 from .providers import LLMProvider, LLMRequest, LLMResponse, OllamaProvider, build_provider
 from .redaction import redact_sensitive_values
 from .update_plan import UpdateChange, UpdatePlan, build_update_request, parse_update_plan

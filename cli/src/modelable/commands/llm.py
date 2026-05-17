@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
+from modelable.compiler.workspace import load_workspace
 from modelable.llm.engine import (
     answer_model_question_cli,
     describe_path_or_ref,
@@ -18,6 +19,9 @@ from modelable.llm.engine import (
     transform_ref_to_target,
     validate_generated_text,
 )
+from modelable.llm.chat import chat_reply
+from modelable.llm.config import resolve_llm_config
+from modelable.llm.providers import build_provider
 
 console = Console()
 
@@ -32,6 +36,7 @@ def register_llm_commands(cli_group: click.Group) -> None:
     cli_group.add_command(ask)
     cli_group.add_command(recommend)
     cli_group.add_command(explain)
+    cli_group.add_command(chat)
 
 
 @click.command()
@@ -179,3 +184,39 @@ def recommend(path: Path, ref: str | None, consumer: str | None) -> None:
 def explain(path: Path) -> None:
     """Explain current validation errors."""
     console.print(explain_validation(path))
+
+
+@click.command()
+@click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--ref", "ref", default=None, help="Optional model or projection ref to focus the chat.")
+@click.option("--message", "message", default=None, help="Send a single message and exit.")
+@click.option("--provider", "provider", default=None, help="Provider name, for example ollama.")
+@click.option("--model", "model", default=None, help="Model identifier.")
+@click.option("--base-url", "base_url", default=None, help="Provider base URL.")
+def chat(path: Path, ref: str | None, message: str | None, provider: str | None, model: str | None, base_url: str | None) -> None:
+    """Chat with a model about the current workspace."""
+    workspace = load_workspace(path)
+    config = resolve_llm_config(
+        flag_provider=provider,
+        flag_model=model,
+        flag_base_url=base_url,
+        workspace=workspace.mdl.workspace,
+    )
+    llm_provider = build_provider(config.provider, model=config.model, base_url=config.base_url)
+    history: list[tuple[str, str]] = []
+
+    if message is not None:
+        console.print(chat_reply(workspace, message, ref=ref, provider=llm_provider))
+        return
+
+    console.print("Modelable chat. Type /exit to quit.")
+    while True:
+        user_message = click.prompt("you", prompt_suffix="> ", default="", show_default=False)
+        if not user_message.strip():
+            continue
+        if user_message.strip() in {"/exit", "exit", ":q", "quit"}:
+            break
+        response = chat_reply(workspace, user_message, ref=ref, provider=llm_provider, history=history)
+        console.print(f"assistant> {response}")
+        history.append(("user", user_message))
+        history.append(("assistant", response))
