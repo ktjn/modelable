@@ -656,13 +656,13 @@ Proposes a projection definition with field derivations tailored to a consuming 
 
 **Defined in:** `idl-design-spec.md` §5.1.
 
-### 10.4 `update` — Natural-language model edit
+### 10.4 `update` — Natural-language model or projection edit
 
 ```text
 modelable update <Domain.Model@version> "<edit instruction>" --path PATH [--output FILE]
 ```
 
-Applies a natural-language change request to an existing model version, rewrites the `.mdl` source, and validates the result before writing.
+Applies a natural-language change request to an existing model or projection version, rewrites the `.mdl` source, and validates the result before writing.
 
 **Defined in:** `llm-integration-spec.md` §6.4.
 

@@ -226,3 +226,42 @@ domain customer {
     assert "email?: string" in updated
     assert "loyaltyTier: string" in updated
 
+
+def test_cli_update_projection_field(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+
+domain billing {
+  projection CustomerBrief @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "update",
+            "billing.CustomerBrief@1",
+            "rename name to displayName and add status from c.name",
+            "--path",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    updated = mdl.read_text(encoding="utf-8")
+    assert "displayName <- c.name" in updated
+    assert "status <- c.name" in updated

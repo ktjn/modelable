@@ -40,7 +40,7 @@ The CLI default should be a conservative, documented model identifier in the imp
 |---|---|---|---|
 | `modelable generate` | Natural language, DDL, JSON Schema, OpenAPI, Avro, Protobuf, or existing `.mdl` context | Proposed `.mdl` | Only with `--output` |
 | `modelable describe` | `.mdl` file, directory, model ref, or projection ref | Natural-language summary | No |
-| `modelable update` | Model ref plus natural-language edit instruction | Updated `.mdl` | Only with `--output` |
+| `modelable update` | Model or projection ref plus natural-language edit instruction | Updated `.mdl` | Only with `--output` |
 | `modelable transform` | Model/projection ref and target | Artifact plus explanation | Optional `--out` |
 | `modelable suggest-projection` | Source ref and consumer domain | Proposed projection `.mdl` | Only with `--output` |
 
@@ -109,7 +109,7 @@ Required options:
 
 ### 6.4 `update`
 
-`update` applies a natural-language edit instruction to an existing model version. It must:
+`update` applies a natural-language edit instruction to an existing model or projection version. It must:
 
 - Resolve the target model version explicitly.
 - Produce a patchable `.mdl` update rather than freeform prose.

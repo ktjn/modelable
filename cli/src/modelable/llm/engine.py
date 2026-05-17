@@ -184,8 +184,13 @@ def update_definition(path: Path, ref: str, instruction: str, *, output: Path | 
         if version is None:
             raise ValueError(f"Unknown model version: {ref}")
         updated, warnings = _apply_model_update(version, instruction)
+    elif model_ref.name in domain.projections:
+        version = next((item for item in domain.projections[model_ref.name] if item.version == model_ref.version), None)
+        if version is None:
+            raise ValueError(f"Unknown projection version: {ref}")
+        updated, warnings = _apply_projection_update(version, instruction)
     else:
-        raise ValueError("The first update workflow supports model versions only.")
+        raise ValueError(f"Unknown model or projection: {ref}")
 
     if not updated:
         raise ValueError("No supported update instructions were recognized")
@@ -289,6 +294,46 @@ def _apply_model_update(version: ModelVersion, instruction: str) -> tuple[bool, 
     return updated, warnings
 
 
+def _apply_projection_update(version: ProjectionVersion, instruction: str) -> tuple[bool, list[str]]:
+    warnings: list[str] = []
+    updated = False
+    lowered = instruction.lower()
+
+    for field in list(version.fields):
+        rename = _extract_rename(field.name, instruction)
+        if rename is not None:
+            field.name = rename
+            updated = True
+        if _matches_remove(field.name, lowered):
+            version.fields = [item for item in version.fields if item is not field]
+            updated = True
+            continue
+        if _matches_source_field_change(field.name, instruction):
+            new_source = _extract_source_field(field.name, instruction)
+            if new_source is not None and isinstance(field.mapping, DirectMapping):
+                field.mapping.source_field = new_source
+                updated = True
+
+    add_match = _extract_projection_field_addition(instruction)
+    if add_match is not None:
+        field_name, source_field = add_match
+        if any(field.name == field_name for field in version.fields):
+            warnings.append(f"Field '{field_name}' already exists; skipped add")
+        else:
+            version.fields.append(
+                ProjectionField(
+                    name=field_name,
+                    mapping=DirectMapping(
+                        source_alias=version.source.alias,
+                        source_field=_normalize_source_field(source_field or field_name),
+                    ),
+                )
+            )
+            updated = True
+
+    return updated, warnings
+
+
 def _extract_field_addition(instruction: str) -> tuple[str, PrimitiveType | None, bool] | None:
     patterns = [
         r"\badd\s+(?:a\s+)?field\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:as|:)?\s*(?P<type>[A-Za-z_][A-Za-z0-9_<>,()]*)?(?P<optional>\s+optional)?\b",
@@ -301,6 +346,18 @@ def _extract_field_addition(instruction: str) -> tuple[str, PrimitiveType | None
             field_type = _type_from_text(match.group("type")) if match.group("type") else None
             optional = bool(match.group("optional"))
             return field_name, field_type, optional
+    return None
+
+
+def _extract_projection_field_addition(instruction: str) -> tuple[str, str | None] | None:
+    patterns = [
+        r"\badd\s+(?:a\s+)?projection\s+field\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:from|as|=|:)?\s*(?P<source>[A-Za-z_][A-Za-z0-9_\.]*)?",
+        r"\badd\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:from|as|=|:)?\s*(?P<source>[A-Za-z_][A-Za-z0-9_\.]*)?",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, instruction, re.IGNORECASE)
+        if match:
+            return match.group("name"), match.group("source")
     return None
 
 
@@ -318,6 +375,26 @@ def _extract_type_change(existing_name: str, instruction: str) -> PrimitiveType 
     if match:
         return _type_from_text(match.group(1))
     return None
+
+
+def _matches_source_field_change(field_name: str, instruction: str) -> bool:
+    lowered = instruction.lower()
+    return f"{field_name.lower()} from" in lowered or f"change {field_name.lower()} source" in lowered
+
+
+def _extract_source_field(existing_name: str, instruction: str) -> str | None:
+    match = re.search(
+        rf"\b(?:change|set|update)\s+{re.escape(existing_name)}\s+(?:source\s+)?(?:to|from)\s+([A-Za-z_][A-Za-z0-9_\.]*)",
+        instruction,
+        re.IGNORECASE,
+    )
+    if match:
+        return _normalize_source_field(match.group(1))
+    return None
+
+
+def _normalize_source_field(source_field: str) -> str:
+    return source_field.split(".")[-1]
 
 
 def _matches_optional(field_name: str, instruction_lower: str) -> bool:
