@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -113,6 +114,13 @@ def _parse_entity_ref(ref: str) -> tuple[str, str, int]:
     return parts[0], parts[1], version
 
 
+_DEFAULT_OUT_DIRS: dict[str, Path] = {
+    "json-schema": Path("./dist/jsonschema"),
+    "markdown": Path("./dist/docs"),
+    "typescript": Path("./dist/types"),
+}
+
+
 @cli.command()
 @click.argument("source", type=click.Path(exists=True, path_type=Path))
 @click.option(
@@ -146,11 +154,27 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
 
     registry_path = build_registry(workspace, Path(".modelable"))
     console.print(f"[green]OK[/green] wrote {registry_path}")
-    console.print(
-        f"[yellow]Artifact target '{target}' is deferred; "
-        "registry indexing completed.[/yellow]"
-    )
-    if out_dir is not None:
-        out_dir.mkdir(parents=True, exist_ok=True)
+
+    output = out_dir or _DEFAULT_OUT_DIRS[target]
+    output.mkdir(parents=True, exist_ok=True)
+
+    if target == "json-schema":
+        from modelable.emitters.json_schema import emit_json_schema
+
+        artifacts = emit_json_schema(workspace, output)
+        for art in artifacts:
+            art.path.write_text(
+                json.dumps(art.content, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            for warning in art.warnings:
+                console.print(f"[yellow]WARN[/yellow] {warning}")
+            console.print(f"[green]OK[/green] {art.path}")
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    else:
+        from modelable.emitters.diagnostics import deferred_target
+
+        console.print(f"[yellow]{deferred_target(target)}[/yellow]")
 
     sys.exit(0)
