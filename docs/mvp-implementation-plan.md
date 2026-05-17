@@ -235,7 +235,8 @@ uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
   - Completed: registry compilation now emits default same-domain `read`, `project`, and `subscribe` access policies, plus owner-only `write`, `transfer`, and `manage_access` policies, for published model and projection versions without an explicit `access` block.
 - [x] Parse and record entity and property grants for `read`, `project`, `subscribe`, and `write`.
   - Completed: model and projection versions now support version-scoped `access { ... }` blocks with entity and property grants, and registry compilation records explicit grants instead of defaulting when a block is present.
-- [ ] Emit governance findings when a projection lacks documented `project` or `read` grants, or lacks derivation policy metadata for computed use of referenced source fields.
+- [x] Emit governance findings when a projection lacks documented `project` or `read` grants, or lacks derivation policy metadata for computed use of referenced source fields.
+  - Completed: plan documents now include deterministic governance findings for projections that omit explicit access documentation or computed-field derivation policy metadata for referenced source fields.
 - [ ] Emit governance findings when a projection exposes `@pii`, restricted, or higher-classification fields without preserving governance metadata.
 - [ ] Preserve source classification on projected fields and emit governance findings for attempts to lower or omit classification.
 - [ ] Generate unsigned POR metadata and embed POR references in registry metadata for JSON Schema emission.

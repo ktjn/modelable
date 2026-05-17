@@ -242,6 +242,8 @@ When a projection field maps from a source field:
 
 In Phase 1, the planner records these conditions as governance findings and keeps the ownership, access, classification, and lineage metadata reproducible. A later configured policy layer may promote selected findings to blocking errors.
 
+The current Phase 1 planner reports findings when a projection omits explicit `project` or `read` grants, or when a computed projection field uses a source field without documented derivation policy metadata for the consuming domain.
+
 ### 4.7 Permission Scoping Across Domains
 
 When a consumer domain defines a projection over a model in another domain:

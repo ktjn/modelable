@@ -7,6 +7,7 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.parser.ir import ComputedMapping, DirectMapping, MdlFile, ProjectionVersion
+from modelable.governance.checker import build_projection_governance_findings
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
 from modelable.registry.resolver import resolve_model_ref
 
@@ -26,6 +27,12 @@ def build_plan(
         for join in pv.joins
     ]
     revalidation_reasons = _collect_revalidation_reasons(source_block, joins_block)
+    governance_findings = [
+        finding.as_dict()
+        for finding in build_projection_governance_findings(
+            domain_name, projection_name, pv, mdl
+        )
+    ]
 
     lineage_by_field = {fl.field_name: fl for fl in lineage.fields}
 
@@ -52,6 +59,7 @@ def build_plan(
         "auto_generated": pv.auto_generated,
         "requires_revalidation": bool(revalidation_reasons),
         "revalidation_reasons": revalidation_reasons,
+        "governance_findings": governance_findings,
         "source": source_block,
         "joins": joins_block,
         "group_by": pv.group_by,
