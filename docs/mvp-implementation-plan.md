@@ -320,7 +320,8 @@ uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 - [x] Implement `compile SOURCE --target TARGET [--out DIR]` (json-schema, markdown, and typescript targets working).
 - [x] Implement `docs SOURCE [--out DIR]` as a wrapper around markdown compilation.
 - [x] Implement `inspect <Entity>@<version> --auto [--path PATH]`.
-- [ ] Implement `codegen formats` and `codegen types [--format FORMAT]`.
+- [x] Implement `codegen formats` and `codegen types [--format FORMAT]`.
+  - Completed: `codegen` now lists supported artifact targets and prints the current field-type mapping for json-schema, markdown, and typescript.
 - [ ] Implement `scenario list`, `scenario show`, and `scenario load` for bundled local samples.
 - [ ] Ensure exit codes match `cli-spec.md`.
 

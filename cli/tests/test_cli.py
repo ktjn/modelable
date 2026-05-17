@@ -273,3 +273,26 @@ domain billing {
     assert "<- customer.Customer@1.email" in projection_result.output
     assert "- domainName: computed" in projection_result.output
     assert 'expr: "billing"' in projection_result.output
+
+
+def test_codegen_formats_and_types():
+    runner = CliRunner()
+
+    formats_result = runner.invoke(cli, ["codegen", "formats"])
+    assert formats_result.exit_code == 0, formats_result.output
+    assert "json-schema" in formats_result.output
+    assert "markdown" in formats_result.output
+    assert "typescript" in formats_result.output
+
+    typescript_result = runner.invoke(cli, ["codegen", "types"])
+    assert typescript_result.exit_code == 0, typescript_result.output
+    assert "typescript type mappings" in typescript_result.output
+    assert "array<T> -> T[]" in typescript_result.output
+
+    json_schema_result = runner.invoke(cli, ["codegen", "types", "--format", "json-schema"])
+    assert json_schema_result.exit_code == 0, json_schema_result.output
+    assert 'string -> {"type":"string"}' in json_schema_result.output
+
+    markdown_result = runner.invoke(cli, ["codegen", "types", "--format", "markdown"])
+    assert markdown_result.exit_code == 0, markdown_result.output
+    assert "rendered as canonical .mdl text" in markdown_result.output
