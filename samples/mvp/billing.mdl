@@ -1,0 +1,19 @@
+domain billing {
+  owner: "billing-team"
+  description: "Billing projections over customer data."
+
+  projection BillingCustomer @ 1
+    from customer.Customer @ 2 as c
+  {
+    billingCustomerId <- c.customerId
+    name <- c.legalName
+    @pii
+    invoiceEmail <- c.email
+    isActive = c.status == "active"
+  }
+
+  generate {
+    jsonschema -> "./generated/schema/"
+    docs -> "./generated/docs/"
+  }
+}

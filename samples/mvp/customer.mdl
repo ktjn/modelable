@@ -1,0 +1,29 @@
+domain customer {
+  owner: "customer-team"
+  description: "Customer identity and lifecycle."
+
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    status: enum(active, blocked, deleted)
+    createdAt: timestamp
+  }
+
+  entity Customer @ 2 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    @pii
+    email?: string
+    status: enum(active, blocked, deleted)
+    createdAt: timestamp
+  }
+
+  auto projections Customer @ 2 {
+    db
+    request
+    reply
+    event
+  }
+}

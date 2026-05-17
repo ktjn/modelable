@@ -105,7 +105,10 @@ def _find_model_versions(
 ) -> list[ModelVersion]:
     for domain in mdl.domains:
         if domain.name == domain_name:
-            return domain.models.get(model_name, [])
+            versions: list[ModelVersion] = []
+            versions.extend(domain.models.get(model_name, []))
+            versions.extend(domain.projections.get(model_name, []))
+            return versions
     return []
 
 

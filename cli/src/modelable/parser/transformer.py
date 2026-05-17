@@ -241,6 +241,9 @@ class MdlTransformer(Transformer):
     def dotted_ref(self, items):
         return ".".join(str(item) for item in items)
 
+    def IDENT(self, token):
+        return str(token)
+
     def projection_decl(self, items):
         source, joins, group_by = items[2]
         projection_version = ProjectionVersion(
@@ -316,7 +319,28 @@ class MdlTransformer(Transformer):
         )
 
     def auto_projection_item(self, items):
-        return AutoProjectionTarget(kind=items[0])
+        kind = items[0]
+        excluded_fields = []
+        excluded_annotations = []
+        operations = []
+        for option in items[1:]:
+            if option is None:
+                continue
+            opt_kind, opt_values = option
+            if opt_kind == "exclude":
+                for val in opt_values:
+                    if isinstance(val, str):
+                        excluded_fields.append(val)
+                    else:
+                        excluded_annotations.append(val)
+            elif opt_kind == "on":
+                operations.extend(opt_values)
+        return AutoProjectionTarget(
+            kind=kind,
+            excluded_fields=excluded_fields,
+            excluded_annotations=excluded_annotations,
+            operations=operations,
+        )
 
     def auto_projection_kind(self, items):
         return items[0]
@@ -333,8 +357,14 @@ class MdlTransformer(Transformer):
     def apk_event(self, _items):
         return "event"
 
-    def auto_projection_option(self, _items):
-        return None
+    def auto_projection_option(self, items):
+        return items[0]
+
+    def exclude_option(self, items):
+        return ("exclude", [item for item in items if item is not None])
+
+    def on_option(self, items):
+        return ("on", [str(item) for item in items if item is not None])
 
     def auto_projection_exclusion(self, items):
         return items[0]
