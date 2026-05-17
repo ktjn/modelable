@@ -149,3 +149,31 @@ domain customer {
         assert result.exit_code == 0
         assert Path(".modelable/registry.db").exists()
         assert "registry.db" in result.output
+
+
+def test_diff_reports_breaking_changes(tmp_path):
+    mdl = tmp_path / "customer.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["diff", "customer.Customer@1", "customer.Customer@2", "--path", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "breaking" in result.output.lower()
+    assert "removed_field name" in result.output.lower()

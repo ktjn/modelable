@@ -223,10 +223,12 @@ uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
 
 **Tasks:**
 
-- [ ] Compare consecutive model versions for additions, removals, renames, type changes, enum changes, identity changes, and nullability changes.
+- [x] Compare consecutive model versions for additions, removals, renames, type changes, enum changes, identity changes, and nullability changes.
+  - Completed: field-level compatibility comparison now classifies removed, added, renamed, nullability, identity, enum, and type changes between published model versions.
 - [ ] Verify `(additive)` declarations only contain compatible changes.
 - [ ] Verify `(breaking)` declarations mark affected projections as requiring re-validation.
-- [ ] Implement `modelable diff REF_A REF_B --path PATH`.
+- [x] Implement `modelable diff REF_A REF_B --path PATH`.
+  - Completed: `diff` compares two published model versions and prints compatibility status plus the classified change list.
 - [ ] Preserve default same-domain access assumptions when no `access` block exists.
 - [ ] Parse and record entity and property grants for `read`, `project`, `subscribe`, and `write`.
 - [ ] Emit governance findings when a projection lacks documented `project` or `read` grants, or lacks derivation policy metadata for computed use of referenced source fields.
@@ -305,7 +307,7 @@ uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 - [x] Implement `validate [PATH] [--strict]`.
 - [ ] Implement `resolve REF [--path PATH]`.
 - [ ] Implement `lineage REF [--path PATH]`.
-- [ ] Implement `diff REF_A REF_B [--path PATH]`.
+- [x] Implement `diff REF_A REF_B [--path PATH]`.
 - [x] Implement `compile SOURCE --target TARGET [--out DIR]` (json-schema, markdown, and typescript targets working).
 - [x] Implement `docs SOURCE [--out DIR]` as a wrapper around markdown compilation.
 - [x] Implement `inspect <Entity>@<version> --auto [--path PATH]`.

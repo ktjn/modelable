@@ -6,7 +6,9 @@ import click
 from rich.console import Console
 
 from modelable.compiler.workspace import load_workspace
+from modelable.compat.checker import check_model_version_compatibility
 from modelable.llm.chat import ChatState, chat_turn
+from modelable.llm.context import parse_model_ref
 from modelable.llm.engine import (
     answer_model_question_cli,
     describe_path_or_ref,
@@ -29,6 +31,7 @@ def register_llm_commands(cli_group: click.Group) -> None:
     cli_group.add_command(describe)
     cli_group.add_command(generate)
     cli_group.add_command(import_model)
+    cli_group.add_command(diff)
     cli_group.add_command(update)
     cli_group.add_command(transform)
     cli_group.add_command(suggest_projection_cmd)
@@ -100,6 +103,41 @@ def import_model(source: Path, source_format: str, domain_name: str | None, outp
         console.print(f"[green]OK[/green] wrote {output}")
     else:
         console.print(text.rstrip())
+
+
+@click.command()
+@click.argument("from_ref")
+@click.argument("to_ref")
+@click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
+def diff(from_ref: str, to_ref: str, path: Path) -> None:
+    """Compare two published model versions."""
+    workspace = load_workspace(path)
+    try:
+        from_model = parse_model_ref(from_ref)
+        to_model = parse_model_ref(to_ref)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if from_model.domain != to_model.domain or from_model.name != to_model.name:
+        raise click.ClickException("diff requires refs from the same domain and model")
+
+    try:
+        report = check_model_version_compatibility(
+            workspace.mdl,
+            from_model.domain,
+            from_model.name,
+            from_model.version,
+            to_model.version,
+        )
+    except LookupError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    console.print(f"{from_ref} -> {to_ref}")
+    console.print(f"status: {report.status}")
+    if report.findings:
+        for finding in report.findings:
+            console.print(f"- {finding}")
+    else:
+        console.print("- no changes")
 
 
 @click.command()

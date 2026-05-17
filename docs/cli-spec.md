@@ -175,10 +175,10 @@ modelable lineage customer.Customer@2
 ### 5.4 `diff` — Compare two model versions
 
 ```text
-modelable diff REF_A REF_B [--path PATH]
+modelable diff REF_A REF_B --path PATH
 ```
 
-Compares two model or projection versions field by field and reports additions, removals, and type changes. Intended to support compatibility review before publishing a new version.
+Compares two published model versions field by field and reports additions, removals, renames, nullability changes, identity changes, enum changes, and type changes. Intended to support compatibility review before publishing a new version.
 
 **Arguments:**
 
@@ -191,7 +191,7 @@ Compares two model or projection versions field by field and reports additions, 
 
 | Flag | Default | Description |
 |:-----|:--------|:------------|
-| `--path`, `-p` | `.` | Directory to search for `.mdl` definitions |
+| `--path`, `-p` | required | Directory to search for `.mdl` definitions |
 
 **Examples:**
 
