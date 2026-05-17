@@ -112,6 +112,7 @@ Required options:
 `update` applies a natural-language edit instruction to an existing model or projection version. It must:
 
 - Resolve the target model version explicitly.
+- Support `--preview` so authors can inspect the rendered patch before writing.
 - Produce a patchable `.mdl` update rather than freeform prose.
 - Validate the edited model before writing.
 - Refuse ambiguous or unsupported edits instead of guessing.

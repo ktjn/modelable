@@ -227,6 +227,37 @@ domain customer {
     assert "loyaltyTier: string" in updated
 
 
+def test_cli_update_preview_shows_diff_without_writing(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    original = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+"""
+    mdl.write_text(original, encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "update",
+            "customer.Customer@1",
+            "make email optional",
+            "--path",
+            str(tmp_path),
+            "--preview",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "@@" in result.output
+    assert "-    email: string" in result.output
+    assert "+    email?: string" in result.output
+    assert mdl.read_text(encoding="utf-8") == original
+
+
 def test_cli_update_projection_field(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(

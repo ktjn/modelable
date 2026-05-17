@@ -659,10 +659,10 @@ Proposes a projection definition with field derivations tailored to a consuming 
 ### 10.4 `update` — Natural-language model or projection edit
 
 ```text
-modelable update <Domain.Model@version> "<edit instruction>" --path PATH [--output FILE]
+modelable update <Domain.Model@version> "<edit instruction>" --path PATH [--output FILE] [--preview]
 ```
 
-Applies a natural-language change request to an existing model or projection version, rewrites the `.mdl` source, and validates the result before writing.
+Applies a natural-language change request to an existing model or projection version, rewrites the `.mdl` source, and validates the result before writing. `--preview` shows the rendered diff without writing changes.
 
 **Defined in:** `llm-integration-spec.md` §6.4.
 

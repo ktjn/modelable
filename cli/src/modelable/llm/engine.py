@@ -46,6 +46,7 @@ class AssistantResult:
 @dataclass(frozen=True)
 class UpdateResult:
     path: Path
+    original_content: str
     content: str
     warnings: list[str]
 
@@ -162,7 +163,14 @@ def explain_validation(path: Path) -> str:
     return explain_validation_errors(workspace.errors)
 
 
-def update_definition(path: Path, ref: str, instruction: str, *, output: Path | None = None) -> UpdateResult:
+def update_definition(
+    path: Path,
+    ref: str,
+    instruction: str,
+    *,
+    output: Path | None = None,
+    write: bool = True,
+) -> UpdateResult:
     workspace = load_workspace(path)
     model_ref = parse_model_ref(ref)
     source_path = _find_source_path_for_ref(workspace, model_ref.domain, model_ref.name)
@@ -195,14 +203,16 @@ def update_definition(path: Path, ref: str, instruction: str, *, output: Path | 
     if not updated:
         raise ValueError("No supported update instructions were recognized")
 
+    original_text = source_text
     new_text = render_mdl(mdl)
     _, errors = validate_generated_text(new_text)
     if errors:
         raise ValueError("Updated definition failed validation: " + "; ".join(errors))
 
     out_path = output or source_path
-    out_path.write_text(new_text, encoding="utf-8")
-    return UpdateResult(path=out_path, content=new_text, warnings=warnings)
+    if write:
+        out_path.write_text(new_text, encoding="utf-8")
+    return UpdateResult(path=out_path, original_content=original_text, content=new_text, warnings=warnings)
 
 
 def validate_generated_text(text: str) -> tuple[MdlFile, list[str]]:

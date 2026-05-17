@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 from pathlib import Path
 
 import click
@@ -102,13 +103,24 @@ def import_model(source: Path, source_format: str, domain_name: str | None, outp
 @click.argument("instruction", nargs=-1)
 @click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
 @click.option("--output", "output", type=click.Path(path_type=Path), default=None)
-def update(ref: str, instruction: tuple[str, ...], path: Path, output: Path | None) -> None:
+@click.option("--preview", is_flag=True, help="Show the edit diff without writing changes.")
+def update(ref: str, instruction: tuple[str, ...], path: Path, output: Path | None, preview: bool) -> None:
     """Apply a natural-language update to an existing model version."""
     try:
-        result = update_definition(path, ref, " ".join(instruction), output=output)
+        result = update_definition(path, ref, " ".join(instruction), output=output, write=not preview)
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
-    console.print(result.content.rstrip())
+    if preview:
+        diff = difflib.unified_diff(
+            result.original_content.splitlines(),
+            result.content.splitlines(),
+            fromfile=str(result.path),
+            tofile=f"{result.path} (preview)",
+            lineterm="",
+        )
+        console.print("\n".join(diff))
+    else:
+        console.print(result.content.rstrip())
     for warning in result.warnings:
         console.print(f"[yellow]WARN[/yellow] {warning}")
 
