@@ -245,10 +245,14 @@ class ProjectionVersion(BaseModel):
     joins: list[JoinRef] = Field(default_factory=list)
     group_by: list[str] = Field(default_factory=list)
     fields: list[ProjectionField]
+    auto_generated: bool = False
 
 
 class AutoProjectionTarget(BaseModel):
     kind: Literal["db", "request", "reply", "event"]
+    excluded_fields: list[str] = Field(default_factory=list)
+    excluded_annotations: list[Annotation] = Field(default_factory=list)
+    operations: list[str] = Field(default_factory=list)
 
 
 class AutoProjectionDecl(BaseModel):

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from modelable.parser.ir import MdlFile
 from modelable.parser.parse import parse_file_to_ir
+from modelable.planner.planner import expand_auto_projections
 from modelable.registry.resolver import validate_references
 from modelable.validation.semantic import validate
 
@@ -53,11 +54,18 @@ def load_workspace(path: str | Path) -> Workspace:
         if mdl.workspace is not None:
             merged.workspace = mdl.workspace
 
-    errors.extend(_validate_merged_workspace(sources))
+    # Expand auto projections before merged validation so that explicit
+    # projections can reference generated projection versions.
+    auto_projection_errors = expand_auto_projections(merged)
+    errors.extend((Path("<workspace>"), error) for error in auto_projection_errors)
+
+    errors.extend(_validate_merged_workspace(sources, merged))
     return Workspace(sources=sources, mdl=merged, errors=errors)
 
 
-def _validate_merged_workspace(sources: list[WorkspaceSource]) -> list[tuple[Path, str]]:
+def _validate_merged_workspace(
+    sources: list[WorkspaceSource], merged: MdlFile
+) -> list[tuple[Path, str]]:
     errors: list[tuple[Path, str]] = []
     domains: dict[str, Path] = {}
     model_versions: dict[tuple[str, str, int], Path] = {}
@@ -96,6 +104,10 @@ def _validate_merged_workspace(sources: list[WorkspaceSource]) -> list[tuple[Pat
 
             for projection_name, versions in domain.projections.items():
                 for version in versions:
+                    # Skip auto-generated projections when checking for explicit
+                    # projection conflicts — they are validated separately.
+                    if version.auto_generated:
+                        continue
                     key = (domain.name, projection_name, version.version)
                     previous_projection_path = projection_versions.get(key)
                     if previous_projection_path is not None:
@@ -142,11 +154,6 @@ def _validate_merged_workspace(sources: list[WorkspaceSource]) -> list[tuple[Pat
                                 f"{explicit_projection_path}",
                             )
                         )
-
-    merged = MdlFile()
-    for source in sources:
-        merged.domains.extend(source.mdl.domains)
-        merged.bindings.extend(source.mdl.bindings)
 
     errors.extend((Path("<workspace>"), error) for error in validate_references(merged))
     return errors

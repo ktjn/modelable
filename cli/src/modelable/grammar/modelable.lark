@@ -133,8 +133,9 @@ auto_projection_kind: "db"      -> apk_db
                     | "reply"   -> apk_reply
                     | "event"   -> apk_event
 
-auto_projection_option: "exclude" "[" auto_projection_exclusion ("," auto_projection_exclusion)* "]"
-                      | "on" "[" IDENT ("," IDENT)* "]"
+auto_projection_option: exclude_option | on_option
+exclude_option: "exclude" "[" auto_projection_exclusion ("," auto_projection_exclusion)* "]"
+on_option: "on" "[" IDENT ("," IDENT)* "]"
 auto_projection_exclusion: annotation | IDENT
 
 version_selector: "@" version_expr
@@ -148,7 +149,7 @@ ignored_block_item: /[^{}]+/ | "{" ignored_block_item* "}"
 
 VERSION_RANGE: /[<>~=^0-9.,\s]+/
 EXPRESSION: /[^\n\r{}]+/
-IDENT: /[A-Za-z_][A-Za-z0-9_]*/
+IDENT: /[A-Za-z_][A-Za-z0-9_-]*/
 
 COMMENT: /\/\/[^\n]*/
 %import common.ESCAPED_STRING
