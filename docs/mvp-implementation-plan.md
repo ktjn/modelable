@@ -225,8 +225,10 @@ uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
 
 - [x] Compare consecutive model versions for additions, removals, renames, type changes, enum changes, identity changes, and nullability changes.
   - Completed: field-level compatibility comparison now classifies removed, added, renamed, nullability, identity, enum, and type changes between published model versions.
-- [ ] Verify `(additive)` declarations only contain compatible changes.
-- [ ] Verify `(breaking)` declarations mark affected projections as requiring re-validation.
+- [x] Verify `(additive)` declarations only contain compatible changes.
+  - Completed: semantic validation now rejects additive versions that remove, rename, or otherwise introduce incompatible field changes and only allows compatible additions such as optional fields.
+- [x] Verify `(breaking)` declarations mark affected projections as requiring re-validation.
+  - Completed: projection plan documents now carry `requires_revalidation` and `revalidation_reasons` when a source or join resolves to a breaking model version.
 - [x] Implement `modelable diff REF_A REF_B --path PATH`.
   - Completed: `diff` compares two published model versions and prints compatibility status plus the classified change list.
 - [ ] Preserve default same-domain access assumptions when no `access` block exists.

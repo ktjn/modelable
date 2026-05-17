@@ -2,7 +2,15 @@ from __future__ import annotations
 
 import re
 
-from modelable.parser.ir import ClassificationLevel, ComputedMapping, MdlFile, ModelKind
+from modelable.compat.diff import compare_model_versions
+from modelable.parser.ir import (
+    ChangeKind,
+    ClassificationLevel,
+    ComputedMapping,
+    MdlFile,
+    ModelKind,
+    ModelVersion,
+)
 
 _VALID_CLASSIFICATION_LEVELS = {level.value for level in ClassificationLevel}
 _CLASSIFICATION_LEVELS_DISPLAY = ", ".join(sorted(_VALID_CLASSIFICATION_LEVELS))
@@ -65,6 +73,11 @@ def _validate_models(domain_name, models, errors: list[str]) -> None:
                             f"{fqn}@{version.version}", field.name, annotation.level, errors
                         )
 
+        for index in range(1, len(versions)):
+            previous = versions[index - 1]
+            current = versions[index]
+            _validate_change_kind(fqn, previous, current, errors)
+
 
 def _validate_projections(domain_name, projections, errors: list[str]) -> None:
     for projection_name, versions in projections.items():
@@ -89,3 +102,45 @@ def _validate_projections(domain_name, projections, errors: list[str]) -> None:
                         _validate_classification_level(
                             f"{fqn}@{version.version}", field.name, annotation.level, errors
                         )
+
+
+def _validate_change_kind(
+    fqn: str,
+    previous: ModelVersion,
+    current: ModelVersion,
+    errors: list[str],
+) -> None:
+    changes = compare_model_versions(previous, current)
+    incompatible_changes: list[str] = []
+
+    for change in changes:
+        if change.kind == "added_field":
+            field = _find_field(current, change.field_name)
+            if field is None or not field.optional:
+                incompatible_changes.append(f"added required field {change.field_name}")
+            continue
+
+        if change.kind == "nullability_changed":
+            if change.from_optional is False and change.to_optional is True:
+                continue
+            incompatible_changes.append(f"nullability change {change.field_name}")
+            continue
+
+        incompatible_changes.append(f"{change.kind} {change.field_name}")
+
+    context = f"{fqn}@{current.version}"
+    if current.change_kind == ChangeKind.additive:
+        if incompatible_changes:
+            errors.append(
+                f"{context}: additive declaration includes incompatible changes: "
+                + ", ".join(incompatible_changes)
+            )
+    elif current.change_kind == ChangeKind.breaking:
+        if not incompatible_changes:
+            errors.append(
+                f"{context}: breaking declaration must include at least one incompatible change"
+            )
+
+
+def _find_field(version: ModelVersion, field_name: str):
+    return next((field for field in version.fields if field.name == field_name), None)

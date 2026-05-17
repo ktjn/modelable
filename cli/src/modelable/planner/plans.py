@@ -8,7 +8,7 @@ from pathlib import Path
 from modelable.compiler.workspace import Workspace
 from modelable.parser.ir import ComputedMapping, DirectMapping, MdlFile, ProjectionVersion
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
-from modelable.registry.resolver import resolved_version_spec
+from modelable.registry.resolver import resolve_model_ref
 
 
 def build_plan(
@@ -25,6 +25,7 @@ def build_plan(
         _resolve_source_block(join.model, join.version, join.alias, mdl, on=join.on)
         for join in pv.joins
     ]
+    revalidation_reasons = _collect_revalidation_reasons(source_block, joins_block)
 
     lineage_by_field = {fl.field_name: fl for fl in lineage.fields}
 
@@ -49,6 +50,8 @@ def build_plan(
         "projection": projection_name,
         "version": pv.version,
         "auto_generated": pv.auto_generated,
+        "requires_revalidation": bool(revalidation_reasons),
+        "revalidation_reasons": revalidation_reasons,
         "source": source_block,
         "joins": joins_block,
         "group_by": pv.group_by,
@@ -92,16 +95,32 @@ def _resolve_source_block(
     on: str | None = None,
 ) -> dict:
     try:
-        resolved = resolved_version_spec(mdl, model_ref, version_spec)
-        resolved_version = resolved.version
+        resolved = resolve_model_ref(mdl, model_ref, version_spec)
+        resolved_version = resolved.version.version
+        change_kind = resolved.version.change_kind.value
     except LookupError:
         resolved_version = None
+        change_kind = None
 
     block: dict = {
         "model": model_ref,
         "resolved_version": resolved_version,
         "alias": alias,
+        "change_kind": change_kind,
     }
     if on is not None:
         block["on"] = on
     return block
+
+
+def _collect_revalidation_reasons(source_block: dict, joins_block: list[dict]) -> list[str]:
+    reasons: list[str] = []
+
+    for block in [source_block, *joins_block]:
+        if block.get("change_kind") == "breaking" and block.get("resolved_version") is not None:
+            relation = "source" if "on" not in block else f"join {block.get('alias')}"
+            reasons.append(
+                f"{relation} {block['model']}@{block['resolved_version']} is marked breaking"
+            )
+
+    return reasons

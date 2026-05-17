@@ -23,7 +23,7 @@ domain customer {
   entity Customer @ 3 (additive) {
     @key customerId: uuid
     email?: string
-    status: string
+    status?: string
   }
 }
 

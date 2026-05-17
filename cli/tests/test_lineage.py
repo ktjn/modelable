@@ -97,9 +97,12 @@ def test_plan_document_structure():
     assert plan["projection"] == "BillingCustomer"
     assert plan["version"] == 1
     assert plan["auto_generated"] is False
+    assert plan["requires_revalidation"] is False
+    assert plan["revalidation_reasons"] == []
     assert plan["source"]["model"] == "customer.Customer"
     assert plan["source"]["resolved_version"] == 1
     assert plan["source"]["alias"] == "c"
+    assert plan["source"]["change_kind"] == "additive"
     assert plan["joins"] == []
     assert plan["group_by"] == []
     assert "fields" in plan
@@ -159,3 +162,32 @@ def test_write_plans_file_naming(tmp_path):
 
     expected = plans_dir / "billing.BillingCustomer.v1.plan.json"
     assert expected.exists()
+
+
+def test_breaking_source_marks_plan_for_revalidation():
+    mdl = parse_text_to_ir("""
+    domain customer {
+      entity Customer @ 1 (additive) {
+        @key customerId: uuid
+        name: string
+      }
+      entity Customer @ 2 (breaking) {
+        @key customerId: uuid
+      }
+    }
+
+    domain billing {
+      projection BillingCustomer @ 1
+        from customer.Customer @ 2 as c
+      {
+        billingId <- c.customerId
+      }
+    }
+    """)
+
+    pv = mdl.domains[1].projections["BillingCustomer"][0]
+    lineage = build_projection_lineage("billing", "BillingCustomer", pv, mdl)
+    plan = build_plan("billing", "BillingCustomer", pv, lineage, mdl)
+
+    assert plan["requires_revalidation"] is True
+    assert any("marked breaking" in reason for reason in plan["revalidation_reasons"])

@@ -64,6 +64,63 @@ def test_versions_must_be_ascending():
     assert any("version" in error.lower() for error in errors)
 
 
+def test_additive_version_rejects_breaking_changes():
+    mdl = parse_text_to_ir("""
+    domain customer {
+      entity Customer @ 1 (additive) {
+        @key customerId: uuid
+        name: string
+      }
+      entity Customer @ 2 (additive) {
+        @key customerId: uuid
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("additive declaration includes incompatible changes" in error for error in errors)
+
+
+def test_additive_version_allows_optional_additions():
+    mdl = parse_text_to_ir("""
+    domain customer {
+      entity Customer @ 1 (additive) {
+        @key customerId: uuid
+        name: string
+      }
+      entity Customer @ 2 (additive) {
+        @key customerId: uuid
+        name: string
+        email?: string
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert errors == []
+
+
+def test_breaking_version_requires_incompatible_change():
+    mdl = parse_text_to_ir("""
+    domain customer {
+      entity Customer @ 1 (additive) {
+        @key customerId: uuid
+        name: string
+      }
+      entity Customer @ 2 (breaking) {
+        @key customerId: uuid
+        name: string
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("breaking declaration must include at least one incompatible change" in error for error in errors)
+
+
 def test_aggregate_function_without_group_by_fails():
     mdl = parse_text_to_ir("""
     domain stats {
