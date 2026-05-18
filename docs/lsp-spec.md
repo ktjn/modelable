@@ -118,6 +118,7 @@ Rename refactoring is workspace-aware and rewrites the declaration plus exact qu
 Code actions are limited to deterministic quick fixes derived from parser failures. The first slice covers:
 
 - inserting a missing closing brace when a parse error reaches end-of-input
+- inserting `@key` for entity or aggregate models that are missing an identity field
 - returning a single `QuickFix` action for the current buffer snapshot
 
 ## 6. Hover and Definition

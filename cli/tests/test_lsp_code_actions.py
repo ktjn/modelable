@@ -64,3 +64,52 @@ def test_code_actions_offer_missing_closing_brace_fix_for_parse_errors():
     edits = actions[0].edit.changes["inmemory://workspace.mdl"]
     assert len(edits) == 1
     assert edits[0].new_text == "\n}"
+
+
+def test_code_actions_offer_missing_key_fix_for_entity_models():
+    broken_source = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    customerId: uuid
+    email?: string
+  }
+}
+    """.strip(
+        "\n"
+    )
+    uri = "inmemory://workspace.mdl"
+    index = _index()
+    index.documents[uri] = type(index.documents[uri])(
+        path=None,
+        uri=uri,
+        text=broken_source,
+    )
+
+    diagnostic = types.Diagnostic(
+        message="customer.Customer@1: entity must have exactly one @key field",
+        range=types.Range(
+            start=types.Position(line=2, character=2),
+            end=types.Position(line=2, character=2),
+        ),
+        severity=types.DiagnosticSeverity.Error,
+        source="modelable",
+        code="SEM",
+    )
+
+    actions = build_code_actions(
+        index,
+        uri,
+        line=2,
+        character=2,
+        diagnostics=[diagnostic],
+    )
+
+    assert actions is not None
+    assert len(actions) == 1
+    assert actions[0].title == "Insert @key annotation"
+    assert actions[0].edit is not None
+    edits = actions[0].edit.changes[uri]
+    assert len(edits) == 1
+    assert edits[0].range.start.line == 2
+    assert edits[0].range.start.character == 4
+    assert edits[0].new_text == "@key "
