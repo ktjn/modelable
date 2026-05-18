@@ -240,3 +240,28 @@ import domain supplier from registry "supplier-platform-registry" at supplier.S
     labels = [item.label for item in completion.items]
     assert "Supplier" in labels
     assert "SupplierView" in labels
+
+
+def test_mirror_completion_suggests_pinned_import_versions(tmp_path):
+    index = _index(tmp_path)
+    billing_path = tmp_path / "billing.mdl"
+    billing_text = """
+import domain supplier from registry "supplier-platform-registry" at supplier.Supplier @
+""".strip(
+        "\n"
+    )
+    index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
+        path=billing_path,
+        uri=billing_path.as_uri(),
+        text=billing_text,
+    )
+
+    completion = build_completion(
+        index,
+        billing_path.as_uri(),
+        line=0,
+        character=len('import domain supplier from registry "supplier-platform-registry" at supplier.Supplier @'),
+    )
+
+    labels = [item.label for item in completion.items]
+    assert labels == ["1"]
