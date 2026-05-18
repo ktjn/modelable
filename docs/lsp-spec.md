@@ -18,7 +18,7 @@ Editor
   -> modelable-lsp server
   -> in-memory workspace index
   -> Lark parser + semantic validator
-  -> diagnostics + hover + go-to-definition + completion + references + document symbols + workspace symbols + formatting
+  -> diagnostics + hover + go-to-definition + completion + references + document symbols + workspace symbols + formatting + rename
 ```
 
 The server maintains an in-memory index per workspace root:
@@ -47,7 +47,7 @@ The index is rebuilt incrementally for changed files and fully rebuilt when `wor
 | Document symbols | Yes | — |
 | Workspace symbols | Yes | — |
 | Formatting | Yes | — |
-| Rename refactoring | — | Post-MVP |
+| Rename refactoring | Yes | — |
 | Code actions | — | Post-MVP |
 | Federation-aware completion from mirrors | — | Post-MVP |
 
@@ -108,6 +108,12 @@ Formatting is also read-only and rewrites indentation based on brace nesting. Th
 - stable two-space indentation when the client requests spaces
 - stable tab indentation when the client requests tabs
 
+Rename refactoring is workspace-aware and rewrites the declaration plus exact qualified or aliased references for the targeted symbol. The first slice covers:
+
+- model and projection declarations
+- model fields and their source-field references
+- deterministic workspace edits for the current open workspace
+
 ## 6. Hover and Definition
 
 Hover content in the first slice includes:
@@ -146,6 +152,7 @@ When `workspace.mdl` contains a `registry` block, the first slice does not fetch
 - Document symbols provide a nested outline for the current file.
 - Workspace symbols search the open workspace without changing state.
 - Formatting normalizes indentation without changing semantics.
+- Rename refactoring updates the targeted symbol and its references in the open workspace.
 - Distributed imports are diagnosed against local mirrors in a later federation-aware slice.
 
 ## 11. Dependencies

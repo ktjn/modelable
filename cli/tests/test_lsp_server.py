@@ -38,3 +38,10 @@ def test_lsp_server_advertises_formatting():
     result = initialize(server, types.InitializeParams(capabilities=types.ClientCapabilities()))
 
     assert result.capabilities.document_formatting_provider is True
+
+
+def test_lsp_server_advertises_rename():
+    result = initialize(server, types.InitializeParams(capabilities=types.ClientCapabilities()))
+
+    assert result.capabilities.rename_provider is not None
+    assert result.capabilities.rename_provider.prepare_provider is True

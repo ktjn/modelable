@@ -10,6 +10,7 @@ from modelable.lsp.diagnostics import to_lsp_diagnostics
 from modelable.lsp.formatting import build_document_formatting
 from modelable.lsp.hover import build_hover
 from modelable.lsp.references import build_references
+from modelable.lsp.rename import build_prepare_rename, build_rename
 from modelable.lsp.workspace_symbols import build_workspace_symbols
 from modelable.lsp.workspace import LspWorkspaceIndex
 
@@ -38,6 +39,7 @@ def initialize(ls: ModelableLanguageServer, _params: types.InitializeParams) -> 
             document_symbol_provider=True,
             workspace_symbol_provider=types.WorkspaceSymbolOptions(resolve_provider=False),
             document_formatting_provider=True,
+            rename_provider=types.RenameOptions(prepare_provider=True),
             completion_provider=types.CompletionOptions(
                 trigger_characters=["@", "."],
             ),
@@ -140,6 +142,31 @@ def document_formatting(
         params.text_document.uri,
         params.options.tab_size,
         params.options.insert_spaces,
+    )
+
+
+@server.feature(types.TEXT_DOCUMENT_PREPARE_RENAME)
+def prepare_rename(
+    ls: ModelableLanguageServer, params: types.PrepareRenameParams
+) -> types.Range | None:
+    return build_prepare_rename(
+        ls.index,
+        params.text_document.uri,
+        params.position.line,
+        params.position.character,
+    )
+
+
+@server.feature(types.TEXT_DOCUMENT_RENAME)
+def rename(
+    ls: ModelableLanguageServer, params: types.RenameParams
+) -> types.WorkspaceEdit | None:
+    return build_rename(
+        ls.index,
+        params.text_document.uri,
+        params.position.line,
+        params.position.character,
+        params.new_name,
     )
 
 
