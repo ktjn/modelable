@@ -14,3 +14,9 @@ def test_lsp_server_advertises_completion():
 
     assert result.capabilities.completion_provider is not None
     assert result.capabilities.completion_provider.trigger_characters == ["@", "."]
+
+
+def test_lsp_server_advertises_references():
+    result = initialize(server, types.InitializeParams(capabilities=types.ClientCapabilities()))
+
+    assert result.capabilities.references_provider is True

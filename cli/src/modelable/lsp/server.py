@@ -7,6 +7,7 @@ from modelable.lsp.completion import build_completion
 from modelable.lsp.definition import build_definition
 from modelable.lsp.diagnostics import to_lsp_diagnostics
 from modelable.lsp.hover import build_hover
+from modelable.lsp.references import build_references
 from modelable.lsp.workspace import LspWorkspaceIndex
 
 
@@ -30,6 +31,7 @@ def initialize(ls: ModelableLanguageServer, _params: types.InitializeParams) -> 
             ),
             hover_provider=True,
             definition_provider=True,
+            references_provider=True,
             completion_provider=types.CompletionOptions(
                 trigger_characters=["@", "."],
             ),
@@ -81,6 +83,19 @@ def definition(
         params.text_document.uri,
         params.position.line,
         params.position.character,
+    )
+
+
+@server.feature(types.TEXT_DOCUMENT_REFERENCES)
+def references(
+    ls: ModelableLanguageServer, params: types.ReferenceParams
+) -> list[types.Location] | None:
+    return build_references(
+        ls.index,
+        params.text_document.uri,
+        params.position.line,
+        params.position.character,
+        params.context.include_declaration,
     )
 
 
