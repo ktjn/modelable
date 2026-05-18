@@ -367,7 +367,8 @@ uv run modelable scenario list
   - Completed: `cli/tests/test_samples.py` now validates `samples/mvp` and compiles JSON Schema, Markdown, and TypeScript outputs in one smoke test.
 - [x] Document existing `samples/scenarios/` examples as illustrative scenarios and mark future-phase exceptions rather than requiring Phase 1 strict validation.
   - Completed: `README.md`, `docs/README.md`, and `samples/README.md` now call out `samples/mvp/` as the strict Phase 1 target and `samples/scenarios/` as illustrative examples that may include future-phase constructs.
-- [ ] Ensure `.modelable/`, `dist/`, `.venv/`, and generated TypeScript output directories are ignored unless explicitly documented otherwise.
+- [x] Ensure `.modelable/`, `dist/`, `.venv/`, and generated TypeScript output directories are ignored unless explicitly documented otherwise.
+  - Completed: the root `.gitignore` already excludes `.modelable/`, `dist/`, `.venv/`, and build output trees, so no additional ignore rules were needed.
 - [x] Document the MVP quick-start workflow in `README.md`.
 - [x] Document the known deferred commands and targets in CLI help.
 - [x] Run the full test suite and sample smoke workflow from a clean checkout.
