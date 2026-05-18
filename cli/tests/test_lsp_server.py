@@ -32,3 +32,9 @@ def test_lsp_server_advertises_workspace_symbols():
     result = initialize(server, types.InitializeParams(capabilities=types.ClientCapabilities()))
 
     assert result.capabilities.workspace_symbol_provider is not None
+
+
+def test_lsp_server_advertises_formatting():
+    result = initialize(server, types.InitializeParams(capabilities=types.ClientCapabilities()))
+
+    assert result.capabilities.document_formatting_provider is True

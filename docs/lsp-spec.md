@@ -18,7 +18,7 @@ Editor
   -> modelable-lsp server
   -> in-memory workspace index
   -> Lark parser + semantic validator
-  -> diagnostics + hover + go-to-definition + completion + references + document symbols + workspace symbols
+  -> diagnostics + hover + go-to-definition + completion + references + document symbols + workspace symbols + formatting
 ```
 
 The server maintains an in-memory index per workspace root:
@@ -46,7 +46,7 @@ The index is rebuilt incrementally for changed files and fully rebuilt when `wor
 | Find references for model and field usage | Yes | — |
 | Document symbols | Yes | — |
 | Workspace symbols | Yes | — |
-| Formatting | — | Post-MVP |
+| Formatting | Yes | — |
 | Rename refactoring | — | Post-MVP |
 | Code actions | — | Post-MVP |
 | Federation-aware completion from mirrors | — | Post-MVP |
@@ -102,6 +102,12 @@ Workspace symbols are also read-only and query the current workspace snapshot. T
 - filtered model and projection names
 - filtered field names from the current workspace
 
+Formatting is also read-only and rewrites indentation based on brace nesting. The first slice covers:
+
+- whole-document reindentation
+- stable two-space indentation when the client requests spaces
+- stable tab indentation when the client requests tabs
+
 ## 6. Hover and Definition
 
 Hover content in the first slice includes:
@@ -139,6 +145,7 @@ When `workspace.mdl` contains a `registry` block, the first slice does not fetch
 - Reference search finds model, projection, and field usages in the current workspace.
 - Document symbols provide a nested outline for the current file.
 - Workspace symbols search the open workspace without changing state.
+- Formatting normalizes indentation without changing semantics.
 - Distributed imports are diagnosed against local mirrors in a later federation-aware slice.
 
 ## 11. Dependencies
