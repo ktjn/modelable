@@ -157,7 +157,7 @@ def test_mirror_completion_suggests_pinned_import_model_names(tmp_path):
     index = _index(tmp_path)
     billing_path = tmp_path / "billing.mdl"
     billing_text = """
-import domain supplier from registry "supplier-platform-registry" at supplier.
+import domain supplier from registry "supplier-platform-registry" at supplier.S
 """.strip(
         "\n"
     )
@@ -171,7 +171,7 @@ import domain supplier from registry "supplier-platform-registry" at supplier.
         index,
         billing_path.as_uri(),
         line=0,
-        character=len('import domain supplier from registry "supplier-platform-registry" at supplier.'),
+        character=len('import domain supplier from registry "supplier-platform-registry" at supplier.S'),
     )
 
     labels = [item.label for item in completion.items]

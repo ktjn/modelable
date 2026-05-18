@@ -52,7 +52,7 @@ _IMPORT_VERSION_PATTERN = re.compile(
 )
 _IMPORT_PIN_MODEL_PATTERN = re.compile(
     r"\bimport\s+domain\s+[A-Za-z_][A-Za-z0-9_.-]*\s+from\s+registry\s+\"[^\"]+\""
-    r"\s+at\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\.$"
+    r"\s+at\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\.(?P<prefix>[A-Za-z_][A-Za-z0-9_]*)?$"
 )
 _ALIAS_FIELD_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.$")
 _SOURCE_ALIAS_PATTERN = re.compile(
@@ -379,9 +379,12 @@ def _import_pin_model_candidates(index: LspWorkspaceIndex, before_cursor: str, p
         return []
 
     domain_name = match.group("domain")
+    model_prefix = match.group("prefix") or ""
     candidates: list[_Candidate] = []
     for mirror_domain, model_name in mirror_reference_names(index):
         if mirror_domain != domain_name:
+            continue
+        if model_prefix and not model_name.lower().startswith(model_prefix.lower()):
             continue
         candidates.append(
             _Candidate(
