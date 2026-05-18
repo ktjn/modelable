@@ -45,9 +45,10 @@ uv run modelable --help
 # Validate .mdl files
 uv run modelable validate ../samples/mvp
 
-# Compile to JSON Schema or Markdown docs
+# Compile the strict MVP sample
 uv run modelable compile ../samples/mvp --target json-schema --out ../dist/jsonschema
 uv run modelable compile ../samples/mvp --target markdown --out ../dist/docs
+uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 
 # Inspect auto-generated projections for a model
 uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
@@ -67,7 +68,7 @@ uv run pytest tests/ -v
 | 4 — Compatibility + governance | `diff`, breaking-change detection, PII governance | Not started |
 | 5 — Emitters | JSON Schema, Markdown, TypeScript | Partial — JSON Schema + Markdown done; TypeScript remaining |
 | 6 — CLI workflows | `resolve`, `lineage`, `diff`, `codegen`, `scenario` | Partial — `validate`, `compile`, `docs`, `inspect --auto` done |
-| 7 — Hardening | Smoke tests, clean-checkout verification | Not started |
+| 7 — Hardening | Smoke tests, clean-checkout verification | Partial — MVP smoke test added; clean-checkout verification remains |
 
 See [`docs/mvp-implementation-plan.md`](docs/mvp-implementation-plan.md) for detailed task checklists.
 

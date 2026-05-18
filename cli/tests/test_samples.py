@@ -1,0 +1,42 @@
+from pathlib import Path
+
+from click.testing import CliRunner
+
+from modelable.cli import cli
+
+
+def test_mvp_smoke_validates_and_compiles_all_phase_1_targets(tmp_path):
+    repo_root = Path(__file__).resolve().parents[2]
+    sample_path = repo_root / "samples" / "mvp"
+    runner = CliRunner()
+
+    with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
+        cwd = Path(cwd)
+        validate_result = runner.invoke(cli, ["validate", str(sample_path), "--strict"])
+        assert validate_result.exit_code == 0, validate_result.output
+
+        jsonschema_out = cwd / "dist" / "jsonschema"
+        markdown_out = cwd / "dist" / "docs"
+        typescript_out = cwd / "dist" / "types"
+
+        jsonschema_result = runner.invoke(
+            cli,
+            ["compile", str(sample_path), "--target", "json-schema", "--out", str(jsonschema_out)],
+        )
+        assert jsonschema_result.exit_code == 0, jsonschema_result.output
+        assert (cwd / ".modelable" / "registry.db").exists()
+        assert jsonschema_out.exists()
+
+        markdown_result = runner.invoke(
+            cli,
+            ["compile", str(sample_path), "--target", "markdown", "--out", str(markdown_out)],
+        )
+        assert markdown_result.exit_code == 0, markdown_result.output
+        assert markdown_out.exists()
+
+        typescript_result = runner.invoke(
+            cli,
+            ["compile", str(sample_path), "--target", "typescript", "--out", str(typescript_out)],
+        )
+        assert typescript_result.exit_code == 0, typescript_result.output
+        assert typescript_out.exists()

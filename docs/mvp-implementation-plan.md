@@ -357,8 +357,10 @@ uv run modelable scenario list
 
 **Tasks:**
 
-- [ ] Add an MVP smoke test that validates and compiles the minimal `samples/mvp/` happy-path sample.
-- [ ] Document existing `samples/scenarios/` examples as illustrative scenarios and mark future-phase exceptions rather than requiring Phase 1 strict validation.
+- [x] Add an MVP smoke test that validates and compiles the minimal `samples/mvp/` happy-path sample.
+  - Completed: `cli/tests/test_samples.py` now validates `samples/mvp` and compiles JSON Schema, Markdown, and TypeScript outputs in one smoke test.
+- [x] Document existing `samples/scenarios/` examples as illustrative scenarios and mark future-phase exceptions rather than requiring Phase 1 strict validation.
+  - Completed: `README.md`, `docs/README.md`, and `samples/README.md` now call out `samples/mvp/` as the strict Phase 1 target and `samples/scenarios/` as illustrative examples that may include future-phase constructs.
 - [ ] Ensure `.modelable/`, `dist/`, `.venv/`, and generated TypeScript output directories are ignored unless explicitly documented otherwise.
 - [ ] Document the MVP quick-start workflow in `README.md`.
 - [ ] Document the known deferred commands and targets in CLI help.

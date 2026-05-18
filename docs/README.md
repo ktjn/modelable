@@ -44,7 +44,9 @@ This directory contains the system specifications, design documents, and impleme
 
 See [samples/scenarios](../samples/scenarios/) for worked examples. Each scenario maps to one or more specification sections.
 
-The Phase 1 implementation plan uses a minimal `samples/mvp/` sample as the strict acceptance target. The richer `samples/scenarios/` examples are illustrative and may include future-phase constructs.
+The Phase 1 implementation plan uses a minimal `samples/mvp/` sample as the strict acceptance target.
+The richer `samples/scenarios/` examples are illustrative and may include future-phase constructs such as materialisation, federation, or runtime adapter configuration.
+Do not treat those scenario examples as strict Phase 1 acceptance inputs unless a scenario explicitly says so.
 
 ---
 

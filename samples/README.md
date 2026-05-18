@@ -2,11 +2,11 @@
 
 This directory contains complete sample scenarios covering a range of Modelable platform types and architectural patterns. Each scenario is defined using the canonical **Modelable IDL (`.mdl`)** format, demonstrating production-realistic definitions across multiple domains.
 
-Use these as a starting point for your own definitions or validate them with the CLI (`modelable validate scenarios/<id>/`).
+Use these as illustrative examples or validate them with the CLI (`modelable validate scenarios/<id>/`).
 
-Some scenarios intentionally include future-phase constructs such as `materialisation`, subscriptions, and runtime adapter configuration. Those examples document target platform behavior and may require Phase 5 runtime support even when the core model and projection syntax is valid for Phase 1.
+Some scenarios intentionally include future-phase constructs such as `materialisation`, subscriptions, federation, and runtime adapter configuration. Those examples document target platform behavior and may require Phase 5 runtime support even when the core model and projection syntax is valid for Phase 1.
 
-The strict Phase 1 acceptance sample is a separate minimal `samples/mvp/` set defined by the MVP implementation plan. These scenario examples are broader product examples and are not required to pass strict MVP validation unless a scenario explicitly says so.
+The strict Phase 1 acceptance sample is the separate minimal `samples/mvp/` set defined by the MVP implementation plan. These scenario examples are broader product examples and are not required to pass strict MVP validation unless a scenario explicitly says so.
 
 ---
 
