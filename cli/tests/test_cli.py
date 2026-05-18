@@ -296,3 +296,31 @@ def test_codegen_formats_and_types():
     markdown_result = runner.invoke(cli, ["codegen", "types", "--format", "markdown"])
     assert markdown_result.exit_code == 0, markdown_result.output
     assert "rendered as canonical .mdl text" in markdown_result.output
+
+
+def test_scenario_list_show_and_load(tmp_path):
+    runner = CliRunner()
+
+    list_result = runner.invoke(cli, ["scenario", "list"])
+    assert list_result.exit_code == 0, list_result.output
+    assert "01-ecommerce-data-warehouse" in list_result.output
+    assert "09-auto-projections" in list_result.output
+    assert "Compiler-Generated Projection Contracts" in list_result.output
+
+    show_result = runner.invoke(cli, ["scenario", "show", "09-auto-projections"])
+    assert show_result.exit_code == 0, show_result.output
+    assert "09-auto-projections" in show_result.output
+    assert "workspace.mdl" in show_result.output
+    assert "auto projections Product @ 1" in show_result.output
+
+    output_dir = tmp_path / "loaded"
+    load_result = runner.invoke(
+        cli,
+        ["scenario", "load", "09-auto-projections", "--output-dir", str(output_dir)],
+    )
+    assert load_result.exit_code == 0, load_result.output
+    loaded = output_dir / "09-auto-projections"
+    assert loaded.exists()
+    assert (loaded / "workspace.mdl").exists()
+    assert (loaded / "catalog.mdl").exists()
+    assert (loaded / "storefront.mdl").exists()

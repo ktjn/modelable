@@ -322,7 +322,8 @@ uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 - [x] Implement `inspect <Entity>@<version> --auto [--path PATH]`.
 - [x] Implement `codegen formats` and `codegen types [--format FORMAT]`.
   - Completed: `codegen` now lists supported artifact targets and prints the current field-type mapping for json-schema, markdown, and typescript.
-- [ ] Implement `scenario list`, `scenario show`, and `scenario load` for bundled local samples.
+- [x] Implement `scenario list`, `scenario show`, and `scenario load` for bundled local samples.
+  - Completed: `scenario` now lists the bundled samples from `samples/README.md`, prints scenario file contents, and copies a scenario tree into a working directory.
 - [ ] Ensure exit codes match `cli-spec.md`.
 
 **Acceptance checks:**

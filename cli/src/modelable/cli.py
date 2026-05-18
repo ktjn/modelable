@@ -10,6 +10,7 @@ from rich.console import Console
 from modelable.compiler.workspace import load_workspace
 from modelable.commands.codegen import register_codegen_commands
 from modelable.commands.llm import register_llm_commands
+from modelable.commands.scenario import register_scenario_commands
 from modelable.llm.context import parse_model_ref
 from modelable.llm.render import render_model_version, render_projection_version
 from modelable.parser.ir import ParseError
@@ -418,3 +419,4 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
 
 register_llm_commands(cli)
 register_codegen_commands(cli)
+register_scenario_commands(cli)
