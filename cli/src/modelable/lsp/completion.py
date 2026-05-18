@@ -54,7 +54,7 @@ _IMPORT_PIN_MODEL_PATTERN = re.compile(
     r"\bimport\s+domain\s+[A-Za-z_][A-Za-z0-9_.-]*\s+from\s+registry\s+\"[^\"]+\""
     r"\s+at\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\.(?P<prefix>[A-Za-z_][A-Za-z0-9_]*)?$"
 )
-_ALIAS_FIELD_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.$")
+_ALIAS_FIELD_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<prefix>[A-Za-z_][A-Za-z0-9_]*)?$")
 _SOURCE_ALIAS_PATTERN = re.compile(
     r"^\s*(from|join)\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\."
     r"(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*(?P<version>\d+)\s+as\s+"
@@ -240,10 +240,11 @@ def _alias_field_candidates(
     if scope is None:
         return []
 
-    alias = _alias_name(text, line)
-    if alias is None:
+    alias_match = _alias_name(text, line)
+    if alias_match is None:
         return []
 
+    alias, alias_prefix = alias_match
     reference = _projection_reference_for_alias(text, scope, line, alias)
     if reference is None:
         return []
@@ -254,7 +255,7 @@ def _alias_field_candidates(
         _Candidate(label=field_name, kind=types.CompletionItemKind.Field, sort_rank=index + 30)
         for index, field_name in enumerate(fields)
     ]
-    return _filtered_candidates(candidates, prefix)
+    return _filtered_candidates(candidates, alias_prefix or prefix)
 
 
 def _version_candidates(index: LspWorkspaceIndex, before_cursor: str, prefix: str) -> list[_Candidate]:
@@ -396,14 +397,14 @@ def _import_pin_model_candidates(index: LspWorkspaceIndex, before_cursor: str, p
     return _filtered_candidates(candidates, prefix)
 
 
-def _alias_name(text: str, line: int) -> str | None:
+def _alias_name(text: str, line: int) -> tuple[str, str] | None:
     lines = text.splitlines()
     if line < 0 or line >= len(lines):
         return None
     match = _ALIAS_FIELD_PATTERN.search(lines[line][: len(lines[line])])
     if match is None:
         return None
-    return match.group("alias")
+    return match.group("alias"), match.group("prefix") or ""
 
 
 def _projection_reference_for_alias(

@@ -84,7 +84,7 @@ Completion is read-only and uses the current in-memory workspace snapshot. The f
 - mirrored domain, model, and projection names from the local `.modelable/mirror/` cache when available
 - mirrored version numbers for pinned foreign references when the current buffer is already inside an `@` version clause
 - mirrored model and projection names after `at <domain>.<prefix>` in pinned imports
-- mirrored field names for alias references on `from` and `join` lines that point at mirrored foreign models
+- mirrored field names for alias references on `from` and `join` lines, including typed prefixes such as `s.su`, that point at mirrored foreign models
 
 The server uses deterministic, scope-aware heuristics to keep suggestions narrow and stable rather than noisy.
 

@@ -153,6 +153,38 @@ domain billing {
     assert "supplierId" in labels
 
 
+def test_mirror_completion_suggests_prefixed_join_alias_fields(tmp_path):
+    index = _index(tmp_path)
+    billing_path = tmp_path / "billing.mdl"
+    billing_text = """
+domain billing {
+  projection BillingCustomer @ 1
+    from local.Local @ 1 as l
+    join supplier.Supplier @ 1 as s on l.localId = s.su
+  {
+    s.su
+  }
+}
+""".strip(
+        "\n"
+    )
+    index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
+        path=billing_path,
+        uri=billing_path.as_uri(),
+        text=billing_text,
+    )
+
+    completion = build_completion(
+        index,
+        billing_path.as_uri(),
+        line=5,
+        character=len("    s.su"),
+    )
+
+    labels = [item.label for item in completion.items]
+    assert labels == ["supplierId"]
+
+
 def test_mirror_completion_suggests_pinned_import_model_names(tmp_path):
     index = _index(tmp_path)
     billing_path = tmp_path / "billing.mdl"
