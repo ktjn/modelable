@@ -185,6 +185,37 @@ domain billing {
     assert labels == ["supplierId"]
 
 
+def test_completion_suggests_prefixed_local_alias_fields(tmp_path):
+    index = _index(tmp_path)
+    billing_path = tmp_path / "billing.mdl"
+    billing_text = """
+domain billing {
+  projection BillingLocal @ 1
+    from local.Local @ 1 as l
+  {
+    l.lo
+  }
+}
+""".strip(
+        "\n"
+    )
+    index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
+        path=billing_path,
+        uri=billing_path.as_uri(),
+        text=billing_text,
+    )
+
+    completion = build_completion(
+        index,
+        billing_path.as_uri(),
+        line=4,
+        character=len("    l.lo"),
+    )
+
+    labels = [item.label for item in completion.items]
+    assert labels == ["localId"]
+
+
 def test_mirror_completion_suggests_pinned_import_model_names(tmp_path):
     index = _index(tmp_path)
     billing_path = tmp_path / "billing.mdl"
