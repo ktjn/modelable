@@ -1,0 +1,118 @@
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+import click
+
+from modelable.commands.common import console, load_workspace_or_exit
+from modelable.emitters.diagnostics import deferred_target
+from modelable.emitters.json_schema import emit_json_schema
+from modelable.emitters.markdown import emit_markdown
+from modelable.emitters.typescript import emit_typescript
+from modelable.planner.plans import write_plans
+from modelable.registry.index import build_registry
+
+_DEFAULT_OUT_DIRS: dict[str, Path] = {
+    "json-schema": Path("./dist/jsonschema"),
+    "markdown": Path("./dist/docs"),
+    "typescript": Path("./dist/types"),
+}
+
+
+def register_compile_commands(cli_group: click.Group) -> None:
+    cli_group.add_command(compile)
+    cli_group.add_command(docs)
+
+
+@click.command()
+@click.argument("source", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--target",
+    required=True,
+    type=click.Choice(["json-schema", "markdown", "typescript"]),
+    help="Artifact target to compile after registry indexing.",
+)
+@click.option(
+    "--out",
+    "out_dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Directory for target artifacts.",
+)
+def compile(source: Path, target: str, out_dir: Path | None) -> None:
+    """Compile Modelable definitions and write the local registry index."""
+    workspace = load_workspace_or_exit(source)
+
+    registry_path = build_registry(workspace, Path(".modelable"))
+    console.print(f"[green]OK[/green] wrote {registry_path}")
+
+    plans_dir = Path(".modelable/plans")
+    plan_paths = write_plans(workspace, plans_dir)
+    for plan_path in plan_paths:
+        console.print(f"[green]OK[/green] wrote {plan_path}")
+
+    output = out_dir or _DEFAULT_OUT_DIRS[target]
+    output.mkdir(parents=True, exist_ok=True)
+
+    if target == "json-schema":
+        artifacts = emit_json_schema(workspace, output)
+        for art in artifacts:
+            art.path.write_text(json.dumps(art.content, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            for warning in art.warnings:
+                console.print(f"[yellow]WARN[/yellow] {warning}")
+            console.print(f"[green]OK[/green] {art.path}")
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "markdown":
+        artifacts = emit_markdown(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            art.path.write_text(art.content, encoding="utf-8")
+            for warning in art.warnings:
+                console.print(f"[yellow]WARN[/yellow] {warning}")
+            console.print(f"[green]OK[/green] {art.path}")
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "typescript":
+        artifacts = emit_typescript(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            art.path.write_text(art.content, encoding="utf-8")
+            for warning in art.warnings:
+                console.print(f"[yellow]WARN[/yellow] {warning}")
+            console.print(f"[green]OK[/green] {art.path}")
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    else:
+        console.print(f"[yellow]{deferred_target(target)}[/yellow]")
+
+    sys.exit(0)
+
+
+@click.command()
+@click.argument("source", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--out",
+    "out_dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Directory for generated documentation.",
+)
+def docs(source: Path, out_dir: Path | None) -> None:
+    """Generate Markdown documentation from Modelable definitions at SOURCE."""
+    workspace = load_workspace_or_exit(source)
+
+    output = out_dir or Path("./dist/docs")
+    output.mkdir(parents=True, exist_ok=True)
+    artifacts = emit_markdown(workspace, output)
+    for art in artifacts:
+        assert isinstance(art.content, str)
+        art.path.write_text(art.content, encoding="utf-8")
+        for warning in art.warnings:
+            console.print(f"[yellow]WARN[/yellow] {warning}")
+        console.print(f"[green]OK[/green] {art.path}")
+    if not artifacts:
+        console.print("[yellow]No artifacts generated.[/yellow]")
+    sys.exit(0)

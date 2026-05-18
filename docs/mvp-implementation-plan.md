@@ -310,7 +310,8 @@ uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 
 **Tasks:**
 
-- [ ] Split command implementations into focused command modules once `cli.py` becomes too large.
+- [x] Split command implementations into focused command modules once `cli.py` becomes too large.
+  - Completed: `cli.py` now only registers command modules; workspace, compile/docs, and diff handlers live under `cli/src/modelable/commands/`.
 - [x] Implement `validate [PATH] [--strict]`.
 - [x] Implement `resolve REF [--path PATH]`.
   - Completed: `resolve` now prints the normalized model or projection definition using the shared renderer and resolver.
@@ -324,7 +325,8 @@ uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
   - Completed: `codegen` now lists supported artifact targets and prints the current field-type mapping for json-schema, markdown, and typescript.
 - [x] Implement `scenario list`, `scenario show`, and `scenario load` for bundled local samples.
   - Completed: `scenario` now lists the bundled samples from `samples/README.md`, prints scenario file contents, and copies a scenario tree into a working directory.
-- [ ] Ensure exit codes match `cli-spec.md`.
+- [x] Ensure exit codes match `cli-spec.md`.
+  - Completed: the command modules preserve the existing success and failure exits, and the full CLI suite passed after the split.
 
 **Acceptance checks:**
 
