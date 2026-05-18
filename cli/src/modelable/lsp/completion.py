@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 import re
 
 from lsprotocol import types
 
 from modelable.lsp.workspace import LspWorkspaceIndex
+from modelable.parser.parse import parse_text_to_ir
 
 _KEYWORDS = [
     "domain",
@@ -80,12 +82,15 @@ def build_completion(
         candidates = _annotation_candidates(prefix)
     elif _domain_context(before_cursor):
         candidates = _domain_candidates(workspace, prefix)
+        candidates.extend(_mirror_domain_candidates(index, prefix))
     elif _reference_context(before_cursor):
         candidates = _workspace_reference_candidates(workspace, prefix)
+        candidates.extend(_mirror_reference_candidates(index, prefix))
     elif scope is not None and line > scope.line:
         candidates = _field_candidates(workspace, scope, prefix)
     else:
         candidates = _keyword_candidates(prefix)
+        candidates.extend(_mirror_domain_candidates(index, prefix))
 
     return types.CompletionList(
         is_incomplete=False,
@@ -173,6 +178,28 @@ def _workspace_reference_candidates(workspace, prefix: str) -> list[_Candidate]:
     return _filtered_candidates(names, prefix)
 
 
+def _mirror_domain_candidates(index: LspWorkspaceIndex, prefix: str) -> list[_Candidate]:
+    candidates: list[_Candidate] = []
+    for domain_name in _mirror_domain_names(index):
+        candidates.append(
+            _Candidate(label=domain_name, kind=types.CompletionItemKind.Module, sort_rank=40)
+        )
+    return _filtered_candidates(candidates, prefix)
+
+
+def _mirror_reference_candidates(index: LspWorkspaceIndex, prefix: str) -> list[_Candidate]:
+    candidates: list[_Candidate] = []
+    for domain_name, model_name in _mirror_model_names(index):
+        candidates.append(
+            _Candidate(
+                label=f"{domain_name}.{model_name}",
+                kind=types.CompletionItemKind.Class,
+                sort_rank=150,
+            )
+        )
+    return _filtered_candidates(candidates, prefix)
+
+
 def _field_candidates(workspace, scope: _Scope, prefix: str) -> list[_Candidate]:
     domain = next((item for item in workspace.mdl.domains if item.name == scope.domain), None)
     if domain is None:
@@ -221,6 +248,54 @@ def _to_completion_item(candidate: _Candidate, index: int) -> types.CompletionIt
         insert_text=candidate.label,
         filter_text=candidate.label,
     )
+
+
+def _mirror_domain_names(index: LspWorkspaceIndex) -> list[str]:
+    names: set[str] = set()
+    for source in _mirror_sources(index):
+        for domain in source.domains:
+            names.add(domain.name)
+    return sorted(names)
+
+
+def _mirror_model_names(index: LspWorkspaceIndex) -> list[tuple[str, str]]:
+    names: set[tuple[str, str]] = set()
+    for source in _mirror_sources(index):
+        for domain in source.domains:
+            for model_name in domain.models:
+                names.add((domain.name, model_name))
+            for projection_name in domain.projections:
+                names.add((domain.name, projection_name))
+    return sorted(names)
+
+
+def _mirror_sources(index: LspWorkspaceIndex):
+    root = _workspace_root(index)
+    if root is None:
+        return []
+
+    mirror_root = root / ".modelable" / "mirror"
+    if not mirror_root.exists():
+        return []
+
+    parsed_sources = []
+    for path in sorted(mirror_root.rglob("*.mdl"), key=lambda item: item.as_posix()):
+        try:
+            parsed_sources.append(parse_text_to_ir(path.read_text(encoding="utf-8"), path=path))
+        except Exception:
+            continue
+    return parsed_sources
+
+
+def _workspace_root(index: LspWorkspaceIndex) -> Path | None:
+    paths = [source.path for source in index.documents.values() if source.path is not None]
+    if not paths:
+        return None
+
+    workspace_files = [path for path in paths if path.name == "workspace.mdl"]
+    if workspace_files:
+        return workspace_files[0].parent
+    return paths[0].parent
 
 
 def _completion_prefix(before_cursor: str) -> str:

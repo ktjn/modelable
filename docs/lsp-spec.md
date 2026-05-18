@@ -1,6 +1,6 @@
 # Language Server Protocol Specification
 
-> **Status:** Approved for a first Phase 1 editor slice focused on diagnostics, workspace indexing, and workspace-aware completion, with federation features deferred until distributed mode.
+> **Status:** Approved for a first Phase 1 editor slice focused on diagnostics, workspace indexing, workspace-aware completion, and local mirror-aware name completion, with peer fetch/writeback behavior still deferred.
 >
 > **Scope:** IDE support for `.mdl` files via a `pygls` language server.
 
@@ -49,7 +49,7 @@ The index is rebuilt incrementally for changed files and fully rebuilt when `wor
 | Formatting | Yes | — |
 | Rename refactoring | Yes | — |
 | Code actions | Yes | Narrow quick-fix slice |
-| Federation-aware completion from mirrors | — | Post-MVP |
+| Federation-aware completion from mirrors | Yes | Local mirror cache only |
 
 ## 4. Diagnostics
 
@@ -81,6 +81,7 @@ Completion is read-only and uses the current in-memory workspace snapshot. The f
 - domain names from the open workspace
 - model and projection names from the open workspace
 - field names from the active model or projection declaration
+- mirrored domain, model, and projection names from the local `.modelable/mirror/` cache when available
 
 The server uses deterministic, scope-aware heuristics to keep suggestions narrow and stable rather than noisy.
 
@@ -131,7 +132,7 @@ Go-to-definition in the first slice covers model declarations, projection declar
 
 ## 7. Federation Behavior
 
-When `workspace.mdl` contains a `registry` block, the first slice does not fetch peers itself. Distributed mirror reads stay deferred until the later federation-aware editor work.
+The server does not fetch peers itself. If a local mirror cache is present on disk, completion may reuse those mirrored names without mutating workspace state.
 
 ## 8. Performance Requirements
 
@@ -159,6 +160,7 @@ When `workspace.mdl` contains a `registry` block, the first slice does not fetch
 - Formatting normalizes indentation without changing semantics.
 - Rename refactoring updates the targeted symbol and its references in the open workspace.
 - Code actions provide a narrow quick fix for unterminated blocks.
+- Completion can include names from the local mirror cache without fetching peers.
 - Distributed imports are diagnosed against local mirrors in a later federation-aware slice.
 
 ## 11. Dependencies

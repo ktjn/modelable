@@ -43,5 +43,9 @@ def _uri_to_path(uri: str) -> Path | None:
     parsed = urlparse(uri)
     if parsed.scheme != "file":
         return None
-    return Path(unquote(parsed.path))
-
+    path = unquote(parsed.path)
+    if parsed.netloc:
+        path = f"//{parsed.netloc}{path}"
+    elif len(path) >= 3 and path.startswith("/") and path[2] == ":":
+        path = path[1:]
+    return Path(path)
