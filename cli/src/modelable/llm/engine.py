@@ -23,6 +23,7 @@ from modelable.llm.recommendations import recommend_for_model
 from modelable.llm.render import render_mdl, render_model_version, render_projection_version
 from modelable.llm.update_plan import UpdateChange, UpdatePlan, build_update_request, parse_update_plan
 from modelable.llm.validation_help import explain_validation_errors
+from modelable.diagnostics.model import render_diagnostic
 from modelable.parser.ir import (
     AnnKey,
     DirectMapping,
@@ -164,7 +165,7 @@ def recommend_cli(path: Path, ref: str | None = None, consumer: str | None = Non
 
 def explain_validation(path: Path) -> str:
     workspace = load_workspace(path)
-    return explain_validation_errors(workspace.errors)
+    return explain_validation_errors([render_diagnostic(error) for error in workspace.errors])
 
 
 def _build_update_plan(

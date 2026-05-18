@@ -5,9 +5,41 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from modelable.diagnostics.model import Diagnostic
+
 
 class ParseError(Exception):
     """Raised when .mdl input cannot be parsed."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        path: str | None = None,
+        line: int | None = None,
+        column: int | None = None,
+        end_line: int | None = None,
+        end_column: int | None = None,
+    ) -> None:
+        self.message = message
+        self.path = path
+        self.line = line
+        self.column = column
+        self.end_line = end_line
+        self.end_column = end_column
+        super().__init__(message)
+
+    def diagnostic(self, path: str | None = None) -> Diagnostic:
+        return Diagnostic(
+            code="PARSE",
+            message=self.message,
+            severity="error",
+            path=str(path or self.path or "<input>"),
+            line=self.line,
+            column=self.column,
+            end_line=self.end_line,
+            end_column=self.end_column,
+        )
 
 
 class ValidationError(Exception):

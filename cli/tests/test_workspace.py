@@ -4,7 +4,6 @@ import pytest
 
 from modelable.compiler.workspace import discover_mdl_files, load_workspace
 
-
 def _write_model(path: Path, domain: str, model: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -62,7 +61,7 @@ def test_load_workspace_reports_duplicate_domains_across_files(tmp_path):
 
     workspace = load_workspace(tmp_path)
 
-    assert any("duplicate domain 'customer'" in error for _, error in workspace.errors)
+    assert any("duplicate domain 'customer'" in diagnostic.message for diagnostic in workspace.errors)
 
 
 def test_load_workspace_reports_duplicate_model_versions_across_files(tmp_path):
@@ -71,7 +70,10 @@ def test_load_workspace_reports_duplicate_model_versions_across_files(tmp_path):
 
     workspace = load_workspace(tmp_path)
 
-    assert any("duplicate model version customer.Customer@1" in error for _, error in workspace.errors)
+    assert any(
+        "duplicate model version customer.Customer@1" in diagnostic.message
+        for diagnostic in workspace.errors
+    )
 
 
 def test_load_workspace_reports_auto_projection_generated_name_conflict(tmp_path):
@@ -103,6 +105,6 @@ domain customer {
     workspace = load_workspace(tmp_path)
 
     assert any(
-        "generated projection name customer.CustomerReply@1 conflicts" in error
-        for _, error in workspace.errors
+        "generated projection name customer.CustomerReply@1 conflicts" in diagnostic.message
+        for diagnostic in workspace.errors
     )

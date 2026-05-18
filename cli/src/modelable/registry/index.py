@@ -7,6 +7,7 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.compat.checker import check_model_version_compatibility
+from modelable.diagnostics.model import render_diagnostic
 from modelable.planner.lineage import build_projection_lineage
 from modelable.parser.ir import AccessBlock, AccessGrant, ComputedMapping, DirectMapping
 from modelable.governance.por import build_por_record
@@ -16,7 +17,7 @@ from modelable.registry.resolver import resolved_version_spec
 def build_registry(workspace: Workspace, output_dir: str | Path = ".modelable") -> Path:
     """Write a rebuildable SQLite registry index for a validated workspace."""
     if workspace.errors:
-        joined = "\n".join(f"{path}: {error}" for path, error in workspace.errors)
+        joined = "\n".join(render_diagnostic(diagnostic) for diagnostic in workspace.errors)
         raise ValueError(f"Cannot build registry with validation errors:\n{joined}")
 
     output_path = Path(output_dir)

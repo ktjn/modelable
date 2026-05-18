@@ -219,7 +219,7 @@ def test_workspace_rejects_invalid_cel():
         mdl_path = Path(tmp) / "test.mdl"
         mdl_path.write_text(mdl_text, encoding="utf-8")
         ws = load_workspace(tmp)
-    assert any("CEL005" in error for _, error in ws.errors)
+    assert any("CEL005" in diagnostic.message for diagnostic in ws.errors)
 
 
 def test_workspace_accepts_valid_cel():
@@ -246,5 +246,5 @@ def test_workspace_accepts_valid_cel():
         mdl_path = Path(tmp) / "test.mdl"
         mdl_path.write_text(mdl_text, encoding="utf-8")
         ws = load_workspace(tmp)
-    cel_errors = [e for _, e in ws.errors if "CEL" in e]
+    cel_errors = [diagnostic.message for diagnostic in ws.errors if "CEL" in diagnostic.code]
     assert cel_errors == []

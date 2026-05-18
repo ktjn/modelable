@@ -42,7 +42,7 @@ The implementation must follow these documents:
 
 **Tasks:**
 
-- [ ] Add a structured diagnostic type that captures code, message, severity, file path, line, column, and optional end position.
+- [x] Add a structured diagnostic type that captures code, message, severity, file path, line, column, and optional end position.
   - Introduce a model such as:
 
     ```python
@@ -58,13 +58,13 @@ The implementation must follow these documents:
         end_column: int | None = None
     ```
 
-- [ ] Refactor parse and semantic validation paths so they can return structured diagnostics instead of only strings.
+- [x] Refactor parse and semantic validation paths so they can return structured diagnostics instead of only strings.
   - Keep the existing CLI behavior stable by rendering those diagnostics back to human-readable Rich output.
   - Preserve current error codes and messages where possible so existing tests continue to pass with minimal churn.
 
-- [ ] Add a small adapter that converts structured diagnostics to the current CLI reporting format.
+- [x] Add a small adapter that converts structured diagnostics to the current CLI reporting format.
 
-- [ ] Add unit tests that cover:
+- [x] Add unit tests that cover:
   - parse errors with file and line information
   - semantic errors with file and line information
   - warnings and information-level findings remaining non-fatal
@@ -89,15 +89,15 @@ uv run pytest tests/test_diagnostics.py tests/test_grammar.py tests/test_semanti
 
 **Tasks:**
 
-- [ ] Introduce a document-source abstraction for workspace loading.
+- [x] Introduce a document-source abstraction for workspace loading.
   - Support on-disk files and in-memory text with stable URIs.
   - Keep file discovery behavior unchanged for the CLI.
 
-- [ ] Refactor workspace loading so it can accept a list of document sources.
+- [x] Refactor workspace loading so it can accept a list of document sources.
   - Preserve the existing `load_workspace(path)` CLI entrypoint.
   - Add a memory-backed path for unsaved LSP buffers.
 
-- [ ] Build a workspace index that stores:
+- [x] Build a workspace index that stores:
   - parsed documents
   - document hashes
   - domain declarations
@@ -107,9 +107,9 @@ uv run pytest tests/test_diagnostics.py tests/test_grammar.py tests/test_semanti
   - lineage edges
   - diagnostic output per document
 
-- [ ] Ensure a changed document can be reindexed independently, while a `workspace.mdl` change still triggers a full rebuild.
+- [x] Ensure a changed document can be reindexed independently, while a `workspace.mdl` change still triggers a full rebuild.
 
-- [ ] Add tests for:
+- [x] Add tests for:
   - indexing a single in-memory document
   - indexing a multi-document workspace
   - cache invalidation by content hash
@@ -139,9 +139,9 @@ uv run pytest tests/test_workspace.py tests/test_lsp_workspace.py
 
 **Tasks:**
 
-- [ ] Add `pygls>=2.1.1,<3` to the CLI runtime dependencies in `cli/pyproject.toml`.
+- [x] Add `pygls>=2.1.1,<3` to the CLI runtime dependencies in `cli/pyproject.toml`.
 
-- [ ] Create an LSP command entrypoint:
+- [x] Create an LSP command entrypoint:
 
   ```python
   @click.command("lsp")
@@ -149,20 +149,20 @@ uv run pytest tests/test_workspace.py tests/test_lsp_workspace.py
       ...
   ```
 
-- [ ] Implement the server bootstrap and lifecycle handlers:
+- [x] Implement the server bootstrap and lifecycle handlers:
   - `initialize`
   - `did_open`
   - `did_change`
   - `did_close`
   - `workspace/did_change_watched_files` only if needed for the first slice
 
-- [ ] Wire diagnostics publishing to the shared diagnostic core.
+- [x] Wire diagnostics publishing to the shared diagnostic core.
   - Parse diagnostics must use the same message and severity mapping as the CLI.
   - Semantic diagnostics must be emitted with ranges when available.
 
-- [ ] Keep the server stateless outside the workspace cache and per-document index.
+- [x] Keep the server stateless outside the workspace cache and per-document index.
 
-- [ ] Add tests that verify:
+- [x] Add tests that verify:
   - the server starts
   - open/change events update the workspace cache
   - diagnostics are published for invalid input
@@ -188,13 +188,13 @@ uv run pytest tests/test_lsp_server.py tests/test_lsp_workspace.py tests/test_di
 
 **Tasks:**
 
-- [ ] Update the LSP spec to state that the first shipped slice covers diagnostics and workspace indexing, not completion or hover.
+- [x] Update the LSP spec to state that the first shipped slice covers diagnostics and workspace indexing, not completion or hover.
 
-- [ ] Add a brief `modelable lsp` usage example to the docs.
+- [x] Add a brief `modelable lsp` usage example to the docs.
 
-- [ ] Update the MVP plan to mark the LSP diagnostics/index slice as in progress, while leaving later LSP features deferred.
+- [x] Update the implementation-plan docs to link the new LSP slice and keep the staged rollout explicit.
 
-- [ ] Verify the documentation stays aligned with the system spec language and does not overpromise editor features.
+- [x] Verify the documentation stays aligned with the system spec language and does not overpromise editor features.
 
 **Acceptance checks:**
 
@@ -208,10 +208,10 @@ git diff --check
 
 **Tasks:**
 
-- [ ] Run the focused LSP and shared-diagnostics tests.
-- [ ] Run the full local CLI test suite from `cli/`.
-- [ ] Run `modelable validate ../samples/mvp` to confirm the MVP sample remains healthy after the shared workspace refactor.
-- [ ] Review the final diff for any fallback logic that would make the CLI and LSP drift apart.
+- [x] Run the focused LSP and shared-diagnostics tests.
+- [x] Run the full local CLI test suite from `cli/`.
+- [x] Run `modelable validate ../samples/mvp` to confirm the MVP sample remains healthy after the shared workspace refactor.
+- [x] Review the final diff for any fallback logic that would make the CLI and LSP drift apart.
 
 **Required commands:**
 

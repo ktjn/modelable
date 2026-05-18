@@ -9,6 +9,7 @@ All documentation is located in the [docs/](docs/) directory.
 ### Core Specifications
 - [Modelable System Specification](docs/modelable-system-spec.md) — The product source of truth.
 - [CLI Specification](docs/cli-spec.md) — Command-line interface design and reference.
+- [Language Server Protocol](docs/lsp-spec.md) — Editor diagnostics and workspace indexing.
 - [Adapter Architecture](docs/adapter-architecture-spec.md) — How Modelable connects to disparate systems.
 - [Ownership & Permissions](docs/ownership-permissions-spec.md) — Governance and access control model.
 
@@ -21,6 +22,7 @@ All documentation is located in the [docs/](docs/) directory.
 ### Current Implementation Plans
 - [MVP Implementation Plan](docs/mvp-implementation-plan.md) — Phase 1 delivery sequence and acceptance checks.
 - [IDL Parser, IR, and Validation](docs/idl-parser-implementation-plan.md) — Phase 1 implementation plan.
+- [LSP Workspace Index and Diagnostics](docs/superpowers/plans/2026-05-18-lsp-workspace-index-diagnostics.md) — First editor-support slice.
 - [Agent Governance](docs/agent-governance.md) — Agent operating policy, test gates, PR handling, and local gate expectations.
 
 ## Project Structure
@@ -52,6 +54,9 @@ uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
 
 # Inspect auto-generated projections for a model
 uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
+
+# Start the language server
+uv run modelable lsp
 
 # Run tests
 uv run pytest tests/ -v

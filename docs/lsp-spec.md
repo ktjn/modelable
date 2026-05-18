@@ -1,6 +1,6 @@
 # Language Server Protocol Specification
 
-> **Status:** Approved for Phase 1 editor support, with federation features deferred until distributed mode.
+> **Status:** Approved for a first Phase 1 editor slice focused on diagnostics and workspace indexing, with federation features deferred until distributed mode.
 >
 > **Scope:** IDE support for `.mdl` files via a `pygls` language server.
 
@@ -18,7 +18,7 @@ Editor
   -> modelable-lsp server
   -> in-memory workspace index
   -> Lark parser + semantic validator
-  -> diagnostics, completion, hover, definition, references
+  -> diagnostics
 ```
 
 The server maintains an in-memory index per workspace root:
@@ -35,21 +35,21 @@ The index is rebuilt incrementally for changed files and fully rebuilt when `wor
 
 ## 3. Capabilities
 
-| Capability | Phase 1 | Deferred |
+| Capability | First slice | Deferred |
 |---|---:|---|
 | Syntax diagnostics | Yes | — |
 | Semantic diagnostics | Yes | — |
-| Completion for keywords and annotations | Yes | — |
-| Completion for model names and fields | Yes | — |
-| Hover for fields, types, ownership, classification, and lineage | Yes | — |
-| Go-to-definition for models, projections, fields, and imports | Yes | — |
-| Find references for model and field usage | Yes | — |
-| Document symbols | Yes | — |
-| Workspace symbols | Yes | — |
-| Formatting | Minimal indentation normalization | Full formatter |
+| Completion for keywords and annotations | — | Post-MVP |
+| Completion for model names and fields | — | Post-MVP |
+| Hover for fields, types, ownership, classification, and lineage | — | Post-MVP |
+| Go-to-definition for models, projections, fields, and imports | — | Post-MVP |
+| Find references for model and field usage | — | Post-MVP |
+| Document symbols | — | Post-MVP |
+| Workspace symbols | — | Post-MVP |
+| Formatting | — | Post-MVP |
 | Rename refactoring | — | Post-MVP |
 | Code actions | — | Post-MVP |
-| Federation-aware completion from mirrors | Basic mirror reads | Rich sync UX |
+| Federation-aware completion from mirrors | — | Post-MVP |
 
 ## 4. Diagnostics
 
@@ -74,41 +74,17 @@ Severity mapping:
 
 ## 5. Completion Rules
 
-Completion is context-sensitive:
-
-- Top-level: `workspace`, `import`, `domain`, `binding`.
-- Domain body: `entity`, `aggregate`, `event`, `value`, `projection`, `auto projections`, `generate`.
-- Field declaration: annotations, field names, built-in types, local `value` types.
-- Projection source clauses: known domains, models, versions, aliases.
-- Projection body: source alias fields and CEL function names.
-- Binding block: known model/projection references and adapter names declared in adapter capability metadata.
-
-Completion must never invent models, fields, or versions that are not present in the workspace index or mirror.
+Completion is deferred until a later LSP slice.
 
 ## 6. Hover and Definition
 
-Hover content:
+Hover content is deferred until a later LSP slice.
 
-- Model or projection: domain, kind, version, change kind, owner, status.
-- Field: type, optionality, annotations, classification, owner, lineage.
-- Projection mapping: source field list and transformation expression.
-- Binding: adapter target and capability summary.
-
-Go-to-definition:
-
-- `customer.Customer @ 2` opens the declaration of `Customer @ 2`.
-- `c.email` opens the `email` field in the source model bound to alias `c`.
-- `import domain customer` opens the local mirror file when distributed mode is enabled.
+Go-to-definition is deferred until a later LSP slice.
 
 ## 7. Federation Behavior
 
-When `workspace.mdl` contains a `registry` block:
-
-- The server reads mirror files from `.modelable/mirror/<peer-registry-id>/`.
-- It does not fetch peers itself in Phase 1. Users run `modelable registry sync` or `modelable compile`.
-- It warns when an imported peer is not declared in `workspace.mdl`.
-- It errors when a `#`-pinned content signature does not match the mirrored model.
-- It marks stale mirrors as warnings when the mirror metadata records an out-of-date git SHA.
+When `workspace.mdl` contains a `registry` block, the first slice does not fetch peers itself. Distributed mirror reads stay deferred until the later federation-aware editor work.
 
 ## 8. Performance Requirements
 
@@ -126,10 +102,9 @@ When `workspace.mdl` contains a `registry` block:
 ## 10. Acceptance Criteria
 
 - Opening a workspace reports parse and semantic diagnostics matching `modelable validate`.
-- Completion suggests existing domains, models, versions, aliases, and fields.
-- Hover shows field type, classification, owner, and lineage when available.
-- Go-to-definition works for model references and projection source fields.
-- Distributed imports are diagnosed against local mirrors without requiring a running registry server.
+- The first slice rebuilds an in-memory workspace index as files change.
+- Completion, hover, go-to-definition, and reference search are deferred until later LSP slices.
+- Distributed imports are diagnosed against local mirrors in a later federation-aware slice.
 
 ## 11. Dependencies
 

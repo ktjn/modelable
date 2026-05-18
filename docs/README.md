@@ -21,6 +21,7 @@ This directory contains the system specifications, design documents, and impleme
 | [technology-evaluation.md](technology-evaluation.md) | Phase 5 runtime technology evaluation — CDC, streaming, materialization backends | external-tools-data-modelling.md |
 | [cli-tooling-spec.md](cli-tooling-spec.md) | Python development environment — uv, Hatchling, project layout, bootstrap script | cli-spec.md |
 | [mvp-implementation-plan.md](mvp-implementation-plan.md) | Phase 1 MVP delivery plan — milestones, acceptance checks, verification policy | modelable-system-spec.md, cli-spec.md, emitter-spec.md |
+| [superpowers/plans/2026-05-18-lsp-workspace-index-diagnostics.md](superpowers/plans/2026-05-18-lsp-workspace-index-diagnostics.md) | First LSP execution plan — diagnostics, workspace index, pygls scaffold | lsp-spec.md, cli-spec.md, cel-integration-spec.md |
 | [idl-parser-implementation-plan.md](idl-parser-implementation-plan.md) | Step-by-step implementation guide for Phase 1 parser, IR, transformer, semantic validation, compiler | idl-design-spec.md, cli-tooling-spec.md |
 | [data-model-languages.md](data-model-languages.md) | Research — evaluated DSLs and expression languages (Smithy, TypeSpec, LinkML, CEL, etc.) | — |
 | [emitter-spec.md](emitter-spec.md) | Output target generation — JSON Schema, TypeScript, Avro, Protobuf, SQL DDL, AsyncAPI, Markdown | idl-design-spec.md, adapter-architecture-spec.md |
@@ -35,6 +36,7 @@ This directory contains the system specifications, design documents, and impleme
 | Phase | Focus | Key documents |
 |---|---|---|
 | 1 | Local modelling compiler (parser, validate, compile, docs) | idl-parser-implementation-plan.md, cli-spec.md, cli-tooling-spec.md |
+| 1b | LSP diagnostics/index slice | superpowers/plans/2026-05-18-lsp-workspace-index-diagnostics.md, lsp-spec.md |
 | 2 | Artifact registry integration (Apicurio) | external-tools-data-modelling.md §4 |
 | 3 | Catalog / governance integration (OpenMetadata) | external-tools-data-modelling.md §5, ownership-permissions-spec.md |
 | 4 | Contract interchange (ODCS) | external-tools-data-modelling.md §6 |

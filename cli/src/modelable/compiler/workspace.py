@@ -1,28 +1,40 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
 
+from modelable.diagnostics.model import Diagnostic
 from modelable.expressions.cel import CelContext, parse_cel, validate_cel_expr
 from modelable.parser.ir import ComputedMapping, MdlFile
-from modelable.parser.parse import parse_file_to_ir
+from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.planner import expand_auto_projections
 from modelable.registry.resolver import resolve_model_ref, validate_references
-from modelable.validation.semantic import validate
+from modelable.validation.semantic import validate_diagnostics
 
 
 @dataclass(frozen=True)
 class WorkspaceSource:
-    path: Path
+    path: Path | None
+    uri: str
+    text: str
     mdl: MdlFile
-    errors: list[str]
+    errors: list[Diagnostic]
+    content_hash: str
 
 
 @dataclass(frozen=True)
 class Workspace:
     sources: list[WorkspaceSource]
     mdl: MdlFile
-    errors: list[tuple[Path, str]]
+    errors: list[Diagnostic]
+
+
+@dataclass(frozen=True)
+class WorkspaceDocumentSource:
+    path: Path | None
+    uri: str
+    text: str
 
 
 def discover_mdl_files(path: str | Path) -> list[Path]:
@@ -41,48 +53,75 @@ def discover_mdl_files(path: str | Path) -> list[Path]:
 
 def load_workspace(path: str | Path) -> Workspace:
     """Parse and validate all local .mdl files under path."""
-    sources: list[WorkspaceSource] = []
-    errors: list[tuple[Path, str]] = []
+    sources = [
+        WorkspaceDocumentSource(
+            path=mdl_path,
+            uri=mdl_path.resolve().as_uri(),
+            text=mdl_path.read_text(encoding="utf-8"),
+        )
+        for mdl_path in discover_mdl_files(path)
+    ]
+    return load_workspace_from_sources(sources)
+
+
+def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Workspace:
+    workspace_sources: list[WorkspaceSource] = []
+    errors: list[Diagnostic] = []
     merged = MdlFile()
 
-    for mdl_path in discover_mdl_files(path):
-        mdl = parse_file_to_ir(mdl_path)
-        source_errors = validate(mdl)
-        sources.append(WorkspaceSource(path=mdl_path, mdl=mdl, errors=source_errors))
-        errors.extend((mdl_path, error) for error in source_errors)
+    for source in sources:
+        source_location = str(source.path) if source.path is not None else source.uri
+        mdl = parse_text_to_ir(source.text, path=source_location)
+        source_errors = validate_diagnostics(mdl, path=source_location)
+        workspace_sources.append(
+            WorkspaceSource(
+                path=source.path,
+                uri=source.uri,
+                text=source.text,
+                mdl=mdl,
+                errors=source_errors,
+                content_hash=_content_hash(source.text),
+            )
+        )
+        errors.extend(source_errors)
         merged.domains.extend(mdl.domains)
         merged.bindings.extend(mdl.bindings)
         if mdl.workspace is not None:
             merged.workspace = mdl.workspace
 
-    # Expand auto projections before merged validation so that explicit
-    # projections can reference generated projection versions.
     auto_projection_errors = expand_auto_projections(merged)
-    errors.extend((Path("<workspace>"), error) for error in auto_projection_errors)
+    errors.extend(
+        Diagnostic(code="SEM", message=error, severity="error", path="<workspace>")
+        for error in auto_projection_errors
+    )
 
-    errors.extend(_validate_merged_workspace(sources, merged))
+    errors.extend(_validate_merged_workspace(workspace_sources, merged))
     errors.extend(_validate_cel(merged))
-    return Workspace(sources=sources, mdl=merged, errors=errors)
+    return Workspace(sources=workspace_sources, mdl=merged, errors=errors)
 
 
 def _validate_merged_workspace(
     sources: list[WorkspaceSource], merged: MdlFile
-) -> list[tuple[Path, str]]:
-    errors: list[tuple[Path, str]] = []
-    domains: dict[str, Path] = {}
-    model_versions: dict[tuple[str, str, int], Path] = {}
-    projection_versions: dict[tuple[str, str, int], Path] = {}
-    generated_projection_versions: dict[tuple[str, str, int], Path] = {}
+) -> list[Diagnostic]:
+    errors: list[Diagnostic] = []
+    domains: dict[str, Path | None] = {}
+    model_versions: dict[tuple[str, str, int], Path | None] = {}
+    projection_versions: dict[tuple[str, str, int], Path | None] = {}
+    generated_projection_versions: dict[tuple[str, str, int], Path | None] = {}
 
     for source in sources:
         for domain in source.mdl.domains:
             previous_domain_path = domains.get(domain.name)
             if previous_domain_path is not None:
                 errors.append(
-                    (
-                        source.path,
-                        f"duplicate domain '{domain.name}' "
-                        f"also defined in {previous_domain_path}",
+                    Diagnostic(
+                        code="SEM",
+                        message=(
+                            f"duplicate domain '{domain.name}' "
+                            f"also defined in {previous_domain_path}"
+                        ),
+                        severity="error",
+                        path=str(source.path) if source.path is not None else source.uri,
                     )
                 )
             else:
@@ -94,11 +133,15 @@ def _validate_merged_workspace(
                     previous_model_path = model_versions.get(key)
                     if previous_model_path is not None:
                         errors.append(
-                            (
-                                source.path,
-                                "duplicate model version "
-                                f"{domain.name}.{model_name}@{version.version} "
-                                f"also defined in {previous_model_path}",
+                            Diagnostic(
+                                code="SEM",
+                                message=(
+                                    "duplicate model version "
+                                    f"{domain.name}.{model_name}@{version.version} "
+                                    f"also defined in {previous_model_path}"
+                                ),
+                                severity="error",
+                                path=str(source.path) if source.path is not None else source.uri,
                             )
                         )
                     else:
@@ -114,11 +157,15 @@ def _validate_merged_workspace(
                     previous_projection_path = projection_versions.get(key)
                     if previous_projection_path is not None:
                         errors.append(
-                            (
-                                source.path,
-                                "duplicate projection version "
-                                f"{domain.name}.{projection_name}@{version.version} "
-                                f"also defined in {previous_projection_path}",
+                            Diagnostic(
+                                code="SEM",
+                                message=(
+                                    "duplicate projection version "
+                                    f"{domain.name}.{projection_name}@{version.version} "
+                                    f"also defined in {previous_projection_path}"
+                                ),
+                                severity="error",
+                                path=str(source.path) if source.path is not None else source.uri,
                             )
                         )
                     else:
@@ -134,12 +181,16 @@ def _validate_merged_workspace(
                     previous_generated_path = generated_projection_versions.get(key)
                     if previous_generated_path is not None:
                         errors.append(
-                            (
-                                source.path,
-                                "generated projection name "
-                                f"{domain.name}.{projection_name}@{auto_projection.version} "
-                                f"conflicts with auto projection declared in "
-                                f"{previous_generated_path}",
+                            Diagnostic(
+                                code="SEM",
+                                message=(
+                                    "generated projection name "
+                                    f"{domain.name}.{projection_name}@{auto_projection.version} "
+                                    f"conflicts with auto projection declared in "
+                                    f"{previous_generated_path}"
+                                ),
+                                severity="error",
+                                path=str(source.path) if source.path is not None else source.uri,
                             )
                         )
                     else:
@@ -148,22 +199,29 @@ def _validate_merged_workspace(
                     explicit_projection_path = projection_versions.get(key)
                     if explicit_projection_path is not None:
                         errors.append(
-                            (
-                                source.path,
-                                "generated projection name "
-                                f"{domain.name}.{projection_name}@{auto_projection.version} "
-                                f"conflicts with explicit projection declared in "
-                                f"{explicit_projection_path}",
+                            Diagnostic(
+                                code="SEM",
+                                message=(
+                                    "generated projection name "
+                                    f"{domain.name}.{projection_name}@{auto_projection.version} "
+                                    f"conflicts with explicit projection declared in "
+                                    f"{explicit_projection_path}"
+                                ),
+                                severity="error",
+                                path=str(source.path) if source.path is not None else source.uri,
                             )
                         )
 
-    errors.extend((Path("<workspace>"), error) for error in validate_references(merged))
+    errors.extend(
+        Diagnostic(code="SEM", message=error, severity="error", path="<workspace>")
+        for error in validate_references(merged)
+    )
     return errors
 
 
-def _validate_cel(merged: MdlFile) -> list[tuple[Path, str]]:
+def _validate_cel(merged: MdlFile) -> list[Diagnostic]:
     """Validate CEL expressions in all projections across the merged workspace."""
-    errors: list[tuple[Path, str]] = []
+    errors: list[Diagnostic] = []
 
     for domain in merged.domains:
         for projection_name, versions in domain.projections.items():
@@ -194,22 +252,50 @@ def _validate_cel(merged: MdlFile) -> list[tuple[Path, str]]:
                     expression = proj_field.mapping.expression
                     ast, parse_errors = parse_cel(expression)
                     for err in parse_errors:
-                        errors.append((Path("<workspace>"), f"{fqn}.{proj_field.name}: {err}"))
+                        errors.append(
+                            Diagnostic(
+                                code="CEL",
+                                message=f"{fqn}.{proj_field.name}: {err}",
+                                severity="error",
+                                path="<workspace>",
+                            )
+                        )
                     if ast is not None:
                         result = validate_cel_expr(ast, ctx)
                         for err in result.errors:
-                            errors.append((Path("<workspace>"), f"{proj_field.name}: {err}"))
+                            errors.append(
+                                Diagnostic(
+                                    code="CEL",
+                                    message=f"{proj_field.name}: {err}",
+                                    severity="error",
+                                    path="<workspace>",
+                                )
+                            )
 
                 for join in pv.joins:
                     if not join.on:
                         continue
                     ast, parse_errors = parse_cel(join.on)
                     for err in parse_errors:
-                        errors.append((Path("<workspace>"), f"{fqn} join on: {err}"))
+                        errors.append(
+                            Diagnostic(
+                                code="CEL",
+                                message=f"{fqn} join on: {err}",
+                                severity="error",
+                                path="<workspace>",
+                            )
+                        )
                     if ast is not None:
                         result = validate_cel_expr(ast, ctx)
                         for err in result.errors:
-                            errors.append((Path("<workspace>"), f"{fqn} join on: {err}"))
+                            errors.append(
+                                Diagnostic(
+                                    code="CEL",
+                                    message=f"{fqn} join on: {err}",
+                                    severity="error",
+                                    path="<workspace>",
+                                )
+                            )
 
     return errors
 
@@ -222,3 +308,7 @@ def _generated_projection_name(model_name: str, kind: str) -> str:
         "event": "Event",
     }
     return f"{model_name}{suffixes[kind]}"
+
+
+def _content_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
