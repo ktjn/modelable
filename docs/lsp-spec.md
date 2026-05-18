@@ -18,7 +18,7 @@ Editor
   -> modelable-lsp server
   -> in-memory workspace index
   -> Lark parser + semantic validator
-  -> diagnostics
+  -> diagnostics + hover
 ```
 
 The server maintains an in-memory index per workspace root:
@@ -39,9 +39,9 @@ The index is rebuilt incrementally for changed files and fully rebuilt when `wor
 |---|---:|---|
 | Syntax diagnostics | Yes | — |
 | Semantic diagnostics | Yes | — |
+| Hover for model and field summaries | Yes | — |
 | Completion for keywords and annotations | — | Post-MVP |
 | Completion for model names and fields | — | Post-MVP |
-| Hover for fields, types, ownership, classification, and lineage | — | Post-MVP |
 | Go-to-definition for models, projections, fields, and imports | — | Post-MVP |
 | Find references for model and field usage | — | Post-MVP |
 | Document symbols | — | Post-MVP |
@@ -78,7 +78,11 @@ Completion is deferred until a later LSP slice.
 
 ## 6. Hover and Definition
 
-Hover content is deferred until a later LSP slice.
+Hover content in the first slice includes:
+
+- Model and projection declarations: domain, kind, version, and change kind.
+- Model fields: type, optionality, key flag, PII flag, and classification when available.
+- Projection fields: source mapping or computed expression.
 
 Go-to-definition is deferred until a later LSP slice.
 
@@ -103,7 +107,8 @@ When `workspace.mdl` contains a `registry` block, the first slice does not fetch
 
 - Opening a workspace reports parse and semantic diagnostics matching `modelable validate`.
 - The first slice rebuilds an in-memory workspace index as files change.
-- Completion, hover, go-to-definition, and reference search are deferred until later LSP slices.
+- Hover shows model, projection, and field summaries for the current file.
+- Completion, go-to-definition, and reference search are deferred until later LSP slices.
 - Distributed imports are diagnosed against local mirrors in a later federation-aware slice.
 
 ## 11. Dependencies
