@@ -67,8 +67,8 @@ uv run pytest tests/ -v
 | 3 — Planner + auto projections | Auto-projection expansion, CEL, lineage | Complete — CEL validation, lineage extraction, plan docs done |
 | 4 — Compatibility + governance | `diff`, breaking-change detection, PII governance | Not started |
 | 5 — Emitters | JSON Schema, Markdown, TypeScript | Partial — JSON Schema + Markdown done; TypeScript remaining |
-| 6 — CLI workflows | `resolve`, `lineage`, `diff`, `codegen`, `scenario` | Partial — `validate`, `compile`, `docs`, `inspect --auto` done |
-| 7 — Hardening | Smoke tests, clean-checkout verification | Partial — MVP smoke test added; clean-checkout verification remains |
+| 6 — CLI workflows | `resolve`, `lineage`, `diff`, `codegen`, `scenario` | Complete |
+| 7 — Hardening | Smoke tests, clean-checkout verification | Complete |
 
 See [`docs/mvp-implementation-plan.md`](docs/mvp-implementation-plan.md) for detailed task checklists.
 
