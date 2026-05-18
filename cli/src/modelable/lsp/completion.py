@@ -5,7 +5,12 @@ import re
 
 from lsprotocol import types
 
-from modelable.lsp.federation import mirror_domain_names, mirror_reference_names
+from modelable.lsp.federation import (
+    mirror_domain_names,
+    mirror_field_names,
+    mirror_model_versions,
+    mirror_reference_names,
+)
 from modelable.lsp.workspace import LspWorkspaceIndex
 
 _KEYWORDS = [
@@ -36,6 +41,22 @@ _DOMAIN_PATTERN = re.compile(r"^\s*domain\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)")
 _WORD_PREFIX_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*$")
 _ANNOTATION_PATTERN = re.compile(r"(?:^|\s)@[A-Za-z_][A-Za-z0-9_-]*$")
 _REFERENCE_PATTERN = re.compile(r"\b(from|join)\s+[A-Za-z_][A-Za-z0-9_.-]*$")
+_REFERENCE_VERSION_PATTERN = re.compile(
+    r"\b(from|join)\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\."
+    r"(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*$"
+)
+_IMPORT_VERSION_PATTERN = re.compile(
+    r"\bimport\s+domain\s+[A-Za-z_][A-Za-z0-9_.-]*\s+from\s+registry\s+\"[^\"]+\""
+    r"\s+at\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\."
+    r"(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*$"
+)
+_ALIAS_FIELD_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.$")
+_SOURCE_ALIAS_PATTERN = re.compile(
+    r"^\s*(from|join)\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\."
+    r"(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*(?P<version>\d+)\s+as\s+"
+    r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)"
+    r"(?:\s+on\s+.*)?$"
+)
 _IMPORT_DOMAIN_PATTERN = re.compile(r"\bimport\s+domain\s+[A-Za-z_][A-Za-z0-9_.-]*$")
 _DOMAIN_DECL_PATTERN = re.compile(r"^\s*domain\s+[A-Za-z_][A-Za-z0-9_-]*$")
 
@@ -77,7 +98,9 @@ def build_completion(
     prefix = _completion_prefix(before_cursor)
     scope = _current_scope(source.text, line)
 
-    if _annotation_context(before_cursor):
+    if _version_context(before_cursor):
+        candidates = _version_candidates(index, before_cursor, prefix)
+    elif _annotation_context(before_cursor):
         candidates = _annotation_candidates(prefix)
     elif _domain_context(before_cursor):
         candidates = _domain_candidates(workspace, prefix)
@@ -85,6 +108,8 @@ def build_completion(
     elif _reference_context(before_cursor):
         candidates = _workspace_reference_candidates(workspace, prefix)
         candidates.extend(_mirror_reference_candidates(index, prefix))
+    elif _alias_context(before_cursor):
+        candidates = _alias_field_candidates(index, source.text, scope, line, prefix)
     elif scope is not None and line > scope.line:
         candidates = _field_candidates(workspace, scope, prefix)
     else:
@@ -199,6 +224,52 @@ def _mirror_reference_candidates(index: LspWorkspaceIndex, prefix: str) -> list[
     return _filtered_candidates(candidates, prefix)
 
 
+def _alias_field_candidates(
+    index: LspWorkspaceIndex,
+    text: str,
+    scope: _Scope | None,
+    line: int,
+    prefix: str,
+) -> list[_Candidate]:
+    if scope is None:
+        return []
+
+    alias = _alias_name(text, line)
+    if alias is None:
+        return []
+
+    reference = _projection_reference_for_alias(text, scope, line, alias)
+    if reference is None:
+        return []
+
+    domain_name, model_name, version = reference
+    fields = _mirror_or_workspace_fields(index, domain_name, model_name, version)
+    candidates = [
+        _Candidate(label=field_name, kind=types.CompletionItemKind.Field, sort_rank=index + 30)
+        for index, field_name in enumerate(fields)
+    ]
+    return _filtered_candidates(candidates, prefix)
+
+
+def _version_candidates(index: LspWorkspaceIndex, before_cursor: str, prefix: str) -> list[_Candidate]:
+    context = _version_context(before_cursor)
+    if context is None:
+        return []
+
+    domain_name, model_name = context
+    candidates: list[_Candidate] = []
+    for mirror_domain, mirror_model, version in mirror_model_versions(index):
+        if mirror_domain == domain_name and mirror_model == model_name:
+            candidates.append(
+                _Candidate(
+                    label=str(version),
+                    kind=types.CompletionItemKind.Value,
+                    sort_rank=160,
+                )
+            )
+    return _filtered_candidates(candidates, prefix)
+
+
 def _field_candidates(workspace, scope: _Scope, prefix: str) -> list[_Candidate]:
     domain = next((item for item in workspace.mdl.domains if item.name == scope.domain), None)
     if domain is None:
@@ -252,6 +323,11 @@ def _to_completion_item(candidate: _Candidate, index: int) -> types.CompletionIt
 def _completion_prefix(before_cursor: str) -> str:
     if not before_cursor:
         return ""
+
+    version_match = re.search(r"@\s*([0-9]*)$", before_cursor)
+    if version_match is not None:
+        return version_match.group(1)
+
     if before_cursor.endswith("@"):
         return "@"
 
@@ -267,6 +343,67 @@ def _completion_prefix(before_cursor: str) -> str:
     if match is None:
         return ""
     return match.group(0)
+
+
+def _alias_context(before_cursor: str) -> bool:
+    stripped = before_cursor.rstrip()
+    return bool(_ALIAS_FIELD_PATTERN.search(stripped))
+
+
+def _version_context(before_cursor: str) -> tuple[str, str] | None:
+    stripped = before_cursor.rstrip()
+    import_match = _IMPORT_VERSION_PATTERN.search(stripped)
+    if import_match is not None:
+        return import_match.group("domain"), import_match.group("model")
+    reference_match = _REFERENCE_VERSION_PATTERN.search(stripped)
+    if reference_match is not None:
+        return reference_match.group("domain"), reference_match.group("model")
+    return None
+
+
+def _alias_name(text: str, line: int) -> str | None:
+    lines = text.splitlines()
+    if line < 0 or line >= len(lines):
+        return None
+    match = _ALIAS_FIELD_PATTERN.search(lines[line][: len(lines[line])])
+    if match is None:
+        return None
+    return match.group("alias")
+
+
+def _projection_reference_for_alias(
+    text: str,
+    scope: _Scope,
+    line: int,
+    alias: str,
+) -> tuple[str, str, int] | None:
+    lines = text.splitlines()
+    end_line = min(line, len(lines) - 1)
+    for item in lines[scope.line + 1 : end_line + 1]:
+        match = _SOURCE_ALIAS_PATTERN.match(item)
+        if match is None:
+            continue
+        if match.group("alias") != alias:
+            continue
+        return match.group("domain"), match.group("model"), int(match.group("version"))
+    return None
+
+
+def _mirror_or_workspace_fields(
+    index: LspWorkspaceIndex,
+    domain_name: str,
+    model_name: str,
+    version: int,
+) -> list[str]:
+    workspace = index.workspace
+    if workspace is not None:
+        domain = next((item for item in workspace.mdl.domains if item.name == domain_name), None)
+        if domain is not None:
+            versions = domain.models.get(model_name, [])
+            current = next((item for item in versions if item.version == version), None)
+            if current is not None:
+                return sorted(field.name for field in current.fields)
+    return mirror_field_names(index, domain_name, model_name, version)
 
 
 def _current_scope(text: str, line: int) -> _Scope | None:

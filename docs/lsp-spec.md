@@ -1,6 +1,6 @@
 # Language Server Protocol Specification
 
-> **Status:** Approved for a first Phase 1 editor slice focused on diagnostics, workspace indexing, workspace-aware completion, local mirror-aware name completion, and raw-text import diagnostics, with peer fetch/writeback behavior still deferred.
+> **Status:** Approved for a first Phase 1 editor slice focused on diagnostics, workspace indexing, workspace-aware completion, local mirror-aware name completion, and raw-text federation diagnostics, with peer fetch/writeback behavior still deferred.
 >
 > **Scope:** IDE support for `.mdl` files via a `pygls` language server.
 
@@ -82,6 +82,8 @@ Completion is read-only and uses the current in-memory workspace snapshot. The f
 - model and projection names from the open workspace
 - field names from the active model or projection declaration
 - mirrored domain, model, and projection names from the local `.modelable/mirror/` cache when available
+- mirrored version numbers for pinned foreign references when the current buffer is already inside an `@` version clause
+- mirrored field names for alias references on `from` and `join` lines that point at mirrored foreign models
 
 The server uses deterministic, scope-aware heuristics to keep suggestions narrow and stable rather than noisy.
 
@@ -135,10 +137,12 @@ Go-to-definition in the first slice covers model declarations, projection declar
 
 The server does not fetch peers itself. If a local mirror cache is present on disk, completion may reuse those mirrored names without mutating workspace state.
 
-Import declarations are scanned from the current buffer text. The first slice reports:
+Import declarations and pinned foreign references are scanned from the current buffer text. The first slice reports:
 
 - warnings when an import references a peer that is not declared in `workspace.mdl`
 - errors when the imported domain is not present in the local mirror cache
+- errors when a pinned reference target is not present in the local mirror cache
+- errors when a `#`-pinned import or projection reference does not match the cached mirror signature
 
 ## 8. Performance Requirements
 
@@ -167,7 +171,7 @@ Import declarations are scanned from the current buffer text. The first slice re
 - Rename refactoring updates the targeted symbol and its references in the open workspace.
 - Code actions provide a narrow quick fix for unterminated blocks.
 - Completion can include names from the local mirror cache without fetching peers.
-- Distributed imports are diagnosed against local mirrors in the current buffer without fetching peers.
+- Distributed imports and pinned foreign references are diagnosed against local mirrors in the current buffer without fetching peers.
 
 ## 11. Dependencies
 

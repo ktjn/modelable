@@ -2,6 +2,7 @@ from pathlib import Path
 
 from modelable.lsp.completion import build_completion
 from modelable.lsp.federation import mirror_reference_names
+from modelable.compiler.workspace import WorkspaceDocumentSource
 from modelable.lsp.workspace import LspWorkspaceIndex
 
 
@@ -58,3 +59,95 @@ def test_mirror_completion_indexes_model_and_projection_names(tmp_path):
 
     assert ("supplier", "Supplier") in mirror_reference_names(index)
     assert ("supplier", "SupplierView") in mirror_reference_names(index)
+
+
+def test_mirror_completion_suggests_pinned_reference_versions(tmp_path):
+    index = _index(tmp_path)
+    billing_path = tmp_path / "billing.mdl"
+    billing_text = """
+projection BillingCustomer @ 1
+  from supplier.Supplier @
+{
+  supplierId <- s.supplierId
+}
+""".strip(
+        "\n"
+    )
+    index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
+        path=billing_path,
+        uri=billing_path.as_uri(),
+        text=billing_text,
+    )
+
+    completion = build_completion(
+        index,
+        billing_path.as_uri(),
+        line=1,
+        character=len("  from supplier.Supplier @"),
+    )
+
+    labels = [item.label for item in completion.items]
+    assert "1" in labels
+
+
+def test_mirror_completion_suggests_source_alias_fields(tmp_path):
+    index = _index(tmp_path)
+    billing_path = tmp_path / "billing.mdl"
+    billing_text = """
+domain billing {
+  projection BillingCustomer @ 1
+    from supplier.Supplier @ 1 as s
+  {
+    s.
+  }
+}
+""".strip(
+        "\n"
+    )
+    index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
+        path=billing_path,
+        uri=billing_path.as_uri(),
+        text=billing_text,
+    )
+
+    completion = build_completion(
+        index,
+        billing_path.as_uri(),
+        line=4,
+        character=len("    s."),
+    )
+
+    labels = [item.label for item in completion.items]
+    assert "supplierId" in labels
+
+
+def test_mirror_completion_suggests_join_alias_fields(tmp_path):
+    index = _index(tmp_path)
+    billing_path = tmp_path / "billing.mdl"
+    billing_text = """
+domain billing {
+  projection BillingCustomer @ 1
+    from local.Local @ 1 as l
+    join supplier.Supplier @ 1 as s on l.localId = s.supplierId
+  {
+    s.
+  }
+}
+""".strip(
+        "\n"
+    )
+    index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
+        path=billing_path,
+        uri=billing_path.as_uri(),
+        text=billing_text,
+    )
+
+    completion = build_completion(
+        index,
+        billing_path.as_uri(),
+        line=5,
+        character=len("    s."),
+    )
+
+    labels = [item.label for item in completion.items]
+    assert "supplierId" in labels
