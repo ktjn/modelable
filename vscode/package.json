@@ -1,0 +1,43 @@
+{
+  "name": "modelable-vscode",
+  "displayName": "Modelable",
+  "description": "VS Code support for Modelable .mdl files backed by the repo-local Python language server.",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "modelable",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:mdl"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "mdl",
+        "aliases": [
+          "Modelable",
+          "MDL"
+        ],
+        "extensions": [
+          ".mdl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0"
+  },
+  "scripts": {
+    "check": "node --check extension.js"
+  }
+}

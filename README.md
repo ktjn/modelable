@@ -29,6 +29,7 @@ All documentation is located in the [docs/](docs/) directory.
 
 - `docs/`: Consolidated documentation, specifications, research, and plans.
 - `samples/`: Worked `.mdl` examples. `samples/mvp/` is planned as the strict Phase 1 acceptance sample; `samples/scenarios/` contains broader illustrative scenarios.
+- `vscode/`: Minimal VS Code extension that launches the repo-local `modelable lsp` server for `.mdl` files.
 - `AGENTS.md`: Instructions for AI agents working on this repository.
 
 ## Getting Started
@@ -57,6 +58,11 @@ uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
 
 # Start the language server
 uv run modelable lsp
+
+# Open the VS Code extension scaffold
+cd ../vscode
+npm install
+code .
 
 # Run tests
 uv run pytest tests/ -v
