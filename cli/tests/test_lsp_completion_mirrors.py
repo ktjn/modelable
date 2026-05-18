@@ -151,3 +151,29 @@ domain billing {
 
     labels = [item.label for item in completion.items]
     assert "supplierId" in labels
+
+
+def test_mirror_completion_suggests_pinned_import_model_names(tmp_path):
+    index = _index(tmp_path)
+    billing_path = tmp_path / "billing.mdl"
+    billing_text = """
+import domain supplier from registry "supplier-platform-registry" at supplier.
+""".strip(
+        "\n"
+    )
+    index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
+        path=billing_path,
+        uri=billing_path.as_uri(),
+        text=billing_text,
+    )
+
+    completion = build_completion(
+        index,
+        billing_path.as_uri(),
+        line=0,
+        character=len('import domain supplier from registry "supplier-platform-registry" at supplier.'),
+    )
+
+    labels = [item.label for item in completion.items]
+    assert "Supplier" in labels
+    assert "SupplierView" in labels

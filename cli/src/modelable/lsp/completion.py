@@ -50,6 +50,10 @@ _IMPORT_VERSION_PATTERN = re.compile(
     r"\s+at\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\."
     r"(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*$"
 )
+_IMPORT_PIN_MODEL_PATTERN = re.compile(
+    r"\bimport\s+domain\s+[A-Za-z_][A-Za-z0-9_.-]*\s+from\s+registry\s+\"[^\"]+\""
+    r"\s+at\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\.$"
+)
 _ALIAS_FIELD_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.$")
 _SOURCE_ALIAS_PATTERN = re.compile(
     r"^\s*(from|join)\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\."
@@ -102,6 +106,8 @@ def build_completion(
         candidates = _version_candidates(index, before_cursor, prefix)
     elif _annotation_context(before_cursor):
         candidates = _annotation_candidates(prefix)
+    elif _import_pin_model_context(before_cursor):
+        candidates = _import_pin_model_candidates(index, before_cursor, prefix)
     elif _domain_context(before_cursor):
         candidates = _domain_candidates(workspace, prefix)
         candidates.extend(_mirror_domain_candidates(index, prefix))
@@ -359,6 +365,32 @@ def _version_context(before_cursor: str) -> tuple[str, str] | None:
     if reference_match is not None:
         return reference_match.group("domain"), reference_match.group("model")
     return None
+
+
+def _import_pin_model_context(before_cursor: str) -> bool:
+    stripped = before_cursor.rstrip()
+    return bool(_IMPORT_PIN_MODEL_PATTERN.search(stripped))
+
+
+def _import_pin_model_candidates(index: LspWorkspaceIndex, before_cursor: str, prefix: str) -> list[_Candidate]:
+    stripped = before_cursor.rstrip()
+    match = _IMPORT_PIN_MODEL_PATTERN.search(stripped)
+    if match is None:
+        return []
+
+    domain_name = match.group("domain")
+    candidates: list[_Candidate] = []
+    for mirror_domain, model_name in mirror_reference_names(index):
+        if mirror_domain != domain_name:
+            continue
+        candidates.append(
+            _Candidate(
+                label=model_name,
+                kind=types.CompletionItemKind.Class,
+                sort_rank=150,
+            )
+        )
+    return _filtered_candidates(candidates, prefix)
 
 
 def _alias_name(text: str, line: int) -> str | None:
