@@ -4,6 +4,7 @@ from pygls.lsp.server import LanguageServer
 from lsprotocol import types
 
 from modelable.lsp.completion import build_completion
+from modelable.lsp.document_symbols import build_document_symbols
 from modelable.lsp.definition import build_definition
 from modelable.lsp.diagnostics import to_lsp_diagnostics
 from modelable.lsp.hover import build_hover
@@ -32,6 +33,7 @@ def initialize(ls: ModelableLanguageServer, _params: types.InitializeParams) -> 
             hover_provider=True,
             definition_provider=True,
             references_provider=True,
+            document_symbol_provider=True,
             completion_provider=types.CompletionOptions(
                 trigger_characters=["@", "."],
             ),
@@ -109,6 +111,13 @@ def completion(
         params.position.line,
         params.position.character,
     )
+
+
+@server.feature(types.TEXT_DOCUMENT_DOCUMENT_SYMBOL)
+def document_symbol(
+    ls: ModelableLanguageServer, params: types.DocumentSymbolParams
+) -> list[types.DocumentSymbol] | None:
+    return build_document_symbols(ls.index, params.text_document.uri)
 
 
 def _publish_document_diagnostics(ls: ModelableLanguageServer, uri: str) -> None:
