@@ -8,7 +8,7 @@
 
 Add a first LSP slice for Modelable that gives `.mdl` authors CLI-matching syntax and semantic diagnostics in the editor, backed by a shared in-memory workspace index. The server must reuse the same parser, semantic validation, CEL validation, compatibility, lineage, and governance logic as the CLI so the IDE never becomes a separate source of truth.
 
-This plan intentionally starts with diagnostics and workspace indexing, and the first shipped slice also includes basic hover summaries for model and field references. Completion, go-to-definition, references, rename, formatting, and federation-aware mirror reads remain for later iterations.
+This plan intentionally starts with diagnostics and workspace indexing, and the first shipped slice also includes basic hover summaries plus go-to-definition for model, projection, and field references. Completion, references, rename, formatting, and federation-aware mirror reads remain for later iterations.
 
 ## Source Documents
 
@@ -188,7 +188,7 @@ uv run pytest tests/test_lsp_server.py tests/test_lsp_workspace.py tests/test_di
 
 **Tasks:**
 
-- [x] Update the LSP spec to state that the first shipped slice covers diagnostics, workspace indexing, and basic hover summaries, not completion or go-to-definition.
+- [x] Update the LSP spec to state that the first shipped slice covers diagnostics, workspace indexing, hover, and go-to-definition, not completion or reference search.
 
 - [x] Add a brief `modelable lsp` usage example to the docs.
 
@@ -224,13 +224,13 @@ uv run modelable validate ../samples/mvp
 
 ## Assumptions
 
-- The first LSP release is diagnostics-first and does not need completion, go-to-definition, references, or formatting to be useful.
+- The first LSP release is diagnostics-first and does not need completion, references, or formatting to be useful.
 - The shared diagnostic model will be introduced once and reused by both CLI and LSP entrypoints.
 - The workspace index should be reusable later for completion and symbol queries, so it must retain document-level and symbol-level structure rather than only flattened diagnostics.
 - `pygls` is the right runtime for the current Python CLI stack and should be added only after the dependency version is confirmed.
 
 ## Out of Scope
 
-- Completion, go-to-definition, references, rename, formatting, and code actions.
+- Completion, references, rename, formatting, and code actions.
 - Federation-aware mirror reads and distributed sync UX.
 - Non-editor LSP features beyond diagnostics and workspace index maintenance.

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pygls.lsp.server import LanguageServer
 from lsprotocol import types
 
+from modelable.lsp.definition import build_definition
 from modelable.lsp.diagnostics import to_lsp_diagnostics
 from modelable.lsp.hover import build_hover
 from modelable.lsp.workspace import LspWorkspaceIndex
@@ -19,19 +20,20 @@ server = ModelableLanguageServer()
 
 @server.feature(types.INITIALIZE)
 def initialize(ls: ModelableLanguageServer, _params: types.InitializeParams) -> types.InitializeResult:
-        return types.InitializeResult(
-            capabilities=types.ServerCapabilities(
-                text_document_sync=types.TextDocumentSyncOptions(
-                    open_close=True,
-                    change=types.TextDocumentSyncKind.Incremental,
-                    save=types.SaveOptions(include_text=True),
-                ),
-                hover_provider=True,
-                workspace=types.WorkspaceOptions(
-                    workspace_folders=types.WorkspaceFoldersOptions(
-                        supported=True,
-                        change_notifications=True,
-                    )
+    return types.InitializeResult(
+        capabilities=types.ServerCapabilities(
+            text_document_sync=types.TextDocumentSyncOptions(
+                open_close=True,
+                change=types.TextDocumentSyncKind.Incremental,
+                save=types.SaveOptions(include_text=True),
+            ),
+            hover_provider=True,
+            definition_provider=True,
+            workspace=types.WorkspaceOptions(
+                workspace_folders=types.WorkspaceFoldersOptions(
+                    supported=True,
+                    change_notifications=True,
+                )
             ),
         )
     )
@@ -59,6 +61,18 @@ def did_close(ls: ModelableLanguageServer, params: types.DidCloseTextDocumentPar
 @server.feature(types.TEXT_DOCUMENT_HOVER)
 def hover(ls: ModelableLanguageServer, params: types.HoverParams) -> types.Hover | None:
     return build_hover(
+        ls.index,
+        params.text_document.uri,
+        params.position.line,
+        params.position.character,
+    )
+
+
+@server.feature(types.TEXT_DOCUMENT_DEFINITION)
+def definition(
+    ls: ModelableLanguageServer, params: types.DefinitionParams
+) -> types.Location | list[types.Location] | None:
+    return build_definition(
         ls.index,
         params.text_document.uri,
         params.position.line,

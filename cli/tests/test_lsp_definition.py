@@ -1,0 +1,95 @@
+from modelable.lsp.definition import build_definition
+from modelable.lsp.workspace import LspWorkspaceIndex
+
+
+def test_definition_on_projection_source_reference_goes_to_model_declaration():
+    index = LspWorkspaceIndex()
+    index.upsert_document(
+        "inmemory://workspace.mdl",
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email?: string
+  }
+}
+
+domain billing {
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1 as c
+  {
+    billingId <- c.customerId
+    displayEmail = c.email
+  }
+}
+""",
+    )
+
+    definition = build_definition(index, "inmemory://workspace.mdl", line=10, character=16)
+
+    assert definition is not None
+    assert definition.uri == "inmemory://workspace.mdl"
+    assert definition.range.start.line == 2
+    assert definition.range.start.character == 9
+
+
+def test_definition_on_projection_field_goes_to_its_declaration():
+    index = LspWorkspaceIndex()
+    index.upsert_document(
+        "inmemory://workspace.mdl",
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email?: string
+  }
+}
+
+domain billing {
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1 as c
+  {
+    billingId <- c.customerId
+    displayEmail = c.email
+  }
+}
+""",
+    )
+
+    definition = build_definition(index, "inmemory://workspace.mdl", line=12, character=8)
+
+    assert definition is not None
+    assert definition.uri == "inmemory://workspace.mdl"
+    assert definition.range.start.line == 12
+    assert definition.range.start.character == 4
+
+
+def test_definition_on_field_reference_goes_to_source_field():
+    index = LspWorkspaceIndex()
+    index.upsert_document(
+        "inmemory://workspace.mdl",
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email?: string
+  }
+}
+
+domain billing {
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1 as c
+  {
+    billingId <- c.customerId
+    displayEmail = c.email
+  }
+}
+""",
+    )
+
+    definition = build_definition(index, "inmemory://workspace.mdl", line=13, character=22)
+
+    assert definition is not None
+    assert definition.uri == "inmemory://workspace.mdl"
+    assert definition.range.start.line == 4
+    assert definition.range.start.character == 4

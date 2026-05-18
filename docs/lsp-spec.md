@@ -18,7 +18,7 @@ Editor
   -> modelable-lsp server
   -> in-memory workspace index
   -> Lark parser + semantic validator
-  -> diagnostics + hover
+  -> diagnostics + hover + go-to-definition
 ```
 
 The server maintains an in-memory index per workspace root:
@@ -40,9 +40,9 @@ The index is rebuilt incrementally for changed files and fully rebuilt when `wor
 | Syntax diagnostics | Yes | — |
 | Semantic diagnostics | Yes | — |
 | Hover for model and field summaries | Yes | — |
+| Go-to-definition for model, projection, and field references | Yes | — |
 | Completion for keywords and annotations | — | Post-MVP |
 | Completion for model names and fields | — | Post-MVP |
-| Go-to-definition for models, projections, fields, and imports | — | Post-MVP |
 | Find references for model and field usage | — | Post-MVP |
 | Document symbols | — | Post-MVP |
 | Workspace symbols | — | Post-MVP |
@@ -84,7 +84,7 @@ Hover content in the first slice includes:
 - Model fields: type, optionality, key flag, PII flag, and classification when available.
 - Projection fields: source mapping or computed expression.
 
-Go-to-definition is deferred until a later LSP slice.
+Go-to-definition in the first slice covers model declarations, projection declarations, and field declarations within the current workspace.
 
 ## 7. Federation Behavior
 
@@ -108,7 +108,8 @@ When `workspace.mdl` contains a `registry` block, the first slice does not fetch
 - Opening a workspace reports parse and semantic diagnostics matching `modelable validate`.
 - The first slice rebuilds an in-memory workspace index as files change.
 - Hover shows model, projection, and field summaries for the current file.
-- Completion, go-to-definition, and reference search are deferred until later LSP slices.
+- Go-to-definition jumps to the declaration for models, projections, and fields in the current workspace.
+- Completion and reference search are deferred until later LSP slices.
 - Distributed imports are diagnosed against local mirrors in a later federation-aware slice.
 
 ## 11. Dependencies
