@@ -45,3 +45,10 @@ def test_lsp_server_advertises_rename():
 
     assert result.capabilities.rename_provider is not None
     assert result.capabilities.rename_provider.prepare_provider is True
+
+
+def test_lsp_server_advertises_code_actions():
+    result = initialize(server, types.InitializeParams(capabilities=types.ClientCapabilities()))
+
+    assert result.capabilities.code_action_provider is not None
+    assert result.capabilities.code_action_provider.code_action_kinds == [types.CodeActionKind.QuickFix]

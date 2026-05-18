@@ -4,6 +4,7 @@ from pygls.lsp.server import LanguageServer
 from lsprotocol import types
 
 from modelable.lsp.completion import build_completion
+from modelable.lsp.code_actions import build_code_actions
 from modelable.lsp.document_symbols import build_document_symbols
 from modelable.lsp.definition import build_definition
 from modelable.lsp.diagnostics import to_lsp_diagnostics
@@ -39,6 +40,10 @@ def initialize(ls: ModelableLanguageServer, _params: types.InitializeParams) -> 
             document_symbol_provider=True,
             workspace_symbol_provider=types.WorkspaceSymbolOptions(resolve_provider=False),
             document_formatting_provider=True,
+            code_action_provider=types.CodeActionOptions(
+                code_action_kinds=[types.CodeActionKind.QuickFix],
+                resolve_provider=False,
+            ),
             rename_provider=types.RenameOptions(prepare_provider=True),
             completion_provider=types.CompletionOptions(
                 trigger_characters=["@", "."],
@@ -142,6 +147,19 @@ def document_formatting(
         params.text_document.uri,
         params.options.tab_size,
         params.options.insert_spaces,
+    )
+
+
+@server.feature(types.TEXT_DOCUMENT_CODE_ACTION)
+def code_action(
+    ls: ModelableLanguageServer, params: types.CodeActionParams
+) -> list[types.CodeAction] | None:
+    return build_code_actions(
+        ls.index,
+        params.text_document.uri,
+        params.range.start.line,
+        params.range.start.character,
+        list(params.context.diagnostics),
     )
 
 
