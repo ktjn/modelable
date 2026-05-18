@@ -160,6 +160,17 @@ def test_import_diagnostics_error_when_mirror_domain_is_missing(tmp_path):
     assert "domain 'customer' is not available" in diagnostics[0].message
 
 
+def test_import_diagnostics_reports_peer_warning_and_domain_error(tmp_path):
+    index = _index(tmp_path, WORKSPACE_WITH_MISSING_PEER, mirror=False)
+
+    diagnostics = build_import_diagnostics(index, (tmp_path / "billing.mdl").as_uri())
+
+    assert len(diagnostics) == 2
+    assert {diagnostic.severity for diagnostic in diagnostics} == {"warning", "error"}
+    assert any("peer 'customer-platform-registry' is not declared" in diagnostic.message for diagnostic in diagnostics)
+    assert any("domain 'customer' is not available" in diagnostic.message for diagnostic in diagnostics)
+
+
 def test_import_diagnostics_accepts_matching_pinned_import(tmp_path):
     index = _index(tmp_path, WORKSPACE_WITH_KNOWN_PEER, mirror=True, import_text=PINNED_IMPORT_TEXT)
 
