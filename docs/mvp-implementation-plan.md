@@ -119,12 +119,18 @@ uv run pytest
 
 **Tasks:**
 
-- [ ] Execute `idl-parser-implementation-plan.md` through the `validate` command.
-- [ ] Ensure grammar covers domains, owners, descriptions, model kinds, field annotations, primitive and composite types, projections, joins, aggregations, version ranges, generate blocks, bindings, workspace blocks, and auto projection declarations.
-- [ ] Represent immutable model and projection versions explicitly in Pydantic IR.
-- [ ] Preserve source location metadata for diagnostics.
-- [ ] Validate entity and aggregate keys, event and value key absence, version ordering, projection mappings, aggregation usage, known annotations, and known types.
-- [ ] Add parse and validation coverage for the minimal `samples/mvp/` happy-path sample.
+- [x] Execute `idl-parser-implementation-plan.md` through the `validate` command.
+  - Completed: the parser/IR/validation stack now accepts the MVP sample, and `modelable validate ../samples/mvp` passes.
+- [x] Ensure grammar covers domains, owners, descriptions, model kinds, field annotations, primitive and composite types, projections, joins, aggregations, version ranges, generate blocks, bindings, workspace blocks, and auto projection declarations.
+  - Completed: the current grammar and parser tests cover the MVP language surface used by `samples/mvp/` and the scenario samples.
+- [x] Represent immutable model and projection versions explicitly in Pydantic IR.
+  - Completed: the IR models published versions as first-class typed records with versioned model and projection shapes.
+- [x] Preserve source location metadata for diagnostics.
+  - Completed: parse and semantic diagnostics carry file/line context through the CLI error reporting path.
+- [x] Validate entity and aggregate keys, event and value key absence, version ordering, projection mappings, aggregation usage, known annotations, and known types.
+  - Completed: semantic validation rejects missing keys, invalid key placement, bad mappings, unsupported annotations, and unknown types.
+- [x] Add parse and validation coverage for the minimal `samples/mvp/` happy-path sample.
+  - Completed: `samples/mvp/` is covered by parser, semantic, CLI, and smoke tests and is used as the strict acceptance sample.
 
 **Acceptance checks:**
 
