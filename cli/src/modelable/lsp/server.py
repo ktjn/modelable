@@ -5,6 +5,7 @@ from lsprotocol import types
 
 from modelable.lsp.completion import build_completion
 from modelable.lsp.code_actions import build_code_actions
+from modelable.lsp.federation import build_import_diagnostics
 from modelable.lsp.document_symbols import build_document_symbols
 from modelable.lsp.definition import build_definition
 from modelable.lsp.diagnostics import to_lsp_diagnostics
@@ -199,6 +200,7 @@ def _publish_document_diagnostics(ls: ModelableLanguageServer, uri: str) -> None
             diagnostics.append(diagnostic)
         elif diagnostic.path == "<workspace>":
             diagnostics.append(diagnostic)
+    diagnostics.extend(build_import_diagnostics(ls.index, uri))
     ls.publish_diagnostics(uri, to_lsp_diagnostics(diagnostics))
 
 

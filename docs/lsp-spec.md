@@ -1,6 +1,6 @@
 # Language Server Protocol Specification
 
-> **Status:** Approved for a first Phase 1 editor slice focused on diagnostics, workspace indexing, workspace-aware completion, and local mirror-aware name completion, with peer fetch/writeback behavior still deferred.
+> **Status:** Approved for a first Phase 1 editor slice focused on diagnostics, workspace indexing, workspace-aware completion, local mirror-aware name completion, and raw-text import diagnostics, with peer fetch/writeback behavior still deferred.
 >
 > **Scope:** IDE support for `.mdl` files via a `pygls` language server.
 
@@ -135,6 +135,11 @@ Go-to-definition in the first slice covers model declarations, projection declar
 
 The server does not fetch peers itself. If a local mirror cache is present on disk, completion may reuse those mirrored names without mutating workspace state.
 
+Import declarations are scanned from the current buffer text. The first slice reports:
+
+- warnings when an import references a peer that is not declared in `workspace.mdl`
+- errors when the imported domain is not present in the local mirror cache
+
 ## 8. Performance Requirements
 
 - Parse and diagnose a changed file in under 250 ms for typical files under 2,000 lines.
@@ -162,7 +167,7 @@ The server does not fetch peers itself. If a local mirror cache is present on di
 - Rename refactoring updates the targeted symbol and its references in the open workspace.
 - Code actions provide a narrow quick fix for unterminated blocks.
 - Completion can include names from the local mirror cache without fetching peers.
-- Distributed imports are diagnosed against local mirrors in a later federation-aware slice.
+- Distributed imports are diagnosed against local mirrors in the current buffer without fetching peers.
 
 ## 11. Dependencies
 

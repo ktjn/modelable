@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 import re
 
 from lsprotocol import types
 
+from modelable.lsp.federation import mirror_domain_names, mirror_reference_names
 from modelable.lsp.workspace import LspWorkspaceIndex
-from modelable.parser.parse import parse_text_to_ir
 
 _KEYWORDS = [
     "domain",
@@ -180,7 +179,7 @@ def _workspace_reference_candidates(workspace, prefix: str) -> list[_Candidate]:
 
 def _mirror_domain_candidates(index: LspWorkspaceIndex, prefix: str) -> list[_Candidate]:
     candidates: list[_Candidate] = []
-    for domain_name in _mirror_domain_names(index):
+    for domain_name in mirror_domain_names(index):
         candidates.append(
             _Candidate(label=domain_name, kind=types.CompletionItemKind.Module, sort_rank=40)
         )
@@ -189,7 +188,7 @@ def _mirror_domain_candidates(index: LspWorkspaceIndex, prefix: str) -> list[_Ca
 
 def _mirror_reference_candidates(index: LspWorkspaceIndex, prefix: str) -> list[_Candidate]:
     candidates: list[_Candidate] = []
-    for domain_name, model_name in _mirror_model_names(index):
+    for domain_name, model_name in mirror_reference_names(index):
         candidates.append(
             _Candidate(
                 label=f"{domain_name}.{model_name}",
@@ -248,54 +247,6 @@ def _to_completion_item(candidate: _Candidate, index: int) -> types.CompletionIt
         insert_text=candidate.label,
         filter_text=candidate.label,
     )
-
-
-def _mirror_domain_names(index: LspWorkspaceIndex) -> list[str]:
-    names: set[str] = set()
-    for source in _mirror_sources(index):
-        for domain in source.domains:
-            names.add(domain.name)
-    return sorted(names)
-
-
-def _mirror_model_names(index: LspWorkspaceIndex) -> list[tuple[str, str]]:
-    names: set[tuple[str, str]] = set()
-    for source in _mirror_sources(index):
-        for domain in source.domains:
-            for model_name in domain.models:
-                names.add((domain.name, model_name))
-            for projection_name in domain.projections:
-                names.add((domain.name, projection_name))
-    return sorted(names)
-
-
-def _mirror_sources(index: LspWorkspaceIndex):
-    root = _workspace_root(index)
-    if root is None:
-        return []
-
-    mirror_root = root / ".modelable" / "mirror"
-    if not mirror_root.exists():
-        return []
-
-    parsed_sources = []
-    for path in sorted(mirror_root.rglob("*.mdl"), key=lambda item: item.as_posix()):
-        try:
-            parsed_sources.append(parse_text_to_ir(path.read_text(encoding="utf-8"), path=path))
-        except Exception:
-            continue
-    return parsed_sources
-
-
-def _workspace_root(index: LspWorkspaceIndex) -> Path | None:
-    paths = [source.path for source in index.documents.values() if source.path is not None]
-    if not paths:
-        return None
-
-    workspace_files = [path for path in paths if path.name == "workspace.mdl"]
-    if workspace_files:
-        return workspace_files[0].parent
-    return paths[0].parent
 
 
 def _completion_prefix(before_cursor: str) -> str:

@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from modelable.lsp.completion import build_completion, _mirror_model_names
+from modelable.lsp.completion import build_completion
+from modelable.lsp.federation import mirror_reference_names
 from modelable.lsp.workspace import LspWorkspaceIndex
 
 
@@ -55,5 +56,5 @@ def test_completion_includes_mirror_domain_names(tmp_path):
 def test_mirror_completion_indexes_model_and_projection_names(tmp_path):
     index = _index(tmp_path)
 
-    assert ("supplier", "Supplier") in _mirror_model_names(index)
-    assert ("supplier", "SupplierView") in _mirror_model_names(index)
+    assert ("supplier", "Supplier") in mirror_reference_names(index)
+    assert ("supplier", "SupplierView") in mirror_reference_names(index)
