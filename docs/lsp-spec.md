@@ -18,7 +18,7 @@ Editor
   -> modelable-lsp server
   -> in-memory workspace index
   -> Lark parser + semantic validator
-  -> diagnostics + hover + go-to-definition + completion + references + document symbols
+  -> diagnostics + hover + go-to-definition + completion + references + document symbols + workspace symbols
 ```
 
 The server maintains an in-memory index per workspace root:
@@ -45,7 +45,7 @@ The index is rebuilt incrementally for changed files and fully rebuilt when `wor
 | Completion for model, projection, and field names | Yes | — |
 | Find references for model and field usage | Yes | — |
 | Document symbols | Yes | — |
-| Workspace symbols | — | Post-MVP |
+| Workspace symbols | Yes | — |
 | Formatting | — | Post-MVP |
 | Rename refactoring | — | Post-MVP |
 | Code actions | — | Post-MVP |
@@ -96,6 +96,12 @@ Document symbols are also read-only and use the current file snapshot. The first
 - model and projection declarations nested under their owning domain
 - fields nested under their owning declaration
 
+Workspace symbols are also read-only and query the current workspace snapshot. The first slice covers:
+
+- filtered domain names
+- filtered model and projection names
+- filtered field names from the current workspace
+
 ## 6. Hover and Definition
 
 Hover content in the first slice includes:
@@ -132,6 +138,7 @@ When `workspace.mdl` contains a `registry` block, the first slice does not fetch
 - Completion shows keywords, annotations, and workspace names without mutating state.
 - Reference search finds model, projection, and field usages in the current workspace.
 - Document symbols provide a nested outline for the current file.
+- Workspace symbols search the open workspace without changing state.
 - Distributed imports are diagnosed against local mirrors in a later federation-aware slice.
 
 ## 11. Dependencies

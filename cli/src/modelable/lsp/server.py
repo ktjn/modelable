@@ -9,6 +9,7 @@ from modelable.lsp.definition import build_definition
 from modelable.lsp.diagnostics import to_lsp_diagnostics
 from modelable.lsp.hover import build_hover
 from modelable.lsp.references import build_references
+from modelable.lsp.workspace_symbols import build_workspace_symbols
 from modelable.lsp.workspace import LspWorkspaceIndex
 
 
@@ -34,6 +35,7 @@ def initialize(ls: ModelableLanguageServer, _params: types.InitializeParams) -> 
             definition_provider=True,
             references_provider=True,
             document_symbol_provider=True,
+            workspace_symbol_provider=types.WorkspaceSymbolOptions(resolve_provider=False),
             completion_provider=types.CompletionOptions(
                 trigger_characters=["@", "."],
             ),
@@ -118,6 +120,13 @@ def document_symbol(
     ls: ModelableLanguageServer, params: types.DocumentSymbolParams
 ) -> list[types.DocumentSymbol] | None:
     return build_document_symbols(ls.index, params.text_document.uri)
+
+
+@server.feature(types.WORKSPACE_SYMBOL)
+def workspace_symbol(
+    ls: ModelableLanguageServer, params: types.WorkspaceSymbolParams
+) -> list[types.WorkspaceSymbol] | None:
+    return build_workspace_symbols(ls.index, params.query)
 
 
 def _publish_document_diagnostics(ls: ModelableLanguageServer, uri: str) -> None:
