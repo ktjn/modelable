@@ -82,7 +82,7 @@ Completion is read-only and uses the current in-memory workspace snapshot. The f
 - model and projection names from the open workspace
 - field names from the active model or projection declaration
 - mirrored domain, model, and projection names from the local `.modelable/mirror/` cache when available
-- mirrored version numbers for pinned foreign references when the current buffer is already inside an `@` version clause
+- mirrored version numbers for pinned foreign references when the current buffer is already inside an `@` version clause, including typed digits such as `@1`
 - mirrored model and projection names after `at <domain>.<prefix>` in pinned imports
 - mirrored field names for alias references on `from` and `join` lines, including typed prefixes such as `s.su`, that point at mirrored foreign models
 

@@ -66,7 +66,7 @@ def test_mirror_completion_suggests_pinned_reference_versions(tmp_path):
     billing_path = tmp_path / "billing.mdl"
     billing_text = """
 projection BillingCustomer @ 1
-  from supplier.Supplier @
+  from supplier.Supplier @1
 {
   supplierId <- s.supplierId
 }
@@ -83,7 +83,7 @@ projection BillingCustomer @ 1
         index,
         billing_path.as_uri(),
         line=1,
-        character=len("  from supplier.Supplier @"),
+        character=len("  from supplier.Supplier @1"),
     )
 
     labels = [item.label for item in completion.items]

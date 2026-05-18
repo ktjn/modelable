@@ -43,12 +43,12 @@ _ANNOTATION_PATTERN = re.compile(r"(?:^|\s)@[A-Za-z_][A-Za-z0-9_-]*$")
 _REFERENCE_PATTERN = re.compile(r"\b(from|join)\s+[A-Za-z_][A-Za-z0-9_.-]*$")
 _REFERENCE_VERSION_PATTERN = re.compile(
     r"\b(from|join)\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\."
-    r"(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*$"
+    r"(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*(?P<prefix>\d*)$"
 )
 _IMPORT_VERSION_PATTERN = re.compile(
     r"\bimport\s+domain\s+[A-Za-z_][A-Za-z0-9_.-]*\s+from\s+registry\s+\"[^\"]+\""
     r"\s+at\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\."
-    r"(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*$"
+    r"(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*(?P<prefix>\d*)$"
 )
 _IMPORT_PIN_MODEL_PATTERN = re.compile(
     r"\bimport\s+domain\s+[A-Za-z_][A-Za-z0-9_.-]*\s+from\s+registry\s+\"[^\"]+\""
@@ -265,8 +265,11 @@ def _version_candidates(index: LspWorkspaceIndex, before_cursor: str, prefix: st
 
     domain_name, model_name = context
     candidates: list[_Candidate] = []
+    version_prefix = _version_prefix(before_cursor)
     for mirror_domain, mirror_model, version in mirror_model_versions(index):
         if mirror_domain == domain_name and mirror_model == model_name:
+            if version_prefix and not str(version).startswith(version_prefix):
+                continue
             candidates.append(
                 _Candidate(
                     label=str(version),
@@ -366,6 +369,17 @@ def _version_context(before_cursor: str) -> tuple[str, str] | None:
     if reference_match is not None:
         return reference_match.group("domain"), reference_match.group("model")
     return None
+
+
+def _version_prefix(before_cursor: str) -> str:
+    stripped = before_cursor.rstrip()
+    import_match = _IMPORT_VERSION_PATTERN.search(stripped)
+    if import_match is not None:
+        return import_match.group("prefix") or ""
+    reference_match = _REFERENCE_VERSION_PATTERN.search(stripped)
+    if reference_match is not None:
+        return reference_match.group("prefix") or ""
+    return ""
 
 
 def _import_pin_model_context(before_cursor: str) -> bool:
