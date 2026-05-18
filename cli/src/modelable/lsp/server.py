@@ -3,6 +3,7 @@ from __future__ import annotations
 from pygls.lsp.server import LanguageServer
 from lsprotocol import types
 
+from modelable.lsp.completion import build_completion
 from modelable.lsp.definition import build_definition
 from modelable.lsp.diagnostics import to_lsp_diagnostics
 from modelable.lsp.hover import build_hover
@@ -29,8 +30,11 @@ def initialize(ls: ModelableLanguageServer, _params: types.InitializeParams) -> 
             ),
             hover_provider=True,
             definition_provider=True,
+            completion_provider=types.CompletionOptions(
+                trigger_characters=["@", "."],
+            ),
             workspace=types.WorkspaceOptions(
-                workspace_folders=types.WorkspaceFoldersOptions(
+                workspace_folders=types.WorkspaceFoldersServerCapabilities(
                     supported=True,
                     change_notifications=True,
                 )
@@ -73,6 +77,18 @@ def definition(
     ls: ModelableLanguageServer, params: types.DefinitionParams
 ) -> types.Location | list[types.Location] | None:
     return build_definition(
+        ls.index,
+        params.text_document.uri,
+        params.position.line,
+        params.position.character,
+    )
+
+
+@server.feature(types.TEXT_DOCUMENT_COMPLETION)
+def completion(
+    ls: ModelableLanguageServer, params: types.CompletionParams
+) -> types.CompletionList:
+    return build_completion(
         ls.index,
         params.text_document.uri,
         params.position.line,

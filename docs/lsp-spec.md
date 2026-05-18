@@ -1,6 +1,6 @@
 # Language Server Protocol Specification
 
-> **Status:** Approved for a first Phase 1 editor slice focused on diagnostics and workspace indexing, with federation features deferred until distributed mode.
+> **Status:** Approved for a first Phase 1 editor slice focused on diagnostics, workspace indexing, and workspace-aware completion, with federation features deferred until distributed mode.
 >
 > **Scope:** IDE support for `.mdl` files via a `pygls` language server.
 
@@ -18,7 +18,7 @@ Editor
   -> modelable-lsp server
   -> in-memory workspace index
   -> Lark parser + semantic validator
-  -> diagnostics + hover + go-to-definition
+  -> diagnostics + hover + go-to-definition + completion
 ```
 
 The server maintains an in-memory index per workspace root:
@@ -41,8 +41,8 @@ The index is rebuilt incrementally for changed files and fully rebuilt when `wor
 | Semantic diagnostics | Yes | — |
 | Hover for model and field summaries | Yes | — |
 | Go-to-definition for model, projection, and field references | Yes | — |
-| Completion for keywords and annotations | — | Post-MVP |
-| Completion for model names and fields | — | Post-MVP |
+| Completion for keywords and annotations | Yes | — |
+| Completion for model, projection, and field names | Yes | — |
 | Find references for model and field usage | — | Post-MVP |
 | Document symbols | — | Post-MVP |
 | Workspace symbols | — | Post-MVP |
@@ -74,7 +74,15 @@ Severity mapping:
 
 ## 5. Completion Rules
 
-Completion is deferred until a later LSP slice.
+Completion is read-only and uses the current in-memory workspace snapshot. The first slice offers:
+
+- language keywords
+- annotations
+- domain names from the open workspace
+- model and projection names from the open workspace
+- field names from the active model or projection declaration
+
+The server uses deterministic, scope-aware heuristics to keep suggestions narrow and stable rather than noisy.
 
 ## 6. Hover and Definition
 
@@ -109,7 +117,8 @@ When `workspace.mdl` contains a `registry` block, the first slice does not fetch
 - The first slice rebuilds an in-memory workspace index as files change.
 - Hover shows model, projection, and field summaries for the current file.
 - Go-to-definition jumps to the declaration for models, projections, and fields in the current workspace.
-- Completion and reference search are deferred until later LSP slices.
+- Completion shows keywords, annotations, and workspace names without mutating state.
+- Reference search is deferred until later LSP slices.
 - Distributed imports are diagnosed against local mirrors in a later federation-aware slice.
 
 ## 11. Dependencies
