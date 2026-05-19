@@ -53,6 +53,17 @@ def test_mvp_smoke_validates_and_compiles_all_phase_1_targets(tmp_path):
         assert docs_out.exists()
         assert any(docs_out.glob("*.md"))
 
+        inspect_result = runner.invoke(
+            cli,
+            ["inspect", "customer.Customer@2", "--auto", "--path", str(sample_path)],
+        )
+        assert inspect_result.exit_code == 0, inspect_result.output
+        assert "customer.CustomerDb@2" in inspect_result.output
+        assert "customer.CustomerReply@2" in inspect_result.output
+        assert "customer.CustomerEvent@2" in inspect_result.output
+        assert "legalName" in inspect_result.output
+        assert "email" in inspect_result.output
+
         resolve_result = runner.invoke(
             cli,
             ["resolve", "customer.Customer@2", "--path", str(sample_path)],
