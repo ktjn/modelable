@@ -42,6 +42,7 @@ domain customer {
     text = art.content
     assert "# Customer v1" in text
     assert "**Domain:** customer" in text
+    assert "**Name:** Customer" in text
     assert "**Owner:** customer-team" in text
     assert "**Kind:** entity" in text
     assert "**Change kind:** additive" in text
@@ -123,8 +124,10 @@ domain billing {
 
     assert "# BillingCustomer v1" in text
     assert "**Domain:** billing" in text
+    assert "**Name:** BillingCustomer" in text
     assert "**Kind:** projection" in text
     assert "**Auto generated:** no" in text
+    assert "**Source:** customer.Customer @ 2 as c" in text
     assert "## Sources" in text
     assert "customer.Customer" in text
     assert "## Fields" in text

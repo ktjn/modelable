@@ -58,6 +58,8 @@ def _emit_model(
     lines.append(f"# {model_name} v{version.version}")
     lines.append("")
     lines.append(f"**Domain:** {domain.name}  ")
+    lines.append(f"**Name:** {model_name}  ")
+    lines.append(f"**Version:** {version.version}  ")
     if domain.owner:
         lines.append(f"**Owner:** {domain.owner}  ")
     if domain.description:
@@ -98,12 +100,16 @@ def _emit_projection(
     lines.append(f"# {projection_name} v{version.version}")
     lines.append("")
     lines.append(f"**Domain:** {domain.name}  ")
+    lines.append(f"**Name:** {projection_name}  ")
+    lines.append(f"**Version:** {version.version}  ")
     if domain.owner:
         lines.append(f"**Owner:** {domain.owner}  ")
     lines.append(f"**Kind:** projection  ")
-    lines.append(f"**Version:** {version.version}  ")
     auto_label = "yes" if version.auto_generated else "no"
     lines.append(f"**Auto generated:** {auto_label}  ")
+    lines.append(
+        f"**Source:** {version.source.model} @ {_version_str(version.source.version)} as {version.source.alias}  "
+    )
     lines.append("")
 
     lines.append("## Sources")
