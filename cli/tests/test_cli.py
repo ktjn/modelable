@@ -237,6 +237,43 @@ domain customer {
     assert "enum_changed status" in result.output.lower()
 
 
+def test_diff_supports_version_ranges(tmp_path):
+    mdl = tmp_path / "customer.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: string
+    email?: string
+  }
+
+  entity Customer @ 3 (additive) {
+    @key customerId: uuid
+    name: string
+    email?: string
+    status?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["diff", "customer.Customer@>=1<3", "customer.Customer@>=2<4", "--path", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "customer.Customer@>=1<3 -> customer.Customer@>=2<4" in result.output
+    assert "added_field status" in result.output.lower()
+
+
 def test_diff_rejects_cross_model_refs(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
