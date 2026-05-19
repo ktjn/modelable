@@ -28,6 +28,7 @@ from modelable.parser.ir import (
     RefType,
     VersionExact,
     VersionMin,
+    VersionPinned,
     VersionRange,
 )
 
@@ -190,6 +191,8 @@ def _version_str(version_spec) -> str:
         return f">={version_spec.min_inclusive}<{version_spec.max_exclusive}"
     if isinstance(version_spec, VersionMin):
         return f">={version_spec.min_inclusive}"
+    if isinstance(version_spec, VersionPinned):
+        return f"{version_spec.version}#{version_spec.content_hash}"
     return "?"
 
 

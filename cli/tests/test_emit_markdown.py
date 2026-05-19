@@ -215,6 +215,27 @@ domain billing {
     assert ">=1<3" in text
 
 
+def test_emit_projection_pinned_version_str(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain billing {
+  projection BillingCustomer @ 1
+    from customer.Customer @ 2#a3f8b2c1d4e5f6a7 as c
+  {
+    billingId <- c.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_markdown(workspace, tmp_path / "out")
+    text = artifacts[0].content
+    assert "2#a3f8b2c1d4e5f6a7" in text
+
+
 def test_emit_classification_in_field_table(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
