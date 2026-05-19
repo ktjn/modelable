@@ -34,6 +34,7 @@ def test_mvp_smoke_validates_and_compiles_all_phase_1_targets(tmp_path):
         )
         assert markdown_result.exit_code == 0, markdown_result.output
         assert markdown_out.exists()
+        assert any(markdown_out.glob("*.md"))
 
         typescript_result = runner.invoke(
             cli,
@@ -41,6 +42,16 @@ def test_mvp_smoke_validates_and_compiles_all_phase_1_targets(tmp_path):
         )
         assert typescript_result.exit_code == 0, typescript_result.output
         assert typescript_out.exists()
+        assert any(typescript_out.glob("*.ts"))
+
+        docs_out = cwd / "dist" / "docs-wrapper"
+        docs_result = runner.invoke(
+            cli,
+            ["docs", str(sample_path), "--out", str(docs_out)],
+        )
+        assert docs_result.exit_code == 0, docs_result.output
+        assert docs_out.exists()
+        assert any(docs_out.glob("*.md"))
 
         resolve_result = runner.invoke(
             cli,
