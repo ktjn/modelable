@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
-from modelable.emitters.base import EmittedArtifact
+from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.parser.ir import (
     AnnClassification,
     AnnDeprecated,
@@ -93,6 +93,7 @@ def _emit_model(
         artifact_id=artifact_id,
         path=out_dir / f"{artifact_id}.md",
         content=text,
+        content_hash=compute_content_hash(text),
     )
 
 
@@ -158,6 +159,7 @@ def _emit_projection(
         artifact_id=artifact_id,
         path=out_dir / f"{artifact_id}.md",
         content=text,
+        content_hash=compute_content_hash(text),
     )
 
 

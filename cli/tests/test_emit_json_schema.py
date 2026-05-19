@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 
@@ -51,6 +52,9 @@ domain customer {
     assert art.target == "json-schema"
     assert art.ref == "customer.Customer@1"
     assert art.artifact_id == "customer.Customer.v1"
+    assert art.content_hash == hashlib.sha256(
+        json.dumps(art.content, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
 
     schema = art.content
     assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"

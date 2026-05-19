@@ -31,6 +31,7 @@ from modelable.parser.ir import (
     RefType,
 )
 from modelable.emitters.base import EmittedArtifact
+from modelable.emitters.base import compute_content_hash
 from modelable.emitters.diagnostics import validation_failed
 
 
@@ -112,6 +113,7 @@ def _emit_model_version(
         artifact_id=artifact_id,
         path=path,
         content=schema,
+        content_hash=compute_content_hash(schema),
         warnings=warnings,
     )
 
@@ -195,6 +197,7 @@ def _emit_projection_version(
         artifact_id=artifact_id,
         path=path,
         content=schema,
+        content_hash=compute_content_hash(schema),
         warnings=warnings,
     )
 

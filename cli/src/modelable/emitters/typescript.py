@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
-from modelable.emitters.base import EmittedArtifact
+from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import missing_metadata, type_loss
 from modelable.parser.ir import (
     ArrayType,
@@ -82,6 +82,7 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
         artifact_id=artifact_id,
         path=out_dir / f"{artifact_id}.ts",
         content="\n".join(lines) + "\n",
+        content_hash=compute_content_hash("\n".join(lines) + "\n"),
         warnings=warnings,
     )
 
@@ -123,6 +124,7 @@ def _emit_projection(
         artifact_id=artifact_id,
         path=out_dir / f"{artifact_id}.ts",
         content="\n".join(lines) + "\n",
+        content_hash=compute_content_hash("\n".join(lines) + "\n"),
         warnings=warnings,
     )
 
