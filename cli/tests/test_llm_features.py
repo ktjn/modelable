@@ -81,6 +81,35 @@ domain customer {
     assert "customerId" in projection_summary
 
 
+def test_workspace_summary_renders_pinned_versions(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+
+domain billing {
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1#a3f8b2c1d4e5f6a7 as c
+  {
+    billingId <- c.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    summary = build_workspace_summary(workspace)
+
+    assert "customer.Customer @ 1" in summary
+    assert "customer.Customer @ 1#a3f8b2c1d4e5f6a7" in summary or "customer.Customer @ 1#a3f8b2c1d4e5f6a7" in summary
+
+
 def test_json_schema_importer_round_trips_to_mdl():
     imported = import_from_text(
         json.dumps(
