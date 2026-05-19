@@ -110,6 +110,8 @@ domain billing {
 
   projection BillingCustomer @ 1
     from customer.Customer @ 2 as c
+    where c.status == "active"
+    group by c.status
   {
     billingId <- c.customerId
     name <- c.legalName
@@ -139,6 +141,8 @@ domain billing {
     assert "**Kind:** projection" in text
     assert "**Auto generated:** no" in text
     assert "**Source:** customer.Customer @ 2 as c" in text
+    assert "**Where:** c.status == \"active\"" in text
+    assert "**Group by:** c.status" in text
     assert "## Sources" in text
     assert "customer.Customer" in text
     assert "## Fields" in text

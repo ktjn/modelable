@@ -116,6 +116,8 @@ domain customer {
 
   projection CustomerBrief @ 1
     from customer.Customer @ 1 as c
+    where c.status == "active"
+    group by c.status
   {
     briefId <- c.customerId
     displayName = c.legalName + " (" + c.email + ")"
@@ -133,6 +135,8 @@ domain customer {
     schema = proj_artifacts[0].content
     props = schema["properties"]
 
+    assert schema["x-modelable"]["where"] == 'c.status == "active"'
+    assert schema["x-modelable"]["groupBy"] == ["c.status"]
     assert props["briefId"]["x-modelable-lineage"]["kind"] == "direct"
     assert props["briefId"]["x-modelable-lineage"]["source"] == "c.customerId"
     assert props["briefId"]["x-modelable-lineage"]["sourceModel"] == "customer.Customer"

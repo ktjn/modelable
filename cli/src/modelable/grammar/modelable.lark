@@ -225,7 +225,7 @@ ignored_block_item: /[^{}]+/ | "{" ignored_block_item* "}"
 
 VERSION_RANGE: /[<>~=^0-9.,\s]+/
 EXPRESSION: /[^\n\r{}]+/
-FIELD_EXPRESSION: /[^\n\r]+(?:\n(?!\s*(?:@|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-|=)|generate\s*\{|materialisation\s*\{|subscription\s*\{|access\s*\{|from\s|\{|\}))[^\n\r]+)*/
+FIELD_EXPRESSION: /[^\n\r]+(?:\n(?!\s*(?:@|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-|=)|generate\s*\{|materialisation\s*\{|subscription\s*\{|access\s*\{|from\s|group\s+by|\{|\}))[^\n\r]+)*/
 ANNOTATION_EXPR: /[^)\n\r{}]+/
 IDENT: /[A-Za-z_][A-Za-z0-9_-]*/
 PEERS_CONTENT: /[^\]]+/

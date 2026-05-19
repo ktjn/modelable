@@ -161,6 +161,9 @@ def _emit_projection_version(
             for join in version.joins
         ]
 
+    if version.where:
+        schema["x-modelable"]["where"] = version.where
+
     if version.group_by:
         schema["x-modelable"]["groupBy"] = version.group_by
 

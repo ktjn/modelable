@@ -102,6 +102,8 @@ def _emit_projection(
             version.version,
             "projection",
             source=f"{version.source.model}@{_version_label(version.source.version)}",
+            where=version.where,
+            group_by=", ".join(version.group_by) if version.group_by else None,
         )
     )
     lines.append(f"export interface {interface_name} {{")
@@ -145,6 +147,8 @@ def _domain_metadata_entries(
     kind: str,
     change_kind: str | None = None,
     source: str | None = None,
+    where: str | None = None,
+    group_by: str | None = None,
 ) -> list[str]:
     entries = [f"@modelable domain: {domain.name}", f"@modelable name: {name}"]
     if domain.owner is not None:
@@ -162,6 +166,10 @@ def _domain_metadata_entries(
         entries.append(f"@modelable version: {version}")
     if source is not None:
         entries.append(f"@modelable source: {source}")
+    if where is not None:
+        entries.append(f"@modelable where: {where}")
+    if group_by is not None:
+        entries.append(f"@modelable groupBy: {group_by}")
     return entries
 
 

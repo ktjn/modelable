@@ -25,6 +25,8 @@ domain customer {
 
   projection CustomerView @ 1
     from customer.Customer @ 1 as c
+    where c.name != ""
+    group by c.name
   {
     customerId <- c.customerId
     name <- c.name
@@ -55,6 +57,8 @@ domain customer {
     assert "export interface CustomerCustomerViewV1" in proj_art.content
     assert "export type CustomerView = CustomerCustomerViewV1;" in proj_art.content
     assert "@modelable source: customer.Customer@1" in proj_art.content
+    assert "@modelable where: c.name != \"\"" in proj_art.content
+    assert "@modelable groupBy: c.name" in proj_art.content
 
 
 def test_emit_typescript_projection_uses_source_version_types(tmp_path):

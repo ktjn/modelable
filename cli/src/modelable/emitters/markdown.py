@@ -117,6 +117,10 @@ def _emit_projection(
     lines.append(
         f"**Source:** {version.source.model} @ {_version_str(version.source.version)} as {version.source.alias}  "
     )
+    if version.where:
+        lines.append(f"**Where:** {version.where}  ")
+    if version.group_by:
+        lines.append(f"**Group by:** {', '.join(version.group_by)}  ")
     lines.append("")
 
     lines.append("## Sources")
