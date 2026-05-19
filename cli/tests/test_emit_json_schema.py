@@ -210,6 +210,8 @@ domain customer {
 
     assert schema["properties"]["shipping"]["$ref"] == "#/$defs/Shipping"
     assert schema["$defs"]["Shipping"]["properties"]["address"]["$ref"] == "#/$defs/ShippingAddress"
+    assert schema["$defs"]["Shipping"]["title"] == "Shipping"
+    assert schema["$defs"]["ShippingAddress"]["title"] == "ShippingAddress"
     assert schema["$defs"]["ShippingAddress"]["properties"]["line1"]["type"] == "string"
     assert "line2" not in schema["$defs"]["ShippingAddress"].get("required", [])
 
@@ -233,6 +235,7 @@ domain customer {
     art = artifacts[0]
     assert art.content["properties"]["address"]["$ref"] == "#/$defs/Address"
     assert art.content["$defs"]["Address"]["x-modelable-field"]["namedType"] == "Address"
+    assert art.content["$defs"]["Address"]["title"] == "Address"
     assert art.warnings
     assert any("EMIT002" in warning for warning in art.warnings)
 

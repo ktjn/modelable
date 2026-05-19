@@ -351,6 +351,7 @@ def _type_to_json_schema(field_type, defs: dict[str, dict] | None = None, path: 
             defs.setdefault(
                 def_name,
                 {
+                    "title": field_type.name,
                     "type": "object",
                     "x-modelable-field": {"namedType": field_type.name},
                 },
@@ -371,7 +372,7 @@ def _type_to_json_schema(field_type, defs: dict[str, dict] | None = None, path: 
 
 
 def _object_type_to_json_schema(field_type: ObjectType, defs: dict[str, dict] | None = None, path: list[str] | None = None) -> dict:
-    prop: dict = {"type": "object"}
+    prop: dict = {"title": _definition_name(path or ["InlineObject"]), "type": "object"}
     props: dict[str, dict] = {}
     req: list[str] = []
     for f in field_type.fields:
