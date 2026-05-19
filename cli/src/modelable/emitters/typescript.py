@@ -18,6 +18,7 @@ from modelable.parser.ir import (
     PrimitiveType,
     ProjectionVersion,
     RefType,
+    VersionExact,
 )
 
 
@@ -93,7 +94,10 @@ def _resolve_projection_field_type(
         source_domain, source_model = projection.source.model.rsplit(".", 1)
     except ValueError:
         return None
-    source_version = projection.version
+    if isinstance(projection.source.version, VersionExact):
+        source_version = projection.source.version.version
+    else:
+        source_version = projection.version
     source_mv = model_lookup.get((source_domain, source_model, source_version))
     if source_mv is None:
         return None
@@ -139,4 +143,3 @@ def _type_to_ts(field_type) -> str:
     if isinstance(field_type, ComputedMapping):
         return "unknown"
     return "unknown"
-
