@@ -338,6 +338,33 @@ domain customer {
     assert "email?: string" in result.output
 
 
+def test_resolve_supports_minimum_version_specs(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: string
+    email?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(cli, ["resolve", "customer.Customer@>=2", "--path", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    assert "entity Customer @ 2 (additive)" in result.output
+    assert "email?: string" in result.output
+
+
 def test_lineage_prints_model_and_projection_details(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
@@ -409,6 +436,33 @@ domain customer {
     )
 
     result = CliRunner().invoke(cli, ["lineage", "customer.Customer@>=1<3", "--path", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    assert "customer.Customer@2" in result.output
+    assert "email" in result.output
+
+
+def test_lineage_supports_minimum_version_specs(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: string
+    email?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(cli, ["lineage", "customer.Customer@>=2", "--path", str(tmp_path)])
 
     assert result.exit_code == 0, result.output
     assert "customer.Customer@2" in result.output
