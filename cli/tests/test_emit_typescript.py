@@ -14,6 +14,9 @@ def test_emit_typescript_model_and_projection(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "customer-team"
+  contact: "customer-team@example.com"
+  description: "Customer identity and lifecycle."
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -42,6 +45,9 @@ domain customer {
     assert "export type Customer = CustomerCustomerV1;" in model_art.content
     assert "/**" in model_art.content
     assert "@modelable domain: customer" in model_art.content
+    assert "@modelable owner: customer-team" in model_art.content
+    assert "@modelable contact: customer-team@example.com" in model_art.content
+    assert "@modelable description: Customer identity and lifecycle." in model_art.content
     assert "@modelable kind: entity" in model_art.content
     assert "age?: number" in model_art.content
 

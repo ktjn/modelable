@@ -14,6 +14,7 @@ from modelable.parser.ir import (
     EnumType,
     FieldDef,
     MapType,
+    DomainDef,
     ModelVersion,
     NamedType,
     ObjectType,
@@ -35,10 +36,10 @@ def emit_typescript(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact
     for domain in workspace.mdl.domains:
         for model_name, versions in domain.models.items():
             for version in versions:
-                artifacts.append(_emit_model(domain.name, model_name, version, out_dir))
+                artifacts.append(_emit_model(domain, model_name, version, out_dir))
         for projection_name, versions in domain.projections.items():
             for version in versions:
-                artifacts.append(_emit_projection(domain.name, projection_name, version, out_dir, model_lookup))
+                artifacts.append(_emit_projection(domain, projection_name, version, out_dir, model_lookup))
     return artifacts
 
 
@@ -55,29 +56,29 @@ def _stable_interface_name(domain: str, name: str, version: int) -> str:
     return f"{_pascalize(domain)}{_pascalize(name)}V{version}"
 
 
-def _emit_model(domain: str, model_name: str, version: ModelVersion, out_dir: Path) -> EmittedArtifact:
-    artifact_id = _artifact_id(domain, model_name, version.version)
-    interface_name = _stable_interface_name(domain, model_name, version.version)
+def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path) -> EmittedArtifact:
+    artifact_id = _artifact_id(domain.name, model_name, version.version)
+    interface_name = _stable_interface_name(domain.name, model_name, version.version)
     lines = _metadata_lines(
-        [
-            f"@modelable domain: {domain}",
-            f"@modelable name: {model_name}",
-            f"@modelable kind: {version.model_kind.value}",
-            f"@modelable version: {version.version}",
-            f"@modelable changeKind: {version.change_kind.value}",
-        ]
+        _domain_metadata_entries(
+            domain,
+            model_name,
+            version.version,
+            version.model_kind.value,
+            version.change_kind.value,
+        )
     )
     lines.append(f"export interface {interface_name} {{")
     warnings: list[str] = []
     for field in version.fields:
         if isinstance(field.type, NamedType):
-            warnings.append(missing_metadata(f"{domain}.{model_name}.{field.name}"))
+            warnings.append(missing_metadata(f"{domain.name}.{model_name}.{field.name}"))
         lines.append(f"  {field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type)};")
     lines.append("}")
     lines.append(f"export type {model_name} = {interface_name};")
     return EmittedArtifact(
         target="typescript",
-        ref=f"{domain}.{model_name}@{version.version}",
+        ref=f"{domain.name}.{model_name}@{version.version}",
         artifact_id=artifact_id,
         path=out_dir / f"{artifact_id}.ts",
         content="\n".join(lines) + "\n",
@@ -86,37 +87,37 @@ def _emit_model(domain: str, model_name: str, version: ModelVersion, out_dir: Pa
 
 
 def _emit_projection(
-    domain: str,
+    domain: DomainDef,
     projection_name: str,
     version: ProjectionVersion,
     out_dir: Path,
     model_lookup: dict[tuple[str, str, int], ModelVersion],
 ) -> EmittedArtifact:
-    artifact_id = _artifact_id(domain, projection_name, version.version)
-    interface_name = _stable_interface_name(domain, projection_name, version.version)
+    artifact_id = _artifact_id(domain.name, projection_name, version.version)
+    interface_name = _stable_interface_name(domain.name, projection_name, version.version)
     lines = _metadata_lines(
-        [
-            f"@modelable domain: {domain}",
-            f"@modelable name: {projection_name}",
-            "@modelable kind: projection",
-            f"@modelable version: {version.version}",
-            f"@modelable source: {version.source.model}@{_version_label(version.source.version)}",
-        ]
+        _domain_metadata_entries(
+            domain,
+            projection_name,
+            version.version,
+            "projection",
+            source=f"{version.source.model}@{_version_label(version.source.version)}",
+        )
     )
     lines.append(f"export interface {interface_name} {{")
     warnings: list[str] = []
     for field in version.fields:
         field_type = _resolve_projection_field_type(field, version, model_lookup)
         if field_type is None:
-            warnings.append(type_loss(f"{domain}.{projection_name}.{field.name}"))
+            warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
         elif isinstance(field_type, NamedType):
-            warnings.append(missing_metadata(f"{domain}.{projection_name}.{field.name}"))
+            warnings.append(missing_metadata(f"{domain.name}.{projection_name}.{field.name}"))
         lines.append(f"  {field.name}: {_type_to_ts(field_type)};")
     lines.append("}")
     lines.append(f"export type {projection_name} = {interface_name};")
     return EmittedArtifact(
         target="typescript",
-        ref=f"{domain}.{projection_name}@{version.version}",
+        ref=f"{domain.name}.{projection_name}@{version.version}",
         artifact_id=artifact_id,
         path=out_dir / f"{artifact_id}.ts",
         content="\n".join(lines) + "\n",
@@ -135,6 +136,33 @@ def _metadata_lines(entries: list[str]) -> list[str]:
     lines.extend(f" * {entry}" for entry in entries)
     lines.append(" */")
     return lines
+
+
+def _domain_metadata_entries(
+    domain: DomainDef,
+    name: str,
+    version: int,
+    kind: str,
+    change_kind: str | None = None,
+    source: str | None = None,
+) -> list[str]:
+    entries = [f"@modelable domain: {domain.name}", f"@modelable name: {name}"]
+    if domain.owner is not None:
+        entries.append(f"@modelable owner: {domain.owner}")
+    if domain.contact is not None:
+        entries.append(f"@modelable contact: {domain.contact}")
+    if domain.description is not None:
+        entries.append(f"@modelable description: {domain.description}")
+    if change_kind is not None:
+        entries.append(f"@modelable kind: {kind}")
+        entries.append(f"@modelable version: {version}")
+        entries.append(f"@modelable changeKind: {change_kind}")
+    else:
+        entries.append(f"@modelable kind: {kind}")
+        entries.append(f"@modelable version: {version}")
+    if source is not None:
+        entries.append(f"@modelable source: {source}")
+    return entries
 
 
 def _resolve_projection_field_type(

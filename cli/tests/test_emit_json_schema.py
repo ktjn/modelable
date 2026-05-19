@@ -15,6 +15,9 @@ def test_emit_simple_model(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "customer-team"
+  contact: "customer-team@example.com"
+  description: "Customer identity and lifecycle."
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -50,6 +53,9 @@ domain customer {
     assert schema["type"] == "object"
     assert schema["title"] == "Customer"
     assert schema["x-modelable"]["domain"] == "customer"
+    assert schema["x-modelable"]["owner"] == "customer-team"
+    assert schema["x-modelable"]["contact"] == "customer-team@example.com"
+    assert schema["x-modelable"]["description"] == "Customer identity and lifecycle."
     assert schema["x-modelable"]["version"] == 1
 
     props = schema["properties"]
