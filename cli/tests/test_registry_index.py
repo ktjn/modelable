@@ -224,6 +224,41 @@ domain customer {
     assert rows == [("customer", "Customer", 1, 2, "breaking")]
 
 
+def test_build_registry_populates_enum_compatibility_reports(tmp_path):
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    status: enum(active, blocked)
+  }
+
+  entity Customer @ 2 (breaking) {
+    @key customerId: uuid
+    status: enum(active, blocked, archived)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    registry_path = build_registry(workspace, tmp_path / ".modelable")
+
+    with sqlite3.connect(registry_path) as conn:
+        rows = conn.execute(
+            """
+            select domain_name, model_name, from_version, to_version, status
+            from compatibility_reports
+            order by from_version, to_version
+            """
+        ).fetchall()
+
+    assert rows == [("customer", "Customer", 1, 2, "breaking")]
+
+
 def test_build_registry_populates_lineage_edges(tmp_path):
     source = tmp_path / "workspace.mdl"
     source.write_text(
