@@ -101,3 +101,37 @@ def test_auto_projection_scenario_reports_runtime_only_bindings():
     assert result.exit_code == 1, result.output
     assert "binding catalog-postgres" in result.output
     assert "binding product-db-table" in result.output
+
+
+def test_ecommerce_scenario_reports_validation_gaps_and_compiles_targets(tmp_path):
+    repo_root = Path(__file__).resolve().parents[2]
+    sample_path = repo_root / "samples" / "scenarios" / "01-ecommerce-data-warehouse"
+    runner = CliRunner()
+
+    with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
+        cwd = Path(cwd)
+        validate_result = runner.invoke(cli, ["validate", str(sample_path)])
+        assert validate_result.exit_code == 1, validate_result.output
+        assert "commerce.Order@4: event must not have an @key field" in validate_result.output
+        assert "payments.PaymentTransaction@2: event must not have an @key field" in validate_result.output
+        assert "unsupported function 'hmac_sha256'" in validate_result.output
+        assert "unsupported function 'truncate'" in validate_result.output
+
+        markdown_out = cwd / "dist" / "scenario01-docs"
+        jsonschema_out = cwd / "dist" / "scenario01-jsonschema"
+
+        markdown_result = runner.invoke(
+            cli,
+            ["compile", str(sample_path), "--target", "markdown", "--out", str(markdown_out)],
+        )
+        assert markdown_result.exit_code == 1, markdown_result.output
+        assert "unsupported function 'hmac_sha256'" in markdown_result.output
+        assert "unsupported function 'truncate'" in markdown_result.output
+
+        jsonschema_result = runner.invoke(
+            cli,
+            ["compile", str(sample_path), "--target", "json-schema", "--out", str(jsonschema_out)],
+        )
+        assert jsonschema_result.exit_code == 1, jsonschema_result.output
+        assert "unsupported function 'hmac_sha256'" in jsonschema_result.output
+        assert "unsupported function 'truncate'" in jsonschema_result.output
