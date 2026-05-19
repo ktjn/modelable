@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
@@ -10,6 +11,10 @@ from modelable.parser.ir import (
     MdlFile,
     ProjectionField,
     ProjectionVersion,
+    VersionExact,
+    VersionMin,
+    VersionRange,
+    VersionSpec,
 )
 
 
@@ -26,6 +31,14 @@ def parse_model_ref(ref: str) -> ModelRef:
     model_ref, version_text = ref.rsplit("@", 1)
     domain, name = model_ref.split(".", 1)
     return ModelRef(domain=domain, name=name, version=int(version_text))
+
+
+def parse_model_ref_version_spec(ref: str) -> tuple[str, str, VersionSpec | int]:
+    if "@" not in ref or "." not in ref:
+        raise ValueError("REF must be in the form domain.Model@version")
+    model_ref, version_text = ref.rsplit("@", 1)
+    domain, name = model_ref.split(".", 1)
+    return domain, name, _parse_version_spec(version_text)
 
 
 def build_workspace_summary(workspace: Workspace) -> str:
@@ -150,3 +163,26 @@ def _projection_mapping_text(field: ProjectionField) -> str:
         return f"computed {mapping.expression}"
     return "unknown"
 
+
+_VERSION_RANGE_RE = re.compile(r"^>=\s*(\d+)\s*<\s*(\d+)$")
+_VERSION_MIN_RE = re.compile(r"^>=\s*(\d+)$")
+
+
+def _parse_version_spec(version_text: str) -> VersionSpec | int:
+    try:
+        return int(version_text)
+    except ValueError:
+        pass
+
+    range_match = _VERSION_RANGE_RE.match(version_text)
+    if range_match:
+        return VersionRange(
+            min_inclusive=int(range_match.group(1)),
+            max_exclusive=int(range_match.group(2)),
+        )
+
+    min_match = _VERSION_MIN_RE.match(version_text)
+    if min_match:
+        return VersionMin(min_inclusive=int(min_match.group(1)))
+
+    raise ValueError("version must be an integer or version range like >=1<3")
