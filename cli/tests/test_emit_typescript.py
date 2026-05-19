@@ -85,6 +85,34 @@ domain customer {
     assert "name: string" in proj_art.content
 
 
+def test_emit_typescript_warns_on_computed_projection_field(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    displayName = c.name + "!"
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    proj_art = next(artifact for artifact in artifacts if artifact.ref == "customer.CustomerView@1")
+    assert proj_art.warnings
+    assert any("EMIT002" in warning for warning in proj_art.warnings)
+
+
 def test_emit_typescript_uses_stable_interface_names(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

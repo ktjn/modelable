@@ -5,6 +5,7 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact
+from modelable.emitters.diagnostics import type_loss
 from modelable.parser.ir import (
     ArrayType,
     ComputedMapping,
@@ -99,8 +100,11 @@ def _emit_projection(
         ]
     )
     lines.append(f"export interface {interface_name} {{")
+    warnings: list[str] = []
     for field in version.fields:
         field_type = _resolve_projection_field_type(field, version, model_lookup)
+        if field_type is None:
+            warnings.append(type_loss(f"{domain}.{projection_name}.{field.name}"))
         lines.append(f"  {field.name}: {_type_to_ts(field_type)};")
     lines.append("}")
     lines.append(f"export type {projection_name} = {interface_name};")
@@ -110,6 +114,7 @@ def _emit_projection(
         artifact_id=artifact_id,
         path=out_dir / f"{artifact_id}.ts",
         content="\n".join(lines) + "\n",
+        warnings=warnings,
     )
 
 
