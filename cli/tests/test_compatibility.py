@@ -104,6 +104,28 @@ def test_additive_declaration_rejects_breaking_changes():
     assert any("removed_field name" in finding for finding in report.findings)
 
 
+def test_compare_model_versions_reports_required_field_addition_as_breaking():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+          entity Customer @ 2 (additive) {
+            @key customerId: uuid
+            email: string
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
+    assert report.status == "breaking"
+    assert any("added_field email" in finding for finding in report.findings)
+
+
 def test_breaking_declaration_can_admit_breaking_changes():
     mdl = parse_text_to_ir(
         """

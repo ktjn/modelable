@@ -179,6 +179,34 @@ domain customer {
     assert "removed_field name" in result.output.lower()
 
 
+def test_diff_reports_required_field_addition_as_breaking(tmp_path):
+    mdl = tmp_path / "customer.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["diff", "customer.Customer@1", "customer.Customer@2", "--path", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "breaking" in result.output.lower()
+    assert "added_field email" in result.output.lower()
+
+
 def test_resolve_prints_normalized_model_and_projection(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
