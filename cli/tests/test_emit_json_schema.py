@@ -168,6 +168,28 @@ domain customer {
     assert props["address"]["x-modelable-ref"] == "address.Address"
 
 
+def test_emit_named_type_warns_on_placeholder(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    address: Address
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_json_schema(workspace, tmp_path / "out")
+    art = artifacts[0]
+    assert art.content["properties"]["address"]["type"] == "object"
+    assert art.warnings
+    assert any("EMIT002" in warning for warning in art.warnings)
+
+
 def test_emit_validates_against_draft202012(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

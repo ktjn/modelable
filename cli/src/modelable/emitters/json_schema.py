@@ -7,6 +7,7 @@ from jsonschema import Draft202012Validator
 
 from modelable.compiler.workspace import Workspace
 from modelable.governance.por import build_por_reference
+from modelable.emitters.diagnostics import type_loss
 from modelable.parser.ir import (
     AnnClassification,
     AnnDeprecated,
@@ -82,9 +83,12 @@ def _emit_model_version(
 
     properties: dict[str, dict] = {}
     required: list[str] = []
+    warnings: list[str] = []
 
     for field in version.fields:
         prop = _field_to_json_schema(field, field.type)
+        if isinstance(field.type, NamedType):
+            warnings.append(type_loss(field.type.name))
         properties[field.name] = prop
         if not field.optional:
             required.append(field.name)
@@ -100,6 +104,7 @@ def _emit_model_version(
         artifact_id=artifact_id,
         path=path,
         content=schema,
+        warnings=warnings,
     )
 
     _validate_schema(artifact)
@@ -152,10 +157,13 @@ def _emit_projection_version(
 
     properties: dict[str, dict] = {}
     required: list[str] = []
+    warnings: list[str] = []
 
     for field in version.fields:
         field_type = _resolve_projection_field_type(field, version, model_lookup)
         prop = _field_to_json_schema(field, field_type)
+        if isinstance(field_type, NamedType):
+            warnings.append(type_loss(field_type.name))
         _add_lineage(prop, field, version)
         properties[field.name] = prop
         # Projection fields are always required in the current IR (no ? syntax).
@@ -172,6 +180,7 @@ def _emit_projection_version(
         artifact_id=artifact_id,
         path=path,
         content=schema,
+        warnings=warnings,
     )
 
     _validate_schema(artifact)
