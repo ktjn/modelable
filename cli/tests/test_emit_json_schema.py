@@ -185,6 +185,35 @@ domain customer {
     assert props["address"]["x-modelable-ref"] == "address.Address"
 
 
+def test_emit_inline_object_uses_nested_defs(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    shipping: object {
+      address: object {
+        line1: string
+        line2?: string
+      }
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_json_schema(workspace, tmp_path / "out")
+    schema = artifacts[0].content
+
+    assert schema["properties"]["shipping"]["$ref"] == "#/$defs/Shipping"
+    assert schema["$defs"]["Shipping"]["properties"]["address"]["$ref"] == "#/$defs/ShippingAddress"
+    assert schema["$defs"]["ShippingAddress"]["properties"]["line1"]["type"] == "string"
+    assert "line2" not in schema["$defs"]["ShippingAddress"].get("required", [])
+
+
 def test_emit_named_type_warns_on_placeholder(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
