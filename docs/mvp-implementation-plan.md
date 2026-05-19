@@ -50,7 +50,7 @@ This plan is intentionally a delivery plan, not a replacement specification. The
 
 - Runtime materialization, subscriptions, stream processing, replay, and dead-letter handling.
 - PostgreSQL, Kafka, CDC, and other runtime adapters.
-- Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI, AsyncAPI, SQL DDL outputs, and generated-language targets beyond TypeScript.
+- Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI, AsyncAPI, SQL DDL outputs, and generated-language targets beyond TypeScript, including C#, Java, Python, Rust, and Go.
 - Distributed registry peer sync and consumer write-back execution.
 - LSP implementation is tracked separately in `docs/superpowers/plans/2026-05-18-lsp-workspace-index-diagnostics.md`.
 - AI commands such as `generate`, `describe`, `update`, `transform`, and `suggest-projection`.
