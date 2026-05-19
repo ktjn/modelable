@@ -181,6 +181,50 @@ domain customer {
     assert "removed_field name" in result.output.lower()
 
 
+def test_diff_supports_pinned_version_specs(tmp_path):
+    mdl = tmp_path / "customer.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: string
+    email: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    domain = workspace.mdl.domains[0]
+    v1 = domain.models["Customer"][0]
+    v2 = domain.models["Customer"][1]
+    sig1 = compute_version_signature("customer", "Customer", v1)
+    sig2 = compute_version_signature("customer", "Customer", v2)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "diff",
+            f"customer.Customer@1#{sig1}",
+            f"customer.Customer@2#{sig2}",
+            "--path",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    compact_output = "".join(result.output.split())
+    assert f"customer.Customer@1#{sig1}->customer.Customer@2#{sig2}" in compact_output
+    assert "breaking" in result.output.lower()
+
+
 def test_diff_reports_required_field_addition_as_breaking(tmp_path):
     mdl = tmp_path / "customer.mdl"
     mdl.write_text(
