@@ -207,6 +207,36 @@ domain customer {
     assert "added_field email" in result.output.lower()
 
 
+def test_diff_reports_enum_and_identity_changes(tmp_path):
+    mdl = tmp_path / "customer.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    status: enum(active, blocked)
+  }
+
+  entity Customer @ 2 (additive) {
+    customerId: uuid
+    status: enum(active, blocked, archived)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["diff", "customer.Customer@1", "customer.Customer@2", "--path", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "breaking" in result.output.lower()
+    assert "identity_changed customerid" in result.output.lower()
+    assert "enum_changed status" in result.output.lower()
+
+
 def test_resolve_prints_normalized_model_and_projection(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(

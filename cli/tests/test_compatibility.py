@@ -126,6 +126,30 @@ def test_compare_model_versions_reports_required_field_addition_as_breaking():
     assert any("added_field email" in finding for finding in report.findings)
 
 
+def test_compare_model_versions_reports_enum_and_identity_changes():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: enum(active, blocked)
+          }
+          entity Customer @ 2 (additive) {
+            customerId: uuid
+            status: enum(active, blocked, archived)
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
+    assert report.status == "breaking"
+    assert any("identity_changed customerId" in finding for finding in report.findings)
+    assert any("enum_changed status" in finding for finding in report.findings)
+
+
 def test_breaking_declaration_can_admit_breaking_changes():
     mdl = parse_text_to_ir(
         """
