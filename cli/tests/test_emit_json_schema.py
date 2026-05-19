@@ -293,6 +293,10 @@ domain customer {
 
     assert result.exit_code == 0
     assert (out / "customer.Customer.v1.json").exists()
+    assert any(
+        len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower())
+        for part in result.output.split()
+    )
     schema = json.loads((out / "customer.Customer.v1.json").read_text(encoding="utf-8"))
     assert schema["title"] == "Customer"
     Draft202012Validator.check_schema(schema)

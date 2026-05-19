@@ -60,9 +60,7 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
         artifacts = emit_json_schema(workspace, output)
         for art in artifacts:
             art.path.write_text(json.dumps(art.content, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-            for warning in art.warnings:
-                console.print(f"[yellow]WARN[/yellow] {warning}")
-            console.print(f"[green]OK[/green] {art.path}")
+            _print_artifact_result(art)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "markdown":
@@ -70,9 +68,7 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
         for art in artifacts:
             assert isinstance(art.content, str)
             art.path.write_text(art.content, encoding="utf-8")
-            for warning in art.warnings:
-                console.print(f"[yellow]WARN[/yellow] {warning}")
-            console.print(f"[green]OK[/green] {art.path}")
+            _print_artifact_result(art)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "typescript":
@@ -80,9 +76,7 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
         for art in artifacts:
             assert isinstance(art.content, str)
             art.path.write_text(art.content, encoding="utf-8")
-            for warning in art.warnings:
-                console.print(f"[yellow]WARN[/yellow] {warning}")
-            console.print(f"[green]OK[/green] {art.path}")
+            _print_artifact_result(art)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
     else:
@@ -110,9 +104,13 @@ def docs(source: Path, out_dir: Path | None) -> None:
     for art in artifacts:
         assert isinstance(art.content, str)
         art.path.write_text(art.content, encoding="utf-8")
-        for warning in art.warnings:
-            console.print(f"[yellow]WARN[/yellow] {warning}")
-        console.print(f"[green]OK[/green] {art.path}")
+        _print_artifact_result(art)
     if not artifacts:
         console.print("[yellow]No artifacts generated.[/yellow]")
     sys.exit(0)
+
+
+def _print_artifact_result(art) -> None:
+    for warning in art.warnings:
+        console.print(f"[yellow]WARN[/yellow] {warning}")
+    console.print(f"[green]OK[/green] {art.path} [dim]{art.content_hash}[/dim]")
