@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -43,6 +45,7 @@ domain customer {
     assert "customer.CustomerView@1" in refs
 
     model_art = next(artifact for artifact in artifacts if artifact.ref == "customer.Customer@1")
+    assert model_art.content_hash == hashlib.sha256(model_art.content.encode("utf-8")).hexdigest()
     assert "export interface CustomerCustomerV1" in model_art.content
     assert "export type Customer = CustomerCustomerV1;" in model_art.content
     assert "/**" in model_art.content
@@ -54,6 +57,7 @@ domain customer {
     assert "age?: number" in model_art.content
 
     proj_art = next(artifact for artifact in artifacts if artifact.ref == "customer.CustomerView@1")
+    assert proj_art.content_hash == hashlib.sha256(proj_art.content.encode("utf-8")).hexdigest()
     assert "export interface CustomerCustomerViewV1" in proj_art.content
     assert "export type CustomerView = CustomerCustomerViewV1;" in proj_art.content
     assert "@modelable source: customer.Customer@1" in proj_art.content

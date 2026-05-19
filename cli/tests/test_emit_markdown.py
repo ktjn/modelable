@@ -1,3 +1,5 @@
+import hashlib
+
 from pathlib import Path
 
 import pytest
@@ -40,6 +42,7 @@ domain customer {
     assert art.ref == "customer.Customer@1"
     assert art.artifact_id == "customer.Customer.v1"
     assert isinstance(art.content, str)
+    assert art.content_hash == hashlib.sha256(art.content.encode("utf-8")).hexdigest()
 
     text = art.content
     assert "# Customer v1" in text
