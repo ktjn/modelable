@@ -89,10 +89,8 @@ def lineage(ref: str, path: Path) -> None:
     workspace = load_workspace_or_exit(path)
 
     try:
-        model_ref = parse_model_ref(ref)
-        resolved = resolve_model_ref(
-            workspace.mdl, model_ref.domain + "." + model_ref.name, model_ref.version
-        )
+        domain, name, version_spec = parse_model_ref_version_spec(ref)
+        resolved = resolve_model_ref(workspace.mdl, domain + "." + name, version_spec)
     except (ValueError, LookupError) as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)

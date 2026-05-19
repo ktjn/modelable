@@ -388,6 +388,33 @@ domain billing {
     assert 'expr: "billing"' in projection_result.output
 
 
+def test_lineage_supports_version_ranges(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: string
+    email?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(cli, ["lineage", "customer.Customer@>=1<3", "--path", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    assert "customer.Customer@2" in result.output
+    assert "email" in result.output
+
+
 def test_codegen_formats_and_types():
     runner = CliRunner()
 
