@@ -165,12 +165,24 @@ def inspect(ref: str, auto: bool, path: Path) -> None:
     """Inspect a model or projection at REF (domain.Model@version)."""
     workspace = load_workspace_or_exit(path)
 
-    domain_name, model_name, version = _parse_entity_ref(ref)
+    try:
+        domain_name, model_name, version_spec = _parse_entity_ref_version_spec(ref)
+    except click.BadParameter as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
 
     domain = next((d for d in workspace.mdl.domains if d.name == domain_name), None)
     if domain is None:
         console.print(f"[red]ERROR[/red] domain '{domain_name}' not found.")
         sys.exit(1)
+
+    try:
+        resolved = resolve_model_ref(workspace.mdl, domain_name + "." + model_name, version_spec)
+    except LookupError as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
+
+    version = resolved.version.version
 
     if auto:
         model_versions = domain.models.get(model_name)
@@ -189,7 +201,9 @@ def inspect(ref: str, auto: bool, path: Path) -> None:
             pv = next((v for v in versions if v.version == version), None)
             if pv is None:
                 continue
-            console.print(f"[bold]{domain_name}.{projection_name}@{version}[/bold] (auto {kind})")
+            console.print(
+                f"[bold]{domain_name}.{projection_name}@{pv.version}[/bold] (auto {kind})"
+            )
             for field in pv.fields:
                 console.print(f"  {field.name}")
         sys.exit(0)
@@ -198,15 +212,15 @@ def inspect(ref: str, auto: bool, path: Path) -> None:
     sys.exit(0)
 
 
-def _parse_entity_ref(ref: str) -> tuple[str, str, int]:
+def _parse_entity_ref_version_spec(ref: str) -> tuple[str, str, int | object]:
     if "@" not in ref:
         raise click.BadParameter("REF must be in the form domain.Model@version")
     model_ref, version_str = ref.rsplit("@", 1)
-    try:
-        version = int(version_str)
-    except ValueError:
-        raise click.BadParameter("version must be an integer")
     parts = model_ref.split(".")
     if len(parts) != 2:
         raise click.BadParameter("REF must be in the form domain.Model@version")
-    return parts[0], parts[1], version
+    try:
+        _, _, version_spec = parse_model_ref_version_spec(ref)
+    except ValueError as exc:
+        raise click.BadParameter(str(exc)) from exc
+    return parts[0], parts[1], version_spec
