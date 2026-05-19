@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
@@ -44,14 +45,25 @@ def _artifact_id(domain: str, name: str, version: int) -> str:
     return f"{domain}.{name}.v{version}"
 
 
+def _pascalize(value: str) -> str:
+    parts = [part for part in re.split(r"[^A-Za-z0-9]+", value) if part]
+    return "".join(part[:1].upper() + part[1:] for part in parts)
+
+
+def _stable_interface_name(domain: str, name: str, version: int) -> str:
+    return f"{_pascalize(domain)}{_pascalize(name)}V{version}"
+
+
 def _emit_model(domain: str, model_name: str, version: ModelVersion, out_dir: Path) -> EmittedArtifact:
     artifact_id = _artifact_id(domain, model_name, version.version)
+    interface_name = _stable_interface_name(domain, model_name, version.version)
     lines = [
-        f"export interface {model_name} {{",
+        f"export interface {interface_name} {{",
     ]
     for field in version.fields:
         lines.append(f"  {field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type)};")
     lines.append("}")
+    lines.append(f"export type {model_name} = {interface_name};")
     return EmittedArtifact(
         target="typescript",
         ref=f"{domain}.{model_name}@{version.version}",
@@ -69,11 +81,13 @@ def _emit_projection(
     model_lookup: dict[tuple[str, str, int], ModelVersion],
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain, projection_name, version.version)
-    lines = [f"export interface {projection_name} {{"]
+    interface_name = _stable_interface_name(domain, projection_name, version.version)
+    lines = [f"export interface {interface_name} {{"]
     for field in version.fields:
         field_type = _resolve_projection_field_type(field, version, model_lookup)
         lines.append(f"  {field.name}: {_type_to_ts(field_type)};")
     lines.append("}")
+    lines.append(f"export type {projection_name} = {interface_name};")
     return EmittedArtifact(
         target="typescript",
         ref=f"{domain}.{projection_name}@{version.version}",

@@ -38,11 +38,13 @@ domain customer {
     assert "customer.CustomerView@1" in refs
 
     model_art = next(artifact for artifact in artifacts if artifact.ref == "customer.Customer@1")
-    assert "export interface Customer" in model_art.content
+    assert "export interface CustomerCustomerV1" in model_art.content
+    assert "export type Customer = CustomerCustomerV1;" in model_art.content
     assert "age?: number" in model_art.content
 
     proj_art = next(artifact for artifact in artifacts if artifact.ref == "customer.CustomerView@1")
-    assert "export interface CustomerView" in proj_art.content
+    assert "export interface CustomerCustomerViewV1" in proj_art.content
+    assert "export type CustomerView = CustomerCustomerViewV1;" in proj_art.content
 
 
 def test_emit_typescript_projection_uses_source_version_types(tmp_path):
@@ -79,6 +81,35 @@ domain customer {
     assert "name: string" in proj_art.content
 
 
+def test_emit_typescript_uses_stable_interface_names(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    model_art = next(artifact for artifact in artifacts if artifact.ref == "customer.Customer@1")
+    proj_art = next(artifact for artifact in artifacts if artifact.ref == "customer.CustomerView@1")
+
+    assert "export interface CustomerCustomerV1" in model_art.content
+    assert "export interface CustomerCustomerViewV1" in proj_art.content
+
+
 def test_cli_compile_typescript_writes_files(tmp_path):
     mdl = tmp_path / "customer.mdl"
     mdl.write_text(
@@ -103,4 +134,6 @@ domain customer {
 
     assert result.exit_code == 0
     assert (out / "customer.Customer.v1.ts").exists()
-    assert "export interface Customer" in (out / "customer.Customer.v1.ts").read_text(encoding="utf-8")
+    text = (out / "customer.Customer.v1.ts").read_text(encoding="utf-8")
+    assert "export interface CustomerCustomerV1" in text
+    assert "export type Customer = CustomerCustomerV1;" in text
