@@ -151,6 +151,46 @@ domain customer {
     Draft202012Validator.check_schema(schema)
 
 
+def test_emit_projection_with_source_version_range_uses_matching_source_types(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: int
+    email: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ >=1<3 as c
+  {
+    customerId <- c.customerId
+    name <- c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_json_schema(workspace, tmp_path / "out")
+    schema = next(artifact.content for artifact in artifacts if artifact.ref == "customer.CustomerView@1")
+
+    assert schema["x-modelable"]["source"]["version"] == {
+        "kind": "range",
+        "minInclusive": 1,
+        "maxExclusive": 3,
+    }
+    assert schema["properties"]["name"]["type"] == "integer"
+    assert schema["properties"]["name"]["format"] == "int64"
+
+
 def test_emit_classification_extension(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

@@ -99,6 +99,41 @@ domain customer {
     assert "name: string" in proj_art.content
 
 
+def test_emit_typescript_projection_with_source_version_range_uses_matching_source_types(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: int
+    email: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ >=1<3 as c
+  {
+    customerId <- c.customerId
+    name <- c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    proj_art = next(artifact for artifact in artifacts if artifact.ref == "customer.CustomerView@1")
+    assert "@modelable source: customer.Customer@>=1<3" in proj_art.content
+    assert "customerId: string" in proj_art.content
+    assert "name: number" in proj_art.content
+
+
 def test_emit_typescript_warns_on_computed_projection_field(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

@@ -29,21 +29,19 @@ from modelable.parser.ir import (
     DomainDef,
     ProjectionVersion,
     RefType,
+    VersionExact,
+    VersionMin,
+    VersionPinned,
+    VersionRange,
 )
 from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.base import compute_content_hash
 from modelable.emitters.diagnostics import validation_failed
+from modelable.registry.resolver import resolve_model_ref
 
 
 def emit_json_schema(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit JSON Schema 2020-12 artifacts for every model and projection version."""
-    # Build lookup for resolving projection field types from source models.
-    model_lookup: dict[tuple[str, str, int], ModelVersion] = {}
-    for domain in workspace.mdl.domains:
-        for model_name, versions in domain.models.items():
-            for version in versions:
-                model_lookup[(domain.name, model_name, version.version)] = version
-
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
         for model_name, versions in domain.models.items():
@@ -54,7 +52,7 @@ def emit_json_schema(workspace: Workspace, out_dir: Path) -> list[EmittedArtifac
         for projection_name, versions in domain.projections.items():
             for version in versions:
                 artifact = _emit_projection_version(
-                    domain, projection_name, version, out_dir, model_lookup
+                    domain, projection_name, version, out_dir, workspace.mdl
                 )
                 artifacts.append(artifact)
     return artifacts
@@ -126,7 +124,7 @@ def _emit_projection_version(
     projection_name: str,
     version: ProjectionVersion,
     out_dir: Path,
-    model_lookup: dict[tuple[str, str, int], ModelVersion],
+    mdl,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     schema: dict = {
@@ -175,7 +173,7 @@ def _emit_projection_version(
     defs: dict[str, dict] = {}
 
     for field in version.fields:
-        field_type = _resolve_projection_field_type(field, version, model_lookup)
+        field_type = _resolve_projection_field_type(field, version, mdl)
         prop = _field_to_json_schema(field, field_type, defs=defs, path=[field.name])
         if isinstance(field_type, NamedType):
             warnings.append(type_loss(field_type.name))
@@ -206,8 +204,6 @@ def _emit_projection_version(
 
 
 def _version_spec_to_json(version_spec) -> dict:
-    from modelable.parser.ir import VersionExact, VersionRange, VersionMin
-
     if isinstance(version_spec, VersionExact):
         return {"kind": "exact", "version": version_spec.version}
     if isinstance(version_spec, VersionRange):
@@ -218,6 +214,12 @@ def _version_spec_to_json(version_spec) -> dict:
         }
     if isinstance(version_spec, VersionMin):
         return {"kind": "min", "minInclusive": version_spec.min_inclusive}
+    if isinstance(version_spec, VersionPinned):
+        return {
+            "kind": "pinned",
+            "version": version_spec.version,
+            "contentHash": version_spec.content_hash,
+        }
     return {}
 
 
@@ -258,7 +260,7 @@ def _add_domain_metadata(container: dict, domain: DomainDef) -> None:
 def _resolve_projection_field_type(
     field: FieldDef,
     projection: ProjectionVersion,
-    model_lookup: dict[tuple[str, str, int], ModelVersion],
+    mdl,
 ):
     """Resolve the JSON Schema type for a projection field from its source model."""
     if not isinstance(field.mapping, DirectMapping):
@@ -271,19 +273,11 @@ def _resolve_projection_field_type(
     except ValueError:
         return None
 
-    # For auto-generated projections the version is exact; for explicit
-    # projections we use the version declared in the source clause.
-    from modelable.parser.ir import VersionExact
-
-    if isinstance(projection.source.version, VersionExact):
-        source_version = projection.source.version.version
-    else:
-        # Fall back to the projection's own version for ranges/min specs.
-        source_version = projection.version
-
-    source_mv = model_lookup.get((source_domain, source_model, source_version))
-    if source_mv is None:
+    try:
+        resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", projection.source.version)
+    except LookupError:
         return None
+    source_mv = resolved.version
 
     for src_field in source_mv.fields:
         if src_field.name == field.mapping.source_field:
