@@ -18,11 +18,15 @@ domain customer {
   owner: "customer-team"
   contact: "customer-team@example.com"
   description: "Customer identity and lifecycle."
-  entity Customer @ 1 (additive) {
+    entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
     age?: int
     marketingConsent: bool = false
+    address: object {
+      line1: string
+      line2?: string
+    }
     active: bool
     balance: decimal(12, 2)
     tags: array<string>
@@ -69,6 +73,11 @@ domain customer {
     assert "age" not in schema.get("required", [])
     assert "customerId" in schema["required"]
     assert props["marketingConsent"]["default"] is False
+
+    assert props["address"]["$ref"] == "#/$defs/Address"
+    assert schema["$defs"]["Address"]["type"] == "object"
+    assert schema["$defs"]["Address"]["properties"]["line1"]["type"] == "string"
+    assert "line2" not in schema["$defs"]["Address"].get("required", [])
 
     assert props["active"]["type"] == "boolean"
     assert props["balance"]["type"] == "string"

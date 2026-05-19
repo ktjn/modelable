@@ -86,9 +86,10 @@ def _emit_model_version(
     properties: dict[str, dict] = {}
     required: list[str] = []
     warnings: list[str] = []
+    defs: dict[str, dict] = {}
 
     for field in version.fields:
-        prop = _field_to_json_schema(field, field.type)
+        prop = _field_to_json_schema(field, field.type, defs=defs, path=[field.name])
         default_value = _field_default(field)
         if default_value is not None:
             prop["default"] = default_value
@@ -101,6 +102,8 @@ def _emit_model_version(
     schema["properties"] = properties
     if required:
         schema["required"] = required
+    if defs:
+        schema["$defs"] = defs
 
     path = out_dir / f"{artifact_id}.json"
     artifact = EmittedArtifact(
@@ -164,10 +167,11 @@ def _emit_projection_version(
     properties: dict[str, dict] = {}
     required: list[str] = []
     warnings: list[str] = []
+    defs: dict[str, dict] = {}
 
     for field in version.fields:
         field_type = _resolve_projection_field_type(field, version, model_lookup)
-        prop = _field_to_json_schema(field, field_type)
+        prop = _field_to_json_schema(field, field_type, defs=defs, path=[field.name])
         if isinstance(field_type, NamedType):
             warnings.append(type_loss(field_type.name))
         _add_lineage(prop, field, version)
@@ -178,6 +182,8 @@ def _emit_projection_version(
     schema["properties"] = properties
     if required:
         schema["required"] = required
+    if defs:
+        schema["$defs"] = defs
 
     path = out_dir / f"{artifact_id}.json"
     artifact = EmittedArtifact(
@@ -280,8 +286,8 @@ def _resolve_projection_field_type(
     return None
 
 
-def _field_to_json_schema(field: FieldDef, field_type=None) -> dict:
-    prop = _type_to_json_schema(field_type) if field_type is not None else {}
+def _field_to_json_schema(field: FieldDef, field_type=None, defs: dict[str, dict] | None = None, path: list[str] | None = None) -> dict:
+    prop = _type_to_json_schema(field_type, defs=defs, path=path) if field_type is not None else {}
 
     for ann in field.annotations:
         if isinstance(ann, AnnKey):
@@ -310,7 +316,7 @@ def _field_to_json_schema(field: FieldDef, field_type=None) -> dict:
     return prop
 
 
-def _type_to_json_schema(field_type) -> dict:
+def _type_to_json_schema(field_type, defs: dict[str, dict] | None = None, path: list[str] | None = None) -> dict:
     if isinstance(field_type, PrimitiveType):
         return _primitive_to_json_schema(field_type.kind)
     if isinstance(field_type, DecimalType):
@@ -322,12 +328,12 @@ def _type_to_json_schema(field_type) -> dict:
     if isinstance(field_type, ArrayType):
         return {
             "type": "array",
-            "items": _type_to_json_schema(field_type.item),
+            "items": _type_to_json_schema(field_type.item, defs=defs, path=path),
         }
     if isinstance(field_type, MapType):
         return {
             "type": "object",
-            "additionalProperties": _type_to_json_schema(field_type.value),
+            "additionalProperties": _type_to_json_schema(field_type.value, defs=defs, path=path),
         }
     if isinstance(field_type, RefType):
         return {
@@ -347,19 +353,36 @@ def _type_to_json_schema(field_type) -> dict:
             "x-modelable-field": {"namedType": field_type.name},
         }
     if isinstance(field_type, ObjectType):
-        prop: dict = {"type": "object"}
-        props: dict[str, dict] = {}
-        req: list[str] = []
-        for f in field_type.fields:
-            props[f.name] = _field_to_json_schema(f)
-            if not f.optional:
-                req.append(f.name)
-        prop["properties"] = props
-        if req:
-            prop["required"] = req
-        return prop
+        def_name = _definition_name(path or ["InlineObject"])
+        if defs is not None:
+            defs.setdefault(def_name, _object_type_to_json_schema(field_type, defs=defs, path=path))
+            return {"$ref": f"#/$defs/{def_name}"}
+        return _object_type_to_json_schema(field_type, defs=defs, path=path)
 
     return {"type": "object"}
+
+
+def _object_type_to_json_schema(field_type: ObjectType, defs: dict[str, dict] | None = None, path: list[str] | None = None) -> dict:
+    prop: dict = {"type": "object"}
+    props: dict[str, dict] = {}
+    req: list[str] = []
+    for f in field_type.fields:
+        child_path = [*(path or []), f.name]
+        props[f.name] = _field_to_json_schema(f, f.type, defs=defs, path=child_path)
+        if not f.optional:
+            req.append(f.name)
+    prop["properties"] = props
+    if req:
+        prop["required"] = req
+    return prop
+
+
+def _definition_name(path: list[str]) -> str:
+    return "".join(_pascalize_part(part) for part in path if part)
+
+
+def _pascalize_part(value: str) -> str:
+    return value[:1].upper() + value[1:] if value else value
 
 
 def _primitive_to_json_schema(kind: str) -> dict:
