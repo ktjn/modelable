@@ -70,14 +70,15 @@ def _emit_model(
 
     lines.append("## Fields")
     lines.append("")
-    lines.append("| Field | Type | Required | Annotations | Classification |")
-    lines.append("|---|---|---|---|---|")
+    lines.append("| Field | Type | Required | Default | Annotations | Classification |")
+    lines.append("|---|---|---|---|---|---|")
     for field in version.fields:
         required = "yes" if not field.optional else "no"
+        default = field.default if field.default is not None else "—"
         ann_str = _format_annotations(field)
         cls_str = _field_classification(field)
         lines.append(
-            f"| {field.name} | {_type_str(field.type)} | {required} | {ann_str} | {cls_str} |"
+            f"| {field.name} | {_type_str(field.type)} | {required} | {default} | {ann_str} | {cls_str} |"
         )
     lines.append("")
 

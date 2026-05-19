@@ -21,6 +21,7 @@ domain customer {
     legalName: string
     @pii
     email?: string
+    marketingConsent: bool = false
     status: enum(active, blocked, deleted)
     createdAt: timestamp
   }
@@ -51,6 +52,8 @@ domain customer {
     assert "uuid" in text
     assert "@key" in text
     assert "@pii" in text
+    assert "marketingConsent" in text
+    assert "false" in text
     assert "email" in text
     assert "no" in text  # optional field → Required: no
     assert "enum(active, blocked, deleted)" in text

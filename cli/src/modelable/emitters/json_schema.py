@@ -87,6 +87,9 @@ def _emit_model_version(
 
     for field in version.fields:
         prop = _field_to_json_schema(field, field.type)
+        default_value = _field_default(field)
+        if default_value is not None:
+            prop["default"] = default_value
         if isinstance(field.type, NamedType):
             warnings.append(type_loss(field.type.name))
         properties[field.name] = prop
@@ -201,6 +204,31 @@ def _version_spec_to_json(version_spec) -> dict:
     if isinstance(version_spec, VersionMin):
         return {"kind": "min", "minInclusive": version_spec.min_inclusive}
     return {}
+
+
+def _field_default(field: FieldDef):
+    if field.default is None:
+        return None
+    raw = field.default.strip()
+    if isinstance(field.type, PrimitiveType):
+        if field.type.kind == "bool":
+            if raw == "true":
+                return True
+            if raw == "false":
+                return False
+        if field.type.kind in {"int"}:
+            try:
+                return int(raw)
+            except ValueError:
+                return raw
+        if field.type.kind in {"float"}:
+            try:
+                return float(raw)
+            except ValueError:
+                return raw
+    if len(raw) >= 2 and raw[0] == '"' and raw[-1] == '"':
+        return raw[1:-1]
+    return raw
 
 
 def _resolve_projection_field_type(

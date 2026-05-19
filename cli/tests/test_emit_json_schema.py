@@ -19,6 +19,7 @@ domain customer {
     @key customerId: uuid
     name: string
     age?: int
+    marketingConsent: bool = false
     active: bool
     balance: decimal(12, 2)
     tags: array<string>
@@ -61,6 +62,7 @@ domain customer {
     assert props["age"]["format"] == "int64"
     assert "age" not in schema.get("required", [])
     assert "customerId" in schema["required"]
+    assert props["marketingConsent"]["default"] is False
 
     assert props["active"]["type"] == "boolean"
     assert props["balance"]["type"] == "string"
