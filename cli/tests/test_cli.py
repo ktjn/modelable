@@ -237,6 +237,34 @@ domain customer {
     assert "enum_changed status" in result.output.lower()
 
 
+def test_diff_rejects_cross_model_refs(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+
+domain billing {
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["diff", "customer.Customer@1", "billing.Invoice@1", "--path", str(tmp_path)],
+    )
+
+    assert result.exit_code != 0
+    assert "same domain and model" in result.output.lower()
+
+
 def test_resolve_prints_normalized_model_and_projection(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
