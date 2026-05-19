@@ -4,7 +4,8 @@ from pathlib import Path
 
 import click
 
-from modelable.commands.common import console, load_workspace_or_exit
+from modelable.commands.common import console
+from modelable.compiler.workspace import load_workspace
 from modelable.compat.checker import check_model_version_compatibility
 from modelable.llm.context import parse_model_ref_version_spec
 from modelable.registry.resolver import resolve_model_ref
@@ -14,13 +15,9 @@ def register_diff_commands(cli_group: click.Group) -> None:
     cli_group.add_command(diff)
 
 
-@click.command()
-@click.argument("from_ref")
-@click.argument("to_ref")
-@click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
-def diff(from_ref: str, to_ref: str, path: Path) -> None:
-    """Compare two published model versions."""
-    workspace = load_workspace_or_exit(path)
+def run_diff(from_ref: str, to_ref: str, path: Path) -> None:
+    """Compare two published model versions and print the compatibility report."""
+    workspace = load_workspace(path)
     try:
         from_domain, from_name, from_version_spec = parse_model_ref_version_spec(from_ref)
         to_domain, to_name, to_version_spec = parse_model_ref_version_spec(to_ref)
@@ -49,3 +46,12 @@ def diff(from_ref: str, to_ref: str, path: Path) -> None:
             console.print(f"- {finding}")
     else:
         console.print("- no changes")
+
+
+@click.command()
+@click.argument("from_ref")
+@click.argument("to_ref")
+@click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
+def diff(from_ref: str, to_ref: str, path: Path) -> None:
+    """Compare two published model versions."""
+    run_diff(from_ref, to_ref, path)
