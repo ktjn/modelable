@@ -40,11 +40,15 @@ domain customer {
     model_art = next(artifact for artifact in artifacts if artifact.ref == "customer.Customer@1")
     assert "export interface CustomerCustomerV1" in model_art.content
     assert "export type Customer = CustomerCustomerV1;" in model_art.content
+    assert "/**" in model_art.content
+    assert "@modelable domain: customer" in model_art.content
+    assert "@modelable kind: entity" in model_art.content
     assert "age?: number" in model_art.content
 
     proj_art = next(artifact for artifact in artifacts if artifact.ref == "customer.CustomerView@1")
     assert "export interface CustomerCustomerViewV1" in proj_art.content
     assert "export type CustomerView = CustomerCustomerViewV1;" in proj_art.content
+    assert "@modelable source: customer.Customer@1" in proj_art.content
 
 
 def test_emit_typescript_projection_uses_source_version_types(tmp_path):

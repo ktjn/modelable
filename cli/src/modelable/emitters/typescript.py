@@ -57,9 +57,16 @@ def _stable_interface_name(domain: str, name: str, version: int) -> str:
 def _emit_model(domain: str, model_name: str, version: ModelVersion, out_dir: Path) -> EmittedArtifact:
     artifact_id = _artifact_id(domain, model_name, version.version)
     interface_name = _stable_interface_name(domain, model_name, version.version)
-    lines = [
-        f"export interface {interface_name} {{",
-    ]
+    lines = _metadata_lines(
+        [
+            f"@modelable domain: {domain}",
+            f"@modelable name: {model_name}",
+            f"@modelable kind: {version.model_kind.value}",
+            f"@modelable version: {version.version}",
+            f"@modelable changeKind: {version.change_kind.value}",
+        ]
+    )
+    lines.append(f"export interface {interface_name} {{")
     for field in version.fields:
         lines.append(f"  {field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type)};")
     lines.append("}")
@@ -82,7 +89,16 @@ def _emit_projection(
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain, projection_name, version.version)
     interface_name = _stable_interface_name(domain, projection_name, version.version)
-    lines = [f"export interface {interface_name} {{"]
+    lines = _metadata_lines(
+        [
+            f"@modelable domain: {domain}",
+            f"@modelable name: {projection_name}",
+            "@modelable kind: projection",
+            f"@modelable version: {version.version}",
+            f"@modelable source: {version.source.model}@{_version_label(version.source.version)}",
+        ]
+    )
+    lines.append(f"export interface {interface_name} {{")
     for field in version.fields:
         field_type = _resolve_projection_field_type(field, version, model_lookup)
         lines.append(f"  {field.name}: {_type_to_ts(field_type)};")
@@ -95,6 +111,19 @@ def _emit_projection(
         path=out_dir / f"{artifact_id}.ts",
         content="\n".join(lines) + "\n",
     )
+
+
+def _version_label(version_spec) -> str:
+    if isinstance(version_spec, VersionExact):
+        return str(version_spec.version)
+    return "?"
+
+
+def _metadata_lines(entries: list[str]) -> list[str]:
+    lines = ["/**"]
+    lines.extend(f" * {entry}" for entry in entries)
+    lines.append(" */")
+    return lines
 
 
 def _resolve_projection_field_type(
