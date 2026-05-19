@@ -231,7 +231,8 @@ domain customer {
     workspace = load_workspace(tmp_path)
     artifacts = emit_json_schema(workspace, tmp_path / "out")
     art = artifacts[0]
-    assert art.content["properties"]["address"]["type"] == "object"
+    assert art.content["properties"]["address"]["$ref"] == "#/$defs/Address"
+    assert art.content["$defs"]["Address"]["x-modelable-field"]["namedType"] == "Address"
     assert art.warnings
     assert any("EMIT002" in warning for warning in art.warnings)
 

@@ -346,8 +346,16 @@ def _type_to_json_schema(field_type, defs: dict[str, dict] | None = None, path: 
             "enum": field_type.values,
         }
     if isinstance(field_type, NamedType):
-        # MVP: named value objects without a registry lookup are emitted as
-        # object placeholders with the type name preserved.
+        def_name = _definition_name([field_type.name])
+        if defs is not None:
+            defs.setdefault(
+                def_name,
+                {
+                    "type": "object",
+                    "x-modelable-field": {"namedType": field_type.name},
+                },
+            )
+            return {"$ref": f"#/$defs/{def_name}"}
         return {
             "type": "object",
             "x-modelable-field": {"namedType": field_type.name},
