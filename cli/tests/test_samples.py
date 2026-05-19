@@ -89,3 +89,15 @@ def test_all_sample_files_parse():
     for sample_file in sample_files:
         tree = parse_file(sample_file)
         assert tree.data == "start", sample_file
+
+
+def test_auto_projection_scenario_reports_runtime_only_bindings():
+    repo_root = Path(__file__).resolve().parents[2]
+    sample_path = repo_root / "samples" / "scenarios" / "09-auto-projections"
+    runner = CliRunner()
+
+    result = runner.invoke(cli, ["validate", str(sample_path)])
+
+    assert result.exit_code == 1, result.output
+    assert "binding catalog-postgres" in result.output
+    assert "binding product-db-table" in result.output
