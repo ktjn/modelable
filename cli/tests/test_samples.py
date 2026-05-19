@@ -3,6 +3,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.parser.parse import parse_file
 
 
 def test_mvp_smoke_validates_and_compiles_all_phase_1_targets(tmp_path):
@@ -40,3 +41,14 @@ def test_mvp_smoke_validates_and_compiles_all_phase_1_targets(tmp_path):
         )
         assert typescript_result.exit_code == 0, typescript_result.output
         assert typescript_out.exists()
+
+
+def test_all_sample_files_parse():
+    repo_root = Path(__file__).resolve().parents[2]
+    sample_files = sorted(repo_root.glob("samples/**/*.mdl"))
+
+    assert sample_files, "expected at least one .mdl sample file"
+
+    for sample_file in sample_files:
+        tree = parse_file(sample_file)
+        assert tree.data == "start", sample_file

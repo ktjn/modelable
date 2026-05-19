@@ -7,14 +7,18 @@ statement: domain_decl
          | binding_decl
          | workspace_decl
          | import_domain_stmt
+         | projection_decl
+         | subscription_decl
          | consumer_decl
 
 
 // -- Domain ------------------------------------------------------------------
 
-domain_decl: "domain" IDENT "{" domain_item* "}"
+domain_decl: "domain" domain_name "{" domain_item* "}"
+domain_name: IDENT | ESCAPED_STRING
 
 domain_item: owner_attr
+           | contact_attr
            | desc_attr
            | model_decl
            | projection_decl
@@ -22,12 +26,16 @@ domain_item: owner_attr
            | generate_block
 
 owner_attr: "owner" ":" ESCAPED_STRING
+contact_attr: "contact" ":" ESCAPED_STRING
 desc_attr: "description" ":" ESCAPED_STRING
 
 
 // -- Model -------------------------------------------------------------------
 
-model_decl: model_kind IDENT "@" INT "(" change_kind ")" "{" model_body_item* "}"
+model_decl: model_kind IDENT model_header? "{" model_body_item* "}"
+model_header: "@" INT model_change?
+            | model_change
+model_change: "(" change_kind ")"
 
 model_body_item: field_decl
                | access_block
@@ -40,8 +48,9 @@ model_kind: "entity"    -> mk_entity
 change_kind: "additive" -> ck_additive
            | "breaking" -> ck_breaking
 
-field_decl: annotation* IDENT optional_marker? ":" type_expr
+field_decl: annotation* IDENT optional_marker? ":" type_expr field_default?
 optional_marker: "?"
+field_default: "=" EXPRESSION
 
 annotation: "@key"                                                -> ann_key
           | "@pii"                                                -> ann_pii
@@ -49,6 +58,9 @@ annotation: "@key"                                                -> ann_key
           | "@deprecated" "(" "replacedBy" ":" ESCAPED_STRING ")" -> ann_deprecated
           | "@owner" "(" ESCAPED_STRING ")"                      -> ann_owner
           | "@server"                                             -> ann_server
+          | "@pitCutoff" "(" ANNOTATION_EXPR ")"                  -> ann_pit_cutoff
+          | "@latestBefore" "(" ANNOTATION_EXPR ")"               -> ann_latest_before
+          | "@latestOnly"                                         -> ann_latest_only
 
 
 // -- Types -------------------------------------------------------------------
@@ -83,23 +95,45 @@ object_type: "object" "{" field_decl* "}"
 
 // -- Projections --------------------------------------------------------------
 
-projection_decl: "projection" IDENT "@" INT source_clause "{" projection_body_item* "}"
+projection_decl: "projection" IDENT "@" INT projection_source_block? source_clause? "{" projection_body_item* "}"
+projection_source_block: "{" source_clause "}"
 
 projection_body_item: proj_field
                     | access_block
+                    | subscription_block
+                    | generate_block
+                    | materialisation_block
 
-source_clause: "from" dotted_ref "@" version_spec "as" IDENT join_clause* group_clause?
+source_clause: "from" dotted_ref "@" version_spec "as" IDENT join_clause* where_clause? group_clause?
 
-join_clause: "join" dotted_ref "@" version_spec "as" IDENT "on" EXPRESSION
+where_clause: "where" FIELD_EXPRESSION
 
-group_clause: "group" "by" qualified_field ("," qualified_field)*
+join_modifier: "left"
+
+join_clause: join_prefix annotation*
+          | join_prefix join_option*
+join_option: annotation
+           | cardinality_attr
+cardinality_attr: "cardinality" ":" IDENT
+join_prefix: "join" dotted_ref "@" version_spec "as" IDENT "on" EXPRESSION
+           | join_modifier "join" dotted_ref "@" version_spec "as" IDENT "on" EXPRESSION
+
+group_clause: "group" "by" group_item ("," group_item)*
+
+group_item: /[^,\n\r{}]+/
 
 version_spec: INT                  -> version_exact
+            | INT "#" IDENT       -> version_pinned
             | ">=" INT "<" INT     -> version_range
             | ">=" INT             -> version_min
 
 proj_field: annotation* IDENT "<-" qualified_field -> direct_field
-          | annotation* IDENT "=" EXPRESSION        -> computed_field
+          | annotation* IDENT "=" FIELD_EXPRESSION  -> computed_field
+
+subscription_block: "subscription" "{" subscription_item* "}"
+subscription_item: IDENT ":" EXPRESSION
+materialisation_block: "materialisation" "{" materialisation_item* "}"
+materialisation_item: IDENT ":" EXPRESSION
 
 qualified_field: IDENT "." IDENT
 
@@ -121,6 +155,7 @@ target_name: "openapi"                 -> tn_openapi
 
 db_dialect: "postgres" -> dd_postgres
           | "mysql"    -> dd_mysql
+          | "clickhouse" -> dd_clickhouse
           | "sqlite"   -> dd_sqlite
 
 
@@ -128,9 +163,28 @@ db_dialect: "postgres" -> dd_postgres
 // These are parsed more fully in later parser-plan tasks.
 
 binding_decl: "binding" IDENT "{" ignored_block_item* "}"
-workspace_decl: "workspace" IDENT "{" ignored_block_item* "}"
-import_domain_stmt: "import" "domain" dotted_ref version_selector?
-consumer_decl: "consumer" IDENT "{" ignored_block_item* "}"
+subscription_decl: "subscription" IDENT "{" subscription_decl_item* "}"
+subscription_decl_item: IDENT ":" EXPRESSION
+workspace_decl: "workspace" workspace_label? "{" workspace_item* "}"
+workspace_label: IDENT | ESCAPED_STRING
+workspace_item: workspace_name_attr
+              | workspace_description_attr
+              | registry_block
+              | peers_block
+              | generate_block
+              | ai_block
+workspace_name_attr: "name" ":" ESCAPED_STRING
+workspace_description_attr: "description" ":" ESCAPED_STRING
+registry_block: "registry" "{" ignored_block_item* "}"
+peers_block: "peers" ":" "[" PEERS_CONTENT "]"
+ai_block: "ai" "{" ai_item* "}"
+ai_item: ai_provider | ai_model
+ai_provider: "provider" ":" ESCAPED_STRING
+ai_model: "model" ":" ESCAPED_STRING
+import_domain_stmt: "import" "domain" dotted_ref import_source? pinned_import? version_selector?
+import_source: "from" "registry" ESCAPED_STRING
+pinned_import: "at" dotted_ref "@" INT "#" IDENT
+consumer_decl: "consumer" IDENT? "{" ignored_block_item* "}"
 auto_projections_decl: "auto" "projections" IDENT "@" INT "{" auto_projection_item* "}"
 
 auto_projection_item: auto_projection_kind auto_projection_option*
@@ -171,7 +225,10 @@ ignored_block_item: /[^{}]+/ | "{" ignored_block_item* "}"
 
 VERSION_RANGE: /[<>~=^0-9.,\s]+/
 EXPRESSION: /[^\n\r{}]+/
+FIELD_EXPRESSION: /[^\n\r]+(?:\n(?!\s*(?:@|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-|=)|generate\s*\{|materialisation\s*\{|subscription\s*\{|access\s*\{|from\s|\{|\}))[^\n\r]+)*/
+ANNOTATION_EXPR: /[^)\n\r{}]+/
 IDENT: /[A-Za-z_][A-Za-z0-9_-]*/
+PEERS_CONTENT: /[^\]]+/
 PRINCIPAL: /\*|[A-Za-z_][A-Za-z0-9_.-]*/
 
 COMMENT: /\/\/[^\n]*/

@@ -31,6 +31,17 @@ def test_parse_simple_model():
     assert tree.data == "start"
 
 
+def test_parse_domain_contact_metadata():
+    tree = parse_text("""
+    domain customer {
+      owner: "customer-platform"
+      contact: "customer@example.com"
+      description: "Customer data."
+    }
+    """)
+    assert tree.data == "start"
+
+
 def test_parse_all_primitive_types():
     tree = parse_text("""
     domain types {
@@ -157,6 +168,48 @@ def test_parse_aggregation():
       {
         customerId <- o.customerId
         total = sum(o.amount)
+      }
+    }
+    """)
+    assert tree.data == "start"
+
+
+def test_parse_field_default_values():
+    tree = parse_text("""
+    domain commerce {
+      entity Order @ 1 (additive) {
+        discountCents: int = 0
+        isActive: bool = false
+        note?: string = "[ERASED]"
+      }
+    }
+    """)
+    assert tree.data == "start"
+
+
+def test_parse_workspace_metadata():
+    tree = parse_text("""
+    workspace "analytics-platform" {
+      name: "analytics-platform"
+      description: "Analytics registry"
+      generate {
+        docs -> "./generated/docs/"
+        sql(postgres) -> "./generated/sql/"
+      }
+    }
+    """)
+    assert tree.data == "start"
+
+
+def test_parse_left_join_and_where():
+    tree = parse_text("""
+    domain billing {
+      projection OrderLine @ 1
+        from orders.Order @ 1 as o
+        left join customer.Customer @ 2 as c on o.customerId == c.customerId
+        where o.status == "confirmed"
+      {
+        orderId <- o.orderId
       }
     }
     """)

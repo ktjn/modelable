@@ -6,9 +6,13 @@ from modelable.parser.ir import (
     AiConfig,
     AccessBlock,
     AccessGrant,
+    AnnCustom,
     AnnClassification,
     AnnDeprecated,
+    AnnLatestBefore,
+    AnnLatestOnly,
     AnnKey,
+    AnnPitCutoff,
     AnnOwner,
     AnnPii,
     AnnServer,
@@ -39,6 +43,7 @@ from modelable.parser.ir import (
     SourceRef,
     VersionExact,
     VersionMin,
+    VersionPinned,
     VersionRange,
     WorkspaceDef,
 )
@@ -50,6 +55,10 @@ ANNOTATION_TYPES = (
     AnnDeprecated,
     AnnOwner,
     AnnServer,
+    AnnPitCutoff,
+    AnnLatestBefore,
+    AnnLatestOnly,
+    AnnCustom,
 )
 
 
@@ -78,8 +87,9 @@ class MdlTransformer(Transformer):
         return items[0]
 
     def domain_decl(self, items):
-        name = str(items[0])
+        name = _str(items[0])
         owner = None
+        contact = None
         description = None
         models: dict[str, list[ModelVersion]] = {}
         projections: dict[str, list[ProjectionVersion]] = {}
@@ -89,6 +99,8 @@ class MdlTransformer(Transformer):
         for tag, value in [item for item in items[1:] if isinstance(item, tuple)]:
             if tag == "owner":
                 owner = value
+            elif tag == "contact":
+                contact = value
             elif tag == "description":
                 description = value
             elif tag == "model":
@@ -105,6 +117,7 @@ class MdlTransformer(Transformer):
         return DomainDef(
             name=name,
             owner=owner,
+            contact=contact,
             description=description,
             models=models,
             projections=projections,
@@ -112,26 +125,46 @@ class MdlTransformer(Transformer):
             generate_targets=generate_targets,
         )
 
+    def domain_name(self, items):
+        return _str(items[0])
+
     def domain_item(self, items):
         return items[0]
 
     def owner_attr(self, items):
         return ("owner", _str(items[0]))
 
+    def contact_attr(self, items):
+        return ("contact", _str(items[0]))
+
     def desc_attr(self, items):
         return ("description", _str(items[0]))
 
     def model_decl(self, items):
         name = str(items[1])
-        access = next((item for item in items[4:] if isinstance(item, AccessBlock)), None)
+        header = items[2] if len(items) > 2 and isinstance(items[2], tuple) and items[2][0] == "model_header" else None
+        body_start = 3 if header is not None else 2
+        version = header[1] if header is not None else 0
+        change_kind = header[2] if header is not None else ChangeKind.additive
+        access = next((item for item in items[body_start:] if isinstance(item, AccessBlock)), None)
         model_version = ModelVersion(
             model_kind=items[0],
-            version=int(items[2]),
-            change_kind=items[3],
-            fields=[item for item in items[4:] if isinstance(item, FieldDef)],
+            version=int(version),
+            change_kind=change_kind,
+            fields=[item for item in items[body_start:] if isinstance(item, FieldDef)],
             access=access,
         )
         return ("model", (name, model_version))
+
+    def model_header(self, items):
+        if len(items) == 1 and isinstance(items[0], tuple):
+            return ("model_header", int(items[0][1]), items[0][2])
+        if len(items) == 2:
+            return ("model_header", int(items[0]), items[1])
+        return ("model_header", int(items[0]), ChangeKind.additive)
+
+    def model_change(self, items):
+        return items[0]
 
     def model_body_item(self, items):
         return items[0]
@@ -157,15 +190,20 @@ class MdlTransformer(Transformer):
     def field_decl(self, items):
         annotations = [item for item in items if isinstance(item, ANNOTATION_TYPES)]
         rest = [item for item in items if not isinstance(item, ANNOTATION_TYPES)]
+        default = next((item[1] for item in rest if isinstance(item, tuple) and item[0] == "default"), None)
         return FieldDef(
             name=str(rest[0]),
             optional=any(item == "?" for item in rest),
-            type=rest[-1],
+            type=next(item for item in rest if not isinstance(item, str) and not (isinstance(item, tuple) and item[0] == "default")),
+            default=default,
             annotations=annotations,
         )
 
     def optional_marker(self, _items):
         return "?"
+
+    def field_default(self, items):
+        return ("default", str(items[0]).strip())
 
     def ann_key(self, _items):
         return AnnKey()
@@ -184,6 +222,20 @@ class MdlTransformer(Transformer):
 
     def ann_server(self, _items):
         return AnnServer()
+
+    def ann_pit_cutoff(self, items):
+        return AnnPitCutoff(expression=str(items[0]).strip())
+
+    def ann_latest_before(self, items):
+        return AnnLatestBefore(expression=str(items[0]).strip())
+
+    def ann_latest_only(self, _items):
+        return AnnLatestOnly()
+
+    def ann_custom(self, items):
+        name = str(items[0])
+        expression = str(items[1]).strip() if len(items) > 1 else None
+        return AnnCustom(name=name, expression=expression)
 
     def annotation(self, items):
         return items[0]
@@ -252,42 +304,89 @@ class MdlTransformer(Transformer):
         return str(token)
 
     def projection_decl(self, items):
-        source, joins, group_by = items[2]
-        access = next((item for item in items[3:] if isinstance(item, AccessBlock)), None)
+        source_index = next(
+            (
+                i
+                for i, item in enumerate(items[2:], start=2)
+                if isinstance(item, tuple) and len(item) == 4 and isinstance(item[0], SourceRef)
+            ),
+            None,
+        )
+        if source_index is None:
+            source = SourceRef(model="", version=VersionExact(version=0), alias="", where=None)
+            joins: list[JoinRef] = []
+            where = None
+            group_by: list[str] = []
+            body_start = 2
+        else:
+            source, joins, where, group_by = items[source_index]
+            body_start = source_index + 1
+        access = next((item for item in items[body_start:] if isinstance(item, AccessBlock)), None)
         projection_version = ProjectionVersion(
             version=int(items[1]),
             source=source,
             joins=joins,
+            where=where,
             group_by=group_by,
-            fields=[item for item in items[3:] if isinstance(item, ProjectionField)],
+            fields=[item for item in items[body_start:] if isinstance(item, ProjectionField)],
             access=access,
         )
         return ("projection", (str(items[0]), projection_version))
 
+    def join_prefix(self, items):
+        if len(items) == 5:
+            return ("join", "left", str(items[1]), items[2], str(items[3]), str(items[4]).strip())
+        return ("join", "inner", str(items[0]), items[1], str(items[2]), str(items[3]).strip())
+
     def projection_body_item(self, items):
+        return items[0]
+
+    def projection_source_block(self, items):
         return items[0]
 
     def source_clause(self, items):
         joins = [item for item in items[3:] if isinstance(item, JoinRef)]
+        where = next((item for item in items[3:] if isinstance(item, str)), None)
         group_by = next((item for item in items[3:] if isinstance(item, list)), [])
-        return SourceRef(model=str(items[0]), version=items[1], alias=str(items[2])), joins, group_by
+        return SourceRef(model=str(items[0]), version=items[1], alias=str(items[2]), where=where), joins, where, group_by
 
     def join_clause(self, items):
+        prefix = items[0]
+        annotations = [item for item in items[1:] if isinstance(item, ANNOTATION_TYPES)]
+        cardinality = next((item[1] for item in items[1:] if isinstance(item, tuple) and item[0] == "cardinality"), None)
         return JoinRef(
-            model=str(items[0]),
-            version=items[1],
-            alias=str(items[2]),
-            on=str(items[3]).strip(),
+            model=str(prefix[2]),
+            version=prefix[3],
+            alias=str(prefix[4]),
+            on=prefix[5],
+            join_kind=prefix[1],
+            cardinality=cardinality,
+            annotations=annotations,
         )
+
+    def where_clause(self, items):
+        return str(items[0]).strip()
+
+    def join_modifier(self, _items):
+        return "left"
+
+    def cardinality_attr(self, items):
+        return ("cardinality", str(items[0]))
 
     def group_clause(self, items):
         return [str(item) for item in items]
+
+    def group_item(self, items):
+        return str(items[0]).strip()
 
     def version_spec(self, items):
         return items[0]
 
     def version_exact(self, items):
         return VersionExact(version=int(items[0]))
+
+    def version_pinned(self, items):
+        return VersionPinned(version=int(items[0]), content_hash=str(items[1]))
 
     def version_range(self, items):
         return VersionRange(min_inclusive=int(items[0]), max_exclusive=int(items[1]))
@@ -488,6 +587,9 @@ class MdlTransformer(Transformer):
     def dd_mysql(self, _items):
         return "mysql"
 
+    def dd_clickhouse(self, _items):
+        return "clickhouse"
+
     def dd_sqlite(self, _items):
         return "sqlite"
 
@@ -500,7 +602,45 @@ class MdlTransformer(Transformer):
         )
 
     def workspace_decl(self, _items):
-        return WorkspaceDef()
+        label = None
+        name = None
+        description = None
+        generate_targets: list[GenerateTarget] = []
+        ai = None
+
+        for item in _items:
+            if isinstance(item, str):
+                label = _str(item)
+            elif isinstance(item, tuple):
+                tag, value = item
+                if tag == "name":
+                    name = value
+                elif tag == "description":
+                    description = value
+                elif tag == "generate":
+                    generate_targets = value
+                elif tag == "ai":
+                    ai = value
+
+        return WorkspaceDef(
+            label=label,
+            name=name,
+            description=description,
+            generate_targets=generate_targets,
+            ai=ai,
+        )
+
+    def workspace_item(self, items):
+        return items[0]
+
+    def workspace_label(self, items):
+        return _str(items[0])
+
+    def workspace_name_attr(self, items):
+        return ("name", _str(items[0]))
+
+    def workspace_description_attr(self, items):
+        return ("description", _str(items[0]))
 
     def ai_block(self, items):
         attrs = dict(items)
@@ -514,3 +654,6 @@ class MdlTransformer(Transformer):
 
     def field_mapping(self, items):
         return FieldMapping(source=str(items[0]), target=str(items[1]))
+
+    def ai_item(self, items):
+        return items[0]

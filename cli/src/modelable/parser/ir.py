@@ -85,8 +85,37 @@ class AnnServer(BaseModel):
     kind: Literal["server"] = "server"
 
 
+class AnnPitCutoff(BaseModel):
+    kind: Literal["pit_cutoff"] = "pit_cutoff"
+    expression: str
+
+
+class AnnLatestBefore(BaseModel):
+    kind: Literal["latest_before"] = "latest_before"
+    expression: str
+
+
+class AnnLatestOnly(BaseModel):
+    kind: Literal["latest_only"] = "latest_only"
+
+
+class AnnCustom(BaseModel):
+    kind: Literal["custom"] = "custom"
+    name: str
+    expression: str | None = None
+
+
 Annotation = Annotated[
-    AnnKey | AnnPii | AnnClassification | AnnDeprecated | AnnOwner | AnnServer,
+    AnnKey
+    | AnnPii
+    | AnnClassification
+    | AnnDeprecated
+    | AnnOwner
+    | AnnServer
+    | AnnPitCutoff
+    | AnnLatestBefore
+    | AnnLatestOnly
+    | AnnCustom,
     Field(discriminator="kind"),
 ]
 
@@ -160,6 +189,7 @@ class FieldDef(BaseModel):
     name: str
     type: FieldType
     optional: bool = False
+    default: str | None = None
     annotations: list[Annotation] = Field(default_factory=list)
 
     @property
@@ -227,8 +257,14 @@ class VersionMin(BaseModel):
     min_inclusive: int
 
 
+class VersionPinned(BaseModel):
+    kind: Literal["pinned"] = "pinned"
+    version: int
+    content_hash: str
+
+
 VersionSpec = Annotated[
-    VersionExact | VersionRange | VersionMin,
+    VersionExact | VersionRange | VersionMin | VersionPinned,
     Field(discriminator="kind"),
 ]
 
@@ -237,6 +273,7 @@ class SourceRef(BaseModel):
     model: str
     version: VersionSpec
     alias: str
+    where: str | None = None
 
 
 class JoinRef(BaseModel):
@@ -244,6 +281,9 @@ class JoinRef(BaseModel):
     version: VersionSpec
     alias: str
     on: str
+    join_kind: str = "inner"
+    cardinality: str | None = None
+    annotations: list[Annotation] = Field(default_factory=list)
 
 
 class DirectMapping(BaseModel):
@@ -287,6 +327,7 @@ class ProjectionVersion(BaseModel):
     version: int
     source: SourceRef
     joins: list[JoinRef] = Field(default_factory=list)
+    where: str | None = None
     group_by: list[str] = Field(default_factory=list)
     fields: list[ProjectionField]
     auto_generated: bool = False
@@ -334,6 +375,7 @@ class BindingDef(BaseModel):
 class DomainDef(BaseModel):
     name: str
     owner: str | None = None
+    contact: str | None = None
     description: str | None = None
     models: dict[str, list[ModelVersion]] = Field(default_factory=dict)
     projections: dict[str, list[ProjectionVersion]] = Field(default_factory=dict)
@@ -342,6 +384,9 @@ class DomainDef(BaseModel):
 
 
 class WorkspaceDef(BaseModel):
+    label: str | None = None
+    name: str | None = None
+    description: str | None = None
     generate_targets: list[GenerateTarget] = Field(default_factory=list)
     ai: AiConfig | None = None
 

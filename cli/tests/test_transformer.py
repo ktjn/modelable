@@ -46,12 +46,14 @@ def test_transform_simple_model():
     mdl = parse_text_to_ir("""
     domain customer {
       owner: "customer-platform"
+      contact: "customer@example.com"
       entity Customer @ 2 (additive) {
         @key
         customerId: uuid
         @pii
         email?: string
         status: enum(active, blocked)
+        marketingConsent: bool = false
       }
     }
     """)
@@ -60,6 +62,7 @@ def test_transform_simple_model():
     domain = mdl.domains[0]
     assert domain.name == "customer"
     assert domain.owner == "customer-platform"
+    assert domain.contact == "customer@example.com"
     versions = domain.models["Customer"]
     assert len(versions) == 1
     version = versions[0]
@@ -73,6 +76,7 @@ def test_transform_simple_model():
     assert fields["email"].optional
     assert fields["status"].type.kind == "enum"
     assert fields["status"].type.values == ["active", "blocked"]
+    assert fields["marketingConsent"].default == "false"
 
 
 def test_transform_projection():
@@ -80,6 +84,8 @@ def test_transform_projection():
     domain billing {
       projection BillingCustomer @ 1
         from customer.Customer @ 2 as c
+        left join orders.Order @ 3 as o on c.customerId == o.customerId
+        where c.status == "active"
       {
         billingCustomerId <- c.customerId
         isBillable = c.status == "active"
@@ -96,6 +102,8 @@ def test_transform_projection():
     assert projection.source.alias == "c"
     assert projection.source.version.kind == "exact"
     assert projection.source.version.version == 2
+    assert projection.source.where == 'c.status == "active"'
+    assert projection.joins[0].join_kind == "left"
     fields = {field.name: field for field in projection.fields}
     assert fields["billingCustomerId"].mapping.kind == "direct"
     assert fields["billingCustomerId"].mapping.source_alias == "c"
@@ -227,6 +235,25 @@ def test_transform_projection_access_block():
     assert version.access is not None
     assert [grant.principal for grant in version.access.entity] == ["billing"]
     assert version.access.entity[0].permissions == ["read", "project"]
+
+
+def test_transform_workspace_metadata():
+    mdl = parse_text_to_ir("""
+    workspace "analytics-platform" {
+      name: "analytics-platform"
+      description: "Analytics registry"
+      generate {
+        docs -> "./generated/docs/"
+        sql(postgres) -> "./generated/sql/"
+      }
+    }
+    """)
+
+    assert mdl.workspace is not None
+    assert mdl.workspace.label == "analytics-platform"
+    assert mdl.workspace.name == "analytics-platform"
+    assert mdl.workspace.description == "Analytics registry"
+    assert [target.name for target in mdl.workspace.generate_targets] == ["docs", "sql"]
 
 
 def test_transform_fixture_files(fixture_path):
