@@ -19,7 +19,7 @@ class EmittedArtifact:
 
 def compute_content_hash(content: dict | str) -> str:
     if isinstance(content, dict):
-        payload = json.dumps(content, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        payload = json.dumps(content, indent=2, ensure_ascii=False) + "\n"
     else:
         payload = content
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()

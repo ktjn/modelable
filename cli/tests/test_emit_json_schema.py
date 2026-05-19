@@ -53,7 +53,7 @@ domain customer {
     assert art.ref == "customer.Customer@1"
     assert art.artifact_id == "customer.Customer.v1"
     assert art.content_hash == hashlib.sha256(
-        json.dumps(art.content, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        (json.dumps(art.content, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
     ).hexdigest()
 
     schema = art.content
