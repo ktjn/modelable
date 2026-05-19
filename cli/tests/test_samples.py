@@ -135,3 +135,23 @@ def test_ecommerce_scenario_reports_validation_gaps_and_compiles_targets(tmp_pat
         assert jsonschema_result.exit_code == 1, jsonschema_result.output
         assert "unsupported function 'hmac_sha256'" in jsonschema_result.output
         assert "unsupported function 'truncate'" in jsonschema_result.output
+
+
+def test_partner_marketplace_scenario_reports_aggregate_key_validation_gap(tmp_path):
+    repo_root = Path(__file__).resolve().parents[2]
+    sample_path = repo_root / "samples" / "scenarios" / "05-partner-marketplace-api"
+    runner = CliRunner()
+
+    with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
+        cwd = Path(cwd)
+        validate_result = runner.invoke(cli, ["validate", str(sample_path)])
+        assert validate_result.exit_code == 1, validate_result.output
+        assert "inventory.SellerInventoryLevel@2: aggregate must have exactly one @key field" in validate_result.output
+
+        markdown_out = cwd / "dist" / "scenario05-docs"
+        compile_result = runner.invoke(
+            cli,
+            ["compile", str(sample_path), "--target", "markdown", "--out", str(markdown_out)],
+        )
+        assert compile_result.exit_code == 1, compile_result.output
+        assert "aggregate must have exactly one @key field" in compile_result.output
