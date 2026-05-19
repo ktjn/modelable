@@ -2,21 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from modelable.parser.ir import (
-    MdlFile,
-    ModelVersion,
-    VersionExact,
-    VersionMin,
-    VersionRange,
-    VersionSpec,
-)
+from modelable.parser.ir import MdlFile, ModelVersion, ProjectionVersion, VersionExact, VersionMin, VersionPinned, VersionRange, VersionSpec
+from modelable.registry.signature import compute_version_signature
 
 
 @dataclass(frozen=True)
 class ResolvedModelRef:
     domain_name: str
     model_name: str
-    version: ModelVersion
+    version: ModelVersion | ProjectionVersion
 
 
 def resolve_model_ref(
@@ -32,7 +26,11 @@ def resolve_model_ref(
             f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}"
         )
 
-    matching = [version for version in versions if _matches(version.version, version_spec)]
+    matching = [
+        version
+        for version in versions
+        if _matches(version, version_spec, domain_name, model_name)
+    ]
     if not matching:
         raise LookupError(
             f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}"
@@ -119,15 +117,27 @@ def _split_model_ref(model_ref: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
-def _matches(version: int, version_spec: VersionSpec | int) -> bool:
+def _matches(
+    version: ModelVersion | ProjectionVersion,
+    version_spec: VersionSpec | int,
+    domain_name: str,
+    model_name: str,
+) -> bool:
     if isinstance(version_spec, int):
-        return version == version_spec
+        return version.version == version_spec
     if isinstance(version_spec, VersionExact):
-        return version == version_spec.version
+        return version.version == version_spec.version
     if isinstance(version_spec, VersionRange):
-        return version_spec.min_inclusive <= version < version_spec.max_exclusive
+        return version_spec.min_inclusive <= version.version < version_spec.max_exclusive
     if isinstance(version_spec, VersionMin):
-        return version >= version_spec.min_inclusive
+        return version.version >= version_spec.min_inclusive
+    if isinstance(version_spec, VersionPinned):
+        if version.version != version_spec.version:
+            return False
+        return (
+            compute_version_signature(domain_name, model_name, version).lower()
+            == version_spec.content_hash.lower()
+        )
     return False
 
 
@@ -140,4 +150,6 @@ def _format_version_spec(version_spec: VersionSpec | int) -> str:
         return f">={version_spec.min_inclusive}<{version_spec.max_exclusive}"
     if isinstance(version_spec, VersionMin):
         return f">={version_spec.min_inclusive}"
+    if isinstance(version_spec, VersionPinned):
+        return f"{version_spec.version}#{version_spec.content_hash}"
     return str(version_spec)

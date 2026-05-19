@@ -3,6 +3,8 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.compiler.workspace import load_workspace
+from modelable.registry.signature import compute_version_signature
 
 
 def test_root_bootstrap_script_delegates_to_uv_entrypoint():
@@ -504,6 +506,62 @@ domain customer {
     assert result.exit_code == 0, result.output
     assert "customer.Customer@2" in result.output
     assert "email" in result.output
+
+
+def test_resolve_supports_pinned_version_specs(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    version = workspace.mdl.domains[0].models["Customer"][0]
+    signature = compute_version_signature("customer", "Customer", version)
+
+    result = CliRunner().invoke(
+        cli,
+        ["resolve", f"customer.Customer@1#{signature}", "--path", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "entity Customer @ 1 (additive)" in result.output
+    assert "name: string" in result.output
+
+
+def test_lineage_supports_pinned_version_specs(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    version = workspace.mdl.domains[0].models["Customer"][0]
+    signature = compute_version_signature("customer", "Customer", version)
+
+    result = CliRunner().invoke(
+        cli,
+        ["lineage", f"customer.Customer@1#{signature}", "--path", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "customer.Customer@1" in result.output
+    assert "name" in result.output
 
 
 def test_codegen_formats_and_types():

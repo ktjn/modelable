@@ -177,6 +177,13 @@ def _parse_version_spec(version_text: str) -> VersionSpec | int:
     except ValueError:
         pass
 
+    pinned_match = re.match(r"^(\d+)\#([0-9a-fA-F]+)$", version_text)
+    if pinned_match:
+        return VersionPinned(
+            version=int(pinned_match.group(1)),
+            content_hash=pinned_match.group(2),
+        )
+
     range_match = _VERSION_RANGE_RE.match(version_text)
     if range_match:
         return VersionRange(

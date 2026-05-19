@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import hashlib
 import re
 from pathlib import Path
 
 from modelable.diagnostics.model import Diagnostic
-from modelable.llm.render import render_model_version
 from modelable.lsp.workspace import LspWorkspaceIndex
-from modelable.parser.ir import ModelVersion
 from modelable.parser.parse import parse_text_to_ir
+from modelable.registry.signature import compute_version_signature
 
 _PINNED_IMPORT_PATTERN = re.compile(
     r"^\s*import\s+domain\s+(?P<domain>[A-Za-z_][A-Za-z0-9_-]*)\s+"
@@ -244,18 +242,12 @@ def _mirror_model_signatures(index: LspWorkspaceIndex) -> dict[tuple[str, str, i
         for domain in source.domains:
             for model_name, versions in domain.models.items():
                 for version in versions:
-                    signatures[(domain.name, model_name, version.version)] = _content_signature(
+                    signatures[(domain.name, model_name, version.version)] = compute_version_signature(
                         domain.name,
                         model_name,
                         version,
                     )
     return signatures
-
-
-def _content_signature(domain_name: str, model_name: str, version: ModelVersion) -> str:
-    sorted_version = version.model_copy(update={"fields": sorted(version.fields, key=lambda field: field.name)})
-    text = render_model_version(domain_name, model_name, sorted_version)
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def _workspace_root(index: LspWorkspaceIndex) -> Path | None:

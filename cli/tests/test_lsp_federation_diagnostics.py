@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 from modelable.compiler.workspace import WorkspaceDocumentSource
-from modelable.llm.render import render_model_version
 from modelable.lsp.federation import build_import_diagnostics
 from modelable.lsp.workspace import LspWorkspaceIndex
 from modelable.parser.ir import AnnKey, FieldDef, ModelKind, ModelVersion, PrimitiveType
+from modelable.registry.signature import compute_version_signature
 
 
 IMPORT_TEXT = """
@@ -102,8 +101,7 @@ def _customer_signature() -> str:
             )
         ],
     )
-    text = render_model_version("customer", "Customer", version)
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return compute_version_signature("customer", "Customer", version)
 
 
 def _index(
