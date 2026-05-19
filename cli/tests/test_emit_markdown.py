@@ -45,6 +45,8 @@ domain customer {
     assert "# Customer v1" in text
     assert "**Domain:** customer" in text
     assert "**Name:** Customer" in text
+    assert "**Artifact ID:** customer.Customer.v1" in text
+    assert "**Artifact:** customer.Customer.v1.md" in text
     assert "**Owner:** customer-team" in text
     assert "**Contact:** customer-team@example.com" in text
     assert "**Description:** Customer identity and lifecycle." in text
@@ -135,6 +137,8 @@ domain billing {
     assert "# BillingCustomer v1" in text
     assert "**Domain:** billing" in text
     assert "**Name:** BillingCustomer" in text
+    assert "**Artifact ID:** billing.BillingCustomer.v1" in text
+    assert "**Artifact:** billing.BillingCustomer.v1.md" in text
     assert "**Owner:** billing-team" in text
     assert "**Contact:** billing-team@example.com" in text
     assert "**Description:** Billing projections over customer data." in text

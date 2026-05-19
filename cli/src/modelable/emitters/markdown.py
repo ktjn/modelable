@@ -60,6 +60,8 @@ def _emit_model(
     lines.append(f"**Domain:** {domain.name}  ")
     lines.append(f"**Name:** {model_name}  ")
     lines.append(f"**Version:** {version.version}  ")
+    lines.append(f"**Artifact ID:** {artifact_id}  ")
+    lines.append(f"**Artifact:** {artifact_id}.md  ")
     if domain.owner:
         lines.append(f"**Owner:** {domain.owner}  ")
     if domain.contact:
@@ -105,6 +107,8 @@ def _emit_projection(
     lines.append(f"**Domain:** {domain.name}  ")
     lines.append(f"**Name:** {projection_name}  ")
     lines.append(f"**Version:** {version.version}  ")
+    lines.append(f"**Artifact ID:** {artifact_id}  ")
+    lines.append(f"**Artifact:** {artifact_id}.md  ")
     if domain.owner:
         lines.append(f"**Owner:** {domain.owner}  ")
     if domain.contact:
