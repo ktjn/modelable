@@ -42,6 +42,21 @@ def test_mvp_smoke_validates_and_compiles_all_phase_1_targets(tmp_path):
         assert typescript_result.exit_code == 0, typescript_result.output
         assert typescript_out.exists()
 
+        resolve_result = runner.invoke(
+            cli,
+            ["resolve", "customer.Customer@2", "--path", str(sample_path)],
+        )
+        assert resolve_result.exit_code == 0, resolve_result.output
+        assert "entity Customer @ 2" in resolve_result.output
+
+        lineage_result = runner.invoke(
+            cli,
+            ["lineage", "billing.BillingCustomer@1", "--path", str(sample_path)],
+        )
+        assert lineage_result.exit_code == 0, lineage_result.output
+        assert "billing.BillingCustomer@1" in lineage_result.output
+        assert "invoiceEmail" in lineage_result.output
+
 
 def test_all_sample_files_parse():
     repo_root = Path(__file__).resolve().parents[2]
