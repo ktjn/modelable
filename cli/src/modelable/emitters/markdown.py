@@ -62,6 +62,8 @@ def _emit_model(
     lines.append(f"**Version:** {version.version}  ")
     if domain.owner:
         lines.append(f"**Owner:** {domain.owner}  ")
+    if domain.contact:
+        lines.append(f"**Contact:** {domain.contact}  ")
     if domain.description:
         lines.append(f"**Description:** {domain.description}  ")
     lines.append(f"**Kind:** {version.model_kind.value}  ")
@@ -105,6 +107,10 @@ def _emit_projection(
     lines.append(f"**Version:** {version.version}  ")
     if domain.owner:
         lines.append(f"**Owner:** {domain.owner}  ")
+    if domain.contact:
+        lines.append(f"**Contact:** {domain.contact}  ")
+    if domain.description:
+        lines.append(f"**Description:** {domain.description}  ")
     lines.append(f"**Kind:** projection  ")
     auto_label = "yes" if version.auto_generated else "no"
     lines.append(f"**Auto generated:** {auto_label}  ")

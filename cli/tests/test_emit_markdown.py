@@ -14,6 +14,7 @@ def test_emit_simple_model(tmp_path):
         """
 domain customer {
   owner: "customer-team"
+  contact: "customer-team@example.com"
   description: "Customer identity and lifecycle."
 
   entity Customer @ 1 (additive) {
@@ -45,6 +46,8 @@ domain customer {
     assert "**Domain:** customer" in text
     assert "**Name:** Customer" in text
     assert "**Owner:** customer-team" in text
+    assert "**Contact:** customer-team@example.com" in text
+    assert "**Description:** Customer identity and lifecycle." in text
     assert "**Kind:** entity" in text
     assert "**Change kind:** additive" in text
     assert "## Fields" in text
@@ -102,6 +105,8 @@ def test_emit_projection_with_lineage(tmp_path):
         """
 domain billing {
   owner: "billing-team"
+  contact: "billing-team@example.com"
+  description: "Billing projections over customer data."
 
   projection BillingCustomer @ 1
     from customer.Customer @ 2 as c
@@ -128,6 +133,9 @@ domain billing {
     assert "# BillingCustomer v1" in text
     assert "**Domain:** billing" in text
     assert "**Name:** BillingCustomer" in text
+    assert "**Owner:** billing-team" in text
+    assert "**Contact:** billing-team@example.com" in text
+    assert "**Description:** Billing projections over customer data." in text
     assert "**Kind:** projection" in text
     assert "**Auto generated:** no" in text
     assert "**Source:** customer.Customer @ 2 as c" in text
