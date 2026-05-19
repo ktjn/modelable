@@ -113,6 +113,27 @@ domain customer {
     assert any("EMIT002" in warning for warning in proj_art.warnings)
 
 
+def test_emit_typescript_warns_on_named_type_field(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    address: Address
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    model_art = next(artifact for artifact in artifacts if artifact.ref == "customer.Customer@1")
+    assert model_art.warnings
+    assert any("EMIT003" in warning for warning in model_art.warnings)
+
+
 def test_emit_typescript_uses_stable_interface_names(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
