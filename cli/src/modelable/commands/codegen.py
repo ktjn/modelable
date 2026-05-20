@@ -3,27 +3,14 @@ from __future__ import annotations
 import click
 from rich.console import Console
 
+from modelable.emitters.shapes import type_shape_catalog
+from modelable.emitters.targets import (
+    get_codegen_target,
+    list_codegen_targets as _list_codegen_targets,
+    list_implemented_codegen_targets,
+)
+
 console = Console()
-
-CODEGEN_FORMATS: list[dict[str, object]] = [
-    {
-        "name": "json-schema",
-        "description": "JSON Schema 2020-12 artifacts with x-modelable extensions",
-        "status": "implemented",
-    },
-    {
-        "name": "markdown",
-        "description": "Markdown documentation with field and lineage tables",
-        "status": "implemented",
-    },
-    {
-        "name": "typescript",
-        "description": "Native TypeScript interfaces emitted from the normalized graph",
-        "status": "implemented",
-    },
-]
-
-_FORMAT_LOOKUP = {entry["name"]: entry for entry in CODEGEN_FORMATS}
 
 
 def register_codegen_commands(cli_group: click.Group) -> None:
@@ -39,26 +26,35 @@ def codegen() -> None:
 def formats() -> None:
     """List supported compilation targets."""
     console.print("Supported code generation formats:")
-    for entry in CODEGEN_FORMATS:
-        console.print(
-            f"- {entry['name']}: {entry['description']} [{entry['status']}]"
-        )
+    for entry in _list_codegen_targets():
+        console.print(f"- {entry.name}: {entry.description} [{entry.status}, {entry.kind}]")
 
 
 @codegen.command(name="types")
 @click.option(
     "--format",
     "format_name",
-    type=click.Choice([entry["name"] for entry in CODEGEN_FORMATS]),
+    type=click.Choice([entry.name for entry in list_implemented_codegen_targets()]),
     default="typescript",
     show_default=True,
     help="Target format to describe.",
 )
 def types(format_name: str) -> None:
     """Show the field-type mapping for a target format."""
-    entry = _FORMAT_LOOKUP[format_name]
+    entry = get_codegen_target(format_name)
+    console.print("Target inventory:")
+    for target in _list_codegen_targets():
+        console.print(f"- {target.name}: {target.status} [{target.kind}]")
+    console.print("")
     console.print(f"{format_name} type mappings")
-    console.print(f"{entry['description']}")
+    console.print(f"{entry.description}")
+    console.print("")
+    console.print("Type shape catalog:")
+    for label, shape, note in type_shape_catalog():
+        line = f"- {label}: {shape.describe()}"
+        if note:
+            line += f" ({note})"
+        console.print(line)
     console.print("")
 
     for source_type, target_type, note in _type_mappings_for(format_name):
@@ -66,6 +62,19 @@ def types(format_name: str) -> None:
         if note:
             line += f" ({note})"
         console.print(line)
+
+
+def list_codegen_targets() -> list[dict[str, object]]:
+    return [
+        {
+            "name": target.name,
+            "description": target.description,
+            "status": target.status,
+            "kind": target.kind,
+            "default_out_dir": str(target.default_out_dir) if target.default_out_dir is not None else None,
+        }
+        for target in _list_codegen_targets()
+    ]
 
 
 def _type_mappings_for(format_name: str) -> list[tuple[str, str, str | None]]:

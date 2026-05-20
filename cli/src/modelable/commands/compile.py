@@ -10,14 +10,15 @@ from modelable.commands.common import console, load_workspace_or_exit
 from modelable.emitters.diagnostics import deferred_target
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.markdown import emit_markdown
+from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
 from modelable.planner.plans import write_plans
 from modelable.registry.index import build_registry
 
 _DEFAULT_OUT_DIRS: dict[str, Path] = {
-    "json-schema": Path("./dist/jsonschema"),
-    "markdown": Path("./dist/docs"),
-    "typescript": Path("./dist/types"),
+    target.name: target.default_out_dir
+    for target in list_implemented_codegen_targets()
+    if target.default_out_dir is not None
 }
 
 
@@ -31,7 +32,7 @@ def register_compile_commands(cli_group: click.Group) -> None:
 @click.option(
     "--target",
     required=True,
-    type=click.Choice(["json-schema", "markdown", "typescript"]),
+    type=click.Choice([target.name for target in list_implemented_codegen_targets()]),
     help="Artifact target to compile after registry indexing.",
 )
 @click.option(
