@@ -1,3 +1,4 @@
+import modelable._pydantic_py314_compat  # noqa: F401 — must precede pydantic model imports
 from pathlib import Path
 import os
 import tempfile
