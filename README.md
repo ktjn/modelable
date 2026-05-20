@@ -68,6 +68,12 @@ code .
 uv run pytest tests/ -v
 ```
 
+### Release notes
+
+- The local codegen boundary now supports TypeScript, C#, Java, Python, Rust, and Go as implemented language targets.
+- `codegen formats` and `codegen types` now report the same implemented target inventory as `compile`.
+- The remaining deferred outputs are the non-language artifact integrations and future framework targets described in the specs.
+
 ### Milestone status
 
 | Milestone | Goal | Status |
@@ -77,7 +83,7 @@ uv run pytest tests/ -v
 | 2 — Registry graph + resolver | SQLite index, cross-file resolution | Complete (lineage edges deferred to M3) |
 | 3 — Planner + auto projections | Auto-projection expansion, CEL, lineage | Complete — CEL validation, lineage extraction, plan docs done |
 | 4 — Compatibility + governance | `diff`, breaking-change detection, PII governance | Not started |
-| 5 — Emitters | JSON Schema, Markdown, TypeScript | Partial — JSON Schema + Markdown done; TypeScript remaining |
+| 5 — Emitters | JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, Go | Complete — all named local codegen backends are implemented |
 | 6 — CLI workflows | `resolve`, `lineage`, `diff`, `codegen`, `scenario` | Complete |
 | 7 — Hardening | Smoke tests, clean-checkout verification | Complete |
 
