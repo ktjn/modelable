@@ -21,6 +21,7 @@ Agents must:
 - Read the relevant specification before editing.
 - Keep changes small enough for meaningful review.
 - Add or update tests with any future code change that affects parser behavior, validation, compatibility checks, lineage, planning, runtime execution, governance, security, or generated artifacts.
+- Add Docker-backed compile smoke tests for any future change that adds or modifies a generated-language backend or generated artifact format, using the latest official compiler/runtime image for each affected language.
 - Validate current latest stable framework, library, CLI, build-tool, and scaffolding choices with a web search against official documentation, package registries, or release pages before adding or changing them.
 - Use the latest stable framework and tool versions by default, unless the specification, compatibility constraints, existing manifests, or explicit user direction require a different version.
 - Record any deliberate use of an older framework or tool version in the final handoff or PR body.
@@ -82,7 +83,7 @@ Test gates are selected by risk and touched surface.
 | `.mdl` samples or fixtures | `uv run modelable validate <path>` from `cli/` when the touched file is expected to be supported by the current parser/compiler; otherwise manual grammar and semantic review with the unsupported construct stated in the handoff |
 | Parser, IR, or semantic validation | Focused parser/validation tests plus the full local compiler gate |
 | Planner, lineage, compatibility, or governance | Focused tests for changed behavior plus representative projection and governance fixtures |
-| Emitters or generated artifacts | Focused emitter tests, deterministic output comparison, and fixture regeneration review |
+| Emitters or generated artifacts | Focused emitter tests, deterministic output comparison, fixture regeneration review, and Docker-backed compile smoke tests for every affected language backend |
 | Runtime, subscriptions, adapters, or materializers | Unit tests, integration or smoke tests for the adapter boundary, and failure-mode coverage |
 | Security, permissions, PII, or restricted fields | Negative tests proving unauthorized exposure is rejected or reported as a governance finding |
 
