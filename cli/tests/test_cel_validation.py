@@ -143,6 +143,22 @@ def test_valid_scalar_functions():
         assert not any("CEL005" in e for e in result.errors), f"{func} should be allowed"
 
 
+def test_slice_is_valid_function():
+    ast, errors = parse_cel("slice(c.code, 0, 3)")
+    assert errors == []
+    assert isinstance(ast, FunctionCall)
+    assert ast.name == "slice"
+    result = validate_cel_expr(ast, _ctx({"c": {"code"}}))
+    assert result.errors == []
+    assert ("c", "code") in result.field_refs
+
+
+def test_slice_lineage_extraction():
+    ast, _ = parse_cel("slice(c.code, 0, 3)")
+    refs = extract_field_refs(ast)
+    assert ("c", "code") in refs
+
+
 def test_runtime_ref_accepted():
     ast, _ = parse_cel("request.sellerId")
     result = validate_cel_expr(ast, _ctx({}))

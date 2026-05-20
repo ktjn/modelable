@@ -331,6 +331,7 @@ _SCALAR_FUNCTIONS = frozenset(
         "contains",
         "startsWith",
         "endsWith",
+        "slice",
         "date",
         "daysBetween",
         "coalesce",

@@ -49,6 +49,7 @@ Phase 1 scalar functions:
 | `upper` | `string -> string` | Locale-insensitive Unicode uppercase |
 | `trim` | `string -> string` | Removes leading and trailing whitespace |
 | `contains` | `string, string -> bool` | Substring check |
+| `slice` | `string, int, int -> string` | Extracts characters from start index (inclusive) to end index (exclusive); negative indices count from the end |
 | `startsWith` | `string, string -> bool` | Prefix check |
 | `endsWith` | `string, string -> bool` | Suffix check |
 | `date` | `timestamp -> date` | UTC date extraction |
