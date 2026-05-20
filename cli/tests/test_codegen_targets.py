@@ -33,7 +33,7 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "implemented",
         "implemented",
         "implemented",
-        "deferred",
+        "implemented",
         "deferred",
         "deferred",
         "deferred",
@@ -55,6 +55,15 @@ def test_codegen_types_expose_target_inventory_and_shape_catalog():
     assert "go" in result.output
     assert "Type shape catalog" in result.output
     assert "array<uuid>" in result.output
+
+
+def test_codegen_types_include_csharp_mappings():
+    result = CliRunner().invoke(cli, ["codegen", "types", "--format", "csharp"])
+
+    assert result.exit_code == 0, result.output
+    assert "csharp type mappings" in result.output
+    assert "Guid" in result.output
+    assert "List<T>" in result.output
 
 
 def test_type_shape_preserves_nullability_and_collections():

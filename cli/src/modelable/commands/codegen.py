@@ -98,6 +98,26 @@ def _type_mappings_for(format_name: str) -> list[tuple[str, str, str | None]]:
             ("object { ... }", '{"type":"object","properties":{...}}', None),
             ("named", '{"type":"object","x-modelable-field":{"namedType":"Name"}}', None),
         ]
+    if format_name == "csharp":
+        return [
+            ("string", "string", "optional fields use string?"),
+            ("bool", "bool", "optional fields use bool?"),
+            ("int", "int", "optional fields use int?"),
+            ("float", "double", "optional fields use double?"),
+            ("uuid", "Guid", "optional fields use Guid?"),
+            ("timestamp", "DateTime", "optional fields use DateTime?"),
+            ("date", "DateOnly", "optional fields use DateOnly?"),
+            ("time", "TimeOnly", "optional fields use TimeOnly?"),
+            ("duration", "TimeSpan", "optional fields use TimeSpan?"),
+            ("binary", "byte[]", "optional fields use byte[]?"),
+            ("decimal(p, s)", "decimal", "optional fields use decimal?"),
+            ("array<T>", "List<T>", None),
+            ("map<K, V>", "Dictionary<string, V>", None),
+            ("ref<T>", "string", "references compile to reference strings"),
+            ("enum(...)", "string", None),
+            ("object { ... }", "{ ... }", "inline objects become nested records"),
+            ("named", "Name", None),
+        ]
     if format_name == "markdown":
         return [
             ("string", "string", "rendered as canonical .mdl text"),

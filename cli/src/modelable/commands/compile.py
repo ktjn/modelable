@@ -8,6 +8,7 @@ import click
 
 from modelable.commands.common import console, load_workspace_or_exit
 from modelable.emitters.diagnostics import deferred_target
+from modelable.emitters.csharp import emit_csharp
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.markdown import emit_markdown
 from modelable.emitters.targets import list_implemented_codegen_targets
@@ -74,6 +75,14 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "typescript":
         artifacts = emit_typescript(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            art.path.write_text(art.content, encoding="utf-8")
+            _print_artifact_result(art)
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "csharp":
+        artifacts = emit_csharp(workspace, output)
         for art in artifacts:
             assert isinstance(art.content, str)
             art.path.write_text(art.content, encoding="utf-8")

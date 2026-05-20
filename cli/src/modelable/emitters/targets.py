@@ -41,9 +41,10 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
     ),
     CodegenTarget(
         name="csharp",
-        description="Deferred first-class C# generated-language target",
-        status="deferred",
+        description="Native C# records emitted from the normalized graph",
+        status="implemented",
         kind="language",
+        default_out_dir=Path("./dist/csharp"),
     ),
     CodegenTarget(
         name="java",
