@@ -1088,7 +1088,7 @@ System-level design decisions have been resolved. Phase-specific documents may s
 - **Internal parser models:** `pydantic`. Not exposed as the external contract format.
 - **First generated artifact:** JSON Schema 2020-12.
 - **Codegen architecture:** Codegen is a first-class extensible boundary. TypeScript generation is delegated to `json-schema-to-typescript` in Phase 1; C#, Java, Python, Rust, and Go are implemented locally as native generated-language backends, and additional future framework targets remain open.
-- **Future generated-language targets:** Additional generated-language targets beyond C#, Java, Python, Rust, and Go remain deferred.
+- **Future generated-language targets:** Additional generated-language targets beyond the implemented C#, Java, Python, Rust, and Go backends remain deferred.
 - **Version scheme:** Integer versions with a required `changeKind: additive | breaking` declaration on publish. See section 8.1.
 - **Composite keys:** Supported in MVP. `identity.key` accepts a string (single field) or a list (composite). See section 3.3.
 - **Version ranges in projections:** Allowed in MVP. The planner resolves to the highest satisfying published version at plan time. See section 8.2.

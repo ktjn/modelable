@@ -44,6 +44,52 @@ def test_mvp_smoke_validates_and_compiles_all_phase_1_targets(tmp_path):
         assert typescript_out.exists()
         assert any(typescript_out.glob("*.ts"))
 
+        csharp_out = cwd / "dist" / "csharp"
+        java_out = cwd / "dist" / "java"
+        python_out = cwd / "dist" / "python"
+        rust_out = cwd / "dist" / "rust"
+        go_out = cwd / "dist" / "go"
+
+        csharp_result = runner.invoke(
+            cli,
+            ["compile", str(sample_path), "--target", "csharp", "--out", str(csharp_out)],
+        )
+        assert csharp_result.exit_code == 0, csharp_result.output
+        assert csharp_out.exists()
+        assert any(csharp_out.rglob("*.cs"))
+
+        java_result = runner.invoke(
+            cli,
+            ["compile", str(sample_path), "--target", "java", "--out", str(java_out)],
+        )
+        assert java_result.exit_code == 0, java_result.output
+        assert java_out.exists()
+        assert any(java_out.rglob("*.java"))
+
+        python_result = runner.invoke(
+            cli,
+            ["compile", str(sample_path), "--target", "python", "--out", str(python_out)],
+        )
+        assert python_result.exit_code == 0, python_result.output
+        assert python_out.exists()
+        assert any(python_out.rglob("*.py"))
+
+        rust_result = runner.invoke(
+            cli,
+            ["compile", str(sample_path), "--target", "rust", "--out", str(rust_out)],
+        )
+        assert rust_result.exit_code == 0, rust_result.output
+        assert rust_out.exists()
+        assert any(rust_out.rglob("*.rs"))
+
+        go_result = runner.invoke(
+            cli,
+            ["compile", str(sample_path), "--target", "go", "--out", str(go_out)],
+        )
+        assert go_result.exit_code == 0, go_result.output
+        assert go_out.exists()
+        assert any(go_out.rglob("*.go"))
+
         docs_out = cwd / "dist" / "docs-wrapper"
         docs_result = runner.invoke(
             cli,
