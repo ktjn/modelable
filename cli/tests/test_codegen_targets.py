@@ -37,7 +37,7 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "implemented",
         "implemented",
         "implemented",
-        "deferred",
+        "implemented",
     ]
 
 
@@ -91,6 +91,15 @@ def test_codegen_types_include_rust_mappings():
     assert "rust type mappings" in result.output
     assert "String" in result.output
     assert "Vec<T>" in result.output
+
+
+def test_codegen_types_include_go_mappings():
+    result = CliRunner().invoke(cli, ["codegen", "types", "--format", "go"])
+
+    assert result.exit_code == 0, result.output
+    assert "go type mappings" in result.output
+    assert "time.Time" in result.output
+    assert "map[string]V" in result.output
 
 
 def test_type_shape_preserves_nullability_and_collections():

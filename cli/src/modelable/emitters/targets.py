@@ -69,9 +69,10 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
     ),
     CodegenTarget(
         name="go",
-        description="Deferred first-class Go generated-language target",
-        status="deferred",
+        description="Native Go structs emitted from the normalized graph",
+        status="implemented",
         kind="language",
+        default_out_dir=Path("./dist/go"),
     ),
 )
 

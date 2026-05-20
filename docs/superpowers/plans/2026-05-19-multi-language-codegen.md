@@ -214,7 +214,7 @@ git commit -m "feat: add python codegen backend"
 - Create: `cli/src/modelable/emitters/rust.py`
 - Test: `cli/tests/test_emit_rust.py`
 
-- [ ] **Step 1: Write failing tests for module names and serde-ready shapes**
+- [x] **Step 1: Write failing tests for module names and serde-ready shapes**
 
 ```python
 def test_emit_rust_model_and_projection(tmp_path):
@@ -224,7 +224,7 @@ def test_emit_rust_model_and_projection(tmp_path):
     assert "Option<" in artifacts[0].content
 ```
 
-- [ ] **Step 2: Implement the Rust emitter**
+- [x] **Step 2: Implement the Rust emitter**
 
 ```python
 def _rust_type(shape: TypeShape) -> str:
@@ -234,12 +234,13 @@ def _rust_type(shape: TypeShape) -> str:
         return f"Vec<{_rust_type(shape.element)}>"
 ```
 
-- [ ] **Step 3: Run the focused Rust tests**
+- [x] **Step 3: Run the focused Rust tests**
 
 Run: `uv run pytest tests/test_emit_rust.py -v`
 Expected: generated structs and enums use serde-friendly naming and optionality.
+- Completed: the Rust emitter now generates deterministic struct modules with pointer optionals and nested type definitions.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add cli/src/modelable/emitters/rust.py cli/tests/test_emit_rust.py
@@ -254,7 +255,7 @@ git commit -m "feat: add rust codegen backend"
 - Create: `cli/src/modelable/emitters/go.py`
 - Test: `cli/tests/test_emit_go.py`
 
-- [ ] **Step 1: Write failing tests for package names and pointer-based optionals**
+- [x] **Step 1: Write failing tests for package names and pointer-based optionals**
 
 ```python
 def test_emit_go_model_and_projection(tmp_path):
@@ -264,7 +265,7 @@ def test_emit_go_model_and_projection(tmp_path):
     assert "*string" in artifacts[0].content or "*bool" in artifacts[0].content
 ```
 
-- [ ] **Step 2: Implement the Go emitter**
+- [x] **Step 2: Implement the Go emitter**
 
 ```python
 def _go_type(shape: TypeShape) -> str:
@@ -274,12 +275,13 @@ def _go_type(shape: TypeShape) -> str:
         return f"[]{_go_type(shape.element)}"
 ```
 
-- [ ] **Step 3: Run the focused Go tests**
+- [x] **Step 3: Run the focused Go tests**
 
 Run: `uv run pytest tests/test_emit_go.py -v`
 Expected: generated packages compile logically with pointer optionals and JSON tags.
+- Completed: the Go emitter now generates deterministic structs with JSON tags, pointer optionals, and nested object types.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add cli/src/modelable/emitters/go.py cli/tests/test_emit_go.py
@@ -378,4 +380,3 @@ Expected: clean repo-wide verification from a fresh checkout.
 - [ ] **Step 3: Write release notes**
 
 Summarize the new generated-language targets, the shared codegen boundary, and any deferred pieces that remain.
-

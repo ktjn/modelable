@@ -159,7 +159,7 @@ Deferred emitters must preserve Modelable semantics when implemented:
 - AsyncAPI: generate event channels from event projections and change event envelopes.
 - ODCS: export data contracts while keeping `.mdl` as source of truth.
 - OpenMetadata: export ownership, lineage, and classification metadata.
-- Generated-language targets beyond TypeScript: C#, Java, Python, Rust, and Go. Rust is now implemented in the local codegen boundary; the remaining targets stay deferred.
+- Generated-language targets beyond TypeScript: C#, Java, Python, Rust, and Go. These targets are implemented in the local codegen boundary; additional future targets stay deferred.
 
 ## 10. Diagnostics
 

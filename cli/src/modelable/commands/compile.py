@@ -12,6 +12,7 @@ from modelable.emitters.csharp import emit_csharp
 from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.markdown import emit_markdown
+from modelable.emitters.go import emit_go
 from modelable.emitters.python import emit_python
 from modelable.emitters.rust import emit_rust
 from modelable.emitters.targets import list_implemented_codegen_targets
@@ -110,6 +111,14 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "rust":
         artifacts = emit_rust(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            _write_artifact_text(art.path, art.content)
+            _print_artifact_result(art)
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "go":
+        artifacts = emit_go(workspace, output)
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)

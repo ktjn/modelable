@@ -626,7 +626,7 @@ modelable docs ./my-models --out ./dist/docs
 
 The following commands are defined in other specifications and will be added to the CLI in later phases. They are collected here to keep the CLI specification complete.
 
-The current `codegen` command only reports the Phase 1 formats implemented in this repository. Future first-class generated-language targets such as C#, Java, Python, and Go remain deferred until their dedicated emitters exist; Rust is now implemented alongside TypeScript in the local codegen boundary.
+The current `codegen` command reports the implemented formats in this repository, including C#, Java, Python, Rust, and Go. Additional future first-class generated-language targets remain deferred until their dedicated emitters exist.
 
 ### 10.1 `inspect` — Inspect compiler-expanded definitions
 

@@ -50,7 +50,7 @@ This plan is intentionally a delivery plan, not a replacement specification. The
 
 - Runtime materialization, subscriptions, stream processing, replay, and dead-letter handling.
 - PostgreSQL, Kafka, CDC, and other runtime adapters.
-- Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI, AsyncAPI, SQL DDL outputs, and generated-language targets beyond TypeScript, including C#, Java, Python, Rust, and Go. Rust is now implemented; Go remains deferred.
+- Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI, AsyncAPI, SQL DDL outputs, and generated-language targets beyond TypeScript, including C#, Java, Python, Rust, and Go. All named generated-language targets are now implemented locally; additional future languages remain deferred.
 - Distributed registry peer sync and consumer write-back execution.
 - LSP implementation is tracked separately in `docs/superpowers/plans/2026-05-18-lsp-workspace-index-diagnostics.md`.
 - AI commands such as `generate`, `describe`, `update`, `transform`, and `suggest-projection`.
@@ -430,7 +430,7 @@ Before claiming MVP complete:
 | CEL implementation | Validate the MVP subset and extract lineage during Phase 1. | A full CEL parser may be larger than needed; keep the supported subset explicit. |
 | Published state | Use version declarations in `.mdl` as immutable published contracts for MVP. | A future publish workflow may add registry state, but must not mutate source files. |
 | Governance findings | Preserve ownership and access metadata in IR, registry metadata, POR metadata, and generated artifacts. Detect structural governance issues as findings rather than claiming to enforce organizational authorization. | Findings must be clear enough for process governance and CI policy wrappers to act on later. |
-| Codegen architecture | Make codegen a first-class extensible boundary. Implement TypeScript in Phase 1 through `json-schema-to-typescript`; treat Java, .NET, Python, Go, and framework targets as future first-class targets, while Rust is implemented locally. | The Phase 1 interface must not bake in TypeScript-only assumptions. |
+| Codegen architecture | Make codegen a first-class extensible boundary. Implement TypeScript in Phase 1 through `json-schema-to-typescript`; treat additional future framework targets as deferred while the named generated-language targets (C#, Java, Python, Rust, Go) are implemented locally. | The Phase 1 interface must not bake in TypeScript-only assumptions. |
 | Samples | Add a minimal `samples/mvp/` happy-path sample for strict acceptance. Use `cli/tests/fixtures/` for governance, compatibility, and edge-case coverage. | The MVP sample must stay approachable while tests still cover meaningful compiler risk. |
 
 ## Out of Scope

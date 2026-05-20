@@ -178,6 +178,26 @@ def _type_mappings_for(format_name: str) -> list[tuple[str, str, str | None]]:
             ("object { ... }", "{ ... }", "inline objects become nested structs"),
             ("named", "Name", None),
         ]
+    if format_name == "go":
+        return [
+            ("string", "string", "optional fields use *string"),
+            ("bool", "bool", "optional fields use *bool"),
+            ("int", "int64", "optional fields use *int64"),
+            ("float", "float64", "optional fields use *float64"),
+            ("uuid", "string", "optional fields use *string"),
+            ("timestamp", "time.Time", "optional fields use *time.Time"),
+            ("date", "time.Time", "optional fields use *time.Time"),
+            ("time", "time.Time", "optional fields use *time.Time"),
+            ("duration", "time.Duration", "optional fields use *time.Duration"),
+            ("binary", "[]byte", "optional fields use *[]byte"),
+            ("decimal(p, s)", "string", "optional fields use *string"),
+            ("array<T>", "[]T", None),
+            ("map<K, V>", "map[string]V", None),
+            ("ref<T>", "string", "references compile to reference strings"),
+            ("enum(...)", "string", None),
+            ("object { ... }", "{ ... }", "inline objects become nested structs"),
+            ("named", "Name", None),
+        ]
     if format_name == "markdown":
         return [
             ("string", "string", "rendered as canonical .mdl text"),
