@@ -1,6 +1,6 @@
 # Language Server Protocol Specification
 
-> **Status:** Approved for a first Phase 1 editor slice focused on diagnostics, workspace indexing, workspace-aware completion, local mirror-aware name completion, and raw-text federation diagnostics, with peer fetch/writeback behavior still deferred.
+> **Status:** Approved for a first Phase 1 editor slice focused on diagnostics, semantic highlighting, workspace indexing, workspace-aware completion, local mirror-aware name completion, and raw-text federation diagnostics, with peer fetch/writeback behavior still deferred.
 >
 > **Scope:** IDE support for `.mdl` files via a `pygls` language server.
 
@@ -18,7 +18,7 @@ Editor
   -> modelable-lsp server
   -> in-memory workspace index
   -> Lark parser + semantic validator
-  -> diagnostics + hover + go-to-definition + completion + references + document symbols + workspace symbols + formatting + rename + code actions
+  -> diagnostics + semantic highlighting + hover + go-to-definition + completion + references + document symbols + workspace symbols + formatting + rename + code actions
 ```
 
 The server maintains an in-memory index per workspace root:
@@ -39,6 +39,7 @@ The index is rebuilt incrementally for changed files and fully rebuilt when `wor
 |---|---:|---|
 | Syntax diagnostics | Yes | — |
 | Semantic diagnostics | Yes | — |
+| Semantic highlighting | Yes | — |
 | Hover for model and field summaries | Yes | — |
 | Go-to-definition for model, projection, and field references | Yes | — |
 | Completion for keywords and annotations | Yes | — |
@@ -124,6 +125,13 @@ Code actions are limited to deterministic quick fixes derived from parser failur
 - inserting `@key` for entity or aggregate models that are missing an identity field
 - returning a single `QuickFix` action for the current buffer snapshot
 
+Semantic highlighting is driven by the LSP `semanticTokens` request and colors the current buffer without changing workspace state. The first slice covers:
+
+- reserved keywords and annotations
+- domain, model, projection, field, and alias declarations
+- strings, numbers, comments, and basic operators
+- deterministic full-document token results only; delta updates are deferred
+
 ## 6. Hover and Definition
 
 Hover content in the first slice includes:
@@ -165,6 +173,7 @@ Import declarations and pinned foreign references are scanned from the current b
 - Hover shows model, projection, and field summaries for the current file.
 - Go-to-definition jumps to the declaration for models, projections, and fields in the current workspace.
 - Completion shows keywords, annotations, and workspace names without mutating state.
+- Semantic highlighting colors keywords, annotations, declarations, fields, aliases, literals, and comments in the current buffer.
 - Reference search finds model, projection, and field usages in the current workspace.
 - Document symbols provide a nested outline for the current file.
 - Workspace symbols search the open workspace without changing state.

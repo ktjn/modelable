@@ -12,6 +12,7 @@ from modelable.lsp.diagnostics import to_lsp_diagnostics
 from modelable.lsp.formatting import build_document_formatting
 from modelable.lsp.hover import build_hover
 from modelable.lsp.references import build_references
+from modelable.lsp.semantic_tokens import build_semantic_tokens, semantic_tokens_legend
 from modelable.lsp.rename import build_prepare_rename, build_rename
 from modelable.lsp.workspace_symbols import build_workspace_symbols
 from modelable.lsp.workspace import LspWorkspaceIndex
@@ -46,6 +47,11 @@ def initialize(ls: ModelableLanguageServer, _params: types.InitializeParams) -> 
                 resolve_provider=False,
             ),
             rename_provider=types.RenameOptions(prepare_provider=True),
+            semantic_tokens_provider=types.SemanticTokensOptions(
+                legend=semantic_tokens_legend(),
+                full=True,
+                range=False,
+            ),
             completion_provider=types.CompletionOptions(
                 trigger_characters=["@", "."],
             ),
@@ -75,7 +81,9 @@ def did_change(ls: ModelableLanguageServer, params: types.DidChangeTextDocumentP
 @server.feature(types.TEXT_DOCUMENT_DID_CLOSE)
 def did_close(ls: ModelableLanguageServer, params: types.DidCloseTextDocumentParams) -> None:
     ls.index.remove_document(params.text_document.uri)
-    ls.publish_diagnostics(params.text_document.uri, [])
+    ls.text_document_publish_diagnostics(
+        types.PublishDiagnosticsParams(uri=params.text_document.uri, diagnostics=[])
+    )
 
 
 @server.feature(types.TEXT_DOCUMENT_HOVER)
@@ -164,6 +172,16 @@ def code_action(
     )
 
 
+@server.feature(types.TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL)
+def semantic_tokens_full(
+    ls: ModelableLanguageServer, params: types.SemanticTokensParams
+) -> types.SemanticTokens | None:
+    source = ls.index.documents.get(params.text_document.uri)
+    if source is None:
+        return types.SemanticTokens(data=[])
+    return build_semantic_tokens(source.text)
+
+
 @server.feature(types.TEXT_DOCUMENT_PREPARE_RENAME)
 def prepare_rename(
     ls: ModelableLanguageServer, params: types.PrepareRenameParams
@@ -192,7 +210,9 @@ def rename(
 def _publish_document_diagnostics(ls: ModelableLanguageServer, uri: str) -> None:
     workspace = ls.index.workspace
     if workspace is None:
-        ls.publish_diagnostics(uri, [])
+        ls.text_document_publish_diagnostics(
+            types.PublishDiagnosticsParams(uri=uri, diagnostics=[])
+        )
         return
     diagnostics = []
     for diagnostic in workspace.errors:
@@ -201,7 +221,9 @@ def _publish_document_diagnostics(ls: ModelableLanguageServer, uri: str) -> None
         elif diagnostic.path == "<workspace>":
             diagnostics.append(diagnostic)
     diagnostics.extend(build_import_diagnostics(ls.index, uri))
-    ls.publish_diagnostics(uri, to_lsp_diagnostics(diagnostics))
+    ls.text_document_publish_diagnostics(
+        types.PublishDiagnosticsParams(uri=uri, diagnostics=to_lsp_diagnostics(diagnostics))
+    )
 
 
 def main() -> None:

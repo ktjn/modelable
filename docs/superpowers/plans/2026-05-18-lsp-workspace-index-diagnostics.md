@@ -156,6 +156,8 @@ uv run pytest tests/test_workspace.py tests/test_lsp_workspace.py
   - `did_close`
   - `workspace/did_change_watched_files` only if needed for the first slice
 
+- [x] Add semantic tokens support for syntax highlighting in the current buffer.
+
 - [x] Wire diagnostics publishing to the shared diagnostic core.
   - Parse diagnostics must use the same message and severity mapping as the CLI.
   - Semantic diagnostics must be emitted with ranges when available.
@@ -173,6 +175,7 @@ uv run pytest tests/test_workspace.py tests/test_lsp_workspace.py
 ```bash
 cd cli
 uv run pytest tests/test_lsp_server.py tests/test_lsp_workspace.py tests/test_diagnostics.py
+uv run pytest tests/test_lsp_semantic_tokens.py
 ```
 
 ## Milestone 4: CLI and Documentation Integration
