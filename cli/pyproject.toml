@@ -33,3 +33,8 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["src/modelable"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
