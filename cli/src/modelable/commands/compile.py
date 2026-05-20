@@ -12,6 +12,7 @@ from modelable.emitters.csharp import emit_csharp
 from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.markdown import emit_markdown
+from modelable.emitters.python import emit_python
 from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
 from modelable.planner.plans import write_plans
@@ -92,6 +93,14 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "java":
         artifacts = emit_java(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            _write_artifact_text(art.path, art.content)
+            _print_artifact_result(art)
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "python":
+        artifacts = emit_python(workspace, output)
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)

@@ -25,9 +25,9 @@ def codegen() -> None:
 @codegen.command(name="formats")
 def formats() -> None:
     """List supported compilation targets."""
-    console.print("Supported code generation formats:")
+    console.print("Supported code generation formats:", markup=False)
     for entry in _list_codegen_targets():
-        console.print(f"- {entry.name}: {entry.description} [{entry.status}, {entry.kind}]")
+        console.print(f"- {entry.name}: {entry.description} [{entry.status}, {entry.kind}]", markup=False)
 
 
 @codegen.command(name="types")
@@ -42,26 +42,26 @@ def formats() -> None:
 def types(format_name: str) -> None:
     """Show the field-type mapping for a target format."""
     entry = get_codegen_target(format_name)
-    console.print("Target inventory:")
+    console.print("Target inventory:", markup=False)
     for target in _list_codegen_targets():
-        console.print(f"- {target.name}: {target.status} [{target.kind}]")
-    console.print("")
-    console.print(f"{format_name} type mappings")
-    console.print(f"{entry.description}")
-    console.print("")
-    console.print("Type shape catalog:")
+        console.print(f"- {target.name}: {target.status} [{target.kind}]", markup=False)
+    console.print("", markup=False)
+    console.print(f"{format_name} type mappings", markup=False)
+    console.print(f"{entry.description}", markup=False)
+    console.print("", markup=False)
+    console.print("Type shape catalog:", markup=False)
     for label, shape, note in type_shape_catalog():
         line = f"- {label}: {shape.describe()}"
         if note:
             line += f" ({note})"
-        console.print(line)
-    console.print("")
+        console.print(line, markup=False)
+    console.print("", markup=False)
 
     for source_type, target_type, note in _type_mappings_for(format_name):
         line = f"- {source_type} -> {target_type}"
         if note:
             line += f" ({note})"
-        console.print(line)
+        console.print(line, markup=False)
 
 
 def list_codegen_targets() -> list[dict[str, object]]:
@@ -137,6 +137,26 @@ def _type_mappings_for(format_name: str) -> list[tuple[str, str, str | None]]:
             ("enum(...)", "String", None),
             ("object { ... }", "{ ... }", "inline objects become nested records"),
             ("named", "NameV1", None),
+        ]
+    if format_name == "python":
+        return [
+            ("string", "str", "optional fields use Optional[str]"),
+            ("bool", "bool", "optional fields use Optional[bool]"),
+            ("int", "int", "optional fields use Optional[int]"),
+            ("float", "float", "optional fields use Optional[float]"),
+            ("uuid", "UUID", "optional fields use Optional[UUID]"),
+            ("timestamp", "datetime", "optional fields use Optional[datetime]"),
+            ("date", "date", "optional fields use Optional[date]"),
+            ("time", "time", "optional fields use Optional[time]"),
+            ("duration", "timedelta", "optional fields use Optional[timedelta]"),
+            ("binary", "bytes", "optional fields use Optional[bytes]"),
+            ("decimal(p, s)", "Decimal", "optional fields use Optional[Decimal]"),
+            ("array<T>", "list[T]", None),
+            ("map<K, V>", "dict[str, V]", None),
+            ("ref<T>", "str", "references compile to reference strings"),
+            ("enum(...)", "str", None),
+            ("object { ... }", "{ ... }", "inline objects become nested dataclasses"),
+            ("named", "Name", None),
         ]
     if format_name == "markdown":
         return [

@@ -55,9 +55,10 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
     ),
     CodegenTarget(
         name="python",
-        description="Deferred first-class Python generated-language target",
-        status="deferred",
+        description="Native Python dataclasses emitted from the normalized graph",
+        status="implemented",
         kind="language",
+        default_out_dir=Path("./dist/python"),
     ),
     CodegenTarget(
         name="rust",
