@@ -36,7 +36,7 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "implemented",
         "implemented",
         "implemented",
-        "deferred",
+        "implemented",
         "deferred",
     ]
 
@@ -82,6 +82,15 @@ def test_codegen_types_include_python_mappings():
     assert "python type mappings" in result.output
     assert "string -> str" in result.output
     assert "list[T]" in result.output
+
+
+def test_codegen_types_include_rust_mappings():
+    result = CliRunner().invoke(cli, ["codegen", "types", "--format", "rust"])
+
+    assert result.exit_code == 0, result.output
+    assert "rust type mappings" in result.output
+    assert "String" in result.output
+    assert "Vec<T>" in result.output
 
 
 def test_type_shape_preserves_nullability_and_collections():

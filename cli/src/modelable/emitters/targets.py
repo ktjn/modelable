@@ -62,9 +62,10 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
     ),
     CodegenTarget(
         name="rust",
-        description="Deferred first-class Rust generated-language target",
-        status="deferred",
+        description="Native Rust structs emitted from the normalized graph",
+        status="implemented",
         kind="language",
+        default_out_dir=Path("./dist/rust"),
     ),
     CodegenTarget(
         name="go",

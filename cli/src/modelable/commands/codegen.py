@@ -158,6 +158,26 @@ def _type_mappings_for(format_name: str) -> list[tuple[str, str, str | None]]:
             ("object { ... }", "{ ... }", "inline objects become nested dataclasses"),
             ("named", "Name", None),
         ]
+    if format_name == "rust":
+        return [
+            ("string", "String", "optional fields use Option<String>"),
+            ("bool", "bool", "optional fields use Option<bool>"),
+            ("int", "i64", "optional fields use Option<i64>"),
+            ("float", "f64", "optional fields use Option<f64>"),
+            ("uuid", "String", "optional fields use Option<String>"),
+            ("timestamp", "String", "optional fields use Option<String>"),
+            ("date", "String", "optional fields use Option<String>"),
+            ("time", "String", "optional fields use Option<String>"),
+            ("duration", "String", "optional fields use Option<String>"),
+            ("binary", "Vec<u8>", "optional fields use Option<Vec<u8>>"),
+            ("decimal(p, s)", "String", "optional fields use Option<String>"),
+            ("array<T>", "Vec<T>", None),
+            ("map<K, V>", "HashMap<String, V>", None),
+            ("ref<T>", "String", "references compile to reference strings"),
+            ("enum(...)", "String", None),
+            ("object { ... }", "{ ... }", "inline objects become nested structs"),
+            ("named", "Name", None),
+        ]
     if format_name == "markdown":
         return [
             ("string", "string", "rendered as canonical .mdl text"),
