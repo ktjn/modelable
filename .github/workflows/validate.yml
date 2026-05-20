@@ -30,7 +30,7 @@ jobs:
           cache-dependency-glob: cli/uv.lock
 
       - name: Install Python
-        run: uv python install 3.14
+        run: uv python install 3.13
 
       - name: Sync dependencies
         run: uv sync --extra dev --frozen
