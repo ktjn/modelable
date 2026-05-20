@@ -118,6 +118,26 @@ def _type_mappings_for(format_name: str) -> list[tuple[str, str, str | None]]:
             ("object { ... }", "{ ... }", "inline objects become nested records"),
             ("named", "Name", None),
         ]
+    if format_name == "java":
+        return [
+            ("string", "String", "optional fields use Optional<String>"),
+            ("bool", "Boolean", "optional fields use Optional<Boolean>"),
+            ("int", "Long", "optional fields use Optional<Long>"),
+            ("float", "Double", "optional fields use Optional<Double>"),
+            ("uuid", "UUID", "optional fields use Optional<UUID>"),
+            ("timestamp", "Instant", "optional fields use Optional<Instant>"),
+            ("date", "LocalDate", "optional fields use Optional<LocalDate>"),
+            ("time", "LocalTime", "optional fields use Optional<LocalTime>"),
+            ("duration", "Duration", "optional fields use Optional<Duration>"),
+            ("binary", "byte[]", "optional fields use Optional<byte[]>"),
+            ("decimal(p, s)", "BigDecimal", "optional fields use Optional<BigDecimal>"),
+            ("array<T>", "List<T>", None),
+            ("map<K, V>", "Map<String, V>", None),
+            ("ref<T>", "String", "references compile to reference strings"),
+            ("enum(...)", "String", None),
+            ("object { ... }", "{ ... }", "inline objects become nested records"),
+            ("named", "NameV1", None),
+        ]
     if format_name == "markdown":
         return [
             ("string", "string", "rendered as canonical .mdl text"),

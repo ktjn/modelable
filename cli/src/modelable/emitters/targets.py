@@ -48,9 +48,10 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
     ),
     CodegenTarget(
         name="java",
-        description="Deferred first-class Java generated-language target",
-        status="deferred",
+        description="Native Java records emitted from the normalized graph",
+        status="implemented",
         kind="language",
+        default_out_dir=Path("./dist/java"),
     ),
     CodegenTarget(
         name="python",

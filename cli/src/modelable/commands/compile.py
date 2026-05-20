@@ -9,6 +9,7 @@ import click
 from modelable.commands.common import console, load_workspace_or_exit
 from modelable.emitters.diagnostics import deferred_target
 from modelable.emitters.csharp import emit_csharp
+from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.markdown import emit_markdown
 from modelable.emitters.targets import list_implemented_codegen_targets
@@ -61,7 +62,7 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
     if target == "json-schema":
         artifacts = emit_json_schema(workspace, output)
         for art in artifacts:
-            art.path.write_text(json.dumps(art.content, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            _write_artifact_text(art.path, json.dumps(art.content, indent=2, ensure_ascii=False) + "\n")
             _print_artifact_result(art)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
@@ -69,7 +70,7 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
         artifacts = emit_markdown(workspace, output)
         for art in artifacts:
             assert isinstance(art.content, str)
-            art.path.write_text(art.content, encoding="utf-8")
+            _write_artifact_text(art.path, art.content)
             _print_artifact_result(art)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
@@ -77,7 +78,7 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
         artifacts = emit_typescript(workspace, output)
         for art in artifacts:
             assert isinstance(art.content, str)
-            art.path.write_text(art.content, encoding="utf-8")
+            _write_artifact_text(art.path, art.content)
             _print_artifact_result(art)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
@@ -85,7 +86,15 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
         artifacts = emit_csharp(workspace, output)
         for art in artifacts:
             assert isinstance(art.content, str)
-            art.path.write_text(art.content, encoding="utf-8")
+            _write_artifact_text(art.path, art.content)
+            _print_artifact_result(art)
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "java":
+        artifacts = emit_java(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            _write_artifact_text(art.path, art.content)
             _print_artifact_result(art)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
@@ -124,3 +133,8 @@ def _print_artifact_result(art) -> None:
     for warning in art.warnings:
         console.print(f"[yellow]WARN[/yellow] {warning}")
     console.print(f"[green]OK[/green] {art.path} [dim]{art.content_hash}[/dim]")
+
+
+def _write_artifact_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")

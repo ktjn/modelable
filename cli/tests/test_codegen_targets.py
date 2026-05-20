@@ -34,7 +34,7 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "implemented",
         "implemented",
         "implemented",
-        "deferred",
+        "implemented",
         "deferred",
         "deferred",
         "deferred",
@@ -63,6 +63,15 @@ def test_codegen_types_include_csharp_mappings():
     assert result.exit_code == 0, result.output
     assert "csharp type mappings" in result.output
     assert "Guid" in result.output
+    assert "List<T>" in result.output
+
+
+def test_codegen_types_include_java_mappings():
+    result = CliRunner().invoke(cli, ["codegen", "types", "--format", "java"])
+
+    assert result.exit_code == 0, result.output
+    assert "java type mappings" in result.output
+    assert "Optional<String>" in result.output
     assert "List<T>" in result.output
 
 
