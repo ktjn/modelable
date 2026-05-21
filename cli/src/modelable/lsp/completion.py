@@ -115,7 +115,7 @@ def build_completion(
         candidates = _workspace_reference_candidates(workspace, prefix)
         candidates.extend(_mirror_reference_candidates(index, prefix))
     elif _alias_context(before_cursor):
-        candidates = _alias_field_candidates(index, source.text, scope, line, prefix)
+        candidates = _alias_field_candidates(index, source.text, scope, line, before_cursor, prefix)
     elif scope is not None and line > scope.line:
         candidates = _field_candidates(workspace, scope, prefix)
     else:
@@ -235,12 +235,13 @@ def _alias_field_candidates(
     text: str,
     scope: _Scope | None,
     line: int,
+    before_cursor: str,
     prefix: str,
 ) -> list[_Candidate]:
     if scope is None:
         return []
 
-    alias_match = _alias_name(text, line)
+    alias_match = _alias_name(before_cursor)
     if alias_match is None:
         return []
 
@@ -411,11 +412,8 @@ def _import_pin_model_candidates(index: LspWorkspaceIndex, before_cursor: str, p
     return _filtered_candidates(candidates, prefix)
 
 
-def _alias_name(text: str, line: int) -> tuple[str, str] | None:
-    lines = text.splitlines()
-    if line < 0 or line >= len(lines):
-        return None
-    match = _ALIAS_FIELD_PATTERN.search(lines[line][: len(lines[line])])
+def _alias_name(before_cursor: str) -> tuple[str, str] | None:
+    match = _ALIAS_FIELD_PATTERN.search(before_cursor)
     if match is None:
         return None
     return match.group("alias"), match.group("prefix") or ""
@@ -451,6 +449,9 @@ def _mirror_or_workspace_fields(
         if domain is not None:
             versions = domain.models.get(model_name, [])
             current = next((item for item in versions if item.version == version), None)
+            if current is None:
+                versions = domain.projections.get(model_name, [])
+                current = next((item for item in versions if item.version == version), None)
             if current is not None:
                 return sorted(field.name for field in current.fields)
     return mirror_field_names(index, domain_name, model_name, version)
