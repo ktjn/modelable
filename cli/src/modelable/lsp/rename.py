@@ -261,10 +261,9 @@ def _add_model_field_renames(
     target: _Target,
     new_name: str,
 ) -> None:
-    declaration = _find_field_location(
+    declaration = _find_source_field_location(
         workspace,
         target.domain,
-        "model",
         target.name,
         target.version,
         target.field_name or "",
@@ -365,6 +364,20 @@ def _projection_aliases(
             resolved.version.version,
         )
     return aliases
+
+
+def _find_source_field_location(
+    workspace,
+    domain_name: str,
+    model_name: str,
+    version: int,
+    field_name: str,
+) -> types.Location | None:
+    for kind in ("model", "projection"):
+        location = _find_field_location(workspace, domain_name, kind, model_name, version, field_name)
+        if location is not None:
+            return location
+    return None
 
 
 def _find_field_location(

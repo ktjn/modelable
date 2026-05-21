@@ -62,3 +62,50 @@ def test_rename_model_field_on_reference_updates_definition_and_usage():
     assert changes[1].range.start.line == 11
     assert changes[1].new_text == "customerKey"
 
+
+PROJECTION_SOURCE_TEXT = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    status: string
+  }
+}
+
+domain catalog {
+  projection ProductReply @ 1
+    from customer.Customer @ 1 as c
+  {
+    productId <- c.customerId
+    statusText <- c.status
+  }
+}
+
+domain storefront {
+  projection ProductDisplay @ 1
+    from catalog.ProductReply @ 1 as p
+  {
+    displayId <- p.productId
+  }
+}
+""".strip("\n")
+
+
+def _projection_index() -> LspWorkspaceIndex:
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", PROJECTION_SOURCE_TEXT)
+    return index
+
+
+def test_rename_projection_field_via_alias_finds_declaration():
+    lines = PROJECTION_SOURCE_TEXT.splitlines()
+    ref_line = next(i for i, l in enumerate(lines) if "displayId <- p.productId" in l)
+    ref_character = lines[ref_line].index("p.productId") + len("p.")
+
+    edit = build_rename(_projection_index(), "inmemory://workspace.mdl", line=ref_line, character=ref_character, new_name="itemId")
+
+    assert edit is not None
+    changes = edit.changes["inmemory://workspace.mdl"]
+    renamed_lines = {change.range.start.line for change in changes}
+    decl_line = next(i for i, l in enumerate(lines) if "productId <- c.customerId" in l)
+    assert decl_line in renamed_lines
+
