@@ -109,3 +109,17 @@ def test_rename_projection_field_via_alias_finds_declaration():
     decl_line = next(i for i, l in enumerate(lines) if "productId <- c.customerId" in l)
     assert decl_line in renamed_lines
 
+
+def test_rename_projection_field_updates_downstream_usages():
+    lines = PROJECTION_SOURCE_TEXT.splitlines()
+    decl_line = next(i for i, l in enumerate(lines) if "productId <- c.customerId" in l)
+    decl_character = lines[decl_line].index("productId") + 1
+
+    edit = build_rename(_projection_index(), "inmemory://workspace.mdl", line=decl_line, character=decl_character, new_name="itemId")
+
+    assert edit is not None
+    changes = edit.changes["inmemory://workspace.mdl"]
+    renamed_lines = {change.range.start.line for change in changes}
+    downstream_line = next(i for i, l in enumerate(lines) if "displayId <- p.productId" in l)
+    assert downstream_line in renamed_lines
+

@@ -324,10 +324,9 @@ def _add_projection_field_renames(
     target: _Target,
     new_name: str,
 ) -> None:
-    declaration = _find_field_location(
+    declaration = _find_source_field_location(
         workspace,
         target.domain,
-        "projection",
         target.name,
         target.version,
         target.field_name or "",
@@ -336,6 +335,50 @@ def _add_projection_field_renames(
         changes.setdefault(declaration.uri, []).append(
             types.TextEdit(range=declaration.range, new_text=new_name)
         )
+
+    for source in workspace.sources:
+        lines = source.text.splitlines()
+        alias_map: dict[str, tuple[str, str, int]] = {}
+        current_domain: str | None = None
+        current_projection: tuple[str, int] | None = None
+        for line_no, line in enumerate(lines):
+            domain_match = _DOMAIN_PATTERN.match(line)
+            if domain_match:
+                current_domain = domain_match.group("name")
+                current_projection = None
+                alias_map = {}
+                continue
+
+            decl_match = _DECL_PATTERN.match(line)
+            if decl_match and current_domain is not None:
+                if decl_match.group("kind") == "projection":
+                    current_projection = (decl_match.group("name"), int(decl_match.group("version")))
+                    alias_map = _projection_aliases(workspace, current_domain, *current_projection)
+                else:
+                    current_projection = None
+                    alias_map = {}
+                continue
+
+            if current_projection is None:
+                continue
+
+            for match in _FIELD_REF_PATTERN.finditer(line):
+                target_model = alias_map.get(match.group("alias"))
+                if target_model is None:
+                    continue
+                if target_model != (target.domain, target.name, target.version):
+                    continue
+                if match.group("field") != target.field_name:
+                    continue
+                changes.setdefault(source.uri, []).append(
+                    types.TextEdit(
+                        range=types.Range(
+                            start=types.Position(line=line_no, character=match.start("field")),
+                            end=types.Position(line=line_no, character=match.end("field")),
+                        ),
+                        new_text=new_name,
+                    )
+                )
 
 
 def _projection_aliases(
