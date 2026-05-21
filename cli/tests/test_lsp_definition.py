@@ -2,6 +2,35 @@ from modelable.lsp.definition import build_definition
 from modelable.lsp.workspace import LspWorkspaceIndex
 
 
+PROJECTION_SOURCE_TEXT = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    status: string
+  }
+}
+
+domain catalog {
+  projection ProductReply @ 1
+    from customer.Customer @ 1 as c
+  {
+    productId <- c.customerId
+    statusText <- c.status
+  }
+}
+
+domain storefront {
+  projection ProductDisplay @ 1
+    from catalog.ProductReply @ 1 as p
+  {
+    displayId <- p.productId
+  }
+}
+""".strip(
+    "\n"
+)
+
+
 def test_definition_on_projection_source_reference_goes_to_model_declaration():
     index = LspWorkspaceIndex()
     index.upsert_document(
@@ -93,3 +122,20 @@ domain billing {
     assert definition.uri == "inmemory://workspace.mdl"
     assert definition.range.start.line == 4
     assert definition.range.start.character == 4
+
+
+def test_definition_on_projection_source_field_reference_goes_to_source_projection_field():
+    lines = PROJECTION_SOURCE_TEXT.splitlines()
+    usage_line = lines.index("    displayId <- p.productId")
+    usage_character = lines[usage_line].index("productId") + 1
+    declaration_line = lines.index("    productId <- c.customerId")
+
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", PROJECTION_SOURCE_TEXT)
+
+    definition = build_definition(index, "inmemory://workspace.mdl", line=usage_line, character=usage_character)
+
+    assert definition is not None
+    assert definition.uri == "inmemory://workspace.mdl"
+    assert definition.range.start.line == declaration_line
+    assert definition.range.start.character == lines[declaration_line].index("productId")

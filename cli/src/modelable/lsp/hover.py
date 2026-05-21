@@ -66,7 +66,7 @@ def build_hover(index: LspWorkspaceIndex, uri: str, line: int, character: int) -
     info = _hover_for_bare_word(workspace, source.text, line, word)
     if info is not None:
         start, end = _word_span(text_line, character)
-        return _hover_from_info(HoverInfo(markdown=info, line=line, start=start, end=end))
+        return _hover_from_info(HoverInfo(markdown=_markdown_block(info), line=line, start=start, end=end))
     return None
 
 
@@ -201,33 +201,15 @@ def _hover_for_field_reference(
             )
         except LookupError:
             break
-        source_domain = next((d for d in workspace.mdl.domains if d.name == resolved.domain_name), None)
-        if source_domain is None:
-            break
-        source_versions = source_domain.models.get(resolved.model_name, [])
-        source_version = next((item for item in source_versions if item.version == resolved.version.version), None)
-        if source_version is None:
-            break
-        source_field = next((item for item in source_version.fields if item.name == field_name), None)
-        if source_field is None:
-            break
-        flags = []
-        if source_field.is_key:
-            flags.append("key")
-        if source_field.is_pii:
-            flags.append("pii")
-        if source_field.classification:
-            flags.append(f"classification={source_field.classification.value}")
-        suffix = f" [{', '.join(flags)}]" if flags else ""
-        return HoverInfo(
-            markdown=_markdown_block(
-                f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}.{source_field.name}\n"
-                f"type: {source_field.type.kind}\n"
-                f"optional: {'yes' if source_field.optional else 'no'}{suffix}"
-            ),
-            line=line,
-            start=start,
-            end=end,
+        return _hover_for_source_field(
+            workspace,
+            resolved.domain_name,
+            resolved.model_name,
+            resolved.version.version,
+            field_name,
+            line,
+            start,
+            end,
         )
     field = next((item for item in projection_version.fields if item.name == field_name), None)
     if field is None:
@@ -241,6 +223,66 @@ def _hover_for_field_reference(
         start=start,
         end=end,
     )
+
+
+def _hover_for_source_field(
+    workspace,
+    domain_name: str,
+    model_name: str,
+    version: int,
+    field_name: str,
+    line: int,
+    start: int,
+    end: int,
+) -> HoverInfo | None:
+    source_version = _source_version(workspace, domain_name, model_name, version)
+    if source_version is None:
+        return None
+    source_field = next((item for item in getattr(source_version, "fields", []) if item.name == field_name), None)
+    if source_field is None:
+        return None
+
+    if getattr(source_field, "mapping", None) is not None:
+        return HoverInfo(
+            markdown=_markdown_block(
+                f"{domain_name}.{model_name}@{version}.{source_field.name}\n"
+                f"mapping: {_mapping_text(source_field)}"
+            ),
+            line=line,
+            start=start,
+            end=end,
+        )
+
+    flags = []
+    if source_field.is_key:
+        flags.append("key")
+    if source_field.is_pii:
+        flags.append("pii")
+    if source_field.classification:
+        flags.append(f"classification={source_field.classification.value}")
+    suffix = f" [{', '.join(flags)}]" if flags else ""
+    return HoverInfo(
+        markdown=_markdown_block(
+            f"{domain_name}.{model_name}@{version}.{source_field.name}\n"
+            f"type: {source_field.type.kind}\n"
+            f"optional: {'yes' if source_field.optional else 'no'}{suffix}"
+        ),
+        line=line,
+        start=start,
+        end=end,
+    )
+
+
+def _source_version(workspace, domain_name: str, model_name: str, version: int):
+    domain = next((d for d in workspace.mdl.domains if d.name == domain_name), None)
+    if domain is None:
+        return None
+    versions = domain.models.get(model_name, [])
+    source_version = next((item for item in versions if item.version == version), None)
+    if source_version is not None:
+        return source_version
+    versions = domain.projections.get(model_name, [])
+    return next((item for item in versions if item.version == version), None)
 
 
 def _hover_from_info(info: HoverInfo) -> types.Hover:
@@ -259,7 +301,7 @@ def _current_scope(text: str, line: int) -> tuple[str, str, str, int] | None:
     current_kind: str | None = None
     current_name: str | None = None
     current_version: int | None = None
-    for index, item in enumerate(lines[: line + 1]):
+    for item in lines[: line + 1]:
         domain_match = _DOMAIN_PATTERN.match(item)
         if domain_match:
             current_domain = domain_match.group("name")

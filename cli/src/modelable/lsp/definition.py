@@ -137,7 +137,7 @@ def _definition_for_field_reference(
             )
         except LookupError:
             break
-        return _definition_for_model_field(
+        return _definition_for_source_field(
             workspace,
             resolved.domain_name,
             resolved.model_name,
@@ -169,10 +169,29 @@ def _definition_for_model_field(
     version: int,
     field_name: str,
 ) -> types.Location | None:
+    return _definition_for_source_field(workspace, domain_name, model_name, version, field_name)
+
+
+def _definition_for_source_field(
+    workspace,
+    domain_name: str,
+    model_name: str,
+    version: int,
+    field_name: str,
+) -> types.Location | None:
     for source in workspace.sources:
-        location = _find_field_location(source.uri, source.text, domain_name, "model", model_name, version, field_name)
-        if location is not None:
-            return location
+        for kind in ("model", "projection"):
+            location = _find_field_location(
+                source.uri,
+                source.text,
+                domain_name,
+                kind,
+                model_name,
+                version,
+                field_name,
+            )
+            if location is not None:
+                return location
     return None
 
 
@@ -183,19 +202,7 @@ def _definition_for_projection_field(
     version: int,
     field_name: str,
 ) -> types.Location | None:
-    for source in workspace.sources:
-        location = _find_field_location(
-            source.uri,
-            source.text,
-            domain_name,
-            "projection",
-            projection_name,
-            version,
-            field_name,
-        )
-        if location is not None:
-            return location
-    return None
+    return _definition_for_source_field(workspace, domain_name, projection_name, version, field_name)
 
 
 def _find_decl_location(

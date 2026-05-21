@@ -73,7 +73,7 @@ def build_references(
         return _references_for_decl(workspace, domain_name, kind, name, version, include_declaration)
 
     if kind == "model":
-        return _references_for_model_field(
+        return _references_for_source_field(
             workspace,
             domain_name,
             name,
@@ -131,7 +131,7 @@ def _references_for_field_reference(
 
     domain_name, kind, name, version = scope
     if kind == "model":
-        return _references_for_model_field(
+        return _references_for_source_field(
             workspace,
             domain_name,
             name,
@@ -159,7 +159,7 @@ def _references_for_field_reference(
             )
         except LookupError:
             continue
-        return _references_for_model_field(
+        return _references_for_source_field(
             workspace,
             resolved.domain_name,
             resolved.model_name,
@@ -197,7 +197,7 @@ def _references_for_decl(
     return _dedupe_locations(locations)
 
 
-def _references_for_model_field(
+def _references_for_source_field(
     workspace,
     domain_name: str,
     model_name: str,
@@ -207,14 +207,7 @@ def _references_for_model_field(
 ) -> list[types.Location]:
     locations: list[types.Location] = []
     if include_declaration:
-        decl = _find_field_location(
-            workspace,
-            domain_name,
-            "model",
-            model_name,
-            version,
-            field_name,
-        )
+        decl = _find_source_field_location(workspace, domain_name, model_name, version, field_name)
         if decl is not None:
             locations.append(decl)
 
@@ -276,17 +269,14 @@ def _references_for_projection_field(
     field_name: str,
     include_declaration: bool,
 ) -> list[types.Location]:
-    location = _find_field_location(
+    return _references_for_source_field(
         workspace,
         domain_name,
-        "projection",
         projection_name,
         version,
         field_name,
+        include_declaration,
     )
-    if location is None:
-        return []
-    return [location] if include_declaration else []
 
 
 def _reference_locations_for_decl(
@@ -346,14 +336,43 @@ def _projection_aliases(
 
 
 def _field_exists(workspace, domain_name: str, model_name: str, version: int, field_name: str) -> bool:
+    source_version = _source_version(workspace, domain_name, model_name, version)
+    if source_version is None:
+        return False
+    return any(field.name == field_name for field in getattr(source_version, "fields", []))
+
+
+def _source_version(workspace, domain_name: str, model_name: str, version: int):
     domain = next((item for item in workspace.mdl.domains if item.name == domain_name), None)
     if domain is None:
-        return False
+        return None
     versions = domain.models.get(model_name, [])
-    model_version = next((item for item in versions if item.version == version), None)
-    if model_version is None:
-        return False
-    return any(field.name == field_name for field in model_version.fields)
+    source_version = next((item for item in versions if item.version == version), None)
+    if source_version is not None:
+        return source_version
+    versions = domain.projections.get(model_name, [])
+    return next((item for item in versions if item.version == version), None)
+
+
+def _find_source_field_location(
+    workspace,
+    domain_name: str,
+    model_name: str,
+    version: int,
+    field_name: str,
+) -> types.Location | None:
+    for kind in ("model", "projection"):
+        location = _find_field_location(
+            workspace,
+            domain_name,
+            kind,
+            model_name,
+            version,
+            field_name,
+        )
+        if location is not None:
+            return location
+    return None
 
 
 def _find_decl_location(
