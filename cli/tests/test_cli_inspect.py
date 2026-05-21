@@ -96,3 +96,46 @@ def test_inspect_auto_supports_version_ranges(tmp_path):
     assert result.exit_code == 0
     assert "catalog.ProductDb@1" in result.output
     assert "name" in result.output
+
+
+def test_inspect_model_without_auto(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text("""
+    domain catalog {
+      entity Product @ 1 (additive) {
+        @key productId: uuid
+        name: string
+      }
+    }
+    """)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["inspect", "catalog.Product@1", "--path", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "Product" in result.output
+    assert "productId" in result.output
+    assert "name" in result.output
+
+
+def test_inspect_projection_without_auto(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text("""
+    domain customer {
+      entity Customer @ 1 (additive) {
+        @key customerId: uuid
+        email?: string
+      }
+    }
+
+    domain billing {
+      projection BillingCustomer @ 1
+        from customer.Customer @ 1 as c
+      {
+        billingId <- c.customerId
+      }
+    }
+    """)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["inspect", "billing.BillingCustomer@1", "--path", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "BillingCustomer" in result.output
+    assert "billingId" in result.output

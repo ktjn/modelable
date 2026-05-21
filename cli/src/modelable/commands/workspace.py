@@ -208,8 +208,20 @@ def inspect(ref: str, auto: bool, path: Path) -> None:
                 console.print(f"  {field.name}")
         sys.exit(0)
 
-    console.print("[yellow]Inspect without --auto is not yet implemented.[/yellow]")
-    sys.exit(0)
+    model_versions = domain.models.get(model_name, [])
+    model_version = next((mv for mv in model_versions if mv.version == version), None)
+    if model_version is not None:
+        console.print(render_model_version(domain.name, model_name, model_version, domain.owner, domain.description), end="")
+        sys.exit(0)
+
+    projection_versions = domain.projections.get(model_name, [])
+    projection_version = next((pv for pv in projection_versions if pv.version == version), None)
+    if projection_version is not None:
+        console.print(render_projection_version(domain.name, model_name, projection_version, domain.owner, domain.description), end="")
+        sys.exit(0)
+
+    console.print(f"[red]ERROR[/red] '{model_name}@{version}' not found in domain '{domain.name}'.")
+    sys.exit(1)
 
 
 def _parse_entity_ref_version_spec(ref: str) -> tuple[str, str, int | object]:
