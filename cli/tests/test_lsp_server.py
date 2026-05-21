@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from importlib import import_module
+from unittest.mock import MagicMock, patch
 
 from lsprotocol import types
 
@@ -144,3 +146,52 @@ def test_publish_document_diagnostics_publishes_workspace_and_import_findings(mo
         "workspace error",
         "import warning",
     ]
+
+
+def test_did_change_debounce_cancels_previous_task():
+    """Rapid successive did_change calls produce a single diagnostics publish after the delay."""
+
+    async def _run():
+        publish_calls = []
+
+        class _FakeIndex:
+            workspace = None
+            documents: dict = {}
+
+            def upsert_document(self, uri, text):
+                pass
+
+        class _FakeDocument:
+            uri = "inmemory://test.mdl"
+            source = "domain x {}"
+
+        class _FakeWorkspace:
+            def get_text_document(self, uri):
+                return _FakeDocument()
+
+        class _FakeServer:
+            index = _FakeIndex()
+            _debounce_tasks: dict = {}
+            workspace = _FakeWorkspace()
+
+            def text_document_publish_diagnostics(self, params):
+                publish_calls.append(params)
+
+        ls = _FakeServer()
+
+        with patch.object(lsp_server, "_publish_document_diagnostics", side_effect=lambda _ls, _uri: publish_calls.append(_uri)):
+            params = types.DidChangeTextDocumentParams(
+                text_document=types.VersionedTextDocumentIdentifier(uri="inmemory://test.mdl", version=1),
+                content_changes=[types.TextDocumentContentChangeWholeDocument(text="domain x {}")],
+            )
+            await lsp_server.did_change(ls, params)
+            await lsp_server.did_change(ls, params)
+            await lsp_server.did_change(ls, params)
+
+            assert len(publish_calls) == 0
+
+            await asyncio.sleep(lsp_server._DEBOUNCE_DELAY + 0.05)
+
+            assert len(publish_calls) == 1
+
+    asyncio.run(_run())

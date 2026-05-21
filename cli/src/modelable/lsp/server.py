@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from pygls.lsp.server import LanguageServer
 from lsprotocol import types
 
@@ -21,10 +23,14 @@ from modelable.lsp.inlay_hints import build_inlay_hints
 from modelable.lsp.workspace import LspWorkspaceIndex
 
 
+_DEBOUNCE_DELAY = 0.2
+
+
 class ModelableLanguageServer(LanguageServer):
     def __init__(self) -> None:
         super().__init__("modelable-lsp", "0.1.0")
         self.index = LspWorkspaceIndex()
+        self._debounce_tasks: dict[str, asyncio.Task] = {}
 
 
 server = ModelableLanguageServer()
@@ -78,10 +84,20 @@ def did_open(ls: ModelableLanguageServer, params: types.DidOpenTextDocumentParam
 
 
 @server.feature(types.TEXT_DOCUMENT_DID_CHANGE)
-def did_change(ls: ModelableLanguageServer, params: types.DidChangeTextDocumentParams) -> None:
+async def did_change(ls: ModelableLanguageServer, params: types.DidChangeTextDocumentParams) -> None:
     document = ls.workspace.get_text_document(params.text_document.uri)
-    ls.index.upsert_document(document.uri, document.source)
-    _publish_document_diagnostics(ls, document.uri)
+    uri = document.uri
+    ls.index.upsert_document(uri, document.source)
+
+    existing = ls._debounce_tasks.get(uri)
+    if existing is not None and not existing.done():
+        existing.cancel()
+
+    async def _delayed_publish() -> None:
+        await asyncio.sleep(_DEBOUNCE_DELAY)
+        _publish_document_diagnostics(ls, uri)
+
+    ls._debounce_tasks[uri] = asyncio.ensure_future(_delayed_publish())
 
 
 @server.feature(types.TEXT_DOCUMENT_DID_CLOSE)
