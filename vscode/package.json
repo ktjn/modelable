@@ -29,6 +29,18 @@
         ],
         "configuration": "./language-configuration.json"
       }
+    ],
+    "configurationDefaults": {
+      "[mdl]": {
+        "editor.semanticHighlighting.enabled": true
+      }
+    },
+    "grammars": [
+      {
+        "language": "mdl",
+        "scopeName": "source.mdl",
+        "path": "./syntaxes/modelable.tmLanguage.json"
+      }
     ]
   },
   "dependencies": {

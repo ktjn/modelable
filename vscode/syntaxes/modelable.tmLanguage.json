@@ -1,0 +1,149 @@
+{
+  "name": "Modelable",
+  "scopeName": "source.mdl",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#annotations"
+    },
+    {
+      "include": "#decls"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#primitive-types"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#operators"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.mdl",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.mdl",
+          "match": "\"(?:[^\"\\\\]|\\\\.)*\""
+        }
+      ]
+    },
+    "annotations": {
+      "patterns": [
+        {
+          "name": "meta.annotation.mdl",
+          "match": "@[A-Za-z_][A-Za-z0-9_-]*(?:\\([^\\)]*\\))?"
+        }
+      ]
+    },
+    "decls": {
+      "patterns": [
+        {
+          "name": "meta.declaration.domain.mdl",
+          "match": "^(\\s*)(domain)(\\s+)([A-Za-z_][A-Za-z0-9_]*)(\\s*\\{)?$",
+          "captures": {
+            "2": { "name": "keyword.declaration.domain.mdl" },
+            "4": { "name": "entity.name.type.domain.mdl" },
+            "5": { "name": "punctuation.section.block.begin.mdl" }
+          }
+        },
+        {
+          "name": "meta.declaration.model.mdl",
+          "match": "^(\\s*)(entity|aggregate|event|value|projection)(\\s+)([A-Za-z_][A-Za-z0-9_]*)(\\s*@\\s*)(\\d+)",
+          "captures": {
+            "2": { "name": "keyword.declaration.model.mdl" },
+            "4": { "name": "entity.name.type.declaration.mdl" },
+            "6": { "name": "constant.numeric.version.mdl" }
+          }
+        },
+        {
+          "name": "meta.field.declaration.mdl",
+          "match": "^(\\s*)(?:@[A-Za-z_][A-Za-z0-9_-]*(?:\\([^\\)]*\\))?\\s+)*([A-Za-z_][A-Za-z0-9_]*)(\\??)(\\s*:)",
+          "captures": {
+            "2": { "name": "variable.other.field.mdl" },
+            "3": { "name": "punctuation.modifier.optional.mdl" },
+            "4": { "name": "punctuation.separator.key-value.mdl" }
+          }
+        },
+        {
+          "name": "meta.projection.source.mdl",
+          "match": "^(\\s*)(left\\s+)?(from|join)(\\s+)([A-Za-z_][A-Za-z0-9_.-]*)(\\s*@\\s*)(\\d+)(\\s+as\\s+)([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "2": { "name": "keyword.other.join-modifier.mdl" },
+            "3": { "name": "keyword.control.source.mdl" },
+            "5": { "name": "entity.name.namespace.reference.mdl" },
+            "7": { "name": "constant.numeric.version.mdl" },
+            "8": { "name": "keyword.other.alias.mdl" },
+            "9": { "name": "variable.other.alias.mdl" }
+          }
+        },
+        {
+          "name": "meta.projection.field.direct.mdl",
+          "match": "^(\\s*)(?:@[A-Za-z_][A-Za-z0-9_-]*(?:\\([^\\)]*\\))?\\s+)*([A-Za-z_][A-Za-z0-9_]*)(\\s*<-\\s*)([A-Za-z_][A-Za-z0-9_]*)\\.([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "2": { "name": "variable.other.field.mdl" },
+            "3": { "name": "keyword.operator.mapping.mdl" },
+            "4": { "name": "variable.other.alias.mdl" },
+            "5": { "name": "variable.other.property.mdl" }
+          }
+        },
+        {
+          "name": "meta.projection.field.computed.mdl",
+          "match": "^(\\s*)(?:@[A-Za-z_][A-Za-z0-9_-]*(?:\\([^\\)]*\\))?\\s+)*([A-Za-z_][A-Za-z0-9_]*)(\\s*=)",
+          "captures": {
+            "2": { "name": "variable.other.field.mdl" },
+            "3": { "name": "keyword.operator.assignment.mdl" }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.mdl",
+          "match": "\\b(domain|entity|aggregate|event|value|projection|from|join|as|where|group|by|generate|access|binding|workspace|subscription|materialisation|left|on|cardinality|import|registry|project|read|subscribe|write|transfer|manage_access|derive|redact|additive|breaking|docs|openapi|typescript|avro|protobuf|sql|jsonschema|asyncapi|mysql|postgres|sqlite|clickhouse|ai|consumer|owner|contact|description|peers)\\b"
+        }
+      ]
+    },
+    "primitive-types": {
+      "patterns": [
+        {
+          "name": "support.type.primitive.mdl",
+          "match": "\\b(string|int|float|bool|date|time|timestamp|uuid|duration|binary|decimal|array|map|object|enum|ref)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.mdl",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.mdl",
+          "match": "<-|=|@|\\{|\\}|\\(|\\)|\\[|\\]|:|,|\\.|#|>"
+        }
+      ]
+    }
+  }
+}
