@@ -14,6 +14,9 @@ _DECL_PATTERN = re.compile(
 _FIELD_PATTERN = re.compile(
     r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\??\s*:"
 )
+_PROJECTION_FIELD_PATTERN = re.compile(
+    r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:<-|=)"
+)
 
 
 def build_document_symbols(
@@ -71,7 +74,7 @@ def build_document_symbols(
         if current_decl is None:
             continue
 
-        field_match = _FIELD_PATTERN.match(line)
+        field_match = _FIELD_PATTERN.match(line) or _PROJECTION_FIELD_PATTERN.match(line)
         if field_match:
             field_symbol = _make_field_symbol(
                 line_no,
