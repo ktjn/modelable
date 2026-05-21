@@ -139,7 +139,7 @@ def update(ref: str, instruction: tuple[str, ...], path: Path, output: Path | No
 @click.command()
 @click.argument("ref")
 @click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
-@click.option("--to", "target", type=click.Choice(["json-schema", "markdown", "typescript"]), required=True)
+@click.option("--to", "target", type=click.Choice(["json-schema", "markdown", "typescript", "csharp", "java", "python", "rust", "go"]), required=True)
 @click.option("--out", "output", type=click.Path(path_type=Path), default=None)
 def transform(ref: str, path: Path, target: str, output: Path | None) -> None:
     """Transform a model or projection into another artifact format."""

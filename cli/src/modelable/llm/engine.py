@@ -6,8 +6,13 @@ from os import environ
 from pathlib import Path
 
 from modelable.compiler.workspace import load_workspace
+from modelable.emitters.csharp import emit_csharp
+from modelable.emitters.go import emit_go
+from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.markdown import emit_markdown
+from modelable.emitters.python import emit_python
+from modelable.emitters.rust import emit_rust
 from modelable.emitters.typescript import emit_typescript
 from modelable.llm.context import (
     build_model_summary,
@@ -93,18 +98,22 @@ def transform_ref_to_target(path: Path, ref: str, target: str) -> AssistantResul
         mv = next((item for item in domain.models[model_name] if item.version == version), None)
         if mv is None:
             raise ValueError(f"Unknown model version: {ref}")
-        if target == "typescript":
-            artifacts = emit_typescript(workspace, Path(".modelable/types"))
+        _EMITTERS = {
+            "typescript": (emit_typescript, Path(".modelable/types"), False),
+            "json-schema": (emit_json_schema, Path(".modelable/jsonschema"), True),
+            "markdown": (emit_markdown, Path(".modelable/docs"), False),
+            "csharp": (emit_csharp, Path(".modelable/csharp"), False),
+            "java": (emit_java, Path(".modelable/java"), False),
+            "python": (emit_python, Path(".modelable/python"), False),
+            "rust": (emit_rust, Path(".modelable/rust"), False),
+            "go": (emit_go, Path(".modelable/go"), False),
+        }
+        if target in _EMITTERS:
+            emitter_fn, out_path, is_json = _EMITTERS[target]
+            artifacts = emitter_fn(workspace, out_path)
             art = next(a for a in artifacts if a.ref == ref)
-            return AssistantResult(content=str(art.content), warnings=art.warnings)
-        if target == "json-schema":
-            artifacts = emit_json_schema(workspace, Path(".modelable/jsonschema"))
-            art = next(a for a in artifacts if a.ref == ref)
-            return AssistantResult(content=_json_dump(art.content), warnings=art.warnings)
-        if target == "markdown":
-            artifacts = emit_markdown(workspace, Path(".modelable/docs"))
-            art = next(a for a in artifacts if a.ref == ref)
-            return AssistantResult(content=str(art.content), warnings=art.warnings)
+            content = _json_dump(art.content) if is_json else str(art.content)
+            return AssistantResult(content=content, warnings=art.warnings)
     raise ValueError(f"Unsupported target: {target}")
 
 

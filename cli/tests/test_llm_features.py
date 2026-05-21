@@ -325,3 +325,59 @@ domain billing {
     updated = mdl.read_text(encoding="utf-8")
     assert "displayName <- c.name" in updated
     assert "status <- c.name" in updated
+
+
+_TRANSFORM_MDL = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+"""
+
+_TRANSFORM_REF = "customer.Customer@1"
+
+
+def _transform_tmp(tmp_path):
+    (tmp_path / "customer.mdl").write_text(_TRANSFORM_MDL, encoding="utf-8")
+    return tmp_path
+
+
+def test_transform_csharp(tmp_path):
+    from modelable.llm.engine import transform_ref_to_target
+    result = transform_ref_to_target(_transform_tmp(tmp_path), _TRANSFORM_REF, "csharp")
+    assert "Customer" in result.content
+    assert "customerId" in result.content.lower() or "CustomerId" in result.content
+
+
+def test_transform_java(tmp_path):
+    from modelable.llm.engine import transform_ref_to_target
+    result = transform_ref_to_target(_transform_tmp(tmp_path), _TRANSFORM_REF, "java")
+    assert "Customer" in result.content
+
+
+def test_transform_python(tmp_path):
+    from modelable.llm.engine import transform_ref_to_target
+    result = transform_ref_to_target(_transform_tmp(tmp_path), _TRANSFORM_REF, "python")
+    assert "Customer" in result.content
+
+
+def test_transform_rust(tmp_path):
+    from modelable.llm.engine import transform_ref_to_target
+    result = transform_ref_to_target(_transform_tmp(tmp_path), _TRANSFORM_REF, "rust")
+    assert "Customer" in result.content
+
+
+def test_transform_go(tmp_path):
+    from modelable.llm.engine import transform_ref_to_target
+    result = transform_ref_to_target(_transform_tmp(tmp_path), _TRANSFORM_REF, "go")
+    assert "Customer" in result.content
+
+
+def test_transform_cli_csharp(tmp_path):
+    _transform_tmp(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["transform", _TRANSFORM_REF, "--to", "csharp", "--path", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert "Customer" in result.output
