@@ -15,6 +15,9 @@ from modelable.lsp.references import build_references
 from modelable.lsp.semantic_tokens import build_semantic_tokens, semantic_tokens_legend
 from modelable.lsp.rename import build_prepare_rename, build_rename
 from modelable.lsp.workspace_symbols import build_workspace_symbols
+from modelable.lsp.highlight import build_document_highlight
+from modelable.lsp.folding import build_folding_ranges
+from modelable.lsp.inlay_hints import build_inlay_hints
 from modelable.lsp.workspace import LspWorkspaceIndex
 
 
@@ -52,6 +55,9 @@ def initialize(ls: ModelableLanguageServer, _params: types.InitializeParams) -> 
                 full=True,
                 range=False,
             ),
+            document_highlight_provider=True,
+            folding_range_provider=True,
+            inlay_hint_provider=types.InlayHintOptions(resolve_provider=False),
             completion_provider=types.CompletionOptions(
                 trigger_characters=["@", "."],
             ),
@@ -205,6 +211,32 @@ def rename(
         params.position.character,
         params.new_name,
     )
+
+
+@server.feature(types.TEXT_DOCUMENT_DOCUMENT_HIGHLIGHT)
+def document_highlight(
+    ls: ModelableLanguageServer, params: types.DocumentHighlightParams
+) -> list[types.DocumentHighlight] | None:
+    return build_document_highlight(
+        ls.index,
+        params.text_document.uri,
+        params.position.line,
+        params.position.character,
+    )
+
+
+@server.feature(types.TEXT_DOCUMENT_FOLDING_RANGE)
+def folding_range(
+    ls: ModelableLanguageServer, params: types.FoldingRangeParams
+) -> list[types.FoldingRange] | None:
+    return build_folding_ranges(ls.index, params.text_document.uri)
+
+
+@server.feature(types.TEXT_DOCUMENT_INLAY_HINT)
+def inlay_hint(
+    ls: ModelableLanguageServer, params: types.InlayHintParams
+) -> list[types.InlayHint] | None:
+    return build_inlay_hints(ls.index, params.text_document.uri, params.range)
 
 
 def _publish_document_diagnostics(ls: ModelableLanguageServer, uri: str) -> None:
