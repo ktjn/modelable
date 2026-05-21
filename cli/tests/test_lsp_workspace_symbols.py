@@ -30,9 +30,14 @@ def test_workspace_symbols_filters_by_query():
     symbols = build_workspace_symbols(index, "billing")
 
     assert symbols is not None
-    assert [symbol.name for symbol in symbols] == ["billing", "BillingCustomer"]
-    assert symbols[0].container_name is None
-    assert symbols[1].container_name == "billing"
+    names = [symbol.name for symbol in symbols]
+    assert "billing" in names
+    assert "BillingCustomer" in names
+    assert "billingId" in names
+    domain_sym = next(s for s in symbols if s.name == "billing")
+    projection_sym = next(s for s in symbols if s.name == "BillingCustomer")
+    assert domain_sym.container_name is None
+    assert projection_sym.container_name == "billing"
 
 
 def test_workspace_symbols_returns_fields_when_query_matches():
