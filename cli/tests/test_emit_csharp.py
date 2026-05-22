@@ -98,3 +98,65 @@ domain customer {
     assert "public sealed record CustomerCustomerV1" in text
     assert "public required Guid CustomerId { get; init; }" in text
     assert "public string? Nickname { get; init; }" in text
+
+
+def test_emit_csharp_warns_on_computed_projection_field(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    displayName = c.name + "!"
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    from modelable.compiler.workspace import load_workspace
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_csharp(workspace, tmp_path / "out")
+    proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@1")
+    assert proj_art.warnings
+    assert any("EMIT002" in w for w in proj_art.warnings)
+
+
+def test_emit_csharp_projection_uses_source_field_types(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: int
+    email: string
+  }
+
+  projection CustomerView @ 2
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    from modelable.compiler.workspace import load_workspace
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_csharp(workspace, tmp_path / "out")
+    proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@2")
+    # name comes from Customer@1 (string), not Customer@2 (int)
+    assert "string Name" in proj_art.content or "string name" in proj_art.content.lower()

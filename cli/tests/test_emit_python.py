@@ -104,3 +104,67 @@ domain customer {
     assert "class CustomerCustomerV1:" in text
     assert "customerId: UUID" in text
     assert "nickname: Optional[str] = None" in text
+
+
+def test_emit_python_warns_on_computed_projection_field(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    displayName = c.name + "!"
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    from modelable.compiler.workspace import load_workspace
+    from modelable.emitters.python import emit_python
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_python(workspace, tmp_path / "out")
+    proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@1")
+    assert proj_art.warnings
+    assert any("EMIT002" in w for w in proj_art.warnings)
+
+
+def test_emit_python_projection_uses_source_field_types(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: int
+    email: string
+  }
+
+  projection CustomerView @ 2
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    from modelable.compiler.workspace import load_workspace
+    from modelable.emitters.python import emit_python
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_python(workspace, tmp_path / "out")
+    proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@2")
+    # name comes from Customer@1 (str), not Customer@2 (int)
+    assert "name: str" in proj_art.content
