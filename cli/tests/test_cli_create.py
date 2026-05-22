@@ -4,6 +4,7 @@ import pytest
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.compiler.workspace import load_workspace
 
 
 def test_create_domain_writes_mdl_file(tmp_path):
@@ -91,6 +92,22 @@ def test_create_projection_writes_projection_with_direct_and_computed_fields(tmp
     assert "from customer.Customer @ 1 as c" in content
     assert "billingId <- c.customerId" in content
     assert "displayEmail = c.email + ''" in content
+
+
+def test_create_model_decimal_field_produces_valid_mdl(tmp_path):
+    # decimal requires precision and scale: decimal(18, 2) — bare "decimal" is invalid syntax
+    # use value kind (no @key required) to keep the test focused on decimal formatting
+    user_input = "orders\nvalue\nMoney\n1\nadditive\ntotal\ndecimal\n18\n2\nN\nN\nN\n\n"
+
+    result = CliRunner().invoke(
+        cli, ["create", "model", "--output-dir", str(tmp_path)], input=user_input
+    )
+
+    assert result.exit_code == 0, result.output
+    content = (tmp_path / "orders.mdl").read_text(encoding="utf-8")
+    assert "total: decimal(18, 2)" in content
+    workspace = load_workspace(tmp_path)
+    assert workspace.errors == []
 
 
 def test_create_projection_errors_if_file_exists(tmp_path):

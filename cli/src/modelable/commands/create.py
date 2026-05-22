@@ -56,6 +56,10 @@ def create_model(output_dir: Path) -> None:
         if not field_name:
             break
         field_type = click.prompt("Field type", type=click.Choice(_FIELD_TYPES))
+        if field_type == "decimal":
+            precision = click.prompt("Precision", default=18, type=int)
+            scale = click.prompt("Scale", default=2, type=int)
+            field_type = f"decimal({precision}, {scale})"
         optional = click.confirm("Optional field?", default=False)
         is_key = click.confirm("Add @key annotation?", default=False)
         is_pii = click.confirm("Add @pii annotation?", default=False)
