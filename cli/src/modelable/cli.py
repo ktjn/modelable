@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from modelable.commands.codegen import register_codegen_commands
 from modelable.commands.compile import register_compile_commands
+from modelable.commands.create import register_create_commands
 from modelable.commands.diff import register_diff_commands
 from modelable.commands.lsp import register_lsp_commands
 from modelable.commands.llm import register_llm_commands
@@ -23,6 +24,7 @@ def cli() -> None:
 
 register_workspace_commands(cli)
 register_compile_commands(cli)
+register_create_commands(cli)
 register_diff_commands(cli)
 register_lsp_commands(cli)
 register_llm_commands(cli)
