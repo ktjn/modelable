@@ -125,3 +125,65 @@ def test_hover_on_projection_source_field_reference_shows_projection_field_summa
     assert hover is not None
     assert "catalog.ProductReply@1.productId" in hover.contents.value
     assert "mapping: direct c.customerId" in hover.contents.value
+
+
+def test_hover_on_qualified_ref_in_from_clause_shows_model_summary():
+    source = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email?: string
+  }
+}
+
+domain billing {
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1 as c
+  {
+    billingId <- c.customerId
+  }
+}
+""".strip("\n")
+    lines = source.splitlines()
+    from_line = next(i for i, l in enumerate(lines) if "from customer.Customer @ 1" in l)
+    character = lines[from_line].index("Customer") + 1
+
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", source)
+
+    hover = build_hover(index, "inmemory://workspace.mdl", line=from_line, character=character)
+
+    assert hover is not None
+    assert "customer.Customer@1" in hover.contents.value
+    assert "kind: entity" in hover.contents.value
+
+
+def test_hover_on_field_with_key_and_pii_flags_shows_annotations():
+    source = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key @pii customerId: uuid
+    email?: string
+  }
+}
+""".strip("\n")
+    lines = source.splitlines()
+    field_line = next(i for i, l in enumerate(lines) if "@key @pii customerId" in l)
+    character = lines[field_line].index("customerId") + 1
+
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", source)
+
+    hover = build_hover(index, "inmemory://workspace.mdl", line=field_line, character=character)
+
+    assert hover is not None
+    assert "key" in hover.contents.value
+    assert "pii" in hover.contents.value
+
+
+def test_hover_returns_none_for_unknown_uri():
+    index = LspWorkspaceIndex()
+
+    hover = build_hover(index, "inmemory://unknown.mdl", line=0, character=0)
+
+    assert hover is None
