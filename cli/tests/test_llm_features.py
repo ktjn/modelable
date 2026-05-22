@@ -381,3 +381,55 @@ def test_transform_cli_csharp(tmp_path):
     result = runner.invoke(cli, ["transform", _TRANSFORM_REF, "--to", "csharp", "--path", str(tmp_path)])
     assert result.exit_code == 0, result.output
     assert "Customer" in result.output
+
+
+_TRANSFORM_MDL_WITH_PROJECTION = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.name
+  }
+}
+"""
+
+_TRANSFORM_PROJECTION_REF = "customer.CustomerView@1"
+
+
+def _transform_projection_tmp(tmp_path):
+    (tmp_path / "customer.mdl").write_text(_TRANSFORM_MDL_WITH_PROJECTION, encoding="utf-8")
+    return tmp_path
+
+
+def test_transform_projection_ref_typescript(tmp_path):
+    from modelable.llm.engine import transform_ref_to_target
+    result = transform_ref_to_target(_transform_projection_tmp(tmp_path), _TRANSFORM_PROJECTION_REF, "typescript")
+    assert "CustomerView" in result.content
+
+
+def test_transform_projection_ref_csharp(tmp_path):
+    from modelable.llm.engine import transform_ref_to_target
+    result = transform_ref_to_target(_transform_projection_tmp(tmp_path), _TRANSFORM_PROJECTION_REF, "csharp")
+    assert "CustomerView" in result.content
+
+
+def test_transform_projection_ref_json_schema(tmp_path):
+    import os
+    os.chdir(tmp_path)
+    from modelable.llm.engine import transform_ref_to_target
+    result = transform_ref_to_target(_transform_projection_tmp(tmp_path), _TRANSFORM_PROJECTION_REF, "json-schema")
+    assert "CustomerView" in result.content or "customerView" in result.content.lower()
+
+
+def test_transform_unknown_ref_raises(tmp_path):
+    from modelable.llm.engine import transform_ref_to_target
+    import pytest
+    _transform_tmp(tmp_path)
+    with pytest.raises(ValueError, match="Unknown model or projection"):
+        transform_ref_to_target(tmp_path, "customer.NoSuch@1", "typescript")

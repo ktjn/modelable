@@ -94,26 +94,34 @@ def transform_ref_to_target(path: Path, ref: str, target: str) -> AssistantResul
     if domain is None:
         raise ValueError(f"Unknown domain: {domain_name}")
 
+    _EMITTERS = {
+        "typescript": (emit_typescript, Path(".modelable/types"), False),
+        "json-schema": (emit_json_schema, Path(".modelable/jsonschema"), True),
+        "markdown": (emit_markdown, Path(".modelable/docs"), False),
+        "csharp": (emit_csharp, Path(".modelable/csharp"), False),
+        "java": (emit_java, Path(".modelable/java"), False),
+        "python": (emit_python, Path(".modelable/python"), False),
+        "rust": (emit_rust, Path(".modelable/rust"), False),
+        "go": (emit_go, Path(".modelable/go"), False),
+    }
+
     if model_name in domain.models:
         mv = next((item for item in domain.models[model_name] if item.version == version), None)
         if mv is None:
             raise ValueError(f"Unknown model version: {ref}")
-        _EMITTERS = {
-            "typescript": (emit_typescript, Path(".modelable/types"), False),
-            "json-schema": (emit_json_schema, Path(".modelable/jsonschema"), True),
-            "markdown": (emit_markdown, Path(".modelable/docs"), False),
-            "csharp": (emit_csharp, Path(".modelable/csharp"), False),
-            "java": (emit_java, Path(".modelable/java"), False),
-            "python": (emit_python, Path(".modelable/python"), False),
-            "rust": (emit_rust, Path(".modelable/rust"), False),
-            "go": (emit_go, Path(".modelable/go"), False),
-        }
-        if target in _EMITTERS:
-            emitter_fn, out_path, is_json = _EMITTERS[target]
-            artifacts = emitter_fn(workspace, out_path)
-            art = next(a for a in artifacts if a.ref == ref)
-            content = _json_dump(art.content) if is_json else str(art.content)
-            return AssistantResult(content=content, warnings=art.warnings)
+    elif model_name in domain.projections:
+        pv = next((item for item in domain.projections[model_name] if item.version == version), None)
+        if pv is None:
+            raise ValueError(f"Unknown projection version: {ref}")
+    else:
+        raise ValueError(f"Unknown model or projection: {ref}")
+
+    if target in _EMITTERS:
+        emitter_fn, out_path, is_json = _EMITTERS[target]
+        artifacts = emitter_fn(workspace, out_path)
+        art = next(a for a in artifacts if a.ref == ref)
+        content = _json_dump(art.content) if is_json else str(art.content)
+        return AssistantResult(content=content, warnings=art.warnings)
     raise ValueError(f"Unsupported target: {target}")
 
 
