@@ -16,9 +16,9 @@ def cli() -> None:
     """Modelable domain-owned data model compiler.
 
     MVP workflows cover validate, resolve, lineage, diff, compile, docs,
-    inspect, codegen, lsp, and scenario helpers. Deferred command families such
-    as Apicurio publish/pull, OpenMetadata export/publish, and ODCS export
-    are documented in docs/cli-spec.md for later phases.
+    inspect, codegen, lsp, scenario, and create helpers. Deferred command
+    families such as Apicurio publish/pull, OpenMetadata export/publish,
+    and ODCS export are documented in docs/cli-spec.md for later phases.
     """
 
 
