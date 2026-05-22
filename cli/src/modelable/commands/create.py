@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import click
@@ -85,5 +86,63 @@ def _model_text(
             annotations += "@pii "
         optional_marker = "?" if field.get("optional") else ""
         lines.append(f"    {annotations}{field['name']}{optional_marker}: {field['type']}")
+    lines += ["  }", "}"]
+    return "\n".join(lines) + "\n"
+
+
+@create.command(name="projection")
+@click.option("--output-dir", "-d", default=".", type=click.Path(path_type=Path), show_default=True)
+def create_projection(output_dir: Path) -> None:
+    """Create a projection definition file."""
+    domain = click.prompt("Domain name")
+    name = click.prompt("Projection name")
+    version = click.prompt("Version", default=1, type=int)
+    source_model = click.prompt("Source model ref (e.g. customer.Customer)")
+    source_version = click.prompt("Source version", default=1, type=int)
+    alias = click.prompt("Source alias")
+
+    fields: list[dict] = []
+    while True:
+        field_name = click.prompt("Field name (leave blank to finish)", default="", show_default=False)
+        if not field_name:
+            break
+        mapping = click.prompt("Mapping (alias.field for direct, or CEL expression)")
+        fields.append({"name": field_name, "mapping": mapping})
+
+    out_file = output_dir / f"{domain}.mdl"
+    if out_file.exists():
+        raise click.ClickException(f"{out_file} already exists")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    out_file.write_text(
+        _projection_text(domain, name, version, source_model, source_version, alias, fields),
+        encoding="utf-8",
+    )
+    console.print(f"[green]Created[/green] {out_file}")
+
+
+_DIRECT_MAPPING_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _projection_text(
+    domain: str,
+    name: str,
+    version: int,
+    source_model: str,
+    source_version: int,
+    alias: str,
+    fields: list[dict],
+) -> str:
+    lines = [
+        f"domain {domain} {{",
+        f"  projection {name} @ {version}",
+        f"    from {source_model} @ {source_version} as {alias}",
+        "  {",
+    ]
+    for field in fields:
+        mapping = field["mapping"]
+        if _DIRECT_MAPPING_RE.match(mapping):
+            lines.append(f"    {field['name']} <- {mapping}")
+        else:
+            lines.append(f"    {field['name']} = {mapping}")
     lines += ["  }", "}"]
     return "\n".join(lines) + "\n"

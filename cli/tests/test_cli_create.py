@@ -62,3 +62,45 @@ def test_create_model_errors_if_file_exists(tmp_path):
 
     assert result.exit_code != 0
     assert "already exists" in result.output
+
+
+def test_create_projection_writes_projection_with_direct_and_computed_fields(tmp_path):
+    user_input = (
+        "billing\n"           # domain
+        "BillingCustomer\n"   # projection name
+        "1\n"                 # version
+        "customer.Customer\n" # source model ref
+        "1\n"                 # source version
+        "c\n"                 # alias
+        "billingId\n"         # field 1 name
+        "c.customerId\n"      # field 1 mapping (direct)
+        "displayEmail\n"      # field 2 name
+        "c.email + ''\n"      # field 2 mapping (computed)
+        "\n"                  # blank = done
+    )
+
+    result = CliRunner().invoke(
+        cli, ["create", "projection", "--output-dir", str(tmp_path)], input=user_input
+    )
+
+    assert result.exit_code == 0, result.output
+    out_file = tmp_path / "billing.mdl"
+    assert out_file.exists()
+    content = out_file.read_text(encoding="utf-8")
+    assert "projection BillingCustomer @ 1" in content
+    assert "from customer.Customer @ 1 as c" in content
+    assert "billingId <- c.customerId" in content
+    assert "displayEmail = c.email + ''" in content
+
+
+def test_create_projection_errors_if_file_exists(tmp_path):
+    existing = tmp_path / "billing.mdl"
+    existing.write_text("domain billing {}\n", encoding="utf-8")
+
+    user_input = "billing\nBillingCustomer\n1\ncustomer.Customer\n1\nc\n\n"
+    result = CliRunner().invoke(
+        cli, ["create", "projection", "--output-dir", str(tmp_path)], input=user_input
+    )
+
+    assert result.exit_code != 0
+    assert "already exists" in result.output
