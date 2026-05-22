@@ -127,9 +127,32 @@ def _resolve_field_type(
         return None
     versions = domain.models.get(model_name, [])
     model_version = next((item for item in versions if item.version == version), None)
-    if model_version is None:
+    if model_version is not None:
+        field = next((f for f in model_version.fields if f.name == field_name), None)
+        if field is None:
+            return None
+        return field.type.kind
+    # Source is a projection: follow a direct mapping one level to its backing model field
+    proj_versions = domain.projections.get(model_name, [])
+    proj_version = next((item for item in proj_versions if item.version == version), None)
+    if proj_version is None:
         return None
-    field = next((f for f in model_version.fields if f.name == field_name), None)
-    if field is None:
+    proj_field = next((f for f in proj_version.fields if f.name == field_name), None)
+    if proj_field is None or proj_field.mapping.kind != "direct":
         return None
-    return field.type.kind
+    mapping = proj_field.mapping
+    for source_ref in [proj_version.source, *proj_version.joins]:
+        if source_ref.alias != mapping.source_alias:
+            continue
+        try:
+            resolved = resolve_model_ref(workspace.mdl, source_ref.model, source_ref.version)
+        except LookupError:
+            return None
+        return _resolve_field_type(
+            workspace,
+            resolved.domain_name,
+            resolved.model_name,
+            resolved.version.version,
+            mapping.source_field,
+        )
+    return None

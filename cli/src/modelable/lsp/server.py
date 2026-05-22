@@ -102,9 +102,13 @@ async def did_change(ls: ModelableLanguageServer, params: types.DidChangeTextDoc
 
 @server.feature(types.TEXT_DOCUMENT_DID_CLOSE)
 def did_close(ls: ModelableLanguageServer, params: types.DidCloseTextDocumentParams) -> None:
-    ls.index.remove_document(params.text_document.uri)
+    uri = params.text_document.uri
+    existing = ls._debounce_tasks.pop(uri, None)
+    if existing is not None and not existing.done():
+        existing.cancel()
+    ls.index.remove_document(uri)
     ls.text_document_publish_diagnostics(
-        types.PublishDiagnosticsParams(uri=params.text_document.uri, diagnostics=[])
+        types.PublishDiagnosticsParams(uri=uri, diagnostics=[])
     )
 
 

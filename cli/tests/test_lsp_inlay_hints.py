@@ -112,3 +112,47 @@ domain storefront {
     line_hints = [h for h in hints if h.position.line == from_line]
     assert len(line_hints) == 1
     assert "[projection]" in line_hints[0].label
+
+
+def test_inlay_hint_shows_field_type_for_projection_sourced_direct_mapping():
+    """When the alias source is a projection, type hints resolve through the projection's mapping."""
+    text = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    status: string
+  }
+}
+
+domain catalog {
+  projection ProductReply @ 1
+    from customer.Customer @ 1 as c
+  {
+    productId <- c.customerId
+    statusText <- c.status
+  }
+}
+
+domain storefront {
+  projection ProductDisplay @ 1
+    from catalog.ProductReply @ 1 as p
+  {
+    displayId <- p.productId
+  }
+}
+""".strip("\n")
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", text)
+    lines = text.splitlines()
+    displayid_line = next(i for i, l in enumerate(lines) if "displayId <- p.productId" in l)
+    full_range = types.Range(
+        start=types.Position(line=0, character=0),
+        end=types.Position(line=len(lines) - 1, character=0),
+    )
+
+    hints = build_inlay_hints(index, "inmemory://workspace.mdl", full_range)
+
+    assert hints is not None
+    line_hints = [h for h in hints if h.position.line == displayid_line]
+    assert len(line_hints) == 1
+    assert ": uuid" in line_hints[0].label

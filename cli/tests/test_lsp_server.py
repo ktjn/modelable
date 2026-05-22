@@ -195,3 +195,63 @@ def test_did_change_debounce_cancels_previous_task():
             assert len(publish_calls) == 1
 
     asyncio.run(_run())
+
+
+def test_did_close_cancels_pending_debounce_task():
+    """did_close should cancel the pending debounce task so no diagnostics fire after close."""
+
+    async def _run():
+        publish_calls = []
+
+        class _FakeIndex:
+            workspace = None
+            documents: dict = {}
+
+            def upsert_document(self, uri, text):
+                pass
+
+            def remove_document(self, uri):
+                pass
+
+        class _FakeDocument:
+            uri = "inmemory://test.mdl"
+            source = "domain x {}"
+
+        class _FakeWorkspace:
+            def get_text_document(self, uri):
+                return _FakeDocument()
+
+        class _FakeServer:
+            index = _FakeIndex()
+            _debounce_tasks: dict = {}
+            workspace = _FakeWorkspace()
+
+            def text_document_publish_diagnostics(self, params):
+                publish_calls.append(params)
+
+        ls = _FakeServer()
+
+        with patch.object(
+            lsp_server,
+            "_publish_document_diagnostics",
+            side_effect=lambda _ls, _uri: publish_calls.append(_uri),
+        ):
+            change_params = types.DidChangeTextDocumentParams(
+                text_document=types.VersionedTextDocumentIdentifier(uri="inmemory://test.mdl", version=1),
+                content_changes=[types.TextDocumentContentChangeWholeDocument(text="domain x {}")],
+            )
+            await lsp_server.did_change(ls, change_params)
+            assert len(publish_calls) == 0  # debounce not fired yet
+
+            close_params = types.DidCloseTextDocumentParams(
+                text_document=types.TextDocumentIdentifier(uri="inmemory://test.mdl")
+            )
+            lsp_server.did_close(ls, close_params)
+
+            await asyncio.sleep(lsp_server._DEBOUNCE_DELAY + 0.05)
+
+            # _publish_document_diagnostics appends URI strings; none should be present after close
+            debounce_publishes = [c for c in publish_calls if isinstance(c, str)]
+            assert debounce_publishes == []
+
+    asyncio.run(_run())
