@@ -657,3 +657,131 @@ def test_scenario_list_show_and_load(tmp_path):
     assert (loaded / "workspace.mdl").exists()
     assert (loaded / "catalog.mdl").exists()
     assert (loaded / "storefront.mdl").exists()
+
+
+def test_resolve_bad_ref_exits_nonzero(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(cli, ["resolve", "bad@ref", "--path", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "ERROR" in result.output
+
+
+def test_lineage_model_field_with_classification_shows_flag(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    @classification("confidential") email: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(cli, ["lineage", "customer.Customer@1", "--path", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    assert "classification=confidential" in result.output
+    assert "key" in result.output
+
+
+def test_lineage_projection_with_join_shows_join_line(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  entity Address @ 1 (additive) {
+    @key addressId: uuid
+    city: string
+  }
+
+  projection CustomerWithAddress @ 1
+    from customer.Customer @ 1 as c
+    join customer.Address @ 1 as a on c.customerId == a.addressId
+  {
+    customerId <- c.customerId
+    city <- a.city
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli, ["lineage", "customer.CustomerWithAddress@1", "--path", str(tmp_path)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "join:" in result.output
+    assert "customer.Address" in result.output
+
+
+def test_lineage_projection_with_group_by_shows_group_by_line(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    region: string
+  }
+
+  projection CustomerByRegion @ 1
+    from customer.Customer @ 1 as c
+    group by c.region
+  {
+    region <- c.region
+    count = count(c.customerId)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli, ["lineage", "customer.CustomerByRegion@1", "--path", str(tmp_path)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "group by:" in result.output
+    assert "region" in result.output
+
+
+def test_inspect_auto_model_not_found_in_domain_exits_nonzero(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli, ["inspect", "customer.NoSuch@1", "--auto", "--path", str(tmp_path)]
+    )
+
+    assert result.exit_code == 1
+    assert "ERROR" in result.output

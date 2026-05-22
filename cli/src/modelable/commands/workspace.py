@@ -117,7 +117,7 @@ def lineage(ref: str, path: Path) -> None:
             if field.classification:
                 flags.append(f"classification={field.classification.value}")
             suffix = f" [{', '.join(flags)}]" if flags else ""
-            console.print(f"- {field.name}: {field.type.kind}{suffix}")
+            console.print(f"- {field.name}: {field.type.kind}{suffix}", markup=False)
         sys.exit(0)
 
     projection_versions = domain.projections.get(resolved.model_name, [])
