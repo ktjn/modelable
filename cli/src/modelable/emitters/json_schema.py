@@ -27,6 +27,7 @@ from modelable.parser.ir import (
     ObjectType,
     PrimitiveType,
     DomainDef,
+    ProjectionField,
     ProjectionVersion,
     RefType,
     VersionExact,
@@ -410,7 +411,7 @@ def _primitive_to_json_schema(kind: str) -> dict:
     return mapping.get(kind, {"type": "string"})
 
 
-def _add_lineage(prop: dict, field: FieldDef, projection: ProjectionVersion) -> None:
+def _add_lineage(prop: dict, field: ProjectionField, projection: ProjectionVersion) -> None:
     mapping = field.mapping
     if isinstance(mapping, DirectMapping):
         prop["x-modelable-lineage"] = {

@@ -106,6 +106,52 @@ domain customer {
     assert "pub nickname: Option<String>," in text
 
 
+def test_emit_rust_decimal_maps_to_string(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain finance {
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    amount: decimal(12, 2)
+    taxRate?: decimal(5, 4)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "finance.Invoice@1")
+    assert "pub amount: String," in art.content
+    assert "pub tax_rate: Option<String>," in art.content
+
+
+def test_emit_rust_temporal_types_map_to_string(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain events {
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    occurredAt: timestamp
+    scheduledDate: date
+    windowStart: time
+    ttl: duration
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "events.Event@1")
+    assert "pub occurred_at: String," in art.content
+    assert "pub scheduled_date: String," in art.content
+    assert "pub window_start: String," in art.content
+    assert "pub ttl: String," in art.content
+
+
 def test_emit_rust_warns_on_computed_projection_field(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

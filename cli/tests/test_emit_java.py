@@ -100,6 +100,57 @@ domain customer {
     assert "Optional<String> nickname" in text
 
 
+def test_emit_java_decimal_maps_to_bigdecimal(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain finance {
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    amount: decimal(12, 2)
+    taxRate?: decimal(5, 4)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_java(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "finance.Invoice@1")
+    assert "import java.math.BigDecimal;" in art.content
+    assert "BigDecimal amount" in art.content
+    assert "Optional<BigDecimal> taxRate" in art.content
+
+
+def test_emit_java_temporal_types_map_to_java_time(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain events {
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    occurredAt: timestamp
+    scheduledDate: date
+    windowStart: time
+    ttl: duration
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_java(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "events.Event@1")
+    assert "import java.time.Instant;" in art.content
+    assert "import java.time.LocalDate;" in art.content
+    assert "import java.time.LocalTime;" in art.content
+    assert "import java.time.Duration;" in art.content
+    assert "Instant occurredAt" in art.content
+    assert "LocalDate scheduledDate" in art.content
+    assert "LocalTime windowStart" in art.content
+    assert "Duration ttl" in art.content
+
+
 def test_emit_java_warns_on_computed_projection_field(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

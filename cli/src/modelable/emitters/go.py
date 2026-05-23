@@ -86,10 +86,11 @@ def _emit_projection(
     imports: set[str] = set()
 
     field_specs: list[tuple[int, str, str, bool]] = []
+    warnings: list[str] = []
     for index, field in enumerate(version.fields):
         field_shape = _resolve_projection_field_shape(field, version, mdl)
         if field_shape is None:
-            warnings = [type_loss(f"{domain.name}.{projection_name}.{field.name}")]
+            warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
             field_specs.append((index, field.name, "any", False))
             continue
         annotation = _shape_annotation(
@@ -105,11 +106,6 @@ def _emit_projection(
     lines = _header_lines(_package_name(domain.name), imports)
     lines.extend(_render_struct_definition(type_name, field_specs))
     lines.extend(_render_nested_definitions(nested_definitions))
-
-    warnings: list[str] = []
-    for field in version.fields:
-        if _resolve_projection_field_shape(field, version, mdl) is None:
-            warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
 
     text = "\n".join(lines) + "\n"
     return EmittedArtifact(

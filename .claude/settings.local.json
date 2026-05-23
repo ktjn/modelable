@@ -10,7 +10,13 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:smithy.io)",
-      "WebFetch(domain:specs.frictionlessdata.io)"
+      "WebFetch(domain:specs.frictionlessdata.io)",
+      "Bash(python -m pytest tests/test_lsp_definition.py tests/test_lsp_hover.py tests/test_lsp_references.py -v)",
+      "Bash(uv run *)",
+      "Bash(pip install *)",
+      "Bash(python -m pytest tests/test_lsp_completion.py -v)",
+      "Bash(py *)",
+      "Bash(/c/git/modelable/cli/.venv/Scripts/pytest *)"
     ]
   }
 }

@@ -106,6 +106,54 @@ domain customer {
     assert "nickname: Optional[str] = None" in text
 
 
+def test_emit_python_decimal_maps_to_decimal(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain finance {
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    amount: decimal(12, 2)
+    taxRate?: decimal(5, 4)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_python(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "finance.Invoice@1")
+    assert "from decimal import Decimal" in art.content
+    assert "amount: Decimal" in art.content
+    assert "taxRate: Optional[Decimal] = None" in art.content
+
+
+def test_emit_python_temporal_types_map_to_datetime(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain events {
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    occurredAt: timestamp
+    scheduledDate: date
+    windowStart: time
+    ttl: duration
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_python(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "events.Event@1")
+    assert "from datetime import date, datetime, time, timedelta" in art.content
+    assert "occurredAt: datetime" in art.content
+    assert "scheduledDate: date" in art.content
+    assert "windowStart: time" in art.content
+    assert "ttl: timedelta" in art.content
+
+
 def test_emit_python_warns_on_computed_projection_field(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

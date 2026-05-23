@@ -183,6 +183,52 @@ domain customer {
     assert any("EMIT003" in warning for warning in model_art.warnings)
 
 
+def test_emit_typescript_decimal_maps_to_string(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain finance {
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    amount: decimal(12, 2)
+    taxRate?: decimal(5, 4)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "finance.Invoice@1")
+    assert "amount: string;" in art.content
+    assert "taxRate?: string;" in art.content
+
+
+def test_emit_typescript_temporal_types_map_to_string(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain events {
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    occurredAt: timestamp
+    scheduledDate: date
+    windowStart: time
+    ttl: duration
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "events.Event@1")
+    assert "occurredAt: string;" in art.content
+    assert "scheduledDate: string;" in art.content
+    assert "windowStart: string;" in art.content
+    assert "ttl: string;" in art.content
+
+
 def test_emit_typescript_uses_stable_interface_names(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

@@ -134,6 +134,54 @@ domain customer {
     assert any("EMIT002" in w for w in proj_art.warnings)
 
 
+def test_emit_go_decimal_maps_to_string(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain finance {
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    amount: decimal(12, 2)
+    taxRate?: decimal(5, 4)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_go(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "finance.Invoice@1")
+    assert 'Amount string `json:"amount"`' in art.content
+    assert 'TaxRate *string `json:"taxRate,omitempty"`' in art.content
+
+
+def test_emit_go_temporal_types_inject_time_import(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain events {
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    occurredAt: timestamp
+    scheduledDate: date
+    windowStart: time
+    ttl: duration
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_go(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "events.Event@1")
+    assert 'import (' in art.content
+    assert '"time"' in art.content
+    assert 'OccurredAt time.Time `json:"occurredAt"`' in art.content
+    assert 'ScheduledDate time.Time `json:"scheduledDate"`' in art.content
+    assert 'WindowStart time.Time `json:"windowStart"`' in art.content
+    assert 'Ttl time.Duration `json:"ttl"`' in art.content
+
+
 def test_emit_go_projection_uses_source_field_types(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

@@ -127,12 +127,6 @@ def _emit_projection(
     )
 
 
-def _version_label(version_spec) -> str:
-    if isinstance(version_spec, VersionExact):
-        return str(version_spec.version)
-    return "?"
-
-
 def _metadata_lines(entries: list[str]) -> list[str]:
     lines = ["/**"]
     lines.extend(f" * {entry}" for entry in entries)
