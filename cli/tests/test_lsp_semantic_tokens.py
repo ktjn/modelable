@@ -70,10 +70,11 @@ def test_semantic_tokens_highlight_model_keywords_names_and_literals():
 
 def test_semantic_tokens_full_handler_uses_open_buffer_text():
     uri = "file:///workspace/customer.mdl"
+    inner_index = SimpleNamespace(
+        documents={uri: SimpleNamespace(text=SOURCE)},
+    )
     ls = SimpleNamespace(
-        index=SimpleNamespace(
-            documents={uri: SimpleNamespace(text=SOURCE)},
-        )
+        index_for=lambda _uri: inner_index,
     )
 
     result = lsp_server.semantic_tokens_full(
