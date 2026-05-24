@@ -148,3 +148,55 @@ async def test_hover_entity_declaration_name(lsp):
     text = await _hover(lsp, _CUSTOMER_MDL, line=5, char=12)
     assert text is not None, "Expected hover result for entity name, got None"
     assert "Customer" in text, f"Expected entity name in hover, got:\n{text}"
+
+
+# ---------------------------------------------------------------------------
+# Definition — cross-domain qualified ref in same workspace
+# 04/ml-credit-risk.mdl line 19, char 15 → lending.LoanApplication
+# Expected: a location in lending.mdl
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("lsp", [_SCENARIO_04], indirect=True)
+async def test_definition_cross_domain_qualified_ref(lsp):
+    await _open_file(lsp, _ML_CREDIT_RISK)
+    result = await _definition(lsp, _ML_CREDIT_RISK, line=19, char=15)
+    assert result is not None, "Expected a definition location, got None"
+    uri, _line = result
+    assert "lending.mdl" in uri, f"Expected definition in lending.mdl, got: {uri}"
+
+
+# ---------------------------------------------------------------------------
+# Definition — cross-file ref resolves to sibling file
+# 03/shipping.mdl line 18, char 20 → payments.PaymentAuthorisation
+# Expected: a location in payments.mdl
+# ---------------------------------------------------------------------------
+
+_SCENARIO_03 = SCENARIOS / "03-order-saga-microservices"
+_SHIPPING_MDL = _SCENARIO_03 / "shipping.mdl"
+
+
+@pytest.mark.parametrize("lsp", [_SCENARIO_03], indirect=True)
+async def test_definition_cross_file_ref(lsp):
+    await _open_file(lsp, _SHIPPING_MDL)
+    result = await _definition(lsp, _SHIPPING_MDL, line=18, char=20)
+    assert result is not None, "Expected a definition location, got None"
+    uri, _line = result
+    assert "payments.mdl" in uri, f"Expected definition in payments.mdl, got: {uri}"
+
+
+# ---------------------------------------------------------------------------
+# Definition — alias field reference resolves to source model field
+# 01/analytics.mdl line 12, char 35 → cust.customerId → Customer.customerId in customer.mdl
+# Expected: a location in customer.mdl
+# ---------------------------------------------------------------------------
+
+_ANALYTICS_MDL = _SCENARIO_01 / "analytics.mdl"
+
+
+@pytest.mark.parametrize("lsp", [_SCENARIO_01], indirect=True)
+async def test_definition_alias_field_resolves_to_source_model(lsp):
+    await _open_file(lsp, _ANALYTICS_MDL)
+    result = await _definition(lsp, _ANALYTICS_MDL, line=11, char=35)
+    assert result is not None, "Expected a definition location, got None"
+    uri, line = result
+    assert "customer.mdl" in uri, f"Expected definition in customer.mdl, got: {uri}"
