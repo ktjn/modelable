@@ -99,7 +99,7 @@ class _ServerStub:
 def test_publish_document_diagnostics_clears_diagnostics_with_the_pygls_api():
     ls = _ServerStub(None)
 
-    lsp_server._publish_document_diagnostics(ls, "file:///workspace/customer.mdl")
+    lsp_server._publish_document_diagnostics(ls, "file:///workspace/customer.mdl", ls.index)
 
     assert len(ls.published) == 1
     assert ls.published[0].uri == "file:///workspace/customer.mdl"
@@ -136,7 +136,7 @@ def test_publish_document_diagnostics_publishes_workspace_and_import_findings(mo
         ],
     )
 
-    lsp_server._publish_document_diagnostics(ls, uri)
+    lsp_server._publish_document_diagnostics(ls, uri, ls.index)
 
     assert len(ls.published) == 1
     params = ls.published[0]
@@ -174,12 +174,15 @@ def test_did_change_debounce_cancels_previous_task():
             _debounce_tasks: dict = {}
             workspace = _FakeWorkspace()
 
+            def index_for(self, uri):
+                return self.index
+
             def text_document_publish_diagnostics(self, params):
                 publish_calls.append(params)
 
         ls = _FakeServer()
 
-        with patch.object(lsp_server, "_publish_document_diagnostics", side_effect=lambda _ls, _uri: publish_calls.append(_uri)):
+        with patch.object(lsp_server, "_publish_document_diagnostics", side_effect=lambda _ls, _uri, _idx: publish_calls.append(_uri)):
             params = types.DidChangeTextDocumentParams(
                 text_document=types.VersionedTextDocumentIdentifier(uri="inmemory://test.mdl", version=1),
                 content_changes=[types.TextDocumentContentChangeWholeDocument(text="domain x {}")],
@@ -213,6 +216,9 @@ def test_did_close_cancels_pending_debounce_task():
             def remove_document(self, uri):
                 pass
 
+            def close_document(self, uri):
+                pass
+
         class _FakeDocument:
             uri = "inmemory://test.mdl"
             source = "domain x {}"
@@ -226,6 +232,9 @@ def test_did_close_cancels_pending_debounce_task():
             _debounce_tasks: dict = {}
             workspace = _FakeWorkspace()
 
+            def index_for(self, uri):
+                return self.index
+
             def text_document_publish_diagnostics(self, params):
                 publish_calls.append(params)
 
@@ -234,7 +243,7 @@ def test_did_close_cancels_pending_debounce_task():
         with patch.object(
             lsp_server,
             "_publish_document_diagnostics",
-            side_effect=lambda _ls, _uri: publish_calls.append(_uri),
+            side_effect=lambda _ls, _uri, _idx: publish_calls.append(_uri),
         ):
             change_params = types.DidChangeTextDocumentParams(
                 text_document=types.VersionedTextDocumentIdentifier(uri="inmemory://test.mdl", version=1),

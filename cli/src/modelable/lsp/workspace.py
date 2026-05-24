@@ -11,10 +11,12 @@ from modelable.compiler.workspace import Workspace, WorkspaceDocumentSource, loa
 class LspWorkspaceIndex:
     documents: dict[str, WorkspaceDocumentSource] = field(default_factory=dict)
     workspace: Workspace | None = None
+    _user_opened: set[str] = field(default_factory=set, init=False, repr=False)
 
     def upsert_document(self, uri: str, text: str) -> Workspace | None:
+        self._user_opened.add(uri)
         source = WorkspaceDocumentSource(
-            path=_uri_to_path(uri),
+            path=uri_to_path(uri),
             uri=uri,
             text=text,
         )
@@ -24,7 +26,33 @@ class LspWorkspaceIndex:
         self.documents[uri] = source
         return self.rebuild()
 
+    def load_background_document(self, uri: str, text: str) -> None:
+        """Load a document from disk without marking it as user-opened."""
+        if uri in self._user_opened:
+            return
+        source = WorkspaceDocumentSource(path=uri_to_path(uri), uri=uri, text=text)
+        current = self.documents.get(uri)
+        if current is not None and current.text == text:
+            return
+        self.documents[uri] = source
+        self.rebuild()
+
+    def close_document(self, uri: str) -> Workspace | None:
+        """Called when the user closes a tab — revert to on-disk content if available."""
+        self._user_opened.discard(uri)
+        path = uri_to_path(uri)
+        if path is not None and path.exists():
+            try:
+                text = path.read_text(encoding="utf-8")
+                source = WorkspaceDocumentSource(path=path, uri=uri, text=text)
+                self.documents[uri] = source
+                return self.rebuild()
+            except Exception:
+                pass
+        return self.remove_document(uri)
+
     def remove_document(self, uri: str) -> Workspace | None:
+        self._user_opened.discard(uri)
         if uri in self.documents:
             del self.documents[uri]
             return self.rebuild()
@@ -39,7 +67,7 @@ class LspWorkspaceIndex:
         return self.workspace
 
 
-def _uri_to_path(uri: str) -> Path | None:
+def uri_to_path(uri: str) -> Path | None:
     parsed = urlparse(uri)
     if parsed.scheme != "file":
         return None

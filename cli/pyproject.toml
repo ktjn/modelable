@@ -30,6 +30,7 @@ packages = ["src/modelable"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["src/modelable"]
@@ -37,4 +38,5 @@ source = ["src/modelable"]
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
+    "pytest-lsp>=1.0.0",
 ]
