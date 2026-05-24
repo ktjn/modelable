@@ -349,6 +349,7 @@ _SCALAR_FUNCTIONS = frozenset(
         "hashHmacSha256",
         "hmac_sha256",
         "now",
+        "decimal",
     }
 )
 
@@ -432,7 +433,9 @@ def _walk(
             )
         elif name not in _SCALAR_FUNCTIONS and name not in _AGGREGATE_FUNCTIONS:
             errors.append(f"CEL005: {ctx.fqn}: unsupported function '{name}'")
-        if name in _AGGREGATE_FUNCTIONS and not ctx.has_group_by:
+        # max/min with 2+ args act as scalar greatest/least, not as row aggregates
+        is_scalar_max_min = name in ("max", "min") and len(expr.args) > 1
+        if name in _AGGREGATE_FUNCTIONS and not ctx.has_group_by and not is_scalar_max_min:
             errors.append(
                 f"CEL006: {ctx.fqn}: aggregate function '{name}' used in projection without group by"
             )

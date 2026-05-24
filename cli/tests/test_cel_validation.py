@@ -315,11 +315,25 @@ def test_aggregate_functions_valid():
 
 
 def test_scalar_functions_valid():
-    for func in ["date_diff", "truncate", "hmac_sha256"]:
+    for func in ["date_diff", "truncate", "hmac_sha256", "decimal"]:
         ast, errors = parse_cel(f'{func}("arg", c.field)')
         assert errors == [], f"{func} should parse without errors"
         result = validate_cel_expr(ast, _ctx({"c": {"field"}}))
         assert not any("CEL005" in e for e in result.errors), f"{func} should be allowed"
+
+
+def test_max_min_with_multiple_args_is_scalar_no_group_by_needed():
+    for expr_str in ["max(c.a, c.b)", "min(c.x, c.y)"]:
+        ast, errors = parse_cel(expr_str)
+        assert errors == [], f"{expr_str} should parse"
+        result = validate_cel_expr(ast, _ctx({"c": {"a", "b", "x", "y"}}, has_group_by=False))
+        assert not any("CEL006" in e for e in result.errors), f"scalar {expr_str} should not require group by"
+
+
+def test_max_with_single_arg_still_requires_group_by():
+    ast, _ = parse_cel("max(c.amount)")
+    result = validate_cel_expr(ast, _ctx({"c": {"amount"}}, has_group_by=False))
+    assert any("CEL006" in e for e in result.errors)
 
 
 def test_env_namespace_accepted():
