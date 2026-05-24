@@ -137,16 +137,18 @@ def test_all_sample_files_parse():
         assert tree.data == "start", sample_file
 
 
-def test_auto_projection_scenario_reports_runtime_only_bindings():
+def test_auto_projection_scenario_validates_cleanly():
     repo_root = Path(__file__).resolve().parents[2]
     sample_path = repo_root / "samples" / "scenarios" / "09-auto-projections"
     runner = CliRunner()
 
     result = runner.invoke(cli, ["validate", str(sample_path)])
 
-    assert result.exit_code == 1, result.output
-    assert "binding catalog-postgres" in result.output
-    assert "binding product-db-table" in result.output
+    # Connector bindings (no model ref) and model bindings are both parsed without
+    # model-reference validation errors — the binding grammar treats all binding
+    # bodies as opaque content, so no false "invalid model reference" errors fire.
+    assert result.exit_code == 0, result.output
+    assert "invalid model reference" not in result.output
 
 
 def test_ecommerce_scenario_reports_validation_gaps_and_compiles_targets(tmp_path):
@@ -160,8 +162,8 @@ def test_ecommerce_scenario_reports_validation_gaps_and_compiles_targets(tmp_pat
         assert validate_result.exit_code == 1, validate_result.output
         assert "commerce.Order@4: event must not have an @key field" in validate_result.output
         assert "payments.PaymentTransaction@2: event must not have an @key field" in validate_result.output
-        assert "unsupported function 'hmac_sha256'" in validate_result.output
-        assert "unsupported function 'truncate'" in validate_result.output
+        assert "unsupported function 'hmac_sha256'" not in validate_result.output
+        assert "unsupported function 'truncate'" not in validate_result.output
 
         markdown_out = cwd / "dist" / "scenario01-docs"
         jsonschema_out = cwd / "dist" / "scenario01-jsonschema"
@@ -171,16 +173,16 @@ def test_ecommerce_scenario_reports_validation_gaps_and_compiles_targets(tmp_pat
             ["compile", str(sample_path), "--target", "markdown", "--out", str(markdown_out)],
         )
         assert markdown_result.exit_code == 1, markdown_result.output
-        assert "unsupported function 'hmac_sha256'" in markdown_result.output
-        assert "unsupported function 'truncate'" in markdown_result.output
+        assert "unsupported function 'hmac_sha256'" not in markdown_result.output
+        assert "unsupported function 'truncate'" not in markdown_result.output
 
         jsonschema_result = runner.invoke(
             cli,
             ["compile", str(sample_path), "--target", "json-schema", "--out", str(jsonschema_out)],
         )
         assert jsonschema_result.exit_code == 1, jsonschema_result.output
-        assert "unsupported function 'hmac_sha256'" in jsonschema_result.output
-        assert "unsupported function 'truncate'" in jsonschema_result.output
+        assert "unsupported function 'hmac_sha256'" not in jsonschema_result.output
+        assert "unsupported function 'truncate'" not in jsonschema_result.output
 
 
 def test_partner_marketplace_scenario_reports_aggregate_key_validation_gap(tmp_path):

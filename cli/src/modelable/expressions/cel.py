@@ -74,6 +74,8 @@ def _tokenize(expr: str) -> list[Token]:
                 kind = "NULL"
             elif value == "in":
                 kind = "IN"
+            elif value == "where":
+                kind = "WHERE"
         tokens.append(Token(type=kind, value=value, pos=pos))
     tokens.append(Token(type="EOF", value="", pos=len(expr)))
     return tokens
@@ -127,6 +129,7 @@ class TernaryOp:
 class FunctionCall:
     name: str
     args: list["CelExpr"] = field(default_factory=list)
+    where_filter: "CelExpr | None" = None
 
 
 @dataclass
@@ -140,7 +143,7 @@ CelExpr = Union[
 
 # ── Parser ────────────────────────────────────────────────────────────────────
 
-_RUNTIME_NAMESPACES = frozenset({"request", "auth", "params"})
+_RUNTIME_NAMESPACES = frozenset({"request", "auth", "params", "env"})
 
 
 class _Parser:
@@ -288,7 +291,11 @@ class _Parser:
                 if self._at("COMMA"):
                     self._consume()
             self._consume("RPAREN")
-            return FunctionCall(name=name, args=args)
+            where_filter = None
+            if self._at("WHERE"):
+                self._consume()
+                where_filter = self._ternary()
+            return FunctionCall(name=name, args=args, where_filter=where_filter)
 
         if self._at("DOT"):
             self._consume()
@@ -334,16 +341,20 @@ _SCALAR_FUNCTIONS = frozenset(
         "slice",
         "date",
         "daysBetween",
+        "date_diff",
+        "truncate",
         "coalesce",
         "toString",
         "toDecimal",
         "hashHmacSha256",
+        "hmac_sha256",
+        "now",
     }
 )
 
-_AGGREGATE_FUNCTIONS = frozenset({"count", "sum", "min", "max", "avg"})
+_AGGREGATE_FUNCTIONS = frozenset({"count", "sum", "min", "max", "avg", "countif", "count_distinct", "mode"})
 
-_NON_DETERMINISTIC_FUNCTIONS = frozenset({"now", "random", "uuid", "currentUser"})
+_NON_DETERMINISTIC_FUNCTIONS = frozenset({"random", "uuid", "currentUser"})
 
 
 @dataclass
@@ -427,6 +438,8 @@ def _walk(
             )
         for arg in expr.args:
             _walk(arg, ctx, errors, refs)
+        if expr.where_filter is not None:
+            _walk(expr.where_filter, ctx, errors, refs)
         return
 
     if isinstance(expr, ListLiteral):
@@ -460,6 +473,8 @@ def _collect_refs(expr: CelExpr, refs: list[tuple[str, str]]) -> None:
     elif isinstance(expr, FunctionCall):
         for arg in expr.args:
             _collect_refs(arg, refs)
+        if expr.where_filter is not None:
+            _collect_refs(expr.where_filter, refs)
     elif isinstance(expr, ListLiteral):
         for item in expr.items:
             _collect_refs(item, refs)

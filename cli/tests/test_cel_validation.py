@@ -9,6 +9,7 @@ from modelable.expressions.cel import (
     parse_cel,
     validate_cel_expr,
 )
+import pytest
 
 
 # ── Parser tests ──────────────────────────────────────────────────────────────
@@ -119,9 +120,17 @@ def test_unsupported_function():
 
 
 def test_non_deterministic_function():
-    ast, _ = parse_cel("now()")
+    ast, _ = parse_cel("random()")
     result = validate_cel_expr(ast, _ctx({}))
-    assert any("CEL007" in e and "now" in e for e in result.errors)
+    assert any("CEL007" in e and "random" in e for e in result.errors)
+
+
+def test_now_is_allowed():
+    ast, errors = parse_cel("now()")
+    assert errors == []
+    result = validate_cel_expr(ast, _ctx({}))
+    assert not any("CEL007" in e for e in result.errors)
+    assert not any("CEL005" in e for e in result.errors)
 
 
 def test_aggregate_without_group_by():
@@ -264,3 +273,63 @@ def test_workspace_accepts_valid_cel():
         ws = load_workspace(tmp)
     cel_errors = [diagnostic.message for diagnostic in ws.errors if "CEL" in diagnostic.code]
     assert cel_errors == []
+
+
+# ── New function and syntax tests ─────────────────────────────────────────────
+
+
+def test_parse_where_clause():
+    ast, errors = parse_cel('sum(c.amount) where c.status == "active"')
+    assert errors == []
+    assert isinstance(ast, FunctionCall)
+    assert ast.name == "sum"
+    assert ast.where_filter is not None
+    assert isinstance(ast.where_filter, BinaryOp)
+
+
+def test_where_clause_field_refs_extracted():
+    ast, _ = parse_cel('sum(c.amount) where c.status == "active"')
+    refs = extract_field_refs(ast)
+    assert ("c", "amount") in refs
+    assert ("c", "status") in refs
+
+
+def test_where_clause_validated():
+    ast, _ = parse_cel('sum(c.amount) where c.status == "active"')
+    result = validate_cel_expr(ast, _ctx({"c": {"amount", "status"}}, has_group_by=True))
+    assert result.errors == []
+
+
+def test_where_clause_unknown_field_in_filter():
+    ast, _ = parse_cel('sum(c.amount) where c.missing == "x"')
+    result = validate_cel_expr(ast, _ctx({"c": {"amount"}}, has_group_by=True))
+    assert any("CEL002" in e and "c.missing" in e for e in result.errors)
+
+
+def test_aggregate_functions_valid():
+    for func in ["countif", "count_distinct", "mode"]:
+        ast, errors = parse_cel(f"{func}(c.field)")
+        assert errors == [], f"{func} should parse without errors"
+        result = validate_cel_expr(ast, _ctx({"c": {"field"}}, has_group_by=True))
+        assert not any("CEL005" in e for e in result.errors), f"{func} should be allowed"
+
+
+def test_scalar_functions_valid():
+    for func in ["date_diff", "truncate", "hmac_sha256"]:
+        ast, errors = parse_cel(f'{func}("arg", c.field)')
+        assert errors == [], f"{func} should parse without errors"
+        result = validate_cel_expr(ast, _ctx({"c": {"field"}}))
+        assert not any("CEL005" in e for e in result.errors), f"{func} should be allowed"
+
+
+def test_env_namespace_accepted():
+    ast, errors = parse_cel("hmac_sha256(c.email, env.SECRET)")
+    assert errors == []
+    result = validate_cel_expr(ast, _ctx({"c": {"email"}}))
+    assert result.errors == []
+
+
+def test_countif_without_group_by_raises_cel006():
+    ast, _ = parse_cel('countif(c.status == "active")')
+    result = validate_cel_expr(ast, _ctx({"c": {"status"}}, has_group_by=False))
+    assert any("CEL006" in e for e in result.errors)

@@ -72,6 +72,8 @@ def validate_references(mdl: MdlFile) -> list[str]:
                     _append_lookup_error(errors, context, join.model, join.version, mdl)
 
     for binding in mdl.bindings:
+        if not binding.model:
+            continue
         _append_lookup_error(
             errors,
             f"binding {binding.name}",
