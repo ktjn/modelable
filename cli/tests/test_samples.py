@@ -137,6 +137,68 @@ def test_all_sample_files_parse():
         assert tree.data == "start", sample_file
 
 
+# Scenarios with known intentional SEM errors (event @key, missing aggregate key).
+# Any CEL error reaching this set means a new function/syntax needs adding to the validator.
+_KNOWN_SEM_ONLY_ERRORS = {
+    "01-ecommerce-data-warehouse",
+    "03-order-saga-microservices",
+    "04-credit-risk-feature-store",
+    "05-partner-marketplace-api",
+    "06-gdpr-compliance-audit",
+    "07-multi-system-master-data",
+    "08-distributed-multi-registry",
+}
+
+
+def test_all_scenarios_have_no_cel_errors():
+    """CEL errors in any scenario mean the validator is missing a function or syntax form."""
+    from modelable.compiler.workspace import load_workspace
+
+    repo_root = Path(__file__).resolve().parents[2]
+    scenarios = sorted((repo_root / "samples" / "scenarios").iterdir())
+
+    assert scenarios, "expected at least one scenario directory"
+
+    cel_failures: list[str] = []
+    for scenario in scenarios:
+        if not scenario.is_dir():
+            continue
+        try:
+            ws = load_workspace(scenario)
+        except Exception as exc:
+            cel_failures.append(f"{scenario.name}: load error: {exc}")
+            continue
+        for diag in ws.errors:
+            if diag.code == "CEL":
+                cel_failures.append(f"{scenario.name}: {diag.message}")
+
+    assert cel_failures == [], "\n".join(cel_failures)
+
+
+def test_all_scenarios_sem_errors_are_known():
+    """Any new SEM error in a scenario that previously had none is a regression."""
+    from modelable.compiler.workspace import load_workspace
+
+    repo_root = Path(__file__).resolve().parents[2]
+    scenarios = sorted((repo_root / "samples" / "scenarios").iterdir())
+
+    unexpected: list[str] = []
+    for scenario in scenarios:
+        if not scenario.is_dir():
+            continue
+        try:
+            ws = load_workspace(scenario)
+        except Exception as exc:
+            unexpected.append(f"{scenario.name}: load error: {exc}")
+            continue
+        if scenario.name not in _KNOWN_SEM_ONLY_ERRORS:
+            for diag in ws.errors:
+                if diag.code == "SEM":
+                    unexpected.append(f"{scenario.name}: {diag.message}")
+
+    assert unexpected == [], "\n".join(unexpected)
+
+
 def test_auto_projection_scenario_validates_cleanly():
     repo_root = Path(__file__).resolve().parents[2]
     sample_path = repo_root / "samples" / "scenarios" / "09-auto-projections"

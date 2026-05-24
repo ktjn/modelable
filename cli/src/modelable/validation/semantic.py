@@ -22,6 +22,24 @@ _AGGREGATE_PATTERN = re.compile(
     r"\b(" + "|".join(_AGGREGATE_FUNCTIONS) + r")\s*\(",
     re.IGNORECASE,
 )
+_SCALAR_MAX_MIN = frozenset({"max", "min"})
+
+
+def _is_scalar_max_min(expression: str, match: re.Match) -> bool:
+    """Return True when max/min is called with 2+ args (scalar greatest/least)."""
+    if match.group(1).lower() not in _SCALAR_MAX_MIN:
+        return False
+    depth = 1
+    for ch in expression[match.end():]:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return False
+        elif ch == "," and depth == 1:
+            return True
+    return False
 
 
 def validate(mdl: MdlFile) -> list[str]:
@@ -132,7 +150,7 @@ def _validate_projections(
                     continue
 
                 aggregate_match = _AGGREGATE_PATTERN.search(mapping.expression)
-                if aggregate_match and not has_group_by:
+                if aggregate_match and not has_group_by and not _is_scalar_max_min(mapping.expression, aggregate_match):
                     diagnostics.append(
                         _diag(
                             "SEM",

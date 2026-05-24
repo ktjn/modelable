@@ -31,6 +31,8 @@ _TOKEN_SPEC: list[tuple[str, str]] = [
     ("DOT", r"\."),
     ("LPAREN", r"\("),
     ("RPAREN", r"\)"),
+    ("LBRACE", r"\{"),
+    ("RBRACE", r"\}"),
     ("LBRACKET", r"\["),
     ("RBRACKET", r"\]"),
     ("COMMA", r","),
@@ -57,6 +59,10 @@ class CelParseError(Exception):
 
 
 def _tokenize(expr: str) -> list[Token]:
+    # Strip inline comments before tokenizing
+    comment_pos = expr.find("//")
+    if comment_pos != -1:
+        expr = expr[:comment_pos]
     tokens: list[Token] = []
     for m in _MASTER_RE.finditer(expr):
         kind = m.lastgroup
@@ -137,8 +143,23 @@ class ListLiteral:
     items: list["CelExpr"] = field(default_factory=list)
 
 
+@dataclass
+class WildcardRef:
+    """alias.* — selects all fields of a source alias."""
+
+    alias: str
+
+
+@dataclass
+class ObjectLiteral:
+    """{ key: expr, ... } — inline record/map literal."""
+
+    pairs: list[tuple[str, "CelExpr"]] = field(default_factory=list)
+
+
 CelExpr = Union[
-    Literal, FieldRef, RuntimeRef, UnaryOp, BinaryOp, TernaryOp, FunctionCall, ListLiteral
+    Literal, FieldRef, RuntimeRef, UnaryOp, BinaryOp, TernaryOp, FunctionCall,
+    ListLiteral, WildcardRef, ObjectLiteral,
 ]
 
 # ── Parser ────────────────────────────────────────────────────────────────────
@@ -248,6 +269,9 @@ class _Parser:
         if tok.type == "LBRACKET":
             return self._list()
 
+        if tok.type == "LBRACE":
+            return self._object()
+
         if tok.type == "TRUE":
             self._consume()
             return Literal(value=True)
@@ -287,6 +311,14 @@ class _Parser:
             self._consume()
             args: list[CelExpr] = []
             while not self._at("RPAREN", "EOF"):
+                # Skip named argument label: "name: value" → consume name and colon
+                if (
+                    self._at("IDENT")
+                    and self._pos + 1 < len(self._tokens)
+                    and self._tokens[self._pos + 1].type == "COLON"
+                ):
+                    self._consume("IDENT")
+                    self._consume("COLON")
                 args.append(self._ternary())
                 if self._at("COMMA"):
                     self._consume()
@@ -299,6 +331,9 @@ class _Parser:
 
         if self._at("DOT"):
             self._consume()
+            if self._at("STAR"):
+                self._consume()
+                return WildcardRef(alias=name)
             field_tok = self._consume("IDENT")
             field_name = field_tok.value
             if name in _RUNTIME_NAMESPACES:
@@ -317,6 +352,19 @@ class _Parser:
                 self._consume()
         self._consume("RBRACKET")
         return ListLiteral(items=items)
+
+    def _object(self) -> ObjectLiteral:
+        self._consume("LBRACE")
+        pairs: list[tuple[str, CelExpr]] = []
+        while not self._at("RBRACE", "EOF"):
+            key_tok = self._consume("IDENT")
+            self._consume("COLON")
+            value = self._ternary()
+            pairs.append((key_tok.value, value))
+            if self._at("COMMA"):
+                self._consume()
+        self._consume("RBRACE")
+        return ObjectLiteral(pairs=pairs)
 
 
 def parse_cel(expression: str) -> tuple[CelExpr | None, list[str]]:
@@ -349,7 +397,10 @@ _SCALAR_FUNCTIONS = frozenset(
         "hashHmacSha256",
         "hmac_sha256",
         "now",
+        "today",
         "decimal",
+        "round",
+        "collect",
     }
 )
 
@@ -450,6 +501,16 @@ def _walk(
             _walk(item, ctx, errors, refs)
         return
 
+    if isinstance(expr, WildcardRef):
+        if expr.alias and expr.alias not in ctx.source_fields:
+            errors.append(f"CEL002: {ctx.fqn}: unknown alias '{expr.alias}'")
+        return
+
+    if isinstance(expr, ObjectLiteral):
+        for _, value in expr.pairs:
+            _walk(value, ctx, errors, refs)
+        return
+
 
 # ── Lineage extraction ────────────────────────────────────────────────────────
 
@@ -481,3 +542,6 @@ def _collect_refs(expr: CelExpr, refs: list[tuple[str, str]]) -> None:
     elif isinstance(expr, ListLiteral):
         for item in expr.items:
             _collect_refs(item, refs)
+    elif isinstance(expr, ObjectLiteral):
+        for _, value in expr.pairs:
+            _collect_refs(value, refs)
