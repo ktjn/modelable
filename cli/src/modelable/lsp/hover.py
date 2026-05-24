@@ -17,7 +17,7 @@ _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
-_DOMAIN_PATTERN = re.compile(r"^\s*domain\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)")
+_DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _WORD_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
@@ -304,7 +304,7 @@ def _current_scope(text: str, line: int) -> tuple[str, str, str, int] | None:
     for item in lines[: line + 1]:
         domain_match = _DOMAIN_PATTERN.match(item)
         if domain_match:
-            current_domain = domain_match.group("name")
+            current_domain = domain_match.group("quoted") or domain_match.group("name")
             current_kind = None
             current_name = None
             current_version = None
