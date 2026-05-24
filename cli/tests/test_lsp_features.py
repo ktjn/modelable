@@ -232,3 +232,39 @@ async def test_references_qualified_ref_returns_declaration_and_usages(lsp):
     uris = [uri for uri, _ in locs]
     assert any("customer.mdl" in u for u in uris), "Expected declaration in customer.mdl"
     assert any("analytics.mdl" in u for u in uris), "Expected reference in analytics.mdl"
+
+
+# ---------------------------------------------------------------------------
+# Completion — reference context after partial domain prefix
+# 05/marketplace-api.mdl line 39, char 12 → before_cursor "    from inv"
+# prefix "inv" → workspace model refs filtered: includes inventory.SellerInventoryLevel
+# ---------------------------------------------------------------------------
+
+_SCENARIO_05 = SCENARIOS / "05-partner-marketplace-api"
+_MARKETPLACE_MDL = _SCENARIO_05 / "marketplace-api.mdl"
+
+
+@pytest.mark.parametrize("lsp", [_SCENARIO_05], indirect=True)
+async def test_completion_reference_prefix_filters_candidates(lsp):
+    await _open_file(lsp, _MARKETPLACE_MDL)
+    labels = await _completion_labels(lsp, _MARKETPLACE_MDL, line=39, char=12)
+    assert labels, "Expected completion items, got empty list"
+    assert "inventory.SellerInventoryLevel" in labels, (
+        f"Expected 'inventory.SellerInventoryLevel' in completions. Got: {labels}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Completion — field candidates inside projection body
+# 01/analytics.mdl line 21, char 9 → before_cursor "    total"
+# scope is analytics.CustomerLifetimeValue@2 → fields starting with "total"
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("lsp", [_SCENARIO_01], indirect=True)
+async def test_completion_field_candidates_inside_projection(lsp):
+    await _open_file(lsp, _ANALYTICS_MDL)
+    labels = await _completion_labels(lsp, _ANALYTICS_MDL, line=20, char=9)
+    assert labels, "Expected field completion items, got empty list"
+    assert "totalOrderCount" in labels, (
+        f"Expected 'totalOrderCount' in field completions. Got: {labels}"
+    )
