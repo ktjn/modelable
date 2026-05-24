@@ -37,7 +37,9 @@ _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
-_DOMAIN_PATTERN = re.compile(r"^\s*domain\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)")
+_DOMAIN_PATTERN = re.compile(
+    r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))'
+)
 _WORD_PREFIX_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*$")
 _ANNOTATION_PATTERN = re.compile(r"(?:^|\s)@[A-Za-z_][A-Za-z0-9_-]*$")
 _REFERENCE_PATTERN = re.compile(r"\b(from|join)\s+[A-Za-z_][A-Za-z0-9_.-]*$")
@@ -464,7 +466,7 @@ def _current_scope(text: str, line: int) -> _Scope | None:
     for index, item in enumerate(lines[: line + 1]):
         domain_match = _DOMAIN_PATTERN.match(item)
         if domain_match:
-            current_domain = domain_match.group("name")
+            current_domain = domain_match.group("quoted") or domain_match.group("name")
             current_scope = None
             continue
 

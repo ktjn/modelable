@@ -6,7 +6,9 @@ from lsprotocol import types
 
 from modelable.lsp.workspace import LspWorkspaceIndex
 
-_DOMAIN_PATTERN = re.compile(r"^\s*domain\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)")
+_DOMAIN_PATTERN = re.compile(
+    r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))'
+)
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
@@ -39,7 +41,7 @@ def build_document_symbols(
     for line_no, line in enumerate(lines):
         domain_match = _DOMAIN_PATTERN.match(line)
         if domain_match:
-            current_domain_name = domain_match.group("name")
+            current_domain_name = domain_match.group("quoted") or domain_match.group("name")
             current_domain = _make_domain_symbol(
                 lines,
                 line_no,
@@ -171,14 +173,14 @@ def _domain_name_start(line: str) -> int:
     match = _DOMAIN_PATTERN.match(line)
     if match is None:
         return 0
-    return match.start("name")
+    return match.start("quoted") if match.group("quoted") is not None else match.start("name")
 
 
 def _domain_name_end(line: str) -> int:
     match = _DOMAIN_PATTERN.match(line)
     if match is None:
         return 0
-    return match.end("name")
+    return match.end("quoted") if match.group("quoted") is not None else match.end("name")
 
 
 def _decl_name_start(line: str) -> int:

@@ -7,7 +7,9 @@ from lsprotocol import types
 from modelable.lsp.workspace import LspWorkspaceIndex
 from modelable.registry.resolver import resolve_model_ref
 
-_DOMAIN_PATTERN = re.compile(r"^\s*domain\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)")
+_DOMAIN_PATTERN = re.compile(
+    r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))'
+)
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
@@ -43,7 +45,7 @@ def build_inlay_hints(
     for line_no, line in enumerate(lines):
         domain_match = _DOMAIN_PATTERN.match(line)
         if domain_match:
-            current_domain = domain_match.group("name")
+            current_domain = domain_match.group("quoted") or domain_match.group("name")
             in_projection = False
             alias_map = {}
             continue
