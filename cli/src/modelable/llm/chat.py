@@ -130,6 +130,8 @@ def _handle_chat_command(
         question = " ".join(args).strip()
         if not question:
             return "Provide a question after /ask."
+        if provider is not None:
+            return chat_reply(workspace, question, ref=state.ref, provider=provider, history=state.history)
         return answer_question(workspace, question)
     if command == "update":
         ref = args[0] if args else state.ref

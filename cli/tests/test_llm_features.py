@@ -427,6 +427,63 @@ def test_transform_projection_ref_json_schema(tmp_path):
     assert "CustomerView" in result.content or "customerView" in result.content.lower()
 
 
+def test_chat_ask_slash_command_uses_provider_when_configured(tmp_path):
+    """'/ask' inside chat must route through the LLM provider, not the heuristic fallback."""
+    from dataclasses import dataclass
+    from modelable.llm.chat import ChatState, chat_turn
+    from modelable.llm.providers import LLMRequest, LLMResponse
+    from modelable.compiler.workspace import load_workspace
+
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    calls: list[LLMRequest] = []
+
+    @dataclass(frozen=True)
+    class CapturingProvider:
+        def complete(self, req: LLMRequest) -> LLMResponse:
+            calls.append(req)
+            return LLMResponse(content="captured", provider="test", model="test")
+
+    state = ChatState()
+    chat_turn(workspace, "/ask what fields does Customer have?", path=tmp_path, state=state, provider=CapturingProvider())
+
+    assert calls, "/ask should have called the LLM provider, but provider was never invoked"
+
+
+def test_chat_ask_slash_command_falls_back_to_heuristic_when_no_provider(tmp_path):
+    from modelable.llm.chat import ChatState, chat_turn
+    from modelable.compiler.workspace import load_workspace
+
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "data-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    state = ChatState()
+    response = chat_turn(workspace, "/ask Who owns customer.Customer@1?", path=tmp_path, state=state, provider=None)
+    assert "data-team" in response
+
+
 def test_transform_unknown_ref_raises(tmp_path):
     from modelable.llm.engine import transform_ref_to_target
     import pytest
