@@ -139,3 +139,87 @@ def test_definition_on_projection_source_field_reference_goes_to_source_projecti
     assert definition.uri == "inmemory://workspace.mdl"
     assert definition.range.start.line == declaration_line
     assert definition.range.start.character == lines[declaration_line].index("productId")
+
+
+_REF_TYPE_TEXT = """
+domain commerce {
+  event Order @ 1 (additive) {
+    @key orderId: uuid
+    status: string
+  }
+}
+
+domain shipping {
+  entity Shipment @ 1 (additive) {
+    @key shipmentId: uuid
+    orderId: ref<commerce.Order>
+  }
+}
+""".strip("\n")
+
+
+def test_definition_on_ref_type_goes_to_model_declaration():
+    lines = _REF_TYPE_TEXT.splitlines()
+    ref_line = next(i for i, l in enumerate(lines) if "ref<commerce.Order>" in l)
+    ref_char = lines[ref_line].index("commerce") + 3  # cursor on "commerce"
+
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", _REF_TYPE_TEXT)
+
+    definition = build_definition(index, "inmemory://workspace.mdl", line=ref_line, character=ref_char)
+
+    assert definition is not None
+    assert definition.uri == "inmemory://workspace.mdl"
+    decl_line = next(i for i, l in enumerate(lines) if "event Order @ 1" in l)
+    assert definition.range.start.line == decl_line
+
+
+def test_definition_on_ref_type_name_part_goes_to_model_declaration():
+    lines = _REF_TYPE_TEXT.splitlines()
+    ref_line = next(i for i, l in enumerate(lines) if "ref<commerce.Order>" in l)
+    ref_char = lines[ref_line].index("Order")  # cursor on "Order"
+
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", _REF_TYPE_TEXT)
+
+    definition = build_definition(index, "inmemory://workspace.mdl", line=ref_line, character=ref_char)
+
+    assert definition is not None
+    decl_line = next(i for i, l in enumerate(lines) if "event Order @ 1" in l)
+    assert definition.range.start.line == decl_line
+
+
+def test_definition_on_ref_type_resolves_latest_version():
+    text = """
+domain commerce {
+  entity Product @ 1 (additive) {
+    @key productId: uuid
+  }
+
+  entity Product @ 2 (additive) {
+    @key productId: uuid
+    name: string
+  }
+}
+
+domain catalog {
+  entity Listing @ 1 (additive) {
+    @key listingId: uuid
+    productId: ref<commerce.Product>
+  }
+}
+""".strip("\n")
+
+    lines = text.splitlines()
+    ref_line = next(i for i, l in enumerate(lines) if "ref<commerce.Product>" in l)
+    ref_char = lines[ref_line].index("Product")
+
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", text)
+
+    definition = build_definition(index, "inmemory://workspace.mdl", line=ref_line, character=ref_char)
+
+    assert definition is not None
+    # Should point to the latest (@ 2) declaration
+    decl_line = next(i for i, l in enumerate(lines) if "entity Product @ 2" in l)
+    assert definition.range.start.line == decl_line

@@ -12,6 +12,9 @@ from modelable.registry.resolver import resolve_model_ref
 _QUALIFIED_REF_PATTERN = re.compile(
     r"(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
+_REF_TYPE_PATTERN = re.compile(
+    r"ref\s*<\s*(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*>"
+)
 _FIELD_REF_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
@@ -44,6 +47,14 @@ def build_hover(index: LspWorkspaceIndex, uri: str, line: int, character: int) -
         if _contains(match.start(), match.end(), character):
             ref = f"{match.group('domain')}.{match.group('name')}@{match.group('version')}"
             return _make_ref_hover(workspace, ref, line, match.start(), match.end())
+
+    for match in _REF_TYPE_PATTERN.finditer(text_line):
+        if _contains(match.start(), match.end(), character):
+            hover = _make_unversioned_ref_hover(
+                workspace, match.group("domain"), match.group("name"), line, match.start(), match.end()
+            )
+            if hover is not None:
+                return hover
 
     for match in _FIELD_REF_PATTERN.finditer(text_line):
         if _contains(match.start(), match.end(), character):
@@ -86,6 +97,23 @@ def _make_ref_hover(workspace, ref: str, line: int, start: int, end: int) -> typ
     return _hover_from_info(
         HoverInfo(markdown=_markdown_block(summary), line=line, start=start, end=end)
     )
+
+
+def _make_unversioned_ref_hover(
+    workspace, domain_name: str, name: str, line: int, start: int, end: int
+) -> types.Hover | None:
+    domain = next((d for d in workspace.mdl.domains if d.name == domain_name), None)
+    if domain is None:
+        return None
+    if name in domain.models:
+        latest = max(domain.models[name], key=lambda v: v.version)
+        ref = f"{domain_name}.{name}@{latest.version}"
+        return _make_ref_hover(workspace, ref, line, start, end)
+    if name in domain.projections:
+        latest = max(domain.projections[name], key=lambda v: v.version)
+        ref = f"{domain_name}.{name}@{latest.version}"
+        return _make_ref_hover(workspace, ref, line, start, end)
+    return None
 
 
 def _hover_for_bare_word(workspace, text: str, line: int, word: str) -> str | None:

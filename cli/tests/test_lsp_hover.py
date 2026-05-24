@@ -187,3 +187,49 @@ def test_hover_returns_none_for_unknown_uri():
     hover = build_hover(index, "inmemory://unknown.mdl", line=0, character=0)
 
     assert hover is None
+
+
+_REF_TYPE_HOVER_TEXT = """
+domain commerce {
+  event Order @ 2 (additive) {
+    @key orderId: uuid
+    status: string
+  }
+}
+
+domain shipping {
+  entity Shipment @ 1 (additive) {
+    @key shipmentId: uuid
+    orderId: ref<commerce.Order>
+  }
+}
+""".strip("\n")
+
+
+def test_hover_on_ref_type_shows_model_summary():
+    lines = _REF_TYPE_HOVER_TEXT.splitlines()
+    ref_line = next(i for i, l in enumerate(lines) if "ref<commerce.Order>" in l)
+    ref_char = lines[ref_line].index("Order")
+
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", _REF_TYPE_HOVER_TEXT)
+
+    hover = build_hover(index, "inmemory://workspace.mdl", line=ref_line, character=ref_char)
+
+    assert hover is not None
+    assert "commerce" in hover.contents.value
+    assert "Order" in hover.contents.value
+
+
+def test_hover_on_ref_type_domain_part_also_works():
+    lines = _REF_TYPE_HOVER_TEXT.splitlines()
+    ref_line = next(i for i, l in enumerate(lines) if "ref<commerce.Order>" in l)
+    ref_char = lines[ref_line].index("commerce") + 2  # cursor mid-word on "commerce"
+
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", _REF_TYPE_HOVER_TEXT)
+
+    hover = build_hover(index, "inmemory://workspace.mdl", line=ref_line, character=ref_char)
+
+    assert hover is not None
+    assert "Order" in hover.contents.value
