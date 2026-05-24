@@ -124,6 +124,22 @@ domain billing {
     assert definition.range.start.character == 4
 
 
+def test_definition_on_projection_in_from_clause_goes_to_projection_declaration():
+    lines = PROJECTION_SOURCE_TEXT.splitlines()
+    from_line = next(i for i, l in enumerate(lines) if "from catalog.ProductReply @ 1 as p" in l)
+    character = lines[from_line].index("ProductReply") + 3  # cursor mid-word on "ProductReply"
+    decl_line = next(i for i, l in enumerate(lines) if "projection ProductReply @ 1" in l)
+
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", PROJECTION_SOURCE_TEXT)
+
+    definition = build_definition(index, "inmemory://workspace.mdl", line=from_line, character=character)
+
+    assert definition is not None
+    assert definition.uri == "inmemory://workspace.mdl"
+    assert definition.range.start.line == decl_line
+
+
 def test_definition_on_projection_source_field_reference_goes_to_source_projection_field():
     lines = PROJECTION_SOURCE_TEXT.splitlines()
     usage_line = lines.index("    displayId <- p.productId")

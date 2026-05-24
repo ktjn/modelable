@@ -112,6 +112,20 @@ domain billing {
     assert "computed c.email" in hover.contents.value
 
 
+def test_hover_on_projection_in_from_clause_shows_projection_summary():
+    lines = PROJECTION_SOURCE_TEXT.splitlines()
+    from_line = next(i for i, l in enumerate(lines) if "from catalog.ProductReply @ 1 as p" in l)
+    character = lines[from_line].index("ProductReply") + 3  # cursor mid-word on "ProductReply"
+
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", PROJECTION_SOURCE_TEXT)
+
+    hover = build_hover(index, "inmemory://workspace.mdl", line=from_line, character=character)
+
+    assert hover is not None
+    assert "catalog.ProductReply@1" in hover.contents.value
+
+
 def test_hover_on_projection_source_field_reference_shows_projection_field_summary():
     lines = PROJECTION_SOURCE_TEXT.splitlines()
     usage_line = lines.index("    displayId <- p.productId")
