@@ -200,3 +200,35 @@ async def test_definition_alias_field_resolves_to_source_model(lsp):
     assert result is not None, "Expected a definition location, got None"
     uri, line = result
     assert "customer.mdl" in uri, f"Expected definition in customer.mdl, got: {uri}"
+
+
+# ---------------------------------------------------------------------------
+# References — entity declaration name finds usages across workspace
+# 01/customer.mdl line 5, char 12 → Customer entity name
+# Expected: at least one reference in analytics.mdl
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("lsp", [_SCENARIO_01], indirect=True)
+async def test_references_entity_name_finds_usages(lsp):
+    await _open_file(lsp, _CUSTOMER_MDL)
+    locs = await _references(lsp, _CUSTOMER_MDL, line=5, char=12, include_declaration=True)
+    assert len(locs) >= 2, f"Expected ≥2 locations (declaration + usages), got {len(locs)}: {locs}"
+    uris = [uri for uri, _ in locs]
+    assert any("customer.mdl" in u for u in uris), "Expected declaration in customer.mdl"
+    assert any("analytics.mdl" in u for u in uris), "Expected usage in analytics.mdl"
+
+
+# ---------------------------------------------------------------------------
+# References — qualified ref returns declaration + all usages
+# 01/analytics.mdl line 6, char 20 → customer.Customer @ 3
+# Expected: declaration in customer.mdl + at least two references in analytics.mdl
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("lsp", [_SCENARIO_01], indirect=True)
+async def test_references_qualified_ref_returns_declaration_and_usages(lsp):
+    await _open_file(lsp, _ANALYTICS_MDL)
+    locs = await _references(lsp, _ANALYTICS_MDL, line=6, char=20, include_declaration=True)
+    assert len(locs) >= 2, f"Expected ≥2 locations, got {len(locs)}: {locs}"
+    uris = [uri for uri, _ in locs]
+    assert any("customer.mdl" in u for u in uris), "Expected declaration in customer.mdl"
+    assert any("analytics.mdl" in u for u in uris), "Expected reference in analytics.mdl"
