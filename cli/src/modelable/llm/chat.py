@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import difflib
+import re
 import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -21,7 +22,7 @@ class ChatState:
 
 CHAT_SYSTEM_PROMPT = """You are Modelable's interactive assistant.
 Answer using the current workspace context only.
-If the user asks for a model edit, explain the exact `modelable update` command they should run.
+If the user asks for a model edit, explain that edit requests are applied directly in chat and then perform the smallest safe update you can.
 If the user asks for a summary, be concise and factual.
 If the user asks a question you cannot answer from the context, say what is missing.
 """
@@ -54,6 +55,14 @@ def chat_turn(
     stripped = message.strip()
     if stripped.startswith("/"):
         response = _handle_chat_command(workspace, path, stripped, state=state, provider=provider)
+    elif _looks_like_update_request(stripped):
+        ref = _resolve_update_ref(stripped, state.ref)
+        if ref is None:
+            response = "Provide a ref or set one with /ref."
+        else:
+            instruction = _strip_update_ref_from_message(stripped, ref=ref)
+            result = update_definition(path, ref, instruction, provider=provider, write=True)
+            response = _render_update_result(result)
     else:
         response = chat_reply(workspace, message, ref=state.ref, provider=provider, history=state.history)
     state.history.append(("user", message))
@@ -140,8 +149,8 @@ def _handle_chat_command(
         instruction = " ".join(args[1:]).strip() if len(args) > 1 else ""
         if not instruction:
             return "Provide an edit instruction after /update."
-        result = update_definition(path, ref, instruction, provider=provider, write=False)
-        return _render_update_preview(result)
+        result = update_definition(path, ref, instruction, provider=provider, write=True)
+        return _render_update_result(result)
     if command in {"exit", "quit"}:
         return "/exit"
     return f"Unknown command: {command}. Try /help."
@@ -150,11 +159,15 @@ def _handle_chat_command(
 def _chat_help() -> str:
     return (
         "Commands: /help, /ref <ref>, /context, /describe [ref], /recommend <ref> [consumer], "
-        "/ask <question>, /update <ref> <instruction>, /exit"
+        "/ask <question>, /update <ref> <instruction> (writes changes), /exit"
     )
 
 
 def _render_update_preview(result) -> str:
+    return _render_update_result(result, written=False)
+
+
+def _render_update_result(result, *, written: bool = True) -> str:
     diff = difflib.unified_diff(
         result.original_content.splitlines(),
         result.content.splitlines(),
@@ -167,4 +180,41 @@ def _render_update_preview(result) -> str:
         rendered = result.content
     if result.warnings:
         rendered += "\n" + "\n".join(f"WARN: {warning}" for warning in result.warnings)
+    if written:
+        rendered = f"Wrote changes to {result.path}\n{rendered}"
     return rendered
+
+
+def _looks_like_update_request(message: str) -> bool:
+    lowered = message.lower().strip()
+    if lowered.endswith("?") and lowered.startswith(("how do i ", "how to ", "what is ", "why does ", "why is ")):
+        return False
+    if lowered.startswith(("please ", "please,", "could you ", "can you ", "would you ", "kindly ")):
+        return True
+    if re.match(r"^(make|rename|add|remove|delete|change|set|update|replace)\b", lowered):
+        return True
+    return any(f" {verb} " in lowered for verb in ("make", "rename", "add", "remove", "delete", "change", "set", "update", "replace"))
+
+
+def _resolve_update_ref(message: str, fallback_ref: str | None) -> str | None:
+    explicit_ref = _find_model_ref_in_message(message)
+    if explicit_ref is not None:
+        return explicit_ref
+    return fallback_ref
+
+
+def _find_model_ref_in_message(message: str) -> str | None:
+    match = re.search(r"\b([A-Za-z_][A-Za-z0-9_-]*\.[A-Za-z_][A-Za-z0-9_-]*@\d+)\b", message)
+    if match is None:
+        return None
+    candidate = match.group(1)
+    try:
+        parse_model_ref(candidate)
+    except ValueError:
+        return None
+    return candidate
+
+
+def _strip_update_ref_from_message(message: str, *, ref: str) -> str:
+    cleaned = re.sub(rf"\b{re.escape(ref)}\b", "", message, count=1).strip()
+    return cleaned.lstrip(" ,:;-")

@@ -157,9 +157,12 @@ domain customer {
         def __exit__(self, exc_type, exc, tb):
             return False
 
+    captured: dict[str, str] = {}
+
     def fake_urlopen(req: request.Request, timeout: float):
+        captured["system"] = json.loads(req.data.decode("utf-8"))["messages"][0]["content"]
         return DummyResponse(
-            json.dumps({"message": {"content": "Use `modelable update customer.Customer@1 \"make email optional\"`."}}).encode("utf-8")
+            json.dumps({"message": {"content": "I can apply that change directly in chat."}}).encode("utf-8")
         )
 
     monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
@@ -182,7 +185,9 @@ domain customer {
         ],
     )
     assert result.exit_code == 0, result.output
-    assert "modelable update customer.Customer@1" in result.output
+    assert "apply that change directly" in result.output
+    assert "applied directly in chat" in captured["system"]
+    assert "modelable update" not in captured["system"]
 
 
 def test_chat_slash_commands_cover_help_describe_recommend_and_update(tmp_path):
@@ -220,5 +225,95 @@ domain customer {
         path=tmp_path,
         state=state,
     )
+    assert "Wrote changes to" in update_text
     assert "@@" in update_text
     assert "email?: string" in update_text
+    assert "email?: string" in mdl.read_text(encoding="utf-8")
+
+
+def test_chat_update_command_writes_model_file_with_provider(tmp_path):
+    from modelable.llm.providers import LLMRequest, LLMResponse
+
+    mdl = tmp_path / "workspace.mdl"
+    original = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+"""
+    mdl.write_text(original, encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+    state = ChatState()
+
+    class FakeProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            payload = {
+                "target": "customer.Customer@1",
+                "target_kind": "model",
+                "warnings": ["confirm classification before publishing"],
+                "changes": [
+                    {"kind": "make_optional", "field": "email"},
+                ],
+            }
+            return LLMResponse(content=json.dumps(payload), provider="ollama", model="llama3.1")
+
+    response = chat_turn(
+        workspace,
+        "/update customer.Customer@1 make email optional",
+        path=tmp_path,
+        state=state,
+        provider=FakeProvider(),
+    )
+    assert "Wrote changes to" in response
+    assert "email?: string" in mdl.read_text(encoding="utf-8")
+    assert "confirm classification before publishing" in response
+
+
+def test_chat_freeform_edit_request_writes_model_file(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    original = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+"""
+    mdl.write_text(original, encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+    state = ChatState(ref="customer.Customer@1")
+
+    response = chat_turn(
+        workspace,
+        "Please make email optional",
+        path=tmp_path,
+        state=state,
+    )
+    assert "Wrote changes to" in response
+    assert "email?: string" in mdl.read_text(encoding="utf-8")
+
+
+def test_chat_question_about_edit_does_not_auto_write(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    original = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+"""
+    mdl.write_text(original, encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+    state = ChatState(ref="customer.Customer@1")
+
+    response = chat_turn(
+        workspace,
+        "How do I make email optional?",
+        path=tmp_path,
+        state=state,
+    )
+    assert "Wrote changes to" not in response
+    assert mdl.read_text(encoding="utf-8") == original
