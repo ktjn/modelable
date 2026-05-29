@@ -646,6 +646,8 @@ modelable transform <Entity>@<version> --to <target> [--explain] [--path PATH]
 
 Emits the target artifact (e.g., Avro schema, JSON Schema) for a single model version and optionally prints an explanation of mapping decisions.
 
+When `--out` is supplied, the command writes the artifact to disk and prints the standard audit summary to stdout.
+
 **Defined in:** `idl-design-spec.md` §5.1.
 
 ### 10.3 `suggest-projection` — AI-assisted projection proposal

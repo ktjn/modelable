@@ -176,6 +176,16 @@ def transform(ref: str, path: Path, target: str, output: Path | None, explain: b
     if output is not None:
         output.write_text(result.content, encoding="utf-8")
         console.print(f"[green]OK[/green] wrote {output}")
+        console.print(
+            render_write_audit_summary(
+                provider="local",
+                model="modelable-local",
+                validation_status="passed",
+                files_written=str(output),
+                inputs=f"ref={ref} target={target} path={path}",
+                diagnostics_repaired=0,
+            )
+        )
     if explain and result.explanation is not None:
         console.print(result.explanation)
     console.print(result.content)

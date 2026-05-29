@@ -392,6 +392,30 @@ def test_transform_cli_csharp(tmp_path):
     assert "Customer" in result.output
 
 
+def test_transform_cli_writes_audit_summary(tmp_path):
+    _transform_tmp(tmp_path)
+    runner = CliRunner()
+    output = tmp_path / "customer.cs"
+    result = runner.invoke(
+        cli,
+        [
+            "transform",
+            _TRANSFORM_REF,
+            "--to",
+            "csharp",
+            "--path",
+            str(tmp_path),
+            "--out",
+            str(output),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert output.exists()
+    assert "audit:" in result.output
+    assert "provider: local" in result.output
+    assert "Customer" in result.output
+
+
 def test_transform_cli_explain(tmp_path):
     _transform_tmp(tmp_path)
     runner = CliRunner()
