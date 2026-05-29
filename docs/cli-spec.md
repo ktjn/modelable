@@ -658,6 +658,8 @@ modelable suggest-projection --source <Domain.Model@version> --consumer <domain>
 
 Proposes a projection definition with field derivations tailored to a consuming domain, using the AI integration described in §3.7.
 
+The generated `.mdl` is validated before any file write.
+
 When `--output` is supplied, the command writes the generated projection to disk and prints the standard audit summary to stdout.
 
 **Defined in:** `idl-design-spec.md` §5.1.

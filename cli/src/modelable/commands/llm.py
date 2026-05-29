@@ -77,7 +77,7 @@ def generate(source: str, source_format: str | None, domain_name: str | None, mo
             text = generate_entity_from_prompt(source, domain_name=domain_name, model_name=model_name)
             source_descriptor = "prompt"
 
-    mdl, errors = validate_generated_text(text)
+    _mdl, errors = validate_generated_text(text)
     if errors:
         for error in errors:
             console.print(f"[red]ERROR[/red] {error}")
@@ -109,7 +109,7 @@ def generate(source: str, source_format: str | None, domain_name: str | None, mo
 def import_model(source: Path, source_format: str, domain_name: str | None, output: Path | None) -> None:
     """Import a schema or DDL file into Modelable text."""
     text = import_definition(source, source_format, domain_name=domain_name)
-    mdl, errors = validate_generated_text(text)
+    _mdl, errors = validate_generated_text(text)
     if errors:
         for error in errors:
             console.print(f"[red]ERROR[/red] {error}")
@@ -201,6 +201,11 @@ def transform(ref: str, path: Path, target: str, output: Path | None, explain: b
 def suggest_projection_cmd(path: Path, source_ref: str, consumer_domain: str, output: Path | None) -> None:
     """Suggest a projection for a consuming domain."""
     text = suggest_projection(path, source_ref, consumer_domain)
+    mdl, errors = validate_generated_text(text)
+    if errors:
+        for error in errors:
+            console.print(f"[red]ERROR[/red] {error}")
+        raise click.ClickException("suggested projection failed validation")
     if output is not None:
         output.write_text(text, encoding="utf-8")
         console.print(f"[green]OK[/green] wrote {output}")
