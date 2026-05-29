@@ -178,9 +178,10 @@ workspace_description_attr: "description" ":" ESCAPED_STRING
 registry_block: "registry" "{" ignored_block_item* "}"
 peers_block: "peers" ":" "[" PEERS_CONTENT "]"
 ai_block: "ai" "{" ai_item* "}"
-ai_item: ai_provider | ai_model
+ai_item: ai_provider | ai_model | ai_repair_attempts
 ai_provider: "provider" ":" ESCAPED_STRING
 ai_model: "model" ":" ESCAPED_STRING
+ai_repair_attempts: "repair_attempts" ":" INT
 import_domain_stmt: "import" "domain" dotted_ref import_source? pinned_import? version_selector?
 import_source: "from" "registry" ESCAPED_STRING
 pinned_import: "at" dotted_ref "@" INT "#" IDENT

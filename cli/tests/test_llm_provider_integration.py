@@ -9,7 +9,7 @@ from click.testing import CliRunner
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.llm.chat import ChatState, chat_reply, chat_turn
-from modelable.llm.config import resolve_llm_config
+from modelable.llm.config import LlmConfig, resolve_llm_config
 from modelable.llm.engine import update_definition
 from modelable.llm.providers import LLMRequest, LLMResponse, OllamaProvider, build_provider
 
@@ -153,6 +153,39 @@ domain customer {
     assert result.provider == "ollama"
     assert result.model == "llama3.1"
     assert result.diagnostics_repaired == 1
+    assert mdl.read_text(encoding="utf-8") == original
+
+
+def test_update_definition_can_disable_repair_attempts(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    original = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+"""
+    mdl.write_text(original, encoding="utf-8")
+
+    calls: list[LLMRequest] = []
+
+    class BrokenProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            calls.append(request)
+            return LLMResponse(content="{not valid json", provider="ollama", model="llama3.1")
+
+    with pytest.raises(ValueError, match="invalid update plan"):
+        update_definition(
+            tmp_path,
+            "customer.Customer@1",
+            "make email optional",
+            provider=BrokenProvider(),
+            llm_config=LlmConfig(provider="ollama", model="llama3.1", base_url=None, repair_attempts=0, source="workspace"),
+            write=False,
+        )
+
+    assert len(calls) == 1
     assert mdl.read_text(encoding="utf-8") == original
 
 

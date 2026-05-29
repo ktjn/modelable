@@ -356,6 +356,7 @@ class GenerateTarget(BaseModel):
 class AiConfig(BaseModel):
     provider: str | None = None
     model: str | None = None
+    repair_attempts: int | None = None
 
 
 class FieldMapping(BaseModel):

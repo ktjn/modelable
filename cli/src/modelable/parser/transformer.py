@@ -644,13 +644,23 @@ class MdlTransformer(Transformer):
 
     def ai_block(self, items):
         attrs = dict(items)
-        return ("ai", AiConfig(provider=attrs.get("provider"), model=attrs.get("model")))
+        return (
+            "ai",
+            AiConfig(
+                provider=attrs.get("provider"),
+                model=attrs.get("model"),
+                repair_attempts=attrs.get("repair_attempts"),
+            ),
+        )
 
     def ai_provider(self, items):
         return ("provider", _str(items[0]))
 
     def ai_model(self, items):
         return ("model", _str(items[0]))
+
+    def ai_repair_attempts(self, items):
+        return ("repair_attempts", int(items[0]))
 
     def field_mapping(self, items):
         return FieldMapping(source=str(items[0]), target=str(items[1]))

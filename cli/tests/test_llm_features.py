@@ -23,7 +23,7 @@ def test_redaction_masks_secrets():
 
 
 def test_model_config_resolution_order():
-    workspace = type("WorkspaceLike", (), {"ai": AiConfig(provider="anthropic", model="workspace-model")})()
+    workspace = type("WorkspaceLike", (), {"ai": AiConfig(provider="anthropic", model="workspace-model", repair_attempts=2)})()
     config = resolve_llm_config(flag_model="flag-model", workspace=workspace, env={"MODELABLE_LLM_MODEL": "env-model"})
     assert config.model == "flag-model"
     assert config.source == "flag"
@@ -35,6 +35,11 @@ def test_model_config_resolution_order():
     config = resolve_llm_config(workspace=workspace, env={})
     assert config.model == "workspace-model"
     assert config.source == "workspace"
+    assert config.repair_attempts == 2
+
+    config = resolve_llm_config(workspace=workspace, env={"MODELABLE_LLM_REPAIR_ATTEMPTS": "3"})
+    assert config.repair_attempts == 3
+    assert config.source == "environment"
 
 
 def test_workspace_and_model_summaries(tmp_path):
@@ -45,6 +50,7 @@ workspace default {
   ai {
     provider: "anthropic"
     model: "workspace-model"
+    repair_attempts: 2
   }
 }
 
@@ -67,6 +73,9 @@ domain customer {
         encoding="utf-8",
     )
     workspace = load_workspace(tmp_path)
+    assert workspace.mdl.workspace is not None
+    assert workspace.mdl.workspace.ai is not None
+    assert workspace.mdl.workspace.ai.repair_attempts == 2
 
     summary = build_workspace_summary(workspace)
     assert "domain customer" in summary

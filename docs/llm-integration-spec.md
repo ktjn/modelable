@@ -21,6 +21,8 @@ Resolution order:
 3. Workspace config in `workspace.mdl`.
 4. CLI default.
 
+Repair attempts are configurable too. The CLI uses `MODELABLE_LLM_REPAIR_ATTEMPTS` or `workspace.ai.repair_attempts` when present, otherwise it defaults to one repair attempt for invalid structured update plans.
+
 Example:
 
 ```mdl
@@ -28,6 +30,7 @@ workspace "commerce-platform" {
   ai {
     provider: "ollama"
     model:    "llama3.1"
+    repair_attempts: 2
   }
 }
 ```
@@ -168,7 +171,6 @@ The CLI does not commit generated files. Git workflow remains user-controlled.
 
 - Whether multiple LLM providers are supported in the first implementation or only Anthropic.
 - Whether generated output should include a machine-readable provenance sidecar.
-- Whether repair attempts should be configurable beyond one retry.
 
 ## 10. Acceptance Criteria
 

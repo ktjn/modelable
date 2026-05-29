@@ -211,6 +211,8 @@ def _build_update_plan(
     current_text: str,
     ref: str,
     instruction: str,
+    *,
+    repair_attempts: int = 1,
 ) -> UpdatePlanResult:
     current_summary = _summarize_update_target(workspace, ref)
     request = build_update_request(
@@ -224,6 +226,8 @@ def _build_update_plan(
         plan = _parse_update_plan_response(response.content, ref=ref)
         return UpdatePlanResult(plan=plan, provider=response.provider, model=response.model, diagnostics_repaired=0)
     except Exception as exc:
+        if repair_attempts <= 0:
+            raise ValueError(f"LLM returned an invalid update plan: {exc}") from exc
         repair_request = build_update_repair_request(
             ref=ref,
             current_summary=current_summary,
@@ -231,17 +235,22 @@ def _build_update_plan(
             instruction=instruction,
             validation_error=str(exc),
         )
-        repair_response = provider.complete(repair_request)
-        try:
-            plan = _parse_update_plan_response(repair_response.content, ref=ref)
-            return UpdatePlanResult(
-                plan=plan,
-                provider=repair_response.provider,
-                model=repair_response.model,
-                diagnostics_repaired=1,
-            )
-        except Exception as repair_exc:  # pragma: no cover - provider integration guard
-            raise ValueError(f"LLM returned an invalid update plan after repair: {repair_exc}") from repair_exc
+        diagnostics_repaired = 0
+        last_error = exc
+        for _ in range(repair_attempts):
+            repair_response = provider.complete(repair_request)
+            diagnostics_repaired += 1
+            try:
+                plan = _parse_update_plan_response(repair_response.content, ref=ref)
+                return UpdatePlanResult(
+                    plan=plan,
+                    provider=repair_response.provider,
+                    model=repair_response.model,
+                    diagnostics_repaired=diagnostics_repaired,
+                )
+            except Exception as repair_exc:  # pragma: no cover - provider integration guard
+                last_error = repair_exc
+        raise ValueError(f"LLM returned an invalid update plan after repair: {last_error}") from last_error
 
 
 def _parse_update_plan_response(content: str, *, ref: str) -> UpdatePlan:
@@ -282,6 +291,7 @@ def update_definition(
     provider_name = "local"
     model_name = llm_config.model if llm_config is not None else "modelable-local"
     diagnostics_repaired = 0
+    repair_attempts = llm_config.repair_attempts if llm_config is not None else 1
 
     if provider is None and llm_config is None:
         llm_config = resolve_llm_config(workspace=workspace.mdl.workspace, env=environ)
@@ -297,7 +307,7 @@ def update_definition(
         if version is None:
             raise ValueError(f"Unknown model version: {ref}")
         if provider is not None:
-            plan_result = _build_update_plan(provider, workspace, source_text, ref, instruction)
+            plan_result = _build_update_plan(provider, workspace, source_text, ref, instruction, repair_attempts=repair_attempts)
             updated, warnings = _apply_update_plan_to_model(version, plan_result.plan)
             provider_name = plan_result.provider
             model_name = plan_result.model
@@ -309,7 +319,7 @@ def update_definition(
         if version is None:
             raise ValueError(f"Unknown projection version: {ref}")
         if provider is not None:
-            plan_result = _build_update_plan(provider, workspace, source_text, ref, instruction)
+            plan_result = _build_update_plan(provider, workspace, source_text, ref, instruction, repair_attempts=repair_attempts)
             updated, warnings = _apply_update_plan_to_projection(version, plan_result.plan)
             provider_name = plan_result.provider
             model_name = plan_result.model
