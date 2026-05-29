@@ -34,6 +34,7 @@ from modelable.parser.ir import (
     AnnKey,
     DirectMapping,
     FieldDef,
+    ParseError,
     MdlFile,
     ModelKind,
     ModelVersion,
@@ -464,8 +465,11 @@ def _apply_projection_change(version: ProjectionVersion, change: UpdateChange) -
     raise ValueError(f"Unsupported projection update change: {change.kind}")
 
 
-def validate_generated_text(text: str) -> tuple[MdlFile, list[str]]:
-    mdl = parse_text_to_ir(text)
+def validate_generated_text(text: str) -> tuple[MdlFile | None, list[str]]:
+    try:
+        mdl = parse_text_to_ir(text)
+    except ParseError as exc:
+        return None, [exc.message]
     errors = validate(mdl)
     if errors:
         return mdl, errors

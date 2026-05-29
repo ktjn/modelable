@@ -279,6 +279,44 @@ domain customer {
     assert not projection.exists()
 
 
+def test_cli_suggest_projection_reports_parse_errors(tmp_path, monkeypatch):
+    from modelable.commands import llm as llm_commands
+
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(llm_commands, "suggest_projection", lambda *_args, **_kwargs: "not valid mdl")
+    runner = CliRunner()
+    projection = tmp_path / "projection.mdl"
+    result = runner.invoke(
+        cli,
+        [
+            "suggest-projection",
+            "--path",
+            str(tmp_path),
+            "--source",
+            "customer.Customer@1",
+            "--consumer",
+            "billing",
+            "--output",
+            str(projection),
+        ],
+    )
+    assert result.exit_code != 0
+    assert "invalid syntax" in result.output or "No terminal matches" in result.output
+    assert not projection.exists()
+
+
 def test_cli_update_model_field(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
