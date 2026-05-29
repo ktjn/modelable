@@ -110,6 +110,49 @@ domain customer {
     assert mdl.read_text(encoding="utf-8") == original
 
 
+def test_update_definition_repairs_invalid_provider_output(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    original = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+"""
+    mdl.write_text(original, encoding="utf-8")
+
+    calls: list[LLMRequest] = []
+
+    class RepairingProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            calls.append(request)
+            if len(calls) == 1:
+                return LLMResponse(content="{not valid json", provider="ollama", model="llama3.1")
+            payload = {
+                "target": "customer.Customer@1",
+                "target_kind": "model",
+                "warnings": ["repaired output"],
+                "changes": [
+                    {"kind": "make_optional", "field": "email"},
+                ],
+            }
+            return LLMResponse(content=json.dumps(payload), provider="ollama", model="llama3.1")
+
+    result = update_definition(
+        tmp_path,
+        "customer.Customer@1",
+        "make email optional",
+        provider=RepairingProvider(),
+        write=False,
+    )
+
+    assert len(calls) == 2
+    assert "email?: string" in result.content
+    assert "repaired output" in result.warnings
+    assert mdl.read_text(encoding="utf-8") == original
+
+
 def test_chat_reply_falls_back_to_local_qa(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
@@ -186,7 +229,7 @@ domain customer {
     )
     assert result.exit_code == 0, result.output
     assert "apply that change directly" in result.output
-    assert "applied directly in chat" in captured["system"]
+    assert "previewed through the update pipeline" in captured["system"]
     assert "modelable update" not in captured["system"]
 
 
@@ -225,13 +268,21 @@ domain customer {
         path=tmp_path,
         state=state,
     )
-    assert "Wrote changes to" in update_text
+    assert "Wrote changes to" not in update_text
     assert "@@" in update_text
     assert "email?: string" in update_text
-    assert "email?: string" in mdl.read_text(encoding="utf-8")
+    assert mdl.read_text(encoding="utf-8") == """
+domain customer {
+  owner: "platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+"""
 
 
-def test_chat_update_command_writes_model_file_with_provider(tmp_path):
+def test_chat_update_command_shows_preview_with_provider(tmp_path):
     from modelable.llm.providers import LLMRequest, LLMResponse
 
     mdl = tmp_path / "workspace.mdl"
@@ -266,12 +317,13 @@ domain customer {
         state=state,
         provider=FakeProvider(),
     )
-    assert "Wrote changes to" in response
-    assert "email?: string" in mdl.read_text(encoding="utf-8")
+    assert "Wrote changes to" not in response
+    assert "email?: string" in response
+    assert "email?: string" not in mdl.read_text(encoding="utf-8")
     assert "confirm classification before publishing" in response
 
 
-def test_chat_freeform_edit_request_writes_model_file(tmp_path):
+def test_chat_freeform_edit_request_shows_preview_without_writing(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
@@ -291,8 +343,9 @@ domain customer {
         path=tmp_path,
         state=state,
     )
-    assert "Wrote changes to" in response
-    assert "email?: string" in mdl.read_text(encoding="utf-8")
+    assert "Wrote changes to" not in response
+    assert "email?: string" in response
+    assert mdl.read_text(encoding="utf-8") == original
 
 
 def test_chat_question_about_edit_does_not_auto_write(tmp_path):

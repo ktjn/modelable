@@ -26,7 +26,7 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 
 For full tooling setup, developer workflow, and CI integration, see `cli-tooling-spec.md`.
 
-AI-powered commands (`describe`, `generate`, `update`) are implemented as CLI workflows in the current repo. Provider SDK dependencies and credentials such as `ANTHROPIC_API_KEY` are only needed when a remote provider is configured.
+AI-powered commands (`describe`, `generate`, `update`, `transform`, `suggest-projection`, `chat`) are implemented as CLI workflows in the current repo. Provider SDK dependencies and credentials such as `ANTHROPIC_API_KEY` are only needed when a remote provider is configured.
 
 ## 4. File Format
 

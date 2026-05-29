@@ -17,12 +17,13 @@ from modelable.llm.engine import recommend_cli, update_definition
 @dataclass
 class ChatState:
     ref: str | None = None
+    workspace_summary: str | None = None
     history: list[tuple[str, str]] = field(default_factory=list)
 
 
 CHAT_SYSTEM_PROMPT = """You are Modelable's interactive assistant.
 Answer using the current workspace context only.
-If the user asks for a model edit, explain that edit requests are applied directly in chat and then perform the smallest safe update you can.
+If the user asks for a model edit, explain that edit requests are previewed through the update pipeline and do not claim that files were written.
 If the user asks for a summary, be concise and factual.
 If the user asks a question you cannot answer from the context, say what is missing.
 """
@@ -33,13 +34,14 @@ def chat_reply(
     message: str,
     *,
     ref: str | None = None,
+    workspace_summary: str | None = None,
     provider: LLMProvider | None = None,
     history: Iterable[tuple[str, str]] | None = None,
 ) -> str:
     if provider is None:
         return answer_question(workspace, message)
 
-    user = _build_user_prompt(workspace, message, ref=ref, history=history)
+    user = _build_user_prompt(workspace, message, ref=ref, workspace_summary=workspace_summary, history=history)
     response = provider.complete(LLMRequest(system=CHAT_SYSTEM_PROMPT, user=user, temperature=0.2))
     return response.content.strip() or "No response returned."
 
@@ -61,10 +63,21 @@ def chat_turn(
             response = "Provide a ref or set one with /ref."
         else:
             instruction = _strip_update_ref_from_message(stripped, ref=ref)
-            result = update_definition(path, ref, instruction, provider=provider, write=True)
-            response = _render_update_result(result)
+            try:
+                result = update_definition(path, ref, instruction, provider=provider, write=False)
+            except ValueError as exc:
+                response = f"ERROR: {exc}"
+            else:
+                response = _render_update_preview(result)
     else:
-        response = chat_reply(workspace, message, ref=state.ref, provider=provider, history=state.history)
+        response = chat_reply(
+            workspace,
+            message,
+            ref=state.ref,
+            workspace_summary=state.workspace_summary,
+            provider=provider,
+            history=state.history,
+        )
     state.history.append(("user", message))
     state.history.append(("assistant", response))
     return response
@@ -75,9 +88,13 @@ def _build_user_prompt(
     message: str,
     *,
     ref: str | None = None,
+    workspace_summary: str | None = None,
     history: Iterable[tuple[str, str]] | None = None,
 ) -> str:
-    context = _build_context_summary(workspace, ref=ref)
+    if ref is None:
+        context = workspace_summary or build_workspace_summary(workspace)
+    else:
+        context = _build_context_summary(workspace, ref=ref)
     lines = [f"Workspace context:\n{context}"]
     if history:
         lines.append("Conversation:")
@@ -140,7 +157,14 @@ def _handle_chat_command(
         if not question:
             return "Provide a question after /ask."
         if provider is not None:
-            return chat_reply(workspace, question, ref=state.ref, provider=provider, history=state.history)
+            return chat_reply(
+                workspace,
+                question,
+                ref=state.ref,
+                workspace_summary=state.workspace_summary,
+                provider=provider,
+                history=state.history,
+            )
         return answer_question(workspace, question)
     if command == "update":
         ref = args[0] if args else state.ref
@@ -149,8 +173,11 @@ def _handle_chat_command(
         instruction = " ".join(args[1:]).strip() if len(args) > 1 else ""
         if not instruction:
             return "Provide an edit instruction after /update."
-        result = update_definition(path, ref, instruction, provider=provider, write=True)
-        return _render_update_result(result)
+        try:
+            result = update_definition(path, ref, instruction, provider=provider, write=False)
+        except ValueError as exc:
+            return f"ERROR: {exc}"
+        return _render_update_preview(result)
     if command in {"exit", "quit"}:
         return "/exit"
     return f"Unknown command: {command}. Try /help."
@@ -159,7 +186,7 @@ def _handle_chat_command(
 def _chat_help() -> str:
     return (
         "Commands: /help, /ref <ref>, /context, /describe [ref], /recommend <ref> [consumer], "
-        "/ask <question>, /update <ref> <instruction> (writes changes), /exit"
+        "/ask <question>, /update <ref> <instruction> (preview only), /exit"
     )
 
 

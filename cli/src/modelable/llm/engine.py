@@ -27,6 +27,7 @@ from modelable.llm.providers import LLMProvider, build_provider
 from modelable.llm.recommendations import recommend_for_model
 from modelable.llm.render import render_mdl, render_model_version, render_projection_version
 from modelable.llm.update_plan import UpdateChange, UpdatePlan, build_update_request, parse_update_plan
+from modelable.llm.update_plan import build_update_repair_request
 from modelable.llm.validation_help import explain_validation_errors
 from modelable.diagnostics.model import render_diagnostic
 from modelable.parser.ir import (
@@ -201,8 +202,26 @@ def _build_update_plan(
     )
     response = provider.complete(request)
     try:
-        plan = parse_update_plan(response.content)
-    except Exception as exc:  # pragma: no cover - provider integration guard
+        return _parse_update_plan_response(response.content, ref=ref)
+    except Exception as exc:
+        repair_request = build_update_repair_request(
+            ref=ref,
+            current_summary=current_summary,
+            current_text=current_text,
+            instruction=instruction,
+            validation_error=str(exc),
+        )
+        repair_response = provider.complete(repair_request)
+        try:
+            return _parse_update_plan_response(repair_response.content, ref=ref)
+        except Exception as repair_exc:  # pragma: no cover - provider integration guard
+            raise ValueError(f"LLM returned an invalid update plan after repair: {repair_exc}") from repair_exc
+
+
+def _parse_update_plan_response(content: str, *, ref: str) -> UpdatePlan:
+    try:
+        plan = parse_update_plan(content)
+    except Exception as exc:
         raise ValueError(f"LLM returned an invalid update plan: {exc}") from exc
     if plan.target != ref:
         raise ValueError(f"LLM proposed an update for '{plan.target}' instead of '{ref}'")

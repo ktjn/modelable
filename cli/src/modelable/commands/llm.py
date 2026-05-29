@@ -20,6 +20,7 @@ from modelable.llm.engine import (
     transform_ref_to_target,
     validate_generated_text,
 )
+from modelable.llm.context import build_workspace_summary
 from modelable.llm.config import resolve_llm_config
 from modelable.llm.providers import build_provider
 from modelable.registry.resolver import resolve_model_ref
@@ -202,6 +203,7 @@ def explain(path: Path) -> None:
 def chat(path: Path, ref: str | None, message: str | None, provider: str | None, model: str | None, base_url: str | None) -> None:
     """Chat with a model about the current workspace."""
     workspace = load_workspace(path)
+    workspace_summary = build_workspace_summary(workspace)
     config = resolve_llm_config(
         flag_provider=provider,
         flag_model=model,
@@ -209,7 +211,7 @@ def chat(path: Path, ref: str | None, message: str | None, provider: str | None,
         workspace=workspace.mdl.workspace,
     )
     llm_provider = build_provider(config.provider, model=config.model, base_url=config.base_url)
-    state = ChatState(ref=ref)
+    state = ChatState(ref=ref, workspace_summary=workspace_summary)
 
     if message is not None:
         console.print(chat_turn(workspace, message, path=path, state=state, provider=llm_provider))

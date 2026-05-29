@@ -40,6 +40,13 @@ Do not include markdown fences, prose, or commentary.
 Prefer the smallest set of changes that satisfies the instruction.
 """
 
+REPAIR_SYSTEM_PROMPT = """You edit Modelable .mdl definitions.
+The previous response failed validation.
+Return JSON only matching the supplied schema.
+Do not include markdown fences, prose, or commentary.
+Prefer the smallest set of changes that satisfies the instruction.
+"""
+
 
 def build_update_request(*, ref: str, current_summary: str, current_text: str, instruction: str) -> LLMRequest:
     user = (
@@ -52,6 +59,31 @@ def build_update_request(*, ref: str, current_summary: str, current_text: str, i
         system=SYSTEM_PROMPT,
         user=user,
         temperature=0.1,
+        response_format="json",
+        schema=UpdatePlan.model_json_schema(),
+    )
+
+
+def build_update_repair_request(
+    *,
+    ref: str,
+    current_summary: str,
+    current_text: str,
+    instruction: str,
+    validation_error: str,
+) -> LLMRequest:
+    user = (
+        f"Target reference: {ref}\n\n"
+        f"Current summary:\n{current_summary}\n\n"
+        f"Current .mdl:\n{current_text}\n\n"
+        f"Instruction:\n{instruction}\n\n"
+        f"Previous response validation error:\n{validation_error}\n\n"
+        "Return a corrected JSON object only."
+    )
+    return LLMRequest(
+        system=REPAIR_SYSTEM_PROMPT,
+        user=user,
+        temperature=0.05,
         response_format="json",
         schema=UpdatePlan.model_json_schema(),
     )
