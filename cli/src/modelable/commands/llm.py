@@ -169,14 +169,16 @@ def update(ref: str, instruction: tuple[str, ...], path: Path, output: Path | No
 @click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
 @click.option("--to", "target", type=click.Choice(["json-schema", "markdown", "typescript", "csharp", "java", "python", "rust", "go"]), required=True)
 @click.option("--out", "output", type=click.Path(path_type=Path), default=None)
-def transform(ref: str, path: Path, target: str, output: Path | None) -> None:
+@click.option("--explain", is_flag=True, help="Show a mapping explanation alongside the emitted artifact.")
+def transform(ref: str, path: Path, target: str, output: Path | None, explain: bool) -> None:
     """Transform a model or projection into another artifact format."""
     result = transform_ref_to_target(path, ref, target)
     if output is not None:
         output.write_text(result.content, encoding="utf-8")
         console.print(f"[green]OK[/green] wrote {output}")
-    else:
-        console.print(result.content)
+    if explain and result.explanation is not None:
+        console.print(result.explanation)
+    console.print(result.content)
     for warning in result.warnings:
         console.print(f"[yellow]WARN[/yellow] {warning}")
 

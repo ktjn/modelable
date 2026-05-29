@@ -52,6 +52,7 @@ from modelable.validation.semantic import validate
 class AssistantResult:
     content: str
     warnings: list[str]
+    explanation: str | None = None
 
 
 @dataclass(frozen=True)
@@ -135,7 +136,11 @@ def transform_ref_to_target(path: Path, ref: str, target: str) -> AssistantResul
         artifacts = emitter_fn(workspace, out_path)
         art = next(a for a in artifacts if a.ref == ref)
         content = _json_dump(art.content) if is_json else str(art.content)
-        return AssistantResult(content=content, warnings=art.warnings)
+        return AssistantResult(
+            content=content,
+            warnings=art.warnings,
+            explanation=_build_transform_explanation(ref=ref, target=target, is_projection=model_name in domain.projections),
+        )
     raise ValueError(f"Unsupported target: {target}")
 
 
@@ -724,3 +729,19 @@ def render_write_audit_summary(
         f"  diagnostics_repaired: {diagnostics_repaired}",
     ]
     return "\n".join(lines)
+
+
+def _build_transform_explanation(*, ref: str, target: str, is_projection: bool) -> str:
+    source_kind = "projection" if is_projection else "model"
+    target_notes = {
+        "json-schema": "non-optional fields become required and optional fields remain optional in the schema.",
+        "markdown": "the output is formatted as human-readable domain, field, source, and lineage tables.",
+        "typescript": "field optionality and stable interface names are preserved in the generated typings.",
+        "csharp": "field shapes are mapped to C# types using the native backend conventions.",
+        "java": "field shapes are mapped to Java types using the native backend conventions.",
+        "python": "field shapes are mapped to Python types using the native backend conventions.",
+        "rust": "field shapes are mapped to Rust types using the native backend conventions.",
+        "go": "field shapes are mapped to Go types using the native backend conventions.",
+    }
+    detail = target_notes.get(target, "the target emitter preserves the normalized workspace graph.")
+    return f"Explanation: emitted {target} for {ref} from the normalized {source_kind} graph; {detail}"

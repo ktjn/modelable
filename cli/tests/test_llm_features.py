@@ -390,6 +390,27 @@ def test_transform_cli_csharp(tmp_path):
     assert "Customer" in result.output
 
 
+def test_transform_cli_explain(tmp_path):
+    _transform_tmp(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "transform",
+            _TRANSFORM_REF,
+            "--to",
+            "typescript",
+            "--path",
+            str(tmp_path),
+            "--explain",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "Explanation:" in result.output
+    assert "typescript" in result.output
+    assert "Customer" in result.output
+
+
 _TRANSFORM_MDL_WITH_PROJECTION = """
 domain customer {
   entity Customer @ 1 (additive) {
