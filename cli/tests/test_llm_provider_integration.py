@@ -150,6 +150,9 @@ domain customer {
     assert len(calls) == 2
     assert "email?: string" in result.content
     assert "repaired output" in result.warnings
+    assert result.provider == "ollama"
+    assert result.model == "llama3.1"
+    assert result.diagnostics_repaired == 1
     assert mdl.read_text(encoding="utf-8") == original
 
 

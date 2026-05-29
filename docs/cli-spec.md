@@ -667,6 +667,7 @@ modelable update <Domain.Model@version> "<edit instruction>" --path PATH [--outp
 Applies a natural-language change request to an existing model or projection version, rewrites the `.mdl` source, and validates the result before writing. `--preview` shows the rendered diff without writing changes.
 
 When `MODELABLE_LLM_PROVIDER=ollama` and `MODELABLE_LLM_MODEL=<model>` are set, `update` asks the local Ollama server for a structured edit plan before applying the change. Without a configured provider, it falls back to the deterministic local editor path.
+When the command writes a file, it prints a concise audit summary including the provider, model, validation status, written path, source ref, and repair count.
 
 **Defined in:** `llm-integration-spec.md` §6.4.
 

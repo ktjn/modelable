@@ -15,6 +15,7 @@ from modelable.llm.engine import (
     generate_entity_from_prompt,
     import_definition,
     recommend_cli,
+    render_update_audit_summary,
     update_definition,
     suggest_projection,
     transform_ref_to_target,
@@ -135,6 +136,8 @@ def update(ref: str, instruction: tuple[str, ...], path: Path, output: Path | No
         console.print(result.content.rstrip())
     for warning in result.warnings:
         console.print(f"[yellow]WARN[/yellow] {warning}")
+    if not preview:
+        console.print(render_update_audit_summary(result))
 
 
 @click.command()

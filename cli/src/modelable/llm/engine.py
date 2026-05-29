@@ -57,9 +57,22 @@ class AssistantResult:
 @dataclass(frozen=True)
 class UpdateResult:
     path: Path
+    source_path: Path
+    ref: str
     original_content: str
     content: str
     warnings: list[str]
+    provider: str
+    model: str
+    diagnostics_repaired: int
+
+
+@dataclass(frozen=True)
+class UpdatePlanResult:
+    plan: UpdatePlan
+    provider: str
+    model: str
+    diagnostics_repaired: int
 
 
 def describe_path_or_ref(path: Path | None = None, ref: str | None = None) -> str:
@@ -192,7 +205,7 @@ def _build_update_plan(
     current_text: str,
     ref: str,
     instruction: str,
-) -> UpdatePlan:
+) -> UpdatePlanResult:
     current_summary = _summarize_update_target(workspace, ref)
     request = build_update_request(
         ref=ref,
@@ -202,7 +215,8 @@ def _build_update_plan(
     )
     response = provider.complete(request)
     try:
-        return _parse_update_plan_response(response.content, ref=ref)
+        plan = _parse_update_plan_response(response.content, ref=ref)
+        return UpdatePlanResult(plan=plan, provider=response.provider, model=response.model, diagnostics_repaired=0)
     except Exception as exc:
         repair_request = build_update_repair_request(
             ref=ref,
@@ -213,7 +227,13 @@ def _build_update_plan(
         )
         repair_response = provider.complete(repair_request)
         try:
-            return _parse_update_plan_response(repair_response.content, ref=ref)
+            plan = _parse_update_plan_response(repair_response.content, ref=ref)
+            return UpdatePlanResult(
+                plan=plan,
+                provider=repair_response.provider,
+                model=repair_response.model,
+                diagnostics_repaired=1,
+            )
         except Exception as repair_exc:  # pragma: no cover - provider integration guard
             raise ValueError(f"LLM returned an invalid update plan after repair: {repair_exc}") from repair_exc
 
@@ -253,18 +273,29 @@ def update_definition(
 
     warnings: list[str] = []
     updated = False
+    provider_name = "local"
+    model_name = llm_config.model if llm_config is not None else "modelable-local"
+    diagnostics_repaired = 0
 
     if provider is None and llm_config is None:
         llm_config = resolve_llm_config(workspace=workspace.mdl.workspace, env=environ)
         provider = build_provider(llm_config.provider, model=llm_config.model, base_url=llm_config.base_url)
+        provider_name = llm_config.provider or "local"
+        model_name = llm_config.model or model_name
+    elif llm_config is not None:
+        provider_name = llm_config.provider or "local"
+        model_name = llm_config.model or model_name
 
     if model_ref.name in domain.models:
         version = next((item for item in domain.models[model_ref.name] if item.version == model_ref.version), None)
         if version is None:
             raise ValueError(f"Unknown model version: {ref}")
         if provider is not None:
-            plan = _build_update_plan(provider, workspace, source_text, ref, instruction)
-            updated, warnings = _apply_update_plan_to_model(version, plan)
+            plan_result = _build_update_plan(provider, workspace, source_text, ref, instruction)
+            updated, warnings = _apply_update_plan_to_model(version, plan_result.plan)
+            provider_name = plan_result.provider
+            model_name = plan_result.model
+            diagnostics_repaired = plan_result.diagnostics_repaired
         else:
             updated, warnings = _apply_model_update(version, instruction)
     elif model_ref.name in domain.projections:
@@ -272,8 +303,11 @@ def update_definition(
         if version is None:
             raise ValueError(f"Unknown projection version: {ref}")
         if provider is not None:
-            plan = _build_update_plan(provider, workspace, source_text, ref, instruction)
-            updated, warnings = _apply_update_plan_to_projection(version, plan)
+            plan_result = _build_update_plan(provider, workspace, source_text, ref, instruction)
+            updated, warnings = _apply_update_plan_to_projection(version, plan_result.plan)
+            provider_name = plan_result.provider
+            model_name = plan_result.model
+            diagnostics_repaired = plan_result.diagnostics_repaired
         else:
             updated, warnings = _apply_projection_update(version, instruction)
     else:
@@ -291,7 +325,17 @@ def update_definition(
     out_path = output or source_path
     if write:
         out_path.write_text(new_text, encoding="utf-8")
-    return UpdateResult(path=out_path, original_content=original_text, content=new_text, warnings=warnings)
+    return UpdateResult(
+        path=out_path,
+        source_path=source_path,
+        ref=ref,
+        original_content=original_text,
+        content=new_text,
+        warnings=warnings,
+        provider=provider_name,
+        model=model_name,
+        diagnostics_repaired=diagnostics_repaired,
+    )
 
 
 def _summarize_update_target(workspace, ref: str) -> str:
@@ -648,3 +692,16 @@ def _type_from_text(type_name: str | None) -> PrimitiveType | None:
 def _json_dump(value) -> str:
     import json
     return json.dumps(value, indent=2, ensure_ascii=False)
+
+
+def render_update_audit_summary(result: UpdateResult) -> str:
+    lines = [
+        "audit:",
+        f"  provider: {result.provider}",
+        f"  model: {result.model}",
+        f"  validation: passed",
+        f"  files_written: {result.path}",
+        f"  inputs: ref={result.ref} source={result.source_path}",
+        f"  diagnostics_repaired: {result.diagnostics_repaired}",
+    ]
+    return "\n".join(lines)

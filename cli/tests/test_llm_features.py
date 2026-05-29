@@ -251,6 +251,9 @@ domain customer {
         ],
     )
     assert result.exit_code == 0, result.output
+    assert "audit:" in result.output
+    assert "provider: local" in result.output
+    assert "model: modelable-local" in result.output
     updated = mdl.read_text(encoding="utf-8")
     assert "email?: string" in updated
     assert "loyaltyTier: string" in updated
