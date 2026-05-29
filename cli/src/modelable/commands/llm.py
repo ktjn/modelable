@@ -194,6 +194,16 @@ def suggest_projection_cmd(path: Path, source_ref: str, consumer_domain: str, ou
     if output is not None:
         output.write_text(text, encoding="utf-8")
         console.print(f"[green]OK[/green] wrote {output}")
+        console.print(
+            render_write_audit_summary(
+                provider="local",
+                model="modelable-local",
+                validation_status="passed",
+                files_written=str(output),
+                inputs=f"path={path} source={source_ref} consumer={consumer_domain}",
+                diagnostics_repaired=0,
+            )
+        )
     else:
         console.print(text.rstrip())
 

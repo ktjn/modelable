@@ -226,6 +226,8 @@ def test_cli_import_and_suggest_projection(tmp_path):
     )
     assert result.exit_code == 0
     assert projection.exists()
+    assert "audit:" in result.output
+    assert "provider: local" in result.output
     assert "projection CustomerView @ 1" in projection.read_text(encoding="utf-8")
 
 
