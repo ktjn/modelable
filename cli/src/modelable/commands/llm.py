@@ -16,6 +16,7 @@ from modelable.llm.engine import (
     import_definition,
     recommend_cli,
     render_update_audit_summary,
+    render_write_audit_summary,
     update_definition,
     suggest_projection,
     transform_ref_to_target,
@@ -62,6 +63,7 @@ def describe(target: str | None, path: Path | None) -> None:
 def generate(source: str, source_format: str | None, domain_name: str | None, model_name: str | None, output: Path | None) -> None:
     """Generate a draft entity definition."""
     source_path = Path(source)
+    source_descriptor = f"path={source_path}"
     if source_path.exists():
         if source_format is not None:
             text = import_definition(source_path, source_format, domain_name=domain_name)
@@ -70,8 +72,10 @@ def generate(source: str, source_format: str | None, domain_name: str | None, mo
     else:
         if source_format is not None:
             text = import_definition(source, source_format, domain_name=domain_name)
+            source_descriptor = "inline"
         else:
             text = generate_entity_from_prompt(source, domain_name=domain_name, model_name=model_name)
+            source_descriptor = "prompt"
 
     mdl, errors = validate_generated_text(text)
     if errors:
@@ -83,6 +87,16 @@ def generate(source: str, source_format: str | None, domain_name: str | None, mo
     if output is not None:
         output.write_text(rendered, encoding="utf-8")
         console.print(f"[green]OK[/green] wrote {output}")
+        console.print(
+            render_write_audit_summary(
+                provider="local",
+                model="modelable-local",
+                validation_status="passed",
+                files_written=str(output),
+                inputs=f"{source_descriptor} format={source_format or 'prompt'}",
+                diagnostics_repaired=0,
+            )
+        )
     else:
         console.print(rendered.rstrip())
 
@@ -103,6 +117,16 @@ def import_model(source: Path, source_format: str, domain_name: str | None, outp
     if output is not None:
         output.write_text(text, encoding="utf-8")
         console.print(f"[green]OK[/green] wrote {output}")
+        console.print(
+            render_write_audit_summary(
+                provider="local",
+                model="modelable-local",
+                validation_status="passed",
+                files_written=str(output),
+                inputs=f"path={source} format={source_format}",
+                diagnostics_repaired=0,
+            )
+        )
     else:
         console.print(text.rstrip())
 

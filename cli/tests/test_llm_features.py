@@ -187,6 +187,8 @@ domain customer {
     result = runner.invoke(cli, ["generate", "--from", "customer lifecycle data", "--output", str(output)])
     assert result.exit_code == 0
     assert output.exists()
+    assert "audit:" in result.output
+    assert "provider: local" in result.output
     assert "entity Customer @ 1" in output.read_text(encoding="utf-8")
 
 
@@ -213,6 +215,8 @@ def test_cli_import_and_suggest_projection(tmp_path):
     result = runner.invoke(cli, ["import", str(schema), "--format", "json-schema", "--domain", "customer", "--output", str(imported)])
     assert result.exit_code == 0
     assert imported.exists()
+    assert "audit:" in result.output
+    assert "provider: local" in result.output
     assert "entity Customer @ 1" in imported.read_text(encoding="utf-8")
 
     projection = tmp_path / "projection.mdl"

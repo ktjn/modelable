@@ -695,13 +695,32 @@ def _json_dump(value) -> str:
 
 
 def render_update_audit_summary(result: UpdateResult) -> str:
+    return render_write_audit_summary(
+        provider=result.provider,
+        model=result.model,
+        validation_status="passed",
+        files_written=str(result.path),
+        inputs=f"ref={result.ref} source={result.source_path}",
+        diagnostics_repaired=result.diagnostics_repaired,
+    )
+
+
+def render_write_audit_summary(
+    *,
+    provider: str,
+    model: str,
+    validation_status: str,
+    files_written: str,
+    inputs: str,
+    diagnostics_repaired: int,
+) -> str:
     lines = [
         "audit:",
-        f"  provider: {result.provider}",
-        f"  model: {result.model}",
-        f"  validation: passed",
-        f"  files_written: {result.path}",
-        f"  inputs: ref={result.ref} source={result.source_path}",
-        f"  diagnostics_repaired: {result.diagnostics_repaired}",
+        f"  provider: {provider}",
+        f"  model: {model}",
+        f"  validation: {validation_status}",
+        f"  files_written: {files_written}",
+        f"  inputs: {inputs}",
+        f"  diagnostics_repaired: {diagnostics_repaired}",
     ]
     return "\n".join(lines)
