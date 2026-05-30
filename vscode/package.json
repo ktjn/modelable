@@ -51,8 +51,8 @@
     "@types/node": "^25.9.1",
     "@types/vscode": "^1.90.0",
     "@vscode/test-electron": "^2.4.1",
-    "mocha": "^10.0.0",
-    "typescript": "^5.4.0"
+    "mocha": "^11.7.6",
+    "typescript": "^6.0.3"
   },
   "scripts": {
     "check": "node --check extension.js",
