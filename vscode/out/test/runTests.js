@@ -36,8 +36,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const os = __importStar(require("os"));
+const child_process_1 = require("child_process");
 const test_electron_1 = require("@vscode/test-electron");
 async function main() {
+    ensureDesktopCodeIsClosed();
     // __dirname compiles to vscode/out/test/
     const extensionDevelopmentPath = path.resolve(__dirname, '../..');
     const extensionTestsPath = path.resolve(__dirname, './suite/index');
@@ -51,6 +53,22 @@ async function main() {
         extensionTestsPath,
         launchArgs: ['--user-data-dir', userDataDir, workspaceFolder],
     });
+}
+function ensureDesktopCodeIsClosed() {
+    if (process.platform !== 'win32') {
+        return;
+    }
+    const result = (0, child_process_1.spawnSync)('tasklist', ['/FI', 'IMAGENAME eq Code.exe', '/NH'], {
+        encoding: 'utf-8',
+    });
+    if (result.error) {
+        return;
+    }
+    const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+    if (output.includes('Code.exe')) {
+        throw new Error('Close all running VS Code windows before running `npm test` in vscode/. ' +
+            'The smoke harness needs an unlocked VS Code installation on Windows.');
+    }
 }
 main().catch(err => {
     console.error('Failed to run VS Code tests:', err);

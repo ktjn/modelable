@@ -82,6 +82,8 @@ npm run build
 npm test
 ```
 
+On Windows, close any running desktop VS Code windows before `npm test`; the smoke runner fails fast if the desktop app is still holding the update mutex.
+
 ## 4. Test Gates
 
 Test gates are selected by risk and touched surface.

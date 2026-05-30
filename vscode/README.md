@@ -38,3 +38,4 @@ npm test
 ```
 
 CI runs the same suite on Ubuntu under `xvfb-run -a npm test`.
+On Windows, close any running desktop VS Code windows before `npm test`; the smoke runner now fails fast if the desktop app holds the update mutex.
