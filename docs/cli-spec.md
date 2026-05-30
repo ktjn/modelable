@@ -26,7 +26,7 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 
 For full tooling setup, developer workflow, and CI integration, see `cli-tooling-spec.md`.
 
-AI-powered commands (`describe`, `generate`, `update`, `transform`, `suggest-projection`, `chat`) are implemented as CLI workflows in the current repo. Provider SDK dependencies and credentials such as `ANTHROPIC_API_KEY` are only needed when a remote provider is configured.
+AI-assisted commands (`update`, `chat`) and local authoring helpers (`describe`, `generate`, `transform`, `suggest-projection`) are implemented as CLI workflows in the current repo. Provider SDK dependencies and credentials such as `ANTHROPIC_API_KEY` are only needed when a remote provider is configured for `update` or `chat`.
 
 ## 4. File Format
 
@@ -344,67 +344,56 @@ modelable create projection --output-dir ./my-project
 
 ---
 
-### 5.9 `describe` — Explain definitions with AI
+### 5.9 `describe` — Explain definitions
 
 ```text
-modelable describe PATH [--model MODEL]
+modelable describe <target> [--path PATH]
 ```
 
-Requires a configured provider when you want remote-model-backed explanations.
-
-Reads a `.mdl` definition file and uses the configured provider to explain it in plain English, covering:
+Reads a `.mdl` file, directory, or model ref and prints a deterministic summary in plain English, covering:
 
 - What problem the scenario solves
 - Which domains are involved and what they own
 - What each projection does and why it is designed that way
 - Notable design decisions (e.g., why PIT joins, why specific materialisation strategies)
 
-The Modelable IDL specification is sent as a cached system prompt. Repeated calls within a session reuse the cached context and respond faster.
+No remote provider is required. When a workspace path is supplied, repeated calls reuse the loaded workspace context.
 
 **Examples:**
 
 ```bash
-export MODELABLE_LLM_PROVIDER=anthropic
-export ANTHROPIC_API_KEY=sk-ant-...
 modelable describe models/orders/Order.mdl
+modelable describe customer.Customer@1 --path ./my-project/
 modelable describe ./my-project/
-modelable describe ./my-project/ --model claude-opus-4-7
 ```
 
 ---
 
-### 5.10 `generate` — Generate definitions with AI
+### 5.10 `generate` — Generate definitions
 
 ```text
-modelable generate [--platform PLATFORM] [--suggest-platform] [--context FILE] [--output FILE] [--model MODEL]
+modelable generate --from <source> [--format FORMAT] [--domain DOMAIN] [--name NAME] [--output FILE]
 ```
 
-Requires a configured provider when you want remote-model-backed generation.
-
-Generates Modelable `.mdl` definitions from a natural language description or existing schemas (DDL, JSON Schema) using the configured provider. When `--output` is provided, the result is automatically validated through the Lark parser pipeline before writing.
+Generates Modelable `.mdl` definitions from a natural language description or existing schemas (DDL, JSON Schema, OpenAPI, Avro, Protobuf, or SQL) using the local import or deterministic draft scaffolding path. When `--output` is provided, the result is automatically validated through the Lark parser pipeline before writing.
 When `--output` is provided, the command also writes a deterministic `.provenance.json` sidecar next to the generated file.
 
 **Options:**
 
 | Flag | Description |
 |:-----|:------------|
-| `--platform PLATFORM` | Target platform type (e.g., `data-warehouse`, `high-performance-service`, `event-driven-microservices`) |
-| `--suggest-platform` | Ask Claude to recommend a platform type before generating |
-| `--context FILE` | Existing definition file to use as context for generation |
+| `--from SOURCE` | Natural language prompt, existing source file, or inline source text |
+| `--format FORMAT` | Source format for import paths, such as `json-schema`, `openapi`, `avro`, `protobuf`, or `sql` |
+| `--domain DOMAIN` | Override the output domain when importing source files |
+| `--name NAME` | Override the output model name when drafting from text |
 | `--output FILE` | Write output to a file and auto-validate (default: print to stdout) |
-| `--model MODEL` | Override the LLM model selected from environment or workspace config |
 
 **Examples:**
 
 ```bash
-modelable generate
-modelable generate --platform data-warehouse
-modelable generate --suggest-platform
-modelable generate --platform high-performance-service --output my-fraud-signals.mdl
-modelable generate --context existing-domains.mdl --platform event-driven-microservices
-export MODELABLE_LLM_PROVIDER=anthropic
-export ANTHROPIC_API_KEY=sk-ant-...
-modelable generate --platform data-warehouse --model claude-opus-4-7
+modelable generate --from "customer lifecycle data" --output my-customer.mdl
+modelable generate --from ./existing-schema.json --format json-schema --domain customer --output imported.mdl
+modelable generate --from ./existing.sql --format sql --domain customer
 ```
 
 ---
@@ -569,10 +558,9 @@ datacontract lint ./dist/customer.contract.yaml
 
 ## 6. AI Integration Details
 
-The `describe` and `generate` commands use the configured LLM provider. The model is configurable by command flag, environment variable, or workspace config; see [LLM Integration Specification](llm-integration-spec.md).
+The `update` and `chat` commands use the configured LLM provider. The model is configurable by command flag, environment variable, or workspace config; see [LLM Integration Specification](llm-integration-spec.md).
 
-- The Modelable IDL specification and grammar reference are sent as a cached system prompt.
-- Repeated calls within a session reuse the cached prompt and respond faster.
+- `describe` and `generate` use local workspace summaries and import/scaffolding logic.
 - Generated `.mdl` output is validated through the Lark parser pipeline when `--output` is supplied to `generate`. Malformed output is caught before writing to disk.
 - Complex scenario generation may take 10–30 seconds.
 
@@ -582,8 +570,8 @@ The `describe` and `generate` commands use the configured LLM provider. The mode
 # 1. Create a domain definition
 modelable create domain --output-dir ./my-models
 
-# 2. Add a model with AI assistance
-modelable generate --platform event-driven-microservices --output ./my-models/Order.mdl
+# 2. Add a model with local generation
+modelable generate --from "order processing model" --output ./my-models/Order.mdl
 
 # 3. Validate the new file
 modelable validate ./my-models/Order.mdl
