@@ -332,6 +332,72 @@ domain customer {
     assert "modelable update" not in captured["system"]
 
 
+def test_chat_command_uses_anthropic_provider_when_available(tmp_path, monkeypatch):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    class DummyResponse:
+        def __init__(self, body: bytes):
+            self._body = body
+
+        def read(self) -> bytes:
+            return self._body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    captured: dict[str, str] = {}
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        captured["system"] = json.loads(req.data.decode("utf-8"))["system"]
+        captured["url"] = req.full_url
+        return DummyResponse(
+            json.dumps(
+                {
+                    "content": [{"type": "text", "text": "anthropic response"}],
+                    "usage": {"input_tokens": 11, "output_tokens": 3},
+                }
+            ).encode("utf-8")
+        )
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--message",
+            "How do I make email optional?",
+            "--provider",
+            "anthropic",
+            "--model",
+            "claude-sonnet-4-20250514",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "anthropic response" in result.output
+    assert captured["url"] == "https://api.anthropic.com/v1/messages"
+    assert "previewed through the update pipeline" in captured["system"]
+    assert "modelable update" not in captured["system"]
+
+
 def test_chat_slash_commands_cover_help_describe_recommend_and_update(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
