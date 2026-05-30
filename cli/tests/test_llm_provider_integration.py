@@ -472,6 +472,80 @@ domain customer {
     assert (tmp_path / "workspace.mdl.provenance.json").exists()
 
 
+def test_update_command_uses_anthropic_provider_flags(tmp_path, monkeypatch):
+    mdl = tmp_path / "workspace.mdl"
+    original = """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+"""
+    mdl.write_text(original, encoding="utf-8")
+
+    class DummyResponse:
+        def __init__(self, body: bytes):
+            self._body = body
+
+        def read(self) -> bytes:
+            return self._body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    captured: dict[str, str] = {}
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        payload = json.loads(req.data.decode("utf-8"))
+        captured["system"] = payload["messages"][0]["content"]
+        captured["url"] = req.full_url
+        return DummyResponse(
+            json.dumps(
+                {
+                    "content": [
+                        {"type": "text", "text": json.dumps(
+                            {
+                                "target": "customer.Customer@1",
+                                "target_kind": "model",
+                                "warnings": ["anthropic update"],
+                                "changes": [{"kind": "make_optional", "field": "email"}],
+                            }
+                        )}
+                    ],
+                    "usage": {"input_tokens": 9, "output_tokens": 2},
+                }
+            ).encode("utf-8")
+        )
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "update",
+            "customer.Customer@1",
+            "make email optional",
+            "--path",
+            str(tmp_path),
+            "--provider",
+            "anthropic",
+            "--model",
+            "claude-sonnet-4-20250514",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert captured["url"] == "https://api.anthropic.com/v1/messages"
+    assert "anthropic update" in result.output
+    assert "email?: string" in mdl.read_text(encoding="utf-8")
+    assert (tmp_path / "workspace.mdl.provenance.json").exists()
+
+
 def test_chat_slash_commands_cover_help_describe_recommend_and_update(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
