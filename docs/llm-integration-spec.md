@@ -35,7 +35,7 @@ workspace "commerce-platform" {
 }
 ```
 
-The current implementation supports a provider-backed local Ollama workflow through `MODELABLE_LLM_PROVIDER=ollama`, `MODELABLE_LLM_MODEL=<installed-model>`, and optional `MODELABLE_LLM_BASE_URL` or `OLLAMA_HOST`. The CLI default remains the deterministic heuristic fallback when no provider is configured. The spec intentionally avoids requiring "latest" because reproducibility matters for generated contract files.
+The current implementation supports provider-backed workflows through `MODELABLE_LLM_PROVIDER=ollama` with `MODELABLE_LLM_MODEL=<installed-model>` and optional `MODELABLE_LLM_BASE_URL` or `OLLAMA_HOST`, or through `MODELABLE_LLM_PROVIDER=anthropic` with `ANTHROPIC_API_KEY` and a configured model. The CLI default remains the deterministic heuristic fallback when no provider is configured. The spec intentionally avoids requiring "latest" because reproducibility matters for generated contract files.
 
 ## 3. Commands
 
@@ -167,11 +167,7 @@ When writing files, the CLI should emit a sidecar summary to stdout and a machin
 
 The CLI does not commit generated files. Git workflow remains user-controlled.
 
-## 9. Open Decisions
-
-- Whether multiple LLM providers are supported in the first implementation or only Anthropic.
-
-## 10. Acceptance Criteria
+## 9. Acceptance Criteria
 
 - Users can configure the model by flag, environment variable, or workspace config.
 - Generated `.mdl` is parsed and semantically validated before file writes.
@@ -181,7 +177,7 @@ The CLI does not commit generated files. Git workflow remains user-controlled.
 - `suggest-projection` never includes restricted fields without explicit permission context.
 - `update` only writes a change when the resulting `.mdl` still passes parser and semantic validation.
 
-## 11. Dependencies
+## 10. Dependencies
 
 - `cli-spec.md` — command syntax
 - `idl-design-spec.md` — `.mdl` language

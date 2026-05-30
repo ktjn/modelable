@@ -38,6 +38,61 @@ def test_build_provider_requires_model_for_ollama():
         build_provider("ollama", model=None, base_url=None)
 
 
+def test_build_provider_requires_api_key_for_anthropic(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+        build_provider("anthropic", model="claude-sonnet-4-20250514", base_url=None)
+
+
+def test_anthropic_provider_posts_messages_payload(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class DummyResponse:
+        def __init__(self, body: bytes):
+            self._body = body
+
+        def read(self) -> bytes:
+            return self._body
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        captured["url"] = req.full_url
+        captured["body"] = req.data.decode("utf-8") if req.data else ""
+        captured["headers"] = dict(req.headers)
+        captured["timeout"] = timeout
+        return DummyResponse(
+            json.dumps(
+                {
+                    "content": [{"type": "text", "text": "captured"}],
+                    "usage": {"input_tokens": 12, "output_tokens": 4},
+                }
+            ).encode("utf-8")
+        )
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    provider = build_provider("anthropic", model="claude-sonnet-4-20250514", base_url="https://api.anthropic.com")
+    assert provider is not None
+    response = provider.complete(LLMRequest(system="system", user="user", response_format="json"))
+    assert response.provider == "anthropic"
+    assert response.model == "claude-sonnet-4-20250514"
+    assert response.content == "captured"
+    assert response.prompt_tokens == 12
+    assert response.completion_tokens == 4
+    assert captured["url"] == "https://api.anthropic.com/v1/messages"
+    assert "\"model\": \"claude-sonnet-4-20250514\"" in captured["body"]
+    assert "\"system\": \"system\"" in captured["body"]
+    headers = {key.lower(): value for key, value in captured["headers"].items()}
+    assert headers["x-api-key"] == "test-key"
+    assert headers["anthropic-version"] == "2023-06-01"
+    assert captured["timeout"] == 120.0
+
+
 def test_ollama_provider_posts_chat_payload(monkeypatch):
     captured: dict[str, object] = {}
 
