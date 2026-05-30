@@ -2,7 +2,7 @@
 
 > **Status:** Approved for CLI-assisted authoring.
 >
-> **Scope:** AI-powered commands: `generate`, `describe`, `update`, `transform`, `suggest-projection`, and `chat`.
+> **Scope:** Provider-backed commands: `update` and `chat`. Local authoring helpers such as `generate`, `describe`, `transform`, and `suggest-projection` remain deterministic and provider-free.
 
 ## 1. Purpose
 
@@ -12,7 +12,7 @@ The CLI must make generated changes reviewable and reproducible enough for sourc
 
 ## 2. Model Configuration
 
-The AI model is configurable.
+The AI model is configurable for provider-backed commands.
 
 Resolution order:
 
@@ -35,14 +35,14 @@ workspace "commerce-platform" {
 }
 ```
 
-The current implementation supports provider-backed workflows through `MODELABLE_LLM_PROVIDER=ollama` with `MODELABLE_LLM_MODEL=<installed-model>` and optional `MODELABLE_LLM_BASE_URL` or `OLLAMA_HOST`, or through `MODELABLE_LLM_PROVIDER=anthropic` with `ANTHROPIC_API_KEY` and a configured model. The CLI default remains the deterministic heuristic fallback when no provider is configured. The spec intentionally avoids requiring "latest" because reproducibility matters for generated contract files.
+The current implementation supports provider-backed workflows through `MODELABLE_LLM_PROVIDER=ollama` with `MODELABLE_LLM_MODEL=<installed-model>` and optional `MODELABLE_LLM_BASE_URL` or `OLLAMA_HOST`, or through `MODELABLE_LLM_PROVIDER=anthropic` with `ANTHROPIC_API_KEY` and a configured model. The CLI default remains the deterministic fallback when no provider is configured. The spec intentionally avoids requiring "latest" because reproducibility matters for generated contract files.
 
 ## 3. Commands
 
 | Command | Input | Output | Writes Files |
 |---|---|---|---|
 | `modelable generate` | Natural language, DDL, JSON Schema, OpenAPI, Avro, Protobuf, or existing `.mdl` context | Proposed `.mdl` | Only with `--output` |
-| `modelable describe` | `.mdl` file, directory, model ref, or projection ref | Natural-language summary | No |
+| `modelable describe` | `.mdl` file, directory, model ref, or projection ref | Deterministic summary | No |
 | `modelable update` | Model or projection ref plus natural-language edit instruction | Updated `.mdl` | Only with `--output` |
 | `modelable transform` | Model/projection ref and target | Artifact plus explanation | Optional `--out` |
 | `modelable suggest-projection` | Source ref and consumer domain | Proposed projection `.mdl` | Only with `--output` |
@@ -89,13 +89,15 @@ If validation fails, the CLI may perform one repair attempt by sending diagnosti
 
 ### 6.1 `generate`
 
-`generate` creates new `.mdl` definitions from source material. It should prefer canonical domain models first, then projections, then bindings. It must not silently weaken governance annotations from source material.
+`generate` creates new `.mdl` definitions from source material using the local import/scaffolding path. It should prefer canonical domain models first, then projections, then bindings. It must not silently weaken governance annotations from source material.
 
 Required options:
 
 - `--from <path-or-text>` for non-interactive use.
+- `--format <format>` for source-file imports.
+- `--domain <domain>` to override the output domain when importing.
+- `--name <name>` to override the drafted model name.
 - `--output <file>` to write.
-- `--model <model>` to override the configured model.
 
 ### 6.2 `describe`
 
@@ -109,7 +111,7 @@ Required options:
 
 ### 6.3 `transform`
 
-`transform` emits a target artifact and explains mapping decisions. For Phase 1 targets, it delegates artifact creation to normal emitters and uses the LLM only for explanation. For deferred targets, it may produce a preview only if clearly labelled as non-authoritative.
+`transform` emits a target artifact and explains mapping decisions. It delegates artifact creation to normal emitters and uses a deterministic explanation helper for the mapping summary. For deferred targets, it may produce a preview only if clearly labelled as non-authoritative.
 
 ### 6.4 `update`
 
@@ -138,7 +140,7 @@ Required options:
 
 - Load the workspace summary once and reuse it across turns.
 - Support one-shot mode via `--message` for scripting and tests.
-- Use the same provider configuration as `generate` and `update`.
+- Use the same provider configuration as `update`.
 - Reuse existing workspace summaries when no provider is configured.
 - Never write files directly from chat; edits must flow through `update`.
 - Support slash commands for `/help`, `/ref`, `/context`, `/describe`, `/recommend`, `/ask`, and `/update`.
@@ -148,7 +150,7 @@ Required options:
 
 | Failure | Behavior |
 |---|---|
-| Missing API key | Exit 1 with setup guidance |
+| Missing API key | Exit 1 with setup guidance for provider-backed commands |
 | Provider timeout | Retry once with backoff, then exit 1 |
 | Invalid generated `.mdl` | Show validation diagnostics, do not write |
 | Unsafe prompt content | Redact and warn |
@@ -169,7 +171,7 @@ The CLI does not commit generated files. Git workflow remains user-controlled.
 
 ## 9. Acceptance Criteria
 
-- Users can configure the model by flag, environment variable, or workspace config.
+- Users can configure the model by flag, environment variable, or workspace config for provider-backed commands.
 - Generated `.mdl` is parsed and semantically validated before file writes.
 - Invalid generated output is not written.
 - Sensitive binding values are redacted from prompts.
