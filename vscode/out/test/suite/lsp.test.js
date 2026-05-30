@@ -47,6 +47,14 @@ function waitForDiagnostics(uri, timeoutMs = 15000) {
         });
     });
 }
+async function completionLabels(uri, position) {
+    const results = await vscode.commands.executeCommand('vscode.executeCompletionItemProvider', uri, position);
+    if (!results) {
+        return [];
+    }
+    const items = Array.isArray(results) ? results : results.items;
+    return items.map(item => item.label.toString());
+}
 suite('Modelable LSP Smoke Tests', function () {
     this.timeout(60000);
     let uri;
@@ -86,6 +94,12 @@ suite('Modelable LSP Smoke Tests', function () {
         assert.ok(results && results.length > 0, 'No definition result returned');
         const targetPath = results[0].uri.fsPath;
         assert.ok(targetPath.endsWith('lending.mdl'), `Expected definition in lending.mdl, got: ${targetPath}`);
+    });
+    test('completion suggests projection fields in a body', async () => {
+        const position = new vscode.Position(43, '    bureau_credit_score    <- bur.'.length);
+        const labels = await completionLabels(uri, position);
+        assert.ok(labels.length > 0, 'No completion results returned');
+        assert.ok(labels.includes('bureau_credit_score'), `Expected bureau_credit_score in completions: ${labels.join(', ')}`);
     });
     test('no unresolved model reference diagnostics on ml-credit-risk.mdl', () => {
         const diagnostics = vscode.languages.getDiagnostics(uri);

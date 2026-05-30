@@ -17,6 +17,20 @@ function waitForDiagnostics(uri: vscode.Uri, timeoutMs = 15_000): Promise<vscode
   });
 }
 
+async function completionLabels(uri: vscode.Uri, position: vscode.Position): Promise<string[]> {
+  const results = await vscode.commands.executeCommand<vscode.CompletionList | vscode.CompletionItem[]>(
+    'vscode.executeCompletionItemProvider',
+    uri,
+    position,
+  );
+  if (!results) {
+    return [];
+  }
+
+  const items = Array.isArray(results) ? results : results.items;
+  return items.map(item => item.label.toString());
+}
+
 suite('Modelable LSP Smoke Tests', function () {
   this.timeout(60_000);
 
@@ -76,6 +90,16 @@ suite('Modelable LSP Smoke Tests', function () {
     assert.ok(
       targetPath.endsWith('lending.mdl'),
       `Expected definition in lending.mdl, got: ${targetPath}`,
+    );
+  });
+
+  test('completion suggests projection fields in a body', async () => {
+    const position = new vscode.Position(43, '    bureau_credit_score    <- bur.'.length);
+    const labels = await completionLabels(uri, position);
+    assert.ok(labels.length > 0, 'No completion results returned');
+    assert.ok(
+      labels.includes('bureau_credit_score'),
+      `Expected bureau_credit_score in completions: ${labels.join(', ')}`,
     );
   });
 
