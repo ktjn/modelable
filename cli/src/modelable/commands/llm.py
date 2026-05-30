@@ -330,7 +330,7 @@ def explain(path: Path) -> None:
 @click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
 @click.option("--ref", "ref", default=None, help="Optional model or projection ref to focus the chat.")
 @click.option("--message", "message", default=None, help="Send a single message and exit.")
-@click.option("--provider", "provider", default=None, help="Provider name, for example ollama.")
+@click.option("--provider", "provider", default=None, help="Provider name, for example ollama or anthropic.")
 @click.option("--model", "model", default=None, help="Model identifier.")
 @click.option("--base-url", "base_url", default=None, help="Provider base URL.")
 def chat(path: Path, ref: str | None, message: str | None, provider: str | None, model: str | None, base_url: str | None) -> None:

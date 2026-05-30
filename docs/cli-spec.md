@@ -350,9 +350,9 @@ modelable create projection --output-dir ./my-project
 modelable describe PATH [--model MODEL]
 ```
 
-Requires `ANTHROPIC_API_KEY`.
+Requires a configured provider when you want remote-model-backed explanations.
 
-Reads a `.mdl` definition file and uses Claude to explain it in plain English, covering:
+Reads a `.mdl` definition file and uses the configured provider to explain it in plain English, covering:
 
 - What problem the scenario solves
 - Which domains are involved and what they own
@@ -364,6 +364,7 @@ The Modelable IDL specification is sent as a cached system prompt. Repeated call
 **Examples:**
 
 ```bash
+export MODELABLE_LLM_PROVIDER=anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
 modelable describe models/orders/Order.mdl
 modelable describe ./my-project/
@@ -378,9 +379,9 @@ modelable describe ./my-project/ --model claude-opus-4-7
 modelable generate [--platform PLATFORM] [--suggest-platform] [--context FILE] [--output FILE] [--model MODEL]
 ```
 
-Requires `ANTHROPIC_API_KEY`.
+Requires a configured provider when you want remote-model-backed generation.
 
-Generates Modelable `.mdl` definitions from a natural language description or existing schemas (DDL, JSON Schema) using Claude. When `--output` is provided, the result is automatically validated through the Lark parser pipeline before writing.
+Generates Modelable `.mdl` definitions from a natural language description or existing schemas (DDL, JSON Schema) using the configured provider. When `--output` is provided, the result is automatically validated through the Lark parser pipeline before writing.
 When `--output` is provided, the command also writes a deterministic `.provenance.json` sidecar next to the generated file.
 
 **Options:**
@@ -401,6 +402,8 @@ modelable generate --platform data-warehouse
 modelable generate --suggest-platform
 modelable generate --platform high-performance-service --output my-fraud-signals.mdl
 modelable generate --context existing-domains.mdl --platform event-driven-microservices
+export MODELABLE_LLM_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
 modelable generate --platform data-warehouse --model claude-opus-4-7
 ```
 
