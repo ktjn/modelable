@@ -37,3 +37,31 @@ jobs:
 
       - name: Run tests
         run: uv run pytest --tb=short
+
+  vscode:
+    name: VS Code Smoke
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: vscode
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.1
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: vscode/package-lock.json
+
+      - name: Install extension dependencies
+        run: npm ci
+
+      - name: Build the smoke harness
+        run: npm run build
+
+      - name: Run VS Code smoke tests
+        run: xvfb-run -a npm test

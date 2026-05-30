@@ -50,6 +50,8 @@ The Phase 1 implementation plan uses a minimal `samples/mvp/` sample as the stri
 The richer `samples/scenarios/` examples are illustrative and may include future-phase constructs such as materialisation, federation, or runtime adapter configuration.
 Do not treat those scenario examples as strict Phase 1 acceptance inputs unless a scenario explicitly says so.
 
+The LSP implementation has a checked-in VS Code smoke suite under `vscode/`; see `vscode/README.md` for the local setup and run commands. CI runs the same smoke path headlessly.
+
 ## Current codegen notes
 
 The local codegen boundary now includes implemented backends for TypeScript, C#, Java, Python, Rust, and Go. The remaining deferred targets are the non-language artifact integrations and any future framework-specific emitters called out in the specs.

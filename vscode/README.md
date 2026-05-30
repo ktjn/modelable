@@ -12,7 +12,7 @@ This folder contains a minimal VS Code extension that launches the repo-local Mo
 2. Install the extension dependencies:
    ```powershell
    cd ..\vscode
-   npm install
+   npm ci
    ```
 
 ## Run
@@ -26,3 +26,15 @@ C:\git\modelable\cli\.venv\Scripts\python.exe -m modelable.lsp
 ```
 
 Open a `.mdl` file in the development host to test diagnostics, completion, hover, definition, references, symbols, formatting, rename, and code actions.
+
+## Smoke tests
+
+Run the extension smoke suite from this folder:
+
+```powershell
+npm ci
+npm run build
+npm test
+```
+
+CI runs the same suite on Ubuntu under `xvfb-run -a npm test`.

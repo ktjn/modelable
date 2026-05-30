@@ -73,6 +73,15 @@ uv run modelable validate tests/fixtures/customer.mdl
 
 Run these commands from `cli/`. No formatter or static-analysis command is configured yet; if one is added, update this section and `AGENTS.md` with the exact command.
 
+For LSP or VS Code extension changes, also run:
+
+```text
+cd vscode
+npm ci
+npm run build
+npm test
+```
+
 ## 4. Test Gates
 
 Test gates are selected by risk and touched surface.
@@ -84,6 +93,7 @@ Test gates are selected by risk and touched surface.
 | Parser, IR, or semantic validation | Focused parser/validation tests plus the full local compiler gate |
 | Planner, lineage, compatibility, or governance | Focused tests for changed behavior plus representative projection and governance fixtures |
 | Emitters or generated artifacts | Focused emitter tests, deterministic output comparison, fixture regeneration review, and Docker-backed compile smoke tests for every affected language backend |
+| LSP, VS Code extension, or editor integration | Focused LSP tests plus `cd vscode && npm ci && npm run build && npm test` |
 | Runtime, subscriptions, adapters, or materializers | Unit tests, integration or smoke tests for the adapter boundary, and failure-mode coverage |
 | Security, permissions, PII, or restricted fields | Negative tests proving unauthorized exposure is rejected or reported as a governance finding |
 

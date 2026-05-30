@@ -34,16 +34,22 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const path = __importStar(require("path"));
+const fs = __importStar(require("fs"));
+const os = __importStar(require("os"));
 const test_electron_1 = require("@vscode/test-electron");
 async function main() {
     // __dirname compiles to vscode/out/test/
     const extensionDevelopmentPath = path.resolve(__dirname, '../..');
     const extensionTestsPath = path.resolve(__dirname, './suite/index');
     const workspaceFolder = path.resolve(__dirname, '../../../samples/scenarios/04-credit-risk-feature-store');
+    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'modelable-vscode-'));
+    const settingsDir = path.join(userDataDir, 'User');
+    fs.mkdirSync(settingsDir, { recursive: true });
+    fs.writeFileSync(path.join(settingsDir, 'settings.json'), JSON.stringify({ 'update.mode': 'none' }, null, 2));
     await (0, test_electron_1.runTests)({
         extensionDevelopmentPath,
         extensionTestsPath,
-        launchArgs: [workspaceFolder],
+        launchArgs: ['--user-data-dir', userDataDir, workspaceFolder],
     });
 }
 main().catch(err => {

@@ -15,7 +15,7 @@ Phase 1 local modelling compiler is in progress. Before starting any task, run `
 | 6 — CLI workflows | Partial — `validate`, `compile`, `docs`, `inspect --auto` done; `resolve`, `lineage`, `diff`, `codegen`, `scenario` not done |
 | 7 — Hardening | Not started |
 
-**Next task:** Milestone 4 (compatibility and governance) — `diff` command, breaking-change detection, PII/classification governance findings. See `docs/mvp-implementation-plan.md` Milestone 4 for the specific tasks.
+**Next task:** Close the VS Code smoke CI gap and keep editor validation guidance in sync with the shipped LSP harness.
 
 ### Verify current state before coding
 
@@ -24,6 +24,11 @@ cd cli
 uv sync --extra dev
 uv run pytest tests/ --tb=short -q
 uv run modelable validate ../samples/mvp
+
+cd ..\vscode
+npm ci
+npm run build
+npm test
 ```
 
 ---
