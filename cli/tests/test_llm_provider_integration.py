@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from urllib import request
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -12,6 +13,10 @@ from modelable.llm.chat import ChatState, chat_reply, chat_turn
 from modelable.llm.config import LlmConfig, resolve_llm_config
 from modelable.llm.engine import update_definition
 from modelable.llm.providers import LLMRequest, LLMResponse, OllamaProvider, build_provider
+
+
+def _provenance_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.provenance.json")
 
 
 def test_resolve_llm_config_uses_provider_env():
@@ -108,6 +113,7 @@ domain customer {
     assert "loyaltyTier: string" in result.content
     assert "review classification on email" in result.warnings
     assert mdl.read_text(encoding="utf-8") == original
+    assert not _provenance_path(mdl).exists()
 
 
 def test_update_definition_repairs_invalid_provider_output(tmp_path):
@@ -154,6 +160,7 @@ domain customer {
     assert result.model == "llama3.1"
     assert result.diagnostics_repaired == 1
     assert mdl.read_text(encoding="utf-8") == original
+    assert not _provenance_path(mdl).exists()
 
 
 def test_update_definition_can_disable_repair_attempts(tmp_path):
@@ -187,6 +194,7 @@ domain customer {
 
     assert len(calls) == 1
     assert mdl.read_text(encoding="utf-8") == original
+    assert not _provenance_path(mdl).exists()
 
 
 def test_chat_reply_falls_back_to_local_qa(tmp_path):

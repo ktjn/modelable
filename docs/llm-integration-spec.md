@@ -157,7 +157,7 @@ Required options:
 
 ## 8. Auditability
 
-When writing files, the CLI should emit a sidecar summary to stdout:
+When writing files, the CLI should emit a sidecar summary to stdout and a machine-readable `.provenance.json` sidecar next to the written artifact:
 
 - Provider and model.
 - Input sources used.
@@ -170,7 +170,6 @@ The CLI does not commit generated files. Git workflow remains user-controlled.
 ## 9. Open Decisions
 
 - Whether multiple LLM providers are supported in the first implementation or only Anthropic.
-- Whether generated output should include a machine-readable provenance sidecar.
 
 ## 10. Acceptance Criteria
 

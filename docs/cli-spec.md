@@ -381,6 +381,7 @@ modelable generate [--platform PLATFORM] [--suggest-platform] [--context FILE] [
 Requires `ANTHROPIC_API_KEY`.
 
 Generates Modelable `.mdl` definitions from a natural language description or existing schemas (DDL, JSON Schema) using Claude. When `--output` is provided, the result is automatically validated through the Lark parser pipeline before writing.
+When `--output` is provided, the command also writes a deterministic `.provenance.json` sidecar next to the generated file.
 
 **Options:**
 
@@ -646,7 +647,7 @@ modelable transform <Entity>@<version> --to <target> [--explain] [--path PATH]
 
 Emits the target artifact (e.g., Avro schema, JSON Schema) for a single model version and optionally prints an explanation of mapping decisions.
 
-When `--out` is supplied, the command writes the artifact to disk and prints the standard audit summary to stdout.
+When `--out` is supplied, the command writes the artifact to disk, writes a `.provenance.json` sidecar next to it, and prints the standard audit summary to stdout.
 
 **Defined in:** `idl-design-spec.md` §5.1.
 
@@ -660,7 +661,7 @@ Proposes a projection definition with field derivations tailored to a consuming 
 
 The generated `.mdl` is validated before any file write.
 
-When `--output` is supplied, the command writes the generated projection to disk and prints the standard audit summary to stdout.
+When `--output` is supplied, the command writes the generated projection to disk, writes a `.provenance.json` sidecar next to it, and prints the standard audit summary to stdout.
 
 **Defined in:** `idl-design-spec.md` §5.1.
 
@@ -673,7 +674,7 @@ modelable update <Domain.Model@version> "<edit instruction>" --path PATH [--outp
 Applies a natural-language change request to an existing model or projection version, rewrites the `.mdl` source, and validates the result before writing. `--preview` shows the rendered diff without writing changes.
 
 When `MODELABLE_LLM_PROVIDER=ollama` and `MODELABLE_LLM_MODEL=<model>` are set, `update` asks the local Ollama server for a structured edit plan before applying the change. Without a configured provider, it falls back to the deterministic local editor path.
-When the command writes a file, it prints a concise audit summary including the provider, model, validation status, written path, source ref, and repair count.
+When the command writes a file, it prints a concise audit summary including the provider, model, validation status, written path, source ref, and repair count, and it writes a `.provenance.json` sidecar next to the updated `.mdl`.
 
 **Defined in:** `llm-integration-spec.md` §6.4.
 

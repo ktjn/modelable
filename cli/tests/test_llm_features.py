@@ -14,6 +14,14 @@ from modelable.llm.importers import import_from_text
 from modelable.llm.redaction import redact_sensitive_values
 
 
+def _read_provenance(path: Path) -> dict[str, object]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _provenance_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.provenance.json")
+
+
 def test_redaction_masks_secrets():
     text = "token=abc123 password=secret api_key: supersecret"
     redacted = redact_sensitive_values(text)
@@ -196,6 +204,10 @@ domain customer {
     result = runner.invoke(cli, ["generate", "--from", "customer lifecycle data", "--output", str(output)])
     assert result.exit_code == 0
     assert output.exists()
+    provenance = _read_provenance(_provenance_path(output))
+    assert provenance["command"] == "generate"
+    assert provenance["artifact_path"] == str(output)
+    assert provenance["inputs"]["source"] == "prompt"
     assert "audit:" in result.output
     assert "provider: local" in result.output
     assert "entity Customer @ 1" in output.read_text(encoding="utf-8")
@@ -224,6 +236,10 @@ def test_cli_import_and_suggest_projection(tmp_path):
     result = runner.invoke(cli, ["import", str(schema), "--format", "json-schema", "--domain", "customer", "--output", str(imported)])
     assert result.exit_code == 0
     assert imported.exists()
+    provenance = _read_provenance(_provenance_path(imported))
+    assert provenance["command"] == "import"
+    assert provenance["inputs"]["format"] == "json-schema"
+    assert provenance["inputs"]["domain"] == "customer"
     assert "audit:" in result.output
     assert "provider: local" in result.output
     assert "entity Customer @ 1" in imported.read_text(encoding="utf-8")
@@ -235,6 +251,9 @@ def test_cli_import_and_suggest_projection(tmp_path):
     )
     assert result.exit_code == 0
     assert projection.exists()
+    provenance = _read_provenance(_provenance_path(projection))
+    assert provenance["command"] == "suggest-projection"
+    assert provenance["inputs"]["consumer"] == "billing"
     assert "audit:" in result.output
     assert "provider: local" in result.output
     assert "projection CustomerView @ 1" in projection.read_text(encoding="utf-8")
@@ -286,6 +305,7 @@ domain customer {
     assert result.exit_code != 0
     assert "suggested projection failed validation" in result.output
     assert not projection.exists()
+    assert not _provenance_path(projection).exists()
 
 
 def test_cli_suggest_projection_reports_parse_errors(tmp_path, monkeypatch):
@@ -324,6 +344,7 @@ domain customer {
     assert result.exit_code != 0
     assert "invalid syntax" in result.output or "No terminal matches" in result.output
     assert not projection.exists()
+    assert not _provenance_path(projection).exists()
 
 
 def test_cli_update_model_field(tmp_path):
@@ -355,6 +376,9 @@ domain customer {
     assert "audit:" in result.output
     assert "provider: local" in result.output
     assert "model: modelable-local" in result.output
+    provenance = _read_provenance(_provenance_path(mdl))
+    assert provenance["command"] == "update"
+    assert provenance["inputs"]["ref"] == "customer.Customer@1"
     updated = mdl.read_text(encoding="utf-8")
     assert "email?: string" in updated
     assert "loyaltyTier: string" in updated
@@ -389,6 +413,7 @@ domain customer {
     assert "-    email: string" in result.output
     assert "+    email?: string" in result.output
     assert mdl.read_text(encoding="utf-8") == original
+    assert not _provenance_path(mdl).exists()
 
 
 def test_cli_update_projection_field(tmp_path):
@@ -426,6 +451,8 @@ domain billing {
         ],
     )
     assert result.exit_code == 0, result.output
+    provenance = _read_provenance(_provenance_path(mdl))
+    assert provenance["command"] == "update"
     updated = mdl.read_text(encoding="utf-8")
     assert "displayName <- c.name" in updated
     assert "status <- c.name" in updated
@@ -506,6 +533,9 @@ def test_transform_cli_writes_audit_summary(tmp_path):
     )
     assert result.exit_code == 0, result.output
     assert output.exists()
+    provenance = _read_provenance(_provenance_path(output))
+    assert provenance["command"] == "transform"
+    assert provenance["inputs"]["target"] == "csharp"
     assert "audit:" in result.output
     assert "provider: local" in result.output
     assert "Customer" in result.output

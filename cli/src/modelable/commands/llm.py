@@ -24,6 +24,7 @@ from modelable.llm.engine import (
 )
 from modelable.llm.context import build_workspace_summary
 from modelable.llm.config import resolve_llm_config
+from modelable.llm.provenance import build_write_provenance, write_provenance_sidecar
 from modelable.llm.providers import build_provider
 from modelable.registry.resolver import resolve_model_ref
 
@@ -86,6 +87,21 @@ def generate(source: str, source_format: str | None, domain_name: str | None, mo
     rendered = text if text.endswith("\n") else text + "\n"
     if output is not None:
         output.write_text(rendered, encoding="utf-8")
+        write_provenance_sidecar(
+            output,
+            build_write_provenance(
+                command="generate",
+                artifact_path=output,
+                provider="local",
+                model="modelable-local",
+                validation_status="passed",
+                diagnostics_repaired=0,
+                inputs={
+                    "source": source_descriptor,
+                    "format": source_format or "prompt",
+                },
+            ),
+        )
         console.print(f"[green]OK[/green] wrote {output}")
         console.print(
             render_write_audit_summary(
@@ -116,6 +132,22 @@ def import_model(source: Path, source_format: str, domain_name: str | None, outp
         raise click.ClickException("imported definition failed validation")
     if output is not None:
         output.write_text(text, encoding="utf-8")
+        write_provenance_sidecar(
+            output,
+            build_write_provenance(
+                command="import",
+                artifact_path=output,
+                provider="local",
+                model="modelable-local",
+                validation_status="passed",
+                diagnostics_repaired=0,
+                inputs={
+                    "path": str(source),
+                    "format": source_format,
+                    "domain": domain_name or "",
+                },
+            ),
+        )
         console.print(f"[green]OK[/green] wrote {output}")
         console.print(
             render_write_audit_summary(
@@ -157,6 +189,21 @@ def update(ref: str, instruction: tuple[str, ...], path: Path, output: Path | No
 
         console.print(_render_update_preview(result))
     else:
+        write_provenance_sidecar(
+            result.path,
+            build_write_provenance(
+                command="update",
+                artifact_path=result.path,
+                provider=result.provider,
+                model=result.model,
+                validation_status="passed",
+                diagnostics_repaired=result.diagnostics_repaired,
+                inputs={
+                    "ref": result.ref,
+                    "source_path": str(result.source_path),
+                },
+            ),
+        )
         console.print(result.content.rstrip())
     for warning in result.warnings:
         console.print(f"[yellow]WARN[/yellow] {warning}")
@@ -175,6 +222,22 @@ def transform(ref: str, path: Path, target: str, output: Path | None, explain: b
     result = transform_ref_to_target(path, ref, target)
     if output is not None:
         output.write_text(result.content, encoding="utf-8")
+        write_provenance_sidecar(
+            output,
+            build_write_provenance(
+                command="transform",
+                artifact_path=output,
+                provider="local",
+                model="modelable-local",
+                validation_status="passed",
+                diagnostics_repaired=0,
+                inputs={
+                    "ref": ref,
+                    "target": target,
+                    "path": str(path),
+                },
+            ),
+        )
         console.print(f"[green]OK[/green] wrote {output}")
         console.print(
             render_write_audit_summary(
@@ -208,6 +271,22 @@ def suggest_projection_cmd(path: Path, source_ref: str, consumer_domain: str, ou
         raise click.ClickException("suggested projection failed validation")
     if output is not None:
         output.write_text(text, encoding="utf-8")
+        write_provenance_sidecar(
+            output,
+            build_write_provenance(
+                command="suggest-projection",
+                artifact_path=output,
+                provider="local",
+                model="modelable-local",
+                validation_status="passed",
+                diagnostics_repaired=0,
+                inputs={
+                    "path": str(path),
+                    "source": source_ref,
+                    "consumer": consumer_domain,
+                },
+            ),
+        )
         console.print(f"[green]OK[/green] wrote {output}")
         console.print(
             render_write_audit_summary(
