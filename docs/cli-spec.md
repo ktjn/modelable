@@ -659,12 +659,12 @@ When `--output` is supplied, the command writes the generated projection to disk
 ### 10.4 `update` — Natural-language model or projection edit
 
 ```text
-modelable update <Domain.Model@version> "<edit instruction>" --path PATH [--output FILE] [--preview]
+modelable update <Domain.Model@version> "<edit instruction>" --path PATH [--output FILE] [--preview] [--provider NAME] [--model MODEL] [--base-url URL]
 ```
 
 Applies a natural-language change request to an existing model or projection version, rewrites the `.mdl` source, and validates the result before writing. `--preview` shows the rendered diff without writing changes.
 
-When `MODELABLE_LLM_PROVIDER=ollama` and `MODELABLE_LLM_MODEL=<model>` are set, `update` asks the local Ollama server for a structured edit plan before applying the change. Without a configured provider, it falls back to the deterministic local editor path.
+When `MODELABLE_LLM_PROVIDER=ollama` or `--provider ollama` and `MODELABLE_LLM_MODEL=<model>` or `--model <model>` are set, `update` asks the configured provider for a structured edit plan before applying the change. Without a configured provider, it falls back to the deterministic local editor path.
 When the command writes a file, it prints a concise audit summary including the provider, model, validation status, written path, source ref, and repair count, and it writes a `.provenance.json` sidecar next to the updated `.mdl`.
 
 **Defined in:** `llm-integration-spec.md` §6.4.

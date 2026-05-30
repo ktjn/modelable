@@ -178,10 +178,38 @@ def diff(from_ref: str, to_ref: str, path: Path) -> None:
 @click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
 @click.option("--output", "output", type=click.Path(path_type=Path), default=None)
 @click.option("--preview", is_flag=True, help="Show the edit diff without writing changes.")
-def update(ref: str, instruction: tuple[str, ...], path: Path, output: Path | None, preview: bool) -> None:
+@click.option("--provider", "provider", default=None, help="Provider name, for example ollama or anthropic.")
+@click.option("--model", "model", default=None, help="Model identifier.")
+@click.option("--base-url", "base_url", default=None, help="Provider base URL.")
+def update(
+    ref: str,
+    instruction: tuple[str, ...],
+    path: Path,
+    output: Path | None,
+    preview: bool,
+    provider: str | None,
+    model: str | None,
+    base_url: str | None,
+) -> None:
     """Apply a natural-language update to an existing model version."""
+    workspace = load_workspace(path)
+    llm_config = resolve_llm_config(
+        flag_provider=provider,
+        flag_model=model,
+        flag_base_url=base_url,
+        workspace=workspace.mdl.workspace,
+    )
+    llm_provider = build_provider(llm_config.provider, model=llm_config.model, base_url=llm_config.base_url)
     try:
-        result = update_definition(path, ref, " ".join(instruction), output=output, write=not preview)
+        result = update_definition(
+            path,
+            ref,
+            " ".join(instruction),
+            output=output,
+            write=not preview,
+            provider=llm_provider,
+            llm_config=llm_config,
+        )
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
     if preview:
