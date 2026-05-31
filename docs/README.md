@@ -27,7 +27,7 @@ This directory contains the system specifications, design documents, and impleme
 | [data-model-languages.md](data-model-languages.md) | Research — evaluated DSLs and expression languages (Smithy, TypeSpec, LinkML, CEL, etc.) | — |
 | [emitter-spec.md](emitter-spec.md) | Output target generation — JSON Schema, TypeScript, Avro, Protobuf, SQL DDL, AsyncAPI, Markdown | idl-design-spec.md, adapter-architecture-spec.md |
 | [lsp-spec.md](lsp-spec.md) | Language Server Protocol — IDE support, diagnostics, autocomplete, federation-aware features | idl-design-spec.md, distributed-lineage-spec.md |
-| [llm-integration-spec.md](llm-integration-spec.md) | AI-powered commands — `generate`, `describe`, `update`, `transform`, `suggest-projection`, `chat`; provider-backed local Ollama support | cli-spec.md, idl-design-spec.md |
+| [llm-integration-spec.md](llm-integration-spec.md) | AI-powered commands — `generate`, `describe`, `update`, `transform`, `suggest-projection`, `chat`; provider-backed local Ollama and Anthropic support | cli-spec.md, idl-design-spec.md |
 | [cel-integration-spec.md](cel-integration-spec.md) | CEL expression language — embedding, validation, lineage extraction from computed fields | idl-design-spec.md, idl-parser-implementation-plan.md |
 | [migration-guide.md](migration-guide.md) | Migrating from OpenAPI, JSON Schema, Protobuf, SQL DDL, Avro to Modelable | cli-spec.md, llm-integration-spec.md |
 | [agent-governance.md](agent-governance.md) | Agent operating policy — local gate, test gates, PR handling, and CI expectations | AGENTS.md, modelable-system-spec.md |

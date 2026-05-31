@@ -1,21 +1,21 @@
 # Agent Instructions
 
-## Current State (updated 2026-05-17)
+## Current State (updated 2026-05-31)
 
-Phase 1 local modelling compiler is in progress. Before starting any task, run `git log --oneline -10` and check `docs/mvp-implementation-plan.md` for the latest checkbox state.
+The Phase 1 local modelling compiler is complete. Before starting any task, run `git log --oneline -10` and check `docs/mvp-implementation-plan.md` for the latest checkbox state.
 
 | Milestone | Status |
 |---|---|
 | 0 — Tooling baseline | Complete |
 | 1 — Parser, IR, validate | Complete |
-| 2 — Registry graph, resolver | Complete (lineage_edges, compat_reports, access_policies population deferred to M3/M4) |
+| 2 — Registry graph, resolver | Complete — lineage edges, compatibility reports, and access policies are populated |
 | 3 — Planner, auto projections, CEL, lineage | Complete — auto projections, CEL validation, lineage extraction, plan docs all done |
-| 4 — Compatibility and governance | Not started |
-| 5 — Emitters | Partial — JSON Schema + Markdown done; TypeScript not done |
-| 6 — CLI workflows | Partial — `validate`, `compile`, `docs`, `inspect --auto` done; `resolve`, `lineage`, `diff`, `codegen`, `scenario` not done |
-| 7 — Hardening | Not started |
+| 4 — Compatibility and governance | Complete — single-domain compatibility diff shipped; broader compatibility follow-on is available if needed |
+| 5 — Emitters | Complete — JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, and Go are implemented |
+| 6 — CLI workflows | Complete |
+| 7 — Hardening | Complete |
 
-**Next task:** Close the VS Code smoke CI gap and keep editor validation guidance in sync with the shipped LSP harness.
+**Next task:** Use the latest committed plan or spec to identify the next open slice before starting implementation work.
 
 ### Verify current state before coding
 
