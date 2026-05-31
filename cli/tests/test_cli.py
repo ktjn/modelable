@@ -220,6 +220,38 @@ domain customer {
     assert any(edge["kind"] == "maps_to" for edge in graph["edges"])
 
 
+def test_graph_export_rejects_unknown_focus_ref(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    out = tmp_path / "graph.json"
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "graph",
+            "export",
+            str(tmp_path),
+            "--focus",
+            "customer.Missing@1",
+            "--out",
+            str(out),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "unknown model or projection" in result.output
+
+
 def test_diff_reports_breaking_changes(tmp_path):
     mdl = tmp_path / "customer.mdl"
     mdl.write_text(

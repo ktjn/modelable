@@ -27,6 +27,15 @@ _EDGE_KIND_ORDER = {
     "version_of_projection": 4,
     "maps_to": 5,
 }
+_EDGE_GROUP_ORDER = {
+    ("owns", "domain"): 0,
+    ("version_of", "model"): 1,
+    ("contains_field", "model_version"): 2,
+    ("has_projection", "domain"): 3,
+    ("version_of_projection", "projection"): 4,
+    ("contains_field", "projection_version"): 5,
+    ("maps_to", "projection_field"): 6,
+}
 
 
 def build_graph_export(workspace: Workspace, focus: str | None = None) -> dict[str, Any]:
@@ -44,7 +53,7 @@ def build_graph_export(workspace: Workspace, focus: str | None = None) -> dict[s
         return graph
 
     focus_ref = parse_model_ref(focus)
-    selected_ids = _select_focus_subgraph(workspace, builder, focus_ref)
+    selected_ids = _select_focus_subgraph(builder, focus_ref)
     return {
         "kind": "workspace_graph",
         "nodes": _sorted_nodes(
@@ -70,6 +79,8 @@ class _GraphBuilder:
         self.nodes: dict[str, dict[str, Any]] = {}
         self.edges: dict[tuple[str, str, str], dict[str, Any]] = {}
         self.parents: dict[str, tuple[str, ...]] = {}
+        self.edges_by_source: dict[str, list[dict[str, Any]]] = {}
+        self.edges_by_target: dict[str, list[dict[str, Any]]] = {}
 
     def add_node(self, node: dict[str, Any], *, parents: Iterable[str] = ()) -> dict[str, Any]:
         node_id = node["id"]
@@ -82,7 +93,10 @@ class _GraphBuilder:
     def add_edge(self, source: str, target: str, kind: str) -> dict[str, Any]:
         key = (kind, source, target)
         if key not in self.edges:
-            self.edges[key] = {"kind": kind, "source": source, "target": target}
+            edge = {"kind": kind, "source": source, "target": target}
+            self.edges[key] = edge
+            self.edges_by_source.setdefault(source, []).append(edge)
+            self.edges_by_target.setdefault(target, []).append(edge)
         return self.edges[key]
 
 
@@ -98,16 +112,8 @@ def _sorted_edges(edges: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _edge_sort_key(item: dict[str, Any]) -> tuple[int, str, str]:
-    kind = item["kind"]
     source_kind = item["source"].split(":", 1)[0]
-    if kind == "contains_field" and source_kind == "projection_version":
-        rank = 5
-    elif kind == "maps_to":
-        rank = 6
-    elif kind == "contains_field":
-        rank = 2
-    else:
-        rank = _EDGE_KIND_ORDER.get(kind, 99)
+    rank = _EDGE_GROUP_ORDER.get((item["kind"], source_kind), _EDGE_KIND_ORDER.get(item["kind"], 99))
     return (rank, item["source"], item["target"])
 
 
@@ -119,6 +125,7 @@ def _add_domain(builder: _GraphBuilder, workspace: Workspace, domain) -> None:
             "kind": "domain",
             "label": domain.name,
             "domain": domain.name,
+            "target_ref": domain.name,
         }
     )
 
@@ -144,6 +151,7 @@ def _add_model(
             "label": model_name,
             "domain": domain_name,
             "name": model_name,
+            "target_ref": f"{domain_name}.{model_name}",
         },
         parents=(domain_id,),
     )
@@ -171,6 +179,7 @@ def _add_model_version(
             "version": version.version,
             "change_kind": version.change_kind.value,
             "model_kind": version.model_kind.value,
+            "target_ref": f"{domain_name}.{model_name}@{version.version}",
         },
         parents=(model_id,),
     )
@@ -199,6 +208,7 @@ def _add_model_field(
             "version": version,
             "field": field.name,
             "optional": field.optional,
+            "target_ref": f"{domain_name}.{model_name}@{version}.{field.name}",
         },
         parents=(version_id,),
     )
@@ -221,6 +231,7 @@ def _add_projection(
             "label": projection_name,
             "domain": domain_name,
             "name": projection_name,
+            "target_ref": f"{domain_name}.{projection_name}",
         },
         parents=(domain_id,),
     )
@@ -256,6 +267,7 @@ def _add_projection_version(
             "name": projection_name,
             "version": version.version,
             "source_ref": source_ref,
+            "target_ref": f"{domain_name}.{projection_name}@{version.version}",
         },
         parents=(projection_id,),
     )
@@ -291,6 +303,7 @@ def _add_projection_field(
         "name": projection_name,
         "version": projection_version.version,
         "field": field.name,
+        "target_ref": f"{domain_name}.{projection_name}@{projection_version.version}.{field.name}",
     }
     if isinstance(field.mapping, DirectMapping):
         node["mapping_kind"] = "direct"
@@ -341,7 +354,7 @@ def _alias_map(projection_version: ProjectionVersion) -> dict[str, Any]:
     return aliases
 
 
-def _select_focus_subgraph(workspace: Workspace, builder: _GraphBuilder, focus_ref) -> set[str]:
+def _select_focus_subgraph(builder: _GraphBuilder, focus_ref) -> set[str]:
     model_version_id = f"model_version:{focus_ref.domain}.{focus_ref.name}@{focus_ref.version}"
     projection_version_id = f"projection_version:{focus_ref.domain}.{focus_ref.name}@{focus_ref.version}"
     model_node_id = f"model:{focus_ref.domain}.{focus_ref.name}"
@@ -411,11 +424,12 @@ def _projection_neighbors_for_model_focus(
         if builder.nodes[node_id]["kind"] == "field"
     }
     related: set[str] = set()
-    for edge in builder.edges.values():
-        if edge["kind"] != "maps_to" or edge["target"] not in selected_fields:
-            continue
-        related.add(edge["source"])
-        related.add(edge["target"])
+    for field_id in selected_fields:
+        for edge in builder.edges_by_target.get(field_id, ()):
+            if edge["kind"] != "maps_to":
+                continue
+            related.add(edge["source"])
+            related.add(edge["target"])
     return related
 
 
@@ -428,9 +442,10 @@ def _source_neighbors_for_projection_focus(
         if builder.nodes[node_id]["kind"] == "projection_field"
     }
     related: set[str] = set()
-    for edge in builder.edges.values():
-        if edge["kind"] != "maps_to" or edge["source"] not in selected_projection_fields:
-            continue
-        related.add(edge["source"])
-        related.add(edge["target"])
+    for field_id in selected_projection_fields:
+        for edge in builder.edges_by_source.get(field_id, ()):
+            if edge["kind"] != "maps_to":
+                continue
+            related.add(edge["source"])
+            related.add(edge["target"])
     return related

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import click
@@ -42,7 +43,11 @@ def graph() -> None:
 def export_graph(source: Path, path: Path | None, focus: str | None, out_path: Path) -> None:
     """Export the normalized workspace graph as deterministic JSON."""
     workspace = load_workspace_or_exit(path or source)
-    graph_export = build_graph_export(workspace, focus=focus)
+    try:
+        graph_export = build_graph_export(workspace, focus=focus)
+    except (LookupError, ValueError) as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     write_graph_export(graph_export, out_path)
     console.print(f"[green]OK[/green] wrote {out_path}")
