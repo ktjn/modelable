@@ -77,7 +77,7 @@ Three strategies were considered:
 - `cli/.python-version`
 - `cli/uv.lock`
 - `bin/modelable`
-- `.github/workflows/ci.yml`
+- `.github/workflows/validate.yml`
 
 **Tasks:**
 
