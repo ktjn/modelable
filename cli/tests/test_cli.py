@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -151,6 +152,72 @@ domain customer {
         assert result.exit_code == 0
         assert Path(".modelable/registry.db").exists()
         assert "registry.db" in result.output
+
+
+def test_graph_export_writes_json_from_workspace(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    out = tmp_path / "graph.json"
+
+    result = CliRunner().invoke(cli, ["graph", "export", str(tmp_path), "--out", str(out)])
+
+    assert result.exit_code == 0, result.output
+    graph = json.loads(out.read_text(encoding="utf-8"))
+    assert graph["kind"] == "workspace_graph"
+    assert any(node["kind"] == "model_version" for node in graph["nodes"])
+
+
+def test_graph_export_focuses_on_projection(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    displayName = c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    out = tmp_path / "graph.json"
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "graph",
+            "export",
+            str(tmp_path),
+            "--focus",
+            "customer.CustomerView@1",
+            "--out",
+            str(out),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    graph = json.loads(out.read_text(encoding="utf-8"))
+    assert any(node["kind"] == "projection_version" for node in graph["nodes"])
+    assert any(edge["kind"] == "maps_to" for edge in graph["edges"])
 
 
 def test_diff_reports_breaking_changes(tmp_path):
