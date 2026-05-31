@@ -46,6 +46,8 @@ def run_diff(from_ref: str, to_ref: str, path: Path) -> None:
             console.print(f"- {finding}")
     else:
         console.print("- no changes")
+    if report.status == "breaking":
+        raise click.exceptions.Exit(1)
 
 
 @click.command()

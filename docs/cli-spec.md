@@ -179,6 +179,7 @@ modelable diff REF_A REF_B --path PATH
 ```
 
 Compares two published model versions field by field and reports additions, removals, renames, nullability changes, identity changes, enum changes, and type changes. Intended to support compatibility review before publishing a new version.
+If the comparison is breaking, the command prints the report and exits with code `1`.
 
 **Arguments:**
 

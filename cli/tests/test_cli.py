@@ -176,7 +176,7 @@ domain customer {
         ["diff", "customer.Customer@1", "customer.Customer@2", "--path", str(tmp_path)],
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 1, result.output
     assert "breaking" in result.output.lower()
     assert "removed_field name" in result.output.lower()
 
@@ -219,7 +219,7 @@ domain customer {
         ],
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 1, result.output
     compact_output = "".join(result.output.split())
     assert f"customer.Customer@1#{sig1}->customer.Customer@2#{sig2}" in compact_output
     assert "breaking" in result.output.lower()
@@ -248,7 +248,7 @@ domain customer {
         ["diff", "customer.Customer@1", "customer.Customer@2", "--path", str(tmp_path)],
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 1, result.output
     assert "breaking" in result.output.lower()
     assert "added_field email" in result.output.lower()
 
@@ -277,7 +277,7 @@ domain customer {
         ["diff", "customer.Customer@1", "customer.Customer@2", "--path", str(tmp_path)],
     )
 
-    assert result.exit_code == 0, result.output
+    assert result.exit_code == 1, result.output
     assert "breaking" in result.output.lower()
     assert "identity_changed customerid" in result.output.lower()
     assert "enum_changed status" in result.output.lower()

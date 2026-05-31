@@ -48,6 +48,43 @@ def test_compare_model_versions_reports_field_add_remove_and_type_changes():
     assert {changes[2].field_name, changes[3].field_name} == {"fullName", "email"}
 
 
+def test_compare_model_versions_reports_stable_change_order():
+    old_version = _model_version(
+        """
+        domain customer {
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            name: string
+            status: enum(active, blocked)
+          }
+        }
+        """
+    )
+    new_version = _model_version(
+        """
+        domain customer {
+          entity Customer @ 2 (additive) {
+            @key customerId: uuid
+            fullName: string
+            status: string
+            email?: string
+          }
+        }
+        """,
+        version=2,
+    )
+
+    from modelable.compat.diff import compare_model_versions
+
+    changes = compare_model_versions(old_version, new_version)
+    assert [change.kind for change in changes] == [
+        "removed_field",
+        "type_changed",
+        "added_field",
+        "added_field",
+    ]
+
+
 def test_compare_model_versions_reports_rename_and_nullability():
     old_version = _model_version(
         """
@@ -102,6 +139,29 @@ def test_additive_declaration_rejects_breaking_changes():
     report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
     assert report.status == "breaking"
     assert any("removed_field name" in finding for finding in report.findings)
+
+
+def test_optional_field_addition_is_compatible():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+          entity Customer @ 2 (additive) {
+            @key customerId: uuid
+            email?: string
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
+    assert report.status == "compatible"
+    assert any(change.kind == "added_field" and change.field_name == "email" for change in report.changes)
+    assert any("added_field email" in finding for finding in report.findings)
 
 
 def test_compare_model_versions_reports_required_field_addition_as_breaking():
