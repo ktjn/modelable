@@ -72,15 +72,34 @@ async function documentSymbolNames(uri) {
 async function renameEdits(uri, position, newName) {
     return vscode.commands.executeCommand('vscode.executeDocumentRenameProvider', uri, position, newName);
 }
+async function referenceLocations(uri, position) {
+    const results = await vscode.commands.executeCommand('vscode.executeReferenceProvider', uri, position);
+    return results ?? [];
+}
+function positionOf(text, needle) {
+    const lines = text.split(/\r?\n/);
+    for (let line = 0; line < lines.length; line++) {
+        const character = lines[line].indexOf(needle);
+        if (character >= 0) {
+            return new vscode.Position(line, character);
+        }
+    }
+    throw new Error(`Unable to find ${needle} in document text`);
+}
 suite('Modelable LSP Smoke Tests', function () {
     this.timeout(60000);
     let uri;
+    let lendingUri;
+    let lendingText;
     suiteSetup(async () => {
         const ws = vscode.workspace.workspaceFolders?.[0];
         assert.ok(ws, 'No workspace folder open — check runTests launchArgs');
         uri = vscode.Uri.joinPath(ws.uri, 'ml-credit-risk.mdl');
+        lendingUri = vscode.Uri.joinPath(ws.uri, 'lending.mdl');
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.window.showTextDocument(doc);
+        const lendingDoc = await vscode.workspace.openTextDocument(lendingUri);
+        lendingText = lendingDoc.getText();
         // Ensure the extension is active before waiting for diagnostics.
         const ext = vscode.extensions.getExtension('modelable.modelable-vscode');
         assert.ok(ext, 'Extension not installed');
@@ -131,6 +150,19 @@ suite('Modelable LSP Smoke Tests', function () {
         const changes = edit.entries().find(([editUri]) => editUri.toString() === uri.toString())?.[1] ?? [];
         assert.ok(changes.length > 0, 'Expected rename edits in the current document');
         assert.ok(changes.some((change) => change.newText === 'inputApplicationId'), `Expected rename edits to contain inputApplicationId, got: ${changes.map((change) => change.newText).join(', ')}`);
+    });
+    test('references include model declarations and usages', async () => {
+        const position = positionOf(lendingText, 'LoanApplication');
+        const references = await referenceLocations(lendingUri, position);
+        assert.ok(references.length > 0, 'Expected references for LoanApplication');
+        const declarationLine = 5;
+        const usageLine = 19;
+        const declarationReferences = references.filter(r => r.range.start.line === declarationLine);
+        const usageReferences = references.filter(r => r.range.start.line === usageLine);
+        assert.ok(declarationReferences.length > 0, `Expected a reference on the LoanApplication declaration at line ${declarationLine + 1}`);
+        assert.ok(usageReferences.length > 0, `Expected a reference on the LoanApplication usage at line ${usageLine + 1}`);
+        assert.ok(references.some(r => r.uri.toString() === lendingUri.toString() && r.range.start.line === declarationLine), `Expected a reference on the LoanApplication declaration, got: ${references.map(r => r.range.start.line).join(', ')}`);
+        assert.ok(references.some(r => r.uri.toString() === uri.toString() && r.range.start.line === usageLine), `Expected a reference on the LoanApplication usage, got: ${references.map(r => r.range.start.line).join(', ')}`);
     });
     test('no unresolved model reference diagnostics on ml-credit-risk.mdl', () => {
         const diagnostics = vscode.languages.getDiagnostics(uri);

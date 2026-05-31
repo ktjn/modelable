@@ -64,18 +64,47 @@ async function renameEdits(
   );
 }
 
+async function referenceLocations(
+  uri: vscode.Uri,
+  position: vscode.Position,
+): Promise<vscode.Location[]> {
+  const results = await vscode.commands.executeCommand<vscode.Location[]>(
+    'vscode.executeReferenceProvider',
+    uri,
+    position,
+  );
+  return results ?? [];
+}
+
+function positionOf(text: string, needle: string): vscode.Position {
+  const lines = text.split(/\r?\n/);
+  for (let line = 0; line < lines.length; line++) {
+    const character = lines[line].indexOf(needle);
+    if (character >= 0) {
+      return new vscode.Position(line, character);
+    }
+  }
+  throw new Error(`Unable to find ${needle} in document text`);
+}
+
 suite('Modelable LSP Smoke Tests', function () {
   this.timeout(60_000);
 
   let uri: vscode.Uri;
+  let lendingUri: vscode.Uri;
+  let lendingText: string;
 
   suiteSetup(async () => {
     const ws = vscode.workspace.workspaceFolders?.[0];
     assert.ok(ws, 'No workspace folder open — check runTests launchArgs');
     uri = vscode.Uri.joinPath(ws.uri, 'ml-credit-risk.mdl');
+    lendingUri = vscode.Uri.joinPath(ws.uri, 'lending.mdl');
 
     const doc = await vscode.workspace.openTextDocument(uri);
     await vscode.window.showTextDocument(doc);
+
+    const lendingDoc = await vscode.workspace.openTextDocument(lendingUri);
+    lendingText = lendingDoc.getText();
 
     // Ensure the extension is active before waiting for diagnostics.
     const ext = vscode.extensions.getExtension('modelable.modelable-vscode');
@@ -158,6 +187,33 @@ suite('Modelable LSP Smoke Tests', function () {
     assert.ok(
       changes.some((change: vscode.TextEdit) => change.newText === 'inputApplicationId'),
       `Expected rename edits to contain inputApplicationId, got: ${changes.map((change: vscode.TextEdit) => change.newText).join(', ')}`,
+    );
+  });
+
+  test('references include model declarations and usages', async () => {
+    const position = positionOf(lendingText, 'LoanApplication');
+    const references = await referenceLocations(lendingUri, position);
+    assert.ok(references.length > 0, 'Expected references for LoanApplication');
+
+    const declarationLine = 5;
+    const usageLine = 19;
+    const declarationReferences = references.filter(r => r.range.start.line === declarationLine);
+    const usageReferences = references.filter(r => r.range.start.line === usageLine);
+    assert.ok(
+      declarationReferences.length > 0,
+      `Expected a reference on the LoanApplication declaration at line ${declarationLine + 1}`,
+    );
+    assert.ok(
+      usageReferences.length > 0,
+      `Expected a reference on the LoanApplication usage at line ${usageLine + 1}`,
+    );
+    assert.ok(
+      references.some(r => r.uri.toString() === lendingUri.toString() && r.range.start.line === declarationLine),
+      `Expected a reference on the LoanApplication declaration, got: ${references.map(r => r.range.start.line).join(', ')}`,
+    );
+    assert.ok(
+      references.some(r => r.uri.toString() === uri.toString() && r.range.start.line === usageLine),
+      `Expected a reference on the LoanApplication usage, got: ${references.map(r => r.range.start.line).join(', ')}`,
     );
   });
 
