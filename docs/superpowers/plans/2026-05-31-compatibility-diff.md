@@ -4,6 +4,8 @@
 
 **Goal:** Build a single-domain compatibility engine for published model versions and expose it through `modelable diff` with deterministic output.
 
+**Status:** Complete
+
 **Architecture:** Keep the field comparison logic in `cli/src/modelable/compat/diff.py`, the status classification in `cli/src/modelable/compat/checker.py`, and the CLI rendering in `cli/src/modelable/commands/diff.py`. The first slice stays within one domain and one model name so the behavior is easy to validate and does not depend on cross-domain projection traversal.
 
 **Tech Stack:** Python 3.14, `click`, `pytest`, existing `modelable` parser/registry/resolver modules

@@ -4,6 +4,8 @@
 
 **Goal:** Build a reproducible release pipeline that produces `cli/` wheel and sdist artifacts, checksums, and a machine-readable manifest, then uploads them as GitHub release assets with optional package-index publication.
 
+**Status:** Complete
+
 **Architecture:** Keep the release logic in one small Python helper under `cli/src/modelable/` so both the GitHub Actions workflow and local verification call the same code. Use a single release workflow for build, test, package, and upload; keep publish-to-index optional and configuration-driven so the first slice does not hardcode a package registry decision.
 
 **Tech Stack:** Python 3.14, `uv`, Hatchling, `pytest`, GitHub Actions, `hashlib`, `json`, `pathlib`, `tomllib`

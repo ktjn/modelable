@@ -4,6 +4,8 @@
 
 **Goal:** Enforce the existing VS Code smoke suite in CI and align repo guidance with the real LSP validation path so editor regressions stop landing silently.
 
+**Status:** Complete
+
 **Architecture:** Keep the current Python CLI validation job intact, add a separate VS Code smoke job that builds the checked-in extension and runs the Electron-based smoke tests under a headless display on Linux, then update the repo guidance documents so contributors and agents run the same gates locally and in PRs. Treat the smoke suite as a validation gate, not a new product surface.
 
 **Tech Stack:** GitHub Actions, Node.js/npm, TypeScript, mocha, `@vscode/test-electron`, Python/pytest.
@@ -34,7 +36,7 @@
 - Test: `vscode/src/test/suite/index.ts`
 - Test: `vscode/src/test/suite/lsp.test.ts`
 
-- [ ] **Step 1: Add a second job to the existing validation workflow**
+- [x] **Step 1: Add a second job to the existing validation workflow**
 
 ```yaml
   vscode:
@@ -66,7 +68,7 @@
         run: xvfb-run -a npm test
 ```
 
-- [ ] **Step 2: Run the smoke suite locally from the `vscode/` folder**
+- [x] **Step 2: Run the smoke suite locally from the `vscode/` folder**
 
 ```powershell
 cd vscode
@@ -77,7 +79,7 @@ npm test
 
 Expected: the extension test runner launches the scenario workspace from `samples/scenarios/04-credit-risk-feature-store/` and the existing smoke assertions pass.
 
-- [ ] **Step 3: Commit the workflow change only after the smoke suite is green**
+- [x] **Step 3: Commit the workflow change only after the smoke suite is green**
 
 ```bash
 git add .github/workflows/validate.yml
@@ -94,7 +96,7 @@ git commit -m "ci: run vscode smoke tests in validate workflow"
 - Modify: `docs/README.md`
 - Modify: `vscode/README.md`
 
-- [ ] **Step 1: Update `AGENTS.md` so the current-state guidance matches the real validation path**
+- [x] **Step 1: Update `AGENTS.md` so the current-state guidance matches the real validation path**
 
 Replace the stale milestone pointer with the actual current enforcement point:
 
@@ -116,7 +118,7 @@ npm run build
 npm test
 ```
 
-- [ ] **Step 2: Update `docs/agent-governance.md` to name the VS Code gate explicitly**
+- [x] **Step 2: Update `docs/agent-governance.md` to name the VS Code gate explicitly**
 
 Add a test-gate row that says editor/LSP changes require both the Python protocol tests and the VS Code smoke suite:
 
@@ -139,7 +141,7 @@ npm run build
 npm test
 ```
 
-- [ ] **Step 3: Update `docs/README.md` and `vscode/README.md` so the smoke suite is discoverable**
+- [x] **Step 3: Update `docs/README.md` and `vscode/README.md` so the smoke suite is discoverable**
 
 `docs/README.md` should mention that the LSP spec has a checked-in VS Code smoke suite and point readers to the `vscode/README.md` setup/run section.
 
@@ -157,7 +159,7 @@ npm test
 In CI the same suite runs under `xvfb-run -a npm test` on Ubuntu.
 ```
 
-- [ ] **Step 4: Review the Markdown diff for coherence and stale references**
+- [x] **Step 4: Review the Markdown diff for coherence and stale references**
 
 Run: `git diff -- docs/README.md vscode/README.md AGENTS.md docs/agent-governance.md`
 
@@ -171,7 +173,7 @@ Expected: the new gate is mentioned consistently and there is no remaining refer
 - Modify: `AGENTS.md`
 - Modify: `docs/mvp-implementation-plan.md` if any stale "next task" language remains there
 
-- [ ] **Step 1: Search for outdated milestone pointers and stale "next task" wording**
+- [x] **Step 1: Search for outdated milestone pointers and stale "next task" wording**
 
 Run:
 
@@ -181,7 +183,7 @@ rg -n "Next task:|Milestone 4|not started|partial" AGENTS.md docs/mvp-implementa
 
 Expected: the only remaining "partial" or "deferred" language is tied to genuinely deferred product work, not to the already-complete MVP milestone sequence.
 
-- [ ] **Step 2: Replace any stale pointer with the current enforcement gap**
+- [x] **Step 2: Replace any stale pointer with the current enforcement gap**
 
 Use this wording if `AGENTS.md` still points at the wrong milestone:
 
@@ -189,7 +191,7 @@ Use this wording if `AGENTS.md` still points at the wrong milestone:
 **Next task:** Close the VS Code smoke CI gap and keep editor validation guidance in sync with the shipped LSP harness.
 ```
 
-- [ ] **Step 3: Final hygiene check**
+- [x] **Step 3: Final hygiene check**
 
 Run:
 

@@ -4,6 +4,8 @@
 
 **Goal:** Export the normalized Modelable workspace graph as deterministic JSON and expose it through `modelable graph export` with optional focus-based demo flows.
 
+**Status:** Complete
+
 **Architecture:** Keep graph extraction in a small helper under `cli/src/modelable/graph/` so the CLI wrapper, tests, and any later renderers share one canonical JSON shape. The first slice should include models, projections, fields, and field mappings only, with stable ordering and no runtime, registry, or governance expansion.
 
 **Tech Stack:** Python 3.14, `click`, `pytest`, `json`, `pathlib`, existing `load_workspace` and reference-resolution helpers
@@ -17,7 +19,7 @@
 - Create: `cli/src/modelable/graph/export.py`
 - Test: `cli/tests/test_graph_export.py`
 
-- [ ] **Step 1: Write the failing export tests**
+- [x] **Step 1: Write the failing export tests**
 
 ```python
 from __future__ import annotations
@@ -88,7 +90,7 @@ domain customer {
     assert first == second
 ```
 
-- [ ] **Step 2: Run the focused tests to confirm they fail**
+- [x] **Step 2: Run the focused tests to confirm they fail**
 
 Run:
 
@@ -102,7 +104,7 @@ Expected:
 
 - Fails because `modelable.graph.export` and the graph export helpers do not exist yet.
 
-- [ ] **Step 3: Implement the graph export helper**
+- [x] **Step 3: Implement the graph export helper**
 
 Create `cli/src/modelable/graph/export.py` with a single canonical export path:
 
@@ -157,7 +159,7 @@ Focus handling should keep the neighborhood around the selected model or project
 - projection focus includes the projection, its source, its fields, and the mapped source fields,
 - unrelated workspace nodes are omitted.
 
-- [ ] **Step 4: Re-run the focused export tests**
+- [x] **Step 4: Re-run the focused export tests**
 
 Run:
 
@@ -170,7 +172,7 @@ Expected:
 
 - The graph export tests pass.
 
-- [ ] **Step 5: Verify the helper against the full CLI gate**
+- [x] **Step 5: Verify the helper against the full CLI gate**
 
 Run:
 
@@ -187,7 +189,7 @@ Expected:
 - MVP validation passes.
 - Diff hygiene is clean.
 
-- [ ] **Step 6: Commit the graph export helper slice**
+- [x] **Step 6: Commit the graph export helper slice**
 
 ```bash
 git add cli/src/modelable/graph/__init__.py cli/src/modelable/graph/export.py cli/tests/test_graph_export.py
@@ -201,7 +203,7 @@ git commit -m "feat: add graph export helper"
 - Modify: `cli/src/modelable/cli.py`
 - Test: `cli/tests/test_cli.py`
 
-- [ ] **Step 1: Write the failing CLI tests**
+- [x] **Step 1: Write the failing CLI tests**
 
 ```python
 from __future__ import annotations
@@ -278,7 +280,7 @@ domain customer {
     assert any(edge["kind"] == "maps_to" for edge in graph["edges"])
 ```
 
-- [ ] **Step 2: Run the new CLI tests and confirm they fail for the right reason**
+- [x] **Step 2: Run the new CLI tests and confirm they fail for the right reason**
 
 Run:
 
@@ -291,7 +293,7 @@ Expected:
 
 - Fails because `graph export` is not wired into the CLI yet.
 
-- [ ] **Step 3: Implement the CLI command group and registration**
+- [x] **Step 3: Implement the CLI command group and registration**
 
 Create `cli/src/modelable/commands/graph.py` with a focused command group:
 
@@ -338,7 +340,7 @@ from modelable.commands.graph import register_graph_commands
 register_graph_commands(cli)
 ```
 
-- [ ] **Step 4: Re-run the CLI tests**
+- [x] **Step 4: Re-run the CLI tests**
 
 Run:
 
@@ -351,7 +353,7 @@ Expected:
 
 - `graph export` tests pass.
 
-- [ ] **Step 5: Re-run the full local gate**
+- [x] **Step 5: Re-run the full local gate**
 
 Run:
 
@@ -368,7 +370,7 @@ Expected:
 - MVP validation passes.
 - Output and docs remain deterministic.
 
-- [ ] **Step 6: Commit the CLI slice**
+- [x] **Step 6: Commit the CLI slice**
 
 ```bash
 git add cli/src/modelable/commands/graph.py cli/src/modelable/cli.py cli/tests/test_cli.py
@@ -381,7 +383,7 @@ git commit -m "feat: add graph export cli"
 - Modify: `docs/cli-spec.md`
 - Modify: `docs/README.md`
 
-- [ ] **Step 1: Update the CLI spec with the new graph export command**
+- [x] **Step 1: Update the CLI spec with the new graph export command**
 
 Add a new section near the existing lineage and registry export commands:
 
@@ -403,7 +405,7 @@ modelable graph export ./models --path ./models --focus customer.CustomerView@1 
 ```
 ```
 
-- [ ] **Step 2: Add the graph export spec and plan to the docs index**
+- [x] **Step 2: Add the graph export spec and plan to the docs index**
 
 Update the documentation index so the new feature is discoverable:
 
@@ -412,7 +414,7 @@ Update the documentation index so the new feature is discoverable:
 | [superpowers/plans/2026-05-31-graph-export.md](superpowers/plans/2026-05-31-graph-export.md) | Implementation plan for graph export JSON helper, CLI wiring, and docs updates | cli-spec.md, docs/README.md |
 ```
 
-- [ ] **Step 3: Review the Markdown diff for consistency**
+- [x] **Step 3: Review the Markdown diff for consistency**
 
 Run:
 
@@ -427,7 +429,7 @@ Check:
 - the demo flows match the CLI semantics,
 - the docs index points at the new spec and plan.
 
-- [ ] **Step 4: Commit the docs slice**
+- [x] **Step 4: Commit the docs slice**
 
 ```bash
 git add docs/cli-spec.md docs/README.md
