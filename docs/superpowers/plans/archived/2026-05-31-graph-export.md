@@ -411,7 +411,7 @@ Update the documentation index so the new feature is discoverable:
 
 ```md
 | [superpowers/specs/2026-05-31-graph-export-design.md](superpowers/specs/2026-05-31-graph-export-design.md) | Deterministic JSON export of the normalized model/projection graph for visualisation and demo flows | cli-spec.md, emitter-spec.md |
-| [superpowers/plans/2026-05-31-graph-export.md](superpowers/plans/2026-05-31-graph-export.md) | Implementation plan for graph export JSON helper, CLI wiring, and docs updates | cli-spec.md, docs/README.md |
+| [superpowers/plans/archived/2026-05-31-graph-export.md](superpowers/plans/archived/2026-05-31-graph-export.md) | Implementation plan for graph export JSON helper, CLI wiring, and docs updates | cli-spec.md, docs/README.md |
 ```
 
 - [x] **Step 3: Review the Markdown diff for consistency**

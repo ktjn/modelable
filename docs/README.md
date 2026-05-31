@@ -14,7 +14,7 @@ This directory contains the system specifications, design documents, and impleme
 | [idl-design-spec.md](idl-design-spec.md) | `.mdl` IDL language design — syntax, types, projections, output targets, federation, LSP, LLM integration | modelable-system-spec.md, distributed-lineage-spec.md |
 | [cli-spec.md](cli-spec.md) | CLI command reference — all `modelable` subcommands, exit codes, phased delivery | idl-design-spec.md, cli-tooling-spec.md |
 | [superpowers/specs/2026-05-31-graph-export-design.md](superpowers/specs/2026-05-31-graph-export-design.md) | Graph export design — deterministic JSON for the normalized model/projection graph, focus rules, and later renderers | cli-spec.md, idl-design-spec.md |
-| [superpowers/plans/2026-05-31-graph-export.md](superpowers/plans/2026-05-31-graph-export.md) | Completed graph export implementation plan — helper, CLI wiring, and docs updates | cli-spec.md, superpowers/specs/2026-05-31-graph-export-design.md |
+| [superpowers/plans/archived/2026-05-31-graph-export.md](superpowers/plans/archived/2026-05-31-graph-export.md) | Archived graph export implementation plan — helper, CLI wiring, and docs updates | cli-spec.md, superpowers/specs/2026-05-31-graph-export-design.md |
 | [distributed-lineage-spec.md](distributed-lineage-spec.md) | Federated registry network — git-based DAG, content signatures, consumer write-backs | idl-design-spec.md |
 | [ownership-permissions-spec.md](ownership-permissions-spec.md) | Field-level and entity-level ownership, permissions, classification, redaction, audit | modelable-system-spec.md |
 | [adapter-architecture-spec.md](adapter-architecture-spec.md) | Ports & Adapters architecture, CloudEvents envelope, adapter bindings, artifact outputs | modelable-system-spec.md |
@@ -25,7 +25,7 @@ This directory contains the system specifications, design documents, and impleme
 | [mvp-implementation-plan.md](mvp-implementation-plan.md) | Phase 1 MVP delivery plan — milestones, acceptance checks, verification policy | modelable-system-spec.md, cli-spec.md, emitter-spec.md |
 | [superpowers/plans/2026-05-18-lsp-workspace-index-diagnostics.md](superpowers/plans/2026-05-18-lsp-workspace-index-diagnostics.md) | First LSP execution plan — diagnostics, workspace index, pygls scaffold | lsp-spec.md, cli-spec.md, cel-integration-spec.md |
 | [idl-parser-implementation-plan.md](idl-parser-implementation-plan.md) | Step-by-step implementation guide for Phase 1 parser, IR, transformer, semantic validation, compiler | idl-design-spec.md, cli-tooling-spec.md |
-| [superpowers/plans/2026-05-31-release-pipeline.md](superpowers/plans/2026-05-31-release-pipeline.md) | Completed staged release pipeline plan — wheel, sdist, checksums, manifest, and GitHub release assets | cli-spec.md, cli-tooling-spec.md |
+| [superpowers/plans/archived/2026-05-31-release-pipeline.md](superpowers/plans/archived/2026-05-31-release-pipeline.md) | Archived staged release pipeline plan — wheel, sdist, checksums, manifest, and GitHub release assets | cli-spec.md, cli-tooling-spec.md |
 | [data-model-languages.md](data-model-languages.md) | Research — evaluated DSLs and expression languages (Smithy, TypeSpec, LinkML, CEL, etc.) | — |
 | [emitter-spec.md](emitter-spec.md) | Output target generation — JSON Schema, TypeScript, Avro, Protobuf, SQL DDL, AsyncAPI, Markdown | idl-design-spec.md, adapter-architecture-spec.md |
 | [lsp-spec.md](lsp-spec.md) | Language Server Protocol — IDE support, diagnostics, autocomplete, federation-aware features | idl-design-spec.md, distributed-lineage-spec.md |
