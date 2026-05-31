@@ -83,7 +83,7 @@ uv run pytest tests/ -v
 | 1 — Parser + IR + validate | Parse `.mdl`, semantic validation | Complete |
 | 2 — Registry graph + resolver | SQLite index, cross-file resolution | Complete (lineage edges deferred to M3) |
 | 3 — Planner + auto projections | Auto-projection expansion, CEL, lineage | Complete — CEL validation, lineage extraction, plan docs done |
-| 4 — Compatibility + governance | `diff`, breaking-change detection, PII governance | Not started |
+| 4 — Compatibility + governance | `diff`, breaking-change detection, PII governance | Complete — single-domain compatibility diff shipped; cross-domain follow-on remains available for future work |
 | 5 — Emitters | JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, Go | Complete — all named local codegen backends are implemented |
 | 6 — CLI workflows | `resolve`, `lineage`, `diff`, `codegen`, `scenario` | Complete |
 | 7 — Hardening | Smoke tests, clean-checkout verification | Complete |
