@@ -55,6 +55,23 @@ async function completionLabels(uri, position) {
     const items = Array.isArray(results) ? results : results.items;
     return items.map(item => item.label.toString());
 }
+async function documentSymbolNames(uri) {
+    const results = await vscode.commands.executeCommand('vscode.executeDocumentSymbolProvider', uri);
+    if (!results) {
+        return [];
+    }
+    const symbols = results;
+    const names = [];
+    const visit = (symbol) => {
+        names.push(symbol.name);
+        symbol.children.forEach(visit);
+    };
+    symbols.forEach(visit);
+    return names;
+}
+async function renameEdits(uri, position, newName) {
+    return vscode.commands.executeCommand('vscode.executeDocumentRenameProvider', uri, position, newName);
+}
 suite('Modelable LSP Smoke Tests', function () {
     this.timeout(60000);
     let uri;
@@ -100,6 +117,20 @@ suite('Modelable LSP Smoke Tests', function () {
         const labels = await completionLabels(uri, position);
         assert.ok(labels.length > 0, 'No completion results returned');
         assert.ok(labels.includes('bureau_credit_score'), `Expected bureau_credit_score in completions: ${labels.join(', ')}`);
+    });
+    test('document symbols include the current projection fields', async () => {
+        const names = await documentSymbolNames(uri);
+        assert.ok(names.includes('ml-credit-risk'), `Expected ml-credit-risk in document symbols: ${names.join(', ')}`);
+        assert.ok(names.includes('CreditFeaturesOffline'), `Expected CreditFeaturesOffline in document symbols: ${names.join(', ')}`);
+        assert.ok(names.includes('bureau_credit_score'), `Expected bureau_credit_score in document symbols: ${names.join(', ')}`);
+    });
+    test('rename returns a workspace edit for an aliased field reference', async () => {
+        const position = new vscode.Position(27, '    applicationId          <- '.length + 5);
+        const edit = await renameEdits(uri, position, 'inputApplicationId');
+        assert.ok(edit, 'Expected a workspace edit from rename');
+        const changes = edit.entries().find(([editUri]) => editUri.toString() === uri.toString())?.[1] ?? [];
+        assert.ok(changes.length > 0, 'Expected rename edits in the current document');
+        assert.ok(changes.some((change) => change.newText === 'inputApplicationId'), `Expected rename edits to contain inputApplicationId, got: ${changes.map((change) => change.newText).join(', ')}`);
     });
     test('no unresolved model reference diagnostics on ml-credit-risk.mdl', () => {
         const diagnostics = vscode.languages.getDiagnostics(uri);
