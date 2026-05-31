@@ -23,6 +23,7 @@ This directory contains the system specifications, design documents, and impleme
 | [mvp-implementation-plan.md](mvp-implementation-plan.md) | Phase 1 MVP delivery plan — milestones, acceptance checks, verification policy | modelable-system-spec.md, cli-spec.md, emitter-spec.md |
 | [superpowers/plans/2026-05-18-lsp-workspace-index-diagnostics.md](superpowers/plans/2026-05-18-lsp-workspace-index-diagnostics.md) | First LSP execution plan — diagnostics, workspace index, pygls scaffold | lsp-spec.md, cli-spec.md, cel-integration-spec.md |
 | [idl-parser-implementation-plan.md](idl-parser-implementation-plan.md) | Step-by-step implementation guide for Phase 1 parser, IR, transformer, semantic validation, compiler | idl-design-spec.md, cli-tooling-spec.md |
+| [superpowers/plans/2026-05-31-release-pipeline.md](superpowers/plans/2026-05-31-release-pipeline.md) | Staged release pipeline plan — wheel, sdist, checksums, manifest, and GitHub release assets | cli-spec.md, cli-tooling-spec.md |
 | [data-model-languages.md](data-model-languages.md) | Research — evaluated DSLs and expression languages (Smithy, TypeSpec, LinkML, CEL, etc.) | — |
 | [emitter-spec.md](emitter-spec.md) | Output target generation — JSON Schema, TypeScript, Avro, Protobuf, SQL DDL, AsyncAPI, Markdown | idl-design-spec.md, adapter-architecture-spec.md |
 | [lsp-spec.md](lsp-spec.md) | Language Server Protocol — IDE support, diagnostics, autocomplete, federation-aware features | idl-design-spec.md, distributed-lineage-spec.md |

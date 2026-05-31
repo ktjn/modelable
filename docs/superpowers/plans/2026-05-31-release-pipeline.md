@@ -18,7 +18,7 @@
 - Create: `cli/src/modelable/release.py`
 - Create: `cli/tests/test_release_metadata.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```python
 from __future__ import annotations
@@ -110,7 +110,7 @@ def test_release_version_mismatch_fails() -> None:
         )
 ```
 
-- [ ] **Step 2: Run the new tests and confirm they fail for the right reason**
+- [x] **Step 2: Run the new tests and confirm they fail for the right reason**
 
 Run:
 
@@ -124,7 +124,7 @@ Expected:
 
 - Fails because `modelable.release` does not exist yet and the manifest/checksum helpers are missing.
 
-- [ ] **Step 3: Implement the helper and build dependency**
+- [x] **Step 3: Implement the helper and build dependency**
 
 Create `cli/src/modelable/release.py` with:
 
@@ -223,7 +223,7 @@ dev = [
 ]
 ```
 
-- [ ] **Step 4: Re-run the focused tests**
+- [x] **Step 4: Re-run the focused tests**
 
 Run:
 
@@ -238,7 +238,7 @@ Expected:
 - `test_release_metadata.py` passes.
 - `cli/uv.lock` updates to include the new build dependency.
 
-- [ ] **Step 5: Verify the release slice against the full CLI gate**
+- [x] **Step 5: Verify the release slice against the full CLI gate**
 
 Run:
 
@@ -255,7 +255,7 @@ Expected:
 - MVP validation passes.
 - No diff hygiene issues remain.
 
-- [ ] **Step 6: Commit the helper slice**
+- [x] **Step 6: Commit the helper slice**
 
 ```bash
 git add cli/pyproject.toml cli/uv.lock cli/src/modelable/release.py cli/tests/test_release_metadata.py
@@ -268,7 +268,7 @@ git commit -m "feat: add release metadata helper"
 - Create: `.github/workflows/release.yml`
 - Create: `cli/tests/test_release_workflow.py`
 
-- [ ] **Step 1: Write the failing workflow text test**
+- [x] **Step 1: Write the failing workflow text test**
 
 ```python
 from pathlib import Path
@@ -286,7 +286,7 @@ def test_release_workflow_contains_release_gates() -> None:
     assert "softprops/action-gh-release" in text
 ```
 
-- [ ] **Step 2: Run the new test and confirm it fails for the right reason**
+- [x] **Step 2: Run the new test and confirm it fails for the right reason**
 
 Run:
 
@@ -299,7 +299,7 @@ Expected:
 
 - Fails because `.github/workflows/release.yml` does not exist yet.
 
-- [ ] **Step 3: Implement the workflow**
+- [x] **Step 3: Implement the workflow**
 
 Create `.github/workflows/release.yml` with:
 
@@ -352,7 +352,7 @@ jobs:
 
 Keep the publish step optional and guarded so the workflow does not hardcode a package-index decision in this first slice.
 
-- [ ] **Step 4: Re-run the workflow smoke test and confirm the workflow text is coherent**
+- [x] **Step 4: Re-run the workflow smoke test and confirm the workflow text is coherent**
 
 Run:
 
@@ -367,7 +367,7 @@ Expected:
 - Workflow text test passes.
 - No whitespace or line-ending issues are introduced.
 
-- [ ] **Step 5: Commit the workflow slice**
+- [x] **Step 5: Commit the workflow slice**
 
 ```bash
 git add .github/workflows/release.yml cli/tests/test_release_workflow.py
@@ -381,7 +381,7 @@ git commit -m "ci: add release workflow"
 - Modify: `docs/README.md`
 - Modify: `docs/agent-governance.md`
 
-- [ ] **Step 1: Update the docs with the release path**
+- [x] **Step 1: Update the docs with the release path**
 
 Make the docs say, in plain language:
 
@@ -399,7 +399,7 @@ Suggested Markdown content to add:
 Modelable's release workflow builds the `cli/` wheel and sdist from a clean checkout, verifies the local CLI gates, and uploads release artifacts with checksums and a machine-readable manifest. The workflow keeps package-index publication optional and configuration-driven so GitHub release assets remain the default distribution artifact.
 ```
 
-- [ ] **Step 2: Review the Markdown diff for coherence**
+- [x] **Step 2: Review the Markdown diff for coherence**
 
 Run:
 
@@ -413,7 +413,7 @@ Check:
 - terminology matches the existing CLI and governance language,
 - the release workflow is described as a repo artifact, not as a runtime feature.
 
-- [ ] **Step 3: Commit the docs slice**
+- [x] **Step 3: Commit the docs slice**
 
 ```bash
 git add README.md docs/README.md docs/agent-governance.md
@@ -425,7 +425,7 @@ git commit -m "docs: describe release pipeline"
 **Files:**
 - No new files expected; this is the integration checkpoint after the helper, workflow, and docs slices.
 
-- [ ] **Step 1: Produce local release artifacts from a temp directory**
+- [x] **Step 1: Produce local release artifacts from a temp directory**
 
 Run:
 
@@ -440,7 +440,7 @@ Expected:
 - `tmp-release-dist/release-manifest.json` exists.
 - the manifest points at the exact wheel and sdist filenames in the directory.
 
-- [ ] **Step 2: Run the release-specific tests together**
+- [x] **Step 2: Run the release-specific tests together**
 
 Run:
 
@@ -458,7 +458,7 @@ Expected:
 - Full CLI suite passes.
 - MVP validation passes.
 
-- [ ] **Step 3: Final hygiene check and push**
+- [x] **Step 3: Final hygiene check and push**
 
 Run:
 

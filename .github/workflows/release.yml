@@ -1,0 +1,88 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to use for a manual release run
+        required: true
+        type: string
+      publish:
+        description: Publish to the configured package index
+        required: false
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Install CLI dependencies
+        working-directory: cli
+        run: uv sync --extra dev --frozen
+
+      - name: Run release gates
+        working-directory: cli
+        run: |
+          uv run pytest tests/ -v
+          uv run modelable validate ../samples/mvp --strict
+
+      - name: Capture release metadata
+        working-directory: cli
+        run: |
+          set -euo pipefail
+          echo "PACKAGE_VERSION=$(uv run python -c 'import pathlib, tomllib; print(tomllib.load(pathlib.Path("pyproject.toml").open("rb"))["project"]["version"])')" >> "$GITHUB_ENV"
+          echo "BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          else
+            echo "RELEASE_TAG=${{ inputs.release_tag }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build release artifacts
+        working-directory: cli
+        run: uv run python -m build
+
+      - name: Write release manifest
+        working-directory: cli
+        run: |
+          set -euo pipefail
+          args=(
+            --dist dist
+            --commit-sha "${GITHUB_SHA}"
+            --package-version "${PACKAGE_VERSION}"
+            --python-version "3.14"
+            --build-timestamp "${BUILD_TIMESTAMP}"
+          )
+          if [ -n "${RELEASE_TAG:-}" ]; then
+            args+=(--git-tag "${RELEASE_TAG}")
+          fi
+          uv run python -m modelable.release "${args[@]}"
+
+      - name: Upload GitHub release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            cli/dist/*.whl
+            cli/dist/*.tar.gz
+            cli/dist/SHA256SUMS
+            cli/dist/release-manifest.json
+
+      - name: Publish package index
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+        working-directory: cli
+        run: echo "Package index publication is configured outside this first release slice."

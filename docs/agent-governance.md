@@ -84,6 +84,13 @@ npm test
 
 On Windows, close any running desktop VS Code windows before `npm test`; the smoke runner fails fast if the desktop app is still holding the update mutex.
 
+For release pipeline or packaging metadata changes, also run:
+
+```text
+cd cli
+uv run pytest tests/test_release_metadata.py tests/test_release_workflow.py -v
+```
+
 ## 4. Test Gates
 
 Test gates are selected by risk and touched surface.
@@ -96,6 +103,7 @@ Test gates are selected by risk and touched surface.
 | Planner, lineage, compatibility, or governance | Focused tests for changed behavior plus representative projection and governance fixtures |
 | Emitters or generated artifacts | Focused emitter tests, deterministic output comparison, fixture regeneration review, and Docker-backed compile smoke tests for every affected language backend |
 | LSP, VS Code extension, or editor integration | Focused LSP tests plus `cd vscode && npm ci && npm run build && npm test` |
+| Release pipeline or packaging metadata | Focused release metadata/workflow tests plus the full local CLI gate |
 | Runtime, subscriptions, adapters, or materializers | Unit tests, integration or smoke tests for the adapter boundary, and failure-mode coverage |
 | Security, permissions, PII, or restricted fields | Negative tests proving unauthorized exposure is rejected or reported as a governance finding |
 

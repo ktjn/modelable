@@ -73,6 +73,7 @@ uv run pytest tests/ -v
 - The local codegen boundary now supports TypeScript, C#, Java, Python, Rust, and Go as implemented language targets.
 - `codegen formats` and `codegen types` now report the same implemented target inventory as `compile`.
 - The remaining deferred outputs are the non-language artifact integrations and future framework targets described in the specs.
+- The release pipeline now builds the `cli/` wheel and sdist, writes `SHA256SUMS` plus `release-manifest.json`, and uploads those files as GitHub release assets. Manual release runs require an explicit release tag.
 
 ### Milestone status
 
