@@ -35,6 +35,17 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const vscode = __importStar(require("vscode"));
 const assert = __importStar(require("assert"));
+const fs = __importStar(require("fs/promises"));
+const os = __importStar(require("os"));
+const path = __importStar(require("path"));
+const MESSY_TEXT = `
+domain customer {
+entity Customer @ 1 (additive) {
+@key customerId: uuid
+email?: string
+}
+}
+`.trim();
 function waitForDiagnostics(uri, timeoutMs = 15000) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error(`Timeout (${timeoutMs}ms) waiting for diagnostics on ${uri.fsPath}`)), timeoutMs);
@@ -72,6 +83,10 @@ async function documentSymbolNames(uri) {
 async function renameEdits(uri, position, newName) {
     return vscode.commands.executeCommand('vscode.executeDocumentRenameProvider', uri, position, newName);
 }
+async function formatEdits(uri, tabSize, insertSpaces) {
+    const results = await vscode.commands.executeCommand('vscode.executeFormatDocumentProvider', uri, { tabSize, insertSpaces });
+    return results ?? [];
+}
 async function referenceLocations(uri, position) {
     const results = await vscode.commands.executeCommand('vscode.executeReferenceProvider', uri, position);
     return results ?? [];
@@ -85,6 +100,45 @@ function positionOf(text, needle) {
         }
     }
     throw new Error(`Unable to find ${needle} in document text`);
+}
+function applyTextEdits(text, edits) {
+    const lines = text.split(/\r?\n/);
+    const offsets = [];
+    let offset = 0;
+    for (let i = 0; i < lines.length; i++) {
+        offsets.push(offset);
+        offset += lines[i].length + 1;
+    }
+    const toOffset = (position) => offsets[position.line] + position.character;
+    let result = text;
+    for (const edit of [...edits].sort((a, b) => toOffset(b.range.start) - toOffset(a.range.start))) {
+        const start = toOffset(edit.range.start);
+        const end = toOffset(edit.range.end);
+        result = `${result.slice(0, start)}${edit.newText}${result.slice(end)}`;
+    }
+    return result;
+}
+async function createTempMdlDocument(text) {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'modelable-vscode-'));
+    const filePath = path.join(dir, 'formatting.mdl');
+    await fs.writeFile(filePath, text, 'utf8');
+    return {
+        uri: vscode.Uri.file(filePath),
+        cleanup: async () => {
+            for (let attempt = 0; attempt < 5; attempt++) {
+                try {
+                    await fs.rm(dir, { recursive: true, force: true });
+                    return;
+                }
+                catch (error) {
+                    if (attempt === 4) {
+                        throw error;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
+                }
+            }
+        },
+    };
 }
 suite('Modelable LSP Smoke Tests', function () {
     this.timeout(60000);
@@ -150,6 +204,27 @@ suite('Modelable LSP Smoke Tests', function () {
         const changes = edit.entries().find(([editUri]) => editUri.toString() === uri.toString())?.[1] ?? [];
         assert.ok(changes.length > 0, 'Expected rename edits in the current document');
         assert.ok(changes.some((change) => change.newText === 'inputApplicationId'), `Expected rename edits to contain inputApplicationId, got: ${changes.map((change) => change.newText).join(', ')}`);
+    });
+    test('formatting returns normalized indentation for a messy document', async () => {
+        const temp = await createTempMdlDocument(MESSY_TEXT);
+        try {
+            const doc = await vscode.workspace.openTextDocument(temp.uri);
+            await vscode.window.showTextDocument(doc);
+            const edits = await formatEdits(temp.uri, 2, true);
+            assert.ok(edits.length > 0, 'Expected format edits for messy document');
+            assert.strictEqual(applyTextEdits(MESSY_TEXT, edits), [
+                'domain customer {',
+                '  entity Customer @ 1 (additive) {',
+                '    @key customerId: uuid',
+                '    email?: string',
+                '  }',
+                '}',
+            ].join('\n'));
+        }
+        finally {
+            await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+            await temp.cleanup();
+        }
     });
     test('references include model declarations and usages', async () => {
         const position = positionOf(lendingText, 'LoanApplication');
