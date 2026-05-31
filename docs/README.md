@@ -13,6 +13,8 @@ This directory contains the system specifications, design documents, and impleme
 | [modelable-system-spec.md](modelable-system-spec.md) | Design principles, core concepts, type system, projections, streaming, runtime architecture, versioning, governance, lineage, MVP scope | — |
 | [idl-design-spec.md](idl-design-spec.md) | `.mdl` IDL language design — syntax, types, projections, output targets, federation, LSP, LLM integration | modelable-system-spec.md, distributed-lineage-spec.md |
 | [cli-spec.md](cli-spec.md) | CLI command reference — all `modelable` subcommands, exit codes, phased delivery | idl-design-spec.md, cli-tooling-spec.md |
+| [superpowers/specs/2026-05-31-graph-export-design.md](superpowers/specs/2026-05-31-graph-export-design.md) | Graph export design — deterministic JSON for the normalized model/projection graph, focus rules, and later renderers | cli-spec.md, idl-design-spec.md |
+| [superpowers/plans/2026-05-31-graph-export.md](superpowers/plans/2026-05-31-graph-export.md) | Graph export implementation plan — helper, CLI wiring, and docs updates | cli-spec.md, superpowers/specs/2026-05-31-graph-export-design.md |
 | [distributed-lineage-spec.md](distributed-lineage-spec.md) | Federated registry network — git-based DAG, content signatures, consumer write-backs | idl-design-spec.md |
 | [ownership-permissions-spec.md](ownership-permissions-spec.md) | Field-level and entity-level ownership, permissions, classification, redaction, audit | modelable-system-spec.md |
 | [adapter-architecture-spec.md](adapter-architecture-spec.md) | Ports & Adapters architecture, CloudEvents envelope, adapter bindings, artifact outputs | modelable-system-spec.md |

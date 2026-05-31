@@ -461,7 +461,33 @@ Pulls a specific schema artifact from an Apicurio Registry instance by model ref
 
 ---
 
-### 5.14 `export openmetadata` — Export catalog metadata
+### 5.14 `graph export` — Export the normalized model graph
+
+```text
+modelable graph export SOURCE [--path PATH] [--focus REF] [--out FILE]
+```
+
+Exports deterministic JSON for the normalized model/projection graph. JSON is the canonical first slice for this command, and the output is intended for inspection, demo flows, and later renderers. `SOURCE` can be a workspace path, `.mdl` file, or directory. `--focus` narrows the export to a model or projection and its immediate neighborhood. The command does not mutate source files.
+
+**Options:**
+
+| Flag | Required | Default | Description |
+|:-----|:---------|:--------|:------------|
+| `--path`, `-p` | No | `.` | Directory to search for definitions when resolving the source workspace |
+| `--focus` | No | — | Optional model or projection reference to center the exported graph |
+| `--out`, `-o` | No | — | Output JSON file path |
+
+**Examples:**
+
+```bash
+modelable graph export ./models --out ./dist/modelable-graph.json
+modelable graph export ./models --focus customer.Customer@1 --out ./dist/customer-graph.json
+modelable graph export ./models --focus customer.CustomerView@1 --out ./dist/customer-view-graph.json
+```
+
+---
+
+### 5.15 `export openmetadata` — Export catalog metadata
 
 ```text
 modelable export openmetadata [PATH] --out FILE
@@ -498,7 +524,7 @@ modelable publish openmetadata ./dist/openmetadata.json
 
 ---
 
-### 5.15 `publish openmetadata` — Push metadata to OpenMetadata
+### 5.16 `publish openmetadata` — Push metadata to OpenMetadata
 
 ```text
 modelable publish openmetadata PATH [--url URL]
@@ -510,7 +536,7 @@ Pushes the OpenMetadata export document to a live OpenMetadata instance.
 
 ---
 
-### 5.16 `export odcs` — Export an Open Data Contract Standard document
+### 5.17 `export odcs` — Export an Open Data Contract Standard document
 
 ```text
 modelable export odcs REF --out FILE [--path PATH]
