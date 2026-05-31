@@ -87,6 +87,10 @@ async function formatEdits(uri, tabSize, insertSpaces) {
     const results = await vscode.commands.executeCommand('vscode.executeFormatDocumentProvider', uri, { tabSize, insertSpaces });
     return results ?? [];
 }
+async function inlayHints(uri, range) {
+    const results = await vscode.commands.executeCommand('vscode.executeInlayHintProvider', uri, range);
+    return results ?? [];
+}
 async function referenceLocations(uri, position) {
     const results = await vscode.commands.executeCommand('vscode.executeReferenceProvider', uri, position);
     return results ?? [];
@@ -144,6 +148,7 @@ suite('Modelable LSP Smoke Tests', function () {
     this.timeout(60000);
     let uri;
     let lendingUri;
+    let text;
     let lendingText;
     suiteSetup(async () => {
         const ws = vscode.workspace.workspaceFolders?.[0];
@@ -151,6 +156,7 @@ suite('Modelable LSP Smoke Tests', function () {
         uri = vscode.Uri.joinPath(ws.uri, 'ml-credit-risk.mdl');
         lendingUri = vscode.Uri.joinPath(ws.uri, 'lending.mdl');
         const doc = await vscode.workspace.openTextDocument(uri);
+        text = doc.getText();
         await vscode.window.showTextDocument(doc);
         const lendingDoc = await vscode.workspace.openTextDocument(lendingUri);
         lendingText = lendingDoc.getText();
@@ -238,6 +244,19 @@ suite('Modelable LSP Smoke Tests', function () {
         assert.ok(usageReferences.length > 0, `Expected a reference on the LoanApplication usage at line ${usageLine + 1}`);
         assert.ok(references.some(r => r.uri.toString() === lendingUri.toString() && r.range.start.line === declarationLine), `Expected a reference on the LoanApplication declaration, got: ${references.map(r => r.range.start.line).join(', ')}`);
         assert.ok(references.some(r => r.uri.toString() === uri.toString() && r.range.start.line === usageLine), `Expected a reference on the LoanApplication usage, got: ${references.map(r => r.range.start.line).join(', ')}`);
+    });
+    test('inlay hints include direct field types', async () => {
+        const lines = text.split(/\r?\n/);
+        const targetLine = lines.findIndex(line => line.includes('requested_amount_cents <- app.requestedAmountCents'));
+        assert.ok(targetLine >= 0, 'Expected requested_amount_cents mapping in the document');
+        const hints = await inlayHints(uri, new vscode.Range(new vscode.Position(0, 0), new vscode.Position(lines.length - 1, lines[lines.length - 1].length)));
+        assert.ok(hints.length > 0, 'Expected inlay hints for the current document');
+        const lineHints = hints.filter(h => h.position.line === targetLine);
+        assert.ok(lineHints.length > 0, `Expected an inlay hint on line ${targetLine + 1}`);
+        const labels = lineHints
+            .map(h => (typeof h.label === 'string' ? h.label : h.label.map(part => part.value).join('')))
+            .join(', ');
+        assert.ok(labels.includes(': int'), `Expected a direct mapping type hint on line ${targetLine + 1}, got: ${labels}`);
     });
     test('no unresolved model reference diagnostics on ml-credit-risk.mdl', () => {
         const diagnostics = vscode.languages.getDiagnostics(uri);
