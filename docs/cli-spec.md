@@ -663,7 +663,7 @@ When `--output` is supplied, the command writes the generated projection to disk
 modelable update <Domain.Model@version> "<edit instruction>" --path PATH [--output FILE] [--preview] [--provider NAME] [--model MODEL] [--base-url URL]
 ```
 
-Applies a natural-language change request to an existing model or projection version, rewrites the `.mdl` source, and validates the result before writing. `--preview` shows the rendered diff without writing changes.
+Applies a natural-language change request to an existing model or projection version, rewrites the `.mdl` source, and validates the result before writing. By default it updates the source file for the referenced definition; `--output` can direct the result to an alternate path. `--preview` shows the rendered diff without writing changes.
 
 When `MODELABLE_LLM_PROVIDER=ollama` or `MODELABLE_LLM_PROVIDER=anthropic`, or the matching `--provider` flag is set, and `--model <model>` is supplied, `update` asks the configured provider for a structured edit plan before applying the change. Without a configured provider, it falls back to the deterministic local editor path.
 When the command writes a file, it prints a concise audit summary including the provider, model, validation status, written path, source ref, and repair count, and it writes a `.provenance.json` sidecar next to the updated `.mdl`.

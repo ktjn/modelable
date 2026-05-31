@@ -43,10 +43,10 @@ The current implementation supports provider-backed workflows through `MODELABLE
 |---|---|---|---|
 | `modelable generate` | Natural language, DDL, JSON Schema, OpenAPI, Avro, Protobuf, or existing `.mdl` context | Proposed `.mdl` | Only with `--output` |
 | `modelable describe` | `.mdl` file, directory, model ref, or projection ref | Deterministic summary | No |
-| `modelable update` | Model or projection ref plus natural-language edit instruction | Updated `.mdl` | Only with `--output` |
+| `modelable update` | Model or projection ref plus natural-language edit instruction | Updated `.mdl` | Yes, source file by default; optional `--output` for an alternate path |
 | `modelable transform` | Model/projection ref and target | Artifact plus explanation | Optional `--out` |
 | `modelable suggest-projection` | Source ref and consumer domain | Proposed projection `.mdl` | Only with `--output` |
-| `modelable chat` | Workspace path, optional ref, and natural-language message | Conversational answer or model-guided edit suggestion | No |
+| `modelable chat` | Workspace path, optional ref, and natural-language message | Conversational answer or validated preview diff | No |
 
 ## 4. Prompt Context
 
@@ -123,6 +123,7 @@ Required options:
 - Validate the edited model before writing.
 - Refuse ambiguous or unsupported edits instead of guessing.
 - Use the configured provider when `MODELABLE_LLM_PROVIDER` or workspace `ai.provider` is set, and fall back to the deterministic local path when no provider is configured.
+- Write the source `.mdl` file by default, or write the alternate path passed via `--output`.
 
 ### 6.5 `suggest-projection`
 
