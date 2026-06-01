@@ -14,6 +14,7 @@ dependencies = [
     "jsonschema>=4.23",
     "referencing>=0.35",
     "pygls>=2.1.1,<3",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]

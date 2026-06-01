@@ -7,6 +7,7 @@ from modelable.commands.diff import register_diff_commands
 from modelable.commands.graph import register_graph_commands
 from modelable.commands.lsp import register_lsp_commands
 from modelable.commands.llm import register_llm_commands
+from modelable.commands.runtime import register_runtime_commands
 from modelable.commands.scenario import register_scenario_commands
 from modelable.commands.workspace import register_workspace_commands
 import click
@@ -32,3 +33,4 @@ register_lsp_commands(cli)
 register_llm_commands(cli)
 register_codegen_commands(cli)
 register_scenario_commands(cli)
+register_runtime_commands(cli)
