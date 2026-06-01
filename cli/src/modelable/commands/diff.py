@@ -6,9 +6,9 @@ import click
 
 from modelable.commands.common import console
 from modelable.compiler.workspace import load_workspace
-from modelable.compat.checker import check_model_version_compatibility
+from modelable.compat.checker import analyze_impact, check_model_version_compatibility
 from modelable.llm.context import parse_model_ref_version_spec
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import find_dependents, resolve_model_ref
 
 
 def register_diff_commands(cli_group: click.Group) -> None:
@@ -46,6 +46,27 @@ def run_diff(from_ref: str, to_ref: str, path: Path) -> None:
             console.print(f"- {finding}")
     else:
         console.print("- no changes")
+
+    dependents = find_dependents(
+        workspace.mdl, from_model.domain_name, from_model.model_name, from_model.version.version
+    )
+    if dependents:
+        impacts = []
+        for dep in dependents:
+            impact = analyze_impact(workspace.mdl, report, dep)
+            if impact.status != "compatible":
+                impacts.append(impact)
+
+        if impacts:
+            console.print("\nImpacted Projections:")
+            for impact in impacts:
+                status_tag = f"[{impact.status.upper()}]"
+                color = "red" if impact.status == "broken" else "yellow"
+                line = f"- [{color}]{status_tag}[/{color}] {impact.domain_name}.{impact.projection_name}@{impact.version}"
+                if impact.reason:
+                    line += f" ({impact.reason})"
+                console.print(line)
+
     if report.status == "breaking":
         raise click.exceptions.Exit(1)
 

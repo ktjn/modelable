@@ -1,5 +1,5 @@
 domain crm {
-  owner: "crm-team"
+  owner: "scenario-team"
   contact: "crm@example.com"
   description: "Customer master: B2C individuals and B2B corporate accounts. Source of truth for customer identity, segmentation, price-tier assignment, and sales ownership. Consumed by orders, payments, logistics, and all analytics layers."
 
@@ -39,8 +39,8 @@ domain crm {
                      updatedAt:            timestamp
   }
 
-  event CustomerStatusChanged @ 1 {
-    @key             eventId:              uuid
+  event CustomerStatusChanged @ 1 (additive) {
+                     eventId:              uuid
                      customerId:           ref<crm.Customer>
                      previousStatus:       string
                      newStatus:            string
@@ -49,8 +49,8 @@ domain crm {
                      occurredAt:           timestamp
   }
 
-  event AccountCreditLimitChanged @ 1 {
-    @key             eventId:              uuid
+  event AccountCreditLimitChanged @ 1 (additive) {
+                     eventId:              uuid
                      accountId:            ref<crm.Account>
                      previousLimitCents?:  int
                      newLimitCents?:       int
@@ -58,8 +58,8 @@ domain crm {
                      occurredAt:           timestamp
   }
 
-  event SalesRepReassigned @ 1 {
-    @key             eventId:              uuid
+  event SalesRepReassigned @ 1 (additive) {
+                     eventId:              uuid
                      customerId:           ref<crm.Customer>
                      previousRepId?:       ref<iam.InternalUser>
                      newRepId:             ref<iam.InternalUser>

@@ -50,6 +50,14 @@ def validate(mdl: MdlFile) -> list[str]:
 def validate_diagnostics(mdl: MdlFile, path: str | Path | None = None) -> list[Diagnostic]:
     diagnostics: list[Diagnostic] = []
     for domain in mdl.domains:
+        if not domain.owner:
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"domain '{domain.name}' must have an owner attribute",
+                    path,
+                )
+            )
         _validate_models(domain.name, domain.models, diagnostics, path)
         _validate_projections(domain.name, domain.projections, diagnostics, path)
     return diagnostics
@@ -97,6 +105,22 @@ def _validate_models(
                 )
 
         for version in versions:
+            if version.model_kind in (ModelKind.entity, ModelKind.aggregate, ModelKind.event) and not version.has_version_header:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{fqn}: {version.model_kind.value} must have a version header (e.g. @ 1 (additive))",
+                        path,
+                    )
+                )
+            elif version.model_kind in (ModelKind.entity, ModelKind.aggregate, ModelKind.event) and not version.has_change_kind:
+                 diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{fqn}@{version.version}: {version.model_kind.value} must have a change kind (additive) or (breaking)",
+                        path,
+                    )
+                )
             key_fields = [field for field in version.fields if field.is_key]
             if version.model_kind in (ModelKind.entity, ModelKind.aggregate):
                 if len(key_fields) != 1:

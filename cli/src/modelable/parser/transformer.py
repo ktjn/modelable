@@ -146,6 +146,7 @@ class MdlTransformer(Transformer):
         body_start = 3 if header is not None else 2
         version = header[1] if header is not None else 0
         change_kind = header[2] if header is not None else ChangeKind.additive
+        has_change_kind = header[3] if header is not None else False
         access = next((item for item in items[body_start:] if isinstance(item, AccessBlock)), None)
         model_version = ModelVersion(
             model_kind=items[0],
@@ -153,15 +154,17 @@ class MdlTransformer(Transformer):
             change_kind=change_kind,
             fields=[item for item in items[body_start:] if isinstance(item, FieldDef)],
             access=access,
+            has_version_header=header is not None,
+            has_change_kind=has_change_kind,
         )
         return ("model", (name, model_version))
 
     def model_header(self, items):
         if len(items) == 1 and isinstance(items[0], tuple):
-            return ("model_header", int(items[0][1]), items[0][2])
+            return ("model_header", int(items[0][1]), items[0][2], True)
         if len(items) == 2:
-            return ("model_header", int(items[0]), items[1])
-        return ("model_header", int(items[0]), ChangeKind.additive)
+            return ("model_header", int(items[0]), items[1], True)
+        return ("model_header", int(items[0]), ChangeKind.additive, False)
 
     def model_change(self, items):
         return items[0]

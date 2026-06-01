@@ -1,5 +1,5 @@
 domain analytics {
-  owner: "data-platform-team"
+  owner: "scenario-team"
   contact: "data-platform@example.com"
   description: "Analytics projections and materialised summaries for business intelligence."
 

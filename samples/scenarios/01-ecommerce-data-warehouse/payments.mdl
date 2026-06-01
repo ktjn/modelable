@@ -1,10 +1,10 @@
 domain payments {
-  owner: "payments-team"
+  owner: "scenario-team"
   contact: "payments@example.com"
   description: "Payment authorisation, capture, refund, and chargeback records."
 
   event PaymentTransaction @ 2 (additive) {
-    @key       transactionId:      uuid
+               transactionId:      uuid
                orderId:            ref<commerce.Order>
                customerId:         uuid // Could be ref<customer.Customer>
                amountCents:        int

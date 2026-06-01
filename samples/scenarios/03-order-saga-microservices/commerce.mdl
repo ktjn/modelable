@@ -1,10 +1,10 @@
 domain commerce {
-  owner: "commerce-team"
+  owner: "scenario-team"
   contact: "commerce@example.com"
   description: "Order creation, lifecycle events, and fulfillment state tracking."
 
   event OrderCreated @ 2 (additive) {
-    @key       orderId:            uuid
+               orderId:            uuid
                customerId:         uuid
     @pii       customerEmail:      string
     @pii       shippingName:       string

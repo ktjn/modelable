@@ -53,6 +53,47 @@ def resolved_version_spec(
     return VersionExact(version=resolved.version.version)
 
 
+def find_dependents(
+    mdl: MdlFile,
+    domain_name: str,
+    model_name: str,
+    version: int,
+) -> list[tuple[str, str, int]]:
+    """Return list of (domain, projection, version) depending on the source model version."""
+    dependents: list[tuple[str, str, int]] = []
+    source_ref = f"{domain_name}.{model_name}"
+
+    for domain in mdl.domains:
+        for proj_name, proj_versions in domain.projections.items():
+            for pv in proj_versions:
+                # Check primary source
+                is_dependent = False
+                if pv.source.model == source_ref:
+                    try:
+                        resolved = resolve_model_ref(mdl, pv.source.model, pv.source.version)
+                        if resolved.version.version == version:
+                            is_dependent = True
+                    except LookupError:
+                        pass
+
+                # Check joins if not already found
+                if not is_dependent:
+                    for join in pv.joins:
+                        if join.model == source_ref:
+                            try:
+                                resolved = resolve_model_ref(mdl, join.model, join.version)
+                                if resolved.version.version == version:
+                                    is_dependent = True
+                                    break
+                            except LookupError:
+                                pass
+
+                if is_dependent:
+                    dependents.append((domain.name, proj_name, pv.version))
+
+    return dependents
+
+
 def validate_references(mdl: MdlFile) -> list[str]:
     """Return unresolved reference errors for projections, joins, and bindings."""
     errors: list[str] = []

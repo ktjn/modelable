@@ -2,7 +2,7 @@
 // This file lives in the orders team's own repository.
 
 domain orders {
-  owner:   "orders-team"
+  owner:   "scenario-team"
   contact: "platform@orders.example.com"
   description: "Order lifecycle: placement, fulfilment, and cancellation. Cross-references customer identity from customer-platform-registry."
 
@@ -33,16 +33,16 @@ domain orders {
           lineTotalCents:    int
   }
 
-  event OrderPlaced @ 1 {
-    @key  eventId:           uuid
+  event OrderPlaced @ 1 (additive) {
+          eventId:           uuid
           orderId:           ref<orders.Order>
           customerId:        ref<customer.Customer>
           totalAmountCents:  int
           placedAt:          timestamp
   }
 
-  event OrderStatusChanged @ 1 {
-    @key  eventId:           uuid
+  event OrderStatusChanged @ 1 (additive) {
+          eventId:           uuid
           orderId:           ref<orders.Order>
           previousStatus:    string
           newStatus:         string
@@ -51,7 +51,7 @@ domain orders {
 }
 
 domain shipping {
-  owner:   "orders-team"
+  owner:   "scenario-team"
   contact: "platform@orders.example.com"
   description: "Shipment tracking and delivery events."
 

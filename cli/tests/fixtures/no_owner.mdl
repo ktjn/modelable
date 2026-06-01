@@ -1,0 +1,5 @@
+domain no_owner {
+  entity Test @ 1 (additive) {
+    @key id: uuid
+  }
+}

@@ -1,10 +1,10 @@
 domain commerce {
-  owner: "commerce-team"
+  owner: "scenario-team"
   contact: "commerce@example.com"
   description: "Order lifecycle, checkout funnel, line items, and campaign attribution."
 
   event Order @ 4 (additive) {
-    @key       orderId:            uuid
+               orderId:            uuid
                customerId:         ref<customer.Customer>
                status:             enum(pending, confirmed, shipped, delivered, cancelled, refunded)
                checkoutFunnelStep: enum(cart, address, payment_entry, payment_confirm, confirmed)

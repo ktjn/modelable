@@ -3,7 +3,7 @@
 // Other registries mirror it read-only; they never write to it.
 
 domain customer {
-  owner:   "customer-platform"
+  owner:   "scenario-team"
   contact: "platform@customer.example.com"
   description: "Customer identity and lifecycle. Source of truth for all customer-related data across the organisation."
 
@@ -21,8 +21,8 @@ domain customer {
           updatedAt:        timestamp
   }
 
-  event CustomerStatusChanged @ 1 {
-    @key  eventId:          uuid
+  event CustomerStatusChanged @ 1 (additive) {
+          eventId:          uuid
           customerId:       ref<customer.Customer>
           previousStatus:   string
           newStatus:        string

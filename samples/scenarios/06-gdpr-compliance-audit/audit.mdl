@@ -1,10 +1,10 @@
 domain audit {
-  owner: "security-team"
+  owner: "scenario-team"
   contact: "security@example.com"
   description: "Platform-level access, data processing, and security audit events."
 
   event DataAccessEvent @ 1 (additive) {
-    @key       accessEventId:      uuid
+               accessEventId:      uuid
                principalId:        string
                principalType:      enum(user, service_account, api_key, automated_process)
                projectionName:     string

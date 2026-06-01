@@ -1,5 +1,5 @@
 domain psp {
-  owner: "payments-team"
+  owner: "scenario-team"
   contact: "payments@example.com"
   description: "Payment master: vaulted payment instruments, transaction lifecycle, and settlement records. Source of truth for all payment state consumed by the ODS (order support views), analytics (revenue and refund trends), and finance reconciliation."
 
@@ -21,7 +21,7 @@ domain psp {
   }
 
   event PaymentTransaction @ 2 (additive) {
-    @key             transactionId:        uuid
+                     transactionId:        uuid
                      orderId:              uuid      // loose ref to orders system
                      customerId:           ref<crm.Customer>
                      paymentMethodId:      ref<psp.PaymentMethod>
@@ -38,8 +38,8 @@ domain psp {
                      refundedAt?:          timestamp
   }
 
-  event PaymentRefunded @ 1 {
-    @key             eventId:              uuid
+  event PaymentRefunded @ 1 (additive) {
+                     eventId:              uuid
                      originalTransactionId: ref<psp.PaymentTransaction>
                      refundTransactionId:  ref<psp.PaymentTransaction>
                      orderId:              uuid
@@ -50,8 +50,8 @@ domain psp {
                      occurredAt:           timestamp
   }
 
-  event ChargebackReceived @ 1 {
-    @key             eventId:              uuid
+  event ChargebackReceived @ 1 (additive) {
+                     eventId:              uuid
                      transactionId:        ref<psp.PaymentTransaction>
                      orderId:              uuid
                      customerId:           ref<crm.Customer>

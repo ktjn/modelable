@@ -1,12 +1,13 @@
 domain inventory {
-  owner: "inventory-team"
+  owner: "scenario-team"
   contact: "inventory@example.com"
   description: "Seller-level inventory quantities, reservations, and fulfilment flags."
 
   aggregate SellerInventoryLevel @ 2 (additive) {
-    @key       sellerId:           string
-    @key       sku:                string
-    @key       warehouseId:        string
+    @key       inventoryId:        uuid
+               sellerId:           string
+               sku:                string
+               warehouseId:        string
                productId:          ref<catalogue.ProductListing>
                warehouseName:      string
                quantityOnHand:     int = 0

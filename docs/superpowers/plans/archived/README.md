@@ -14,5 +14,6 @@ Active work should use the current spec or plan in `docs/superpowers/` rather th
 - [2026-05-24-lsp-feature-testing.md](2026-05-24-lsp-feature-testing.md)
 - [2026-05-30-vscode-smoke-ci-gap.md](2026-05-30-vscode-smoke-ci-gap.md)
 - [2026-05-31-compatibility-diff.md](2026-05-31-compatibility-diff.md)
+- [2026-05-31-compatibility-impact.md](2026-05-31-compatibility-impact.md)
 - [2026-05-31-graph-export.md](2026-05-31-graph-export.md)
 - [2026-05-31-release-pipeline.md](2026-05-31-release-pipeline.md)

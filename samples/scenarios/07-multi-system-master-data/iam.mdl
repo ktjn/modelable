@@ -1,5 +1,5 @@
 domain iam {
-  owner: "hr-platform-team"
+  owner: "scenario-team"
   contact: "hr-platform@example.com"
   description: "Internal user master: employees, roles, and organisational hierarchy. Source of truth for workforce identity across CRM (sales assignment), CPQ (price approvals), WMS (warehouse staff), and PSP (refund authorisation)."
 
@@ -22,8 +22,8 @@ domain iam {
                      updatedAt:            timestamp
   }
 
-  event UserRoleChanged @ 1 {
-    @key             eventId:              uuid
+  event UserRoleChanged @ 1 (additive) {
+                     eventId:              uuid
                      userId:               ref<iam.InternalUser>
                      previousRole:         string
                      newRole:              string
@@ -32,16 +32,16 @@ domain iam {
                      occurredAt:           timestamp
   }
 
-  event UserDeactivated @ 1 {
-    @key             eventId:              uuid
+  event UserDeactivated @ 1 (additive) {
+                     eventId:              uuid
                      userId:               ref<iam.InternalUser>
                      reason:               enum(resigned, terminated, leave_of_absence, transfer)
                      approvedByManagerId:  ref<iam.InternalUser>
                      occurredAt:           timestamp
   }
 
-  event ManagerChanged @ 1 {
-    @key             eventId:              uuid
+  event ManagerChanged @ 1 (additive) {
+                     eventId:              uuid
                      userId:               ref<iam.InternalUser>
                      previousManagerId?:   ref<iam.InternalUser>
                      newManagerId:         ref<iam.InternalUser>

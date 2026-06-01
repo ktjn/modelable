@@ -239,6 +239,8 @@ class ModelVersion(BaseModel):
     change_kind: ChangeKind
     fields: list[FieldDef]
     access: AccessBlock | None = None
+    has_version_header: bool = True
+    has_change_kind: bool = True
 
 
 class VersionExact(BaseModel):

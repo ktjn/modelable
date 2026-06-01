@@ -1,0 +1,9 @@
+domain billing {
+  owner: "scenario-team"
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1 as c
+  {
+    id <- c.customerId
+    emailAddress <- c.email
+  }
+}

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from modelable.compat.diff import FieldChange, compare_model_versions
-from modelable.parser.ir import ChangeKind, MdlFile, ModelVersion
+from modelable.parser.ir import ChangeKind, ComputedMapping, DirectMapping, MdlFile, ModelVersion
 
 
 @dataclass(frozen=True)
@@ -15,6 +15,15 @@ class CompatibilityReport:
     status: str
     findings: list[str] = field(default_factory=list)
     changes: list[FieldChange] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ProjectionImpact:
+    domain_name: str
+    projection_name: str
+    version: int
+    status: str  # "broken", "affected", "compatible"
+    reason: str | None = None
 
 
 def check_model_version_compatibility(
@@ -39,6 +48,84 @@ def check_model_version_compatibility(
         findings=findings,
         changes=changes,
     )
+
+
+def analyze_impact(
+    mdl: MdlFile,
+    report: CompatibilityReport,
+    dependent: tuple[str, str, int],
+) -> ProjectionImpact:
+    """Analyze the impact of a model change on a specific downstream projection."""
+    dep_domain_name, dep_proj_name, dep_version = dependent
+
+    # Find the projection version
+    pv = None
+    for domain in mdl.domains:
+        if domain.name == dep_domain_name:
+            pv = next(
+                (v for v in domain.projections.get(dep_proj_name, []) if v.version == dep_version),
+                None,
+            )
+            break
+
+    if pv is None:
+        return ProjectionImpact(
+            dep_domain_name, dep_proj_name, dep_version, "affected", "unresolved projection"
+        )
+
+    # Determine the alias(es) used for this source model
+    source_ref = f"{report.domain_name}.{report.model_name}"
+    aliases = []
+    if pv.source.model == source_ref:
+        aliases.append(pv.source.alias)
+    for join in pv.joins:
+        if join.model == source_ref:
+            aliases.append(join.alias)
+
+    # Check if any breaking field change affects this projection's direct mappings
+    impacted_fields = []
+    for change in report.changes:
+        is_breaking_field = change.kind in {
+            "removed_field",
+            "renamed_field",
+            "type_changed",
+            "enum_changed",
+            "identity_changed",
+        }
+        if change.kind == "added_field" and change.to_optional is False:
+            is_breaking_field = True
+
+        if not is_breaking_field:
+            continue
+
+        for proj_field in pv.fields:
+            if (
+                isinstance(proj_field.mapping, DirectMapping)
+                and proj_field.mapping.source_alias in aliases
+                and proj_field.mapping.source_field == change.field_name
+            ):
+                impacted_fields.append(f"field '{change.field_name}' ({change.kind})")
+                break
+
+    if impacted_fields:
+        return ProjectionImpact(
+            dep_domain_name,
+            dep_proj_name,
+            dep_version,
+            "broken",
+            f"uses {', '.join(impacted_fields)}",
+        )
+
+    if report.status == "breaking":
+        return ProjectionImpact(
+            dep_domain_name,
+            dep_proj_name,
+            dep_version,
+            "affected",
+            f"source {source_ref} is marked breaking",
+        )
+
+    return ProjectionImpact(dep_domain_name, dep_proj_name, dep_version, "compatible")
 
 
 def _find_version(

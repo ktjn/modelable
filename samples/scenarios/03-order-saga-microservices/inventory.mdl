@@ -1,10 +1,10 @@
 domain inventory {
-  owner: "inventory-team"
+  owner: "scenario-team"
   contact: "inventory@example.com"
   description: "Stock reservation, release, and inventory level management."
 
   event InventoryReservation @ 1 (additive) {
-    @key       reservationId:      uuid
+               reservationId:      uuid
                orderId:            ref<commerce.OrderCreated>
                outcome:            enum(reserved, partial, failed)
                reservedItems:      array<ReservedItem>

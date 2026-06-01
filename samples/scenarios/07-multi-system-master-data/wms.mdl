@@ -1,5 +1,5 @@
 domain wms {
-  owner: "logistics-team"
+  owner: "scenario-team"
   contact: "logistics@example.com"
   description: "Logistics master: warehouses, real-time stock levels, and outbound shipment lifecycle. Source of truth for inventory and fulfillment state consumed by the ODS (low-stock alerts, order tracking) and data mart (carrier performance, inventory health)."
 
@@ -49,8 +49,8 @@ domain wms {
                      updatedAt:            timestamp
   }
 
-  event ShipmentStatusChanged @ 1 {
-    @key             eventId:              uuid
+  event ShipmentStatusChanged @ 1 (additive) {
+                     eventId:              uuid
                      shipmentId:           ref<wms.Shipment>
                      orderId:              uuid
                      previousStatus:       string
@@ -60,8 +60,8 @@ domain wms {
                      occurredAt:           timestamp
   }
 
-  event StockLevelChanged @ 1 {
-    @key             eventId:              uuid
+  event StockLevelChanged @ 1 (additive) {
+                     eventId:              uuid
                      stockId:              ref<wms.StockLevel>
                      warehouseId:          ref<wms.Warehouse>
                      productId:            ref<pim.Product>
@@ -72,8 +72,8 @@ domain wms {
                      occurredAt:           timestamp
   }
 
-  event StocktakeCompleted @ 1 {
-    @key             eventId:              uuid
+  event StocktakeCompleted @ 1 (additive) {
+                     eventId:              uuid
                      warehouseId:          ref<wms.Warehouse>
                      conductedByUserId:    ref<iam.InternalUser>
                      productCount:         int

@@ -1,5 +1,5 @@
 domain pim {
-  owner: "product-catalog-team"
+  owner: "scenario-team"
   contact: "catalog@example.com"
   description: "Product master: canonical product catalogue, variants, and physical attributes. Source of truth consumed by CPQ (pricing), WMS (logistics and stock), orders (line items), and all analytics layers. A product record here is the single reference for anything sold."
 
@@ -42,23 +42,23 @@ domain pim {
     heightCm: float
   }
 
-  event ProductActivated @ 1 {
-    @key             eventId:              uuid
+  event ProductActivated @ 1 (additive) {
+                     eventId:              uuid
                      productId:            ref<pim.Product>
                      activatedByUserId:    ref<iam.InternalUser>
                      occurredAt:           timestamp
   }
 
-  event ProductDeactivated @ 1 {
-    @key             eventId:              uuid
+  event ProductDeactivated @ 1 (additive) {
+                     eventId:              uuid
                      productId:            ref<pim.Product>
                      reason:               string
                      deactivatedByUserId:  ref<iam.InternalUser>
                      occurredAt:           timestamp
   }
 
-  event ProductAttributeChanged @ 1 {
-    @key             eventId:              uuid
+  event ProductAttributeChanged @ 1 (additive) {
+                     eventId:              uuid
                      productId:            ref<pim.Product>
                      changedField:         string
                      previousValue?:       string

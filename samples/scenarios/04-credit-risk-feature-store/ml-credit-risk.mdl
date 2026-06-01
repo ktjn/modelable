@@ -1,10 +1,10 @@
 domain "ml-credit-risk" {
-  owner: "credit-risk-ml-team"
+  owner: "scenario-team"
   contact: "credit-risk@example.com"
   description: "Credit risk feature definitions, training snapshots, and model serving projections."
 
   event RiskScoreLabel @ 1 (additive) {
-    @key       labelId:            uuid
+               labelId:            uuid
                applicationId:      ref<lending.LoanApplication>
                customerId:         uuid
                observationWindowMonths: int

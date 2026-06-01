@@ -1,5 +1,5 @@
 domain cpq {
-  owner: "pricing-team"
+  owner: "scenario-team"
   contact: "pricing@example.com"
   description: "Pricing master: tiered price lists, promotional discount rules, and approval workflows. Consumed at checkout (order pricing), in analytics (margin and discount effectiveness), and by CRM (tier assignment drives customer segmentation)."
 
@@ -45,8 +45,8 @@ domain cpq {
                      createdAt:            timestamp
   }
 
-  event PriceListEntryChanged @ 1 {
-    @key             eventId:              uuid
+  event PriceListEntryChanged @ 1 (additive) {
+                     eventId:              uuid
                      entryId:              ref<cpq.PriceListEntry>
                      productId:            ref<pim.Product>
                      priceTierId:          ref<cpq.PriceTier>
@@ -57,8 +57,8 @@ domain cpq {
                      occurredAt:           timestamp
   }
 
-  event DiscountRuleActivated @ 1 {
-    @key             eventId:              uuid
+  event DiscountRuleActivated @ 1 (additive) {
+                     eventId:              uuid
                      ruleId:               ref<cpq.DiscountRule>
                      approvedByUserId:     ref<iam.InternalUser>
                      occurredAt:           timestamp

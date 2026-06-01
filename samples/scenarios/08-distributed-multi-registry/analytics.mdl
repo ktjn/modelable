@@ -48,8 +48,9 @@ domain analytics {
   // Cross-registry lineage edges: orders.Order@3
 
   aggregate DailyOrderMetrics @ 1 (additive) {
-    @key  metricDate:           date
-    @key  countryCode:          string
+    @key  metricId:             uuid
+          metricDate:           date
+          countryCode:          string
           ordersPlaced:         int
           ordersDelivered:      int
           ordersCancelled:      int

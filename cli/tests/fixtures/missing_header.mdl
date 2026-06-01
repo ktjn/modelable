@@ -1,0 +1,6 @@
+domain missing_header {
+  owner: "team-a"
+  entity Customer {
+    @key id: uuid
+  }
+}

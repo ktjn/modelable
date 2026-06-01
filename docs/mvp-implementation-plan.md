@@ -234,7 +234,7 @@ uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
 - [x] Verify `(breaking)` declarations mark affected projections as requiring re-validation.
   - Completed: projection plan documents now carry `requires_revalidation` and `revalidation_reasons` when a source or join resolves to a breaking model version.
 - [x] Implement `modelable diff REF_A REF_B --path PATH`.
-  - Completed: `diff` compares two published model versions and prints compatibility status plus the classified change list, exiting nonzero for breaking comparisons.
+  - Completed: `diff` compares two published model versions and prints compatibility status plus the classified change list, exiting nonzero for breaking comparisons. Now also reports cross-domain projection impact.
 - [x] Preserve default same-domain access assumptions when no `access` block exists.
   - Completed: registry compilation now emits default same-domain `read`, `project`, and `subscribe` access policies, plus owner-only `write`, `transfer`, and `manage_access` policies, for published model and projection versions without an explicit `access` block.
 - [x] Parse and record entity and property grants for `read`, `project`, `subscribe`, and `write`.

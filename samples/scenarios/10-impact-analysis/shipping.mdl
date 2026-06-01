@@ -1,0 +1,9 @@
+domain shipping {
+  owner: "scenario-team"
+  projection ShippingLabel @ 1
+    from customer.Customer @ 1 as c
+  {
+    labelId <- c.customerId
+    recipientName <- c.name
+  }
+}

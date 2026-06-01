@@ -1,10 +1,10 @@
 domain billing {
-  owner: "finance-team"
+  owner: "scenario-team"
   contact: "finance@example.com"
   description: "Billing transactions, invoices, and subscription events."
 
   event BillingTransaction @ 2 (additive) {
-    @key       transactionId:      uuid
+               transactionId:      uuid
                customerId:         ref<customer.Customer>
                subscriptionId?:    uuid
                invoiceId:          string

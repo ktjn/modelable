@@ -1,10 +1,10 @@
 domain shipping {
-  owner: "logistics-team"
+  owner: "scenario-team"
   contact: "logistics@example.com"
   description: "Shipment label creation, carrier assignments, and delivery tracking."
 
   event ShipmentLabel @ 1 (additive) {
-    @key       shipmentId:         uuid
+               shipmentId:         uuid
                orderId:            ref<commerce.OrderCreated>
                paymentId:          ref<payments.PaymentAuthorisation>
                carrierCode:        string

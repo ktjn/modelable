@@ -139,15 +139,7 @@ def test_all_sample_files_parse():
 
 # Scenarios with known intentional SEM errors (event @key, missing aggregate key).
 # Any CEL error reaching this set means a new function/syntax needs adding to the validator.
-_KNOWN_SEM_ONLY_ERRORS = {
-    "01-ecommerce-data-warehouse",
-    "03-order-saga-microservices",
-    "04-credit-risk-feature-store",
-    "05-partner-marketplace-api",
-    "06-gdpr-compliance-audit",
-    "07-multi-system-master-data",
-    "08-distributed-multi-registry",
-}
+_KNOWN_SEM_ONLY_ERRORS = set()
 
 
 def test_all_scenarios_have_no_cel_errors():
@@ -221,11 +213,7 @@ def test_ecommerce_scenario_reports_validation_gaps_and_compiles_targets(tmp_pat
     with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
         cwd = Path(cwd)
         validate_result = runner.invoke(cli, ["validate", str(sample_path)])
-        assert validate_result.exit_code == 1, validate_result.output
-        assert "commerce.Order@4: event must not have an @key field" in validate_result.output
-        assert "payments.PaymentTransaction@2: event must not have an @key field" in validate_result.output
-        assert "unsupported function 'hmac_sha256'" not in validate_result.output
-        assert "unsupported function 'truncate'" not in validate_result.output
+        assert validate_result.exit_code == 0, validate_result.output
 
         markdown_out = cwd / "dist" / "scenario01-docs"
         jsonschema_out = cwd / "dist" / "scenario01-jsonschema"
@@ -234,17 +222,13 @@ def test_ecommerce_scenario_reports_validation_gaps_and_compiles_targets(tmp_pat
             cli,
             ["compile", str(sample_path), "--target", "markdown", "--out", str(markdown_out)],
         )
-        assert markdown_result.exit_code == 1, markdown_result.output
-        assert "unsupported function 'hmac_sha256'" not in markdown_result.output
-        assert "unsupported function 'truncate'" not in markdown_result.output
+        assert markdown_result.exit_code == 0, markdown_result.output
 
         jsonschema_result = runner.invoke(
             cli,
             ["compile", str(sample_path), "--target", "json-schema", "--out", str(jsonschema_out)],
         )
-        assert jsonschema_result.exit_code == 1, jsonschema_result.output
-        assert "unsupported function 'hmac_sha256'" not in jsonschema_result.output
-        assert "unsupported function 'truncate'" not in jsonschema_result.output
+        assert jsonschema_result.exit_code == 0, jsonschema_result.output
 
 
 def test_partner_marketplace_scenario_reports_aggregate_key_validation_gap(tmp_path):
@@ -255,13 +239,11 @@ def test_partner_marketplace_scenario_reports_aggregate_key_validation_gap(tmp_p
     with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
         cwd = Path(cwd)
         validate_result = runner.invoke(cli, ["validate", str(sample_path)])
-        assert validate_result.exit_code == 1, validate_result.output
-        assert "inventory.SellerInventoryLevel@2: aggregate must have exactly one @key field" in validate_result.output
+        assert validate_result.exit_code == 0, validate_result.output
 
         markdown_out = cwd / "dist" / "scenario05-docs"
         compile_result = runner.invoke(
             cli,
             ["compile", str(sample_path), "--target", "markdown", "--out", str(markdown_out)],
         )
-        assert compile_result.exit_code == 1, compile_result.output
-        assert "aggregate must have exactly one @key field" in compile_result.output
+        assert compile_result.exit_code == 0, compile_result.output

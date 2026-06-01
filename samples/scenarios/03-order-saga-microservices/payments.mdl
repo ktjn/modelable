@@ -1,10 +1,10 @@
 domain payments {
-  owner: "payments-team"
+  owner: "scenario-team"
   contact: "payments@example.com"
   description: "Payment authorisation, capture, and refund processing."
 
   event PaymentAuthorisation @ 2 (additive) {
-    @key       paymentId:          uuid
+               paymentId:          uuid
                orderId:            ref<commerce.OrderCreated>
                reservationId:      ref<inventory.InventoryReservation>
                outcome:            enum(authorised, captured, declined, refunded, voided)
