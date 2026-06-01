@@ -6,6 +6,7 @@ def test_inspect_auto_projections(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
         name: string
@@ -30,6 +31,7 @@ def test_inspect_auto_request_excludes_server(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
         name: string
@@ -53,6 +55,7 @@ def test_inspect_missing_domain(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
       }
@@ -69,6 +72,7 @@ def test_inspect_auto_supports_version_ranges(tmp_path):
     mdl.write_text(
         """
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
         name: string
@@ -102,6 +106,7 @@ def test_inspect_model_without_auto(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
         name: string
@@ -120,6 +125,7 @@ def test_inspect_projection_without_auto(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
         email?: string
@@ -127,6 +133,7 @@ def test_inspect_projection_without_auto(tmp_path):
     }
 
     domain billing {
+      owner: "test-team"
       projection BillingCustomer @ 1
         from customer.Customer @ 1 as c
       {

@@ -11,6 +11,7 @@ def _write_workspace(path: Path) -> None:
     path.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -28,6 +29,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ >=1 <3 as c
   {
@@ -71,6 +73,7 @@ def test_load_workspace_reports_unresolved_projection_source(tmp_path):
     source.write_text(
         """
 domain billing {
+  owner: "test-team"
   projection MissingCustomer @ 1
     from customer.Customer @ 1 as c
   {

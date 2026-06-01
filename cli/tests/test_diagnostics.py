@@ -29,6 +29,7 @@ def test_validate_diagnostics_returns_structured_errors():
                 uri="inmemory://customer.mdl",
                 text="""
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     customerId: uuid
   }
@@ -51,6 +52,7 @@ def test_validate_diagnostics_uses_string_wrapper_for_legacy_callers():
                 uri="inmemory://customer.mdl",
                 text="""
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     customerId: uuid
   }

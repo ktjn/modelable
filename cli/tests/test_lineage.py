@@ -13,6 +13,7 @@ import tempfile
 
 _MDL = textwrap.dedent("""\
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
         legalName: string
@@ -20,6 +21,7 @@ _MDL = textwrap.dedent("""\
       }
     }
     domain billing {
+      owner: "test-team"
       projection BillingCustomer @ 1
         from customer.Customer @ 1 as c
       {
@@ -167,6 +169,7 @@ def test_write_plans_file_naming(tmp_path):
 def test_breaking_source_marks_plan_for_revalidation():
     mdl = parse_text_to_ir("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
         name: string
@@ -177,6 +180,7 @@ def test_breaking_source_marks_plan_for_revalidation():
     }
 
     domain billing {
+      owner: "test-team"
       projection BillingCustomer @ 1
         from customer.Customer @ 2 as c
       {

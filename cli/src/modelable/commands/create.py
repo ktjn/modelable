@@ -31,7 +31,7 @@ def create_domain(output_dir: Path) -> None:
 
 
 def _domain_text(name: str) -> str:
-    return f"domain {name} {{\n}}\n"
+    return f'domain {name} {{\n  owner: "required-team"\n}}\n'
 
 
 _FIELD_TYPES = [
@@ -81,7 +81,7 @@ def _model_text(
     change_kind: str,
     fields: list[dict],
 ) -> str:
-    lines = [f"domain {domain} {{", f"  {kind} {name} @ {version} ({change_kind}) {{"]
+    lines = [f"domain {domain} {{", f'  owner: "required-team"', f"  {kind} {name} @ {version} ({change_kind}) {{"]
     for field in fields:
         annotations = ""
         if field.get("is_key"):
@@ -138,6 +138,7 @@ def _projection_text(
 ) -> str:
     lines = [
         f"domain {domain} {{",
+        f'  owner: "required-team"',
         f"  projection {name} @ {version}",
         f"    from {source_model} @ {source_version} as {alias}",
         "  {",

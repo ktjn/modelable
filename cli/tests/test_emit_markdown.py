@@ -72,6 +72,7 @@ def test_emit_model_field_types(tmp_path):
     mdl.write_text(
         """
 domain test {
+  owner: "test-team"
   entity Item @ 1 (additive) {
     @key id: uuid
     name: string
@@ -164,6 +165,7 @@ def test_emit_auto_projection(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -199,6 +201,7 @@ def test_emit_projection_version_str(tmp_path):
     mdl.write_text(
         """
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ >=1<3 as c
   {
@@ -220,6 +223,7 @@ def test_emit_projection_pinned_version_str(tmp_path):
     mdl.write_text(
         """
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 2#a3f8b2c1d4e5f6a7 as c
   {
@@ -241,6 +245,7 @@ def test_emit_classification_in_field_table(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     @classification("confidential")
@@ -262,6 +267,7 @@ def test_emit_writes_files(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -288,6 +294,7 @@ def test_cli_compile_markdown_writes_files(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -317,6 +324,7 @@ def test_cli_docs_command(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string

@@ -12,6 +12,7 @@ def test_emit_csharp_model_and_projection(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     displayName: string
@@ -72,6 +73,7 @@ def test_cli_compile_csharp_writes_files(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     displayName: string
@@ -105,6 +107,7 @@ def test_emit_csharp_warns_on_computed_projection_field(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -133,6 +136,7 @@ def test_emit_csharp_projection_uses_source_field_types(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string

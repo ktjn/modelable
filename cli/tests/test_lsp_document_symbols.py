@@ -4,6 +4,7 @@ from modelable.lsp.workspace import LspWorkspaceIndex
 
 WORKSPACE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -11,6 +12,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {

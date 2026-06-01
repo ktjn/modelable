@@ -12,6 +12,7 @@ def test_emit_go_model_and_projection(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     displayName: string
@@ -79,6 +80,7 @@ def test_cli_compile_go_writes_files(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     displayName: string
@@ -111,6 +113,7 @@ def test_emit_go_warns_on_computed_projection_field(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -139,6 +142,7 @@ def test_emit_go_decimal_maps_to_string(tmp_path):
     mdl.write_text(
         """
 domain finance {
+  owner: "test-team"
   entity Invoice @ 1 (additive) {
     @key invoiceId: uuid
     amount: decimal(12, 2)
@@ -160,6 +164,7 @@ def test_emit_go_temporal_types_inject_time_import(tmp_path):
     mdl.write_text(
         """
 domain events {
+  owner: "test-team"
   entity Event @ 1 (additive) {
     @key eventId: uuid
     occurredAt: timestamp
@@ -187,6 +192,7 @@ def test_emit_go_projection_uses_source_field_types(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string

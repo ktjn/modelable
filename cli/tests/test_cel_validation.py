@@ -227,12 +227,14 @@ def test_workspace_rejects_invalid_cel():
 
     mdl_text = textwrap.dedent("""\
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             status: string
           }
         }
         domain billing {
+          owner: "test-team"
           projection BadProj @ 1
             from customer.Customer @ 1 as c
           {
@@ -254,12 +256,14 @@ def test_workspace_accepts_valid_cel():
 
     mdl_text = textwrap.dedent("""\
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             status: string
           }
         }
         domain billing {
+          owner: "test-team"
           projection GoodProj @ 1
             from customer.Customer @ 1 as c
           {

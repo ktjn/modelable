@@ -5,6 +5,7 @@ from modelable.validation.semantic import validate
 def test_valid_entity_passes():
     mdl = parse_text_to_ir("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
         name: string
@@ -20,6 +21,7 @@ def test_valid_entity_passes():
 def test_entity_missing_key_fails():
     mdl = parse_text_to_ir("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         customerId: uuid
         name: string
@@ -35,6 +37,7 @@ def test_entity_missing_key_fails():
 def test_event_must_not_have_key():
     mdl = parse_text_to_ir("""
     domain orders {
+      owner: "test-team"
       event OrderPlaced @ 1 (additive) {
         @key orderId: uuid
         amount: decimal(10, 2)
@@ -50,6 +53,7 @@ def test_event_must_not_have_key():
 def test_versions_must_be_ascending():
     mdl = parse_text_to_ir("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 2 (additive) {
         @key customerId: uuid
       }
@@ -67,6 +71,7 @@ def test_versions_must_be_ascending():
 def test_additive_version_rejects_breaking_changes():
     mdl = parse_text_to_ir("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
         name: string
@@ -85,6 +90,7 @@ def test_additive_version_rejects_breaking_changes():
 def test_additive_version_allows_optional_additions():
     mdl = parse_text_to_ir("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
         name: string
@@ -105,6 +111,7 @@ def test_additive_version_allows_optional_additions():
 def test_breaking_version_requires_incompatible_change():
     mdl = parse_text_to_ir("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
         name: string
@@ -124,6 +131,7 @@ def test_breaking_version_requires_incompatible_change():
 def test_aggregate_function_without_group_by_fails():
     mdl = parse_text_to_ir("""
     domain stats {
+      owner: "test-team"
       projection BadStats @ 1
         from orders.Order @ 1 as o
       {
@@ -144,6 +152,7 @@ def test_valid_classification_levels_pass():
     for level in ("open", "internal", "confidential", "restricted", "secret"):
         mdl = parse_text_to_ir(f"""
         domain payments {{
+          owner: "test-team"
           entity Payment @ 1 (additive) {{
             @key paymentId: uuid
             @classification("{level}") cardNumber: string
@@ -157,6 +166,7 @@ def test_valid_classification_levels_pass():
 def test_invalid_classification_level_fails():
     mdl = parse_text_to_ir("""
     domain payments {
+      owner: "test-team"
       entity Payment @ 1 (additive) {
         @key paymentId: uuid
         @classification("top-secret") cardNumber: string
@@ -173,6 +183,7 @@ def test_invalid_classification_level_fails():
 def test_invalid_classification_level_on_projection_field_fails():
     mdl = parse_text_to_ir("""
     domain payments {
+      owner: "test-team"
       projection PaymentSummary @ 1
         from payments.Payment @ 1 as p
       {
@@ -190,6 +201,7 @@ def test_invalid_classification_level_on_projection_field_fails():
 def test_aggregate_function_with_group_by_passes():
     mdl = parse_text_to_ir("""
     domain stats {
+      owner: "test-team"
       projection GoodStats @ 1
         from orders.Order @ 1 as o
         group by o.customerId

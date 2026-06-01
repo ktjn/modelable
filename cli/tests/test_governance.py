@@ -8,6 +8,7 @@ def test_projection_without_access_block_emits_governance_findings():
     mdl = parse_text_to_ir(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             name: string
@@ -15,6 +16,7 @@ def test_projection_without_access_block_emits_governance_findings():
         }
 
         domain billing {
+          owner: "test-team"
           projection BillingCustomer @ 1
             from customer.Customer @ 1 as c
           {
@@ -36,6 +38,7 @@ def test_projection_with_access_block_and_derivation_policy_passes():
     mdl = parse_text_to_ir(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             access {
@@ -46,6 +49,7 @@ def test_projection_with_access_block_and_derivation_policy_passes():
         }
 
         domain billing {
+          owner: "test-team"
           projection BillingCustomer @ 1
             from customer.Customer @ 1 as c
           {
@@ -68,6 +72,7 @@ def test_projection_missing_governance_metadata_emits_classification_findings():
     mdl = parse_text_to_ir(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             @pii
@@ -77,6 +82,7 @@ def test_projection_missing_governance_metadata_emits_classification_findings():
         }
 
         domain billing {
+          owner: "test-team"
           projection BillingCustomer @ 1
             from customer.Customer @ 1 as c
           {
@@ -100,6 +106,7 @@ def test_projection_lowering_classification_emits_governance_finding():
     mdl = parse_text_to_ir(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             @classification("restricted")
@@ -108,6 +115,7 @@ def test_projection_lowering_classification_emits_governance_finding():
         }
 
         domain billing {
+          owner: "test-team"
           projection BillingCustomer @ 1
             from customer.Customer @ 1 as c
           {
@@ -131,6 +139,7 @@ def test_plan_includes_governance_findings():
     mdl = parse_text_to_ir(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             name: string
@@ -138,6 +147,7 @@ def test_plan_includes_governance_findings():
         }
 
         domain billing {
+          owner: "test-team"
           projection BillingCustomer @ 1
             from customer.Customer @ 1 as c
           {

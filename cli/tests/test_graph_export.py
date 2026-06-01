@@ -12,6 +12,7 @@ def test_graph_export_includes_models_projections_and_mappings(tmp_path: Path) -
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -62,6 +63,7 @@ def test_graph_export_is_deterministic(tmp_path: Path) -> None:
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -82,6 +84,7 @@ def test_graph_export_focuses_on_projection_and_source_fields(tmp_path: Path) ->
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string

@@ -70,6 +70,7 @@ def test_emit_typescript_projection_uses_source_version_types(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -104,6 +105,7 @@ def test_emit_typescript_projection_with_source_version_range_uses_matching_sour
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -139,6 +141,7 @@ def test_emit_typescript_warns_on_computed_projection_field(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -167,6 +170,7 @@ def test_emit_typescript_warns_on_named_type_field(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     address: Address
@@ -188,6 +192,7 @@ def test_emit_typescript_decimal_maps_to_string(tmp_path):
     mdl.write_text(
         """
 domain finance {
+  owner: "test-team"
   entity Invoice @ 1 (additive) {
     @key invoiceId: uuid
     amount: decimal(12, 2)
@@ -209,6 +214,7 @@ def test_emit_typescript_temporal_types_map_to_string(tmp_path):
     mdl.write_text(
         """
 domain events {
+  owner: "test-team"
   entity Event @ 1 (additive) {
     @key eventId: uuid
     occurredAt: timestamp
@@ -234,6 +240,7 @@ def test_emit_typescript_uses_stable_interface_names(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -263,6 +270,7 @@ def test_cli_compile_typescript_writes_files(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string

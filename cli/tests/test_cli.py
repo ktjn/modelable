@@ -27,6 +27,7 @@ def test_validate_valid_file(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -47,6 +48,7 @@ def test_validate_invalid_file_exits_nonzero(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     customerId: uuid
   }
@@ -68,6 +70,7 @@ def test_validate_directory(tmp_path):
     first.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -78,6 +81,7 @@ domain customer {
     second.write_text(
         """
 domain orders {
+  owner: "test-team"
   entity Order @ 1 (additive) {
     @key orderId: uuid
   }
@@ -97,6 +101,7 @@ def test_validate_strict_mode_exits_on_error(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     customerId: uuid
   }
@@ -115,6 +120,7 @@ def test_validate_directory_reports_duplicate_model_versions(tmp_path):
     second = tmp_path / "customer-b.mdl"
     definition = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -134,6 +140,7 @@ def test_compile_writes_registry_db(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -159,6 +166,7 @@ def test_graph_export_writes_json_from_workspace(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -183,6 +191,7 @@ def test_graph_export_focuses_on_projection(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -225,6 +234,7 @@ def test_graph_export_rejects_unknown_focus_ref(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -257,6 +267,7 @@ def test_diff_reports_breaking_changes(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -285,6 +296,7 @@ def test_diff_supports_pinned_version_specs(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -329,6 +341,7 @@ def test_diff_reports_required_field_addition_as_breaking(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -357,6 +370,7 @@ def test_diff_reports_enum_and_identity_changes(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     status: enum(active, blocked)
@@ -387,6 +401,7 @@ def test_diff_supports_version_ranges(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -424,12 +439,14 @@ def test_diff_rejects_cross_model_refs(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
 }
 
 domain billing {
+  owner: "test-team"
   entity Invoice @ 1 (additive) {
     @key invoiceId: uuid
   }
@@ -498,6 +515,7 @@ def test_resolve_supports_version_ranges(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -525,6 +543,7 @@ def test_resolve_supports_minimum_version_specs(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -602,6 +621,7 @@ def test_lineage_supports_version_ranges(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -629,6 +649,7 @@ def test_lineage_supports_minimum_version_specs(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -656,6 +677,7 @@ def test_resolve_supports_pinned_version_specs(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -684,6 +706,7 @@ def test_lineage_supports_pinned_version_specs(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -763,6 +786,7 @@ def test_resolve_bad_ref_exits_nonzero(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -782,6 +806,7 @@ def test_lineage_model_field_with_classification_shows_flag(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     @classification("confidential") email: string
@@ -803,6 +828,7 @@ def test_lineage_projection_with_join_shows_join_line(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -839,6 +865,7 @@ def test_lineage_projection_with_group_by_shows_group_by_line(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     region: string
@@ -870,6 +897,7 @@ def test_inspect_auto_model_not_found_in_domain_exits_nonzero(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }

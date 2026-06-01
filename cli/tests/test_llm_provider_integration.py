@@ -136,6 +136,7 @@ def test_update_definition_uses_injected_provider(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string
@@ -175,6 +176,7 @@ def test_update_definition_repairs_invalid_provider_output(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string
@@ -222,6 +224,7 @@ def test_update_definition_can_disable_repair_attempts(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string
@@ -277,6 +280,7 @@ def test_chat_command_uses_provider_when_available(tmp_path, monkeypatch):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string
@@ -337,6 +341,7 @@ def test_chat_command_uses_anthropic_provider_when_available(tmp_path, monkeypat
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string
@@ -402,6 +407,7 @@ def test_update_command_uses_provider_flags(tmp_path, monkeypatch):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string
@@ -476,6 +482,7 @@ def test_update_command_uses_anthropic_provider_flags(tmp_path, monkeypatch):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string
@@ -601,6 +608,7 @@ def test_chat_update_command_shows_preview_with_provider(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string
@@ -640,6 +648,7 @@ def test_chat_freeform_edit_request_shows_preview_without_writing(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string
@@ -665,6 +674,7 @@ def test_chat_question_about_edit_does_not_auto_write(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string

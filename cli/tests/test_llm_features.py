@@ -103,6 +103,7 @@ def test_workspace_summary_renders_pinned_versions(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -110,6 +111,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1#a3f8b2c1d4e5f6a7 as c
   {
@@ -266,6 +268,7 @@ def test_cli_suggest_projection_validates_generated_output(tmp_path, monkeypatch
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -280,6 +283,7 @@ domain customer {
         "suggest_projection",
         lambda *_args, **_kwargs: """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     name: string
   }
@@ -315,6 +319,7 @@ def test_cli_suggest_projection_reports_parse_errors(tmp_path, monkeypatch):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -352,6 +357,7 @@ def test_cli_update_model_field(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string
@@ -388,6 +394,7 @@ def test_cli_update_preview_shows_diff_without_writing(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email: string
@@ -421,6 +428,7 @@ def test_cli_update_projection_field(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -428,6 +436,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection CustomerBrief @ 1
     from customer.Customer @ 1 as c
   {
@@ -460,6 +469,7 @@ domain billing {
 
 _TRANSFORM_MDL = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -564,6 +574,7 @@ def test_transform_cli_explain(tmp_path):
 
 _TRANSFORM_MDL_WITH_PROJECTION = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -617,6 +628,7 @@ def test_chat_ask_slash_command_uses_provider_when_configured(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string

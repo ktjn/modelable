@@ -79,6 +79,7 @@ workspace "analytics-platform" {
 
 MIRROR_CUSTOMER_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }

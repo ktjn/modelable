@@ -9,6 +9,7 @@ from modelable.lsp.workspace import LspWorkspaceIndex
 WORKSPACE_TEXT = """
 
 domain local {
+  owner: "test-team"
   entity Local @ 1 (additive) {
     @key localId: uuid
   }
@@ -19,6 +20,7 @@ domain local {
 
 MIRROR_TEXT = """
 domain supplier {
+  owner: "test-team"
   entity Supplier @ 1 (additive) {
     @key supplierId: uuid
   }
@@ -95,6 +97,7 @@ def test_mirror_completion_suggests_source_alias_fields(tmp_path):
     billing_path = tmp_path / "billing.mdl"
     billing_text = """
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from supplier.Supplier @ 1 as s
   {
@@ -113,7 +116,7 @@ domain billing {
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=4,
+        line=5,
         character=len("    s."),
     )
 
@@ -126,6 +129,7 @@ def test_mirror_completion_suggests_join_alias_fields(tmp_path):
     billing_path = tmp_path / "billing.mdl"
     billing_text = """
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from local.Local @ 1 as l
     join supplier.Supplier @ 1 as s on l.localId = s.supplierId
@@ -145,7 +149,7 @@ domain billing {
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=5,
+        line=6,
         character=len("    s."),
     )
 
@@ -158,6 +162,7 @@ def test_mirror_completion_suggests_prefixed_join_alias_fields(tmp_path):
     billing_path = tmp_path / "billing.mdl"
     billing_text = """
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from local.Local @ 1 as l
     join supplier.Supplier @ 1 as s on l.localId = s.su
@@ -177,7 +182,7 @@ domain billing {
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=5,
+        line=6,
         character=len("    s.su"),
     )
 
@@ -190,6 +195,7 @@ def test_completion_suggests_prefixed_local_alias_fields(tmp_path):
     billing_path = tmp_path / "billing.mdl"
     billing_text = """
 domain billing {
+  owner: "test-team"
   projection BillingLocal @ 1
     from local.Local @ 1 as l
   {
@@ -208,7 +214,7 @@ domain billing {
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=4,
+        line=5,
         character=len("    l.lo"),
     )
 

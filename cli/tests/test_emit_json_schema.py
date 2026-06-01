@@ -111,6 +111,7 @@ def test_emit_projection_with_lineage(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     legalName: string
@@ -156,6 +157,7 @@ def test_emit_projection_with_source_version_range_uses_matching_source_types(tm
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -196,6 +198,7 @@ def test_emit_classification_extension(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     @classification("confidential")
@@ -217,6 +220,7 @@ def test_emit_ref_type(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     address: ref<address.Address>
@@ -238,6 +242,7 @@ def test_emit_inline_object_uses_nested_defs(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     shipping: object {
@@ -269,6 +274,7 @@ def test_emit_named_type_warns_on_placeholder(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     address: Address
@@ -293,6 +299,7 @@ def test_emit_validates_against_draft202012(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -314,6 +321,7 @@ def test_cli_compile_json_schema_writes_files(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string

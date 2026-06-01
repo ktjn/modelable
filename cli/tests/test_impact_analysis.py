@@ -5,6 +5,7 @@ from modelable.cli import cli
 def test_diff_reports_impacted_projections(tmp_path):
     (tmp_path / "customer.mdl").write_text("""
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -19,6 +20,7 @@ domain customer {
     
     (tmp_path / "billing.mdl").write_text("""
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
@@ -30,6 +32,7 @@ domain billing {
 
     (tmp_path / "shipping.mdl").write_text("""
 domain shipping {
+  owner: "test-team"
   projection ShippingLabel @ 1
     from customer.Customer @ 1 as c
   {
@@ -54,6 +57,7 @@ domain shipping {
 def test_diff_reports_no_impact_when_compatible(tmp_path):
     (tmp_path / "customer.mdl").write_text("""
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -68,6 +72,7 @@ domain customer {
     
     (tmp_path / "billing.mdl").write_text("""
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
