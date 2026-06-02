@@ -4,6 +4,7 @@ from modelable.lsp.workspace import LspWorkspaceIndex
 
 PROJECTION_SOURCE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     status: string
@@ -11,6 +12,7 @@ domain customer {
 }
 
 domain catalog {
+  owner: "test-team"
   projection ProductReply @ 1
     from customer.Customer @ 1 as c
   {
@@ -20,6 +22,7 @@ domain catalog {
 }
 
 domain storefront {
+  owner: "test-team"
   projection ProductDisplay @ 1
     from catalog.ProductReply @ 1 as p
   {
@@ -37,6 +40,7 @@ def test_hover_on_model_reference_shows_summary():
         "inmemory://workspace.mdl",
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -45,7 +49,7 @@ domain customer {
 """,
     )
 
-    hover = build_hover(index, "inmemory://workspace.mdl", line=2, character=11)
+    hover = build_hover(index, "inmemory://workspace.mdl", line=3, character=11)
 
     assert hover is not None
     assert "customer.Customer@1" in hover.contents.value
@@ -58,6 +62,7 @@ def test_hover_on_field_reference_shows_source_field():
         "inmemory://workspace.mdl",
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -65,6 +70,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
@@ -75,7 +81,7 @@ domain billing {
 """,
     )
 
-    hover = build_hover(index, "inmemory://workspace.mdl", line=13, character=22)
+    hover = build_hover(index, "inmemory://workspace.mdl", line=15, character=22)
 
     assert hover is not None
     assert "customer.Customer@1.email" in hover.contents.value
@@ -88,6 +94,7 @@ def test_hover_on_projection_field_shows_mapping():
         "inmemory://workspace.mdl",
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -95,6 +102,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
@@ -105,7 +113,7 @@ domain billing {
 """,
     )
 
-    hover = build_hover(index, "inmemory://workspace.mdl", line=13, character=8)
+    hover = build_hover(index, "inmemory://workspace.mdl", line=15, character=8)
 
     assert hover is not None
     assert "billing.BillingCustomer@1.displayEmail" in hover.contents.value
@@ -144,6 +152,7 @@ def test_hover_on_projection_source_field_reference_shows_projection_field_summa
 def test_hover_on_qualified_ref_in_from_clause_shows_model_summary():
     source = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -151,6 +160,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
@@ -175,6 +185,7 @@ domain billing {
 def test_hover_on_field_with_key_and_pii_flags_shows_annotations():
     source = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key @pii customerId: uuid
     email?: string
@@ -205,6 +216,7 @@ def test_hover_returns_none_for_unknown_uri():
 
 _REF_TYPE_HOVER_TEXT = """
 domain commerce {
+  owner: "test-team"
   event Order @ 2 (additive) {
     @key orderId: uuid
     status: string
@@ -212,6 +224,7 @@ domain commerce {
 }
 
 domain shipping {
+  owner: "test-team"
   entity Shipment @ 1 (additive) {
     @key shipmentId: uuid
     orderId: ref<commerce.Order>

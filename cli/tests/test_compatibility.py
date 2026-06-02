@@ -12,6 +12,7 @@ def test_compare_model_versions_reports_field_add_remove_and_type_changes():
     old_version = _model_version(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             name: string
@@ -23,6 +24,7 @@ def test_compare_model_versions_reports_field_add_remove_and_type_changes():
     new_version = _model_version(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 2 (additive) {
             @key customerId: uuid
             fullName: string
@@ -52,6 +54,7 @@ def test_compare_model_versions_reports_stable_change_order():
     old_version = _model_version(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             name: string
@@ -63,6 +66,7 @@ def test_compare_model_versions_reports_stable_change_order():
     new_version = _model_version(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 2 (additive) {
             @key customerId: uuid
             fullName: string
@@ -89,6 +93,7 @@ def test_compare_model_versions_reports_rename_and_nullability():
     old_version = _model_version(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             @deprecated(replacedBy: "fullName") name: string
@@ -99,6 +104,7 @@ def test_compare_model_versions_reports_rename_and_nullability():
     new_version = _model_version(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 2 (additive) {
             @key customerId: uuid
             fullName?: string
@@ -123,6 +129,7 @@ def test_additive_declaration_rejects_breaking_changes():
     mdl = parse_text_to_ir(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             name: string
@@ -145,6 +152,7 @@ def test_optional_field_addition_is_compatible():
     mdl = parse_text_to_ir(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
           }
@@ -168,6 +176,7 @@ def test_compare_model_versions_reports_required_field_addition_as_breaking():
     mdl = parse_text_to_ir(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
           }
@@ -190,6 +199,7 @@ def test_compare_model_versions_reports_enum_and_identity_changes():
     mdl = parse_text_to_ir(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             status: enum(active, blocked)
@@ -214,6 +224,7 @@ def test_breaking_declaration_can_admit_breaking_changes():
     mdl = parse_text_to_ir(
         """
         domain customer {
+          owner: "test-team"
           entity Customer @ 1 (additive) {
             @key customerId: uuid
             name: string

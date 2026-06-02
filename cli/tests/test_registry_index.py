@@ -73,6 +73,7 @@ def test_build_registry_stores_classification(tmp_path):
     source.write_text(
         """
 domain payments {
+  owner: "test-team"
   entity Payment @ 1 (additive) {
     @key paymentId: uuid
     @classification("secret") cardNumber: string

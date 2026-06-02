@@ -8,6 +8,7 @@ def test_compile_valid_model():
 
     mdl, errors = compile_text("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
         name: string
@@ -24,6 +25,7 @@ def test_compile_returns_errors_not_raises():
 
     mdl, errors = compile_text("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         customerId: uuid
       }

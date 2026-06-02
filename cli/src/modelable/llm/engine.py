@@ -92,7 +92,7 @@ def describe_path_or_ref(path: Path | None = None, ref: str | None = None) -> st
     return "No path or reference provided."
 
 
-def generate_entity_from_prompt(prompt: str, *, domain_name: str | None = None, model_name: str | None = None) -> str:
+def generate_entity_from_prompt(prompt: str, *, domain_name: str | None = None, model_name: str | None = None, owner: str | None = None) -> str:
     domain = domain_name or "generated"
     name = model_name or _derive_name_from_prompt(prompt)
     fields = [
@@ -100,7 +100,7 @@ def generate_entity_from_prompt(prompt: str, *, domain_name: str | None = None, 
         FieldDef(name="name", type=_string_field()),
     ]
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind="additive", fields=fields)
-    return render_model_version(domain, name, version)
+    return render_model_version(domain, name, version, owner=owner or "generated")
 
 
 def transform_ref_to_target(path: Path, ref: str, target: str) -> AssistantResult:
@@ -187,7 +187,7 @@ def suggest_projection(path: Path, source_ref: str, consumer_domain: str) -> str
         ),
         fields=target_fields,
     )
-    return render_projection_version(consumer_domain, f"{model_ref.name}View", projection)
+    return render_projection_version(consumer_domain, f"{model_ref.name}View", projection, owner="suggested")
 
 
 def answer_model_question_cli(path: Path, question: str) -> str:

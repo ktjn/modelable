@@ -4,6 +4,7 @@ from modelable.lsp.workspace import LspWorkspaceIndex
 
 PROJECTION_SOURCE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     status: string
@@ -11,6 +12,7 @@ domain customer {
 }
 
 domain catalog {
+  owner: "test-team"
   projection ProductReply @ 1
     from customer.Customer @ 1 as c
   {
@@ -20,6 +22,7 @@ domain catalog {
 }
 
 domain storefront {
+  owner: "test-team"
   projection ProductDisplay @ 1
     from catalog.ProductReply @ 1 as p
   {
@@ -37,6 +40,7 @@ def test_definition_on_projection_source_reference_goes_to_model_declaration():
         "inmemory://workspace.mdl",
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -44,6 +48,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
@@ -54,11 +59,11 @@ domain billing {
 """,
     )
 
-    definition = build_definition(index, "inmemory://workspace.mdl", line=10, character=16)
+    definition = build_definition(index, "inmemory://workspace.mdl", line=12, character=16)
 
     assert definition is not None
     assert definition.uri == "inmemory://workspace.mdl"
-    assert definition.range.start.line == 2
+    assert definition.range.start.line == 3
     assert definition.range.start.character == 9
 
 
@@ -68,6 +73,7 @@ def test_definition_on_projection_field_goes_to_its_declaration():
         "inmemory://workspace.mdl",
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -75,6 +81,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
@@ -85,11 +92,11 @@ domain billing {
 """,
     )
 
-    definition = build_definition(index, "inmemory://workspace.mdl", line=12, character=8)
+    definition = build_definition(index, "inmemory://workspace.mdl", line=14, character=8)
 
     assert definition is not None
     assert definition.uri == "inmemory://workspace.mdl"
-    assert definition.range.start.line == 12
+    assert definition.range.start.line == 14
     assert definition.range.start.character == 4
 
 
@@ -99,6 +106,7 @@ def test_definition_on_field_reference_goes_to_source_field():
         "inmemory://workspace.mdl",
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -106,6 +114,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
@@ -116,11 +125,11 @@ domain billing {
 """,
     )
 
-    definition = build_definition(index, "inmemory://workspace.mdl", line=13, character=22)
+    definition = build_definition(index, "inmemory://workspace.mdl", line=15, character=22)
 
     assert definition is not None
     assert definition.uri == "inmemory://workspace.mdl"
-    assert definition.range.start.line == 4
+    assert definition.range.start.line == 5
     assert definition.range.start.character == 4
 
 
@@ -159,6 +168,7 @@ def test_definition_on_projection_source_field_reference_goes_to_source_projecti
 
 _REF_TYPE_TEXT = """
 domain commerce {
+  owner: "test-team"
   event Order @ 1 (additive) {
     @key orderId: uuid
     status: string
@@ -166,6 +176,7 @@ domain commerce {
 }
 
 domain shipping {
+  owner: "test-team"
   entity Shipment @ 1 (additive) {
     @key shipmentId: uuid
     orderId: ref<commerce.Order>
@@ -208,6 +219,7 @@ def test_definition_on_ref_type_name_part_goes_to_model_declaration():
 def test_definition_on_ref_type_resolves_latest_version():
     text = """
 domain commerce {
+  owner: "test-team"
   entity Product @ 1 (additive) {
     @key productId: uuid
   }
@@ -219,6 +231,7 @@ domain commerce {
 }
 
 domain catalog {
+  owner: "test-team"
   entity Listing @ 1 (additive) {
     @key listingId: uuid
     productId: ref<commerce.Product>

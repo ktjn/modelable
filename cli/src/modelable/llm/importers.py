@@ -34,7 +34,7 @@ class ImportedModel:
     warnings: list[str] = field(default_factory=list)
 
     def to_mdl(self) -> str:
-        return render_model_version(self.domain_name, self.model_name, self.model_version)
+        return render_model_version(self.domain_name, self.model_name, self.model_version, owner="imported")
 
     def to_workspace(self) -> MdlFile:
         return MdlFile(domains=[DomainDef(name=self.domain_name, models={self.model_name: [self.model_version]})])

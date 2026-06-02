@@ -7,6 +7,7 @@ from modelable.planner.planner import expand_auto_projections
 def test_pii_annotation_excluded_from_reply():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
         @pii email: string
@@ -30,6 +31,7 @@ def test_pii_annotation_excluded_from_reply():
 def test_server_annotation_excluded_from_request_by_default():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
         @server updatedAt: timestamp
@@ -51,6 +53,7 @@ def test_server_annotation_excluded_from_request_by_default():
 def test_db_includes_server_fields():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
         @server createdAt: timestamp
@@ -70,6 +73,7 @@ def test_db_includes_server_fields():
 def test_event_operations_stored():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
         name: string
@@ -89,6 +93,7 @@ def test_event_operations_stored():
 def test_multiple_exclusions_combined():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       entity User @ 1 (additive) {
         @key userId: uuid
         @pii email: string
@@ -114,6 +119,7 @@ def test_multiple_exclusions_combined():
 def test_auto_generated_flag_set():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       entity Item @ 1 (additive) {
         @key itemId: uuid
       }

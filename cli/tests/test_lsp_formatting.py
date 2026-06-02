@@ -4,6 +4,7 @@ from modelable.lsp.workspace import LspWorkspaceIndex
 
 MESSY_TEXT = """
 domain customer {
+  owner: "test-team"
 entity Customer @ 1 (additive) {
 @key customerId: uuid
 email?: string
@@ -24,6 +25,7 @@ def test_document_formatting_reindents_nested_blocks():
     assert len(edits) == 1
     assert edits[0].new_text == (
         "domain customer {\n"
+        '  owner: "test-team"\n'
         "  entity Customer @ 1 (additive) {\n"
         "    @key customerId: uuid\n"
         "    email?: string\n"
@@ -66,6 +68,7 @@ def test_document_formatting_uses_tab_indentation():
     assert len(edits) == 1
     assert edits[0].new_text == (
         "domain customer {\n"
+        '\towner: "test-team"\n'
         "\tentity Customer @ 1 (additive) {\n"
         "\t\t@key customerId: uuid\n"
         "\t\temail?: string\n"

@@ -4,6 +4,7 @@ from modelable.lsp.workspace import LspWorkspaceIndex
 
 WORKSPACE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -11,6 +12,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
@@ -24,6 +26,7 @@ domain billing {
 
 PROJECTION_SOURCE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     status: string
@@ -31,6 +34,7 @@ domain customer {
 }
 
 domain catalog {
+  owner: "test-team"
   projection ProductReply @ 1
     from customer.Customer @ 1 as c
   {
@@ -40,6 +44,7 @@ domain catalog {
 }
 
 domain storefront {
+  owner: "test-team"
   projection ProductDisplay @ 1
     from catalog.ProductReply @ 1 as p
   {
@@ -67,14 +72,14 @@ def test_references_for_model_declaration_includes_source_usage():
     references = build_references(
         _index(),
         "inmemory://workspace.mdl",
-        line=1,
+        line=2,
         character=11,
         include_declaration=False,
     )
 
     assert references is not None
     assert len(references) == 1
-    assert references[0].range.start.line == 9
+    assert references[0].range.start.line == 11
     assert references[0].range.start.character == 9
 
 
@@ -82,14 +87,14 @@ def test_references_for_model_field_includes_projection_usage():
     references = build_references(
         _index(),
         "inmemory://workspace.mdl",
-        line=3,
+        line=4,
         character=6,
         include_declaration=False,
     )
 
     assert references is not None
     assert len(references) == 1
-    assert references[0].range.start.line == 12
+    assert references[0].range.start.line == 14
     assert references[0].range.start.character == 19
 
 

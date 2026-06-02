@@ -6,6 +6,7 @@ from modelable.lsp.workspace import LspWorkspaceIndex, WorkspaceDocumentSource
 
 VALID_WORKSPACE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -17,6 +18,7 @@ domain customer {
 
 BROKEN_WORKSPACE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -69,6 +71,7 @@ def test_code_actions_offer_missing_closing_brace_fix_for_parse_errors():
 def test_code_actions_offer_missing_key_fix_for_entity_models():
     broken_source = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     customerId: uuid
     email?: string
@@ -110,7 +113,7 @@ domain customer {
     assert actions[0].edit is not None
     edits = actions[0].edit.changes[uri]
     assert len(edits) == 1
-    assert edits[0].range.start.line == 2
+    assert edits[0].range.start.line == 3
     assert edits[0].range.start.character == 4
     assert edits[0].new_text == "@key "
 
@@ -118,6 +121,7 @@ domain customer {
 def test_code_actions_offer_missing_key_fix_for_aggregate_models():
     broken_source = """
 domain customer {
+  owner: "test-team"
   aggregate Customer @ 1 (additive) {
     customerId: uuid
     email?: string
@@ -159,7 +163,7 @@ domain customer {
     assert actions[0].edit is not None
     edits = actions[0].edit.changes[uri]
     assert len(edits) == 1
-    assert edits[0].range.start.line == 2
+    assert edits[0].range.start.line == 3
     assert edits[0].range.start.character == 4
     assert edits[0].new_text == "@key "
 

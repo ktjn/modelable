@@ -4,6 +4,7 @@ from modelable.lsp.workspace import LspWorkspaceIndex
 
 WORKSPACE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -11,6 +12,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
@@ -38,7 +40,7 @@ def test_completion_suggests_keywords_at_top_level():
 
 
 def test_completion_suggests_annotations_after_at_symbol():
-    completion = build_completion(_index(), "inmemory://workspace.mdl", line=2, character=5)
+    completion = build_completion(_index(), "inmemory://workspace.mdl", line=3, character=5)
 
     labels = [item.label for item in completion.items]
 
@@ -47,7 +49,7 @@ def test_completion_suggests_annotations_after_at_symbol():
 
 
 def test_completion_suggests_workspace_names_after_from_clause():
-    completion = build_completion(_index(), "inmemory://workspace.mdl", line=9, character=9)
+    completion = build_completion(_index(), "inmemory://workspace.mdl", line=11, character=9)
 
     labels = [item.label for item in completion.items]
 
@@ -65,6 +67,7 @@ def test_completion_suggests_active_projection_fields_inside_body():
 
 PROJECTION_SOURCE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     status: string
@@ -72,6 +75,7 @@ domain customer {
 }
 
 domain catalog {
+  owner: "test-team"
   projection ProductReply @ 1
     from customer.Customer @ 1 as c
   {
@@ -81,6 +85,7 @@ domain catalog {
 }
 
 domain storefront {
+  owner: "test-team"
   projection ProductDisplay @ 1
     from catalog.ProductReply @ 1 as p
   {

@@ -5,6 +5,7 @@ from lsprotocol import types
 
 WORKSPACE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -12,6 +13,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
@@ -74,6 +76,7 @@ def test_inlay_hint_shows_model_kind_on_from_line():
 def test_inlay_hint_shows_projection_kind_for_projection_source():
     text = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     status: string
@@ -81,6 +84,7 @@ domain customer {
 }
 
 domain catalog {
+  owner: "test-team"
   projection ProductReply @ 1
     from customer.Customer @ 1 as c
   {
@@ -90,6 +94,7 @@ domain catalog {
 }
 
 domain storefront {
+  owner: "test-team"
   projection ProductDisplay @ 1
     from catalog.ProductReply @ 1 as p
   {
@@ -118,6 +123,7 @@ def test_inlay_hint_shows_field_type_for_projection_sourced_direct_mapping():
     """When the alias source is a projection, type hints resolve through the projection's mapping."""
     text = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     status: string
@@ -125,6 +131,7 @@ domain customer {
 }
 
 domain catalog {
+  owner: "test-team"
   projection ProductReply @ 1
     from customer.Customer @ 1 as c
   {
@@ -134,6 +141,7 @@ domain catalog {
 }
 
 domain storefront {
+  owner: "test-team"
   projection ProductDisplay @ 1
     from catalog.ProductReply @ 1 as p
   {

@@ -7,6 +7,7 @@ def test_lsp_workspace_index_normalizes_file_uri_paths(tmp_path):
     path.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -29,6 +30,7 @@ def test_lsp_workspace_index_rebuilds_from_in_memory_documents():
         "inmemory://customer.mdl",
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
@@ -47,6 +49,7 @@ def test_lsp_workspace_index_removes_documents():
         "inmemory://customer.mdl",
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }

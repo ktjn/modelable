@@ -12,6 +12,7 @@ def test_emit_python_model_and_projection(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     displayName: string
@@ -79,6 +80,7 @@ def test_cli_compile_python_writes_files(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     displayName: string
@@ -111,6 +113,7 @@ def test_emit_python_decimal_maps_to_decimal(tmp_path):
     mdl.write_text(
         """
 domain finance {
+  owner: "test-team"
   entity Invoice @ 1 (additive) {
     @key invoiceId: uuid
     amount: decimal(12, 2)
@@ -133,6 +136,7 @@ def test_emit_python_temporal_types_map_to_datetime(tmp_path):
     mdl.write_text(
         """
 domain events {
+  owner: "test-team"
   entity Event @ 1 (additive) {
     @key eventId: uuid
     occurredAt: timestamp
@@ -159,6 +163,7 @@ def test_emit_python_warns_on_computed_projection_field(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string
@@ -188,6 +193,7 @@ def test_emit_python_projection_uses_source_field_types(tmp_path):
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     name: string

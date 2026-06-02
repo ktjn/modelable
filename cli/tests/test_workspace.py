@@ -9,6 +9,7 @@ def _write_model(path: Path, domain: str, model: str) -> None:
     path.write_text(
         f"""
 domain {domain} {{
+  owner: "test-team"
   entity {model} @ 1 (additive) {{
     @key id: uuid
   }}
@@ -81,6 +82,7 @@ def test_load_workspace_reports_auto_projection_generated_name_conflict(tmp_path
     mdl.write_text(
         """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }

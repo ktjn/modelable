@@ -4,6 +4,7 @@ from modelable.lsp.workspace import LspWorkspaceIndex
 
 WORKSPACE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     email?: string
@@ -11,6 +12,7 @@ domain customer {
 }
 
 domain billing {
+  owner: "test-team"
   projection BillingCustomer @ 1
     from customer.Customer @ 1 as c
   {
@@ -30,24 +32,24 @@ def _index() -> LspWorkspaceIndex:
 
 
 def test_prepare_rename_on_model_declaration_returns_identifier_range():
-    rename_range = build_prepare_rename(_index(), "inmemory://workspace.mdl", line=1, character=11)
+    rename_range = build_prepare_rename(_index(), "inmemory://workspace.mdl", line=2, character=11)
 
     assert rename_range is not None
-    assert rename_range.start.line == 1
+    assert rename_range.start.line == 2
     assert rename_range.start.character == 9
-    assert rename_range.end.line == 1
+    assert rename_range.end.line == 2
     assert rename_range.end.character == 17
 
 
 def test_rename_model_declaration_updates_definition_and_references():
-    edit = build_rename(_index(), "inmemory://workspace.mdl", line=1, character=11, new_name="Client")
+    edit = build_rename(_index(), "inmemory://workspace.mdl", line=2, character=11, new_name="Client")
 
     assert edit is not None
     changes = sorted(edit.changes["inmemory://workspace.mdl"], key=lambda item: (item.range.start.line, item.range.start.character))
     assert len(changes) == 2
-    assert changes[0].range.start.line == 1
+    assert changes[0].range.start.line == 2
     assert changes[0].new_text == "Client"
-    assert changes[1].range.start.line == 9
+    assert changes[1].range.start.line == 11
     assert changes[1].new_text == "Client"
 
 
@@ -65,6 +67,7 @@ def test_rename_model_field_on_reference_updates_definition_and_usage():
 
 PROJECTION_SOURCE_TEXT = """
 domain customer {
+  owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     status: string
@@ -72,6 +75,7 @@ domain customer {
 }
 
 domain catalog {
+  owner: "test-team"
   projection ProductReply @ 1
     from customer.Customer @ 1 as c
   {
@@ -81,6 +85,7 @@ domain catalog {
 }
 
 domain storefront {
+  owner: "test-team"
   projection ProductDisplay @ 1
     from catalog.ProductReply @ 1 as p
   {

@@ -82,6 +82,7 @@ def test_transform_simple_model():
 def test_transform_projection():
     mdl = parse_text_to_ir("""
     domain billing {
+      owner: "test-team"
       projection BillingCustomer @ 1
         from customer.Customer @ 2 as c
         left join orders.Order @ 3 as o on c.customerId == o.customerId
@@ -115,6 +116,7 @@ def test_transform_projection():
 def test_transform_version_range():
     mdl = parse_text_to_ir("""
     domain billing {
+      owner: "test-team"
       projection Ranged @ 1
         from customer.Customer @ >=2 <4 as c
       {
@@ -132,6 +134,7 @@ def test_transform_version_range():
 def test_transform_auto_projection_declaration():
     mdl = parse_text_to_ir("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
       }
@@ -160,6 +163,7 @@ def test_transform_auto_projection_declaration():
 def test_transform_classification_annotation():
     mdl = parse_text_to_ir("""
     domain payments {
+      owner: "test-team"
       entity Payment @ 1 (additive) {
         @key paymentId: uuid
         @classification("secret") cardNumber: string
@@ -181,6 +185,7 @@ def test_transform_classification_annotation():
 def test_transform_classification_on_projection_field():
     mdl = parse_text_to_ir("""
     domain payments {
+      owner: "test-team"
       projection PaymentSummary @ 1
         from payments.Payment @ 1 as p
       {
@@ -198,6 +203,7 @@ def test_transform_classification_on_projection_field():
 def test_transform_access_block():
     mdl = parse_text_to_ir("""
     domain customer {
+      owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
         access {
@@ -220,6 +226,7 @@ def test_transform_access_block():
 def test_transform_projection_access_block():
     mdl = parse_text_to_ir("""
     domain billing {
+      owner: "test-team"
       projection BillingCustomer @ 1
         from customer.Customer @ 1 as c
       {

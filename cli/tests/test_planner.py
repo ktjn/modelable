@@ -5,6 +5,7 @@ from modelable.planner.planner import expand_auto_projections
 def test_expand_auto_projections_generates_all_targets():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
         sku: string
@@ -37,6 +38,7 @@ def test_expand_auto_projections_generates_all_targets():
 def test_request_excludes_server_fields():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
         sku: string
@@ -58,6 +60,7 @@ def test_request_excludes_server_fields():
 def test_explicit_exclusions():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
         sku: string
@@ -80,6 +83,7 @@ def test_explicit_exclusions():
 def test_auto_projection_unknown_model():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       auto projections Missing @ 1 {
         db
       }
@@ -92,6 +96,7 @@ def test_auto_projection_unknown_model():
 def test_auto_projection_unknown_version():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
       }
@@ -108,6 +113,7 @@ def test_auto_projection_unknown_version():
 def test_expanded_projections_resolve_as_sources():
     mdl = parse_text_to_ir("""
     domain catalog {
+      owner: "test-team"
       entity Product @ 1 (additive) {
         @key productId: uuid
         name: string
@@ -119,6 +125,7 @@ def test_expanded_projections_resolve_as_sources():
     }
 
     domain storefront {
+      owner: "test-team"
       projection ProductDisplay @ 1
         from catalog.ProductReply @ 1 as p
       {
