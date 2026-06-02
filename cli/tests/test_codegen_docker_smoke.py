@@ -60,8 +60,11 @@ def _docker_available() -> bool:
 
 def _run_docker(workdir: Path, image: str, command: str) -> subprocess.CompletedProcess[str]:
     mount = f"type=bind,source={workdir.resolve().as_posix()},target=/work"
+    # Append a chmod step so root-owned build artifacts in /work become
+    # world-accessible, allowing pytest to clean up tmp_path after the test.
+    wrapped = f"{command}; _rc=$?; chmod -R a+rwX /work 2>/dev/null || true; exit \"$_rc\""
     return subprocess.run(
-        ["docker", "run", "--rm", "--mount", mount, "--workdir", "/work", image, "sh", "-lc", command],
+        ["docker", "run", "--rm", "--mount", mount, "--workdir", "/work", image, "sh", "-lc", wrapped],
         capture_output=True,
         text=True,
     )
