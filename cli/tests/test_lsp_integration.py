@@ -17,6 +17,8 @@ from pytest_lsp.client import make_test_lsp_client
 
 from helpers import SCENARIOS, SERVER_CMD
 
+SAMPLES = SCENARIOS.parent
+
 
 async def _open_and_get_diagnostics(
     client, path: Path
@@ -135,3 +137,19 @@ async def test_cross_domain_refs_resolve_with_project_root_workspace(lsp_project
     diags = await _open_and_get_diagnostics(lsp_project_root, mp_file)
     unresolved = [d for d in diags if "unresolved model reference" in d.message]
     assert unresolved == [], f"Unresolved references: {[d.message for d in unresolved]}"
+
+
+# ---------------------------------------------------------------------------
+# MVP sample (no workspace.mdl): cross-file refs in a plain directory.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("lsp", [SAMPLES / "mvp"], indirect=True)
+async def test_cross_domain_refs_resolve_in_mvp_without_workspace_file(lsp):
+    """When a workspace folder has multiple .mdl files but no workspace.mdl,
+    opening one file should still resolve sibling model references."""
+    billing_file = SAMPLES / "mvp" / "billing.mdl"
+    diags = await _open_and_get_diagnostics(lsp, billing_file)
+    unresolved = [d for d in diags if "unresolved model reference" in d.message]
+    unknown_alias = [d for d in diags if "unknown alias 'c'" in d.message]
+    assert unresolved == [], f"Unresolved references: {[d.message for d in unresolved]}"
+    assert unknown_alias == [], f"Alias errors: {[d.message for d in unknown_alias]}"

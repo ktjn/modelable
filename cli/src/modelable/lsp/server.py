@@ -39,11 +39,12 @@ class ModelableLanguageServer(LanguageServer):
     def index_for(self, uri: str) -> LspWorkspaceIndex:
         path = uri_to_path(uri)
         if path is not None:
-            root = _find_workspace_root(path)
-            if root is not None:
-                if root not in self._indexes:
-                    self._indexes[root] = LspWorkspaceIndex()
-                return self._indexes[root]
+            # Keep index routing stable even when no workspace.mdl exists:
+            # use the file's parent directory as the effective root.
+            root = _find_workspace_root(path) or path.parent
+            if root not in self._indexes:
+                self._indexes[root] = LspWorkspaceIndex()
+            return self._indexes[root]
         return self.index
 
 
