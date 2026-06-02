@@ -68,33 +68,39 @@ def _projection_index() -> LspWorkspaceIndex:
     return index
 
 
+def _line_number(lines: list[str], snippet: str) -> int:
+    return next(i for i, line in enumerate(lines) if snippet in line)
+
+
 def test_references_for_model_declaration_includes_source_usage():
+    lines = WORKSPACE_TEXT.splitlines()
     references = build_references(
         _index(),
         "inmemory://workspace.mdl",
-        line=2,
+        line=next(i for i, line in enumerate(lines) if "entity Customer @ 1 (additive)" in line),
         character=11,
         include_declaration=False,
     )
 
     assert references is not None
     assert len(references) == 1
-    assert references[0].range.start.line == 11
+    assert references[0].range.start.line == _line_number(lines, "from customer.Customer @ 1 as c")
     assert references[0].range.start.character == 9
 
 
 def test_references_for_model_field_includes_projection_usage():
+    lines = WORKSPACE_TEXT.splitlines()
     references = build_references(
         _index(),
         "inmemory://workspace.mdl",
-        line=4,
+        line=next(i for i, line in enumerate(lines) if "email?: string" in line),
         character=6,
         include_declaration=False,
     )
 
     assert references is not None
     assert len(references) == 1
-    assert references[0].range.start.line == 14
+    assert references[0].range.start.line == _line_number(lines, "displayEmail = c.email")
     assert references[0].range.start.character == 19
 
 

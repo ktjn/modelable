@@ -31,37 +31,66 @@ def _index() -> LspWorkspaceIndex:
     return index
 
 
+def _line_number(lines: list[str], snippet: str) -> int:
+    return next(i for i, line in enumerate(lines) if snippet in line)
+
+
 def test_prepare_rename_on_model_declaration_returns_identifier_range():
-    rename_range = build_prepare_rename(_index(), "inmemory://workspace.mdl", line=2, character=11)
+    lines = WORKSPACE_TEXT.splitlines()
+    decl_line = next(i for i, line in enumerate(lines) if "entity Customer @ 1 (additive)" in line)
+    rename_range = build_prepare_rename(
+        _index(),
+        "inmemory://workspace.mdl",
+        line=decl_line,
+        character=11,
+    )
 
     assert rename_range is not None
-    assert rename_range.start.line == 2
+    assert rename_range.start.line == decl_line
     assert rename_range.start.character == 9
-    assert rename_range.end.line == 2
+    assert rename_range.end.line == decl_line
     assert rename_range.end.character == 17
 
 
 def test_rename_model_declaration_updates_definition_and_references():
-    edit = build_rename(_index(), "inmemory://workspace.mdl", line=2, character=11, new_name="Client")
+    lines = WORKSPACE_TEXT.splitlines()
+    decl_line = next(i for i, line in enumerate(lines) if "entity Customer @ 1 (additive)" in line)
+    ref_line = next(i for i, line in enumerate(lines) if "from customer.Customer @ 1 as c" in line)
+    edit = build_rename(
+        _index(),
+        "inmemory://workspace.mdl",
+        line=decl_line,
+        character=11,
+        new_name="Client",
+    )
 
     assert edit is not None
     changes = sorted(edit.changes["inmemory://workspace.mdl"], key=lambda item: (item.range.start.line, item.range.start.character))
     assert len(changes) == 2
-    assert changes[0].range.start.line == 2
+    assert changes[0].range.start.line == decl_line
     assert changes[0].new_text == "Client"
-    assert changes[1].range.start.line == 11
+    assert changes[1].range.start.line == ref_line
     assert changes[1].new_text == "Client"
 
 
 def test_rename_model_field_on_reference_updates_definition_and_usage():
-    edit = build_rename(_index(), "inmemory://workspace.mdl", line=11, character=21, new_name="customerKey")
+    lines = WORKSPACE_TEXT.splitlines()
+    decl_line = next(i for i, line in enumerate(lines) if "email?: string" in line)
+    ref_line = next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line)
+    edit = build_rename(
+        _index(),
+        "inmemory://workspace.mdl",
+        line=ref_line,
+        character=21,
+        new_name="customerKey",
+    )
 
     assert edit is not None
     changes = sorted(edit.changes["inmemory://workspace.mdl"], key=lambda item: (item.range.start.line, item.range.start.character))
     assert len(changes) == 2
-    assert changes[0].range.start.line == 2
+    assert changes[0].range.start.line == decl_line
     assert changes[0].new_text == "customerKey"
-    assert changes[1].range.start.line == 11
+    assert changes[1].range.start.line == ref_line
     assert changes[1].new_text == "customerKey"
 
 

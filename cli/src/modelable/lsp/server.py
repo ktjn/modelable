@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 from pathlib import Path
 
-from pygls.lsp.server import LanguageServer
 from lsprotocol import types
+from pygls import feature_manager
+from pygls.lsp.server import LanguageServer
+from pygls.protocol import json_rpc
+
+feature_manager.asyncio.iscoroutinefunction = inspect.iscoroutinefunction
+json_rpc.asyncio.iscoroutinefunction = inspect.iscoroutinefunction
 
 from modelable.lsp.completion import build_completion
 from modelable.lsp.code_actions import build_code_actions

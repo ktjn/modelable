@@ -31,8 +31,26 @@ def _index() -> LspWorkspaceIndex:
     return index
 
 
+def _line_number(text: str, snippet: str) -> int:
+    lines = text.splitlines()
+    if snippet == "":
+        return next(i for i, line in enumerate(lines) if not line)
+    return next(i for i, line in enumerate(lines) if snippet in line)
+
+
 def test_completion_suggests_keywords_at_top_level():
-    completion = build_completion(_index(), "inmemory://workspace.mdl", line=0, character=0)
+    source = """
+domain local {
+  owner: "test-team"
+  entity Local @ 1 (additive) {
+    @key localId: uuid
+  }
+}
+""".strip("\n")
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", source)
+
+    completion = build_completion(index, "inmemory://workspace.mdl", line=0, character=0)
 
     labels = [item.label for item in completion.items]
 
@@ -40,7 +58,7 @@ def test_completion_suggests_keywords_at_top_level():
 
 
 def test_completion_suggests_annotations_after_at_symbol():
-    completion = build_completion(_index(), "inmemory://workspace.mdl", line=3, character=5)
+    completion = build_completion(_index(), "inmemory://workspace.mdl", line=_line_number(WORKSPACE_TEXT, "@key customerId: uuid"), character=5)
 
     labels = [item.label for item in completion.items]
 
@@ -49,7 +67,7 @@ def test_completion_suggests_annotations_after_at_symbol():
 
 
 def test_completion_suggests_workspace_names_after_from_clause():
-    completion = build_completion(_index(), "inmemory://workspace.mdl", line=11, character=9)
+    completion = build_completion(_index(), "inmemory://workspace.mdl", line=_line_number(WORKSPACE_TEXT, "from customer.Customer @ 1 as c"), character=9)
 
     labels = [item.label for item in completion.items]
 
@@ -58,7 +76,7 @@ def test_completion_suggests_workspace_names_after_from_clause():
 
 
 def test_completion_suggests_active_projection_fields_inside_body():
-    completion = build_completion(_index(), "inmemory://workspace.mdl", line=11, character=4)
+    completion = build_completion(_index(), "inmemory://workspace.mdl", line=_line_number(WORKSPACE_TEXT, "from customer.Customer @ 1 as c"), character=4)
 
     labels = [item.label for item in completion.items]
 

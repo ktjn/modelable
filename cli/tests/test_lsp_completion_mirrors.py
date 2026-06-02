@@ -48,9 +48,19 @@ def _index(tmp_path: Path) -> LspWorkspaceIndex:
     return index
 
 
+def _line_number(text: str, snippet: str) -> int:
+    lines = text.splitlines()
+    return next(i for i, line in enumerate(lines) if snippet in line)
+
+
 def test_completion_includes_mirror_domain_names(tmp_path):
     index = _index(tmp_path)
-    completion = build_completion(index, (tmp_path / "workspace.mdl").as_uri(), line=0, character=0)
+    completion = build_completion(
+        index,
+        (tmp_path / "workspace.mdl").as_uri(),
+        line=_line_number(WORKSPACE_TEXT, "domain local"),
+        character=0,
+    )
 
     labels = [item.label for item in completion.items]
     assert "supplier" in labels
@@ -84,7 +94,7 @@ projection BillingCustomer @ 1
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=1,
+        line=_line_number(billing_text, "from supplier.Supplier @1"),
         character=len("  from supplier.Supplier @1"),
     )
 
@@ -116,7 +126,7 @@ domain billing {
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=5,
+        line=_line_number(billing_text, "    s."),
         character=len("    s."),
     )
 
@@ -149,7 +159,7 @@ domain billing {
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=6,
+        line=_line_number(billing_text, "    s."),
         character=len("    s."),
     )
 
@@ -182,7 +192,7 @@ domain billing {
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=6,
+        line=_line_number(billing_text, "    s.su"),
         character=len("    s.su"),
     )
 
@@ -214,7 +224,7 @@ domain billing {
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=5,
+        line=_line_number(billing_text, "    l.lo"),
         character=len("    l.lo"),
     )
 
@@ -239,7 +249,7 @@ import domain supplier from registry "supplier-platform-registry" at supplier.S
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=0,
+        line=_line_number(billing_text, "import domain supplier from registry"),
         character=len('import domain supplier from registry "supplier-platform-registry" at supplier.S'),
     )
 
@@ -265,7 +275,7 @@ import domain supplier from registry "supplier-platform-registry" at supplier.Su
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=0,
+        line=_line_number(billing_text, "import domain supplier from registry"),
         character=len('import domain supplier from registry "supplier-platform-registry" at supplier.Supplier @'),
     )
 
@@ -290,7 +300,7 @@ import domain supplier from registry "supplier-platform-registry" at supplier.Su
     completion = build_completion(
         index,
         billing_path.as_uri(),
-        line=0,
+        line=_line_number(billing_text, "import domain supplier from registry"),
         character=len('import domain supplier from registry "supplier-platform-registry" at supplier.Supplier @1'),
     )
 
