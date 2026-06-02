@@ -39,12 +39,18 @@ def _index() -> LspWorkspaceIndex:
     return index
 
 
+def _line_number(text: str, snippet: str) -> int:
+    lines = text.splitlines()
+    return next(i for i, line in enumerate(lines) if snippet in line)
+
+
 def test_code_actions_offer_missing_closing_brace_fix_for_parse_errors():
+    line_no = _line_number(BROKEN_WORKSPACE_TEXT, "entity Customer @ 1 (additive) {")
     diagnostic = types.Diagnostic(
         message="Unexpected end-of-input. Expected one of: }",
         range=types.Range(
-            start=types.Position(line=4, character=0),
-            end=types.Position(line=4, character=0),
+            start=types.Position(line=line_no, character=0),
+            end=types.Position(line=line_no, character=0),
         ),
         severity=types.DiagnosticSeverity.Error,
         source="modelable",
@@ -54,7 +60,7 @@ def test_code_actions_offer_missing_closing_brace_fix_for_parse_errors():
     actions = build_code_actions(
         _index(),
         "inmemory://workspace.mdl",
-        line=4,
+        line=line_no,
         character=0,
         diagnostics=[diagnostic],
     )
@@ -87,12 +93,13 @@ domain customer {
         uri=uri,
         text=broken_source,
     )
+    line_no = _line_number(broken_source, "customerId: uuid")
 
     diagnostic = types.Diagnostic(
         message="customer.Customer@1: entity must have exactly one @key field",
         range=types.Range(
-            start=types.Position(line=2, character=2),
-            end=types.Position(line=2, character=2),
+            start=types.Position(line=line_no, character=2),
+            end=types.Position(line=line_no, character=2),
         ),
         severity=types.DiagnosticSeverity.Error,
         source="modelable",
@@ -102,7 +109,7 @@ domain customer {
     actions = build_code_actions(
         index,
         uri,
-        line=2,
+        line=line_no,
         character=2,
         diagnostics=[diagnostic],
     )
@@ -113,7 +120,7 @@ domain customer {
     assert actions[0].edit is not None
     edits = actions[0].edit.changes[uri]
     assert len(edits) == 1
-    assert edits[0].range.start.line == 3
+    assert edits[0].range.start.line == _line_number(broken_source, "customerId: uuid")
     assert edits[0].range.start.character == 4
     assert edits[0].new_text == "@key "
 
@@ -137,12 +144,13 @@ domain customer {
         uri=uri,
         text=broken_source,
     )
+    line_no = _line_number(broken_source, "customerId: uuid")
 
     diagnostic = types.Diagnostic(
         message="customer.Customer@1: aggregate must have exactly one @key field",
         range=types.Range(
-            start=types.Position(line=2, character=2),
-            end=types.Position(line=2, character=2),
+            start=types.Position(line=line_no, character=2),
+            end=types.Position(line=line_no, character=2),
         ),
         severity=types.DiagnosticSeverity.Error,
         source="modelable",
@@ -152,7 +160,7 @@ domain customer {
     actions = build_code_actions(
         index,
         uri,
-        line=2,
+        line=line_no,
         character=2,
         diagnostics=[diagnostic],
     )
@@ -163,7 +171,7 @@ domain customer {
     assert actions[0].edit is not None
     edits = actions[0].edit.changes[uri]
     assert len(edits) == 1
-    assert edits[0].range.start.line == 3
+    assert edits[0].range.start.line == _line_number(broken_source, "customerId: uuid")
     assert edits[0].range.start.character == 4
     assert edits[0].new_text == "@key "
 
@@ -185,12 +193,13 @@ domain customer {
         uri=uri,
         text=broken_source,
     )
+    line_no = _line_number(broken_source, "domain customer {")
 
     diagnostic = types.Diagnostic(
         message="domain 'customer' must have an owner attribute",
         range=types.Range(
-            start=types.Position(line=0, character=0),
-            end=types.Position(line=0, character=0),
+            start=types.Position(line=line_no, character=0),
+            end=types.Position(line=line_no, character=0),
         ),
         severity=types.DiagnosticSeverity.Error,
         source="modelable",
@@ -200,7 +209,7 @@ domain customer {
     actions = build_code_actions(
         index,
         uri,
-        line=0,
+        line=line_no,
         character=0,
         diagnostics=[diagnostic],
     )
@@ -211,7 +220,7 @@ domain customer {
     assert actions[0].edit is not None
     edits = actions[0].edit.changes[uri]
     assert len(edits) == 1
-    assert edits[0].range.start.line == 1
+    assert edits[0].range.start.line == line_no + 1
     assert edits[0].range.start.character == 0
     assert edits[0].new_text == '  owner: "required-team"\n'
 
@@ -234,12 +243,13 @@ domain customer {
         uri=uri,
         text=broken_source,
     )
+    line_no = _line_number(broken_source, "entity Customer {")
 
     diagnostic = types.Diagnostic(
         message="missing_header.Customer: entity must have a version header (e.g. @ 1 (additive))",
         range=types.Range(
-            start=types.Position(line=2, character=2),
-            end=types.Position(line=2, character=2),
+            start=types.Position(line=line_no, character=2),
+            end=types.Position(line=line_no, character=2),
         ),
         severity=types.DiagnosticSeverity.Error,
         source="modelable",
@@ -249,7 +259,7 @@ domain customer {
     actions = build_code_actions(
         index,
         uri,
-        line=2,
+        line=line_no,
         character=2,
         diagnostics=[diagnostic],
     )
@@ -260,6 +270,6 @@ domain customer {
     assert actions[0].edit is not None
     edits = actions[0].edit.changes[uri]
     assert len(edits) == 1
-    assert edits[0].range.start.line == 2
+    assert edits[0].range.start.line == line_no
     assert edits[0].range.start.character == 18
     assert edits[0].new_text == "@ 1 (additive) "

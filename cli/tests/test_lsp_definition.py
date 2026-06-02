@@ -35,10 +35,7 @@ domain storefront {
 
 
 def test_definition_on_projection_source_reference_goes_to_model_declaration():
-    index = LspWorkspaceIndex()
-    index.upsert_document(
-        "inmemory://workspace.mdl",
-        """
+    source = """
 domain customer {
   owner: "test-team"
   entity Customer @ 1 (additive) {
@@ -56,22 +53,26 @@ domain billing {
     displayEmail = c.email
   }
 }
-""",
-    )
+""".strip("\n")
+    lines = source.splitlines()
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", source)
 
-    definition = build_definition(index, "inmemory://workspace.mdl", line=12, character=16)
+    definition = build_definition(
+        index,
+        "inmemory://workspace.mdl",
+        line=next(i for i, line in enumerate(lines) if "from customer.Customer @ 1 as c" in line),
+        character=lines[next(i for i, line in enumerate(lines) if "from customer.Customer @ 1 as c" in line)].index("Customer") + 1,
+    )
 
     assert definition is not None
     assert definition.uri == "inmemory://workspace.mdl"
-    assert definition.range.start.line == 3
+    assert definition.range.start.line == next(i for i, line in enumerate(lines) if "entity Customer @ 1 (additive)" in line)
     assert definition.range.start.character == 9
 
 
 def test_definition_on_projection_field_goes_to_its_declaration():
-    index = LspWorkspaceIndex()
-    index.upsert_document(
-        "inmemory://workspace.mdl",
-        """
+    source = """
 domain customer {
   owner: "test-team"
   entity Customer @ 1 (additive) {
@@ -89,22 +90,26 @@ domain billing {
     displayEmail = c.email
   }
 }
-""",
-    )
+""".strip("\n")
+    lines = source.splitlines()
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", source)
 
-    definition = build_definition(index, "inmemory://workspace.mdl", line=14, character=8)
+    definition = build_definition(
+        index,
+        "inmemory://workspace.mdl",
+        line=next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line),
+        character=lines[next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line)].index("displayEmail") + 2,
+    )
 
     assert definition is not None
     assert definition.uri == "inmemory://workspace.mdl"
-    assert definition.range.start.line == 14
+    assert definition.range.start.line == next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line)
     assert definition.range.start.character == 4
 
 
 def test_definition_on_field_reference_goes_to_source_field():
-    index = LspWorkspaceIndex()
-    index.upsert_document(
-        "inmemory://workspace.mdl",
-        """
+    source = """
 domain customer {
   owner: "test-team"
   entity Customer @ 1 (additive) {
@@ -122,14 +127,21 @@ domain billing {
     displayEmail = c.email
   }
 }
-""",
-    )
+""".strip("\n")
+    lines = source.splitlines()
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", source)
 
-    definition = build_definition(index, "inmemory://workspace.mdl", line=15, character=22)
+    definition = build_definition(
+        index,
+        "inmemory://workspace.mdl",
+        line=next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line),
+        character=lines[next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line)].index("c.email") + 2,
+    )
 
     assert definition is not None
     assert definition.uri == "inmemory://workspace.mdl"
-    assert definition.range.start.line == 5
+    assert definition.range.start.line == next(i for i, line in enumerate(lines) if "email?: string" in line)
     assert definition.range.start.character == 4
 
 

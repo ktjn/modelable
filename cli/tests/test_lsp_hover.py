@@ -34,11 +34,13 @@ domain storefront {
 )
 
 
+def _line_number(text: str, snippet: str) -> int:
+    lines = text.splitlines()
+    return next(i for i, line in enumerate(lines) if snippet in line)
+
+
 def test_hover_on_model_reference_shows_summary():
-    index = LspWorkspaceIndex()
-    index.upsert_document(
-        "inmemory://workspace.mdl",
-        """
+    source = """
 domain customer {
   owner: "test-team"
   entity Customer @ 1 (additive) {
@@ -46,10 +48,11 @@ domain customer {
     email?: string
   }
 }
-""",
-    )
+""".strip("\n")
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", source)
 
-    hover = build_hover(index, "inmemory://workspace.mdl", line=3, character=11)
+    hover = build_hover(index, "inmemory://workspace.mdl", line=_line_number(source, "entity Customer @ 1 (additive)"), character=11)
 
     assert hover is not None
     assert "customer.Customer@1" in hover.contents.value
@@ -57,10 +60,7 @@ domain customer {
 
 
 def test_hover_on_field_reference_shows_source_field():
-    index = LspWorkspaceIndex()
-    index.upsert_document(
-        "inmemory://workspace.mdl",
-        """
+    source = """
 domain customer {
   owner: "test-team"
   entity Customer @ 1 (additive) {
@@ -78,10 +78,12 @@ domain billing {
     displayEmail = c.email
   }
 }
-""",
-    )
+""".strip("\n")
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", source)
 
-    hover = build_hover(index, "inmemory://workspace.mdl", line=15, character=22)
+    line = _line_number(source, "displayEmail = c.email")
+    hover = build_hover(index, "inmemory://workspace.mdl", line=line, character=source.splitlines()[line].index("c.email") + 2)
 
     assert hover is not None
     assert "customer.Customer@1.email" in hover.contents.value
@@ -89,10 +91,7 @@ domain billing {
 
 
 def test_hover_on_projection_field_shows_mapping():
-    index = LspWorkspaceIndex()
-    index.upsert_document(
-        "inmemory://workspace.mdl",
-        """
+    source = """
 domain customer {
   owner: "test-team"
   entity Customer @ 1 (additive) {
@@ -110,10 +109,12 @@ domain billing {
     displayEmail = c.email
   }
 }
-""",
-    )
+""".strip("\n")
+    index = LspWorkspaceIndex()
+    index.upsert_document("inmemory://workspace.mdl", source)
 
-    hover = build_hover(index, "inmemory://workspace.mdl", line=15, character=8)
+    line = _line_number(source, "displayEmail = c.email")
+    hover = build_hover(index, "inmemory://workspace.mdl", line=line, character=source.splitlines()[line].index("displayEmail") + 2)
 
     assert hover is not None
     assert "billing.BillingCustomer@1.displayEmail" in hover.contents.value
