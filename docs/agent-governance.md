@@ -22,6 +22,7 @@ Agents must:
 - Keep changes small enough for meaningful review.
 - Add or update tests with any future code change that affects parser behavior, validation, compatibility checks, lineage, planning, runtime execution, governance, security, or generated artifacts.
 - Add Docker-backed compile smoke tests for any future change that adds or modifies a generated-language backend or generated artifact format, using the latest official compiler/runtime image for each affected language.
+- Do not use hard-coded line numbers to locate language elements in test fixtures or sample files. Derive line positions dynamically: `next(i for i, l in enumerate(text.splitlines()) if "pattern" in l)`. Derive character positions from `lines[line_no].index("token") + offset`. For real `.mdl` files, read the file at test time and locate the element by content, not by line number.
 - Validate current latest stable framework, library, CLI, build-tool, and scaffolding choices with a web search against official documentation, package registries, or release pages before adding or changing them.
 - Use the latest stable framework and tool versions by default, unless the specification, compatibility constraints, existing manifests, or explicit user direction require a different version.
 - Record any deliberate use of an older framework or tool version in the final handoff or PR body.
