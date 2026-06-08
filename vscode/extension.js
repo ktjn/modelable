@@ -9,33 +9,53 @@ const {
 
 let client;
 
-function resolveServerCommand(context) {
+/**
+ * Resolution order:
+ *   1. `modelable.serverCommand` setting — explicit `[command, ...args]` override.
+ *   2. `modelable.pythonPath` setting — interpreter launched as `<pythonPath> -m modelable.lsp`.
+ *   3. The repo-local `cli/.venv` next to this extension (development checkout of modelable itself).
+ *   4. `modelable lsp` resolved from PATH (the CLI installed into the host project's environment).
+ */
+function resolveServerOptions(context) {
+  const config = vscode.workspace.getConfiguration('modelable');
+
+  const serverCommand = config.get('serverCommand');
+  if (Array.isArray(serverCommand) && serverCommand.length > 0) {
+    const [command, ...args] = serverCommand;
+    return { command, args, source: '"modelable.serverCommand" setting' };
+  }
+
+  const pythonPath = config.get('pythonPath');
+  if (typeof pythonPath === 'string' && pythonPath.trim().length > 0) {
+    return { command: pythonPath, args: ['-m', 'modelable.lsp'], source: '"modelable.pythonPath" setting' };
+  }
+
   const repoRoot = path.resolve(context.extensionPath, '..');
   const cliRoot = path.join(repoRoot, 'cli');
-  const python = process.platform === 'win32'
+  const repoLocalPython = process.platform === 'win32'
     ? path.join(cliRoot, '.venv', 'Scripts', 'python.exe')
     : path.join(cliRoot, '.venv', 'bin', 'python');
+  if (fs.existsSync(repoLocalPython)) {
+    return {
+      command: repoLocalPython,
+      args: ['-m', 'modelable.lsp'],
+      cwd: cliRoot,
+      source: 'repo-local cli/.venv (development checkout)',
+    };
+  }
 
-  return { cliRoot, python };
+  return { command: 'modelable', args: ['lsp'], source: '"modelable" resolved from PATH' };
 }
 
 async function activate(context) {
   const outputChannel = vscode.window.createOutputChannel('Modelable LSP');
-  const { cliRoot, python } = resolveServerCommand(context);
-
-  if (!fs.existsSync(python)) {
-    vscode.window.showErrorMessage(
-      `Modelable LSP could not find the repo-local Python interpreter at ${python}. Run uv sync --extra dev in cli/ first.`
-    );
-    return;
-  }
+  const { command, args, cwd, source } = resolveServerOptions(context);
+  outputChannel.appendLine(`Starting Modelable language server via ${source}: ${command} ${args.join(' ')}`);
 
   const serverOptions = {
-    command: python,
-    args: ['-m', 'modelable.lsp'],
-    options: {
-      cwd: cliRoot,
-    },
+    command,
+    args,
+    options: cwd ? { cwd } : {},
   };
 
   const clientOptions = {
@@ -56,7 +76,19 @@ async function activate(context) {
     clientOptions,
   );
 
-  await client.start();
+  try {
+    await client.start();
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    vscode.window.showErrorMessage(
+      `Modelable LSP failed to start using "${command} ${args.join(' ')}" (${source}). ` +
+      'Install the modelable CLI in this project (see docs/consuming-modelable.md) so "modelable" ' +
+      'is on PATH, or set "modelable.pythonPath"/"modelable.serverCommand" to point at an ' +
+      `interpreter or command that has it. Details: ${reason}`
+    );
+    return;
+  }
+
   context.subscriptions.push(client, outputChannel);
 }
 

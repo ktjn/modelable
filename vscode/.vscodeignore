@@ -1,0 +1,12 @@
+.vscode/**
+.vscode-test/**
+src/**
+out/test/**
+**/*.map
+**/tsconfig.json
+.gitignore
+**/*.vsix
+node_modules/@types/**
+node_modules/@vscode/test-electron/**
+node_modules/mocha/**
+node_modules/typescript/**

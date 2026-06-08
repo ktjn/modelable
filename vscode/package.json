@@ -6,6 +6,11 @@
   "private": true,
   "publisher": "modelable",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ktjn/modelable.git",
+    "directory": "vscode"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -35,6 +40,24 @@
         "editor.semanticHighlighting.enabled": true
       }
     },
+    "configuration": {
+      "title": "Modelable",
+      "properties": {
+        "modelable.pythonPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to a Python interpreter that has the `modelable` package installed. The extension launches it as `<pythonPath> -m modelable.lsp`. Leave empty to auto-detect (repo-local `cli/.venv` during Modelable development, otherwise `modelable` on PATH)."
+        },
+        "modelable.serverCommand": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Full command and arguments used to launch the Modelable language server, e.g. `[\"modelable\", \"lsp\"]`. Overrides `modelable.pythonPath` and auto-detection when set."
+        }
+      }
+    },
     "grammars": [
       {
         "language": "mdl",
@@ -57,12 +80,14 @@
     "@types/node": "^25.9.1",
     "@types/vscode": "^1.90.0",
     "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.9.2",
     "mocha": "^11.7.6",
     "typescript": "^6.0.3"
   },
   "scripts": {
     "check": "node --check extension.js",
     "build": "tsc -p tsconfig.json",
-    "test": "node ./out/test/runTests.js"
+    "test": "node ./out/test/runTests.js",
+    "package": "vsce package --out modelable-vscode.vsix"
   }
 }

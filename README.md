@@ -12,6 +12,7 @@ All documentation is located in the [docs/](docs/) directory.
 - [Language Server Protocol](docs/lsp-spec.md) — Editor diagnostics and workspace indexing.
 - [Adapter Architecture](docs/adapter-architecture-spec.md) — How Modelable connects to disparate systems.
 - [Ownership & Permissions](docs/ownership-permissions-spec.md) — Governance and access control model.
+- [Consuming Modelable](docs/consuming-modelable.md) — How to install and use the CLI/LSP, VS Code extension, and generated artifacts from another project.
 
 ### Design & Research
 - [Modelable IDL Design](docs/idl-design-spec.md) — Syntax and rationale for the `.mdl` language.

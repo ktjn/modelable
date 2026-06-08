@@ -5,6 +5,7 @@ This directory contains the system specifications, design documents, and impleme
 ## Start here
 
 - **[modelable-system-spec.md](modelable-system-spec.md)** — Product source of truth. Read this first for design principles, core concepts, type system, versioning, governance, and MVP scope.
+- **[consuming-modelable.md](consuming-modelable.md)** — How to install and use the `modelable` CLI/LSP, VS Code extension, and generated artifacts from another project, including agent instructions for consumer-side integration.
 
 ## Specification index
 
