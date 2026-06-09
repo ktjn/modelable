@@ -657,12 +657,36 @@ class MdlTransformer(Transformer):
         return "sqlite"
 
     def binding_decl(self, items):
-        return BindingDef(
-            name=str(items[0]),
-            model="",
-            model_version=0,
-            adapter="",
-        )
+        name = str(items[0])
+        model = ""
+        model_version = 0
+        adapter = ""
+        table = None
+        for item in items[1:]:
+            if not isinstance(item, tuple):
+                continue
+            tag, *vals = item
+            if tag == "adapter":
+                adapter = vals[0]
+            elif tag == "model":
+                model, model_version = vals[0], vals[1]
+            elif tag == "table":
+                table = vals[0]
+        return BindingDef(name=name, model=model, model_version=model_version, adapter=adapter, table=table)
+
+    def binding_item(self, items):
+        return items[0]
+
+    def binding_adapter_attr(self, items):
+        return ("adapter", str(items[0]))
+
+    def binding_model_attr(self, items):
+        model_fqn = str(items[0])
+        version = int(items[1])
+        return ("model", model_fqn, version)
+
+    def binding_table_attr(self, items):
+        return ("table", _str(items[0]))
 
     def workspace_decl(self, _items):
         label = None
