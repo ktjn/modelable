@@ -74,6 +74,20 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="language",
         default_out_dir=Path("./dist/go"),
     ),
+    CodegenTarget(
+        name="sql-postgres",
+        description="PostgreSQL CREATE TABLE DDL for projections",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/sql/postgres"),
+    ),
+    CodegenTarget(
+        name="sql-clickhouse",
+        description="ClickHouse CREATE TABLE DDL for projections",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/sql/clickhouse"),
+    ),
 )
 
 

@@ -28,17 +28,10 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "python",
         "rust",
         "go",
+        "sql-postgres",
+        "sql-clickhouse",
     ]
-    assert [target["status"] for target in targets] == [
-        "implemented",
-        "implemented",
-        "implemented",
-        "implemented",
-        "implemented",
-        "implemented",
-        "implemented",
-        "implemented",
-    ]
+    assert all(target["status"] == "implemented" for target in targets)
 
 
 def test_codegen_types_expose_target_inventory_and_shape_catalog():
