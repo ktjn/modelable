@@ -340,7 +340,10 @@ def _validate_json_wire_hint(
                 path,
             )
         )
-    if not isinstance(field.type, (PrimitiveType, DecimalType)):
+    if not (
+        (isinstance(field.type, PrimitiveType) and field.type.kind == "int")
+        or isinstance(field.type, DecimalType)
+    ):
         diagnostics.append(
             _diag(
                 "SEM",

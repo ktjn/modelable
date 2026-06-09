@@ -249,3 +249,20 @@ def test_json_wire_requires_string_encoding():
     errors = validate(mdl)
 
     assert any("unsupported json wire encoding" in error.lower() for error in errors)
+
+
+def test_json_wire_rejects_non_integer_string_fields():
+    mdl = parse_text_to_ir("""
+    domain metrics {
+      owner: "test-team"
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        @wire(json: "string")
+        name: string
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("only supports @wire(json: ...)" in error for error in errors)

@@ -32,6 +32,7 @@ from modelable.parser.ir import (
     VersionPinned,
     VersionRange,
 )
+from modelable.parser.wire import render_wire_annotation
 
 
 def emit_markdown(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
@@ -213,7 +214,7 @@ def _format_annotations(field: FieldDef) -> str:
         elif isinstance(ann, AnnClassification):
             pass  # shown in classification column
         elif isinstance(ann, AnnWire):
-            parts.append(_render_wire_annotation(ann))
+            parts.append(render_wire_annotation(ann))
     return ", ".join(parts) if parts else "—"
 
 
@@ -231,7 +232,7 @@ def _format_projection_annotations(field: ProjectionField) -> str:
         elif isinstance(ann, AnnClassification):
             pass
         elif isinstance(ann, AnnWire):
-            parts.append(_render_wire_annotation(ann))
+            parts.append(render_wire_annotation(ann))
     return ", ".join(parts) if parts else "—"
 
 
@@ -247,21 +248,6 @@ def _projection_field_classification(field: ProjectionField) -> str:
         if isinstance(ann, AnnClassification):
             return ann.level
     return "—"
-
-
-def _render_wire_annotation(annotation: AnnWire) -> str:
-    parts: list[str] = []
-    for target, hint in annotation.targets.items():
-        if hint.encoding is not None:
-            parts.append(f'{target}: "{hint.encoding}"')
-        if hint.type is not None:
-            parts.append(f'{target}.type: "{hint.type}"')
-        if hint.case is not None:
-            parts.append(f'{target}.case: "{hint.case}"')
-        if hint.overrides:
-            overrides = ", ".join(f'{key}: "{value}"' for key, value in hint.overrides.items())
-            parts.append(f"{target}.overrides: {{ {overrides} }}")
-    return f"@wire({', '.join(parts)})" if parts else "@wire()"
 
 
 def _format_lineage(field: ProjectionField, source_model: str) -> str:

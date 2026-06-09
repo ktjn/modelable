@@ -12,6 +12,7 @@ from modelable.parser.ir import (
     ObjectType,
     PrimitiveType,
     RefType,
+    WireTargetHint,
 )
 
 _PRIMITIVE_NAMES = {
@@ -33,6 +34,7 @@ class TypeShapeField:
     name: str
     shape: "TypeShape"
     optional: bool = False
+    wire_targets: dict[str, WireTargetHint] | None = None
 
 
 @dataclass(frozen=True)
@@ -88,6 +90,7 @@ class TypeShape:
                         name=field.name,
                         shape=cls.from_field_type(field.type, optional=field.optional),
                         optional=field.optional,
+                        wire_targets=field.wire_targets(),
                     )
                     for field in field_type.fields
                 ),

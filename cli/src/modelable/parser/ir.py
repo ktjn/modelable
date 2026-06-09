@@ -224,10 +224,9 @@ class FieldDef(BaseModel):
         return None
 
     def wire_targets(self) -> dict[str, WireTargetHint]:
-        for annotation in self.annotations:
-            if annotation.kind == "wire":
-                return annotation.targets
-        return {}
+        from modelable.parser.wire import wire_targets_from_annotations
+
+        return wire_targets_from_annotations(self.annotations)
 
 
 class ModelKind(str, Enum):
@@ -344,10 +343,9 @@ class ProjectionField(BaseModel):
         return None
 
     def wire_targets(self) -> dict[str, WireTargetHint]:
-        for annotation in self.annotations:
-            if annotation.kind == "wire":
-                return annotation.targets
-        return {}
+        from modelable.parser.wire import wire_targets_from_annotations
+
+        return wire_targets_from_annotations(self.annotations)
 
 
 class ProjectionVersion(BaseModel):

@@ -196,6 +196,7 @@ def _field_specs_from_object_fields(
             owner_type=owner_type,
             path=[*path, field.name],
             definitions=definitions,
+            rust_hint=(field.wire_targets or {}).get("rust"),
         )
         default_none = field.optional or field.shape.optional or field.shape.nullable
         specs.append((index, field.name, annotation, default_none))

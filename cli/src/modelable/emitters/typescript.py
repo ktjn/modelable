@@ -226,16 +226,19 @@ def _type_to_ts(field_type, *, wire_targets: dict[str, object] | None = None) ->
             return "string"
         return "string"
     if isinstance(field_type, ArrayType):
-        return f"{_type_to_ts(field_type.item, wire_targets=wire_targets)}[]"
+        return f"{_type_to_ts(field_type.item)}[]"
     if isinstance(field_type, MapType):
-        return f"Record<string, {_type_to_ts(field_type.value, wire_targets=wire_targets)}>"
+        return f"Record<string, {_type_to_ts(field_type.value)}>"
     if isinstance(field_type, RefType):
         return "string"
     if isinstance(field_type, EnumType):
         values = " | ".join(repr(value) for value in field_type.values)
         return values or "string"
     if isinstance(field_type, ObjectType):
-        inner = "; ".join(f"{field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type)}" for field in field_type.fields)
+        inner = "; ".join(
+            f"{field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets())}"
+            for field in field_type.fields
+        )
         return f"{{ {inner} }}"
     if isinstance(field_type, NamedType):
         return field_type.name
