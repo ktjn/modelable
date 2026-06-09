@@ -294,3 +294,142 @@ domain customer {
     text = (out / "customer.Customer.v1.ts").read_text(encoding="utf-8")
     assert "export interface CustomerCustomerV1" in text
     assert "export type Customer = CustomerCustomerV1;" in text
+
+
+def test_emit_typescript_wire_json_string_int_maps_to_string(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    @wire(json: "string", rust.type: "u64")
+    startTimeUnixNano: int
+    name: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    # ADR-030 u64-as-string: json wire hint overrides int → string in TypeScript
+    assert "startTimeUnixNano: string;" in art.content
+    # plain string field unaffected
+    assert "name: string;" in art.content
+
+
+def test_emit_typescript_wire_json_string_float_maps_to_string(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain finance {
+  owner: "test-team"
+  entity Price @ 1 (additive) {
+    @key priceId: uuid
+    @wire(json: "string")
+    value: float
+    label: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "finance.Price@1")
+    assert "value: string;" in art.content
+    assert "label: string;" in art.content
+
+
+def test_emit_typescript_wire_enum_screaming_snake_case(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    @wire(json.case: "SCREAMING_SNAKE_CASE")
+    spanKind: enum(Internal, Server, Client, Producer, Consumer)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    assert "'INTERNAL'" in art.content
+    assert "'SERVER'" in art.content
+    assert "'CLIENT'" in art.content
+    # IDL names should NOT appear as enum values
+    assert "'Internal'" not in art.content
+    assert "'Server'" not in art.content
+
+
+def test_emit_typescript_wire_enum_case_camel(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain events {
+  owner: "test-team"
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    @wire(json.case: "camelCase")
+    eventType: enum(PageView, ButtonClick, FormSubmit)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "events.Event@1")
+    assert "'pageView'" in art.content
+    assert "'buttonClick'" in art.content
+    assert "'formSubmit'" in art.content
+
+
+def test_emit_typescript_wire_enum_overrides(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    @wire(json.overrides: { Internal: "INTERNAL", Server: "SERVER" })
+    spanKind: enum(Internal, Server, Client)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    # overridden values use the wire representation
+    assert "'INTERNAL'" in art.content
+    assert "'SERVER'" in art.content
+    # non-overridden value stays as-is
+    assert "'Client'" in art.content
+
+
+def test_emit_typescript_wire_enum_case_without_wire_hint_unchanged(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    spanKind: enum(Internal, Server, Client)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    # No wire hint — values are emitted verbatim from the IDL
+    assert "'Internal'" in art.content
+    assert "'Server'" in art.content
+    assert "'Client'" in art.content
