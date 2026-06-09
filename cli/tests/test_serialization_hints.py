@@ -1,3 +1,4 @@
+import pytest
 from pathlib import Path
 
 from modelable.parser.ir import AnnWire
@@ -47,6 +48,27 @@ def test_render_wire_annotation_round_trip():
     rendered = render_mdl(mdl)
 
     assert '@wire(json: "string", rust.type: "u64")' in rendered
+
+
+def test_multiple_wire_annotations_are_merged_for_emitters():
+    mdl = parse_text_to_ir(
+        """
+        domain metrics {
+          owner: "test-team"
+          entity Span @ 1 (additive) {
+            @key spanId: string
+            @wire(json: "string")
+            @wire(rust.type: "u64")
+            startTimeUnixNano: int
+          }
+        }
+        """
+    )
+
+    field = mdl.domains[0].models["Span"][0].fields[1]
+
+    assert field.wire_targets()["json"].encoding == "string"
+    assert field.wire_targets()["rust"].type == "u64"
 
 
 def test_emit_json_schema_honors_json_wire_string(tmp_path):
@@ -154,3 +176,10 @@ def test_emit_rust_honors_inline_object_wire_hints(tmp_path):
     )
 
     assert "pub count: u64," in artifact.content
+
+
+def test_render_wire_annotation_rejects_empty_targets():
+    from modelable.parser.ir import AnnWire
+
+    with pytest.raises(ValueError):
+        AnnWire(targets={})

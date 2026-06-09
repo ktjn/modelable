@@ -4,10 +4,21 @@ from modelable.parser.ir import AnnWire, WireTargetHint
 
 
 def wire_targets_from_annotations(annotations) -> dict[str, WireTargetHint]:
+    targets: dict[str, WireTargetHint] = {}
     for annotation in annotations:
         if isinstance(annotation, AnnWire):
-            return annotation.targets
-    return {}
+            for target, hint in annotation.targets.items():
+                merged = targets.get(target, WireTargetHint())
+                if hint.encoding is not None:
+                    merged.encoding = hint.encoding
+                if hint.type is not None:
+                    merged.type = hint.type
+                if hint.case is not None:
+                    merged.case = hint.case
+                if hint.overrides:
+                    merged.overrides.update(hint.overrides)
+                targets[target] = merged
+    return targets
 
 
 def render_wire_annotation(annotation: AnnWire) -> str:
@@ -25,4 +36,6 @@ def render_wire_annotation(annotation: AnnWire) -> str:
                 f'{key}: "{value}"' for key, value in sorted(hint.overrides.items())
             )
             parts.append(f"{target}.overrides: {{ {overrides} }}")
-    return f"@wire({', '.join(parts)})" if parts else "@wire()"
+    if not parts:
+        raise ValueError("AnnWire must contain at least one wire option")
+    return f"@wire({', '.join(parts)})"

@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from modelable.diagnostics.model import Diagnostic
 
@@ -95,6 +95,20 @@ class WireTargetHint(BaseModel):
 class AnnWire(BaseModel):
     kind: Literal["wire"] = "wire"
     targets: dict[str, WireTargetHint] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _validate_targets(self):
+        if not self.targets:
+            raise ValueError("wire annotations must declare at least one target")
+        for target, hint in self.targets.items():
+            if (
+                hint.encoding is None
+                and hint.type is None
+                and hint.case is None
+                and not hint.overrides
+            ):
+                raise ValueError(f"wire target '{target}' must define at least one option")
+        return self
 
 
 class AnnPitCutoff(BaseModel):

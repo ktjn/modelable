@@ -15,6 +15,7 @@ from modelable.parser.ir import (
     ModelVersion,
     EnumType,
     FieldDef,
+    ObjectType,
     PrimitiveType,
     DecimalType,
 )
@@ -159,23 +160,13 @@ def _validate_models(
                     )
                 )
             for field in version.fields:
-                for annotation in field.annotations:
-                    if annotation.kind == "classification":
-                        _validate_classification_level(
-                            f"{fqn}@{version.version}",
-                            field.name,
-                            annotation.level,
-                            diagnostics,
-                            path,
-                        )
-                    elif annotation.kind == "wire":
-                        _validate_wire_hints(
-                            f"{fqn}@{version.version}",
-                            field,
-                            annotation,
-                            diagnostics,
-                            path,
-                        )
+                _validate_field_annotations(
+                    f"{fqn}@{version.version}",
+                    field,
+                    diagnostics,
+                    path,
+                    field_path=[field.name],
+                )
 
         for index in range(1, len(versions)):
             previous = versions[index - 1]
@@ -210,23 +201,13 @@ def _validate_projections(
                         )
                     )
             for field in version.fields:
-                for annotation in field.annotations:
-                    if annotation.kind == "classification":
-                        _validate_classification_level(
-                            f"{fqn}@{version.version}",
-                            field.name,
-                            annotation.level,
-                            diagnostics,
-                            path,
-                        )
-                    elif annotation.kind == "wire":
-                        _validate_wire_hints(
-                            f"{fqn}@{version.version}",
-                            field,
-                            annotation,
-                            diagnostics,
-                            path,
-                        )
+                _validate_field_annotations(
+                    f"{fqn}@{version.version}",
+                    field,
+                    diagnostics,
+                    path,
+                    field_path=[field.name],
+                )
 
 
 def _validate_change_kind(
@@ -280,19 +261,61 @@ def _find_field(version: ModelVersion, field_name: str):
     return next((field for field in version.fields if field.name == field_name), None)
 
 
+def _validate_field_annotations(
+    fqn: str,
+    field: FieldDef,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+    *,
+    field_path: list[str],
+) -> None:
+    field_label = ".".join(field_path)
+    for annotation in field.annotations:
+        if annotation.kind == "classification":
+            _validate_classification_level(
+                fqn,
+                field_label,
+                annotation.level,
+                diagnostics,
+                path,
+            )
+        elif annotation.kind == "wire":
+            _validate_wire_hints(
+                fqn,
+                field,
+                annotation,
+                diagnostics,
+                path,
+                field_label=field_label,
+            )
+    field_type = getattr(field, "type", None)
+    if isinstance(field_type, ObjectType):
+        for child in field_type.fields:
+            _validate_field_annotations(
+                fqn,
+                child,
+                diagnostics,
+                path,
+                field_path=[*field_path, child.name],
+            )
+
+
 def _validate_wire_hints(
     fqn: str,
     field: FieldDef,
     annotation: AnnWire,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
+    *,
+    field_label: str | None = None,
 ) -> None:
+    label = field_label or field.name
     for target_name, hint in annotation.targets.items():
         if target_name not in _VALID_WIRE_TARGETS:
             diagnostics.append(
                 _diag(
                     "SEM",
-                    f"{fqn}: field '{field.name}' has unknown wire target '{target_name}'. "
+                    f"{fqn}: field '{label}' has unknown wire target '{target_name}'. "
                     f"Valid targets are: {', '.join(sorted(_VALID_WIRE_TARGETS))}",
                     path,
                 )
@@ -300,11 +323,18 @@ def _validate_wire_hints(
             continue
 
         if target_name == "json":
-            _validate_json_wire_hint(fqn, field, hint, diagnostics, path)
+            _validate_json_wire_hint(fqn, field, hint, diagnostics, path, field_label=label)
         elif target_name == "rust":
-            _validate_rust_wire_hint(fqn, field, hint, diagnostics, path)
+            _validate_rust_wire_hint(fqn, field, hint, diagnostics, path, field_label=label)
         elif target_name == "clickhouse":
-            _validate_clickhouse_wire_hint(fqn, field, hint, diagnostics, path)
+            _validate_clickhouse_wire_hint(
+                fqn,
+                field,
+                hint,
+                diagnostics,
+                path,
+                field_label=label,
+            )
 
 
 def _validate_json_wire_hint(
@@ -313,12 +343,16 @@ def _validate_json_wire_hint(
     hint,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
+    *,
+    field_label: str | None = None,
 ) -> None:
+    label = field_label or field.name
+    field_type = getattr(field, "type", None)
     if hint.encoding is None:
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: field '{field.name}' has @wire(json: ...) without an encoding",
+                f"{fqn}: field '{label}' has @wire(json: ...) without an encoding",
                 path,
             )
         )
@@ -327,27 +361,28 @@ def _validate_json_wire_hint(
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: field '{field.name}' has unsupported json wire encoding '{hint.encoding}'. "
+                f"{fqn}: field '{label}' has unsupported json wire encoding '{hint.encoding}'. "
                 f"Valid encodings are: {', '.join(sorted(_VALID_JSON_ENCODINGS))}",
                 path,
             )
         )
+        return
     if hint.type is not None or hint.case is not None or hint.overrides:
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: field '{field.name}' may not use rust-style modifiers on json wire hints",
+                f"{fqn}: field '{label}' may not use rust-style modifiers on json wire hints",
                 path,
             )
         )
-    if not (
-        (isinstance(field.type, PrimitiveType) and field.type.kind == "int")
-        or isinstance(field.type, DecimalType)
+    if field_type is not None and not (
+        (isinstance(field_type, PrimitiveType) and field_type.kind == "int")
+        or isinstance(field_type, DecimalType)
     ):
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: field '{field.name}' only supports @wire(json: ...) on int or decimal fields",
+                f"{fqn}: field '{label}' only supports @wire(json: ...) on int or decimal fields",
                 path,
             )
         )
@@ -359,12 +394,27 @@ def _validate_rust_wire_hint(
     hint,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
+    *,
+    field_label: str | None = None,
 ) -> None:
-    if hint.type is not None and not isinstance(field.type, PrimitiveType):
+    label = field_label or field.name
+    field_type = getattr(field, "type", None)
+    if hint.encoding is not None:
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: field '{field.name}' only supports rust.type on primitive fields",
+                f"{fqn}: field '{label}' may not use an encoding on rust wire hints",
+                path,
+            )
+        )
+        return
+    if hint.type is not None and field_type is not None and not (
+        isinstance(field_type, PrimitiveType) and field_type.kind == "int"
+    ):
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' only supports rust.type on int fields",
                 path,
             )
         )
@@ -372,27 +422,27 @@ def _validate_rust_wire_hint(
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: field '{field.name}' has unsupported rust.case '{hint.case}'. "
+                f"{fqn}: field '{label}' has unsupported rust.case '{hint.case}'. "
                 f"Valid values are: {', '.join(sorted(_VALID_RUST_CASE_VALUES))}",
                 path,
             )
         )
     if hint.overrides:
-        if not isinstance(field.type, EnumType):
+        if field_type is None or not isinstance(field_type, EnumType):
             diagnostics.append(
                 _diag(
                     "SEM",
-                    f"{fqn}: field '{field.name}' only supports rust.overrides on enum fields",
+                    f"{fqn}: field '{label}' only supports rust.overrides on enum fields",
                     path,
                 )
             )
         else:
-            invalid_keys = sorted(set(hint.overrides) - set(field.type.values))
+            invalid_keys = sorted(set(hint.overrides) - set(field_type.values))
             if invalid_keys:
                 diagnostics.append(
                     _diag(
                         "SEM",
-                        f"{fqn}: field '{field.name}' has rust.overrides entries for unknown enum members: "
+                        f"{fqn}: field '{label}' has rust.overrides entries for unknown enum members: "
                         + ", ".join(invalid_keys),
                         path,
                     )
@@ -405,12 +455,16 @@ def _validate_clickhouse_wire_hint(
     hint,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
+    *,
+    field_label: str | None = None,
 ) -> None:
+    label = field_label or field.name
+    field_type = getattr(field, "type", None)
     if hint.encoding is None:
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: field '{field.name}' has @wire(clickhouse: ...) without an encoding",
+                f"{fqn}: field '{label}' has @wire(clickhouse: ...) without an encoding",
                 path,
             )
         )
@@ -419,7 +473,7 @@ def _validate_clickhouse_wire_hint(
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: field '{field.name}' has unsupported clickhouse wire encoding '{hint.encoding}'. "
+                f"{fqn}: field '{label}' has unsupported clickhouse wire encoding '{hint.encoding}'. "
                 f"Valid encodings are: {', '.join(sorted(_VALID_CLICKHOUSE_ENCODINGS))}",
                 path,
             )
