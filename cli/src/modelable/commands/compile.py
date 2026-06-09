@@ -15,6 +15,7 @@ from modelable.emitters.markdown import emit_markdown
 from modelable.emitters.go import emit_go
 from modelable.emitters.python import emit_python
 from modelable.emitters.rust import emit_rust
+from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
 from modelable.planner.plans import write_plans
@@ -119,6 +120,15 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "go":
         artifacts = emit_go(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            _write_artifact_text(art.path, art.content)
+            _print_artifact_result(art)
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target in ("sql-postgres", "sql-clickhouse"):
+        dialect = target.removeprefix("sql-")
+        artifacts = emit_sql(workspace, output, dialect)
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)
