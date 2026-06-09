@@ -305,3 +305,26 @@ def test_rust_type_override_is_rejected_on_non_int_fields():
     errors = validate(mdl)
 
     assert any("only supports rust.type on int fields" in error.lower() for error in errors)
+
+
+def test_projection_field_wire_hints_validate_against_source_type():
+    mdl = parse_text_to_ir("""
+    domain metrics {
+      owner: "test-team"
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        amount: int
+      }
+
+      projection SpanView @ 1
+        from metrics.Span @ 1 as s
+      {
+        @wire(json: "string")
+        amount <- s.spanId
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("only supports @wire(json: ...)" in error for error in errors)

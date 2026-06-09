@@ -19,6 +19,7 @@ from modelable.parser.ir import (
     PrimitiveType,
     DecimalType,
 )
+from modelable.registry.resolver import resolve_model_ref
 
 _VALID_CLASSIFICATION_LEVELS = {level.value for level in ClassificationLevel}
 _CLASSIFICATION_LEVELS_DISPLAY = ", ".join(sorted(_VALID_CLASSIFICATION_LEVELS))
@@ -77,7 +78,7 @@ def validate_diagnostics(mdl: MdlFile, path: str | Path | None = None) -> list[D
                 )
             )
         _validate_models(domain.name, domain.models, diagnostics, path)
-        _validate_projections(domain.name, domain.projections, diagnostics, path)
+        _validate_projections(domain.name, domain.projections, diagnostics, path, mdl)
     return diagnostics
 
 
@@ -166,6 +167,7 @@ def _validate_models(
                     diagnostics,
                     path,
                     field_path=[field.name],
+                    field_type=field.type,
                 )
 
         for index in range(1, len(versions)):
@@ -179,6 +181,7 @@ def _validate_projections(
     projections,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
+    mdl: MdlFile,
 ) -> None:
     for projection_name, versions in projections.items():
         fqn = f"{domain_name}.{projection_name}"
@@ -201,12 +204,14 @@ def _validate_projections(
                         )
                     )
             for field in version.fields:
+                source_type = _resolve_projection_field_type(field, version, mdl)
                 _validate_field_annotations(
                     f"{fqn}@{version.version}",
                     field,
                     diagnostics,
                     path,
                     field_path=[field.name],
+                    field_type=source_type,
                 )
 
 
@@ -268,6 +273,7 @@ def _validate_field_annotations(
     path: str | Path | None,
     *,
     field_path: list[str],
+    field_type=None,
 ) -> None:
     field_label = ".".join(field_path)
     for annotation in field.annotations:
@@ -287,8 +293,8 @@ def _validate_field_annotations(
                 diagnostics,
                 path,
                 field_label=field_label,
+                field_type=field_type,
             )
-    field_type = getattr(field, "type", None)
     if isinstance(field_type, ObjectType):
         for child in field_type.fields:
             _validate_field_annotations(
@@ -297,6 +303,7 @@ def _validate_field_annotations(
                 diagnostics,
                 path,
                 field_path=[*field_path, child.name],
+                field_type=child.type,
             )
 
 
@@ -308,6 +315,7 @@ def _validate_wire_hints(
     path: str | Path | None,
     *,
     field_label: str | None = None,
+    field_type=None,
 ) -> None:
     label = field_label or field.name
     for target_name, hint in annotation.targets.items():
@@ -323,9 +331,25 @@ def _validate_wire_hints(
             continue
 
         if target_name == "json":
-            _validate_json_wire_hint(fqn, field, hint, diagnostics, path, field_label=label)
+            _validate_json_wire_hint(
+                fqn,
+                field,
+                hint,
+                diagnostics,
+                path,
+                field_label=label,
+                field_type=field_type,
+            )
         elif target_name == "rust":
-            _validate_rust_wire_hint(fqn, field, hint, diagnostics, path, field_label=label)
+            _validate_rust_wire_hint(
+                fqn,
+                field,
+                hint,
+                diagnostics,
+                path,
+                field_label=label,
+                field_type=field_type,
+            )
         elif target_name == "clickhouse":
             _validate_clickhouse_wire_hint(
                 fqn,
@@ -334,6 +358,7 @@ def _validate_wire_hints(
                 diagnostics,
                 path,
                 field_label=label,
+                field_type=field_type,
             )
 
 
@@ -345,9 +370,9 @@ def _validate_json_wire_hint(
     path: str | Path | None,
     *,
     field_label: str | None = None,
+    field_type=None,
 ) -> None:
     label = field_label or field.name
-    field_type = getattr(field, "type", None)
     if hint.encoding is None:
         diagnostics.append(
             _diag(
@@ -375,6 +400,7 @@ def _validate_json_wire_hint(
                 path,
             )
         )
+        return
     if field_type is not None and not (
         (isinstance(field_type, PrimitiveType) and field_type.kind == "int")
         or isinstance(field_type, DecimalType)
@@ -396,9 +422,9 @@ def _validate_rust_wire_hint(
     path: str | Path | None,
     *,
     field_label: str | None = None,
+    field_type=None,
 ) -> None:
     label = field_label or field.name
-    field_type = getattr(field, "type", None)
     if hint.encoding is not None:
         diagnostics.append(
             _diag(
@@ -457,9 +483,9 @@ def _validate_clickhouse_wire_hint(
     path: str | Path | None,
     *,
     field_label: str | None = None,
+    field_type=None,
 ) -> None:
     label = field_label or field.name
-    field_type = getattr(field, "type", None)
     if hint.encoding is None:
         diagnostics.append(
             _diag(
@@ -478,6 +504,48 @@ def _validate_clickhouse_wire_hint(
                 path,
             )
         )
+        return
+
+
+def _resolve_projection_field_type(field, projection, mdl):
+    if not hasattr(field, "mapping"):
+        return getattr(field, "type", None)
+    mapping = field.mapping
+    if not isinstance(mapping, ComputedMapping):
+        try:
+            source_domain, source_model = projection.source.model.rsplit(".", 1)
+        except ValueError:
+            return None
+        try:
+            resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", projection.source.version)
+        except LookupError:
+            return None
+        return _resolve_field_type_from_version(
+            mdl,
+            resolved.version,
+            mapping.source_field,
+        )
+    return None
+
+
+def _resolve_field_type_from_version(mdl: MdlFile, version, field_name: str):
+    if hasattr(version, "fields"):
+        field = next((item for item in version.fields if item.name == field_name), None)
+        if field is None:
+            return None
+        field_type = getattr(field, "type", None)
+        if field_type is not None:
+            return field_type
+        mapping = getattr(field, "mapping", None)
+        if mapping is None or mapping.kind != "direct":
+            return None
+        source_domain, source_model = version.source.model.rsplit(".", 1)
+        try:
+            resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", version.source.version)
+        except LookupError:
+            return None
+        return _resolve_field_type_from_version(mdl, resolved.version, mapping.source_field)
+    return None
 
 
 def _diag(code: str, message: str, path: str | Path | None) -> Diagnostic:

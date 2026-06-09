@@ -234,13 +234,35 @@ class MdlTransformer(Transformer):
         for target, modifier, value in items:
             hint = targets.get(target, WireTargetHint())
             if modifier is None:
+                if hint.encoding is not None and hint.encoding != value:
+                    raise ValueError(
+                        f"conflicting wire encodings for target '{target}': "
+                        f"{hint.encoding!r} vs {value!r}"
+                    )
                 hint.encoding = value
             elif modifier == "type":
+                if hint.type is not None and hint.type != value:
+                    raise ValueError(
+                        f"conflicting wire types for target '{target}': "
+                        f"{hint.type!r} vs {value!r}"
+                    )
                 hint.type = value
             elif modifier == "case":
+                if hint.case is not None and hint.case != value:
+                    raise ValueError(
+                        f"conflicting wire cases for target '{target}': "
+                        f"{hint.case!r} vs {value!r}"
+                    )
                 hint.case = value
             elif modifier == "overrides":
-                hint.overrides = value
+                overlap = sorted(set(hint.overrides) & set(value))
+                for key in overlap:
+                    if hint.overrides[key] != value[key]:
+                        raise ValueError(
+                            f"conflicting wire override for target '{target}' member '{key}': "
+                            f"{hint.overrides[key]!r} vs {value[key]!r}"
+                        )
+                hint.overrides.update(value)
             else:
                 raise ValueError(f"unsupported wire modifier: {modifier}")
             targets[target] = hint

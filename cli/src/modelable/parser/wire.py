@@ -10,12 +10,34 @@ def wire_targets_from_annotations(annotations) -> dict[str, WireTargetHint]:
             for target, hint in annotation.targets.items():
                 merged = targets.get(target, WireTargetHint())
                 if hint.encoding is not None:
+                    if merged.encoding is not None and merged.encoding != hint.encoding:
+                        raise ValueError(
+                            f"conflicting wire encodings for target '{target}': "
+                            f"{merged.encoding!r} vs {hint.encoding!r}"
+                        )
                     merged.encoding = hint.encoding
                 if hint.type is not None:
+                    if merged.type is not None and merged.type != hint.type:
+                        raise ValueError(
+                            f"conflicting wire types for target '{target}': "
+                            f"{merged.type!r} vs {hint.type!r}"
+                        )
                     merged.type = hint.type
                 if hint.case is not None:
+                    if merged.case is not None and merged.case != hint.case:
+                        raise ValueError(
+                            f"conflicting wire cases for target '{target}': "
+                            f"{merged.case!r} vs {hint.case!r}"
+                        )
                     merged.case = hint.case
                 if hint.overrides:
+                    overlap = sorted(set(merged.overrides) & set(hint.overrides))
+                    for key in overlap:
+                        if merged.overrides[key] != hint.overrides[key]:
+                            raise ValueError(
+                                f"conflicting wire override for target '{target}' member '{key}': "
+                                f"{merged.overrides[key]!r} vs {hint.overrides[key]!r}"
+                            )
                     merged.overrides.update(hint.overrides)
                 targets[target] = merged
     return targets

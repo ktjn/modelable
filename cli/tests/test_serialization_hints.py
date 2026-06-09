@@ -71,6 +71,27 @@ def test_multiple_wire_annotations_are_merged_for_emitters():
     assert field.wire_targets()["rust"].type == "u64"
 
 
+def test_conflicting_wire_annotations_raise():
+    mdl = parse_text_to_ir(
+        """
+        domain metrics {
+          owner: "test-team"
+          entity Span @ 1 (additive) {
+            @key spanId: string
+            @wire(json: "string")
+            @wire(json: "binary")
+            startTimeUnixNano: int
+          }
+        }
+        """
+    )
+
+    field = mdl.domains[0].models["Span"][0].fields[1]
+
+    with pytest.raises(ValueError):
+        field.wire_targets()
+
+
 def test_emit_json_schema_honors_json_wire_string(tmp_path):
     mdl = tmp_path / "wire.mdl"
     mdl.write_text(
