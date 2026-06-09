@@ -407,6 +407,121 @@ domain logs {
     assert '#[cfg(feature = "storage")]' not in proj.content
 
 
+def test_emit_rust_clickhouse_row_on_clickhouse_bound_projection(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain telemetry {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: uuid
+    tenantId: uuid
+    name: string
+  }
+
+  projection SpanRow @ 1
+    from telemetry.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    @wire(clickhouse: "uuid")
+    tenantId <- s.tenantId
+    name <- s.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "bindings.mdl").write_text(
+        """
+binding ch-conn {
+  adapter: clickhouse
+}
+
+binding span-row-binding {
+  model: telemetry.Span @ 1
+  adapter: ch-conn
+  table: "spans"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "telemetry.SpanRow@1")
+    assert "clickhouse::Row" in proj.content
+    assert '#[cfg(feature = "storage")]' in proj.content
+    assert "requires: clickhouse" in proj.content
+    assert '#[serde(with = "clickhouse::serde::uuid")]' in proj.content
+    # model struct is NOT storage-gated
+    model = next(a for a in artifacts if a.ref == "telemetry.Span@1")
+    assert "clickhouse::Row" not in model.content
+    assert '#[cfg(feature = "storage")]' not in model.content
+
+
+def test_emit_rust_clickhouse_row_indirect_connector_binding(tmp_path):
+    """Model binding via connector-binding name → adapter type resolved correctly for clickhouse."""
+    (tmp_path / "all.mdl").write_text(
+        """
+domain events {
+  owner: "test-team"
+  entity LogEvent @ 1 (additive) {
+    @key eventId: uuid
+    message: string
+  }
+
+  projection LogEventRow @ 1
+    from events.LogEvent @ 1 as e
+  {
+    eventId <- e.eventId
+    message <- e.message
+  }
+}
+
+binding my-ch-conn {
+  adapter: clickhouse
+}
+
+binding log-event-binding {
+  model: events.LogEvent @ 1
+  adapter: my-ch-conn
+  table: "log_events"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "events.LogEventRow@1")
+    assert "clickhouse::Row" in proj.content
+    assert '#[cfg(feature = "storage")]' in proj.content
+
+
+def test_emit_rust_no_clickhouse_without_binding(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain metrics {
+  owner: "test-team"
+  entity Metric @ 1 (additive) {
+    @key metricId: uuid
+    value: float
+  }
+
+  projection MetricView @ 1
+    from metrics.Metric @ 1 as m
+  {
+    metricId <- m.metricId
+    value <- m.value
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "metrics.MetricView@1")
+    assert "clickhouse::Row" not in proj.content
+    assert '#[cfg(feature = "storage")]' not in proj.content
+
+
 def test_emit_rust_rust_type_without_json_string_no_serde_with(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
