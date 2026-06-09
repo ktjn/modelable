@@ -7,6 +7,7 @@ from modelable.parser.ir import (
     AnnOwner,
     AnnPii,
     AnnServer,
+    AnnWire,
     ArrayType,
     AutoProjectionDecl,
     AutoProjectionTarget,
@@ -245,6 +246,19 @@ def _render_annotation_literal(annotation) -> str:
         return f'@owner("{annotation.team}")'
     if isinstance(annotation, AnnServer):
         return "@server"
+    if isinstance(annotation, AnnWire):
+        parts = []
+        for target, hint in annotation.targets.items():
+            if hint.encoding is not None:
+                parts.append(f'{target}: "{hint.encoding}"')
+            if hint.type is not None:
+                parts.append(f'{target}.type: "{hint.type}"')
+            if hint.case is not None:
+                parts.append(f'{target}.case: "{hint.case}"')
+            if hint.overrides:
+                overrides = ", ".join(f'{key}: "{value}"' for key, value in hint.overrides.items())
+                parts.append(f"{target}.overrides: {{ {overrides} }}")
+        return f"@wire({', '.join(parts)})"
     return "@unknown"
 
 

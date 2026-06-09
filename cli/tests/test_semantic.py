@@ -215,3 +215,37 @@ def test_aggregate_function_with_group_by_passes():
     errors = validate(mdl)
 
     assert errors == []
+
+
+def test_unknown_wire_target_fails():
+    mdl = parse_text_to_ir("""
+    domain metrics {
+      owner: "test-team"
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        @wire(unknown: "string")
+        startTimeUnixNano: int
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("unknown wire target" in error.lower() for error in errors)
+
+
+def test_json_wire_requires_string_encoding():
+    mdl = parse_text_to_ir("""
+    domain metrics {
+      owner: "test-team"
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        @wire(json: "uuid")
+        startTimeUnixNano: int
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("unsupported json wire encoding" in error.lower() for error in errors)

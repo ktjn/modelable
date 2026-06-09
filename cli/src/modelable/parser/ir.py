@@ -85,6 +85,18 @@ class AnnServer(BaseModel):
     kind: Literal["server"] = "server"
 
 
+class WireTargetHint(BaseModel):
+    encoding: str | None = None
+    type: str | None = None
+    case: str | None = None
+    overrides: dict[str, str] = Field(default_factory=dict)
+
+
+class AnnWire(BaseModel):
+    kind: Literal["wire"] = "wire"
+    targets: dict[str, WireTargetHint] = Field(default_factory=dict)
+
+
 class AnnPitCutoff(BaseModel):
     kind: Literal["pit_cutoff"] = "pit_cutoff"
     expression: str
@@ -112,6 +124,7 @@ Annotation = Annotated[
     | AnnDeprecated
     | AnnOwner
     | AnnServer
+    | AnnWire
     | AnnPitCutoff
     | AnnLatestBefore
     | AnnLatestOnly
@@ -209,6 +222,12 @@ class FieldDef(BaseModel):
                 except ValueError:
                     return None
         return None
+
+    def wire_targets(self) -> dict[str, WireTargetHint]:
+        for annotation in self.annotations:
+            if annotation.kind == "wire":
+                return annotation.targets
+        return {}
 
 
 class ModelKind(str, Enum):
@@ -323,6 +342,12 @@ class ProjectionField(BaseModel):
                 except ValueError:
                     return None
         return None
+
+    def wire_targets(self) -> dict[str, WireTargetHint]:
+        for annotation in self.annotations:
+            if annotation.kind == "wire":
+                return annotation.targets
+        return {}
 
 
 class ProjectionVersion(BaseModel):

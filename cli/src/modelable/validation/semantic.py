@@ -6,16 +6,33 @@ import re
 from modelable.compat.diff import compare_model_versions
 from modelable.diagnostics.model import Diagnostic
 from modelable.parser.ir import (
+    AnnWire,
     ChangeKind,
     ClassificationLevel,
     ComputedMapping,
     MdlFile,
     ModelKind,
     ModelVersion,
+    EnumType,
+    FieldDef,
+    PrimitiveType,
+    DecimalType,
 )
 
 _VALID_CLASSIFICATION_LEVELS = {level.value for level in ClassificationLevel}
 _CLASSIFICATION_LEVELS_DISPLAY = ", ".join(sorted(_VALID_CLASSIFICATION_LEVELS))
+_VALID_WIRE_TARGETS = {"json", "rust", "clickhouse"}
+_VALID_JSON_ENCODINGS = {"string"}
+_VALID_CLICKHOUSE_ENCODINGS = {"uuid", "string", "u8"}
+_VALID_RUST_CASE_VALUES = {
+    "snake_case",
+    "SCREAMING_SNAKE_CASE",
+    "camelCase",
+    "PascalCase",
+    "kebab-case",
+    "lowercase",
+    "UPPERCASE",
+}
 
 _AGGREGATE_FUNCTIONS = ("count", "sum", "min", "max", "avg")
 _AGGREGATE_PATTERN = re.compile(
@@ -151,6 +168,14 @@ def _validate_models(
                             diagnostics,
                             path,
                         )
+                    elif annotation.kind == "wire":
+                        _validate_wire_hints(
+                            f"{fqn}@{version.version}",
+                            field,
+                            annotation,
+                            diagnostics,
+                            path,
+                        )
 
         for index in range(1, len(versions)):
             previous = versions[index - 1]
@@ -191,6 +216,14 @@ def _validate_projections(
                             f"{fqn}@{version.version}",
                             field.name,
                             annotation.level,
+                            diagnostics,
+                            path,
+                        )
+                    elif annotation.kind == "wire":
+                        _validate_wire_hints(
+                            f"{fqn}@{version.version}",
+                            field,
+                            annotation,
                             diagnostics,
                             path,
                         )
@@ -245,6 +278,149 @@ def _validate_change_kind(
 
 def _find_field(version: ModelVersion, field_name: str):
     return next((field for field in version.fields if field.name == field_name), None)
+
+
+def _validate_wire_hints(
+    fqn: str,
+    field: FieldDef,
+    annotation: AnnWire,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    for target_name, hint in annotation.targets.items():
+        if target_name not in _VALID_WIRE_TARGETS:
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{fqn}: field '{field.name}' has unknown wire target '{target_name}'. "
+                    f"Valid targets are: {', '.join(sorted(_VALID_WIRE_TARGETS))}",
+                    path,
+                )
+            )
+            continue
+
+        if target_name == "json":
+            _validate_json_wire_hint(fqn, field, hint, diagnostics, path)
+        elif target_name == "rust":
+            _validate_rust_wire_hint(fqn, field, hint, diagnostics, path)
+        elif target_name == "clickhouse":
+            _validate_clickhouse_wire_hint(fqn, field, hint, diagnostics, path)
+
+
+def _validate_json_wire_hint(
+    fqn: str,
+    field: FieldDef,
+    hint,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    if hint.encoding is None:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{field.name}' has @wire(json: ...) without an encoding",
+                path,
+            )
+        )
+        return
+    if hint.encoding not in _VALID_JSON_ENCODINGS:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{field.name}' has unsupported json wire encoding '{hint.encoding}'. "
+                f"Valid encodings are: {', '.join(sorted(_VALID_JSON_ENCODINGS))}",
+                path,
+            )
+        )
+    if hint.type is not None or hint.case is not None or hint.overrides:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{field.name}' may not use rust-style modifiers on json wire hints",
+                path,
+            )
+        )
+    if not isinstance(field.type, (PrimitiveType, DecimalType)):
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{field.name}' only supports @wire(json: ...) on int or decimal fields",
+                path,
+            )
+        )
+
+
+def _validate_rust_wire_hint(
+    fqn: str,
+    field: FieldDef,
+    hint,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    if hint.type is not None and not isinstance(field.type, PrimitiveType):
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{field.name}' only supports rust.type on primitive fields",
+                path,
+            )
+        )
+    if hint.case is not None and hint.case not in _VALID_RUST_CASE_VALUES:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{field.name}' has unsupported rust.case '{hint.case}'. "
+                f"Valid values are: {', '.join(sorted(_VALID_RUST_CASE_VALUES))}",
+                path,
+            )
+        )
+    if hint.overrides:
+        if not isinstance(field.type, EnumType):
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{fqn}: field '{field.name}' only supports rust.overrides on enum fields",
+                    path,
+                )
+            )
+        else:
+            invalid_keys = sorted(set(hint.overrides) - set(field.type.values))
+            if invalid_keys:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{fqn}: field '{field.name}' has rust.overrides entries for unknown enum members: "
+                        + ", ".join(invalid_keys),
+                        path,
+                    )
+                )
+
+
+def _validate_clickhouse_wire_hint(
+    fqn: str,
+    field: FieldDef,
+    hint,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    if hint.encoding is None:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{field.name}' has @wire(clickhouse: ...) without an encoding",
+                path,
+            )
+        )
+        return
+    if hint.encoding not in _VALID_CLICKHOUSE_ENCODINGS:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{field.name}' has unsupported clickhouse wire encoding '{hint.encoding}'. "
+                f"Valid encodings are: {', '.join(sorted(_VALID_CLICKHOUSE_ENCODINGS))}",
+                path,
+            )
+        )
 
 
 def _diag(code: str, message: str, path: str | Path | None) -> Diagnostic:

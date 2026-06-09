@@ -290,6 +290,13 @@ def _resolve_projection_field_type(
 def _field_to_json_schema(field: FieldDef, field_type=None, defs: dict[str, dict] | None = None, path: list[str] | None = None) -> dict:
     prop = _type_to_json_schema(field_type, defs=defs, path=path) if field_type is not None else {}
 
+    wire_targets = field.wire_targets()
+    if wire_targets:
+        prop["x-modelable-wire"] = {
+            target: _wire_hint_to_json(hint)
+            for target, hint in sorted(wire_targets.items())
+        }
+
     for ann in field.annotations:
         if isinstance(ann, AnnKey):
             prop["x-modelable-field"] = {**(prop.get("x-modelable-field") or {}), "key": True}
@@ -313,6 +320,12 @@ def _field_to_json_schema(field: FieldDef, field_type=None, defs: dict[str, dict
                 **(prop.get("x-modelable-field") or {}),
                 "server": True,
             }
+
+    json_hint = wire_targets.get("json")
+    if json_hint is not None and json_hint.encoding == "string":
+        if isinstance(field_type, (DecimalType,)) or (isinstance(field_type, PrimitiveType) and field_type.kind == "int"):
+            prop["type"] = "string"
+            prop.pop("format", None)
 
     return prop
 
@@ -433,3 +446,16 @@ def _validate_schema(artifact: EmittedArtifact) -> None:
         artifact.warnings.append(
             validation_failed(str(artifact.path), str(exc))
         )
+
+
+def _wire_hint_to_json(hint) -> dict:
+    data: dict[str, object] = {}
+    if hint.encoding is not None:
+        data["encoding"] = hint.encoding
+    if hint.type is not None:
+        data["type"] = hint.type
+    if hint.case is not None:
+        data["case"] = hint.case
+    if hint.overrides:
+        data["overrides"] = {key: hint.overrides[key] for key in sorted(hint.overrides)}
+    return data

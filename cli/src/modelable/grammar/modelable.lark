@@ -58,9 +58,18 @@ annotation: "@key"                                                -> ann_key
           | "@deprecated" "(" "replacedBy" ":" ESCAPED_STRING ")" -> ann_deprecated
           | "@owner" "(" ESCAPED_STRING ")"                      -> ann_owner
           | "@server"                                             -> ann_server
+          | wire_annotation
           | "@pitCutoff" "(" ANNOTATION_EXPR ")"                  -> ann_pit_cutoff
           | "@latestBefore" "(" ANNOTATION_EXPR ")"               -> ann_latest_before
           | "@latestOnly"                                         -> ann_latest_only
+
+wire_annotation: "@wire" "(" wire_option ("," wire_option)* ")" -> ann_wire
+wire_option: wire_key ":" wire_value
+wire_key: IDENT ("." IDENT)?
+wire_value: ESCAPED_STRING        -> wire_string
+          | wire_map
+wire_map: "{" wire_map_item ("," wire_map_item)* "}"
+wire_map_item: IDENT ":" ESCAPED_STRING
 
 
 // -- Types -------------------------------------------------------------------

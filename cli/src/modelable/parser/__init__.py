@@ -7,6 +7,7 @@ from modelable.parser.ir import (
     AnnOwner,
     AnnPii,
     AnnServer,
+    AnnWire,
     AccessBlock,
     AccessGrant,
     ArrayType,
@@ -39,6 +40,7 @@ from modelable.parser.ir import (
     VersionExact,
     VersionMin,
     VersionRange,
+    WireTargetHint,
     WorkspaceDef,
 )
 from modelable.parser.parse import parse_file, parse_file_to_ir, parse_text, parse_text_to_ir
@@ -51,6 +53,7 @@ __all__ = [
     "AnnOwner",
     "AnnPii",
     "AnnServer",
+    "AnnWire",
     "AccessBlock",
     "AccessGrant",
     "ArrayType",
@@ -83,6 +86,7 @@ __all__ = [
     "VersionExact",
     "VersionMin",
     "VersionRange",
+    "WireTargetHint",
     "WorkspaceDef",
     "parse_file",
     "parse_file_to_ir",
