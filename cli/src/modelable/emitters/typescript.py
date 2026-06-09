@@ -201,12 +201,29 @@ def _version_label(version_spec) -> str:
     return "?"
 
 
+def _apply_case(value: str, case: str) -> str:
+    """Convert an enum value string to the specified wire case convention."""
+    words = re.sub(r"([a-z])([A-Z])", r"\1_\2", value)
+    words_list = [w for w in re.split(r"[^A-Za-z0-9]+", words) if w]
+    if not words_list:
+        return value
+    if case == "SCREAMING_SNAKE_CASE":
+        return "_".join(w.upper() for w in words_list)
+    if case == "snake_case":
+        return "_".join(w.lower() for w in words_list)
+    if case == "camelCase":
+        return words_list[0].lower() + "".join(w.capitalize() for w in words_list[1:])
+    if case == "PascalCase":
+        return "".join(w.capitalize() for w in words_list)
+    return value
+
+
 def _type_to_ts(field_type, *, wire_targets: dict[str, object] | None = None) -> str:
     json_wire = None
     if wire_targets is not None:
         json_wire = wire_targets.get("json")
     if isinstance(field_type, PrimitiveType):
-        if json_wire is not None and getattr(json_wire, "encoding", None) == "string" and field_type.kind in {"int"}:
+        if json_wire is not None and getattr(json_wire, "encoding", None) == "string" and field_type.kind in {"int", "float"}:
             return "string"
         mapping = {
             "string": "string",
@@ -222,8 +239,6 @@ def _type_to_ts(field_type, *, wire_targets: dict[str, object] | None = None) ->
         }
         return mapping.get(field_type.kind, "unknown")
     if isinstance(field_type, DecimalType):
-        if json_wire is not None and getattr(json_wire, "encoding", None) == "string":
-            return "string"
         return "string"
     if isinstance(field_type, ArrayType):
         return f"{_type_to_ts(field_type.item)}[]"
@@ -232,7 +247,17 @@ def _type_to_ts(field_type, *, wire_targets: dict[str, object] | None = None) ->
     if isinstance(field_type, RefType):
         return "string"
     if isinstance(field_type, EnumType):
-        values = " | ".join(repr(value) for value in field_type.values)
+        case = getattr(json_wire, "case", None) if json_wire is not None else None
+        overrides = getattr(json_wire, "overrides", {}) if json_wire is not None else {}
+        wire_values = []
+        for v in field_type.values:
+            if v in overrides:
+                wire_values.append(overrides[v])
+            elif case:
+                wire_values.append(_apply_case(v, case))
+            else:
+                wire_values.append(v)
+        values = " | ".join(repr(v) for v in wire_values)
         return values or "string"
     if isinstance(field_type, ObjectType):
         inner = "; ".join(

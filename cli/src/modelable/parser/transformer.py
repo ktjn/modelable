@@ -297,6 +297,9 @@ class MdlTransformer(Transformer):
     def wire_string(self, items):
         return _str(items[0])
 
+    def wire_value(self, items):
+        return items[0]
+
     def wire_map(self, items):
         return {key: value for key, value in items}
 
