@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from modelable.diagnostics.model import Diagnostic
 
@@ -85,6 +85,32 @@ class AnnServer(BaseModel):
     kind: Literal["server"] = "server"
 
 
+class WireTargetHint(BaseModel):
+    encoding: str | None = None
+    type: str | None = None
+    case: str | None = None
+    overrides: dict[str, str] = Field(default_factory=dict)
+
+
+class AnnWire(BaseModel):
+    kind: Literal["wire"] = "wire"
+    targets: dict[str, WireTargetHint] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _validate_targets(self):
+        if not self.targets:
+            raise ValueError("wire annotations must declare at least one target")
+        for target, hint in self.targets.items():
+            if (
+                hint.encoding is None
+                and hint.type is None
+                and hint.case is None
+                and not hint.overrides
+            ):
+                raise ValueError(f"wire target '{target}' must define at least one option")
+        return self
+
+
 class AnnPitCutoff(BaseModel):
     kind: Literal["pit_cutoff"] = "pit_cutoff"
     expression: str
@@ -112,6 +138,7 @@ Annotation = Annotated[
     | AnnDeprecated
     | AnnOwner
     | AnnServer
+    | AnnWire
     | AnnPitCutoff
     | AnnLatestBefore
     | AnnLatestOnly
@@ -209,6 +236,11 @@ class FieldDef(BaseModel):
                 except ValueError:
                     return None
         return None
+
+    def wire_targets(self) -> dict[str, WireTargetHint]:
+        from modelable.parser.wire import wire_targets_from_annotations
+
+        return wire_targets_from_annotations(self.annotations)
 
 
 class ModelKind(str, Enum):
@@ -323,6 +355,11 @@ class ProjectionField(BaseModel):
                 except ValueError:
                     return None
         return None
+
+    def wire_targets(self) -> dict[str, WireTargetHint]:
+        from modelable.parser.wire import wire_targets_from_annotations
+
+        return wire_targets_from_annotations(self.annotations)
 
 
 class ProjectionVersion(BaseModel):

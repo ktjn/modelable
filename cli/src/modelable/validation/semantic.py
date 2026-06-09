@@ -6,16 +6,35 @@ import re
 from modelable.compat.diff import compare_model_versions
 from modelable.diagnostics.model import Diagnostic
 from modelable.parser.ir import (
+    AnnWire,
     ChangeKind,
     ClassificationLevel,
     ComputedMapping,
     MdlFile,
     ModelKind,
     ModelVersion,
+    EnumType,
+    FieldDef,
+    ObjectType,
+    PrimitiveType,
+    DecimalType,
 )
+from modelable.registry.resolver import resolve_model_ref
 
 _VALID_CLASSIFICATION_LEVELS = {level.value for level in ClassificationLevel}
 _CLASSIFICATION_LEVELS_DISPLAY = ", ".join(sorted(_VALID_CLASSIFICATION_LEVELS))
+_VALID_WIRE_TARGETS = {"json", "rust", "clickhouse"}
+_VALID_JSON_ENCODINGS = {"string"}
+_VALID_CLICKHOUSE_ENCODINGS = {"uuid", "string", "u8"}
+_VALID_RUST_CASE_VALUES = {
+    "snake_case",
+    "SCREAMING_SNAKE_CASE",
+    "camelCase",
+    "PascalCase",
+    "kebab-case",
+    "lowercase",
+    "UPPERCASE",
+}
 
 _AGGREGATE_FUNCTIONS = ("count", "sum", "min", "max", "avg")
 _AGGREGATE_PATTERN = re.compile(
@@ -59,7 +78,7 @@ def validate_diagnostics(mdl: MdlFile, path: str | Path | None = None) -> list[D
                 )
             )
         _validate_models(domain.name, domain.models, diagnostics, path)
-        _validate_projections(domain.name, domain.projections, diagnostics, path)
+        _validate_projections(domain.name, domain.projections, diagnostics, path, mdl)
     return diagnostics
 
 
@@ -142,15 +161,14 @@ def _validate_models(
                     )
                 )
             for field in version.fields:
-                for annotation in field.annotations:
-                    if annotation.kind == "classification":
-                        _validate_classification_level(
-                            f"{fqn}@{version.version}",
-                            field.name,
-                            annotation.level,
-                            diagnostics,
-                            path,
-                        )
+                _validate_field_annotations(
+                    f"{fqn}@{version.version}",
+                    field,
+                    diagnostics,
+                    path,
+                    field_path=[field.name],
+                    field_type=field.type,
+                )
 
         for index in range(1, len(versions)):
             previous = versions[index - 1]
@@ -163,6 +181,7 @@ def _validate_projections(
     projections,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
+    mdl: MdlFile,
 ) -> None:
     for projection_name, versions in projections.items():
         fqn = f"{domain_name}.{projection_name}"
@@ -185,15 +204,15 @@ def _validate_projections(
                         )
                     )
             for field in version.fields:
-                for annotation in field.annotations:
-                    if annotation.kind == "classification":
-                        _validate_classification_level(
-                            f"{fqn}@{version.version}",
-                            field.name,
-                            annotation.level,
-                            diagnostics,
-                            path,
-                        )
+                source_type = _resolve_projection_field_type(field, version, mdl)
+                _validate_field_annotations(
+                    f"{fqn}@{version.version}",
+                    field,
+                    diagnostics,
+                    path,
+                    field_path=[field.name],
+                    field_type=source_type,
+                )
 
 
 def _validate_change_kind(
@@ -245,6 +264,302 @@ def _validate_change_kind(
 
 def _find_field(version: ModelVersion, field_name: str):
     return next((field for field in version.fields if field.name == field_name), None)
+
+
+def _validate_field_annotations(
+    fqn: str,
+    field: FieldDef,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+    *,
+    field_path: list[str],
+    field_type=None,
+) -> None:
+    field_label = ".".join(field_path)
+    try:
+        field.wire_targets()
+    except ValueError as exc:
+        diagnostics.append(_diag("SEM", f"{fqn}: field '{field_label}' has conflicting @wire annotations: {exc}", path))
+        return
+    for annotation in field.annotations:
+        if annotation.kind == "classification":
+            _validate_classification_level(
+                fqn,
+                field_label,
+                annotation.level,
+                diagnostics,
+                path,
+            )
+        elif annotation.kind == "wire":
+            _validate_wire_hints(
+                fqn,
+                field,
+                annotation,
+                diagnostics,
+                path,
+                field_label=field_label,
+                field_type=field_type,
+            )
+    if isinstance(field_type, ObjectType):
+        for child in field_type.fields:
+            _validate_field_annotations(
+                fqn,
+                child,
+                diagnostics,
+                path,
+                field_path=[*field_path, child.name],
+                field_type=child.type,
+            )
+
+
+def _validate_wire_hints(
+    fqn: str,
+    field: FieldDef,
+    annotation: AnnWire,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+    *,
+    field_label: str | None = None,
+    field_type=None,
+) -> None:
+    label = field_label or field.name
+    for target_name, hint in annotation.targets.items():
+        if target_name not in _VALID_WIRE_TARGETS:
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{fqn}: field '{label}' has unknown wire target '{target_name}'. "
+                    f"Valid targets are: {', '.join(sorted(_VALID_WIRE_TARGETS))}",
+                    path,
+                )
+            )
+            continue
+
+        if target_name == "json":
+            _validate_json_wire_hint(
+                fqn,
+                field,
+                hint,
+                diagnostics,
+                path,
+                field_label=label,
+                field_type=field_type,
+            )
+        elif target_name == "rust":
+            _validate_rust_wire_hint(
+                fqn,
+                field,
+                hint,
+                diagnostics,
+                path,
+                field_label=label,
+                field_type=field_type,
+            )
+        elif target_name == "clickhouse":
+            _validate_clickhouse_wire_hint(
+                fqn,
+                field,
+                hint,
+                diagnostics,
+                path,
+                field_label=label,
+                field_type=field_type,
+            )
+
+
+def _validate_json_wire_hint(
+    fqn: str,
+    field: FieldDef,
+    hint,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+    *,
+    field_label: str | None = None,
+    field_type=None,
+) -> None:
+    label = field_label or field.name
+    if hint.encoding is None:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' has @wire(json: ...) without an encoding",
+                path,
+            )
+        )
+        return
+    if hint.encoding not in _VALID_JSON_ENCODINGS:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' has unsupported json wire encoding '{hint.encoding}'. "
+                f"Valid encodings are: {', '.join(sorted(_VALID_JSON_ENCODINGS))}",
+                path,
+            )
+        )
+        return
+    if hint.type is not None or hint.case is not None or hint.overrides:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' may not use rust-style modifiers on json wire hints",
+                path,
+            )
+        )
+        return
+    if field_type is not None and not (
+        (isinstance(field_type, PrimitiveType) and field_type.kind == "int")
+        or isinstance(field_type, DecimalType)
+    ):
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' only supports @wire(json: ...) on int or decimal fields",
+                path,
+            )
+        )
+
+
+def _validate_rust_wire_hint(
+    fqn: str,
+    field: FieldDef,
+    hint,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+    *,
+    field_label: str | None = None,
+    field_type=None,
+) -> None:
+    label = field_label or field.name
+    if hint.encoding is not None:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' may not use an encoding on rust wire hints",
+                path,
+            )
+        )
+        return
+    if hint.type is not None and field_type is not None and not (
+        isinstance(field_type, PrimitiveType) and field_type.kind == "int"
+    ):
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' only supports rust.type on int fields",
+                path,
+            )
+        )
+    if hint.case is not None and hint.case not in _VALID_RUST_CASE_VALUES:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' has unsupported rust.case '{hint.case}'. "
+                f"Valid values are: {', '.join(sorted(_VALID_RUST_CASE_VALUES))}",
+                path,
+            )
+        )
+    if hint.overrides:
+        if field_type is None or not isinstance(field_type, EnumType):
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{fqn}: field '{label}' only supports rust.overrides on enum fields",
+                    path,
+                )
+            )
+        else:
+            invalid_keys = sorted(set(hint.overrides) - set(field_type.values))
+            if invalid_keys:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{fqn}: field '{label}' has rust.overrides entries for unknown enum members: "
+                        + ", ".join(invalid_keys),
+                        path,
+                    )
+                )
+
+
+def _validate_clickhouse_wire_hint(
+    fqn: str,
+    field: FieldDef,
+    hint,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+    *,
+    field_label: str | None = None,
+    field_type=None,
+) -> None:
+    label = field_label or field.name
+    if hint.encoding is None:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' has @wire(clickhouse: ...) without an encoding",
+                path,
+            )
+        )
+        return
+    if hint.encoding not in _VALID_CLICKHOUSE_ENCODINGS:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' has unsupported clickhouse wire encoding '{hint.encoding}'. "
+                f"Valid encodings are: {', '.join(sorted(_VALID_CLICKHOUSE_ENCODINGS))}",
+                path,
+            )
+        )
+        return
+
+
+def _resolve_projection_field_type(field, projection, mdl):
+    if not hasattr(field, "mapping"):
+        return getattr(field, "type", None)
+    mapping = field.mapping
+    if isinstance(mapping, ComputedMapping):
+        return None
+    if mapping.source_alias == projection.source.alias:
+        source_ref = projection.source
+    else:
+        source_ref = next((j for j in projection.joins if j.alias == mapping.source_alias), None)
+        if source_ref is None:
+            return None
+    try:
+        source_domain, source_model = source_ref.model.rsplit(".", 1)
+    except ValueError:
+        return None
+    try:
+        resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", source_ref.version)
+    except LookupError:
+        return None
+    return _resolve_field_type_from_version(
+        mdl,
+        resolved.version,
+        mapping.source_field,
+    )
+
+
+def _resolve_field_type_from_version(mdl: MdlFile, version, field_name: str):
+    if hasattr(version, "fields"):
+        field = next((item for item in version.fields if item.name == field_name), None)
+        if field is None:
+            return None
+        field_type = getattr(field, "type", None)
+        if field_type is not None:
+            return field_type
+        mapping = getattr(field, "mapping", None)
+        if mapping is None or mapping.kind != "direct":
+            return None
+        try:
+            source_domain, source_model = version.source.model.rsplit(".", 1)
+        except (ValueError, AttributeError):
+            return None
+        try:
+            resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", version.source.version)
+        except LookupError:
+            return None
+        return _resolve_field_type_from_version(mdl, resolved.version, mapping.source_field)
+    return None
 
 
 def _diag(code: str, message: str, path: str | Path | None) -> Diagnostic:

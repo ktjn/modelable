@@ -16,6 +16,8 @@ domain customer {
     legalName: string
     @pii
     email?: string
+    @wire(json: "string", rust.type: "u64")
+    loyaltyPoints?: int
     status: enum(active, blocked, deleted)
     createdAt: timestamp
   }

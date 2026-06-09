@@ -32,6 +32,7 @@ _ANNOTATIONS = [
     "@deprecated",
     "@owner",
     "@server",
+    "@wire",
 ]
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"

@@ -16,6 +16,7 @@ from modelable.parser.ir import (
     AnnOwner,
     AnnPii,
     AnnServer,
+    AnnWire,
     ArrayType,
     AutoProjectionDecl,
     AutoProjectionTarget,
@@ -45,6 +46,7 @@ from modelable.parser.ir import (
     VersionMin,
     VersionPinned,
     VersionRange,
+    WireTargetHint,
     WorkspaceDef,
 )
 
@@ -55,6 +57,7 @@ ANNOTATION_TYPES = (
     AnnDeprecated,
     AnnOwner,
     AnnServer,
+    AnnWire,
     AnnPitCutoff,
     AnnLatestBefore,
     AnnLatestOnly,
@@ -226,6 +229,45 @@ class MdlTransformer(Transformer):
     def ann_server(self, _items):
         return AnnServer()
 
+    def ann_wire(self, items):
+        targets: dict[str, WireTargetHint] = {}
+        for target, modifier, value in items:
+            hint = targets.get(target, WireTargetHint())
+            if modifier is None:
+                if hint.encoding is not None and hint.encoding != value:
+                    raise ValueError(
+                        f"conflicting wire encodings for target '{target}': "
+                        f"{hint.encoding!r} vs {value!r}"
+                    )
+                hint.encoding = value
+            elif modifier == "type":
+                if hint.type is not None and hint.type != value:
+                    raise ValueError(
+                        f"conflicting wire types for target '{target}': "
+                        f"{hint.type!r} vs {value!r}"
+                    )
+                hint.type = value
+            elif modifier == "case":
+                if hint.case is not None and hint.case != value:
+                    raise ValueError(
+                        f"conflicting wire cases for target '{target}': "
+                        f"{hint.case!r} vs {value!r}"
+                    )
+                hint.case = value
+            elif modifier == "overrides":
+                overlap = sorted(set(hint.overrides) & set(value))
+                for key in overlap:
+                    if hint.overrides[key] != value[key]:
+                        raise ValueError(
+                            f"conflicting wire override for target '{target}' member '{key}': "
+                            f"{hint.overrides[key]!r} vs {value[key]!r}"
+                        )
+                hint.overrides.update(value)
+            else:
+                raise ValueError(f"unsupported wire modifier: {modifier}")
+            targets[target] = hint
+        return AnnWire(targets=targets)
+
     def ann_pit_cutoff(self, items):
         return AnnPitCutoff(expression=str(items[0]).strip())
 
@@ -242,6 +284,24 @@ class MdlTransformer(Transformer):
 
     def annotation(self, items):
         return items[0]
+
+    def wire_option(self, items):
+        target, modifier = items[0]
+        return target, modifier, items[1]
+
+    def wire_key(self, items):
+        if len(items) == 1:
+            return str(items[0]), None
+        return str(items[0]), str(items[1])
+
+    def wire_string(self, items):
+        return _str(items[0])
+
+    def wire_map(self, items):
+        return {key: value for key, value in items}
+
+    def wire_map_item(self, items):
+        return str(items[0]), _str(items[1])
 
     def type_expr(self, items):
         item = items[0]

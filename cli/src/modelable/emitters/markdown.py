@@ -11,6 +11,7 @@ from modelable.parser.ir import (
     AnnOwner,
     AnnPii,
     AnnServer,
+    AnnWire,
     ArrayType,
     ComputedMapping,
     DecimalType,
@@ -31,6 +32,7 @@ from modelable.parser.ir import (
     VersionPinned,
     VersionRange,
 )
+from modelable.parser.wire import render_wire_annotation
 
 
 def emit_markdown(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
@@ -211,6 +213,8 @@ def _format_annotations(field: FieldDef) -> str:
             parts.append(f"@owner({ann.team})")
         elif isinstance(ann, AnnClassification):
             pass  # shown in classification column
+        elif isinstance(ann, AnnWire):
+            parts.append(render_wire_annotation(ann))
     return ", ".join(parts) if parts else "—"
 
 
@@ -227,6 +231,8 @@ def _format_projection_annotations(field: ProjectionField) -> str:
             parts.append(f"@owner({ann.team})")
         elif isinstance(ann, AnnClassification):
             pass
+        elif isinstance(ann, AnnWire):
+            parts.append(render_wire_annotation(ann))
     return ", ".join(parts) if parts else "—"
 
 

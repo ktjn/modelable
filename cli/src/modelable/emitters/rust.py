@@ -85,7 +85,13 @@ def _emit_projection(
             warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
             field_specs.append((index, field.name, "String", False))
             continue
-        annotation = _shape_annotation(field_shape, owner_type=type_name, path=[field.name], definitions=nested_definitions)
+        annotation = _shape_annotation(
+            field_shape,
+            owner_type=type_name,
+            path=[field.name],
+            definitions=nested_definitions,
+            rust_hint=field.wire_targets().get("rust"),
+        )
         optional = field_shape.optional or field_shape.nullable
         field_specs.append((index, field.name, annotation, optional))
 
@@ -164,7 +170,13 @@ def _field_specs_from_model_fields(
     specs: list[tuple[int, str, str, bool]] = []
     for index, field in enumerate(fields):
         shape = TypeShape.from_field_type(field.type, optional=field.optional)
-        annotation = _shape_annotation(shape, owner_type=owner_type, path=[*path, field.name], definitions=definitions)
+        annotation = _shape_annotation(
+            shape,
+            owner_type=owner_type,
+            path=[*path, field.name],
+            definitions=definitions,
+            rust_hint=field.wire_targets().get("rust"),
+        )
         default_none = shape.optional or shape.nullable
         specs.append((index, field.name, annotation, default_none))
     return specs
@@ -179,7 +191,13 @@ def _field_specs_from_object_fields(
 ) -> list[tuple[int, str, str, bool]]:
     specs: list[tuple[int, str, str, bool]] = []
     for index, field in enumerate(fields):
-        annotation = _shape_annotation(field.shape, owner_type=owner_type, path=[*path, field.name], definitions=definitions)
+        annotation = _shape_annotation(
+            field.shape,
+            owner_type=owner_type,
+            path=[*path, field.name],
+            definitions=definitions,
+            rust_hint=(field.wire_targets or {}).get("rust"),
+        )
         default_none = field.optional or field.shape.optional or field.shape.nullable
         specs.append((index, field.name, annotation, default_none))
     return specs
@@ -191,8 +209,15 @@ def _shape_annotation(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    rust_hint=None,
 ) -> str:
-    base = _shape_base_annotation(shape, owner_type=owner_type, path=path, definitions=definitions)
+    base = _shape_base_annotation(
+        shape,
+        owner_type=owner_type,
+        path=path,
+        definitions=definitions,
+        rust_hint=rust_hint,
+    )
     if shape.optional or shape.nullable:
         return f"Option<{base}>"
     return base
@@ -204,18 +229,31 @@ def _shape_base_annotation(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    rust_hint=None,
 ) -> str:
     if shape.kind == "primitive":
+        if rust_hint is not None and getattr(rust_hint, "type", None) and (shape.ref or "string") == "int":
+            return rust_hint.type
         return _primitive_to_rust(shape.ref or "string")
     if shape.kind == "decimal":
         return "String"
     if shape.kind == "array":
         element = shape.element or TypeShape(kind="primitive", ref="object")
-        element_type = _shape_annotation(element, owner_type=owner_type, path=path + ["Item"], definitions=definitions)
+        element_type = _shape_annotation(
+            element,
+            owner_type=owner_type,
+            path=path + ["Item"],
+            definitions=definitions,
+        )
         return f"Vec<{element_type}>"
     if shape.kind == "map":
         value = shape.value or TypeShape(kind="primitive", ref="object")
-        value_type = _shape_annotation(value, owner_type=owner_type, path=path + ["Value"], definitions=definitions)
+        value_type = _shape_annotation(
+            value,
+            owner_type=owner_type,
+            path=path + ["Value"],
+            definitions=definitions,
+        )
         return f"HashMap<String, {value_type}>"
     if shape.kind == "ref":
         return "String"

@@ -7,6 +7,7 @@ from modelable.parser.ir import (
     AnnOwner,
     AnnPii,
     AnnServer,
+    AnnWire,
     ArrayType,
     AutoProjectionDecl,
     AutoProjectionTarget,
@@ -35,6 +36,7 @@ from modelable.parser.ir import (
     VersionRange,
     WorkspaceDef,
 )
+from modelable.parser.wire import render_wire_annotation
 
 
 def render_mdl(mdl: MdlFile) -> str:
@@ -245,6 +247,8 @@ def _render_annotation_literal(annotation) -> str:
         return f'@owner("{annotation.team}")'
     if isinstance(annotation, AnnServer):
         return "@server"
+    if isinstance(annotation, AnnWire):
+        return render_wire_annotation(annotation)
     return "@unknown"
 
 

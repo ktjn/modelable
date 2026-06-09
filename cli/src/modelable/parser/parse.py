@@ -36,7 +36,10 @@ def parse_file(path: str | Path) -> Tree:
 
 
 def parse_text_to_ir(text: str, path: str | Path | None = None) -> MdlFile:
-    return MdlTransformer().transform(parse_text(text))
+    try:
+        return MdlTransformer().transform(parse_text(text))
+    except ValueError as exc:
+        raise ParseError(str(exc)) from exc
 
 
 def parse_file_to_ir(path: str | Path) -> MdlFile:

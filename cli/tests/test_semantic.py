@@ -215,3 +215,116 @@ def test_aggregate_function_with_group_by_passes():
     errors = validate(mdl)
 
     assert errors == []
+
+
+def test_unknown_wire_target_fails():
+    mdl = parse_text_to_ir("""
+    domain metrics {
+      owner: "test-team"
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        @wire(unknown: "string")
+        startTimeUnixNano: int
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("unknown wire target" in error.lower() for error in errors)
+
+
+def test_json_wire_requires_string_encoding():
+    mdl = parse_text_to_ir("""
+    domain metrics {
+      owner: "test-team"
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        @wire(json: "uuid")
+        startTimeUnixNano: int
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("unsupported json wire encoding" in error.lower() for error in errors)
+
+
+def test_json_wire_rejects_non_integer_string_fields():
+    mdl = parse_text_to_ir("""
+    domain metrics {
+      owner: "test-team"
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        @wire(json: "string")
+        name: string
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("only supports @wire(json: ...)" in error for error in errors)
+
+
+def test_inline_object_wire_hints_are_validated_recursively():
+    mdl = parse_text_to_ir("""
+    domain metrics {
+      owner: "test-team"
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        payload: object {
+          @wire(json: "bad_encoding")
+          count: int
+        }
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any(
+        "payload" in error.lower() and "unsupported json wire encoding" in error.lower()
+        for error in errors
+    )
+
+
+def test_rust_type_override_is_rejected_on_non_int_fields():
+    mdl = parse_text_to_ir("""
+    domain metrics {
+      owner: "test-team"
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        @wire(rust.type: "i64")
+        startedAt: timestamp
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("only supports rust.type on int fields" in error.lower() for error in errors)
+
+
+def test_projection_field_wire_hints_validate_against_source_type():
+    mdl = parse_text_to_ir("""
+    domain metrics {
+      owner: "test-team"
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        amount: int
+      }
+
+      projection SpanView @ 1
+        from metrics.Span @ 1 as s
+      {
+        @wire(json: "string")
+        amount <- s.spanId
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("only supports @wire(json: ...)" in error for error in errors)

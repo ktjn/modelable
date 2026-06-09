@@ -71,7 +71,7 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     for field in version.fields:
         if isinstance(field.type, NamedType):
             warnings.append(missing_metadata(f"{domain.name}.{model_name}.{field.name}"))
-        lines.append(f"  {field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type)};")
+        lines.append(f"  {field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets())};")
     lines.append("}")
     lines.append(f"export type {model_name} = {interface_name};")
     return EmittedArtifact(
@@ -113,7 +113,7 @@ def _emit_projection(
             warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
         elif isinstance(field_type, NamedType):
             warnings.append(missing_metadata(f"{domain.name}.{projection_name}.{field.name}"))
-        lines.append(f"  {field.name}: {_type_to_ts(field_type)};")
+        lines.append(f"  {field.name}: {_type_to_ts(field_type, wire_targets=field.wire_targets())};")
     lines.append("}")
     lines.append(f"export type {projection_name} = {interface_name};")
     return EmittedArtifact(
@@ -201,8 +201,13 @@ def _version_label(version_spec) -> str:
     return "?"
 
 
-def _type_to_ts(field_type) -> str:
+def _type_to_ts(field_type, *, wire_targets: dict[str, object] | None = None) -> str:
+    json_wire = None
+    if wire_targets is not None:
+        json_wire = wire_targets.get("json")
     if isinstance(field_type, PrimitiveType):
+        if json_wire is not None and getattr(json_wire, "encoding", None) == "string" and field_type.kind in {"int"}:
+            return "string"
         mapping = {
             "string": "string",
             "int": "number",
@@ -217,6 +222,8 @@ def _type_to_ts(field_type) -> str:
         }
         return mapping.get(field_type.kind, "unknown")
     if isinstance(field_type, DecimalType):
+        if json_wire is not None and getattr(json_wire, "encoding", None) == "string":
+            return "string"
         return "string"
     if isinstance(field_type, ArrayType):
         return f"{_type_to_ts(field_type.item)}[]"
@@ -228,7 +235,10 @@ def _type_to_ts(field_type) -> str:
         values = " | ".join(repr(value) for value in field_type.values)
         return values or "string"
     if isinstance(field_type, ObjectType):
-        inner = "; ".join(f"{field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type)}" for field in field_type.fields)
+        inner = "; ".join(
+            f"{field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets())}"
+            for field in field_type.fields
+        )
         return f"{{ {inner} }}"
     if isinstance(field_type, NamedType):
         return field_type.name
