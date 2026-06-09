@@ -330,6 +330,7 @@ def _write_rust_smoke(tmp_path: Path, out: Path) -> None:
             edition = "2024"
 
             [dependencies]
+            serde = { version = "1", features = ["derive"] }
             """
         ).strip()
         + "\n",

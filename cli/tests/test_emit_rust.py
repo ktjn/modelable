@@ -218,3 +218,100 @@ domain customer {
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@2")
     # name comes from Customer@1 (String), not Customer@2 (i64)
     assert "pub name: String," in proj_art.content
+
+
+def test_emit_rust_struct_has_serde_derives(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain events {
+  owner: "test-team"
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    name: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "events.Event@1")
+    assert "serde::Serialize" in art.content
+    assert "serde::Deserialize" in art.content
+
+
+def test_emit_rust_nested_struct_has_serde_derives(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain events {
+  owner: "test-team"
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    metadata: object {
+      source: string
+      priority: int
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "events.Event@1")
+    # Both the top-level struct and the nested object struct get serde derives
+    assert art.content.count("serde::Serialize") == 2
+    assert art.content.count("serde::Deserialize") == 2
+
+
+def test_emit_rust_wire_u64_string_emits_serde_with(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    @wire(json: "string", rust.type: "u64")
+    startTimeUnixNano: int
+    name: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    # u64 field with json:string wire hint gets serde_with attribute
+    assert "pub start_time_unix_nano: u64," in art.content
+    assert 'serde_with::rust::display_fromstr' in art.content
+    # plain string field does NOT get a serde_with attribute
+    assert art.content.count('serde_with::rust::display_fromstr') == 1
+    # file header documents the serde_with dependency
+    assert "requires: serde_with" in art.content
+
+
+def test_emit_rust_rust_type_without_json_string_no_serde_with(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    @wire(rust.type: "u64")
+    startTimeUnixNano: int
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    # rust.type alone (no json:string) does NOT need serde_with
+    assert "pub start_time_unix_nano: u64," in art.content
+    assert "serde_with" not in art.content
