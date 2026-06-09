@@ -522,6 +522,140 @@ domain metrics {
     assert '#[cfg(feature = "storage")]' not in proj.content
 
 
+def test_emit_rust_from_impl_basic(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+    score: int
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    displayName <- c.displayName
+    score <- c.score
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "customer.CustomerView@1")
+    assert "impl From<CustomerCustomerV1> for CustomerCustomerViewV1" in proj.content
+    assert "fn from(src: CustomerCustomerV1) -> Self" in proj.content
+    assert "customer_id: src.customer_id.into()," in proj.content
+    assert "display_name: src.display_name.into()," in proj.content
+    assert "use super::customer_customer_v1::CustomerCustomerV1;" in proj.content
+    # Model struct itself should NOT have a From impl (no projection source)
+    model = next(a for a in artifacts if a.ref == "customer.Customer@1")
+    assert "impl From<" not in model.content
+
+
+def test_emit_rust_from_impl_storage_gated(tmp_path):
+    (tmp_path / "all.mdl").write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    total: int
+  }
+
+  projection OrderRow @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    total <- o.total
+  }
+}
+
+binding my-pg-conn {
+  adapter: postgres
+}
+
+binding order-binding {
+  model: orders.Order @ 1
+  adapter: my-pg-conn
+  table: "orders"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "orders.OrderRow@1")
+    # From impl is present and storage-gated
+    assert "impl From<OrdersOrderV1> for OrdersOrderRowV1" in proj.content
+    assert proj.content.count('#[cfg(feature = "storage")]') >= 2  # struct + From impl
+
+
+def test_emit_rust_from_impl_skipped_with_joins(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain sales {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+  }
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  projection OrderWithCustomer @ 1
+    from sales.Order @ 1 as o
+    join sales.Customer @ 1 as c on o.customerId == c.customerId
+  {
+    orderId <- o.orderId
+    customerName <- c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "sales.OrderWithCustomer@1")
+    # No From impl generated for projections with joins
+    assert "impl From<" not in proj.content
+
+
+def test_emit_rust_from_impl_computed_field_defaults(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    displayName = c.name + "!"
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "customer.CustomerView@1")
+    assert "impl From<CustomerCustomerV1> for CustomerCustomerViewV1" in proj.content
+    assert "display_name: Default::default()," in proj.content
+    assert "// computed" in proj.content
+
+
 def test_emit_rust_rust_type_without_json_string_no_serde_with(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
