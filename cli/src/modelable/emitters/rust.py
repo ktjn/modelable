@@ -212,7 +212,11 @@ def _emit_from_impl(
         rust_name = _field_name(proj_field.name)
         if isinstance(proj_field.mapping, DirectMapping):
             src_rust_name = _field_name(proj_field.mapping.source_field)
-            lines.append(f"            {rust_name}: src.{src_rust_name}.into(),")
+            field_shape = _resolve_projection_field_shape(proj_field, version, mdl)
+            if field_shape is not None and _shape_involves_object(field_shape):
+                lines.append(f"            {rust_name}: Default::default(), // nested struct — provide manual impl")
+            else:
+                lines.append(f"            {rust_name}: src.{src_rust_name}.into(),")
         else:
             lines.append(f"            {rust_name}: Default::default(), // computed — provide manual impl")
 
@@ -252,6 +256,23 @@ def _any_needs_serde_with(field_specs: list[_FieldSpec]) -> bool:
 
 def _any_needs_uuid(field_specs: list[_FieldSpec]) -> bool:
     return any("uuid::Uuid" in spec.annotation for spec in field_specs)
+
+
+def _shape_involves_object(shape: TypeShape) -> bool:
+    """Return True if the shape contains an inline object type.
+
+    Inline object fields generate distinct named types per-struct (e.g.
+    CustomerV1Address vs CustomerViewV1Address). Those types don't implement
+    From/Into for each other, so the generated From impl must fall back to
+    Default::default() rather than emitting .into().
+    """
+    if shape.kind == "object":
+        return True
+    if shape.element is not None and _shape_involves_object(shape.element):
+        return True
+    if shape.value is not None and _shape_involves_object(shape.value):
+        return True
+    return False
 
 
 def _header_lines(*, serde_with: bool = False, sqlx: bool = False, clickhouse: bool = False, uuid: bool = False) -> list[str]:

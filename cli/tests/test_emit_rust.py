@@ -679,6 +679,44 @@ domain tracing {
     assert "serde_with" not in art.content
 
 
+def test_emit_rust_from_impl_falls_back_for_nested_object_field(tmp_path):
+    """Projection fields with inline object types use Default::default() in the From impl.
+
+    Inline objects generate per-struct type names (e.g. CustomerV1Address vs
+    CustomerViewV1Address). These cannot be auto-converted with .into(), so the
+    emitter must emit Default::default() with a comment instead.
+    """
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    address?: object {
+      line1: string
+      city: string
+    }
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    address <- c.address
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "customer.CustomerView@1")
+    # must NOT emit address: src.address.into() — would fail to compile
+    assert "src.address.into()" not in proj.content
+    # must emit a manual-impl placeholder
+    assert "address: Default::default(), // nested struct" in proj.content
+
+
 def test_emit_rust_projection_inherits_entity_wire_type(tmp_path):
     """rust.type on an entity field propagates to projection fields that map it."""
     (tmp_path / "model.mdl").write_text(

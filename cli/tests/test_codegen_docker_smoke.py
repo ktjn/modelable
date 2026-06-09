@@ -331,6 +331,7 @@ def _write_rust_smoke(tmp_path: Path, out: Path) -> None:
 
             [dependencies]
             serde = { version = "1", features = ["derive"] }
+            uuid = { version = "1", features = ["v4", "serde"] }
             """
         ).strip()
         + "\n",
@@ -349,6 +350,7 @@ def _write_rust_smoke(tmp_path: Path, out: Path) -> None:
             #[cfg(test)]
             mod smoke {
                 use std::collections::HashMap;
+                use uuid::Uuid;
 
                 use super::customer_customer_v1::{CustomerCustomerV1, CustomerCustomerV1Address};
                 use super::customer_customer_view_v1::{CustomerCustomerViewV1, CustomerCustomerViewV1Address};
@@ -358,8 +360,10 @@ def _write_rust_smoke(tmp_path: Path, out: Path) -> None:
                     let mut metadata = HashMap::new();
                     metadata.insert(String::from("score"), 7);
 
+                    let uid = Uuid::parse_str("123e4567-e89b-12d3-a456-426614174000").unwrap();
+
                     let customer = CustomerCustomerV1 {
-                        customer_id: String::from("123e4567-e89b-12d3-a456-426614174000"),
+                        customer_id: uid,
                         display_name: String::from("Alice"),
                         tags: vec![String::from("vip")],
                         nickname: Some(String::from("ally")),
@@ -371,7 +375,7 @@ def _write_rust_smoke(tmp_path: Path, out: Path) -> None:
                     };
 
                     let view = CustomerCustomerViewV1 {
-                        customer_id: String::from("123e4567-e89b-12d3-a456-426614174000"),
+                        customer_id: uid,
                         display_name: String::from("Alice"),
                         tags: vec![String::from("vip")],
                         nickname: Some(String::from("ally")),
