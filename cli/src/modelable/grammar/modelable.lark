@@ -171,7 +171,14 @@ db_dialect: "postgres" -> dd_postgres
 // -- Deferred top-level forms ------------------------------------------------
 // These are parsed more fully in later parser-plan tasks.
 
-binding_decl: "binding" IDENT "{" ignored_block_item* "}"
+binding_decl: "binding" IDENT "{" binding_item* "}"
+binding_item: binding_adapter_attr
+            | binding_model_attr
+            | binding_table_attr
+            | ignored_block_item
+binding_adapter_attr: "adapter" ":" IDENT
+binding_model_attr: "model" ":" dotted_ref "@" INT
+binding_table_attr: "table" ":" ESCAPED_STRING
 subscription_decl: "subscription" IDENT "{" subscription_decl_item* "}"
 subscription_decl_item: IDENT ":" EXPRESSION
 workspace_decl: "workspace" workspace_label? "{" workspace_item* "}"

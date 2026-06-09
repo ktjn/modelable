@@ -294,6 +294,119 @@ domain tracing {
     assert "requires: serde_with" in art.content
 
 
+def test_emit_rust_sqlx_fromrow_on_postgres_bound_projection(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain alerts {
+  owner: "test-team"
+  entity AlertRule @ 1 (additive) {
+    @key ruleId: uuid
+    name: string
+    condition: string
+  }
+
+  projection AlertRuleRow @ 1
+    from alerts.AlertRule @ 1 as a
+  {
+    ruleId <- a.ruleId
+    name <- a.name
+    condition <- a.condition
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "bindings.mdl").write_text(
+        """
+binding alerts-pg {
+  adapter: postgres
+}
+
+binding alert-rule-row-table {
+  model: alerts.AlertRule @ 1
+  adapter: alerts-pg
+  table: "alert_rules"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "alerts.AlertRuleRow@1")
+    assert "sqlx::FromRow" in proj.content
+    assert '#[cfg(feature = "storage")]' in proj.content
+    assert "requires: sqlx" in proj.content
+    # model struct is NOT storage-gated
+    model = next(a for a in artifacts if a.ref == "alerts.AlertRule@1")
+    assert "sqlx::FromRow" not in model.content
+    assert '#[cfg(feature = "storage")]' not in model.content
+
+
+def test_emit_rust_sqlx_fromrow_indirect_connector_binding(tmp_path):
+    """Model binding via connector-binding name → adapter type resolved correctly."""
+    (tmp_path / "all.mdl").write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    total: int
+  }
+
+  projection OrderRow @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    total <- o.total
+  }
+}
+
+binding my-pg-conn {
+  adapter: postgres
+}
+
+binding order-row-binding {
+  model: orders.Order @ 1
+  adapter: my-pg-conn
+  table: "orders"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "orders.OrderRow@1")
+    assert "sqlx::FromRow" in proj.content
+    assert '#[cfg(feature = "storage")]' in proj.content
+
+
+def test_emit_rust_no_sqlx_without_binding(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain logs {
+  owner: "test-team"
+  entity Log @ 1 (additive) {
+    @key logId: uuid
+    message: string
+  }
+
+  projection LogView @ 1
+    from logs.Log @ 1 as l
+  {
+    logId <- l.logId
+    message <- l.message
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "logs.LogView@1")
+    assert "sqlx::FromRow" not in proj.content
+    assert '#[cfg(feature = "storage")]' not in proj.content
+
+
 def test_emit_rust_rust_type_without_json_string_no_serde_with(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
