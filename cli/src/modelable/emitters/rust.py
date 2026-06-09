@@ -147,6 +147,7 @@ def _emit_projection(
     lines = _header_lines(serde_with=needs_serde_with, sqlx=sqlx_fromrow, clickhouse=clickhouse_row)
     lines.extend(_render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated))
     lines.extend(_render_nested_definitions(nested_definitions))
+    lines.extend(_emit_from_impl(type_name, domain.name, version, mdl, storage_gated=storage_gated))
 
     text = "\n".join(lines) + "\n"
     return EmittedArtifact(
@@ -158,6 +159,65 @@ def _emit_projection(
         content_hash=compute_content_hash(text),
         warnings=warnings,
     )
+
+
+def _emit_from_impl(
+    proj_type_name: str,
+    proj_domain: str,
+    version: ProjectionVersion,
+    mdl: MdlFile,
+    *,
+    storage_gated: bool = False,
+) -> list[str]:
+    """Emit impl From<SourceModel> for Projection.
+
+    Only generated for single-source projections (no joins) where the source model
+    is in the same domain as the projection. The caller is responsible for placing
+    both modules under a common parent so that super:: paths resolve.
+    """
+    if version.joins:
+        return []
+
+    try:
+        src_domain_str, src_model_name = version.source.model.rsplit(".", 1)
+    except ValueError:
+        return []
+
+    # Only generate when source and projection share the same domain (super:: path is valid)
+    if src_domain_str != proj_domain:
+        return []
+
+    try:
+        resolved = resolve_model_ref(mdl, version.source.model, version.source.version)
+    except LookupError:
+        return []
+
+    src_version = resolved.version
+    src_type_name = _stable_type_name(src_domain_str, src_model_name, src_version.version)
+    src_module = _snake_case(src_type_name)
+
+    lines: list[str] = [""]
+    if storage_gated:
+        lines.append('#[cfg(feature = "storage")]')
+    lines.append(f"use super::{src_module}::{src_type_name};")
+    if storage_gated:
+        lines.append('#[cfg(feature = "storage")]')
+    lines.append(f"impl From<{src_type_name}> for {proj_type_name} {{")
+    lines.append(f"    fn from(src: {src_type_name}) -> Self {{")
+    lines.append("        Self {")
+
+    for proj_field in version.fields:
+        rust_name = _field_name(proj_field.name)
+        if isinstance(proj_field.mapping, DirectMapping):
+            src_rust_name = _field_name(proj_field.mapping.source_field)
+            lines.append(f"            {rust_name}: src.{src_rust_name}.into(),")
+        else:
+            lines.append(f"            {rust_name}: Default::default(), // computed — provide manual impl")
+
+    lines.append("        }")
+    lines.append("    }")
+    lines.append("}")
+    return lines
 
 
 def _serde_attrs_for_field(wire: dict, shape: TypeShape, *, clickhouse: bool = False) -> list[str]:
