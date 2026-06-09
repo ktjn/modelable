@@ -24,7 +24,8 @@ class _FieldSpec:
 
 def emit_rust(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit Rust source files for every model and projection version."""
-    postgres_sources = _postgres_bound_sources(workspace.mdl)
+    postgres_sources = _adapter_bound_sources(workspace.mdl, "postgres")
+    clickhouse_sources = _adapter_bound_sources(workspace.mdl, "clickhouse")
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
         for model_name, versions in domain.models.items():
@@ -32,29 +33,31 @@ def emit_rust(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
                 artifacts.append(_emit_model(domain, model_name, version, out_dir))
         for projection_name, versions in domain.projections.items():
             for version in versions:
-                sqlx_fromrow = version.source.model in postgres_sources
-                artifacts.append(_emit_projection(domain, projection_name, version, out_dir, workspace.mdl, sqlx_fromrow=sqlx_fromrow))
+                source = version.source.model
+                artifacts.append(_emit_projection(
+                    domain, projection_name, version, out_dir, workspace.mdl,
+                    sqlx_fromrow=source in postgres_sources,
+                    clickhouse_row=source in clickhouse_sources,
+                ))
     return artifacts
 
 
-def _postgres_bound_sources(mdl: MdlFile) -> set[str]:
-    """Return fully-qualified model names (domain.Model) that have a postgres binding.
+def _adapter_bound_sources(mdl: MdlFile, adapter_type: str) -> set[str]:
+    """Return fully-qualified model names (domain.Model) bound to the given adapter type.
 
     Handles two-level indirection: a model binding may reference a connector binding by
-    name (e.g. adapter: my-postgres-conn), and the connector binding carries the actual
-    adapter type (e.g. adapter: postgres).
+    name (e.g. adapter: my-ch-conn), and the connector binding carries the actual
+    adapter type (e.g. adapter: clickhouse).
     """
-    # Build name → resolved adapter type for all bindings
     adapter_types: dict[str, str] = {b.name: b.adapter for b in mdl.bindings if b.adapter}
-    postgres_sources: set[str] = set()
+    sources: set[str] = set()
     for b in mdl.bindings:
         if not b.model:
             continue
-        # Resolve one level of indirection: connector binding name → adapter type
         resolved = adapter_types.get(b.adapter, b.adapter)
-        if resolved == "postgres":
-            postgres_sources.add(b.model)
-    return postgres_sources
+        if resolved == adapter_type:
+            sources.add(b.model)
+    return sources
 
 
 def _artifact_id(domain: str, name: str, version: int) -> str:
@@ -108,6 +111,7 @@ def _emit_projection(
     mdl,
     *,
     sqlx_fromrow: bool = False,
+    clickhouse_row: bool = False,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     type_name = _stable_type_name(domain.name, projection_name, version.version)
@@ -130,13 +134,18 @@ def _emit_projection(
             rust_hint=wire.get("rust"),
         )
         optional = field_shape.optional or field_shape.nullable
-        serde_attrs = _serde_attrs_for_field(wire, field_shape)
+        serde_attrs = _serde_attrs_for_field(wire, field_shape, clickhouse=clickhouse_row)
         field_specs.append(_FieldSpec(index=index, name=field.name, annotation=annotation, optional=optional, serde_attrs=serde_attrs))
 
     needs_serde_with = _any_needs_serde_with(field_specs)
-    extra_derives = ["sqlx::FromRow"] if sqlx_fromrow else []
-    lines = _header_lines(serde_with=needs_serde_with, sqlx=sqlx_fromrow)
-    lines.extend(_render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=sqlx_fromrow))
+    storage_gated = sqlx_fromrow or clickhouse_row
+    extra_derives: list[str] = []
+    if sqlx_fromrow:
+        extra_derives.append("sqlx::FromRow")
+    if clickhouse_row:
+        extra_derives.append("clickhouse::Row")
+    lines = _header_lines(serde_with=needs_serde_with, sqlx=sqlx_fromrow, clickhouse=clickhouse_row)
+    lines.extend(_render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated))
     lines.extend(_render_nested_definitions(nested_definitions))
 
     text = "\n".join(lines) + "\n"
@@ -151,12 +160,11 @@ def _emit_projection(
     )
 
 
-def _serde_attrs_for_field(wire: dict, shape: TypeShape) -> list[str]:
+def _serde_attrs_for_field(wire: dict, shape: TypeShape, *, clickhouse: bool = False) -> list[str]:
     """Return per-field #[serde(...)] attributes derived from @wire hints."""
     rust_hint = wire.get("rust")
     json_hint = wire.get("json")
     # u64-as-string: rust.type is overridden to u64 and json serialization is string.
-    # Requires serde_with in the consumer's Cargo.toml.
     if (
         rust_hint is not None
         and getattr(rust_hint, "type", None)
@@ -165,6 +173,11 @@ def _serde_attrs_for_field(wire: dict, shape: TypeShape) -> list[str]:
         and shape.kind == "primitive"
     ):
         return ['#[serde(with = "serde_with::rust::display_fromstr")]']
+    # ClickHouse UUID encoding hint.
+    if clickhouse:
+        ch_hint = wire.get("clickhouse")
+        if ch_hint is not None and getattr(ch_hint, "encoding", None) == "uuid":
+            return ['#[serde(with = "clickhouse::serde::uuid")]']
     return []
 
 
@@ -175,12 +188,14 @@ def _any_needs_serde_with(field_specs: list[_FieldSpec]) -> bool:
     )
 
 
-def _header_lines(*, serde_with: bool = False, sqlx: bool = False) -> list[str]:
+def _header_lines(*, serde_with: bool = False, sqlx: bool = False, clickhouse: bool = False) -> list[str]:
     lines = [
         "// @generated by Modelable",
         "use std::collections::HashMap;",
         "",
     ]
+    if clickhouse:
+        lines.insert(1, "// requires: clickhouse (https://docs.rs/clickhouse)")
     if sqlx:
         lines.insert(1, "// requires: sqlx (https://docs.rs/sqlx)")
     if serde_with:
