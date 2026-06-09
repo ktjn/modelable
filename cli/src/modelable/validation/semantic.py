@@ -276,6 +276,11 @@ def _validate_field_annotations(
     field_type=None,
 ) -> None:
     field_label = ".".join(field_path)
+    try:
+        field.wire_targets()
+    except ValueError as exc:
+        diagnostics.append(_diag("SEM", f"{fqn}: field '{field_label}' has conflicting @wire annotations: {exc}", path))
+        return
     for annotation in field.annotations:
         if annotation.kind == "classification":
             _validate_classification_level(
@@ -511,21 +516,27 @@ def _resolve_projection_field_type(field, projection, mdl):
     if not hasattr(field, "mapping"):
         return getattr(field, "type", None)
     mapping = field.mapping
-    if not isinstance(mapping, ComputedMapping):
-        try:
-            source_domain, source_model = projection.source.model.rsplit(".", 1)
-        except ValueError:
+    if isinstance(mapping, ComputedMapping):
+        return None
+    if mapping.source_alias == projection.source.alias:
+        source_ref = projection.source
+    else:
+        source_ref = next((j for j in projection.joins if j.alias == mapping.source_alias), None)
+        if source_ref is None:
             return None
-        try:
-            resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", projection.source.version)
-        except LookupError:
-            return None
-        return _resolve_field_type_from_version(
-            mdl,
-            resolved.version,
-            mapping.source_field,
-        )
-    return None
+    try:
+        source_domain, source_model = source_ref.model.rsplit(".", 1)
+    except ValueError:
+        return None
+    try:
+        resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", source_ref.version)
+    except LookupError:
+        return None
+    return _resolve_field_type_from_version(
+        mdl,
+        resolved.version,
+        mapping.source_field,
+    )
 
 
 def _resolve_field_type_from_version(mdl: MdlFile, version, field_name: str):
@@ -539,7 +550,10 @@ def _resolve_field_type_from_version(mdl: MdlFile, version, field_name: str):
         mapping = getattr(field, "mapping", None)
         if mapping is None or mapping.kind != "direct":
             return None
-        source_domain, source_model = version.source.model.rsplit(".", 1)
+        try:
+            source_domain, source_model = version.source.model.rsplit(".", 1)
+        except (ValueError, AttributeError):
+            return None
         try:
             resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", version.source.version)
         except LookupError:
