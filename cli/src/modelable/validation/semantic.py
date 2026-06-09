@@ -378,7 +378,12 @@ def _validate_json_wire_hint(
     field_type=None,
 ) -> None:
     label = field_label or field.name
+    is_enum = isinstance(field_type, EnumType)
+
     if hint.encoding is None:
+        # json.case / json.overrides on enum fields are valid without an encoding
+        if is_enum and (hint.case is not None or hint.overrides):
+            return
         diagnostics.append(
             _diag(
                 "SEM",
@@ -397,23 +402,34 @@ def _validate_json_wire_hint(
             )
         )
         return
-    if hint.type is not None or hint.case is not None or hint.overrides:
+    # hint.type is a Rust-specific modifier that doesn't belong on the json target
+    if hint.type is not None:
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: field '{label}' may not use rust-style modifiers on json wire hints",
+                f"{fqn}: field '{label}' may not use rust.type on a json wire hint",
                 path,
             )
         )
         return
-    if field_type is not None and not (
+    # json.case / json.overrides are valid JSON modifiers but only on enum fields
+    if (hint.case is not None or hint.overrides) and not is_enum:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' uses @wire(json.case / json.overrides) on a non-enum field",
+                path,
+            )
+        )
+        return
+    if field_type is not None and not is_enum and not (
         (isinstance(field_type, PrimitiveType) and field_type.kind == "int")
         or isinstance(field_type, DecimalType)
     ):
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: field '{label}' only supports @wire(json: ...) on int or decimal fields",
+                f"{fqn}: field '{label}' only supports @wire(json: ...) on int, decimal, or enum fields",
                 path,
             )
         )

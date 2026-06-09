@@ -36,10 +36,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const os = __importStar(require("os"));
-const child_process_1 = require("child_process");
 const test_electron_1 = require("@vscode/test-electron");
+// Pass MODELABLE_VSCODE_NO_HEADLESS=1 to run with a visible window (useful for
+// interactive debugging). By default tests run headlessly so they work alongside
+// a running VS Code desktop instance and in CI without a display server.
+const headless = process.env['MODELABLE_VSCODE_NO_HEADLESS'] !== '1';
 async function main() {
-    ensureDesktopCodeIsClosed();
     // __dirname compiles to vscode/out/test/
     const extensionDevelopmentPath = path.resolve(__dirname, '../..');
     const extensionTestsPath = path.resolve(__dirname, './suite/index');
@@ -48,27 +50,12 @@ async function main() {
     const settingsDir = path.join(userDataDir, 'User');
     fs.mkdirSync(settingsDir, { recursive: true });
     fs.writeFileSync(path.join(settingsDir, 'settings.json'), JSON.stringify({ 'update.mode': 'none' }, null, 2));
+    const extraArgs = headless ? ['--headless', '--disable-gpu'] : [];
     await (0, test_electron_1.runTests)({
         extensionDevelopmentPath,
         extensionTestsPath,
-        launchArgs: ['--user-data-dir', userDataDir, workspaceFolder],
+        launchArgs: [...extraArgs, '--user-data-dir', userDataDir, workspaceFolder],
     });
-}
-function ensureDesktopCodeIsClosed() {
-    if (process.platform !== 'win32') {
-        return;
-    }
-    const result = (0, child_process_1.spawnSync)('tasklist', ['/FI', 'IMAGENAME eq Code.exe', '/NH'], {
-        encoding: 'utf-8',
-    });
-    if (result.error) {
-        return;
-    }
-    const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
-    if (output.includes('Code.exe')) {
-        throw new Error('Close all running VS Code windows before running `npm test` in vscode/. ' +
-            'The smoke harness needs an unlocked VS Code installation on Windows.');
-    }
 }
 main().catch(err => {
     console.error('Failed to run VS Code tests:', err);

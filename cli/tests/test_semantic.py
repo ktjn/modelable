@@ -268,6 +268,60 @@ def test_json_wire_rejects_non_integer_string_fields():
     assert any("only supports @wire(json: ...)" in error for error in errors)
 
 
+def test_json_wire_case_on_enum_requires_no_encoding():
+    """@wire(json.case: "SCREAMING_SNAKE_CASE") on an enum field is valid without json: encoding."""
+    mdl = parse_text_to_ir("""
+    domain events {
+      owner: "test-team"
+      entity Event @ 1 (additive) {
+        @key eventId: uuid
+        @wire(json.case: "SCREAMING_SNAKE_CASE")
+        status: enum(Active, Inactive)
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert errors == []
+
+
+def test_json_wire_case_on_non_enum_is_rejected():
+    """@wire(json.case: ...) on a non-enum field should be rejected."""
+    mdl = parse_text_to_ir("""
+    domain events {
+      owner: "test-team"
+      entity Event @ 1 (additive) {
+        @key eventId: uuid
+        @wire(json: "string", json.case: "SCREAMING_SNAKE_CASE")
+        amount: int
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("non-enum" in error.lower() for error in errors)
+
+
+def test_json_wire_overrides_on_enum_requires_no_encoding():
+    """@wire(json.overrides: {...}) on an enum field is valid without json: encoding."""
+    mdl = parse_text_to_ir("""
+    domain events {
+      owner: "test-team"
+      entity Event @ 1 (additive) {
+        @key eventId: uuid
+        @wire(json.overrides: { Active: "active", Inactive: "inactive" })
+        status: enum(Active, Inactive)
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert errors == []
+
+
 def test_inline_object_wire_hints_are_validated_recursively():
     mdl = parse_text_to_ir("""
     domain metrics {
