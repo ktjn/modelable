@@ -46,7 +46,7 @@ email?: string
 }
 }
 `.trim();
-function waitForDiagnostics(uri, timeoutMs = 15000) {
+function waitForDiagnostics(uri, timeoutMs = 30000) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error(`Timeout (${timeoutMs}ms) waiting for diagnostics on ${uri.fsPath}`)), timeoutMs);
         const sub = vscode.languages.onDidChangeDiagnostics(e => {

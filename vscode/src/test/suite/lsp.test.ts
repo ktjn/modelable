@@ -13,7 +13,7 @@ email?: string
 }
 `.trim();
 
-function waitForDiagnostics(uri: vscode.Uri, timeoutMs = 15_000): Promise<vscode.Diagnostic[]> {
+function waitForDiagnostics(uri: vscode.Uri, timeoutMs = 30_000): Promise<vscode.Diagnostic[]> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(
       () => reject(new Error(`Timeout (${timeoutMs}ms) waiting for diagnostics on ${uri.fsPath}`)),

@@ -42,13 +42,23 @@ jobs:
     name: VS Code Smoke
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: vscode
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v6.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: cli/uv.lock
+
+      - name: Install Python
+        run: uv python install 3.14
+        working-directory: cli
+
+      - name: Sync CLI dependencies
+        run: uv sync --extra dev --frozen
+        working-directory: cli
 
       - name: Install Node
         uses: actions/setup-node@v4
@@ -59,9 +69,12 @@ jobs:
 
       - name: Install extension dependencies
         run: npm ci
+        working-directory: vscode
 
       - name: Build the smoke harness
         run: npm run build
+        working-directory: vscode
 
       - name: Run VS Code smoke tests
         run: xvfb-run -a npm test
+        working-directory: vscode
