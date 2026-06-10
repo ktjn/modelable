@@ -3,10 +3,11 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { runTests } from '@vscode/test-electron';
 
-// Pass MODELABLE_VSCODE_NO_HEADLESS=1 to run with a visible window (useful for
-// interactive debugging). By default tests run headlessly so they work alongside
-// a running VS Code desktop instance and in CI without a display server.
-const headless = process.env['MODELABLE_VSCODE_NO_HEADLESS'] !== '1';
+// Pass MODELABLE_VSCODE_HEADLESS=1 to run with --headless --disable-gpu, which is
+// useful for local runs without a display server. CI already provides a virtual
+// display via xvfb-run, where --headless is not a recognized option and breaks
+// extension host activation, so it is opt-in rather than the default.
+const headless = process.env['MODELABLE_VSCODE_HEADLESS'] === '1';
 
 async function main(): Promise<void> {
   // __dirname compiles to vscode/out/test/
