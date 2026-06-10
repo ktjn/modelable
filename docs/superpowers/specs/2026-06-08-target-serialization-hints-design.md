@@ -1,7 +1,7 @@
 # Target Serialization Hints Design
 
 **Date:** 2026-06-08  
-**Status:** Draft for review  
+**Status:** Approved  
 **Scope:** Per-field/per-type annotations that let the **JSON Schema emitter** (and, where the consuming project's needs extend beyond approved Phase 1 scope, the Rust emitter — see the scope note in Dependencies/Sequencing) produce wire-compatible artifacts for an adopting project's existing contracts, plus the minimal projection-mapping support those contracts require. TypeScript output follows automatically because it is generated *from* JSON Schema (`docs/emitter-spec.md` §7) — there is no independent "TypeScript emitter" decision to make for these hints.
 
 ## Goal
@@ -66,13 +66,13 @@ Note: the IDL's only integer type is the 64-bit `int` (`docs/idl-design-spec.md`
 Rules:
 - `@wire(<target>: <encoding>, …)` — one annotation, multiple target/encoding pairs; unknown `<target>` or `<encoding>` values are a validation error (closed vocabulary, see table below), keeping output deterministic and type-checkable — consistent with "Validate definitions before runtime where feasible" in `AGENTS.md`.
 - `rust.case` / `rust.overrides` / `rust.type` (and equivalent `typescript.*`, etc.) are **emitter-direction modifiers** scoped to a `@wire` target, not free-form code. `overrides` is a closed map from canonical member name to literal string — this is how case 2's `exponential_histogram` gets covered *declaratively* (an explicit table beats a clever-but-wrong mechanical rule). Case-style values must match the target serializer's **actual** vocabulary (e.g. serde's `rename_all` accepts `"snake_case"`, `"SCREAMING_SNAKE_CASE"`, `"camelCase"`, `"PascalCase"`, `"kebab-case"`, `"lowercase"`, `"UPPERCASE"` — not invented names like `lower_snake_case`); the validator should reject anything outside that set per target.
-- Hints are additive metadata on top of the existing platform-neutral `FieldType` — they do not change a field's canonical type or its compatibility/lineage semantics. A hint change is therefore not a breaking change to the canonical model (it may still be breaking to a *generated artifact*, which `modelable diff`/compatibility tooling should be able to flag — see Open Questions).
+- Hints are additive metadata on top of the existing platform-neutral `FieldType` — they do not change a field's canonical type or its compatibility/lineage semantics. A hint change is therefore not a breaking change to the canonical model (it may still be breaking to a *generated artifact*, which `modelable diff`/compatibility tooling should be able to flag — see Resolved Design Decisions #2).
 
 ### 2. Closed encoding vocabulary (initial set, extensible later)
 
 | Target | Encoding values | Applies to | Emitter behavior |
 |---|---|---|---|
-| `json` | `"string"` | `int` (and `decimal`) | **Must be honored by the JSON Schema emitter first** (emit `{"type": "string"}` plus an `x-modelable-wire` extension for the field, per `docs/emitter-spec.md` §6's existing `x-modelable-*` convention), since TypeScript is generated *from* JSON Schema via `json-schema-to-typescript` (`docs/emitter-spec.md` §7, "Do not hand-roll a separate TypeScript type mapper in Phase 1") — a TypeScript-only fix would not survive that pipeline. Rust: `#[serde(with = "…::int_as_string")]` (new helper module, see Open Questions) |
+| `json` | `"string"` | `int` (and `decimal`) | **Must be honored by the JSON Schema emitter first** (emit `{"type": "string"}` plus an `x-modelable-wire` extension for the field, per `docs/emitter-spec.md` §6's existing `x-modelable-*` convention), since TypeScript is generated *from* JSON Schema via `json-schema-to-typescript` (`docs/emitter-spec.md` §7, "Do not hand-roll a separate TypeScript type mapper in Phase 1") — a TypeScript-only fix would not survive that pipeline. Rust: `#[serde(with = "…::int_as_string")]` (new inline helper module, see Resolved Design Decisions #1) |
 | `rust.type` | `"u64"`, `"i64"`, `"u32"`, … | `int` | Overrides the emitter's default signed 64-bit mapping for this field only; purely a Rust-side primitive choice, invisible to JSON Schema/TypeScript |
 | `clickhouse` | `"uuid"` | `uuid` | Rust: `#[serde(with = "clickhouse::serde::uuid")]` |
 | `clickhouse` | `"string"` | `enum`, `map<K, json>` | Rust: field type becomes `String` in the row shape; for enums, combine with `rust.case`/`rust.overrides`; for maps, generated `From` impls call `serde_json::to_string`/`from_str` |
