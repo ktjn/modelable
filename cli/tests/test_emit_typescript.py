@@ -389,6 +389,32 @@ domain events {
     assert "'formSubmit'" in art.content
 
 
+def test_emit_typescript_json_primitive_maps_to_unknown(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain example {
+  owner: "test-team"
+  entity Widget @ 1 (additive) {
+    @key id: uuid
+    payload: json
+    attributes: map<string, json>
+    tags: array<json>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    model_art = next(a for a in artifacts if a.ref == "example.Widget@1")
+
+    assert "payload: unknown;" in model_art.content
+    assert "attributes: Record<string, unknown>;" in model_art.content
+    assert "tags: unknown[];" in model_art.content
+
+
 def test_emit_typescript_wire_enum_overrides(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """
