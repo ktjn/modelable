@@ -79,6 +79,25 @@ def test_transform_simple_model():
     assert fields["marketingConsent"].default == "false"
 
 
+def test_transform_json_primitive_type():
+    mdl = parse_text_to_ir("""
+    domain example {
+      owner: "test-team"
+      entity Widget @ 1 (additive) {
+        @key id: uuid
+        payload: json
+        tags: array<json>
+        attributes: map<string, json>
+      }
+    }
+    """)
+
+    fields = {f.name: f for f in mdl.domains[0].models["Widget"][0].fields}
+    assert fields["payload"].type.kind == "json"
+    assert fields["tags"].type.item.kind == "json"
+    assert fields["attributes"].type.value.kind == "json"
+
+
 def test_transform_projection():
     mdl = parse_text_to_ir("""
     domain billing {

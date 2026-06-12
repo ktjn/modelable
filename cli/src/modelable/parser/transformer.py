@@ -342,6 +342,9 @@ class MdlTransformer(Transformer):
     def pt_binary(self, _items):
         return PrimitiveType(kind="binary")
 
+    def pt_json(self, _items):
+        return PrimitiveType(kind="json")
+
     def primitive_type(self, items):
         return items[0]
 
