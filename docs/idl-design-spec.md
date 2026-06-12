@@ -86,6 +86,7 @@ models/
 | `map<K,V>` | Key-value map |
 | `ref<Domain.Model>` | Cross-domain reference |
 | `enum(a, b, c)` | Inline enumeration |
+| `json` | Arbitrary JSON value, opaque to Modelable; maps to `serde_json::Value` (Rust), `unknown` (TypeScript), `{}` (JSON Schema) |
 
 The type system is platform-neutral. Target emitters map each type to the closest equivalent in the output format (e.g., `uuid` → `string` format `uuid` in JSON Schema, `UUID` in Avro, `uuid` in Postgres DDL).
 

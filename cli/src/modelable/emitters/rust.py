@@ -88,7 +88,8 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
 
     needs_serde_with = _any_needs_serde_with(field_specs)
     needs_uuid = _any_needs_uuid(field_specs)
-    lines = _header_lines(serde_with=needs_serde_with, uuid=needs_uuid)
+    needs_serde_json = _any_needs_serde_json(field_specs)
+    lines = _header_lines(serde_with=needs_serde_with, uuid=needs_uuid, serde_json=needs_serde_json)
     lines.extend(_render_struct_definition(type_name, field_specs))
     lines.extend(_render_nested_definitions(nested_definitions))
 
@@ -133,6 +134,7 @@ def _emit_projection(
             path=[field.name],
             definitions=nested_definitions,
             rust_hint=wire.get("rust"),
+            clickhouse_hint=wire.get("clickhouse"),
         )
         optional = field_shape.optional or field_shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field_shape, clickhouse=clickhouse_row)
@@ -140,13 +142,16 @@ def _emit_projection(
 
     needs_serde_with = _any_needs_serde_with(field_specs)
     needs_uuid = _any_needs_uuid(field_specs)
+    needs_serde_json = _any_needs_serde_json(field_specs) or any(
+        _projection_field_is_json_passthrough_to_string(f, version, mdl) for f in version.fields
+    )
     storage_gated = sqlx_fromrow or clickhouse_row
     extra_derives: list[str] = []
     if sqlx_fromrow:
         extra_derives.append("sqlx::FromRow")
     if clickhouse_row:
         extra_derives.append("clickhouse::Row")
-    lines = _header_lines(serde_with=needs_serde_with, sqlx=sqlx_fromrow, clickhouse=clickhouse_row, uuid=needs_uuid)
+    lines = _header_lines(serde_with=needs_serde_with, sqlx=sqlx_fromrow, clickhouse=clickhouse_row, uuid=needs_uuid, serde_json=needs_serde_json)
     lines.extend(_render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated))
     lines.extend(_render_nested_definitions(nested_definitions))
     lines.extend(_emit_from_impl(type_name, domain.name, version, mdl, storage_gated=storage_gated))
@@ -161,6 +166,33 @@ def _emit_projection(
         content_hash=compute_content_hash(text),
         warnings=warnings,
     )
+
+
+def _projection_field_is_json_passthrough_to_string(proj_field, version: ProjectionVersion, mdl: MdlFile) -> bool:
+    """True if this projection field maps a map<K, json> (or bare json) source
+    field to a @wire(clickhouse: "string") String target — i.e. needs a
+    generated serde_json::to_string conversion in the From impl, and a
+    serde_json::Value-shaped header requirement even though the projection's
+    own field type is plain String.
+    """
+    if not isinstance(proj_field.mapping, DirectMapping):
+        return False
+    field_shape = _resolve_projection_field_shape(proj_field, version, mdl)
+    if field_shape is None:
+        return False
+    is_json_value = (
+        field_shape.kind == "primitive" and field_shape.ref == "json"
+    ) or (
+        field_shape.kind == "map"
+        and field_shape.value is not None
+        and field_shape.value.kind == "primitive"
+        and field_shape.value.ref == "json"
+    )
+    if not is_json_value:
+        return False
+    wire = _resolve_merged_projection_wire(proj_field, version, mdl)
+    ch_hint = wire.get("clickhouse")
+    return ch_hint is not None and getattr(ch_hint, "encoding", None) == "string"
 
 
 def _emit_from_impl(
@@ -213,7 +245,9 @@ def _emit_from_impl(
         if isinstance(proj_field.mapping, DirectMapping):
             src_rust_name = _field_name(proj_field.mapping.source_field)
             field_shape = _resolve_projection_field_shape(proj_field, version, mdl)
-            if field_shape is not None and _shape_involves_object(field_shape):
+            if _projection_field_is_json_passthrough_to_string(proj_field, version, mdl):
+                lines.append(f"            {rust_name}: serde_json::to_string(&src.{src_rust_name}).unwrap_or_default(),")
+            elif field_shape is not None and _shape_involves_object(field_shape):
                 lines.append(f"            {rust_name}: Default::default(), // nested struct — provide manual impl")
             else:
                 lines.append(f"            {rust_name}: src.{src_rust_name}.into(),")
@@ -258,6 +292,10 @@ def _any_needs_uuid(field_specs: list[_FieldSpec]) -> bool:
     return any("uuid::Uuid" in spec.annotation for spec in field_specs)
 
 
+def _any_needs_serde_json(field_specs: list[_FieldSpec]) -> bool:
+    return any("serde_json::Value" in spec.annotation for spec in field_specs)
+
+
 def _shape_involves_object(shape: TypeShape) -> bool:
     """Return True if the shape contains an inline object type.
 
@@ -275,7 +313,7 @@ def _shape_involves_object(shape: TypeShape) -> bool:
     return False
 
 
-def _header_lines(*, serde_with: bool = False, sqlx: bool = False, clickhouse: bool = False, uuid: bool = False) -> list[str]:
+def _header_lines(*, serde_with: bool = False, sqlx: bool = False, clickhouse: bool = False, uuid: bool = False, serde_json: bool = False) -> list[str]:
     lines = [
         "// @generated by Modelable",
         "use std::collections::HashMap;",
@@ -289,6 +327,8 @@ def _header_lines(*, serde_with: bool = False, sqlx: bool = False, clickhouse: b
         lines.insert(1, "// requires: serde_with (https://docs.rs/serde_with)")
     if uuid:
         lines.insert(1, "// requires: uuid (https://docs.rs/uuid)")
+    if serde_json:
+        lines.insert(1, "// requires: serde_json (https://docs.rs/serde_json)")
     return lines
 
 
@@ -403,6 +443,7 @@ def _shape_annotation(
     path: list[str],
     definitions: dict[str, list[str]],
     rust_hint=None,
+    clickhouse_hint=None,
 ) -> str:
     base = _shape_base_annotation(
         shape,
@@ -410,6 +451,7 @@ def _shape_annotation(
         path=path,
         definitions=definitions,
         rust_hint=rust_hint,
+        clickhouse_hint=clickhouse_hint,
     )
     if shape.optional or shape.nullable:
         return f"Option<{base}>"
@@ -423,10 +465,14 @@ def _shape_base_annotation(
     path: list[str],
     definitions: dict[str, list[str]],
     rust_hint=None,
+    clickhouse_hint=None,
 ) -> str:
+    clickhouse_string = clickhouse_hint is not None and getattr(clickhouse_hint, "encoding", None) == "string"
     if shape.kind == "primitive":
         if rust_hint is not None and getattr(rust_hint, "type", None) and (shape.ref or "string") == "int":
             return rust_hint.type
+        if shape.ref == "json" and clickhouse_string:
+            return "String"
         return _primitive_to_rust(shape.ref or "string")
     if shape.kind == "decimal":
         return "String"
@@ -441,6 +487,8 @@ def _shape_base_annotation(
         return f"Vec<{element_type}>"
     if shape.kind == "map":
         value = shape.value or TypeShape(kind="primitive", ref="object")
+        if value.kind == "primitive" and value.ref == "json" and clickhouse_string:
+            return "String"
         value_type = _shape_annotation(
             value,
             owner_type=owner_type,
@@ -482,6 +530,7 @@ def _primitive_to_rust(kind: str) -> str:
         "time": "String",
         "duration": "String",
         "binary": "Vec<u8>",
+        "json": "serde_json::Value",
     }
     return mapping.get(kind, "String")
 

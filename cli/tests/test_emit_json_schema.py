@@ -348,3 +348,34 @@ domain customer {
     schema = json.loads((out / "customer.Customer.v1.json").read_text(encoding="utf-8"))
     assert schema["title"] == "Customer"
     Draft202012Validator.check_schema(schema)
+
+
+def test_emit_json_primitive_type_is_empty_schema(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain example {
+  owner: "test-team"
+  entity Widget @ 1 (additive) {
+    @key id: uuid
+    payload: json
+    attributes: map<string, json>
+    tags: array<json>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_json_schema(workspace, tmp_path / "out")
+    schema = artifacts[0].content
+    props = schema["properties"]
+
+    assert props["payload"] == {}
+    assert props["attributes"]["type"] == "object"
+    assert props["attributes"]["additionalProperties"] == {}
+    assert props["tags"]["type"] == "array"
+    assert props["tags"]["items"] == {}
+
+    Draft202012Validator.check_schema(schema)

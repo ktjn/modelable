@@ -159,6 +159,7 @@ class PrimitiveType(BaseModel):
         "uuid",
         "duration",
         "binary",
+        "json",
     ]
 
 

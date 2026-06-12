@@ -744,3 +744,161 @@ domain tracing {
     row_art = next(a for a in artifacts if a.ref == "tracing.SpanRow@1")
     # wire hint from the entity field must be inherited by the projection field
     assert "pub start_time_unix_nano: u64," in row_art.content
+
+
+def test_emit_rust_json_primitive_maps_to_serde_json_value(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain example {
+  owner: "test-team"
+  entity Widget @ 1 (additive) {
+    @key id: uuid
+    payload: json
+    attributes: map<string, json>
+    tags: array<json>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    model = next(a for a in artifacts if a.ref == "example.Widget@1")
+
+    assert "pub payload: serde_json::Value," in model.content
+    assert "pub attributes: HashMap<String, serde_json::Value>," in model.content
+    assert "pub tags: Vec<serde_json::Value>," in model.content
+    assert "// requires: serde_json (https://docs.rs/serde_json)" in model.content
+
+
+def test_emit_rust_clickhouse_string_hint_on_map_json_field_becomes_string(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain telemetry {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: uuid
+    attributes: map<string, json>
+  }
+
+  projection SpanRow @ 1
+    from telemetry.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    @wire(clickhouse: "string")
+    attributes <- s.attributes
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "bindings.mdl").write_text(
+        """
+binding ch-conn {
+  adapter: clickhouse
+}
+
+binding span-binding {
+  model: telemetry.Span @ 1
+  adapter: ch-conn
+  table: "spans"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    proj = next(a for a in artifacts if a.ref == "telemetry.SpanRow@1")
+    assert "pub attributes: String," in proj.content
+
+    # The entity itself keeps the canonical map<K, json> shape regardless of the
+    # projection-level hint.
+    model = next(a for a in artifacts if a.ref == "telemetry.Span@1")
+    assert "pub attributes: HashMap<String, serde_json::Value>," in model.content
+
+
+def test_emit_rust_from_impl_generates_serde_json_to_string_for_clickhouse_string_map(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain telemetry {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: uuid
+    attributes: map<string, json>
+  }
+
+  projection SpanRow @ 1
+    from telemetry.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    @wire(clickhouse: "string")
+    attributes <- s.attributes
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    proj = next(a for a in artifacts if a.ref == "telemetry.SpanRow@1")
+    assert "attributes: serde_json::to_string(&src.attributes).unwrap_or_default()," in proj.content
+    assert "spanId" not in proj.content or "span_id: src.span_id.into()," in proj.content
+
+
+def test_emit_rust_json_passthrough_end_to_end(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "platform-team"
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    traceId: string
+    attributes: map<string, json>
+    resourceAttributes: map<string, json>
+  }
+
+  projection SpanRow @ 1
+    from tracing.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    traceId <- s.traceId
+    @wire(clickhouse: "string")
+    attributes <- s.attributes
+    @wire(clickhouse: "string")
+    resourceAttributes <- s.resourceAttributes
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "bindings.mdl").write_text(
+        """
+binding ch-conn {
+  adapter: clickhouse
+}
+
+binding span-binding {
+  model: tracing.Span @ 1
+  adapter: ch-conn
+  table: "spans"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    model = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    assert "pub attributes: HashMap<String, serde_json::Value>," in model.content
+    assert "pub resource_attributes: HashMap<String, serde_json::Value>," in model.content
+    assert "// requires: serde_json (https://docs.rs/serde_json)" in model.content
+
+    proj = next(a for a in artifacts if a.ref == "tracing.SpanRow@1")
+    assert "pub attributes: String," in proj.content
+    assert "pub resource_attributes: String," in proj.content
+    assert "attributes: serde_json::to_string(&src.attributes).unwrap_or_default()," in proj.content
+    assert "resource_attributes: serde_json::to_string(&src.resource_attributes).unwrap_or_default()," in proj.content
+    assert "clickhouse::Row" in proj.content
+    assert "// requires: serde_json (https://docs.rs/serde_json)" in proj.content

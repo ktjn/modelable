@@ -420,6 +420,7 @@ def _primitive_to_json_schema(kind: str) -> dict:
         "time": {"type": "string", "format": "time"},
         "duration": {"type": "string", "format": "duration"},
         "binary": {"type": "string", "contentEncoding": "base64"},
+        "json": {},
     }
     return mapping.get(kind, {"type": "string"})
 

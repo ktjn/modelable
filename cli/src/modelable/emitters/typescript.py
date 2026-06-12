@@ -236,6 +236,7 @@ def _type_to_ts(field_type, *, wire_targets: dict[str, object] | None = None) ->
             "uuid": "string",
             "duration": "string",
             "binary": "string",
+            "json": "unknown",
         }
         return mapping.get(field_type.kind, "unknown")
     if isinstance(field_type, DecimalType):
