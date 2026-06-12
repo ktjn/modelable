@@ -769,3 +769,50 @@ domain example {
     assert "pub attributes: HashMap<String, serde_json::Value>," in model.content
     assert "pub tags: Vec<serde_json::Value>," in model.content
     assert "// requires: serde_json (https://docs.rs/serde_json)" in model.content
+
+
+def test_emit_rust_clickhouse_string_hint_on_map_json_field_becomes_string(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain telemetry {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: uuid
+    attributes: map<string, json>
+  }
+
+  projection SpanRow @ 1
+    from telemetry.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    @wire(clickhouse: "string")
+    attributes <- s.attributes
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "bindings.mdl").write_text(
+        """
+binding ch-conn {
+  adapter: clickhouse
+}
+
+binding span-binding {
+  model: telemetry.Span @ 1
+  adapter: ch-conn
+  table: "spans"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    proj = next(a for a in artifacts if a.ref == "telemetry.SpanRow@1")
+    assert "pub attributes: String," in proj.content
+
+    # The entity itself keeps the canonical map<K, json> shape regardless of the
+    # projection-level hint.
+    model = next(a for a in artifacts if a.ref == "telemetry.Span@1")
+    assert "pub attributes: HashMap<String, serde_json::Value>," in model.content

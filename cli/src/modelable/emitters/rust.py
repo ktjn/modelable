@@ -134,6 +134,7 @@ def _emit_projection(
             path=[field.name],
             definitions=nested_definitions,
             rust_hint=wire.get("rust"),
+            clickhouse_hint=wire.get("clickhouse"),
         )
         optional = field_shape.optional or field_shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field_shape, clickhouse=clickhouse_row)
@@ -411,6 +412,7 @@ def _shape_annotation(
     path: list[str],
     definitions: dict[str, list[str]],
     rust_hint=None,
+    clickhouse_hint=None,
 ) -> str:
     base = _shape_base_annotation(
         shape,
@@ -418,6 +420,7 @@ def _shape_annotation(
         path=path,
         definitions=definitions,
         rust_hint=rust_hint,
+        clickhouse_hint=clickhouse_hint,
     )
     if shape.optional or shape.nullable:
         return f"Option<{base}>"
@@ -431,10 +434,14 @@ def _shape_base_annotation(
     path: list[str],
     definitions: dict[str, list[str]],
     rust_hint=None,
+    clickhouse_hint=None,
 ) -> str:
+    clickhouse_string = clickhouse_hint is not None and getattr(clickhouse_hint, "encoding", None) == "string"
     if shape.kind == "primitive":
         if rust_hint is not None and getattr(rust_hint, "type", None) and (shape.ref or "string") == "int":
             return rust_hint.type
+        if shape.ref == "json" and clickhouse_string:
+            return "String"
         return _primitive_to_rust(shape.ref or "string")
     if shape.kind == "decimal":
         return "String"
@@ -449,6 +456,8 @@ def _shape_base_annotation(
         return f"Vec<{element_type}>"
     if shape.kind == "map":
         value = shape.value or TypeShape(kind="primitive", ref="object")
+        if value.kind == "primitive" and value.ref == "json" and clickhouse_string:
+            return "String"
         value_type = _shape_annotation(
             value,
             owner_type=owner_type,
