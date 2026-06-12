@@ -744,3 +744,28 @@ domain tracing {
     row_art = next(a for a in artifacts if a.ref == "tracing.SpanRow@1")
     # wire hint from the entity field must be inherited by the projection field
     assert "pub start_time_unix_nano: u64," in row_art.content
+
+
+def test_emit_rust_json_primitive_maps_to_serde_json_value(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain example {
+  owner: "test-team"
+  entity Widget @ 1 (additive) {
+    @key id: uuid
+    payload: json
+    attributes: map<string, json>
+    tags: array<json>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    model = next(a for a in artifacts if a.ref == "example.Widget@1")
+
+    assert "pub payload: serde_json::Value," in model.content
+    assert "pub attributes: HashMap<String, serde_json::Value>," in model.content
+    assert "pub tags: Vec<serde_json::Value>," in model.content
+    assert "// requires: serde_json (https://docs.rs/serde_json)" in model.content
