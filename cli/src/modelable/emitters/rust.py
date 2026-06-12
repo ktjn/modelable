@@ -142,7 +142,9 @@ def _emit_projection(
 
     needs_serde_with = _any_needs_serde_with(field_specs)
     needs_uuid = _any_needs_uuid(field_specs)
-    needs_serde_json = _any_needs_serde_json(field_specs)
+    needs_serde_json = _any_needs_serde_json(field_specs) or any(
+        _projection_field_is_json_passthrough_to_string(f, version, mdl) for f in version.fields
+    )
     storage_gated = sqlx_fromrow or clickhouse_row
     extra_derives: list[str] = []
     if sqlx_fromrow:
@@ -164,6 +166,33 @@ def _emit_projection(
         content_hash=compute_content_hash(text),
         warnings=warnings,
     )
+
+
+def _projection_field_is_json_passthrough_to_string(proj_field, version: ProjectionVersion, mdl: MdlFile) -> bool:
+    """True if this projection field maps a map<K, json> (or bare json) source
+    field to a @wire(clickhouse: "string") String target — i.e. needs a
+    generated serde_json::to_string conversion in the From impl, and a
+    serde_json::Value-shaped header requirement even though the projection's
+    own field type is plain String.
+    """
+    if not isinstance(proj_field.mapping, DirectMapping):
+        return False
+    field_shape = _resolve_projection_field_shape(proj_field, version, mdl)
+    if field_shape is None:
+        return False
+    is_json_value = (
+        field_shape.kind == "primitive" and field_shape.ref == "json"
+    ) or (
+        field_shape.kind == "map"
+        and field_shape.value is not None
+        and field_shape.value.kind == "primitive"
+        and field_shape.value.ref == "json"
+    )
+    if not is_json_value:
+        return False
+    wire = _resolve_merged_projection_wire(proj_field, version, mdl)
+    ch_hint = wire.get("clickhouse")
+    return ch_hint is not None and getattr(ch_hint, "encoding", None) == "string"
 
 
 def _emit_from_impl(
@@ -216,7 +245,9 @@ def _emit_from_impl(
         if isinstance(proj_field.mapping, DirectMapping):
             src_rust_name = _field_name(proj_field.mapping.source_field)
             field_shape = _resolve_projection_field_shape(proj_field, version, mdl)
-            if field_shape is not None and _shape_involves_object(field_shape):
+            if _projection_field_is_json_passthrough_to_string(proj_field, version, mdl):
+                lines.append(f"            {rust_name}: serde_json::to_string(&src.{src_rust_name}).unwrap_or_default(),")
+            elif field_shape is not None and _shape_involves_object(field_shape):
                 lines.append(f"            {rust_name}: Default::default(), // nested struct — provide manual impl")
             else:
                 lines.append(f"            {rust_name}: src.{src_rust_name}.into(),")

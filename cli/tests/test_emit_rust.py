@@ -816,3 +816,33 @@ binding span-binding {
     # projection-level hint.
     model = next(a for a in artifacts if a.ref == "telemetry.Span@1")
     assert "pub attributes: HashMap<String, serde_json::Value>," in model.content
+
+
+def test_emit_rust_from_impl_generates_serde_json_to_string_for_clickhouse_string_map(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain telemetry {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: uuid
+    attributes: map<string, json>
+  }
+
+  projection SpanRow @ 1
+    from telemetry.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    @wire(clickhouse: "string")
+    attributes <- s.attributes
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    proj = next(a for a in artifacts if a.ref == "telemetry.SpanRow@1")
+    assert "attributes: serde_json::to_string(&src.attributes).unwrap_or_default()," in proj.content
+    assert "spanId" not in proj.content or "span_id: src.span_id.into()," in proj.content
+    assert "// requires: serde_json (https://docs.rs/serde_json)" in proj.content
