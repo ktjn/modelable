@@ -902,4 +902,3 @@ binding span-binding {
     assert "resource_attributes: serde_json::to_string(&src.resource_attributes).unwrap_or_default()," in proj.content
     assert "clickhouse::Row" in proj.content
     assert "// requires: serde_json (https://docs.rs/serde_json)" in proj.content
-    assert "// requires: serde_json (https://docs.rs/serde_json)" in proj.content
