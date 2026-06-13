@@ -35,6 +35,12 @@ _VALID_RUST_CASE_VALUES = {
     "lowercase",
     "UPPERCASE",
 }
+_VALID_TS_FIELD_CASE_VALUES = {
+    "snake_case",
+    "SCREAMING_SNAKE_CASE",
+    "camelCase",
+    "PascalCase",
+}
 
 _AGGREGATE_FUNCTIONS = ("count", "sum", "min", "max", "avg")
 _AGGREGATE_PATTERN = re.compile(
@@ -140,6 +146,9 @@ def _validate_models(
                         path,
                     )
                 )
+            _validate_declaration_wire_annotations(
+                f"{fqn}@{version.version}", version, diagnostics, path
+            )
             key_fields = [field for field in version.fields if field.is_key]
             if version.model_kind in (ModelKind.entity, ModelKind.aggregate):
                 if len(key_fields) != 1:
@@ -186,6 +195,9 @@ def _validate_projections(
     for projection_name, versions in projections.items():
         fqn = f"{domain_name}.{projection_name}"
         for version in versions:
+            _validate_declaration_wire_annotations(
+                f"{fqn}@{version.version}", version, diagnostics, path
+            )
             has_group_by = bool(version.group_by)
             for field in version.fields:
                 mapping = field.mapping
@@ -260,6 +272,58 @@ def _validate_change_kind(
                     path,
                 )
             )
+
+
+def _validate_declaration_wire_annotations(
+    fqn: str,
+    version,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    try:
+        version.wire_targets()
+    except ValueError as exc:
+        diagnostics.append(_diag("SEM", f"{fqn}: has conflicting @wire annotations: {exc}", path))
+        return
+    for annotation in version.annotations:
+        if annotation.kind != "wire":
+            continue
+        for target_name, hint in annotation.targets.items():
+            if target_name not in _VALID_WIRE_TARGETS:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{fqn}: has unknown wire target '{target_name}'. "
+                        f"Valid targets are: {', '.join(sorted(_VALID_WIRE_TARGETS))}",
+                        path,
+                    )
+                )
+                continue
+            if (
+                target_name != "json"
+                or hint.field_case is None
+                or hint.encoding is not None
+                or hint.type is not None
+                or hint.case is not None
+                or hint.overrides
+            ):
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{fqn}: only @wire(json.fieldCase: ...) is supported on model/projection declarations",
+                        path,
+                    )
+                )
+                continue
+            if hint.field_case not in _VALID_TS_FIELD_CASE_VALUES:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{fqn}: unsupported json.fieldCase '{hint.field_case}'. "
+                        f"Valid values are: {', '.join(sorted(_VALID_TS_FIELD_CASE_VALUES))}",
+                        path,
+                    )
+                )
 
 
 def _find_field(version: ModelVersion, field_name: str):
@@ -378,6 +442,16 @@ def _validate_json_wire_hint(
     field_type=None,
 ) -> None:
     label = field_label or field.name
+    if hint.field_case is not None:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' may not use @wire(json.fieldCase: ...) — "
+                "json.fieldCase is only valid on model/projection declarations",
+                path,
+            )
+        )
+        return
     is_enum = isinstance(field_type, EnumType)
 
     if hint.encoding is None:
