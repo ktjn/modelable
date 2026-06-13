@@ -32,7 +32,7 @@ desc_attr: "description" ":" ESCAPED_STRING
 
 // -- Model -------------------------------------------------------------------
 
-model_decl: model_kind IDENT model_header? "{" model_body_item* "}"
+model_decl: wire_annotation* model_kind IDENT model_header? "{" model_body_item* "}"
 model_header: "@" INT model_change?
             | model_change
 model_change: "(" change_kind ")"
@@ -105,7 +105,7 @@ object_type: "object" "{" field_decl* "}"
 
 // -- Projections --------------------------------------------------------------
 
-projection_decl: "projection" IDENT "@" INT projection_source_block? source_clause? "{" projection_body_item* "}"
+projection_decl: wire_annotation* "projection" IDENT "@" INT projection_source_block? source_clause? "{" projection_body_item* "}"
 projection_source_block: "{" source_clause "}"
 
 projection_body_item: proj_field

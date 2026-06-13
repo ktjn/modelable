@@ -144,6 +144,8 @@ class MdlTransformer(Transformer):
         return ("description", _str(items[0]))
 
     def model_decl(self, items):
+        annotations = [item for item in items if isinstance(item, AnnWire)]
+        items = [item for item in items if not isinstance(item, AnnWire)]
         name = str(items[1])
         header = items[2] if len(items) > 2 and isinstance(items[2], tuple) and items[2][0] == "model_header" else None
         body_start = 3 if header is not None else 2
@@ -159,6 +161,7 @@ class MdlTransformer(Transformer):
             access=access,
             has_version_header=header is not None,
             has_change_kind=has_change_kind,
+            annotations=annotations,
         )
         return ("model", (name, model_version))
 
@@ -263,6 +266,13 @@ class MdlTransformer(Transformer):
                             f"{hint.overrides[key]!r} vs {value[key]!r}"
                         )
                 hint.overrides.update(value)
+            elif modifier == "fieldCase":
+                if hint.field_case is not None and hint.field_case != value:
+                    raise ValueError(
+                        f"conflicting wire field cases for target '{target}': "
+                        f"{hint.field_case!r} vs {value!r}"
+                    )
+                hint.field_case = value
             else:
                 raise ValueError(f"unsupported wire modifier: {modifier}")
             targets[target] = hint
@@ -373,6 +383,8 @@ class MdlTransformer(Transformer):
         return str(token)
 
     def projection_decl(self, items):
+        annotations = [item for item in items if isinstance(item, AnnWire)]
+        items = [item for item in items if not isinstance(item, AnnWire)]
         source_index = next(
             (
                 i
@@ -399,6 +411,7 @@ class MdlTransformer(Transformer):
             group_by=group_by,
             fields=[item for item in items[body_start:] if isinstance(item, ProjectionField)],
             access=access,
+            annotations=annotations,
         )
         return ("projection", (str(items[0]), projection_version))
 

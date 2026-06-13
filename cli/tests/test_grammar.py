@@ -1,6 +1,6 @@
 import pytest
 
-from modelable.parser.parse import ParseError, parse_file, parse_text
+from modelable.parser.parse import ParseError, parse_file, parse_text, parse_text_to_ir
 
 
 def test_import():
@@ -240,3 +240,46 @@ def test_parse_access_block():
     }
     """)
     assert tree.data == "start"
+
+
+def test_model_level_wire_field_case_annotation():
+    mdl = parse_text_to_ir("""
+    domain tracing {
+      owner: "test-team"
+
+      @wire(json.fieldCase: "snake_case")
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        startTimeUnixNano: int
+      }
+    }
+    """)
+
+    model = mdl.domains[0].models["Span"][0]
+    wire_targets = model.wire_targets()
+    assert wire_targets["json"].field_case == "snake_case"
+
+
+def test_projection_level_wire_field_case_annotation():
+    mdl = parse_text_to_ir("""
+    domain tracing {
+      owner: "test-team"
+
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        startTimeUnixNano: int
+      }
+
+      @wire(json.fieldCase: "snake_case")
+      projection SpanRow @ 1
+        from tracing.Span @ 1 as s
+      {
+        spanId <- s.spanId
+        startTimeUnixNano <- s.startTimeUnixNano
+      }
+    }
+    """)
+
+    projection = mdl.domains[0].projections["SpanRow"][0]
+    wire_targets = projection.wire_targets()
+    assert wire_targets["json"].field_case == "snake_case"
