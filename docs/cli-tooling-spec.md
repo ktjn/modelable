@@ -196,7 +196,7 @@ uv respects this file automatically. Update it when the latest stable Python fea
 ```yaml
 # Example GitHub Actions step
 - name: Install uv
-  uses: astral-sh/setup-uv@v8.1.0
+  uses: astral-sh/setup-uv@v8.2.0
   with:
     enable-cache: true
     cache-dependency-glob: cli/uv.lock

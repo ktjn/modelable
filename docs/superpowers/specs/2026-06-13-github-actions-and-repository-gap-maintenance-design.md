@@ -1,7 +1,7 @@
 # GitHub Actions and Repository Gap Maintenance Design
 
 **Date:** 2026-06-13  
-**Status:** Approved scope, pending written-spec review  
+**Status:** Approved
 **Scope:** GitHub Actions version maintenance and reconciliation of confirmed repository-state drift
 
 ## Goal

@@ -17,3 +17,6 @@ Active work should use the current spec or plan in `docs/superpowers/` rather th
 - [2026-05-31-compatibility-impact.md](2026-05-31-compatibility-impact.md)
 - [2026-05-31-graph-export.md](2026-05-31-graph-export.md)
 - [2026-05-31-release-pipeline.md](2026-05-31-release-pipeline.md)
+- [2026-06-11-json-passthrough-type.md](2026-06-11-json-passthrough-type.md)
+- [2026-06-13-typescript-field-case-hint.md](2026-06-13-typescript-field-case-hint.md)
+- [2026-06-13-github-actions-and-repository-gap-maintenance.md](2026-06-13-github-actions-and-repository-gap-maintenance.md)

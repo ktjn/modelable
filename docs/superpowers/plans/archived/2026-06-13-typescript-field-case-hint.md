@@ -1,6 +1,6 @@
 # TypeScript Field-Name Case Hint Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a new `@wire(json.fieldCase: "<case>")` hint, attachable to a model or projection declaration, that tells the TypeScript emitter to rename all of that declaration's interface fields to the given case convention (e.g. `snake_case`) — without affecting Rust, JSON Schema, SQL, or lineage output.
 
@@ -25,7 +25,7 @@
 - Modify: `cli/src/modelable/parser/wire.py` (`wire_targets_from_annotations`, `render_wire_annotation`)
 - Test: `cli/tests/test_grammar.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `cli/tests/test_grammar.py`. First, update the import at the top of the file:
 
@@ -79,13 +79,13 @@ def test_projection_level_wire_field_case_annotation():
     assert wire_targets["json"].field_case == "snake_case"
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd /c/git/modelable && uv run pytest cli/tests/test_grammar.py -v -k field_case`
 
 Expected: FAIL — either a parse error (grammar doesn't accept a leading `@wire(...)` before `entity`/`projection`) or an `AttributeError`/`KeyError` (`ModelVersion`/`ProjectionVersion` have no `wire_targets`, or `WireTargetHint` has no `field_case`).
 
-- [ ] **Step 3: Grammar — accept a leading `@wire(...)` on model and projection declarations**
+- [x] **Step 3: Grammar — accept a leading `@wire(...)` on model and projection declarations**
 
 In `cli/src/modelable/grammar/modelable.lark`, change line 35:
 
@@ -111,7 +111,7 @@ to:
 projection_decl: wire_annotation* "projection" IDENT "@" INT projection_source_block? source_clause? "{" projection_body_item* "}"
 ```
 
-- [ ] **Step 4: IR — add `field_case` to `WireTargetHint`, update `AnnWire` validation, add `annotations`/`wire_targets()` to `ModelVersion` and `ProjectionVersion`**
+- [x] **Step 4: IR — add `field_case` to `WireTargetHint`, update `AnnWire` validation, add `annotations`/`wire_targets()` to `ModelVersion` and `ProjectionVersion`**
 
 In `cli/src/modelable/parser/ir.py`, change the `WireTargetHint` class (lines 88-92):
 
@@ -186,7 +186,7 @@ class ProjectionVersion(BaseModel):
         return wire_targets_from_annotations(self.annotations)
 ```
 
-- [ ] **Step 5: Transformer — handle the `fieldCase` modifier and thread leading `@wire(...)` annotations into `ModelVersion`/`ProjectionVersion`**
+- [x] **Step 5: Transformer — handle the `fieldCase` modifier and thread leading `@wire(...)` annotations into `ModelVersion`/`ProjectionVersion`**
 
 In `cli/src/modelable/parser/transformer.py`, update `ann_wire` (lines 232-269) to add a `fieldCase` branch. Insert it after the existing `overrides` branch (before the final `else: raise ValueError(...)`):
 
@@ -274,7 +274,7 @@ Update `projection_decl` (lines 375-403) the same way:
         return ("projection", (str(items[0]), projection_version))
 ```
 
-- [ ] **Step 6: wire.py — merge and render `field_case`**
+- [x] **Step 6: wire.py — merge and render `field_case`**
 
 In `cli/src/modelable/parser/wire.py`, in `wire_targets_from_annotations`, add a `field_case` merge branch after the existing `overrides` branch (before `targets[target] = merged`):
 
@@ -304,19 +304,19 @@ In `render_wire_annotation`, add a rendering branch after the `overrides` branch
     if not parts:
 ```
 
-- [ ] **Step 7: Run tests to verify they pass**
+- [x] **Step 7: Run tests to verify they pass**
 
 Run: `cd /c/git/modelable && uv run pytest cli/tests/test_grammar.py -v -k field_case`
 
 Expected: PASS (2 passed)
 
-- [ ] **Step 8: Run the full test suite to check for regressions**
+- [x] **Step 8: Run the full test suite to check for regressions**
 
 Run: `cd /c/git/modelable && uv run pytest cli/tests/ -q`
 
 Expected: all tests pass (no regressions from the grammar/IR changes)
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 cd /c/git/modelable
@@ -332,7 +332,7 @@ git commit -m "feat(parser): support @wire(json.fieldCase: ...) on model/project
 - Modify: `cli/src/modelable/validation/semantic.py:29-37` (new constant), `:103-176` (`_validate_models`), `:179-215` (`_validate_projections`), `:370-435` (`_validate_json_wire_hint`), and a new `_validate_declaration_wire_annotations` function
 - Test: `cli/tests/test_semantic.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `cli/tests/test_semantic.py`:
 
@@ -434,13 +434,13 @@ def test_model_level_wire_target_other_than_json_field_case_is_rejected():
     assert any("only @wire(json.fieldcase: ...)" in error.lower() for error in errors)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd /c/git/modelable && uv run pytest cli/tests/test_semantic.py -v -k field_case`
 
 Expected: FAIL — `test_model_level_json_field_case_snake_case_passes` and `test_projection_level_json_field_case_snake_case_passes` fail because nothing validates/permits the new annotation yet (they may currently pass by accident since nothing rejects it — but the rejection tests will fail because there's no validation logic producing those error messages).
 
-- [ ] **Step 3: Add `_VALID_TS_FIELD_CASE_VALUES`**
+- [x] **Step 3: Add `_VALID_TS_FIELD_CASE_VALUES`**
 
 In `cli/src/modelable/validation/semantic.py`, add a new constant after `_VALID_RUST_CASE_VALUES` (lines 29-37):
 
@@ -462,7 +462,7 @@ _VALID_TS_FIELD_CASE_VALUES = {
 }
 ```
 
-- [ ] **Step 4: Add `_validate_declaration_wire_annotations` and call it from `_validate_models`/`_validate_projections`**
+- [x] **Step 4: Add `_validate_declaration_wire_annotations` and call it from `_validate_models`/`_validate_projections`**
 
 Add this new function in `cli/src/modelable/validation/semantic.py`, placed after `_validate_change_kind` (around line 263, before `_find_field`):
 
@@ -555,7 +555,7 @@ And call it from `_validate_projections`. In the per-version loop (around lines 
             ...
 ```
 
-- [ ] **Step 5: Reject field-level `json.fieldCase` in `_validate_json_wire_hint`**
+- [x] **Step 5: Reject field-level `json.fieldCase` in `_validate_json_wire_hint`**
 
 In `cli/src/modelable/validation/semantic.py`, at the start of `_validate_json_wire_hint` (lines 370-435), add a check before the existing `is_enum = isinstance(field_type, EnumType)` line:
 
@@ -587,19 +587,19 @@ def _validate_json_wire_hint(
 
 (Keep the rest of the function body unchanged below this new block.)
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `cd /c/git/modelable && uv run pytest cli/tests/test_semantic.py -v -k field_case`
 
 Expected: PASS (5 passed)
 
-- [ ] **Step 7: Run the full test suite to check for regressions**
+- [x] **Step 7: Run the full test suite to check for regressions**
 
 Run: `cd /c/git/modelable && uv run pytest cli/tests/ -q`
 
 Expected: all tests pass
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 cd /c/git/modelable
@@ -615,7 +615,7 @@ git commit -m "feat(validation): validate @wire(json.fieldCase: ...) vocabulary 
 - Modify: `cli/src/modelable/emitters/typescript.py:57-127` (`_emit_model`, `_emit_projection`)
 - Test: `cli/tests/test_emit_typescript.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `cli/tests/test_emit_typescript.py`:
 
@@ -700,13 +700,13 @@ domain tracing {
     assert "traceId: string;" in art.content
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd /c/git/modelable && uv run pytest cli/tests/test_emit_typescript.py -v -k field_case`
 
 Expected: FAIL — `test_emit_typescript_model_level_field_case_snake_case` and the projection-level test fail because field names are still emitted verbatim (camelCase); `test_emit_typescript_model_without_field_case_is_unchanged` passes already (regression baseline).
 
-- [ ] **Step 3: Apply `field_case` in `_emit_model`**
+- [x] **Step 3: Apply `field_case` in `_emit_model`**
 
 In `cli/src/modelable/emitters/typescript.py`, update `_emit_model` (lines 57-85):
 
@@ -745,7 +745,7 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     )
 ```
 
-- [ ] **Step 4: Apply `field_case` in `_emit_projection`**
+- [x] **Step 4: Apply `field_case` in `_emit_projection`**
 
 Update `_emit_projection` (lines 88-127):
 
@@ -795,19 +795,19 @@ def _emit_projection(
     )
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `cd /c/git/modelable && uv run pytest cli/tests/test_emit_typescript.py -v -k field_case`
 
 Expected: PASS (3 passed)
 
-- [ ] **Step 6: Run the full test suite to check for regressions**
+- [x] **Step 6: Run the full test suite to check for regressions**
 
 Run: `cd /c/git/modelable && uv run pytest cli/tests/ -q`
 
 Expected: all tests pass
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 cd /c/git/modelable
@@ -823,7 +823,7 @@ git commit -m "feat(typescript): rename interface fields per @wire(json.fieldCas
 - Test: `cli/tests/test_emit_typescript.py`
 - Modify: `cli/pyproject.toml:7`
 
-- [ ] **Step 1: Write the end-to-end fixture test**
+- [x] **Step 1: Write the end-to-end fixture test**
 
 Append to `cli/tests/test_emit_typescript.py`. This mirrors the real shape of Observable's `tracing.Span@1` (`models/tracing.mdl`): a `@key` field, an enum with `@wire(json.case: "SCREAMING_SNAKE_CASE")`, a `@wire(rust.type: "u64")` int, an optional field, and a `map<string, json>` field — all under a model-level `@wire(json.fieldCase: "snake_case")`.
 
@@ -869,19 +869,19 @@ domain tracing {
     assert "span_kind:" in art.content
 ```
 
-- [ ] **Step 2: Run the new test**
+- [x] **Step 2: Run the new test**
 
 Run: `cd /c/git/modelable && uv run pytest cli/tests/test_emit_typescript.py -v -k tracing_span_field_case`
 
 Expected: PASS (1 passed) — this confirms `json.fieldCase` composes correctly with the existing `json.case` (enum), `rust.type`, `map<string, json>`, and `optional` field handling.
 
-- [ ] **Step 3: Run the full test suite**
+- [x] **Step 3: Run the full test suite**
 
 Run: `cd /c/git/modelable && uv run pytest cli/tests/ -q`
 
 Expected: all tests pass
 
-- [ ] **Step 4: Bump the package version**
+- [x] **Step 4: Bump the package version**
 
 In `cli/pyproject.toml`, change line 7:
 
@@ -895,7 +895,7 @@ to:
 version = "0.4.0"
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd /c/git/modelable
