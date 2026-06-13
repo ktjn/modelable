@@ -538,3 +538,44 @@ domain tracing {
     art = next(a for a in artifacts if a.ref == "tracing.Span@1")
     assert "spanId: string;" in art.content
     assert "traceId: string;" in art.content
+
+
+def test_emit_typescript_tracing_span_field_case_end_to_end(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "platform-team"
+
+  @wire(json.fieldCase: "snake_case")
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    traceId: string
+    parentSpanId?: string
+    tenantId: uuid
+    @wire(json.case: "SCREAMING_SNAKE_CASE")
+    spanKind: enum(Internal, Server, Client, Producer, Consumer)
+    @wire(rust.type: "u64")
+    startTimeUnixNano: int
+    attributes: map<string, json>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+
+    expected_fields = [
+        "span_id: string;",
+        "trace_id: string;",
+        "parent_span_id?: string;",
+        "tenant_id: string;",
+        "start_time_unix_nano: number;",
+        "attributes: Record<string, unknown>;",
+    ]
+    for expected in expected_fields:
+        assert expected in art.content, art.content
+
+    assert "'INTERNAL' | 'SERVER' | 'CLIENT' | 'PRODUCER' | 'CONSUMER'" in art.content
+    assert "span_kind:" in art.content
