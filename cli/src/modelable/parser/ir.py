@@ -90,6 +90,7 @@ class WireTargetHint(BaseModel):
     type: str | None = None
     case: str | None = None
     overrides: dict[str, str] = Field(default_factory=dict)
+    field_case: str | None = None
 
 
 class AnnWire(BaseModel):
@@ -106,6 +107,7 @@ class AnnWire(BaseModel):
                 and hint.type is None
                 and hint.case is None
                 and not hint.overrides
+                and hint.field_case is None
             ):
                 raise ValueError(f"wire target '{target}' must define at least one option")
         return self
@@ -274,6 +276,12 @@ class ModelVersion(BaseModel):
     access: AccessBlock | None = None
     has_version_header: bool = True
     has_change_kind: bool = True
+    annotations: list[Annotation] = Field(default_factory=list)
+
+    def wire_targets(self) -> dict[str, WireTargetHint]:
+        from modelable.parser.wire import wire_targets_from_annotations
+
+        return wire_targets_from_annotations(self.annotations)
 
 
 class VersionExact(BaseModel):
@@ -372,6 +380,12 @@ class ProjectionVersion(BaseModel):
     fields: list[ProjectionField]
     auto_generated: bool = False
     access: AccessBlock | None = None
+    annotations: list[Annotation] = Field(default_factory=list)
+
+    def wire_targets(self) -> dict[str, WireTargetHint]:
+        from modelable.parser.wire import wire_targets_from_annotations
+
+        return wire_targets_from_annotations(self.annotations)
 
 
 class AutoProjectionTarget(BaseModel):

@@ -382,3 +382,100 @@ def test_projection_field_wire_hints_validate_against_source_type():
     errors = validate(mdl)
 
     assert any("only supports @wire(json: ...)" in error for error in errors)
+
+
+def test_model_level_json_field_case_snake_case_passes():
+    mdl = parse_text_to_ir("""
+    domain tracing {
+      owner: "test-team"
+
+      @wire(json.fieldCase: "snake_case")
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        startTimeUnixNano: int
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert errors == []
+
+
+def test_model_level_json_field_case_invalid_value_is_rejected():
+    mdl = parse_text_to_ir("""
+    domain tracing {
+      owner: "test-team"
+
+      @wire(json.fieldCase: "kebab-case")
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        startTimeUnixNano: int
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("unsupported json.fieldcase" in error.lower() for error in errors)
+
+
+def test_field_level_json_field_case_is_rejected():
+    mdl = parse_text_to_ir("""
+    domain tracing {
+      owner: "test-team"
+
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        @wire(json.fieldCase: "snake_case")
+        startTimeUnixNano: int
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("json.fieldcase" in error.lower() for error in errors)
+
+
+def test_projection_level_json_field_case_snake_case_passes():
+    mdl = parse_text_to_ir("""
+    domain tracing {
+      owner: "test-team"
+
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        startTimeUnixNano: int
+      }
+
+      @wire(json.fieldCase: "snake_case")
+      projection SpanRow @ 1
+        from tracing.Span @ 1 as s
+      {
+        spanId <- s.spanId
+        startTimeUnixNano <- s.startTimeUnixNano
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert errors == []
+
+
+def test_model_level_wire_target_other_than_json_field_case_is_rejected():
+    mdl = parse_text_to_ir("""
+    domain tracing {
+      owner: "test-team"
+
+      @wire(rust.case: "snake_case")
+      entity Span @ 1 (additive) {
+        @key spanId: string
+        startTimeUnixNano: int
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("only @wire(json.fieldcase: ...)" in error.lower() for error in errors)

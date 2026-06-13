@@ -39,6 +39,13 @@ def wire_targets_from_annotations(annotations) -> dict[str, WireTargetHint]:
                                 f"{merged.overrides[key]!r} vs {hint.overrides[key]!r}"
                             )
                     merged.overrides.update(hint.overrides)
+                if hint.field_case is not None:
+                    if merged.field_case is not None and merged.field_case != hint.field_case:
+                        raise ValueError(
+                            f"conflicting wire field cases for target '{target}': "
+                            f"{merged.field_case!r} vs {hint.field_case!r}"
+                        )
+                    merged.field_case = hint.field_case
                 targets[target] = merged
     return targets
 
@@ -58,6 +65,8 @@ def render_wire_annotation(annotation: AnnWire) -> str:
                 f'{key}: "{value}"' for key, value in sorted(hint.overrides.items())
             )
             parts.append(f"{target}.overrides: {{ {overrides} }}")
+        if hint.field_case is not None:
+            parts.append(f'{target}.fieldCase: "{hint.field_case}"')
     if not parts:
         raise ValueError("AnnWire must contain at least one wire option")
     return f"@wire({', '.join(parts)})"
