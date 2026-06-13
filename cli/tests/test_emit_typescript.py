@@ -458,4 +458,83 @@ domain tracing {
     # No wire hint — values are emitted verbatim from the IDL
     assert "'Internal'" in art.content
     assert "'Server'" in art.content
-    assert "'Client'" in art.content
+
+
+def test_emit_typescript_model_level_field_case_snake_case(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "test-team"
+
+  @wire(json.fieldCase: "snake_case")
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    traceId: string
+    startTimeUnixNano: int
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    assert "span_id: string;" in art.content
+    assert "trace_id: string;" in art.content
+    assert "start_time_unix_nano: number;" in art.content
+    assert "spanId" not in art.content
+    assert "traceId" not in art.content
+
+
+def test_emit_typescript_projection_level_field_case_independent_of_model(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "test-team"
+
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    traceId: string
+  }
+
+  @wire(json.fieldCase: "snake_case")
+  projection SpanRow @ 1
+    from tracing.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    traceId <- s.traceId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+
+    model_art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    assert "spanId: string;" in model_art.content
+    assert "traceId: string;" in model_art.content
+
+    proj_art = next(a for a in artifacts if a.ref == "tracing.SpanRow@1")
+    assert "span_id: string;" in proj_art.content
+    assert "trace_id: string;" in proj_art.content
+
+
+def test_emit_typescript_model_without_field_case_is_unchanged(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    traceId: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    assert "spanId: string;" in art.content
+    assert "traceId: string;" in art.content

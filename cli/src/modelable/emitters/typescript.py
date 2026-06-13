@@ -66,12 +66,15 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
             version.change_kind.value,
         )
     )
+    declaration_json_wire = version.wire_targets().get("json")
+    field_case = declaration_json_wire.field_case if declaration_json_wire is not None else None
     lines.append(f"export interface {interface_name} {{")
     warnings: list[str] = []
     for field in version.fields:
         if isinstance(field.type, NamedType):
             warnings.append(missing_metadata(f"{domain.name}.{model_name}.{field.name}"))
-        lines.append(f"  {field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets())};")
+        field_name = _apply_case(field.name, field_case) if field_case else field.name
+        lines.append(f"  {field_name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets())};")
     lines.append("}")
     lines.append(f"export type {model_name} = {interface_name};")
     return EmittedArtifact(
@@ -105,6 +108,8 @@ def _emit_projection(
             group_by=", ".join(version.group_by) if version.group_by else None,
         )
     )
+    declaration_json_wire = version.wire_targets().get("json")
+    field_case = declaration_json_wire.field_case if declaration_json_wire is not None else None
     lines.append(f"export interface {interface_name} {{")
     warnings: list[str] = []
     for field in version.fields:
@@ -113,7 +118,8 @@ def _emit_projection(
             warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
         elif isinstance(field_type, NamedType):
             warnings.append(missing_metadata(f"{domain.name}.{projection_name}.{field.name}"))
-        lines.append(f"  {field.name}: {_type_to_ts(field_type, wire_targets=field.wire_targets())};")
+        field_name = _apply_case(field.name, field_case) if field_case else field.name
+        lines.append(f"  {field_name}: {_type_to_ts(field_type, wire_targets=field.wire_targets())};")
     lines.append("}")
     lines.append(f"export type {projection_name} = {interface_name};")
     return EmittedArtifact(
