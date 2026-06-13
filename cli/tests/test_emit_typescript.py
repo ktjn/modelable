@@ -458,6 +458,7 @@ domain tracing {
     # No wire hint — values are emitted verbatim from the IDL
     assert "'Internal'" in art.content
     assert "'Server'" in art.content
+    assert "'Client'" in art.content
 
 
 def test_emit_typescript_model_level_field_case_snake_case(tmp_path):
