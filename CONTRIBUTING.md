@@ -50,6 +50,7 @@ Apache License 2.0.
 
 ## Conduct and security
 
-Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report
+Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and the
+[Project Governance](GOVERNANCE.md). Report
 security vulnerabilities through GitHub's private vulnerability reporting,
 as described in [SECURITY.md](SECURITY.md), rather than in a public issue.

@@ -100,6 +100,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete contributor workflow.
 - [Sample models](samples/README.md)
 - [Changelog](CHANGELOG.md)
 - [Roadmap](ROADMAP.md)
+- [Project governance](GOVERNANCE.md)
 
 ## License
 

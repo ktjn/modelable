@@ -23,6 +23,8 @@ example. The documents here describe the language and the larger system model.
 ## Architecture and product direction
 
 - [System specification](modelable-system-spec.md): product concepts and source of truth.
+- [Project governance](../GOVERNANCE.md)
+- [Agent governance](agent-governance.md)
 - [Adapter architecture](adapter-architecture-spec.md)
 - [Distributed lineage](distributed-lineage-spec.md)
 - [External-tool boundaries](external-tools-data-modelling.md)

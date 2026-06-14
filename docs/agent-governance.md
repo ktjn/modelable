@@ -1,10 +1,15 @@
 # Agent Governance
 
-This document defines how automated and human-assisted agents should change this repository now and when implementation work begins. It is process guidance, not product semantics. The product source of truth remains [modelable-system-spec.md](modelable-system-spec.md).
+This document defines how automated and human-assisted agents operate within the
+[Project Governance](../GOVERNANCE.md). It is process guidance for agents, not
+product semantics. The product source of truth remains
+[modelable-system-spec.md](modelable-system-spec.md).
 
 ## 1. Purpose
 
-Agent governance exists to keep repository changes reviewable, locally verifiable, and aligned with Modelable's core contract guarantees:
+Agent governance exists to keep repository changes reviewable, locally
+verifiable, and aligned with Modelable's core contract guarantees and
+[Product Principles](../GOVERNANCE.md#3-product-principles-in-governance):
 
 - Published model and projection versions are immutable.
 - Incompatible changes require new versions.
@@ -18,20 +23,22 @@ These rules apply to documentation, samples, future source code, tests, generate
 
 Agents must:
 
+- Consult [AGENTS.md](../AGENTS.md) for the current project state and [ROADMAP.md](../ROADMAP.md) for planned work before starting.
 - Read the relevant specification before editing.
 - Keep changes small enough for meaningful review.
-- Add or update tests with any future code change that affects parser behavior, validation, compatibility checks, lineage, planning, runtime execution, governance, security, or generated artifacts.
-- Add Docker-backed compile smoke tests for any future change that adds or modifies a generated-language backend or generated artifact format, using the latest official compiler/runtime image for each affected language.
-- Do not use hard-coded line numbers to locate language elements in test fixtures or sample files. Derive line positions dynamically: `next(i for i, l in enumerate(text.splitlines()) if "pattern" in l)`. Derive character positions from `lines[line_no].index("token") + offset`. For real `.mdl` files, read the file at test time and locate the element by content, not by line number.
+- Add or update tests with any code change that affects parser behavior, validation, compatibility checks, lineage, planning, runtime execution, governance, security, or generated artifacts.
+- Add Docker-backed compile smoke tests for any change that adds or modifies a generated-language backend or generated artifact format, using the latest official compiler/runtime image for each affected language.
+- Do not use hard-coded line numbers to locate language elements in test fixtures or sample files. Derive line positions dynamically.
 - Validate current latest stable framework, library, CLI, build-tool, and scaffolding choices with a web search against official documentation, package registries, or release pages before adding or changing them.
 - Use the latest stable framework and tool versions by default, unless the specification, compatibility constraints, existing manifests, or explicit user direction require a different version.
 - Record any deliberate use of an older framework or tool version in the final handoff or PR body.
-- Use `uv` for Python version management, project setup, dependency management, lockfile generation, and Python tool execution unless an explicit user request or established project convention requires otherwise.
+- Use `uv` exclusively for Python version management, project setup, dependency management, lockfile generation, and tool execution.
 - Preserve the existing domain language: domain-owned canonical models, immutable versions, projections, subscriptions, adapter bindings, planner/runtime/materializer, compatibility, lineage, and governance.
 - Prefer explicit derivation and traceability over implicit behavior.
 - Identify whether a change is MVP, deferred, non-goal, or open decision when adding requirements.
 - Avoid broad architecture or tooling churn unless it directly supports the requested change.
 - Record verification evidence in the final handoff or PR body.
+- **Strategic Re-evaluation**: If a fix fails more than 3 times, stop and re-evaluate assumptions. Propose an alternative architectural approach rather than continuing to patch a failing one.
 
 Agents must not:
 
@@ -72,7 +79,7 @@ uv run pytest tests/ -v
 uv run modelable validate tests/fixtures/customer.mdl
 ```
 
-Run these commands from `cli/`. No formatter or static-analysis command is configured yet; if one is added, update this section and `AGENTS.md` with the exact command.
+Run these commands from `cli/`. No formatter or static-analysis command is configured yet; if one is added, update this section and `AGENTS.md` with the exact command. **If a milestone is completed, update the status table in [AGENTS.md](../AGENTS.md).**
 
 For LSP or VS Code extension changes, also run:
 
