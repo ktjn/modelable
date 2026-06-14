@@ -21,10 +21,15 @@ cd cli
 uv sync --extra dev
 uv run ruff check . --fix
 uv run ruff format .
-uv run mypy .
+uv run ruff check .
+uv run ruff format --check .
 uv run pytest tests/ --tb=short
 uv run modelable validate ../samples/mvp --strict
 ```
+
+Strict mypy is available for incremental typing work, but it is not currently
+part of the required local or GitHub gate because the repository-wide baseline
+is not yet clean.
 
 The VS Code extension requires Node.js 24:
 
@@ -43,8 +48,10 @@ To maintain quality and stability, all contributions must pass through the
 following gates:
 
 1. **Local CI**: Before opening a pull request, you must run the local gate
-   commands (see [Development setup](#development-setup)). Any changed code
-   must pass all tests locally.
+   commands (see [Development setup](#development-setup)). Run the non-mutating
+   `ruff check .` and `ruff format --check .` commands after applying fixes so
+   the final working tree is verified with the same checks used by CI. Any
+   changed code must pass all tests locally.
 2. **GitHub Verification**: All pull requests must pass the automated GitHub
    Actions CI before they can be merged. Verify that all status checks are
    green on the PR.

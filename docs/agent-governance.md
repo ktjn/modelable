@@ -33,7 +33,7 @@ Agents must:
 - Use the latest stable framework and tool versions by default, unless the specification, compatibility constraints, existing manifests, or explicit user direction require a different version.
 - Record any deliberate use of an older framework or tool version in the final handoff or PR body.
 - Use `uv` exclusively for Python version management, project setup, dependency management, lockfile generation, and tool execution. Keep packages up to date with the latest stable versions.
-- The project requires Python >= 3.14 (declared in `cli/pyproject.toml` `requires-python` and `[tool.mypy] python_version`). All agents and CI must run under Python 3.14+ so that mypy strict checks, Pydantic v2 validation, and modern typing features catch errors early during local gate execution.
+- The project requires Python >= 3.14 (declared in `cli/pyproject.toml` `requires-python` and `[tool.mypy] python_version`). All agents and CI must run under Python 3.14+ for Pydantic v2 validation and modern typing behavior. Strict mypy remains configured for incremental cleanup but is not a required gate until its repository-wide baseline is clean.
 - Preserve the existing domain language: domain-owned canonical models, immutable versions, projections, subscriptions, adapter bindings, planner/runtime/materializer, compatibility, lineage, and governance.
 - Maintain backward compatibility within major versions for the `.mdl` language and CLI.
 - Prefer explicit derivation and traceability over implicit behavior.
@@ -80,12 +80,19 @@ git status --short
 uv sync --extra dev
 uv run ruff check . --fix
 uv run ruff format .
-uv run mypy .
+uv run ruff check .
+uv run ruff format --check .
 uv run pytest tests/ -v
 uv run modelable validate tests/fixtures/customer.mdl
 ```
 
-Run these commands from `cli/`. No formatter or static-analysis command is configured yet; if one is added, update this section and `AGENTS.md` with the exact command. **If a milestone is completed, update the status table in [AGENTS.md](../AGENTS.md).**
+Run these commands from `cli/`. The final non-mutating Ruff checks are required
+after any auto-fix or formatting step; they mirror the first CLI gates in
+GitHub Actions and prevent unformatted changes from skipping the test suite.
+If the formatter or static-analysis commands change, update this section,
+[AGENTS.md](../AGENTS.md), and [CONTRIBUTING.md](../CONTRIBUTING.md) together.
+**If a milestone is completed, update the status table in
+[AGENTS.md](../AGENTS.md).**
 
 For LSP or VS Code extension changes, also run:
 
@@ -148,7 +155,8 @@ Review feedback is blocking when it identifies:
 
 ## 6. CI and Remote Gate Expectations
 
-Remote CI should eventually mirror the local gate. It should not replace local verification for ordinary development.
+Remote CI mirrors the local Ruff, test, and VS Code gates. It does not
+replace local verification for ordinary development.
 
 Recommended CI gate sequence as implementation expands:
 
@@ -171,6 +179,5 @@ must not add long-lived package-index credentials to repository secrets.
 
 ## 7. Open Decisions
 
-- Exact formatter and static-analysis commands are open until those tools are configured.
 - Whether governance findings become blocking CI failures is an open policy decision. Phase 1 treats them as visibility and process-support findings unless a policy wrapper promotes them to failures.
 - The PR template location and required status checks are open until repository hosting configuration is added.

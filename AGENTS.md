@@ -22,6 +22,8 @@ The Phase 1 local modelling compiler is complete. Before starting any task, run 
 ```bash
 cd cli
 uv sync --extra dev
+uv run ruff check .
+uv run ruff format --check .
 uv run pytest tests/ --tb=short -q
 uv run modelable validate ../samples/mvp
 
@@ -105,7 +107,8 @@ Before reporting completion, run the local gate appropriate to the current repos
 
 1. Check `git status --short`.
 2. Inspect the changed-file diff.
-3. Run the relevant commands from the test gate section.
+3. For CLI changes, run `uv run ruff check .` and
+   `uv run ruff format --check .` from `cli/` before the relevant tests.
 4. For documentation-only changes, verify the Markdown diff is coherent and no referenced document is missing.
 5. Report commands run and any skipped gate with the reason.
 
@@ -128,9 +131,14 @@ Current CLI commands are run from `cli/`:
 
 ```bash
 uv sync --extra dev
+uv run ruff check .
+uv run ruff format --check .
 uv run pytest tests/ -v
 uv run modelable validate tests/fixtures/customer.mdl
 ```
+
+Strict mypy is configured for incremental typing work but is not a required
+gate until the existing repository-wide error baseline is resolved.
 
 Before claiming verification, inspect the repository for newly added manifests or scripts and run the relevant commands. If only documentation changes were made, a reasonable verification is to review the Markdown diff and confirm links or references are coherent.
 

@@ -172,7 +172,12 @@ class MdlTransformer(Transformer[list[object], Any]):
     def model_header(self, items: list[object]) -> tuple[str, int, ChangeKind, bool]:
         if len(items) == 1 and isinstance(items[0], tuple):
             h = items[0]
-            return ("model_header", int(h[1]) if len(h) > 1 else 0, h[2] if len(h) > 2 and isinstance(h[2], ChangeKind) else ChangeKind.additive, True)
+            return (
+                "model_header",
+                int(h[1]) if len(h) > 1 else 0,
+                h[2] if len(h) > 2 and isinstance(h[2], ChangeKind) else ChangeKind.additive,
+                True,
+            )
         if len(items) == 2:
             v = int(items[0]) if isinstance(items[0], (int, str)) else 0
             ck = items[1] if isinstance(items[1], ChangeKind) else ChangeKind.additive
@@ -208,13 +213,21 @@ class MdlTransformer(Transformer[list[object], Any]):
         rest = [item for item in items if not isinstance(item, ANNOTATION_TYPES)]
         default = next((item[1] for item in rest if isinstance(item, tuple) and item[0] == "default"), None)
         type_item = next(
-            (item for item in rest if not isinstance(item, str) and not (isinstance(item, tuple) and item[0] == "default")),
+            (
+                item
+                for item in rest
+                if not isinstance(item, str) and not (isinstance(item, tuple) and item[0] == "default")
+            ),
             None,
         )
         return FieldDef(
             name=str(rest[0]),
             optional=any(item == "?" for item in rest),
-            type=type_item if isinstance(type_item, (PrimitiveType, DecimalType, ArrayType, MapType, RefType, EnumType, ObjectType, NamedType)) else PrimitiveType(kind="string"),
+            type=type_item
+            if isinstance(
+                type_item, (PrimitiveType, DecimalType, ArrayType, MapType, RefType, EnumType, ObjectType, NamedType)
+            )
+            else PrimitiveType(kind="string"),
             default=default,
             annotations=annotations,
         )
