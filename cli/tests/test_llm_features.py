@@ -647,7 +647,7 @@ models:
     assert "entity Customer @ 2 (breaking)" in updated
     assert "@key customerId: string" in updated
     assert "loyaltyTier?: string" in updated
-    assert "new version 2 (breaking)" in result.output
+    assert "new version 2 (breaking)" in " ".join(result.output.split())
 
     attachments = json.loads(_attachments_path(mdl).read_text(encoding="utf-8"))
     assert len(attachments) == 1
@@ -714,7 +714,7 @@ models:
         ],
     )
     assert result.exit_code == 0, result.output
-    assert "no new version created" in result.output
+    assert "no new version created" in " ".join(result.output.split())
     assert mdl.read_text(encoding="utf-8").count("entity Customer @") == 1
     assert not _attachments_path(mdl).exists()
 
