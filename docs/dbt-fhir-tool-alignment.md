@@ -1,11 +1,16 @@
 # Research and Plan: Aligning with dbt, FHIR, and Other External Tools
 
-> **Status:** Research and planning. No emitter, importer, or CLI work is
-> committed by this document. It extends
-> [external-tools-data-modelling.md](external-tools-data-modelling.md) and
-> [migration-guide.md](migration-guide.md) with concept mappings and phased
-> proposals for dbt, FHIR, and other ecosystems. Concrete work requires an
-> issue and an accepted design per [ROADMAP.md](../ROADMAP.md).
+> **Status:** Research and planning. Most of this document's phased proposals
+> (emitters, catalog/lineage integration, additional artifact targets) are not
+> committed and require an issue and an accepted design per
+> [ROADMAP.md](../ROADMAP.md). One slice has shipped: the `modelable attach`
+> command (see [cli-spec.md](cli-spec.md) §10.8) imports a dbt `schema.yml`
+> model or a FHIR `StructureDefinition` (§2.3 Phase B / §3.3 Phase C below) and
+> records field-level drift against an existing Modelable model version as a
+> new `additive`/`breaking` version plus an attachment record. This document
+> extends [external-tools-data-modelling.md](external-tools-data-modelling.md)
+> and [migration-guide.md](migration-guide.md) with concept mappings and
+> phased proposals for dbt, FHIR, and other ecosystems.
 
 ## 1. Purpose
 
@@ -91,6 +96,15 @@ YAML.
 models/<domain>.mdl` to bootstrap `.mdl` models from an existing dbt project,
 following the same "review the generated output" workflow as other
 LLM-assisted imports.
+
+**Implemented (partial):** `modelable attach <Domain.Model@version> --source
+<schema.yml> --source-format dbt [--source-name NAME]` imports a dbt model's
+`columns:` (with `data_type`, `constraints`, and `modelable_*` `meta` keys) and
+compares them to an existing published model version, appending a new version
+with a computed `additive`/`breaking` change kind when they differ. See
+[cli-spec.md](cli-spec.md) §10.8. `modelable generate --from <schema.yml>`
+bootstrapping for brand-new models and `manifest.json` input remain
+unimplemented.
 
 **Phase C — exposure/lineage stitching:**
 
@@ -187,6 +201,17 @@ the FHIR resource catalog.
 `modelable generate --from <StructureDefinition.json> --output
 models/<domain>.mdl` to draft a starting `.mdl` model/projection from an
 existing profile, with the same human-review workflow as other imports.
+
+**Implemented (partial):** `modelable attach <Domain.Model@version> --source
+<StructureDefinition.json> --source-format fhir` imports the direct child
+elements of a FHIR R4 `StructureDefinition` (primitive types, `Reference`
+targets, and cardinality) and compares them to an existing published model
+version, appending a new version with a computed `additive`/`breaking` change
+kind when they differ. Elements with complex FHIR types (e.g.
+`BackboneElement`, `HumanName`, `CodeableConcept`) fall back to a named type
+with a warning, per §3.4. See [cli-spec.md](cli-spec.md) §10.8. `modelable
+generate --from <StructureDefinition.json>` bootstrapping for brand-new models
+remains unimplemented.
 
 **Phase D (Later, roadmap) — Implementation Guide packaging:**
 

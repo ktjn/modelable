@@ -761,3 +761,33 @@ modelable lineage export --format ndjson --output <path>
 Exports the full lineage graph from `registry.db` as NDJSON for external catalog ingestion.
 
 **Defined in:** `distributed-lineage-spec.md` §6.
+
+### 10.8 `attach` — Attach a model version to an external dbt or FHIR source
+
+```text
+modelable attach <Domain.Model@version> --source <path> --source-format <dbt|fhir> [--source-name NAME] --path PATH [--output FILE] [--preview]
+```
+
+Imports fields from an external dbt `schema.yml` model or a FHIR R4 `StructureDefinition`
+and compares them against the referenced model version using the same field-by-field
+comparison as `diff`. `--source-name` selects a specific dbt model when the source file
+declares more than one; it is ignored for FHIR sources, which describe a single resource.
+
+- If the imported fields match the referenced version, no changes are made.
+- Otherwise, a new model version is appended to the `.mdl` source with fields derived
+  from the external source (existing field annotations such as `@key`, `@pii`, and
+  `@classification` are preserved by field name) and a `change_kind` of `additive` or
+  `breaking` computed from the same rules as `diff` (removed fields, type changes, enum
+  changes, identity changes, and optional-to-required narrowing are breaking; everything
+  else is additive).
+
+By default the command writes the source file for the referenced definition; `--output`
+directs the result to an alternate path. `--preview` shows the rendered diff without
+writing changes.
+
+When the command writes a file, it appends a record to a `.attachments.json` sidecar
+next to the `.mdl` file describing the source format, matched source name, source
+content hash, the version transition, the computed change kind, and the field-level
+changes, and it prints the standard audit summary.
+
+**Defined in:** `dbt-fhir-tool-alignment.md` §2.3, §3.3.

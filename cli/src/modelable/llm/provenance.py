@@ -52,3 +52,33 @@ def write_provenance_sidecar(artifact_path: Path, provenance: WriteProvenance) -
     sidecar_path = provenance_sidecar_path(artifact_path)
     sidecar_path.write_text(render_write_provenance(provenance), encoding="utf-8")
     return sidecar_path
+
+
+@dataclass(frozen=True)
+class AttachmentRecord:
+    ref: str
+    source_format: str
+    source_name: str
+    source_path: str
+    source_hash: str
+    from_version: int
+    to_version: int | None
+    change_kind: str | None
+    changes: list[dict[str, object]]
+
+    def as_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+
+def attachment_sidecar_path(artifact_path: Path) -> Path:
+    return artifact_path.with_name(f"{artifact_path.name}.attachments.json")
+
+
+def write_attachment_record(artifact_path: Path, record: AttachmentRecord) -> Path:
+    sidecar_path = attachment_sidecar_path(artifact_path)
+    records: list[dict[str, object]] = []
+    if sidecar_path.exists():
+        records = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    records.append(record.as_dict())
+    sidecar_path.write_text(json.dumps(records, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return sidecar_path

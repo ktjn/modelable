@@ -177,6 +177,97 @@ CREATE TABLE customer.customer (
     assert "name?: string" in text
 
 
+def test_dbt_importer_maps_columns_and_meta():
+    imported = import_from_text(
+        """
+version: 2
+models:
+  - name: Customer
+    columns:
+      - name: customerId
+        data_type: text
+        constraints:
+          - type: primary_key
+      - name: email
+        data_type: text
+        constraints:
+          - type: not_null
+        meta:
+          modelable_pii: true
+          modelable_classification: restricted
+      - name: loyaltyTier
+        data_type: text
+""",
+        "dbt",
+        domain_name="customer",
+    )
+    text = imported.to_mdl()
+    assert "domain customer" in text
+    assert "entity Customer @ 1 (additive)" in text
+    assert "@key customerId: string" in text
+    assert '@pii @classification("restricted") email: string' in text
+    assert "loyaltyTier?: string" in text
+
+
+def test_dbt_importer_selects_named_model():
+    source = """
+version: 2
+models:
+  - name: Customer
+    columns:
+      - name: customerId
+        data_type: text
+  - name: Order
+    columns:
+      - name: orderId
+        data_type: text
+"""
+    imported = import_from_text(source, "dbt", domain_name="orders", source_name="Order")
+    text = imported.to_mdl()
+    assert "entity Order @ 1 (additive)" in text
+    assert "orderId?: string" in text
+
+
+def test_fhir_importer_maps_elements_to_fields():
+    source = json.dumps(
+        {
+            "resourceType": "StructureDefinition",
+            "name": "Patient",
+            "type": "Patient",
+            "snapshot": {
+                "element": [
+                    {"path": "Patient", "min": 0, "max": "*"},
+                    {"path": "Patient.id", "min": 0, "max": "1", "type": [{"code": "id"}]},
+                    {"path": "Patient.active", "min": 0, "max": "1", "type": [{"code": "boolean"}]},
+                    {"path": "Patient.birthDate", "min": 0, "max": "1", "type": [{"code": "date"}]},
+                    {
+                        "path": "Patient.managingOrganization",
+                        "min": 0,
+                        "max": "1",
+                        "type": [
+                            {
+                                "code": "Reference",
+                                "targetProfile": ["http://hl7.org/fhir/StructureDefinition/Organization"],
+                            }
+                        ],
+                    },
+                    {"path": "Patient.name", "min": 0, "max": "*", "type": [{"code": "HumanName"}]},
+                ]
+            },
+        }
+    )
+    imported = import_from_text(source, "fhir", domain_name="clinical")
+    text = imported.to_mdl()
+    assert "domain clinical" in text
+    assert "entity Patient @ 1 (additive)" in text
+    assert "@key id?: string" in text
+    assert "active?: bool" in text
+    assert "birthDate?: date" in text
+    assert "managingOrganization?: ref<Organization>" in text
+    assert "name?: HumanName" in text
+    assert any("HumanName" in warning for warning in imported.warnings)
+
+
 def test_cli_generate_describe_ask_and_recommend(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
@@ -485,6 +576,205 @@ domain billing {
     updated = mdl.read_text(encoding="utf-8")
     assert "displayName <- c.name" in updated
     assert "status <- c.name" in updated
+
+
+def _attachments_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.attachments.json")
+
+
+def test_cli_attach_dbt_creates_breaking_version(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    @pii email: string
+    name: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    schema = tmp_path / "customer_schema.yml"
+    schema.write_text(
+        """
+version: 2
+models:
+  - name: Customer
+    columns:
+      - name: customerId
+        data_type: text
+        constraints:
+          - type: primary_key
+      - name: email
+        data_type: text
+        meta:
+          modelable_pii: true
+        constraints:
+          - type: not_null
+      - name: name
+        data_type: text
+        constraints:
+          - type: not_null
+      - name: loyaltyTier
+        data_type: text
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "attach",
+            "customer.Customer@1",
+            "--source",
+            str(schema),
+            "--source-format",
+            "dbt",
+            "--source-name",
+            "Customer",
+            "--path",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    updated = mdl.read_text(encoding="utf-8")
+    assert "entity Customer @ 1 (additive)" in updated
+    assert "entity Customer @ 2 (breaking)" in updated
+    assert "@key customerId: string" in updated
+    assert "loyaltyTier?: string" in updated
+    assert "new version 2 (breaking)" in result.output
+
+    attachments = json.loads(_attachments_path(mdl).read_text(encoding="utf-8"))
+    assert len(attachments) == 1
+    record = attachments[0]
+    assert record["ref"] == "customer.Customer@1"
+    assert record["source_format"] == "dbt"
+    assert record["source_name"] == "Customer"
+    assert record["from_version"] == 1
+    assert record["to_version"] == 2
+    assert record["change_kind"] == "breaking"
+    change_kinds = {change["kind"] for change in record["changes"]}
+    assert "type_changed" in change_kinds
+    assert "added_field" in change_kinds
+
+
+def test_cli_attach_no_diff_skips_new_version(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: string
+    name: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    schema = tmp_path / "customer_schema.yml"
+    schema.write_text(
+        """
+version: 2
+models:
+  - name: Customer
+    columns:
+      - name: customerId
+        data_type: text
+        constraints:
+          - type: primary_key
+      - name: name
+        data_type: text
+        constraints:
+          - type: not_null
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "attach",
+            "customer.Customer@1",
+            "--source",
+            str(schema),
+            "--source-format",
+            "dbt",
+            "--source-name",
+            "Customer",
+            "--path",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "no new version created" in result.output
+    assert mdl.read_text(encoding="utf-8").count("entity Customer @") == 1
+    assert not _attachments_path(mdl).exists()
+
+
+def test_cli_attach_preview_does_not_write(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    original = """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: string
+    name: string
+  }
+}
+"""
+    mdl.write_text(original, encoding="utf-8")
+
+    schema = tmp_path / "customer_schema.yml"
+    schema.write_text(
+        """
+version: 2
+models:
+  - name: Customer
+    columns:
+      - name: customerId
+        data_type: text
+        constraints:
+          - type: primary_key
+      - name: name
+        data_type: text
+        constraints:
+          - type: not_null
+      - name: phone
+        data_type: text
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "attach",
+            "customer.Customer@1",
+            "--source",
+            str(schema),
+            "--source-format",
+            "dbt",
+            "--source-name",
+            "Customer",
+            "--path",
+            str(tmp_path),
+            "--preview",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "@@" in result.output
+    assert "entity Customer @ 2 (additive)" in result.output
+    assert mdl.read_text(encoding="utf-8") == original
+    assert not _attachments_path(mdl).exists()
 
 
 _TRANSFORM_MDL = """
