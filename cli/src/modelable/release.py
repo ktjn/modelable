@@ -20,6 +20,8 @@ def _artifact_kind(path: Path) -> str | None:
         return "wheel"
     if path.name.endswith(".tar.gz"):
         return "sdist"
+    if path.name.endswith(".vsix"):
+        return "vsix"
     return None
 
 
@@ -31,8 +33,10 @@ def build_release_manifest(
     package_version: str,
     python_version: str,
     build_timestamp: str,
-    publication_attempted: bool = False,
-    publication_succeeded: bool = False,
+    repository_url: str = "https://github.com/ktjn/modelable",
+    license_expression: str = "Apache-2.0",
+    workflow_run_url: str | None = None,
+    extension_version: str | None = None,
 ) -> dict[str, Any]:
     tag_version = git_tag.removeprefix("v") if git_tag else None
     if tag_version is not None and tag_version != package_version:
@@ -40,6 +44,7 @@ def build_release_manifest(
 
     wheel: dict[str, str] | None = None
     sdist: dict[str, str] | None = None
+    vsix: dict[str, str] | None = None
     checksum_lines: list[str] = []
 
     for artifact in sorted(dist_dir.iterdir()):
@@ -52,11 +57,15 @@ def build_release_manifest(
             wheel = {"filename": artifact.name, "sha256": digest}
         elif kind == "sdist":
             sdist = {"filename": artifact.name, "sha256": digest}
+        elif kind == "vsix":
+            vsix = {"filename": artifact.name, "sha256": digest}
 
     if wheel is None:
         raise ValueError(f"no wheel artifact found in {dist_dir}")
     if sdist is None:
         raise ValueError(f"no sdist artifact found in {dist_dir}")
+    if extension_version is not None and vsix is None:
+        raise ValueError(f"no VS Code extension artifact found in {dist_dir}")
 
     manifest = {
         "package_name": "modelable",
@@ -65,11 +74,14 @@ def build_release_manifest(
         "git_tag": git_tag,
         "python_version": python_version,
         "build_timestamp": build_timestamp,
-        "publication_attempted": publication_attempted,
-        "publication_succeeded": publication_succeeded,
+        "repository_url": repository_url,
+        "license": license_expression,
+        "workflow_run_url": workflow_run_url,
+        "extension_version": extension_version,
         "artifacts": {
             "wheel": wheel,
             "sdist": sdist,
+            **({"vsix": vsix} if vsix is not None else {}),
         },
     }
 
@@ -89,8 +101,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--package-version", required=True)
     parser.add_argument("--python-version", required=True)
     parser.add_argument("--build-timestamp", required=True)
-    parser.add_argument("--publication-attempted", action="store_true")
-    parser.add_argument("--publication-succeeded", action="store_true")
+    parser.add_argument("--repository-url", default="https://github.com/ktjn/modelable")
+    parser.add_argument("--license-expression", default="Apache-2.0")
+    parser.add_argument("--workflow-run-url")
+    parser.add_argument("--extension-version")
     args = parser.parse_args(argv)
 
     build_release_manifest(
@@ -100,8 +114,10 @@ def main(argv: list[str] | None = None) -> int:
         package_version=args.package_version,
         python_version=args.python_version,
         build_timestamp=args.build_timestamp,
-        publication_attempted=args.publication_attempted,
-        publication_succeeded=args.publication_succeeded,
+        repository_url=args.repository_url,
+        license_expression=args.license_expression,
+        workflow_run_url=args.workflow_run_url,
+        extension_version=args.extension_version,
     )
     return 0
 

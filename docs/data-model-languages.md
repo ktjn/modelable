@@ -142,7 +142,7 @@ json2ts -i dist/jsonschema/customer.Customer.v1.schema.json -o dist/types/custom
 
 ## 6. Implementation Plan
 
-The implementation plan for Phase 1 (parser, IR, validation, and CLI) is at `idl-parser-implementation-plan.md`.
+The implemented Phase 1 language is specified in `idl-design-spec.md`; current product direction is summarized in the root `ROADMAP.md`.
 
 Planned implementation sequence:
 1.  **Lark grammar** (`cli/src/modelable/grammar/modelable.lark`) — EBNF for domains, models, projections, generate blocks, bindings.

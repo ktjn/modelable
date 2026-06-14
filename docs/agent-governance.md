@@ -151,6 +151,11 @@ component smoke tests where applicable
 
 CI failures must be investigated from the first failing gate. Agents should not rerun failed CI repeatedly without first reading the failure context.
 
+Release changes must also verify package metadata, archive contents, clean-wheel
+installation, version agreement, and the manual release dry run. Tag-triggered
+publishing uses the protected `pypi` environment and trusted publishing; agents
+must not add long-lived package-index credentials to repository secrets.
+
 ## 7. Open Decisions
 
 - Exact formatter and static-analysis commands are open until those tools are configured.

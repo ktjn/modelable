@@ -15,8 +15,10 @@ def test_build_release_manifest_writes_checksums_and_manifest(tmp_path: Path) ->
     dist.mkdir()
     wheel = dist / "modelable-0.1.0-py3-none-any.whl"
     sdist = dist / "modelable-0.1.0.tar.gz"
+    vsix = dist / "modelable-vscode-0.1.0.vsix"
     wheel.write_bytes(b"wheel-bytes")
     sdist.write_bytes(b"sdist-bytes")
+    vsix.write_bytes(b"vsix-bytes")
 
     manifest = build_release_manifest(
         dist_dir=dist,
@@ -25,21 +27,30 @@ def test_build_release_manifest_writes_checksums_and_manifest(tmp_path: Path) ->
         package_version="0.1.0",
         python_version="3.14.0",
         build_timestamp="2026-05-31T12:00:00Z",
+        repository_url="https://github.com/ktjn/modelable",
+        license_expression="Apache-2.0",
+        workflow_run_url="https://github.com/ktjn/modelable/actions/runs/123",
+        extension_version="0.1.0",
     )
 
     assert manifest["package_name"] == "modelable"
     assert manifest["package_version"] == "0.1.0"
     assert manifest["git_sha"] == "abc1234"
     assert manifest["git_tag"] == "v0.1.0"
+    assert manifest["repository_url"] == "https://github.com/ktjn/modelable"
+    assert manifest["license"] == "Apache-2.0"
+    assert manifest["workflow_run_url"].endswith("/123")
+    assert manifest["extension_version"] == "0.1.0"
     assert manifest["artifacts"]["wheel"]["filename"] == wheel.name
     assert manifest["artifacts"]["sdist"]["filename"] == sdist.name
+    assert manifest["artifacts"]["vsix"]["filename"] == vsix.name
     assert (dist / "SHA256SUMS").exists()
     assert (dist / "release-manifest.json").exists()
 
 
 def test_load_package_version_reads_cli_pyproject() -> None:
     cli_pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
-    assert load_package_version(cli_pyproject) == "0.4.0"
+    assert load_package_version(cli_pyproject) == "0.5.0"
 
 
 def test_release_cli_writes_manifest_and_checksums(tmp_path: Path) -> None:
