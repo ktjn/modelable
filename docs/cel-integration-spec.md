@@ -146,5 +146,5 @@ Diagnostics must include file path, line, column, expression text, and a short r
 ## 10. Dependencies
 
 - `idl-design-spec.md` — projection operators and type system
-- `idl-parser-implementation-plan.md` — parser, IR, and semantic validation tasks
+- `idl-design-spec.md` — parser, IR, and semantic validation requirements
 - `modelable-system-spec.md` — lineage and governance requirements

@@ -1,92 +1,106 @@
 # Modelable
 
-Modelable is a **meta-model framework** for defining, tracing, and governing domain-owned data models across disparate systems. It acts as a semantic layer on top of existing infrastructure to ensure maximum traceability and understandability of every data property.
+Modelable is a compiler and language server for versioned, domain-owned data
+models. Define canonical models and projections in `.mdl` files, then validate
+their compatibility, inspect field-level lineage, detect governance gaps, and
+generate artifacts for the systems that consume them.
 
-## Documentation
+> **Public alpha:** Modelable is usable and tested, but the language, CLI, and
+> generated output may change before 1.0. Breaking changes are documented in
+> [CHANGELOG.md](CHANGELOG.md).
 
-All documentation is located in the [docs/](docs/) directory.
+## Why Modelable?
 
-### Core Specifications
-- [Modelable System Specification](docs/modelable-system-spec.md) — The product source of truth.
-- [CLI Specification](docs/cli-spec.md) — Command-line interface design and reference.
-- [Language Server Protocol](docs/lsp-spec.md) — Editor diagnostics and workspace indexing.
-- [Adapter Architecture](docs/adapter-architecture-spec.md) — How Modelable connects to disparate systems.
-- [Ownership & Permissions](docs/ownership-permissions-spec.md) — Governance and access control model.
-- [Consuming Modelable](docs/consuming-modelable.md) — How to install and use the CLI/LSP, VS Code extension, and generated artifacts from another project.
+Data contracts often become fragmented across application types, database
+schemas, API definitions, and catalog metadata. Modelable keeps the semantic
+contract in one versioned source and derives target-specific representations
+without losing ownership, classification, lineage, or compatibility context.
 
-### Design & Research
-- [Modelable IDL Design](docs/idl-design-spec.md) — Syntax and rationale for the `.mdl` language.
-- [Data Model Languages](docs/data-model-languages.md) — Research on existing modeling languages.
-- [Technology Evaluation](docs/technology-evaluation.md) — Evaluation of streaming and storage backends.
-- [Platform Usage Scenarios](docs/platform-usage-scenarios-spec.md) — Common use cases and patterns.
+```text
+.mdl sources -> validate and resolve -> plan and govern -> generate artifacts
+```
 
-### Current Implementation Plans
-- [MVP Implementation Plan](docs/mvp-implementation-plan.md) — Phase 1 delivery sequence and acceptance checks.
-- [IDL Parser, IR, and Validation](docs/idl-parser-implementation-plan.md) — Phase 1 implementation plan.
-- [LSP Workspace Index and Diagnostics](docs/superpowers/plans/2026-05-18-lsp-workspace-index-diagnostics.md) — First editor-support slice.
-- [Agent Governance](docs/agent-governance.md) — Agent operating policy, test gates, PR handling, and local gate expectations.
+## Install
 
-## Project Structure
+Modelable requires Python 3.14.
 
-- `docs/`: Consolidated documentation, specifications, research, and plans.
-- `samples/`: Worked `.mdl` examples. `samples/mvp/` is planned as the strict Phase 1 acceptance sample; `samples/scenarios/` contains broader illustrative scenarios.
-- `vscode/`: Minimal VS Code extension that launches the repo-local `modelable lsp` server for `.mdl` files.
-- `AGENTS.md`: Instructions for AI agents working on this repository.
+```bash
+uv tool install modelable
+modelable --version
+```
 
-## Getting Started
+For an isolated one-off command:
 
-### Install and run
+```bash
+uvx modelable --help
+```
+
+Until `v0.5.0` is published, install from the repository:
+
+```bash
+uv tool install "modelable @ git+https://github.com/ktjn/modelable.git@main#subdirectory=cli"
+```
+
+## Define a model
+
+```text
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    @pii email?: string
+    displayName: string
+  }
+}
+```
+
+Save the definition as `customer.mdl`, then validate and compile it:
+
+```bash
+modelable validate customer.mdl --strict
+modelable compile customer.mdl --target json-schema --out generated/schema
+modelable compile customer.mdl --target typescript --out generated/types
+```
+
+## Capabilities
+
+- Parse and validate versioned models, projections, annotations, and workspace definitions.
+- Resolve exact versions and compatible version ranges.
+- Detect additive and breaking contract changes and affected projections.
+- Trace projection fields to canonical source fields.
+- Report structurally missing access and classification metadata.
+- Expand automatic database, request, reply, and event projections.
+- Generate JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, Go, and SQL artifacts.
+- Provide diagnostics, completion, hover, navigation, references, rename, formatting, and other editor features through the language server.
+- Import or assist with models through optional LLM provider integrations.
+
+The local compiler is the supported alpha surface. External registries,
+catalog integration, distributed synchronization, and runtime materialization
+remain roadmap work.
+
+## Development
 
 ```bash
 cd cli
-uv sync --extra dev
-uv run modelable --help
+uv sync --extra dev --frozen
+uv run pytest tests/ --tb=short
+uv run modelable validate ../samples/mvp --strict
 ```
 
-### Working commands (Phase 1 current)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete contributor workflow.
 
-```bash
-# Validate .mdl files
-uv run modelable validate ../samples/mvp
+## Documentation
 
-# Compile the strict MVP sample
-uv run modelable compile ../samples/mvp --target json-schema --out ../dist/jsonschema
-uv run modelable compile ../samples/mvp --target markdown --out ../dist/docs
-uv run modelable compile ../samples/mvp --target typescript --out ../dist/types
+- [Documentation index](docs/README.md)
+- [Language design](docs/idl-design-spec.md)
+- [CLI reference](docs/cli-spec.md)
+- [System specification](docs/modelable-system-spec.md)
+- [Using Modelable from another project](docs/consuming-modelable.md)
+- [Sample models](samples/README.md)
+- [Changelog](CHANGELOG.md)
+- [Roadmap](ROADMAP.md)
 
-# Inspect auto-generated projections for a model
-uv run modelable inspect customer.Customer@1 --auto --path ../samples/mvp
+## License
 
-# Start the language server
-uv run modelable lsp
-
-# Open the VS Code extension scaffold
-cd ../vscode
-npm install
-code .
-
-# Run tests
-uv run pytest tests/ -v
-```
-
-### Release notes
-
-- The local codegen boundary now supports TypeScript, C#, Java, Python, Rust, and Go as implemented language targets.
-- `codegen formats` and `codegen types` now report the same implemented target inventory as `compile`.
-- The remaining deferred outputs are the non-language artifact integrations and future framework targets described in the specs.
-- The release pipeline now builds the `cli/` wheel and sdist, writes `SHA256SUMS` plus `release-manifest.json`, and uploads those files as GitHub release assets. Manual release runs require an explicit release tag.
-
-### Milestone status
-
-| Milestone | Goal | Status |
-|---|---|---|
-| 0 — Tooling baseline | CLI package, uv, CI | Complete |
-| 1 — Parser + IR + validate | Parse `.mdl`, semantic validation | Complete |
-| 2 — Registry graph + resolver | SQLite index, cross-file resolution | Complete (lineage edges deferred to M3) |
-| 3 — Planner + auto projections | Auto-projection expansion, CEL, lineage | Complete — CEL validation, lineage extraction, plan docs done |
-| 4 — Compatibility + governance | `diff`, breaking-change detection, PII governance | Complete — compatibility diff and cross-domain projection impact analysis shipped |
-| 5 — Emitters | JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, Go | Complete — all named local codegen backends are implemented |
-| 6 — CLI workflows | `resolve`, `lineage`, `diff`, `codegen`, `scenario` | Complete |
-| 7 — Hardening | Smoke tests, clean-checkout verification | Complete |
-
-See [`docs/mvp-implementation-plan.md`](docs/mvp-implementation-plan.md) for detailed task checklists.
+Licensed under the [Apache License 2.0](LICENSE).

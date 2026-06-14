@@ -2,7 +2,7 @@
 
 ## Current State (updated 2026-05-31)
 
-The Phase 1 local modelling compiler is complete. Before starting any task, run `git log --oneline -10` and check `docs/mvp-implementation-plan.md` for the latest checkbox state.
+The Phase 1 local modelling compiler is complete. Before starting any task, run `git log --oneline -10`, inspect open issues, and check `ROADMAP.md` plus the relevant product specification for the next open slice.
 
 | Milestone | Status |
 |---|---|
@@ -15,7 +15,7 @@ The Phase 1 local modelling compiler is complete. Before starting any task, run 
 | 6 — CLI workflows | Complete |
 | 7 — Hardening | Complete |
 
-**Next task:** Use the latest committed plan or spec to identify the next open slice before starting implementation work.
+**Next task:** Use the roadmap, open issues, and relevant product specification to identify the next open slice before starting implementation work.
 
 ### Verify current state before coding
 

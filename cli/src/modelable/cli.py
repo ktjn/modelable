@@ -14,6 +14,7 @@ import click
 
 
 @click.group()
+@click.version_option(package_name="modelable", prog_name="modelable")
 def cli() -> None:
     """Modelable domain-owned data model compiler.
 

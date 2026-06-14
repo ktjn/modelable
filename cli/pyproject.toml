@@ -4,8 +4,36 @@ build-backend = "hatchling.build"
 
 [project]
 name = "modelable"
-version = "0.4.0"
+version = "0.5.0"
+description = "Compiler and language server for versioned, domain-owned data models"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Modelable contributors" },
+]
+maintainers = [
+    { name = "ktjn" },
+]
 requires-python = ">=3.14"
+keywords = [
+    "data-contracts",
+    "data-modeling",
+    "lineage",
+    "schema",
+    "code-generation",
+    "language-server",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Compilers",
+]
 dependencies = [
     "click>=8.1",
     "lark>=1.1",
@@ -16,6 +44,13 @@ dependencies = [
     "pygls>=2.1.1,<3",
     "psycopg[binary]>=3.2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/ktjn/modelable"
+Documentation = "https://github.com/ktjn/modelable/tree/main/docs"
+Repository = "https://github.com/ktjn/modelable"
+Issues = "https://github.com/ktjn/modelable/issues"
+Changelog = "https://github.com/ktjn/modelable/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [

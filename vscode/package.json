@@ -1,11 +1,15 @@
 {
   "name": "modelable-vscode",
   "displayName": "Modelable",
-  "description": "VS Code support for Modelable .mdl files backed by the repo-local Python language server.",
-  "version": "0.0.1",
-  "private": true,
+  "description": "Language support for Modelable .mdl data contracts.",
+  "version": "0.5.0",
+  "private": false,
   "publisher": "modelable",
-  "license": "MIT",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/ktjn/modelable",
+  "bugs": {
+    "url": "https://github.com/ktjn/modelable/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/ktjn/modelable.git",
@@ -88,6 +92,6 @@
     "check": "node --check extension.js",
     "build": "tsc -p tsconfig.json",
     "test": "node ./out/test/runTests.js",
-    "package": "vsce package --out modelable-vscode.vsix"
+    "package": "vsce package"
   }
 }

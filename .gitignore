@@ -18,3 +18,5 @@ scripts/__pycache__/
 
 # VS Code test harness — downloaded VS Code binary for extension smoke tests
 vscode/.vscode-test/
+vscode/out/
+vscode/*.vsix

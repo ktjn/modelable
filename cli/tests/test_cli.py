@@ -8,6 +8,13 @@ from modelable.compiler.workspace import load_workspace
 from modelable.registry.signature import compute_version_signature
 
 
+def test_cli_reports_package_version():
+    result = CliRunner().invoke(cli, ["--version"])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == "modelable, version 0.5.0"
+
+
 def test_root_bootstrap_script_delegates_to_uv_entrypoint():
     repo_root = Path(__file__).resolve().parents[2]
     script = repo_root / "bin" / "modelable"

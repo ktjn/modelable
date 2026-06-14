@@ -1,17 +1,7 @@
-name: release
+name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: Release tag to use for a manual release run
-        required: true
-        type: string
-      publish:
-        description: Publish to the configured package index
-        required: false
-        type: boolean
-        default: false
   push:
     tags:
       - "v*"
@@ -20,74 +10,169 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  build:
+    name: Build and verify release artifacts
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      package-version: ${{ steps.versions.outputs.package-version }}
+
     steps:
-      - uses: actions/checkout@v6.0.3
+      - name: Check out repository
+        uses: actions/checkout@v6.0.3
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6.2.0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
         with:
-          python-version: "3.14"
+          enable-cache: true
+          cache-dependency-glob: cli/uv.lock
 
-      - uses: astral-sh/setup-uv@v8.2.0
+      - name: Install Python
+        working-directory: cli
+        run: uv python install 3.14
 
       - name: Install CLI dependencies
         working-directory: cli
         run: uv sync --extra dev --frozen
 
-      - name: Run release gates
-        working-directory: cli
-        run: |
-          uv run pytest tests/ -v
-          uv run modelable validate ../samples/mvp --strict
+      - name: Install Node
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: vscode/package-lock.json
 
-      - name: Capture release metadata
-        working-directory: cli
+      - name: Install extension dependencies
+        working-directory: vscode
+        run: npm ci
+
+      - name: Run release gates
+        run: |
+          cd cli
+          uv run pytest tests/ --tb=short
+          uv run modelable validate ../samples/mvp --strict
+          cd ../vscode
+          npm run build
+          xvfb-run -a npm test
+
+      - name: Verify release versions
+        id: versions
+        shell: bash
         run: |
           set -euo pipefail
-          echo "PACKAGE_VERSION=$(uv run python -c 'import pathlib, tomllib; print(tomllib.load(pathlib.Path("pyproject.toml").open("rb"))["project"]["version"])')" >> "$GITHUB_ENV"
-          echo "BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
-          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
-            echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
-          else
-            echo "RELEASE_TAG=${{ inputs.release_tag }}" >> "$GITHUB_ENV"
+          PACKAGE_VERSION=$(cd cli && uv run python -c 'import pathlib, tomllib; print(tomllib.load(pathlib.Path("pyproject.toml").open("rb"))["project"]["version"])')
+          EXTENSION_VERSION=$(node -p "require('./vscode/package.json').version")
+          if [ "$PACKAGE_VERSION" != "$EXTENSION_VERSION" ]; then
+            echo "CLI version $PACKAGE_VERSION does not match extension version $EXTENSION_VERSION" >&2
+            exit 1
           fi
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF_NAME}" != "v${PACKAGE_VERSION}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version ${PACKAGE_VERSION}" >&2
+            exit 1
+          fi
+          grep -F "## [${PACKAGE_VERSION}]" CHANGELOG.md
+          echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> "$GITHUB_ENV"
+          echo "EXTENSION_VERSION=${EXTENSION_VERSION}" >> "$GITHUB_ENV"
+          echo "BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          echo "package-version=${PACKAGE_VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Build release artifacts
+      - name: Build Python distributions
         working-directory: cli
         run: uv run python -m build
 
-      - name: Write release manifest
+      - name: Check Python distributions
         working-directory: cli
+        run: uvx twine check dist/*
+
+      - name: Build VS Code extension
+        working-directory: vscode
+        run: npm run package
+
+      - name: Assemble and verify release artifacts
+        shell: bash
         run: |
           set -euo pipefail
+          mv "vscode/modelable-vscode-${EXTENSION_VERSION}.vsix" cli/dist/
+          uv venv cli/.release-venv --python 3.14
+          uv pip install --python cli/.release-venv/bin/python cli/dist/*.whl
+          cli/.release-venv/bin/modelable --version
+          cli/.release-venv/bin/modelable validate samples/mvp --strict
           args=(
             --dist dist
             --commit-sha "${GITHUB_SHA}"
             --package-version "${PACKAGE_VERSION}"
             --python-version "3.14"
             --build-timestamp "${BUILD_TIMESTAMP}"
+            --repository-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+            --license-expression "Apache-2.0"
+            --workflow-run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            --extension-version "${EXTENSION_VERSION}"
           )
-          if [ -n "${RELEASE_TAG:-}" ]; then
-            args+=(--git-tag "${RELEASE_TAG}")
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            args+=(--git-tag "${GITHUB_REF_NAME}")
           fi
+          cd cli
           uv run python -m modelable.release "${args[@]}"
+
+      - name: Upload release dry-run artifact
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: modelable-${{ env.PACKAGE_VERSION }}
+          path: |
+            cli/dist/*.whl
+            cli/dist/*.tar.gz
+            cli/dist/*.vsix
+            cli/dist/SHA256SUMS
+            cli/dist/release-manifest.json
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download verified artifacts
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: modelable-${{ needs.build.outputs.package-version }}
+          path: dist
+
+      - name: Keep only Python distributions
+        run: find dist -type f ! -name '*.whl' ! -name '*.tar.gz' -delete
+
+      - name: Publish Python distributions
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+
+  github-release:
+    name: Create GitHub release
+    if: github.event_name == 'push'
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download verified artifacts
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: modelable-${{ needs.build.outputs.package-version }}
+          path: dist
 
       - name: Upload GitHub release assets
         uses: softprops/action-gh-release@v3.0.0
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
           files: |
-            cli/dist/*.whl
-            cli/dist/*.tar.gz
-            cli/dist/SHA256SUMS
-            cli/dist/release-manifest.json
-
-      - name: Publish package index
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
-        working-directory: cli
-        run: echo "Package index publication is configured outside this first release slice."
+            dist/*.whl
+            dist/*.tar.gz
+            dist/*.vsix
+            dist/SHA256SUMS
+            dist/release-manifest.json
