@@ -36,8 +36,8 @@ def test_release_workflow_uses_current_actions() -> None:
     assert _workflow_actions("release.yml") == {
         "actions/checkout@v6.0.3",
         "actions/setup-node@v6.4.0",
-        "actions/upload-artifact@v7.0.0",
-        "actions/download-artifact@v7.0.0",
+        "actions/upload-artifact@v7.0.1",
+        "actions/download-artifact@v8.0.1",
         "astral-sh/setup-uv@v8.2.0",
         "pypa/gh-action-pypi-publish@release/v1",
         "softprops/action-gh-release@v3.0.0",
@@ -50,3 +50,17 @@ def test_validation_workflow_uses_current_actions() -> None:
         "actions/setup-node@v6.4.0",
         "astral-sh/setup-uv@v8.2.0",
     }
+
+
+def test_codeql_workflow_has_required_permissions() -> None:
+    workflow = REPOSITORY_ROOT / ".github" / "workflows" / "codeql.yml"
+    text = workflow.read_text(encoding="utf-8")
+    for permission in (
+        "actions: read",
+        "contents: read",
+        "packages: read",
+        "security-events: write",
+    ):
+        assert permission in text
+
+    assert "upload: never" in text

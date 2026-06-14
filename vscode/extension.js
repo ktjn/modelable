@@ -48,7 +48,7 @@ function resolveServerOptions(context) {
 }
 
 async function activate(context) {
-  const outputChannel = vscode.window.createOutputChannel('Modelable LSP');
+  const outputChannel = vscode.window.createOutputChannel('Modelable LSP', { log: true });
   const { command, args, cwd, source } = resolveServerOptions(context);
   outputChannel.appendLine(`Starting Modelable language server via ${source}: ${command} ${args.join(' ')}`);
 
@@ -69,7 +69,7 @@ async function activate(context) {
     revealOutputChannelOn: RevealOutputChannelOn.Error,
   };
 
-  client = new LanguageClient(
+  const nextClient = new LanguageClient(
     'modelable',
     'Modelable Language Server',
     serverOptions,
@@ -77,18 +77,20 @@ async function activate(context) {
   );
 
   try {
-    await client.start();
+    await nextClient.start();
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
+    outputChannel.dispose();
     vscode.window.showErrorMessage(
       `Modelable LSP failed to start using "${command} ${args.join(' ')}" (${source}). ` +
       'Install the modelable CLI in this project (see docs/consuming-modelable.md) so "modelable" ' +
       'is on PATH, or set "modelable.pythonPath"/"modelable.serverCommand" to point at an ' +
       `interpreter or command that has it. Details: ${reason}`
     );
-    return;
+    throw error;
   }
 
+  client = nextClient;
   context.subscriptions.push(client, outputChannel);
 }
 
