@@ -77,7 +77,9 @@ CLI implementation local gate:
 ```text
 git status --short
 uv sync --extra dev
-run focused tests for touched behavior
+uv run ruff check . --fix
+uv run ruff format .
+uv run mypy .
 uv run pytest tests/ -v
 uv run modelable validate tests/fixtures/customer.mdl
 ```

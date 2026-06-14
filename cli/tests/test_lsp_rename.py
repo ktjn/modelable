@@ -1,7 +1,6 @@
 from modelable.lsp.rename import build_prepare_rename, build_rename
 from modelable.lsp.workspace import LspWorkspaceIndex
 
-
 WORKSPACE_TEXT = """
 domain customer {
   owner: "test-team"
@@ -132,7 +131,7 @@ def _projection_index() -> LspWorkspaceIndex:
 
 def test_rename_projection_field_via_alias_finds_declaration():
     lines = PROJECTION_SOURCE_TEXT.splitlines()
-    ref_line = next(i for i, l in enumerate(lines) if "displayId <- p.productId" in l)
+    ref_line = next(i for i, line in enumerate(lines) if "displayId <- p.productId" in line)
     ref_character = lines[ref_line].index("p.productId") + len("p.")
 
     edit = build_rename(_projection_index(), "inmemory://workspace.mdl", line=ref_line, character=ref_character, new_name="itemId")
@@ -140,13 +139,13 @@ def test_rename_projection_field_via_alias_finds_declaration():
     assert edit is not None
     changes = edit.changes["inmemory://workspace.mdl"]
     renamed_lines = {change.range.start.line for change in changes}
-    decl_line = next(i for i, l in enumerate(lines) if "productId <- c.customerId" in l)
+    decl_line = next(i for i, line in enumerate(lines) if "productId <- c.customerId" in line)
     assert decl_line in renamed_lines
 
 
 def test_rename_projection_field_updates_downstream_usages():
     lines = PROJECTION_SOURCE_TEXT.splitlines()
-    decl_line = next(i for i, l in enumerate(lines) if "productId <- c.customerId" in l)
+    decl_line = next(i for i, line in enumerate(lines) if "productId <- c.customerId" in line)
     decl_character = lines[decl_line].index("productId") + 1
 
     edit = build_rename(_projection_index(), "inmemory://workspace.mdl", line=decl_line, character=decl_character, new_name="itemId")
@@ -154,6 +153,6 @@ def test_rename_projection_field_updates_downstream_usages():
     assert edit is not None
     changes = edit.changes["inmemory://workspace.mdl"]
     renamed_lines = {change.range.start.line for change in changes}
-    downstream_line = next(i for i, l in enumerate(lines) if "displayId <- p.productId" in l)
+    downstream_line = next(i for i, line in enumerate(lines) if "displayId <- p.productId" in line)
     assert downstream_line in renamed_lines
 

@@ -5,8 +5,8 @@ from pathlib import Path
 import click
 
 from modelable.commands.common import console
-from modelable.compiler.workspace import load_workspace
 from modelable.compat.checker import analyze_impact, check_model_version_compatibility
+from modelable.compiler.workspace import load_workspace
 from modelable.llm.context import parse_model_ref_version_spec
 from modelable.registry.resolver import find_dependents, resolve_model_ref
 

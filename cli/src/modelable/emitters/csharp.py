@@ -159,10 +159,10 @@ def _shape_base_to_csharp(
         return "decimal"
     if shape.kind == "array":
         element = shape.element or TypeShape(kind="primitive", ref="object")
-        return f"List<{_shape_to_csharp(element, owner_type=owner_type, path=path + ['Item'], definitions=definitions)}>"
+        return f"List<{_shape_to_csharp(element, owner_type=owner_type, path=[*path, 'Item'], definitions=definitions)}>"
     if shape.kind == "map":
         value = shape.value or TypeShape(kind="primitive", ref="object")
-        return f"Dictionary<string, {_shape_to_csharp(value, owner_type=owner_type, path=path + ['Value'], definitions=definitions)}>"
+        return f"Dictionary<string, {_shape_to_csharp(value, owner_type=owner_type, path=[*path, 'Value'], definitions=definitions)}>"
     if shape.kind == "ref":
         return "string"
     if shape.kind == "enum":

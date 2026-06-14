@@ -7,11 +7,15 @@ from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
-from modelable.parser.ir import AiConfig
 from modelable.llm.config import resolve_llm_config
-from modelable.llm.context import build_model_summary, build_projection_summary, build_workspace_summary
+from modelable.llm.context import (
+    build_model_summary,
+    build_projection_summary,
+    build_workspace_summary,
+)
 from modelable.llm.importers import import_from_text
 from modelable.llm.redaction import redact_sensitive_values
+from modelable.parser.ir import AiConfig
 
 
 def _read_provenance(path: Path) -> dict[str, object]:
@@ -620,9 +624,10 @@ def test_transform_projection_ref_json_schema(tmp_path):
 def test_chat_ask_slash_command_uses_provider_when_configured(tmp_path):
     """'/ask' inside chat must route through the LLM provider, not the heuristic fallback."""
     from dataclasses import dataclass
+
+    from modelable.compiler.workspace import load_workspace
     from modelable.llm.chat import ChatState, chat_turn
     from modelable.llm.providers import LLMRequest, LLMResponse
-    from modelable.compiler.workspace import load_workspace
 
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
@@ -654,8 +659,8 @@ domain customer {
 
 
 def test_chat_ask_slash_command_falls_back_to_heuristic_when_no_provider(tmp_path):
-    from modelable.llm.chat import ChatState, chat_turn
     from modelable.compiler.workspace import load_workspace
+    from modelable.llm.chat import ChatState, chat_turn
 
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
@@ -676,8 +681,9 @@ domain customer {
 
 
 def test_transform_unknown_ref_raises(tmp_path):
-    from modelable.llm.engine import transform_ref_to_target
     import pytest
+
+    from modelable.llm.engine import transform_ref_to_target
     _transform_tmp(tmp_path)
     with pytest.raises(ValueError, match="Unknown model or projection"):
         transform_ref_to_target(tmp_path, "customer.NoSuch@1", "typescript")

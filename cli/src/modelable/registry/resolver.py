@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from modelable.parser.ir import MdlFile, ModelVersion, ProjectionVersion, VersionExact, VersionMin, VersionPinned, VersionRange, VersionSpec
+from modelable.parser.ir import (
+    MdlFile,
+    ModelVersion,
+    ProjectionVersion,
+    VersionExact,
+    VersionMin,
+    VersionPinned,
+    VersionRange,
+    VersionSpec,
+)
 from modelable.registry.signature import compute_version_signature
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 from importlib import import_module
+from types import SimpleNamespace
 
 from lsprotocol import types
 

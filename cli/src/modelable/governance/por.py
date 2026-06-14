@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 DEFAULT_POR_ISSUER = "modelable-registry.local"
 DEFAULT_POR_ISSUED_AT = "1970-01-01T00:00:00Z"
 

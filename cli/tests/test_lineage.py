@@ -1,15 +1,12 @@
 import json
+import tempfile
 import textwrap
+from pathlib import Path
 
-import pytest
-
+from modelable.compiler.workspace import Workspace, load_workspace
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.lineage import build_projection_lineage
 from modelable.planner.plans import build_plan, write_plans
-from modelable.compiler.workspace import load_workspace
-from pathlib import Path
-import tempfile
-
 
 _MDL = textwrap.dedent("""\
     domain customer {
@@ -33,7 +30,7 @@ _MDL = textwrap.dedent("""\
 """)
 
 
-def _load_ws(mdl_text: str) -> "Workspace":
+def _load_ws(mdl_text: str) -> Workspace:
     with tempfile.TemporaryDirectory() as tmp:
         p = Path(tmp) / "test.mdl"
         p.write_text(mdl_text, encoding="utf-8")

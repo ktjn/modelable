@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from os import environ
 from dataclasses import dataclass
+from os import environ
 from typing import Protocol
 from urllib import error, request
 

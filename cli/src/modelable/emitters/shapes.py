@@ -32,7 +32,7 @@ _PRIMITIVE_NAMES = {
 @dataclass(frozen=True)
 class TypeShapeField:
     name: str
-    shape: "TypeShape"
+    shape: TypeShape
     optional: bool = False
     wire_targets: dict[str, WireTargetHint] | None = None
 
@@ -42,9 +42,9 @@ class TypeShape:
     kind: str
     optional: bool = False
     nullable: bool = False
-    element: "TypeShape | None" = None
-    key: "TypeShape | None" = None
-    value: "TypeShape | None" = None
+    element: TypeShape | None = None
+    key: TypeShape | None = None
+    value: TypeShape | None = None
     ref: str | None = None
     enum_values: tuple[str, ...] = ()
     fields: tuple[TypeShapeField, ...] = ()

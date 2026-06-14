@@ -119,7 +119,7 @@ def _emit_projection(
         lines.append(f"**Contact:** {domain.contact}  ")
     if domain.description:
         lines.append(f"**Description:** {domain.description}  ")
-    lines.append(f"**Kind:** projection  ")
+    lines.append("**Kind:** projection  ")
     auto_label = "yes" if version.auto_generated else "no"
     lines.append(f"**Auto generated:** {auto_label}  ")
     lines.append(

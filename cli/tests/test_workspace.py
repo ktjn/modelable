@@ -4,6 +4,7 @@ import pytest
 
 from modelable.compiler.workspace import discover_mdl_files, load_workspace
 
+
 def _write_model(path: Path, domain: str, model: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(

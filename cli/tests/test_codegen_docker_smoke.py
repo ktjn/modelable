@@ -9,7 +9,6 @@ from click.testing import CliRunner
 
 from modelable.cli import cli
 
-
 SAMPLE_MDL = """
 domain customer {
   owner: "customer-platform"

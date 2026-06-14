@@ -1,7 +1,6 @@
 from modelable.lsp.document_symbols import build_document_symbols
 from modelable.lsp.workspace import LspWorkspaceIndex
 
-
 WORKSPACE_TEXT = """
 domain customer {
   owner: "test-team"

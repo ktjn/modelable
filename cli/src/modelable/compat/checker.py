@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from modelable.compat.diff import FieldChange, compare_model_versions
-from modelable.parser.ir import ChangeKind, ComputedMapping, DirectMapping, MdlFile, ModelVersion
+from modelable.parser.ir import ChangeKind, DirectMapping, MdlFile, ModelVersion
 
 
 @dataclass(frozen=True)

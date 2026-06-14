@@ -1,6 +1,5 @@
-from modelable.lsp.workspace_symbols import build_workspace_symbols
 from modelable.lsp.workspace import LspWorkspaceIndex
-
+from modelable.lsp.workspace_symbols import build_workspace_symbols
 
 WORKSPACE_TEXT = """
 domain customer {

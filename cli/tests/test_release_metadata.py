@@ -88,7 +88,7 @@ def test_release_cli_writes_manifest_and_checksums(tmp_path: Path) -> None:
 
 
 def test_release_version_mismatch_fails() -> None:
-    with pytest.raises(ValueError, match="package version .* does not match release tag"):
+    with pytest.raises(ValueError, match=r"package version .* does not match release tag"):
         build_release_manifest(
             dist_dir=Path("dist"),
             commit_sha="abc1234",

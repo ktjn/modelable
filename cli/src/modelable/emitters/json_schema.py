@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
 from modelable.compiler.workspace import Workspace
+from modelable.emitters.base import EmittedArtifact, compute_content_hash
+from modelable.emitters.diagnostics import type_loss, validation_failed
 from modelable.governance.por import build_por_reference
-from modelable.emitters.diagnostics import type_loss
 from modelable.parser.ir import (
     AnnClassification,
     AnnDeprecated,
@@ -19,6 +19,7 @@ from modelable.parser.ir import (
     ComputedMapping,
     DecimalType,
     DirectMapping,
+    DomainDef,
     EnumType,
     FieldDef,
     MapType,
@@ -26,7 +27,6 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     PrimitiveType,
-    DomainDef,
     ProjectionField,
     ProjectionVersion,
     RefType,
@@ -35,9 +35,6 @@ from modelable.parser.ir import (
     VersionPinned,
     VersionRange,
 )
-from modelable.emitters.base import EmittedArtifact
-from modelable.emitters.base import compute_content_hash
-from modelable.emitters.diagnostics import validation_failed
 from modelable.registry.resolver import resolve_model_ref
 
 
@@ -322,10 +319,16 @@ def _field_to_json_schema(field: FieldDef, field_type=None, defs: dict[str, dict
             }
 
     json_hint = wire_targets.get("json")
-    if json_hint is not None and json_hint.encoding == "string":
-        if isinstance(field_type, (DecimalType,)) or (isinstance(field_type, PrimitiveType) and field_type.kind == "int"):
-            prop["type"] = "string"
-            prop.pop("format", None)
+    if (
+        json_hint is not None
+        and json_hint.encoding == "string"
+        and (
+            isinstance(field_type, (DecimalType,))
+            or (isinstance(field_type, PrimitiveType) and field_type.kind == "int")
+        )
+    ):
+        prop["type"] = "string"
+        prop.pop("format", None)
 
     return prop
 

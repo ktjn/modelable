@@ -1,7 +1,6 @@
 from modelable.lsp.formatting import build_document_formatting
 from modelable.lsp.workspace import LspWorkspaceIndex
 
-
 MESSY_TEXT = """
 domain customer {
   owner: "test-team"

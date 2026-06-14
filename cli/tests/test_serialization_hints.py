@@ -1,13 +1,13 @@
-import pytest
-from pathlib import Path
 
-from modelable.parser.ir import AnnWire
-from modelable.parser.parse import parse_text_to_ir
+import pytest
+
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.rust import emit_rust
-from modelable.llm.render import render_mdl
 from modelable.emitters.typescript import emit_typescript
+from modelable.llm.render import render_mdl
+from modelable.parser.ir import AnnWire
+from modelable.parser.parse import parse_text_to_ir
 
 
 def test_transform_wire_annotation():

@@ -6,7 +6,7 @@ from pathlib import Path
 import click
 
 from modelable.commands.common import console, load_workspace_or_exit, render_version_spec
-from modelable.llm.context import parse_model_ref, parse_model_ref_version_spec
+from modelable.llm.context import parse_model_ref_version_spec
 from modelable.llm.render import render_model_version, render_projection_version
 from modelable.planner.lineage import build_projection_lineage
 from modelable.registry.resolver import resolve_model_ref
@@ -227,7 +227,7 @@ def inspect(ref: str, auto: bool, path: Path) -> None:
 def _parse_entity_ref_version_spec(ref: str) -> tuple[str, str, int | object]:
     if "@" not in ref:
         raise click.BadParameter("REF must be in the form domain.Model@version")
-    model_ref, version_str = ref.rsplit("@", 1)
+    model_ref, _version_str = ref.rsplit("@", 1)
     parts = model_ref.split(".")
     if len(parts) != 2:
         raise click.BadParameter("REF must be in the form domain.Model@version")

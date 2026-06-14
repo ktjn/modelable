@@ -1,8 +1,8 @@
 from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
 from modelable.diagnostics.model import Diagnostic, render_diagnostic
+from modelable.parser.ir import ParseError
 from modelable.parser.parse import parse_text
 from modelable.validation.semantic import validate_diagnostics
-from modelable.parser.ir import ParseError
 
 
 def test_parse_error_exposes_location():

@@ -1,7 +1,6 @@
 from modelable.lsp.references import build_references
 from modelable.lsp.workspace import LspWorkspaceIndex
 
-
 WORKSPACE_TEXT = """
 domain customer {
   owner: "test-team"

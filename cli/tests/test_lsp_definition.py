@@ -1,7 +1,6 @@
 from modelable.lsp.definition import build_definition
 from modelable.lsp.workspace import LspWorkspaceIndex
 
-
 PROJECTION_SOURCE_TEXT = """
 domain customer {
   owner: "test-team"
@@ -147,9 +146,9 @@ domain billing {
 
 def test_definition_on_projection_in_from_clause_goes_to_projection_declaration():
     lines = PROJECTION_SOURCE_TEXT.splitlines()
-    from_line = next(i for i, l in enumerate(lines) if "from catalog.ProductReply @ 1 as p" in l)
+    from_line = next(i for i, line in enumerate(lines) if "from catalog.ProductReply @ 1 as p" in line)
     character = lines[from_line].index("ProductReply") + 3  # cursor mid-word on "ProductReply"
-    decl_line = next(i for i, l in enumerate(lines) if "projection ProductReply @ 1" in l)
+    decl_line = next(i for i, line in enumerate(lines) if "projection ProductReply @ 1" in line)
 
     index = LspWorkspaceIndex()
     index.upsert_document("inmemory://workspace.mdl", PROJECTION_SOURCE_TEXT)
@@ -199,7 +198,7 @@ domain shipping {
 
 def test_definition_on_ref_type_goes_to_model_declaration():
     lines = _REF_TYPE_TEXT.splitlines()
-    ref_line = next(i for i, l in enumerate(lines) if "ref<commerce.Order>" in l)
+    ref_line = next(i for i, line in enumerate(lines) if "ref<commerce.Order>" in line)
     ref_char = lines[ref_line].index("commerce") + 3  # cursor on "commerce"
 
     index = LspWorkspaceIndex()
@@ -209,13 +208,13 @@ def test_definition_on_ref_type_goes_to_model_declaration():
 
     assert definition is not None
     assert definition.uri == "inmemory://workspace.mdl"
-    decl_line = next(i for i, l in enumerate(lines) if "event Order @ 1" in l)
+    decl_line = next(i for i, line in enumerate(lines) if "event Order @ 1" in line)
     assert definition.range.start.line == decl_line
 
 
 def test_definition_on_ref_type_name_part_goes_to_model_declaration():
     lines = _REF_TYPE_TEXT.splitlines()
-    ref_line = next(i for i, l in enumerate(lines) if "ref<commerce.Order>" in l)
+    ref_line = next(i for i, line in enumerate(lines) if "ref<commerce.Order>" in line)
     ref_char = lines[ref_line].index("Order")  # cursor on "Order"
 
     index = LspWorkspaceIndex()
@@ -224,7 +223,7 @@ def test_definition_on_ref_type_name_part_goes_to_model_declaration():
     definition = build_definition(index, "inmemory://workspace.mdl", line=ref_line, character=ref_char)
 
     assert definition is not None
-    decl_line = next(i for i, l in enumerate(lines) if "event Order @ 1" in l)
+    decl_line = next(i for i, line in enumerate(lines) if "event Order @ 1" in line)
     assert definition.range.start.line == decl_line
 
 
@@ -252,7 +251,7 @@ domain catalog {
 """.strip("\n")
 
     lines = text.splitlines()
-    ref_line = next(i for i, l in enumerate(lines) if "ref<commerce.Product>" in l)
+    ref_line = next(i for i, line in enumerate(lines) if "ref<commerce.Product>" in line)
     ref_char = lines[ref_line].index("Product")
 
     index = LspWorkspaceIndex()
@@ -262,5 +261,5 @@ domain catalog {
 
     assert definition is not None
     # Should point to the latest (@ 2) declaration
-    decl_line = next(i for i, l in enumerate(lines) if "entity Product @ 2" in l)
+    decl_line = next(i for i, line in enumerate(lines) if "entity Product @ 2" in line)
     assert definition.range.start.line == decl_line

@@ -2,7 +2,7 @@ import sqlite3
 
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.json_schema import emit_json_schema
-from modelable.governance.por import DEFAULT_POR_ISSUER, build_por_reference, build_por_record
+from modelable.governance.por import DEFAULT_POR_ISSUER, build_por_record, build_por_reference
 from modelable.registry.index import build_registry
 
 

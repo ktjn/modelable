@@ -1,7 +1,7 @@
-from modelable.lsp.highlight import build_document_highlight
-from modelable.lsp.workspace import LspWorkspaceIndex
 from lsprotocol import types
 
+from modelable.lsp.highlight import build_document_highlight
+from modelable.lsp.workspace import LspWorkspaceIndex
 
 WORKSPACE_TEXT = """
 domain customer {
@@ -32,21 +32,21 @@ def _index() -> LspWorkspaceIndex:
 
 def test_document_highlight_on_model_declaration_returns_declaration_and_reference():
     lines = WORKSPACE_TEXT.splitlines()
-    decl_line = next(i for i, l in enumerate(lines) if "entity Customer" in l)
+    decl_line = next(i for i, line in enumerate(lines) if "entity Customer" in line)
 
     highlights = build_document_highlight(_index(), "inmemory://workspace.mdl", line=decl_line, character=11)
 
     assert highlights is not None
     assert len(highlights) == 2
     highlight_lines = {h.range.start.line for h in highlights}
-    ref_line = next(i for i, l in enumerate(lines) if "from customer.Customer @ 1 as c" in l)
+    ref_line = next(i for i, line in enumerate(lines) if "from customer.Customer @ 1 as c" in line)
     assert decl_line in highlight_lines
     assert ref_line in highlight_lines
 
 
 def test_document_highlight_declaration_has_write_kind():
     lines = WORKSPACE_TEXT.splitlines()
-    decl_line = next(i for i, l in enumerate(lines) if "entity Customer" in l)
+    decl_line = next(i for i, line in enumerate(lines) if "entity Customer" in line)
 
     highlights = build_document_highlight(_index(), "inmemory://workspace.mdl", line=decl_line, character=11)
 
@@ -58,8 +58,8 @@ def test_document_highlight_declaration_has_write_kind():
 
 def test_document_highlight_usages_have_read_kind():
     lines = WORKSPACE_TEXT.splitlines()
-    decl_line = next(i for i, l in enumerate(lines) if "entity Customer" in l)
-    ref_line = next(i for i, l in enumerate(lines) if "from customer.Customer @ 1 as c" in l)
+    decl_line = next(i for i, line in enumerate(lines) if "entity Customer" in line)
+    ref_line = next(i for i, line in enumerate(lines) if "from customer.Customer @ 1 as c" in line)
 
     highlights = build_document_highlight(_index(), "inmemory://workspace.mdl", line=decl_line, character=11)
 

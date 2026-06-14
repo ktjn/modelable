@@ -308,9 +308,7 @@ def _shape_involves_object(shape: TypeShape) -> bool:
         return True
     if shape.element is not None and _shape_involves_object(shape.element):
         return True
-    if shape.value is not None and _shape_involves_object(shape.value):
-        return True
-    return False
+    return bool(shape.value is not None and _shape_involves_object(shape.value))
 
 
 def _header_lines(*, serde_with: bool = False, sqlx: bool = False, clickhouse: bool = False, uuid: bool = False, serde_json: bool = False) -> list[str]:
@@ -481,7 +479,7 @@ def _shape_base_annotation(
         element_type = _shape_annotation(
             element,
             owner_type=owner_type,
-            path=path + ["Item"],
+            path=[*path, "Item"],
             definitions=definitions,
         )
         return f"Vec<{element_type}>"
@@ -492,7 +490,7 @@ def _shape_base_annotation(
         value_type = _shape_annotation(
             value,
             owner_type=owner_type,
-            path=path + ["Value"],
+            path=[*path, "Value"],
             definitions=definitions,
         )
         return f"HashMap<String, {value_type}>"

@@ -25,7 +25,7 @@ def test_shim_is_installed_before_pydantic_models():
 @pytest.mark.skipif(sys.version_info < (3, 14), reason="Python 3.14+ only")
 def test_shim_accepts_prefer_fwd_module_kwarg():
     result = typing._eval_type(
-        typing.Optional[str], {}, {}, (), prefer_fwd_module=None
+        str | None, {}, {}, (), prefer_fwd_module=None
     )
     assert result is not None
 
@@ -33,16 +33,16 @@ def test_shim_accepts_prefer_fwd_module_kwarg():
 @pytest.mark.skipif(sys.version_info < (3, 14), reason="Python 3.14+ only")
 def test_shim_translates_prefer_fwd_module_to_parent_fwdref():
     result = typing._eval_type(
-        typing.Optional[int], {}, {}, (), prefer_fwd_module=True
+        int | None, {}, {}, (), prefer_fwd_module=True
     )
     assert result is not None
 
 
 def test_pydantic_ir_models_importable():
     from modelable.parser.ir import (
-        MdlFile,
         DomainDef,
         FieldDef,
+        MdlFile,
         ModelVersion,
         ProjectionVersion,
     )

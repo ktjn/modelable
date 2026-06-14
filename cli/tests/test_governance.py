@@ -1,7 +1,7 @@
+from modelable.governance.checker import build_projection_governance_findings
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.lineage import build_projection_lineage
 from modelable.planner.plans import build_plan
-from modelable.governance.checker import build_projection_governance_findings
 
 
 def test_projection_without_access_block_emits_governance_findings():

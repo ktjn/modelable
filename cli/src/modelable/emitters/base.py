@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import hashlib
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -18,8 +18,5 @@ class EmittedArtifact:
 
 
 def compute_content_hash(content: dict | str) -> str:
-    if isinstance(content, dict):
-        payload = json.dumps(content, indent=2, ensure_ascii=False) + "\n"
-    else:
-        payload = content
+    payload = json.dumps(content, indent=2, ensure_ascii=False) + "\n" if isinstance(content, dict) else content
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()

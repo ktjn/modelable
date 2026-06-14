@@ -209,11 +209,11 @@ def _shape_base_annotation(
         return "Decimal"
     if shape.kind == "array":
         element = shape.element or TypeShape(kind="primitive", ref="object")
-        element_type = _shape_annotation(element, owner_type=owner_type, path=path + ["Item"], definitions=definitions)
+        element_type = _shape_annotation(element, owner_type=owner_type, path=[*path, "Item"], definitions=definitions)
         return f"list[{element_type}]"
     if shape.kind == "map":
         value = shape.value or TypeShape(kind="primitive", ref="object")
-        value_type = _shape_annotation(value, owner_type=owner_type, path=path + ["Value"], definitions=definitions)
+        value_type = _shape_annotation(value, owner_type=owner_type, path=[*path, "Value"], definitions=definitions)
         return f"dict[str, {value_type}]"
     if shape.kind == "ref":
         return "str"

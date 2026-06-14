@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from importlib import import_module
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from lsprotocol import types
 
@@ -155,8 +155,9 @@ def test_did_change_debounce_cancels_previous_task():
         publish_calls = []
 
         class _FakeIndex:
-            workspace = None
-            documents: dict = {}
+            def __init__(self):
+                self.workspace = None
+                self.documents: dict = {}
 
             def upsert_document(self, uri, text):
                 pass
@@ -170,9 +171,10 @@ def test_did_change_debounce_cancels_previous_task():
                 return _FakeDocument()
 
         class _FakeServer:
-            index = _FakeIndex()
-            _debounce_tasks: dict = {}
-            workspace = _FakeWorkspace()
+            def __init__(self):
+                self.index = _FakeIndex()
+                self._debounce_tasks: dict = {}
+                self.workspace = _FakeWorkspace()
 
             def index_for(self, uri):
                 return self.index
@@ -207,8 +209,9 @@ def test_did_close_cancels_pending_debounce_task():
         publish_calls = []
 
         class _FakeIndex:
-            workspace = None
-            documents: dict = {}
+            def __init__(self) -> None:
+                self.workspace = None
+                self.documents: dict = {}
 
             def upsert_document(self, uri, text):
                 pass
@@ -228,9 +231,10 @@ def test_did_close_cancels_pending_debounce_task():
                 return _FakeDocument()
 
         class _FakeServer:
-            index = _FakeIndex()
-            _debounce_tasks: dict = {}
-            workspace = _FakeWorkspace()
+            def __init__(self) -> None:
+                self.index = _FakeIndex()
+                self._debounce_tasks: dict = {}
+                self.workspace = _FakeWorkspace()
 
             def index_for(self, uri):
                 return self.index

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from modelable.diagnostics.model import Diagnostic
 from lsprotocol import types
+
+from modelable.diagnostics.model import Diagnostic
 
 
 def to_lsp_diagnostic(diagnostic: Diagnostic) -> types.Diagnostic:

@@ -1,15 +1,14 @@
-import modelable._pydantic_py314_compat  # noqa: F401 — must precede pydantic model imports
-from pathlib import Path
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from helpers import SERVER_CMD
 from lsprotocol import types
 from pytest_lsp.client import make_test_lsp_client
 
-from helpers import SCENARIOS, SERVER_CMD
-
+import modelable._pydantic_py314_compat  # noqa: F401 — must precede pydantic model imports
 
 FIXTURES = Path(__file__).parent / "fixtures"
 LOCAL_TMP = Path(__file__).resolve().parents[1] / ".pytest_tmp"

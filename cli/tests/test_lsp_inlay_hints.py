@@ -1,7 +1,7 @@
-from modelable.lsp.inlay_hints import build_inlay_hints
-from modelable.lsp.workspace import LspWorkspaceIndex
 from lsprotocol import types
 
+from modelable.lsp.inlay_hints import build_inlay_hints
+from modelable.lsp.workspace import LspWorkspaceIndex
 
 WORKSPACE_TEXT = """
 domain customer {
@@ -40,7 +40,7 @@ def _full_range() -> types.Range:
 
 def test_inlay_hint_shows_field_source_type_for_direct_mapping():
     lines = WORKSPACE_TEXT.splitlines()
-    direct_line = next(i for i, l in enumerate(lines) if "billingId <- c.customerId" in l)
+    direct_line = next(i for i, line in enumerate(lines) if "billingId <- c.customerId" in line)
 
     hints = build_inlay_hints(_index(), "inmemory://workspace.mdl", _full_range())
 
@@ -52,7 +52,7 @@ def test_inlay_hint_shows_field_source_type_for_direct_mapping():
 
 def test_inlay_hint_skips_computed_mapping():
     lines = WORKSPACE_TEXT.splitlines()
-    computed_line = next(i for i, l in enumerate(lines) if "displayEmail = c.email" in l)
+    computed_line = next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line)
 
     hints = build_inlay_hints(_index(), "inmemory://workspace.mdl", _full_range())
 
@@ -63,7 +63,7 @@ def test_inlay_hint_skips_computed_mapping():
 
 def test_inlay_hint_shows_model_kind_on_from_line():
     lines = WORKSPACE_TEXT.splitlines()
-    from_line = next(i for i, l in enumerate(lines) if "from customer.Customer @ 1 as c" in l)
+    from_line = next(i for i, line in enumerate(lines) if "from customer.Customer @ 1 as c" in line)
 
     hints = build_inlay_hints(_index(), "inmemory://workspace.mdl", _full_range())
 
@@ -105,7 +105,7 @@ domain storefront {
     index = LspWorkspaceIndex()
     index.upsert_document("inmemory://workspace.mdl", text)
     lines = text.splitlines()
-    from_line = next(i for i, l in enumerate(lines) if "from catalog.ProductReply @ 1 as p" in l)
+    from_line = next(i for i, line in enumerate(lines) if "from catalog.ProductReply @ 1 as p" in line)
     full_range = types.Range(
         start=types.Position(line=0, character=0),
         end=types.Position(line=len(lines) - 1, character=0),
@@ -152,7 +152,7 @@ domain storefront {
     index = LspWorkspaceIndex()
     index.upsert_document("inmemory://workspace.mdl", text)
     lines = text.splitlines()
-    displayid_line = next(i for i, l in enumerate(lines) if "displayId <- p.productId" in l)
+    displayid_line = next(i for i, line in enumerate(lines) if "displayId <- p.productId" in line)
     full_range = types.Range(
         start=types.Position(line=0, character=0),
         end=types.Position(line=len(lines) - 1, character=0),

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import click
+
 from modelable.commands.codegen import register_codegen_commands
 from modelable.commands.compile import register_compile_commands
 from modelable.commands.create import register_create_commands
 from modelable.commands.diff import register_diff_commands
 from modelable.commands.graph import register_graph_commands
-from modelable.commands.lsp import register_lsp_commands
 from modelable.commands.llm import register_llm_commands
+from modelable.commands.lsp import register_lsp_commands
 from modelable.commands.runtime import register_runtime_commands
 from modelable.commands.scenario import register_scenario_commands
 from modelable.commands.workspace import register_workspace_commands
-import click
 
 
 @click.group()

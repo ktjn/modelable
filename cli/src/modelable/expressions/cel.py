@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Union
 
 # ── Tokens ────────────────────────────────────────────────────────────────────
 
@@ -114,33 +113,33 @@ class RuntimeRef:
 @dataclass
 class UnaryOp:
     op: str
-    expr: "CelExpr"
+    expr: CelExpr
 
 
 @dataclass
 class BinaryOp:
     op: str
-    left: "CelExpr"
-    right: "CelExpr"
+    left: CelExpr
+    right: CelExpr
 
 
 @dataclass
 class TernaryOp:
-    cond: "CelExpr"
-    then_: "CelExpr"
-    else_: "CelExpr"
+    cond: CelExpr
+    then_: CelExpr
+    else_: CelExpr
 
 
 @dataclass
 class FunctionCall:
     name: str
-    args: list["CelExpr"] = field(default_factory=list)
-    where_filter: "CelExpr | None" = None
+    args: list[CelExpr] = field(default_factory=list)
+    where_filter: CelExpr | None = None
 
 
 @dataclass
 class ListLiteral:
-    items: list["CelExpr"] = field(default_factory=list)
+    items: list[CelExpr] = field(default_factory=list)
 
 
 @dataclass
@@ -154,13 +153,21 @@ class WildcardRef:
 class ObjectLiteral:
     """{ key: expr, ... } — inline record/map literal."""
 
-    pairs: list[tuple[str, "CelExpr"]] = field(default_factory=list)
+    pairs: list[tuple[str, CelExpr]] = field(default_factory=list)
 
 
-CelExpr = Union[
-    Literal, FieldRef, RuntimeRef, UnaryOp, BinaryOp, TernaryOp, FunctionCall,
-    ListLiteral, WildcardRef, ObjectLiteral,
-]
+CelExpr = (
+    Literal
+    | FieldRef
+    | RuntimeRef
+    | UnaryOp
+    | BinaryOp
+    | TernaryOp
+    | FunctionCall
+    | ListLiteral
+    | WildcardRef
+    | ObjectLiteral
+)
 
 # ── Parser ────────────────────────────────────────────────────────────────────
 

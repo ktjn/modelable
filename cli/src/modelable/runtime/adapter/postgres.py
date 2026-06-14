@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-import psycopg
 from typing import Any
-from modelable.parser.ir import FieldType, PrimitiveType, DecimalType, EnumType
+
+import psycopg
+
+from modelable.parser.ir import DecimalType, EnumType, FieldType, PrimitiveType
+
 from .base import RuntimeAdapter
+
 
 def type_to_postgres(field_type: FieldType) -> str:
     # ... (rest of implementation)
@@ -33,12 +37,11 @@ class PostgresAdapter(RuntimeAdapter):
     def bootstrap(self, config: dict[str, Any]) -> None:
         """Initialize the PostgreSQL environment."""
         conn_str = config["connection_string"]
-        with psycopg.connect(conn_str) as conn:
-            with conn.cursor() as cur:
-                # Example: create a schema if configured
-                schema = config.get("schema", "public")
-                cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-                conn.commit()
+        with psycopg.connect(conn_str) as conn, conn.cursor() as cur:
+            # Example: create a schema if configured
+            schema = config.get("schema", "public")
+            cur.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+            conn.commit()
 
     def materialize(self, projection_plan: dict[str, Any], data: Any) -> None:
         """Stream or update data into the target materialization."""
@@ -48,26 +51,25 @@ class PostgresAdapter(RuntimeAdapter):
         keys = projection_plan["keys"]
         conn_str = projection_plan["connection_string"]
 
-        with psycopg.connect(conn_str) as conn:
-            with conn.cursor() as cur:
-                for record in data:
-                    columns = record.keys()
-                    values = [record[col] for col in columns]
-                    
-                    # Construct UPSERT
-                    col_names = ", ".join(columns)
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    update_stmt = ", ".join([f"{col} = EXCLUDED.{col}" for col in columns if col not in keys])
-                    
-                    query = f"""
+        with psycopg.connect(conn_str) as conn, conn.cursor() as cur:
+            for record in data:
+                columns = record.keys()
+                values = [record[col] for col in columns]
+                
+                # Construct UPSERT
+                col_names = ", ".join(columns)
+                placeholders = ", ".join(["%s"] * len(columns))
+                update_stmt = ", ".join([f"{col} = EXCLUDED.{col}" for col in columns if col not in keys])
+                
+                query = f"""
                         INSERT INTO {table_name} ({col_names})
                         VALUES ({placeholders})
                         ON CONFLICT ({', '.join(keys)})
                         DO UPDATE SET {update_stmt};
                     """
-                    
-                    cur.execute(query, values)
-                conn.commit()
+                
+                cur.execute(query, values)
+            conn.commit()
 
     def generate_table_ddl(self, table_name: str, fields: list[Any]) -> str:
         """Generate DDL for a projection table."""

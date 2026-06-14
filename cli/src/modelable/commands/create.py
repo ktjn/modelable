@@ -81,7 +81,7 @@ def _model_text(
     change_kind: str,
     fields: list[dict],
 ) -> str:
-    lines = [f"domain {domain} {{", f'  owner: "required-team"', f"  {kind} {name} @ {version} ({change_kind}) {{"]
+    lines = [f"domain {domain} {{", '  owner: "required-team"', f"  {kind} {name} @ {version} ({change_kind}) {{"]
     for field in fields:
         annotations = ""
         if field.get("is_key"):
@@ -138,7 +138,7 @@ def _projection_text(
 ) -> str:
     lines = [
         f"domain {domain} {{",
-        f'  owner: "required-team"',
+        '  owner: "required-team"',
         f"  projection {name} @ {version}",
         f"    from {source_model} @ {source_version} as {alias}",
         "  {",

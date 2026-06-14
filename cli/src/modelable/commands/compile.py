@@ -7,12 +7,12 @@ from pathlib import Path
 import click
 
 from modelable.commands.common import console, load_workspace_or_exit
-from modelable.emitters.diagnostics import deferred_target
 from modelable.emitters.csharp import emit_csharp
+from modelable.emitters.diagnostics import deferred_target
+from modelable.emitters.go import emit_go
 from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.markdown import emit_markdown
-from modelable.emitters.go import emit_go
 from modelable.emitters.python import emit_python
 from modelable.emitters.rust import emit_rust
 from modelable.emitters.sql import emit_sql

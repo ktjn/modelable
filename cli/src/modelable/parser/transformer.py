@@ -3,18 +3,18 @@ from __future__ import annotations
 from lark import Transformer
 
 from modelable.parser.ir import (
-    AiConfig,
     AccessBlock,
     AccessGrant,
-    AnnCustom,
+    AiConfig,
     AnnClassification,
+    AnnCustom,
     AnnDeprecated,
+    AnnKey,
     AnnLatestBefore,
     AnnLatestOnly,
-    AnnKey,
-    AnnPitCutoff,
     AnnOwner,
     AnnPii,
+    AnnPitCutoff,
     AnnServer,
     AnnWire,
     ArrayType,
@@ -311,7 +311,7 @@ class MdlTransformer(Transformer):
         return items[0]
 
     def wire_map(self, items):
-        return {key: value for key, value in items}
+        return dict(items)
 
     def wire_map_item(self, items):
         return str(items[0]), _str(items[1])
@@ -379,7 +379,7 @@ class MdlTransformer(Transformer):
     def dotted_ref(self, items):
         return ".".join(str(item) for item in items)
 
-    def IDENT(self, token):
+    def IDENT(self, token):  # noqa: N802
         return str(token)
 
     def projection_decl(self, items):

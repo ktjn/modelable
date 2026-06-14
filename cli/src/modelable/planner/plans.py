@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
-from modelable.parser.ir import ComputedMapping, DirectMapping, MdlFile, ProjectionVersion
 from modelable.governance.checker import build_projection_governance_findings
+from modelable.parser.ir import ComputedMapping, DirectMapping, MdlFile, ProjectionVersion
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
 from modelable.registry.resolver import resolve_model_ref
 

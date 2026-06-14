@@ -1,7 +1,6 @@
 from modelable.lsp.folding import build_folding_ranges
 from modelable.lsp.workspace import LspWorkspaceIndex
 
-
 WORKSPACE_TEXT = """
 domain customer {
   owner: "test-team"
@@ -31,8 +30,8 @@ def _index() -> LspWorkspaceIndex:
 
 def test_folding_ranges_covers_domain_blocks():
     lines = WORKSPACE_TEXT.splitlines()
-    customer_start = next(i for i, l in enumerate(lines) if l.startswith("domain customer"))
-    customer_end = next(i for i, l in enumerate(lines) if l == "}" and i > customer_start)
+    customer_start = next(i for i, line in enumerate(lines) if line.startswith("domain customer"))
+    customer_end = next(i for i, line in enumerate(lines) if line == "}" and i > customer_start)
 
     ranges = build_folding_ranges(_index(), "inmemory://workspace.mdl")
 
@@ -44,8 +43,8 @@ def test_folding_ranges_covers_domain_blocks():
 
 def test_folding_ranges_covers_model_blocks():
     lines = WORKSPACE_TEXT.splitlines()
-    entity_start = next(i for i, l in enumerate(lines) if "entity Customer" in l)
-    entity_end = next(i for i, l in enumerate(lines) if l.strip() == "}" and i > entity_start)
+    entity_start = next(i for i, line in enumerate(lines) if "entity Customer" in line)
+    entity_end = next(i for i, line in enumerate(lines) if line.strip() == "}" and i > entity_start)
 
     ranges = build_folding_ranges(_index(), "inmemory://workspace.mdl")
 

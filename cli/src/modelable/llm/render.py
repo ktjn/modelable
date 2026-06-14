@@ -12,7 +12,6 @@ from modelable.parser.ir import (
     AutoProjectionDecl,
     AutoProjectionTarget,
     BindingDef,
-    ChangeKind,
     ComputedMapping,
     DecimalType,
     DirectMapping,
@@ -23,7 +22,6 @@ from modelable.parser.ir import (
     GenerateTarget,
     MapType,
     MdlFile,
-    ModelKind,
     ModelVersion,
     NamedType,
     ObjectType,
@@ -92,11 +90,11 @@ def _render_domain(domain: DomainDef) -> list[str]:
     if domain.description:
         lines.append(f'  description: "{domain.description}"')
     for model_name in sorted(domain.models):
-        for version in domain.models[model_name]:
-            lines.extend(_indent(_render_model(model_name, version), 2))
+        for mv in domain.models[model_name]:
+            lines.extend(_indent(_render_model(model_name, mv), 2))
     for projection_name in sorted(domain.projections):
-        for version in domain.projections[projection_name]:
-            lines.extend(_indent(_render_projection(projection_name, version), 2))
+        for pv in domain.projections[projection_name]:
+            lines.extend(_indent(_render_projection(projection_name, pv), 2))
     for decl in domain.auto_projections:
         lines.extend(_indent(_render_auto_projection(decl), 2))
     for target in domain.generate_targets:
@@ -170,10 +168,7 @@ def _render_auto_target(target: AutoProjectionTarget, indent: int = 0) -> str:
 
 
 def _render_generate_target(target: GenerateTarget) -> str:
-    if target.dialect:
-        name = f"{target.name}({target.dialect})"
-    else:
-        name = target.name
+    name = f"{target.name}({target.dialect})" if target.dialect else target.name
     if target.output_path:
         return f'{name} -> "{target.output_path}"'
     return name

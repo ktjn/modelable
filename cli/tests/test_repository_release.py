@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import tomllib
-import re
 import json
+import re
+import tomllib
 from pathlib import Path
-
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 

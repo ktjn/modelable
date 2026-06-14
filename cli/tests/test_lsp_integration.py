@@ -12,10 +12,9 @@ from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from helpers import SCENARIOS, SERVER_CMD
 from lsprotocol import types
 from pytest_lsp.client import make_test_lsp_client
-
-from helpers import SCENARIOS, SERVER_CMD
 
 SAMPLES = SCENARIOS.parent
 

@@ -1,7 +1,6 @@
 from modelable.lsp.hover import build_hover
 from modelable.lsp.workspace import LspWorkspaceIndex
 
-
 PROJECTION_SOURCE_TEXT = """
 domain customer {
   owner: "test-team"
@@ -123,7 +122,7 @@ domain billing {
 
 def test_hover_on_projection_in_from_clause_shows_projection_summary():
     lines = PROJECTION_SOURCE_TEXT.splitlines()
-    from_line = next(i for i, l in enumerate(lines) if "from catalog.ProductReply @ 1 as p" in l)
+    from_line = next(i for i, line in enumerate(lines) if "from catalog.ProductReply @ 1 as p" in line)
     character = lines[from_line].index("ProductReply") + 3  # cursor mid-word on "ProductReply"
 
     index = LspWorkspaceIndex()
@@ -170,7 +169,7 @@ domain billing {
 }
 """.strip("\n")
     lines = source.splitlines()
-    from_line = next(i for i, l in enumerate(lines) if "from customer.Customer @ 1" in l)
+    from_line = next(i for i, line in enumerate(lines) if "from customer.Customer @ 1" in line)
     character = lines[from_line].index("Customer") + 1
 
     index = LspWorkspaceIndex()
@@ -194,7 +193,7 @@ domain customer {
 }
 """.strip("\n")
     lines = source.splitlines()
-    field_line = next(i for i, l in enumerate(lines) if "@key @pii customerId" in l)
+    field_line = next(i for i, line in enumerate(lines) if "@key @pii customerId" in line)
     character = lines[field_line].index("customerId") + 1
 
     index = LspWorkspaceIndex()
@@ -236,7 +235,7 @@ domain shipping {
 
 def test_hover_on_ref_type_shows_model_summary():
     lines = _REF_TYPE_HOVER_TEXT.splitlines()
-    ref_line = next(i for i, l in enumerate(lines) if "ref<commerce.Order>" in l)
+    ref_line = next(i for i, line in enumerate(lines) if "ref<commerce.Order>" in line)
     ref_char = lines[ref_line].index("Order")
 
     index = LspWorkspaceIndex()
@@ -251,7 +250,7 @@ def test_hover_on_ref_type_shows_model_summary():
 
 def test_hover_on_ref_type_domain_part_also_works():
     lines = _REF_TYPE_HOVER_TEXT.splitlines()
-    ref_line = next(i for i, l in enumerate(lines) if "ref<commerce.Order>" in l)
+    ref_line = next(i for i, line in enumerate(lines) if "ref<commerce.Order>" in line)
     ref_char = lines[ref_line].index("commerce") + 2  # cursor mid-word on "commerce"
 
     index = LspWorkspaceIndex()

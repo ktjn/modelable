@@ -3,15 +3,20 @@ from __future__ import annotations
 import difflib
 import re
 import shlex
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
 
 from modelable.compiler.workspace import Workspace
-from modelable.llm.context import build_model_summary, build_projection_summary, build_workspace_summary, parse_model_ref
+from modelable.llm.context import (
+    build_model_summary,
+    build_projection_summary,
+    build_workspace_summary,
+    parse_model_ref,
+)
+from modelable.llm.engine import recommend_cli, update_definition
 from modelable.llm.providers import LLMProvider, LLMRequest
 from modelable.llm.qa import answer_question
-from modelable.llm.engine import recommend_cli, update_definition
 
 
 @dataclass

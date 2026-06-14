@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import hashlib
 
-from pathlib import Path
-
 from click.testing import CliRunner
 
 from modelable.cli import cli

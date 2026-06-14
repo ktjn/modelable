@@ -10,6 +10,7 @@ from modelable.parser.ir import (
     AnnKey,
     AnnPii,
     ArrayType,
+    ChangeKind,
     DecimalType,
     DomainDef,
     EnumType,
@@ -65,7 +66,7 @@ def _import_json_schema(source_text: str, *, domain_name: str | None) -> Importe
     domain = domain_name or _guess_domain_name(title)
     model_name = _sanitize_ident(title)
     fields, warnings = _fields_from_json_schema(schema)
-    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind="additive", fields=fields)
+    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("json-schema", title, domain, model_name, version, warnings)
 
 
@@ -79,7 +80,7 @@ def _import_openapi(source_text: str, *, domain_name: str | None) -> ImportedMod
     domain = domain_name or _guess_domain_name(name)
     model_name = _sanitize_ident(name)
     fields, warnings = _fields_from_json_schema(payload)
-    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind="additive", fields=fields)
+    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("openapi", name, domain, model_name, version, warnings)
 
 
@@ -91,7 +92,7 @@ def _import_avro(source_text: str, *, domain_name: str | None) -> ImportedModel:
     warnings: list[str] = []
     for item in doc.get("fields", []):
         fields.append(_field_from_avro(item, warnings))
-    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind="additive", fields=fields)
+    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("avro", name, domain, _sanitize_ident(name), version, warnings)
 
 
@@ -113,7 +114,7 @@ def _import_protobuf(source_text: str, *, domain_name: str | None) -> ImportedMo
         label, type_name, field_name = match.groups()
         field = FieldDef(name=field_name, type=_primitive_or_named_type(type_name), optional=label == "optional")
         fields.append(field)
-    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind="additive", fields=fields)
+    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("protobuf", name, domain, _sanitize_ident(name), version, warnings)
 
 
@@ -148,7 +149,7 @@ def _import_sql(source_text: str, *, domain_name: str | None) -> ImportedModel:
         if field.name in primary_key:
             field.annotations.append(AnnKey())
             field.optional = False
-    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind="additive", fields=fields)
+    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("sql", table_name, domain, _sanitize_ident(_basename_name(table_name)), version, warnings)
 
 

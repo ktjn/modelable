@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import inspect
 from pathlib import Path
 
@@ -9,26 +10,25 @@ from pygls import feature_manager
 from pygls.lsp.server import LanguageServer
 from pygls.protocol import json_rpc
 
-feature_manager.asyncio.iscoroutinefunction = inspect.iscoroutinefunction
-json_rpc.asyncio.iscoroutinefunction = inspect.iscoroutinefunction
-
-from modelable.lsp.completion import build_completion
 from modelable.lsp.code_actions import build_code_actions
-from modelable.lsp.federation import build_import_diagnostics
-from modelable.lsp.document_symbols import build_document_symbols
+from modelable.lsp.completion import build_completion
 from modelable.lsp.definition import build_definition
 from modelable.lsp.diagnostics import to_lsp_diagnostics
-from modelable.lsp.formatting import build_document_formatting
-from modelable.lsp.hover import build_hover
-from modelable.lsp.references import build_references
-from modelable.lsp.semantic_tokens import build_semantic_tokens, semantic_tokens_legend
-from modelable.lsp.rename import build_prepare_rename, build_rename
-from modelable.lsp.workspace_symbols import build_workspace_symbols
-from modelable.lsp.highlight import build_document_highlight
+from modelable.lsp.document_symbols import build_document_symbols
+from modelable.lsp.federation import build_import_diagnostics
 from modelable.lsp.folding import build_folding_ranges
+from modelable.lsp.formatting import build_document_formatting
+from modelable.lsp.highlight import build_document_highlight
+from modelable.lsp.hover import build_hover
 from modelable.lsp.inlay_hints import build_inlay_hints
+from modelable.lsp.references import build_references
+from modelable.lsp.rename import build_prepare_rename, build_rename
+from modelable.lsp.semantic_tokens import build_semantic_tokens, semantic_tokens_legend
 from modelable.lsp.workspace import LspWorkspaceIndex, uri_to_path
+from modelable.lsp.workspace_symbols import build_workspace_symbols
 
+feature_manager.asyncio.iscoroutinefunction = inspect.iscoroutinefunction
+json_rpc.asyncio.iscoroutinefunction = inspect.iscoroutinefunction
 
 _DEBOUNCE_DELAY = 0.2
 
@@ -134,10 +134,8 @@ def did_change_watched_files(
         else:
             path = uri_to_path(uri)
             if path is not None and path.exists():
-                try:
+                with contextlib.suppress(Exception):
                     index.load_background_document(uri, path.read_text(encoding="utf-8"))
-                except Exception:
-                    pass
         _publish_document_diagnostics(ls, uri, index)
 
 
@@ -384,9 +382,7 @@ def _publish_document_diagnostics(
         return
     diagnostics = []
     for diagnostic in workspace.errors:
-        if diagnostic.path == uri:
-            diagnostics.append(diagnostic)
-        elif diagnostic.path == "<workspace>":
+        if diagnostic.path == uri or diagnostic.path == "<workspace>":
             diagnostics.append(diagnostic)
     diagnostics.extend(build_import_diagnostics(index, uri))
     ls.text_document_publish_diagnostics(

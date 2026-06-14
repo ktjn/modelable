@@ -1,6 +1,6 @@
-import pytest
+from modelable.parser.ir import FieldDef, PrimitiveType
 from modelable.runtime.adapter.postgres import PostgresAdapter
-from modelable.parser.ir import FieldDef, PrimitiveType, FieldType
+
 
 def test_postgres_ddl_generation():
     adapter = PostgresAdapter()

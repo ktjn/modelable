@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 
 from modelable.expressions.cel import extract_field_refs, parse_cel
 from modelable.parser.ir import (
     AccessBlock,
-    AccessGrant,
     ClassificationLevel,
     ComputedMapping,
     DirectMapping,
@@ -14,7 +13,6 @@ from modelable.parser.ir import (
     ModelVersion,
     ProjectionField,
     ProjectionVersion,
-    RefType,
 )
 from modelable.registry.resolver import resolve_model_ref
 

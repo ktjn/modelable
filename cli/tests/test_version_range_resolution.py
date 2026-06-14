@@ -1,5 +1,5 @@
+from modelable.parser.ir import VersionMin, VersionPinned, VersionRange
 from modelable.parser.parse import parse_text_to_ir
-from modelable.parser.ir import VersionRange, VersionMin, VersionPinned
 from modelable.registry.resolver import resolve_model_ref
 from modelable.registry.signature import compute_version_signature
 

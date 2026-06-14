@@ -6,8 +6,10 @@ from rich.console import Console
 from modelable.emitters.shapes import type_shape_catalog
 from modelable.emitters.targets import (
     get_codegen_target,
-    list_codegen_targets as _list_codegen_targets,
     list_implemented_codegen_targets,
+)
+from modelable.emitters.targets import (
+    list_codegen_targets as _list_codegen_targets,
 )
 
 console = Console()

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from urllib import request
 from pathlib import Path
+from urllib import request
 
 import pytest
 from click.testing import CliRunner
@@ -603,7 +603,7 @@ domain customer {
 
 
 def test_chat_update_command_shows_preview_with_provider(tmp_path):
-    from modelable.llm.providers import LLMRequest, LLMResponse
+    from modelable.llm.providers import LLMResponse
 
     mdl = tmp_path / "workspace.mdl"
     original = """

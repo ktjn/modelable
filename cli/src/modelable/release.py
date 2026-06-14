@@ -3,10 +3,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import tomllib
 from pathlib import Path
 from typing import Any
-
-import tomllib
 
 
 def load_package_version(pyproject_path: Path) -> str:

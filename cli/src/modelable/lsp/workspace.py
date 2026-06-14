@@ -4,7 +4,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from modelable.compiler.workspace import Workspace, WorkspaceDocumentSource, load_workspace_from_sources
+from modelable.compiler.workspace import (
+    Workspace,
+    WorkspaceDocumentSource,
+    load_workspace_from_sources,
+)
 
 
 @dataclass

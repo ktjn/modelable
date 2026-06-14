@@ -8,6 +8,8 @@ from rich.console import Console
 from modelable.commands.diff import run_diff
 from modelable.compiler.workspace import load_workspace
 from modelable.llm.chat import ChatState, chat_turn
+from modelable.llm.config import resolve_llm_config
+from modelable.llm.context import build_workspace_summary
 from modelable.llm.engine import (
     answer_model_question_cli,
     describe_path_or_ref,
@@ -17,16 +19,13 @@ from modelable.llm.engine import (
     recommend_cli,
     render_update_audit_summary,
     render_write_audit_summary,
-    update_definition,
     suggest_projection,
     transform_ref_to_target,
+    update_definition,
     validate_generated_text,
 )
-from modelable.llm.context import build_workspace_summary
-from modelable.llm.config import resolve_llm_config
 from modelable.llm.provenance import build_write_provenance, write_provenance_sidecar
 from modelable.llm.providers import build_provider
-from modelable.registry.resolver import resolve_model_ref
 
 console = Console()
 
@@ -292,7 +291,7 @@ def transform(ref: str, path: Path, target: str, output: Path | None, explain: b
 def suggest_projection_cmd(path: Path, source_ref: str, consumer_domain: str, output: Path | None) -> None:
     """Suggest a projection for a consuming domain."""
     text = suggest_projection(path, source_ref, consumer_domain)
-    mdl, errors = validate_generated_text(text)
+    _mdl, errors = validate_generated_text(text)
     if errors:
         for error in errors:
             console.print(f"[red]ERROR[/red] {error}")

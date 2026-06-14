@@ -18,7 +18,10 @@ The CLI requires Python 3.14 and uses `uv`:
 
 ```powershell
 cd cli
-uv sync --extra dev --frozen
+uv sync --extra dev
+uv run ruff check . --fix
+uv run ruff format .
+uv run mypy .
 uv run pytest tests/ --tb=short
 uv run modelable validate ../samples/mvp --strict
 ```

@@ -1,7 +1,6 @@
 from modelable.lsp.completion import build_completion
 from modelable.lsp.workspace import LspWorkspaceIndex
 
-
 WORKSPACE_TEXT = """
 domain customer {
   owner: "test-team"
@@ -117,7 +116,7 @@ def test_completion_suggests_projection_source_fields_for_alias():
     index = LspWorkspaceIndex()
     index.upsert_document("inmemory://workspace.mdl", PROJECTION_SOURCE_TEXT)
     lines = PROJECTION_SOURCE_TEXT.splitlines()
-    line_no = next(i for i, l in enumerate(lines) if "displayId <- p." in l)
+    line_no = next(i for i, line in enumerate(lines) if "displayId <- p." in line)
     # Position cursor right after "p." to simulate typing before a field name
     character = lines[line_no].index("p.") + 2
 

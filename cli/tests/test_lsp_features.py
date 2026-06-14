@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import pytest
-from lsprotocol import types
 from pathlib import Path
 
+import pytest
 from helpers import SCENARIOS
-
+from lsprotocol import types
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -1,6 +1,7 @@
-from pathlib import Path
 from click.testing import CliRunner
+
 from modelable.cli import cli
+
 
 def test_diff_reports_impacted_projections(tmp_path):
     (tmp_path / "customer.mdl").write_text("""

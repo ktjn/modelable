@@ -1,5 +1,7 @@
 
 from modelable.parser.ir import (
+    AccessBlock,
+    AccessGrant,
     AiConfig,
     AnnClassification,
     AnnDeprecated,
@@ -8,8 +10,6 @@ from modelable.parser.ir import (
     AnnPii,
     AnnServer,
     AnnWire,
-    AccessBlock,
-    AccessGrant,
     ArrayType,
     AutoProjectionDecl,
     AutoProjectionTarget,
@@ -46,6 +46,8 @@ from modelable.parser.ir import (
 from modelable.parser.parse import parse_file, parse_file_to_ir, parse_text, parse_text_to_ir
 
 __all__ = [
+    "AccessBlock",
+    "AccessGrant",
     "AiConfig",
     "AnnClassification",
     "AnnDeprecated",
@@ -54,8 +56,6 @@ __all__ = [
     "AnnPii",
     "AnnServer",
     "AnnWire",
-    "AccessBlock",
-    "AccessGrant",
     "ArrayType",
     "AutoProjectionDecl",
     "AutoProjectionTarget",

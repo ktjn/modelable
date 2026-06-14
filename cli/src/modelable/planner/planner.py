@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from modelable.parser.ir import (
     AnnClassification,
+    Annotation,
     AnnPii,
     AnnServer,
-    Annotation,
-    AutoProjectionDecl,
     AutoProjectionTarget,
     DirectMapping,
     DomainDef,
@@ -121,11 +120,7 @@ def _is_excluded(field: FieldDef, target: AutoProjectionTarget) -> bool:
         return True
 
     # Check excluded annotations
-    for ann in target.excluded_annotations:
-        if _annotation_matches(field, ann):
-            return True
-
-    return False
+    return any(_annotation_matches(field, ann) for ann in target.excluded_annotations)
 
 
 def _has_annotation(field: FieldDef, annotation_type: type) -> bool:

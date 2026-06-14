@@ -254,7 +254,7 @@ def _shape_base_annotation(
         element_type = _shape_annotation(
             element,
             owner_type=owner_type,
-            path=path + ["Item"],
+            path=[*path, "Item"],
             definitions=definitions,
             imports=imports,
         )
@@ -264,7 +264,7 @@ def _shape_base_annotation(
         value_type = _shape_annotation(
             value,
             owner_type=owner_type,
-            path=path + ["Value"],
+            path=[*path, "Value"],
             definitions=definitions,
             imports=imports,
         )

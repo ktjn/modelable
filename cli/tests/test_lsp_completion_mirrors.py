@@ -1,10 +1,9 @@
 from pathlib import Path
 
+from modelable.compiler.workspace import WorkspaceDocumentSource
 from modelable.lsp.completion import build_completion
 from modelable.lsp.federation import mirror_reference_names
-from modelable.compiler.workspace import WorkspaceDocumentSource
 from modelable.lsp.workspace import LspWorkspaceIndex
-
 
 WORKSPACE_TEXT = """
 

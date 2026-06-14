@@ -1,3 +1,4 @@
+
 from modelable.expressions.cel import (
     BinaryOp,
     CelContext,
@@ -9,8 +10,6 @@ from modelable.expressions.cel import (
     parse_cel,
     validate_cel_expr,
 )
-import pytest
-
 
 # ── Parser tests ──────────────────────────────────────────────────────────────
 
@@ -221,9 +220,11 @@ def test_no_refs_from_literal():
 
 
 def test_workspace_rejects_invalid_cel():
-    from modelable.compiler.workspace import load_workspace
+    import tempfile
+    import textwrap
     from pathlib import Path
-    import tempfile, textwrap
+
+    from modelable.compiler.workspace import load_workspace
 
     mdl_text = textwrap.dedent("""\
         domain customer {
@@ -250,9 +251,11 @@ def test_workspace_rejects_invalid_cel():
 
 
 def test_workspace_accepts_valid_cel():
-    from modelable.compiler.workspace import load_workspace
+    import tempfile
+    import textwrap
     from pathlib import Path
-    import tempfile, textwrap
+
+    from modelable.compiler.workspace import load_workspace
 
     mdl_text = textwrap.dedent("""\
         domain customer {

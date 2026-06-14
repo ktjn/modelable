@@ -3,7 +3,6 @@ from lsprotocol import types
 from modelable.lsp.code_actions import build_code_actions
 from modelable.lsp.workspace import LspWorkspaceIndex, WorkspaceDocumentSource
 
-
 VALID_WORKSPACE_TEXT = """
 domain customer {
   owner: "test-team"

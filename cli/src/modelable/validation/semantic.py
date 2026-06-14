@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 from modelable.compat.diff import compare_model_versions
 from modelable.diagnostics.model import Diagnostic
@@ -10,14 +10,14 @@ from modelable.parser.ir import (
     ChangeKind,
     ClassificationLevel,
     ComputedMapping,
+    DecimalType,
+    EnumType,
+    FieldDef,
     MdlFile,
     ModelKind,
     ModelVersion,
-    EnumType,
-    FieldDef,
     ObjectType,
     PrimitiveType,
-    DecimalType,
 )
 from modelable.registry.resolver import resolve_model_ref
 
@@ -263,15 +263,14 @@ def _validate_change_kind(
                     path,
                 )
             )
-    elif current.change_kind == ChangeKind.breaking:
-        if not incompatible_changes:
-            diagnostics.append(
-                _diag(
-                    "COMPAT",
-                    f"{context}: breaking declaration must include at least one incompatible change",
-                    path,
-                )
+    elif current.change_kind == ChangeKind.breaking and not incompatible_changes:
+        diagnostics.append(
+            _diag(
+                "COMPAT",
+                f"{context}: breaking declaration must include at least one incompatible change",
+                path,
             )
+        )
 
 
 def _validate_declaration_wire_annotations(

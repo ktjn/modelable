@@ -7,7 +7,13 @@ from typing import Any
 
 from modelable.compiler.workspace import Workspace
 from modelable.llm.context import parse_model_ref
-from modelable.parser.ir import DirectMapping, FieldDef, ModelVersion, ProjectionField, ProjectionVersion
+from modelable.parser.ir import (
+    DirectMapping,
+    FieldDef,
+    ModelVersion,
+    ProjectionField,
+    ProjectionVersion,
+)
 from modelable.registry.resolver import resolve_model_ref
 
 _NODE_KIND_ORDER = {

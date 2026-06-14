@@ -1,16 +1,17 @@
 from __future__ import annotations
 
+import itertools
 import json
 import sqlite3
 from importlib.resources import files
 from pathlib import Path
 
-from modelable.compiler.workspace import Workspace
 from modelable.compat.checker import check_model_version_compatibility
+from modelable.compiler.workspace import Workspace
 from modelable.diagnostics.model import render_diagnostic
-from modelable.planner.lineage import build_projection_lineage
-from modelable.parser.ir import AccessBlock, AccessGrant, ComputedMapping, DirectMapping
 from modelable.governance.por import build_por_record
+from modelable.parser.ir import AccessBlock, AccessGrant, ComputedMapping, DirectMapping
+from modelable.planner.lineage import build_projection_lineage
 from modelable.registry.resolver import resolved_version_spec
 
 
@@ -362,7 +363,7 @@ def _insert_compatibility_reports(
     model_name: str,
     versions,
 ) -> None:
-    for previous, current in zip(versions, versions[1:]):
+    for previous, current in itertools.pairwise(versions):
         report = check_model_version_compatibility(
             workspace.mdl,
             domain_name,

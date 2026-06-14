@@ -8,7 +8,6 @@ from modelable.lsp.workspace import LspWorkspaceIndex
 from modelable.parser.ir import AnnKey, FieldDef, ModelKind, ModelVersion, PrimitiveType
 from modelable.registry.signature import compute_version_signature
 
-
 IMPORT_TEXT = """
 import domain customer from registry "customer-platform-registry"
 """.strip(

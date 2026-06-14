@@ -6,6 +6,7 @@ from os import environ
 from pathlib import Path
 
 from modelable.compiler.workspace import load_workspace
+from modelable.diagnostics.model import render_diagnostic
 from modelable.emitters.csharp import emit_csharp
 from modelable.emitters.go import emit_go
 from modelable.emitters.java import emit_java
@@ -14,35 +15,39 @@ from modelable.emitters.markdown import emit_markdown
 from modelable.emitters.python import emit_python
 from modelable.emitters.rust import emit_rust
 from modelable.emitters.typescript import emit_typescript
+from modelable.llm.config import LlmConfig, resolve_llm_config
 from modelable.llm.context import (
     build_model_summary,
     build_projection_summary,
     build_workspace_summary,
     parse_model_ref,
 )
-from modelable.llm.config import LlmConfig, resolve_llm_config
 from modelable.llm.importers import import_from_path, import_from_text
-from modelable.llm.qa import answer_question
 from modelable.llm.providers import LLMProvider, build_provider
+from modelable.llm.qa import answer_question
 from modelable.llm.recommendations import recommend_for_model
 from modelable.llm.render import render_mdl, render_model_version, render_projection_version
-from modelable.llm.update_plan import UpdateChange, UpdatePlan, build_update_request, parse_update_plan
-from modelable.llm.update_plan import build_update_repair_request
+from modelable.llm.update_plan import (
+    UpdateChange,
+    UpdatePlan,
+    build_update_repair_request,
+    build_update_request,
+    parse_update_plan,
+)
 from modelable.llm.validation_help import explain_validation_errors
-from modelable.diagnostics.model import render_diagnostic
 from modelable.parser.ir import (
     AnnKey,
     DirectMapping,
     FieldDef,
-    ParseError,
     MdlFile,
     ModelKind,
     ModelVersion,
+    ParseError,
+    PrimitiveType,
     ProjectionField,
     ProjectionVersion,
     SourceRef,
     VersionExact,
-    PrimitiveType,
 )
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.planner import expand_auto_projections
@@ -110,7 +115,7 @@ def transform_ref_to_target(path: Path, ref: str, target: str) -> AssistantResul
     if domain is None:
         raise ValueError(f"Unknown domain: {domain_name}")
 
-    _EMITTERS = {
+    emitters = {
         "typescript": (emit_typescript, Path(".modelable/types"), False),
         "json-schema": (emit_json_schema, Path(".modelable/jsonschema"), True),
         "markdown": (emit_markdown, Path(".modelable/docs"), False),
@@ -132,8 +137,8 @@ def transform_ref_to_target(path: Path, ref: str, target: str) -> AssistantResul
     else:
         raise ValueError(f"Unknown model or projection: {ref}")
 
-    if target in _EMITTERS:
-        emitter_fn, out_path, is_json = _EMITTERS[target]
+    if target in emitters:
+        emitter_fn, out_path, is_json = emitters[target]
         artifacts = emitter_fn(workspace, out_path)
         art = next(a for a in artifacts if a.ref == ref)
         content = _json_dump(art.content) if is_json else str(art.content)
@@ -235,11 +240,9 @@ def _build_update_plan(
             instruction=instruction,
             validation_error=str(exc),
         )
-        diagnostics_repaired = 0
         last_error = exc
-        for _ in range(repair_attempts):
+        for diagnostics_repaired in range(1, repair_attempts + 1):
             repair_response = provider.complete(repair_request)
-            diagnostics_repaired += 1
             try:
                 plan = _parse_update_plan_response(repair_response.content, ref=ref)
                 return UpdatePlanResult(

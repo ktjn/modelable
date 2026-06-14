@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -58,7 +58,7 @@ class AnnPii(BaseModel):
     kind: Literal["pii"] = "pii"
 
 
-class ClassificationLevel(str, Enum):
+class ClassificationLevel(StrEnum):
     open = "open"
     internal = "internal"
     confidential = "confidential"
@@ -246,14 +246,14 @@ class FieldDef(BaseModel):
         return wire_targets_from_annotations(self.annotations)
 
 
-class ModelKind(str, Enum):
+class ModelKind(StrEnum):
     entity = "entity"
     aggregate = "aggregate"
     event = "event"
     value = "value"
 
 
-class ChangeKind(str, Enum):
+class ChangeKind(StrEnum):
     additive = "additive"
     breaking = "breaking"
 

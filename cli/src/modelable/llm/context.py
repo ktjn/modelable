@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
-from pathlib import Path
+from dataclasses import dataclass
 
 from modelable.compiler.workspace import Workspace
 from modelable.parser.ir import (
     ComputedMapping,
     DirectMapping,
-    MdlFile,
     ProjectionField,
-    ProjectionVersion,
-    VersionExact,
     VersionMin,
     VersionPinned,
     VersionRange,
