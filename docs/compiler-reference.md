@@ -1,4 +1,7 @@
-# Emitter Specification
+# Modelable Compiler and Artifact Reference
+
+> **Scope:** Compiler outputs, emitters, compatibility metadata, lineage, and
+> generated-artifact guarantees.
 
 > **Status:** Approved for Phase 1 targets; later target mappings are deferred by phase.
 >
@@ -189,7 +192,29 @@ Emitter diagnostics are warnings unless the artifact cannot be generated correct
 
 ## 13. Dependencies
 
-- `idl-design-spec.md` — target catalog and type system
-- `adapter-architecture-spec.md` — artifact output adapter boundary
-- `cli-spec.md` — `compile`, `docs`, and `codegen` commands
-- `ownership-permissions-spec.md` — POR and classification metadata
+- [Language reference](language-reference.md) for the type system, governance
+  annotations, and target declarations.
+- [Tooling reference](cli-reference.md) for `compile`, `docs`, `codegen`, and
+  graph-export commands.
+- [Architecture](architecture.md) for adapter boundaries and product semantics.
+
+## 14. Registry and Distributed Lineage
+
+`.mdl` files are the source of truth. `registry.db`, plan documents, generated
+artifacts, mirrors, and exported graphs are reproducible derived state.
+
+The local compiler records model and projection identities, compatibility
+reports, ownership, classifications, content signatures, and property-level
+lineage. Distributed workspaces may declare git-backed peers. Foreign source is
+resolved from local mirrors, while downstream consumer registrations are stored
+as explicit source-controlled records. Rebuilding the registry from source must
+produce the same graph.
+
+Cross-registry references include logical identity, concrete version, source
+registry, and content signature. A signature mismatch is an integrity error,
+not a warning. Fetch and write-back failures must be explicit and must not leave
+partially updated registry state.
+
+The `graph export` command emits deterministic canonical JSON suitable for
+catalogs and lineage tools. External systems may visualize or enrich that graph, but they do
+not replace Modelable's source definitions or compiler validation.

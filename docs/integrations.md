@@ -1,16 +1,40 @@
-# Research and Plan: Aligning with dbt, FHIR, and Other External Tools
+# External Integrations and Tool Alignment
 
 > **Status:** Research and planning. Most of this document's phased proposals
 > (emitters, catalog/lineage integration, additional artifact targets) are not
 > committed and require an issue and an accepted design per
 > [ROADMAP.md](../ROADMAP.md). One slice has shipped: the `modelable attach`
-> command (see [cli-spec.md](cli-spec.md) §10.8) imports a dbt `schema.yml`
+> command (see [cli-reference.md](cli-reference.md) §10.9) imports a dbt `schema.yml`
 > model or a FHIR `StructureDefinition` (§2.3 Phase B / §3.3 Phase C below) and
 > records field-level drift against an existing Modelable model version as a
 > new `additive`/`breaking` version plus an attachment record. This document
-> extends [external-tools-data-modelling.md](external-tools-data-modelling.md)
-> and [migration-guide.md](migration-guide.md) with concept mappings and
+> consolidates earlier tool-boundary research and extends
+> [getting-started.md](getting-started.md) with concept mappings and
 > phased proposals for dbt, FHIR, and other ecosystems.
+
+This document also consolidates the earlier external-tool boundary, technology
+evaluation, and data-model-language survey. Those documents informed the
+current choices but are not separate product specifications.
+
+## Current Integration Boundary
+
+Modelable owns the `.mdl` language, normalized graph, semantic validation,
+projection resolution, compatibility, lineage, classification propagation, and
+deterministic artifact generation. External systems may own artifact storage,
+catalog UI, generated-code consumption, interchange, and runtime execution.
+
+Current local outputs include JSON Schema, Markdown, TypeScript, C#, Java,
+Python, Rust, and Go. `modelable attach` provides the shipped dbt/FHIR drift
+workflow described below. Artifact registries, catalog synchronization, ODCS,
+additional schema targets, CDC, brokers, materializers, and API gateways remain
+deferred until they have an issue and accepted design.
+
+Earlier evaluations considered TypeSpec, Smithy, LinkML, CUE, dbt, Malloy,
+GraphQL, JSON Schema, Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI,
+AsyncAPI, Debezium, Kafka, Pulsar, NATS, Redis, ClickHouse, and related tools.
+They are candidates, not dependencies or commitments. A future integration
+must preserve Modelable's source-of-truth, ownership, immutability, lineage,
+and platform-neutrality rules.
 
 ## 1. Purpose
 
@@ -30,7 +54,7 @@ Alignment here means two things, in priority order:
 2. **Artifact alignment** — optional emitters/importers that generate or
    consume dbt and FHIR artifacts from the normalized Modelable graph.
 
-Per [modelable-system-spec.md](modelable-system-spec.md) §2.6
+Per [architecture.md](architecture.md) §2.6
 (framework-first integration), Modelable should wrap and interoperate with
 these tools, not replace or execute them.
 
@@ -64,7 +88,7 @@ domain ownership, and projections, but scoped to the warehouse.
 ### 2.3 Alignment plan
 
 **Phase A — dbt schema/source export (extends Phase 1/4 of
-[external-tools-data-modelling.md](external-tools-data-modelling.md)):**
+the integration boundary above):**
 
 Add a `dbt-yaml` (working name) compile target that generates dbt
 `schema.yml` fragments for a model or projection:
@@ -90,7 +114,7 @@ as a documented, contract-enforced source or model stub without hand-writing
 YAML.
 
 **Phase B — dbt import (extends
-[migration-guide.md](migration-guide.md) §3 source-format table):**
+[getting-started.md](getting-started.md) source-format table):**
 
 `modelable generate --from <dbt manifest.json | schema.yml> --output
 models/<domain>.mdl` to bootstrap `.mdl` models from an existing dbt project,
@@ -102,7 +126,7 @@ LLM-assisted imports.
 `columns:` (with `data_type`, `constraints`, and `modelable_*` `meta` keys) and
 compares them to an existing published model version, appending a new version
 with a computed `additive`/`breaking` change kind when they differ. See
-[cli-spec.md](cli-spec.md) §10.8. `modelable generate --from <schema.yml>`
+[cli-reference.md](cli-reference.md) §10.9. `modelable generate --from <schema.yml>`
 bootstrapping for brand-new models and `manifest.json` input remain
 unimplemented.
 
@@ -111,7 +135,7 @@ unimplemented.
 Treat dbt `exposures` as external consumers in the lineage graph, so
 `modelable lineage` can show "this field flows into dbt exposure X" even when
 the exposure itself lives outside `.mdl`. This feeds
-[distributed-lineage-spec.md](distributed-lineage-spec.md) rather than the
+[compiler-reference.md](compiler-reference.md) rather than the
 local compiler.
 
 **Phase D — semantic layer (deferred, see §2.4).**
@@ -130,7 +154,7 @@ local compiler.
 - MetricFlow `semantic_models`/`metrics` have no Modelable equivalent today.
   Do not add a "metric" model kind speculatively; revisit only if a concrete
   consumer needs aggregation-as-contract beyond the existing `group by`
-  projection aggregation (idl-design-spec.md §3.4).
+  projection aggregation ([language-reference.md](language-reference.md) §3.4).
 
 ## 3. FHIR (Fast Healthcare Interoperability Resources)
 
@@ -196,7 +220,7 @@ the FHIR resource catalog.
   model corresponds to a known FHIR resource.
 
 **Phase C — FHIR import (extends
-[migration-guide.md](migration-guide.md) §3):**
+[getting-started.md](getting-started.md) source-format table):**
 
 `modelable generate --from <StructureDefinition.json> --output
 models/<domain>.mdl` to draft a starting `.mdl` model/projection from an
@@ -209,7 +233,7 @@ targets, and cardinality) and compares them to an existing published model
 version, appending a new version with a computed `additive`/`breaking` change
 kind when they differ. Elements with complex FHIR types (e.g.
 `BackboneElement`, `HumanName`, `CodeableConcept`) fall back to a named type
-with a warning, per §3.4. See [cli-spec.md](cli-spec.md) §10.8. `modelable
+with a warning, per §3.4. See [cli-reference.md](cli-reference.md) §10.9. `modelable
 generate --from <StructureDefinition.json>` bootstrapping for brand-new models
 remains unimplemented.
 
@@ -225,7 +249,7 @@ from a Modelable workspace, reusing the Markdown emitter.
   field/value-object model. Deep nesting should map to nested Modelable
   `value` models; very deep or recursive FHIR structures may not be fully
   representable and should fail with a clear `EMIT003`/`EMIT002`-style
-  diagnostic (per [emitter-spec.md](emitter-spec.md) §10) rather than partial
+  diagnostic (per [compiler-reference.md](compiler-reference.md) §10) rather than partial
   output.
 - FHIR has multiple concurrently active versions (R4, R4B, R5, and R6 in
   ballot). An emitter must target one FHIR version explicitly. **Recommend
@@ -235,8 +259,7 @@ from a Modelable workspace, reusing the Markdown emitter.
   HAPI FHIR), `CapabilityStatement`-driven runtime conformance, and FHIR
   Subscriptions are runtime concerns and stay out of scope, consistent with
   the Phase 5 boundary in
-  [external-tools-data-modelling.md](external-tools-data-modelling.md) and
-  [technology-evaluation.md](technology-evaluation.md).
+  the integration boundary and deferred-candidate summary above.
 
 ## 4. Other tools to evaluate for alignment
 
@@ -251,13 +274,12 @@ from a Modelable workspace, reusing the Markdown emitter.
 
 Tools already evaluated and not repeated here: JSON Schema, Avro, Protobuf,
 OpenAPI, AsyncAPI, Apicurio, OpenMetadata, LinkML — see
-[external-tools-data-modelling.md](external-tools-data-modelling.md) and
-[data-model-languages.md](data-model-languages.md).
+the consolidated research summary above.
 
 ## 5. Recommended sequencing
 
 This slots into the existing phased plan from
-[external-tools-data-modelling.md](external-tools-data-modelling.md) and
+[the integration boundary](#current-integration-boundary) and
 [ROADMAP.md](../ROADMAP.md):
 
 | Phase | Existing focus | New additions from this document |
@@ -273,9 +295,9 @@ This slots into the existing phased plan from
 
 - Executing dbt, running a FHIR server, or collecting OpenLineage runtime
   events — these are runtime/execution concerns, consistent with
-  [modelable-system-spec.md](modelable-system-spec.md) §2.6 and the "Do Not
+  [architecture.md](architecture.md) §2.6 and the deferred
   Incorporate Yet" list in
-  [external-tools-data-modelling.md](external-tools-data-modelling.md).
+  boundary in this document.
 - Redesigning the core `.mdl` type system or projection model to match dbt's
   or FHIR's type systems. All mapping happens in emitters/importers, not in
   the IDL or normalized graph.
@@ -286,7 +308,7 @@ This slots into the existing phased plan from
 
 - Whether dbt and FHIR emitters/importers are first-party (in `cli/`) or
   third-party plugins, pending the plugin-registry decision already open in
-  [emitter-spec.md](emitter-spec.md) §11.
+  [compiler-reference.md](compiler-reference.md) §11.
 - Which FHIR base resources are in scope for Phase 4b (proposed starting set:
   `Patient`, `Observation`, `Encounter`).
 - Which warehouse dialect's `data_type` vocabulary the dbt emitter targets by
@@ -295,13 +317,7 @@ This slots into the existing phased plan from
 
 ## 8. Dependencies
 
-- [external-tools-data-modelling.md](external-tools-data-modelling.md) —
-  phased external-tool roadmap this document extends
-- [migration-guide.md](migration-guide.md) — import/source-format table this
-  document extends
-- [emitter-spec.md](emitter-spec.md) — emitter interface, diagnostics, and
-  open decisions referenced for new targets
-- [distributed-lineage-spec.md](distributed-lineage-spec.md) — cross-tool
-  lineage stitching for dbt exposures and OpenLineage
-- [ownership-permissions-spec.md](ownership-permissions-spec.md) —
-  classification/ownership mapping for dbt `meta` and FHIR `meta.security`
+- [Getting started](getting-started.md) for migration and source-format guidance.
+- [Compiler reference](compiler-reference.md) for emitters and graph export.
+- [Language reference](language-reference.md) for classification and ownership.
+- [Architecture](architecture.md) for product boundaries and deferred runtime scope.

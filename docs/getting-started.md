@@ -1,10 +1,47 @@
-# Migration Guide
+# Getting Started and Migration Guide
+
+Use this guide to install Modelable, validate a first workspace, consume its
+artifacts from another project, or migrate an existing contract format.
+
+## Quick Start
+
+Modelable requires Python 3.14 or newer. Install the command-line tool with
+`uv`:
+
+```bash
+uv tool install modelable
+modelable --version
+```
+
+Inside a project, add it as a development dependency instead:
+
+```bash
+uv add --dev modelable
+```
+
+Create or copy a `.mdl` workspace, then run:
+
+```bash
+modelable validate ./models
+modelable compile ./models --out ./dist
+modelable docs ./models --out ./dist/docs
+```
+
+The VS Code extension starts `modelable lsp`. Ensure the command is available
+on `PATH`, or configure the extension's Python path or server command.
+
+Generated artifacts are consumer contracts, not the source of truth. Commit
+`.mdl` definitions; regenerate schemas, language bindings, and Markdown in CI
+unless a consumer workflow deliberately reviews generated output.
+
+Before upgrading, read the root [changelog](../CHANGELOG.md) for language or
+artifact compatibility notes.
 
 > **Status:** Approved guidance for adopting Modelable from existing schema and contract formats.
 >
 > **Scope:** Practical migration paths from OpenAPI, JSON Schema, Protobuf, SQL DDL, Avro, and existing internal DSLs into `.mdl`.
 
-## 1. Purpose
+## 1. Migration Purpose
 
 This guide helps teams introduce Modelable without rewriting every system at once. Migration should start with domain-owned canonical models, then add projections and adapter bindings around existing infrastructure.
 
@@ -188,7 +225,8 @@ Review checklist:
 
 ## 9. Dependencies
 
-- `cli-spec.md` — `generate`, `validate`, `lineage`, and `diff`
-- `llm-integration-spec.md` — AI-assisted generation behavior
-- `ownership-permissions-spec.md` — ownership and access metadata
-- `adapter-architecture-spec.md` — binding boundaries
+- [Tooling reference](cli-reference.md) for `generate`, `validate`, `lineage`,
+  `diff`, LSP, and AI-assisted authoring behavior.
+- [Language reference](language-reference.md) for ownership, access metadata,
+  annotations, and `.mdl` syntax.
+- [Architecture](architecture.md) for canonical-model and adapter boundaries.

@@ -1,4 +1,9 @@
-# Modelable System Specification
+# Modelable Architecture and System Specification
+
+> **Authority:** This is the product source of truth for Modelable concepts and
+> contract semantics. Sections describing runtime adapters, materialization, or
+> external services are deferred unless the root roadmap and an accepted issue
+> say otherwise.
 
 ## 1. Purpose
 
@@ -233,7 +238,7 @@ auto projections Customer @ 1 {
 
 Auto projections may only target `entity` or `aggregate` models. The four generated names are reserved; defining an explicit projection with the same name for the same entity version is a compile error. For use cases requiring joins, aggregations, or computed fields, hand-authored projections remain necessary.
 
-> For the full IDL syntax, compiler expansion rules, and inline customization options, see `idl-design-spec.md` §3.7.
+> For the full IDL syntax, compiler expansion rules, and inline customization options, see [language-reference.md](language-reference.md) §3.7.
 
 ### 3.6 Subscription
 
@@ -904,7 +909,7 @@ Everything under `.modelable/` is a build artifact. Deleting it and running `mod
 
 Every published model version receives a **content signature** — a SHA-256 hash of its canonical definition — stored in `registry.db` and written into all cross-registry references. Git's SHA chain provides tamper evidence for the source files themselves; content signatures provide it for derived cross-registry references in plan documents and `consumers/` entries.
 
-See [distributed-lineage-spec.md](distributed-lineage-spec.md) for the full design: DAG topology, CLI graph traversal, two-way write-back, peer sync modes, failure modes, and migration path.
+See [compiler-reference.md](compiler-reference.md) for registry, graph export, and distributed-lineage behavior.
 
 ## 13. APIs
 
@@ -1026,7 +1031,7 @@ The first version implements the local modelling compiler. Runtime materializati
 
 ### 17.2 CLI Commands
 
-See the [Modelable CLI Specification](cli-spec.md) for the full command reference.
+See the [Modelable Tooling Reference](cli-reference.md) for the full command reference.
 
 ### 17.3 Included in MVP
 
@@ -1083,7 +1088,7 @@ System-level design decisions have been resolved. Phase-specific documents may s
 
 **Resolved:**
 
-- **Definition IDL:** Custom text IDL (`.mdl` files), parsed with Lark (Earley grammar). See [idl-design-spec.md](idl-design-spec.md) for the full design rationale and syntax reference.
+- **Definition IDL:** Custom text IDL (`.mdl` files), parsed with Lark (Earley grammar). See [language-reference.md](language-reference.md) for the full design rationale and syntax reference.
 - **Expression language for computed fields:** CEL (Common Expression Language). Deterministic, non-Turing-complete, sandboxable.
 - **Internal parser models:** `pydantic`. Not exposed as the external contract format.
 - **First generated artifact:** JSON Schema 2020-12.
@@ -1092,10 +1097,10 @@ System-level design decisions have been resolved. Phase-specific documents may s
 - **Version scheme:** Integer versions with a required `changeKind: additive | breaking` declaration on publish. See section 8.1.
 - **Composite keys:** Supported in MVP. `identity.key` accepts a string (single field) or a list (composite). See section 3.3.
 - **Version ranges in projections:** Allowed in MVP. The planner resolves to the highest satisfying published version at plan time. See section 8.2.
-- **Registry storage:** File-first (`.mdl` source of truth) with a single `registry.db` SQLite derived index written by `compile`. In distributed mode peers are git remotes; `mirror/` holds sparse checkouts of foreign `.mdl` files; `consumers/` holds incoming write-backs from downstream registries. All derived data is in `registry.db`; all source of truth is in git. See section 12 and [distributed-lineage-spec.md](distributed-lineage-spec.md).
+- **Registry storage:** File-first (`.mdl` source of truth) with a single `registry.db` SQLite derived index written by `compile`. In distributed mode peers are git remotes; `mirror/` holds sparse checkouts of foreign `.mdl` files; `consumers/` holds incoming write-backs from downstream registries. All derived data is in `registry.db`; all source of truth is in git. See section 12 and [compiler-reference.md](compiler-reference.md).
 - **Runtime plan execution:** Interpreted plan documents (structured JSON artifacts). Not generated code. See section 7.2.
 - **Sample scope:** Sample scenarios may include future-phase constructs such as `materialisation`, subscriptions, and runtime adapter bindings when they are clearly examples of deferred runtime behavior.
-- **AI model configuration:** LLM-assisted CLI commands use configurable model selection rather than a hard-coded model. See [llm-integration-spec.md](llm-integration-spec.md).
+- **AI model configuration:** LLM-assisted CLI commands use configurable model selection rather than a hard-coded model. See [cli-reference.md](cli-reference.md).
 
 ## 20. Acceptance Criteria
 

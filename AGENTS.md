@@ -39,7 +39,7 @@ npm test
 
 These instructions apply to the entire repository.
 
-This repository currently contains the Modelable system specification, centered on `docs/modelable-system-spec.md`. Treat that specification as the product source of truth unless the user explicitly changes direction.
+This repository currently contains the Modelable system specification, centered on `docs/architecture.md`. Treat that specification as the product source of truth unless the user explicitly changes direction.
 
 ## Repository Shape
 
@@ -60,16 +60,16 @@ This repository currently contains the Modelable system specification, centered 
 
 ## Documentation Changes
 
-- Keep Markdown readable and structurally consistent with the existing spec.
+- Keep Markdown readable and structurally consistent with the consolidated documentation map in `docs/README.md`.
 - Use fenced code blocks with language identifiers for examples, such as `yaml`, `json`, `text`, or `sql`.
 - Keep examples internally consistent with the terms and fields already used in the spec.
 - When adding requirements, classify them clearly as MVP, deferred, non-goal, or open decision when applicable.
 - Avoid adding implementation commitments that contradict the platform-neutral design unless the user explicitly asks to narrow the design.
-- If a change affects agent workflow, test policy, PR policy, or local verification expectations, update `docs/agent-governance.md`.
+- If a change affects agent workflow, test policy, PR policy, local verification expectations, or release handling, update `docs/maintainers.md`.
 
 ## Code Changes
 
-- Treat `docs/agent-governance.md` as the standing workflow for coding work, including local gates, test gates, PR handling, and verification evidence.
+- Treat `docs/maintainers.md` as the standing workflow for coding work, including local gates, test gates, PR handling, release handling, and verification evidence.
 - When selecting or adding frameworks, libraries, CLIs, build tools, or scaffolding commands, validate the current latest stable version and current recommended usage with a web search against official documentation, package registries, or release pages at the time of the work. Do not rely on agent training data or remembered version knowledge for "latest" choices.
 - Prefer the latest stable framework and tool versions unless the specification, compatibility constraints, existing project manifests, or an explicit user instruction require a different version. Document any deliberate pin to an older version in the handoff or PR notes.
 - For Python projects, use `uv` for Python version management, project setup, dependency management, lockfile generation, and Python tool execution unless the user explicitly asks for another tool or an existing project convention requires it.
@@ -83,9 +83,9 @@ This repository currently contains the Modelable system specification, centered 
 
 ## Agent Governance
 
-Agents working in this repository must treat `docs/agent-governance.md` as the operating policy for repository changes now and when coding starts. The short form is:
+Agents working in this repository must treat `docs/maintainers.md` as the operating policy for repository changes now and when coding starts. The short form is:
 
-- Preserve the product source of truth in `docs/modelable-system-spec.md`.
+- Preserve the product source of truth in `docs/architecture.md`.
 - Keep planning, runtime, materializer, registry, adapter, and governance changes separated unless a spec explicitly joins them.
 - Use small, reviewable changes with explicit verification evidence.
 - Do not claim test coverage, compatibility, lineage, governance, or generated artifact behavior without running the relevant gate or documenting why it is unavailable.
@@ -96,7 +96,7 @@ Agents working in this repository must treat `docs/agent-governance.md` as the o
 Use the gate that matches the touched surface:
 
 - **Documentation-only:** Review the Markdown diff, check internal links and references, and confirm terminology remains consistent with the system spec.
-- **IDL samples or `.mdl` fixtures:** Run `uv run modelable validate <path>` from `cli/` for the touched fixture or sample when it is expected to be supported by the current parser/compiler; otherwise manually check samples against the grammar and examples in `docs/idl-design-spec.md` and state why CLI validation is not yet applicable.
+- **IDL samples or `.mdl` fixtures:** Run `uv run modelable validate <path>` from `cli/` for the touched fixture or sample when it is expected to be supported by the current parser/compiler; otherwise manually check samples against the grammar and examples in `docs/language-reference.md` and state why CLI validation is not yet applicable.
 - **Parser, IR, semantic validation, compiler, or CLI:** Run focused tests for the changed module from `cli/`, then run `uv run pytest tests/ -v`.
 - **Compiler, planner, compatibility, lineage, governance, or emitters:** Run focused unit tests for the changed module and the full local CLI gate.
 - **Runtime, adapter, materializer, or security behavior:** Run focused unit tests plus any integration or smoke gate defined for that component.

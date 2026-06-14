@@ -1,37 +1,31 @@
 # Modelable Documentation
 
-Start with the [root README](../README.md) for installation and a small working
-example. The documents here describe the language and the larger system model.
+Start with the [root README](../README.md) for the shortest installation and
+example path. The documentation set is intentionally small; each document has
+one role.
 
-## User guides
+## Use Modelable
 
-- [Consuming Modelable](consuming-modelable.md): installing the CLI/LSP and VS Code extension, and using generated artifacts.
-- [Migration guide](migration-guide.md): bringing existing JSON Schema, OpenAPI, Protobuf, SQL DDL, or Avro definitions into Modelable.
+- [Getting started and migration](getting-started.md): installation, editor
+  setup, generated artifacts, and migration from existing schema formats.
+- [Language reference](language-reference.md): `.mdl` syntax, types,
+  projections, CEL, ownership, classification, and access metadata.
+- [Tooling reference](cli-reference.md): CLI commands, LSP behavior,
+  AI-assisted authoring, and development tooling.
+- [Compiler reference](compiler-reference.md): emitters, generated artifacts,
+  compatibility metadata, registry state, and distributed lineage.
 - [Sample scenarios](../samples/README.md): worked `.mdl` examples.
-- [Release process](releasing.md): maintainer checklist and repository setup.
 
-## Reference
+## Understand the Project
 
-- [CLI reference](cli-spec.md)
-- [IDL language design](idl-design-spec.md)
-- [Emitter behavior](emitter-spec.md)
-- [Language Server Protocol](lsp-spec.md)
-- [CEL expressions](cel-integration-spec.md)
-- [Ownership and permissions](ownership-permissions-spec.md)
-- [LLM integration](llm-integration-spec.md)
+- [Architecture and system specification](architecture.md): authoritative
+  product concepts, invariants, and current/deferred boundaries.
+- [External integrations](integrations.md): shipped dbt/FHIR attachment behavior
+  and non-committed integration research.
+- [Maintainer and agent guide](maintainers.md): local gates, review policy,
+  release process, and automation rules.
 
-## Architecture and product direction
-
-- [System specification](modelable-system-spec.md): product concepts and source of truth.
-- [Project governance](../GOVERNANCE.md)
-- [Agent governance](agent-governance.md)
-- [Adapter architecture](adapter-architecture-spec.md)
-- [Distributed lineage](distributed-lineage-spec.md)
-- [External-tool boundaries](external-tools-data-modelling.md)
-- [Platform usage scenarios](platform-usage-scenarios-spec.md)
-- [Technology evaluation](technology-evaluation.md)
-- [Data-model language research](data-model-languages.md)
-- [dbt, FHIR, and other tool alignment research](dbt-fhir-tool-alignment.md)
-
-Specifications include future phases where clearly labelled. Current release
-scope is summarized in the root README and [ROADMAP.md](../ROADMAP.md).
+The [roadmap](../ROADMAP.md) is directional. A deferred item is not committed
+until it has an issue and accepted design. Project-level policy remains in
+[GOVERNANCE.md](../GOVERNANCE.md), [CONTRIBUTING.md](../CONTRIBUTING.md), and
+[SECURITY.md](../SECURITY.md).

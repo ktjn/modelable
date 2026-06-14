@@ -14,15 +14,15 @@ The strict Phase 1 acceptance sample is the separate minimal `samples/mvp/` set 
 
 | # | ID | Title | Platform | Complexity | Relevant Spec |
 |---|:---|:------|:---------|:-----------|:--------------|
-| 1 | `01-ecommerce-data-warehouse` | E-commerce Analytics Data Warehouse | Data Warehouse | High | `platform-usage-scenarios-spec.md` §3 |
-| 2 | `02-realtime-fraud-detection` | Real-Time Fraud Detection Service | High-Performance Service | High | `platform-usage-scenarios-spec.md` §4 |
-| 3 | `03-order-saga-microservices` | Order Fulfillment Saga | Event-Driven Microservices | High | `platform-usage-scenarios-spec.md` §5 |
-| 4 | `04-credit-risk-feature-store` | Credit Risk ML Feature Store | ML Feature Store | High | `platform-usage-scenarios-spec.md` §6 |
-| 5 | `05-partner-marketplace-api` | Partner Marketplace API | API Consumer | High | `platform-usage-scenarios-spec.md` §7 |
-| 6 | `06-gdpr-compliance-audit` | GDPR Compliance and Immutable Audit Trail | Audit & Compliance | High | `platform-usage-scenarios-spec.md` §8 |
-| 7 | `07-multi-system-master-data` | Enterprise Multi-System Master Data Architecture | Master Data / Data Platform | Very High | `distributed-lineage-spec.md` |
-| 8 | `08-distributed-multi-registry` | Federated Registry Network | Federation / Peer Sync | High | `distributed-lineage-spec.md` |
-| 9 | `09-auto-projections` | Compiler-Generated Projection Contracts | Core Language | Medium | `idl-design-spec.md` §3.7 |
+| 1 | `01-ecommerce-data-warehouse` | E-commerce Analytics Data Warehouse | Data Warehouse | High | [Architecture](../docs/architecture.md) |
+| 2 | `02-realtime-fraud-detection` | Real-Time Fraud Detection Service | High-Performance Service | High | [Architecture](../docs/architecture.md) |
+| 3 | `03-order-saga-microservices` | Order Fulfillment Saga | Event-Driven Microservices | High | [Architecture](../docs/architecture.md) |
+| 4 | `04-credit-risk-feature-store` | Credit Risk ML Feature Store | ML Feature Store | High | [Architecture](../docs/architecture.md) |
+| 5 | `05-partner-marketplace-api` | Partner Marketplace API | API Consumer | High | [Architecture](../docs/architecture.md) |
+| 6 | `06-gdpr-compliance-audit` | GDPR Compliance and Immutable Audit Trail | Audit & Compliance | High | [Architecture](../docs/architecture.md) |
+| 7 | `07-multi-system-master-data` | Enterprise Multi-System Master Data Architecture | Master Data / Data Platform | Very High | [Compiler reference](../docs/compiler-reference.md) |
+| 8 | `08-distributed-multi-registry` | Federated Registry Network | Federation / Peer Sync | High | [Compiler reference](../docs/compiler-reference.md) |
+| 9 | `09-auto-projections` | Compiler-Generated Projection Contracts | Core Language | Medium | [Language reference](../docs/language-reference.md) §3.7 |
 
 ---
 
@@ -153,7 +153,7 @@ Key techniques demonstrated:
 - Consumer write-backs as pull requests (`writeback: pr`)
 - Registry DAG visualization (`modelable registry graph`)
 
-See `distributed-lineage-spec.md` for the full federation design.
+See the [compiler reference](../docs/compiler-reference.md) for federation and lineage behavior.
 
 ---
 
@@ -167,7 +167,8 @@ Key techniques demonstrated:
 - `on` with operation subsets (`created`, `updated`, `deleted`)
 - Inspecting expanded projections with `modelable inspect Order@1 --auto`
 
-See `idl-design-spec.md` §3.7 and `modelable-system-spec.md` §3.5 for the full auto-projection rules.
+See the [language reference](../docs/language-reference.md) §3.7 and
+[architecture](../docs/architecture.md) §3.5 for the full auto-projection rules.
 
 ---
 

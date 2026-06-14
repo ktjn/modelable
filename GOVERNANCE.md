@@ -14,7 +14,7 @@ write access to the repository and are responsible for merging pull requests.
 
 Maintainers are expected to:
 - Review pull requests in a timely manner.
-- Ensure changes align with the [System Specification](docs/modelable-system-spec.md).
+- Ensure changes align with the [Architecture and System Specification](docs/architecture.md).
 - Uphold the [Code of Conduct](CODE_OF_CONDUCT.md).
 - Manage the project roadmap and milestones.
 
@@ -73,7 +73,7 @@ The project governance enforces the core principles of the Modelable system:
 ## 4. Agent Governance
 
 Automated agents and AI assistants participating in the repository must adhere
-to the [Agent Governance](docs/agent-governance.md) policy.
+to the [Maintainer and Agent Guide](docs/maintainers.md) policy.
 
 ## 5. Becoming a Maintainer
 

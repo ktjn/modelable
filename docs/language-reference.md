@@ -1,4 +1,8 @@
-# Design: Modelable IDL
+# Modelable Language Reference
+
+> **Authority:** This document defines the current `.mdl` language. Governance
+> annotations and CEL expression rules are included here so authors do not need
+> to reconcile separate language specifications.
 
 **Date:** 2026-05-14  
 **Status:** Approved  
@@ -502,7 +506,7 @@ LLM commands operate on `.mdl` text output — reviewable, diffable, committable
 
 ## 6. Registry Federation and Imports
 
-See [distributed-lineage-spec.md](distributed-lineage-spec.md) for the full design. This section covers only the IDL syntax.
+See [compiler-reference.md](compiler-reference.md) for registry and distributed-lineage behavior. This section covers only the IDL syntax.
 
 ### 6.1 `registry` Block in `workspace.mdl`
 
@@ -619,24 +623,70 @@ consumer {
 
 ---
 
-## 7. Planned Implementation Files
+## 7. Implementation Map
 
 | File | Purpose |
 |---|---|
-| `idl-design-spec.md` | Full IDL language reference (grammar, all constructs, type system) — this document |
-| `cli/grammar/modelable.lark` | Lark EBNF grammar |
-| `cli/parser/` | Parse tree → Pydantic IR |
-| `cli/emitters/` | One module per output target |
-| `cli/lsp/` | pygls language server |
-| `editors/vscode/` | VS Code extension |
-| `cli/registry/` | Graph traversal, git fetch/push, lineage log writer, consumer write-back |
+| `language-reference.md` | Full IDL language reference (grammar, all constructs, type system) — this document |
+| `cli/src/modelable/grammar/modelable.lark` | Lark EBNF grammar |
+| `cli/src/modelable/parser/` | Parse tree to Pydantic IR |
+| `cli/src/modelable/emitters/` | Generated artifact backends |
+| `cli/src/modelable/lsp/` | pygls language server |
+| `vscode/` | VS Code extension |
+| `cli/src/modelable/registry/` | Local registry graph and lineage index |
 
 ---
 
-## 8. Out of Scope for This Design
+## 8. Deferred Language Scope
 
 - Subscription runtime execution (Phase 5)
 - Registry HTTP server (no server needed for dev-time use; deferred if ever needed)
 - Catalog / governance sync (Phase 3)
 - GraphQL target (post-MVP)
 - Non-Python parser implementations
+
+---
+
+## 9. CEL Expression Rules
+
+CEL is the expression language for computed projection fields, join predicates,
+filters, aggregation guards, and future runtime parameter expressions. The
+compiler parses and type-checks CEL and extracts field-level lineage before an
+expression can reach a runtime adapter.
+
+The supported compiler subset includes literals, field selection, boolean and
+arithmetic operators, comparisons, conditional expressions, list membership,
+and the deterministic helper functions implemented by the validator. Expression
+types must be assignable to the declared destination field. Unknown aliases,
+unknown fields, unsafe functions, and type mismatches are validation errors.
+
+Runtime namespaces such as `request`, `auth`, and `params` are reserved for
+deferred runtime contexts. Their presence in the grammar does not imply that a
+runtime feature is currently available.
+
+## 10. Ownership, Classification, and Access
+
+Ownership and governance metadata are definition-time contract metadata:
+
+- Every model belongs to one domain and has an explicit owner.
+- Published versions are immutable, including their governance metadata.
+- `@pii` identifies personally identifiable information.
+- `@classification` uses the ordered levels `open`, `internal`, `confidential`,
+  and `secret`.
+- Projection fields inherit source restrictions through lineage. A projection
+  may narrow access but must not silently broaden it or lower classification.
+- Access declarations document `read`, `project`, and related grants. The local
+  compiler reports deterministic governance findings; it does not claim to be
+  an organizational authorization service.
+
+Generated artifacts must preserve ownership, classification, lineage, and
+point-of-record metadata where the target supports extensions. Otherwise the
+compiler must emit companion metadata or an explicit loss diagnostic.
+
+## 11. Language Authority
+
+This file is the detailed syntax and language-semantics reference. The
+[architecture](architecture.md) remains authoritative for product concepts and
+published-contract guarantees. If an example here conflicts with the grammar
+or validator, the implementation and its tests identify a documentation defect;
+they do not silently redefine the product model.

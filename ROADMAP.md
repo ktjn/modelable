@@ -17,9 +17,9 @@ item is not committed until it has an issue and an accepted design.
 - Catalog and governance-system integration.
 - Open Data Contract Standard interchange.
 - dbt schema/source export and import (see
-  [docs/dbt-fhir-tool-alignment.md](docs/dbt-fhir-tool-alignment.md)).
+  [docs/integrations.md](docs/integrations.md)).
 - FHIR R4 profile export and import for a small base-resource set (see
-  [docs/dbt-fhir-tool-alignment.md](docs/dbt-fhir-tool-alignment.md)).
+  [docs/integrations.md](docs/integrations.md)).
 - Additional artifact formats driven by concrete consumers.
 
 ## Later
@@ -28,6 +28,6 @@ item is not committed until it has an issue and an accepted design.
 - Distributed registry synchronization beyond the current file-first model.
 - Hosted documentation and VS Code Marketplace distribution.
 
-See [docs/modelable-system-spec.md](docs/modelable-system-spec.md) for the
+See [docs/architecture.md](docs/architecture.md) for the
 product model and [GitHub issues](https://github.com/ktjn/modelable/issues) for
 work that is ready for discussion or implementation.

@@ -93,10 +93,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete contributor workflow.
 ## Documentation
 
 - [Documentation index](docs/README.md)
-- [Language design](docs/idl-design-spec.md)
-- [CLI reference](docs/cli-spec.md)
-- [System specification](docs/modelable-system-spec.md)
-- [Using Modelable from another project](docs/consuming-modelable.md)
+- [Language reference](docs/language-reference.md)
+- [Tooling reference](docs/cli-reference.md)
+- [Architecture and system specification](docs/architecture.md)
+- [Getting started and migration](docs/getting-started.md)
 - [Sample models](samples/README.md)
 - [Changelog](CHANGELOG.md)
 - [Roadmap](ROADMAP.md)

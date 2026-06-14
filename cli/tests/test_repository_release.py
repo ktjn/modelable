@@ -78,7 +78,7 @@ def test_public_docs_do_not_link_to_internal_plans() -> None:
     public_docs = [
         REPOSITORY_ROOT / "README.md",
         REPOSITORY_ROOT / "docs" / "README.md",
-        REPOSITORY_ROOT / "docs" / "consuming-modelable.md",
+        REPOSITORY_ROOT / "docs" / "getting-started.md",
     ]
 
     for path in public_docs:

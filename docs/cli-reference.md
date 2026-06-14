@@ -1,4 +1,7 @@
-# Modelable CLI Specification
+# Modelable Tooling Reference
+
+> **Scope:** CLI commands, language-server behavior, AI-assisted authoring, and
+> the local development toolchain.
 
 ## 1. Purpose
 
@@ -24,7 +27,7 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 - **Entry point:** `modelable` (installed via `uv tool install cli/` for end users; `uv sync --extra dev` for development)
 - **Required dependencies:** `click>=8.1`, `lark>=1.1`, `pydantic>=2.0`, `rich>=13.0`, `jsonschema>=4.23`, `referencing>=0.35`
 
-For full tooling setup, developer workflow, and CI integration, see `cli-tooling-spec.md`.
+Development and CI commands are consolidated in section 13 and [maintainers.md](maintainers.md).
 
 AI-assisted commands (`update`, `chat`) and local authoring helpers (`describe`, `generate`, `transform`, `suggest-projection`) are implemented as CLI workflows in the current repo. Provider SDK dependencies and credentials such as `ANTHROPIC_API_KEY` are only needed when a remote provider is configured for `update` or `chat`.
 
@@ -69,7 +72,7 @@ Definition files use the Modelable IDL with the `.mdl` extension. The grammar is
 
 **Model references** use the form `domain.ModelName@version` (e.g., `customer.Customer@2`) or a range (`customer.Customer@>=2<3`).
 
-> For the complete type system, grammar, and advanced features (joins, aggregations, auto projections, federation), see `idl-design-spec.md`.
+> For the complete type system, grammar, and advanced features, see [language-reference.md](language-reference.md).
 
 ## 5. Commands
 
@@ -585,7 +588,7 @@ datacontract lint ./dist/customer.contract.yaml
 
 ## 6. AI Integration Details
 
-The `update` and `chat` commands use the configured LLM provider. The model is configurable by command flag, environment variable, or workspace config; see [LLM Integration Specification](llm-integration-spec.md).
+The `update` and `chat` commands use the configured LLM provider. The model is configurable by command flag, environment variable, or workspace config; see section 12.
 
 - `describe` and `generate` use local workspace summaries and import/scaffolding logic.
 - Generated `.mdl` output is validated through the Lark parser pipeline when `--output` is supplied to `generate`. Malformed output is caught before writing to disk.
@@ -636,14 +639,16 @@ modelable docs ./my-models --out ./dist/docs
 
 **Resolved:**
 
-- **Definition format:** Custom text IDL (`.mdl`), parsed with Lark (Earley). See `idl-design-spec.md`.
-- **AI model configuration:** LLM-backed commands use configurable model selection by flag, environment variable, workspace config, then CLI default. See `llm-integration-spec.md`.
+- **Definition format:** Custom text IDL (`.mdl`), parsed with Lark (Earley). See [language-reference.md](language-reference.md).
+- **AI model configuration:** LLM-backed commands use configurable model selection by flag, environment variable, workspace config, then CLI default. See section 12.
 
 ---
 
-## 10. Deferred and Federated Commands
+## 10. Additional Command Contracts
 
-The following commands are defined in other specifications and will be added to the CLI in later phases. They are collected here to keep the CLI specification complete.
+Sections 10.1 through 10.5 and 10.9 describe shipped local commands. Federated
+registry management, dependent write-back queries, and signature verification
+in sections 10.6 through 10.8 remain deferred.
 
 The current `codegen` command reports the implemented formats in this repository, including C#, Java, Python, Rust, and Go. Additional future first-class generated-language targets remain deferred until their dedicated emitters exist.
 
@@ -655,7 +660,7 @@ modelable inspect <Entity>@<version> --auto [--path PATH]
 
 Displays the compiler-expanded auto projections (`db`, `request`, `reply`, `event`) for a given entity version. The output is a `.mdl`-like representation of the generated projection fields with full lineage annotations.
 
-**Defined in:** `idl-design-spec.md` §3.7, `modelable-system-spec.md` §17.
+**Defined in:** [language-reference.md](language-reference.md) §3.7 and [architecture.md](architecture.md) §17.
 
 ### 10.2 `transform` — Emit and explain a target artifact
 
@@ -667,7 +672,7 @@ Emits the target artifact (e.g., Avro schema, JSON Schema) for a single model ve
 
 When `--out` is supplied, the command writes the artifact to disk, writes a `.provenance.json` sidecar next to it, and prints the standard audit summary to stdout.
 
-**Defined in:** `idl-design-spec.md` §5.1.
+**Defined in:** [language-reference.md](language-reference.md) §5.1.
 
 ### 10.3 `suggest-projection` — AI-assisted projection proposal
 
@@ -681,7 +686,7 @@ The generated `.mdl` is validated before any file write.
 
 When `--output` is supplied, the command writes the generated projection to disk, writes a `.provenance.json` sidecar next to it, and prints the standard audit summary to stdout.
 
-**Defined in:** `idl-design-spec.md` §5.1.
+**Defined in:** [language-reference.md](language-reference.md) §5.1.
 
 ### 10.4 `update` — Natural-language model or projection edit
 
@@ -694,7 +699,7 @@ Applies a natural-language change request to an existing model or projection ver
 When `MODELABLE_LLM_PROVIDER=ollama` or `MODELABLE_LLM_PROVIDER=anthropic`, or the matching `--provider` flag is set, and `--model <model>` is supplied, `update` asks the configured provider for a structured edit plan before applying the change. Without a configured provider, it falls back to the deterministic local editor path.
 When the command writes a file, it prints a concise audit summary including the provider, model, validation status, written path, source ref, and repair count, and it writes a `.provenance.json` sidecar next to the updated `.mdl`.
 
-**Defined in:** `llm-integration-spec.md` §6.4.
+**Defined in:** section 12.
 
 ### 10.5 `chat` — Interactive model conversation
 
@@ -714,7 +719,7 @@ Within the session, slash commands provide structured actions:
 - `/ask <question>` asks a workspace question using the same reasoning helpers.
 - `/update <ref> <instruction>` shows a validated preview diff without writing.
 
-**Defined in:** `llm-integration-spec.md` §6.6.
+**Defined in:** section 12.
 
 ### 10.6 `registry` — Federated registry management
 
@@ -730,9 +735,9 @@ modelable registry sync [--peer <peer-id>]
 - `registry graph` — Print the federation DAG with sync state.
 - `registry sync` — Force-sync all peers (or a single peer) regardless of sync mode.
 
-**Defined in:** `distributed-lineage-spec.md` §5.
+See [compiler-reference.md](compiler-reference.md) §14.
 
-### 10.5 `dependents` — List downstream consumers
+### 10.7 `dependents` — List downstream consumers
 
 ```text
 modelable dependents <Domain.Model@version>
@@ -740,9 +745,9 @@ modelable dependents <Domain.Model@version>
 
 Lists all downstream projections and consumer entries that depend on the given model version. Reads the `consumers/` tree across the workspace and peer mirrors.
 
-**Defined in:** `distributed-lineage-spec.md` §6.
+See [compiler-reference.md](compiler-reference.md) §14.
 
-### 10.6 `lineage verify` — Verify content signatures
+### 10.8 `lineage verify` — Verify content signatures
 
 ```text
 modelable lineage verify <REF>
@@ -750,19 +755,9 @@ modelable lineage verify <REF>
 
 Verifies that the content signature (SHA-256) of the given model or projection matches the cached mirror. Reports mismatches that indicate upstream drift.
 
-**Defined in:** `distributed-lineage-spec.md` §6.
+See [compiler-reference.md](compiler-reference.md) §14.
 
-### 10.7 `lineage export` — Export lineage as NDJSON
-
-```text
-modelable lineage export --format ndjson --output <path>
-```
-
-Exports the full lineage graph from `registry.db` as NDJSON for external catalog ingestion.
-
-**Defined in:** `distributed-lineage-spec.md` §6.
-
-### 10.8 `attach` — Attach a model version to an external dbt or FHIR source
+### 10.9 `attach` — Attach a model version to an external dbt or FHIR source
 
 ```text
 modelable attach <Domain.Model@version> --source <path> --source-format <dbt|fhir> [--source-name NAME] --path PATH [--output FILE] [--preview]
@@ -790,4 +785,47 @@ next to the `.mdl` file describing the source format, matched source name, sourc
 content hash, the version transition, the computed change kind, and the field-level
 changes, and it prints the standard audit summary.
 
-**Defined in:** `dbt-fhir-tool-alignment.md` §2.3, §3.3.
+See [external integrations](integrations.md) for dbt and FHIR mappings.
+
+## 11. Language Server
+
+`modelable lsp` exposes the same parser, transformer, semantic validator, and
+workspace index used by CLI validation. Supported editor behavior includes
+diagnostics, semantic highlighting, definition lookup, hover information,
+workspace-aware completion, references, rename, formatting, code actions, and
+workspace commands. The LSP is an authoring aid, never a second source of
+validation rules.
+
+Workspace indexing includes local `.mdl` files and available local mirrors.
+Network peer fetch and write-back are not editor responsibilities and remain
+deferred. Protocol behavior is covered by `pytest-lsp` tests and the VS Code
+extension smoke suite.
+
+## 12. AI-Assisted Authoring
+
+`update` and `chat` may call a configured provider. `generate`, `describe`,
+`transform`, and `suggest-projection` retain deterministic local paths. Provider
+output is treated as an edit proposal: it must parse, pass semantic validation,
+and satisfy compatibility and governance checks before Modelable writes it.
+
+Provider configuration is explicit through command flags, environment variables,
+or workspace configuration. Prompts must redact sensitive binding values, and
+written changes include an auditable summary and provenance sidecar where the
+command contract requires one.
+
+## 13. Development Toolchain
+
+The CLI uses Python 3.14+, `uv`, Hatchling, Click, Lark, Pydantic, Ruff, mypy,
+and pytest. The committed `cli/uv.lock` is the reproducible dependency graph.
+Run development commands from `cli/`:
+
+```bash
+uv sync --extra dev
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest tests/ -v
+```
+
+The VS Code extension is built and tested from `vscode/` with `npm ci`,
+`npm run build`, and `npm test`. See [maintainers](maintainers.md) for the full
+repository gate and release policy.

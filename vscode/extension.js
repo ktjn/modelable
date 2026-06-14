@@ -83,7 +83,7 @@ async function activate(context) {
     outputChannel.dispose();
     vscode.window.showErrorMessage(
       `Modelable LSP failed to start using "${command} ${args.join(' ')}" (${source}). ` +
-      'Install the modelable CLI in this project (see docs/consuming-modelable.md) so "modelable" ' +
+      'Install the modelable CLI in this project (see docs/getting-started.md) so "modelable" ' +
       'is on PATH, or set "modelable.pythonPath"/"modelable.serverCommand" to point at an ' +
       `interpreter or command that has it. Details: ${reason}`
     );

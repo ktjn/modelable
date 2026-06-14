@@ -1,9 +1,9 @@
-# Agent Governance
+# Maintainer and Agent Guide
 
 This document defines how automated and human-assisted agents operate within the
 [Project Governance](../GOVERNANCE.md). It is process guidance for agents, not
 product semantics. The product source of truth remains
-[modelable-system-spec.md](modelable-system-spec.md).
+[architecture.md](architecture.md).
 
 ## 1. Purpose
 
@@ -181,3 +181,24 @@ must not add long-lived package-index credentials to repository secrets.
 
 - Whether governance findings become blocking CI failures is an open policy decision. Phase 1 treats them as visibility and process-support findings unless a policy wrapper promotes them to failures.
 - The PR template location and required status checks are open until repository hosting configuration is added.
+
+## 8. Release Process
+
+Releases are built from version tags. The tag, Python package, VS Code extension,
+changelog, wheel, sdist, VSIX, checksums, and release manifest must agree on the
+version.
+
+1. Move user-facing changelog entries from `Unreleased` into a dated release.
+2. Set the same version in `cli/pyproject.toml` and `vscode/package.json`.
+3. Run the complete local gates in this document and `CONTRIBUTING.md`.
+4. Run the release workflow manually; this validates artifacts without publishing.
+5. Merge the focused release pull request.
+6. Create and push an annotated version tag.
+7. Verify PyPI, the GitHub release, checksums, manifest, and VSIX.
+8. Install the published wheel in a clean environment and run
+   `modelable --version` plus strict sample validation.
+
+PyPI publishing uses trusted publishing through the protected `pypi`
+environment. Do not add long-lived package-index credentials. Do not blindly
+rerun a failed publication; inspect the first failure and publish a new version
+if an immutable artifact already reached the index.

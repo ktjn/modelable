@@ -43,7 +43,7 @@ This produces `modelable-vscode-<version>.vsix`. Install it into another VS Code
 code --install-extension modelable-vscode-0.5.0.vsix
 ```
 
-Outside this repo there is no `cli/.venv` to auto-detect, so the host project needs `modelable` available — either install the CLI into the project's environment (see [`docs/consuming-modelable.md`](../docs/consuming-modelable.md)) so `modelable lsp` resolves from `PATH`, or point the extension at a specific interpreter/command via the `modelable.pythonPath` or `modelable.serverCommand` settings.
+Outside this repo there is no `cli/.venv` to auto-detect, so the host project needs `modelable` available — either install the CLI into the project's environment (see [getting started](../docs/getting-started.md)) so `modelable lsp` resolves from `PATH`, or point the extension at a specific interpreter/command via the `modelable.pythonPath` or `modelable.serverCommand` settings.
 
 ## Smoke tests
 
