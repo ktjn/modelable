@@ -31,6 +31,7 @@ example. The documents here describe the language and the larger system model.
 - [Platform usage scenarios](platform-usage-scenarios-spec.md)
 - [Technology evaluation](technology-evaluation.md)
 - [Data-model language research](data-model-languages.md)
+- [dbt, FHIR, and other tool alignment research](dbt-fhir-tool-alignment.md)
 
 Specifications include future phases where clearly labelled. Current release
 scope is summarized in the root README and [ROADMAP.md](../ROADMAP.md).
