@@ -5,13 +5,13 @@ import hashlib
 import json
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def load_package_version(pyproject_path: Path) -> str:
     with pyproject_path.open("rb") as fh:
         data = tomllib.load(fh)
-    return data["project"]["version"]
+    return cast(str, data["project"]["version"])
 
 
 def _artifact_kind(path: Path) -> str | None:

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from modelable.parser.ir import AnnWire, WireTargetHint
+from modelable.parser.ir import Annotation, AnnWire, WireTargetHint
 
 
-def wire_targets_from_annotations(annotations) -> dict[str, WireTargetHint]:
+def wire_targets_from_annotations(annotations: list[Annotation]) -> dict[str, WireTargetHint]:
     targets: dict[str, WireTargetHint] = {}
     for annotation in annotations:
         if isinstance(annotation, AnnWire):

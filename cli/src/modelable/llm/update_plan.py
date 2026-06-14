@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, Field
 
@@ -98,4 +98,4 @@ def _extract_json(text: str) -> dict[str, object]:
     if stripped.startswith("```"):
         stripped = re.sub(r"^```(?:json)?\s*", "", stripped, flags=re.IGNORECASE)
         stripped = re.sub(r"\s*```$", "", stripped)
-    return json.loads(stripped)
+    return cast(dict[str, object], json.loads(stripped))

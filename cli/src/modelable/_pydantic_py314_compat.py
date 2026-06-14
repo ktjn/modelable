@@ -25,7 +25,7 @@ def _compat_eval_type(
 ) -> object:
     if prefer_fwd_module is not None:
         kwargs.setdefault("parent_fwdref", prefer_fwd_module)
-    return _real_eval_type(t, globalns, localns, type_params=type_params, **kwargs)  # type: ignore[call-arg]
+    return _real_eval_type(t, globalns, localns, type_params=type_params, **kwargs)
 
 
 typing._eval_type = _compat_eval_type  # type: ignore[attr-defined]

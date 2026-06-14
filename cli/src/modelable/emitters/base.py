@@ -12,11 +12,11 @@ class EmittedArtifact:
     ref: str  # "domain.Name@version"
     artifact_id: str  # "domain.Name.vVersion"
     path: Path
-    content: dict | str
+    content: dict[str, object] | str
     content_hash: str
     warnings: list[str] = field(default_factory=list)
 
 
-def compute_content_hash(content: dict | str) -> str:
+def compute_content_hash(content: dict[str, object] | str) -> str:
     payload = json.dumps(content, indent=2, ensure_ascii=False) + "\n" if isinstance(content, dict) else content
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()

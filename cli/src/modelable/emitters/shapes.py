@@ -223,7 +223,7 @@ def _parse_type_text(text: str, *, optional: bool = False) -> TypeShape:
 
 def _split_top_level(text: str, separator: str) -> tuple[str, str]:
     depth = 0
-    current = []
+    current: list[str] = []
     parts: list[str] = []
     for char in text:
         if char in "<({[":
@@ -243,7 +243,7 @@ def _split_top_level(text: str, separator: str) -> tuple[str, str]:
 
 def _split_items(text: str) -> list[str]:
     depth = 0
-    current = []
+    current: list[str] = []
     items: list[str] = []
     for char in text:
         if char in "<({[":

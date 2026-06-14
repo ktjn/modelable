@@ -98,7 +98,7 @@ class AnnWire(BaseModel):
     targets: dict[str, WireTargetHint] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def _validate_targets(self):
+    def _validate_targets(self) -> AnnWire:
         if not self.targets:
             raise ValueError("wire annotations must declare at least one target")
         for target, hint in self.targets.items():

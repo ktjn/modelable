@@ -33,6 +33,7 @@ Agents must:
 - Use the latest stable framework and tool versions by default, unless the specification, compatibility constraints, existing manifests, or explicit user direction require a different version.
 - Record any deliberate use of an older framework or tool version in the final handoff or PR body.
 - Use `uv` exclusively for Python version management, project setup, dependency management, lockfile generation, and tool execution. Keep packages up to date with the latest stable versions.
+- The project requires Python >= 3.14 (declared in `cli/pyproject.toml` `requires-python` and `[tool.mypy] python_version`). All agents and CI must run under Python 3.14+ so that mypy strict checks, Pydantic v2 validation, and modern typing features catch errors early during local gate execution.
 - Preserve the existing domain language: domain-owned canonical models, immutable versions, projections, subscriptions, adapter bindings, planner/runtime/materializer, compatibility, lineage, and governance.
 - Maintain backward compatibility within major versions for the `.mdl` language and CLI.
 - Prefer explicit derivation and traceability over implicit behavior.

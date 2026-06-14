@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from lark import Transformer
 
 from modelable.parser.ir import (
@@ -29,6 +31,7 @@ from modelable.parser.ir import (
     EnumType,
     FieldDef,
     FieldMapping,
+    FieldType,
     GenerateTarget,
     JoinRef,
     MapType,
@@ -65,18 +68,18 @@ ANNOTATION_TYPES = (
 )
 
 
-def _str(value) -> str:
+def _str(value: object) -> str:
     text = str(value)
     if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
         return text[1:-1]
     return text
 
 
-class MdlTransformer(Transformer):
-    def start(self, items):
-        domains = []
-        bindings = []
-        workspace = None
+class MdlTransformer(Transformer[list[object], Any]):
+    def start(self, items: list[object]) -> MdlFile:
+        domains: list[DomainDef] = []
+        bindings: list[BindingDef] = []
+        workspace: WorkspaceDef | None = None
         for item in items:
             if isinstance(item, DomainDef):
                 domains.append(item)
@@ -86,10 +89,10 @@ class MdlTransformer(Transformer):
                 workspace = item
         return MdlFile(domains=domains, bindings=bindings, workspace=workspace)
 
-    def statement(self, items):
+    def statement(self, items: list[object]) -> object:
         return items[0]
 
-    def domain_decl(self, items):
+    def domain_decl(self, items: list[object]) -> DomainDef:
         name = _str(items[0])
         owner = None
         contact = None
@@ -128,24 +131,24 @@ class MdlTransformer(Transformer):
             generate_targets=generate_targets,
         )
 
-    def domain_name(self, items):
+    def domain_name(self, items: list[object]) -> str:
         return _str(items[0])
 
-    def domain_item(self, items):
+    def domain_item(self, items: list[object]) -> object:
         return items[0]
 
-    def owner_attr(self, items):
+    def owner_attr(self, items: list[object]) -> tuple[str, str]:
         return ("owner", _str(items[0]))
 
-    def contact_attr(self, items):
+    def contact_attr(self, items: list[object]) -> tuple[str, str]:
         return ("contact", _str(items[0]))
 
-    def desc_attr(self, items):
+    def desc_attr(self, items: list[object]) -> tuple[str, str]:
         return ("description", _str(items[0]))
 
-    def model_decl(self, items):
-        annotations = [item for item in items if isinstance(item, AnnWire)]
-        items = [item for item in items if not isinstance(item, AnnWire)]
+    def model_decl(self, items: list[object]) -> tuple[str, tuple[str, ModelVersion]]:
+        annotations = [item for item in items if isinstance(item, ANNOTATION_TYPES)]
+        items = [item for item in items if not isinstance(item, ANNOTATION_TYPES)]
         name = str(items[1])
         header = items[2] if len(items) > 2 and isinstance(items[2], tuple) and items[2][0] == "model_header" else None
         body_start = 3 if header is not None else 2
@@ -153,10 +156,11 @@ class MdlTransformer(Transformer):
         change_kind = header[2] if header is not None else ChangeKind.additive
         has_change_kind = header[3] if header is not None else False
         access = next((item for item in items[body_start:] if isinstance(item, AccessBlock)), None)
+        model_kind = items[0] if isinstance(items[0], ModelKind) else ModelKind.entity
         model_version = ModelVersion(
-            model_kind=items[0],
-            version=int(version),
-            change_kind=change_kind,
+            model_kind=model_kind,
+            version=int(version) if isinstance(version, (int, str)) else 0,
+            change_kind=change_kind if isinstance(change_kind, ChangeKind) else ChangeKind.additive,
             fields=[item for item in items[body_start:] if isinstance(item, FieldDef)],
             access=access,
             has_version_header=header is not None,
@@ -165,78 +169,81 @@ class MdlTransformer(Transformer):
         )
         return ("model", (name, model_version))
 
-    def model_header(self, items):
+    def model_header(self, items: list[object]) -> tuple[str, int, ChangeKind, bool]:
         if len(items) == 1 and isinstance(items[0], tuple):
-            return ("model_header", int(items[0][1]), items[0][2], True)
+            h = items[0]
+            return ("model_header", int(h[1]) if len(h) > 1 else 0, h[2] if len(h) > 2 and isinstance(h[2], ChangeKind) else ChangeKind.additive, True)
         if len(items) == 2:
-            return ("model_header", int(items[0]), items[1], True)
-        return ("model_header", int(items[0]), ChangeKind.additive, False)
+            v = int(items[0]) if isinstance(items[0], (int, str)) else 0
+            ck = items[1] if isinstance(items[1], ChangeKind) else ChangeKind.additive
+            return ("model_header", v, ck, True)
+        return ("model_header", 0, ChangeKind.additive, False)
 
-    def model_change(self, items):
+    def model_change(self, items: list[object]) -> object:
         return items[0]
 
-    def model_body_item(self, items):
+    def model_body_item(self, items: list[object]) -> object:
         return items[0]
 
-    def mk_entity(self, _items):
+    def mk_entity(self, _items: list[object]) -> ModelKind:
         return ModelKind.entity
 
-    def mk_aggregate(self, _items):
+    def mk_aggregate(self, _items: list[object]) -> ModelKind:
         return ModelKind.aggregate
 
-    def mk_event(self, _items):
+    def mk_event(self, _items: list[object]) -> ModelKind:
         return ModelKind.event
 
-    def mk_value(self, _items):
+    def mk_value(self, _items: list[object]) -> ModelKind:
         return ModelKind.value
 
-    def ck_additive(self, _items):
+    def ck_additive(self, _items: list[object]) -> ChangeKind:
         return ChangeKind.additive
 
-    def ck_breaking(self, _items):
+    def ck_breaking(self, _items: list[object]) -> ChangeKind:
         return ChangeKind.breaking
 
-    def field_decl(self, items):
+    def field_decl(self, items: list[object]) -> FieldDef:
         annotations = [item for item in items if isinstance(item, ANNOTATION_TYPES)]
         rest = [item for item in items if not isinstance(item, ANNOTATION_TYPES)]
         default = next((item[1] for item in rest if isinstance(item, tuple) and item[0] == "default"), None)
+        type_item = next(
+            (item for item in rest if not isinstance(item, str) and not (isinstance(item, tuple) and item[0] == "default")),
+            None,
+        )
         return FieldDef(
             name=str(rest[0]),
             optional=any(item == "?" for item in rest),
-            type=next(
-                item
-                for item in rest
-                if not isinstance(item, str) and not (isinstance(item, tuple) and item[0] == "default")
-            ),
+            type=type_item if isinstance(type_item, (PrimitiveType, DecimalType, ArrayType, MapType, RefType, EnumType, ObjectType, NamedType)) else PrimitiveType(kind="string"),
             default=default,
             annotations=annotations,
         )
 
-    def optional_marker(self, _items):
+    def optional_marker(self, _items: list[object]) -> str:
         return "?"
 
-    def field_default(self, items):
+    def field_default(self, items: list[object]) -> tuple[str, str]:
         return ("default", str(items[0]).strip())
 
-    def ann_key(self, _items):
+    def ann_key(self, _items: list[object]) -> AnnKey:
         return AnnKey()
 
-    def ann_pii(self, _items):
+    def ann_pii(self, _items: list[object]) -> AnnPii:
         return AnnPii()
 
-    def ann_classification(self, items):
+    def ann_classification(self, items: list[object]) -> AnnClassification:
         return AnnClassification(level=_str(items[0]))
 
-    def ann_deprecated(self, items):
+    def ann_deprecated(self, items: list[object]) -> AnnDeprecated:
         return AnnDeprecated(replaced_by=_str(items[0]))
 
-    def ann_owner(self, items):
+    def ann_owner(self, items: list[object]) -> AnnOwner:
         return AnnOwner(team=_str(items[0]))
 
-    def ann_server(self, _items):
+    def ann_server(self, _items: list[object]) -> AnnServer:
         return AnnServer()
 
-    def ann_wire(self, items):
+    def ann_wire(self, items: list[object]) -> AnnWire:
         targets: dict[str, WireTargetHint] = {}
         for target, modifier, value in items:
             hint = targets.get(target, WireTargetHint())
@@ -274,113 +281,113 @@ class MdlTransformer(Transformer):
             targets[target] = hint
         return AnnWire(targets=targets)
 
-    def ann_pit_cutoff(self, items):
+    def ann_pit_cutoff(self, items: list[object]) -> AnnPitCutoff:
         return AnnPitCutoff(expression=str(items[0]).strip())
 
-    def ann_latest_before(self, items):
+    def ann_latest_before(self, items: list[object]) -> AnnLatestBefore:
         return AnnLatestBefore(expression=str(items[0]).strip())
 
-    def ann_latest_only(self, _items):
+    def ann_latest_only(self, _items: list[object]) -> AnnLatestOnly:
         return AnnLatestOnly()
 
-    def ann_custom(self, items):
+    def ann_custom(self, items: list[object]) -> AnnCustom:
         name = str(items[0])
         expression = str(items[1]).strip() if len(items) > 1 else None
         return AnnCustom(name=name, expression=expression)
 
-    def annotation(self, items):
+    def annotation(self, items: list[object]) -> object:
         return items[0]
 
-    def wire_option(self, items):
+    def wire_option(self, items: list[object]) -> tuple[object, object, object]:
         target, modifier = items[0]
         return target, modifier, items[1]
 
-    def wire_key(self, items):
+    def wire_key(self, items: list[object]) -> tuple[str, str | None]:
         if len(items) == 1:
             return str(items[0]), None
         return str(items[0]), str(items[1])
 
-    def wire_string(self, items):
+    def wire_string(self, items: list[object]) -> str:
         return _str(items[0])
 
-    def wire_value(self, items):
+    def wire_value(self, items: list[object]) -> object:
         return items[0]
 
-    def wire_map(self, items):
+    def wire_map(self, items: list[object]) -> dict[str, object]:
         return dict(items)
 
-    def wire_map_item(self, items):
+    def wire_map_item(self, items: list[object]) -> tuple[str, str]:
         return str(items[0]), _str(items[1])
 
-    def type_expr(self, items):
+    def type_expr(self, items: list[object]) -> FieldType:
         item = items[0]
         if isinstance(item, str):
             return NamedType(name=item)
-        return item
+        return item  # type: ignore[return-value]
 
-    def pt_string(self, _items):
+    def pt_string(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="string")
 
-    def pt_int(self, _items):
+    def pt_int(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="int")
 
-    def pt_float(self, _items):
+    def pt_float(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="float")
 
-    def pt_bool(self, _items):
+    def pt_bool(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="bool")
 
-    def pt_date(self, _items):
+    def pt_date(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="date")
 
-    def pt_time(self, _items):
+    def pt_time(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="time")
 
-    def pt_timestamp(self, _items):
+    def pt_timestamp(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="timestamp")
 
-    def pt_uuid(self, _items):
+    def pt_uuid(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="uuid")
 
-    def pt_duration(self, _items):
+    def pt_duration(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="duration")
 
-    def pt_binary(self, _items):
+    def pt_binary(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="binary")
 
-    def pt_json(self, _items):
+    def pt_json(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="json")
 
-    def primitive_type(self, items):
+    def primitive_type(self, items: list[object]) -> object:
         return items[0]
 
-    def decimal_type(self, items):
+    def decimal_type(self, items: list[object]) -> DecimalType:
         return DecimalType(precision=int(items[0]), scale=int(items[1]))
 
-    def enum_type(self, items):
+    def enum_type(self, items: list[object]) -> EnumType:
         return EnumType(values=[str(item) for item in items])
 
-    def array_type(self, items):
+    def array_type(self, items: list[object]) -> ArrayType:
         return ArrayType(item=items[0])
 
-    def map_type(self, items):
+    def map_type(self, items: list[object]) -> MapType:
         return MapType(key=items[0], value=items[1])
 
-    def ref_type(self, items):
+    def ref_type(self, items: list[object]) -> RefType:
         return RefType(target=str(items[0]))
 
-    def object_type(self, items):
+    def object_type(self, items: list[object]) -> ObjectType:
         return ObjectType(fields=[item for item in items if isinstance(item, FieldDef)])
 
-    def dotted_ref(self, items):
+    def dotted_ref(self, items: list[object]) -> str:
         return ".".join(str(item) for item in items)
 
-    def IDENT(self, token):  # noqa: N802
+    def IDENT(self, token: object) -> str:  # noqa: N802
         return str(token)
 
-    def projection_decl(self, items):
-        annotations = [item for item in items if isinstance(item, AnnWire)]
-        items = [item for item in items if not isinstance(item, AnnWire)]
+    def projection_decl(self, items: list[object]) -> tuple[str, tuple[str, ProjectionVersion]]:
+        annotations = [item for item in items if isinstance(item, ANNOTATION_TYPES)]
+        items = [item for item in items if not isinstance(item, ANNOTATION_TYPES)]
         source_index = next(
             (
                 i

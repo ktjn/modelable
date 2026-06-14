@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from os import environ
-from typing import Protocol
+from typing import Any, Protocol, SupportsIndex, cast
 from urllib import error, request
 
 
@@ -36,17 +36,17 @@ class OllamaProvider:
     model: str
     timeout: float = 120.0
 
-    def complete(self, prompt: LLMRequest) -> LLMResponse:
+    def complete(self, request: LLMRequest) -> LLMResponse:
         payload: dict[str, object] = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": prompt.system},
-                {"role": "user", "content": prompt.user},
+                {"role": "system", "content": request.system},
+                {"role": "user", "content": request.user},
             ],
             "stream": False,
-            "options": {"temperature": prompt.temperature},
+            "options": {"temperature": request.temperature},
         }
-        if prompt.response_format == "json" or prompt.schema is not None:
+        if request.response_format == "json" or request.schema is not None:
             payload["format"] = "json"
 
         response = self._post_json("/api/chat", payload)
@@ -60,7 +60,7 @@ class OllamaProvider:
             completion_tokens=_int_or_none(response.get("eval_count")),
         )
 
-    def _post_json(self, path: str, payload: dict[str, object]) -> dict[str, object]:
+    def _post_json(self, path: str, payload: dict[str, object]) -> dict[str, Any]:
         body = json.dumps(payload).encode("utf-8")
         req = request.Request(
             self.base_url.rstrip("/") + path,
@@ -78,7 +78,7 @@ class OllamaProvider:
             raise RuntimeError(f"Ollama request failed: {exc.reason}") from exc
 
         try:
-            return json.loads(raw)
+            return cast(dict[str, object], json.loads(raw))
         except json.JSONDecodeError as exc:
             raise RuntimeError(f"Ollama returned invalid JSON: {exc}") from exc
 
@@ -110,33 +110,30 @@ class AnthropicProvider:
     base_url: str = "https://api.anthropic.com"
     timeout: float = 120.0
 
-    def complete(self, prompt: LLMRequest) -> LLMResponse:
+    def complete(self, request: LLMRequest) -> LLMResponse:
         payload: dict[str, object] = {
             "model": self.model,
             "max_tokens": 1024,
-            "system": prompt.system,
+            "system": request.system,
             "messages": [
-                {"role": "user", "content": prompt.user},
+                {"role": "user", "content": request.user},
             ],
         }
-        if prompt.response_format == "json" or prompt.schema is not None:
+        if request.response_format == "json" or request.schema is not None:
             payload["max_tokens"] = 2048
 
         response = self._post_json("/v1/messages", payload)
         content = self._extract_content(response.get("content"))
+        usage = response.get("usage") if isinstance(response.get("usage"), dict) else None
         return LLMResponse(
             content=content,
             provider="anthropic",
             model=self.model,
-            prompt_tokens=_int_or_none(response.get("usage", {}).get("input_tokens"))
-            if isinstance(response.get("usage"), dict)
-            else None,
-            completion_tokens=_int_or_none(response.get("usage", {}).get("output_tokens"))
-            if isinstance(response.get("usage"), dict)
-            else None,
+            prompt_tokens=_int_or_none(usage.get("input_tokens") if isinstance(usage, dict) else None),
+            completion_tokens=_int_or_none(usage.get("output_tokens") if isinstance(usage, dict) else None),
         )
 
-    def _post_json(self, path: str, payload: dict[str, object]) -> dict[str, object]:
+    def _post_json(self, path: str, payload: dict[str, object]) -> dict[str, Any]:
         body = json.dumps(payload).encode("utf-8")
         req = request.Request(
             self.base_url.rstrip("/") + path,
@@ -158,7 +155,7 @@ class AnthropicProvider:
             raise RuntimeError(f"Anthropic request failed: {exc.reason}") from exc
 
         try:
-            return json.loads(raw)
+            return cast(dict[str, object], json.loads(raw))
         except json.JSONDecodeError as exc:
             raise RuntimeError(f"Anthropic returned invalid JSON: {exc}") from exc
 
@@ -177,7 +174,9 @@ class AnthropicProvider:
 
 
 def _int_or_none(value: object) -> int | None:
+    if value is None:
+        return None
     try:
-        return int(value) if value is not None else None
-    except TypeError, ValueError:
+        return int(cast("int | str | bytes | bytearray | SupportsIndex", value))
+    except (TypeError, ValueError):
         return None
