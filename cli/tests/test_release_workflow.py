@@ -62,3 +62,5 @@ def test_codeql_workflow_has_required_permissions() -> None:
         "security-events: write",
     ):
         assert permission in text
+
+    assert "upload: never" in text
