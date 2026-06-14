@@ -12,9 +12,9 @@ from modelable.llm.render import render_model_version
 from modelable.parser.ir import (
     AnnClassification,
     AnnKey,
+    Annotation,
     AnnOwner,
     AnnPii,
-    Annotation,
     ArrayType,
     ChangeKind,
     DecimalType,
