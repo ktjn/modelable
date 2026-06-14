@@ -94,7 +94,9 @@ domain customer {
 
     assert result.exit_code == 0, result.output
     assert (out / "customer" / "CustomerV1.java").exists()
-    assert any(len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split())
+    assert any(
+        len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split()
+    )
     text = (out / "customer" / "CustomerV1.java").read_text(encoding="utf-8")
     assert "package customer;" in text
     assert "public record CustomerV1(" in text
@@ -178,6 +180,7 @@ domain customer {
     )
     from modelable.compiler.workspace import load_workspace
     from modelable.emitters.java import emit_java
+
     workspace = load_workspace(tmp_path)
     artifacts = emit_java(workspace, tmp_path / "out")
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@1")
@@ -214,6 +217,7 @@ domain customer {
     )
     from modelable.compiler.workspace import load_workspace
     from modelable.emitters.java import emit_java
+
     workspace = load_workspace(tmp_path)
     artifacts = emit_java(workspace, tmp_path / "out")
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@2")

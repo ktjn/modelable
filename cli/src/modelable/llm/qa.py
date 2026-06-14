@@ -59,7 +59,9 @@ def _answer_dependency_question(workspace: Workspace, question: str) -> str:
     for domain in workspace.mdl.domains:
         for projection_name, versions in domain.projections.items():
             for version in versions:
-                if version.source.model == f"{ref.domain}.{ref.name}" or any(join.model == f"{ref.domain}.{ref.name}" for join in version.joins):
+                if version.source.model == f"{ref.domain}.{ref.name}" or any(
+                    join.model == f"{ref.domain}.{ref.name}" for join in version.joins
+                ):
                     dependents.append(f"{domain.name}.{projection_name}@{version.version}")
     if not dependents:
         return f"No projections currently depend on {ref.domain}.{ref.name}@{ref.version}."
@@ -122,4 +124,3 @@ def _field_lineage(field) -> str:
     if mapping.kind == "direct":
         return f"direct {mapping.source_alias}.{mapping.source_field}"
     return f"computed {mapping.expression}"
-

@@ -22,16 +22,10 @@ def build_plan(
     """Return the plan document dict for a single projection version."""
     source_block = _resolve_source_block(pv.source.model, pv.source.version, pv.source.alias, mdl)
 
-    joins_block = [
-        _resolve_source_block(join.model, join.version, join.alias, mdl, on=join.on)
-        for join in pv.joins
-    ]
+    joins_block = [_resolve_source_block(join.model, join.version, join.alias, mdl, on=join.on) for join in pv.joins]
     revalidation_reasons = _collect_revalidation_reasons(source_block, joins_block)
     governance_findings = [
-        finding.as_dict()
-        for finding in build_projection_governance_findings(
-            domain_name, projection_name, pv, mdl
-        )
+        finding.as_dict() for finding in build_projection_governance_findings(domain_name, projection_name, pv, mdl)
     ]
 
     lineage_by_field = {fl.field_name: fl for fl in lineage.fields}
@@ -78,12 +72,8 @@ def write_plans(workspace: Workspace, plans_dir: Path) -> list[Path]:
     for domain in workspace.mdl.domains:
         for projection_name, versions in domain.projections.items():
             for pv in versions:
-                lineage = build_projection_lineage(
-                    domain.name, projection_name, pv, workspace.mdl
-                )
-                plan = build_plan(
-                    domain.name, projection_name, pv, lineage, workspace.mdl
-                )
+                lineage = build_projection_lineage(domain.name, projection_name, pv, workspace.mdl)
+                plan = build_plan(domain.name, projection_name, pv, lineage, workspace.mdl)
                 filename = f"{domain.name}.{projection_name}.v{pv.version}.plan.json"
                 out_path = plans_dir / filename
                 out_path.write_text(
@@ -127,8 +117,6 @@ def _collect_revalidation_reasons(source_block: dict, joins_block: list[dict]) -
     for block in [source_block, *joins_block]:
         if block.get("change_kind") == "breaking" and block.get("resolved_version") is not None:
             relation = "source" if "on" not in block else f"join {block.get('alias')}"
-            reasons.append(
-                f"{relation} {block['model']}@{block['resolved_version']} is marked breaking"
-            )
+            reasons.append(f"{relation} {block['model']}@{block['resolved_version']} is marked breaking")
 
     return reasons

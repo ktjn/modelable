@@ -19,9 +19,7 @@ domain billing {
     displayEmail = c.email
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def _index() -> LspWorkspaceIndex:
@@ -64,7 +62,9 @@ def test_rename_model_declaration_updates_definition_and_references():
     )
 
     assert edit is not None
-    changes = sorted(edit.changes["inmemory://workspace.mdl"], key=lambda item: (item.range.start.line, item.range.start.character))
+    changes = sorted(
+        edit.changes["inmemory://workspace.mdl"], key=lambda item: (item.range.start.line, item.range.start.character)
+    )
     assert len(changes) == 2
     assert changes[0].range.start.line == decl_line
     assert changes[0].new_text == "Client"
@@ -85,7 +85,9 @@ def test_rename_model_field_on_reference_updates_definition_and_usage():
     )
 
     assert edit is not None
-    changes = sorted(edit.changes["inmemory://workspace.mdl"], key=lambda item: (item.range.start.line, item.range.start.character))
+    changes = sorted(
+        edit.changes["inmemory://workspace.mdl"], key=lambda item: (item.range.start.line, item.range.start.character)
+    )
     assert len(changes) == 2
     assert changes[0].range.start.line == decl_line
     assert changes[0].new_text == "customerKey"
@@ -134,7 +136,9 @@ def test_rename_projection_field_via_alias_finds_declaration():
     ref_line = next(i for i, line in enumerate(lines) if "displayId <- p.productId" in line)
     ref_character = lines[ref_line].index("p.productId") + len("p.")
 
-    edit = build_rename(_projection_index(), "inmemory://workspace.mdl", line=ref_line, character=ref_character, new_name="itemId")
+    edit = build_rename(
+        _projection_index(), "inmemory://workspace.mdl", line=ref_line, character=ref_character, new_name="itemId"
+    )
 
     assert edit is not None
     changes = edit.changes["inmemory://workspace.mdl"]
@@ -148,11 +152,12 @@ def test_rename_projection_field_updates_downstream_usages():
     decl_line = next(i for i, line in enumerate(lines) if "productId <- c.customerId" in line)
     decl_character = lines[decl_line].index("productId") + 1
 
-    edit = build_rename(_projection_index(), "inmemory://workspace.mdl", line=decl_line, character=decl_character, new_name="itemId")
+    edit = build_rename(
+        _projection_index(), "inmemory://workspace.mdl", line=decl_line, character=decl_character, new_name="itemId"
+    )
 
     assert edit is not None
     changes = edit.changes["inmemory://workspace.mdl"]
     renamed_lines = {change.range.start.line for change in changes}
     downstream_line = next(i for i, line in enumerate(lines) if "displayId <- p.productId" in line)
     assert downstream_line in renamed_lines
-

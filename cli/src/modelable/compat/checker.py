@@ -69,9 +69,7 @@ def analyze_impact(
             break
 
     if pv is None:
-        return ProjectionImpact(
-            dep_domain_name, dep_proj_name, dep_version, "affected", "unresolved projection"
-        )
+        return ProjectionImpact(dep_domain_name, dep_proj_name, dep_version, "affected", "unresolved projection")
 
     # Determine the alias(es) used for this source model
     source_ref = f"{report.domain_name}.{report.model_name}"

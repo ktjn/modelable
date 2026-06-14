@@ -101,7 +101,9 @@ domain customer {
 
     assert result.exit_code == 0, result.output
     assert (out / "customer" / "customer_customer_v1.rs").exists()
-    assert any(len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split())
+    assert any(
+        len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split()
+    )
     text = (out / "customer" / "customer_customer_v1.rs").read_text(encoding="utf-8")
     assert "pub struct CustomerCustomerV1" in text
     assert "pub customer_id: uuid::Uuid," in text
@@ -178,6 +180,7 @@ domain customer {
         encoding="utf-8",
     )
     from modelable.compiler.workspace import load_workspace
+
     workspace = load_workspace(tmp_path)
     artifacts = emit_rust(workspace, tmp_path / "out")
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@1")
@@ -213,6 +216,7 @@ domain customer {
         encoding="utf-8",
     )
     from modelable.compiler.workspace import load_workspace
+
     workspace = load_workspace(tmp_path)
     artifacts = emit_rust(workspace, tmp_path / "out")
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@2")
@@ -287,9 +291,9 @@ domain tracing {
     art = next(a for a in artifacts if a.ref == "tracing.Span@1")
     # u64 field with json:string wire hint gets serde_with attribute
     assert "pub start_time_unix_nano: u64," in art.content
-    assert 'serde_with::rust::display_fromstr' in art.content
+    assert "serde_with::rust::display_fromstr" in art.content
     # plain string field does NOT get a serde_with attribute
-    assert art.content.count('serde_with::rust::display_fromstr') == 1
+    assert art.content.count("serde_with::rust::display_fromstr") == 1
     # file header documents the serde_with dependency
     assert "requires: serde_with" in art.content
 

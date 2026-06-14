@@ -19,9 +19,7 @@ domain billing {
     displayEmail = c.email
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def _index() -> LspWorkspaceIndex:
@@ -57,7 +55,9 @@ domain local {
 
 
 def test_completion_suggests_annotations_after_at_symbol():
-    completion = build_completion(_index(), "inmemory://workspace.mdl", line=_line_number(WORKSPACE_TEXT, "@key customerId: uuid"), character=5)
+    completion = build_completion(
+        _index(), "inmemory://workspace.mdl", line=_line_number(WORKSPACE_TEXT, "@key customerId: uuid"), character=5
+    )
 
     labels = [item.label for item in completion.items]
 
@@ -66,7 +66,12 @@ def test_completion_suggests_annotations_after_at_symbol():
 
 
 def test_completion_suggests_workspace_names_after_from_clause():
-    completion = build_completion(_index(), "inmemory://workspace.mdl", line=_line_number(WORKSPACE_TEXT, "from customer.Customer @ 1 as c"), character=9)
+    completion = build_completion(
+        _index(),
+        "inmemory://workspace.mdl",
+        line=_line_number(WORKSPACE_TEXT, "from customer.Customer @ 1 as c"),
+        character=9,
+    )
 
     labels = [item.label for item in completion.items]
 
@@ -75,7 +80,12 @@ def test_completion_suggests_workspace_names_after_from_clause():
 
 
 def test_completion_suggests_active_projection_fields_inside_body():
-    completion = build_completion(_index(), "inmemory://workspace.mdl", line=_line_number(WORKSPACE_TEXT, "from customer.Customer @ 1 as c"), character=4)
+    completion = build_completion(
+        _index(),
+        "inmemory://workspace.mdl",
+        line=_line_number(WORKSPACE_TEXT, "from customer.Customer @ 1 as c"),
+        character=4,
+    )
 
     labels = [item.label for item in completion.items]
 
@@ -125,4 +135,3 @@ def test_completion_suggests_projection_source_fields_for_alias():
     labels = [item.label for item in completion.items]
     assert "productId" in labels
     assert "statusText" in labels
-

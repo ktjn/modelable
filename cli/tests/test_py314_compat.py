@@ -6,6 +6,7 @@ detects Python 3.14, but Python 3.14 RC2 renamed that parameter to
 parent_fwdref. The shim in _pydantic_py314_compat.py patches typing._eval_type
 to accept both names so pydantic model definitions succeed without modification.
 """
+
 from __future__ import annotations
 
 import sys
@@ -24,17 +25,13 @@ def test_shim_is_installed_before_pydantic_models():
 
 @pytest.mark.skipif(sys.version_info < (3, 14), reason="Python 3.14+ only")
 def test_shim_accepts_prefer_fwd_module_kwarg():
-    result = typing._eval_type(
-        str | None, {}, {}, (), prefer_fwd_module=None
-    )
+    result = typing._eval_type(str | None, {}, {}, (), prefer_fwd_module=None)
     assert result is not None
 
 
 @pytest.mark.skipif(sys.version_info < (3, 14), reason="Python 3.14+ only")
 def test_shim_translates_prefer_fwd_module_to_parent_fwdref():
-    result = typing._eval_type(
-        int | None, {}, {}, (), prefer_fwd_module=True
-    )
+    result = typing._eval_type(int | None, {}, {}, (), prefer_fwd_module=True)
     assert result is not None
 
 
@@ -46,6 +43,7 @@ def test_pydantic_ir_models_importable():
         ModelVersion,
         ProjectionVersion,
     )
+
     assert MdlFile is not None
     assert DomainDef is not None
     assert FieldDef is not None

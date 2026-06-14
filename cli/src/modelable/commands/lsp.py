@@ -13,4 +13,3 @@ def register_lsp_commands(cli_group: click.Group) -> None:
 def lsp() -> None:
     """Start the Modelable language server over stdio."""
     run_lsp()
-

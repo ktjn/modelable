@@ -19,9 +19,7 @@ domain billing {
     displayEmail = c.email
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def test_workspace_symbols_filters_by_query():
@@ -50,4 +48,3 @@ def test_workspace_symbols_returns_fields_when_query_matches():
     assert symbols is not None
     assert [symbol.name for symbol in symbols] == ["customerId"]
     assert symbols[0].container_name == "Customer"
-

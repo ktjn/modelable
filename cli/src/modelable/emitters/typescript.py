@@ -74,7 +74,9 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
         if isinstance(field.type, NamedType):
             warnings.append(missing_metadata(f"{domain.name}.{model_name}.{field.name}"))
         field_name = _apply_case(field.name, field_case) if field_case else field.name
-        lines.append(f"  {field_name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets())};")
+        lines.append(
+            f"  {field_name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets())};"
+        )
     lines.append("}")
     lines.append(f"export type {model_name} = {interface_name};")
     return EmittedArtifact(
@@ -229,7 +231,11 @@ def _type_to_ts(field_type, *, wire_targets: dict[str, object] | None = None) ->
     if wire_targets is not None:
         json_wire = wire_targets.get("json")
     if isinstance(field_type, PrimitiveType):
-        if json_wire is not None and getattr(json_wire, "encoding", None) == "string" and field_type.kind in {"int", "float"}:
+        if (
+            json_wire is not None
+            and getattr(json_wire, "encoding", None) == "string"
+            and field_type.kind in {"int", "float"}
+        ):
             return "string"
         mapping = {
             "string": "string",

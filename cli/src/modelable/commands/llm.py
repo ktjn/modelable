@@ -60,7 +60,9 @@ def describe(target: str | None, path: Path | None) -> None:
 @click.option("--domain", "domain_name", default=None, help="Override the output domain.")
 @click.option("--name", "model_name", default=None, help="Override the output model name.")
 @click.option("--output", "output", type=click.Path(path_type=Path), default=None)
-def generate(source: str, source_format: str | None, domain_name: str | None, model_name: str | None, output: Path | None) -> None:
+def generate(
+    source: str, source_format: str | None, domain_name: str | None, model_name: str | None, output: Path | None
+) -> None:
     """Generate a draft entity definition."""
     source_path = Path(source)
     source_descriptor = f"path={source_path}"
@@ -241,7 +243,12 @@ def update(
 @click.command()
 @click.argument("ref")
 @click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
-@click.option("--to", "target", type=click.Choice(["json-schema", "markdown", "typescript", "csharp", "java", "python", "rust", "go"]), required=True)
+@click.option(
+    "--to",
+    "target",
+    type=click.Choice(["json-schema", "markdown", "typescript", "csharp", "java", "python", "rust", "go"]),
+    required=True,
+)
 @click.option("--out", "output", type=click.Path(path_type=Path), default=None)
 @click.option("--explain", is_flag=True, help="Show a mapping explanation alongside the emitted artifact.")
 def transform(ref: str, path: Path, target: str, output: Path | None, explain: bool) -> None:
@@ -360,7 +367,9 @@ def explain(path: Path) -> None:
 @click.option("--provider", "provider", default=None, help="Provider name, for example ollama or anthropic.")
 @click.option("--model", "model", default=None, help="Model identifier.")
 @click.option("--base-url", "base_url", default=None, help="Provider base URL.")
-def chat(path: Path, ref: str | None, message: str | None, provider: str | None, model: str | None, base_url: str | None) -> None:
+def chat(
+    path: Path, ref: str | None, message: str | None, provider: str | None, model: str | None, base_url: str | None
+) -> None:
     """Chat with a model about the current workspace."""
     workspace = load_workspace(path)
     workspace_summary = build_workspace_summary(workspace)
@@ -381,7 +390,7 @@ def chat(path: Path, ref: str | None, message: str | None, provider: str | None,
     while True:
         try:
             user_message = click.prompt("you", prompt_suffix="> ", default="", show_default=False)
-        except (EOFError, click.Abort):
+        except EOFError, click.Abort:
             break
         if not user_message.strip():
             continue

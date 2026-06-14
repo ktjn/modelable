@@ -101,7 +101,9 @@ domain customer {
 
     assert result.exit_code == 0, result.output
     assert (out / "customer" / "customer_customer_v1.go").exists()
-    assert any(len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split())
+    assert any(
+        len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split()
+    )
     text = (out / "customer" / "customer_customer_v1.go").read_text(encoding="utf-8")
     assert "type CustomerCustomerV1 struct" in text
     assert 'CustomerId string `json:"customerId"`' in text
@@ -130,6 +132,7 @@ domain customer {
         encoding="utf-8",
     )
     from modelable.compiler.workspace import load_workspace
+
     workspace = load_workspace(tmp_path)
     artifacts = emit_go(workspace, tmp_path / "out")
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@1")
@@ -179,7 +182,7 @@ domain events {
     workspace = load_workspace(tmp_path)
     artifacts = emit_go(workspace, tmp_path / "out")
     art = next(a for a in artifacts if a.ref == "events.Event@1")
-    assert 'import (' in art.content
+    assert "import (" in art.content
     assert '"time"' in art.content
     assert 'OccurredAt time.Time `json:"occurredAt"`' in art.content
     assert 'ScheduledDate time.Time `json:"scheduledDate"`' in art.content
@@ -215,6 +218,7 @@ domain customer {
         encoding="utf-8",
     )
     from modelable.compiler.workspace import load_workspace
+
     workspace = load_workspace(tmp_path)
     artifacts = emit_go(workspace, tmp_path / "out")
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@2")

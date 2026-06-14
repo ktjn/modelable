@@ -16,9 +16,7 @@ _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
-_DOMAIN_PATTERN = re.compile(
-    r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))'
-)
+_DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _MODEL_FIELD_PATTERN = re.compile(
     r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\??\s*:"
 )
@@ -144,7 +142,7 @@ def _target_at(index: LspWorkspaceIndex, uri: str, line: int, character: int) ->
                 field_name=match.group("field"),
                 range=types.Range(
                     start=types.Position(line=line, character=match.start("field")),
-                end=types.Position(line=line, character=match.end("field")),
+                    end=types.Position(line=line, character=match.end("field")),
                 ),
             )
         alias_map = _projection_aliases(workspace, domain_name, name, version)
@@ -233,9 +231,7 @@ def _add_decl_renames(
     decl_kind = "model" if target.kind == "model_decl" else "projection"
     declaration = _find_decl_location(workspace, target.domain, decl_kind, target.name, target.version)
     if declaration is not None:
-        changes.setdefault(declaration.uri, []).append(
-            types.TextEdit(range=declaration.range, new_text=new_name)
-        )
+        changes.setdefault(declaration.uri, []).append(types.TextEdit(range=declaration.range, new_text=new_name))
 
     old_ref = f"{target.domain}.{target.name}@{target.version}"
     for source in workspace.sources:
@@ -271,9 +267,7 @@ def _add_model_field_renames(
         target.field_name or "",
     )
     if declaration is not None:
-        changes.setdefault(declaration.uri, []).append(
-            types.TextEdit(range=declaration.range, new_text=new_name)
-        )
+        changes.setdefault(declaration.uri, []).append(types.TextEdit(range=declaration.range, new_text=new_name))
 
     for source in workspace.sources:
         lines = source.text.splitlines()
@@ -334,9 +328,7 @@ def _add_projection_field_renames(
         target.field_name or "",
     )
     if declaration is not None:
-        changes.setdefault(declaration.uri, []).append(
-            types.TextEdit(range=declaration.range, new_text=new_name)
-        )
+        changes.setdefault(declaration.uri, []).append(types.TextEdit(range=declaration.range, new_text=new_name))
 
     for source in workspace.sources:
         lines = source.text.splitlines()

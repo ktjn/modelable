@@ -35,8 +35,17 @@ def _domain_text(name: str) -> str:
 
 
 _FIELD_TYPES = [
-    "string", "int", "float", "bool", "date", "time",
-    "timestamp", "uuid", "duration", "binary", "decimal",
+    "string",
+    "int",
+    "float",
+    "bool",
+    "date",
+    "time",
+    "timestamp",
+    "uuid",
+    "duration",
+    "binary",
+    "decimal",
 ]
 
 
@@ -63,7 +72,9 @@ def create_model(output_dir: Path) -> None:
         optional = click.confirm("Optional field?", default=False)
         is_key = click.confirm("Add @key annotation?", default=False)
         is_pii = click.confirm("Add @pii annotation?", default=False)
-        fields.append({"name": field_name, "type": field_type, "optional": optional, "is_key": is_key, "is_pii": is_pii})
+        fields.append(
+            {"name": field_name, "type": field_type, "optional": optional, "is_key": is_key, "is_pii": is_pii}
+        )
 
     out_file = output_dir / f"{domain}.mdl"
     if out_file.exists():

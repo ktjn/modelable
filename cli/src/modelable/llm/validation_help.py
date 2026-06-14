@@ -8,4 +8,3 @@ def explain_validation_errors(errors: list[str]) -> str:
     for error in errors:
         lines.append(f"- {error}")
     return "\n".join(lines)
-

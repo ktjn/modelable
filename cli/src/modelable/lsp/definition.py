@@ -11,17 +11,13 @@ from modelable.registry.resolver import resolve_model_ref
 _QUALIFIED_REF_PATTERN = re.compile(
     r"(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
-_REF_TYPE_PATTERN = re.compile(
-    r"ref\s*<\s*(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*>"
-)
+_REF_TYPE_PATTERN = re.compile(r"ref\s*<\s*(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*>")
 _FIELD_REF_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
-_DOMAIN_PATTERN = re.compile(
-    r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))'
-)
+_DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _WORD_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _MODEL_FIELD_PATTERN = re.compile(
     r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\??\s*:"
@@ -56,9 +52,7 @@ def build_definition(
 
     for match in _REF_TYPE_PATTERN.finditer(text_line):
         if _contains(match.start(), match.end(), character):
-            location = _definition_for_unversioned_ref(
-                workspace, match.group("domain"), match.group("name")
-            )
+            location = _definition_for_unversioned_ref(workspace, match.group("domain"), match.group("name"))
             if location is not None:
                 return location
 

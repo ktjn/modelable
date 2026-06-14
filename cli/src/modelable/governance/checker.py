@@ -127,9 +127,7 @@ def _check_projection_classification(
                 continue
 
             _check_pii_preservation(subject, proj_field, target_ref, source_field, findings)
-            _check_classification_preservation(
-                subject, proj_field, target_ref, source_field, findings
-            )
+            _check_classification_preservation(subject, proj_field, target_ref, source_field, findings)
 
 
 def _has_entity_permission(access: AccessBlock, permission: str) -> bool:
@@ -257,9 +255,7 @@ def _find_field(version: ModelVersion, field_name: str) -> FieldDef | None:
     return next((field for field in version.fields if field.name == field_name), None)
 
 
-def _build_resolved_sources(
-    pv: ProjectionVersion, mdl: MdlFile
-) -> dict[str, tuple[str, ModelVersion]]:
+def _build_resolved_sources(pv: ProjectionVersion, mdl: MdlFile) -> dict[str, tuple[str, ModelVersion]]:
     resolved_sources: dict[str, tuple[str, ModelVersion]] = {}
     all_sources = [(pv.source.model, pv.source.version, pv.source.alias)]
     for join in pv.joins:

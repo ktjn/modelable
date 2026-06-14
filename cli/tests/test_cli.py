@@ -21,11 +21,7 @@ def test_root_bootstrap_script_delegates_to_uv_entrypoint():
 
     assert script.exists()
     assert script.read_text(encoding="utf-8") == (
-        "#!/usr/bin/env bash\n"
-        "set -euo pipefail\n"
-        "\n"
-        'cd "$(dirname "$0")/../cli"\n'
-        'exec uv run modelable "$@"\n'
+        '#!/usr/bin/env bash\nset -euo pipefail\n\ncd "$(dirname "$0")/../cli"\nexec uv run modelable "$@"\n'
     )
 
 
@@ -507,7 +503,7 @@ domain billing {
 
     assert model_result.exit_code == 0, model_result.output
     assert "entity Customer @ 1 (additive)" in model_result.output
-    assert "owner: \"customer-platform\"" in model_result.output
+    assert 'owner: "customer-platform"' in model_result.output
     assert "name: string" in model_result.output
 
     assert projection_result.exit_code == 0, projection_result.output
@@ -858,9 +854,7 @@ domain customer {
         encoding="utf-8",
     )
 
-    result = CliRunner().invoke(
-        cli, ["lineage", "customer.CustomerWithAddress@1", "--path", str(tmp_path)]
-    )
+    result = CliRunner().invoke(cli, ["lineage", "customer.CustomerWithAddress@1", "--path", str(tmp_path)])
 
     assert result.exit_code == 0, result.output
     assert "join:" in result.output
@@ -890,9 +884,7 @@ domain customer {
         encoding="utf-8",
     )
 
-    result = CliRunner().invoke(
-        cli, ["lineage", "customer.CustomerByRegion@1", "--path", str(tmp_path)]
-    )
+    result = CliRunner().invoke(cli, ["lineage", "customer.CustomerByRegion@1", "--path", str(tmp_path)])
 
     assert result.exit_code == 0, result.output
     assert "group by:" in result.output
@@ -913,9 +905,7 @@ domain customer {
         encoding="utf-8",
     )
 
-    result = CliRunner().invoke(
-        cli, ["inspect", "customer.NoSuch@1", "--auto", "--path", str(tmp_path)]
-    )
+    result = CliRunner().invoke(cli, ["inspect", "customer.NoSuch@1", "--auto", "--path", str(tmp_path)])
 
     assert result.exit_code == 1
     assert "ERROR" in result.output

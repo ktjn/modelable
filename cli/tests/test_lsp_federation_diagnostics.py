@@ -10,15 +10,11 @@ from modelable.registry.signature import compute_version_signature
 
 IMPORT_TEXT = """
 import domain customer from registry "customer-platform-registry"
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 PINNED_IMPORT_TEXT = """
 import domain customer from registry "customer-platform-registry" at customer.Customer@1#{signature}
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 PINNED_REFERENCE_TEXT = """
 projection BillingCustomer @ 1
@@ -26,9 +22,7 @@ projection BillingCustomer @ 1
 {
   customerId <- c.customerId
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 PINNED_MISSING_REFERENCE_TEXT = """
 projection BillingCustomer @ 1
@@ -36,9 +30,7 @@ projection BillingCustomer @ 1
 {
   customerId <- c.customerId
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 WORKSPACE_WITH_MISSING_PEER = """
 workspace "analytics-platform" {
@@ -54,9 +46,7 @@ workspace "analytics-platform" {
     }
   ]
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 WORKSPACE_WITH_KNOWN_PEER = """
 workspace "analytics-platform" {
@@ -72,9 +62,7 @@ workspace "analytics-platform" {
     }
   ]
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 MIRROR_CUSTOMER_TEXT = """
 domain customer {
@@ -83,9 +71,7 @@ domain customer {
     @key customerId: uuid
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def _customer_signature() -> str:

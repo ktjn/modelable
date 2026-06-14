@@ -38,9 +38,7 @@ _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
-_DOMAIN_PATTERN = re.compile(
-    r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))'
-)
+_DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _WORD_PREFIX_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*$")
 _ANNOTATION_PATTERN = re.compile(r"(?:^|\s)@[A-Za-z_][A-Za-z0-9_-]*$")
 _REFERENCE_PATTERN = re.compile(r"\b(from|join)\s+[A-Za-z_][A-Za-z0-9_.-]*$")
@@ -152,8 +150,8 @@ def _domain_context(before_cursor: str) -> bool:
 
 def _reference_context(before_cursor: str) -> bool:
     stripped = before_cursor.rstrip()
-    return before_cursor.endswith("from ") or before_cursor.endswith("join ") or bool(
-        _REFERENCE_PATTERN.search(stripped)
+    return (
+        before_cursor.endswith("from ") or before_cursor.endswith("join ") or bool(_REFERENCE_PATTERN.search(stripped))
     )
 
 
@@ -214,9 +212,7 @@ def _workspace_reference_candidates(workspace, prefix: str) -> list[_Candidate]:
 def _mirror_domain_candidates(index: LspWorkspaceIndex, prefix: str) -> list[_Candidate]:
     candidates: list[_Candidate] = []
     for domain_name in mirror_domain_names(index):
-        candidates.append(
-            _Candidate(label=domain_name, kind=types.CompletionItemKind.Module, sort_rank=40)
-        )
+        candidates.append(_Candidate(label=domain_name, kind=types.CompletionItemKind.Module, sort_rank=40))
     return _filtered_candidates(candidates, prefix)
 
 

@@ -31,19 +31,11 @@ def resolve_model_ref(
     domain_name, model_name = _split_model_ref(model_ref)
     versions = _find_model_versions(mdl, domain_name, model_name)
     if not versions:
-        raise LookupError(
-            f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}"
-        )
+        raise LookupError(f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}")
 
-    matching = [
-        version
-        for version in versions
-        if _matches(version, version_spec, domain_name, model_name)
-    ]
+    matching = [version for version in versions if _matches(version, version_spec, domain_name, model_name)]
     if not matching:
-        raise LookupError(
-            f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}"
-        )
+        raise LookupError(f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}")
 
     selected = max(matching, key=lambda version: version.version)
 
@@ -55,6 +47,7 @@ def resolve_model_ref(
         for v in versions:
             if min_v < v.version <= selected.version:
                 from modelable.parser.ir import ChangeKind
+
                 if v.change_kind == ChangeKind.breaking:
                     raise LookupError(
                         f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}: "
@@ -202,10 +195,7 @@ def _matches(
     if isinstance(version_spec, VersionPinned):
         if version.version != version_spec.version:
             return False
-        return (
-            compute_version_signature(domain_name, model_name, version).lower()
-            == version_spec.content_hash.lower()
-        )
+        return compute_version_signature(domain_name, model_name, version).lower() == version_spec.content_hash.lower()
     return False
 
 

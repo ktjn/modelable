@@ -29,4 +29,3 @@ def to_lsp_diagnostic(diagnostic: Diagnostic) -> types.Diagnostic:
 
 def to_lsp_diagnostics(diagnostics: list[Diagnostic]) -> list[types.Diagnostic]:
     return [to_lsp_diagnostic(diagnostic) for diagnostic in diagnostics]
-

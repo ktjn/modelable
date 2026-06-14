@@ -120,7 +120,7 @@ def _resolve_source_field(field, version: ProjectionVersion, mdl: MdlFile):
     try:
         source_domain, source_model = version.source.model.rsplit(".", 1)
         resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", version.source.version)
-    except (ValueError, LookupError):
+    except ValueError, LookupError:
         return None
     for src_field in resolved.version.fields:
         if src_field.name == field.mapping.source_field:
@@ -258,6 +258,7 @@ def _ch_col_type(field_type, wire: dict, *, optional: bool) -> str:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _snake_case(value: str) -> str:
     text = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)

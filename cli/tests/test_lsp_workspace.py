@@ -11,9 +11,7 @@ domain customer {
     @key customerId: uuid
   }
 }
-""".strip(
-            "\n"
-        ),
+""".strip("\n"),
         encoding="utf-8",
     )
 

@@ -10,6 +10,7 @@ from lsprotocol import types
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 async def _open_file(client, path: Path) -> None:
     client.text_document_did_open(
         types.DidOpenTextDocumentParams(
@@ -102,7 +103,9 @@ _ML_CREDIT_RISK = _SCENARIO_04 / "ml-credit-risk.mdl"
 @pytest.mark.parametrize("lsp", [_SCENARIO_04], indirect=True)
 async def test_hover_qualified_cross_domain_ref(lsp):
     await _open_file(lsp, _ML_CREDIT_RISK)
-    text = await _hover(lsp, _ML_CREDIT_RISK, line=_line_number(_ML_CREDIT_RISK, "join lending.LoanApplication @ 1 as app on"), char=15)
+    text = await _hover(
+        lsp, _ML_CREDIT_RISK, line=_line_number(_ML_CREDIT_RISK, "join lending.LoanApplication @ 1 as app on"), char=15
+    )
     assert text is not None, "Expected hover result, got None"
     assert "LoanApplication" in text, f"Expected 'LoanApplication' in hover, got:\n{text}"
 
@@ -112,6 +115,7 @@ async def test_hover_qualified_cross_domain_ref(lsp):
 # ml-credit-risk.mdl line 27: `    applicationId          <- lbl.applicationId`
 # char 8 is inside `applicationId` (the projection output field name)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("lsp", [_SCENARIO_04], indirect=True)
 async def test_hover_projection_field_name(lsp):
@@ -129,6 +133,7 @@ async def test_hover_projection_field_name(lsp):
 # char 35 is inside `creditScore` of `bur.creditScore`
 # bur is aliased to credit-bureau.BureauReport @ 1
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("lsp", [_SCENARIO_04], indirect=True)
 async def test_hover_alias_field_resolves_through_join(lsp):
@@ -164,10 +169,13 @@ async def test_hover_entity_declaration_name(lsp):
 # Expected: a location in lending.mdl
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("lsp", [_SCENARIO_04], indirect=True)
 async def test_definition_cross_domain_qualified_ref(lsp):
     await _open_file(lsp, _ML_CREDIT_RISK)
-    result = await _definition(lsp, _ML_CREDIT_RISK, line=_line_number(_ML_CREDIT_RISK, "join lending.LoanApplication @ 1 as app on"), char=15)
+    result = await _definition(
+        lsp, _ML_CREDIT_RISK, line=_line_number(_ML_CREDIT_RISK, "join lending.LoanApplication @ 1 as app on"), char=15
+    )
     assert result is not None, "Expected a definition location, got None"
     uri, _line = result
     assert "lending.mdl" in uri, f"Expected definition in lending.mdl, got: {uri}"
@@ -186,7 +194,9 @@ _SHIPPING_MDL = _SCENARIO_03 / "shipping.mdl"
 @pytest.mark.parametrize("lsp", [_SCENARIO_03], indirect=True)
 async def test_definition_cross_file_ref(lsp):
     await _open_file(lsp, _SHIPPING_MDL)
-    result = await _definition(lsp, _SHIPPING_MDL, line=_line_number(_SHIPPING_MDL, "from payments.PaymentAuthorisation @ 2 as pa"), char=20)
+    result = await _definition(
+        lsp, _SHIPPING_MDL, line=_line_number(_SHIPPING_MDL, "from payments.PaymentAuthorisation @ 2 as pa"), char=20
+    )
     assert result is not None, "Expected a definition location, got None"
     uri, _line = result
     assert "payments.mdl" in uri, f"Expected definition in payments.mdl, got: {uri}"
@@ -218,10 +228,17 @@ async def test_definition_alias_field_resolves_to_source_model(lsp):
 # Expected: at least one reference in analytics.mdl
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("lsp", [_SCENARIO_01], indirect=True)
 async def test_references_entity_name_finds_usages(lsp):
     await _open_file(lsp, _CUSTOMER_MDL)
-    locs = await _references(lsp, _CUSTOMER_MDL, line=_line_number(_CUSTOMER_MDL, "entity Customer @ 3 (additive)"), char=12, include_declaration=True)
+    locs = await _references(
+        lsp,
+        _CUSTOMER_MDL,
+        line=_line_number(_CUSTOMER_MDL, "entity Customer @ 3 (additive)"),
+        char=12,
+        include_declaration=True,
+    )
     assert len(locs) >= 2, f"Expected ≥2 locations (declaration + usages), got {len(locs)}: {locs}"
     uris = [uri for uri, _ in locs]
     assert any("customer.mdl" in u for u in uris), "Expected declaration in customer.mdl"
@@ -234,10 +251,17 @@ async def test_references_entity_name_finds_usages(lsp):
 # Expected: declaration in customer.mdl + at least two references in analytics.mdl
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("lsp", [_SCENARIO_01], indirect=True)
 async def test_references_qualified_ref_returns_declaration_and_usages(lsp):
     await _open_file(lsp, _ANALYTICS_MDL)
-    locs = await _references(lsp, _ANALYTICS_MDL, line=_line_number(_ANALYTICS_MDL, "customer.Customer @ 3"), char=20, include_declaration=True)
+    locs = await _references(
+        lsp,
+        _ANALYTICS_MDL,
+        line=_line_number(_ANALYTICS_MDL, "customer.Customer @ 3"),
+        char=20,
+        include_declaration=True,
+    )
     assert len(locs) >= 2, f"Expected ≥2 locations, got {len(locs)}: {locs}"
     uris = [uri for uri, _ in locs]
     assert any("customer.mdl" in u for u in uris), "Expected declaration in customer.mdl"
@@ -270,11 +294,10 @@ async def test_completion_reference_prefix_filters_candidates(lsp):
 # scope is analytics.CustomerLifetimeValue@2 → fields starting with "total"
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("lsp", [_SCENARIO_01], indirect=True)
 async def test_completion_field_candidates_inside_projection(lsp):
     await _open_file(lsp, _ANALYTICS_MDL)
     labels = await _completion_labels(lsp, _ANALYTICS_MDL, line=_line_number(_ANALYTICS_MDL, "total"), char=9)
     assert labels, "Expected field completion items, got empty list"
-    assert "totalOrderCount" in labels, (
-        f"Expected 'totalOrderCount' in field completions. Got: {labels}"
-    )
+    assert "totalOrderCount" in labels, f"Expected 'totalOrderCount' in field completions. Got: {labels}"

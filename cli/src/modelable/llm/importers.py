@@ -107,7 +107,9 @@ def _import_protobuf(source_text: str, *, domain_name: str | None) -> ImportedMo
         line = line.strip().rstrip(";")
         if not line or line.startswith("//"):
             continue
-        match = re.match(r"(optional|required|repeated)?\s*([A-Za-z_][A-Za-z0-9_<>,.]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\d+", line)
+        match = re.match(
+            r"(optional|required|repeated)?\s*([A-Za-z_][A-Za-z0-9_<>,.]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\d+", line
+        )
         if not match:
             warnings.append(f"Skipped unsupported protobuf line: {line}")
             continue
@@ -119,7 +121,9 @@ def _import_protobuf(source_text: str, *, domain_name: str | None) -> ImportedMo
 
 
 def _import_sql(source_text: str, *, domain_name: str | None) -> ImportedModel:
-    match = re.search(r"create\s+table\s+([A-Za-z_][A-Za-z0-9_\.]*)\s*\((?P<body>.*?)\)\s*;?", source_text, re.IGNORECASE | re.DOTALL)
+    match = re.search(
+        r"create\s+table\s+([A-Za-z_][A-Za-z0-9_\.]*)\s*\((?P<body>.*?)\)\s*;?", source_text, re.IGNORECASE | re.DOTALL
+    )
     table_name = match.group(1) if match else "ImportedTable"
     body = match.group("body") if match else source_text
     domain = domain_name or _guess_domain_name(table_name)
@@ -138,7 +142,17 @@ def _import_sql(source_text: str, *, domain_name: str | None) -> ImportedModel:
         field_name = parts[0]
         type_tokens: list[str] = []
         for token in parts[1:]:
-            if token.upper() in {"NOT", "NULL", "PRIMARY", "KEY", "DEFAULT", "REFERENCES", "CONSTRAINT", "UNIQUE", "CHECK"}:
+            if token.upper() in {
+                "NOT",
+                "NULL",
+                "PRIMARY",
+                "KEY",
+                "DEFAULT",
+                "REFERENCES",
+                "CONSTRAINT",
+                "UNIQUE",
+                "CHECK",
+            }:
                 break
             type_tokens.append(token)
         type_name = " ".join(type_tokens) if type_tokens else parts[1]
@@ -158,11 +172,7 @@ def _fields_from_json_schema(schema: dict) -> tuple[list[FieldDef], list[str]]:
     properties = schema.get("properties", {})
     required = set(schema.get("required", []))
     key_field_name = next(
-        (
-            name
-            for name in properties
-            if name in required and (name.lower() == "id" or name.lower().endswith("id"))
-        ),
+        (name for name in properties if name in required and (name.lower() == "id" or name.lower().endswith("id"))),
         None,
     )
     fields: list[FieldDef] = []
@@ -239,12 +249,7 @@ def _avro_type_to_field_type(field_type, warnings: list[str]):
     if isinstance(field_type, dict):
         kind = field_type.get("type")
         if kind == "record":
-            return ObjectType(
-                fields=[
-                    _field_from_avro(child, warnings)
-                    for child in field_type.get("fields", [])
-                ]
-            )
+            return ObjectType(fields=[_field_from_avro(child, warnings) for child in field_type.get("fields", [])])
         if kind == "enum":
             return EnumType(values=[str(value) for value in field_type.get("symbols", [])])
     if field_type == "string":

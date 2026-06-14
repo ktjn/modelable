@@ -38,9 +38,7 @@ async def lsp(request):
         types.InitializeParams(
             capabilities=types.ClientCapabilities(),
             root_uri=workspace_root.as_uri(),
-            workspace_folders=[
-                types.WorkspaceFolder(uri=workspace_root.as_uri(), name=workspace_root.name)
-            ],
+            workspace_folders=[types.WorkspaceFolder(uri=workspace_root.as_uri(), name=workspace_root.name)],
         )
     )
     yield client

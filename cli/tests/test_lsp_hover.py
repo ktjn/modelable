@@ -28,9 +28,7 @@ domain storefront {
     displayId <- p.productId
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def _line_number(text: str, snippet: str) -> int:
@@ -51,7 +49,9 @@ domain customer {
     index = LspWorkspaceIndex()
     index.upsert_document("inmemory://workspace.mdl", source)
 
-    hover = build_hover(index, "inmemory://workspace.mdl", line=_line_number(source, "entity Customer @ 1 (additive)"), character=11)
+    hover = build_hover(
+        index, "inmemory://workspace.mdl", line=_line_number(source, "entity Customer @ 1 (additive)"), character=11
+    )
 
     assert hover is not None
     assert "customer.Customer@1" in hover.contents.value
@@ -82,7 +82,9 @@ domain billing {
     index.upsert_document("inmemory://workspace.mdl", source)
 
     line = _line_number(source, "displayEmail = c.email")
-    hover = build_hover(index, "inmemory://workspace.mdl", line=line, character=source.splitlines()[line].index("c.email") + 2)
+    hover = build_hover(
+        index, "inmemory://workspace.mdl", line=line, character=source.splitlines()[line].index("c.email") + 2
+    )
 
     assert hover is not None
     assert "customer.Customer@1.email" in hover.contents.value
@@ -113,7 +115,9 @@ domain billing {
     index.upsert_document("inmemory://workspace.mdl", source)
 
     line = _line_number(source, "displayEmail = c.email")
-    hover = build_hover(index, "inmemory://workspace.mdl", line=line, character=source.splitlines()[line].index("displayEmail") + 2)
+    hover = build_hover(
+        index, "inmemory://workspace.mdl", line=line, character=source.splitlines()[line].index("displayEmail") + 2
+    )
 
     assert hover is not None
     assert "billing.BillingCustomer@1.displayEmail" in hover.contents.value

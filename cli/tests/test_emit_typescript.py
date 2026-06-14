@@ -59,7 +59,7 @@ domain customer {
     assert "export interface CustomerCustomerViewV1" in proj_art.content
     assert "export type CustomerView = CustomerCustomerViewV1;" in proj_art.content
     assert "@modelable source: customer.Customer@1" in proj_art.content
-    assert "@modelable where: c.name != \"\"" in proj_art.content
+    assert '@modelable where: c.name != ""' in proj_art.content
     assert "@modelable groupBy: c.name" in proj_art.content
 
 
@@ -288,7 +288,9 @@ domain customer {
 
     assert result.exit_code == 0
     assert (out / "customer.Customer.v1.ts").exists()
-    assert any(len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split())
+    assert any(
+        len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split()
+    )
     text = (out / "customer.Customer.v1.ts").read_text(encoding="utf-8")
     assert "export interface CustomerCustomerV1" in text
     assert "export type Customer = CustomerCustomerV1;" in text

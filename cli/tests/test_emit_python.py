@@ -101,7 +101,9 @@ domain customer {
 
     assert result.exit_code == 0, result.output
     assert (out / "customer" / "customer_customer_v1.py").exists()
-    assert any(len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split())
+    assert any(
+        len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split()
+    )
     text = (out / "customer" / "customer_customer_v1.py").read_text(encoding="utf-8")
     assert "class CustomerCustomerV1:" in text
     assert "customerId: UUID" in text
@@ -181,6 +183,7 @@ domain customer {
     )
     from modelable.compiler.workspace import load_workspace
     from modelable.emitters.python import emit_python
+
     workspace = load_workspace(tmp_path)
     artifacts = emit_python(workspace, tmp_path / "out")
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@1")
@@ -217,6 +220,7 @@ domain customer {
     )
     from modelable.compiler.workspace import load_workspace
     from modelable.emitters.python import emit_python
+
     workspace = load_workspace(tmp_path)
     artifacts = emit_python(workspace, tmp_path / "out")
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@2")

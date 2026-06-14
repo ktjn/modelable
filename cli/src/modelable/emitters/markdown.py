@@ -52,9 +52,7 @@ def _artifact_id(domain: str, name: str, version: int) -> str:
     return f"{domain}.{name}.v{version}"
 
 
-def _emit_model(
-    domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path
-) -> EmittedArtifact:
+def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     lines: list[str] = []
 
@@ -84,9 +82,7 @@ def _emit_model(
         default = field.default if field.default is not None else "—"
         ann_str = _format_annotations(field)
         cls_str = _field_classification(field)
-        lines.append(
-            f"| {field.name} | {_type_str(field.type)} | {required} | {default} | {ann_str} | {cls_str} |"
-        )
+        lines.append(f"| {field.name} | {_type_str(field.type)} | {required} | {default} | {ann_str} | {cls_str} |")
     lines.append("")
 
     text = "\n".join(lines)
@@ -135,13 +131,9 @@ def _emit_projection(
     lines.append("")
     lines.append("| Model | Version | Alias |")
     lines.append("|---|---|---|")
-    lines.append(
-        f"| {version.source.model} | {_version_str(version.source.version)} | {version.source.alias} |"
-    )
+    lines.append(f"| {version.source.model} | {_version_str(version.source.version)} | {version.source.alias} |")
     for join in version.joins:
-        lines.append(
-            f"| {join.model} | {_version_str(join.version)} | {join.alias} (join on `{join.on}`) |"
-        )
+        lines.append(f"| {join.model} | {_version_str(join.version)} | {join.alias} (join on `{join.on}`) |")
     lines.append("")
 
     lines.append("## Fields")

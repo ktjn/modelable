@@ -28,9 +28,7 @@ domain storefront {
     displayId <- p.productId
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def test_definition_on_projection_source_reference_goes_to_model_declaration():
@@ -61,12 +59,17 @@ domain billing {
         index,
         "inmemory://workspace.mdl",
         line=next(i for i, line in enumerate(lines) if "from customer.Customer @ 1 as c" in line),
-        character=lines[next(i for i, line in enumerate(lines) if "from customer.Customer @ 1 as c" in line)].index("Customer") + 1,
+        character=lines[next(i for i, line in enumerate(lines) if "from customer.Customer @ 1 as c" in line)].index(
+            "Customer"
+        )
+        + 1,
     )
 
     assert definition is not None
     assert definition.uri == "inmemory://workspace.mdl"
-    assert definition.range.start.line == next(i for i, line in enumerate(lines) if "entity Customer @ 1 (additive)" in line)
+    assert definition.range.start.line == next(
+        i for i, line in enumerate(lines) if "entity Customer @ 1 (additive)" in line
+    )
     assert definition.range.start.character == 9
 
 
@@ -98,7 +101,10 @@ domain billing {
         index,
         "inmemory://workspace.mdl",
         line=next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line),
-        character=lines[next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line)].index("displayEmail") + 2,
+        character=lines[next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line)].index(
+            "displayEmail"
+        )
+        + 2,
     )
 
     assert definition is not None
@@ -135,7 +141,8 @@ domain billing {
         index,
         "inmemory://workspace.mdl",
         line=next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line),
-        character=lines[next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line)].index("c.email") + 2,
+        character=lines[next(i for i, line in enumerate(lines) if "displayEmail = c.email" in line)].index("c.email")
+        + 2,
     )
 
     assert definition is not None

@@ -35,7 +35,9 @@ def test_redaction_masks_secrets():
 
 
 def test_model_config_resolution_order():
-    workspace = type("WorkspaceLike", (), {"ai": AiConfig(provider="anthropic", model="workspace-model", repair_attempts=2)})()
+    workspace = type(
+        "WorkspaceLike", (), {"ai": AiConfig(provider="anthropic", model="workspace-model", repair_attempts=2)}
+    )()
     config = resolve_llm_config(flag_model="flag-model", workspace=workspace, env={"MODELABLE_LLM_MODEL": "env-model"})
     assert config.model == "flag-model"
     assert config.source == "flag"
@@ -202,7 +204,9 @@ domain customer {
     assert result.exit_code == 0
     assert "customer-team" in result.output
 
-    result = runner.invoke(cli, ["recommend", "--path", str(tmp_path), "--ref", "customer.Customer@1", "--consumer", "billing"])
+    result = runner.invoke(
+        cli, ["recommend", "--path", str(tmp_path), "--ref", "customer.Customer@1", "--consumer", "billing"]
+    )
     assert result.exit_code == 0
     assert "billing" in result.output
 
@@ -239,7 +243,9 @@ def test_cli_import_and_suggest_projection(tmp_path):
 
     runner = CliRunner()
     imported = tmp_path / "imported.mdl"
-    result = runner.invoke(cli, ["import", str(schema), "--format", "json-schema", "--domain", "customer", "--output", str(imported)])
+    result = runner.invoke(
+        cli, ["import", str(schema), "--format", "json-schema", "--domain", "customer", "--output", str(imported)]
+    )
     assert result.exit_code == 0
     assert imported.exists()
     provenance = _read_provenance(_provenance_path(imported))
@@ -253,7 +259,17 @@ def test_cli_import_and_suggest_projection(tmp_path):
     projection = tmp_path / "projection.mdl"
     result = runner.invoke(
         cli,
-        ["suggest-projection", "--path", str(tmp_path), "--source", "customer.Customer@1", "--consumer", "billing", "--output", str(projection)],
+        [
+            "suggest-projection",
+            "--path",
+            str(tmp_path),
+            "--source",
+            "customer.Customer@1",
+            "--consumer",
+            "billing",
+            "--output",
+            str(projection),
+        ],
     )
     assert result.exit_code == 0
     assert projection.exists()
@@ -491,6 +507,7 @@ def _transform_tmp(tmp_path):
 
 def test_transform_csharp(tmp_path):
     from modelable.llm.engine import transform_ref_to_target
+
     result = transform_ref_to_target(_transform_tmp(tmp_path), _TRANSFORM_REF, "csharp")
     assert "Customer" in result.content
     assert "customerId" in result.content.lower() or "CustomerId" in result.content
@@ -498,24 +515,28 @@ def test_transform_csharp(tmp_path):
 
 def test_transform_java(tmp_path):
     from modelable.llm.engine import transform_ref_to_target
+
     result = transform_ref_to_target(_transform_tmp(tmp_path), _TRANSFORM_REF, "java")
     assert "Customer" in result.content
 
 
 def test_transform_python(tmp_path):
     from modelable.llm.engine import transform_ref_to_target
+
     result = transform_ref_to_target(_transform_tmp(tmp_path), _TRANSFORM_REF, "python")
     assert "Customer" in result.content
 
 
 def test_transform_rust(tmp_path):
     from modelable.llm.engine import transform_ref_to_target
+
     result = transform_ref_to_target(_transform_tmp(tmp_path), _TRANSFORM_REF, "rust")
     assert "Customer" in result.content
 
 
 def test_transform_go(tmp_path):
     from modelable.llm.engine import transform_ref_to_target
+
     result = transform_ref_to_target(_transform_tmp(tmp_path), _TRANSFORM_REF, "go")
     assert "Customer" in result.content
 
@@ -603,20 +624,24 @@ def _transform_projection_tmp(tmp_path):
 
 def test_transform_projection_ref_typescript(tmp_path):
     from modelable.llm.engine import transform_ref_to_target
+
     result = transform_ref_to_target(_transform_projection_tmp(tmp_path), _TRANSFORM_PROJECTION_REF, "typescript")
     assert "CustomerView" in result.content
 
 
 def test_transform_projection_ref_csharp(tmp_path):
     from modelable.llm.engine import transform_ref_to_target
+
     result = transform_ref_to_target(_transform_projection_tmp(tmp_path), _TRANSFORM_PROJECTION_REF, "csharp")
     assert "CustomerView" in result.content
 
 
 def test_transform_projection_ref_json_schema(tmp_path):
     import os
+
     os.chdir(tmp_path)
     from modelable.llm.engine import transform_ref_to_target
+
     result = transform_ref_to_target(_transform_projection_tmp(tmp_path), _TRANSFORM_PROJECTION_REF, "json-schema")
     assert "CustomerView" in result.content or "customerView" in result.content.lower()
 
@@ -653,7 +678,9 @@ domain customer {
             return LLMResponse(content="captured", provider="test", model="test")
 
     state = ChatState()
-    chat_turn(workspace, "/ask what fields does Customer have?", path=tmp_path, state=state, provider=CapturingProvider())
+    chat_turn(
+        workspace, "/ask what fields does Customer have?", path=tmp_path, state=state, provider=CapturingProvider()
+    )
 
     assert calls, "/ask should have called the LLM provider, but provider was never invoked"
 
@@ -684,6 +711,7 @@ def test_transform_unknown_ref_raises(tmp_path):
     import pytest
 
     from modelable.llm.engine import transform_ref_to_target
+
     _transform_tmp(tmp_path)
     with pytest.raises(ValueError, match="Unknown model or projection"):
         transform_ref_to_target(tmp_path, "customer.NoSuch@1", "typescript")

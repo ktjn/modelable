@@ -91,8 +91,7 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
 
     auto_projection_errors = expand_auto_projections(merged)
     errors.extend(
-        Diagnostic(code="SEM", message=error, severity="error", path="<workspace>")
-        for error in auto_projection_errors
+        Diagnostic(code="SEM", message=error, severity="error", path="<workspace>") for error in auto_projection_errors
     )
 
     errors.extend(_validate_merged_workspace(workspace_sources, merged))
@@ -100,9 +99,7 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
     return Workspace(sources=workspace_sources, mdl=merged, errors=errors)
 
 
-def _validate_merged_workspace(
-    sources: list[WorkspaceSource], merged: MdlFile
-) -> list[Diagnostic]:
+def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) -> list[Diagnostic]:
     errors: list[Diagnostic] = []
     domains: dict[str, Path | None] = {}
     model_versions: dict[tuple[str, str, int], Path | None] = {}
@@ -116,10 +113,7 @@ def _validate_merged_workspace(
                 errors.append(
                     Diagnostic(
                         code="SEM",
-                        message=(
-                            f"duplicate domain '{domain.name}' "
-                            f"also defined in {previous_domain_path}"
-                        ),
+                        message=(f"duplicate domain '{domain.name}' also defined in {previous_domain_path}"),
                         severity="error",
                         path=str(source.path) if source.path is not None else source.uri,
                     )
@@ -173,9 +167,7 @@ def _validate_merged_workspace(
 
             for auto_projection in domain.auto_projections:
                 for target in auto_projection.targets:
-                    projection_name = _generated_projection_name(
-                        auto_projection.model, target.kind
-                    )
+                    projection_name = _generated_projection_name(auto_projection.model, target.kind)
                     key = (domain.name, projection_name, auto_projection.version)
 
                     previous_generated_path = generated_projection_versions.get(key)

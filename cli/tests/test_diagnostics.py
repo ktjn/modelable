@@ -65,4 +65,3 @@ domain customer {
     messages = validate_diagnostics(workspace.mdl, path="inmemory://customer.mdl")
     assert messages
     assert messages[0].path == "inmemory://customer.mdl"
-

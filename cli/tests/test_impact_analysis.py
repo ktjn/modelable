@@ -4,7 +4,8 @@ from modelable.cli import cli
 
 
 def test_diff_reports_impacted_projections(tmp_path):
-    (tmp_path / "customer.mdl").write_text("""
+    (tmp_path / "customer.mdl").write_text(
+        """
 domain customer {
   owner: "test-team"
   entity Customer @ 1 (additive) {
@@ -17,9 +18,11 @@ domain customer {
     name: string
   }
 }
-    """.strip())
-    
-    (tmp_path / "billing.mdl").write_text("""
+    """.strip()
+    )
+
+    (tmp_path / "billing.mdl").write_text(
+        """
 domain billing {
   owner: "test-team"
   projection BillingCustomer @ 1
@@ -29,9 +32,11 @@ domain billing {
     emailAddress <- c.email
   }
 }
-    """.strip())
+    """.strip()
+    )
 
-    (tmp_path / "shipping.mdl").write_text("""
+    (tmp_path / "shipping.mdl").write_text(
+        """
 domain shipping {
   owner: "test-team"
   projection ShippingLabel @ 1
@@ -41,11 +46,12 @@ domain shipping {
     recipientName <- c.name
   }
 }
-    """.strip())
+    """.strip()
+    )
 
     runner = CliRunner()
     result = runner.invoke(cli, ["diff", "customer.Customer@1", "customer.Customer@2", "--path", str(tmp_path)])
-    
+
     assert result.exit_code == 1
     assert "status: breaking" in result.output
     assert "Impacted Projections:" in result.output
@@ -55,8 +61,10 @@ domain shipping {
     assert "source customer.Customer is marked" in result.output
     assert "breaking" in result.output
 
+
 def test_diff_reports_no_impact_when_compatible(tmp_path):
-    (tmp_path / "customer.mdl").write_text("""
+    (tmp_path / "customer.mdl").write_text(
+        """
 domain customer {
   owner: "test-team"
   entity Customer @ 1 (additive) {
@@ -69,9 +77,11 @@ domain customer {
     email?: string
   }
 }
-    """.strip())
-    
-    (tmp_path / "billing.mdl").write_text("""
+    """.strip()
+    )
+
+    (tmp_path / "billing.mdl").write_text(
+        """
 domain billing {
   owner: "test-team"
   projection BillingCustomer @ 1
@@ -81,11 +91,12 @@ domain billing {
     name <- c.name
   }
 }
-    """.strip())
+    """.strip()
+    )
 
     runner = CliRunner()
     result = runner.invoke(cli, ["diff", "customer.Customer@1", "customer.Customer@2", "--path", str(tmp_path)])
-    
+
     assert result.exit_code == 0
     assert "status: compatible" in result.output
     # Compatible impacts are not shown by default in the current implementation

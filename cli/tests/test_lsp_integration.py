@@ -6,6 +6,7 @@ LSP protocol using pytest-lsp, and assert on published diagnostics — covering
 the initialization flow that unit tests cannot reach (workspace scanning,
 cross-file reference resolution, etc.).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,9 +20,7 @@ from pytest_lsp.client import make_test_lsp_client
 SAMPLES = SCENARIOS.parent
 
 
-async def _open_and_get_diagnostics(
-    client, path: Path
-) -> list[types.Diagnostic]:
+async def _open_and_get_diagnostics(client, path: Path) -> list[types.Diagnostic]:
     """Open a document and wait for the server to publish diagnostics for it."""
     client.text_document_did_open(
         types.DidOpenTextDocumentParams(
@@ -43,6 +42,7 @@ async def _open_and_get_diagnostics(
 #                  credit-bureau.BureauReport
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("lsp", [SCENARIOS / "04-credit-risk-feature-store"], indirect=True)
 async def test_cross_domain_refs_resolve_in_credit_risk(lsp):
     ml_file = SCENARIOS / "04-credit-risk-feature-store" / "ml-credit-risk.mdl"
@@ -55,6 +55,7 @@ async def test_cross_domain_refs_resolve_in_credit_risk(lsp):
 # Scenario 05: partner-marketplace-api
 # Cross-file ref: inventory.SellerInventoryLevel in marketplace-api.mdl
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("lsp", [SCENARIOS / "05-partner-marketplace-api"], indirect=True)
 async def test_cross_domain_refs_resolve_in_marketplace_api(lsp):
@@ -69,6 +70,7 @@ async def test_cross_domain_refs_resolve_in_marketplace_api(lsp):
 # Cross-file ref: payments.PaymentAuthorisation in shipping.mdl
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("lsp", [SCENARIOS / "03-order-saga-microservices"], indirect=True)
 async def test_cross_domain_refs_resolve_in_shipping(lsp):
     ship_file = SCENARIOS / "03-order-saga-microservices" / "shipping.mdl"
@@ -81,6 +83,7 @@ async def test_cross_domain_refs_resolve_in_shipping(lsp):
 # Single-file fallback: open a file WITHOUT workspace folders configured.
 # The server should still scan the parent directory and resolve siblings.
 # ---------------------------------------------------------------------------
+
 
 @pytest_asyncio.fixture
 async def lsp_no_folder():
@@ -111,6 +114,7 @@ async def test_cross_domain_refs_resolve_without_workspace_folder(lsp_no_folder)
 # walk up from the opened file to find the nearest workspace.mdl boundary.
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture
 async def lsp_project_root():
     """Start the LSP server with workspace root = the scenarios directory."""
@@ -120,9 +124,7 @@ async def lsp_project_root():
         types.InitializeParams(
             capabilities=types.ClientCapabilities(),
             root_uri=SCENARIOS.as_uri(),
-            workspace_folders=[
-                types.WorkspaceFolder(uri=SCENARIOS.as_uri(), name=SCENARIOS.name)
-            ],
+            workspace_folders=[types.WorkspaceFolder(uri=SCENARIOS.as_uri(), name=SCENARIOS.name)],
         )
     )
     yield client
@@ -141,6 +143,7 @@ async def test_cross_domain_refs_resolve_with_project_root_workspace(lsp_project
 # ---------------------------------------------------------------------------
 # MVP sample (no workspace.mdl): cross-file refs in a plain directory.
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("lsp", [SAMPLES / "mvp"], indirect=True)
 async def test_cross_domain_refs_resolve_in_mvp_without_workspace_file(lsp):

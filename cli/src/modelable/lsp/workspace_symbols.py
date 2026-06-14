@@ -102,4 +102,3 @@ def _flatten_child(
     for child in symbol.children or []:
         entries.extend(_flatten_child(uri, symbol.name, child))
     return entries
-

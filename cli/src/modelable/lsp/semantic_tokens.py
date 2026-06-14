@@ -118,12 +118,8 @@ _IMPORT_PINNED_PATTERN = re.compile(
     r"(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\.(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*"
     r"(?P<version>\d+)"
 )
-_IMPORT_DOMAIN_PATTERN = re.compile(
-    r"^\s*import\s+domain\s+(?P<import_domain>[A-Za-z_][A-Za-z0-9_.-]*)"
-)
-_ALIASED_REFERENCE_PATTERN = re.compile(
-    r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[A-Za-z_][A-Za-z0-9_]*)"
-)
+_IMPORT_DOMAIN_PATTERN = re.compile(r"^\s*import\s+domain\s+(?P<import_domain>[A-Za-z_][A-Za-z0-9_.-]*)")
+_ALIASED_REFERENCE_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
 
 
 @dataclass(frozen=True)
@@ -173,7 +169,9 @@ def _add_line_tokens(tokens: list[_Token], line_no: int, line: str, spans: list[
     _add_match_token(tokens, line_no, line, _SOURCE_PATTERN, "kind", types.SemanticTokenTypes.Keyword.value)
     _add_match_token(tokens, line_no, line, _SOURCE_PATTERN, "version", types.SemanticTokenTypes.Number.value)
     _add_match_token(tokens, line_no, line, _SOURCE_PATTERN, "alias", types.SemanticTokenTypes.Parameter.value)
-    _add_dotted_reference_token(tokens, line_no, line, _SOURCE_PATTERN, "domain", types.SemanticTokenTypes.Namespace.value)
+    _add_dotted_reference_token(
+        tokens, line_no, line, _SOURCE_PATTERN, "domain", types.SemanticTokenTypes.Namespace.value
+    )
     _add_dotted_reference_token(tokens, line_no, line, _SOURCE_PATTERN, "model", types.SemanticTokenTypes.Class.value)
     _add_match_token(
         tokens,
@@ -270,7 +268,9 @@ def _add_line_tokens(tokens: list[_Token], line_no: int, line: str, spans: list[
 
 def _add_span_tokens(tokens: list[_Token], line_no: int, spans: list[tuple[int, int, str]]) -> None:
     for start, end, kind in spans:
-        token_type = types.SemanticTokenTypes.Comment.value if kind == "comment" else types.SemanticTokenTypes.String.value
+        token_type = (
+            types.SemanticTokenTypes.Comment.value if kind == "comment" else types.SemanticTokenTypes.String.value
+        )
         tokens.append(
             _Token(
                 line=line_no,

@@ -97,7 +97,9 @@ def describe_path_or_ref(path: Path | None = None, ref: str | None = None) -> st
     return "No path or reference provided."
 
 
-def generate_entity_from_prompt(prompt: str, *, domain_name: str | None = None, model_name: str | None = None, owner: str | None = None) -> str:
+def generate_entity_from_prompt(
+    prompt: str, *, domain_name: str | None = None, model_name: str | None = None, owner: str | None = None
+) -> str:
     domain = domain_name or "generated"
     name = model_name or _derive_name_from_prompt(prompt)
     fields = [
@@ -145,7 +147,9 @@ def transform_ref_to_target(path: Path, ref: str, target: str) -> AssistantResul
         return AssistantResult(
             content=content,
             warnings=art.warnings,
-            explanation=_build_transform_explanation(ref=ref, target=target, is_projection=model_name in domain.projections),
+            explanation=_build_transform_explanation(
+                ref=ref, target=target, is_projection=model_name in domain.projections
+            ),
         )
     raise ValueError(f"Unsupported target: {target}")
 
@@ -310,7 +314,9 @@ def update_definition(
         if version is None:
             raise ValueError(f"Unknown model version: {ref}")
         if provider is not None:
-            plan_result = _build_update_plan(provider, workspace, source_text, ref, instruction, repair_attempts=repair_attempts)
+            plan_result = _build_update_plan(
+                provider, workspace, source_text, ref, instruction, repair_attempts=repair_attempts
+            )
             updated, warnings = _apply_update_plan_to_model(version, plan_result.plan)
             provider_name = plan_result.provider
             model_name = plan_result.model
@@ -322,7 +328,9 @@ def update_definition(
         if version is None:
             raise ValueError(f"Unknown projection version: {ref}")
         if provider is not None:
-            plan_result = _build_update_plan(provider, workspace, source_text, ref, instruction, repair_attempts=repair_attempts)
+            plan_result = _build_update_plan(
+                provider, workspace, source_text, ref, instruction, repair_attempts=repair_attempts
+            )
             updated, warnings = _apply_update_plan_to_projection(version, plan_result.plan)
             provider_name = plan_result.provider
             model_name = plan_result.model
@@ -639,7 +647,10 @@ def _extract_projection_field_addition(instruction: str) -> tuple[str, str | Non
 
 def _extract_rename(existing_name: str, instruction: str) -> str | None:
     import re
-    match = re.search(rf"\brename\s+{re.escape(existing_name)}\s+to\s+([A-Za-z_][A-Za-z0-9_]*)\b", instruction, re.IGNORECASE)
+
+    match = re.search(
+        rf"\brename\s+{re.escape(existing_name)}\s+to\s+([A-Za-z_][A-Za-z0-9_]*)\b", instruction, re.IGNORECASE
+    )
     if match:
         return match.group(1)
     return None
@@ -647,7 +658,12 @@ def _extract_rename(existing_name: str, instruction: str) -> str | None:
 
 def _extract_type_change(existing_name: str, instruction: str) -> PrimitiveType | None:
     import re
-    match = re.search(rf"\b(?:change|set)\s+{re.escape(existing_name)}\s+(?:to|as)\s+([A-Za-z_][A-Za-z0-9_<>,()]*)\b", instruction, re.IGNORECASE)
+
+    match = re.search(
+        rf"\b(?:change|set)\s+{re.escape(existing_name)}\s+(?:to|as)\s+([A-Za-z_][A-Za-z0-9_<>,()]*)\b",
+        instruction,
+        re.IGNORECASE,
+    )
     if match:
         return _type_from_text(match.group(1))
     return None
@@ -674,11 +690,17 @@ def _normalize_source_field(source_field: str) -> str:
 
 
 def _matches_optional(field_name: str, instruction_lower: str) -> bool:
-    return f"{field_name.lower()} optional" in instruction_lower or f"make {field_name.lower()} optional" in instruction_lower
+    return (
+        f"{field_name.lower()} optional" in instruction_lower
+        or f"make {field_name.lower()} optional" in instruction_lower
+    )
 
 
 def _matches_required(field_name: str, instruction_lower: str) -> bool:
-    return f"{field_name.lower()} required" in instruction_lower or f"make {field_name.lower()} required" in instruction_lower
+    return (
+        f"{field_name.lower()} required" in instruction_lower
+        or f"make {field_name.lower()} required" in instruction_lower
+    )
 
 
 def _matches_remove(field_name: str, instruction_lower: str) -> bool:
@@ -713,6 +735,7 @@ def _type_from_text(type_name: str | None) -> PrimitiveType | None:
 
 def _json_dump(value) -> str:
     import json
+
     return json.dumps(value, indent=2, ensure_ascii=False)
 
 

@@ -203,7 +203,11 @@ class MdlTransformer(Transformer):
         return FieldDef(
             name=str(rest[0]),
             optional=any(item == "?" for item in rest),
-            type=next(item for item in rest if not isinstance(item, str) and not (isinstance(item, tuple) and item[0] == "default")),
+            type=next(
+                item
+                for item in rest
+                if not isinstance(item, str) and not (isinstance(item, tuple) and item[0] == "default")
+            ),
             default=default,
             annotations=annotations,
         )
@@ -239,23 +243,16 @@ class MdlTransformer(Transformer):
             if modifier is None:
                 if hint.encoding is not None and hint.encoding != value:
                     raise ValueError(
-                        f"conflicting wire encodings for target '{target}': "
-                        f"{hint.encoding!r} vs {value!r}"
+                        f"conflicting wire encodings for target '{target}': {hint.encoding!r} vs {value!r}"
                     )
                 hint.encoding = value
             elif modifier == "type":
                 if hint.type is not None and hint.type != value:
-                    raise ValueError(
-                        f"conflicting wire types for target '{target}': "
-                        f"{hint.type!r} vs {value!r}"
-                    )
+                    raise ValueError(f"conflicting wire types for target '{target}': {hint.type!r} vs {value!r}")
                 hint.type = value
             elif modifier == "case":
                 if hint.case is not None and hint.case != value:
-                    raise ValueError(
-                        f"conflicting wire cases for target '{target}': "
-                        f"{hint.case!r} vs {value!r}"
-                    )
+                    raise ValueError(f"conflicting wire cases for target '{target}': {hint.case!r} vs {value!r}")
                 hint.case = value
             elif modifier == "overrides":
                 overlap = sorted(set(hint.overrides) & set(value))
@@ -269,8 +266,7 @@ class MdlTransformer(Transformer):
             elif modifier == "fieldCase":
                 if hint.field_case is not None and hint.field_case != value:
                     raise ValueError(
-                        f"conflicting wire field cases for target '{target}': "
-                        f"{hint.field_case!r} vs {value!r}"
+                        f"conflicting wire field cases for target '{target}': {hint.field_case!r} vs {value!r}"
                     )
                 hint.field_case = value
             else:
@@ -430,12 +426,19 @@ class MdlTransformer(Transformer):
         joins = [item for item in items[3:] if isinstance(item, JoinRef)]
         where = next((item for item in items[3:] if isinstance(item, str)), None)
         group_by = next((item for item in items[3:] if isinstance(item, list)), [])
-        return SourceRef(model=str(items[0]), version=items[1], alias=str(items[2]), where=where), joins, where, group_by
+        return (
+            SourceRef(model=str(items[0]), version=items[1], alias=str(items[2]), where=where),
+            joins,
+            where,
+            group_by,
+        )
 
     def join_clause(self, items):
         prefix = items[0]
         annotations = [item for item in items[1:] if isinstance(item, ANNOTATION_TYPES)]
-        cardinality = next((item[1] for item in items[1:] if isinstance(item, tuple) and item[0] == "cardinality"), None)
+        cardinality = next(
+            (item[1] for item in items[1:] if isinstance(item, tuple) and item[0] == "cardinality"), None
+        )
         return JoinRef(
             model=str(prefix[2]),
             version=prefix[3],

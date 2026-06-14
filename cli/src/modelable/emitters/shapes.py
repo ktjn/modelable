@@ -128,8 +128,7 @@ class TypeShape:
             if not self.fields:
                 return "object { ... }"
             rendered = ", ".join(
-                f"{field.name}{'?' if field.optional else ''}: {field.shape.describe()}"
-                for field in self.fields
+                f"{field.name}{'?' if field.optional else ''}: {field.shape.describe()}" for field in self.fields
             )
             return f"object {{ {rendered} }}"
         if self.kind == "named":

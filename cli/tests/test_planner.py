@@ -138,5 +138,6 @@ def test_expanded_projections_resolve_as_sources():
     assert errors == []
 
     from modelable.registry.resolver import validate_references
+
     ref_errors = validate_references(mdl)
     assert ref_errors == []

@@ -22,4 +22,3 @@ def test_lsp_diagnostic_conversion_maps_severity_and_range():
     assert lsp_diagnostic.severity.name == "Error"
     assert lsp_diagnostic.range.start.line == 2
     assert lsp_diagnostic.range.start.character == 4
-

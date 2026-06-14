@@ -46,13 +46,9 @@ domain customer {
     registry_path = build_registry(workspace, tmp_path / ".modelable")
 
     with sqlite3.connect(registry_path) as conn:
-        rows = conn.execute(
-            "select model_ref, issuer, issued_at, signature from por_log order by model_ref"
-        ).fetchall()
+        rows = conn.execute("select model_ref, issuer, issued_at, signature from por_log order by model_ref").fetchall()
 
-    assert rows == [
-        ("customer.Customer.v1", DEFAULT_POR_ISSUER, "1970-01-01T00:00:00Z", None)
-    ]
+    assert rows == [("customer.Customer.v1", DEFAULT_POR_ISSUER, "1970-01-01T00:00:00Z", None)]
 
     artifacts = emit_json_schema(workspace, tmp_path / "out")
     schema = next(art.content for art in artifacts if art.ref == "customer.Customer@1")

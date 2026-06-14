@@ -225,7 +225,10 @@ def _looks_like_update_request(message: str) -> bool:
         return True
     if re.match(r"^(make|rename|add|remove|delete|change|set|update|replace)\b", lowered):
         return True
-    return any(f" {verb} " in lowered for verb in ("make", "rename", "add", "remove", "delete", "change", "set", "update", "replace"))
+    return any(
+        f" {verb} " in lowered
+        for verb in ("make", "rename", "add", "remove", "delete", "change", "set", "update", "replace")
+    )
 
 
 def _resolve_update_ref(message: str, fallback_ref: str | None) -> str | None:

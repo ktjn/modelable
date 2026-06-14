@@ -62,7 +62,9 @@ def run_diff(from_ref: str, to_ref: str, path: Path) -> None:
             for impact in impacts:
                 status_tag = f"[{impact.status.upper()}]"
                 color = "red" if impact.status == "broken" else "yellow"
-                line = f"- [{color}]{status_tag}[/{color}] {impact.domain_name}.{impact.projection_name}@{impact.version}"
+                line = (
+                    f"- [{color}]{status_tag}[/{color}] {impact.domain_name}.{impact.projection_name}@{impact.version}"
+                )
                 if impact.reason:
                     line += f" ({impact.reason})"
                 console.print(line)

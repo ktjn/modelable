@@ -19,15 +19,13 @@ def wire_targets_from_annotations(annotations) -> dict[str, WireTargetHint]:
                 if hint.type is not None:
                     if merged.type is not None and merged.type != hint.type:
                         raise ValueError(
-                            f"conflicting wire types for target '{target}': "
-                            f"{merged.type!r} vs {hint.type!r}"
+                            f"conflicting wire types for target '{target}': {merged.type!r} vs {hint.type!r}"
                         )
                     merged.type = hint.type
                 if hint.case is not None:
                     if merged.case is not None and merged.case != hint.case:
                         raise ValueError(
-                            f"conflicting wire cases for target '{target}': "
-                            f"{merged.case!r} vs {hint.case!r}"
+                            f"conflicting wire cases for target '{target}': {merged.case!r} vs {hint.case!r}"
                         )
                     merged.case = hint.case
                 if hint.overrides:
@@ -61,9 +59,7 @@ def render_wire_annotation(annotation: AnnWire) -> str:
         if hint.case is not None:
             parts.append(f'{target}.case: "{hint.case}"')
         if hint.overrides:
-            overrides = ", ".join(
-                f'{key}: "{value}"' for key, value in sorted(hint.overrides.items())
-            )
+            overrides = ", ".join(f'{key}: "{value}"' for key, value in sorted(hint.overrides.items()))
             parts.append(f"{target}.overrides: {{ {overrides} }}")
         if hint.field_case is not None:
             parts.append(f'{target}.fieldCase: "{hint.field_case}"')

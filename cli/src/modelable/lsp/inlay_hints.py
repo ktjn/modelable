@@ -7,9 +7,7 @@ from lsprotocol import types
 from modelable.lsp.workspace import LspWorkspaceIndex
 from modelable.registry.resolver import resolve_model_ref
 
-_DOMAIN_PATTERN = re.compile(
-    r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))'
-)
+_DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"

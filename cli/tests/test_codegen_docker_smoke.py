@@ -61,7 +61,7 @@ def _run_docker(workdir: Path, image: str, command: str) -> subprocess.Completed
     mount = f"type=bind,source={workdir.resolve().as_posix()},target=/work"
     # Append a chmod step so root-owned build artifacts in /work become
     # world-accessible, allowing pytest to clean up tmp_path after the test.
-    wrapped = f"{command}; _rc=$?; chmod -R a+rwX /work 2>/dev/null || true; exit \"$_rc\""
+    wrapped = f'{command}; _rc=$?; chmod -R a+rwX /work 2>/dev/null || true; exit "$_rc"'
     return subprocess.run(
         ["docker", "run", "--rm", "--mount", mount, "--workdir", "/work", image, "sh", "-lc", wrapped],
         capture_output=True,
@@ -83,7 +83,9 @@ def _compile_target(tmp_path: Path, target: str) -> tuple[Path, Path]:
 
 
 def _assert_docker_success(result: subprocess.CompletedProcess[str], target: str) -> None:
-    assert result.returncode == 0, f"{target} container build failed\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"{target} container build failed\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
 
 
 @pytest.mark.skipif(not _docker_available(), reason="docker is required for generated-language smoke tests")

@@ -10,9 +10,7 @@ domain customer {
     @key customerId: uuid
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 BROKEN_WORKSPACE_TEXT = """
@@ -21,9 +19,7 @@ domain customer {
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def _index() -> LspWorkspaceIndex:
@@ -82,9 +78,7 @@ domain customer {
     email?: string
   }
 }
-    """.strip(
-        "\n"
-    )
+    """.strip("\n")
     uri = "inmemory://workspace.mdl"
     index = _index()
     index.documents[uri] = type(index.documents[uri])(
@@ -133,9 +127,7 @@ domain customer {
     email?: string
   }
 }
-    """.strip(
-        "\n"
-    )
+    """.strip("\n")
     uri = "inmemory://workspace.mdl"
     index = _index()
     index.documents[uri] = type(index.documents[uri])(
@@ -182,9 +174,7 @@ domain customer {
     @key customerId: uuid
   }
 }
-    """.strip(
-        "\n"
-    )
+    """.strip("\n")
     uri = "inmemory://workspace.mdl"
     index = _index()
     index.documents[uri] = type(index.documents[uri])(
@@ -232,9 +222,7 @@ domain customer {
     @key customerId: uuid
   }
 }
-    """.strip(
-        "\n"
-    )
+    """.strip("\n")
     uri = "inmemory://workspace.mdl"
     index = _index()
     index.documents[uri] = type(index.documents[uri])(

@@ -12,9 +12,7 @@ from modelable.registry.resolver import resolve_model_ref
 _QUALIFIED_REF_PATTERN = re.compile(
     r"(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
-_REF_TYPE_PATTERN = re.compile(
-    r"ref\s*<\s*(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*>"
-)
+_REF_TYPE_PATTERN = re.compile(r"ref\s*<\s*(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*>")
 _FIELD_REF_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
@@ -94,9 +92,7 @@ def _make_ref_hover(workspace, ref: str, line: int, start: int, end: int) -> typ
     else:
         return None
 
-    return _hover_from_info(
-        HoverInfo(markdown=_markdown_block(summary), line=line, start=start, end=end)
-    )
+    return _hover_from_info(HoverInfo(markdown=_markdown_block(summary), line=line, start=start, end=end))
 
 
 def _make_unversioned_ref_hover(
@@ -162,10 +158,7 @@ def _hover_for_bare_word(workspace, text: str, line: int, word: str) -> str | No
     field = next((item for item in projection_version.fields if item.name == word), None)
     if field is None:
         return None
-    return (
-        f"{domain_name}.{name}@{version}.{field.name}\n"
-        f"mapping: {_mapping_text(field)}"
-    )
+    return f"{domain_name}.{name}@{version}.{field.name}\nmapping: {_mapping_text(field)}"
 
 
 def _hover_for_field_reference(
@@ -243,10 +236,7 @@ def _hover_for_field_reference(
     if field is None:
         return None
     return HoverInfo(
-        markdown=_markdown_block(
-            f"{domain_name}.{name}@{version}.{field.name}\n"
-            f"mapping: {_mapping_text(field)}"
-        ),
+        markdown=_markdown_block(f"{domain_name}.{name}@{version}.{field.name}\nmapping: {_mapping_text(field)}"),
         line=line,
         start=start,
         end=end,
@@ -273,8 +263,7 @@ def _hover_for_source_field(
     if getattr(source_field, "mapping", None) is not None:
         return HoverInfo(
             markdown=_markdown_block(
-                f"{domain_name}.{model_name}@{version}.{source_field.name}\n"
-                f"mapping: {_mapping_text(source_field)}"
+                f"{domain_name}.{model_name}@{version}.{source_field.name}\nmapping: {_mapping_text(source_field)}"
             ),
             line=line,
             start=start,

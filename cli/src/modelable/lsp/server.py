@@ -123,9 +123,7 @@ def initialized(ls: ModelableLanguageServer, _params: types.InitializedParams) -
 
 
 @server.feature(types.WORKSPACE_DID_CHANGE_WATCHED_FILES)
-def did_change_watched_files(
-    ls: ModelableLanguageServer, params: types.DidChangeWatchedFilesParams
-) -> None:
+def did_change_watched_files(ls: ModelableLanguageServer, params: types.DidChangeWatchedFilesParams) -> None:
     for change in params.changes:
         uri = change.uri
         index = ls.index_for(uri)
@@ -177,9 +175,7 @@ def did_close(ls: ModelableLanguageServer, params: types.DidCloseTextDocumentPar
     if existing is not None and not existing.done():
         existing.cancel()
     ls.index_for(uri).close_document(uri)
-    ls.text_document_publish_diagnostics(
-        types.PublishDiagnosticsParams(uri=uri, diagnostics=[])
-    )
+    ls.text_document_publish_diagnostics(types.PublishDiagnosticsParams(uri=uri, diagnostics=[]))
 
 
 @server.feature(types.TEXT_DOCUMENT_HOVER)
@@ -205,9 +201,7 @@ def definition(
 
 
 @server.feature(types.TEXT_DOCUMENT_REFERENCES)
-def references(
-    ls: ModelableLanguageServer, params: types.ReferenceParams
-) -> list[types.Location] | None:
+def references(ls: ModelableLanguageServer, params: types.ReferenceParams) -> list[types.Location] | None:
     return build_references(
         ls.index_for(params.text_document.uri),
         params.text_document.uri,
@@ -218,9 +212,7 @@ def references(
 
 
 @server.feature(types.TEXT_DOCUMENT_COMPLETION)
-def completion(
-    ls: ModelableLanguageServer, params: types.CompletionParams
-) -> types.CompletionList:
+def completion(ls: ModelableLanguageServer, params: types.CompletionParams) -> types.CompletionList:
     return build_completion(
         ls.index_for(params.text_document.uri),
         params.text_document.uri,
@@ -264,9 +256,7 @@ def document_formatting(
 
 
 @server.feature(types.TEXT_DOCUMENT_CODE_ACTION)
-def code_action(
-    ls: ModelableLanguageServer, params: types.CodeActionParams
-) -> list[types.CodeAction] | None:
+def code_action(ls: ModelableLanguageServer, params: types.CodeActionParams) -> list[types.CodeAction] | None:
     return build_code_actions(
         ls.index_for(params.text_document.uri),
         params.text_document.uri,
@@ -287,9 +277,7 @@ def semantic_tokens_full(
 
 
 @server.feature(types.TEXT_DOCUMENT_PREPARE_RENAME)
-def prepare_rename(
-    ls: ModelableLanguageServer, params: types.PrepareRenameParams
-) -> types.Range | None:
+def prepare_rename(ls: ModelableLanguageServer, params: types.PrepareRenameParams) -> types.Range | None:
     return build_prepare_rename(
         ls.index_for(params.text_document.uri),
         params.text_document.uri,
@@ -299,9 +287,7 @@ def prepare_rename(
 
 
 @server.feature(types.TEXT_DOCUMENT_RENAME)
-def rename(
-    ls: ModelableLanguageServer, params: types.RenameParams
-) -> types.WorkspaceEdit | None:
+def rename(ls: ModelableLanguageServer, params: types.RenameParams) -> types.WorkspaceEdit | None:
     return build_rename(
         ls.index_for(params.text_document.uri),
         params.text_document.uri,
@@ -324,16 +310,12 @@ def document_highlight(
 
 
 @server.feature(types.TEXT_DOCUMENT_FOLDING_RANGE)
-def folding_range(
-    ls: ModelableLanguageServer, params: types.FoldingRangeParams
-) -> list[types.FoldingRange] | None:
+def folding_range(ls: ModelableLanguageServer, params: types.FoldingRangeParams) -> list[types.FoldingRange] | None:
     return build_folding_ranges(ls.index_for(params.text_document.uri), params.text_document.uri)
 
 
 @server.feature(types.TEXT_DOCUMENT_INLAY_HINT)
-def inlay_hint(
-    ls: ModelableLanguageServer, params: types.InlayHintParams
-) -> list[types.InlayHint] | None:
+def inlay_hint(ls: ModelableLanguageServer, params: types.InlayHintParams) -> list[types.InlayHint] | None:
     return build_inlay_hints(ls.index_for(params.text_document.uri), params.text_document.uri, params.range)
 
 
@@ -355,9 +337,7 @@ def _get_index_for_root(ls: ModelableLanguageServer, root: Path) -> LspWorkspace
     return ls._indexes[root]
 
 
-def _scan_and_load_path(
-    ls: ModelableLanguageServer, folder_path: Path, index: LspWorkspaceIndex
-) -> list[str]:
+def _scan_and_load_path(ls: ModelableLanguageServer, folder_path: Path, index: LspWorkspaceIndex) -> list[str]:
     ls._scanned_dirs.add(folder_path)
     loaded: list[str] = []
     for mdl_file in sorted(folder_path.rglob("*.mdl")):
@@ -371,14 +351,10 @@ def _scan_and_load_path(
     return loaded
 
 
-def _publish_document_diagnostics(
-    ls: ModelableLanguageServer, uri: str, index: LspWorkspaceIndex
-) -> None:
+def _publish_document_diagnostics(ls: ModelableLanguageServer, uri: str, index: LspWorkspaceIndex) -> None:
     workspace = index.workspace
     if workspace is None:
-        ls.text_document_publish_diagnostics(
-            types.PublishDiagnosticsParams(uri=uri, diagnostics=[])
-        )
+        ls.text_document_publish_diagnostics(types.PublishDiagnosticsParams(uri=uri, diagnostics=[]))
         return
     diagnostics = []
     for diagnostic in workspace.errors:

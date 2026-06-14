@@ -52,7 +52,9 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
-    field_specs = _field_specs_from_model_fields(version.fields, owner_type=type_name, path=[], definitions=nested_definitions)
+    field_specs = _field_specs_from_model_fields(
+        version.fields, owner_type=type_name, path=[], definitions=nested_definitions
+    )
 
     lines = _header_lines()
     lines.extend(_render_dataclass_definition(type_name, field_specs))
@@ -89,7 +91,9 @@ def _emit_projection(
             warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
             field_specs.append((index, field.name, "object", False))
             continue
-        annotation = _shape_annotation(field_shape, owner_type=type_name, path=[field.name], definitions=nested_definitions)
+        annotation = _shape_annotation(
+            field_shape, owner_type=type_name, path=[field.name], definitions=nested_definitions
+        )
         optional = field_shape.optional or field_shape.nullable
         field_specs.append((index, field.name, annotation, optional))
 
@@ -177,7 +181,9 @@ def _field_specs_from_object_fields(
 ) -> list[tuple[int, str, str, bool]]:
     specs: list[tuple[int, str, str, bool]] = []
     for index, field in enumerate(fields):
-        annotation = _shape_annotation(field.shape, owner_type=owner_type, path=[*path, field.name], definitions=definitions)
+        annotation = _shape_annotation(
+            field.shape, owner_type=owner_type, path=[*path, field.name], definitions=definitions
+        )
         default_none = field.optional or field.shape.optional or field.shape.nullable
         specs.append((index, field.name, annotation, default_none))
     return specs

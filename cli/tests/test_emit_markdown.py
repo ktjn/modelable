@@ -146,7 +146,7 @@ domain billing {
     assert "**Kind:** projection" in text
     assert "**Auto generated:** no" in text
     assert "**Source:** customer.Customer @ 2 as c" in text
-    assert "**Where:** c.status == \"active\"" in text
+    assert '**Where:** c.status == "active"' in text
     assert "**Group by:** c.status" in text
     assert "## Sources" in text
     assert "customer.Customer" in text
@@ -311,7 +311,9 @@ domain customer {
 
     assert result.exit_code == 0
     assert (out / "customer.Customer.v1.md").exists()
-    assert any(len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split())
+    assert any(
+        len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split()
+    )
     content = (out / "customer.Customer.v1.md").read_text(encoding="utf-8")
     assert "# Customer v1" in content
 
@@ -338,4 +340,6 @@ domain customer {
 
     assert result.exit_code == 0
     assert (out / "customer.Customer.v1.md").exists()
-    assert any(len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split())
+    assert any(
+        len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split()
+    )

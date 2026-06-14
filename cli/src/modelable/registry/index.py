@@ -37,11 +37,7 @@ def build_registry(workspace: Workspace, output_dir: str | Path = ".modelable") 
 
 
 def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
-    source_paths = {
-        id(domain): source.path
-        for source in workspace.sources
-        for domain in source.mdl.domains
-    }
+    source_paths = {id(domain): source.path for source in workspace.sources for domain in source.mdl.domains}
 
     for domain in workspace.mdl.domains:
         conn.execute(
@@ -179,9 +175,7 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                             version.version,
                             "join",
                             join.model,
-                            _to_json(
-                                resolved_version_spec(workspace.mdl, join.model, join.version)
-                            ),
+                            _to_json(resolved_version_spec(workspace.mdl, join.model, join.version)),
                             join.alias,
                             join.on,
                         ),
@@ -226,9 +220,7 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                 )
                 _insert_por_log(
                     conn,
-                    build_por_record(
-                        f"{domain.name}.{projection_name}.v{version.version}"
-                    ).as_dict(),
+                    build_por_record(f"{domain.name}.{projection_name}.v{version.version}").as_dict(),
                 )
 
     for binding in workspace.mdl.bindings:

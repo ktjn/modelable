@@ -9,9 +9,7 @@ entity Customer @ 1 (additive) {
 email?: string
 }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def test_document_formatting_reindents_nested_blocks():
@@ -42,13 +40,7 @@ def test_document_formatting_returns_none_for_unknown_uri():
 
 
 def test_document_formatting_returns_empty_for_already_formatted_text():
-    already_formatted = (
-        "domain customer {\n"
-        "  entity Customer @ 1 (additive) {\n"
-        "    @key customerId: uuid\n"
-        "  }\n"
-        "}"
-    )
+    already_formatted = "domain customer {\n  entity Customer @ 1 (additive) {\n    @key customerId: uuid\n  }\n}"
     index = LspWorkspaceIndex()
     index.upsert_document("inmemory://workspace.mdl", already_formatted)
 

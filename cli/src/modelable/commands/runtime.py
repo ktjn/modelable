@@ -12,10 +12,12 @@ from modelable.runtime.adapter import get_adapter
 def register_runtime_commands(cli_group: click.Group) -> None:
     cli_group.add_command(runtime)
 
+
 @click.group()
 def runtime() -> None:
     """Manage runtime adapter operations."""
     pass
+
 
 @runtime.command()
 @click.option("--adapter", required=True, help="Adapter type (e.g., postgres)")
@@ -27,7 +29,7 @@ def bootstrap(adapter: str, config: str) -> None:
         config_path = Path(config)
         with open(config_path) as f:
             config_data = json.load(f)
-        
+
         adapter_instance.bootstrap(config_data)
         console.print(f"[green]OK[/green] Bootstrapped {adapter}.")
     except Exception as exc:

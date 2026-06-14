@@ -46,15 +46,13 @@ def test_build_registry_populates_domain_model_versions_and_fields(tmp_path):
     registry_path = build_registry(workspace, tmp_path / ".modelable")
 
     with sqlite3.connect(registry_path) as conn:
-        assert conn.execute("select name, owner from domains").fetchall() == [
-            ("customer", "customer-platform")
-        ]
+        assert conn.execute("select name, owner from domains").fetchall() == [("customer", "customer-platform")]
         assert conn.execute("select domain_name, name, kind from models").fetchall() == [
             ("customer", "Customer", "entity")
         ]
-        assert conn.execute(
-            "select domain_name, model_name, version, change_kind from model_versions"
-        ).fetchall() == [("customer", "Customer", 1, "additive")]
+        assert conn.execute("select domain_name, model_name, version, change_kind from model_versions").fetchall() == [
+            ("customer", "Customer", 1, "additive")
+        ]
         assert conn.execute(
             """
             select field_name, position, optional, is_key, is_pii
@@ -88,9 +86,7 @@ domain payments {
     registry_path = build_registry(workspace, tmp_path / ".modelable")
 
     with sqlite3.connect(registry_path) as conn:
-        rows = conn.execute(
-            "select field_name, classification from fields order by position"
-        ).fetchall()
+        rows = conn.execute("select field_name, classification from fields order by position").fetchall()
     assert rows == [
         ("paymentId", None),
         ("cardNumber", "secret"),

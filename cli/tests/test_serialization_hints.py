@@ -1,4 +1,3 @@
-
 import pytest
 
 from modelable.compiler.workspace import load_workspace
@@ -137,9 +136,7 @@ def test_emit_typescript_honors_json_wire_string(tmp_path):
 
     workspace = load_workspace(tmp_path)
     artifact = next(
-        artifact
-        for artifact in emit_typescript(workspace, tmp_path / "out")
-        if artifact.ref == "metrics.Span@1"
+        artifact for artifact in emit_typescript(workspace, tmp_path / "out") if artifact.ref == "metrics.Span@1"
     )
 
     assert "startTimeUnixNano: string;" in artifact.content
@@ -163,9 +160,7 @@ def test_emit_typescript_does_not_apply_json_wire_to_array_items(tmp_path):
 
     workspace = load_workspace(tmp_path)
     artifact = next(
-        artifact
-        for artifact in emit_typescript(workspace, tmp_path / "out")
-        if artifact.ref == "metrics.Span@1"
+        artifact for artifact in emit_typescript(workspace, tmp_path / "out") if artifact.ref == "metrics.Span@1"
     )
 
     assert "samples: number[];" in artifact.content
@@ -190,11 +185,7 @@ def test_emit_rust_honors_inline_object_wire_hints(tmp_path):
     )
 
     workspace = load_workspace(tmp_path)
-    artifact = next(
-        artifact
-        for artifact in emit_rust(workspace, tmp_path / "out")
-        if artifact.ref == "metrics.Span@1"
-    )
+    artifact = next(artifact for artifact in emit_rust(workspace, tmp_path / "out") if artifact.ref == "metrics.Span@1")
 
     assert "pub count: u64," in artifact.content
 

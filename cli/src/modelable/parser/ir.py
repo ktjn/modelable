@@ -203,14 +203,7 @@ class NamedType(BaseModel):
 
 
 FieldType = Annotated[
-    PrimitiveType
-    | DecimalType
-    | ArrayType
-    | MapType
-    | RefType
-    | EnumType
-    | ObjectType
-    | NamedType,
+    PrimitiveType | DecimalType | ArrayType | MapType | RefType | EnumType | ObjectType | NamedType,
     Field(discriminator="kind"),
 ]
 

@@ -19,9 +19,7 @@ domain billing {
     displayEmail = c.email
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 PROJECTION_SOURCE_TEXT = """
 domain customer {
@@ -50,9 +48,7 @@ domain storefront {
     displayId <- p.productId
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def _index() -> LspWorkspaceIndex:
@@ -118,10 +114,7 @@ def test_references_for_projection_field_includes_downstream_usage_and_declarati
 
     assert references is not None
     assert len(references) == 2
-    assert {
-        (location.range.start.line, location.range.start.character)
-        for location in references
-    } == {
+    assert {(location.range.start.line, location.range.start.character) for location in references} == {
         (declaration_line, lines[declaration_line].index("productId")),
         (
             lines.index("    displayId <- p.productId"),

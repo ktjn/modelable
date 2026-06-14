@@ -128,8 +128,12 @@ class AnthropicProvider:
             content=content,
             provider="anthropic",
             model=self.model,
-            prompt_tokens=_int_or_none(response.get("usage", {}).get("input_tokens")) if isinstance(response.get("usage"), dict) else None,
-            completion_tokens=_int_or_none(response.get("usage", {}).get("output_tokens")) if isinstance(response.get("usage"), dict) else None,
+            prompt_tokens=_int_or_none(response.get("usage", {}).get("input_tokens"))
+            if isinstance(response.get("usage"), dict)
+            else None,
+            completion_tokens=_int_or_none(response.get("usage", {}).get("output_tokens"))
+            if isinstance(response.get("usage"), dict)
+            else None,
         )
 
     def _post_json(self, path: str, payload: dict[str, object]) -> dict[str, object]:
@@ -175,5 +179,5 @@ class AnthropicProvider:
 def _int_or_none(value: object) -> int | None:
     try:
         return int(value) if value is not None else None
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None

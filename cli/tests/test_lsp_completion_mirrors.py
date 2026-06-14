@@ -13,9 +13,7 @@ domain local {
     @key localId: uuid
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 MIRROR_TEXT = """
 domain supplier {
@@ -30,9 +28,7 @@ domain supplier {
     supplierId <- s.supplierId
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def _index(tmp_path: Path) -> LspWorkspaceIndex:
@@ -81,9 +77,7 @@ projection BillingCustomer @ 1
 {
   supplierId <- s.supplierId
 }
-""".strip(
-        "\n"
-    )
+""".strip("\n")
     index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
         path=billing_path,
         uri=billing_path.as_uri(),
@@ -113,9 +107,7 @@ domain billing {
     s.
   }
 }
-""".strip(
-        "\n"
-    )
+""".strip("\n")
     index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
         path=billing_path,
         uri=billing_path.as_uri(),
@@ -146,9 +138,7 @@ domain billing {
     s.
   }
 }
-""".strip(
-        "\n"
-    )
+""".strip("\n")
     index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
         path=billing_path,
         uri=billing_path.as_uri(),
@@ -179,9 +169,7 @@ domain billing {
     s.su
   }
 }
-""".strip(
-        "\n"
-    )
+""".strip("\n")
     index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
         path=billing_path,
         uri=billing_path.as_uri(),
@@ -211,9 +199,7 @@ domain billing {
     l.lo
   }
 }
-""".strip(
-        "\n"
-    )
+""".strip("\n")
     index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
         path=billing_path,
         uri=billing_path.as_uri(),
@@ -236,9 +222,7 @@ def test_mirror_completion_suggests_pinned_import_model_names(tmp_path):
     billing_path = tmp_path / "billing.mdl"
     billing_text = """
 import domain supplier from registry "supplier-platform-registry" at supplier.S
-""".strip(
-        "\n"
-    )
+""".strip("\n")
     index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
         path=billing_path,
         uri=billing_path.as_uri(),
@@ -262,9 +246,7 @@ def test_mirror_completion_suggests_pinned_import_versions(tmp_path):
     billing_path = tmp_path / "billing.mdl"
     billing_text = """
 import domain supplier from registry "supplier-platform-registry" at supplier.Supplier @
-""".strip(
-        "\n"
-    )
+""".strip("\n")
     index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
         path=billing_path,
         uri=billing_path.as_uri(),
@@ -287,9 +269,7 @@ def test_mirror_completion_suggests_prefixed_pinned_import_versions(tmp_path):
     billing_path = tmp_path / "billing.mdl"
     billing_text = """
 import domain supplier from registry "supplier-platform-registry" at supplier.Supplier @1
-""".strip(
-        "\n"
-    )
+""".strip("\n")
     index.documents[billing_path.as_uri()] = WorkspaceDocumentSource(
         path=billing_path,
         uri=billing_path.as_uri(),

@@ -94,7 +94,9 @@ domain customer {
 
     assert result.exit_code == 0, result.output
     assert (out / "customer.Customer.v1.cs").exists()
-    assert any(len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split())
+    assert any(
+        len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split()
+    )
     text = (out / "customer.Customer.v1.cs").read_text(encoding="utf-8")
     assert "namespace Modelable.Customer;" in text
     assert "public sealed record CustomerCustomerV1" in text
@@ -124,6 +126,7 @@ domain customer {
         encoding="utf-8",
     )
     from modelable.compiler.workspace import load_workspace
+
     workspace = load_workspace(tmp_path)
     artifacts = emit_csharp(workspace, tmp_path / "out")
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@1")
@@ -159,6 +162,7 @@ domain customer {
         encoding="utf-8",
     )
     from modelable.compiler.workspace import load_workspace
+
     workspace = load_workspace(tmp_path)
     artifacts = emit_csharp(workspace, tmp_path / "out")
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@2")

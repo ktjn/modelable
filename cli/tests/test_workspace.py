@@ -72,10 +72,7 @@ def test_load_workspace_reports_duplicate_model_versions_across_files(tmp_path):
 
     workspace = load_workspace(tmp_path)
 
-    assert any(
-        "duplicate model version customer.Customer@1" in diagnostic.message
-        for diagnostic in workspace.errors
-    )
+    assert any("duplicate model version customer.Customer@1" in diagnostic.message for diagnostic in workspace.errors)
 
 
 def test_load_workspace_reports_auto_projection_generated_name_conflict(tmp_path):

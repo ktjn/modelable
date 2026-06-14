@@ -92,7 +92,9 @@ def _emit_projection(
             csharp_type = "object"
             prefix = "required "
         else:
-            csharp_type = _shape_to_csharp(field_shape, owner_type=type_name, path=[field.name], definitions=nested_definitions)
+            csharp_type = _shape_to_csharp(
+                field_shape, owner_type=type_name, path=[field.name], definitions=nested_definitions
+            )
             prefix = "required " if not (field_shape.optional or field_shape.nullable) else ""
         lines.append(f"    public {prefix}{csharp_type} {_property_name(field.name)} {{ get; init; }}")
     lines.append("}")
@@ -159,7 +161,9 @@ def _shape_base_to_csharp(
         return "decimal"
     if shape.kind == "array":
         element = shape.element or TypeShape(kind="primitive", ref="object")
-        return f"List<{_shape_to_csharp(element, owner_type=owner_type, path=[*path, 'Item'], definitions=definitions)}>"
+        return (
+            f"List<{_shape_to_csharp(element, owner_type=owner_type, path=[*path, 'Item'], definitions=definitions)}>"
+        )
     if shape.kind == "map":
         value = shape.value or TypeShape(kind="primitive", ref="object")
         return f"Dictionary<string, {_shape_to_csharp(value, owner_type=owner_type, path=[*path, 'Value'], definitions=definitions)}>"
@@ -172,7 +176,9 @@ def _shape_base_to_csharp(
     if shape.kind == "object":
         type_name = _nested_type_name(owner_type, path)
         if type_name not in definitions:
-            definitions[type_name] = _build_record_definition(type_name, shape, owner_type=owner_type, path=path, definitions=definitions)
+            definitions[type_name] = _build_record_definition(
+                type_name, shape, owner_type=owner_type, path=path, definitions=definitions
+            )
         return type_name
     return "object"
 

@@ -25,4 +25,3 @@ def render_diagnostic(diagnostic: Diagnostic) -> str:
         if diagnostic.column is not None:
             location += f":{diagnostic.column}"
     return f"{diagnostic.code}: {location}: {diagnostic.message}"
-

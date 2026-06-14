@@ -19,9 +19,7 @@ domain billing {
     displayEmail = c.email
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def test_document_symbols_builds_domain_outline():
@@ -53,4 +51,3 @@ def test_document_symbols_includes_projection_fields():
     field_names = [s.name for s in billing_customer.children]
     assert "billingId" in field_names
     assert "displayEmail" in field_names
-

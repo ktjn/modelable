@@ -22,15 +22,11 @@ domain customer {
     fullName <- c.name
   }
 }
-""".strip(
-    "\n"
-)
+""".strip("\n")
 
 
 def test_lsp_server_advertises_semantic_tokens():
-    result = lsp_server.initialize(
-        lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities())
-    )
+    result = lsp_server.initialize(lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities()))
 
     provider = result.capabilities.semantic_tokens_provider
     assert provider is not None
@@ -55,16 +51,43 @@ def test_semantic_tokens_highlight_model_keywords_names_and_literals():
     lines = SOURCE.splitlines()
 
     assert _token_type_at(tokens, _line_index(lines, "domain customer {"), lines[0].index("customer")) == "namespace"
-    assert _token_type_at(tokens, _line_index(lines, "  entity Customer @ 1 (additive) {"), lines[2].index("Customer")) == "class"
-    assert _token_type_at(tokens, _line_index(lines, "    @key customerId: uuid"), lines[3].index("@key")) == "decorator"
+    assert (
+        _token_type_at(tokens, _line_index(lines, "  entity Customer @ 1 (additive) {"), lines[2].index("Customer"))
+        == "class"
+    )
+    assert (
+        _token_type_at(tokens, _line_index(lines, "    @key customerId: uuid"), lines[3].index("@key")) == "decorator"
+    )
     assert _token_type_at(tokens, _line_index(lines, "    @key customerId: uuid"), lines[3].index("uuid")) == "type"
-    assert _token_type_at(tokens, _line_index(lines, '    name?: string = "Alice" // comment'), lines[4].index('"Alice"')) == "string"
-    assert _token_type_at(tokens, _line_index(lines, '    name?: string = "Alice" // comment'), lines[4].index("// comment")) == "comment"
-    assert _token_type_at(tokens, _line_index(lines, "  projection CustomerView @ 1 {"), lines[7].index("CustomerView")) == "class"
-    assert _token_type_at(tokens, _line_index(lines, "    from customer.Customer @ 1 as c"), lines[8].index("from")) == "keyword"
-    assert _token_type_at(tokens, _line_index(lines, "    from customer.Customer @ 1 as c"), lines[8].index("customer")) == "namespace"
-    assert _token_type_at(tokens, _line_index(lines, "    from customer.Customer @ 1 as c"), lines[8].rindex("c")) == "parameter"
-    assert _token_type_at(tokens, _line_index(lines, "    fullName <- c.name"), lines[9].index("fullName")) == "property"
+    assert (
+        _token_type_at(tokens, _line_index(lines, '    name?: string = "Alice" // comment'), lines[4].index('"Alice"'))
+        == "string"
+    )
+    assert (
+        _token_type_at(
+            tokens, _line_index(lines, '    name?: string = "Alice" // comment'), lines[4].index("// comment")
+        )
+        == "comment"
+    )
+    assert (
+        _token_type_at(tokens, _line_index(lines, "  projection CustomerView @ 1 {"), lines[7].index("CustomerView"))
+        == "class"
+    )
+    assert (
+        _token_type_at(tokens, _line_index(lines, "    from customer.Customer @ 1 as c"), lines[8].index("from"))
+        == "keyword"
+    )
+    assert (
+        _token_type_at(tokens, _line_index(lines, "    from customer.Customer @ 1 as c"), lines[8].index("customer"))
+        == "namespace"
+    )
+    assert (
+        _token_type_at(tokens, _line_index(lines, "    from customer.Customer @ 1 as c"), lines[8].rindex("c"))
+        == "parameter"
+    )
+    assert (
+        _token_type_at(tokens, _line_index(lines, "    fullName <- c.name"), lines[9].index("fullName")) == "property"
+    )
     assert _token_type_at(tokens, _line_index(lines, "    fullName <- c.name"), lines[9].index("c.")) == "variable"
     assert _token_type_at(tokens, _line_index(lines, "    fullName <- c.name"), lines[9].rindex("name")) == "property"
 

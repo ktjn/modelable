@@ -9,6 +9,7 @@ _ADAPTERS = {
     "postgres": PostgresAdapter,
 }
 
+
 def get_adapter(adapter_type: str) -> RuntimeAdapter:
     adapter_class = _ADAPTERS.get(adapter_type)
     if not adapter_class:

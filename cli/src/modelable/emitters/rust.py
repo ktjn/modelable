@@ -34,11 +34,17 @@ def emit_rust(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
         for projection_name, versions in domain.projections.items():
             for version in versions:
                 source = version.source.model
-                artifacts.append(_emit_projection(
-                    domain, projection_name, version, out_dir, workspace.mdl,
-                    sqlx_fromrow=source in postgres_sources,
-                    clickhouse_row=source in clickhouse_sources,
-                ))
+                artifacts.append(
+                    _emit_projection(
+                        domain,
+                        projection_name,
+                        version,
+                        out_dir,
+                        workspace.mdl,
+                        sqlx_fromrow=source in postgres_sources,
+                        clickhouse_row=source in clickhouse_sources,
+                    )
+                )
     return artifacts
 
 
@@ -84,7 +90,9 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
-    field_specs = _field_specs_from_model_fields(version.fields, owner_type=type_name, path=[], definitions=nested_definitions)
+    field_specs = _field_specs_from_model_fields(
+        version.fields, owner_type=type_name, path=[], definitions=nested_definitions
+    )
 
     needs_serde_with = _any_needs_serde_with(field_specs)
     needs_uuid = _any_needs_uuid(field_specs)
@@ -138,7 +146,9 @@ def _emit_projection(
         )
         optional = field_shape.optional or field_shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field_shape, clickhouse=clickhouse_row)
-        field_specs.append(_FieldSpec(index=index, name=field.name, annotation=annotation, optional=optional, serde_attrs=serde_attrs))
+        field_specs.append(
+            _FieldSpec(index=index, name=field.name, annotation=annotation, optional=optional, serde_attrs=serde_attrs)
+        )
 
     needs_serde_with = _any_needs_serde_with(field_specs)
     needs_uuid = _any_needs_uuid(field_specs)
@@ -151,8 +161,16 @@ def _emit_projection(
         extra_derives.append("sqlx::FromRow")
     if clickhouse_row:
         extra_derives.append("clickhouse::Row")
-    lines = _header_lines(serde_with=needs_serde_with, sqlx=sqlx_fromrow, clickhouse=clickhouse_row, uuid=needs_uuid, serde_json=needs_serde_json)
-    lines.extend(_render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated))
+    lines = _header_lines(
+        serde_with=needs_serde_with,
+        sqlx=sqlx_fromrow,
+        clickhouse=clickhouse_row,
+        uuid=needs_uuid,
+        serde_json=needs_serde_json,
+    )
+    lines.extend(
+        _render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated)
+    )
     lines.extend(_render_nested_definitions(nested_definitions))
     lines.extend(_emit_from_impl(type_name, domain.name, version, mdl, storage_gated=storage_gated))
 
@@ -180,9 +198,7 @@ def _projection_field_is_json_passthrough_to_string(proj_field, version: Project
     field_shape = _resolve_projection_field_shape(proj_field, version, mdl)
     if field_shape is None:
         return False
-    is_json_value = (
-        field_shape.kind == "primitive" and field_shape.ref == "json"
-    ) or (
+    is_json_value = (field_shape.kind == "primitive" and field_shape.ref == "json") or (
         field_shape.kind == "map"
         and field_shape.value is not None
         and field_shape.value.kind == "primitive"
@@ -246,7 +262,9 @@ def _emit_from_impl(
             src_rust_name = _field_name(proj_field.mapping.source_field)
             field_shape = _resolve_projection_field_shape(proj_field, version, mdl)
             if _projection_field_is_json_passthrough_to_string(proj_field, version, mdl):
-                lines.append(f"            {rust_name}: serde_json::to_string(&src.{src_rust_name}).unwrap_or_default(),")
+                lines.append(
+                    f"            {rust_name}: serde_json::to_string(&src.{src_rust_name}).unwrap_or_default(),"
+                )
             elif field_shape is not None and _shape_involves_object(field_shape):
                 lines.append(f"            {rust_name}: Default::default(), // nested struct — provide manual impl")
             else:
@@ -282,10 +300,7 @@ def _serde_attrs_for_field(wire: dict, shape: TypeShape, *, clickhouse: bool = F
 
 
 def _any_needs_serde_with(field_specs: list[_FieldSpec]) -> bool:
-    return any(
-        any("serde_with" in attr for attr in spec.serde_attrs)
-        for spec in field_specs
-    )
+    return any(any("serde_with" in attr for attr in spec.serde_attrs) for spec in field_specs)
 
 
 def _any_needs_uuid(field_specs: list[_FieldSpec]) -> bool:
@@ -311,7 +326,14 @@ def _shape_involves_object(shape: TypeShape) -> bool:
     return bool(shape.value is not None and _shape_involves_object(shape.value))
 
 
-def _header_lines(*, serde_with: bool = False, sqlx: bool = False, clickhouse: bool = False, uuid: bool = False, serde_json: bool = False) -> list[str]:
+def _header_lines(
+    *,
+    serde_with: bool = False,
+    sqlx: bool = False,
+    clickhouse: bool = False,
+    uuid: bool = False,
+    serde_json: bool = False,
+) -> list[str]:
     lines = [
         "// @generated by Modelable",
         "use std::collections::HashMap;",
@@ -407,7 +429,11 @@ def _field_specs_from_model_fields(
         )
         default_none = shape.optional or shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, shape)
-        specs.append(_FieldSpec(index=index, name=field.name, annotation=annotation, optional=default_none, serde_attrs=serde_attrs))
+        specs.append(
+            _FieldSpec(
+                index=index, name=field.name, annotation=annotation, optional=default_none, serde_attrs=serde_attrs
+            )
+        )
     return specs
 
 
@@ -430,7 +456,11 @@ def _field_specs_from_object_fields(
         )
         default_none = field.optional or field.shape.optional or field.shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field.shape)
-        specs.append(_FieldSpec(index=index, name=field.name, annotation=annotation, optional=default_none, serde_attrs=serde_attrs))
+        specs.append(
+            _FieldSpec(
+                index=index, name=field.name, annotation=annotation, optional=default_none, serde_attrs=serde_attrs
+            )
+        )
     return specs
 
 
@@ -568,7 +598,7 @@ def _resolve_merged_projection_wire(field, projection: ProjectionVersion, mdl) -
     try:
         source_domain, source_model = projection.source.model.rsplit(".", 1)
         resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", projection.source.version)
-    except (ValueError, LookupError):
+    except ValueError, LookupError:
         return field.wire_targets()
     for src_field in resolved.version.fields:
         if src_field.name == field.mapping.source_field:

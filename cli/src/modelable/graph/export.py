@@ -62,13 +62,9 @@ def build_graph_export(workspace: Workspace, focus: str | None = None) -> dict[s
     selected_ids = _select_focus_subgraph(builder, focus_ref)
     return {
         "kind": "workspace_graph",
-        "nodes": _sorted_nodes(
-            node for node in builder.nodes.values() if node["id"] in selected_ids
-        ),
+        "nodes": _sorted_nodes(node for node in builder.nodes.values() if node["id"] in selected_ids),
         "edges": _sorted_edges(
-            edge
-            for edge in builder.edges.values()
-            if edge["source"] in selected_ids and edge["target"] in selected_ids
+            edge for edge in builder.edges.values() if edge["source"] in selected_ids and edge["target"] in selected_ids
         ),
     }
 
@@ -345,9 +341,7 @@ def _resolve_direct_mapping_ref(
 ) -> str:
     source_model_ref = _alias_map(projection_version).get(source_alias)
     if source_model_ref is None:
-        raise LookupError(
-            f"unknown source alias '{source_alias}' in projection {projection_version.version}"
-        )
+        raise LookupError(f"unknown source alias '{source_alias}' in projection {projection_version.version}")
     resolved = resolve_model_ref(workspace.mdl, source_model_ref.model, source_model_ref.version)
     field_name = source_field
     return f"source_ref:{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}.{field_name}"
@@ -377,7 +371,10 @@ def _select_focus_subgraph(builder: _GraphBuilder, focus_ref) -> set[str]:
                 *(
                     node_id
                     for node_id, node in builder.nodes.items()
-                    if node.get("kind") == "field" and node.get("domain") == focus_ref.domain and node.get("name") == focus_ref.name and node.get("version") == focus_ref.version
+                    if node.get("kind") == "field"
+                    and node.get("domain") == focus_ref.domain
+                    and node.get("name") == focus_ref.name
+                    and node.get("version") == focus_ref.version
                 ),
             }
         )
@@ -398,9 +395,7 @@ def _select_focus_subgraph(builder: _GraphBuilder, focus_ref) -> set[str]:
             }
         )
     else:
-        raise LookupError(
-            f"unknown model or projection {focus_ref.domain}.{focus_ref.name}@{focus_ref.version}"
-        )
+        raise LookupError(f"unknown model or projection {focus_ref.domain}.{focus_ref.name}@{focus_ref.version}")
 
     selected = set(seed_ids)
     changed = True
@@ -421,14 +416,8 @@ def _select_focus_subgraph(builder: _GraphBuilder, focus_ref) -> set[str]:
     return selected
 
 
-def _projection_neighbors_for_model_focus(
-    builder: _GraphBuilder, selected_ids: set[str]
-) -> set[str]:
-    selected_fields = {
-        node_id
-        for node_id in selected_ids
-        if builder.nodes[node_id]["kind"] == "field"
-    }
+def _projection_neighbors_for_model_focus(builder: _GraphBuilder, selected_ids: set[str]) -> set[str]:
+    selected_fields = {node_id for node_id in selected_ids if builder.nodes[node_id]["kind"] == "field"}
     related: set[str] = set()
     for field_id in selected_fields:
         for edge in builder.edges_by_target.get(field_id, ()):
@@ -439,13 +428,9 @@ def _projection_neighbors_for_model_focus(
     return related
 
 
-def _source_neighbors_for_projection_focus(
-    builder: _GraphBuilder, selected_ids: set[str]
-) -> set[str]:
+def _source_neighbors_for_projection_focus(builder: _GraphBuilder, selected_ids: set[str]) -> set[str]:
     selected_projection_fields = {
-        node_id
-        for node_id in selected_ids
-        if builder.nodes[node_id]["kind"] == "projection_field"
+        node_id for node_id in selected_ids if builder.nodes[node_id]["kind"] == "projection_field"
     }
     related: set[str] = set()
     for field_id in selected_projection_fields:

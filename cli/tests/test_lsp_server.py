@@ -19,59 +19,45 @@ def test_lsp_server_is_configured():
 
 
 def test_lsp_server_advertises_completion():
-    result = lsp_server.initialize(
-        lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities())
-    )
+    result = lsp_server.initialize(lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities()))
 
     assert result.capabilities.completion_provider is not None
     assert result.capabilities.completion_provider.trigger_characters == ["@", "."]
 
 
 def test_lsp_server_advertises_references():
-    result = lsp_server.initialize(
-        lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities())
-    )
+    result = lsp_server.initialize(lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities()))
 
     assert result.capabilities.references_provider is True
 
 
 def test_lsp_server_advertises_document_symbols():
-    result = lsp_server.initialize(
-        lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities())
-    )
+    result = lsp_server.initialize(lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities()))
 
     assert result.capabilities.document_symbol_provider is True
 
 
 def test_lsp_server_advertises_workspace_symbols():
-    result = lsp_server.initialize(
-        lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities())
-    )
+    result = lsp_server.initialize(lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities()))
 
     assert result.capabilities.workspace_symbol_provider is not None
 
 
 def test_lsp_server_advertises_formatting():
-    result = lsp_server.initialize(
-        lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities())
-    )
+    result = lsp_server.initialize(lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities()))
 
     assert result.capabilities.document_formatting_provider is True
 
 
 def test_lsp_server_advertises_rename():
-    result = lsp_server.initialize(
-        lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities())
-    )
+    result = lsp_server.initialize(lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities()))
 
     assert result.capabilities.rename_provider is not None
     assert result.capabilities.rename_provider.prepare_provider is True
 
 
 def test_lsp_server_advertises_code_actions():
-    result = lsp_server.initialize(
-        lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities())
-    )
+    result = lsp_server.initialize(lsp_server.server, types.InitializeParams(capabilities=types.ClientCapabilities()))
 
     assert result.capabilities.code_action_provider is not None
     assert result.capabilities.code_action_provider.code_action_kinds == [types.CodeActionKind.QuickFix]
@@ -184,7 +170,9 @@ def test_did_change_debounce_cancels_previous_task():
 
         ls = _FakeServer()
 
-        with patch.object(lsp_server, "_publish_document_diagnostics", side_effect=lambda _ls, _uri, _idx: publish_calls.append(_uri)):
+        with patch.object(
+            lsp_server, "_publish_document_diagnostics", side_effect=lambda _ls, _uri, _idx: publish_calls.append(_uri)
+        ):
             params = types.DidChangeTextDocumentParams(
                 text_document=types.VersionedTextDocumentIdentifier(uri="inmemory://test.mdl", version=1),
                 content_changes=[types.TextDocumentContentChangeWholeDocument(text="domain x {}")],

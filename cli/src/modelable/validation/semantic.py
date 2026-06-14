@@ -55,7 +55,7 @@ def _is_scalar_max_min(expression: str, match: re.Match) -> bool:
     if match.group(1).lower() not in _SCALAR_MAX_MIN:
         return False
     depth = 1
-    for ch in expression[match.end():]:
+    for ch in expression[match.end() :]:
         if ch == "(":
             depth += 1
         elif ch == ")":
@@ -123,14 +123,16 @@ def _validate_models(
                 diagnostics.append(
                     _diag(
                         "SEM",
-                        f"{fqn}: versions must be strictly ascending, "
-                        f"but found {previous} followed by {current}",
+                        f"{fqn}: versions must be strictly ascending, but found {previous} followed by {current}",
                         path,
                     )
                 )
 
         for version in versions:
-            if version.model_kind in (ModelKind.entity, ModelKind.aggregate, ModelKind.event) and not version.has_version_header:
+            if (
+                version.model_kind in (ModelKind.entity, ModelKind.aggregate, ModelKind.event)
+                and not version.has_version_header
+            ):
                 diagnostics.append(
                     _diag(
                         "SEM",
@@ -138,25 +140,25 @@ def _validate_models(
                         path,
                     )
                 )
-            elif version.model_kind in (ModelKind.entity, ModelKind.aggregate, ModelKind.event) and not version.has_change_kind:
-                 diagnostics.append(
+            elif (
+                version.model_kind in (ModelKind.entity, ModelKind.aggregate, ModelKind.event)
+                and not version.has_change_kind
+            ):
+                diagnostics.append(
                     _diag(
                         "SEM",
                         f"{fqn}@{version.version}: {version.model_kind.value} must have a change kind (additive) or (breaking)",
                         path,
                     )
                 )
-            _validate_declaration_wire_annotations(
-                f"{fqn}@{version.version}", version, diagnostics, path
-            )
+            _validate_declaration_wire_annotations(f"{fqn}@{version.version}", version, diagnostics, path)
             key_fields = [field for field in version.fields if field.is_key]
             if version.model_kind in (ModelKind.entity, ModelKind.aggregate):
                 if len(key_fields) != 1:
                     diagnostics.append(
                         _diag(
                             "SEM",
-                            f"{fqn}@{version.version}: {version.model_kind.value} "
-                            "must have exactly one @key field",
+                            f"{fqn}@{version.version}: {version.model_kind.value} must have exactly one @key field",
                             path,
                         )
                     )
@@ -164,8 +166,7 @@ def _validate_models(
                 diagnostics.append(
                     _diag(
                         "SEM",
-                        f"{fqn}@{version.version}: {version.model_kind.value} "
-                        "must not have an @key field",
+                        f"{fqn}@{version.version}: {version.model_kind.value} must not have an @key field",
                         path,
                     )
                 )
@@ -195,9 +196,7 @@ def _validate_projections(
     for projection_name, versions in projections.items():
         fqn = f"{domain_name}.{projection_name}"
         for version in versions:
-            _validate_declaration_wire_annotations(
-                f"{fqn}@{version.version}", version, diagnostics, path
-            )
+            _validate_declaration_wire_annotations(f"{fqn}@{version.version}", version, diagnostics, path)
             has_group_by = bool(version.group_by)
             for field in version.fields:
                 mapping = field.mapping
@@ -495,9 +494,12 @@ def _validate_json_wire_hint(
             )
         )
         return
-    if field_type is not None and not is_enum and not (
-        (isinstance(field_type, PrimitiveType) and field_type.kind == "int")
-        or isinstance(field_type, DecimalType)
+    if (
+        field_type is not None
+        and not is_enum
+        and not (
+            (isinstance(field_type, PrimitiveType) and field_type.kind == "int") or isinstance(field_type, DecimalType)
+        )
     ):
         diagnostics.append(
             _diag(
@@ -528,8 +530,10 @@ def _validate_rust_wire_hint(
             )
         )
         return
-    if hint.type is not None and field_type is not None and not (
-        isinstance(field_type, PrimitiveType) and field_type.kind == "int"
+    if (
+        hint.type is not None
+        and field_type is not None
+        and not (isinstance(field_type, PrimitiveType) and field_type.kind == "int")
     ):
         diagnostics.append(
             _diag(
@@ -641,7 +645,7 @@ def _resolve_field_type_from_version(mdl: MdlFile, version, field_name: str):
             return None
         try:
             source_domain, source_model = version.source.model.rsplit(".", 1)
-        except (ValueError, AttributeError):
+        except ValueError, AttributeError:
             return None
         try:
             resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", version.source.version)

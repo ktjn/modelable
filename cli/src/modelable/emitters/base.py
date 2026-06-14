@@ -9,7 +9,7 @@ from pathlib import Path
 @dataclass
 class EmittedArtifact:
     target: str
-    ref: str          # "domain.Name@version"
+    ref: str  # "domain.Name@version"
     artifact_id: str  # "domain.Name.vVersion"
     path: Path
     content: dict | str

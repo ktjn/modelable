@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@jetbrains/junie-cli": "^1468.30.0"
+  }
+}

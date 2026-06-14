@@ -87,8 +87,7 @@ domain billing {
     workspace = load_workspace(source)
 
     assert any(
-        "unresolved model reference customer.Customer@1" in diagnostic.message
-        for diagnostic in workspace.errors
+        "unresolved model reference customer.Customer@1" in diagnostic.message for diagnostic in workspace.errors
     )
 
 

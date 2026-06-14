@@ -38,11 +38,7 @@ def resolve_llm_config(
         or (workspace.ai.model if workspace and workspace.ai and workspace.ai.model else None)
     )
 
-    base_url = (
-        flag_base_url
-        or values.get("MODELABLE_LLM_BASE_URL")
-        or values.get("OLLAMA_HOST")
-    )
+    base_url = flag_base_url or values.get("MODELABLE_LLM_BASE_URL") or values.get("OLLAMA_HOST")
 
     repair_attempts = _resolve_repair_attempts(
         flag_repair_attempts=None,

@@ -39,9 +39,7 @@ _TOKEN_SPEC: list[tuple[str, str]] = [
     ("WS", r"\s+"),
 ]
 
-_MASTER_RE = re.compile(
-    "|".join(f"(?P<{name}>{pattern})" for name, pattern in _TOKEN_SPEC)
-)
+_MASTER_RE = re.compile("|".join(f"(?P<{name}>{pattern})" for name, pattern in _TOKEN_SPEC))
 
 
 @dataclass(frozen=True)
@@ -451,8 +449,7 @@ def _walk(
     if isinstance(expr, FieldRef):
         if expr.alias == "":
             errors.append(
-                f"CEL002: {ctx.fqn}: bare identifier '{expr.field}' is not allowed — "
-                "use alias.field notation"
+                f"CEL002: {ctx.fqn}: bare identifier '{expr.field}' is not allowed — use alias.field notation"
             )
             return
         if expr.alias not in ctx.source_fields:
@@ -486,17 +483,13 @@ def _walk(
     if isinstance(expr, FunctionCall):
         name = expr.name
         if name in _NON_DETERMINISTIC_FUNCTIONS:
-            errors.append(
-                f"CEL007: {ctx.fqn}: non-deterministic function '{name}' is not allowed"
-            )
+            errors.append(f"CEL007: {ctx.fqn}: non-deterministic function '{name}' is not allowed")
         elif name not in _SCALAR_FUNCTIONS and name not in _AGGREGATE_FUNCTIONS:
             errors.append(f"CEL005: {ctx.fqn}: unsupported function '{name}'")
         # max/min with 2+ args act as scalar greatest/least, not as row aggregates
         is_scalar_max_min = name in ("max", "min") and len(expr.args) > 1
         if name in _AGGREGATE_FUNCTIONS and not ctx.has_group_by and not is_scalar_max_min:
-            errors.append(
-                f"CEL006: {ctx.fqn}: aggregate function '{name}' used in projection without group by"
-            )
+            errors.append(f"CEL006: {ctx.fqn}: aggregate function '{name}' used in projection without group by")
         for arg in expr.args:
             _walk(arg, ctx, errors, refs)
         if expr.where_filter is not None:

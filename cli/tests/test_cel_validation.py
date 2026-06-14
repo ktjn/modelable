@@ -1,4 +1,3 @@
-
 from modelable.expressions.cel import (
     BinaryOp,
     CelContext,
@@ -146,7 +145,7 @@ def test_aggregate_with_group_by_is_valid():
 
 def test_valid_scalar_functions():
     for func in ["lower", "upper", "trim", "toString", "coalesce"]:
-        ast, _ = parse_cel(f'{func}(c.name)')
+        ast, _ = parse_cel(f"{func}(c.name)")
         result = validate_cel_expr(ast, _ctx({"c": {"name"}}))
         assert not any("CEL005" in e for e in result.errors), f"{func} should be allowed"
 
@@ -183,14 +182,14 @@ def test_extract_refs_from_comparison():
 
 
 def test_extract_multiple_refs():
-    ast, _ = parse_cel("c.status == \"active\" && c.name != \"deleted\"")
+    ast, _ = parse_cel('c.status == "active" && c.name != "deleted"')
     refs = extract_field_refs(ast)
     assert ("c", "status") in refs
     assert ("c", "name") in refs
 
 
 def test_extract_refs_from_ternary():
-    ast, _ = parse_cel('c.flag ? c.a : c.b')
+    ast, _ = parse_cel("c.flag ? c.a : c.b")
     refs = extract_field_refs(ast)
     assert ("c", "flag") in refs
     assert ("c", "a") in refs

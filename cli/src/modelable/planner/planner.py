@@ -35,19 +35,13 @@ def _expand_domain_auto_projections(domain: DomainDef) -> list[str]:
     for decl in domain.auto_projections:
         model_versions = domain.models.get(decl.model)
         if model_versions is None:
-            errors.append(
-                f"{domain.name}: auto projections references unknown model "
-                f"'{decl.model}'"
-            )
+            errors.append(f"{domain.name}: auto projections references unknown model '{decl.model}'")
             continue
 
-        model_version = next(
-            (mv for mv in model_versions if mv.version == decl.version), None
-        )
+        model_version = next((mv for mv in model_versions if mv.version == decl.version), None)
         if model_version is None:
             errors.append(
-                f"{domain.name}: auto projections references "
-                f"{decl.model}@{decl.version} which does not exist"
+                f"{domain.name}: auto projections references {decl.model}@{decl.version} which does not exist"
             )
             continue
 

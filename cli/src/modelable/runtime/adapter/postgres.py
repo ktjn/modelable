@@ -31,6 +31,7 @@ def type_to_postgres(field_type: FieldType) -> str:
         return "TEXT"
     return "TEXT"
 
+
 class PostgresAdapter(RuntimeAdapter):
     """PostgreSQL runtime adapter."""
 
@@ -55,19 +56,19 @@ class PostgresAdapter(RuntimeAdapter):
             for record in data:
                 columns = record.keys()
                 values = [record[col] for col in columns]
-                
+
                 # Construct UPSERT
                 col_names = ", ".join(columns)
                 placeholders = ", ".join(["%s"] * len(columns))
                 update_stmt = ", ".join([f"{col} = EXCLUDED.{col}" for col in columns if col not in keys])
-                
+
                 query = f"""
                         INSERT INTO {table_name} ({col_names})
                         VALUES ({placeholders})
-                        ON CONFLICT ({', '.join(keys)})
+                        ON CONFLICT ({", ".join(keys)})
                         DO UPDATE SET {update_stmt};
                     """
-                
+
                 cur.execute(query, values)
             conn.commit()
 
@@ -77,5 +78,5 @@ class PostgresAdapter(RuntimeAdapter):
         for field in fields:
             pg_type = type_to_postgres(field.type)
             columns.append(f"{field.name} {pg_type}")
-        
+
         return f"CREATE TABLE IF NOT EXISTS {table_name} (\n  {', '.join(columns)}\n);"

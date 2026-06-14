@@ -50,9 +50,10 @@ domain customer {
     assert art.target == "json-schema"
     assert art.ref == "customer.Customer@1"
     assert art.artifact_id == "customer.Customer.v1"
-    assert art.content_hash == hashlib.sha256(
-        (json.dumps(art.content, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
-    ).hexdigest()
+    assert (
+        art.content_hash
+        == hashlib.sha256((json.dumps(art.content, indent=2, ensure_ascii=False) + "\n").encode("utf-8")).hexdigest()
+    )
 
     schema = art.content
     assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
@@ -340,8 +341,7 @@ domain customer {
     assert result.exit_code == 0
     assert (out / "customer.Customer.v1.json").exists()
     assert any(
-        len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower())
-        for part in result.output.split()
+        len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split()
     )
     schema = json.loads((out / "customer.Customer.v1.json").read_text(encoding="utf-8"))
     assert schema["title"] == "Customer"

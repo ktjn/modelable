@@ -92,7 +92,9 @@ def _emit_projection(
             warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
             java_type = "Object"
         else:
-            java_type = _shape_to_java(field_shape, owner_type=type_name, path=[field.name], definitions=nested_definitions)
+            java_type = _shape_to_java(
+                field_shape, owner_type=type_name, path=[field.name], definitions=nested_definitions
+            )
         params.append(f"    {java_type} {_field_name(field.name)}")
     lines.append(f"public record {type_name}(")
     lines.append(",\n".join(params))

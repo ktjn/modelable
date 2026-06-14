@@ -28,9 +28,7 @@ def test_public_repository_files_exist() -> None:
 
 
 def test_python_package_has_public_alpha_metadata() -> None:
-    pyproject = tomllib.loads(
-        (REPOSITORY_ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8")
-    )
+    pyproject = tomllib.loads((REPOSITORY_ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8"))
     project = pyproject["project"]
 
     assert project["version"] == "0.5.0"
@@ -54,26 +52,18 @@ def test_extension_metadata_matches_release() -> None:
 
 
 def test_release_versions_and_licenses_agree() -> None:
-    pyproject = tomllib.loads(
-        (REPOSITORY_ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8")
-    )
+    pyproject = tomllib.loads((REPOSITORY_ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8"))
     package = json.loads((REPOSITORY_ROOT / "vscode" / "package.json").read_text(encoding="utf-8"))
     version = pyproject["project"]["version"]
 
     assert package["version"] == version
     assert f"## [{version}]" in (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert (REPOSITORY_ROOT / "LICENSE").read_bytes() == (
-        REPOSITORY_ROOT / "cli" / "LICENSE"
-    ).read_bytes()
-    assert (REPOSITORY_ROOT / "LICENSE").read_bytes() == (
-        REPOSITORY_ROOT / "vscode" / "LICENSE"
-    ).read_bytes()
+    assert (REPOSITORY_ROOT / "LICENSE").read_bytes() == (REPOSITORY_ROOT / "cli" / "LICENSE").read_bytes()
+    assert (REPOSITORY_ROOT / "LICENSE").read_bytes() == (REPOSITORY_ROOT / "vscode" / "LICENSE").read_bytes()
 
 
 def test_release_workflow_uses_trusted_publishing_and_builds_vsix() -> None:
-    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "release.yml").read_text(
-        encoding="utf-8"
-    )
+    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
 
     assert "environment: pypi" in workflow
     assert "id-token: write" in workflow

@@ -6,16 +6,12 @@ from lsprotocol import types
 
 from modelable.lsp.workspace import LspWorkspaceIndex
 
-_DOMAIN_PATTERN = re.compile(
-    r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))'
-)
+_DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
-_FIELD_PATTERN = re.compile(
-    r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\??\s*:"
-)
+_FIELD_PATTERN = re.compile(r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\??\s*:")
 _PROJECTION_FIELD_PATTERN = re.compile(
     r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:<-|=)"
 )
@@ -104,7 +100,9 @@ def _make_domain_symbol(
         detail="domain",
         range=types.Range(
             start=types.Position(line=line_no, character=0),
-            end=types.Position(line=_block_end_line(lines, line_no), character=len(lines[_block_end_line(lines, line_no)])),
+            end=types.Position(
+                line=_block_end_line(lines, line_no), character=len(lines[_block_end_line(lines, line_no)])
+            ),
         ),
         selection_range=types.Range(
             start=types.Position(line=line_no, character=_domain_name_start(lines[line_no])),
@@ -128,7 +126,9 @@ def _make_decl_symbol(
         detail=detail,
         range=types.Range(
             start=types.Position(line=line_no, character=0),
-            end=types.Position(line=_block_end_line(lines, line_no), character=len(lines[_block_end_line(lines, line_no)])),
+            end=types.Position(
+                line=_block_end_line(lines, line_no), character=len(lines[_block_end_line(lines, line_no)])
+            ),
         ),
         selection_range=types.Range(
             start=types.Position(line=line_no, character=_decl_name_start(lines[line_no])),

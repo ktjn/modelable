@@ -142,10 +142,7 @@ def test_aggregate_function_without_group_by_fails():
 
     errors = validate(mdl)
 
-    assert any(
-        "group by" in error.lower() or "aggregat" in error.lower()
-        for error in errors
-    )
+    assert any("group by" in error.lower() or "aggregat" in error.lower() for error in errors)
 
 
 def test_valid_classification_levels_pass():
@@ -338,10 +335,7 @@ def test_inline_object_wire_hints_are_validated_recursively():
 
     errors = validate(mdl)
 
-    assert any(
-        "payload" in error.lower() and "unsupported json wire encoding" in error.lower()
-        for error in errors
-    )
+    assert any("payload" in error.lower() and "unsupported json wire encoding" in error.lower() for error in errors)
 
 
 def test_rust_type_override_is_rejected_on_non_int_fields():

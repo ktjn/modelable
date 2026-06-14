@@ -85,8 +85,8 @@ def test_anthropic_provider_posts_messages_payload(monkeypatch):
     assert response.prompt_tokens == 12
     assert response.completion_tokens == 4
     assert captured["url"] == "https://api.anthropic.com/v1/messages"
-    assert "\"model\": \"claude-sonnet-4-20250514\"" in captured["body"]
-    assert "\"system\": \"system\"" in captured["body"]
+    assert '"model": "claude-sonnet-4-20250514"' in captured["body"]
+    assert '"system": "system"' in captured["body"]
     headers = {key.lower(): value for key, value in captured["headers"].items()}
     assert headers["x-api-key"] == "test-key"
     assert headers["anthropic-version"] == "2023-06-01"
@@ -115,9 +115,7 @@ def test_ollama_provider_posts_chat_payload(monkeypatch):
         captured["timeout"] = timeout
         return DummyResponse(
             json.dumps(
-                {
-                    "message": {"content": "{\"target\":\"customer.Customer@1\",\"target_kind\":\"model\",\"changes\":[]}"}
-                }
+                {"message": {"content": '{"target":"customer.Customer@1","target_kind":"model","changes":[]}'}}
             ).encode("utf-8")
         )
 
@@ -128,7 +126,7 @@ def test_ollama_provider_posts_chat_payload(monkeypatch):
     assert response.model == "llama3.1"
     assert response.content.startswith("{")
     assert captured["url"] == "http://localhost:11434/api/chat"
-    assert "\"model\": \"llama3.1\"" in captured["body"]
+    assert '"model": "llama3.1"' in captured["body"]
     assert captured["timeout"] == 5.0
 
 
@@ -246,7 +244,9 @@ domain customer {
             "customer.Customer@1",
             "make email optional",
             provider=BrokenProvider(),
-            llm_config=LlmConfig(provider="ollama", model="llama3.1", base_url=None, repair_attempts=0, source="workspace"),
+            llm_config=LlmConfig(
+                provider="ollama", model="llama3.1", base_url=None, repair_attempts=0, source="workspace"
+            ),
             write=False,
         )
 
@@ -514,14 +514,17 @@ domain customer {
             json.dumps(
                 {
                     "content": [
-                        {"type": "text", "text": json.dumps(
-                            {
-                                "target": "customer.Customer@1",
-                                "target_kind": "model",
-                                "warnings": ["anthropic update"],
-                                "changes": [{"kind": "make_optional", "field": "email"}],
-                            }
-                        )}
+                        {
+                            "type": "text",
+                            "text": json.dumps(
+                                {
+                                    "target": "customer.Customer@1",
+                                    "target_kind": "model",
+                                    "warnings": ["anthropic update"],
+                                    "changes": [{"kind": "make_optional", "field": "email"}],
+                                }
+                            ),
+                        }
                     ],
                     "usage": {"input_tokens": 9, "output_tokens": 2},
                 }
@@ -591,7 +594,9 @@ domain customer {
     assert "Wrote changes to" not in update_text
     assert "@@" in update_text
     assert "email?: string" in update_text
-    assert mdl.read_text(encoding="utf-8") == """
+    assert (
+        mdl.read_text(encoding="utf-8")
+        == """
 domain customer {
   owner: "platform"
   entity Customer @ 1 (additive) {
@@ -600,6 +605,7 @@ domain customer {
   }
 }
 """
+    )
 
 
 def test_chat_update_command_shows_preview_with_provider(tmp_path):

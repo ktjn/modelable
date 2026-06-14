@@ -88,6 +88,7 @@ def test_version_range_resolution_fails_on_unsatisfied_range():
     )
 
     import pytest
+
     source_ref = "customer.Customer"
     version_range = VersionMin(min_inclusive=2)
     with pytest.raises(LookupError, match="unresolved model reference"):
@@ -107,11 +108,12 @@ def test_version_range_resolution_fails_if_breaking_change_in_range():
     )
 
     import pytest
+
     source_ref = "customer.Customer"
     # Range >=1 should find 3, but 2 is breaking relative to 1.
     # So it should not automatically resolve past 2.
     version_range = VersionMin(min_inclusive=1)
-    
+
     # Current implementation might just take the max. Let's see.
     with pytest.raises(LookupError, match="breaking change"):
         resolve_model_ref(mdl, source_ref, version_range)

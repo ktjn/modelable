@@ -53,7 +53,9 @@ def render_mdl(mdl: MdlFile) -> str:
     return "\n".join(lines) + ("\n" if lines else "")
 
 
-def render_model_version(domain_name: str, model_name: str, version: ModelVersion, owner: str | None = None, description: str | None = None) -> str:
+def render_model_version(
+    domain_name: str, model_name: str, version: ModelVersion, owner: str | None = None, description: str | None = None
+) -> str:
     return render_mdl(
         MdlFile(
             domains=[
@@ -68,7 +70,13 @@ def render_model_version(domain_name: str, model_name: str, version: ModelVersio
     )
 
 
-def render_projection_version(domain_name: str, projection_name: str, version: ProjectionVersion, owner: str | None = None, description: str | None = None) -> str:
+def render_projection_version(
+    domain_name: str,
+    projection_name: str,
+    version: ProjectionVersion,
+    owner: str | None = None,
+    description: str | None = None,
+) -> str:
     return render_mdl(
         MdlFile(
             domains=[
@@ -84,7 +92,7 @@ def render_projection_version(domain_name: str, projection_name: str, version: P
 
 
 def _render_domain(domain: DomainDef) -> list[str]:
-    lines = [f'domain {domain.name} {{']
+    lines = [f"domain {domain.name} {{"]
     if domain.owner:
         lines.append(f'  owner: "{domain.owner}"')
     if domain.description:
@@ -123,9 +131,7 @@ def _render_projection(projection_name: str, version: ProjectionVersion) -> list
         f"  from {version.source.model} @ {_render_version_spec(version.source.version)} as {version.source.alias}"
     )
     for join in version.joins:
-        lines.append(
-            f"  join {join.model} @ {_render_version_spec(join.version)} as {join.alias} on {join.on}"
-        )
+        lines.append(f"  join {join.model} @ {_render_version_spec(join.version)} as {join.alias} on {join.on}")
     if version.group_by:
         lines.append(f"  group by {', '.join(version.group_by)}")
     lines.append("{")
@@ -176,7 +182,7 @@ def _render_generate_target(target: GenerateTarget) -> str:
 
 def _render_binding(binding: BindingDef) -> list[str]:
     lines = [f"binding {binding.name} {{"]
-    lines.append(f'  model: {binding.model} @ {binding.model_version}')
+    lines.append(f"  model: {binding.model} @ {binding.model_version}")
     lines.append(f"  adapter: {binding.adapter}")
     if binding.table:
         lines.append(f'  table: "{binding.table}"')

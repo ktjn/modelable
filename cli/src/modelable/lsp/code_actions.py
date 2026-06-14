@@ -13,9 +13,7 @@ _DECL_PATTERN = re.compile(
 _MODEL_WITHOUT_VERSION_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value)\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\{"
 )
-_FIELD_PATTERN = re.compile(
-    r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\??\s*:"
-)
+_FIELD_PATTERN = re.compile(r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\??\s*:")
 
 
 def build_code_actions(
@@ -92,21 +90,17 @@ def _has_missing_key_diagnostic(diagnostics: list[types.Diagnostic]) -> bool:
 
 def _has_missing_owner_diagnostic(diagnostics: list[types.Diagnostic]) -> bool:
     return any(
-        diagnostic.code == "SEM" and "must have an owner attribute" in diagnostic.message
-        for diagnostic in diagnostics
+        diagnostic.code == "SEM" and "must have an owner attribute" in diagnostic.message for diagnostic in diagnostics
     )
 
 
 def _has_missing_version_diagnostic(diagnostics: list[types.Diagnostic]) -> bool:
     return any(
-        diagnostic.code == "SEM" and "must have a version header" in diagnostic.message
-        for diagnostic in diagnostics
+        diagnostic.code == "SEM" and "must have a version header" in diagnostic.message for diagnostic in diagnostics
     )
 
 
-def _missing_key_action(
-    text: str, uri: str, diagnostics: list[types.Diagnostic]
-) -> list[types.CodeAction] | None:
+def _missing_key_action(text: str, uri: str, diagnostics: list[types.Diagnostic]) -> list[types.CodeAction] | None:
     lines = text.splitlines()
     in_model = False
     for line_no, line in enumerate(lines):
@@ -148,9 +142,7 @@ def _missing_key_action(
     return None
 
 
-def _missing_owner_action(
-    text: str, uri: str, diagnostics: list[types.Diagnostic]
-) -> list[types.CodeAction] | None:
+def _missing_owner_action(text: str, uri: str, diagnostics: list[types.Diagnostic]) -> list[types.CodeAction] | None:
     lines = text.splitlines()
     for line_no, line in enumerate(lines):
         if "domain" in line and "{" in line:
@@ -186,9 +178,7 @@ def _missing_owner_action(
     return None
 
 
-def _missing_version_action(
-    text: str, uri: str, diagnostics: list[types.Diagnostic]
-) -> list[types.CodeAction] | None:
+def _missing_version_action(text: str, uri: str, diagnostics: list[types.Diagnostic]) -> list[types.CodeAction] | None:
     lines = text.splitlines()
     for line_no, line in enumerate(lines):
         match = _MODEL_WITHOUT_VERSION_PATTERN.match(line)
