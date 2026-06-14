@@ -36,10 +36,26 @@ def resolve_model_ref(
             f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}"
         )
 
+    selected = max(matching, key=lambda version: version.version)
+
+    # If using a range or min spec, ensure no breaking change exists between
+    # the requested start and the selected version.
+    if isinstance(version_spec, (VersionRange, VersionMin)):
+        min_v = version_spec.min_inclusive
+        # Check all versions from min_v + 1 up to selected.version
+        for v in versions:
+            if min_v < v.version <= selected.version:
+                from modelable.parser.ir import ChangeKind
+                if v.change_kind == ChangeKind.breaking:
+                    raise LookupError(
+                        f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}: "
+                        f"breaking change at version {v.version} blocks automatic resolution"
+                    )
+
     return ResolvedModelRef(
         domain_name=domain_name,
         model_name=model_name,
-        version=max(matching, key=lambda version: version.version),
+        version=selected,
     )
 
 

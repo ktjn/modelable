@@ -34,6 +34,27 @@ npm test
 
 Docker is required for generated-language compiler smoke tests.
 
+## Development Flow and Gates
+
+To maintain quality and stability, all contributions must pass through the
+following gates:
+
+1. **Local CI**: Before opening a pull request, you must run the local gate
+   commands (see [Development setup](#development-setup)). Any changed code
+   must pass all tests locally.
+2. **GitHub Verification**: All pull requests must pass the automated GitHub
+   Actions CI before they can be merged. Verify that all status checks are
+   green on the PR.
+3. **Dependency Freshness**: Keep project dependencies up to date with their
+   latest stable versions. When adding or updating dependencies, ensure you
+   are using the latest compatible versions available.
+4. **Compatibility**: Maintain backward compatibility within major versions.
+   Breaking changes to the `.mdl` language, IR, or CLI behavior require an
+   explicit design decision and a major version bump for the tools.
+5. **Testing**: Add or update tests for any change. If your change affects the
+   IDL or CLI behavior, you must add compatibility tests to verify that
+   existing models and workflows remain functional.
+
 ## Pull requests
 
 A pull request should explain the intent, affected behavior, verification

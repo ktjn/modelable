@@ -32,12 +32,15 @@ Agents must:
 - Validate current latest stable framework, library, CLI, build-tool, and scaffolding choices with a web search against official documentation, package registries, or release pages before adding or changing them.
 - Use the latest stable framework and tool versions by default, unless the specification, compatibility constraints, existing manifests, or explicit user direction require a different version.
 - Record any deliberate use of an older framework or tool version in the final handoff or PR body.
-- Use `uv` exclusively for Python version management, project setup, dependency management, lockfile generation, and tool execution.
+- Use `uv` exclusively for Python version management, project setup, dependency management, lockfile generation, and tool execution. Keep packages up to date with the latest stable versions.
 - Preserve the existing domain language: domain-owned canonical models, immutable versions, projections, subscriptions, adapter bindings, planner/runtime/materializer, compatibility, lineage, and governance.
+- Maintain backward compatibility within major versions for the `.mdl` language and CLI.
 - Prefer explicit derivation and traceability over implicit behavior.
 - Identify whether a change is MVP, deferred, non-goal, or open decision when adding requirements.
 - Avoid broad architecture or tooling churn unless it directly supports the requested change.
 - Record verification evidence in the final handoff or PR body.
+- **Local CI Requirement**: Run the full local gate and ensure all tests pass before reporting a task as complete or creating a PR.
+- **GitHub Verification**: Verify that GitHub Actions CI passes for any pushed changes.
 - **Strategic Re-evaluation**: If a fix fails more than 3 times, stop and re-evaluate assumptions. Propose an alternative architectural approach rather than continuing to patch a failing one.
 
 Agents must not:
