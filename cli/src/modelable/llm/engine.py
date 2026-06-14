@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 from os import environ
 from pathlib import Path
 
+from modelable.compat.diff import FieldChange, compare_model_versions
 from modelable.compiler.workspace import load_workspace
 from modelable.diagnostics.model import render_diagnostic
 from modelable.emitters.csharp import emit_csharp
@@ -37,6 +39,7 @@ from modelable.llm.update_plan import (
 from modelable.llm.validation_help import explain_validation_errors
 from modelable.parser.ir import (
     AnnKey,
+    ChangeKind,
     DirectMapping,
     FieldDef,
     MdlFile,
@@ -80,6 +83,25 @@ class UpdatePlanResult:
     provider: str
     model: str
     diagnostics_repaired: int
+
+
+@dataclass(frozen=True)
+class AttachResult:
+    path: Path
+    source_path: Path
+    ref: str
+    original_content: str
+    content: str
+    warnings: list[str]
+    attached: bool
+    from_version: int
+    to_version: int | None
+    change_kind: str | None
+    changes: list[FieldChange]
+    source_format: str
+    source_name: str
+    source_descriptor: str
+    source_hash: str
 
 
 def describe_path_or_ref(path: Path | None = None, ref: str | None = None) -> str:
@@ -362,6 +384,169 @@ def update_definition(
         provider=provider_name,
         model=model_name,
         diagnostics_repaired=diagnostics_repaired,
+    )
+
+
+_BREAKING_ATTACH_CHANGE_KINDS = {"removed_field", "type_changed", "enum_changed", "identity_changed"}
+
+
+def attach_external_version(
+    path: Path,
+    ref: str,
+    source: Path | str,
+    source_format: str,
+    *,
+    source_name: str | None = None,
+    output: Path | None = None,
+    write: bool = True,
+) -> AttachResult:
+    """Attach a model version to an external dbt or FHIR source.
+
+    If the external source's fields differ from the referenced model version, append a
+    new `.mdl` version block with a computed `additive`/`breaking` change kind.
+    """
+    workspace = load_workspace(path)
+    model_ref = parse_model_ref(ref)
+    source_path = _find_source_path_for_ref(workspace, model_ref.domain, model_ref.name)
+    if source_path is None:
+        raise ValueError(f"Could not find source file for {ref}")
+
+    mdl_text = source_path.read_text(encoding="utf-8")
+    mdl = parse_text_to_ir(mdl_text)
+    domain = next((item for item in mdl.domains if item.name == model_ref.domain), None)
+    if domain is None:
+        raise ValueError(f"Unknown domain: {model_ref.domain}")
+    versions = domain.models.get(model_ref.name)
+    if not versions:
+        raise ValueError(f"Unknown model: {ref}")
+    current = next((item for item in versions if item.version == model_ref.version), None)
+    if current is None:
+        raise ValueError(f"Unknown model version: {ref}")
+
+    if isinstance(source, Path):
+        source_text = source.read_text(encoding="utf-8")
+        source_descriptor = str(source)
+    else:
+        source_text = source
+        source_descriptor = "inline"
+    imported = import_from_text(source_text, source_format, domain_name=model_ref.domain, source_name=source_name)
+    source_hash = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+
+    new_fields = _build_attached_fields(current.fields, imported.model_version.fields)
+    candidate_version = ModelVersion(
+        model_kind=current.model_kind,
+        version=current.version,
+        change_kind=current.change_kind,
+        fields=new_fields,
+    )
+    changes = compare_model_versions(current, candidate_version)
+
+    if not changes:
+        return AttachResult(
+            path=output or source_path,
+            source_path=source_path,
+            ref=ref,
+            original_content=mdl_text,
+            content=mdl_text,
+            warnings=imported.warnings,
+            attached=False,
+            from_version=current.version,
+            to_version=None,
+            change_kind=None,
+            changes=[],
+            source_format=source_format,
+            source_name=imported.source_name,
+            source_descriptor=source_descriptor,
+            source_hash=source_hash,
+        )
+
+    change_kind = _classify_attach_change_kind(changes)
+    next_version_number = max(item.version for item in versions) + 1
+    new_version = ModelVersion(
+        model_kind=current.model_kind,
+        version=next_version_number,
+        change_kind=ChangeKind(change_kind),
+        fields=new_fields,
+    )
+    versions.append(new_version)
+
+    new_text = render_mdl(mdl)
+    _, errors = validate_generated_text(new_text)
+    if errors:
+        raise ValueError("Attached definition failed validation: " + "; ".join(errors))
+
+    out_path = output or source_path
+    if write:
+        out_path.write_text(new_text, encoding="utf-8")
+
+    return AttachResult(
+        path=out_path,
+        source_path=source_path,
+        ref=ref,
+        original_content=mdl_text,
+        content=new_text,
+        warnings=imported.warnings,
+        attached=True,
+        from_version=current.version,
+        to_version=next_version_number,
+        change_kind=change_kind,
+        changes=changes,
+        source_format=source_format,
+        source_name=imported.source_name,
+        source_descriptor=source_descriptor,
+        source_hash=source_hash,
+    )
+
+
+def _build_attached_fields(old_fields: list[FieldDef], candidate_fields: list[FieldDef]) -> list[FieldDef]:
+    """Combine the current field set with imported fields, preserving existing annotations."""
+    candidate_by_name = {field.name: field for field in candidate_fields}
+    old_names = {field.name for field in old_fields}
+    new_fields: list[FieldDef] = []
+    for old_field in old_fields:
+        candidate = candidate_by_name.get(old_field.name)
+        if candidate is None:
+            continue
+        new_fields.append(
+            FieldDef(
+                name=old_field.name,
+                type=candidate.type,
+                optional=candidate.optional,
+                default=old_field.default,
+                annotations=list(old_field.annotations),
+            )
+        )
+    for candidate in candidate_fields:
+        if candidate.name not in old_names:
+            new_fields.append(
+                FieldDef(
+                    name=candidate.name,
+                    type=candidate.type,
+                    optional=candidate.optional,
+                    default=candidate.default,
+                    annotations=list(candidate.annotations),
+                )
+            )
+    return new_fields
+
+
+def _classify_attach_change_kind(changes: list[FieldChange]) -> str:
+    for change in changes:
+        if change.kind in _BREAKING_ATTACH_CHANGE_KINDS:
+            return "breaking"
+        if change.kind == "nullability_changed" and change.from_optional and not change.to_optional:
+            return "breaking"
+    return "additive"
+
+
+def render_attach_audit_summary(result: AttachResult) -> str:
+    return render_write_audit_summary(
+        provider="local",
+        model="modelable-local",
+        validation_status="passed",
+        files_written=str(result.path),
+        inputs=f"ref={result.ref} source={result.source_descriptor} format={result.source_format}",
+        diagnostics_repaired=0,
     )
 
 

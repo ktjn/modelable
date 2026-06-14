@@ -4,10 +4,16 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 from modelable.llm.render import render_model_version
 from modelable.parser.ir import (
+    AnnClassification,
     AnnKey,
+    Annotation,
+    AnnOwner,
     AnnPii,
     ArrayType,
     ChangeKind,
@@ -15,6 +21,7 @@ from modelable.parser.ir import (
     DomainDef,
     EnumType,
     FieldDef,
+    FieldType,
     MdlFile,
     ModelKind,
     ModelVersion,
@@ -41,7 +48,9 @@ class ImportedModel:
         return MdlFile(domains=[DomainDef(name=self.domain_name, models={self.model_name: [self.model_version]})])
 
 
-def import_from_text(source_text: str, source_format: str, *, domain_name: str | None = None) -> ImportedModel:
+def import_from_text(
+    source_text: str, source_format: str, *, domain_name: str | None = None, source_name: str | None = None
+) -> ImportedModel:
     source_format = source_format.lower()
     if source_format == "json-schema":
         return _import_json_schema(source_text, domain_name=domain_name)
@@ -53,11 +62,19 @@ def import_from_text(source_text: str, source_format: str, *, domain_name: str |
         return _import_protobuf(source_text, domain_name=domain_name)
     if source_format in {"sql", "ddl"}:
         return _import_sql(source_text, domain_name=domain_name)
+    if source_format == "dbt":
+        return _import_dbt(source_text, domain_name=domain_name, source_name=source_name)
+    if source_format == "fhir":
+        return _import_fhir(source_text, domain_name=domain_name, source_name=source_name)
     raise ValueError(f"Unsupported source format: {source_format}")
 
 
-def import_from_path(path: str | Path, source_format: str, *, domain_name: str | None = None) -> ImportedModel:
-    return import_from_text(Path(path).read_text(encoding="utf-8"), source_format, domain_name=domain_name)
+def import_from_path(
+    path: str | Path, source_format: str, *, domain_name: str | None = None, source_name: str | None = None
+) -> ImportedModel:
+    return import_from_text(
+        Path(path).read_text(encoding="utf-8"), source_format, domain_name=domain_name, source_name=source_name
+    )
 
 
 def _import_json_schema(source_text: str, *, domain_name: str | None) -> ImportedModel:
@@ -165,6 +182,148 @@ def _import_sql(source_text: str, *, domain_name: str | None) -> ImportedModel:
             field.optional = False
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("sql", table_name, domain, _sanitize_ident(_basename_name(table_name)), version, warnings)
+
+
+def _import_dbt(source_text: str, *, domain_name: str | None, source_name: str | None = None) -> ImportedModel:
+    doc = yaml.safe_load(source_text) or {}
+    models = doc.get("models") or []
+    if not models:
+        raise ValueError("dbt schema document does not declare any models")
+    if source_name is not None:
+        model = next((item for item in models if item.get("name") == source_name), None)
+        if model is None:
+            raise ValueError(f"dbt model '{source_name}' not found in source")
+    else:
+        model = models[0]
+    name = model.get("name") or "DbtModel"
+    domain = domain_name or _guess_domain_name(name)
+    fields: list[FieldDef] = []
+    warnings: list[str] = []
+    for column in model.get("columns") or []:
+        fields.append(_field_from_dbt_column(column, warnings))
+    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
+    return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
+
+
+def _field_from_dbt_column(column: dict[str, Any], warnings: list[str]) -> FieldDef:
+    name = column["name"]
+    data_type = column.get("data_type")
+    field_type: FieldType
+    if data_type:
+        field_type = _sql_type_to_field_type(data_type)
+    else:
+        warnings.append(f"Column '{name}' has no data_type; defaulting to string")
+        field_type = PrimitiveType(kind="string")
+
+    constraint_types = {
+        constraint.get("type") for constraint in column.get("constraints") or [] if isinstance(constraint, dict)
+    }
+    annotations: list[Annotation] = []
+    if "primary_key" in constraint_types:
+        annotations.append(AnnKey())
+    optional = "not_null" not in constraint_types and "primary_key" not in constraint_types
+
+    meta = column.get("meta") or {}
+    if meta.get("modelable_pii"):
+        annotations.append(AnnPii())
+    classification = meta.get("modelable_classification")
+    if classification:
+        annotations.append(AnnClassification(level=str(classification)))
+    owner = meta.get("modelable_owner")
+    if owner:
+        annotations.append(AnnOwner(team=str(owner)))
+
+    return FieldDef(name=name, type=field_type, optional=optional, annotations=annotations)
+
+
+_FHIR_PRIMITIVE_TYPES = {
+    "string": "string",
+    "code": "string",
+    "id": "string",
+    "markdown": "string",
+    "uri": "string",
+    "url": "string",
+    "canonical": "string",
+    "oid": "string",
+    "boolean": "bool",
+    "integer": "int",
+    "integer64": "int",
+    "positiveInt": "int",
+    "unsignedInt": "int",
+    "decimal": "float",
+    "dateTime": "timestamp",
+    "instant": "timestamp",
+    "date": "date",
+    "time": "time",
+    "base64Binary": "binary",
+}
+
+
+def _import_fhir(source_text: str, *, domain_name: str | None, source_name: str | None = None) -> ImportedModel:
+    doc = json.loads(source_text)
+    if doc.get("resourceType") != "StructureDefinition":
+        raise ValueError("FHIR source must be a StructureDefinition resource")
+    resource_type = doc.get("type") or doc.get("name") or "FhirResource"
+    name = doc.get("name") or resource_type
+    domain = domain_name or _guess_domain_name(resource_type)
+
+    elements = (doc.get("snapshot") or {}).get("element") or (doc.get("differential") or {}).get("element") or []
+    fields: list[FieldDef] = []
+    warnings: list[str] = []
+    for element in elements:
+        path = element.get("path", "")
+        segments = path.split(".")
+        if len(segments) != 2:
+            continue
+        field_name = segments[1]
+        if field_name.endswith("[x]"):
+            field_name = field_name[: -len("[x]")]
+            warnings.append(f"Choice-type element '{path}' flattened to '{field_name}'")
+        fields.append(_field_from_fhir_element(field_name, element, warnings))
+
+    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
+    return ImportedModel("fhir", name, domain, _sanitize_ident(resource_type), version, warnings)
+
+
+def _field_from_fhir_element(field_name: str, element: dict[str, Any], warnings: list[str]) -> FieldDef:
+    path = element.get("path", field_name)
+    types = element.get("type") or []
+    field_type: FieldType
+    if not types:
+        warnings.append(f"Element '{path}' has no declared type; defaulting to string")
+        field_type = PrimitiveType(kind="string")
+    else:
+        if len(types) > 1:
+            codes = ", ".join(str(item.get("code", "?")) for item in types)
+            warnings.append(f"Element '{path}' has multiple types ({codes}); using the first")
+        field_type = _fhir_type_to_field_type(types[0], path, warnings)
+
+    binding = element.get("binding") or {}
+    if binding.get("strength") == "required" and binding.get("valueSet"):
+        warnings.append(
+            f"Element '{path}' has a required binding to {binding['valueSet']}; "
+            "represent as enum(...) manually if a fixed value set is known"
+        )
+
+    optional = element.get("min", 0) == 0
+    annotations: list[Annotation] = []
+    if field_name == "id":
+        annotations.append(AnnKey())
+    return FieldDef(name=field_name, type=field_type, optional=optional, annotations=annotations)
+
+
+def _fhir_type_to_field_type(type_entry: dict[str, Any], path: str, warnings: list[str]) -> FieldType:
+    code = type_entry.get("code", "")
+    if code in _FHIR_PRIMITIVE_TYPES:
+        return PrimitiveType(kind=_FHIR_PRIMITIVE_TYPES[code])
+    if code == "Reference":
+        targets = type_entry.get("targetProfile") or []
+        if targets:
+            return RefType(target=str(targets[0]).rsplit("/", 1)[-1])
+        warnings.append(f"Element '{path}' is an untyped Reference; falling back to named type")
+        return NamedType(name="Reference")
+    warnings.append(f"Element '{path}' has unsupported FHIR type '{code}'; falling back to named type")
+    return NamedType(name=code or "Unknown")
 
 
 def _fields_from_json_schema(schema: dict) -> tuple[list[FieldDef], list[str]]:

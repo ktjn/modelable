@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 
 import click
@@ -12,11 +13,13 @@ from modelable.llm.config import resolve_llm_config
 from modelable.llm.context import build_workspace_summary
 from modelable.llm.engine import (
     answer_model_question_cli,
+    attach_external_version,
     describe_path_or_ref,
     explain_validation,
     generate_entity_from_prompt,
     import_definition,
     recommend_cli,
+    render_attach_audit_summary,
     render_update_audit_summary,
     render_write_audit_summary,
     suggest_projection,
@@ -24,7 +27,12 @@ from modelable.llm.engine import (
     update_definition,
     validate_generated_text,
 )
-from modelable.llm.provenance import build_write_provenance, write_provenance_sidecar
+from modelable.llm.provenance import (
+    AttachmentRecord,
+    build_write_provenance,
+    write_attachment_record,
+    write_provenance_sidecar,
+)
 from modelable.llm.providers import build_provider
 
 console = Console()
@@ -36,6 +44,7 @@ def register_llm_commands(cli_group: click.Group) -> None:
     cli_group.add_command(import_model)
     cli_group.add_command(diff)
     cli_group.add_command(update)
+    cli_group.add_command(attach)
     cli_group.add_command(transform)
     cli_group.add_command(suggest_projection_cmd)
     cli_group.add_command(ask)
@@ -238,6 +247,80 @@ def update(
         console.print(f"[yellow]WARN[/yellow] {warning}")
     if not preview:
         console.print(render_update_audit_summary(result))
+
+
+@click.command()
+@click.argument("ref")
+@click.option(
+    "--source",
+    "source",
+    type=click.Path(exists=True, path_type=Path),
+    required=True,
+    help="External dbt schema.yml or FHIR StructureDefinition JSON file.",
+)
+@click.option("--source-format", "source_format", type=click.Choice(["dbt", "fhir"]), required=True)
+@click.option(
+    "--source-name",
+    "source_name",
+    default=None,
+    help="dbt model name or FHIR resource name to match, if the source defines multiple.",
+)
+@click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option("--output", "output", type=click.Path(path_type=Path), default=None)
+@click.option("--preview", is_flag=True, help="Show the new version diff without writing changes.")
+def attach(
+    ref: str,
+    source: Path,
+    source_format: str,
+    source_name: str | None,
+    path: Path,
+    output: Path | None,
+    preview: bool,
+) -> None:
+    """Attach a model version to an external dbt or FHIR source and record drift as a new version."""
+    try:
+        result = attach_external_version(
+            path, ref, source, source_format, source_name=source_name, output=output, write=not preview
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    for warning in result.warnings:
+        console.print(f"[yellow]WARN[/yellow] {warning}")
+
+    if not result.attached:
+        console.print(
+            f"[green]OK[/green] {ref} already matches {result.source_descriptor} "
+            f"({result.source_format}); no new version created"
+        )
+        return
+
+    if preview:
+        from modelable.llm.chat import _render_update_preview
+
+        console.print(_render_update_preview(result))
+        return
+
+    write_attachment_record(
+        result.path,
+        AttachmentRecord(
+            ref=result.ref,
+            source_format=result.source_format,
+            source_name=result.source_name,
+            source_path=result.source_descriptor,
+            source_hash=result.source_hash,
+            from_version=result.from_version,
+            to_version=result.to_version,
+            change_kind=result.change_kind,
+            changes=[asdict(change) for change in result.changes],
+        ),
+    )
+    console.print(result.content.rstrip())
+    console.print(
+        f"[green]OK[/green] attached {ref} to {result.source_descriptor} "
+        f"({result.source_format}); new version {result.to_version} ({result.change_kind})"
+    )
+    console.print(render_attach_audit_summary(result))
 
 
 @click.command()

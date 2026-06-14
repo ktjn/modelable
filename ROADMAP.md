@@ -16,6 +16,10 @@ item is not committed until it has an issue and an accepted design.
 - External artifact registry integration.
 - Catalog and governance-system integration.
 - Open Data Contract Standard interchange.
+- dbt schema/source export and import (see
+  [docs/dbt-fhir-tool-alignment.md](docs/dbt-fhir-tool-alignment.md)).
+- FHIR R4 profile export and import for a small base-resource set (see
+  [docs/dbt-fhir-tool-alignment.md](docs/dbt-fhir-tool-alignment.md)).
 - Additional artifact formats driven by concrete consumers.
 
 ## Later
