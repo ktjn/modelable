@@ -21,6 +21,7 @@ from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
 from modelable.planner.plans import write_plans
+from modelable.registry.factory import get_registry
 from modelable.registry.index import build_registry
 
 _DEFAULT_OUT_DIRS: dict[str, Path] = {
@@ -50,11 +51,20 @@ def register_compile_commands(cli_group: click.Group) -> None:
     default=None,
     help="Directory for target artifacts.",
 )
-def compile(source: Path, target: str, out_dir: Path | None) -> None:
+@click.option(
+    "--registry",
+    "registry_path",
+    type=click.Path(path_type=Path),
+    default=Path(".modelable/registry.db"),
+    help="Path to the registry index file.",
+)
+def compile(source: Path, target: str, out_dir: Path | None, registry_path: Path) -> None:
     """Compile Modelable definitions and write the local registry index."""
     workspace = load_workspace_or_exit(source)
 
-    registry_path = build_registry(workspace, Path(".modelable"))
+    build_registry(workspace, registry_path.parent)
+    registry = get_registry(registry_path)
+    registry.push(registry_path)
     console.print(f"[green]OK[/green] wrote {registry_path}")
 
     plans_dir = Path(".modelable/plans")
