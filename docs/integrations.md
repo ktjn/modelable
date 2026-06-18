@@ -24,10 +24,11 @@ deterministic artifact generation. External systems may own artifact storage,
 catalog UI, generated-code consumption, interchange, and runtime execution.
 
 Current local outputs include JSON Schema, Markdown, TypeScript, C#, Java,
-Python, Rust, and Go. `modelable attach` provides the shipped dbt/FHIR drift
-workflow described below. Artifact registries, catalog synchronization, ODCS,
-additional schema targets, CDC, brokers, materializers, and API gateways remain
-deferred until they have an issue and accepted design.
+Python, Rust, Go, SQL DDL, dbt `schema.yml`, FHIR R4 profiles, and
+OpenMetadata JSON. `modelable attach` provides the shipped dbt/FHIR drift
+workflow described below. Live artifact-registry publishing, live catalog
+synchronization, ODCS, additional schema targets, CDC, brokers, materializers,
+and API gateways remain deferred until they have an issue and accepted design.
 
 Earlier evaluations considered TypeSpec, Smithy, LinkML, CUE, dbt, Malloy,
 GraphQL, JSON Schema, Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI,
@@ -94,7 +95,7 @@ Add a `dbt-yaml` (working name) compile target that generates dbt
 `schema.yml` fragments for a model or projection:
 
 ```bash
-modelable compile customer.Customer@2 --target dbt-yaml --out ./dist/dbt
+modelable compile ./models --target dbt-yaml --out ./dist/dbt
 ```
 
 Generated output should map:
@@ -192,7 +193,7 @@ projection whose lineage traces to a declared FHIR base resource, generates a
 FHIR R4 `StructureDefinition` with `derivation: constraint`:
 
 ```bash
-modelable compile clinical.PatientSummary@1 --target fhir-profile --out ./dist/fhir
+modelable compile ./models --target fhir-profile --out ./dist/fhir
 ```
 
 Mapping:

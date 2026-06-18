@@ -71,12 +71,13 @@ modelable compile customer.mdl --target typescript --out generated/types
 - Trace projection fields to canonical source fields.
 - Report structurally missing access and classification metadata.
 - Expand automatic database, request, reply, and event projections.
-- Generate JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, Go, and SQL artifacts.
+- Generate JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, Go, SQL
+  DDL, dbt `schema.yml`, FHIR R4 profile, and OpenMetadata JSON artifacts.
 - Provide diagnostics, completion, hover, navigation, references, rename, formatting, and other editor features through the language server.
 - Import or assist with models through optional LLM provider integrations.
 
-The local compiler is the supported alpha surface. External registries,
-catalog integration, distributed synchronization, and runtime materialization
+The local compiler is the supported alpha surface. Live external registry and
+catalog publishing, distributed synchronization, and runtime materialization
 remain roadmap work.
 
 ## Development

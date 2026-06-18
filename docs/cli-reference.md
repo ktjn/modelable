@@ -13,9 +13,9 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 
 | Phase | Scope | Status |
 |:------|:------|:-------|
-| 1 | Local modelling compiler (validate, resolve, lineage, diff, compile, docs) | MVP |
+| 1 | Local modelling compiler (validate, resolve, lineage, diff, compile, docs, local artifact targets) | MVP |
 | 2 | Artifact registry integration (Apicurio Registry) | Deferred |
-| 3 | Catalog / governance integration (OpenMetadata) | Deferred |
+| 3 | Catalog / governance integration (OpenMetadata) | Local export target implemented; live publish deferred |
 | 4 | Contract interchange (Open Data Contract Standard) | Deferred |
 
 ## 3. Installation and Runtime
@@ -208,10 +208,11 @@ modelable diff customer.Customer@1 customer.Customer@2
 ### 5.5 `compile` — Compile definitions to artifact formats
 
 ```text
-modelable compile SOURCE --target TARGET [--out DIR] [--path PATH]
+modelable compile SOURCE --target TARGET [--out DIR] [--registry PATH]
 ```
 
-Compiles model and projection definitions to a target artifact format. `SOURCE` can be a path to a `.mdl` file or directory, or a model reference (`domain.ModelName@version`).
+Compiles model and projection definitions to a target artifact format. `SOURCE`
+is a path to a `.mdl` file or directory.
 
 In addition to the requested artifact format, `compile` always writes a `registry.db` SQLite index and plan documents to `.modelable/` in the current directory. These derived files are build artifacts — not source files — and should be added to `.gitignore`.
 
@@ -219,17 +220,27 @@ In addition to the requested artifact format, `compile` always writes a `registr
 
 | Flag | Required | Default | Description |
 |:-----|:---------|:--------|:------------|
-| `--target`, `-t` | Yes | — | Output format: `json-schema`, `typescript`, or `markdown` |
+| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, or `openmetadata` |
 | `--out`, `-o` | No | `./dist/<format>` | Output directory |
-| `--path`, `-p` | No | `.` | Search path when SOURCE is a model reference |
+| `--registry` | No | `.modelable/registry.db` | Registry index path |
 
 **Default output subdirectories:**
 
 | Target | Default output directory |
 |:-------|:------------------------|
 | `json-schema` | `./dist/jsonschema` |
-| `typescript` | `./dist/types` |
 | `markdown` | `./dist/docs` |
+| `typescript` | `./dist/types` |
+| `csharp` | `./dist/csharp` |
+| `java` | `./dist/java` |
+| `python` | `./dist/python` |
+| `rust` | `./dist/rust` |
+| `go` | `./dist/go` |
+| `sql-postgres` | `./dist/sql/postgres` |
+| `sql-clickhouse` | `./dist/sql/clickhouse` |
+| `dbt-yaml` | `./dist/dbt` |
+| `fhir-profile` | `./dist/fhir` |
+| `openmetadata` | `./dist/openmetadata` |
 
 **Artifact ID convention:** `domain.Name.vVersion` (used as filename stem).
 
@@ -237,9 +248,9 @@ In addition to the requested artifact format, `compile` always writes a `registr
 
 ```bash
 modelable compile ./models --target json-schema --out ./dist/jsonschema
-modelable compile customer.Customer@2 --target json-schema
-modelable compile customer.Customer@2 --target typescript
+modelable compile ./models --target typescript
 modelable compile ./models --target markdown --out ./dist/docs
+modelable compile ./models --target openmetadata --out ./dist/openmetadata
 ```
 
 ---
@@ -422,7 +433,7 @@ Displays supported artifact output formats and the type mapping from Modelable f
 
 | Flag | Description |
 |:-----|:------------|
-| `--format FORMAT` | Target format to show type mappings for (`json-schema`, `typescript`, `markdown`) |
+| `--format FORMAT` | Target format to show type mappings for any implemented target listed by `modelable codegen formats` |
 
 ---
 
@@ -496,9 +507,13 @@ modelable graph export ./models --focus customer.CustomerView@1 --out ./dist/cus
 modelable export openmetadata [PATH] --out FILE
 ```
 
-**Phase 3 — not yet implemented.**
+**Phase 3 — command form not yet implemented.** The shipped local export path is
+`modelable compile PATH --target openmetadata --out DIR`. Live catalog publish
+remains deferred.
 
-Exports domain, model, and projection metadata to a JSON file suitable for OpenMetadata catalog ingestion.
+The planned `export openmetadata` command would export domain, model, and
+projection metadata to a single JSON file suitable for OpenMetadata catalog
+ingestion. The current compile target writes one JSON artifact per domain.
 
 **Modelable → OpenMetadata mapping:**
 
@@ -521,8 +536,7 @@ The output document contains three top-level arrays: `domains`, `assets`, and `l
 **Examples:**
 
 ```bash
-modelable export openmetadata ./models --out ./dist/openmetadata.json
-modelable publish openmetadata ./dist/openmetadata.json
+modelable compile ./models --target openmetadata --out ./dist/openmetadata
 ```
 
 ---
@@ -650,7 +664,10 @@ Sections 10.1 through 10.5 and 10.9 describe shipped local commands. Federated
 registry management, dependent write-back queries, and signature verification
 in sections 10.6 through 10.8 remain deferred.
 
-The current `codegen` command reports the implemented formats in this repository, including C#, Java, Python, Rust, and Go. Additional future first-class generated-language targets remain deferred until their dedicated emitters exist.
+The current `codegen` command reports all implemented formats in this repository,
+including C#, Java, Python, Rust, Go, SQL DDL, dbt YAML, FHIR R4 profiles, and
+OpenMetadata JSON. Additional future first-class generated-language targets
+remain deferred until their dedicated emitters exist.
 
 ### 10.1 `inspect` — Inspect compiler-expanded definitions
 

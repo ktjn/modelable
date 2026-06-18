@@ -3,7 +3,9 @@
 > **Scope:** Compiler outputs, emitters, compatibility metadata, lineage, and
 > generated-artifact guarantees.
 
-> **Status:** Approved for Phase 1 targets; later target mappings are deferred by phase.
+> **Status:** Approved for Phase 1 targets and selected local integration
+> emitters; live registry, catalog, and runtime integrations remain deferred by
+> phase.
 >
 > **Scope:** Output target generation from the normalized Modelable model graph.
 
@@ -20,11 +22,14 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | JSON Schema 2020-12 | 1 | Required |
 | TypeScript via `json-schema-to-typescript` | 1 | Required |
 | Markdown documentation | 1 | Required |
-| OpenMetadata export | 3 | Deferred |
+| C#, Java, Python, Rust, and Go | 1 | Implemented |
+| SQL DDL | 5 | Implemented local artifact |
+| dbt `schema.yml` | 4 | Implemented local artifact |
+| FHIR R4 profile | 4b | Implemented local artifact |
+| OpenMetadata export | 3 | Implemented local artifact; live sync deferred |
 | ODCS export | 4 | Deferred |
 | Avro | 5 | Deferred |
 | Protobuf | 5 | Deferred |
-| SQL DDL | 5 | Deferred |
 | OpenAPI | 5 | Deferred |
 | AsyncAPI | 5 | Deferred |
 
@@ -153,15 +158,19 @@ Markdown must avoid embedding secrets from bindings.
 
 ## 9. Deferred Target Notes
 
-Deferred emitters must preserve Modelable semantics when implemented:
+Deferred and integration emitters must preserve Modelable semantics when
+implemented:
 
 - Avro: preserve logical types and field defaults; avoid incompatible schema evolution.
 - Protobuf: preserve deterministic field numbering through explicit metadata or generated registry state.
 - SQL DDL: treat SQL as a binding/materialization artifact, not canonical model truth.
+- dbt YAML: describe schemas and model/source metadata without making dbt the source of truth.
+- FHIR R4 profiles: map only explicitly supported profile concepts and fail or warn on representational loss.
 - OpenAPI: generate schemas from projections, not necessarily canonical entities.
 - AsyncAPI: generate event channels from event projections and change event envelopes.
 - ODCS: export data contracts while keeping `.mdl` as source of truth.
-- OpenMetadata: export ownership, lineage, and classification metadata.
+- OpenMetadata: export ownership, lineage, and classification metadata. Live
+  catalog publishing remains outside the local emitter boundary.
 - Generated-language targets beyond TypeScript: C#, Java, Python, Rust, and Go. These targets are implemented in the local codegen boundary; additional future targets stay deferred.
 
 ## 10. Diagnostics
@@ -185,6 +194,7 @@ Emitter diagnostics are warnings unless the artifact cannot be generated correct
 ## 12. Acceptance Criteria
 
 - Phase 1 emits JSON Schema, TypeScript, and Markdown for models and projections.
+- Implemented local emitters are deterministic and appear in `modelable codegen formats`.
 - JSON Schema output validates against draft 2020-12.
 - Generated artifacts include version metadata and `x-modelable-*` extensions where supported.
 - Projection artifacts include field-level lineage.

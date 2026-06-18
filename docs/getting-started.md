@@ -23,7 +23,7 @@ Create or copy a `.mdl` workspace, then run:
 
 ```bash
 modelable validate ./models
-modelable compile ./models --out ./dist
+modelable compile ./models --target json-schema --out ./dist/jsonschema
 modelable docs ./models --out ./dist/docs
 ```
 
