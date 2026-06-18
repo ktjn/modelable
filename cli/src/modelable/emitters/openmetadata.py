@@ -1,14 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
-from modelable.parser.ir import (
-    DomainDef,
-    ProjectionVersion,
-)
 
 
 def emit_openmetadata(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
@@ -27,7 +22,7 @@ def emit_openmetadata(workspace: Workspace, out_dir: Path) -> list[EmittedArtifa
         }
 
         # Add models/projections as assets
-        for projection_name, versions in domain.projections.items():
+        for projection_name, _versions in domain.projections.items():
             om_data["assets"].append(
                 {
                     "name": projection_name,
