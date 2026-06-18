@@ -102,6 +102,13 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/fhir"),
     ),
+    CodegenTarget(
+        name="openmetadata",
+        description="OpenMetadata ingestion format for domains, lineage, and classification",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/openmetadata"),
+    ),
 )
 
 

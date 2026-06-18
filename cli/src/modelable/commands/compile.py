@@ -9,8 +9,8 @@ import click
 from modelable.commands.common import console, load_workspace_or_exit
 from modelable.emitters.csharp import emit_csharp
 from modelable.emitters.dbt_yaml import emit_dbt_yaml
-from modelable.emitters.diagnostics import deferred_target
 from modelable.emitters.fhir import emit_fhir_profile
+from modelable.emitters.openmetadata import emit_openmetadata
 from modelable.emitters.go import emit_go
 from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema
@@ -151,6 +151,15 @@ def compile(source: Path, target: str, out_dir: Path | None, registry_path: Path
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)
+            _print_artifact_result(art)
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "openmetadata":
+        artifacts = emit_openmetadata(workspace, output)
+        for art in artifacts:
+            content = json.dumps(art.content, indent=2, ensure_ascii=False) + "\n" if isinstance(art.content, dict) else art.content
+            assert isinstance(content, str)
+            _write_artifact_text(art.path, content)
             _print_artifact_result(art)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
