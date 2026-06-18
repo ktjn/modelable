@@ -129,7 +129,9 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    if: github.event_name == 'push'
+    # Disabled until the pypi trusted publisher is registered for this repo/workflow/environment.
+    # See https://docs.pypi.org/trusted-publishers/troubleshooting/ (invalid-publisher).
+    if: false
     needs: build
     runs-on: ubuntu-latest
     environment: pypi
@@ -154,7 +156,7 @@ jobs:
   github-release:
     name: Create GitHub release
     if: github.event_name == 'push'
-    needs: [build, publish]
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
