@@ -41,10 +41,12 @@ def test_apicurio_client_publishes_json_schema_artifact() -> None:
     assert method == "POST"
     assert url == "http://registry.example/apis/registry/v3/groups/contracts/artifacts"
     assert headers["Authorization"] == "Bearer secret"
-    assert headers["X-Registry-ArtifactId"] == "customer.Customer.v1"
-    assert headers["X-Registry-Version"] == "1"
-    assert headers["Content-Type"] == "application/json; artifactType=JSON"
-    assert json.loads(body.decode("utf-8"))["title"] == "Customer"
+    assert headers["Content-Type"] == "application/json"
+    request = json.loads(body.decode("utf-8"))
+    assert request["artifactId"] == "customer.Customer.v1"
+    assert request["artifactType"] == "JSON"
+    assert request["firstVersion"]["version"] == "1"
+    assert json.loads(request["firstVersion"]["content"]["content"])["title"] == "Customer"
 
 
 def test_publish_apicurio_dry_run_lists_json_schema_artifacts(tmp_path: Path) -> None:
