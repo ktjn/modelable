@@ -30,6 +30,8 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "go",
         "sql-postgres",
         "sql-clickhouse",
+        "dbt-yaml",
+        "fhir-profile",
     ]
     assert all(target["status"] == "implemented" for target in targets)
 

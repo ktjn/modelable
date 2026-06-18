@@ -88,6 +88,20 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/sql/clickhouse"),
     ),
+    CodegenTarget(
+        name="dbt-yaml",
+        description="dbt schema.yml fragments for models and projections",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/dbt"),
+    ),
+    CodegenTarget(
+        name="fhir-profile",
+        description="FHIR R4 StructureDefinition profiles for projections",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/fhir"),
+    ),
 )
 
 

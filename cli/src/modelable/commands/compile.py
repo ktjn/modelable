@@ -8,7 +8,9 @@ import click
 
 from modelable.commands.common import console, load_workspace_or_exit
 from modelable.emitters.csharp import emit_csharp
+from modelable.emitters.dbt_yaml import emit_dbt_yaml
 from modelable.emitters.diagnostics import deferred_target
+from modelable.emitters.fhir import emit_fhir_profile
 from modelable.emitters.go import emit_go
 from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema
@@ -120,6 +122,22 @@ def compile(source: Path, target: str, out_dir: Path | None) -> None:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "go":
         artifacts = emit_go(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            _write_artifact_text(art.path, art.content)
+            _print_artifact_result(art)
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "dbt-yaml":
+        artifacts = emit_dbt_yaml(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            _write_artifact_text(art.path, art.content)
+            _print_artifact_result(art)
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "fhir-profile":
+        artifacts = emit_fhir_profile(workspace, output)
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)

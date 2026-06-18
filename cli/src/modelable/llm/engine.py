@@ -10,6 +10,7 @@ from modelable.compat.diff import FieldChange, compare_model_versions
 from modelable.compiler.workspace import load_workspace
 from modelable.diagnostics.model import render_diagnostic
 from modelable.emitters.csharp import emit_csharp
+from modelable.emitters.dbt_yaml import emit_dbt_yaml
 from modelable.emitters.go import emit_go
 from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema
@@ -148,6 +149,7 @@ def transform_ref_to_target(path: Path, ref: str, target: str) -> AssistantResul
         "python": (emit_python, Path(".modelable/python"), False),
         "rust": (emit_rust, Path(".modelable/rust"), False),
         "go": (emit_go, Path(".modelable/go"), False),
+        "dbt-yaml": (emit_dbt_yaml, Path(".modelable/dbt"), False),
     }
 
     if model_name in domain.models:
@@ -176,11 +178,13 @@ def transform_ref_to_target(path: Path, ref: str, target: str) -> AssistantResul
     raise ValueError(f"Unsupported target: {target}")
 
 
-def import_definition(source: Path | str, source_format: str, *, domain_name: str | None = None) -> str:
+def import_definition(
+    source: Path | str, source_format: str, *, domain_name: str | None = None, source_name: str | None = None
+) -> str:
     if isinstance(source, Path):
-        imported = import_from_path(source, source_format, domain_name=domain_name)
+        imported = import_from_path(source, source_format, domain_name=domain_name, source_name=source_name)
     else:
-        imported = import_from_text(source, source_format, domain_name=domain_name)
+        imported = import_from_text(source, source_format, domain_name=domain_name, source_name=source_name)
     return imported.to_mdl()
 
 

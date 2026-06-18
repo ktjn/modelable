@@ -63,6 +63,39 @@ def describe(target: str | None, path: Path | None) -> None:
     console.print(describe_path_or_ref(path=path, ref=target))
 
 
+def _detect_format(path: Path) -> str | None:
+    import json
+
+    import yaml
+
+    suffix = path.suffix.lower()
+    if suffix in {".yml", ".yaml"}:
+        try:
+            content = path.read_text(encoding="utf-8")
+            doc = yaml.safe_load(content)
+            if isinstance(doc, dict) and ("models" in doc or "sources" in doc):
+                return "dbt"
+        except Exception:
+            pass
+        return None
+    if suffix == ".json":
+        try:
+            content = path.read_text(encoding="utf-8")
+            doc = json.loads(content)
+            if isinstance(doc, dict):
+                if doc.get("resourceType") == "StructureDefinition":
+                    return "fhir"
+                if "nodes" in doc:
+                    return "dbt"
+                if "title" in doc and "type" in doc:
+                    return "json-schema"
+                if "openapi" in doc or "swagger" in doc:
+                    return "openapi"
+        except Exception:
+            pass
+    return None
+
+
 @click.command()
 @click.option("--from", "source", required=True, help="Natural language or source file path.")
 @click.option("--format", "source_format", default=None, help="Source format for import paths.")
@@ -76,13 +109,15 @@ def generate(
     source_path = Path(source)
     source_descriptor = f"path={source_path}"
     if source_path.exists():
-        if source_format is not None:
-            text = import_definition(source_path, source_format, domain_name=domain_name)
+        detected = source_format or _detect_format(source_path)
+        if detected is not None:
+            text = import_definition(source_path, detected, domain_name=domain_name, source_name=model_name)
+            source_format = detected
         else:
             text = source_path.read_text(encoding="utf-8")
     else:
         if source_format is not None:
-            text = import_definition(source, source_format, domain_name=domain_name)
+            text = import_definition(source, source_format, domain_name=domain_name, source_name=model_name)
             source_descriptor = "inline"
         else:
             text = generate_entity_from_prompt(source, domain_name=domain_name, model_name=model_name)
@@ -329,7 +364,7 @@ def attach(
 @click.option(
     "--to",
     "target",
-    type=click.Choice(["json-schema", "markdown", "typescript", "csharp", "java", "python", "rust", "go"]),
+    type=click.Choice(["json-schema", "markdown", "typescript", "csharp", "java", "python", "rust", "go", "dbt-yaml"]),
     required=True,
 )
 @click.option("--out", "output", type=click.Path(path_type=Path), default=None)

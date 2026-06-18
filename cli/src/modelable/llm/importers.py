@@ -185,6 +185,15 @@ def _import_sql(source_text: str, *, domain_name: str | None) -> ImportedModel:
 
 
 def _import_dbt(source_text: str, *, domain_name: str | None, source_name: str | None = None) -> ImportedModel:
+    stripped = source_text.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        try:
+            doc = json.loads(stripped)
+            if "nodes" in doc:
+                return _import_dbt_manifest(doc, domain_name=domain_name, source_name=source_name)
+        except json.JSONDecodeError:
+            pass
+
     doc = yaml.safe_load(source_text) or {}
     models = doc.get("models") or []
     if not models:
@@ -201,6 +210,35 @@ def _import_dbt(source_text: str, *, domain_name: str | None, source_name: str |
     warnings: list[str] = []
     for column in model.get("columns") or []:
         fields.append(_field_from_dbt_column(column, warnings))
+    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
+    return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
+
+
+def _import_dbt_manifest(
+    doc: dict[str, Any], *, domain_name: str | None, source_name: str | None = None
+) -> ImportedModel:
+    nodes = doc.get("nodes") or {}
+    models = {node["name"]: node for node in nodes.values() if node.get("resource_type") == "model" and "name" in node}
+    if not models:
+        raise ValueError("dbt manifest does not declare any models")
+
+    if source_name is not None:
+        model = models.get(source_name)
+        if model is None:
+            raise ValueError(f"dbt model '{source_name}' not found in manifest")
+    else:
+        first_name = sorted(models.keys())[0]
+        model = models[first_name]
+
+    name = model["name"]
+    domain = domain_name or _guess_domain_name(name)
+    fields: list[FieldDef] = []
+    warnings: list[str] = []
+
+    columns = model.get("columns") or {}
+    for col_details in columns.values():
+        fields.append(_field_from_dbt_column(col_details, warnings))
+
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
 
