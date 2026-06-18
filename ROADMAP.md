@@ -10,10 +10,11 @@ item is not committed until it has an issue and an accepted design.
 - Improve compatibility, lineage, and governance reporting.
 - Harden package distribution, editor installation, and contributor workflows.
 - Add more real-world examples and migration guidance.
+- Exercise and harden Apicurio JSON Schema artifact publish/pull with real
+  registry deployments.
 
 ## Next
 
-- External artifact registry integration.
 - Catalog and governance-system integration.
 - Open Data Contract Standard interchange.
 - dbt schema/source export and import (see

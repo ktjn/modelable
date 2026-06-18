@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import click
 
+from modelable.commands.apicurio import register_apicurio_commands
 from modelable.commands.codegen import register_codegen_commands
 from modelable.commands.compile import register_compile_commands
 from modelable.commands.create import register_create_commands
@@ -20,9 +21,8 @@ def cli() -> None:
     """Modelable domain-owned data model compiler.
 
     MVP workflows cover validate, resolve, lineage, diff, compile, docs,
-    inspect, codegen, lsp, scenario, and create helpers. Deferred command
-    families such as Apicurio publish/pull, OpenMetadata export/publish,
-    and ODCS export are documented in docs/cli-reference.md for later phases.
+    inspect, codegen, lsp, scenario, create helpers, and Apicurio JSON Schema
+    artifact publish/pull.
     """
 
 
@@ -36,3 +36,4 @@ register_llm_commands(cli)
 register_codegen_commands(cli)
 register_scenario_commands(cli)
 register_runtime_commands(cli)
+register_apicurio_commands(cli)

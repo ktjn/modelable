@@ -440,25 +440,28 @@ Displays supported artifact output formats and the type mapping from Modelable f
 ### 5.12 `publish apicurio` — Push artifacts to Apicurio Registry
 
 ```text
-modelable publish apicurio PATH [--url URL] [--group GROUP]
+modelable publish apicurio SOURCE --url URL [--group GROUP] [--token TOKEN] [--dry-run]
 ```
 
-**Phase 2 — not yet implemented.**
-
-Pushes compiled JSON Schema artifacts to an Apicurio Schema Registry instance. Artifact IDs follow the convention `domain.Name.vVersion`.
+Publishes JSON Schema 2020-12 artifacts generated from `SOURCE` to an
+Apicurio Registry 3.x Core Registry API endpoint. Apicurio stores derived
+artifacts only; `.mdl` files and the normalized Modelable graph remain the
+source of truth for contract semantics, lineage, compatibility, and governance.
+Artifact IDs follow the convention `domain.Name.vVersion`.
 
 **Options:**
 
 | Flag | Default | Description |
 |:-----|:--------|:------------|
-| `--url` | — | Apicurio Registry base URL |
-| `--group` | `modelable` | Artifact group ID |
+| `--url` | — | Apicurio Registry base URL or `/apis/registry/v3` URL |
+| `--group` | `default` | Artifact group ID |
+| `--token` | `MODELABLE_APICURIO_TOKEN` | Bearer token for authenticated registries |
+| `--dry-run` | `false` | List generated artifact IDs without publishing |
 
-**Intended workflow:**
+**Example:**
 
 ```bash
-modelable compile ./models --target json-schema --out ./dist/jsonschema
-modelable publish apicurio ./dist/jsonschema --url http://localhost:8080
+modelable publish apicurio ./models --url http://localhost:8080 --group contracts
 ```
 
 ---
@@ -466,12 +469,13 @@ modelable publish apicurio ./dist/jsonschema --url http://localhost:8080
 ### 5.13 `pull apicurio` — Pull schema artifacts
 
 ```text
-modelable pull apicurio REF [--url URL] [--out DIR]
+modelable pull apicurio REF --url URL [--group GROUP] [--out DIR] [--token TOKEN]
 ```
 
-**Phase 2 — not yet implemented.**
-
-Pulls a specific schema artifact from an Apicurio Registry instance by model reference.
+Pulls a specific JSON Schema artifact from Apicurio Registry by Modelable
+reference, using the same `domain.Name@version` form accepted by local
+Modelable commands. The pulled artifact is written to
+`DIR/domain/Name.vVersion.json`.
 
 ---
 
@@ -647,7 +651,9 @@ modelable docs ./my-models --out ./dist/docs
 ## 9. Open Design Decisions
 
 - **Plugin architecture for compilers:** The compile targets are currently hard-coded. A plugin registry for third-party targets is deferred.
-- **Authentication for registry commands:** Apicurio and OpenMetadata authentication mechanisms (API keys, OAuth, mTLS) are not yet specified.
+- **Authentication for registry commands:** Apicurio supports an explicit bearer
+  token or `MODELABLE_APICURIO_TOKEN`. OAuth, mTLS, and OpenMetadata
+  authentication mechanisms remain deferred.
 - **Incremental compilation:** Whether `compile` should track which files changed and only recompile affected artifacts is deferred.
 - **LSP parser mode:** The language server currently uses Lark Earley for correctness. Whether to migrate to LALR for lower-latency IDE responses is deferred.
 

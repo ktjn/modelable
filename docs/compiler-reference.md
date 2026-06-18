@@ -3,9 +3,9 @@
 > **Scope:** Compiler outputs, emitters, compatibility metadata, lineage, and
 > generated-artifact guarantees.
 
-> **Status:** Approved for Phase 1 targets and selected local integration
-> emitters; live registry, catalog, and runtime integrations remain deferred by
-> phase.
+> **Status:** Approved for Phase 1 targets, selected local integration
+> emitters, and Apicurio JSON Schema artifact publish/pull. Catalog and runtime
+> integrations remain deferred by phase.
 >
 > **Scope:** Output target generation from the normalized Modelable model graph.
 
@@ -26,6 +26,7 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | SQL DDL | 5 | Implemented local artifact |
 | dbt `schema.yml` | 4 | Implemented local artifact |
 | FHIR R4 profile | 4b | Implemented local artifact |
+| Apicurio Registry | 2 | Implemented JSON Schema artifact publish/pull |
 | OpenMetadata export | 3 | Implemented local artifact; live sync deferred |
 | ODCS export | 4 | Deferred |
 | Avro | 5 | Deferred |
@@ -156,7 +157,20 @@ Each document should include:
 
 Markdown must avoid embedding secrets from bindings.
 
-## 9. Deferred Target Notes
+## 9. Apicurio Registry Publishing
+
+`modelable publish apicurio` publishes generated JSON Schema 2020-12 artifacts
+to Apicurio Registry 3.x Core Registry API v3. Artifact IDs are deterministic:
+`domain.Name.vVersion`. Apicurio is derived artifact storage and versioning; it
+does not replace `.mdl` source files, the local normalized graph, registry.db,
+lineage, compatibility, or governance validation.
+
+`modelable pull apicurio` retrieves a JSON Schema artifact by Modelable
+reference (`domain.Name@version`) from the Apicurio version content endpoint
+and writes it under the requested output directory as
+`domain/Name.vVersion.json`.
+
+## 10. Deferred Target Notes
 
 Deferred and integration emitters must preserve Modelable semantics when
 implemented:
@@ -173,7 +187,7 @@ implemented:
   catalog publishing remains outside the local emitter boundary.
 - Generated-language targets beyond TypeScript: C#, Java, Python, Rust, and Go. These targets are implemented in the local codegen boundary; additional future targets stay deferred.
 
-## 10. Diagnostics
+## 11. Diagnostics
 
 Emitter diagnostics are warnings unless the artifact cannot be generated correctly.
 
@@ -185,13 +199,13 @@ Emitter diagnostics are warnings unless the artifact cannot be generated correct
 | `EMIT004` | Generated artifact failed validation |
 | `EMIT005` | Deferred target requested in current phase |
 
-## 11. Open Decisions
+## 12. Open Decisions
 
 - Whether emitters become third-party plugins through Python entry points.
 - How target-specific annotations are represented without polluting canonical models.
 - Whether large domains require streaming artifact generation APIs.
 
-## 12. Acceptance Criteria
+## 13. Acceptance Criteria
 
 - Phase 1 emits JSON Schema, TypeScript, and Markdown for models and projections.
 - Implemented local emitters are deterministic and appear in `modelable codegen formats`.
@@ -200,7 +214,7 @@ Emitter diagnostics are warnings unless the artifact cannot be generated correct
 - Projection artifacts include field-level lineage.
 - Deferred targets fail with clear diagnostics rather than partial output.
 
-## 13. Dependencies
+## 14. Dependencies
 
 - [Language reference](language-reference.md) for the type system, governance
   annotations, and target declarations.
@@ -208,7 +222,7 @@ Emitter diagnostics are warnings unless the artifact cannot be generated correct
   graph-export commands.
 - [Architecture](architecture.md) for adapter boundaries and product semantics.
 
-## 14. Registry and Distributed Lineage
+## 15. Registry and Distributed Lineage
 
 `.mdl` files are the source of truth. `registry.db`, plan documents, generated
 artifacts, mirrors, and exported graphs are reproducible derived state.
