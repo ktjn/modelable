@@ -24,6 +24,16 @@ def test_local_registry(tmp_path: Path):
     assert dest.read_text() == "dummy"
 
 
+def test_local_registry_push_to_same_file_is_noop(tmp_path: Path):
+    registry_db = tmp_path / "registry.db"
+    registry_db.write_text("dummy")
+
+    registry = LocalRegistry(registry_db)
+    registry.push(registry_db)
+
+    assert registry_db.read_text() == "dummy"
+
+
 def test_factory_local(tmp_path: Path):
     registry_file = tmp_path / "registry.db"
     registry = get_registry(registry_file)
