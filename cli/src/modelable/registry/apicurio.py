@@ -36,13 +36,26 @@ class ApicurioRegistryClient:
         self.timeout = timeout
 
     def publish_json_schema(self, artifact: ApicurioArtifact, group: str = "default") -> None:
-        body = json.dumps(artifact.content, indent=2, ensure_ascii=False).encode("utf-8")
+        artifact_content = json.dumps(artifact.content, indent=2, ensure_ascii=False)
+        body = json.dumps(
+            {
+                "artifactId": artifact.artifact_id,
+                "artifactType": "JSON",
+                "firstVersion": {
+                    "version": artifact.version,
+                    "content": {
+                        "content": artifact_content,
+                        "contentType": "application/json",
+                    },
+                },
+            },
+            indent=2,
+            ensure_ascii=False,
+        ).encode("utf-8")
         headers = self._headers(
             {
-                "Content-Type": "application/json; artifactType=JSON",
+                "Content-Type": "application/json",
                 "Accept": "application/json",
-                "X-Registry-ArtifactId": artifact.artifact_id,
-                "X-Registry-Version": artifact.version,
             }
         )
         status, response_text = self.transport(

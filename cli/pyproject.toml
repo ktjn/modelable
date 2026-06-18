@@ -61,6 +61,7 @@ dev = [
     "ruff>=0.15.17",
     "mypy>=2.1.0",
     "build>=1.2",
+    "testcontainers==4.14.2",
 ]
 
 [project.scripts]
@@ -127,4 +128,5 @@ dev = [
     "pytest>=9.0.3",
     "pytest-lsp>=1.0.0",
     "ruff>=0.15.17",
+    "testcontainers==4.14.2",
 ]
