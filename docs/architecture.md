@@ -778,7 +778,7 @@ Artifacts are introduced in phases. Later phases depend on the normalized graph 
 
 **Phase 2 — Artifact registry:**
 
-- Apicurio Registry (stores and versions generated schemas)
+- Apicurio Registry (stores and versions generated JSON Schema artifacts)
 
 **Phase 3 — Catalog / governance sync:**
 
@@ -1019,7 +1019,10 @@ PII and restricted fields must not be exposed to projections unless explicitly p
 
 ## 17. MVP Scope (Phase 1)
 
-The first version implements the local modelling compiler. Runtime materialization and external registry integrations are deferred.
+The first version implements the local modelling compiler. Apicurio JSON Schema
+artifact publish/pull is available as a derived-artifact integration. Runtime
+materialization, live catalog sync, and distributed registry services remain
+deferred.
 
 ### 17.1 Implementation Stack
 
@@ -1054,7 +1057,6 @@ See the [Modelable Tooling Reference](cli-reference.md) for the full command ref
 - PostgreSQL storage adapter (Phase 5).
 - Kafka stream adapter (Phase 5).
 - Materialized projection into PostgreSQL (Phase 5).
-- Apicurio Registry integration (Phase 2).
 - OpenMetadata integration (Phase 3).
 - ODCS / Data Contract CLI integration (Phase 4).
 - Avro, Protobuf, OpenAPI, AsyncAPI generation (Phase 5).

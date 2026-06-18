@@ -76,9 +76,9 @@ modelable compile customer.mdl --target typescript --out generated/types
 - Provide diagnostics, completion, hover, navigation, references, rename, formatting, and other editor features through the language server.
 - Import or assist with models through optional LLM provider integrations.
 
-The local compiler is the supported alpha surface. Live external registry and
-catalog publishing, distributed synchronization, and runtime materialization
-remain roadmap work.
+The local compiler is the supported alpha surface. Apicurio JSON Schema
+artifact publish/pull is available for derived artifacts. Catalog publishing,
+distributed synchronization, and runtime materialization remain roadmap work.
 
 ## Development
 

@@ -3,12 +3,10 @@
 > **Status:** Research and planning. Most of this document's phased proposals
 > (emitters, catalog/lineage integration, additional artifact targets) are not
 > committed and require an issue and an accepted design per
-> [ROADMAP.md](../ROADMAP.md). One slice has shipped: the `modelable attach`
-> command (see [cli-reference.md](cli-reference.md) §10.9) imports a dbt `schema.yml`
-> model or a FHIR `StructureDefinition` (§2.3 Phase B / §3.3 Phase C below) and
-> records field-level drift against an existing Modelable model version as a
-> new `additive`/`breaking` version plus an attachment record. This document
-> consolidates earlier tool-boundary research and extends
+> [ROADMAP.md](../ROADMAP.md). Shipped slices include `modelable attach`
+> for dbt/FHIR drift review and `modelable publish apicurio` /
+> `modelable pull apicurio` for JSON Schema artifact registry workflows. This
+> document consolidates earlier tool-boundary research and extends
 > [getting-started.md](getting-started.md) with concept mappings and
 > phased proposals for dbt, FHIR, and other ecosystems.
 
@@ -26,9 +24,10 @@ catalog UI, generated-code consumption, interchange, and runtime execution.
 Current local outputs include JSON Schema, Markdown, TypeScript, C#, Java,
 Python, Rust, Go, SQL DDL, dbt `schema.yml`, FHIR R4 profiles, and
 OpenMetadata JSON. `modelable attach` provides the shipped dbt/FHIR drift
-workflow described below. Live artifact-registry publishing, live catalog
-synchronization, ODCS, additional schema targets, CDC, brokers, materializers,
-and API gateways remain deferred until they have an issue and accepted design.
+workflow described below, and Apicurio publish/pull provides the shipped live
+JSON Schema artifact-registry workflow. Live catalog synchronization, ODCS,
+additional schema targets, CDC, brokers, materializers, and API gateways remain
+deferred until they have an issue and accepted design.
 
 Earlier evaluations considered TypeSpec, Smithy, LinkML, CUE, dbt, Malloy,
 GraphQL, JSON Schema, Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI,
@@ -36,6 +35,21 @@ AsyncAPI, Debezium, Kafka, Pulsar, NATS, Redis, ClickHouse, and related tools.
 They are candidates, not dependencies or commitments. A future integration
 must preserve Modelable's source-of-truth, ownership, immutability, lineage,
 and platform-neutrality rules.
+
+### Apicurio Registry
+
+`modelable publish apicurio SOURCE --url URL [--group GROUP]` generates JSON
+Schema 2020-12 artifacts from `SOURCE` and publishes them to Apicurio Registry
+3.x Core Registry API v3. Artifact IDs use `domain.Name.vVersion`, and the
+default Apicurio group is `default`.
+
+`modelable pull apicurio REF --url URL [--group GROUP] [--out DIR]` retrieves a
+JSON Schema artifact by Modelable reference (`domain.Name@version`) and writes
+it locally as `DIR/domain/Name.vVersion.json`.
+
+This integration stores and retrieves derived artifacts only. It does not make
+Apicurio the source of truth for Modelable models, projections, compatibility,
+lineage, governance findings, or access policy.
 
 ## 1. Purpose
 
