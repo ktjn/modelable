@@ -28,7 +28,7 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | FHIR R4 profile | 4b | Implemented local artifact |
 | Apicurio Registry | 2 | Implemented JSON Schema artifact publish/pull |
 | OpenMetadata export | 3 | Implemented local artifact; live sync deferred |
-| ODCS export | 4 | Deferred |
+| ODCS export | 4 | Implemented local artifact |
 | Avro | 5 | Deferred |
 | Protobuf | 5 | Deferred |
 | OpenAPI | 5 | Deferred |

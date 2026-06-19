@@ -109,6 +109,13 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/openmetadata"),
     ),
+    CodegenTarget(
+        name="odcs",
+        description="Open Data Contract Standard YAML documents for models and projections",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/odcs"),
+    ),
 )
 
 
