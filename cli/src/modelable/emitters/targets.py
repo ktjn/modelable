@@ -110,6 +110,13 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         default_out_dir=Path("./dist/openmetadata"),
     ),
     CodegenTarget(
+        name="openlineage",
+        description="OpenLineage design-time run events with dataset schema and column lineage facets",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/openlineage"),
+    ),
+    CodegenTarget(
         name="odcs",
         description="Open Data Contract Standard YAML documents for models and projections",
         status="implemented",

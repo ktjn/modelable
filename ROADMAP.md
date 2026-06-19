@@ -15,7 +15,8 @@ item is not committed until it has an issue and an accepted design.
 
 ## Next
 
-- Catalog and governance-system integration.
+- Catalog and governance-system integration, including hardening OpenMetadata
+  and OpenLineage local exports before live sync.
 - Data Contract CLI validation and hardening for ODCS interchange.
 - dbt schema/source export and import (see
   [docs/integrations.md](docs/integrations.md)).
