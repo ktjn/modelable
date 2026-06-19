@@ -75,6 +75,10 @@ This repository currently contains the Modelable system specification, centered 
 - For Python projects, use `uv` for Python version management, project setup, dependency management, lockfile generation, and Python tool execution unless the user explicitly asks for another tool or an existing project convention requires it.
 - Add or update tests for behavior that affects validation, compatibility checks, lineage, planning, runtime execution, security, or generated artifacts.
 - Add Docker-backed compile smoke tests for any change that adds or modifies a generated-language backend or generated artifact format, using the latest official compiler/runtime image for each affected language.
+- If a change can affect the OpenMetadata export format, run the focused
+  emitter tests and the OpenMetadata Testcontainers smoke:
+  `uv run pytest tests/test_emit_openmetadata.py tests/test_openmetadata_testcontainers.py -q`
+  with `MODELABLE_OPENMETADATA_TESTCONTAINERS=1`.
 - Keep registry, compiler/planner, runtime, materializer, and adapter concerns separated unless an existing local pattern says otherwise.
 - Validate definitions before runtime where feasible.
 - Do not expose PII, sensitive, restricted, or unauthorized fields in projections, generated artifacts, logs, or dead-letter payloads.
@@ -99,6 +103,9 @@ Use the gate that matches the touched surface:
 - **IDL samples or `.mdl` fixtures:** Run `uv run modelable validate <path>` from `cli/` for the touched fixture or sample when it is expected to be supported by the current parser/compiler; otherwise manually check samples against the grammar and examples in `docs/language-reference.md` and state why CLI validation is not yet applicable.
 - **Parser, IR, semantic validation, compiler, or CLI:** Run focused tests for the changed module from `cli/`, then run `uv run pytest tests/ -v`.
 - **Compiler, planner, compatibility, lineage, governance, or emitters:** Run focused unit tests for the changed module and the full local CLI gate.
+- **OpenMetadata export format:** Run focused OpenMetadata emitter tests plus
+  `MODELABLE_OPENMETADATA_TESTCONTAINERS=1 uv run pytest tests/test_openmetadata_testcontainers.py -q`
+  from `cli/`.
 - **Runtime, adapter, materializer, or security behavior:** Run focused unit tests plus any integration or smoke gate defined for that component.
 
 ## Local Gate

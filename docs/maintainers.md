@@ -28,6 +28,10 @@ Agents must:
 - Keep changes small enough for meaningful review.
 - Add or update tests with any code change that affects parser behavior, validation, compatibility checks, lineage, planning, runtime execution, governance, security, or generated artifacts.
 - Add Docker-backed compile smoke tests for any change that adds or modifies a generated-language backend or generated artifact format, using the latest official compiler/runtime image for each affected language.
+- Run the OpenMetadata Testcontainers smoke for any change that can affect the
+  OpenMetadata export format, including `openmetadata` emitter code, shared
+  emitter metadata helpers, IR field/governance metadata shape, projection
+  lineage resolution, or OpenMetadata CLI/documentation contracts.
 - Do not use hard-coded line numbers to locate language elements in test fixtures or sample files. Derive line positions dynamically.
 - Validate current latest stable framework, library, CLI, build-tool, and scaffolding choices with a web search against official documentation, package registries, or release pages before adding or changing them.
 - Use the latest stable framework and tool versions by default, unless the specification, compatibility constraints, existing manifests, or explicit user direction require a different version.
@@ -123,6 +127,7 @@ Test gates are selected by risk and touched surface.
 | Parser, IR, or semantic validation | Focused parser/validation tests plus the full local compiler gate |
 | Planner, lineage, compatibility, or governance | Focused tests for changed behavior plus representative projection and governance fixtures |
 | Emitters or generated artifacts | Focused emitter tests, deterministic output comparison, fixture regeneration review, and Docker-backed compile smoke tests for every affected language backend |
+| OpenMetadata export format | `uv run pytest tests/test_emit_openmetadata.py -q` plus `MODELABLE_OPENMETADATA_TESTCONTAINERS=1 uv run pytest tests/test_openmetadata_testcontainers.py -q` from `cli/` |
 | LSP, VS Code extension, or editor integration | Focused LSP tests plus `cd vscode && npm ci && npm run build && npm test` |
 | Release pipeline or packaging metadata | Focused release metadata/workflow tests plus the full local CLI gate |
 | Runtime, subscriptions, adapters, or materializers | Unit tests, integration or smoke tests for the adapter boundary, and failure-mode coverage |
@@ -171,6 +176,10 @@ component smoke tests where applicable
 ```
 
 CI failures must be investigated from the first failing gate. Agents should not rerun failed CI repeatedly without first reading the failure context.
+
+The CLI CI job must run the OpenMetadata Testcontainers smoke with
+`MODELABLE_OPENMETADATA_TESTCONTAINERS=1` so changes that affect the
+OpenMetadata export format are checked against a live OpenMetadata server stack.
 
 Release changes must also verify package metadata, archive contents, clean-wheel
 installation, version agreement, and the manual release dry run. Tag-triggered
