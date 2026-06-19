@@ -25,7 +25,7 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | C#, Java, Python, Rust, and Go | 1 | Implemented |
 | SQL DDL | 5 | Implemented local artifact |
 | dbt `schema.yml` | 4 | Implemented local artifact |
-| FHIR R4 profile | 4b | Implemented local artifact |
+| FHIR R4 profile | 4b | Implemented local artifact for Patient, Observation, and Encounter profile bases |
 | Apicurio Registry | 2 | Implemented JSON Schema artifact publish/pull |
 | OpenMetadata export | 3 | Implemented local artifact; live sync deferred |
 | OpenLineage export | 3 | Implemented local artifact; runtime collection deferred |
@@ -180,7 +180,16 @@ implemented:
 - Protobuf: preserve deterministic field numbering through explicit metadata or generated registry state.
 - SQL DDL: treat SQL as a binding/materialization artifact, not canonical model truth.
 - dbt YAML: describe schemas and model/source metadata without making dbt the source of truth.
-- FHIR R4 profiles: map only explicitly supported profile concepts and fail or warn on representational loss.
+- FHIR R4 profiles: emit R4 `StructureDefinition` constraint profiles for
+  projection artifacts. The current hardening boundary supports projections
+  whose source model name is `Patient`, `Observation`, or `Encounter`; other
+  source models fall back to the R4 `Basic` resource with an emitter warning.
+  Profile output includes root and field `ElementDefinition` entries, direct
+  Modelable lineage mappings, required/optional cardinality, primitive type
+  mappings, enum bindings to deterministic Modelable ValueSet URLs, FHIR
+  `Reference` target profiles, and Modelable classification/PII extensions.
+  Unsupported nested/complex FHIR representation remains a warning/follow-up
+  boundary rather than a silent lossy mapping.
 - OpenAPI: generate schemas from projections, not necessarily canonical entities.
 - AsyncAPI: generate event channels from event projections and change event envelopes.
 - ODCS: export data contracts while keeping `.mdl` as source of truth.

@@ -252,6 +252,7 @@ In addition to the requested artifact format, `compile` always writes a `registr
 modelable compile ./models --target json-schema --out ./dist/jsonschema
 modelable compile ./models --target typescript
 modelable compile ./models --target markdown --out ./dist/docs
+modelable compile ./models --target fhir-profile --out ./dist/fhir
 modelable compile ./models --target openmetadata --out ./dist/openmetadata
 modelable compile ./models --target openlineage --out ./dist/openlineage
 modelable compile ./models --target odcs --out ./dist/odcs
@@ -575,7 +576,35 @@ modelable compile ./models --target openlineage --out ./dist/openlineage
 
 ---
 
-### 5.17 `publish openmetadata` — Push metadata to OpenMetadata
+### 5.17 `compile --target fhir-profile` — Export FHIR R4 profiles
+
+```text
+modelable compile PATH --target fhir-profile --out DIR
+```
+
+**Phase 4b — implemented as a local compile target.**
+
+Exports each projection version as a FHIR R4 `StructureDefinition` constraint
+profile. The current supported base-resource set is `Patient`, `Observation`,
+and `Encounter`, selected from the projection source model name. Other source
+models emit a warning and use FHIR `Basic` as the base resource so the artifact
+remains explicit about representational loss.
+
+The generated profile includes deterministic root and field
+`ElementDefinition` entries, projection lineage under the `modelable` mapping
+identity, required/optional cardinality from the source field, primitive type
+mapping, enum bindings to Modelable ValueSet URLs, FHIR `Reference` target
+profiles, and Modelable classification/PII extensions.
+
+**Examples:**
+
+```bash
+modelable compile ./models --target fhir-profile --out ./dist/fhir
+```
+
+---
+
+### 5.18 `publish openmetadata` — Push metadata to OpenMetadata
 
 ```text
 modelable publish openmetadata PATH [--url URL]
@@ -587,7 +616,7 @@ Pushes the OpenMetadata export document to a live OpenMetadata instance.
 
 ---
 
-### 5.18 `compile --target odcs` — Export Open Data Contract Standard documents
+### 5.19 `compile --target odcs` — Export Open Data Contract Standard documents
 
 ```text
 modelable compile PATH --target odcs --out DIR
@@ -646,7 +675,7 @@ datacontract lint ./dist/odcs/customer.Customer.v1.odcs.yaml
 
 ---
 
-### 5.19 `spec` — Track external specifications
+### 5.20 `spec` — Track external specifications
 
 ```text
 modelable spec add ID --kind <dbt|fhir|odcs> --source PATH --ref Domain.Model@version [--source-name NAME] [--path PATH]
