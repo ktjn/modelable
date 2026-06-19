@@ -20,8 +20,8 @@ one role.
 
 - [Architecture and system specification](architecture.md): authoritative
   product concepts, invariants, and current/deferred boundaries.
-- [External integrations](integrations.md): shipped dbt/FHIR attachment behavior
-  and non-committed integration research.
+- [External integrations](integrations.md): shipped dbt/FHIR/ODCS drift
+  workflows, local export targets, and non-committed integration research.
 - [Maintainer and agent guide](maintainers.md): local gates, review policy,
   release process, and automation rules.
 
