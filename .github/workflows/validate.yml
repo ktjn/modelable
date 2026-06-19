@@ -44,6 +44,11 @@ jobs:
       - name: Run tests
         run: uv run pytest --tb=short
 
+      - name: Run OpenMetadata Testcontainers smoke
+        env:
+          MODELABLE_OPENMETADATA_TESTCONTAINERS: "1"
+        run: uv run pytest tests/test_openmetadata_testcontainers.py --tb=short -q
+
   vscode:
     name: VS Code Smoke
     runs-on: ubuntu-latest

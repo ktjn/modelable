@@ -14,7 +14,7 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 | Phase | Scope | Status |
 |:------|:------|:-------|
 | 1 | Local modelling compiler (validate, resolve, lineage, diff, compile, docs, local artifact targets) | MVP |
-| 2 | Artifact registry integration (Apicurio Registry) | Deferred |
+| 2 | Artifact registry integration (Apicurio Registry) | Implemented JSON Schema artifact publish/pull |
 | 3 | Catalog / governance integration (OpenMetadata) | Local export target implemented; live publish deferred |
 | 4 | Contract interchange (Open Data Contract Standard) | Deferred |
 
@@ -529,7 +529,10 @@ ingestion. The current compile target writes one JSON artifact per domain.
 | Field classification | Tags / Glossary terms |
 | Lineage (`from` references) | Lineage edges |
 
-The output document contains three top-level arrays: `domains`, `assets`, and `lineage`.
+The compile target writes one JSON file per Modelable domain. Each file includes
+the domain owner and description, model and projection assets, field-level key /
+PII / classification / owner metadata, projection source metadata, and direct
+field lineage edges.
 
 **Options:**
 
