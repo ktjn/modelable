@@ -72,13 +72,15 @@ modelable compile customer.mdl --target typescript --out generated/types
 - Report structurally missing access and classification metadata.
 - Expand automatic database, request, reply, and event projections.
 - Generate JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, Go, SQL
-  DDL, dbt `schema.yml`, FHIR R4 profile, and OpenMetadata JSON artifacts.
+  DDL, dbt `schema.yml`, FHIR R4 profile, OpenMetadata JSON, and OpenLineage
+  event artifacts.
 - Provide diagnostics, completion, hover, navigation, references, rename, formatting, and other editor features through the language server.
 - Import or assist with models through optional LLM provider integrations.
 
 The local compiler is the supported alpha surface. Apicurio JSON Schema
 artifact publish/pull is available for derived artifacts. Catalog publishing,
-distributed synchronization, and runtime materialization remain roadmap work.
+distributed synchronization, OpenLineage runtime event collection, and runtime
+materialization remain roadmap work.
 
 ## Development
 

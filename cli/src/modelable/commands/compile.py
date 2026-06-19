@@ -16,6 +16,7 @@ from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.markdown import emit_markdown
 from modelable.emitters.odcs import emit_odcs
+from modelable.emitters.openlineage import emit_openlineage
 from modelable.emitters.openmetadata import emit_openmetadata
 from modelable.emitters.python import emit_python
 from modelable.emitters.rust import emit_rust
@@ -166,6 +167,14 @@ def compile(source: Path, target: str, out_dir: Path | None, registry_path: Path
             )
             assert isinstance(content, str)
             _write_artifact_text(art.path, content)
+            _print_artifact_result(art)
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "openlineage":
+        artifacts = emit_openlineage(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, dict)
+            _write_artifact_text(art.path, json.dumps(art.content, indent=2, ensure_ascii=False) + "\n")
             _print_artifact_result(art)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")

@@ -33,6 +33,7 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "dbt-yaml",
         "fhir-profile",
         "openmetadata",
+        "openlineage",
         "odcs",
     ]
     assert all(target["status"] == "implemented" for target in targets)

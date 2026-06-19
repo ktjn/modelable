@@ -15,7 +15,7 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 |:------|:------|:-------|
 | 1 | Local modelling compiler (validate, resolve, lineage, diff, compile, docs, local artifact targets) | MVP |
 | 2 | Artifact registry integration (Apicurio Registry) | Implemented JSON Schema artifact publish/pull |
-| 3 | Catalog / governance integration (OpenMetadata) | Local export target implemented; live publish deferred |
+| 3 | Catalog / governance integration (OpenMetadata / OpenLineage) | Local export targets implemented; live publish and runtime collection deferred |
 | 4 | Contract interchange and external spec tracking | Tracked dbt/FHIR/ODCS drift workflow implemented; ODCS compile target implemented |
 
 ## 3. Installation and Runtime
@@ -220,7 +220,7 @@ In addition to the requested artifact format, `compile` always writes a `registr
 
 | Flag | Required | Default | Description |
 |:-----|:---------|:--------|:------------|
-| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, or `odcs` |
+| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, `openlineage`, or `odcs` |
 | `--out`, `-o` | No | `./dist/<format>` | Output directory |
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
 
@@ -241,6 +241,7 @@ In addition to the requested artifact format, `compile` always writes a `registr
 | `dbt-yaml` | `./dist/dbt` |
 | `fhir-profile` | `./dist/fhir` |
 | `openmetadata` | `./dist/openmetadata` |
+| `openlineage` | `./dist/openlineage` |
 | `odcs` | `./dist/odcs` |
 
 **Artifact ID convention:** `domain.Name.vVersion` (used as filename stem).
@@ -252,6 +253,7 @@ modelable compile ./models --target json-schema --out ./dist/jsonschema
 modelable compile ./models --target typescript
 modelable compile ./models --target markdown --out ./dist/docs
 modelable compile ./models --target openmetadata --out ./dist/openmetadata
+modelable compile ./models --target openlineage --out ./dist/openlineage
 modelable compile ./models --target odcs --out ./dist/odcs
 ```
 
@@ -550,7 +552,30 @@ modelable compile ./models --target openmetadata --out ./dist/openmetadata
 
 ---
 
-### 5.16 `publish openmetadata` — Push metadata to OpenMetadata
+### 5.16 `compile --target openlineage` — Export OpenLineage events
+
+```text
+modelable compile PATH --target openlineage --out DIR
+```
+
+**Phase 3 — implemented as a compile target.**
+
+Exports each model and projection version as a deterministic OpenLineage
+`COMPLETE` run event. The event output dataset includes a schema facet, and
+projection outputs include an OpenLineage column-lineage facet derived from
+Modelable direct and computed projection mappings. These are design-time
+artifacts for catalog ingestion; runtime OpenLineage event collection remains
+deferred.
+
+**Examples:**
+
+```bash
+modelable compile ./models --target openlineage --out ./dist/openlineage
+```
+
+---
+
+### 5.17 `publish openmetadata` — Push metadata to OpenMetadata
 
 ```text
 modelable publish openmetadata PATH [--url URL]
@@ -562,7 +587,7 @@ Pushes the OpenMetadata export document to a live OpenMetadata instance.
 
 ---
 
-### 5.17 `compile --target odcs` — Export Open Data Contract Standard documents
+### 5.18 `compile --target odcs` — Export Open Data Contract Standard documents
 
 ```text
 modelable compile PATH --target odcs --out DIR
@@ -621,7 +646,7 @@ datacontract lint ./dist/odcs/customer.Customer.v1.odcs.yaml
 
 ---
 
-### 5.18 `spec` — Track external specifications
+### 5.19 `spec` — Track external specifications
 
 ```text
 modelable spec add ID --kind <dbt|fhir|odcs> --source PATH --ref Domain.Model@version [--source-name NAME] [--path PATH]
@@ -725,9 +750,9 @@ registry management, dependent write-back queries, and signature verification
 in sections 10.6 through 10.8 remain deferred.
 
 The current `codegen` command reports all implemented formats in this repository,
-including C#, Java, Python, Rust, Go, SQL DDL, dbt YAML, FHIR R4 profiles, and
-OpenMetadata JSON. Additional future first-class generated-language targets
-remain deferred until their dedicated emitters exist.
+including C#, Java, Python, Rust, Go, SQL DDL, dbt YAML, FHIR R4 profiles,
+OpenMetadata JSON, and OpenLineage events. Additional future first-class
+generated-language targets remain deferred until their dedicated emitters exist.
 
 ### 10.1 `inspect` — Inspect compiler-expanded definitions
 
