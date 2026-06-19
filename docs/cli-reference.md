@@ -16,7 +16,7 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 | 1 | Local modelling compiler (validate, resolve, lineage, diff, compile, docs, local artifact targets) | MVP |
 | 2 | Artifact registry integration (Apicurio Registry) | Implemented JSON Schema artifact publish/pull |
 | 3 | Catalog / governance integration (OpenMetadata) | Local export target implemented; live publish deferred |
-| 4 | Contract interchange (Open Data Contract Standard) | Deferred |
+| 4 | Contract interchange and external spec tracking | Tracked dbt/FHIR/ODCS drift workflow implemented; ODCS export deferred |
 
 ## 3. Installation and Runtime
 
@@ -607,6 +607,43 @@ datacontract lint ./dist/customer.contract.yaml
 
 ---
 
+### 5.18 `spec` — Track external specifications
+
+```text
+modelable spec add ID --kind <dbt|fhir|odcs> --source PATH --ref Domain.Model@version [--source-name NAME] [--path PATH]
+modelable spec status [--path PATH] [--json] [--fail-on drifted,error]
+modelable spec diff ID [--path PATH] [--json]
+modelable spec sync [ID] [--path PATH] [--preview|--write]
+```
+
+Tracks external specification files in `.modelable/specs.yml`, compares their
+current content to a bound Modelable model version, and reuses the same
+compatibility rules as `diff`/`attach` to classify drift.
+
+- `spec add` records the source path, source kind, target ref, optional source
+  object name, and default update policy. The config is intended to be
+  source-controlled.
+- `spec status` reports `clean`, `drifted`, or `error` for each tracked source.
+  `--json` is intended for CI and automation.
+- `spec diff` lists field-level changes for one tracked source.
+- `spec sync --preview` renders the proposed `.mdl` version update without
+  writing; `--write` appends a new model version and records the source hash
+  and change set in the `.attachments.json` sidecar.
+
+This command tracks static local files only. Live catalog publishing,
+scheduled polling, and remote source authentication remain deferred.
+
+**Examples:**
+
+```bash
+modelable spec add customer-dbt --kind dbt --source ./dbt/schema.yml --source-name Customer --ref customer.Customer@1
+modelable spec status --json --fail-on drifted,error
+modelable spec sync customer-dbt --preview
+modelable spec sync customer-dbt --write
+```
+
+---
+
 ## 6. AI Integration Details
 
 The `update` and `chat` commands use the configured LLM provider. The model is configurable by command flag, environment variable, or workspace config; see section 12.
@@ -783,16 +820,18 @@ Verifies that the content signature (SHA-256) of the given model or projection m
 
 See [compiler-reference.md](compiler-reference.md) §14.
 
-### 10.9 `attach` — Attach a model version to an external dbt or FHIR source
+### 10.9 `attach` — Attach a model version to an external dbt, FHIR, or ODCS source
 
 ```text
-modelable attach <Domain.Model@version> --source <path> --source-format <dbt|fhir> [--source-name NAME] --path PATH [--output FILE] [--preview]
+modelable attach <Domain.Model@version> --source <path> --source-format <dbt|fhir|odcs> [--source-name NAME] --path PATH [--output FILE] [--preview]
 ```
 
-Imports fields from an external dbt `schema.yml` model or a FHIR R4 `StructureDefinition`
-and compares them against the referenced model version using the same field-by-field
-comparison as `diff`. `--source-name` selects a specific dbt model when the source file
-declares more than one; it is ignored for FHIR sources, which describe a single resource.
+Imports fields from an external dbt `schema.yml` model, FHIR R4
+`StructureDefinition`, or ODCS YAML contract and compares them against the
+referenced model version using the same field-by-field comparison as `diff`.
+`--source-name` selects a specific dbt model or ODCS schema object when the
+source file declares more than one; it is ignored for FHIR sources, which
+describe a single resource.
 
 - If the imported fields match the referenced version, no changes are made.
 - Otherwise, a new model version is appended to the `.mdl` source with fields derived
@@ -811,7 +850,7 @@ next to the `.mdl` file describing the source format, matched source name, sourc
 content hash, the version transition, the computed change kind, and the field-level
 changes, and it prints the standard audit summary.
 
-See [external integrations](integrations.md) for dbt and FHIR mappings.
+See [external integrations](integrations.md) for dbt, FHIR, and ODCS mappings.
 
 ## 11. Language Server
 

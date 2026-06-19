@@ -4,7 +4,8 @@
 > (emitters, catalog/lineage integration, additional artifact targets) are not
 > committed and require an issue and an accepted design per
 > [ROADMAP.md](../ROADMAP.md). Shipped slices include `modelable attach`
-> for dbt/FHIR drift review and `modelable publish apicurio` /
+> and `modelable spec` for dbt/FHIR/ODCS drift review and
+> `modelable publish apicurio` /
 > `modelable pull apicurio` for JSON Schema artifact registry workflows. This
 > document consolidates earlier tool-boundary research and extends
 > [getting-started.md](getting-started.md) with concept mappings and
@@ -23,11 +24,13 @@ catalog UI, generated-code consumption, interchange, and runtime execution.
 
 Current local outputs include JSON Schema, Markdown, TypeScript, C#, Java,
 Python, Rust, Go, SQL DDL, dbt `schema.yml`, FHIR R4 profiles, and
-OpenMetadata JSON. `modelable attach` provides the shipped dbt/FHIR drift
-workflow described below, and Apicurio publish/pull provides the shipped live
-JSON Schema artifact-registry workflow. Live catalog synchronization, ODCS,
-additional schema targets, CDC, brokers, materializers, and API gateways remain
-deferred until they have an issue and accepted design.
+OpenMetadata JSON. `modelable attach` provides one-off dbt/FHIR/ODCS drift
+review, `modelable spec` tracks local dbt/FHIR/ODCS files in
+`.modelable/specs.yml` for repeatable status/diff/sync workflows, and Apicurio
+publish/pull provides the shipped live JSON Schema artifact-registry workflow.
+Live catalog synchronization, remote tracked-spec polling, additional schema
+targets, CDC, brokers, materializers, and API gateways remain deferred until
+they have an issue and accepted design.
 
 Earlier evaluations considered TypeSpec, Smithy, LinkML, CUE, dbt, Malloy,
 GraphQL, JSON Schema, Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI,
@@ -145,6 +148,11 @@ with a computed `additive`/`breaking` change kind when they differ. See
 bootstrapping for brand-new models and `manifest.json` input remain
 unimplemented.
 
+`modelable spec add ... --kind dbt` records the same dbt source in
+`.modelable/specs.yml` so `modelable spec status`, `spec diff`, and
+`spec sync --preview|--write` can repeat the drift review without restating the
+source path and binding.
+
 **Phase C — exposure/lineage stitching:**
 
 Treat dbt `exposures` as external consumers in the lineage graph, so
@@ -252,6 +260,9 @@ with a warning, per §3.4. See [cli-reference.md](cli-reference.md) §10.9. `mod
 generate --from <StructureDefinition.json>` bootstrapping for brand-new models
 remains unimplemented.
 
+`modelable spec add ... --kind fhir` makes the same static profile file
+trackable for repeatable status/diff/sync workflows.
+
 **Phase D (Later, roadmap) — Implementation Guide packaging:**
 
 Generate an IG-shaped documentation bundle (profiles + narrative + examples)
@@ -281,7 +292,7 @@ from a Modelable workspace, reusing the Markdown emitter.
 | Tool / standard | What it is | Why relevant to Modelable | Suggested alignment | Phase |
 |---|---|---|---|---|
 | **OpenLineage** | Open standard for lineage events (job/run/dataset/column facets); adopted by Airflow, Spark, dbt, OpenMetadata, and major cloud catalogs | Modelable's internal lineage graph could be exported as OpenLineage `ColumnLineageDatasetFacet` events, letting catalogs that already consume OpenLineage ingest Modelable lineage without a bespoke integration | Add an OpenLineage export alongside the planned OpenMetadata export (Phase 3) | 3 |
-| **Open Data Contract Standard (ODCS) / Data Contract CLI** | Vendor-neutral data contract interchange format | Already on the roadmap (Phase 4); reaffirm — dbt model contracts and FHIR profiles both have partial overlap with ODCS fields (owner, classification, quality) | No change — keep as Phase 4 | 4 |
+| **Open Data Contract Standard (ODCS) / Data Contract CLI** | Vendor-neutral data contract interchange format | Already on the roadmap (Phase 4); reaffirm — dbt model contracts and FHIR profiles both have partial overlap with ODCS fields (owner, classification, quality) | Local ODCS import is implemented for `attach`/`spec`; full ODCS export and Data Contract CLI validation remain deferred | 4 |
 | **Apache Iceberg / Delta Lake (table formats)** | Open table formats with schema evolution (add/rename/widen columns with stable field IDs) | Schema evolution semantics (stable column IDs, additive-only safe changes) closely mirror Modelable's additive/breaking model and the field-ID concern already flagged for Protobuf | Potential `--target iceberg-schema` emitter reusing the same field-ID stability mechanism proposed for Protobuf | 5 |
 | **Snowplow / Segment tracking plans** | Versioned event-schema governance for product analytics | "Event model + classification + versioning" maps closely to Modelable's `event` kind and `@classification` | Potential compile target for analytics/event-tracking teams | 5 |
 | **OMOP CDM** | Common Data Model for healthcare observational research (alternative to FHIR for analytics use cases) | Worth a follow-up evaluation if FHIR's operational profile model proves too heavyweight for analytics-only healthcare domains | Evaluate only if a concrete healthcare-analytics consumer emerges; do not build speculatively | Later |
