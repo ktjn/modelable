@@ -56,7 +56,7 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     ref = f"{domain.name}.{model_name}@{version.version}"
     properties = [_model_property(field) for field in version.fields]
     custom_properties = _base_custom_properties(domain, ref, version.model_kind.value)
-    custom_properties["modelable_change_kind"] = version.change_kind.value
+    custom_properties["modelableChangeKind"] = version.change_kind.value
 
     doc = _contract_document(
         domain=domain,
@@ -64,7 +64,7 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
         version=version.version,
         ref=ref,
         kind=version.model_kind.value,
-        schema_custom_properties={"modelable_kind": version.model_kind.value},
+        schema_custom_properties={"modelableKind": version.model_kind.value},
         properties=properties,
         custom_properties=custom_properties,
     )
@@ -84,16 +84,16 @@ def _emit_projection(
     source = _resolve_source(mdl, version)
     properties = [_projection_property(field, version, source) for field in version.fields]
     custom_properties = _base_custom_properties(domain, ref, "projection")
-    custom_properties["modelable_source"] = f"{version.source.model}@{_version_label(version.source.version)}"
+    custom_properties["modelableSource"] = f"{version.source.model}@{_version_label(version.source.version)}"
 
     schema_custom_properties: dict[str, Any] = {
-        "modelable_kind": "projection",
-        "modelable_source": custom_properties["modelable_source"],
+        "modelableKind": "projection",
+        "modelableSource": custom_properties["modelableSource"],
     }
     if version.where:
-        schema_custom_properties["modelable_where"] = version.where
+        schema_custom_properties["modelableWhere"] = version.where
     if version.group_by:
-        schema_custom_properties["modelable_group_by"] = version.group_by
+        schema_custom_properties["modelableGroupBy"] = version.group_by
 
     doc = _contract_document(
         domain=domain,
@@ -125,7 +125,7 @@ def _contract_document(
         "logicalType": "object",
         "physicalName": name,
         "properties": properties,
-        "customProperties": schema_custom_properties,
+        "customProperties": _custom_properties(schema_custom_properties),
     }
     return {
         "apiVersion": ODCS_VERSION,
@@ -138,7 +138,7 @@ def _contract_document(
         "description": {"purpose": domain.description or f"Modelable {kind} contract for {ref}"},
         "schema": [schema_entry],
         "authoritativeDefinitions": [{"url": f"modelable:{ref}", "type": "modelable"}],
-        "customProperties": custom_properties,
+        "customProperties": _custom_properties(custom_properties),
     }
 
 
@@ -165,15 +165,16 @@ def _projection_property(
     owner = _owner(source_field) if source_field is not None else None
     _apply_governance(prop, pii, classification.value if classification is not None else None, owner)
 
-    custom_properties = prop.setdefault("customProperties", {})
+    custom_properties = {}
     if isinstance(field.mapping, DirectMapping):
-        custom_properties["modelable_mapping"] = "direct"
-        custom_properties["modelable_lineage"] = [_source_field_ref(projection, field.mapping)]
+        custom_properties["modelableMapping"] = "direct"
+        custom_properties["modelableLineage"] = [_source_field_ref(projection, field.mapping)]
     elif isinstance(field.mapping, ComputedMapping):
-        custom_properties["modelable_mapping"] = "computed"
-        custom_properties["modelable_expression"] = field.mapping.expression
+        custom_properties["modelableMapping"] = "computed"
+        custom_properties["modelableExpression"] = field.mapping.expression
     else:
-        custom_properties["modelable_mapping"] = "unknown"
+        custom_properties["modelableMapping"] = "unknown"
+    prop["customProperties"].extend(_custom_properties(custom_properties))
 
     return prop
 
@@ -184,44 +185,52 @@ def _field_property(name: str, field_type: FieldType, *, required: bool) -> dict
         "name": name,
         "logicalType": type_info["logicalType"],
         "required": required,
-        "customProperties": {"modelable_type": type_info["modelable_type"]},
+        "customProperties": _custom_properties({"modelableType": type_info["modelable_type"]}),
     }
+    if "logicalTypeOptions" in type_info:
+        prop["logicalTypeOptions"] = type_info["logicalTypeOptions"]
     if "enum" in type_info:
-        prop["enum"] = type_info["enum"]
+        prop["customProperties"].append({"property": "modelableEnum", "value": type_info["enum"]})
     if extra := type_info.get("extra"):
-        prop["customProperties"].update(extra)
+        prop["customProperties"].extend(_custom_properties(extra))
     return prop
 
 
 def _type_info(field_type: FieldType) -> dict[str, Any]:
     if isinstance(field_type, PrimitiveType):
+        if field_type.kind == "uuid":
+            return {
+                "logicalType": "string",
+                "modelable_type": field_type.kind,
+                "logicalTypeOptions": {"format": "uuid"},
+            }
         return {"logicalType": field_type.kind, "modelable_type": field_type.kind}
     if isinstance(field_type, DecimalType):
         return {
             "logicalType": "number",
             "modelable_type": f"decimal({field_type.precision},{field_type.scale})",
-            "extra": {"modelable_precision": field_type.precision, "modelable_scale": field_type.scale},
+            "extra": {"modelablePrecision": field_type.precision, "modelableScale": field_type.scale},
         }
     if isinstance(field_type, ArrayType):
         return {
             "logicalType": "array",
             "modelable_type": f"array<{_type_name(field_type.item)}>",
-            "extra": {"modelable_item_type": _type_name(field_type.item)},
+            "extra": {"modelableItemType": _type_name(field_type.item)},
         }
     if isinstance(field_type, MapType):
         return {
             "logicalType": "object",
             "modelable_type": f"map<{_type_name(field_type.key)},{_type_name(field_type.value)}>",
             "extra": {
-                "modelable_key_type": _type_name(field_type.key),
-                "modelable_value_type": _type_name(field_type.value),
+                "modelableKeyType": _type_name(field_type.key),
+                "modelableValueType": _type_name(field_type.value),
             },
         }
     if isinstance(field_type, RefType):
         return {
             "logicalType": "string",
             "modelable_type": f"ref<{field_type.target}>",
-            "extra": {"modelable_ref": field_type.target},
+            "extra": {"modelableRef": field_type.target},
         }
     if isinstance(field_type, EnumType):
         return {"logicalType": "string", "modelable_type": _type_name(field_type), "enum": field_type.values}
@@ -231,30 +240,36 @@ def _type_info(field_type: FieldType) -> dict[str, Any]:
         return {
             "logicalType": "object",
             "modelable_type": field_type.name,
-            "extra": {"modelable_named_type": field_type.name},
+            "extra": {"modelableNamedType": field_type.name},
         }
     return {"logicalType": "string", "modelable_type": "unknown"}
 
 
 def _apply_governance(prop: dict[str, Any], pii: bool, classification: str | None, owner: str | None) -> None:
+    custom_properties: dict[str, Any] = {}
     if pii:
-        prop["pii"] = True
+        custom_properties["modelablePii"] = True
     if classification:
-        prop["classificationLevel"] = classification
+        prop["classification"] = classification
     if owner:
-        prop["owner"] = owner
+        custom_properties["modelableOwner"] = owner
+    prop["customProperties"].extend(_custom_properties(custom_properties))
 
 
 def _base_custom_properties(domain: DomainDef, ref: str, kind: str) -> dict[str, Any]:
     custom_properties: dict[str, Any] = {
-        "modelable_ref": ref,
-        "modelable_kind": kind,
+        "modelableRef": ref,
+        "modelableKind": kind,
     }
     if domain.owner:
-        custom_properties["modelable_owner"] = domain.owner
+        custom_properties["modelableOwner"] = domain.owner
     if domain.contact:
-        custom_properties["modelable_contact"] = domain.contact
+        custom_properties["modelableContact"] = domain.contact
     return custom_properties
+
+
+def _custom_properties(properties: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"property": key, "value": value} for key, value in properties.items()]
 
 
 def _artifact(target: str, ref: str, artifact_id: str, path: Path, doc: dict[str, Any]) -> EmittedArtifact:
