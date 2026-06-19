@@ -44,6 +44,11 @@ jobs:
       - name: Run tests
         run: uv run pytest --tb=short
 
+      - name: Run ODCS Data Contract CLI lint smoke
+        env:
+          MODELABLE_DATACONTRACT_CLI: "1"
+        run: uv run --with datacontract-cli pytest tests/test_emit_odcs.py --tb=short -q
+
       - name: Run OpenMetadata Testcontainers smoke
         env:
           MODELABLE_OPENMETADATA_TESTCONTAINERS: "1"
