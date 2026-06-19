@@ -12,16 +12,21 @@ item is not committed until it has an issue and an accepted design.
 - Add more real-world examples and migration guidance.
 - Exercise and harden Apicurio JSON Schema artifact publish/pull with real
   registry deployments.
+- Harden local catalog, lineage, and contract-interchange exports before adding
+  live synchronization commands.
 
 ## Next
 
-- Catalog and governance-system integration, including hardening OpenMetadata
-  and OpenLineage local exports before live sync.
-- Data Contract CLI validation and hardening for ODCS interchange.
-- dbt schema/source export and import (see
-  [docs/integrations.md](docs/integrations.md)).
-- FHIR R4 profile export and import for a small base-resource set (see
-  [docs/integrations.md](docs/integrations.md)).
+- Live catalog/governance synchronization after local OpenMetadata and
+  OpenLineage exports have enough validation evidence for a specific deployment
+  target.
+- Remote tracked-spec polling and authenticated source access for dbt, FHIR,
+  ODCS, and future external specifications.
+- Brand-new model bootstrapping from dbt `manifest.json` / `schema.yml`, FHIR
+  `StructureDefinition`, and ODCS documents beyond the current attach/spec
+  drift workflows.
+- FHIR R4 profile hardening for a small base-resource set, including stronger
+  element mapping and validation against representative profiles.
 - Additional artifact formats driven by concrete consumers.
 
 ## Later

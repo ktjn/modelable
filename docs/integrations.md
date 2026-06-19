@@ -107,11 +107,11 @@ domain ownership, and projections, but scoped to the warehouse.
 
 ### 2.3 Alignment plan
 
-**Phase A — dbt schema/source export (extends Phase 1/4 of
+**Implemented — dbt schema/source export (extends Phase 1/4 of
 the integration boundary above):**
 
-Add a `dbt-yaml` (working name) compile target that generates dbt
-`schema.yml` fragments for a model or projection:
+`modelable compile --target dbt-yaml` generates dbt `schema.yml` fragments for
+a model or projection:
 
 ```bash
 modelable compile ./models --target dbt-yaml --out ./dist/dbt
@@ -210,11 +210,10 @@ with field-level lineage.
 
 ### 3.3 Alignment plan
 
-**Phase A — FHIR profile export (export-only, R4 first):**
+**Implemented initial export — FHIR profile artifacts (R4 first):**
 
-Add a `fhir-profile` (working name) compile target that, given a Modelable
-projection whose lineage traces to a declared FHIR base resource, generates a
-FHIR R4 `StructureDefinition` with `derivation: constraint`:
+`modelable compile --target fhir-profile` generates initial FHIR R4
+`StructureDefinition` artifacts from Modelable projections:
 
 ```bash
 modelable compile ./models --target fhir-profile --out ./dist/fhir
@@ -315,8 +314,8 @@ This slots into the existing phased plan from
 | 1 — Local modelling compiler | JSON Schema, Markdown, TypeScript | none |
 | 2 — Artifact registry | Apicurio | none |
 | 3 — Catalog/governance sync | OpenMetadata | + OpenLineage export |
-| 4 — Contract interchange | ODCS, Data Contract CLI | + dbt `schema.yml`/source export and import |
-| 4b (new) — Domain-specific interchange | — | FHIR R4 profile export (small resource set) and import |
+| 4 — Contract interchange | ODCS, Data Contract CLI | dbt `schema.yml`/source export and import are implemented for local files; remote polling remains deferred |
+| 4b (new) — Domain-specific interchange | — | Initial FHIR R4 StructureDefinition export and local-file import are implemented; small-resource profile hardening and deeper conformance remain deferred |
 | 5 — Event/API/runtime targets | Avro, Protobuf, OpenAPI, AsyncAPI, runtime stack | + Iceberg/Delta schema target, analytics tracking-plan target, GraphQL SDL |
 
 ## 6. Non-goals
@@ -334,8 +333,8 @@ This slots into the existing phased plan from
 
 ## 7. Open decisions
 
-- Whether dbt and FHIR emitters/importers are first-party (in `cli/`) or
-  third-party plugins, pending the plugin-registry decision already open in
+- Whether future ecosystem targets remain first-party or move to third-party
+  plugins, pending the plugin-registry decision already open in
   [compiler-reference.md](compiler-reference.md) §11.
 - Which FHIR base resources are in scope for Phase 4b (proposed starting set:
   `Patient`, `Observation`, `Encounter`).

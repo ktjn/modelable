@@ -1,6 +1,6 @@
 # Agent Instructions
 
-## Current State (updated 2026-05-31)
+## Current State (updated 2026-06-19)
 
 The Phase 1 local modelling compiler is complete. Before starting any task, run `git log --oneline -10`, inspect open issues, and check `ROADMAP.md` plus the relevant product specification for the next open slice.
 
@@ -11,9 +11,9 @@ The Phase 1 local modelling compiler is complete. Before starting any task, run 
 | 2 — Registry graph, resolver | Complete — lineage edges, compatibility reports, and access policies are populated |
 | 3 — Planner, auto projections, CEL, lineage | Complete — auto projections, CEL validation, lineage extraction, plan docs all done |
 | 4 — Compatibility and governance | Complete — single-domain compatibility diff shipped; broader compatibility follow-on is available if needed |
-| 5 — Emitters | Complete — JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, and Go are implemented |
+| 5 — Emitters | Complete — JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, Go, SQL, dbt YAML, initial FHIR R4 StructureDefinition artifacts, OpenMetadata, OpenLineage, and ODCS are implemented |
 | 6 — CLI workflows | Complete |
-| 7 — Hardening | Complete |
+| 7 — Hardening | Complete — local gates, release checks, live OpenMetadata smoke, and ODCS Data Contract CLI lint gates are documented |
 
 **Next task:** Use the roadmap, open issues, and relevant product specification to identify the next open slice before starting implementation work.
 
@@ -79,6 +79,13 @@ This repository currently contains the Modelable system specification, centered 
   emitter tests and the OpenMetadata Testcontainers smoke:
   `uv run pytest tests/test_emit_openmetadata.py tests/test_openmetadata_testcontainers.py -q`
   with `MODELABLE_OPENMETADATA_TESTCONTAINERS=1`.
+- If a change can affect the OpenLineage export format, run the focused
+  emitter tests:
+  `uv run pytest tests/test_emit_openlineage.py -q`.
+- If a change can affect the ODCS export format, run the focused emitter tests
+  and the Data Contract CLI lint smoke:
+  `uv run pytest tests/test_emit_odcs.py -q` and
+  `MODELABLE_DATACONTRACT_CLI=1 uv run --with datacontract-cli pytest tests/test_emit_odcs.py --tb=short -q`.
 - Keep registry, compiler/planner, runtime, materializer, and adapter concerns separated unless an existing local pattern says otherwise.
 - Validate definitions before runtime where feasible.
 - Do not expose PII, sensitive, restricted, or unauthorized fields in projections, generated artifacts, logs, or dead-letter payloads.
@@ -105,6 +112,11 @@ Use the gate that matches the touched surface:
 - **Compiler, planner, compatibility, lineage, governance, or emitters:** Run focused unit tests for the changed module and the full local CLI gate.
 - **OpenMetadata export format:** Run focused OpenMetadata emitter tests plus
   `MODELABLE_OPENMETADATA_TESTCONTAINERS=1 uv run pytest tests/test_openmetadata_testcontainers.py -q`
+  from `cli/`.
+- **OpenLineage export format:** Run `uv run pytest tests/test_emit_openlineage.py -q`
+  from `cli/`.
+- **ODCS export format:** Run `uv run pytest tests/test_emit_odcs.py -q` plus
+  `MODELABLE_DATACONTRACT_CLI=1 uv run --with datacontract-cli pytest tests/test_emit_odcs.py --tb=short -q`
   from `cli/`.
 - **Runtime, adapter, materializer, or security behavior:** Run focused unit tests plus any integration or smoke gate defined for that component.
 
