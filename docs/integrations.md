@@ -210,9 +210,9 @@ with field-level lineage.
 
 ### 3.3 Alignment plan
 
-**Implemented initial export — FHIR profile artifacts (R4 first):**
+**Implemented export — FHIR profile artifacts (R4 first):**
 
-`modelable compile --target fhir-profile` generates initial FHIR R4
+`modelable compile --target fhir-profile` generates FHIR R4
 `StructureDefinition` artifacts from Modelable projections:
 
 ```bash
@@ -228,12 +228,17 @@ baseDefinition                  -> declared via projection source annotation
 field <- source.field           -> ElementDefinition with sliced/renamed path
 enum(...)                        -> ElementDefinition.binding (valueSet, strength: required)
 ref<Domain.Model>                -> ElementDefinition type Reference(ResourceType)
-@pii / @classification            -> meta.security coding
+@pii / @classification            -> Modelable FHIR extensions
 ```
 
-Start with a small, explicitly supported set of base resources (e.g.
-`Patient`, `Observation`, `Encounter`) rather than attempting full coverage of
-the FHIR resource catalog.
+The first hardened base-resource set is `Patient`, `Observation`, and
+`Encounter`. Projections whose source model name matches one of those resources
+emit R4 `StructureDefinition` constraint profiles with deterministic root and
+field `ElementDefinition` entries, source-field lineage mappings, primitive
+type mappings, enum bindings to Modelable ValueSet URLs, FHIR `Reference`
+target profiles, and Modelable classification/PII extensions. Other projection
+sources fall back to FHIR `Basic` with an emitter warning rather than silently
+claiming unsupported resource-specific conformance.
 
 **Phase B — terminology and reference mapping:**
 
@@ -315,7 +320,7 @@ This slots into the existing phased plan from
 | 2 — Artifact registry | Apicurio | none |
 | 3 — Catalog/governance sync | OpenMetadata | + OpenLineage export |
 | 4 — Contract interchange | ODCS, Data Contract CLI | dbt `schema.yml`/source export and import are implemented for local files; remote polling remains deferred |
-| 4b (new) — Domain-specific interchange | — | Initial FHIR R4 StructureDefinition export and local-file import are implemented; small-resource profile hardening and deeper conformance remain deferred |
+| 4b (new) — Domain-specific interchange | — | FHIR R4 StructureDefinition export and local-file import are implemented; Patient/Observation/Encounter profile bases have initial hardened element mapping; representative profile validation and deeper conformance remain deferred |
 | 5 — Event/API/runtime targets | Avro, Protobuf, OpenAPI, AsyncAPI, runtime stack | + Iceberg/Delta schema target, analytics tracking-plan target, GraphQL SDL |
 
 ## 6. Non-goals
@@ -336,8 +341,8 @@ This slots into the existing phased plan from
 - Whether future ecosystem targets remain first-party or move to third-party
   plugins, pending the plugin-registry decision already open in
   [compiler-reference.md](compiler-reference.md) §11.
-- Which FHIR base resources are in scope for Phase 4b (proposed starting set:
-  `Patient`, `Observation`, `Encounter`).
+- Which FHIR validation gate should be used for Phase 4b artifacts beyond
+  deterministic unit tests and compile smoke checks.
 - Which warehouse dialect's `data_type` vocabulary the dbt emitter targets by
   default (or whether it omits `data_type` until `contract.enforced` is
   requested).
