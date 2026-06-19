@@ -66,6 +66,8 @@ def import_from_text(
         return _import_dbt(source_text, domain_name=domain_name, source_name=source_name)
     if source_format == "fhir":
         return _import_fhir(source_text, domain_name=domain_name, source_name=source_name)
+    if source_format == "odcs":
+        return _import_odcs(source_text, domain_name=domain_name, source_name=source_name)
     raise ValueError(f"Unsupported source format: {source_format}")
 
 
@@ -321,6 +323,86 @@ def _import_fhir(source_text: str, *, domain_name: str | None, source_name: str 
 
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("fhir", name, domain, _sanitize_ident(resource_type), version, warnings)
+
+
+def _import_odcs(source_text: str, *, domain_name: str | None, source_name: str | None = None) -> ImportedModel:
+    doc = yaml.safe_load(source_text) or {}
+    schema = doc.get("schema") or doc.get("schemas") or []
+    if isinstance(schema, dict):
+        schema = schema.get("objects") or schema.get("tables") or [schema]
+    if not isinstance(schema, list) or not schema:
+        raise ValueError("ODCS document does not declare a schema")
+
+    if source_name is not None:
+        item = next((entry for entry in schema if isinstance(entry, dict) and entry.get("name") == source_name), None)
+        if item is None:
+            raise ValueError(f"ODCS schema '{source_name}' not found in source")
+    else:
+        item = next((entry for entry in schema if isinstance(entry, dict)), None)
+    if not isinstance(item, dict):
+        raise ValueError("ODCS schema does not contain a supported object")
+
+    name = str(item.get("name") or item.get("physicalName") or "OdcsModel")
+    domain = domain_name or _guess_domain_name(name)
+    properties = item.get("properties") or item.get("fields") or item.get("columns") or []
+    if isinstance(properties, dict):
+        properties = [
+            {"name": key, **value} if isinstance(value, dict) else {"name": key} for key, value in properties.items()
+        ]
+
+    fields: list[FieldDef] = []
+    warnings: list[str] = []
+    for prop in properties:
+        if not isinstance(prop, dict) or not prop.get("name"):
+            warnings.append(f"Skipped unsupported ODCS property: {prop}")
+            continue
+        fields.append(_field_from_odcs_property(prop, warnings))
+
+    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
+    return ImportedModel("odcs", name, domain, _sanitize_ident(name), version, warnings)
+
+
+def _field_from_odcs_property(prop: dict[str, Any], warnings: list[str]) -> FieldDef:
+    name = str(prop["name"])
+    type_name = str(
+        prop.get("logicalType")
+        or prop.get("physicalType")
+        or prop.get("type")
+        or prop.get("dataType")
+        or prop.get("classification")
+        or "string"
+    )
+    annotations: list[Annotation] = []
+    if prop.get("primaryKey") or prop.get("primary_key") or prop.get("key"):
+        annotations.append(AnnKey())
+    if prop.get("pii") or prop.get("personalData"):
+        annotations.append(AnnPii())
+    classification = prop.get("modelable_classification") or prop.get("classificationLevel")
+    if classification and str(classification).lower() not in {"string", "number", "integer", "boolean"}:
+        annotations.append(AnnClassification(level=str(classification)))
+    owner = prop.get("owner")
+    if owner:
+        annotations.append(AnnOwner(team=str(owner)))
+    optional = not bool(prop.get("required") or (annotations and any(isinstance(ann, AnnKey) for ann in annotations)))
+    return FieldDef(
+        name=name, type=_odcs_type_to_field_type(type_name, warnings), optional=optional, annotations=annotations
+    )
+
+
+def _odcs_type_to_field_type(type_name: str, warnings: list[str]) -> FieldType:
+    normalized = type_name.strip().lower()
+    if normalized in {"string", "text", "varchar"}:
+        return PrimitiveType(kind="string")
+    if normalized in {"integer", "int", "long", "bigint"}:
+        return PrimitiveType(kind="int")
+    if normalized in {"number", "float", "double"}:
+        return PrimitiveType(kind="float")
+    if normalized in {"boolean", "bool"}:
+        return PrimitiveType(kind="bool")
+    if normalized in {"date", "time", "timestamp", "uuid", "binary"}:
+        return PrimitiveType(kind=normalized)
+    warnings.append(f"Falling back to named type for ODCS type: {type_name}")
+    return NamedType(name=_sanitize_ident(type_name))
 
 
 def _field_from_fhir_element(field_name: str, element: dict[str, Any], warnings: list[str]) -> FieldDef:

@@ -293,7 +293,7 @@ def update(
     required=True,
     help="External dbt schema.yml or FHIR StructureDefinition JSON file.",
 )
-@click.option("--source-format", "source_format", type=click.Choice(["dbt", "fhir"]), required=True)
+@click.option("--source-format", "source_format", type=click.Choice(["dbt", "fhir", "odcs"]), required=True)
 @click.option(
     "--source-name",
     "source_name",
