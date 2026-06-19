@@ -16,7 +16,7 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 | 1 | Local modelling compiler (validate, resolve, lineage, diff, compile, docs, local artifact targets) | MVP |
 | 2 | Artifact registry integration (Apicurio Registry) | Implemented JSON Schema artifact publish/pull |
 | 3 | Catalog / governance integration (OpenMetadata) | Local export target implemented; live publish deferred |
-| 4 | Contract interchange and external spec tracking | Tracked dbt/FHIR/ODCS drift workflow implemented; ODCS export deferred |
+| 4 | Contract interchange and external spec tracking | Tracked dbt/FHIR/ODCS drift workflow implemented; ODCS compile target implemented |
 
 ## 3. Installation and Runtime
 
@@ -220,7 +220,7 @@ In addition to the requested artifact format, `compile` always writes a `registr
 
 | Flag | Required | Default | Description |
 |:-----|:---------|:--------|:------------|
-| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, or `openmetadata` |
+| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, or `odcs` |
 | `--out`, `-o` | No | `./dist/<format>` | Output directory |
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
 
@@ -241,6 +241,7 @@ In addition to the requested artifact format, `compile` always writes a `registr
 | `dbt-yaml` | `./dist/dbt` |
 | `fhir-profile` | `./dist/fhir` |
 | `openmetadata` | `./dist/openmetadata` |
+| `odcs` | `./dist/odcs` |
 
 **Artifact ID convention:** `domain.Name.vVersion` (used as filename stem).
 
@@ -251,6 +252,7 @@ modelable compile ./models --target json-schema --out ./dist/jsonschema
 modelable compile ./models --target typescript
 modelable compile ./models --target markdown --out ./dist/docs
 modelable compile ./models --target openmetadata --out ./dist/openmetadata
+modelable compile ./models --target odcs --out ./dist/odcs
 ```
 
 ---
@@ -560,49 +562,61 @@ Pushes the OpenMetadata export document to a live OpenMetadata instance.
 
 ---
 
-### 5.17 `export odcs` — Export an Open Data Contract Standard document
+### 5.17 `compile --target odcs` — Export Open Data Contract Standard documents
 
 ```text
-modelable export odcs REF --out FILE [--path PATH]
+modelable compile PATH --target odcs --out DIR
 ```
 
-**Phase 4 — not yet implemented.**
+**Phase 4 — implemented as a compile target.**
 
-Exports a single model or projection as an Open Data Contract Standard (ODCS) v1.0.0 YAML document. The output can be linted with `datacontract lint`.
+Exports each model and projection version as an Open Data Contract Standard
+(ODCS) v3.1.0 YAML document. The output preserves Modelable reference,
+version, ownership, classification, PII, projection source, and field lineage
+metadata under ODCS-native fields and `customProperties`.
 
 **ODCS document structure:**
 
 ```yaml
-dataContractSpecification: "1.0.0"
-id: "modelable://<domain>/<name>/v<version>"
-info:
-  title: "<domain>.<name>.v<version>"
-  version: "<version>"
-  owner: "<domain>"
-  description: "<model description>"
+apiVersion: v3.1.0
+kind: DataContract
+id: modelable://<domain>/<name>/v<version>
+name: <domain>.<name>.v<version>
+version: "<version>"
+domain: <domain>
+status: active
+description:
+  purpose: <domain or generated description>
 schema:
-  <model_name>:
-    type: object
+  - name: <model_or_projection_name>
+    logicalType: object
+    physicalName: <model_or_projection_name>
     properties:
-      <field_name>:
-        type: <field_type>
-        required: <bool>          # if set on the field
-        classification: <value>   # if set on the field
-        description: <value>      # if set on the field
+      - name: <field_name>
+        logicalType: <field_type>
+        required: true
+        primaryKey: true
+        pii: true
+        classificationLevel: <classification>
+        customProperties:
+          modelable_type: <original Modelable type>
+          modelable_lineage:
+            - <source_ref.field>
 ```
 
 **Options:**
 
 | Flag | Required | Default | Description |
 |:-----|:---------|:--------|:------------|
-| `--out`, `-o` | Yes | — | Output YAML file path |
-| `--path`, `-p` | No | `.` | Directory to search for definitions |
+| `--target` | Yes | — | Must be `odcs` |
+| `--out`, `-o` | No | `./dist/odcs` | Output directory |
+| `--registry` | No | `.modelable/registry.db` | Registry index path |
 
 **Examples:**
 
 ```bash
-modelable export odcs customer.Customer@1 --out ./dist/customer.contract.yaml
-datacontract lint ./dist/customer.contract.yaml
+modelable compile ./models --target odcs --out ./dist/odcs
+datacontract lint ./dist/odcs/customer.Customer.v1.odcs.yaml
 ```
 
 ---

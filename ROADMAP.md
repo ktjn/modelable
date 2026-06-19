@@ -16,7 +16,7 @@ item is not committed until it has an issue and an accepted design.
 ## Next
 
 - Catalog and governance-system integration.
-- Open Data Contract Standard interchange.
+- Data Contract CLI validation and hardening for ODCS interchange.
 - dbt schema/source export and import (see
   [docs/integrations.md](docs/integrations.md)).
 - FHIR R4 profile export and import for a small base-resource set (see
