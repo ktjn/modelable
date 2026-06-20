@@ -408,6 +408,8 @@ named from `sliceName`; direct `extension` slices also surface the extension
 profile URL for review.
 ODCS imports preserve field `pii`, `classification`, `classificationLevel`,
 owner, key, required, and type metadata when drafting `.mdl` models.
+Quoted ODCS boolean-like flags such as `"false"` are normalized before import
+so disabled metadata does not become `@key`, `@pii`, or required fields.
 When `--output` is provided, the command also writes a deterministic `.provenance.json` sidecar next to the generated file.
 
 **Options:**

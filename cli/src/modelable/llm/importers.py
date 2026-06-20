@@ -415,9 +415,13 @@ def _field_from_odcs_property(prop: dict[str, Any], warnings: list[str]) -> Fiel
         prop.get("logicalType") or prop.get("physicalType") or prop.get("type") or prop.get("dataType") or "string"
     )
     annotations: list[Annotation] = []
-    if prop.get("primaryKey") or prop.get("primary_key") or prop.get("key"):
+    if (
+        _metadata_flag(prop.get("primaryKey"))
+        or _metadata_flag(prop.get("primary_key"))
+        or _metadata_flag(prop.get("key"))
+    ):
         annotations.append(AnnKey())
-    if prop.get("pii") or prop.get("personalData"):
+    if _metadata_flag(prop.get("pii")) or _metadata_flag(prop.get("personalData")):
         annotations.append(AnnPii())
     classification = (
         prop.get("modelable_classification") or prop.get("classificationLevel") or prop.get("classification")
@@ -427,10 +431,16 @@ def _field_from_odcs_property(prop: dict[str, Any], warnings: list[str]) -> Fiel
     owner = prop.get("owner")
     if owner:
         annotations.append(AnnOwner(team=str(owner)))
-    optional = not bool(prop.get("required") or (annotations and any(isinstance(ann, AnnKey) for ann in annotations)))
+    optional = not (_metadata_flag(prop.get("required")) or any(isinstance(ann, AnnKey) for ann in annotations))
     return FieldDef(
         name=name, type=_odcs_type_to_field_type(type_name, warnings), optional=optional, annotations=annotations
     )
+
+
+def _metadata_flag(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
 
 
 def _odcs_type_to_field_type(type_name: str, warnings: list[str]) -> FieldType:

@@ -348,6 +348,31 @@ schema:
     assert '@pii @classification("restricted") email?: string' in text
 
 
+def test_odcs_importer_respects_false_boolean_flags():
+    imported = import_from_text(
+        """
+apiVersion: v3.0.2
+kind: DataContract
+name: customer-contract
+schema:
+  - name: Customer
+    properties:
+      - name: email
+        logicalType: string
+        required: "false"
+        primaryKey: "false"
+        personalData: "false"
+""",
+        "odcs",
+        domain_name="customer",
+    )
+
+    text = imported.to_mdl()
+    assert "email?: string" in text
+    assert "@key" not in text
+    assert "@pii" not in text
+
+
 def test_fhir_importer_maps_elements_to_fields():
     source = json.dumps(
         {
