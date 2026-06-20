@@ -208,10 +208,8 @@ def _import_dbt(source_text: str, *, domain_name: str | None, source_name: str |
         model = models[0]
     name = model.get("name") or "DbtModel"
     domain = domain_name or _guess_domain_name(name)
-    fields: list[FieldDef] = []
     warnings: list[str] = []
-    for column in model.get("columns") or []:
-        fields.append(_field_from_dbt_column(column, warnings))
+    fields = _fields_from_dbt_columns(model.get("columns") or [], warnings)
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
 
@@ -239,10 +237,8 @@ def _import_dbt_source_yaml(
 
     name = table.get("name") or "DbtSource"
     domain = domain_name or _guess_domain_name(name)
-    fields: list[FieldDef] = []
     warnings: list[str] = []
-    for column in table.get("columns") or []:
-        fields.append(_field_from_dbt_column(column, warnings))
+    fields = _fields_from_dbt_columns(table.get("columns") or [], warnings)
 
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
@@ -253,28 +249,44 @@ def _import_dbt_manifest(
 ) -> ImportedModel:
     nodes = doc.get("nodes") or {}
     models = {node["name"]: node for node in nodes.values() if node.get("resource_type") == "model" and "name" in node}
-    if not models:
-        raise ValueError("dbt manifest does not declare any models")
+    sources_doc = doc.get("sources") or {}
+    sources = {
+        source["name"]: source
+        for source in sources_doc.values()
+        if source.get("resource_type") == "source" and "name" in source
+    }
+    if not models and not sources:
+        raise ValueError("dbt manifest does not declare any models or source tables")
 
     if source_name is not None:
         model = models.get(source_name)
-        if model is None:
-            raise ValueError(f"dbt model '{source_name}' not found in manifest")
+        source = sources.get(source_name) if model is None else None
+        if model is None and source is None:
+            raise ValueError(f"dbt model or source table '{source_name}' not found in manifest")
     else:
-        first_name = sorted(models.keys())[0]
-        model = models[first_name]
+        model = models[sorted(models.keys())[0]] if models else None
+        source = sources[sorted(sources.keys())[0]] if model is None else None
 
-    name = model["name"]
+    selected = model or source
+    name = selected["name"]
     domain = domain_name or _guess_domain_name(name)
-    fields: list[FieldDef] = []
     warnings: list[str] = []
-
-    columns = model.get("columns") or {}
-    for col_details in columns.values():
-        fields.append(_field_from_dbt_column(col_details, warnings))
+    fields = _fields_from_dbt_columns(selected.get("columns") or {}, warnings)
 
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
+
+
+def _fields_from_dbt_columns(columns: Any, warnings: list[str]) -> list[FieldDef]:
+    fields: list[FieldDef] = []
+    column_items = columns.items() if isinstance(columns, dict) else ((None, column) for column in columns)
+    for column_name, column in column_items:
+        if not isinstance(column, dict):
+            continue
+        if "name" not in column and column_name is not None:
+            column = {"name": column_name, **column}
+        fields.append(_field_from_dbt_column(column, warnings))
+    return fields
 
 
 def _field_from_dbt_column(column: dict[str, Any], warnings: list[str]) -> FieldDef:

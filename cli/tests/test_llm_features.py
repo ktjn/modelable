@@ -258,6 +258,41 @@ sources:
     assert "@pii email?: string" in text
 
 
+def test_dbt_importer_bootstraps_manifest_source_table():
+    source = {
+        "nodes": {},
+        "sources": {
+            "source.raw_customer.customers": {
+                "name": "customers",
+                "resource_type": "source",
+                "columns": {
+                    "customerId": {
+                        "data_type": "text",
+                        "constraints": [{"type": "primary_key"}],
+                    },
+                    "email": {
+                        "data_type": "text",
+                        "meta": {"modelable_pii": True},
+                    },
+                },
+            }
+        },
+    }
+
+    imported = import_from_text(
+        json.dumps(source),
+        "dbt",
+        domain_name="customer",
+        source_name="customers",
+    )
+
+    text = imported.to_mdl()
+    assert "domain customer" in text
+    assert "entity Customers @ 1 (additive)" in text
+    assert "@key customerId: string" in text
+    assert "@pii email?: string" in text
+
+
 def test_cli_generate_auto_detects_odcs_yaml(tmp_path):
     contract = tmp_path / "customer_contract.yml"
     contract.write_text(

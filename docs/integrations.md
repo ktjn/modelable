@@ -138,9 +138,9 @@ YAML.
 
 `modelable generate --from <dbt manifest.json | schema.yml> --output
 models/<domain>.mdl` bootstraps `.mdl` models from local dbt models or source
-tables, following the same "review the generated output" workflow as other
-imports. Use `--name` to select a specific dbt model or source table when a
-file contains multiple candidates.
+tables, including `sources` entries from `manifest.json`, following the same
+"review the generated output" workflow as other imports. Use `--name` to select
+a specific dbt model or source table when a file contains multiple candidates.
 
 **Implemented (partial):** `modelable attach <Domain.Model@version> --source
 <schema.yml> --source-format dbt [--source-name NAME]` imports a dbt model's
@@ -323,7 +323,7 @@ This slots into the existing phased plan from
 | 1 — Local modelling compiler | JSON Schema, Markdown, TypeScript | none |
 | 2 — Artifact registry | Apicurio | none |
 | 3 — Catalog/governance sync | OpenMetadata | + OpenLineage export |
-| 4 — Contract interchange | ODCS, Data Contract CLI | dbt `schema.yml` export, dbt model/source-table import, dbt manifest model import, and ODCS local-file import/export are implemented; remote polling remains deferred |
+| 4 — Contract interchange | ODCS, Data Contract CLI | dbt `schema.yml` export, dbt model/source-table import, dbt manifest model/source-table import, and ODCS local-file import/export are implemented; remote polling remains deferred |
 | 4b (new) — Domain-specific interchange | — | FHIR R4 StructureDefinition export and local-file import are implemented; Patient/Observation/Encounter profile bases have hardened element mapping with representative cardinality coverage; representative HL7 FHIR Validator smoke is implemented; custom-field extension mapping and deeper conformance remain deferred |
 | 5 — Event/API/runtime targets | Avro, Protobuf, OpenAPI, AsyncAPI, runtime stack | + Iceberg/Delta schema target, analytics tracking-plan target, GraphQL SDL |
 

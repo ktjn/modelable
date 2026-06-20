@@ -424,6 +424,7 @@ modelable generate --from ./existing-schema.json --format json-schema --domain c
 modelable generate --from ./existing.sql --format sql --domain customer
 modelable generate --from ./dbt/schema.yml --domain customer --output customer.mdl
 modelable generate --from ./dbt/schema.yml --name customers --domain customer --output customer-source.mdl
+modelable generate --from ./dbt/manifest.json --name customers --domain customer --output customer-source.mdl
 modelable generate --from ./fhir/PatientProfile.json --domain clinical --output patient.mdl
 modelable generate --from ./contracts/customer.yml --domain customer --output customer.mdl
 ```
