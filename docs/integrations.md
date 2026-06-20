@@ -236,9 +236,12 @@ The first hardened base-resource set is `Patient`, `Observation`, and
 emit R4 `StructureDefinition` constraint profiles with deterministic root and
 field `ElementDefinition` entries, source-field lineage mappings, primitive
 type mappings, enum bindings to Modelable ValueSet URLs, FHIR `Reference`
-target profiles, and Modelable classification/PII extensions. Other projection
-sources fall back to FHIR `Basic` with an emitter warning rather than silently
-claiming unsupported resource-specific conformance.
+target profiles, repeating field cardinality, and Modelable
+classification/PII extensions. Other projection sources fall back to FHIR
+`Basic` with an emitter warning rather than silently claiming unsupported
+resource-specific conformance. Representative FHIR-native Patient profile
+output is validated with the HL7-maintained Java FHIR Validator smoke in the
+local/CI gate when `validator_cli.jar` is available.
 
 **Phase B — terminology and reference mapping:**
 
@@ -320,7 +323,7 @@ This slots into the existing phased plan from
 | 2 — Artifact registry | Apicurio | none |
 | 3 — Catalog/governance sync | OpenMetadata | + OpenLineage export |
 | 4 — Contract interchange | ODCS, Data Contract CLI | dbt `schema.yml`/source export and import are implemented for local files; remote polling remains deferred |
-| 4b (new) — Domain-specific interchange | — | FHIR R4 StructureDefinition export and local-file import are implemented; Patient/Observation/Encounter profile bases have initial hardened element mapping; representative profile validation and deeper conformance remain deferred |
+| 4b (new) — Domain-specific interchange | — | FHIR R4 StructureDefinition export and local-file import are implemented; Patient/Observation/Encounter profile bases have hardened element mapping with representative cardinality coverage; representative HL7 FHIR Validator smoke is implemented; custom-field extension mapping and deeper conformance remain deferred |
 | 5 — Event/API/runtime targets | Avro, Protobuf, OpenAPI, AsyncAPI, runtime stack | + Iceberg/Delta schema target, analytics tracking-plan target, GraphQL SDL |
 
 ## 6. Non-goals
@@ -341,8 +344,8 @@ This slots into the existing phased plan from
 - Whether future ecosystem targets remain first-party or move to third-party
   plugins, pending the plugin-registry decision already open in
   [compiler-reference.md](compiler-reference.md) §11.
-- Which FHIR validation gate should be used for Phase 4b artifacts beyond
-  deterministic unit tests and compile smoke checks.
+- How Modelable-only fields should map into FHIR extensions or slices when
+  they are not legal child elements of the selected base resource.
 - Which warehouse dialect's `data_type` vocabulary the dbt emitter targets by
   default (or whether it omits `data_type` until `contract.enforced` is
   requested).

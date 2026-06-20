@@ -159,12 +159,13 @@ def _field_element(
     source_field = _source_field(field, source)
     field_type = source_field.type if source_field is not None else PrimitiveType(kind="string")
     path = f"{base_resource}.{field.name}"
+    max_occurs = _max_occurs(field_type)
     element: dict[str, object] = {
         "id": path,
         "path": path,
         "min": 0 if source_field is not None and source_field.optional else 1,
-        "max": "1",
-        "base": {"path": path, "min": 0, "max": "1"},
+        "max": max_occurs,
+        "base": {"path": path, "min": 0, "max": max_occurs},
         "definition": f"Modelable field {field.name}.",
         "type": _fhir_type(field_type),
     }
@@ -213,6 +214,12 @@ def _fhir_type(field_type: FieldType) -> list[dict[str, object]]:
     if isinstance(field_type, (NamedType, ObjectType)):
         return [{"code": "BackboneElement"}]
     return [{"code": "string"}]
+
+
+def _max_occurs(field_type: FieldType) -> str:
+    if isinstance(field_type, ArrayType):
+        return "*"
+    return "1"
 
 
 def _primitive_type(kind: str) -> str:

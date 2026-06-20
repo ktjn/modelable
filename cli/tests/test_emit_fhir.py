@@ -127,3 +127,73 @@ domain billing {
     doc = json.loads(artifact.content)
     assert doc["type"] == "Basic"
     assert doc["baseDefinition"] == "http://hl7.org/fhir/StructureDefinition/Basic"
+
+
+def test_emit_fhir_profile_uses_representative_r4_resource_cardinality(tmp_path):
+    (tmp_path / "clinical.mdl").write_text(
+        """
+domain clinical {
+  entity Observation @ 1 (additive) {
+    @key observationId: uuid
+    status: enum(final, amended)
+    category?: array<string>
+    subject?: ref<Patient>
+  }
+
+  entity Encounter @ 1 (additive) {
+    @key encounterId: uuid
+    status: enum(planned, finished)
+    diagnosis?: array<string>
+  }
+
+  projection ObservationProfile @ 1
+    from clinical.Observation @ 1 as o
+  {
+    observationId <- o.observationId
+    status <- o.status
+    category <- o.category
+    subject <- o.subject
+  }
+
+  projection EncounterProfile @ 1
+    from clinical.Encounter @ 1 as e
+  {
+    encounterId <- e.encounterId
+    status <- e.status
+    diagnosis <- e.diagnosis
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_fhir_profile(workspace, tmp_path / "out")
+
+    docs = {artifact.ref: json.loads(artifact.content) for artifact in artifacts}
+
+    observation = docs["clinical.ObservationProfile@1"]
+    assert observation["type"] == "Observation"
+    assert observation["baseDefinition"] == "http://hl7.org/fhir/StructureDefinition/Observation"
+    observation_elements = {element["id"]: element for element in observation["snapshot"]["element"]}
+    assert observation_elements["Observation.category"]["min"] == 0
+    assert observation_elements["Observation.category"]["max"] == "*"
+    assert observation_elements["Observation.category"]["base"] == {
+        "path": "Observation.category",
+        "min": 0,
+        "max": "*",
+    }
+    assert observation_elements["Observation.category"]["type"] == [{"code": "string"}]
+    assert observation_elements["Observation.subject"]["type"] == [
+        {
+            "code": "Reference",
+            "targetProfile": ["http://hl7.org/fhir/StructureDefinition/Patient"],
+        }
+    ]
+
+    encounter = docs["clinical.EncounterProfile@1"]
+    assert encounter["type"] == "Encounter"
+    assert encounter["baseDefinition"] == "http://hl7.org/fhir/StructureDefinition/Encounter"
+    encounter_elements = {element["id"]: element for element in encounter["snapshot"]["element"]}
+    assert encounter_elements["Encounter.diagnosis"]["min"] == 0
+    assert encounter_elements["Encounter.diagnosis"]["max"] == "*"
+    assert encounter_elements["Encounter.diagnosis"]["type"] == [{"code": "string"}]

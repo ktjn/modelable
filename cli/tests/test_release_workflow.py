@@ -46,6 +46,7 @@ def test_release_workflow_uses_current_actions() -> None:
 def test_validation_workflow_uses_current_actions() -> None:
     assert _workflow_actions("validate.yml") == {
         "actions/checkout@v6.0.3",
+        "actions/setup-java@v5.3.0",
         "actions/setup-node@v6.4.0",
         "astral-sh/setup-uv@v8.2.0",
     }

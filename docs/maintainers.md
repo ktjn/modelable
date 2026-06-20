@@ -35,6 +35,10 @@ Agents must:
 - Run the Data Contract CLI lint smoke for any change that can affect the ODCS
   export format, including `odcs` emitter code, shared emitter metadata helpers,
   IR field/governance metadata shape, or ODCS CLI/documentation contracts.
+- Run the HL7 FHIR Validator smoke for any change that can affect the FHIR R4
+  profile export format, including `fhir-profile` emitter code, shared emitter
+  metadata helpers, IR field/governance metadata shape, or FHIR CLI/documentation
+  contracts.
 - Do not use hard-coded line numbers to locate language elements in test fixtures or sample files. Derive line positions dynamically.
 - Validate current latest stable framework, library, CLI, build-tool, and scaffolding choices with a web search against official documentation, package registries, or release pages before adding or changing them.
 - Use the latest stable framework and tool versions by default, unless the specification, compatibility constraints, existing manifests, or explicit user direction require a different version.
@@ -133,6 +137,7 @@ Test gates are selected by risk and touched surface.
 | OpenMetadata export format | `uv run pytest tests/test_emit_openmetadata.py -q` plus `MODELABLE_OPENMETADATA_TESTCONTAINERS=1 uv run pytest tests/test_openmetadata_testcontainers.py -q` from `cli/` |
 | OpenLineage export format | `uv run pytest tests/test_emit_openlineage.py -q` from `cli/`; runtime event collection is not part of the local emitter gate |
 | ODCS export format | `uv run pytest tests/test_emit_odcs.py -q` plus `MODELABLE_DATACONTRACT_CLI=1 uv run --with datacontract-cli pytest tests/test_emit_odcs.py --tb=short -q` from `cli/` |
+| FHIR R4 profile export format | `uv run pytest tests/test_emit_fhir.py tests/test_fhir_validator.py -q` plus `MODELABLE_FHIR_VALIDATOR=1 MODELABLE_FHIR_VALIDATOR_JAR=<path-to-validator_cli.jar> uv run pytest tests/test_fhir_validator.py --tb=short -q` from `cli/` when the HL7 validator jar is available |
 | LSP, VS Code extension, or editor integration | Focused LSP tests plus `cd vscode && npm ci && npm run build && npm test` |
 | Release pipeline or packaging metadata | Focused release metadata/workflow tests plus the full local CLI gate |
 | Runtime, subscriptions, adapters, or materializers | Unit tests, integration or smoke tests for the adapter boundary, and failure-mode coverage |
@@ -189,6 +194,11 @@ OpenMetadata export format are checked against a live OpenMetadata server stack.
 The CLI CI job must run the ODCS Data Contract CLI lint smoke with
 `MODELABLE_DATACONTRACT_CLI=1` and `datacontract-cli` available so generated
 ODCS artifacts are checked against the upstream validator.
+
+The CLI CI job must run the FHIR Validator smoke with
+`MODELABLE_FHIR_VALIDATOR=1` and `MODELABLE_FHIR_VALIDATOR_JAR` pointing at the
+HL7-maintained `validator_cli.jar` so representative generated R4
+`StructureDefinition` profiles are checked against the upstream validator.
 
 Release changes must also verify package metadata, archive contents, clean-wheel
 installation, version agreement, and the manual release dry run. Tag-triggered

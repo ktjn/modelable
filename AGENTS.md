@@ -86,6 +86,12 @@ This repository currently contains the Modelable system specification, centered 
   and the Data Contract CLI lint smoke:
   `uv run pytest tests/test_emit_odcs.py -q` and
   `MODELABLE_DATACONTRACT_CLI=1 uv run --with datacontract-cli pytest tests/test_emit_odcs.py --tb=short -q`.
+- If a change can affect the FHIR R4 profile export format, run the focused
+  FHIR tests and, when the HL7 validator jar is available, the FHIR Validator
+  smoke:
+  `uv run pytest tests/test_emit_fhir.py tests/test_fhir_validator.py -q`
+  and
+  `MODELABLE_FHIR_VALIDATOR=1 MODELABLE_FHIR_VALIDATOR_JAR=<path-to-validator_cli.jar> uv run pytest tests/test_fhir_validator.py --tb=short -q`.
 - Keep registry, compiler/planner, runtime, materializer, and adapter concerns separated unless an existing local pattern says otherwise.
 - Validate definitions before runtime where feasible.
 - Do not expose PII, sensitive, restricted, or unauthorized fields in projections, generated artifacts, logs, or dead-letter payloads.
@@ -118,6 +124,9 @@ Use the gate that matches the touched surface:
 - **ODCS export format:** Run `uv run pytest tests/test_emit_odcs.py -q` plus
   `MODELABLE_DATACONTRACT_CLI=1 uv run --with datacontract-cli pytest tests/test_emit_odcs.py --tb=short -q`
   from `cli/`.
+- **FHIR R4 profile export format:** Run `uv run pytest tests/test_emit_fhir.py tests/test_fhir_validator.py -q`
+  from `cli/`; if `validator_cli.jar` is available, also run
+  `MODELABLE_FHIR_VALIDATOR=1 MODELABLE_FHIR_VALIDATOR_JAR=<path-to-validator_cli.jar> uv run pytest tests/test_fhir_validator.py --tb=short -q`.
 - **Runtime, adapter, materializer, or security behavior:** Run focused unit tests plus any integration or smoke gate defined for that component.
 
 ## Local Gate

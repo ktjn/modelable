@@ -185,11 +185,14 @@ implemented:
   whose source model name is `Patient`, `Observation`, or `Encounter`; other
   source models fall back to the R4 `Basic` resource with an emitter warning.
   Profile output includes root and field `ElementDefinition` entries, direct
-  Modelable lineage mappings, required/optional cardinality, primitive type
-  mappings, enum bindings to deterministic Modelable ValueSet URLs, FHIR
-  `Reference` target profiles, and Modelable classification/PII extensions.
-  Unsupported nested/complex FHIR representation remains a warning/follow-up
-  boundary rather than a silent lossy mapping.
+  Modelable lineage mappings, required/optional and repeating cardinality,
+  primitive type mappings, enum bindings to deterministic Modelable ValueSet
+  URLs, FHIR `Reference` target profiles, and Modelable classification/PII
+  extensions. The FHIR export gate includes an opt-in smoke against the
+  HL7-maintained Java FHIR Validator (`validator_cli.jar`) for representative
+  R4 profiles. Unsupported nested/complex FHIR representation and fields that
+  are not legal base-resource children remain warning/follow-up boundaries
+  rather than silent lossy mappings.
 - OpenAPI: generate schemas from projections, not necessarily canonical entities.
 - AsyncAPI: generate event channels from event projections and change event envelopes.
 - ODCS: export data contracts while keeping `.mdl` as source of truth.
@@ -216,6 +219,8 @@ Emitter diagnostics are warnings unless the artifact cannot be generated correct
 
 - Whether emitters become third-party plugins through Python entry points.
 - How target-specific annotations are represented without polluting canonical models.
+- How Modelable-only FHIR profile fields should be represented as FHIR
+  extensions or slices when they are not legal base-resource child elements.
 - Whether large domains require streaming artifact generation APIs.
 
 ## 13. Acceptance Criteria
