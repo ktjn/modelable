@@ -449,6 +449,9 @@ def _field_from_fhir_element(field_name: str, element: dict[str, Any], warnings:
             codes = ", ".join(str(item.get("code", "?")) for item in types)
             warnings.append(f"Element '{path}' has multiple types ({codes}); using the first")
         field_type = _fhir_type_to_field_type(types[0], path, warnings)
+    max_cardinality = str(element.get("max", "1"))
+    if max_cardinality == "*" or (max_cardinality.isdigit() and int(max_cardinality) > 1):
+        field_type = ArrayType(item=field_type)
 
     binding = element.get("binding") or {}
     if binding.get("strength") == "required" and binding.get("valueSet"):
