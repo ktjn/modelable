@@ -16,7 +16,7 @@ The CLI is designed as a phased tool: early phases focus on local authoring and 
 | 1 | Local modelling compiler (validate, resolve, lineage, diff, compile, docs, local artifact targets) | MVP |
 | 2 | Artifact registry integration (Apicurio Registry) | Implemented JSON Schema artifact publish/pull |
 | 3 | Catalog / governance integration (OpenMetadata / OpenLineage) | Local export targets implemented; live publish and runtime collection deferred |
-| 4 | Contract interchange and external spec tracking | Tracked dbt/FHIR/ODCS drift workflow implemented; ODCS compile target implemented |
+| 4 | Contract interchange and external spec tracking | Tracked dbt/FHIR/ODCS drift workflow implemented; local dbt/FHIR/ODCS bootstrapping and ODCS compile target implemented |
 
 ## 3. Installation and Runtime
 
@@ -395,7 +395,12 @@ modelable describe ./my-project/
 modelable generate --from <source> [--format FORMAT] [--domain DOMAIN] [--name NAME] [--output FILE]
 ```
 
-Generates Modelable `.mdl` definitions from a natural language description or existing schemas (DDL, JSON Schema, OpenAPI, Avro, Protobuf, or SQL) using the local import or deterministic draft scaffolding path. When `--output` is provided, the result is automatically validated through the Lark parser pipeline before writing.
+Generates Modelable `.mdl` definitions from a natural language description or
+existing schemas (DDL, JSON Schema, OpenAPI, Avro, Protobuf, SQL, dbt
+`schema.yml`/`manifest.json`, FHIR R4 `StructureDefinition`, or ODCS YAML)
+using the local import or deterministic draft scaffolding path. When `--output`
+is provided, the result is automatically validated through the Lark parser
+pipeline before writing.
 When `--output` is provided, the command also writes a deterministic `.provenance.json` sidecar next to the generated file.
 
 **Options:**
@@ -403,7 +408,7 @@ When `--output` is provided, the command also writes a deterministic `.provenanc
 | Flag | Description |
 |:-----|:------------|
 | `--from SOURCE` | Natural language prompt, existing source file, or inline source text |
-| `--format FORMAT` | Source format for import paths, such as `json-schema`, `openapi`, `avro`, `protobuf`, or `sql` |
+| `--format FORMAT` | Source format for import paths, such as `json-schema`, `openapi`, `avro`, `protobuf`, `sql`, `dbt`, `fhir`, or `odcs` |
 | `--domain DOMAIN` | Override the output domain when importing source files |
 | `--name NAME` | Override the output model name when drafting from text |
 | `--output FILE` | Write output to a file and auto-validate (default: print to stdout) |
@@ -414,6 +419,9 @@ When `--output` is provided, the command also writes a deterministic `.provenanc
 modelable generate --from "customer lifecycle data" --output my-customer.mdl
 modelable generate --from ./existing-schema.json --format json-schema --domain customer --output imported.mdl
 modelable generate --from ./existing.sql --format sql --domain customer
+modelable generate --from ./dbt/schema.yml --domain customer --output customer.mdl
+modelable generate --from ./fhir/PatientProfile.json --domain clinical --output patient.mdl
+modelable generate --from ./contracts/customer.yml --domain customer --output customer.mdl
 ```
 
 ---

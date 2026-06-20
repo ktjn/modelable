@@ -228,6 +228,40 @@ models:
     assert "orderId?: string" in text
 
 
+def test_cli_generate_auto_detects_odcs_yaml(tmp_path):
+    contract = tmp_path / "customer_contract.yml"
+    contract.write_text(
+        """
+apiVersion: v3.0.2
+kind: DataContract
+name: customer-contract
+schema:
+  - name: Customer
+    properties:
+      - name: customerId
+        logicalType: string
+        primaryKey: true
+      - name: email
+        logicalType: string
+        pii: true
+        required: true
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    output = tmp_path / "customer.mdl"
+    result = runner.invoke(cli, ["generate", "--from", str(contract), "--domain", "customer", "--output", str(output)])
+
+    assert result.exit_code == 0, result.output
+    assert "format=odcs" in result.output
+    generated = output.read_text(encoding="utf-8")
+    assert "domain customer" in generated
+    assert "entity Customer @ 1 (additive)" in generated
+    assert "@key customerId: string" in generated
+    assert "@pii email: string" in generated
+
+
 def test_fhir_importer_maps_elements_to_fields():
     source = json.dumps(
         {

@@ -22,9 +22,9 @@ item is not committed until it has an issue and an accepted design.
   target.
 - Remote tracked-spec polling and authenticated source access for dbt, FHIR,
   ODCS, and future external specifications.
-- Brand-new model bootstrapping from dbt `manifest.json` / `schema.yml`, FHIR
-  `StructureDefinition`, and ODCS documents beyond the current attach/spec
-  drift workflows.
+- Harden brand-new model bootstrapping from local dbt `manifest.json` /
+  `schema.yml`, FHIR `StructureDefinition`, and ODCS documents beyond the
+  current first-pass `modelable generate --from` workflow.
 - Continue FHIR R4 profile hardening beyond the current
   Patient/Observation/Encounter element mapping, representative cardinality
   coverage, and HL7 FHIR Validator smoke, including extension/slice mapping
