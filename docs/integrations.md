@@ -257,14 +257,16 @@ local/CI gate when `validator_cli.jar` is available.
 models/<domain>.mdl` drafts a starting `.mdl` model from an existing local
 profile, with the same human-review workflow as other imports. Repeating direct
 child elements (`max: "*"`, or numeric `max` greater than `1`) import as
-`array<...>` fields.
+`array<...>` fields. Direct `extension` slices import as fields named from
+`sliceName`, with the extension profile URL surfaced in warnings for review.
 
 **Implemented (partial):** `modelable attach <Domain.Model@version> --source
 <StructureDefinition.json> --source-format fhir` imports the direct child
 elements of a FHIR R4 `StructureDefinition` (primitive types, `Reference`
-targets, and cardinality) and compares them to an existing published model
-version, appending a new version with a computed `additive`/`breaking` change
-kind when they differ. Elements with complex FHIR types (e.g.
+targets, cardinality, and direct `extension` slices) and compares them to an
+existing published model version, appending a new version with a computed
+`additive`/`breaking` change kind when they differ. Elements with complex FHIR
+types (e.g.
 `BackboneElement`, `HumanName`, `CodeableConcept`) fall back to a named type
 with a warning, per §3.4. See [cli-reference.md](cli-reference.md) §10.9.
 
@@ -324,7 +326,7 @@ This slots into the existing phased plan from
 | 2 — Artifact registry | Apicurio | none |
 | 3 — Catalog/governance sync | OpenMetadata | + OpenLineage export |
 | 4 — Contract interchange | ODCS, Data Contract CLI | dbt `schema.yml` export, dbt model/source-table import, dbt manifest model/source-table import, and ODCS local-file import/export are implemented; remote polling remains deferred |
-| 4b (new) — Domain-specific interchange | — | FHIR R4 StructureDefinition export and local-file import are implemented; Patient/Observation/Encounter profile bases have hardened element mapping with representative cardinality coverage; representative HL7 FHIR Validator smoke is implemented; custom-field extension mapping and deeper conformance remain deferred |
+| 4b (new) — Domain-specific interchange | — | FHIR R4 StructureDefinition export and local-file import are implemented; Patient/Observation/Encounter profile bases have hardened element mapping with representative cardinality and direct extension-slice coverage; representative HL7 FHIR Validator smoke is implemented; deep extension expansion and slice conformance remain deferred |
 | 5 — Event/API/runtime targets | Avro, Protobuf, OpenAPI, AsyncAPI, runtime stack | + Iceberg/Delta schema target, analytics tracking-plan target, GraphQL SDL |
 
 ## 6. Non-goals

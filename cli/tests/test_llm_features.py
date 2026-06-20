@@ -367,6 +367,40 @@ def test_fhir_importer_maps_elements_to_fields():
     assert any("HumanName" in warning for warning in imported.warnings)
 
 
+def test_fhir_importer_names_extension_slices_from_slice_name():
+    source = json.dumps(
+        {
+            "resourceType": "StructureDefinition",
+            "name": "Patient",
+            "type": "Patient",
+            "snapshot": {
+                "element": [
+                    {"path": "Patient", "min": 0, "max": "*"},
+                    {
+                        "path": "Patient.extension",
+                        "sliceName": "race",
+                        "min": 0,
+                        "max": "*",
+                        "type": [
+                            {
+                                "code": "Extension",
+                                "profile": ["http://hl7.org/fhir/us/core/StructureDefinition/us-core-race"],
+                            }
+                        ],
+                    },
+                ]
+            },
+        }
+    )
+
+    imported = import_from_text(source, "fhir", domain_name="clinical")
+
+    text = imported.to_mdl()
+    assert "race?: array<Extension>" in text
+    assert "extension?: array<Extension>" not in text
+    assert any("us-core-race" in warning for warning in imported.warnings)
+
+
 def test_cli_generate_describe_ask_and_recommend(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
