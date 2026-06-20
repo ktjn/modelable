@@ -25,9 +25,10 @@ item is not committed until it has an issue and an accepted design.
 - Brand-new model bootstrapping from dbt `manifest.json` / `schema.yml`, FHIR
   `StructureDefinition`, and ODCS documents beyond the current attach/spec
   drift workflows.
-- Continue FHIR R4 profile hardening beyond the initial
-  Patient/Observation/Encounter element mapping, including validation against
-  representative profiles.
+- Continue FHIR R4 profile hardening beyond the current
+  Patient/Observation/Encounter element mapping, representative cardinality
+  coverage, and HL7 FHIR Validator smoke, including extension/slice mapping
+  for Modelable-only profile fields.
 - Additional artifact formats driven by concrete consumers.
 
 ## Later

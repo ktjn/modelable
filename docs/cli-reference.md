@@ -596,6 +596,17 @@ identity, required/optional cardinality from the source field, primitive type
 mapping, enum bindings to Modelable ValueSet URLs, FHIR `Reference` target
 profiles, and Modelable classification/PII extensions.
 
+Maintainers can run the external HL7 FHIR Validator smoke when the official
+`validator_cli.jar` is available:
+
+```bash
+MODELABLE_FHIR_VALIDATOR=1 MODELABLE_FHIR_VALIDATOR_JAR=/path/to/validator_cli.jar uv run pytest tests/test_fhir_validator.py --tb=short -q
+```
+
+The current smoke uses a representative FHIR-native Patient profile. Mapping
+Modelable-only fields that are not legal base-resource child elements into FHIR
+extensions remains a deferred conformance-hardening task.
+
 **Examples:**
 
 ```bash

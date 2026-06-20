@@ -54,6 +54,20 @@ jobs:
           MODELABLE_OPENMETADATA_TESTCONTAINERS: "1"
         run: uv run pytest tests/test_openmetadata_testcontainers.py --tb=short -q
 
+      - name: Install Java for FHIR Validator
+        uses: actions/setup-java@v5.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Run FHIR Validator smoke
+        env:
+          MODELABLE_FHIR_VALIDATOR: "1"
+          MODELABLE_FHIR_VALIDATOR_JAR: /tmp/validator_cli.jar
+        run: |
+          curl -L -o "$MODELABLE_FHIR_VALIDATOR_JAR" https://github.com/hapifhir/org.hl7.fhir.core/releases/download/6.9.10/validator_cli.jar
+          uv run pytest tests/test_fhir_validator.py --tb=short -q
+
   vscode:
     name: VS Code Smoke
     runs-on: ubuntu-latest
