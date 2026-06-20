@@ -41,19 +41,20 @@ def test_release_workflow_contains_release_gates() -> None:
 
 def test_release_workflow_uses_current_actions() -> None:
     assert _workflow_actions("release.yml") == {
-        "actions/checkout@v6.0.3",
+        "actions/checkout@v7.0.0",
         "actions/setup-node@v6.4.0",
         "actions/upload-artifact@v7.0.1",
         "actions/download-artifact@v8.0.1",
         "astral-sh/setup-uv@v8.2.0",
         "pypa/gh-action-pypi-publish@release/v1",
-        "softprops/action-gh-release@v3.0.0",
+        "softprops/action-gh-release@v3.0.1",
     }
 
 
 def test_validation_workflow_uses_current_actions() -> None:
     assert _workflow_actions("validate.yml") == {
-        "actions/checkout@v6.0.3",
+        "actions/cache@v5.0.5",
+        "actions/checkout@v7.0.0",
         "actions/setup-java@v5.3.0",
         "actions/setup-node@v6.4.0",
         "astral-sh/setup-uv@v8.2.0",

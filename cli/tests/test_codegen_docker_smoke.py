@@ -48,7 +48,7 @@ TARGETS = [
     ("python", "python:3.14.4-slim", "python"),
     ("rust", "rust:1.95.0", "cargo"),
     ("go", "golang:1.26.3", "go"),
-    ("typescript", "node:25.9.0-slim", "npx"),
+    ("typescript", "node:26.0.0-slim", "npx"),
 ]
 
 

@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
 
@@ -66,7 +66,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
@@ -101,7 +101,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
@@ -132,7 +132,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
@@ -146,9 +146,36 @@ jobs:
       - name: Sync dependencies
         run: uv sync --extra dev --frozen
 
+      - name: Restore OpenMetadata Docker image cache
+        id: openmetadata-image-cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: /tmp/modelable-openmetadata-images.tar
+          key: openmetadata-images-1.12.11-elasticsearch-9.4.2-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Load cached OpenMetadata Docker images
+        if: steps.openmetadata-image-cache.outputs.cache-hit == 'true'
+        run: docker load --input /tmp/modelable-openmetadata-images.tar
+
+      - name: Pull OpenMetadata Docker images
+        if: steps.openmetadata-image-cache.outputs.cache-hit != 'true'
+        run: |
+          docker pull docker.getcollate.io/openmetadata/db:1.12.11
+          docker pull docker.getcollate.io/openmetadata/server:1.12.11
+          docker pull docker.elastic.co/elasticsearch/elasticsearch:9.4.2
+
+      - name: Save OpenMetadata Docker image cache
+        if: steps.openmetadata-image-cache.outputs.cache-hit != 'true'
+        run: |
+          docker save --output /tmp/modelable-openmetadata-images.tar \
+            docker.getcollate.io/openmetadata/db:1.12.11 \
+            docker.getcollate.io/openmetadata/server:1.12.11 \
+            docker.elastic.co/elasticsearch/elasticsearch:9.4.2
+
       - name: Run OpenMetadata Testcontainers smoke
         env:
           MODELABLE_OPENMETADATA_TESTCONTAINERS: "1"
+          MODELABLE_OPENMETADATA_PULL: "0"
         run: uv run pytest tests/test_openmetadata_testcontainers.py --tb=short -q
 
   fhir:
@@ -163,7 +190,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
@@ -183,13 +210,22 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Restore FHIR Validator cache
+        id: fhir-validator-cache
+        uses: actions/cache@v5.0.5
+        with:
+          path: /tmp/validator_cli.jar
+          key: fhir-validator-cli-6.9.10
+
+      - name: Download FHIR Validator
+        if: steps.fhir-validator-cache.outputs.cache-hit != 'true'
+        run: curl -L -o /tmp/validator_cli.jar https://github.com/hapifhir/org.hl7.fhir.core/releases/download/6.9.10/validator_cli.jar
+
       - name: Run FHIR Validator smoke
         env:
           MODELABLE_FHIR_VALIDATOR: "1"
           MODELABLE_FHIR_VALIDATOR_JAR: /tmp/validator_cli.jar
-        run: |
-          curl -L -o "$MODELABLE_FHIR_VALIDATOR_JAR" https://github.com/hapifhir/org.hl7.fhir.core/releases/download/6.9.10/validator_cli.jar
-          uv run pytest tests/test_fhir_validator.py --tb=short -q
+        run: uv run pytest tests/test_fhir_validator.py --tb=short -q
 
   vscode:
     name: VS Code Smoke
@@ -199,7 +235,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
@@ -218,7 +254,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v6.4.0
         with:
-          node-version: 24
+          node-version: 26
           cache: npm
           cache-dependency-path: vscode/package-lock.json
 
