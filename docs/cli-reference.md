@@ -402,6 +402,8 @@ existing schemas (DDL, JSON Schema, OpenAPI, Avro, Protobuf, SQL, dbt
 using the local import or deterministic draft scaffolding path. When `--output`
 is provided, the result is automatically validated through the Lark parser
 pipeline before writing.
+FHIR imports preserve direct-child optionality from `min` and repeating
+cardinality from `max` as `array<...>` fields.
 When `--output` is provided, the command also writes a deterministic `.provenance.json` sidecar next to the generated file.
 
 **Options:**

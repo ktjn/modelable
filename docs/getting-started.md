@@ -67,7 +67,7 @@ The goal is not to mirror every existing table, topic, or API one-for-one. The g
 | SQL DDL | Tables become candidate entities; views become candidate projections | Move table/index/storage details to bindings |
 | Avro | Records often become event models | Preserve logical types and namespace metadata |
 | dbt `schema.yml` / `manifest.json` | Models and source tables become draft entities for review | Preserve group/access/ownership metadata manually when dbt metadata is incomplete |
-| FHIR R4 `StructureDefinition` | Direct child elements become draft model fields | Complex FHIR element types may need manual value-model refinement |
+| FHIR R4 `StructureDefinition` | Direct child elements become draft model fields; repeating elements become arrays | Complex FHIR element types may need manual value-model refinement |
 | ODCS YAML | Contract schema objects become draft entities | Review ownership, classification, and required-field semantics |
 | Existing YAML/DSL | Rewrite to `.mdl` with `modelable generate` assistance | Review all generated lineage and governance annotations |
 

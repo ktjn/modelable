@@ -255,7 +255,9 @@ local/CI gate when `validator_cli.jar` is available.
 
 `modelable generate --from <StructureDefinition.json> --output
 models/<domain>.mdl` drafts a starting `.mdl` model from an existing local
-profile, with the same human-review workflow as other imports.
+profile, with the same human-review workflow as other imports. Repeating direct
+child elements (`max: "*"`, or numeric `max` greater than `1`) import as
+`array<...>` fields.
 
 **Implemented (partial):** `modelable attach <Domain.Model@version> --source
 <StructureDefinition.json> --source-format fhir` imports the direct child

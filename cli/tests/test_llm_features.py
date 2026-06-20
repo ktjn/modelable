@@ -328,7 +328,7 @@ def test_fhir_importer_maps_elements_to_fields():
     assert "active?: bool" in text
     assert "birthDate?: date" in text
     assert "managingOrganization?: ref<Organization>" in text
-    assert "name?: HumanName" in text
+    assert "name?: array<HumanName>" in text
     assert any("HumanName" in warning for warning in imported.warnings)
 
 
