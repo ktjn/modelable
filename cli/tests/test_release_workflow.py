@@ -79,6 +79,24 @@ def test_validation_workflow_is_split_and_path_gated() -> None:
         assert jobs[surface]["if"] == f"needs.changes.outputs.{surface} == 'true'"
 
 
+def test_validation_workflow_uses_distinct_uv_cache_suffixes() -> None:
+    workflow = _workflow("validate.yml")
+    jobs = workflow["jobs"]
+    expected_suffixes = {
+        "cli": "cli",
+        "odcs": "odcs",
+        "openmetadata": "openmetadata",
+        "fhir": "fhir",
+        "vscode": "vscode",
+    }
+
+    for job_name, expected_suffix in expected_suffixes.items():
+        setup_uv_steps = [step for step in jobs[job_name]["steps"] if step.get("uses") == "astral-sh/setup-uv@v8.2.0"]
+        assert len(setup_uv_steps) == 1
+        assert setup_uv_steps[0]["with"]["cache-dependency-glob"] == "cli/uv.lock"
+        assert setup_uv_steps[0]["with"]["cache-suffix"] == expected_suffix
+
+
 def test_codeql_workflow_has_required_permissions() -> None:
     workflow = REPOSITORY_ROOT / ".github" / "workflows" / "codeql.yml"
     text = workflow.read_text(encoding="utf-8")
