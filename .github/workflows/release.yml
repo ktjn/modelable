@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
 
@@ -39,7 +39,7 @@ jobs:
       - name: Install Node
         uses: actions/setup-node@v6.4.0
         with:
-          node-version: 24
+          node-version: 26
           cache: npm
           cache-dependency-path: vscode/package-lock.json
 
@@ -169,7 +169,7 @@ jobs:
           path: dist
 
       - name: Upload GitHub release assets
-        uses: softprops/action-gh-release@v3.0.0
+        uses: softprops/action-gh-release@v3.0.1
         with:
           generate_release_notes: true
           files: |

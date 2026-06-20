@@ -41,19 +41,20 @@ def test_release_workflow_contains_release_gates() -> None:
 
 def test_release_workflow_uses_current_actions() -> None:
     assert _workflow_actions("release.yml") == {
-        "actions/checkout@v6.0.3",
+        "actions/checkout@v7.0.0",
         "actions/setup-node@v6.4.0",
         "actions/upload-artifact@v7.0.1",
         "actions/download-artifact@v8.0.1",
         "astral-sh/setup-uv@v8.2.0",
         "pypa/gh-action-pypi-publish@release/v1",
-        "softprops/action-gh-release@v3.0.0",
+        "softprops/action-gh-release@v3.0.1",
     }
 
 
 def test_validation_workflow_uses_current_actions() -> None:
     assert _workflow_actions("validate.yml") == {
-        "actions/checkout@v6.0.3",
+        "actions/cache@v5.0.5",
+        "actions/checkout@v7.0.0",
         "actions/setup-java@v5.3.0",
         "actions/setup-node@v6.4.0",
         "astral-sh/setup-uv@v8.2.0",
@@ -76,6 +77,24 @@ def test_validation_workflow_is_split_and_path_gated() -> None:
     for surface in expected_surfaces:
         assert jobs[surface]["needs"] == "changes"
         assert jobs[surface]["if"] == f"needs.changes.outputs.{surface} == 'true'"
+
+
+def test_validation_workflow_uses_distinct_uv_cache_suffixes() -> None:
+    workflow = _workflow("validate.yml")
+    jobs = workflow["jobs"]
+    expected_suffixes = {
+        "cli": "cli",
+        "odcs": "odcs",
+        "openmetadata": "openmetadata",
+        "fhir": "fhir",
+        "vscode": "vscode",
+    }
+
+    for job_name, expected_suffix in expected_suffixes.items():
+        setup_uv_steps = [step for step in jobs[job_name]["steps"] if step.get("uses") == "astral-sh/setup-uv@v8.2.0"]
+        assert len(setup_uv_steps) == 1
+        assert setup_uv_steps[0]["with"]["cache-dependency-glob"] == "cli/uv.lock"
+        assert setup_uv_steps[0]["with"]["cache-suffix"] == expected_suffix
 
 
 def test_codeql_workflow_has_required_permissions() -> None:

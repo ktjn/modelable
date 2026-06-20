@@ -44,23 +44,26 @@ async function completionLabels(uri: vscode.Uri, position: vscode.Position): Pro
 }
 
 async function documentSymbolNames(uri: vscode.Uri): Promise<string[]> {
-  const results = await vscode.commands.executeCommand<
-    vscode.DocumentSymbol[] | vscode.SymbolInformation[]
-  >('vscode.executeDocumentSymbolProvider', uri);
-  if (!results) {
-    return [];
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const results = await vscode.commands.executeCommand<
+      vscode.DocumentSymbol[] | vscode.SymbolInformation[]
+    >('vscode.executeDocumentSymbolProvider', uri);
+    if (results && results.length > 0) {
+      const symbols = results as vscode.DocumentSymbol[];
+      const names: string[] = [];
+
+      const visit = (symbol: vscode.DocumentSymbol) => {
+        names.push(symbol.name);
+        symbol.children.forEach(visit);
+      };
+
+      symbols.forEach(visit);
+      return names;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
-
-  const symbols = results as vscode.DocumentSymbol[];
-  const names: string[] = [];
-
-  const visit = (symbol: vscode.DocumentSymbol) => {
-    names.push(symbol.name);
-    symbol.children.forEach(visit);
-  };
-
-  symbols.forEach(visit);
-  return names;
+  return [];
 }
 
 async function renameEdits(

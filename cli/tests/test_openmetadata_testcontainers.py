@@ -14,6 +14,7 @@ from testcontainers.compose import DockerCompose
 from modelable.cli import cli
 
 OPENMETADATA_VERSION = "1.12.11"
+ELASTICSEARCH_VERSION = "9.4.2"
 
 
 @pytest.mark.skipif(
@@ -25,7 +26,8 @@ def test_openmetadata_export_with_testcontainers(tmp_path: Path) -> None:
     compose_dir.mkdir()
     _write_openmetadata_compose(compose_dir / "docker-compose.yml")
 
-    with DockerCompose(compose_dir, compose_file_name="docker-compose.yml", pull=True, wait=True) as compose:
+    pull_images = os.getenv("MODELABLE_OPENMETADATA_PULL", "1") != "0"
+    with DockerCompose(compose_dir, compose_file_name="docker-compose.yml", pull=pull_images, wait=True) as compose:
         host, port = compose.get_service_host_and_port("openmetadata-server", 8585)
         base_url = f"http://{host}:{port}"
         _wait_for_openmetadata(base_url)
@@ -103,7 +105,7 @@ services:
       retries: 10
 
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:9.3.0
+    image: docker.elastic.co/elasticsearch/elasticsearch:{ELASTICSEARCH_VERSION}
     environment:
       - discovery.type=single-node
       - ES_JAVA_OPTS=-Xms512m -Xmx512m

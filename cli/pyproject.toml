@@ -55,10 +55,10 @@ Changelog = "https://github.com/ktjn/modelable/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0.3",
+    "pytest>=9.1.1",
     "pytest-cov>=4.0",
-    "pytest-lsp>=1.0.0",
-    "ruff>=0.15.17",
+    "pytest-lsp>=1.0.1",
+    "ruff>=0.15.18",
     "mypy>=2.1.0",
     "build>=1.2",
     "testcontainers==4.14.2",
@@ -125,8 +125,8 @@ warn_required_dynamic_aliases = true
 [dependency-groups]
 dev = [
     "mypy>=2.1.0",
-    "pytest>=9.0.3",
-    "pytest-lsp>=1.0.0",
-    "ruff>=0.15.17",
+    "pytest>=9.1.1",
+    "pytest-lsp>=1.0.1",
+    "ruff>=0.15.18",
     "testcontainers==4.14.2",
 ]
