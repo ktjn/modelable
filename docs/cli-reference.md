@@ -397,7 +397,8 @@ modelable generate --from <source> [--format FORMAT] [--domain DOMAIN] [--name N
 
 Generates Modelable `.mdl` definitions from a natural language description or
 existing schemas (DDL, JSON Schema, OpenAPI, Avro, Protobuf, SQL, dbt
-`schema.yml`/`manifest.json`, FHIR R4 `StructureDefinition`, or ODCS YAML)
+`schema.yml`/`manifest.json` models or source tables, FHIR R4
+`StructureDefinition`, or ODCS YAML)
 using the local import or deterministic draft scaffolding path. When `--output`
 is provided, the result is automatically validated through the Lark parser
 pipeline before writing.
@@ -410,7 +411,7 @@ When `--output` is provided, the command also writes a deterministic `.provenanc
 | `--from SOURCE` | Natural language prompt, existing source file, or inline source text |
 | `--format FORMAT` | Source format for import paths, such as `json-schema`, `openapi`, `avro`, `protobuf`, `sql`, `dbt`, `fhir`, or `odcs` |
 | `--domain DOMAIN` | Override the output domain when importing source files |
-| `--name NAME` | Override the output model name when drafting from text |
+| `--name NAME` | Override the output model name when drafting from text; selects a named model/source table for dbt and a named schema object for ODCS |
 | `--output FILE` | Write output to a file and auto-validate (default: print to stdout) |
 
 **Examples:**
@@ -420,6 +421,7 @@ modelable generate --from "customer lifecycle data" --output my-customer.mdl
 modelable generate --from ./existing-schema.json --format json-schema --domain customer --output imported.mdl
 modelable generate --from ./existing.sql --format sql --domain customer
 modelable generate --from ./dbt/schema.yml --domain customer --output customer.mdl
+modelable generate --from ./dbt/schema.yml --name customers --domain customer --output customer-source.mdl
 modelable generate --from ./fhir/PatientProfile.json --domain clinical --output patient.mdl
 modelable generate --from ./contracts/customer.yml --domain customer --output customer.mdl
 ```

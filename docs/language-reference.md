@@ -498,7 +498,7 @@ LLM commands operate on `.mdl` text output — reviewable, diffable, committable
 | Command | Behaviour |
 |---|---|
 | `modelable describe Customer@2` | Plain-English explanation of the model and its lineage |
-| `modelable generate --from "<description or DDL/JSON Schema>"` | Produces a `.mdl` file from freeform input |
+| `modelable generate --from "<description or source artifact>"` | Produces a `.mdl` file from freeform input or supported schema/contract files |
 | `modelable transform Customer@2 --to avro --explain` | Emits the target artifact and explains mapping decisions |
 | `modelable suggest-projection --source Customer@2 --consumer billing` | Proposes a projection with field derivations |
 

@@ -66,7 +66,7 @@ The goal is not to mirror every existing table, topic, or API one-for-one. The g
 | Protobuf | Messages become models; services imply projections or API targets | Preserve field numbers in metadata if needed |
 | SQL DDL | Tables become candidate entities; views become candidate projections | Move table/index/storage details to bindings |
 | Avro | Records often become event models | Preserve logical types and namespace metadata |
-| dbt `schema.yml` / `manifest.json` | Models become draft entities for review | Preserve group/access/ownership metadata manually when dbt metadata is incomplete |
+| dbt `schema.yml` / `manifest.json` | Models and source tables become draft entities for review | Preserve group/access/ownership metadata manually when dbt metadata is incomplete |
 | FHIR R4 `StructureDefinition` | Direct child elements become draft model fields | Complex FHIR element types may need manual value-model refinement |
 | ODCS YAML | Contract schema objects become draft entities | Review ownership, classification, and required-field semantics |
 | Existing YAML/DSL | Rewrite to `.mdl` with `modelable generate` assistance | Review all generated lineage and governance annotations |
@@ -195,6 +195,7 @@ Use `modelable generate` to draft `.mdl`, then review the output:
 ```bash
 modelable generate --from ./openapi.yaml --output ./models/customer-api.mdl
 modelable generate --from ./dbt/schema.yml --domain customer --output ./models/customer.mdl
+modelable generate --from ./dbt/schema.yml --name customers --domain customer --output ./models/customer-source.mdl
 modelable generate --from ./fhir/PatientProfile.json --domain clinical --output ./models/patient.mdl
 modelable generate --from ./contracts/customer.yml --domain customer --output ./models/customer-contract.mdl
 modelable validate ./models/customer-api.mdl

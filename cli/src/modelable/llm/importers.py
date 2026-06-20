@@ -199,7 +199,7 @@ def _import_dbt(source_text: str, *, domain_name: str | None, source_name: str |
     doc = yaml.safe_load(source_text) or {}
     models = doc.get("models") or []
     if not models:
-        raise ValueError("dbt schema document does not declare any models")
+        return _import_dbt_source_yaml(doc, domain_name=domain_name, source_name=source_name)
     if source_name is not None:
         model = next((item for item in models if item.get("name") == source_name), None)
         if model is None:
@@ -212,6 +212,38 @@ def _import_dbt(source_text: str, *, domain_name: str | None, source_name: str |
     warnings: list[str] = []
     for column in model.get("columns") or []:
         fields.append(_field_from_dbt_column(column, warnings))
+    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
+    return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
+
+
+def _import_dbt_source_yaml(
+    doc: dict[str, Any], *, domain_name: str | None, source_name: str | None = None
+) -> ImportedModel:
+    sources = doc.get("sources") or []
+    tables: list[dict[str, Any]] = []
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        for table in source.get("tables") or []:
+            if isinstance(table, dict):
+                tables.append(table)
+    if not tables:
+        raise ValueError("dbt schema document does not declare any models or source tables")
+
+    if source_name is not None:
+        table = next((item for item in tables if item.get("name") == source_name), None)
+        if table is None:
+            raise ValueError(f"dbt source table '{source_name}' not found in source")
+    else:
+        table = tables[0]
+
+    name = table.get("name") or "DbtSource"
+    domain = domain_name or _guess_domain_name(name)
+    fields: list[FieldDef] = []
+    warnings: list[str] = []
+    for column in table.get("columns") or []:
+        fields.append(_field_from_dbt_column(column, warnings))
+
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
 
