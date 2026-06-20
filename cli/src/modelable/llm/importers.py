@@ -360,6 +360,9 @@ def _import_fhir(source_text: str, *, domain_name: str | None, source_name: str 
         if len(segments) != 2:
             continue
         field_name = segments[1]
+        if field_name == "extension" and element.get("sliceName"):
+            field_name = _sanitize_field_ident(str(element["sliceName"]))
+            warnings.append(f"Extension slice '{path}' imported as field '{field_name}'")
         if field_name.endswith("[x]"):
             field_name = field_name[: -len("[x]")]
             warnings.append(f"Choice-type element '{path}' flattened to '{field_name}'")
@@ -489,6 +492,11 @@ def _fhir_type_to_field_type(type_entry: dict[str, Any], path: str, warnings: li
             return RefType(target=str(targets[0]).rsplit("/", 1)[-1])
         warnings.append(f"Element '{path}' is an untyped Reference; falling back to named type")
         return NamedType(name="Reference")
+    if code == "Extension":
+        profiles = type_entry.get("profile") or []
+        if profiles:
+            warnings.append(f"Element '{path}' uses FHIR Extension profile {profiles[0]}; review manually")
+        return NamedType(name="Extension")
     warnings.append(f"Element '{path}' has unsupported FHIR type '{code}'; falling back to named type")
     return NamedType(name=code or "Unknown")
 
@@ -663,3 +671,8 @@ def _sanitize_ident(text: str) -> str:
     parts = re.split(r"[^A-Za-z0-9]+", text)
     cleaned = "".join(part[:1].upper() + part[1:] for part in parts if part)
     return cleaned or "ImportedModel"
+
+
+def _sanitize_field_ident(text: str) -> str:
+    ident = _sanitize_ident(text)
+    return ident[:1].lower() + ident[1:]
