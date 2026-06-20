@@ -13,7 +13,7 @@ The Phase 1 local modelling compiler is complete. Before starting any task, run 
 | 4 — Compatibility and governance | Complete — single-domain compatibility diff shipped; broader compatibility follow-on is available if needed |
 | 5 — Emitters | Complete — JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, Go, SQL, dbt YAML, initial FHIR R4 StructureDefinition artifacts, OpenMetadata, OpenLineage, and ODCS are implemented |
 | 6 — CLI workflows | Complete |
-| 7 — Hardening | Complete — local gates, release checks, live OpenMetadata smoke, and ODCS Data Contract CLI lint gates are documented |
+| 7 — Hardening | Complete — local gates, release checks, path-gated CI, live OpenMetadata smoke, ODCS Data Contract CLI lint, and FHIR Validator gates are documented |
 
 **Next task:** Use the roadmap, open issues, and relevant product specification to identify the next open slice before starting implementation work.
 
@@ -74,6 +74,10 @@ This repository currently contains the Modelable system specification, centered 
 - Prefer the latest stable framework and tool versions unless the specification, compatibility constraints, existing project manifests, or an explicit user instruction require a different version. Document any deliberate pin to an older version in the handoff or PR notes.
 - For Python projects, use `uv` for Python version management, project setup, dependency management, lockfile generation, and Python tool execution unless the user explicitly asks for another tool or an existing project convention requires it.
 - Add or update tests for behavior that affects validation, compatibility checks, lineage, planning, runtime execution, security, or generated artifacts.
+- Prefer behavior and contract tests over implementation-shape tests. Do not
+  assert private helper names, exact control flow, or incidental string snippets
+  unless that implementation detail is the published contract or policy being
+  protected.
 - Add Docker-backed compile smoke tests for any change that adds or modifies a generated-language backend or generated artifact format, using the latest official compiler/runtime image for each affected language.
 - If a change can affect the OpenMetadata export format, run the focused
   emitter tests and the OpenMetadata Testcontainers smoke:
@@ -169,6 +173,11 @@ Strict mypy is configured for incremental typing work but is not a required
 gate until the existing repository-wide error baseline is resolved.
 
 Before claiming verification, inspect the repository for newly added manifests or scripts and run the relevant commands. If only documentation changes were made, a reasonable verification is to review the Markdown diff and confirm links or references are coherent.
+
+The GitHub Validate workflow is split by changed surface. Pull requests and
+pushes run the CLI, VS Code, and external smoke jobs relevant to the changed
+files; manual workflow dispatch and Validate workflow changes run every
+validation job.
 
 ## Git Hygiene
 

@@ -53,15 +53,19 @@ following gates:
    the final working tree is verified with the same checks used by CI. Any
    changed code must pass all tests locally.
 2. **GitHub Verification**: All pull requests must pass the automated GitHub
-   Actions CI before they can be merged. Verify that all status checks are
-   green on the PR.
+   Actions CI before they can be merged. The Validate workflow is split by
+   changed surface, so GitHub runs the CLI, VS Code, and external-smoke jobs
+   relevant to the files changed in the PR. Verify that all required status
+   checks are green on the PR.
 3. **Dependency Freshness**: Keep project dependencies up to date with their
    latest stable versions. When adding or updating dependencies, ensure you
    are using the latest compatible versions available.
 4. **Compatibility**: Maintain backward compatibility within major versions.
    Breaking changes to the `.mdl` language, IR, or CLI behavior require an
    explicit design decision and a major version bump for the tools.
-5. **Testing**: Add or update tests for any change. If your change affects the
+5. **Testing**: Add or update tests for any change. Prefer tests that assert
+   user-visible behavior, generated artifacts, workflow policy, or public
+   contracts instead of private implementation shape. If your change affects the
    IDL or CLI behavior, you must add compatibility tests to verify that
    existing models and workflows remain functional.
 

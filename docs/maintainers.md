@@ -27,6 +27,11 @@ Agents must:
 - Read the relevant specification before editing.
 - Keep changes small enough for meaningful review.
 - Add or update tests with any code change that affects parser behavior, validation, compatibility checks, lineage, planning, runtime execution, governance, security, or generated artifacts.
+- Prefer behavior and contract tests over implementation-shape tests. A test
+  should normally exercise the public command, exported function, generated
+  artifact, policy contract, or workflow behavior. Avoid assertions that only
+  prove a private helper, literal string, control-flow shape, or file layout is
+  present unless that detail is itself the reviewed contract.
 - Add Docker-backed compile smoke tests for any change that adds or modifies a generated-language backend or generated artifact format, using the latest official compiler/runtime image for each affected language.
 - Run the OpenMetadata Testcontainers smoke for any change that can affect the
   OpenMetadata export format, including `openmetadata` emitter code, shared
@@ -145,6 +150,11 @@ Test gates are selected by risk and touched surface.
 
 Compatibility, lineage, and governance tests must include negative cases when behavior can fail unsafely.
 
+Workflow and policy tests should exercise reusable scripts or parse structured
+workflow data where feasible. Avoid broad "contains this exact text" assertions
+for CI behavior when the same requirement can be checked by running the routing
+logic, parsing the workflow jobs, or inspecting generated outputs.
+
 ## 5. Pull Request Handling
 
 PRs should be narrow and explicit.
@@ -170,8 +180,9 @@ Review feedback is blocking when it identifies:
 
 ## 6. CI and Remote Gate Expectations
 
-Remote CI mirrors the local Ruff, test, and VS Code gates. It does not
-replace local verification for ordinary development.
+Remote CI mirrors the local Ruff, test, VS Code, and external-smoke gates for
+the changed surface. It does not replace local verification for ordinary
+development.
 
 Recommended CI gate sequence as implementation expands:
 
@@ -187,18 +198,26 @@ component smoke tests where applicable
 
 CI failures must be investigated from the first failing gate. Agents should not rerun failed CI repeatedly without first reading the failure context.
 
-The CLI CI job must run the OpenMetadata Testcontainers smoke with
-`MODELABLE_OPENMETADATA_TESTCONTAINERS=1` so changes that affect the
-OpenMetadata export format are checked against a live OpenMetadata server stack.
+The Validate workflow starts with a cheap changed-surface detector. Pull request
+and push runs execute only the jobs relevant to the files changed in that run;
+manual `workflow_dispatch` runs execute every validation job. Changes to the
+Validate workflow or its workflow regression tests force every validation job so
+CI edits are self-tested.
 
-The CLI CI job must run the ODCS Data Contract CLI lint smoke with
-`MODELABLE_DATACONTRACT_CLI=1` and `datacontract-cli` available so generated
-ODCS artifacts are checked against the upstream validator.
+The OpenMetadata live-smoke CI job must run with
+`MODELABLE_OPENMETADATA_TESTCONTAINERS=1` when changes affect the OpenMetadata
+export format so the generated artifact is checked against a live OpenMetadata
+server stack.
 
-The CLI CI job must run the FHIR Validator smoke with
+The ODCS lint-smoke CI job must run with `MODELABLE_DATACONTRACT_CLI=1` and
+`datacontract-cli` available when changes affect the ODCS export format so
+generated ODCS artifacts are checked against the upstream validator.
+
+The FHIR Validator CI job must run with
 `MODELABLE_FHIR_VALIDATOR=1` and `MODELABLE_FHIR_VALIDATOR_JAR` pointing at the
-HL7-maintained `validator_cli.jar` so representative generated R4
-`StructureDefinition` profiles are checked against the upstream validator.
+HL7-maintained `validator_cli.jar` when changes affect the FHIR R4 profile
+export format so representative generated R4 `StructureDefinition` profiles are
+checked against the upstream validator.
 
 Release changes must also verify package metadata, archive contents, clean-wheel
 installation, version agreement, and the manual release dry run. Tag-triggered
