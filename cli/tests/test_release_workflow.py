@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _workflow(workflow_name: str) -> dict[str, Any]:
+    workflow = REPOSITORY_ROOT / ".github" / "workflows" / workflow_name
+    return yaml.safe_load(workflow.read_text(encoding="utf-8"))
 
 
 def _workflow_actions(workflow_name: str) -> set[str]:
@@ -50,6 +58,24 @@ def test_validation_workflow_uses_current_actions() -> None:
         "actions/setup-node@v6.4.0",
         "astral-sh/setup-uv@v8.2.0",
     }
+
+
+def test_validation_workflow_is_split_and_path_gated() -> None:
+    workflow = _workflow("validate.yml")
+    jobs = workflow["jobs"]
+    expected_surfaces = {"cli", "vscode", "odcs", "openmetadata", "fhir"}
+
+    assert set(jobs["changes"]["outputs"]) == expected_surfaces
+    detection_steps = [
+        step
+        for step in jobs["changes"]["steps"]
+        if "run" in step and ".github/scripts/detect_validate_surfaces.py" in step["run"]
+    ]
+    assert len(detection_steps) == 1
+
+    for surface in expected_surfaces:
+        assert jobs[surface]["needs"] == "changes"
+        assert jobs[surface]["if"] == f"needs.changes.outputs.{surface} == 'true'"
 
 
 def test_codeql_workflow_has_required_permissions() -> None:

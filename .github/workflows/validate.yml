@@ -11,8 +11,53 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect changed surfaces
+    runs-on: ubuntu-latest
+
+    outputs:
+      cli: ${{ steps.filter.outputs.cli }}
+      vscode: ${{ steps.filter.outputs.vscode }}
+      odcs: ${{ steps.filter.outputs.odcs }}
+      openmetadata: ${{ steps.filter.outputs.openmetadata }}
+      fhir: ${{ steps.filter.outputs.fhir }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Compute changed surfaces
+        id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+            range="FETCH_HEAD...HEAD"
+          elif git rev-parse --verify "${{ github.event.before }}" >/dev/null 2>&1; then
+            range="${{ github.event.before }}..HEAD"
+          elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            range="HEAD^..HEAD"
+          else
+            git ls-tree -r --name-only HEAD > changed-files.txt
+            range=""
+          fi
+
+          if [[ -n "${range}" ]]; then
+            git diff --name-only "${range}" > changed-files.txt
+          fi
+
+          python .github/scripts/detect_validate_surfaces.py \
+            --event-name "${{ github.event_name }}" \
+            --changed-files changed-files.txt
+
   cli:
-    name: CLI
+    name: CLI core
+    needs: changes
+    if: needs.changes.outputs.cli == 'true'
     runs-on: ubuntu-latest
 
     defaults:
@@ -44,15 +89,93 @@ jobs:
       - name: Run tests
         run: uv run pytest --tb=short
 
+  odcs:
+    name: ODCS lint smoke
+    needs: changes
+    if: needs.changes.outputs.odcs == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: cli
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: cli/uv.lock
+
+      - name: Install Python
+        run: uv python install 3.14
+
+      - name: Sync dependencies
+        run: uv sync --extra dev --frozen
+
       - name: Run ODCS Data Contract CLI lint smoke
         env:
           MODELABLE_DATACONTRACT_CLI: "1"
         run: uv run --with datacontract-cli pytest tests/test_emit_odcs.py --tb=short -q
 
+  openmetadata:
+    name: OpenMetadata live smoke
+    needs: changes
+    if: needs.changes.outputs.openmetadata == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: cli
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: cli/uv.lock
+
+      - name: Install Python
+        run: uv python install 3.14
+
+      - name: Sync dependencies
+        run: uv sync --extra dev --frozen
+
       - name: Run OpenMetadata Testcontainers smoke
         env:
           MODELABLE_OPENMETADATA_TESTCONTAINERS: "1"
         run: uv run pytest tests/test_openmetadata_testcontainers.py --tb=short -q
+
+  fhir:
+    name: FHIR Validator smoke
+    needs: changes
+    if: needs.changes.outputs.fhir == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: cli
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: cli/uv.lock
+
+      - name: Install Python
+        run: uv python install 3.14
+
+      - name: Sync dependencies
+        run: uv sync --extra dev --frozen
 
       - name: Install Java for FHIR Validator
         uses: actions/setup-java@v5.3.0
@@ -70,6 +193,8 @@ jobs:
 
   vscode:
     name: VS Code Smoke
+    needs: changes
+    if: needs.changes.outputs.vscode == 'true'
     runs-on: ubuntu-latest
 
     steps:
