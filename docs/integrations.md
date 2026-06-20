@@ -133,22 +133,19 @@ This lets a Modelable canonical model be dropped into an existing dbt project
 as a documented, contract-enforced source or model stub without hand-writing
 YAML.
 
-**Phase B — dbt import (extends
+**Implemented (first pass) — dbt import (extends
 [getting-started.md](getting-started.md) source-format table):**
 
 `modelable generate --from <dbt manifest.json | schema.yml> --output
-models/<domain>.mdl` to bootstrap `.mdl` models from an existing dbt project,
-following the same "review the generated output" workflow as other
-LLM-assisted imports.
+models/<domain>.mdl` bootstraps `.mdl` models from a local dbt project,
+following the same "review the generated output" workflow as other imports.
 
 **Implemented (partial):** `modelable attach <Domain.Model@version> --source
 <schema.yml> --source-format dbt [--source-name NAME]` imports a dbt model's
 `columns:` (with `data_type`, `constraints`, and `modelable_*` `meta` keys) and
 compares them to an existing published model version, appending a new version
 with a computed `additive`/`breaking` change kind when they differ. See
-[cli-reference.md](cli-reference.md) §10.9. `modelable generate --from <schema.yml>`
-bootstrapping for brand-new models and `manifest.json` input remain
-unimplemented.
+[cli-reference.md](cli-reference.md) §10.9.
 
 `modelable spec add ... --kind dbt` records the same dbt source in
 `.modelable/specs.yml` so `modelable spec status`, `spec diff`, and
@@ -251,12 +248,12 @@ local/CI gate when `validator_cli.jar` is available.
 - Map `ref<Domain.Model>` to FHIR `Reference(ResourceType)` when the target
   model corresponds to a known FHIR resource.
 
-**Phase C — FHIR import (extends
+**Implemented (first pass) — FHIR import (extends
 [getting-started.md](getting-started.md) source-format table):**
 
 `modelable generate --from <StructureDefinition.json> --output
-models/<domain>.mdl` to draft a starting `.mdl` model/projection from an
-existing profile, with the same human-review workflow as other imports.
+models/<domain>.mdl` drafts a starting `.mdl` model from an existing local
+profile, with the same human-review workflow as other imports.
 
 **Implemented (partial):** `modelable attach <Domain.Model@version> --source
 <StructureDefinition.json> --source-format fhir` imports the direct child
@@ -265,12 +262,12 @@ targets, and cardinality) and compares them to an existing published model
 version, appending a new version with a computed `additive`/`breaking` change
 kind when they differ. Elements with complex FHIR types (e.g.
 `BackboneElement`, `HumanName`, `CodeableConcept`) fall back to a named type
-with a warning, per §3.4. See [cli-reference.md](cli-reference.md) §10.9. `modelable
-generate --from <StructureDefinition.json>` bootstrapping for brand-new models
-remains unimplemented.
+with a warning, per §3.4. See [cli-reference.md](cli-reference.md) §10.9.
 
 `modelable spec add ... --kind fhir` makes the same static profile file
-trackable for repeatable status/diff/sync workflows.
+trackable for repeatable status/diff/sync workflows. ODCS YAML documents can
+also bootstrap brand-new `.mdl` models through `modelable generate --from`
+or an explicit `--format odcs`.
 
 **Phase D (Later, roadmap) — Implementation Guide packaging:**
 
@@ -322,7 +319,7 @@ This slots into the existing phased plan from
 | 1 — Local modelling compiler | JSON Schema, Markdown, TypeScript | none |
 | 2 — Artifact registry | Apicurio | none |
 | 3 — Catalog/governance sync | OpenMetadata | + OpenLineage export |
-| 4 — Contract interchange | ODCS, Data Contract CLI | dbt `schema.yml`/source export and import are implemented for local files; remote polling remains deferred |
+| 4 — Contract interchange | ODCS, Data Contract CLI | dbt `schema.yml` export, dbt `schema.yml`/manifest import, and ODCS local-file import/export are implemented; remote polling remains deferred |
 | 4b (new) — Domain-specific interchange | — | FHIR R4 StructureDefinition export and local-file import are implemented; Patient/Observation/Encounter profile bases have hardened element mapping with representative cardinality coverage; representative HL7 FHIR Validator smoke is implemented; custom-field extension mapping and deeper conformance remain deferred |
 | 5 — Event/API/runtime targets | Avro, Protobuf, OpenAPI, AsyncAPI, runtime stack | + Iceberg/Delta schema target, analytics tracking-plan target, GraphQL SDL |
 

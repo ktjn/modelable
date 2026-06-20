@@ -75,6 +75,13 @@ def _detect_format(path: Path) -> str | None:
             doc = yaml.safe_load(content)
             if isinstance(doc, dict) and ("models" in doc or "sources" in doc):
                 return "dbt"
+            if isinstance(doc, dict) and (
+                doc.get("kind") == "DataContract"
+                or "schema" in doc
+                or "schemas" in doc
+                or "dataContractSpecification" in doc
+            ):
+                return "odcs"
         except Exception:
             pass
         return None
