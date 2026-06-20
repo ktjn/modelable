@@ -327,6 +327,27 @@ schema:
     assert "@pii email: string" in generated
 
 
+def test_odcs_importer_preserves_classification_metadata_without_type():
+    imported = import_from_text(
+        """
+apiVersion: v3.0.2
+kind: DataContract
+name: customer-contract
+schema:
+  - name: Customer
+    properties:
+      - name: email
+        classification: restricted
+        personalData: true
+""",
+        "odcs",
+        domain_name="customer",
+    )
+
+    text = imported.to_mdl()
+    assert '@pii @classification("restricted") email?: string' in text
+
+
 def test_fhir_importer_maps_elements_to_fields():
     source = json.dumps(
         {
