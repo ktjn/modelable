@@ -412,19 +412,16 @@ def _import_odcs(source_text: str, *, domain_name: str | None, source_name: str 
 def _field_from_odcs_property(prop: dict[str, Any], warnings: list[str]) -> FieldDef:
     name = str(prop["name"])
     type_name = str(
-        prop.get("logicalType")
-        or prop.get("physicalType")
-        or prop.get("type")
-        or prop.get("dataType")
-        or prop.get("classification")
-        or "string"
+        prop.get("logicalType") or prop.get("physicalType") or prop.get("type") or prop.get("dataType") or "string"
     )
     annotations: list[Annotation] = []
     if prop.get("primaryKey") or prop.get("primary_key") or prop.get("key"):
         annotations.append(AnnKey())
     if prop.get("pii") or prop.get("personalData"):
         annotations.append(AnnPii())
-    classification = prop.get("modelable_classification") or prop.get("classificationLevel")
+    classification = (
+        prop.get("modelable_classification") or prop.get("classificationLevel") or prop.get("classification")
+    )
     if classification and str(classification).lower() not in {"string", "number", "integer", "boolean"}:
         annotations.append(AnnClassification(level=str(classification)))
     owner = prop.get("owner")

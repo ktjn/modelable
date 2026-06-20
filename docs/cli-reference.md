@@ -406,6 +406,8 @@ FHIR imports preserve direct-child optionality from `min`, repeating
 cardinality from `max` as `array<...>` fields, and direct slices as fields
 named from `sliceName`; direct `extension` slices also surface the extension
 profile URL for review.
+ODCS imports preserve field `pii`, `classification`, `classificationLevel`,
+owner, key, required, and type metadata when drafting `.mdl` models.
 When `--output` is provided, the command also writes a deterministic `.provenance.json` sidecar next to the generated file.
 
 **Options:**
