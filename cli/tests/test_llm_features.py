@@ -401,6 +401,35 @@ def test_fhir_importer_names_extension_slices_from_slice_name():
     assert any("us-core-race" in warning for warning in imported.warnings)
 
 
+def test_fhir_importer_names_direct_slices_from_slice_name():
+    source = json.dumps(
+        {
+            "resourceType": "StructureDefinition",
+            "name": "Patient",
+            "type": "Patient",
+            "snapshot": {
+                "element": [
+                    {"path": "Patient", "min": 0, "max": "*"},
+                    {
+                        "path": "Patient.identifier",
+                        "sliceName": "medicalRecordNumber",
+                        "min": 0,
+                        "max": "*",
+                        "type": [{"code": "Identifier"}],
+                    },
+                ]
+            },
+        }
+    )
+
+    imported = import_from_text(source, "fhir", domain_name="clinical")
+
+    text = imported.to_mdl()
+    assert "medicalRecordNumber?: array<Identifier>" in text
+    assert "identifier?: array<Identifier>" not in text
+    assert any("medicalRecordNumber" in warning for warning in imported.warnings)
+
+
 def test_cli_generate_describe_ask_and_recommend(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(

@@ -360,9 +360,9 @@ def _import_fhir(source_text: str, *, domain_name: str | None, source_name: str 
         if len(segments) != 2:
             continue
         field_name = segments[1]
-        if field_name == "extension" and element.get("sliceName"):
+        if element.get("sliceName"):
             field_name = _sanitize_field_ident(str(element["sliceName"]))
-            warnings.append(f"Extension slice '{path}' imported as field '{field_name}'")
+            warnings.append(f"Sliced element '{path}' imported as field '{field_name}'")
         if field_name.endswith("[x]"):
             field_name = field_name[: -len("[x]")]
             warnings.append(f"Choice-type element '{path}' flattened to '{field_name}'")
