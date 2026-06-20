@@ -228,6 +228,36 @@ models:
     assert "orderId?: string" in text
 
 
+def test_dbt_importer_bootstraps_source_table():
+    imported = import_from_text(
+        """
+version: 2
+sources:
+  - name: raw_customer
+    tables:
+      - name: customers
+        columns:
+          - name: customerId
+            data_type: text
+            constraints:
+              - type: primary_key
+          - name: email
+            data_type: text
+            meta:
+              modelable_pii: true
+""",
+        "dbt",
+        domain_name="customer",
+        source_name="customers",
+    )
+
+    text = imported.to_mdl()
+    assert "domain customer" in text
+    assert "entity Customers @ 1 (additive)" in text
+    assert "@key customerId: string" in text
+    assert "@pii email?: string" in text
+
+
 def test_cli_generate_auto_detects_odcs_yaml(tmp_path):
     contract = tmp_path / "customer_contract.yml"
     contract.write_text(
