@@ -62,13 +62,13 @@ The goal is not to mirror every existing table, topic, or API one-for-one. The g
 | Source | Primary Mapping | Notes |
 |---|---|---|
 | OpenAPI 3.x | Request/response schemas become projections; shared schemas may become entities or value objects | Avoid treating public API shape as canonical unless that API is owned by the domain |
-| JSON Schema | Object schemas become `entity`, `event`, or `value` models | Add keys and ownership explicitly |
+| JSON Schema | Object schemas become `entity`, `event`, or `value` models | Modelable `x-modelable-*` extensions preserve version, ownership, classification, PII, keys, and references when present |
 | Protobuf | Messages become models; services imply projections or API targets | Preserve field numbers in metadata if needed |
 | SQL DDL | Tables become candidate entities; views become candidate projections | Move table/index/storage details to bindings |
 | Avro | Records often become event models | Preserve logical types and namespace metadata |
 | dbt `schema.yml` / `manifest.json` | Models and source tables become draft entities for review | Preserve group/access/ownership metadata manually when dbt metadata is incomplete |
 | FHIR R4 `StructureDefinition` | Direct child elements become draft model fields; repeating elements become arrays; simple extension slices use their nested `value[x]` type | Complex FHIR element types may need manual value-model refinement |
-| ODCS YAML | Contract schema objects become draft entities | Review ownership, classification, and required-field semantics |
+| ODCS YAML | Contract schema objects become draft entities | Modelable ODCS `customProperties` preserve exact type hints, version, PII, owner, classification, keys, and required-field semantics |
 | Existing YAML/DSL | Rewrite to `.mdl` with `modelable generate` assistance | Review all generated lineage and governance annotations |
 
 ## 4. Step-by-Step Workflow

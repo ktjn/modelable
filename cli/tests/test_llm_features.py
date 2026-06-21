@@ -160,6 +160,47 @@ def test_json_schema_importer_round_trips_to_mdl():
     assert "age?: int" in text
 
 
+def test_json_schema_importer_preserves_modelable_extensions():
+    imported = import_from_text(
+        json.dumps(
+            {
+                "title": "FallbackTitle",
+                "type": "object",
+                "x-modelable": {
+                    "domain": "customer",
+                    "name": "Customer",
+                    "version": 3,
+                },
+                "required": ["customerId", "email"],
+                "properties": {
+                    "customerId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "x-modelable-field": {"key": True},
+                    },
+                    "email": {
+                        "type": "string",
+                        "x-modelable-field": {"pii": True, "owner": "identity-team"},
+                        "x-modelable-classification": "confidential",
+                    },
+                    "address": {
+                        "type": "string",
+                        "x-modelable-ref": "address.Address",
+                    },
+                },
+            }
+        ),
+        "json-schema",
+    )
+
+    text = imported.to_mdl()
+    assert "domain customer" in text
+    assert "entity Customer @ 3 (additive)" in text
+    assert "@key customerId: uuid" in text
+    assert '@pii @classification("confidential") @owner("identity-team") email: string' in text
+    assert "address?: ref<address.Address>" in text
+
+
 def test_sql_importer_marks_primary_key():
     imported = import_from_text(
         """
@@ -554,6 +595,66 @@ schema:
     assert "email?: string" in text
     assert "@key" not in text
     assert "@pii" not in text
+
+
+def test_odcs_importer_preserves_modelable_custom_properties():
+    imported = import_from_text(
+        """
+apiVersion: v3.1.0
+kind: DataContract
+name: customer.Customer.v2
+version: "2"
+domain: customer
+schema:
+  - name: Customer
+    properties:
+      - name: customerId
+        logicalType: string
+        required: true
+        primaryKey: true
+        customProperties:
+          - property: modelableType
+            value: uuid
+      - name: email
+        logicalType: string
+        required: true
+        classification: confidential
+        customProperties:
+          - property: modelablePii
+            value: true
+          - property: modelableOwner
+            value: identity-team
+      - name: status
+        logicalType: string
+        customProperties:
+          - property: modelableType
+            value: enum(active,blocked)
+          - property: modelableEnum
+            value:
+              - active
+              - blocked
+      - name: accountIds
+        logicalType: array
+        customProperties:
+          - property: modelableType
+            value: array<ref<Account>>
+      - name: lifetimeValue
+        logicalType: number
+        customProperties:
+          - property: modelableType
+            value: decimal(12,2)
+""",
+        "odcs",
+        domain_name="customer",
+    )
+
+    text = imported.to_mdl()
+    assert "entity Customer @ 2 (additive)" in text
+    assert "@key customerId: uuid" in text
+    assert '@pii @classification("confidential") @owner("identity-team") email: string' in text
+    assert "status?: enum(active, blocked)" in text
+    assert "accountIds?: array<ref<Account>>" in text
+    assert "lifetimeValue?: decimal(12, 2)" in text
 
 
 def test_fhir_importer_maps_elements_to_fields():

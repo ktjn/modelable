@@ -402,6 +402,9 @@ existing schemas (DDL, JSON Schema, OpenAPI, Avro, Protobuf, SQL, dbt
 using the local import or deterministic draft scaffolding path. When `--output`
 is provided, the result is automatically validated through the Lark parser
 pipeline before writing.
+JSON Schema imports preserve Modelable `x-modelable` and `x-modelable-*`
+vendor metadata for domain/name/version, keys, PII, classification, field
+owner, and `ref<...>` references when those extensions are present.
 FHIR imports preserve direct-child optionality from `min`, repeating
 cardinality from `max` as `array<...>` fields, and direct slices as fields
 named from `sliceName`; direct `extension` slices also surface the extension
@@ -418,7 +421,10 @@ When a dbt model declares `versions`, import selects `latest_version` by
 default, or the highest declared version when `latest_version` is omitted. Use
 `--name Model@version` to select an older version explicitly.
 ODCS imports preserve field `pii`, `classification`, `classificationLevel`,
-owner, key, required, and type metadata when drafting `.mdl` models.
+owner, key, required, version, and type metadata when drafting `.mdl` models.
+Modelable ODCS `customProperties` restore exact type hints such as `uuid`,
+`enum(...)`, `array<...>`, `ref<...>`, and `decimal(p,s)`, plus PII and owner
+metadata emitted by `compile --target odcs`.
 Quoted ODCS boolean-like flags such as `"false"` are normalized before import
 so disabled metadata does not become `@key`, `@pii`, or required fields.
 When `--output` is provided, the command also writes a deterministic `.provenance.json` sidecar next to the generated file.

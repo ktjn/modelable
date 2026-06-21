@@ -81,11 +81,17 @@ def import_from_path(
 
 def _import_json_schema(source_text: str, *, domain_name: str | None) -> ImportedModel:
     schema = json.loads(source_text)
-    title = schema.get("title") or "ImportedModel"
-    domain = domain_name or _guess_domain_name(title)
+    modelable = schema.get("x-modelable") or {}
+    title = modelable.get("name") or schema.get("title") or "ImportedModel"
+    domain = domain_name or modelable.get("domain") or _guess_domain_name(title)
     model_name = _sanitize_ident(title)
     fields, warnings = _fields_from_json_schema(schema)
-    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
+    version = ModelVersion(
+        model_kind=ModelKind.entity,
+        version=_coerce_int(modelable.get("version")) or 1,
+        change_kind=ChangeKind.additive,
+        fields=fields,
+    )
     return ImportedModel("json-schema", title, domain, model_name, version, warnings)
 
 
@@ -594,14 +600,25 @@ def _import_odcs(source_text: str, *, domain_name: str | None, source_name: str 
             continue
         fields.append(_field_from_odcs_property(prop, warnings))
 
-    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
+    version = ModelVersion(
+        model_kind=ModelKind.entity,
+        version=_odcs_model_version(doc),
+        change_kind=ChangeKind.additive,
+        fields=fields,
+    )
     return ImportedModel("odcs", name, domain, _sanitize_ident(name), version, warnings)
 
 
 def _field_from_odcs_property(prop: dict[str, Any], warnings: list[str]) -> FieldDef:
     name = str(prop["name"])
+    custom = _custom_properties_map(prop.get("customProperties"))
     type_name = str(
-        prop.get("logicalType") or prop.get("physicalType") or prop.get("type") or prop.get("dataType") or "string"
+        custom.get("modelableType")
+        or prop.get("logicalType")
+        or prop.get("physicalType")
+        or prop.get("type")
+        or prop.get("dataType")
+        or "string"
     )
     annotations: list[Annotation] = []
     if (
@@ -610,26 +627,77 @@ def _field_from_odcs_property(prop: dict[str, Any], warnings: list[str]) -> Fiel
         or _metadata_flag(prop.get("key"))
     ):
         annotations.append(AnnKey())
-    if _metadata_flag(prop.get("pii")) or _metadata_flag(prop.get("personalData")):
+    if (
+        _metadata_flag(prop.get("pii"))
+        or _metadata_flag(prop.get("personalData"))
+        or _metadata_flag(custom.get("modelablePii"))
+    ):
         annotations.append(AnnPii())
     classification = (
-        prop.get("modelable_classification") or prop.get("classificationLevel") or prop.get("classification")
+        prop.get("modelable_classification")
+        or prop.get("classificationLevel")
+        or prop.get("classification")
+        or custom.get("modelableClassification")
     )
     if classification and str(classification).lower() not in {"string", "number", "integer", "boolean"}:
         annotations.append(AnnClassification(level=str(classification)))
-    owner = prop.get("owner")
+    owner = prop.get("owner") or custom.get("modelableOwner")
     if owner:
         annotations.append(AnnOwner(team=str(owner)))
     optional = not (_metadata_flag(prop.get("required")) or any(isinstance(ann, AnnKey) for ann in annotations))
     return FieldDef(
-        name=name, type=_odcs_type_to_field_type(type_name, warnings), optional=optional, annotations=annotations
+        name=name,
+        type=_modelable_type_to_field_type(type_name, warnings, enum_values=custom.get("modelableEnum")),
+        optional=optional,
+        annotations=annotations,
     )
+
+
+def _odcs_model_version(doc: dict[str, Any]) -> int:
+    version = _coerce_int(doc.get("version"))
+    if version is not None:
+        return version
+    name = str(doc.get("name") or "")
+    match = re.search(r"\.v(\d+)$", name)
+    if match:
+        return int(match.group(1))
+    return 1
+
+
+def _custom_properties_map(custom_properties: Any) -> dict[str, Any]:
+    if isinstance(custom_properties, dict):
+        return custom_properties
+    if not isinstance(custom_properties, list):
+        return {}
+    result: dict[str, Any] = {}
+    for item in custom_properties:
+        if isinstance(item, dict) and "property" in item:
+            result[str(item["property"])] = item.get("value")
+    return result
 
 
 def _metadata_flag(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "y", "on"}
     return bool(value)
+
+
+def _modelable_type_to_field_type(type_name: str, warnings: list[str], *, enum_values: Any = None) -> FieldType:
+    normalized = type_name.strip()
+    lower = normalized.lower()
+    if lower.startswith("enum(") and normalized.endswith(")"):
+        values = normalized[len("enum(") : -1]
+        return EnumType(values=[value.strip() for value in values.split(",") if value.strip()])
+    if isinstance(enum_values, list):
+        return EnumType(values=[str(value) for value in enum_values])
+    if lower.startswith("array<") and normalized.endswith(">"):
+        return ArrayType(item=_modelable_type_to_field_type(normalized[len("array<") : -1], warnings))
+    if lower.startswith("ref<") and normalized.endswith(">"):
+        return RefType(target=normalized[len("ref<") : -1])
+    decimal_match = re.fullmatch(r"decimal\((\d+)\s*,\s*(\d+)\)", lower)
+    if decimal_match:
+        return DecimalType(precision=int(decimal_match.group(1)), scale=int(decimal_match.group(2)))
+    return _odcs_type_to_field_type(type_name, warnings)
 
 
 def _odcs_type_to_field_type(type_name: str, warnings: list[str]) -> FieldType:
@@ -729,10 +797,17 @@ def _fields_from_json_schema(schema: dict) -> tuple[list[FieldDef], list[str]]:
     for name, prop in properties.items():
         field_type = _field_type_from_json_schema(prop, warnings)
         annotations: list = []
-        if name == key_field_name or name in schema.get("x-modelable-key-fields", []):
+        modelable_field = prop.get("x-modelable-field") or {}
+        if name == key_field_name or name in schema.get("x-modelable-key-fields", []) or modelable_field.get("key"):
             annotations.append(AnnKey())
-        if prop.get("x-modelable-field", {}).get("pii"):
+        if modelable_field.get("pii"):
             annotations.append(AnnPii())
+        classification = prop.get("x-modelable-classification")
+        if classification:
+            annotations.append(AnnClassification(level=str(classification)))
+        owner = modelable_field.get("owner")
+        if owner:
+            annotations.append(AnnOwner(team=str(owner)))
         fields.append(
             FieldDef(
                 name=name,
