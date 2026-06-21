@@ -268,7 +268,10 @@ profile, with the same human-review workflow as other imports. Repeating direct
 child elements (`max: "*"`, or numeric `max` greater than `1`) import as
 `array<...>` fields. Direct slices import as fields named from `sliceName`;
 direct `extension` slices also surface the extension profile URL in warnings
-for review.
+for review. Simple direct extension slices that declare a nested `value[x]`
+element import as the value's primitive/reference type instead of a generic
+`Extension` field; complex extensions still require manual value-model
+refinement.
 
 **Implemented (partial):** `modelable attach <Domain.Model@version> --source
 <StructureDefinition.json> --source-format fhir` imports the direct child

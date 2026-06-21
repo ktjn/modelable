@@ -518,6 +518,7 @@ def _import_fhir(source_text: str, *, domain_name: str | None, source_name: str 
     elements = (doc.get("snapshot") or {}).get("element") or (doc.get("differential") or {}).get("element") or []
     fields: list[FieldDef] = []
     warnings: list[str] = []
+    extension_values = _fhir_direct_extension_value_elements(resource_type, elements)
     for element in elements:
         path = element.get("path", "")
         segments = path.split(".")
@@ -527,6 +528,11 @@ def _import_fhir(source_text: str, *, domain_name: str | None, source_name: str 
         if element.get("sliceName"):
             field_name = _sanitize_field_ident(str(element["sliceName"]))
             warnings.append(f"Sliced element '{path}' imported as field '{field_name}'")
+            if path == f"{resource_type}.extension":
+                value_element = extension_values.get(str(element["sliceName"]))
+                if value_element is not None:
+                    fields.append(_field_from_fhir_extension_slice(field_name, element, value_element, warnings))
+                    continue
         if field_name.endswith("[x]"):
             field_name = field_name[: -len("[x]")]
             warnings.append(f"Choice-type element '{path}' flattened to '{field_name}'")
@@ -534,6 +540,25 @@ def _import_fhir(source_text: str, *, domain_name: str | None, source_name: str 
 
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("fhir", name, domain, _sanitize_ident(resource_type), version, warnings)
+
+
+def _fhir_direct_extension_value_elements(
+    resource_type: str, elements: list[dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    values: dict[str, dict[str, Any]] = {}
+    prefix = f"{resource_type}.extension:"
+    for element in elements:
+        element_id = str(element.get("id") or "")
+        if not element_id.startswith(prefix):
+            continue
+        suffix = element_id[len(prefix) :]
+        slice_name, sep, child_path = suffix.partition(".")
+        if not sep or not child_path.startswith("value"):
+            continue
+        path = element.get("path")
+        if path == f"{resource_type}.extension.value[x]" or str(path).startswith(f"{resource_type}.extension.value"):
+            values[slice_name] = element
+    return values
 
 
 def _import_odcs(source_text: str, *, domain_name: str | None, source_name: str | None = None) -> ImportedModel:
@@ -651,6 +676,26 @@ def _field_from_fhir_element(field_name: str, element: dict[str, Any], warnings:
     if field_name == "id":
         annotations.append(AnnKey())
     return FieldDef(name=field_name, type=field_type, optional=optional, annotations=annotations)
+
+
+def _field_from_fhir_extension_slice(
+    field_name: str, slice_element: dict[str, Any], value_element: dict[str, Any], warnings: list[str]
+) -> FieldDef:
+    for type_entry in slice_element.get("type") or []:
+        if not isinstance(type_entry, dict) or type_entry.get("code") != "Extension":
+            continue
+        profiles = type_entry.get("profile") or []
+        if profiles:
+            warnings.append(
+                f"Element '{slice_element.get('path', field_name)}' uses FHIR Extension profile {profiles[0]}; review manually"
+            )
+            break
+    field = _field_from_fhir_element(field_name, value_element, warnings)
+    field.optional = slice_element.get("min", 0) == 0
+    max_cardinality = str(slice_element.get("max", "1"))
+    if max_cardinality == "*" or (max_cardinality.isdigit() and int(max_cardinality) > 1):
+        field.type = ArrayType(item=field.type)
+    return field
 
 
 def _fhir_type_to_field_type(type_entry: dict[str, Any], path: str, warnings: list[str]) -> FieldType:

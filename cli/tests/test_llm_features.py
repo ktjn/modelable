@@ -630,6 +630,84 @@ def test_fhir_importer_names_extension_slices_from_slice_name():
     assert any("us-core-race" in warning for warning in imported.warnings)
 
 
+def test_fhir_importer_uses_simple_extension_value_type():
+    source = json.dumps(
+        {
+            "resourceType": "StructureDefinition",
+            "name": "Patient",
+            "type": "Patient",
+            "snapshot": {
+                "element": [
+                    {"path": "Patient", "min": 0, "max": "*"},
+                    {
+                        "id": "Patient.extension:birthSex",
+                        "path": "Patient.extension",
+                        "sliceName": "birthSex",
+                        "min": 0,
+                        "max": "1",
+                        "type": [
+                            {
+                                "code": "Extension",
+                                "profile": ["http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex"],
+                            }
+                        ],
+                    },
+                    {
+                        "id": "Patient.extension:birthSex.value[x]",
+                        "path": "Patient.extension.value[x]",
+                        "min": 1,
+                        "max": "1",
+                        "type": [{"code": "code"}],
+                    },
+                ]
+            },
+        }
+    )
+
+    imported = import_from_text(source, "fhir", domain_name="clinical")
+
+    text = imported.to_mdl()
+    assert "birthSex?: string" in text
+    assert "birthSex?: Extension" not in text
+    assert any("us-core-birthsex" in warning for warning in imported.warnings)
+
+
+def test_fhir_importer_preserves_repeating_simple_extension_value_type():
+    source = json.dumps(
+        {
+            "resourceType": "StructureDefinition",
+            "name": "Patient",
+            "type": "Patient",
+            "snapshot": {
+                "element": [
+                    {"path": "Patient", "min": 0, "max": "*"},
+                    {
+                        "id": "Patient.extension:nationality",
+                        "path": "Patient.extension",
+                        "sliceName": "nationality",
+                        "min": 0,
+                        "max": "*",
+                        "type": [{"code": "Extension"}],
+                    },
+                    {
+                        "id": "Patient.extension:nationality.value[x]",
+                        "path": "Patient.extension.value[x]",
+                        "min": 1,
+                        "max": "1",
+                        "type": [{"code": "string"}],
+                    },
+                ]
+            },
+        }
+    )
+
+    imported = import_from_text(source, "fhir", domain_name="clinical")
+
+    text = imported.to_mdl()
+    assert "nationality?: array<string>" in text
+    assert "nationality?: array<Extension>" not in text
+
+
 def test_fhir_importer_names_direct_slices_from_slice_name():
     source = json.dumps(
         {
