@@ -726,7 +726,7 @@ datacontract lint ./dist/odcs/customer.Customer.v1.odcs.yaml
 ### 5.20 `spec` — Track external specifications
 
 ```text
-modelable spec add ID --kind <dbt|fhir|odcs> --source PATH --ref Domain.Model@version [--source-name NAME] [--path PATH]
+modelable spec add ID --kind <dbt|fhir|odcs> --source PATH_OR_URL --ref Domain.Model@version [--source-name NAME] [--path PATH]
 modelable spec status [--path PATH] [--json] [--fail-on drifted,error]
 modelable spec diff ID [--path PATH] [--json]
 modelable spec sync [ID] [--path PATH] [--preview|--write]
@@ -736,8 +736,8 @@ Tracks external specification files in `.modelable/specs.yml`, compares their
 current content to a bound Modelable model version, and reuses the same
 compatibility rules as `diff`/`attach` to classify drift.
 
-- `spec add` records the source path, source kind, target ref, optional source
-  object name, and default update policy. The config is intended to be
+- `spec add` records the source path or URL, source kind, target ref, optional
+  source object name, and default update policy. The config is intended to be
   source-controlled.
 - `spec status` reports `clean`, `drifted`, or `error` for each tracked source.
   `--json` is intended for CI and automation.
@@ -746,14 +746,20 @@ compatibility rules as `diff`/`attach` to classify drift.
   writing; `--write` appends a new model version and records the source hash
   and change set in the `.attachments.json` sidecar.
 
-This command tracks static local files only. Live catalog publishing,
-scheduled polling, and remote source authentication remain deferred.
+**Remote sources:** `--source` accepts HTTP/HTTPS URLs in addition to local
+file paths. Remote sources are fetched on every `status`, `diff`, or `sync`
+invocation and cached under `.modelable/specs-cache/<id>/`. Bearer token
+authentication is supported via the `MODELABLE_SPEC_TOKEN` environment
+variable.
+
+Live catalog publishing and scheduled polling remain deferred.
 
 **Examples:**
 
 ```bash
 modelable spec add customer-dbt --kind dbt --source ./dbt/schema.yml --source-name Customer --ref customer.Customer@1
-modelable spec status --json --fail-on drifted,error
+modelable spec add remote-dbt --kind dbt --source https://git.example.com/schema.yml --source-name Customer --ref customer.Customer@1
+MODELABLE_SPEC_TOKEN=xxx modelable spec status --json --fail-on drifted,error
 modelable spec sync customer-dbt --preview
 modelable spec sync customer-dbt --write
 ```

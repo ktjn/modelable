@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import urllib.error
+import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -9,6 +11,10 @@ import yaml
 from modelable.llm.engine import AttachResult, attach_external_version
 
 SUPPORTED_SPEC_KINDS = {"dbt", "fhir", "odcs"}
+
+
+class SpecSourceError(RuntimeError):
+    """Raised when a spec source cannot be resolved."""
 
 
 @dataclass(frozen=True)
@@ -100,10 +106,15 @@ def select_specs(workspace_path: Path, spec_id: str | None) -> list[SpecEntry]:
     return selected
 
 
-def evaluate_spec(workspace_path: Path, entry: SpecEntry, *, write: bool = False) -> SpecEvaluation:
+def evaluate_spec(
+    workspace_path: Path,
+    entry: SpecEntry,
+    *,
+    write: bool = False,
+    token: str | None = None,
+) -> SpecEvaluation:
     try:
-        source_path = _resolve_source_path(workspace_path, entry.source)
-        source_text = source_path.read_text(encoding="utf-8")
+        source_text, source_path = _resolve_source(workspace_path, entry, token=token)
         source_hash = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
         result = attach_external_version(
             workspace_path,
@@ -133,6 +144,67 @@ def evaluate_spec(workspace_path: Path, entry: SpecEntry, *, write: bool = False
         )
 
 
+def _spec_cache_dir(workspace_path: Path, spec_id: str) -> Path:
+    sanitized = _sanitize_id(spec_id)
+    return workspace_path / ".modelable" / "specs-cache" / sanitized
+
+
+def _sanitize_id(spec_id: str) -> str:
+    return "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in spec_id)
+
+
+def _is_remote_source(source: str) -> bool:
+    return source.startswith(("http://", "https://"))
+
+
+def _resolve_source(
+    workspace_path: Path,
+    entry: SpecEntry,
+    *,
+    token: str | None = None,
+) -> tuple[str, Path]:
+    if _is_remote_source(entry.source):
+        return _fetch_remote_source(entry.source, workspace_path, entry.id, token=token)
+    path = _resolve_local_source_path(workspace_path, entry.source)
+    return path.read_text(encoding="utf-8"), path
+
+
+def _fetch_remote_source(
+    url: str,
+    workspace_path: Path,
+    spec_id: str,
+    *,
+    token: str | None = None,
+) -> tuple[str, Path]:
+    cache_dir = _spec_cache_dir(workspace_path, spec_id)
+    cache_path = cache_dir / "source"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    req = urllib.request.Request(url)
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            content = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        raise SpecSourceError(f"Failed to fetch remote spec {url}: HTTP {exc.code} {exc.reason}") from exc
+    except urllib.error.URLError as exc:
+        raise SpecSourceError(f"Failed to fetch remote spec {url}: {exc.reason}") from exc
+    except OSError as exc:
+        raise SpecSourceError(f"Failed to fetch remote spec {url}: {exc}") from exc
+
+    cache_path.write_text(content, encoding="utf-8")
+    return content, cache_path
+
+
+def _resolve_local_source_path(workspace_path: Path, source: str) -> Path:
+    path = Path(source)
+    if path.is_absolute():
+        return path
+    return workspace_path / path
+
+
 def _entry_from_dict(item: dict[str, object]) -> SpecEntry:
     return SpecEntry(
         id=str(item["id"]),
@@ -142,13 +214,6 @@ def _entry_from_dict(item: dict[str, object]) -> SpecEntry:
         source_name=str(item["source_name"]) if item.get("source_name") is not None else None,
         update_policy=str(item.get("update_policy") or "preview"),
     )
-
-
-def _resolve_source_path(workspace_path: Path, source: str) -> Path:
-    path = Path(source)
-    if path.is_absolute():
-        return path
-    return workspace_path / path
 
 
 def change_dicts(result: AttachResult) -> list[dict[str, object]]:
