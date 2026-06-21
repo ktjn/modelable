@@ -209,7 +209,7 @@ def _import_dbt(source_text: str, *, domain_name: str | None, source_name: str |
     name = model.get("name") or "DbtModel"
     domain = domain_name or _guess_domain_name(name)
     warnings: list[str] = []
-    fields = _fields_from_dbt_columns(model.get("columns") or [], warnings)
+    fields = _fields_from_dbt_columns(model.get("columns") or [], warnings, unique_keys=_dbt_unique_keys(model))
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
 
@@ -238,7 +238,7 @@ def _import_dbt_source_yaml(
     name = table.get("name") or "DbtSource"
     domain = domain_name or _guess_domain_name(name)
     warnings: list[str] = []
-    fields = _fields_from_dbt_columns(table.get("columns") or [], warnings)
+    fields = _fields_from_dbt_columns(table.get("columns") or [], warnings, unique_keys=_dbt_unique_keys(table))
 
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
@@ -271,13 +271,15 @@ def _import_dbt_manifest(
     name = selected["name"]
     domain = domain_name or _guess_domain_name(name)
     warnings: list[str] = []
-    fields = _fields_from_dbt_columns(selected.get("columns") or {}, warnings)
+    fields = _fields_from_dbt_columns(selected.get("columns") or {}, warnings, unique_keys=_dbt_unique_keys(selected))
 
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
 
 
-def _fields_from_dbt_columns(columns: Any, warnings: list[str]) -> list[FieldDef]:
+def _fields_from_dbt_columns(
+    columns: Any, warnings: list[str], *, unique_keys: set[str] | None = None
+) -> list[FieldDef]:
     fields: list[FieldDef] = []
     column_items = columns.items() if isinstance(columns, dict) else ((None, column) for column in columns)
     for column_name, column in column_items:
@@ -285,11 +287,11 @@ def _fields_from_dbt_columns(columns: Any, warnings: list[str]) -> list[FieldDef
             continue
         if "name" not in column and column_name is not None:
             column = {"name": column_name, **column}
-        fields.append(_field_from_dbt_column(column, warnings))
+        fields.append(_field_from_dbt_column(column, warnings, unique_keys=unique_keys or set()))
     return fields
 
 
-def _field_from_dbt_column(column: dict[str, Any], warnings: list[str]) -> FieldDef:
+def _field_from_dbt_column(column: dict[str, Any], warnings: list[str], *, unique_keys: set[str]) -> FieldDef:
     name = column["name"]
     data_type = column.get("data_type")
     field_type: FieldType
@@ -302,12 +304,18 @@ def _field_from_dbt_column(column: dict[str, Any], warnings: list[str]) -> Field
     constraint_types = {
         constraint.get("type") for constraint in column.get("constraints") or [] if isinstance(constraint, dict)
     }
+    data_test_types = _dbt_data_test_types(column)
     annotations: list[Annotation] = []
-    if "primary_key" in constraint_types:
-        annotations.append(AnnKey())
-    optional = "not_null" not in constraint_types and "primary_key" not in constraint_types
-
     meta = column.get("meta") or {}
+    if "primary_key" in constraint_types or name in unique_keys or _metadata_flag(meta.get("modelable_key")):
+        annotations.append(AnnKey())
+    optional = (
+        "not_null" not in constraint_types
+        and "not_null" not in data_test_types
+        and "primary_key" not in constraint_types
+        and not any(isinstance(ann, AnnKey) for ann in annotations)
+    )
+
     if meta.get("modelable_pii"):
         annotations.append(AnnPii())
     classification = meta.get("modelable_classification")
@@ -318,6 +326,33 @@ def _field_from_dbt_column(column: dict[str, Any], warnings: list[str]) -> Field
         annotations.append(AnnOwner(team=str(owner)))
 
     return FieldDef(name=name, type=field_type, optional=optional, annotations=annotations)
+
+
+def _dbt_unique_keys(resource: dict[str, Any]) -> set[str]:
+    config = resource.get("config") or {}
+    raw = config.get("unique_key") if isinstance(config, dict) else None
+    if raw is None:
+        raw = resource.get("unique_key")
+    if isinstance(raw, str):
+        return {raw}
+    if isinstance(raw, list):
+        return {str(item) for item in raw}
+    return set()
+
+
+def _dbt_data_test_types(column: dict[str, Any]) -> set[str]:
+    tests = []
+    for key in ("data_tests", "tests"):
+        value = column.get(key) or []
+        if isinstance(value, list):
+            tests.extend(value)
+    names: set[str] = set()
+    for item in tests:
+        if isinstance(item, str):
+            names.add(item)
+        elif isinstance(item, dict):
+            names.update(str(key) for key in item)
+    return names
 
 
 _FHIR_PRIMITIVE_TYPES = {
