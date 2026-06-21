@@ -406,6 +406,12 @@ FHIR imports preserve direct-child optionality from `min`, repeating
 cardinality from `max` as `array<...>` fields, and direct slices as fields
 named from `sliceName`; direct `extension` slices also surface the extension
 profile URL for review.
+dbt imports preserve column `data_type`, contract `constraints`,
+`data_tests`/legacy `tests` `not_null` requiredness, `config.unique_key`
+identity, and `modelable_*` column `meta` keys from both `schema.yml` and
+`manifest.json` bootstrapping inputs. A dbt `unique` test alone remains
+metadata-only and does not become `@key` unless paired with an explicit
+`unique_key`, `primary_key` constraint, or `modelable_key` meta flag.
 ODCS imports preserve field `pii`, `classification`, `classificationLevel`,
 owner, key, required, and type metadata when drafting `.mdl` models.
 Quoted ODCS boolean-like flags such as `"false"` are normalized before import

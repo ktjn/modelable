@@ -293,6 +293,72 @@ def test_dbt_importer_bootstraps_manifest_source_table():
     assert "@pii email?: string" in text
 
 
+def test_dbt_importer_preserves_data_tests_and_unique_key_config():
+    imported = import_from_text(
+        """
+version: 2
+models:
+  - name: Customer
+    config:
+      unique_key: customerId
+    columns:
+      - name: customerId
+        data_type: text
+        data_tests:
+          - unique
+          - not_null
+      - name: email
+        data_type: text
+        tests:
+          - not_null
+      - name: loyaltyTier
+        data_type: text
+        data_tests:
+          - unique
+""",
+        "dbt",
+        domain_name="customer",
+    )
+
+    text = imported.to_mdl()
+    assert "@key customerId: string" in text
+    assert "email: string" in text
+    assert "loyaltyTier?: string" in text
+
+
+def test_dbt_manifest_importer_preserves_data_tests_and_unique_key_config():
+    source = {
+        "nodes": {
+            "model.shop.Customer": {
+                "name": "Customer",
+                "resource_type": "model",
+                "config": {"unique_key": ["customerId"]},
+                "columns": {
+                    "customerId": {
+                        "data_type": "text",
+                        "data_tests": ["unique", "not_null"],
+                    },
+                    "email": {
+                        "data_type": "text",
+                        "tests": ["not_null"],
+                    },
+                    "loyaltyTier": {
+                        "data_type": "text",
+                        "data_tests": ["unique"],
+                    },
+                },
+            }
+        }
+    }
+
+    imported = import_from_text(json.dumps(source), "dbt", domain_name="customer", source_name="Customer")
+
+    text = imported.to_mdl()
+    assert "@key customerId: string" in text
+    assert "email: string" in text
+    assert "loyaltyTier?: string" in text
+
+
 def test_cli_generate_auto_detects_odcs_yaml(tmp_path):
     contract = tmp_path / "customer_contract.yml"
     contract.write_text(

@@ -133,7 +133,7 @@ This lets a Modelable canonical model be dropped into an existing dbt project
 as a documented, contract-enforced source or model stub without hand-writing
 YAML.
 
-**Implemented (first pass) — dbt import (extends
+**Implemented — dbt import (extends
 [getting-started.md](getting-started.md) source-format table):**
 
 `modelable generate --from <dbt manifest.json | schema.yml> --output
@@ -141,10 +141,16 @@ models/<domain>.mdl` bootstraps `.mdl` models from local dbt models or source
 tables, including `sources` entries from `manifest.json`, following the same
 "review the generated output" workflow as other imports. Use `--name` to select
 a specific dbt model or source table when a file contains multiple candidates.
+The importer preserves column `data_type`, `constraints`, `data_tests`/legacy
+`tests` `not_null` requiredness, `config.unique_key` identity, and
+`modelable_*` column `meta` keys. A dbt `unique` data test alone remains
+metadata-only and does not become Modelable `@key`; identity requires an
+explicit `primary_key` constraint, `unique_key`, or `modelable_key` meta flag.
 
 **Implemented (partial):** `modelable attach <Domain.Model@version> --source
 <schema.yml> --source-format dbt [--source-name NAME]` imports a dbt model's
-`columns:` (with `data_type`, `constraints`, and `modelable_*` `meta` keys) and
+`columns:` (with `data_type`, `constraints`, dbt test requiredness, configured
+identity, and `modelable_*` `meta` keys) and
 compares them to an existing published model version, appending a new version
 with a computed `additive`/`breaking` change kind when they differ. See
 [cli-reference.md](cli-reference.md) §10.9.
