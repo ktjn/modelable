@@ -405,7 +405,9 @@ pipeline before writing.
 FHIR imports preserve direct-child optionality from `min`, repeating
 cardinality from `max` as `array<...>` fields, and direct slices as fields
 named from `sliceName`; direct `extension` slices also surface the extension
-profile URL for review.
+profile URL for review. When a direct extension slice declares a simple nested
+`value[x]` element, import uses that value type for the draft Modelable field
+instead of the generic `Extension` type.
 dbt imports preserve column `data_type`, contract `constraints`,
 `data_tests`/legacy `tests` `not_null` requiredness, `config.unique_key`
 identity, and `modelable_*` column `meta` keys from both `schema.yml` and
