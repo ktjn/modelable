@@ -24,7 +24,7 @@ def fixture_path():
     return FIXTURES
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="module")
 async def lsp(request):
     """Start the LSP server and complete the initialize handshake.
 
