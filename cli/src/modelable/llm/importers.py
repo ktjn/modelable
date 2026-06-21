@@ -200,17 +200,19 @@ def _import_dbt(source_text: str, *, domain_name: str | None, source_name: str |
     models = doc.get("models") or []
     if not models:
         return _import_dbt_source_yaml(doc, domain_name=domain_name, source_name=source_name)
-    if source_name is not None:
-        model = next((item for item in models if item.get("name") == source_name), None)
-        if model is None:
-            raise ValueError(f"dbt model '{source_name}' not found in source")
-    else:
-        model = models[0]
+    model, versioned_model = _select_dbt_model(models, source_name=source_name)
     name = model.get("name") or "DbtModel"
     domain = domain_name or _guess_domain_name(name)
     warnings: list[str] = []
-    fields = _fields_from_dbt_columns(model.get("columns") or [], warnings, unique_keys=_dbt_unique_keys(model))
-    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
+    columns = _dbt_columns_for_selected_model(model, versioned_model)
+    unique_keys = _dbt_unique_keys(model) | _dbt_unique_keys(versioned_model or {})
+    fields = _fields_from_dbt_columns(columns, warnings, unique_keys=unique_keys)
+    version = ModelVersion(
+        model_kind=ModelKind.entity,
+        version=_dbt_modelable_version(model, versioned_model),
+        change_kind=ChangeKind.additive,
+        fields=fields,
+    )
     return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
 
 
@@ -248,7 +250,7 @@ def _import_dbt_manifest(
     doc: dict[str, Any], *, domain_name: str | None, source_name: str | None = None
 ) -> ImportedModel:
     nodes = doc.get("nodes") or {}
-    models = {node["name"]: node for node in nodes.values() if node.get("resource_type") == "model" and "name" in node}
+    models = [node for node in nodes.values() if node.get("resource_type") == "model" and "name" in node]
     sources_doc = doc.get("sources") or {}
     sources = {
         source["name"]: source
@@ -259,12 +261,13 @@ def _import_dbt_manifest(
         raise ValueError("dbt manifest does not declare any models or source tables")
 
     if source_name is not None:
-        model = models.get(source_name)
-        source = sources.get(source_name) if model is None else None
+        model, _ = _select_dbt_model(models, source_name=source_name, allow_missing=True)
+        source_name_base, requested_version = _parse_dbt_source_name(source_name)
+        source = sources.get(source_name_base) if model is None and requested_version is None else None
         if model is None and source is None:
             raise ValueError(f"dbt model or source table '{source_name}' not found in manifest")
     else:
-        model = models[sorted(models.keys())[0]] if models else None
+        model = _select_dbt_model(models, source_name=None)[0] if models else None
         source = sources[sorted(sources.keys())[0]] if model is None else None
 
     selected = model or source
@@ -273,8 +276,134 @@ def _import_dbt_manifest(
     warnings: list[str] = []
     fields = _fields_from_dbt_columns(selected.get("columns") or {}, warnings, unique_keys=_dbt_unique_keys(selected))
 
-    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
+    version = ModelVersion(
+        model_kind=ModelKind.entity,
+        version=_dbt_modelable_version(selected, None),
+        change_kind=ChangeKind.additive,
+        fields=fields,
+    )
     return ImportedModel("dbt", name, domain, _sanitize_ident(name), version, warnings)
+
+
+def _select_dbt_model(
+    models: list[dict[str, Any]], *, source_name: str | None, allow_missing: bool = False
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    if source_name is None:
+        model = sorted(models, key=lambda item: str(item.get("name") or ""))[0]
+        return model, _select_dbt_model_version(model, requested_version=None)
+
+    model_name, requested_version = _parse_dbt_source_name(source_name)
+    matching = [item for item in models if item.get("name") == model_name]
+    if not matching:
+        if allow_missing:
+            return None, None
+        raise ValueError(f"dbt model '{source_name}' not found in source")
+
+    model = _select_manifest_model_version(matching, requested_version=requested_version)
+    if model is not None:
+        return model, None
+
+    model = matching[0]
+    versioned_model = _select_dbt_model_version(model, requested_version=requested_version)
+    return model, versioned_model
+
+
+def _select_manifest_model_version(
+    models: list[dict[str, Any]], *, requested_version: int | None
+) -> dict[str, Any] | None:
+    versioned_models = [item for item in models if _dbt_resource_version(item) is not None]
+    if not versioned_models:
+        return None
+    if requested_version is not None:
+        return next((item for item in versioned_models if _dbt_resource_version(item) == requested_version), None)
+    latest_version = next(
+        (_coerce_int(item.get("latest_version")) for item in versioned_models if item.get("latest_version")), None
+    )
+    if latest_version is not None:
+        latest = next((item for item in versioned_models if _dbt_resource_version(item) == latest_version), None)
+        if latest is not None:
+            return latest
+    return max(versioned_models, key=lambda item: _dbt_resource_version(item) or 0)
+
+
+def _select_dbt_model_version(model: dict[str, Any], *, requested_version: int | None) -> dict[str, Any] | None:
+    versions = [item for item in model.get("versions") or [] if isinstance(item, dict)]
+    if not versions:
+        if requested_version is not None:
+            raise ValueError(f"dbt model '{model.get('name')}' does not declare version {requested_version}")
+        return None
+    if requested_version is not None:
+        version = next((item for item in versions if _dbt_resource_version(item) == requested_version), None)
+        if version is None:
+            raise ValueError(f"dbt model '{model.get('name')}' does not declare version {requested_version}")
+        return version
+    latest_version = _coerce_int(model.get("latest_version"))
+    if latest_version is not None:
+        version = next((item for item in versions if _dbt_resource_version(item) == latest_version), None)
+        if version is not None:
+            return version
+    return max(versions, key=lambda item: _dbt_resource_version(item) or 0)
+
+
+def _dbt_columns_for_selected_model(
+    model: dict[str, Any], versioned_model: dict[str, Any] | None
+) -> list[dict[str, Any]]:
+    if versioned_model is None:
+        return _dbt_columns_as_list(model.get("columns") or [])
+    return _merge_dbt_columns(model.get("columns") or [], versioned_model.get("columns") or [])
+
+
+def _merge_dbt_columns(base_columns: Any, override_columns: Any) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for column in _dbt_columns_as_list(base_columns):
+        name = column.get("name")
+        if not name:
+            continue
+        name = str(name)
+        order.append(name)
+        merged[name] = column
+    for column in _dbt_columns_as_list(override_columns):
+        name = column.get("name")
+        if not name:
+            continue
+        name = str(name)
+        if name not in merged:
+            order.append(name)
+        merged[name] = {**merged.get(name, {}), **column}
+    return [merged[name] for name in order]
+
+
+def _dbt_columns_as_list(columns: Any) -> list[dict[str, Any]]:
+    if isinstance(columns, dict):
+        return [{"name": key, **value} if isinstance(value, dict) else {"name": key} for key, value in columns.items()]
+    return [item for item in columns if isinstance(item, dict)]
+
+
+def _dbt_modelable_version(model: dict[str, Any], versioned_model: dict[str, Any] | None) -> int:
+    return _dbt_resource_version(versioned_model or model) or 1
+
+
+def _dbt_resource_version(resource: dict[str, Any]) -> int | None:
+    return _coerce_int(resource.get("version") or resource.get("v"))
+
+
+def _parse_dbt_source_name(source_name: str) -> tuple[str, int | None]:
+    model_name, sep, version_text = source_name.partition("@")
+    if not sep:
+        return source_name, None
+    version = _coerce_int(version_text)
+    if version is None:
+        raise ValueError(f"dbt source name '{source_name}' must use an integer @version suffix")
+    return model_name, version
+
+
+def _coerce_int(value: Any) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return None
 
 
 def _fields_from_dbt_columns(

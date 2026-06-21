@@ -141,6 +141,9 @@ models/<domain>.mdl` bootstraps `.mdl` models from local dbt models or source
 tables, including `sources` entries from `manifest.json`, following the same
 "review the generated output" workflow as other imports. Use `--name` to select
 a specific dbt model or source table when a file contains multiple candidates.
+For dbt model-version declarations, import selects `latest_version` by default
+or the highest declared version when `latest_version` is omitted; use
+`--name Model@version` to select an older version explicitly.
 The importer preserves column `data_type`, `constraints`, `data_tests`/legacy
 `tests` `not_null` requiredness, `config.unique_key` identity, and
 `modelable_*` column `meta` keys. A dbt `unique` data test alone remains

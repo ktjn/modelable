@@ -412,6 +412,9 @@ identity, and `modelable_*` column `meta` keys from both `schema.yml` and
 `manifest.json` bootstrapping inputs. A dbt `unique` test alone remains
 metadata-only and does not become `@key` unless paired with an explicit
 `unique_key`, `primary_key` constraint, or `modelable_key` meta flag.
+When a dbt model declares `versions`, import selects `latest_version` by
+default, or the highest declared version when `latest_version` is omitted. Use
+`--name Model@version` to select an older version explicitly.
 ODCS imports preserve field `pii`, `classification`, `classificationLevel`,
 owner, key, required, and type metadata when drafting `.mdl` models.
 Quoted ODCS boolean-like flags such as `"false"` are normalized before import
@@ -425,7 +428,7 @@ When `--output` is provided, the command also writes a deterministic `.provenanc
 | `--from SOURCE` | Natural language prompt, existing source file, or inline source text |
 | `--format FORMAT` | Source format for import paths, such as `json-schema`, `openapi`, `avro`, `protobuf`, `sql`, `dbt`, `fhir`, or `odcs` |
 | `--domain DOMAIN` | Override the output domain when importing source files |
-| `--name NAME` | Override the output model name when drafting from text; selects a named model/source table for dbt and a named schema object for ODCS |
+| `--name NAME` | Override the output model name when drafting from text; selects a named model/source table for dbt, including `Model@version` for versioned dbt models, and a named schema object for ODCS |
 | `--output FILE` | Write output to a file and auto-validate (default: print to stdout) |
 
 **Examples:**
@@ -436,6 +439,7 @@ modelable generate --from ./existing-schema.json --format json-schema --domain c
 modelable generate --from ./existing.sql --format sql --domain customer
 modelable generate --from ./dbt/schema.yml --domain customer --output customer.mdl
 modelable generate --from ./dbt/schema.yml --name customers --domain customer --output customer-source.mdl
+modelable generate --from ./dbt/schema.yml --name Customer@1 --domain customer --output customer-v1.mdl
 modelable generate --from ./dbt/manifest.json --name customers --domain customer --output customer-source.mdl
 modelable generate --from ./fhir/PatientProfile.json --domain clinical --output patient.mdl
 modelable generate --from ./contracts/customer.yml --domain customer --output customer.mdl
