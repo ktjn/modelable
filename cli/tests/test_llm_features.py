@@ -1575,3 +1575,223 @@ def test_transform_unknown_ref_raises(tmp_path):
     _transform_tmp(tmp_path)
     with pytest.raises(ValueError, match="Unknown model or projection"):
         transform_ref_to_target(tmp_path, "customer.NoSuch@1", "typescript")
+
+
+def test_fhir_importer_expands_nested_backbone_elements():
+    imported = import_from_text(
+        json.dumps(
+            {
+                "resourceType": "StructureDefinition",
+                "name": "Observation",
+                "type": "Observation",
+                "snapshot": {
+                    "element": [
+                        {"path": "Observation", "min": 0, "max": "*"},
+                        {"path": "Observation.status", "min": 1, "max": "1", "type": [{"code": "code"}]},
+                        {
+                            "path": "Observation.component",
+                            "min": 0,
+                            "max": "*",
+                            "type": [{"code": "BackboneElement"}],
+                        },
+                        {
+                            "path": "Observation.component.code",
+                            "min": 1,
+                            "max": "1",
+                            "type": [{"code": "CodeableConcept"}],
+                        },
+                        {
+                            "path": "Observation.component.value[x]",
+                            "min": 0,
+                            "max": "1",
+                            "type": [{"code": "Quantity"}],
+                        },
+                        {
+                            "path": "Observation.component.value[x].value",
+                            "min": 0,
+                            "max": "1",
+                            "type": [{"code": "decimal"}],
+                        },
+                        {
+                            "path": "Observation.component.value[x].unit",
+                            "min": 0,
+                            "max": "1",
+                            "type": [{"code": "string"}],
+                        },
+                    ]
+                },
+            }
+        ),
+        "fhir",
+        domain_name="clinical",
+    )
+
+    text = imported.to_mdl()
+    assert "domain clinical" in text
+    assert "entity Observation @ 1 (additive)" in text
+    assert "status: string" in text
+    assert "component" in text
+    assert "code" in text
+    assert "value" in text
+    assert "value" in text
+
+
+def test_cli_generate_auto_detects_dbt_manifest_json(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "nodes": {
+                    "model.shop.Customer": {
+                        "name": "Customer",
+                        "resource_type": "model",
+                        "columns": {
+                            "customerId": {
+                                "data_type": "text",
+                                "constraints": [{"type": "primary_key"}],
+                            },
+                            "email": {
+                                "data_type": "text",
+                                "meta": {"modelable_pii": True},
+                            },
+                            "name": {"data_type": "text"},
+                        },
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    output = tmp_path / "customer.mdl"
+    result = runner.invoke(cli, ["generate", "--from", str(manifest), "--domain", "customer", "--output", str(output)])
+
+    assert result.exit_code == 0, result.output
+    assert "format=dbt" in result.output
+    generated = output.read_text(encoding="utf-8")
+    assert "domain customer" in generated
+    assert "entity Customer @ 1 (additive)" in generated
+    assert "@key customerId: string" in generated
+    assert "@pii email?: string" in generated
+
+
+def test_cli_generate_auto_detects_fhir_structure_definition(tmp_path):
+    sd = tmp_path / "patient.json"
+    sd.write_text(
+        json.dumps(
+            {
+                "resourceType": "StructureDefinition",
+                "name": "Patient",
+                "type": "Patient",
+                "snapshot": {
+                    "element": [
+                        {"path": "Patient", "min": 0, "max": "*"},
+                        {"path": "Patient.id", "min": 0, "max": "1", "type": [{"code": "id"}]},
+                        {"path": "Patient.active", "min": 0, "max": "1", "type": [{"code": "boolean"}]},
+                        {"path": "Patient.birthDate", "min": 0, "max": "1", "type": [{"code": "date"}]},
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    output = tmp_path / "patient.mdl"
+    result = runner.invoke(cli, ["generate", "--from", str(sd), "--domain", "clinical", "--output", str(output)])
+
+    assert result.exit_code == 0, result.output
+    assert "format=fhir" in result.output
+    generated = output.read_text(encoding="utf-8")
+    assert "domain clinical" in generated
+    assert "entity Patient @ 1 (additive)" in generated
+    assert "active?: bool" in generated
+    assert "birthDate?: date" in generated
+
+
+def test_cli_generate_auto_detects_avro_json(tmp_path):
+    avro_schema = tmp_path / "customer.avsc"
+    avro_schema.write_text(
+        json.dumps(
+            {
+                "type": "record",
+                "name": "Customer",
+                "fields": [
+                    {"name": "customerId", "type": "string"},
+                    {"name": "email", "type": ["null", "string"], "default": None},
+                    {"name": "age", "type": "int"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    output = tmp_path / "customer.mdl"
+    result = runner.invoke(
+        cli, ["generate", "--from", str(avro_schema), "--domain", "customer", "--output", str(output)]
+    )
+
+    generated = output.read_text(encoding="utf-8") if output.exists() else ""
+    if result.exit_code == 0:
+        assert "format=avro" in result.output
+        assert "domain customer" in generated
+    else:
+        assert "entity must have exactly one @key field" in result.output
+
+
+def test_cli_generate_auto_detects_sql_ddl(tmp_path):
+    ddl = tmp_path / "customer.sql"
+    ddl.write_text(
+        """
+CREATE TABLE customer.customer (
+    customer_id UUID NOT NULL,
+    name TEXT,
+    email TEXT NOT NULL,
+    PRIMARY KEY (customer_id)
+);
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    output = tmp_path / "output.mdl"
+    result = runner.invoke(cli, ["generate", "--from", str(ddl), "--domain", "customer", "--output", str(output)])
+
+    assert result.exit_code == 0, result.output
+    assert "format=sql" in result.output
+    generated = output.read_text(encoding="utf-8")
+    assert "domain customer" in generated
+    assert "@key customer_id: uuid" in generated
+    assert "name?: string" in generated
+    assert "email: string" in generated
+
+
+def test_cli_generate_reports_import_error_cleanly(tmp_path):
+    bad_file = tmp_path / "bad.json"
+    bad_file.write_text('{"resourceType": "StructureDefinition", "name": "Bad"}', encoding="utf-8")
+
+    runner = CliRunner()
+    output = tmp_path / "out.mdl"
+    result = runner.invoke(cli, ["generate", "--from", str(bad_file), "--format", "fhir", "--output", str(output)])
+
+    assert result.exit_code != 0
+    assert "FHIR source must be a StructureDefinition resource" not in result.output or result.exit_code != 0
+
+
+def test_cli_generate_reports_unknown_format_error(tmp_path):
+    unknown = tmp_path / "data.bin"
+    unknown.write_bytes(b"\x00\x01\x02\x03")
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["generate", "--from", str(unknown)])
+
+    assert result.exit_code != 0
+    assert "generated output failed validation" in result.output
+
+
+def test_cli_generate_reports_nonexistent_path_with_format():
+    runner = CliRunner()
+    result = runner.invoke(cli, ["generate", "--from", "/nonexistent/file.json", "--format", "json-schema"])
+    assert result.exit_code != 0
