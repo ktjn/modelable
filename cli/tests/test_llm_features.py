@@ -359,6 +359,123 @@ def test_dbt_manifest_importer_preserves_data_tests_and_unique_key_config():
     assert "loyaltyTier?: string" in text
 
 
+def test_dbt_importer_selects_latest_model_version():
+    imported = import_from_text(
+        """
+version: 2
+models:
+  - name: Customer
+    latest_version: 2
+    columns:
+      - name: customerId
+        data_type: text
+        constraints:
+          - type: primary_key
+      - name: email
+        data_type: text
+    versions:
+      - v: 1
+        columns:
+          - name: customerId
+            data_type: text
+            constraints:
+              - type: primary_key
+          - name: email
+            data_type: text
+      - v: 2
+        columns:
+          - name: customerId
+            data_type: text
+            constraints:
+              - type: primary_key
+          - name: email
+            data_type: text
+          - name: loyaltyTier
+            data_type: text
+""",
+        "dbt",
+        domain_name="customer",
+        source_name="Customer",
+    )
+
+    text = imported.to_mdl()
+    assert "entity Customer @ 2 (additive)" in text
+    assert "@key customerId: string" in text
+    assert "email?: string" in text
+    assert "loyaltyTier?: string" in text
+
+
+def test_dbt_importer_selects_named_model_version():
+    imported = import_from_text(
+        """
+version: 2
+models:
+  - name: Customer
+    latest_version: 2
+    columns:
+      - name: customerId
+        data_type: text
+    versions:
+      - v: 1
+        columns:
+          - name: customerId
+            data_type: text
+          - name: email
+            data_type: text
+      - v: 2
+        columns:
+          - name: customerId
+            data_type: text
+          - name: email
+            data_type: text
+          - name: loyaltyTier
+            data_type: text
+""",
+        "dbt",
+        domain_name="customer",
+        source_name="Customer@1",
+    )
+
+    text = imported.to_mdl()
+    assert "entity Customer @ 1 (additive)" in text
+    assert "email?: string" in text
+    assert "loyaltyTier" not in text
+
+
+def test_dbt_manifest_importer_selects_latest_model_version():
+    source = {
+        "nodes": {
+            "model.shop.Customer.v1": {
+                "name": "Customer",
+                "resource_type": "model",
+                "version": 1,
+                "latest_version": 2,
+                "columns": {
+                    "customerId": {"data_type": "text"},
+                    "email": {"data_type": "text"},
+                },
+            },
+            "model.shop.Customer.v2": {
+                "name": "Customer",
+                "resource_type": "model",
+                "version": 2,
+                "latest_version": 2,
+                "columns": {
+                    "customerId": {"data_type": "text"},
+                    "email": {"data_type": "text"},
+                    "loyaltyTier": {"data_type": "text"},
+                },
+            },
+        }
+    }
+
+    imported = import_from_text(json.dumps(source), "dbt", domain_name="customer", source_name="Customer")
+
+    text = imported.to_mdl()
+    assert "entity Customer @ 2 (additive)" in text
+    assert "loyaltyTier?: string" in text
+
+
 def test_cli_generate_auto_detects_odcs_yaml(tmp_path):
     contract = tmp_path / "customer_contract.yml"
     contract.write_text(
