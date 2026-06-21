@@ -522,27 +522,8 @@ def _import_fhir(source_text: str, *, domain_name: str | None, source_name: str 
     domain = domain_name or _guess_domain_name(resource_type)
 
     elements = (doc.get("snapshot") or {}).get("element") or (doc.get("differential") or {}).get("element") or []
-    fields: list[FieldDef] = []
-    warnings: list[str] = []
     extension_values = _fhir_direct_extension_value_elements(resource_type, elements)
-    for element in elements:
-        path = element.get("path", "")
-        segments = path.split(".")
-        if len(segments) != 2:
-            continue
-        field_name = segments[1]
-        if element.get("sliceName"):
-            field_name = _sanitize_field_ident(str(element["sliceName"]))
-            warnings.append(f"Sliced element '{path}' imported as field '{field_name}'")
-            if path == f"{resource_type}.extension":
-                value_element = extension_values.get(str(element["sliceName"]))
-                if value_element is not None:
-                    fields.append(_field_from_fhir_extension_slice(field_name, element, value_element, warnings))
-                    continue
-        if field_name.endswith("[x]"):
-            field_name = field_name[: -len("[x]")]
-            warnings.append(f"Choice-type element '{path}' flattened to '{field_name}'")
-        fields.append(_field_from_fhir_element(field_name, element, warnings))
+    fields, warnings = _fhir_elements_to_fields(resource_type, elements, extension_values)
 
     version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return ImportedModel("fhir", name, domain, _sanitize_ident(resource_type), version, warnings)
@@ -565,6 +546,133 @@ def _fhir_direct_extension_value_elements(
         if path == f"{resource_type}.extension.value[x]" or str(path).startswith(f"{resource_type}.extension.value"):
             values[slice_name] = element
     return values
+
+
+def _fhir_elements_to_fields(
+    resource_type: str, elements: list[dict[str, Any]], extension_values: dict[str, dict[str, Any]]
+) -> tuple[list[FieldDef], list[str]]:
+    warnings: list[str] = []
+    fields: list[FieldDef] = []
+
+    top_level: dict[str, dict[str, Any]] = {}
+    extension_slices: dict[str, dict[str, Any]] = {}
+    child_groups: dict[str, list[dict[str, Any]]] = {}
+
+    for element in elements:
+        path = element.get("path", "")
+        segments = path.split(".")
+        if len(segments) < 2 or segments[0] != resource_type:
+            continue
+
+        if len(segments) == 2:
+            field_name = segments[1]
+            if element.get("sliceName"):
+                sliced_name = _sanitize_field_ident(str(element["sliceName"]))
+                extension_slices[sliced_name] = element
+            else:
+                if field_name.endswith("[x]"):
+                    field_name = field_name[: -len("[x]")]
+                top_level[field_name] = element
+        elif len(segments) >= 3:
+            parent = segments[1]
+            if ":" not in segments[1]:
+                if parent not in child_groups:
+                    child_groups[parent] = []
+                child_groups[parent].append(element)
+
+    for field_name, element in top_level.items():
+        if field_name in child_groups:
+            children = child_groups[field_name]
+            nested_type_name = _fhir_type_name_for(element)
+            if nested_type_name is not None:
+                warnings.append(
+                    f"Expanding complex type '{nested_type_name}' for field '{field_name}' into inline fields"
+                )
+            sub_fields = _fhir_build_nested_fields(resource_type, field_name, children, elements)
+            field = _field_from_fhir_element(field_name, element, warnings)
+            if isinstance(field.type, ArrayType):
+                field.type = ArrayType(item=ObjectType(fields=sub_fields))
+            else:
+                field.type = ObjectType(fields=sub_fields)
+            fields.append(field)
+        else:
+            fields.append(_field_from_fhir_element(field_name, element, warnings))
+
+    for slice_name, element in extension_slices.items():
+        path = element.get("path", "")
+        warnings.append(f"Sliced element '{path}' imported as field '{slice_name}'")
+        if path == f"{resource_type}.extension":
+            value_element = extension_values.get(slice_name)
+            if value_element is not None:
+                fields.append(_field_from_fhir_extension_slice(slice_name, element, value_element, warnings))
+                continue
+        fields.append(_field_from_fhir_element(slice_name, element, warnings))
+
+    for parent_name, children in child_groups.items():
+        if parent_name not in top_level and parent_name not in extension_slices:
+            sub_fields = _fhir_build_nested_fields(resource_type, parent_name, children, elements)
+            fields.append(
+                FieldDef(
+                    name=parent_name,
+                    type=ObjectType(fields=sub_fields),
+                    optional=True,
+                )
+            )
+
+    return fields, warnings
+
+
+def _fhir_type_name_for(element: dict[str, Any]) -> str | None:
+    types = element.get("type") or []
+    if types:
+        code = types[0].get("code", "") if isinstance(types[0], dict) else ""
+        if code and code not in _FHIR_PRIMITIVE_TYPES:
+            return code
+    return None
+
+
+def _fhir_build_nested_fields(
+    resource_type: str, parent_name: str, child_elements: list[dict[str, Any]], all_elements: list[dict[str, Any]]
+) -> list[FieldDef]:
+    parent_path = f"{resource_type}.{parent_name}"
+    element_by_path = {e.get("path", ""): e for e in all_elements}
+
+    children: dict[str, dict[str, Any]] = {}
+    deeper: dict[str, list[dict[str, Any]]] = {}
+
+    for element in child_elements:
+        path = element.get("path", "")
+        if not path.startswith(parent_path + "."):
+            continue
+        suffix = path[len(parent_path) + 1 :]
+        segments = suffix.split(".")
+        child_name = segments[0]
+        if child_name.endswith("[x]"):
+            child_name = child_name[:-3]
+
+        if len(segments) == 1:
+            exact_path = f"{parent_path}.{segments[0]}"
+            exact = element_by_path.get(exact_path)
+            if exact is not None:
+                children[child_name] = exact
+        else:
+            if child_name not in deeper:
+                deeper[child_name] = []
+            deeper[child_name].append(element)
+
+    fields: list[FieldDef] = []
+    for child_name, element in children.items():
+        field = _field_from_fhir_element(child_name, element, [])
+        if child_name in deeper:
+            sub_fields = _fhir_build_nested_fields(
+                resource_type, f"{parent_name}.{child_name}", deeper[child_name], all_elements
+            )
+            if isinstance(field.type, ArrayType):
+                field.type = ArrayType(item=ObjectType(fields=sub_fields))
+            else:
+                field.type = ObjectType(fields=sub_fields)
+        fields.append(field)
+    return fields
 
 
 def _import_odcs(source_text: str, *, domain_name: str | None, source_name: str | None = None) -> ImportedModel:

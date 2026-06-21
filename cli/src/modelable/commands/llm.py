@@ -98,6 +98,33 @@ def _detect_format(path: Path) -> str | None:
                     return "json-schema"
                 if "openapi" in doc or "swagger" in doc:
                     return "openapi"
+                if isinstance(doc.get("type"), str) and "fields" in doc:
+                    return "avro"
+                if isinstance(doc.get("type"), dict) and doc["type"].get("type") == "record":
+                    return "avro"
+        except Exception:
+            pass
+    if suffix == ".avsc":
+        try:
+            content = path.read_text(encoding="utf-8")
+            doc = json.loads(content)
+            if isinstance(doc, dict) and isinstance(doc.get("type"), str) and "fields" in doc:
+                return "avro"
+        except Exception:
+            pass
+    if suffix == ".proto":
+        try:
+            content = path.read_text(encoding="utf-8")
+            if "message " in content:
+                return "protobuf"
+        except Exception:
+            pass
+    if suffix in {".sql", ".ddl"}:
+        try:
+            content = path.read_text(encoding="utf-8")
+            upper = content.upper()
+            if "CREATE TABLE" in upper or "CREATE VIEW" in upper:
+                return "sql"
         except Exception:
             pass
     return None
@@ -115,20 +142,25 @@ def generate(
     """Generate a draft entity definition."""
     source_path = Path(source)
     source_descriptor = f"path={source_path}"
-    if source_path.exists():
-        detected = source_format or _detect_format(source_path)
-        if detected is not None:
-            text = import_definition(source_path, detected, domain_name=domain_name, source_name=model_name)
-            source_format = detected
+    try:
+        if source_path.exists():
+            detected = source_format or _detect_format(source_path)
+            if detected is not None:
+                text = import_definition(source_path, detected, domain_name=domain_name, source_name=model_name)
+                source_format = detected
+            else:
+                text = source_path.read_text(encoding="utf-8")
         else:
-            text = source_path.read_text(encoding="utf-8")
-    else:
-        if source_format is not None:
-            text = import_definition(source, source_format, domain_name=domain_name, source_name=model_name)
-            source_descriptor = "inline"
-        else:
-            text = generate_entity_from_prompt(source, domain_name=domain_name, model_name=model_name)
-            source_descriptor = "prompt"
+            if source_format is not None:
+                text = import_definition(source, source_format, domain_name=domain_name, source_name=model_name)
+                source_descriptor = "inline"
+            else:
+                text = generate_entity_from_prompt(source, domain_name=domain_name, model_name=model_name)
+                source_descriptor = "prompt"
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    except (UnicodeDecodeError, OSError) as exc:
+        raise click.ClickException(f"Could not read source: {exc}") from exc
 
     _mdl, errors = validate_generated_text(text)
     if errors:
@@ -171,12 +203,19 @@ def generate(
 
 @click.command(name="import")
 @click.argument("source", type=click.Path(exists=True, path_type=Path))
-@click.option("--format", "source_format", required=True, help="json-schema, openapi, avro, protobuf, sql")
+@click.option(
+    "--format", "source_format", required=True, help="json-schema, openapi, avro, protobuf, sql, dbt, fhir, odcs"
+)
 @click.option("--domain", "domain_name", default=None)
 @click.option("--output", "output", type=click.Path(path_type=Path), default=None)
 def import_model(source: Path, source_format: str, domain_name: str | None, output: Path | None) -> None:
     """Import a schema or DDL file into Modelable text."""
-    text = import_definition(source, source_format, domain_name=domain_name)
+    try:
+        text = import_definition(source, source_format, domain_name=domain_name)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    except (UnicodeDecodeError, OSError) as exc:
+        raise click.ClickException(f"Could not read source: {exc}") from exc
     _mdl, errors = validate_generated_text(text)
     if errors:
         for error in errors:
