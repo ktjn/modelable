@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import textwrap
 from pathlib import Path
@@ -88,6 +89,10 @@ def _assert_docker_success(result: subprocess.CompletedProcess[str], target: str
     )
 
 
+@pytest.mark.skipif(
+    os.getenv("MODELABLE_DOCKER_SMOKE") != "1",
+    reason="set MODELABLE_DOCKER_SMOKE=1 to run the Docker-based codegen smoke tests",
+)
 @pytest.mark.skipif(not _docker_available(), reason="docker is required for generated-language smoke tests")
 @pytest.mark.parametrize("target,image,tool", TARGETS)
 def test_codegen_backends_compile_inside_docker(tmp_path, target: str, image: str, tool: str) -> None:
