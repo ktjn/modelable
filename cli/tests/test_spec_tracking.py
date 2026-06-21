@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import urllib.error
 from pathlib import Path
 
+import pytest
 import yaml
 from click.testing import CliRunner
 
@@ -312,3 +314,144 @@ schema:
     assert result.exit_code == 0, result.output
     assert "entity Customer @ 2 (additive)" in result.output
     assert mdl.read_text(encoding="utf-8").count("entity Customer @") == 1
+
+
+def test_is_remote_source_detects_http_urls() -> None:
+    from modelable.specs.tracking import _is_remote_source
+
+    assert _is_remote_source("http://example.com/schema.yml")
+    assert _is_remote_source("https://registry.example/dbt/schema.yml")
+    assert not _is_remote_source("./local/schema.yml")
+    assert not _is_remote_source("/absolute/path/schema.yml")
+    assert not _is_remote_source("relative.yml")
+
+
+def test_fetch_remote_source_caches_and_returns_content(tmp_path: Path, monkeypatch) -> None:
+    from modelable.specs.tracking import _fetch_remote_source, _spec_cache_dir
+
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def read(self):
+            return b"version: 2\nmodels:\n  - name: Customer\n"
+
+    def mock_urlopen(req, timeout=30):
+        assert req.get_full_url() == "https://example.com/schema.yml"
+        return FakeResponse()
+
+    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+
+    content, path = _fetch_remote_source("https://example.com/schema.yml", tmp_path, "test-spec")
+
+    assert content == "version: 2\nmodels:\n  - name: Customer\n"
+    cache_dir = _spec_cache_dir(tmp_path, "test-spec")
+    assert path == cache_dir / "source"
+    assert path.read_text(encoding="utf-8") == content
+
+
+def test_fetch_remote_source_passes_bearer_token(tmp_path, monkeypatch) -> None:
+    from modelable.specs.tracking import _fetch_remote_source
+
+    request_sent: list[object] = []
+
+    class FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def read(self):
+            return b"{}"
+
+    def mock_urlopen(req, timeout=30):
+        request_sent.append(req)
+        return FakeResponse()
+
+    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+
+    _fetch_remote_source("https://example.com/schema.yml", tmp_path, "test-auth", token="s3cret")
+
+    assert len(request_sent) == 1
+    req = request_sent[0]
+    assert req.get_header("Authorization") == "Bearer s3cret"
+
+
+def test_fetch_remote_source_http_error_reported(tmp_path: Path, monkeypatch) -> None:
+    from modelable.specs.tracking import SpecSourceError, _fetch_remote_source
+
+    def mock_urlopen(req, timeout=30):
+        raise urllib.error.HTTPError("https://example.com/schema.yml", 404, "Not Found", {}, None)
+
+    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+
+    with pytest.raises(SpecSourceError, match="HTTP 404"):
+        _fetch_remote_source("https://example.com/schema.yml", tmp_path, "test-http-err")
+
+
+def test_fetch_remote_source_network_error_reported(tmp_path: Path, monkeypatch) -> None:
+    from modelable.specs.tracking import SpecSourceError, _fetch_remote_source
+
+    def mock_urlopen(req, timeout=30):
+        raise urllib.error.URLError("Connection refused")
+
+    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+
+    with pytest.raises(SpecSourceError, match="Connection refused"):
+        _fetch_remote_source("https://example.com/schema.yml", tmp_path, "test-net-err")
+
+
+def test_spec_add_accepts_http_source(tmp_path: Path) -> None:
+    from click.testing import CliRunner
+
+    from modelable.cli import cli
+
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: string
+    name: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "spec",
+            "add",
+            "remote-customer",
+            "--kind",
+            "dbt",
+            "--source",
+            "https://raw.githubusercontent.com/example/schema.yml",
+            "--ref",
+            "customer.Customer@1",
+            "--source-name",
+            "Customer",
+            "--path",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+
+    config_path = tmp_path / ".modelable" / "specs.yml"
+    import yaml
+
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    assert config["specs"][0]["source"] == "https://raw.githubusercontent.com/example/schema.yml"

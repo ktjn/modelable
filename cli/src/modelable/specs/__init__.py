@@ -3,6 +3,7 @@ from __future__ import annotations
 from .tracking import (
     SpecEntry,
     SpecEvaluation,
+    SpecSourceError,
     add_spec,
     evaluate_spec,
     load_spec_config,
@@ -13,6 +14,7 @@ from .tracking import (
 __all__ = [
     "SpecEntry",
     "SpecEvaluation",
+    "SpecSourceError",
     "add_spec",
     "evaluate_spec",
     "load_spec_config",

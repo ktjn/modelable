@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict
 from pathlib import Path
 
@@ -71,8 +72,9 @@ def add(
 @click.option("--fail-on", default="", help="Comma-separated statuses that should return a non-zero exit code.")
 def status(workspace_path: Path, json_output: bool, fail_on: str) -> None:
     """Report drift status for tracked external specifications."""
+    token = os.getenv("MODELABLE_SPEC_TOKEN")
     entries = select_specs(workspace_path, None)
-    evaluations = [evaluate_spec(workspace_path, entry, write=False) for entry in entries]
+    evaluations = [evaluate_spec(workspace_path, entry, write=False, token=token) for entry in entries]
     payload = {"specs": [evaluation.as_status_dict() for evaluation in evaluations]}
     if json_output:
         click.echo(json.dumps(payload, indent=2, sort_keys=True))
@@ -97,11 +99,12 @@ def status(workspace_path: Path, json_output: bool, fail_on: str) -> None:
 @click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON.")
 def diff(spec_id: str, workspace_path: Path, json_output: bool) -> None:
     """Compare one tracked specification against its bound Modelable model."""
+    token = os.getenv("MODELABLE_SPEC_TOKEN")
     try:
         entry = select_specs(workspace_path, spec_id)[0]
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
-    evaluation = evaluate_spec(workspace_path, entry, write=False)
+    evaluation = evaluate_spec(workspace_path, entry, write=False, token=token)
     payload = evaluation.as_status_dict()
     if evaluation.result is not None:
         payload["changes"] = change_dicts(evaluation.result)
@@ -135,8 +138,9 @@ def sync(spec_id: str | None, workspace_path: Path, preview: bool, write_changes
     if not preview and not write:
         preview = True
 
+    token = os.getenv("MODELABLE_SPEC_TOKEN")
     for entry in entries:
-        evaluation = evaluate_spec(workspace_path, entry, write=write)
+        evaluation = evaluate_spec(workspace_path, entry, write=write, token=token)
         if evaluation.error:
             raise click.ClickException(f"{entry.id}: {evaluation.error}")
         result = evaluation.result
