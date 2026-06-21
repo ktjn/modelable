@@ -339,7 +339,7 @@ This slots into the existing phased plan from
 | 2 — Artifact registry | Apicurio | none |
 | 3 — Catalog/governance sync | OpenMetadata | + OpenLineage export |
 | 4 — Contract interchange | ODCS, Data Contract CLI | dbt `schema.yml` export, dbt model/source-table import, dbt manifest model/source-table import, and ODCS local-file import/export are implemented; remote polling remains deferred |
-| 4b (new) — Domain-specific interchange | — | FHIR R4 StructureDefinition export and local-file import are implemented; Patient/Observation/Encounter profile bases have hardened element mapping with representative cardinality and direct slice coverage; representative HL7 FHIR Validator smoke is implemented; deep extension expansion and nested slice conformance remain deferred |
+| 4b (new) — Domain-specific interchange | — | FHIR R4 StructureDefinition export and local-file import are implemented; Patient/Observation/Encounter profile bases have hardened element mapping with representative cardinality and direct slice coverage; Modelable-only fields are mapped to FHIR extension slices with companion Extension StructureDefinitions; representative HL7 FHIR Validator smoke is implemented; deep nested slice conformance remains deferred |
 | 5 — Event/API/runtime targets | Avro, Protobuf, OpenAPI, AsyncAPI, runtime stack | + Iceberg/Delta schema target, analytics tracking-plan target, GraphQL SDL |
 
 ## 6. Non-goals
@@ -360,8 +360,6 @@ This slots into the existing phased plan from
 - Whether future ecosystem targets remain first-party or move to third-party
   plugins, pending the plugin-registry decision already open in
   [compiler-reference.md](compiler-reference.md) §11.
-- How Modelable-only fields should map into FHIR extensions or slices when
-  they are not legal child elements of the selected base resource.
 - Which warehouse dialect's `data_type` vocabulary the dbt emitter targets by
   default (or whether it omits `data_type` until `contract.enforced` is
   requested).

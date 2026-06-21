@@ -640,9 +640,9 @@ Maintainers can run the external HL7 FHIR Validator smoke when the official
 MODELABLE_FHIR_VALIDATOR=1 MODELABLE_FHIR_VALIDATOR_JAR=/path/to/validator_cli.jar uv run pytest tests/test_fhir_validator.py --tb=short -q
 ```
 
-The current smoke uses a representative FHIR-native Patient profile. Mapping
-Modelable-only fields that are not legal base-resource child elements into FHIR
-extensions remains a deferred conformance-hardening task.
+The current smoke uses a representative FHIR-native Patient profile.
+Modelable-only fields that are not legal base-resource child elements are now
+mapped to FHIR extension slices with companion Extension StructureDefinitions.
 
 **Examples:**
 

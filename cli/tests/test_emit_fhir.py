@@ -6,7 +6,7 @@ from modelable.compiler.workspace import load_workspace
 from modelable.emitters.fhir import emit_fhir_profile
 
 
-def test_emit_fhir_profile_builds_r4_structure_definition_elements(tmp_path):
+def test_emit_fhir_profile_maps_known_fields_direct_and_unknown_as_extensions(tmp_path):
     (tmp_path / "clinical.mdl").write_text(
         """
 domain clinical {
@@ -66,13 +66,7 @@ domain clinical {
         "definition": "Modelable projection clinical.PatientProfile@1 constrained from clinical.Patient@1.",
     }
 
-    assert elements["Patient.patientId"]["min"] == 1
-    assert elements["Patient.patientId"]["max"] == "1"
-    assert elements["Patient.patientId"]["type"] == [{"code": "string"}]
-    assert elements["Patient.patientId"]["mapping"] == [
-        {"identity": "modelable", "map": "clinical.Patient@1.patientId"}
-    ]
-
+    # Known Patient fields remain direct children
     assert elements["Patient.birthDate"]["min"] == 0
     assert elements["Patient.birthDate"]["type"] == [{"code": "date"}]
     assert elements["Patient.birthDate"]["extension"] == [
@@ -87,17 +81,47 @@ domain clinical {
     ]
 
     assert elements["Patient.active"]["type"] == [{"code": "boolean"}]
-    assert elements["Patient.status"]["type"] == [{"code": "code"}]
-    assert elements["Patient.status"]["binding"] == {
-        "strength": "required",
-        "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.status",
-    }
     assert elements["Patient.managingOrganization"]["type"] == [
         {
             "code": "Reference",
             "targetProfile": ["http://hl7.org/fhir/StructureDefinition/Organization"],
         }
     ]
+
+    # Unknown fields (patientId, status) become extension slices
+    assert "Patient.extension" in elements
+    assert elements["Patient.extension"]["slicing"] == {
+        "discriminator": [{"type": "value", "path": "url"}],
+        "ordered": False,
+        "rules": "open",
+    }
+
+    assert elements["Patient.extension:patientId"]["sliceName"] == "patientId"
+    assert elements["Patient.extension:patientId"]["min"] == 1
+    assert elements["Patient.extension:patientId"]["max"] == "1"
+    assert elements["Patient.extension:patientId"]["type"] == [
+        {
+            "code": "Extension",
+            "profile": ["http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.patientId"],
+        }
+    ]
+    assert elements["Patient.extension:patientId"]["mapping"] == [
+        {"identity": "modelable", "map": "clinical.Patient@1.patientId"}
+    ]
+    assert elements["Patient.extension:patientId.value[x]"]["type"] == [{"code": "string"}]
+
+    assert elements["Patient.extension:status"]["sliceName"] == "status"
+    assert elements["Patient.extension:status"]["type"] == [
+        {
+            "code": "Extension",
+            "profile": ["http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.status"],
+        }
+    ]
+    assert elements["Patient.extension:status.value[x]"]["type"] == [{"code": "code"}]
+    assert elements["Patient.extension:status.value[x]"]["binding"] == {
+        "strength": "required",
+        "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.status",
+    }
 
 
 def test_emit_fhir_profile_warns_for_unsupported_base_resources(tmp_path):
@@ -127,6 +151,17 @@ domain billing {
     doc = json.loads(artifact.content)
     assert doc["type"] == "Basic"
     assert doc["baseDefinition"] == "http://hl7.org/fhir/StructureDefinition/Basic"
+
+    elements = {element["id"]: element for element in doc["snapshot"]["element"]}
+    assert "Basic.extension" in elements
+    assert elements["Basic.extension"]["slicing"]["rules"] == "open"
+    assert elements["Basic.extension:invoiceId"]["sliceName"] == "invoiceId"
+    assert elements["Basic.extension:invoiceId"]["type"] == [
+        {
+            "code": "Extension",
+            "profile": ["http://modelable.io/fhir/StructureDefinition/billing.InvoiceProfile.v1.ext.invoiceId"],
+        }
+    ]
 
 
 def test_emit_fhir_profile_uses_representative_r4_resource_cardinality(tmp_path):
@@ -169,7 +204,7 @@ domain clinical {
     workspace = load_workspace(tmp_path)
     artifacts = emit_fhir_profile(workspace, tmp_path / "out")
 
-    docs = {artifact.ref: json.loads(artifact.content) for artifact in artifacts}
+    docs = {artifact.ref: json.loads(artifact.content) for artifact in artifacts if artifact.target == "fhir-profile"}
 
     observation = docs["clinical.ObservationProfile@1"]
     assert observation["type"] == "Observation"
@@ -189,6 +224,8 @@ domain clinical {
             "targetProfile": ["http://hl7.org/fhir/StructureDefinition/Patient"],
         }
     ]
+    assert "Observation.extension" in observation_elements
+    assert observation_elements["Observation.extension:observationId"]["sliceName"] == "observationId"
 
     encounter = docs["clinical.EncounterProfile@1"]
     assert encounter["type"] == "Encounter"
@@ -197,3 +234,51 @@ domain clinical {
     assert encounter_elements["Encounter.diagnosis"]["min"] == 0
     assert encounter_elements["Encounter.diagnosis"]["max"] == "*"
     assert encounter_elements["Encounter.diagnosis"]["type"] == [{"code": "string"}]
+    assert "Encounter.extension" in encounter_elements
+    assert encounter_elements["Encounter.extension:encounterId"]["sliceName"] == "encounterId"
+
+
+def test_emit_fhir_profile_generates_companion_extension_structure_definitions(tmp_path):
+    (tmp_path / "clinical.mdl").write_text(
+        """
+domain clinical {
+  entity Patient @ 1 (additive) {
+    @key patientId: uuid
+    active: bool
+  }
+
+  projection PatientProfile @ 1
+    from clinical.Patient @ 1 as p
+  {
+    patientId <- p.patientId
+    active <- p.active
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_fhir_profile(workspace, tmp_path / "out")
+
+    ext_artifacts = [a for a in artifacts if a.target == "fhir-extension"]
+    assert len(ext_artifacts) == 1
+    ext = ext_artifacts[0]
+    assert ext.ref == "clinical.PatientProfile@1.patientId"
+    assert ext.artifact_id == "clinical.PatientProfile.v1.ext.patientId"
+    assert ext.path == tmp_path / "out" / "clinical.PatientProfile.v1.ext.patientId.fhir.json"
+
+    doc = json.loads(ext.content)
+    assert doc["resourceType"] == "StructureDefinition"
+    assert doc["type"] == "Extension"
+    assert doc["derivation"] == "specialization"
+    assert doc["kind"] == "complex-type"
+    assert doc["name"] == "PatientProfilePatientId"
+    assert doc["url"] == "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.patientId"
+
+    ext_elements = {el["id"]: el for el in doc["snapshot"]["element"]}
+    assert "Extension" in ext_elements
+    assert ext_elements["Extension.url"]["fixedUri"] == doc["url"]
+    assert ext_elements["Extension.value[x]"]["type"] == [{"code": "string"}]
+
+    # Active is a known Patient field, so no extension companion
+    assert "PatientProfileActive" not in {a.artifact_id for a in artifacts}
