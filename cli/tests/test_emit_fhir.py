@@ -282,3 +282,131 @@ domain clinical {
 
     # Active is a known Patient field, so no extension companion
     assert "PatientProfileActive" not in {a.artifact_id for a in artifacts}
+
+
+def test_emit_fhir_profile_object_type_extension_field_yields_sub_extensions(tmp_path):
+    (tmp_path / "clinical.mdl").write_text(
+        """
+domain clinical {
+  owner: "clinical-platform"
+  description: "Clinical model contracts"
+
+  entity Patient @ 1 (additive) {
+    @key patientId: uuid
+    addressDetails: object {
+      street: string
+      city: string
+      zipCode: string
+      country?: string
+    }
+  }
+
+  projection PatientProfile @ 1
+    from clinical.Patient @ 1 as p
+  {
+    patientId <- p.patientId
+    addressDetails <- p.addressDetails
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_fhir_profile(workspace, tmp_path / "out")
+
+    profile = next(a for a in artifacts if a.target == "fhir-profile")
+    profile_doc = json.loads(profile.content)
+    profile_elements = {el["id"]: el for el in profile_doc["snapshot"]["element"]}
+
+    # addressDetails is unknown to Patient, so it becomes an extension slice
+    assert "Patient.extension:addressDetails" in profile_elements
+    assert profile_elements["Patient.extension:addressDetails"]["sliceName"] == "addressDetails"
+    assert profile_elements["Patient.extension:addressDetails"]["type"] == [
+        {
+            "code": "Extension",
+            "profile": ["http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.addressDetails"],
+        }
+    ]
+
+    # Because addressDetails is ObjectType, there is NO value[x] in the profile
+    assert "Patient.extension:addressDetails.value[x]" not in profile_elements
+
+    # Extension field patientId (primitive) still gets a value[x]
+    assert "Patient.extension:patientId.value[x]" in profile_elements
+
+    # Companion Extension SD for addressDetails should have sub-extensions
+    ext_artifacts = {a.artifact_id: a for a in artifacts if a.target == "fhir-extension"}
+    ext_id = "clinical.PatientProfile.v1.ext.addressDetails"
+    assert ext_id in ext_artifacts
+
+    ext_doc = json.loads(ext_artifacts[ext_id].content)
+    ext_elements = {el["id"]: el for el in ext_doc["snapshot"]["element"]}
+
+    # Companion SD should have Extension.extension slicing element
+    assert "Extension.extension" in ext_elements
+    assert ext_elements["Extension.extension"]["slicing"]["discriminator"] == [{"type": "value", "path": "url"}]
+
+    # Each ObjectType sub-field should be a sub-extension slice
+    ext_url = "http://modelable.io/fhir/StructureDefinition/" + ext_id
+    assert "Extension.extension:street" in ext_elements
+    assert ext_elements["Extension.extension:street"]["sliceName"] == "street"
+    assert ext_elements["Extension.extension:street.url"]["fixedUri"] == f"{ext_url}#street"
+    assert ext_elements["Extension.extension:street.value[x]"]["type"] == [{"code": "string"}]
+
+    assert "Extension.extension:city" in ext_elements
+    assert ext_elements["Extension.extension:city"]["sliceName"] == "city"
+    assert ext_elements["Extension.extension:city.url"]["fixedUri"] == f"{ext_url}#city"
+    assert ext_elements["Extension.extension:city.value[x]"]["type"] == [{"code": "string"}]
+
+    assert "Extension.extension:zipCode" in ext_elements
+    assert ext_elements["Extension.extension:zipCode"]["sliceName"] == "zipCode"
+    assert ext_elements["Extension.extension:zipCode.url"]["fixedUri"] == f"{ext_url}#zipCode"
+    assert ext_elements["Extension.extension:zipCode.value[x]"]["type"] == [{"code": "string"}]
+
+    # country is optional
+    assert "Extension.extension:country" in ext_elements
+    assert ext_elements["Extension.extension:country"]["min"] == 0
+    assert ext_elements["Extension.extension:country.url"]["fixedUri"] == f"{ext_url}#country"
+
+    # No value[x] on the companion for ObjectType fields (uses sub-extensions)
+    assert "Extension.value[x]" not in ext_elements
+
+    # No sub-extension elements for patientId companion (it's primitive, not ObjectType)
+    patient_ext_id = "clinical.PatientProfile.v1.ext.patientId"
+    patient_ext_doc = json.loads(ext_artifacts[patient_ext_id].content)
+    patient_ext_elements = {el["id"]: el for el in patient_ext_doc["snapshot"]["element"]}
+    assert "Extension.value[x]" in patient_ext_elements
+    assert patient_ext_elements["Extension.value[x]"]["type"] == [{"code": "string"}]
+    assert "Extension.extension" not in patient_ext_elements
+
+
+def test_emit_fhir_profile_wire_annotation_overrides_fhir_type(tmp_path):
+    (tmp_path / "clinical.mdl").write_text(
+        """
+domain clinical {
+  entity Patient @ 1 (additive) {
+    @key patientId: uuid
+    @wire(fhir.type: "CodeableConcept")
+    diagnosis: string
+  }
+
+  projection PatientProfile @ 1
+    from clinical.Patient @ 1 as p
+  {
+    patientId <- p.patientId
+    diagnosis <- p.diagnosis
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_fhir_profile(workspace, tmp_path / "out")
+
+    profile = next(a for a in artifacts if a.target == "fhir-profile")
+    doc = json.loads(profile.content)
+    elements = {el["id"]: el for el in doc["snapshot"]["element"]}
+
+    # diagnosis is not a standard Patient field -> extension slice
+    assert "Patient.extension:diagnosis" in elements
+    assert elements["Patient.extension:diagnosis.value[x]"]["type"] == [{"code": "CodeableConcept"}]

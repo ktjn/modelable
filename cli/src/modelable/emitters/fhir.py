@@ -289,7 +289,12 @@ def _elements(
             elements.append(
                 _extension_slice_element(domain, projection_name, projection, field, source, base_resource, field_type)
             )
-            elements.append(_extension_value_element(domain.name, projection_name, field, field_type, base_resource))
+            if not isinstance(field_type, ObjectType):
+                elements.append(
+                    _extension_value_element(
+                        domain.name, projection_name, field, field_type, base_resource, source_field=source_field
+                    )
+                )
     return elements
 
 
@@ -312,7 +317,7 @@ def _field_element(
         "max": max_occurs,
         "base": {"path": path, "min": 0, "max": max_occurs},
         "definition": f"Modelable field {field.name}.",
-        "type": _fhir_type(field_type),
+        "type": _fhir_type(field_type, source_field=source_field),
     }
 
     binding = _binding(domain.name, projection_name, field.name, field_type)
@@ -339,7 +344,11 @@ def _source_field(field: ProjectionField, source: ResolvedModelRef | None) -> Fi
     )
 
 
-def _fhir_type(field_type: FieldType) -> list[dict[str, object]]:
+def _fhir_type(field_type: FieldType, *, source_field: FieldDef | None = None) -> list[dict[str, object]]:
+    if source_field is not None:
+        wire_type = _wire_fhir_type_override(source_field)
+        if wire_type is not None:
+            return [{"code": wire_type}]
     if isinstance(field_type, PrimitiveType):
         return [{"code": _primitive_type(field_type.kind)}]
     if isinstance(field_type, DecimalType):
@@ -359,6 +368,26 @@ def _fhir_type(field_type: FieldType) -> list[dict[str, object]]:
     if isinstance(field_type, (NamedType, ObjectType)):
         return [{"code": "BackboneElement"}]
     return [{"code": "string"}]
+
+
+def _wire_fhir_type_override(field: FieldDef) -> str | None:
+    wire = field.wire_targets().get("fhir")
+    if wire is not None:
+        if getattr(wire, "type", None) is not None:
+            return wire.type
+        encoding = getattr(wire, "encoding", None)
+        if encoding is not None:
+            _encoding_map = {
+                "string": "string",
+                "integer": "integer",
+                "boolean": "boolean",
+                "decimal": "decimal",
+                "dateTime": "dateTime",
+                "uri": "uri",
+                "code": "code",
+            }
+            return _encoding_map.get(encoding)
+    return None
 
 
 def _max_occurs(field_type: FieldType) -> str:
@@ -487,6 +516,8 @@ def _extension_value_element(
     field: ProjectionField,
     field_type: FieldType,
     base_resource: str,
+    *,
+    source_field: FieldDef | None = None,
 ) -> dict[str, object]:
     max_occurs = _max_occurs(field_type)
     element: dict[str, object] = {
@@ -494,7 +525,7 @@ def _extension_value_element(
         "path": f"{base_resource}.extension.value[x]",
         "min": 1,
         "max": max_occurs,
-        "type": _fhir_type(field_type),
+        "type": _fhir_type(field_type, source_field=source_field),
     }
 
     element["definition"] = f"Modelable field {field.name} extension value."
@@ -511,6 +542,8 @@ def _extension_sd_value_element(
     projection_name: str,
     field: ProjectionField,
     field_type: FieldType,
+    *,
+    source_field: FieldDef | None = None,
 ) -> dict[str, object]:
     max_occurs = _max_occurs(field_type)
     element: dict[str, object] = {
@@ -518,7 +551,7 @@ def _extension_sd_value_element(
         "path": "Extension.value[x]",
         "min": 1,
         "max": max_occurs,
-        "type": _fhir_type(field_type),
+        "type": _fhir_type(field_type, source_field=source_field),
     }
 
     element["definition"] = f"Modelable field {field.name} extension value."
@@ -530,6 +563,70 @@ def _extension_sd_value_element(
     return element
 
 
+def _extension_sd_sub_extension_elements(
+    domain_name: str,
+    projection_name: str,
+    field: ProjectionField,
+    source_field: FieldDef | None,
+    ext_id: str,
+    parent_ext_url: str,
+) -> list[dict[str, object]]:
+    if source_field is None or not isinstance(source_field.type, ObjectType):
+        field_type = source_field.type if source_field is not None else PrimitiveType(kind="string")
+        return [_extension_sd_value_element(domain_name, projection_name, field, field_type, source_field=source_field)]
+
+    obj_type = source_field.type
+    sub_elements: list[dict[str, object]] = [
+        {
+            "id": "Extension.extension",
+            "path": "Extension.extension",
+            "min": 0,
+            "max": "*",
+            "slicing": {
+                "discriminator": [{"type": "value", "path": "url"}],
+                "ordered": False,
+                "rules": "open",
+            },
+        },
+    ]
+    for sub_field in obj_type.fields:
+        sub_url = f"{parent_ext_url}#{sub_field.name}"
+        sub_fhir_type = _fhir_type(sub_field.type, source_field=sub_field)
+        sub_max = _max_occurs(sub_field.type)
+        slice_id = f"Extension.extension:{sub_field.name}"
+        sub_elements.append(
+            {
+                "id": slice_id,
+                "path": "Extension.extension",
+                "sliceName": sub_field.name,
+                "min": 0 if sub_field.optional else 1,
+                "max": sub_max,
+                "type": [{"code": "Extension"}],
+                "definition": f"Modelable sub-field {field.name}.{sub_field.name}.",
+            }
+        )
+        sub_elements.append(
+            {
+                "id": f"{slice_id}.url",
+                "path": "Extension.extension.url",
+                "min": 1,
+                "max": "1",
+                "fixedUri": sub_url,
+            }
+        )
+        sub_elements.append(
+            {
+                "id": f"{slice_id}.value[x]",
+                "path": "Extension.extension.value[x]",
+                "min": 1,
+                "max": sub_max,
+                "type": sub_fhir_type,
+                "definition": f"Modelable sub-field {field.name}.{sub_field.name} value.",
+            }
+        )
+    return sub_elements
+
+
 def _emit_extension_sd(
     domain: DomainDef,
     projection_name: str,
@@ -539,8 +636,8 @@ def _emit_extension_sd(
     out_dir: Path,
 ) -> EmittedArtifact:
     source_field = _source_field(field, source)
-    field_type = source_field.type if source_field is not None else PrimitiveType(kind="string")
     ext_id = _extension_artifact_id(domain.name, projection_name, version_num, field.name)
+    ext_url = f"{MODELABLE_STRUCTURE_DEFINITION_BASE}/{ext_id}"
     sd_name = f"{projection_name}{field.name[0].upper() + field.name[1:] if field.name else field.name}"
 
     elements: list[dict[str, object]] = [
@@ -554,14 +651,16 @@ def _emit_extension_sd(
             "path": "Extension.url",
             "min": 1,
             "max": "1",
-            "fixedUri": f"{MODELABLE_STRUCTURE_DEFINITION_BASE}/{ext_id}",
+            "fixedUri": ext_url,
         },
-        _extension_sd_value_element(domain.name, projection_name, field, field_type),
     ]
+    elements.extend(
+        _extension_sd_sub_extension_elements(domain.name, projection_name, field, source_field, ext_id, ext_url)
+    )
 
     struct_def: dict[str, object] = {
         "resourceType": "StructureDefinition",
-        "url": f"{MODELABLE_STRUCTURE_DEFINITION_BASE}/{ext_id}",
+        "url": ext_url,
         "version": str(version_num),
         "name": sd_name,
         "title": f"{projection_name} {field.name}",
