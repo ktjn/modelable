@@ -1,0 +1,13 @@
+// Provider-side domain, owned by the customer-platform-registry peer.
+// In a real workspace this file lives in the peer's own repository and is
+// fetched into .modelable/mirror/<peer>/customer.mdl by the CLI; this copy
+// is the fixture's stand-in for that mirrored content.
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+  }
+}

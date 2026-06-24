@@ -1,0 +1,36 @@
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    @pii
+    email: string
+    @classification("secret")
+    internalRiskNotes?: string
+    address: object {
+      street: string
+      city: string
+      postalCode: string
+    }
+    status: enum(active, suspended, deleted)
+    @server
+    createdAt: timestamp
+    @server
+    updatedAt?: timestamp
+  }
+
+  auto projections Customer @ 1 {
+    db
+
+    // Write model: drop server-managed fields and the internal risk notes.
+    request exclude [internalRiskNotes]
+
+    // Read model: never expose PII or secret-classified fields.
+    reply exclude [@pii, @classification("secret")]
+
+    // Emit change events only for creation and deletion, not updates.
+    event on [created, deleted]
+  }
+}

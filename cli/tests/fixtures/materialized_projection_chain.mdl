@@ -1,0 +1,44 @@
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    createdAt: timestamp
+  }
+}
+
+domain analytics {
+  owner: "analytics-platform"
+
+  // Hop 1: ODS-style upsert materialization sourced directly from the
+  // canonical Customer entity.
+  projection CustomerOds @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.legalName
+    signedUpAt <- c.createdAt
+
+    materialisation {
+      strategy: upsert
+      binding:  "postgres-ods-sink"
+    }
+  }
+
+  // Hop 2: data-mart projection materialized from the ODS projection
+  // (projection-of-projection lineage feeding a second materialization).
+  projection CustomerMart @ 1
+    from analytics.CustomerOds @ 1 as o
+  {
+    customerId <- o.customerId
+    displayName <- o.name
+
+    materialisation {
+      strategy:    snapshot
+      snapshotAt:  "00:00 UTC"
+      binding:     "clickhouse-datamart-sink"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+import domain customer from registry "customer-platform-registry"
+
+domain analytics {
+  owner: "analytics-platform"
+
+  projection CustomerSummary @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.legalName
+  }
+}

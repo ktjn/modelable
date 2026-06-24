@@ -1052,15 +1052,21 @@ See the [Modelable Tooling Reference](cli-reference.md) for the full command ref
 - Basic CLI for publishing, validating, compiling, and exporting definitions.
 - `modelable inspect <Entity>@<v> --auto` command to display the compiler-expanded auto projections.
 
+### Shipped beyond the original MVP scope
+
+- OpenMetadata and OpenLineage local export (`compile --target openmetadata|openlineage`).
+- ODCS / Data Contract CLI local import/export and lint validation.
+- dbt `schema.yml` export/import, FHIR R4 `StructureDefinition` export/import.
+- Multi-source joins in projections (composite-key joins across domains).
+- C#, Java, Python, Rust, and Go native code generation.
+
 ### Deferred
 
 - PostgreSQL storage adapter (Phase 5).
 - Kafka stream adapter (Phase 5).
 - Materialized projection into PostgreSQL (Phase 5).
-- OpenMetadata integration (Phase 3).
-- ODCS / Data Contract CLI integration (Phase 4).
-- Avro, Protobuf, OpenAPI, AsyncAPI generation (Phase 5).
-- Multi-source joins.
+- Live OpenMetadata/OpenLineage catalog synchronization (local export only is shipped; see [integrations.md](integrations.md)).
+- Avro, Protobuf, OpenAPI, AsyncAPI generation (Phase 5) — import-only support exists via LLM-assisted generators.
 - Stateful aggregations.
 - Windowed aggregations.
 - Multiple stream backends.

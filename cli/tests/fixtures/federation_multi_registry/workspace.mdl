@@ -1,0 +1,18 @@
+workspace "analytics-platform" {
+  description: "Analytics registry that consumes the customer domain from a peer registry."
+
+  registry {
+    id: "analytics-registry"
+    owns: ["analytics"]
+  }
+
+  peers: [
+    {
+      id: "customer-platform-registry"
+      git: "git@github.com:acme/customer-models.git"
+      branch: "main"
+      sync: pinned
+      writeback: none
+    }
+  ]
+}

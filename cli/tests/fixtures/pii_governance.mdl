@@ -1,0 +1,42 @@
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    @pii
+    email: string
+    @pii
+    @classification("secret")
+    nationalIdToken: string
+    @classification("confidential")
+    riskScore: decimal(18,2)
+  }
+
+  // Exposes @pii and @classification("secret")/("confidential") fields —
+  // expected to surface governance findings for the secret/confidential
+  // exposures.
+  projection CustomerSupportView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.legalName
+    @pii
+    contactEmail <- c.email
+    @pii
+    @classification("secret")
+    nationalIdToken <- c.nationalIdToken
+    @classification("confidential")
+    riskScore <- c.riskScore
+  }
+
+  // Narrows access — drops the secret/confidential fields, keeping only
+  // @pii. Should not raise classification-lowering findings.
+  projection CustomerPublicView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.legalName
+  }
+}

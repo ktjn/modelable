@@ -1,0 +1,28 @@
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    status: enum(active, blocked, deleted)
+    tags: array<string>
+  }
+
+  // Breaking: removes `tags`, narrows `status` to a smaller enum, and
+  // changes `legalName` cardinality to optional.
+  entity Customer @ 2 (breaking) {
+    @key
+    customerId: uuid
+    legalName?: string
+    status: enum(active, blocked)
+  }
+
+  projection CustomerSummary @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.legalName
+    status <- c.status
+  }
+}

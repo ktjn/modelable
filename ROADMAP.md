@@ -17,18 +17,31 @@ item is not committed until it has an issue and an accepted design.
 
 ## Next
 
-- Live catalog/governance synchronization after local OpenMetadata and
-  OpenLineage exports have enough validation evidence for a specific deployment
+Recently shipped, still hardening:
+
+- `modelable generate --from` now bootstraps `.mdl` models from dbt
+  `manifest.json`/`schema.yml`, FHIR R4 `StructureDefinition`, and ODCS
+  documents; continue hardening edge cases (complex FHIR types, dbt
+  model-version selection, ODCS field-level nuance) as real usage surfaces
+  gaps.
+- `modelable attach`/`modelable spec` now track dbt/FHIR/ODCS drift with
+  additive/breaking diffs; continue hardening beyond direct-element mapping
+  (e.g. complex FHIR types, dbt semantic-layer constructs).
+- FHIR R4 profile mapping covers Patient/Observation/Encounter with
+  extension/slice mapping for Modelable-only fields and an HL7 FHIR
+  Validator smoke; continue hardening deep/recursive structure coverage.
+- OpenMetadata and OpenLineage local export are implemented; continue
+  validating output against real catalog/lineage consumers before
+  considering live synchronization.
+
+Deferred, not yet started:
+
+- Live catalog/governance synchronization to OpenMetadata/OpenLineage once
+  local export has enough validation evidence for a specific deployment
   target.
 - Remote tracked-spec polling and authenticated source access for dbt, FHIR,
-  ODCS, and future external specifications.
-- Harden brand-new model bootstrapping from local dbt `manifest.json` /
-  `schema.yml`, FHIR `StructureDefinition`, and ODCS documents beyond the
-  current first-pass `modelable generate --from` workflow.
-- Continue FHIR R4 profile hardening beyond the current
-  Patient/Observation/Encounter element mapping, representative cardinality
-  coverage, and HL7 FHIR Validator smoke, including extension/slice mapping
-  for Modelable-only profile fields.
+  ODCS, and future external specifications (current support is local-file
+  only).
 - Additional artifact formats driven by concrete consumers.
 
 ## Later
