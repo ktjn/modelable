@@ -1,0 +1,30 @@
+domain catalog {
+  owner: "catalog-platform"
+
+  // Exercises nullable fields, enums, nested objects, arrays, defaults, and
+  // field names that collide with reserved words in one or more of the
+  // C#/Java/Python/Rust/Go/TypeScript code generation targets.
+  entity Product @ 1 (additive) {
+    @key
+    productId: uuid
+    name: string
+    description?: string
+    status: enum(draft, active, discontinued)
+    price: decimal(18,2)
+    tags: array<string>
+    dimensions: object {
+      width: decimal(10,2)
+      height: decimal(10,2)
+      depth?: decimal(10,2)
+    }
+    isFeatured: bool = false
+    // Reserved/contextual keywords across target languages.
+    class: string
+    type: string
+    interface: string
+    import: string
+    namespace?: string
+    static: bool = true
+    createdAt: timestamp
+  }
+}

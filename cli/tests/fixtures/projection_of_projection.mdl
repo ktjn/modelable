@@ -1,0 +1,35 @@
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    @pii
+    email: string
+    createdAt: timestamp
+  }
+}
+
+domain billing {
+  owner: "billing-platform"
+
+  projection BillingCustomer @ 1
+    from customer.Customer @ 1 as c
+  {
+    billingCustomerId <- c.customerId
+    name <- c.legalName
+    @pii
+    invoiceEmail <- c.email
+    signedUpAt <- c.createdAt
+  }
+
+  projection BillingCustomerSummary @ 1
+    from billing.BillingCustomer @ 1 as bc
+  {
+    customerId <- bc.billingCustomerId
+    displayName <- bc.name
+    @pii
+    contactEmail <- bc.invoiceEmail
+  }
+}

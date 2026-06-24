@@ -1,0 +1,33 @@
+domain clinical {
+  owner: "clinical-platform"
+  contact: "clinical@example.com"
+  description: "Clinical model contracts for FHIR R4 profile regression coverage."
+
+  entity Patient @ 1 (additive) {
+    @key
+    patientId: uuid
+    @pii
+    @classification("confidential")
+    birthDate?: date
+    active: bool
+    status: enum(active, inactive)
+    managingOrganization?: ref<Organization>
+    // Modelable-only field with no direct FHIR Patient element — expected
+    // to map to a Modelable extension slice with a companion Extension
+    // StructureDefinition.
+    internalRiskTier?: enum(low, medium, high)
+  }
+
+  projection PatientProfile @ 1
+    from clinical.Patient @ 1 as p
+  {
+    patientId <- p.patientId
+    @pii
+    @classification("confidential")
+    birthDate <- p.birthDate
+    active <- p.active
+    status <- p.status
+    managingOrganization <- p.managingOrganization
+    internalRiskTier <- p.internalRiskTier
+  }
+}

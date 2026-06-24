@@ -1,13 +1,14 @@
 # External Integrations and Tool Alignment
 
-> **Status:** Research and planning. Most of this document's phased proposals
-> (emitters, catalog/lineage integration, additional artifact targets) are not
-> committed and require an issue and an accepted design per
-> [ROADMAP.md](../ROADMAP.md). Shipped slices include `modelable attach`
-> and `modelable spec` for dbt/FHIR/ODCS drift review,
-> `modelable compile --target openlineage` for local lineage-event artifacts, and
-> `modelable publish apicurio` /
-> `modelable pull apicurio` for JSON Schema artifact registry workflows. This
+> **Status:** Mixed — shipped local integrations alongside research/planning
+> for deferred ones. Shipped: dbt `schema.yml` export/import, FHIR R4
+> `StructureDefinition` export/import, ODCS export/import, OpenMetadata and
+> OpenLineage local export, `modelable attach`/`modelable spec` drift review
+> for dbt/FHIR/ODCS, and `modelable publish apicurio`/`modelable pull
+> apicurio` for the JSON Schema artifact registry. Not committed and
+> requiring an issue and accepted design per [ROADMAP.md](../ROADMAP.md):
+> live catalog/governance synchronization, remote tracked-spec polling, and
+> the additional artifact targets and tools surveyed in §4. This
 > document consolidates earlier tool-boundary research and extends
 > [getting-started.md](getting-started.md) with concept mappings and
 > phased proposals for dbt, FHIR, and other ecosystems.

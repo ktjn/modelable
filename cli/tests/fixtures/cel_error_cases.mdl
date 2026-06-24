@@ -1,0 +1,53 @@
+domain orders {
+  owner: "orders-platform"
+
+  entity Order @ 1 (additive) {
+    @key
+    orderId: uuid
+    customerId: uuid
+    totalAmount: decimal(18,2)
+    createdAt: timestamp
+  }
+
+  // CEL002: bare identifier, unknown alias, unknown field.
+  projection OrderUnknownRefs @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    bareRef = totalAmount > 0
+    unknownAlias = x.totalAmount > 0
+    unknownField = o.notAField > 0
+  }
+
+  // CEL005: unsupported function.
+  projection OrderUnsupportedFunction @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    bogus = frobnicate(o.totalAmount)
+  }
+
+  // CEL006: aggregate function used without group by.
+  projection OrderAggregateWithoutGroupBy @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    total = sum(o.totalAmount)
+  }
+
+  // CEL007: non-deterministic function.
+  projection OrderNonDeterministic @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    randomTag = random()
+  }
+
+  // CEL001: malformed expression (unbalanced parenthesis).
+  projection OrderParseError @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    broken = (o.totalAmount + 1
+  }
+}
