@@ -111,6 +111,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete contributor workflow.
 
 ## Documentation
 
+Hosted: **https://ktjn.github.io/modelable/**
+
 - [Documentation index](docs/README.md)
 - [Language reference](docs/language-reference.md)
 - [Tooling reference](docs/cli-reference.md)
