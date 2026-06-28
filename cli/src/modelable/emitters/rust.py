@@ -9,7 +9,16 @@ from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import missing_metadata, type_loss
 from modelable.emitters.shapes import TypeShape
-from modelable.parser.ir import ArrayType, DirectMapping, DomainDef, MapType, MdlFile, ModelVersion, NamedType, ProjectionVersion
+from modelable.parser.ir import (
+    ArrayType,
+    DirectMapping,
+    DomainDef,
+    MapType,
+    MdlFile,
+    ModelVersion,
+    NamedType,
+    ProjectionVersion,
+)
 from modelable.registry.resolver import resolve_model_ref
 
 
@@ -102,7 +111,9 @@ def emit_rust(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     for domain in workspace.mdl.domains:
         for model_name, versions in domain.models.items():
             for version in versions:
-                artifacts.append(_emit_model(domain, model_name, version, out_dir, enum_registry=enum_registry, mdl=workspace.mdl))
+                artifacts.append(
+                    _emit_model(domain, model_name, version, out_dir, enum_registry=enum_registry, mdl=workspace.mdl)
+                )
         for projection_name, versions in domain.projections.items():
             for version in versions:
                 source = version.source.model
@@ -170,9 +181,7 @@ def _collect_named_type_refs(field_type, result: set) -> None:
         _collect_named_type_refs(field_type.value, result)
 
 
-def _resolve_named_type_map(
-    named_refs: set, mdl: MdlFile | None
-) -> tuple[dict[str, str], list[str]]:
+def _resolve_named_type_map(named_refs: set, mdl: MdlFile | None) -> tuple[dict[str, str], list[str]]:
     """Resolve NamedType references to Rust type names from the workspace.
 
     Returns (name -> rust_type_name, list of use statements).
@@ -239,7 +248,9 @@ def _emit_model(
     needs_serde_with = _any_needs_serde_with(field_specs)
     needs_uuid = _any_needs_uuid(field_specs)
     needs_serde_json = _any_needs_serde_json(field_specs)
-    lines = _header_lines(serde_with=needs_serde_with, uuid=needs_uuid, serde_json=needs_serde_json, extra_uses=use_statements)
+    lines = _header_lines(
+        serde_with=needs_serde_with, uuid=needs_uuid, serde_json=needs_serde_json, extra_uses=use_statements
+    )
     lines.extend(_render_struct_definition(type_name, field_specs))
     lines.extend(_render_nested_definitions(nested_definitions))
 
@@ -324,7 +335,11 @@ def _emit_projection(
         _render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated)
     )
     lines.extend(_render_nested_definitions(nested_definitions))
-    lines.extend(_emit_from_impl(type_name, domain.name, version, mdl, storage_gated=storage_gated, clickhouse_row=clickhouse_row))
+    lines.extend(
+        _emit_from_impl(
+            type_name, domain.name, version, mdl, storage_gated=storage_gated, clickhouse_row=clickhouse_row
+        )
+    )
 
     if enum_registry is not None:
         enum_registry[artifact_id] = {
