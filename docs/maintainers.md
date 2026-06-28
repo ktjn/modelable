@@ -264,3 +264,43 @@ Before tagging the 1.0 final:
 - Update `SECURITY.md` supported-versions to reflect the 1.0 stable support
   policy (security fixes applied to latest stable, earlier versions asked to
   upgrade).
+
+## 9. 1.x Compatibility Policy
+
+Modelable follows semantic versioning within the stable surface defined in
+`README.md` and `ROADMAP.md`.
+
+**Additive changes (1.x minor releases):**
+
+- New CLI flags, commands, or output fields that do not change existing
+  behavior when not used.
+- New generated artifact formats or new emitter options.
+- New `.mdl` syntax that is backward-compatible with existing files.
+- New diagnostic codes (new errors do not break files that previously passed,
+  unless the file was relying on a missing check).
+
+**Breaking changes require a major version bump:**
+
+- Removing or renaming a CLI command, flag, or stable output field.
+- Changing the shape of a generated artifact in a way that breaks existing
+  consumers (e.g., renaming a Rust struct field, changing a TypeScript import
+  path).
+- Changing `.mdl` parsing rules that cause previously valid files to fail
+  validation.
+- Changing compatibility, lineage, or governance report output in a way that
+  silently changes findings for existing models.
+
+**Not covered by the stable surface (may change in 1.x):**
+
+- Internal IR types, resolver internals, and private module APIs.
+- Language server protocol message shapes (LSP compatibility is maintained
+  with VS Code, not with direct LSP clients).
+- Experimental or beta-labeled commands and flags.
+- Generated artifacts for formats labeled "preview" in the CLI reference.
+
+**Security fixes** are backported to the latest stable minor release. Older
+minor versions are not actively patched; upgrade to the latest 1.x.
+
+**Observable conformance** remains the external runtime evidence for
+significant emitter or compiler changes. For contributor-accessible conformance,
+use the public fixture tracked in issue #110.
