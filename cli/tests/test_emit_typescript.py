@@ -580,3 +580,26 @@ domain tracing {
 
     assert "'INTERNAL' | 'SERVER' | 'CLIENT' | 'PRODUCER' | 'CONSUMER'" in art.content
     assert "span_kind:" in art.content
+
+
+def test_emit_typescript_array_of_enum_produces_valid_type(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain catalog {
+  owner: "test-team"
+  entity Product @ 1 (additive) {
+    @key productId: uuid
+    tags: array<enum(New, Sale, Featured)>
+    primaryTag: enum(New, Sale, Featured)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "catalog.Product@1")
+    # array<enum(...)> must emit a parenthesised union array: ('A' | 'B' | 'C')[]
+    assert "('New' | 'Sale' | 'Featured')[]" in art.content
+    # scalar enum field is unchanged
+    assert "'New' | 'Sale' | 'Featured'" in art.content

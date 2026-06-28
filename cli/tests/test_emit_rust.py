@@ -1,5 +1,6 @@
 import hashlib
 
+import pytest
 from click.testing import CliRunner
 
 from modelable.cli import cli
@@ -906,3 +907,76 @@ binding span-binding {
     assert "resource_attributes: serde_json::to_string(&src.resource_attributes).unwrap_or_default()," in proj.content
     assert "clickhouse::Row" in proj.content
     assert "// requires: serde_json (https://docs.rs/serde_json)" in proj.content
+
+
+def test_emit_rust_enum_field_emits_rust_enum_type(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain catalog {
+  owner: "test-team"
+  entity Product @ 1 (additive) {
+    @key productId: uuid
+    status: enum(Active, Inactive, Discontinued)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "catalog.Product@1")
+    # A Rust enum type is generated for the enum field
+    assert "pub enum CatalogProductV1Status" in art.content
+    assert "Active," in art.content
+    assert "Inactive," in art.content
+    assert "Discontinued," in art.content
+    # The struct field uses the generated enum type, not String
+    assert "pub status: CatalogProductV1Status," in art.content
+    assert "pub status: String," not in art.content
+
+
+@pytest.mark.xfail(
+    reason="Parser grammar does not yet accept numeric-prefixed enum member names; grammar fix required first (issue #95)"
+)
+def test_emit_rust_enum_field_numeric_prefix_sanitized(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain telecom {
+  owner: "test-team"
+  entity Connection @ 1 (additive) {
+    @key connectionId: uuid
+    radioType: enum(3gpp, lte, nr)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "telecom.Connection@1")
+    # Numeric-prefixed enum member names must be sanitized to valid Rust identifiers
+    assert "_3gpp" in art.content or "E3gpp" in art.content
+    # Raw numeric prefix must not appear as a bare identifier
+    assert "    3gpp," not in art.content
+
+
+def test_emit_rust_wire_rust_type_applies_to_array_element(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain events {
+  owner: "test-team"
+  entity Batch @ 1 (additive) {
+    @key batchId: uuid
+    @wire(rust.type: "u64")
+    timestamps: array<int>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "events.Batch@1")
+    # rust.type hint on an array field applies to the element type
+    assert "pub timestamps: Vec<u64>," in art.content
+    assert "pub timestamps: Vec<i64>," not in art.content
