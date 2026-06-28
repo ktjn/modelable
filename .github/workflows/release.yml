@@ -153,7 +153,7 @@ jobs:
 
   publish-marketplace:
     name: Publish to VS Code Marketplace
-    if: github.event_name == 'push'
+    if: false
     needs: build
     runs-on: ubuntu-latest
     environment: marketplace
