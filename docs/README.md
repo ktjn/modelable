@@ -24,7 +24,7 @@ one role.
   workflows, local export targets, and non-committed integration research.
 - [Maintainer and agent guide](maintainers.md): local gates, review policy,
   release process, and automation rules.
-- [Release and implementation plans](superpowers/plans/2026-06-28-modelable-1-0-release.md):
+- [1.0 release program plan](superpowers/plans/2026-06-28-modelable-1-0-release.md):
   current plan for taking Modelable from public alpha to a 1.0 open-source
   release with external Observable conformance evidence.
 

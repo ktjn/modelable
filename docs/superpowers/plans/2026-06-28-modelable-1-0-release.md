@@ -12,9 +12,10 @@ recorded in the Modelable release issue, release notes, or linked PRs.
 ## Authoring Context
 
 - Date: 2026-06-28.
-- Current repository state: the roadmap marks the local compiler, registry,
+- Current repository state: the roadmap shows the local compiler, registry,
   planner, compatibility, governance, emitters, CLI workflows, and hardening
-  milestones complete.
+  surfaces as recently shipped and still hardening (the roadmap uses "recently
+  shipped, still hardening" framing, not a completed-milestone stamp).
 - Current release state: Modelable is still presented as a public alpha, with
   package metadata and extension metadata on the 0.5.x line.
 - Current release automation state: the release workflow builds artifacts, but
@@ -99,12 +100,26 @@ Work:
 - Decide whether the VS Code extension is part of the 1.0 distribution or a
   companion artifact with separate marketplace timing.
 
+Completed 2026-06-28:
+
+- Added `## 1.0 stable surface` to `README.md` and `## Targeting 1.0` to
+  `ROADMAP.md` with explicit in-scope and deferred boundaries.
+- VS Code extension decision: ships as a VSIX companion artifact with the 1.0
+  release; VS Code Marketplace distribution is post-1.0.
+- Hygiene audit: `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`,
+  `CODE_OF_CONDUCT.md`, `GOVERNANCE.md`, issue templates, and PR template are
+  all present and current.
+- Tracked as Iteration 5 work (not blockers): replace public-alpha wording in
+  `README.md`, `CONTRIBUTING.md`, and `SECURITY.md`; update `SECURITY.md`
+  supported-versions policy; update install instructions to published package.
+- Added 1.0 release additional requirements to `docs/maintainers.md` section 8.
+
 Exit check:
 
-- Project entry points describe the same 1.0 contract.
-- `docs/maintainers.md` describes the final release workflow and PR policy.
+- Project entry points describe the same 1.0 contract. ✓
+- `docs/maintainers.md` describes the final release workflow and PR policy. ✓
 - Any missing open-source hygiene items are tracked as 1.0 blockers or explicit
-  post-1.0 work.
+  post-1.0 work. ✓
 
 ## Iteration 2: Compiler And Emitter Contract Hardening
 
