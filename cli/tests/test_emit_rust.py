@@ -461,6 +461,55 @@ binding span-row-binding {
     assert '#[cfg(feature = "storage")]' not in model.content
 
 
+def test_emit_rust_clickhouse_row_omits_skip_serializing_if_on_optional_fields(tmp_path):
+    """Nullable ClickHouse row columns must serialize as NULL, not disappear."""
+    (tmp_path / "model.mdl").write_text(
+        """
+domain telemetry {
+  owner: "test-team"
+  entity Log @ 1 (additive) {
+    @key logId: uuid
+    traceId?: string
+    message: string
+  }
+
+  projection LogRow @ 1
+    from telemetry.Log @ 1 as l
+  {
+    logId <- l.logId
+    traceId <- l.traceId
+    message <- l.message
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "bindings.mdl").write_text(
+        """
+binding ch-conn {
+  adapter: clickhouse
+}
+
+binding log-row-binding {
+  model: telemetry.Log @ 1
+  adapter: ch-conn
+  table: "logs"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    row = next(a for a in artifacts if a.ref == "telemetry.LogRow@1")
+    assert "clickhouse::Row" in row.content
+    assert "pub trace_id: Option<String>," in row.content
+    assert '#[serde(skip_serializing_if = "Option::is_none")]' not in row.content
+
+    model = next(a for a in artifacts if a.ref == "telemetry.Log@1")
+    assert '#[serde(skip_serializing_if = "Option::is_none")]' in model.content
+
+
 def test_emit_rust_clickhouse_row_indirect_connector_binding(tmp_path):
     """Model binding via connector-binding name → adapter type resolved correctly for clickhouse."""
     (tmp_path / "all.mdl").write_text(
@@ -1002,17 +1051,14 @@ domain catalog {
 
 
 def test_emit_rust_warns_on_named_type_field(tmp_path):
-    """Rust emitter emits EMIT003 for NamedType field references (issue #120)."""
+    """Rust emitter emits EMIT003 for NamedType field references to unknown external types (issue #120)."""
     (tmp_path / "test.mdl").write_text(
         """
 domain customer {
   owner: "test-team"
-  value Address {
-    line1: string
-  }
   entity Customer @ 1 (additive) {
     @key customerId: uuid
-    address: Address
+    address: ExternalAddress
   }
 }
 """,
@@ -1084,6 +1130,156 @@ domain tracing {
     assert "impl From<TracingSpanV1SpanKind> for TracingSpanRowV1SpanKind" in proj_art.content
     assert "use super::tracing_span_v1::TracingSpanV1SpanKind;" in proj_art.content
 
-    # Model file gets From<ProjEnum> for ModelEnum
-    assert "impl From<TracingSpanRowV1SpanKind> for TracingSpanV1SpanKind" in model_art.content
-    assert "use super::tracing_span_row_v1::TracingSpanRowV1SpanKind;" in model_art.content
+    # Domain model files must not import projection/storage enum types.
+    assert "TracingSpanRowV1SpanKind" not in model_art.content
+    assert "use super::tracing_span_row_v1" not in model_art.content
+
+
+def test_emit_rust_named_type_in_same_domain_resolves_without_warning(tmp_path):
+    """NamedType references to models in the same workspace resolve without EMIT003 (issue #120)."""
+    (tmp_path / "test.mdl").write_text(
+        """
+domain nlq {
+  owner: "test-team"
+  value NlqTimeRange {
+    from: string
+    to: string
+  }
+  value NlqIr {
+    timeRange: NlqTimeRange
+    query: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    ir_art = next(a for a in artifacts if a.ref == "nlq.NlqIr@0")
+    # The field must use the stable Rust type name (value types without @ N default to version 0)
+    assert "pub time_range: NlqNlqTimeRangeV0," in ir_art.content
+    # A use statement must be emitted
+    assert "use super::nlq_nlq_time_range_v0::NlqNlqTimeRangeV0;" in ir_art.content
+    # No EMIT003 warning
+    assert not any("EMIT003" in w for w in ir_art.warnings)
+
+
+def test_emit_rust_named_type_array_in_same_domain_resolves(tmp_path):
+    """NamedType inside array<...> resolves to Vec<StableTypeName> (issue #120)."""
+    (tmp_path / "test.mdl").write_text(
+        """
+domain nlq {
+  owner: "test-team"
+  value NlqFilter {
+    field: string
+    value: string
+  }
+  value NlqQuery {
+    filters: array<NlqFilter>
+    query: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    query_art = next(a for a in artifacts if a.ref == "nlq.NlqQuery@0")
+    assert "pub filters: Vec<NlqNlqFilterV0>," in query_art.content
+    assert "use super::nlq_nlq_filter_v0::NlqNlqFilterV0;" in query_art.content
+    assert not any("EMIT003" in w for w in query_art.warnings)
+
+
+def test_emit_rust_clickhouse_row_enum_field_uses_string(tmp_path):
+    """ClickHouse-bound projection enum fields must be String, not typed enum (issue #119)."""
+    (tmp_path / "model.mdl").write_text(
+        """
+domain telemetry {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: uuid
+    spanKind: enum(INTERNAL, SERVER, CLIENT)
+    name: string
+  }
+
+  projection SpanRow @ 1
+    from telemetry.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    spanKind <- s.spanKind
+    name <- s.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "bindings.mdl").write_text(
+        """
+binding ch-conn {
+  adapter: clickhouse
+}
+
+binding span-binding {
+  model: telemetry.Span @ 1
+  adapter: ch-conn
+  table: "spans"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "telemetry.SpanRow@1")
+    # Enum field must be String in the ClickHouse projection
+    assert "pub span_kind: String," in proj.content
+    # No typed enum definition for the projection
+    assert "pub enum TelemetrySpanRowV1SpanKind" not in proj.content
+    # Ensure typed enum is not used as field type
+    assert "pub span_kind: TelemetrySpanV1SpanKind," not in proj.content
+
+
+def test_emit_rust_clickhouse_row_from_impl_enum_becomes_match_arm(tmp_path):
+    """From impl for ClickHouse row with enum fields uses explicit match → String (issue #119)."""
+    (tmp_path / "model.mdl").write_text(
+        """
+domain telemetry {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: uuid
+    spanKind: enum(INTERNAL, SERVER, CLIENT)
+    name: string
+  }
+
+  projection SpanRow @ 1
+    from telemetry.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    spanKind <- s.spanKind
+    name <- s.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "bindings.mdl").write_text(
+        """
+binding ch-conn {
+  adapter: clickhouse
+}
+
+binding span-binding {
+  model: telemetry.Span @ 1
+  adapter: ch-conn
+  table: "spans"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "telemetry.SpanRow@1")
+    # Match arm generated for enum → String conversion
+    assert "span_kind: match src.span_kind {" in proj.content
+    assert 'TelemetrySpanV1SpanKind::INTERNAL => "INTERNAL".to_string(),' in proj.content
+    # Must NOT use .into() for the enum field
+    assert "span_kind: src.span_kind.into()," not in proj.content

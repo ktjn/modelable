@@ -93,7 +93,7 @@ def _collect_ref_imports(field_type, mdl, resolved_refs: dict[str, str]) -> None
 
 
 def _collect_named_imports(field_type, mdl, named_imports: dict[str, tuple[str, str]]) -> None:
-    """Recursively resolve NamedType refs to (stable_iface_name, artifact_id) in named_imports."""
+    """Recursively resolve NamedType refs to (exported_alias, artifact_id) in named_imports."""
     if isinstance(field_type, NamedType):
         name = field_type.name
         if name not in named_imports and mdl is not None:
@@ -102,9 +102,8 @@ def _collect_named_imports(field_type, mdl, named_imports: dict[str, tuple[str, 
                     versions = domain.models[name]
                     if versions:
                         latest = max(versions, key=lambda v: v.version)
-                        iface = _stable_interface_name(domain.name, name, latest.version)
                         aid = _artifact_id(domain.name, name, latest.version)
-                        named_imports[name] = (iface, aid)
+                        named_imports[name] = (name, aid)
                         return
     elif isinstance(field_type, ArrayType):
         _collect_named_imports(field_type.item, mdl, named_imports)
@@ -160,7 +159,7 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     body_lines.append("}")
     body_lines.append(f"export type {model_name} = {interface_name};")
 
-    all_lines = import_lines + ([""] if import_lines else []) + meta_lines + body_lines
+    all_lines = meta_lines + ([*import_lines, ""] if import_lines else []) + body_lines
     content = "\n".join(all_lines) + "\n"
     return EmittedArtifact(
         target="typescript",
