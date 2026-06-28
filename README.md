@@ -5,11 +5,6 @@ models. Define canonical models and projections in `.mdl` files, then validate
 their compatibility, inspect field-level lineage, detect governance gaps, and
 generate artifacts for the systems that consume them.
 
-> **Public alpha — targeting 1.0:** Modelable is usable and tested. The `.mdl`
-> language, CLI, and generated output may still change before 1.0; see
-> [1.0 stable surface](#10-stable-surface) below for what is in and out of
-> scope. Breaking changes are documented in [CHANGELOG.md](CHANGELOG.md).
-
 ## Why Modelable?
 
 Data contracts often become fragmented across application types, database
@@ -34,12 +29,6 @@ For an isolated one-off command:
 
 ```bash
 uvx modelable --help
-```
-
-Until `v0.5.0` is published, install from the repository:
-
-```bash
-uv tool install "modelable @ git+https://github.com/ktjn/modelable.git@main#subdirectory=cli"
 ```
 
 ## Define a model

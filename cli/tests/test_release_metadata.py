@@ -50,7 +50,7 @@ def test_build_release_manifest_writes_checksums_and_manifest(tmp_path: Path) ->
 
 def test_load_package_version_reads_cli_pyproject() -> None:
     cli_pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
-    assert load_package_version(cli_pyproject) == "0.5.0"
+    assert load_package_version(cli_pyproject) == "1.0.0"
 
 
 def test_release_cli_writes_manifest_and_checksums(tmp_path: Path) -> None:

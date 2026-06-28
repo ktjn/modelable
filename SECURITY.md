@@ -2,9 +2,13 @@
 
 ## Supported versions
 
-Modelable is in public alpha. Security fixes are applied to the latest
-released minor version. Older pre-1.0 versions may be asked to upgrade rather
-than receive a backport.
+| Version | Supported |
+|---------|-----------|
+| 1.0.x   | ✓ current |
+| < 1.0   | ✗ upgrade to 1.0 |
+
+Security fixes are applied to the latest supported release. Older major
+versions are not backported.
 
 ## Reporting a vulnerability
 
