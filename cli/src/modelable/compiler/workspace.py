@@ -85,7 +85,7 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
         )
         errors.extend(source_errors)
         merged.domains.extend(mdl.domains)
-        merged.bindings.extend(mdl.bindings)
+        _merge_bindings(merged.bindings, mdl.bindings)
         if mdl.workspace is not None:
             merged.workspace = mdl.workspace
 
@@ -208,6 +208,46 @@ def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) 
         Diagnostic(code="SEM", message=error, severity="error", path="<workspace>")
         for error in validate_references(merged)
     )
+    errors.extend(_validate_bindings(merged))
+    return errors
+
+
+def _merge_bindings(existing: list, incoming: list) -> None:
+    """Merge incoming bindings into existing, deduplicating identical definitions.
+
+    Two bindings are considered identical if they share the same name, adapter,
+    model, model_version, and table. Identical duplicates are silently dropped.
+    Conflicting duplicates (same name, different adapter) are kept so that
+    _validate_bindings can report them.
+    """
+    seen: set[tuple] = {(b.name, b.adapter, b.model, b.model_version, b.table) for b in existing}
+    for b in incoming:
+        key = (b.name, b.adapter, b.model, b.model_version, b.table)
+        if key not in seen:
+            existing.append(b)
+            seen.add(key)
+
+
+def _validate_bindings(merged: MdlFile) -> list[Diagnostic]:
+    """Detect binding names that appear with conflicting definitions."""
+    errors: list[Diagnostic] = []
+    seen: dict[str, str] = {}  # name → adapter
+    for b in merged.bindings:
+        if b.name in seen:
+            if seen[b.name] != b.adapter:
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=(
+                            f"binding '{b.name}' is declared with conflicting adapter "
+                            f"'{b.adapter}' (previously '{seen[b.name]}')"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+        else:
+            seen[b.name] = b.adapter
     return errors
 
 

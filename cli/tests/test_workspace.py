@@ -108,3 +108,91 @@ domain customer {
         "generated projection name customer.CustomerReply@1 conflicts" in diagnostic.message
         for diagnostic in workspace.errors
     )
+
+
+def test_load_workspace_deduplicates_identical_bindings_across_files(tmp_path):
+    (tmp_path / "customer.mdl").write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+
+binding pg-conn {
+  adapter: postgres
+}
+
+binding customer-pg {
+  adapter: pg-conn
+  model: customer.Customer @ 1
+  table: "customers"
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "order.mdl").write_text(
+        """
+domain order {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+}
+
+binding pg-conn {
+  adapter: postgres
+}
+
+binding order-pg {
+  adapter: pg-conn
+  model: order.Order @ 1
+  table: "orders"
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    assert not workspace.errors
+    # identical pg-conn bindings must be deduplicated to a single entry
+    pg_conn_count = sum(1 for b in workspace.mdl.bindings if b.name == "pg-conn")
+    assert pg_conn_count == 1
+
+
+def test_load_workspace_errors_on_conflicting_binding_definitions(tmp_path):
+    (tmp_path / "a.mdl").write_text(
+        """
+domain alpha {
+  owner: "test-team"
+  entity Alpha @ 1 (additive) {
+    @key alphaId: uuid
+  }
+}
+
+binding shared-conn {
+  adapter: postgres
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "b.mdl").write_text(
+        """
+domain beta {
+  owner: "test-team"
+  entity Beta @ 1 (additive) {
+    @key betaId: uuid
+  }
+}
+
+binding shared-conn {
+  adapter: clickhouse
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    # same binding name with different adapter is a conflict
+    assert any("binding 'shared-conn'" in d.message for d in workspace.errors)
