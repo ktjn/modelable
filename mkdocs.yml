@@ -2,15 +2,8 @@ site_name: Modelable
 site_url: https://ktjn.github.io/modelable/
 repo_url: https://github.com/ktjn/modelable
 repo_name: ktjn/modelable
-docs_dir: .
+docs_dir: docs
 site_dir: site
-exclude_docs: |
-  cli/**
-  vscode/**
-  samples/**
-  .github/**
-  site/**
-  node_modules/**
 
 theme:
   name: material
@@ -34,18 +27,10 @@ theme:
 
 nav:
   - Home: README.md
-  - Documentation:
-      - Index: docs/README.md
-      - Getting Started: docs/getting-started.md
-      - Language Reference: docs/language-reference.md
-      - Tooling Reference: docs/cli-reference.md
-      - Compiler Reference: docs/compiler-reference.md
-      - Integrations: docs/integrations.md
-  - Project:
-      - Architecture: docs/architecture.md
-      - Roadmap: ROADMAP.md
-      - Changelog: CHANGELOG.md
-      - Contributing: CONTRIBUTING.md
-      - Governance: GOVERNANCE.md
-      - Security: SECURITY.md
-      - Maintainer Guide: docs/maintainers.md
+  - Getting Started: getting-started.md
+  - Language Reference: language-reference.md
+  - Tooling Reference: cli-reference.md
+  - Compiler Reference: compiler-reference.md
+  - Integrations: integrations.md
+  - Architecture: architecture.md
+  - Maintainer Guide: maintainers.md
