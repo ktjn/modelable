@@ -377,6 +377,9 @@ class MdlTransformer(Transformer[list[object], Any]):
     def decimal_type(self, items: list[object]) -> DecimalType:
         return DecimalType(precision=int(items[0]), scale=int(items[1]))
 
+    def enum_member(self, items: list[object]) -> str:
+        return str(items[0])
+
     def enum_type(self, items: list[object]) -> EnumType:
         return EnumType(values=[str(item) for item in items])
 

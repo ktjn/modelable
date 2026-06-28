@@ -96,7 +96,11 @@ primitive_type: "string"    -> pt_string
               | "json"      -> pt_json
 
 decimal_type: "decimal" "(" INT "," INT ")"
-enum_type: "enum" "(" IDENT ("," IDENT)* ")"
+enum_type: "enum" "(" enum_member ("," enum_member)* ")"
+enum_member: IDENT
+           | NUMERIC_IDENT
+
+NUMERIC_IDENT: /[0-9][A-Za-z0-9_-]*/
 array_type: "array" "<" type_expr ">"
 map_type: "map" "<" type_expr "," type_expr ">"
 ref_type: "ref" "<" dotted_ref ">"

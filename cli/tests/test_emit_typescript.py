@@ -653,3 +653,56 @@ domain catalog {
     assert "('New' | 'Sale' | 'Featured')[]" in art.content
     # scalar enum field is unchanged
     assert "'New' | 'Sale' | 'Featured'" in art.content
+
+
+def test_emit_typescript_named_type_in_same_workspace_generates_import(tmp_path):
+    """NamedType field whose type exists in the workspace gets an import (issue #118)."""
+    (tmp_path / "test.mdl").write_text(
+        """
+domain nlq {
+  owner: "test-team"
+  value NlqTimeRange {
+    from: string
+    to: string
+  }
+  value NlqIr {
+    timeRange: NlqTimeRange
+    query: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    ir_art = next(a for a in artifacts if "NlqIr" in a.ref)
+
+    # Resolved named type uses stable interface name, not bare name
+    assert "NlqNlqTimeRangeV" in ir_art.content
+    # An import type statement is emitted
+    assert "import type {" in ir_art.content
+    assert "NlqNlqTimeRange" in ir_art.content
+    # EMIT003 must NOT be emitted when the type is successfully resolved
+    assert not any("EMIT003" in w for w in ir_art.warnings)
+
+
+def test_emit_typescript_named_type_unresolvable_still_warns(tmp_path):
+    """NamedType not found in workspace still emits EMIT003 (issue #118)."""
+    (tmp_path / "test.mdl").write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    address: ExternalAddress
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "customer.Customer@1")
+    assert any("EMIT003" in w for w in art.warnings)
+    # Falls back to emitting the bare name
+    assert "ExternalAddress" in art.content
