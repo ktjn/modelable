@@ -1,4 +1,5 @@
 import json
+from importlib.metadata import version
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -12,7 +13,7 @@ def test_cli_reports_package_version():
     result = CliRunner().invoke(cli, ["--version"])
 
     assert result.exit_code == 0
-    assert result.output.strip() == "modelable, version 1.0.0"
+    assert result.output.strip() == f"modelable, version {version('modelable')}"
 
 
 def test_root_bootstrap_script_delegates_to_uv_entrypoint():

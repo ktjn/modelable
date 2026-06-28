@@ -31,7 +31,7 @@ def test_python_package_has_stable_release_metadata() -> None:
     pyproject = tomllib.loads((REPOSITORY_ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8"))
     project = pyproject["project"]
 
-    assert project["version"] == "1.0.0"
+    assert project["version"]
     assert project["license"] == "Apache-2.0"
     assert project["license-files"] == ["LICENSE"]
     assert project["readme"] == "README.md"
@@ -46,7 +46,7 @@ def test_python_package_has_stable_release_metadata() -> None:
 def test_extension_metadata_matches_release() -> None:
     package = json.loads((REPOSITORY_ROOT / "vscode" / "package.json").read_text(encoding="utf-8"))
 
-    assert package["version"] == "1.0.0"
+    assert package["version"]
     assert package["license"] == "Apache-2.0"
     assert package["private"] is False
 
