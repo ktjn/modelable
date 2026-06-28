@@ -1,0 +1,12 @@
+domain address {
+  owner: "platform-team"
+  description: "Postal address shared across domains."
+
+  entity Address @ 1 (additive) {
+    @key addressId: uuid
+    line1: string
+    line2?: string
+    city: string
+    country: string
+  }
+}

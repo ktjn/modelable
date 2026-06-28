@@ -1,0 +1,13 @@
+domain catalog {
+  owner: "catalog-team"
+  description: "Product catalog with emitter conformance cases."
+
+  entity Product @ 1 (additive) {
+    @key productId: uuid
+    name: string
+    status: enum(Active, Inactive, Discontinued)
+    labels: array<enum(New, Sale, Featured)>
+    tags?: array<string>
+    shippingAddress: ref<address.Address>
+  }
+}
