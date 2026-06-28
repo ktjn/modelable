@@ -150,7 +150,9 @@ domain customer {
     )
 
     out = tmp_path / "dist"
-    result = CliRunner().invoke(cli, ["compile", str(mdl), "--target", "odcs", "--out", str(out)])
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli, ["compile", str(mdl), "--target", "odcs", "--out", str(out)])
 
     assert result.exit_code == 0, result.output
     artifact = out / "customer.Customer.v1.odcs.yaml"
@@ -185,7 +187,9 @@ domain customer {
     )
 
     out = tmp_path / "dist"
-    result = CliRunner().invoke(cli, ["compile", str(mdl), "--target", "odcs", "--out", str(out)])
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli, ["compile", str(mdl), "--target", "odcs", "--out", str(out)])
 
     assert result.exit_code == 0, result.output
     lint = subprocess.run(
