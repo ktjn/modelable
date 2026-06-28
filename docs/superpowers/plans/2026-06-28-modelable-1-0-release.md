@@ -248,6 +248,20 @@ Exit check:
 
 ## Iteration 5: 1.0 Final
 
+Completed 2026-06-28:
+
+- Tag `v1.0.0` pushed to `main` at commit `2e0bacc`.
+- Release workflow completed successfully: wheel, sdist, VSIX, SHA256SUMS, and
+  release-manifest uploaded to GitHub release and PyPI.
+- GitHub release: https://github.com/ktjn/modelable/releases/tag/v1.0.0
+- Two pre-tag fixes required: `if: false` guard missed from PR #101 (fixed in
+  #102), and `engines.vscode` out of sync with `@types/vscode` (fixed in #103).
+
+Exit check:
+
+- Published artifacts report version 1.0.0. ✓
+- GitHub release has wheel, sdist, VSIX, checksums, and manifest attached. ✓
+
 Outcome: Modelable 1.0 is tagged, published, and documented.
 
 Work:
@@ -272,22 +286,29 @@ Exit check:
 
 ## Iteration 6: Post-1.0 Follow-up
 
-Outcome: the project moves from release stabilization to normal open-source
-maintenance.
+Completed 2026-06-28:
 
-Work:
-
-- Open follow-up issues for deferred runtime, adapter, materializer, hosted
-  docs, and marketplace work.
-- Document compatibility expectations for future 1.x releases.
-- Keep Observable as an ongoing downstream conformance project, but decide
-  whether a smaller public conformance fixture is needed for contributors who
-  cannot access Observable.
+- Opened 7 post-1.0 tracking issues:
+  - #104 VS Code Marketplace distribution
+  - #105 Live catalog/governance synchronization (OpenMetadata, OpenLineage)
+  - #106 Remote tracked-spec polling and authenticated source access
+  - #107 Runtime subscriptions, adapters, replay, and materialization
+  - #108 Distributed registry synchronization
+  - #109 Hosted documentation
+  - #110 Public conformance fixture for contributors
+- ROADMAP.md updated: "Targeting 1.0" → "1.0 — shipped 2026-06-28" with
+  deferred items linked to their tracking issues.
+- `docs/maintainers.md` section 9 added: 1.x compatibility policy covering
+  additive vs. breaking changes, stable surface boundaries, security backport
+  policy, and conformance guidance.
 
 Exit check:
 
-- 1.1 work starts from tracked issues, not from leftover release ambiguity.
-- Contributors can understand what is required to make a safe change.
+- 1.1 work starts from tracked issues, not from leftover release ambiguity. ✓
+- Contributors can understand what is required to make a safe change. ✓
+
+Outcome: the project moves from release stabilization to normal open-source
+maintenance.
 
 ## 1.0 Blocking Checklist
 
