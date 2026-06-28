@@ -70,7 +70,6 @@ def _append_cross_enum_from_impls(
     if not extra:
         return artifacts
 
-    artifact_map = {a.artifact_id: a for a in artifacts}
     result: list[EmittedArtifact] = []
     for artifact in artifacts:
         appendage = extra.get(artifact.artifact_id)

@@ -1,6 +1,5 @@
 import hashlib
 
-import pytest
 from click.testing import CliRunner
 
 from modelable.cli import cli
