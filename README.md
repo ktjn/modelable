@@ -94,8 +94,8 @@ Modelable 1.0 stabilizes the local compiler and language-server toolchain.
 - CLI: `validate`, `compile`, `check`, `generate`, `attach`, `spec`, and the
   language server.
 - Generated artifacts: JSON Schema, TypeScript, C#, Java, Python, Rust, Go,
-  SQL DDL, dbt `schema.yml`, Markdown, FHIR R4 profile, OpenMetadata JSON, and
-  OpenLineage event formats.
+  SQL DDL, dbt `schema.yml`, Markdown, FHIR R4 profile, OpenMetadata JSON,
+  OpenLineage event, and ODCS formats.
 - Compatibility, lineage, and governance report output.
 - Apicurio JSON Schema registry artifact push/pull.
 - VS Code extension shipped as a VSIX companion artifact with the 1.0 release.
