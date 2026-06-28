@@ -6,6 +6,44 @@ breaking changes when they are called out explicitly.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-06-28
+
+### Added
+
+- Rust emitter generates `pub enum` types with serde derives for enum fields
+  instead of falling back to `String`. Each enum field produces a named nested
+  type (e.g. `CatalogProductV1Status`) with `#[serde(rename)]` applied when
+  the Rust member name differs from the wire value.
+- TypeScript emitter resolves `ref<X>` to the stable interface name
+  (e.g. `AddressAddressV1`) when the referenced model is in the same workspace,
+  and emits a corresponding `import type` statement. Unresolvable cross-domain
+  references fall back to `string`.
+- TypeScript emitter wraps `array<enum(...)>` union types in parentheses:
+  `('A' | 'B' | 'C')[]` instead of the previously invalid `'A' | 'B' | 'C'[]`.
+- Rust emitter: optional `array<T>` fields now emit `pub field: Vec<T>` with
+  `#[serde(default)]` instead of `Option<Vec<T>>`, matching standard Rust
+  collection idioms.
+- Rust emitter: `@wire(rust.type: "u64")` on an array field now applies to the
+  element type inside `Vec<>`.
+- Workspace loader deduplicates identical connector binding declarations across
+  `.mdl` files. Conflicting definitions (same binding name, different adapter)
+  produce a `SEM` diagnostic instead of silently dropping one definition.
+- Docker-dependent tests gated behind `MODELABLE_DOCKER_TESTS=1` env var.
+- 1.0 stable-surface definition added to `README.md` and `ROADMAP.md`.
+
+### Changed
+
+- `README.md` install instructions updated to the published PyPI package.
+- Dropped public-alpha qualifier from repository documentation and policies.
+
+### Stability
+
+- Modelable 1.0 defines a stable surface. See [README § 1.0 stable
+  surface](README.md#10-stable-surface) for what is supported and what is
+  deferred.
+- The `.mdl` language, CLI, and listed artifact formats are stable from 1.0.
+  Breaking changes will be documented here and require a major version bump.
+
 ## [0.5.0] - 2026-06-14
 
 ### Added
@@ -26,5 +64,6 @@ breaking changes when they are called out explicitly.
 - Modelable remains a public alpha. The `.mdl` language, CLI, and generated
   output may change before 1.0; breaking changes will be documented here.
 
-[Unreleased]: https://github.com/ktjn/modelable/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/ktjn/modelable/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/ktjn/modelable/compare/v0.5.0...v1.0.0
 [0.5.0]: https://github.com/ktjn/modelable/compare/v0.4.0...v0.5.0

@@ -1,8 +1,7 @@
 # Contributing to Modelable
 
-Modelable is in public alpha. Contributions that improve correctness,
-documentation, diagnostics, interoperability, and generated output are
-welcome.
+Contributions that improve correctness, documentation, diagnostics,
+interoperability, and generated output are welcome.
 
 ## Before you start
 

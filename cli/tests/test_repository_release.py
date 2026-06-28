@@ -27,11 +27,11 @@ def test_public_repository_files_exist() -> None:
     assert missing == []
 
 
-def test_python_package_has_public_alpha_metadata() -> None:
+def test_python_package_has_stable_release_metadata() -> None:
     pyproject = tomllib.loads((REPOSITORY_ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8"))
     project = pyproject["project"]
 
-    assert project["version"] == "0.5.0"
+    assert project["version"] == "1.0.0"
     assert project["license"] == "Apache-2.0"
     assert project["license-files"] == ["LICENSE"]
     assert project["readme"] == "README.md"
@@ -39,14 +39,14 @@ def test_python_package_has_public_alpha_metadata() -> None:
     assert project["authors"]
     assert project["maintainers"]
     assert project["urls"]["Repository"] == "https://github.com/ktjn/modelable"
-    assert "Development Status :: 3 - Alpha" in project["classifiers"]
+    assert "Development Status :: 5 - Production/Stable" in project["classifiers"]
     assert "Programming Language :: Python :: 3.14" in project["classifiers"]
 
 
 def test_extension_metadata_matches_release() -> None:
     package = json.loads((REPOSITORY_ROOT / "vscode" / "package.json").read_text(encoding="utf-8"))
 
-    assert package["version"] == "0.5.0"
+    assert package["version"] == "1.0.0"
     assert package["license"] == "Apache-2.0"
     assert package["private"] is False
 

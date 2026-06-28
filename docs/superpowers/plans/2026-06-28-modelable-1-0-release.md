@@ -226,6 +226,20 @@ Work:
 - Produce release artifacts from the release workflow and inspect them before
   tagging final 1.0.
 
+In progress 2026-06-28:
+
+- Version bumped to `1.0.0` in `cli/pyproject.toml` and `vscode/package.json`.
+- `CHANGELOG.md` `[1.0.0]` entry written covering all Iteration 2 emitter fixes and
+  the 1.0 stable-surface definition.
+- Public-alpha wording removed from `README.md`, `CONTRIBUTING.md`, `SECURITY.md`.
+- `SECURITY.md` supported-versions table updated for 1.0.
+- README install instructions updated to the published package path.
+- PyPI trusted publisher registration pending (manual step on pypi.org):
+  go to https://pypi.org/manage/project/modelable/settings/publishing/ and add a
+  pending publisher for owner `ktjn`, repo `modelable`, workflow `release.yml`,
+  environment `pypi`. Once registered, remove the `if: false` guard in the
+  `publish` job and re-run the release workflow.
+
 Exit check:
 
 - The release workflow can publish from the intended tag or protected branch.
