@@ -348,7 +348,9 @@ def _type_to_ts(
             return f"({item_ts})[]"
         return f"{item_ts}[]"
     if isinstance(field_type, MapType):
-        return f"Record<string, {_type_to_ts(field_type.value, resolved_refs=resolved_refs, named_imports=named_imports)}>"
+        return (
+            f"Record<string, {_type_to_ts(field_type.value, resolved_refs=resolved_refs, named_imports=named_imports)}>"
+        )
     if isinstance(field_type, RefType):
         if resolved_refs and field_type.target in resolved_refs:
             return resolved_refs[field_type.target]
