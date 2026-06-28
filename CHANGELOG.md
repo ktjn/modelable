@@ -6,6 +6,24 @@ breaking changes when they are called out explicitly.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-06-28
+
+### Fixed
+
+- Rust emitter now emits `#[serde(skip_serializing_if = "Option::is_none")]` on
+  omittable (`?`) fields and bare `Option<T>` on nullable fields, correctly
+  distinguishing the two semantics (#91).
+- Grammar now accepts numeric-prefixed enum member names such as `3gpp`; the
+  Rust emitter sanitises them to `_3gpp` with a `#[serde(rename)]` attribute
+  (#95).
+- TypeScript emitter now generates `import type` statements for `NamedType`
+  field references that resolve within the same workspace (#118).
+- Rust emitter now generates `impl From<A> for B` between enum types with
+  identical variant sets across records in the same domain (#119).
+- Rust emitter now emits an `EMIT003` warning when a field references a
+  `NamedType` that cannot be resolved, matching TypeScript emitter behaviour
+  (#120).
+
 ## [1.0.0] - 2026-06-28
 
 ### Added
