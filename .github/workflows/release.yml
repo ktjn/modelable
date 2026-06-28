@@ -151,6 +151,28 @@ jobs:
         with:
           packages-dir: dist/
 
+  publish-marketplace:
+    name: Publish to VS Code Marketplace
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: marketplace
+
+    steps:
+      - name: Download verified artifacts
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: modelable-${{ needs.build.outputs.package-version }}
+          path: dist
+
+      - name: Install Node
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 26
+
+      - name: Publish VS Code extension
+        run: npx --yes @vscode/vsce@latest publish --packagePath dist/*.vsix --pat "${{ secrets.VSCE_PAT }}"
+
   github-release:
     name: Create GitHub release
     if: github.event_name == 'push'

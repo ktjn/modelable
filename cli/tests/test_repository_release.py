@@ -74,6 +74,16 @@ def test_release_workflow_uses_trusted_publishing_and_builds_vsix() -> None:
     assert "if: github.event_name == 'push'" in workflow
 
 
+def test_release_workflow_publishes_to_vscode_marketplace() -> None:
+    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+
+    assert "VSCE_PAT" in workflow
+    assert "@vscode/vsce" in workflow
+    assert "publish" in workflow
+    assert "marketplace" in workflow
+    assert "if: github.event_name == 'push'" in workflow
+
+
 def test_docs_workflow_deploys_to_github_pages() -> None:
     workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "docs.yml").read_text(encoding="utf-8")
 
