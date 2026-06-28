@@ -980,3 +980,26 @@ domain events {
     # rust.type hint on an array field applies to the element type
     assert "pub timestamps: Vec<u64>," in art.content
     assert "pub timestamps: Vec<i64>," not in art.content
+
+
+def test_emit_rust_optional_array_field_uses_serde_default(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain catalog {
+  owner: "test-team"
+  entity Product @ 1 (additive) {
+    @key productId: uuid
+    tags?: array<string>
+    price: float
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "catalog.Product@1")
+    # optional array<T> must use Vec<T> + #[serde(default)], not Option<Vec<T>>
+    assert "pub tags: Vec<String>," in art.content
+    assert "Option<Vec" not in art.content
+    assert "#[serde(default)]" in art.content
