@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import time
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
@@ -157,6 +158,10 @@ def _is_remote_source(source: str) -> bool:
     return source.startswith(("http://", "https://"))
 
 
+_TRANSIENT_HTTP_CODES = frozenset({429, 500, 502, 503, 504})
+_RETRY_DELAYS = (1.0, 3.0)
+
+
 def _resolve_source(
     workspace_path: Path,
     entry: SpecEntry,
@@ -164,7 +169,8 @@ def _resolve_source(
     token: str | None = None,
 ) -> tuple[str, Path]:
     if _is_remote_source(entry.source):
-        return _fetch_remote_source(entry.source, workspace_path, entry.id, token=token)
+        content, path, _stale = _fetch_remote_source(entry.source, workspace_path, entry.id, token=token)
+        return content, path
     path = _resolve_local_source_path(workspace_path, entry.source)
     return path.read_text(encoding="utf-8"), path
 
@@ -175,7 +181,14 @@ def _fetch_remote_source(
     spec_id: str,
     *,
     token: str | None = None,
-) -> tuple[str, Path]:
+) -> tuple[str, Path, bool]:
+    """Fetch a remote spec URL.
+
+    Returns (content, cache_path, stale) where stale is True when the
+    response came from a prior cached copy because the live fetch failed.
+    Retries up to 3 attempts on transient HTTP errors (5xx, 429) and
+    URLError before falling back to stale cache.
+    """
     cache_dir = _spec_cache_dir(workspace_path, spec_id)
     cache_path = cache_dir / "source"
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -184,18 +197,30 @@ def _fetch_remote_source(
     if token:
         req.add_header("Authorization", f"Bearer {token}")
 
-    try:
-        with urllib.request.urlopen(req, timeout=30) as response:
-            content = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        raise SpecSourceError(f"Failed to fetch remote spec {url}: HTTP {exc.code} {exc.reason}") from exc
-    except urllib.error.URLError as exc:
-        raise SpecSourceError(f"Failed to fetch remote spec {url}: {exc.reason}") from exc
-    except OSError as exc:
-        raise SpecSourceError(f"Failed to fetch remote spec {url}: {exc}") from exc
+    last_exc: Exception | None = None
+    for _attempt, delay in enumerate((*_RETRY_DELAYS, None)):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                content = response.read().decode("utf-8")
+            cache_path.write_text(content, encoding="utf-8")
+            return content, cache_path, False
+        except urllib.error.HTTPError as exc:
+            if exc.code not in _TRANSIENT_HTTP_CODES:
+                raise SpecSourceError(f"Failed to fetch remote spec {url}: HTTP {exc.code} {exc.reason}") from exc
+            last_exc = exc
+        except (urllib.error.URLError, OSError) as exc:
+            last_exc = exc
+        if delay is not None:
+            time.sleep(delay)
 
-    cache_path.write_text(content, encoding="utf-8")
-    return content, cache_path
+    if cache_path.exists():
+        return cache_path.read_text(encoding="utf-8"), cache_path, True
+
+    if isinstance(last_exc, urllib.error.HTTPError):
+        raise SpecSourceError(
+            f"Failed to fetch remote spec {url}: HTTP {last_exc.code} {last_exc.reason}"
+        ) from last_exc
+    raise SpecSourceError(f"Failed to fetch remote spec {url}: {last_exc}") from last_exc
 
 
 def _resolve_local_source_path(workspace_path: Path, source: str) -> Path:

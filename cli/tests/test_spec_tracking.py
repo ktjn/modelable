@@ -347,7 +347,7 @@ def test_fetch_remote_source_caches_and_returns_content(tmp_path: Path, monkeypa
 
     monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
 
-    content, path = _fetch_remote_source("https://example.com/schema.yml", tmp_path, "test-spec")
+    content, path, _stale = _fetch_remote_source("https://example.com/schema.yml", tmp_path, "test-spec")
 
     assert content == "version: 2\nmodels:\n  - name: Customer\n"
     cache_dir = _spec_cache_dir(tmp_path, "test-spec")
@@ -407,6 +407,102 @@ def test_fetch_remote_source_network_error_reported(tmp_path: Path, monkeypatch)
 
     with pytest.raises(SpecSourceError, match="Connection refused"):
         _fetch_remote_source("https://example.com/schema.yml", tmp_path, "test-net-err")
+
+
+def test_fetch_remote_source_retries_on_transient_5xx(tmp_path: Path, monkeypatch) -> None:
+    from modelable.specs.tracking import SpecSourceError, _fetch_remote_source
+
+    call_count = 0
+
+    def mock_urlopen(req, timeout=30):
+        nonlocal call_count
+        call_count += 1
+        raise urllib.error.HTTPError("https://example.com/schema.yml", 503, "Service Unavailable", {}, None)
+
+    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+    monkeypatch.setattr("time.sleep", lambda _: None)
+
+    with pytest.raises(SpecSourceError, match="HTTP 503"):
+        _fetch_remote_source("https://example.com/schema.yml", tmp_path, "test-retry")
+
+    assert call_count == 3
+
+
+def test_fetch_remote_source_succeeds_after_transient_failure(tmp_path: Path, monkeypatch) -> None:
+    from modelable.specs.tracking import _fetch_remote_source
+
+    call_count = 0
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def read(self):
+            return b"ok: true\n"
+
+    def mock_urlopen(req, timeout=30):
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise urllib.error.HTTPError("https://example.com/schema.yml", 503, "Service Unavailable", {}, None)
+        return FakeResponse()
+
+    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+    monkeypatch.setattr("time.sleep", lambda _: None)
+
+    content, _, _stale = _fetch_remote_source("https://example.com/schema.yml", tmp_path, "test-retry-ok")
+
+    assert content == "ok: true\n"
+    assert call_count == 3
+
+
+def test_fetch_remote_source_falls_back_to_stale_cache(tmp_path: Path, monkeypatch) -> None:
+    from modelable.specs.tracking import _fetch_remote_source, _spec_cache_dir
+
+    cache_dir = _spec_cache_dir(tmp_path, "test-stale")
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "source").write_text("cached: content\n", encoding="utf-8")
+
+    def mock_urlopen(req, timeout=30):
+        raise urllib.error.URLError("Network unreachable")
+
+    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+    monkeypatch.setattr("time.sleep", lambda _: None)
+
+    content, _path, stale = _fetch_remote_source("https://example.com/schema.yml", tmp_path, "test-stale")
+
+    assert content == "cached: content\n"
+    assert stale is True
+
+
+def test_fetch_remote_source_raises_when_no_cache_on_failure(tmp_path: Path, monkeypatch) -> None:
+    from modelable.specs.tracking import SpecSourceError, _fetch_remote_source
+
+    def mock_urlopen(req, timeout=30):
+        raise urllib.error.URLError("Network unreachable")
+
+    monkeypatch.setattr("urllib.request.urlopen", mock_urlopen)
+    monkeypatch.setattr("time.sleep", lambda _: None)
+
+    with pytest.raises(SpecSourceError, match="Network unreachable"):
+        _fetch_remote_source("https://example.com/schema.yml", tmp_path, "test-no-cache")
+
+
+def test_spec_status_poll_interval_option(tmp_path: Path) -> None:
+    from click.testing import CliRunner
+
+    from modelable.cli import cli
+
+    (tmp_path / "workspace.mdl").write_text(
+        'domain a { owner: "t" entity A @ 1 (additive) { @key id: uuid } }', encoding="utf-8"
+    )
+    result = CliRunner().invoke(
+        cli, ["spec", "status", "--path", str(tmp_path), "--poll-interval", "0", "--max-polls", "1"]
+    )
+    assert result.exit_code == 0
 
 
 def test_spec_add_accepts_http_source(tmp_path: Path) -> None:

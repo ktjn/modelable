@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import asdict
 from pathlib import Path
 
@@ -70,25 +71,44 @@ def add(
 @click.option("--path", "workspace_path", type=click.Path(exists=True, path_type=Path), default=Path("."))
 @click.option("--json", "json_output", is_flag=True, help="Print machine-readable JSON.")
 @click.option("--fail-on", default="", help="Comma-separated statuses that should return a non-zero exit code.")
-def status(workspace_path: Path, json_output: bool, fail_on: str) -> None:
+@click.option("--poll-interval", default=None, type=float, help="Re-check every N seconds (useful in CI watch mode).")
+@click.option("--max-polls", default=None, type=int, help="Stop after this many checks when --poll-interval is set.")
+def status(
+    workspace_path: Path,
+    json_output: bool,
+    fail_on: str,
+    poll_interval: float | None,
+    max_polls: int | None,
+) -> None:
     """Report drift status for tracked external specifications."""
     token = os.getenv("MODELABLE_SPEC_TOKEN")
-    entries = select_specs(workspace_path, None)
-    evaluations = [evaluate_spec(workspace_path, entry, write=False, token=token) for entry in entries]
-    payload = {"specs": [evaluation.as_status_dict() for evaluation in evaluations]}
-    if json_output:
-        click.echo(json.dumps(payload, indent=2, sort_keys=True))
-    else:
-        if not evaluations:
-            console.print(f"[yellow]No tracked specs in {spec_config_path(workspace_path)}[/yellow]")
-        for evaluation in evaluations:
-            suffix = ""
-            if evaluation.change_kind:
-                suffix = f" ({evaluation.change_kind}, {evaluation.change_count} change(s))"
-            if evaluation.error:
-                suffix = f" ({evaluation.error})"
-            console.print(f"{evaluation.entry.id}: {evaluation.status}{suffix}")
     fail_statuses = {item.strip() for item in fail_on.split(",") if item.strip()}
+    polls = 0
+
+    while True:
+        entries = select_specs(workspace_path, None)
+        evaluations = [evaluate_spec(workspace_path, entry, write=False, token=token) for entry in entries]
+        payload = {"specs": [evaluation.as_status_dict() for evaluation in evaluations]}
+        if json_output:
+            click.echo(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            if not evaluations:
+                console.print(f"[yellow]No tracked specs in {spec_config_path(workspace_path)}[/yellow]")
+            for evaluation in evaluations:
+                suffix = ""
+                if evaluation.change_kind:
+                    suffix = f" ({evaluation.change_kind}, {evaluation.change_count} change(s))"
+                if evaluation.error:
+                    suffix = f" ({evaluation.error})"
+                console.print(f"{evaluation.entry.id}: {evaluation.status}{suffix}")
+
+        polls += 1
+        if poll_interval is None:
+            break
+        if max_polls is not None and polls >= max_polls:
+            break
+        time.sleep(poll_interval)
+
     if fail_statuses and any(evaluation.status in fail_statuses for evaluation in evaluations):
         raise click.ClickException("tracked spec status matched --fail-on")
 
