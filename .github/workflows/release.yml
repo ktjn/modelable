@@ -129,9 +129,7 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    # Disabled until the pypi trusted publisher is registered for this repo/workflow/environment.
-    # See https://docs.pypi.org/trusted-publishers/troubleshooting/ (invalid-publisher).
-    if: false
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
     environment: pypi
