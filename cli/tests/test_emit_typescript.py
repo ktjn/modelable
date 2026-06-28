@@ -582,6 +582,56 @@ domain tracing {
     assert "span_kind:" in art.content
 
 
+def test_emit_typescript_ref_field_emits_type_reference_and_import(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain address {
+  owner: "address-team"
+  entity Address @ 1 (additive) {
+    @key addressId: uuid
+    line1: string
+  }
+}
+
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    address: ref<address.Address>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    customer_art = next(a for a in artifacts if a.ref == "customer.Customer@1")
+    # ref<address.Address> resolved in workspace → emit stable interface name, not "string"
+    assert "address: AddressAddressV1;" in customer_art.content
+    # An import statement must be emitted at the top of the file
+    assert "import type { AddressAddressV1 }" in customer_art.content
+
+
+def test_emit_typescript_ref_field_unresolvable_falls_back_to_string(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    address: ref<external.Address>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    customer_art = next(a for a in artifacts if a.ref == "customer.Customer@1")
+    # ref to model not in workspace falls back to "string"
+    assert "address: string;" in customer_art.content
+
+
 def test_emit_typescript_array_of_enum_produces_valid_type(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """

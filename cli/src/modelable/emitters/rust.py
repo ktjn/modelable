@@ -449,11 +449,22 @@ def _field_specs_from_model_fields(
             definitions=definitions,
             rust_hint=wire.get("rust"),
         )
-        default_none = shape.optional or shape.nullable
+        is_optional = shape.optional or shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, shape)
+        # Optional arrays use Vec<T> + #[serde(default)] — Option<Vec<T>> forces unwrap before iteration.
+        if is_optional and shape.kind == "array":
+            is_optional = False
+            serde_attrs = ["#[serde(default)]", *serde_attrs]
+            annotation = _shape_base_annotation(
+                shape,
+                owner_type=owner_type,
+                path=[*path, field.name],
+                definitions=definitions,
+                rust_hint=wire.get("rust"),
+            )
         specs.append(
             _FieldSpec(
-                index=index, name=field.name, annotation=annotation, optional=default_none, serde_attrs=serde_attrs
+                index=index, name=field.name, annotation=annotation, optional=is_optional, serde_attrs=serde_attrs
             )
         )
     return specs

@@ -26,7 +26,7 @@ from modelable.parser.ir import (
     VersionPinned,
     VersionRange,
 )
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref
 
 
 def emit_typescript(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
@@ -34,7 +34,7 @@ def emit_typescript(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact
     for domain in workspace.mdl.domains:
         for model_name, versions in domain.models.items():
             for version in versions:
-                artifacts.append(_emit_model(domain, model_name, version, out_dir))
+                artifacts.append(_emit_model(domain, model_name, version, out_dir, workspace.mdl))
         for projection_name, versions in domain.projections.items():
             for version in versions:
                 artifacts.append(_emit_projection(domain, projection_name, version, out_dir, workspace.mdl))
@@ -54,10 +54,63 @@ def _stable_interface_name(domain: str, name: str, version: int) -> str:
     return f"{_pascalize(domain)}{_pascalize(name)}V{version}"
 
 
-def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path) -> EmittedArtifact:
+def _iface_to_artifact_id(iface_name: str) -> str:
+    """Reverse _stable_interface_name heuristically to produce an artifact id like 'address.Address.v1'."""
+    # Strip trailing Vn suffix
+    m = re.match(r"^(.+?)V(\d+)$", iface_name)
+    if not m:
+        return iface_name.lower()
+    body, ver = m.group(1), m.group(2)
+    # Re-split PascalCase token pairs into domain + model
+    parts = re.findall(r"[A-Z][a-z0-9]*", body)
+    if len(parts) >= 2:
+        domain = parts[0].lower()
+        model = "".join(parts[1:])
+        return f"{domain}.{model}.v{ver}"
+    return f"{body.lower()}.v{ver}"
+
+
+def _collect_ref_imports(field_type, mdl, resolved_refs: dict[str, str]) -> None:
+    """Recursively collect resolved RefType targets into resolved_refs."""
+    if isinstance(field_type, RefType):
+        target = field_type.target
+        if target not in resolved_refs:
+            try:
+                from modelable.parser.ir import VersionMin
+
+                resolved: ResolvedModelRef = resolve_model_ref(mdl, target, VersionMin(min_inclusive=1))
+                iface = _stable_interface_name(resolved.domain_name, resolved.model_name, resolved.version.version)
+                resolved_refs[target] = iface
+            except LookupError, ValueError:
+                pass
+    elif isinstance(field_type, ArrayType):
+        _collect_ref_imports(field_type.item, mdl, resolved_refs)
+    elif isinstance(field_type, MapType):
+        _collect_ref_imports(field_type.value, mdl, resolved_refs)
+    elif isinstance(field_type, ObjectType):
+        for f in field_type.fields:
+            _collect_ref_imports(f.type, mdl, resolved_refs)
+
+
+def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path, mdl=None) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     interface_name = _stable_interface_name(domain.name, model_name, version.version)
-    lines = _metadata_lines(
+
+    # Resolve ref<X> fields to stable interface names; collect imports.
+    resolved_refs: dict[str, str] = {}  # ref target → stable interface name
+    if mdl is not None:
+        for field in version.fields:
+            _collect_ref_imports(field.type, mdl, resolved_refs)
+
+    declaration_json_wire = version.wire_targets().get("json")
+    field_case = declaration_json_wire.field_case if declaration_json_wire is not None else None
+
+    import_lines: list[str] = []
+    for iface in sorted(set(resolved_refs.values())):
+        iface_id = _iface_to_artifact_id(iface)
+        import_lines.append(f'import type {{ {iface} }} from "./{iface_id}";')
+
+    meta_lines = _metadata_lines(
         _domain_metadata_entries(
             domain,
             model_name,
@@ -66,26 +119,28 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
             version.change_kind.value,
         )
     )
-    declaration_json_wire = version.wire_targets().get("json")
-    field_case = declaration_json_wire.field_case if declaration_json_wire is not None else None
-    lines.append(f"export interface {interface_name} {{")
+    body_lines: list[str] = []
+    body_lines.append(f"export interface {interface_name} {{")
     warnings: list[str] = []
     for field in version.fields:
         if isinstance(field.type, NamedType):
             warnings.append(missing_metadata(f"{domain.name}.{model_name}.{field.name}"))
         field_name = _apply_case(field.name, field_case) if field_case else field.name
-        lines.append(
-            f"  {field_name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets())};"
+        body_lines.append(
+            f"  {field_name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets(), resolved_refs=resolved_refs)};"
         )
-    lines.append("}")
-    lines.append(f"export type {model_name} = {interface_name};")
+    body_lines.append("}")
+    body_lines.append(f"export type {model_name} = {interface_name};")
+
+    all_lines = import_lines + ([""] if import_lines else []) + meta_lines + body_lines
+    content = "\n".join(all_lines) + "\n"
     return EmittedArtifact(
         target="typescript",
         ref=f"{domain.name}.{model_name}@{version.version}",
         artifact_id=artifact_id,
         path=out_dir / f"{artifact_id}.ts",
-        content="\n".join(lines) + "\n",
-        content_hash=compute_content_hash("\n".join(lines) + "\n"),
+        content=content,
+        content_hash=compute_content_hash(content),
         warnings=warnings,
     )
 
@@ -226,7 +281,12 @@ def _apply_case(value: str, case: str) -> str:
     return value
 
 
-def _type_to_ts(field_type, *, wire_targets: dict[str, object] | None = None) -> str:
+def _type_to_ts(
+    field_type,
+    *,
+    wire_targets: dict[str, object] | None = None,
+    resolved_refs: dict[str, str] | None = None,
+) -> str:
     json_wire = None
     if wire_targets is not None:
         json_wire = wire_targets.get("json")
@@ -261,6 +321,8 @@ def _type_to_ts(field_type, *, wire_targets: dict[str, object] | None = None) ->
     if isinstance(field_type, MapType):
         return f"Record<string, {_type_to_ts(field_type.value)}>"
     if isinstance(field_type, RefType):
+        if resolved_refs and field_type.target in resolved_refs:
+            return resolved_refs[field_type.target]
         return "string"
     if isinstance(field_type, EnumType):
         case = getattr(json_wire, "case", None) if json_wire is not None else None
@@ -277,7 +339,7 @@ def _type_to_ts(field_type, *, wire_targets: dict[str, object] | None = None) ->
         return values or "string"
     if isinstance(field_type, ObjectType):
         inner = "; ".join(
-            f"{field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets())}"
+            f"{field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets(), resolved_refs=resolved_refs)}"
             for field in field_type.fields
         )
         return f"{{ {inner} }}"
