@@ -92,15 +92,40 @@ def _collect_ref_imports(field_type, mdl, resolved_refs: dict[str, str]) -> None
             _collect_ref_imports(f.type, mdl, resolved_refs)
 
 
+def _collect_named_imports(field_type, mdl, named_imports: dict[str, tuple[str, str]]) -> None:
+    """Recursively resolve NamedType refs to (stable_iface_name, artifact_id) in named_imports."""
+    if isinstance(field_type, NamedType):
+        name = field_type.name
+        if name not in named_imports and mdl is not None:
+            for domain in mdl.domains:
+                if name in domain.models:
+                    versions = domain.models[name]
+                    if versions:
+                        latest = max(versions, key=lambda v: v.version)
+                        iface = _stable_interface_name(domain.name, name, latest.version)
+                        aid = _artifact_id(domain.name, name, latest.version)
+                        named_imports[name] = (iface, aid)
+                        return
+    elif isinstance(field_type, ArrayType):
+        _collect_named_imports(field_type.item, mdl, named_imports)
+    elif isinstance(field_type, MapType):
+        _collect_named_imports(field_type.value, mdl, named_imports)
+    elif isinstance(field_type, ObjectType):
+        for f in field_type.fields:
+            _collect_named_imports(f.type, mdl, named_imports)
+
+
 def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path, mdl=None) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     interface_name = _stable_interface_name(domain.name, model_name, version.version)
 
     # Resolve ref<X> fields to stable interface names; collect imports.
     resolved_refs: dict[str, str] = {}  # ref target → stable interface name
+    named_imports: dict[str, tuple[str, str]] = {}  # bare name → (stable iface name, artifact_id)
     if mdl is not None:
         for field in version.fields:
             _collect_ref_imports(field.type, mdl, resolved_refs)
+            _collect_named_imports(field.type, mdl, named_imports)
 
     declaration_json_wire = version.wire_targets().get("json")
     field_case = declaration_json_wire.field_case if declaration_json_wire is not None else None
@@ -109,6 +134,9 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     for iface in sorted(set(resolved_refs.values())):
         iface_id = _iface_to_artifact_id(iface)
         import_lines.append(f'import type {{ {iface} }} from "./{iface_id}";')
+    for name in sorted(named_imports):
+        iface, aid = named_imports[name]
+        import_lines.append(f'import type {{ {iface} }} from "./{aid}";')
 
     meta_lines = _metadata_lines(
         _domain_metadata_entries(
@@ -123,11 +151,11 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     body_lines.append(f"export interface {interface_name} {{")
     warnings: list[str] = []
     for field in version.fields:
-        if isinstance(field.type, NamedType):
+        if isinstance(field.type, NamedType) and field.type.name not in named_imports:
             warnings.append(missing_metadata(f"{domain.name}.{model_name}.{field.name}"))
         field_name = _apply_case(field.name, field_case) if field_case else field.name
         body_lines.append(
-            f"  {field_name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets(), resolved_refs=resolved_refs)};"
+            f"  {field_name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets(), resolved_refs=resolved_refs, named_imports=named_imports)};"
         )
     body_lines.append("}")
     body_lines.append(f"export type {model_name} = {interface_name};")
@@ -286,6 +314,7 @@ def _type_to_ts(
     *,
     wire_targets: dict[str, object] | None = None,
     resolved_refs: dict[str, str] | None = None,
+    named_imports: dict[str, tuple[str, str]] | None = None,
 ) -> str:
     json_wire = None
     if wire_targets is not None:
@@ -314,12 +343,14 @@ def _type_to_ts(
     if isinstance(field_type, DecimalType):
         return "string"
     if isinstance(field_type, ArrayType):
-        item_ts = _type_to_ts(field_type.item)
+        item_ts = _type_to_ts(field_type.item, resolved_refs=resolved_refs, named_imports=named_imports)
         if isinstance(field_type.item, EnumType):
             return f"({item_ts})[]"
         return f"{item_ts}[]"
     if isinstance(field_type, MapType):
-        return f"Record<string, {_type_to_ts(field_type.value)}>"
+        return (
+            f"Record<string, {_type_to_ts(field_type.value, resolved_refs=resolved_refs, named_imports=named_imports)}>"
+        )
     if isinstance(field_type, RefType):
         if resolved_refs and field_type.target in resolved_refs:
             return resolved_refs[field_type.target]
@@ -339,11 +370,13 @@ def _type_to_ts(
         return values or "string"
     if isinstance(field_type, ObjectType):
         inner = "; ".join(
-            f"{field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets(), resolved_refs=resolved_refs)}"
+            f"{field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets(), resolved_refs=resolved_refs, named_imports=named_imports)}"
             for field in field_type.fields
         )
         return f"{{ {inner} }}"
     if isinstance(field_type, NamedType):
+        if named_imports and field_type.name in named_imports:
+            return named_imports[field_type.name][0]
         return field_type.name
     if field_type is None:
         return "unknown"

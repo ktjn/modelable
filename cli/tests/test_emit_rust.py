@@ -1,6 +1,5 @@
 import hashlib
 
-import pytest
 from click.testing import CliRunner
 
 from modelable.cli import cli
@@ -935,9 +934,6 @@ domain catalog {
     assert "pub status: String," not in art.content
 
 
-@pytest.mark.xfail(
-    reason="Parser grammar does not yet accept numeric-prefixed enum member names; grammar fix required first (issue #95)"
-)
 def test_emit_rust_enum_field_numeric_prefix_sanitized(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """
@@ -1003,3 +999,91 @@ domain catalog {
     assert "pub tags: Vec<String>," in art.content
     assert "Option<Vec" not in art.content
     assert "#[serde(default)]" in art.content
+
+
+def test_emit_rust_warns_on_named_type_field(tmp_path):
+    """Rust emitter emits EMIT003 for NamedType field references (issue #120)."""
+    (tmp_path / "test.mdl").write_text(
+        """
+domain customer {
+  owner: "test-team"
+  value Address {
+    line1: string
+  }
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    address: Address
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    model_art = next(a for a in artifacts if a.ref == "customer.Customer@1")
+    assert model_art.warnings
+    assert any("EMIT003" in w for w in model_art.warnings)
+
+
+def test_emit_rust_omittable_field_has_skip_serializing_if(tmp_path):
+    """Omittable fields (?) get #[serde(skip_serializing_if)] (issue #91)."""
+    (tmp_path / "test.mdl").write_text(
+        """
+domain events {
+  owner: "test-team"
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    name: string
+    description?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "events.Event@1")
+    assert '#[serde(skip_serializing_if = "Option::is_none")]' in art.content
+    assert "pub description: Option<String>," in art.content
+    # Required field must NOT have skip_serializing_if
+    assert art.content.count('#[serde(skip_serializing_if = "Option::is_none")]') == 1
+
+
+def test_emit_rust_cross_record_enum_from_impls(tmp_path):
+    """Enums with identical variants across records in the same domain get From impls (issue #119)."""
+    (tmp_path / "test.mdl").write_text(
+        """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: uuid
+    spanKind: enum(Internal, Server, Client)
+  }
+
+  projection SpanRow @ 1
+    from tracing.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    spanKind <- s.spanKind
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    model_art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    proj_art = next(a for a in artifacts if a.ref == "tracing.SpanRow@1")
+
+    # Both enum types exist
+    assert "pub enum TracingSpanV1SpanKind" in model_art.content
+    assert "pub enum TracingSpanRowV1SpanKind" in proj_art.content
+
+    # Projection file gets From<ModelEnum> for ProjEnum
+    assert "impl From<TracingSpanV1SpanKind> for TracingSpanRowV1SpanKind" in proj_art.content
+    assert "use super::tracing_span_v1::TracingSpanV1SpanKind;" in proj_art.content
+
+    # Model file gets From<ProjEnum> for ModelEnum
+    assert "impl From<TracingSpanRowV1SpanKind> for TracingSpanV1SpanKind" in model_art.content
+    assert "use super::tracing_span_row_v1::TracingSpanRowV1SpanKind;" in model_art.content
