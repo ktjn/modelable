@@ -254,7 +254,10 @@ def _type_to_ts(field_type, *, wire_targets: dict[str, object] | None = None) ->
     if isinstance(field_type, DecimalType):
         return "string"
     if isinstance(field_type, ArrayType):
-        return f"{_type_to_ts(field_type.item)}[]"
+        item_ts = _type_to_ts(field_type.item)
+        if isinstance(field_type.item, EnumType):
+            return f"({item_ts})[]"
+        return f"{item_ts}[]"
     if isinstance(field_type, MapType):
         return f"Record<string, {_type_to_ts(field_type.value)}>"
     if isinstance(field_type, RefType):

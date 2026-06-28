@@ -409,6 +409,28 @@ def _field_name(value: str) -> str:
     return text or "field"
 
 
+def _enum_member_name(value: str) -> str:
+    name = _pascalize(value)
+    if name and name[0].isdigit():
+        name = f"_{name}"
+    return name or "Unknown"
+
+
+def _render_enum_definition(type_name: str, values: list[str]) -> list[str]:
+    derives = ["Debug", "Clone", "PartialEq", "serde::Serialize", "serde::Deserialize"]
+    lines = [
+        f"#[derive({', '.join(derives)})]",
+        f"pub enum {type_name} {{",
+    ]
+    for v in values:
+        member = _enum_member_name(v)
+        if member != v:
+            lines.append(f'    #[serde(rename = "{v}")]')
+        lines.append(f"    {member},")
+    lines.append("}")
+    return lines
+
+
 def _field_specs_from_model_fields(
     fields,
     *,
@@ -511,6 +533,7 @@ def _shape_base_annotation(
             owner_type=owner_type,
             path=[*path, "Item"],
             definitions=definitions,
+            rust_hint=rust_hint,
         )
         return f"Vec<{element_type}>"
     if shape.kind == "map":
@@ -527,7 +550,10 @@ def _shape_base_annotation(
     if shape.kind == "ref":
         return "String"
     if shape.kind == "enum":
-        return "String"
+        enum_type_name = _nested_type_name(owner_type, path)
+        if enum_type_name not in definitions:
+            definitions[enum_type_name] = _render_enum_definition(enum_type_name, list(shape.enum_values))
+        return enum_type_name
     if shape.kind == "named":
         return _pascalize(shape.ref or "Named")
     if shape.kind == "object":
