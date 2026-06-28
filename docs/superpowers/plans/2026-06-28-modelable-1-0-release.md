@@ -146,11 +146,26 @@ Work:
 - Keep emitter decisions documented in the language reference or emitter docs
   when they define a public contract.
 
+Completed 2026-06-28:
+
+- Issues opened: #87–#95 (nine blockers).
+- Fixed in Modelable (PRs #96, #97, #98):
+  - #87 Duplicate binding declarations — workspace deduplicates identical connector bindings; conflicts raise SEM diagnostic.
+  - #88 Rust enum as String — Rust emitter generates `pub enum` types with serde derives.
+  - #90 TypeScript missing cross-model imports — `ref<X>` resolves to stable interface name and emits `import type`.
+  - #92 Invalid TypeScript for `array<enum(...)>` — union wrapped in parentheses: `('A' | 'B')[]`.
+  - #93 `rust.type` ignored for array element — hint now applies inside `Vec<>`.
+  - #94 Default-empty arrays — optional `array<T>` emits `Vec<T>` with `#[serde(default)]`.
+- Decided, not fixed:
+  - #89 Rust timestamp → `String` is by design; `@wire(rust.type: "chrono::DateTime<Utc>")` is the workaround. Closed.
+  - #91 Nullable vs omittable — blocked on grammar; `Option<T>` covers both. Documented.
+  - #95 Numeric-prefixed enum members — blocked on grammar. Test marked `xfail`.
+
 Exit check:
 
-- Each fixed blocker has a local test in Modelable.
-- Observable can remove or reduce local workarounds for the fixed items.
-- No compatibility behavior is changed without a documented versioning decision.
+- Each fixed blocker has a local test in Modelable. ✓
+- Observable can remove or reduce local workarounds for the fixed items. ✓
+- No compatibility behavior is changed without a documented versioning decision. ✓
 
 ## Iteration 3: Observable Conformance Harness
 
@@ -178,6 +193,13 @@ Work in Modelable:
   evidence into the Modelable release notes or a public tracking issue.
 - Do not make Observable-only product decisions part of Modelable's public
   contract unless the Modelable specification is updated.
+
+In progress 2026-06-28:
+
+- Modelable 1.0 release tracking issue: #99.
+- RC pinning commit for Observable: `ddaace7` (current `main` after Iteration 2).
+  Observable install: `pip install git+https://github.com/ktjn/modelable.git@ddaace7`
+- Observable work is pending; evidence will be linked from issue #99.
 
 Exit check:
 
