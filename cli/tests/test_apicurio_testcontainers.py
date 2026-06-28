@@ -1,16 +1,22 @@
 import json
+import os
 import time
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
+import pytest
 from testcontainers.core.container import DockerContainer
 
 from modelable.registry.apicurio import ApicurioArtifact, ApicurioRegistryClient
 
 APICURIO_IMAGE = "apicurio/apicurio-registry:3.3.0"
 
+_docker_enabled = os.environ.get("MODELABLE_DOCKER_TESTS") == "1"
 
+
+@pytest.mark.docker
+@pytest.mark.skipif(not _docker_enabled, reason="set MODELABLE_DOCKER_TESTS=1 to run Docker-dependent tests")
 def test_apicurio_registry_round_trip_with_testcontainers(tmp_path: Path) -> None:
     with DockerContainer(APICURIO_IMAGE).with_exposed_ports(8080) as registry:
         base_url = f"http://{registry.get_container_host_ip()}:{registry.get_exposed_port(8080)}"
