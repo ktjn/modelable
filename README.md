@@ -5,9 +5,10 @@ models. Define canonical models and projections in `.mdl` files, then validate
 their compatibility, inspect field-level lineage, detect governance gaps, and
 generate artifacts for the systems that consume them.
 
-> **Public alpha:** Modelable is usable and tested, but the language, CLI, and
-> generated output may change before 1.0. Breaking changes are documented in
-> [CHANGELOG.md](CHANGELOG.md).
+> **Public alpha — targeting 1.0:** Modelable is usable and tested. The `.mdl`
+> language, CLI, and generated output may still change before 1.0; see
+> [1.0 stable surface](#10-stable-surface) below for what is in and out of
+> scope. Breaking changes are documented in [CHANGELOG.md](CHANGELOG.md).
 
 ## Why Modelable?
 
@@ -81,6 +82,32 @@ The local compiler is the supported alpha surface. Apicurio JSON Schema
 artifact publish/pull is available for derived artifacts. Catalog publishing,
 distributed synchronization, OpenLineage runtime event collection, and runtime
 materialization remain roadmap work.
+
+## 1.0 stable surface
+
+Modelable 1.0 stabilizes the local compiler and language-server toolchain.
+
+**In scope for 1.0:**
+
+- `.mdl` language: syntax, types, projections, ownership, classification, and
+  access metadata.
+- CLI: `validate`, `compile`, `check`, `generate`, `attach`, `spec`, and the
+  language server.
+- Generated artifacts: JSON Schema, TypeScript, C#, Java, Python, Rust, Go,
+  SQL DDL, dbt `schema.yml`, Markdown, FHIR R4 profile, OpenMetadata JSON,
+  OpenLineage event, and ODCS formats.
+- Compatibility, lineage, and governance report output.
+- Apicurio JSON Schema registry artifact push/pull.
+- VS Code extension shipped as a VSIX companion artifact with the 1.0 release.
+
+**Deferred from 1.0:**
+
+- VS Code Marketplace distribution (post-1.0).
+- Live catalog or governance synchronization to OpenMetadata or OpenLineage.
+- Remote tracked-spec polling and authenticated source access.
+- Runtime subscriptions, adapters, replay, and materialization.
+- Distributed registry synchronization beyond the current file-first model.
+- Hosted documentation.
 
 ## Development
 

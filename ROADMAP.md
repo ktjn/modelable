@@ -4,7 +4,24 @@ Modelable's current release is a local compiler and language-server toolchain
 for versioned, domain-owned model contracts. The roadmap is directional; an
 item is not committed until it has an issue and an accepted design.
 
-## Current: public alpha
+## Targeting 1.0
+
+Modelable 1.0 stabilizes the local compiler and language-server toolchain.
+
+**Stable at 1.0:** `.mdl` language, CLI commands (`validate`, `compile`,
+`check`, `generate`, `attach`, `spec`, language server), all current generated
+artifact formats (JSON Schema, TypeScript, C#, Java, Python, Rust, Go, SQL
+DDL, dbt `schema.yml`, Markdown, FHIR R4 profile, OpenMetadata JSON,
+OpenLineage event, ODCS), compatibility and lineage reports, governance findings,
+Apicurio JSON Schema push/pull, and the VS Code extension as a VSIX companion
+artifact.
+
+**Deferred from 1.0:** VS Code Marketplace distribution, live catalog or
+governance synchronization, remote tracked-spec polling, runtime subscriptions
+and materialization, distributed registry synchronization, and hosted
+documentation.
+
+Remaining public-alpha work before 1.0:
 
 - Stabilize the `.mdl` language and diagnostics through external use.
 - Improve compatibility, lineage, and governance reporting.
