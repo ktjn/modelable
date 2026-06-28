@@ -74,6 +74,17 @@ def test_release_workflow_uses_trusted_publishing_and_builds_vsix() -> None:
     assert "if: github.event_name == 'push'" in workflow
 
 
+def test_docs_workflow_deploys_to_github_pages() -> None:
+    workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "docs.yml").read_text(encoding="utf-8")
+
+    assert "push" in workflow
+    assert "main" in workflow
+    assert "mkdocs" in workflow
+    assert "pages: write" in workflow
+    assert "id-token: write" in workflow
+    assert "deploy-pages" in workflow
+
+
 def test_public_docs_do_not_link_to_internal_plans() -> None:
     public_docs = [
         REPOSITORY_ROOT / "README.md",

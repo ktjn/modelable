@@ -1,0 +1,51 @@
+site_name: Modelable
+site_url: https://ktjn.github.io/modelable/
+repo_url: https://github.com/ktjn/modelable
+repo_name: ktjn/modelable
+docs_dir: .
+site_dir: site
+exclude_docs: |
+  cli/**
+  vscode/**
+  samples/**
+  .github/**
+  site/**
+  node_modules/**
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.sections
+    - toc.follow
+
+nav:
+  - Home: README.md
+  - Documentation:
+      - Index: docs/README.md
+      - Getting Started: docs/getting-started.md
+      - Language Reference: docs/language-reference.md
+      - Tooling Reference: docs/cli-reference.md
+      - Compiler Reference: docs/compiler-reference.md
+      - Integrations: docs/integrations.md
+  - Project:
+      - Architecture: docs/architecture.md
+      - Roadmap: ROADMAP.md
+      - Changelog: CHANGELOG.md
+      - Contributing: CONTRIBUTING.md
+      - Governance: GOVERNANCE.md
+      - Security: SECURITY.md
+      - Maintainer Guide: docs/maintainers.md
