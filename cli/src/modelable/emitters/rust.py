@@ -9,7 +9,16 @@ from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import missing_metadata, type_loss
 from modelable.emitters.shapes import TypeShape
-from modelable.parser.ir import DirectMapping, DomainDef, MdlFile, ModelVersion, NamedType, ProjectionVersion
+from modelable.parser.ir import (
+    ArrayType,
+    DirectMapping,
+    DomainDef,
+    MapType,
+    MdlFile,
+    ModelVersion,
+    NamedType,
+    ProjectionVersion,
+)
 from modelable.registry.resolver import resolve_model_ref
 
 
@@ -27,32 +36,34 @@ def _append_cross_enum_from_impls(
     enum_registry: dict[str, dict],
 ) -> list[EmittedArtifact]:
     """For each pair of enum types with identical variants in the same domain,
-    append From impl blocks so the types convert into each other without manual match arms.
+    append From impl blocks into projection files without manual match arms.
     """
-    # Group by domain: domain -> [(artifact_id, module_name, enums_dict)]
-    by_domain: dict[str, list[tuple[str, str, dict[str, list[str]]]]] = {}
+    # Group by domain: domain -> [(artifact_id, module_name, enums_dict, kind)]
+    by_domain: dict[str, list[tuple[str, str, dict[str, list[str]], str]]] = {}
     for art_id, info in enum_registry.items():
         domain = info["domain"]
-        by_domain.setdefault(domain, []).append((art_id, info["module_name"], info["enums"]))
+        by_domain.setdefault(domain, []).append((art_id, info["module_name"], info["enums"], info["kind"]))
 
     # Build: frozenset(raw_variants) -> [(artifact_id, module_name, enum_type_name)]
     # Per domain — From impls only work within the same Rust module tree (super:: path).
     extra: dict[str, list[str]] = {}  # artifact_id -> lines to append
     for _domain, entries in by_domain.items():
-        variant_map: dict[frozenset, list[tuple[str, str, str]]] = {}
-        for art_id, module_name, enums in entries:
+        variant_map: dict[frozenset, list[tuple[str, str, str, str]]] = {}
+        for art_id, module_name, enums, kind in entries:
             for enum_type_name, raw_variants in enums.items():
                 key = frozenset(raw_variants)
-                variant_map.setdefault(key, []).append((art_id, module_name, enum_type_name))
+                variant_map.setdefault(key, []).append((art_id, module_name, enum_type_name, kind))
 
         for variant_set, enum_list in variant_map.items():
             if len(enum_list) < 2:
                 continue
             sorted_variants = sorted(variant_set)
             # For each ordered pair (src → tgt): put From<src> for tgt in tgt's file.
-            for src_art_id, src_module, src_enum in enum_list:
-                for tgt_art_id, _tgt_module, tgt_enum in enum_list:
+            for src_art_id, src_module, src_enum, _src_kind in enum_list:
+                for tgt_art_id, _tgt_module, tgt_enum, tgt_kind in enum_list:
                     if src_art_id == tgt_art_id and src_enum == tgt_enum:
+                        continue
+                    if tgt_kind == "model":
                         continue
                     lines: list[str] = [
                         "",
@@ -100,7 +111,9 @@ def emit_rust(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     for domain in workspace.mdl.domains:
         for model_name, versions in domain.models.items():
             for version in versions:
-                artifacts.append(_emit_model(domain, model_name, version, out_dir, enum_registry=enum_registry))
+                artifacts.append(
+                    _emit_model(domain, model_name, version, out_dir, enum_registry=enum_registry, mdl=workspace.mdl)
+                )
         for projection_name, versions in domain.projections.items():
             for version in versions:
                 source = version.source.model
@@ -157,6 +170,40 @@ def _stable_type_name(domain: str, name: str, version: int) -> str:
     return f"{_pascalize(domain)}{_pascalize(name)}V{version}"
 
 
+def _collect_named_type_refs(field_type, result: set) -> None:
+    """Recursively collect NamedType names from a field type."""
+    if isinstance(field_type, NamedType):
+        result.add(field_type.name)
+    elif isinstance(field_type, ArrayType):
+        _collect_named_type_refs(field_type.item, result)
+    elif isinstance(field_type, MapType):
+        _collect_named_type_refs(field_type.key, result)
+        _collect_named_type_refs(field_type.value, result)
+
+
+def _resolve_named_type_map(named_refs: set, mdl: MdlFile | None) -> tuple[dict[str, str], list[str]]:
+    """Resolve NamedType references to Rust type names from the workspace.
+
+    Returns (name -> rust_type_name, list of use statements).
+    """
+    if not named_refs or mdl is None:
+        return {}, []
+    resolved_map: dict[str, str] = {}
+    use_statements: list[str] = []
+    for name in named_refs:
+        for domain in mdl.domains:
+            if name in domain.models:
+                versions = domain.models[name]
+                if versions:
+                    latest = versions[-1]
+                    rust_name = _stable_type_name(domain.name, name, latest.version)
+                    module = _snake_case(rust_name)
+                    resolved_map[name] = rust_name
+                    use_statements.append(f"use super::{module}::{rust_name};")
+                    break
+    return resolved_map, use_statements
+
+
 def _emit_model(
     domain: DomainDef,
     model_name: str,
@@ -164,30 +211,46 @@ def _emit_model(
     out_dir: Path,
     *,
     enum_registry: dict[str, dict] | None = None,
+    mdl: MdlFile | None = None,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
     local_enum_info: dict[str, list[str]] = {}
+
+    # Resolve NamedType references from the workspace
+    named_refs: set[str] = set()
+    for field in version.fields:
+        _collect_named_type_refs(field.type, named_refs)
+    named_type_map, use_statements = _resolve_named_type_map(named_refs, mdl)
+
     field_specs = _field_specs_from_model_fields(
-        version.fields, owner_type=type_name, path=[], definitions=nested_definitions, enum_info=local_enum_info
+        version.fields,
+        owner_type=type_name,
+        path=[],
+        definitions=nested_definitions,
+        enum_info=local_enum_info,
+        named_type_map=named_type_map,
     )
     if enum_registry is not None:
         enum_registry[artifact_id] = {
             "enums": local_enum_info,
             "module_name": _snake_case(type_name),
             "domain": domain.name,
+            "kind": "model",
         }
 
     warnings: list[str] = []
     for field in version.fields:
-        if isinstance(field.type, NamedType):
+        if isinstance(field.type, NamedType) and field.type.name not in named_type_map:
             warnings.append(missing_metadata(f"{domain.name}.{model_name}.{field.name}"))
 
     needs_serde_with = _any_needs_serde_with(field_specs)
     needs_uuid = _any_needs_uuid(field_specs)
     needs_serde_json = _any_needs_serde_json(field_specs)
-    lines = _header_lines(serde_with=needs_serde_with, uuid=needs_uuid, serde_json=needs_serde_json)
+    lines = _header_lines(
+        serde_with=needs_serde_with, uuid=needs_uuid, serde_json=needs_serde_json, extra_uses=use_statements
+    )
     lines.extend(_render_struct_definition(type_name, field_specs))
     lines.extend(_render_nested_definitions(nested_definitions))
 
@@ -228,18 +291,23 @@ def _emit_projection(
             field_specs.append(_FieldSpec(index=index, name=field.name, annotation="String", optional=False))
             continue
         wire = _resolve_merged_projection_wire(field, version, mdl)
-        annotation = _shape_annotation(
-            field_shape,
-            owner_type=type_name,
-            path=[field.name],
-            definitions=nested_definitions,
-            rust_hint=wire.get("rust"),
-            clickhouse_hint=wire.get("clickhouse"),
-            enum_info=local_enum_info,
-        )
+        if clickhouse_row and field_shape.kind == "enum":
+            # clickhouse-rs 0.15 panics on serialize_unit_variant for typed enums;
+            # force String for all ClickHouse-bound enum fields.
+            annotation = "String"
+        else:
+            annotation = _shape_annotation(
+                field_shape,
+                owner_type=type_name,
+                path=[field.name],
+                definitions=nested_definitions,
+                rust_hint=wire.get("rust"),
+                clickhouse_hint=wire.get("clickhouse"),
+                enum_info=local_enum_info,
+            )
         optional = field_shape.optional or field_shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field_shape, clickhouse=clickhouse_row)
-        if field_shape.optional:
+        if field_shape.optional and not clickhouse_row:
             serde_attrs = ['#[serde(skip_serializing_if = "Option::is_none")]', *serde_attrs]
         field_specs.append(
             _FieldSpec(index=index, name=field.name, annotation=annotation, optional=optional, serde_attrs=serde_attrs)
@@ -267,13 +335,18 @@ def _emit_projection(
         _render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated)
     )
     lines.extend(_render_nested_definitions(nested_definitions))
-    lines.extend(_emit_from_impl(type_name, domain.name, version, mdl, storage_gated=storage_gated))
+    lines.extend(
+        _emit_from_impl(
+            type_name, domain.name, version, mdl, storage_gated=storage_gated, clickhouse_row=clickhouse_row
+        )
+    )
 
     if enum_registry is not None:
         enum_registry[artifact_id] = {
             "enums": local_enum_info,
             "module_name": _snake_case(type_name),
             "domain": domain.name,
+            "kind": "projection",
         }
 
     text = "\n".join(lines) + "\n"
@@ -320,6 +393,7 @@ def _emit_from_impl(
     mdl: MdlFile,
     *,
     storage_gated: bool = False,
+    clickhouse_row: bool = False,
 ) -> list[str]:
     """Emit impl From<SourceModel> for Projection.
 
@@ -352,6 +426,16 @@ def _emit_from_impl(
     if storage_gated:
         lines.append('#[cfg(feature = "storage")]')
     lines.append(f"use super::{src_module}::{src_type_name};")
+    if clickhouse_row:
+        for proj_field in version.fields:
+            if not isinstance(proj_field.mapping, DirectMapping):
+                continue
+            field_shape = _resolve_projection_field_shape(proj_field, version, mdl)
+            if field_shape is not None and field_shape.kind == "enum":
+                enum_type = _nested_type_name(src_type_name, [proj_field.mapping.source_field])
+                if storage_gated:
+                    lines.append('#[cfg(feature = "storage")]')
+                lines.append(f"use super::{src_module}::{enum_type};")
     if storage_gated:
         lines.append('#[cfg(feature = "storage")]')
     lines.append(f"impl From<{src_type_name}> for {proj_type_name} {{")
@@ -363,7 +447,15 @@ def _emit_from_impl(
         if isinstance(proj_field.mapping, DirectMapping):
             src_rust_name = _field_name(proj_field.mapping.source_field)
             field_shape = _resolve_projection_field_shape(proj_field, version, mdl)
-            if _projection_field_is_json_passthrough_to_string(proj_field, version, mdl):
+            if clickhouse_row and field_shape is not None and field_shape.kind == "enum":
+                # ClickHouse-bound enum fields are stored as String; generate explicit match.
+                src_enum_type = _nested_type_name(src_type_name, [proj_field.mapping.source_field])
+                lines.append(f"            {rust_name}: match src.{src_rust_name} {{")
+                for raw_v in field_shape.enum_values:
+                    member = _enum_member_name(raw_v)
+                    lines.append(f'                {src_enum_type}::{member} => "{raw_v}".to_string(),')
+                lines.append("            },")
+            elif _projection_field_is_json_passthrough_to_string(proj_field, version, mdl):
                 lines.append(
                     f"            {rust_name}: serde_json::to_string(&src.{src_rust_name}).unwrap_or_default(),"
                 )
@@ -435,6 +527,7 @@ def _header_lines(
     clickhouse: bool = False,
     uuid: bool = False,
     serde_json: bool = False,
+    extra_uses: list[str] | None = None,
 ) -> list[str]:
     lines = [
         "// @generated by Modelable",
@@ -451,6 +544,9 @@ def _header_lines(
         lines.insert(1, "// requires: uuid (https://docs.rs/uuid)")
     if serde_json:
         lines.insert(1, "// requires: serde_json (https://docs.rs/serde_json)")
+    if extra_uses:
+        # Insert use statements just before the trailing empty string
+        lines[-1:-1] = extra_uses
     return lines
 
 
@@ -540,6 +636,7 @@ def _field_specs_from_model_fields(
     path: list[str],
     definitions: dict[str, list[str]],
     enum_info: dict[str, list[str]] | None = None,
+    named_type_map: dict[str, str] | None = None,
 ) -> list[_FieldSpec]:
     specs: list[_FieldSpec] = []
     for index, field in enumerate(fields):
@@ -552,6 +649,7 @@ def _field_specs_from_model_fields(
             definitions=definitions,
             rust_hint=wire.get("rust"),
             enum_info=enum_info,
+            named_type_map=named_type_map,
         )
         is_optional = shape.optional or shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, shape)
@@ -616,6 +714,7 @@ def _shape_annotation(
     rust_hint=None,
     clickhouse_hint=None,
     enum_info: dict[str, list[str]] | None = None,
+    named_type_map: dict[str, str] | None = None,
 ) -> str:
     base = _shape_base_annotation(
         shape,
@@ -625,6 +724,7 @@ def _shape_annotation(
         rust_hint=rust_hint,
         clickhouse_hint=clickhouse_hint,
         enum_info=enum_info,
+        named_type_map=named_type_map,
     )
     if shape.optional or shape.nullable:
         return f"Option<{base}>"
@@ -640,6 +740,7 @@ def _shape_base_annotation(
     rust_hint=None,
     clickhouse_hint=None,
     enum_info: dict[str, list[str]] | None = None,
+    named_type_map: dict[str, str] | None = None,
 ) -> str:
     clickhouse_string = clickhouse_hint is not None and getattr(clickhouse_hint, "encoding", None) == "string"
     if shape.kind == "primitive":
@@ -659,6 +760,7 @@ def _shape_base_annotation(
             definitions=definitions,
             rust_hint=rust_hint,
             enum_info=enum_info,
+            named_type_map=named_type_map,
         )
         return f"Vec<{element_type}>"
     if shape.kind == "map":
@@ -671,6 +773,7 @@ def _shape_base_annotation(
             path=[*path, "Value"],
             definitions=definitions,
             enum_info=enum_info,
+            named_type_map=named_type_map,
         )
         return f"HashMap<String, {value_type}>"
     if shape.kind == "ref":
@@ -683,6 +786,8 @@ def _shape_base_annotation(
             enum_info[enum_type_name] = list(shape.enum_values)
         return enum_type_name
     if shape.kind == "named":
+        if named_type_map is not None and shape.ref in named_type_map:
+            return named_type_map[shape.ref]
         return _pascalize(shape.ref or "Named")
     if shape.kind == "object":
         type_name = _nested_type_name(owner_type, path)

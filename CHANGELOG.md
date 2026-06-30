@@ -6,6 +6,47 @@ breaking changes when they are called out explicitly.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-06-28
+
+### Fixed
+
+- Rust emitter now emits enum-typed fields in `#[derive(clickhouse::Row)]`
+  projection structs as `String`, and generates explicit `match` arms in the
+  corresponding `From` impl converting each variant to its raw wire string.
+  Fixes a clickhouse-rs 0.15 panic on `serialize_unit_variant` for String
+  columns (#119).
+- Rust emitter no longer emits `EMIT003` for `NamedType` fields whose types
+  exist in the same workspace; it resolves them to `use super::...` imports
+  and stable Rust type names instead. `EMIT003` still fires for genuinely
+  unresolvable types (#120).
+- TypeScript emitter now places auto-generated `import type` statements after
+  the `@modelable` JSDoc meta block instead of before it (#123).
+- Rust emitter now omits `#[serde(skip_serializing_if = "Option::is_none")]`
+  from `#[derive(clickhouse::Row)]` projection structs; ClickHouse expects all
+  columns present so nullable fields must serialize as NULL, not be absent
+  (#124).
+- Rust emitter now places bidirectional enum `From` impls only in projection
+  (Row) files, not in domain model files, eliminating domain→storage coupling
+  (#125).
+
+## [1.0.1] - 2026-06-28
+
+### Fixed
+
+- Rust emitter now emits `#[serde(skip_serializing_if = "Option::is_none")]` on
+  omittable (`?`) fields and bare `Option<T>` on nullable fields, correctly
+  distinguishing the two semantics (#91).
+- Grammar now accepts numeric-prefixed enum member names such as `3gpp`; the
+  Rust emitter sanitises them to `_3gpp` with a `#[serde(rename)]` attribute
+  (#95).
+- TypeScript emitter now generates `import type` statements for `NamedType`
+  field references that resolve within the same workspace (#118).
+- Rust emitter now generates `impl From<A> for B` between enum types with
+  identical variant sets across records in the same domain (#119).
+- Rust emitter now emits an `EMIT003` warning when a field references a
+  `NamedType` that cannot be resolved, matching TypeScript emitter behaviour
+  (#120).
+
 ## [1.0.0] - 2026-06-28
 
 ### Added

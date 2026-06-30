@@ -677,13 +677,44 @@ domain nlq {
     artifacts = emit_typescript(workspace, tmp_path / "out")
     ir_art = next(a for a in artifacts if "NlqIr" in a.ref)
 
-    # Resolved named type uses stable interface name, not bare name
-    assert "NlqNlqTimeRangeV" in ir_art.content
-    # An import type statement is emitted
-    assert "import type {" in ir_art.content
-    assert "NlqNlqTimeRange" in ir_art.content
+    # Resolved named type uses the exported short alias as the canonical name.
+    assert "timeRange: NlqTimeRange;" in ir_art.content
+    assert 'import type { NlqTimeRange } from "./nlq.NlqTimeRange.v0";' in ir_art.content
+    assert "NlqNlqTimeRangeV" not in ir_art.content
     # EMIT003 must NOT be emitted when the type is successfully resolved
     assert not any("EMIT003" in w for w in ir_art.warnings)
+
+
+def test_emit_typescript_named_type_imports_after_docblock_and_uses_alias(tmp_path):
+    """NamedType imports use the exported short alias after the metadata docblock."""
+    (tmp_path / "test.mdl").write_text(
+        """
+domain nlq {
+  owner: "test-team"
+  value NlqFilter {
+    field: string
+    value: string
+  }
+  value NlqIr {
+    filters: array<NlqFilter>
+    query: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    ir_art = next(a for a in artifacts if "NlqIr" in a.ref)
+    lines = ir_art.content.splitlines()
+
+    docblock_end = lines.index(" */")
+    import_index = lines.index('import type { NlqFilter } from "./nlq.NlqFilter.v0";')
+    interface_index = lines.index("export interface NlqNlqIrV0 {")
+
+    assert docblock_end < import_index < interface_index
+    assert "filters: NlqFilter[];" in ir_art.content
+    assert "NlqNlqFilterV" not in ir_art.content
 
 
 def test_emit_typescript_named_type_unresolvable_still_warns(tmp_path):
