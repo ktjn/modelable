@@ -22,6 +22,8 @@ one role.
   product concepts, invariants, and current/deferred boundaries.
 - [External integrations](integrations.md): shipped dbt/FHIR/ODCS drift
   workflows, local export targets, and non-committed integration research.
+- [Modelable and Supercargo](comparison-supercargo.md): how Modelable's
+  contract-first compiler relates to Supercargo's runtime governance layer.
 - [Maintainer and agent guide](maintainers.md): local gates, review policy,
   release process, and automation rules.
 

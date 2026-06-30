@@ -32,5 +32,6 @@ nav:
   - Tooling Reference: cli-reference.md
   - Compiler Reference: compiler-reference.md
   - Integrations: integrations.md
+  - Supercargo Comparison: comparison-supercargo.md
   - Architecture: architecture.md
   - Maintainer Guide: maintainers.md
