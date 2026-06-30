@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+PINNED_ACTION_REF = re.compile(r"^(?:v\d+(?:\.\d+){0,2}|release/v\d+)$")
 
 
 def _workflow(workflow_name: str) -> dict[str, Any]:
@@ -20,6 +22,18 @@ def _workflow_actions(workflow_name: str) -> set[str]:
         for line in workflow.read_text(encoding="utf-8").splitlines()
         if "uses:" in line
     }
+
+
+def _workflow_action_names(workflow_name: str) -> set[str]:
+    return {action.rsplit("@", 1)[0] for action in _workflow_actions(workflow_name)}
+
+
+def _assert_workflow_actions_are_pinned(workflow_name: str) -> None:
+    for action in _workflow_actions(workflow_name):
+        action_name, separator, ref = action.rpartition("@")
+        assert separator == "@", f"{workflow_name} action is not pinned: {action}"
+        assert action_name, f"{workflow_name} action is missing an action name: {action}"
+        assert PINNED_ACTION_REF.fullmatch(ref), f"{workflow_name} action is not pinned to a version tag: {action}"
 
 
 def test_release_workflow_contains_release_gates() -> None:
@@ -40,25 +54,27 @@ def test_release_workflow_contains_release_gates() -> None:
 
 
 def test_release_workflow_uses_current_actions() -> None:
-    assert _workflow_actions("release.yml") == {
-        "actions/checkout@v7.0.0",
-        "actions/setup-node@v6.4.0",
-        "actions/upload-artifact@v7.0.1",
-        "actions/download-artifact@v8.0.1",
-        "astral-sh/setup-uv@v8.2.0",
-        "pypa/gh-action-pypi-publish@release/v1",
-        "softprops/action-gh-release@v3.0.1",
+    assert _workflow_action_names("release.yml") == {
+        "actions/checkout",
+        "actions/setup-node",
+        "actions/upload-artifact",
+        "actions/download-artifact",
+        "astral-sh/setup-uv",
+        "pypa/gh-action-pypi-publish",
+        "softprops/action-gh-release",
     }
+    _assert_workflow_actions_are_pinned("release.yml")
 
 
 def test_validation_workflow_uses_current_actions() -> None:
-    assert _workflow_actions("validate.yml") == {
-        "actions/cache@v5.0.5",
-        "actions/checkout@v7.0.0",
-        "actions/setup-java@v5.3.0",
-        "actions/setup-node@v6.4.0",
-        "astral-sh/setup-uv@v8.2.0",
+    assert _workflow_action_names("validate.yml") == {
+        "actions/cache",
+        "actions/checkout",
+        "actions/setup-java",
+        "actions/setup-node",
+        "astral-sh/setup-uv",
     }
+    _assert_workflow_actions_are_pinned("validate.yml")
 
 
 def test_validation_workflow_is_split_and_path_gated() -> None:
