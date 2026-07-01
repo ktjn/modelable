@@ -34,8 +34,9 @@ Generated artifacts are consumer contracts, not the source of truth. Commit
 `.mdl` definitions; regenerate schemas, language bindings, and Markdown in CI
 unless a consumer workflow deliberately reviews generated output.
 
-Before upgrading, read the root [changelog](../CHANGELOG.md) for language or
-artifact compatibility notes.
+Before upgrading, read the root
+[changelog](https://github.com/ktjn/modelable/blob/main/CHANGELOG.md) for
+language or artifact compatibility notes.
 
 > **Status:** Approved guidance for adopting Modelable from existing schema and contract formats.
 >

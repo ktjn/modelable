@@ -39,6 +39,7 @@ def test_python_package_has_stable_release_metadata() -> None:
     assert project["authors"]
     assert project["maintainers"]
     assert project["urls"]["Repository"] == "https://github.com/ktjn/modelable"
+    assert project["urls"]["Documentation"] == "https://ktjn.github.io/modelable/"
     assert "Development Status :: 5 - Production/Stable" in project["classifiers"]
     assert "Programming Language :: Python :: 3.14" in project["classifiers"]
 
@@ -89,7 +90,7 @@ def test_docs_workflow_deploys_to_github_pages() -> None:
 
     assert "push" in workflow
     assert "main" in workflow
-    assert "mkdocs" in workflow
+    assert "mkdocs build --strict" in workflow
     assert "pages: write" in workflow
     assert "id-token: write" in workflow
     assert "deploy-pages" in workflow

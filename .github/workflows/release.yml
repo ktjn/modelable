@@ -192,6 +192,8 @@ jobs:
         uses: softprops/action-gh-release@v3.0.1
         with:
           generate_release_notes: true
+          body: |
+            Documentation: https://ktjn.github.io/modelable/
           files: |
             dist/*.whl
             dist/*.tar.gz

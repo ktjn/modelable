@@ -4,6 +4,8 @@ repo_url: https://github.com/ktjn/modelable
 repo_name: ktjn/modelable
 docs_dir: docs
 site_dir: site
+exclude_docs: |
+  superpowers/
 
 theme:
   name: material
@@ -31,6 +33,7 @@ nav:
   - Language Reference: language-reference.md
   - Tooling Reference: cli-reference.md
   - Compiler Reference: compiler-reference.md
+  - Conformance Fixture: conformance.md
   - Integrations: integrations.md
   - Architecture: architecture.md
   - Maintainer Guide: maintainers.md

@@ -18,14 +18,18 @@ artifact.
 
 **Deferred from 1.0 (tracked as issues):** VS Code Marketplace distribution
 (#104), live catalog or governance synchronization (#105), remote tracked-spec
-polling (#106), a public conformance fixture for contributors (#107), hosted
-documentation (#108), distributed registry synchronization (#109), and runtime
+polling (#106), distributed registry synchronization (#109), and runtime
 subscriptions and materialization (#110).
 
 ## Next
 
 Recently shipped, still hardening:
 
+- Hosted documentation is published at
+  [ktjn.github.io/modelable](https://ktjn.github.io/modelable/) from `main`;
+  continue treating broken docs builds and links as release-blocking issues.
+- The public conformance fixture under `samples/conformance/` mirrors the
+  formerly private release checks for contributor-facing smoke coverage.
 - `modelable generate --from` now bootstraps `.mdl` models from dbt
   `manifest.json`/`schema.yml`, FHIR R4 `StructureDefinition`, and ODCS
   documents; continue hardening edge cases (complex FHIR types, dbt
@@ -55,7 +59,7 @@ Deferred, not yet started:
 
 - Runtime subscriptions, adapters, replay, and materialization.
 - Distributed registry synchronization beyond the current file-first model.
-- Hosted documentation and VS Code Marketplace distribution.
+- VS Code Marketplace distribution.
 
 See [docs/architecture.md](docs/architecture.md) for the
 product model and [GitHub issues](https://github.com/ktjn/modelable/issues) for

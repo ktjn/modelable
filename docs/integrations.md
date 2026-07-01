@@ -6,7 +6,8 @@
 > OpenLineage local export, `modelable attach`/`modelable spec` drift review
 > for dbt/FHIR/ODCS, and `modelable publish apicurio`/`modelable pull
 > apicurio` for the JSON Schema artifact registry. Not committed and
-> requiring an issue and accepted design per [ROADMAP.md](../ROADMAP.md):
+> requiring an issue and accepted design per
+> [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md):
 > live catalog/governance synchronization, remote tracked-spec polling, and
 > the additional artifact targets and tools surveyed in §4. This
 > document consolidates earlier tool-boundary research and extends
@@ -332,7 +333,7 @@ the consolidated research summary above.
 
 This slots into the existing phased plan from
 [the integration boundary](#current-integration-boundary) and
-[ROADMAP.md](../ROADMAP.md):
+[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md):
 
 | Phase | Existing focus | New additions from this document |
 |---|---|---|

@@ -48,7 +48,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/ktjn/modelable"
-Documentation = "https://github.com/ktjn/modelable/tree/main/docs"
+Documentation = "https://ktjn.github.io/modelable/"
 Repository = "https://github.com/ktjn/modelable"
 Issues = "https://github.com/ktjn/modelable/issues"
 Changelog = "https://github.com/ktjn/modelable/blob/main/CHANGELOG.md"
