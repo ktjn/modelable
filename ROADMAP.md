@@ -18,9 +18,9 @@ artifact.
 
 **Deferred from 1.0 (tracked as issues):** VS Code Marketplace distribution
 (#104), live catalog or governance synchronization (#105), remote tracked-spec
-polling (#106), runtime subscriptions and materialization (#107), distributed
-registry synchronization (#108), hosted documentation (#109), and a public
-conformance fixture for contributors (#110).
+polling (#106), a public conformance fixture for contributors (#107), hosted
+documentation (#108), distributed registry synchronization (#109), and runtime
+subscriptions and materialization (#110).
 
 ## Next
 

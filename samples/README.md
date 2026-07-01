@@ -8,6 +8,11 @@ Some scenarios intentionally include future-phase constructs such as `materialis
 
 The strict Phase 1 acceptance sample is the separate minimal `samples/mvp/` set defined by the MVP implementation plan. These scenario examples are broader product examples and are not required to pass strict MVP validation unless a scenario explicitly says so.
 
+The `samples/conformance/` fixture is different from the narrative scenarios:
+it is a small public regression fixture for generated-artifact behavior that
+contributors can run without access to private downstream projects. See
+[docs/conformance.md](../docs/conformance.md).
+
 ---
 
 ## Scenario Index
