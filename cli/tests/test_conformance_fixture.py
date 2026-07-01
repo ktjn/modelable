@@ -20,7 +20,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from click.testing import CliRunner
 
+from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.rust import emit_rust
 from modelable.emitters.typescript import emit_typescript
@@ -51,6 +53,11 @@ def _rust(artifacts, ref: str):
 
 def _ts(artifacts, ref: str):
     return next(a for a in artifacts if a.ref == ref)
+
+
+def test_public_conformance_fixture_validates_cleanly():
+    result = CliRunner().invoke(cli, ["validate", str(FIXTURE_DIR)])
+    assert result.exit_code == 0, result.output
 
 
 class TestRustEnum:

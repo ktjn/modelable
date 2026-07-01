@@ -292,10 +292,10 @@ Completed 2026-06-28:
   - #104 VS Code Marketplace distribution
   - #105 Live catalog/governance synchronization (OpenMetadata, OpenLineage)
   - #106 Remote tracked-spec polling and authenticated source access
-  - #107 Runtime subscriptions, adapters, replay, and materialization
-  - #108 Distributed registry synchronization
-  - #109 Hosted documentation
-  - #110 Public conformance fixture for contributors
+  - #107 Public conformance fixture for contributors
+  - #108 Hosted documentation
+  - #109 Distributed registry synchronization
+  - #110 Runtime subscriptions, adapters, replay, and materialization
 - ROADMAP.md updated: "Targeting 1.0" → "1.0 — shipped 2026-06-28" with
   deferred items linked to their tracking issues.
 - `docs/maintainers.md` section 9 added: 1.x compatibility policy covering

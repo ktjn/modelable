@@ -303,4 +303,5 @@ minor versions are not actively patched; upgrade to the latest 1.x.
 
 **Observable conformance** remains the external runtime evidence for
 significant emitter or compiler changes. For contributor-accessible conformance,
-use the public fixture tracked in issue #110.
+use the public fixture tracked in issue #107 and documented in
+[conformance.md](conformance.md).
