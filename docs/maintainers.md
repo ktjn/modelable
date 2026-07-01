@@ -41,6 +41,11 @@ Agents must:
   OpenMetadata export format, including `openmetadata` emitter code, shared
   emitter metadata helpers, IR field/governance metadata shape, projection
   lineage resolution, or OpenMetadata CLI/documentation contracts.
+- Run the Marquez/OpenLineage Testcontainers smoke for any change that can
+  affect OpenLineage event export or live lineage synchronization, including
+  `openlineage` emitter code, the OpenLineage registry client, sync command
+  wiring, shared emitter metadata helpers, projection lineage resolution, or
+  OpenLineage CLI/documentation contracts.
 - Run the Data Contract CLI lint smoke for any change that can affect the ODCS
   export format, including `odcs` emitter code, shared emitter metadata helpers,
   IR field/governance metadata shape, or ODCS CLI/documentation contracts.
@@ -146,7 +151,7 @@ Test gates are selected by risk and touched surface.
 | Planner, lineage, compatibility, or governance | Focused tests for changed behavior plus representative projection and governance fixtures |
 | Emitters or generated artifacts | Focused emitter tests, deterministic output comparison, fixture regeneration review, and Docker-backed compile smoke tests for every affected language backend |
 | OpenMetadata export format | `uv run pytest tests/test_emit_openmetadata.py -q` plus `MODELABLE_OPENMETADATA_TESTCONTAINERS=1 uv run pytest tests/test_openmetadata_testcontainers.py -q` from `cli/` |
-| OpenLineage export format | `uv run pytest tests/test_emit_openlineage.py -q` from `cli/`; runtime event collection is not part of the local emitter gate |
+| OpenLineage export or sync format | `uv run pytest tests/test_emit_openlineage.py tests/test_openlineage_sync.py -q` plus `MODELABLE_OPENLINEAGE_TESTCONTAINERS=1 uv run pytest tests/test_openlineage_testcontainers.py -q` from `cli/` |
 | ODCS export format | `uv run pytest tests/test_emit_odcs.py -q` plus `MODELABLE_DATACONTRACT_CLI=1 uv run --with datacontract-cli pytest tests/test_emit_odcs.py --tb=short -q` from `cli/` |
 | FHIR R4 profile export format | `uv run pytest tests/test_emit_fhir.py tests/test_fhir_validator.py -q` plus `MODELABLE_FHIR_VALIDATOR=1 MODELABLE_FHIR_VALIDATOR_JAR=<path-to-validator_cli.jar> uv run pytest tests/test_fhir_validator.py --tb=short -q` from `cli/` when the HL7 validator jar is available |
 | LSP, VS Code extension, or editor integration | Focused LSP tests plus `cd vscode && npm ci && npm run build && npm test` |
@@ -214,6 +219,11 @@ The OpenMetadata live-smoke CI job must run with
 `MODELABLE_OPENMETADATA_TESTCONTAINERS=1` when changes affect the OpenMetadata
 export format so the generated artifact is checked against a live OpenMetadata
 server stack.
+
+The OpenLineage live-smoke CI job must run with
+`MODELABLE_OPENLINEAGE_TESTCONTAINERS=1` when changes affect OpenLineage export
+or sync behavior so generated events are posted to a live Marquez-compatible
+lineage backend.
 
 The ODCS lint-smoke CI job must run with `MODELABLE_DATACONTRACT_CLI=1` and
 `datacontract-cli` available when changes affect the ODCS export format so

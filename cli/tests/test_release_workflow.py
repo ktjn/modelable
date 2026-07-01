@@ -102,7 +102,7 @@ def test_validation_workflow_uses_current_actions() -> None:
 def test_validation_workflow_is_split_and_path_gated() -> None:
     workflow = _workflow("validate.yml")
     jobs = workflow["jobs"]
-    expected_surfaces = {"cli", "vscode", "odcs", "openmetadata", "fhir"}
+    expected_surfaces = {"cli", "vscode", "odcs", "openmetadata", "openlineage", "fhir"}
 
     assert set(jobs["changes"]["outputs"]) == expected_surfaces
     detection_steps = [
@@ -124,6 +124,7 @@ def test_validation_workflow_uses_distinct_uv_cache_suffixes() -> None:
         "cli": "cli",
         "odcs": "odcs",
         "openmetadata": "openmetadata",
+        "openlineage": "openlineage",
         "fhir": "fhir",
         "vscode": "vscode",
     }

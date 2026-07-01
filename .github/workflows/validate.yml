@@ -20,6 +20,7 @@ jobs:
       vscode: ${{ steps.filter.outputs.vscode }}
       odcs: ${{ steps.filter.outputs.odcs }}
       openmetadata: ${{ steps.filter.outputs.openmetadata }}
+      openlineage: ${{ steps.filter.outputs.openlineage }}
       fhir: ${{ steps.filter.outputs.fhir }}
 
     steps:
@@ -230,6 +231,63 @@ jobs:
           MODELABLE_FHIR_VALIDATOR: "1"
           MODELABLE_FHIR_VALIDATOR_JAR: /tmp/validator_cli.jar
         run: uv run pytest tests/test_fhir_validator.py --tb=short -q
+
+  openlineage:
+    name: OpenLineage live smoke
+    needs: changes
+    if: needs.changes.outputs.openlineage == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: cli
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: cli/uv.lock
+          cache-suffix: openlineage
+
+      - name: Install Python
+        run: uv python install 3.14
+
+      - name: Sync dependencies
+        run: uv sync --extra dev --frozen
+
+      - name: Restore Marquez Docker image cache
+        id: marquez-image-cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: /tmp/modelable-marquez-images.tar
+          key: marquez-images-0.51.1-postgres-14-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Load cached Marquez Docker images
+        if: steps.marquez-image-cache.outputs.cache-hit == 'true'
+        run: docker load --input /tmp/modelable-marquez-images.tar
+
+      - name: Pull Marquez Docker images
+        if: steps.marquez-image-cache.outputs.cache-hit != 'true'
+        run: |
+          docker pull marquezproject/marquez:0.51.1
+          docker pull postgres:14
+
+      - name: Save Marquez Docker image cache
+        if: steps.marquez-image-cache.outputs.cache-hit != 'true'
+        run: |
+          docker save --output /tmp/modelable-marquez-images.tar \
+            marquezproject/marquez:0.51.1 \
+            postgres:14
+
+      - name: Run Marquez OpenLineage Testcontainers smoke
+        env:
+          MODELABLE_OPENLINEAGE_TESTCONTAINERS: "1"
+          MODELABLE_MARQUEZ_PULL: "0"
+        run: uv run pytest tests/test_openlineage_testcontainers.py --tb=short -q
 
   vscode:
     name: VS Code Smoke

@@ -13,6 +13,8 @@ breaking changes when they are called out explicitly.
 - `modelable sync --lineage marquez` posts generated OpenLineage events to a
   Marquez-compatible `/api/v1/lineage` endpoint, with `--dry-run` support for
   reviewing events before publishing (#105).
+- Validate CI now has a path-gated OpenLineage live-smoke job that posts
+  generated events to a Marquez Testcontainers stack (#105).
 
 ## [1.0.2] - 2026-06-28
 
