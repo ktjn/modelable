@@ -5,7 +5,7 @@ import os
 from collections.abc import Iterable
 from pathlib import Path
 
-SURFACE_NAMES = ("cli", "vscode", "odcs", "openmetadata", "fhir")
+SURFACE_NAMES = ("cli", "vscode", "odcs", "openmetadata", "openlineage", "fhir")
 WORKFLOW_POLICY_FILES = {
     ".github/scripts/detect_validate_surfaces.py",
     ".github/workflows/validate.yml",
@@ -45,6 +45,7 @@ def detect_surfaces(changed_files: Iterable[str], *, event_name: str = "pull_req
     if any(_has_external_export_risk(path) for path in paths):
         outputs["odcs"] = True
         outputs["openmetadata"] = True
+        outputs["openlineage"] = True
         outputs["fhir"] = True
 
     if any(path == "cli/src/modelable/emitters/odcs.py" or path == "cli/tests/test_emit_odcs.py" for path in paths):
@@ -58,6 +59,20 @@ def detect_surfaces(changed_files: Iterable[str], *, event_name: str = "pull_req
         outputs["openmetadata"] = True
 
     if any(
+        path
+        in {
+            "cli/src/modelable/emitters/openlineage.py",
+            "cli/src/modelable/registry/openlineage.py",
+            "cli/src/modelable/commands/sync.py",
+            "cli/tests/test_emit_openlineage.py",
+            "cli/tests/test_openlineage_sync.py",
+            "cli/tests/test_openlineage_testcontainers.py",
+        }
+        for path in paths
+    ):
+        outputs["openlineage"] = True
+
+    if any(
         path in {"cli/src/modelable/emitters/fhir.py", "cli/src/modelable/emitters/fhir_validator.py"}
         or path in {"cli/tests/test_emit_fhir.py", "cli/tests/test_fhir_validator.py"}
         for path in paths
@@ -67,17 +82,20 @@ def detect_surfaces(changed_files: Iterable[str], *, event_name: str = "pull_req
     if any(path in {"cli/src/modelable/emitters/base.py", "cli/src/modelable/emitters/shapes.py"} for path in paths):
         outputs["odcs"] = True
         outputs["openmetadata"] = True
+        outputs["openlineage"] = True
         outputs["fhir"] = True
 
     if any(path == "cli/src/modelable/emitters/targets.py" for path in paths):
         outputs["cli"] = True
         outputs["odcs"] = True
         outputs["openmetadata"] = True
+        outputs["openlineage"] = True
         outputs["fhir"] = True
 
     if any(path in _export_contract_docs() for path in paths):
         outputs["odcs"] = True
         outputs["openmetadata"] = True
+        outputs["openlineage"] = True
         outputs["fhir"] = True
 
     return outputs

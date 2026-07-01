@@ -17,10 +17,8 @@ Apicurio JSON Schema push/pull, and the VS Code extension as a VSIX companion
 artifact.
 
 **Deferred from 1.0 (tracked as issues):** VS Code Marketplace distribution
-(#104), live catalog or governance synchronization beyond the first Marquez
-OpenLineage sync target (#105), remote tracked-spec polling (#106),
-distributed registry synchronization (#109), and runtime subscriptions and
-materialization (#110).
+(#104), remote tracked-spec polling (#106), distributed registry
+synchronization (#109), and runtime subscriptions and materialization (#110).
 
 ## Next
 
@@ -44,13 +42,14 @@ Recently shipped, still hardening:
   Validator smoke; continue hardening deep/recursive structure coverage.
 - OpenMetadata and OpenLineage local export are implemented, and
   `modelable sync --lineage marquez` can post OpenLineage events to a
-  Marquez-compatible endpoint; continue validating OpenMetadata output and
-  hardening live catalog synchronization against real consumers.
+  Marquez-compatible endpoint with a live Testcontainers smoke; continue
+  validating OpenMetadata output and hardening live catalog synchronization
+  against real consumers.
 
 Deferred, not yet started:
 
 - Live OpenMetadata catalog synchronization once local export has enough
-  validation evidence for a specific deployment target.
+  validation evidence for a specific deployment target and a follow-up issue.
 - Remote tracked-spec polling and authenticated source access for dbt, FHIR,
   ODCS, and future external specifications (current support is local-file
   only).

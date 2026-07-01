@@ -26,6 +26,7 @@ def test_docs_only_change_skips_code_and_external_smoke_jobs() -> None:
         "vscode": False,
         "odcs": False,
         "openmetadata": False,
+        "openlineage": False,
         "fhir": False,
     }
 
@@ -40,6 +41,7 @@ def test_cli_change_runs_core_cli_job_without_unrelated_external_smokes() -> Non
         "vscode": False,
         "odcs": False,
         "openmetadata": False,
+        "openlineage": False,
         "fhir": False,
     }
 
@@ -53,6 +55,7 @@ def test_lsp_change_runs_cli_and_vscode_jobs() -> None:
     assert outputs["vscode"] is True
     assert outputs["odcs"] is False
     assert outputs["openmetadata"] is False
+    assert outputs["openlineage"] is False
     assert outputs["fhir"] is False
 
 
@@ -61,6 +64,7 @@ def test_export_format_surfaces_run_only_relevant_external_smokes() -> None:
 
     assert detector.detect_surfaces(["cli/src/modelable/emitters/odcs.py"])["odcs"] is True
     assert detector.detect_surfaces(["cli/src/modelable/emitters/openmetadata.py"])["openmetadata"] is True
+    assert detector.detect_surfaces(["cli/src/modelable/emitters/openlineage.py"])["openlineage"] is True
     assert detector.detect_surfaces(["cli/src/modelable/emitters/fhir.py"])["fhir"] is True
 
 
@@ -74,6 +78,7 @@ def test_shared_model_graph_change_runs_all_export_smokes() -> None:
         "vscode": False,
         "odcs": True,
         "openmetadata": True,
+        "openlineage": True,
         "fhir": True,
     }
 
