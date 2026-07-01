@@ -3,12 +3,12 @@
 > **Status:** Mixed — shipped local integrations alongside research/planning
 > for deferred ones. Shipped: dbt `schema.yml` export/import, FHIR R4
 > `StructureDefinition` export/import, ODCS export/import, OpenMetadata and
-> OpenLineage local export, `modelable attach`/`modelable spec` drift review
+> OpenLineage local export and Marquez lineage sync, `modelable attach`/`modelable spec` drift review
 > for dbt/FHIR/ODCS, and `modelable publish apicurio`/`modelable pull
 > apicurio` for the JSON Schema artifact registry. Not committed and
 > requiring an issue and accepted design per
 > [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md):
-> live catalog/governance synchronization, remote tracked-spec polling, and
+> live OpenMetadata catalog synchronization, remote tracked-spec polling, and
 > the additional artifact targets and tools surveyed in §4. This
 > document consolidates earlier tool-boundary research and extends
 > [getting-started.md](getting-started.md) with concept mappings and
@@ -27,12 +27,14 @@ catalog UI, generated-code consumption, interchange, and runtime execution.
 
 Current local outputs include JSON Schema, Markdown, TypeScript, C#, Java,
 Python, Rust, Go, SQL DDL, dbt `schema.yml`, FHIR R4 profiles,
-OpenMetadata JSON, and OpenLineage event JSON. `modelable attach` provides
+OpenMetadata JSON, and OpenLineage event JSON. `modelable sync --lineage
+marquez` can post those OpenLineage events to a live Marquez-compatible
+`/api/v1/lineage` endpoint. `modelable attach` provides
 one-off dbt/FHIR/ODCS drift review, `modelable spec` tracks local
 dbt/FHIR/ODCS files in
 `.modelable/specs.yml` for repeatable status/diff/sync workflows, and Apicurio
 publish/pull provides the shipped live JSON Schema artifact-registry workflow.
-Live catalog synchronization, remote tracked-spec polling, additional schema
+Live OpenMetadata catalog synchronization, remote tracked-spec polling, additional schema
 targets, CDC, brokers, materializers, and API gateways remain deferred until
 they have an issue and accepted design.
 
@@ -318,7 +320,7 @@ from a Modelable workspace, reusing the Markdown emitter.
 
 | Tool / standard | What it is | Why relevant to Modelable | Suggested alignment | Phase |
 |---|---|---|---|---|
-| **OpenLineage** | Open standard for lineage events (job/run/dataset/column facets); adopted by Airflow, Spark, dbt, OpenMetadata, and major cloud catalogs | Modelable's internal lineage graph can be exported as OpenLineage `ColumnLineageDatasetFacet` events, letting catalogs that already consume OpenLineage ingest Modelable lineage without a bespoke integration | Local `modelable compile --target openlineage` emits deterministic design-time events with schema and column-lineage facets; runtime event collection remains deferred | 3 |
+| **OpenLineage** | Open standard for lineage events (job/run/dataset/column facets); adopted by Airflow, Spark, dbt, OpenMetadata, and major cloud catalogs | Modelable's internal lineage graph can be exported as OpenLineage `ColumnLineageDatasetFacet` events, letting catalogs that already consume OpenLineage ingest Modelable lineage without a bespoke integration | Local `modelable compile --target openlineage` emits deterministic design-time events with schema and column-lineage facets; `modelable sync --lineage marquez` posts those events to a Marquez-compatible `/api/v1/lineage` endpoint; runtime event collection remains deferred | 3 |
 | **Open Data Contract Standard (ODCS) / Data Contract CLI** | Vendor-neutral data contract interchange format | Already on the roadmap (Phase 4); reaffirm — dbt model contracts and FHIR profiles both have partial overlap with ODCS fields (owner, classification, quality) | Local ODCS import preserves key, required, PII, owner, classification, version, and Modelable exact type hints for `attach`/`spec` and `generate --from`, including normalized string boolean flags and `customProperties` emitted by `compile --target odcs`; `modelable compile --target odcs` exports ODCS v3.1.0 YAML for models and projections; Data Contract CLI lint validation is implemented in local and CI gates | 4 |
 | **Apache Iceberg / Delta Lake (table formats)** | Open table formats with schema evolution (add/rename/widen columns with stable field IDs) | Schema evolution semantics (stable column IDs, additive-only safe changes) closely mirror Modelable's additive/breaking model and the field-ID concern already flagged for Protobuf | Potential `--target iceberg-schema` emitter reusing the same field-ID stability mechanism proposed for Protobuf | 5 |
 | **Snowplow / Segment tracking plans** | Versioned event-schema governance for product analytics | "Event model + classification + versioning" maps closely to Modelable's `event` kind and `@classification` | Potential compile target for analytics/event-tracking teams | 5 |

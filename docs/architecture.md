@@ -1054,7 +1054,8 @@ See the [Modelable Tooling Reference](cli-reference.md) for the full command ref
 
 ### Shipped beyond the original MVP scope
 
-- OpenMetadata and OpenLineage local export (`compile --target openmetadata|openlineage`).
+- OpenMetadata and OpenLineage local export (`compile --target openmetadata|openlineage`) plus
+  Marquez-compatible OpenLineage event sync (`sync --lineage marquez`).
 - ODCS / Data Contract CLI local import/export and lint validation.
 - dbt `schema.yml` export/import, FHIR R4 `StructureDefinition` export/import.
 - Multi-source joins in projections (composite-key joins across domains).
@@ -1065,7 +1066,8 @@ See the [Modelable Tooling Reference](cli-reference.md) for the full command ref
 - PostgreSQL storage adapter (Phase 5).
 - Kafka stream adapter (Phase 5).
 - Materialized projection into PostgreSQL (Phase 5).
-- Live OpenMetadata/OpenLineage catalog synchronization (local export only is shipped; see [integrations.md](integrations.md)).
+- Live OpenMetadata catalog synchronization (local export only is shipped; see [integrations.md](integrations.md)).
+- Runtime OpenLineage event collection beyond design-time Modelable events.
 - Avro, Protobuf, OpenAPI, AsyncAPI generation (Phase 5) — import-only support exists via LLM-assisted generators.
 - Stateful aggregations.
 - Windowed aggregations.

@@ -27,7 +27,8 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | dbt `schema.yml` | 4 | Implemented local artifact |
 | FHIR R4 profile | 4b | Implemented local artifact for Patient, Observation, and Encounter profile bases |
 | Apicurio Registry | 2 | Implemented JSON Schema artifact publish/pull |
-| OpenMetadata export | 3 | Implemented local artifact; live sync deferred |
+| OpenMetadata export | 3 | Implemented local artifact; live catalog sync deferred |
+| OpenLineage sync | 3 | Implemented for Marquez-compatible `/api/v1/lineage` endpoints |
 | OpenLineage export | 3 | Implemented local artifact; runtime collection deferred |
 | ODCS export | 4 | Implemented local artifact |
 | Avro | 5 | Deferred |

@@ -87,12 +87,13 @@ Modelable 1.0 stabilizes the local compiler and language-server toolchain.
   OpenLineage event, and ODCS formats.
 - Compatibility, lineage, and governance report output.
 - Apicurio JSON Schema registry artifact push/pull.
+- Marquez-compatible OpenLineage event sync via `modelable sync --lineage`.
 - VS Code extension shipped as a VSIX companion artifact with the 1.0 release.
 
 **Deferred from 1.0:**
 
 - VS Code Marketplace distribution (post-1.0).
-- Live catalog or governance synchronization to OpenMetadata or OpenLineage.
+- Live OpenMetadata catalog synchronization and runtime OpenLineage collection.
 - Remote tracked-spec polling and authenticated source access.
 - Runtime subscriptions, adapters, replay, and materialization.
 - Distributed registry synchronization beyond the current file-first model.
