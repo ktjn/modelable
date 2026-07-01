@@ -1,15 +1,16 @@
 # Maintainer and Agent Guide
 
 This document defines how automated and human-assisted agents operate within the
-[Project Governance](../GOVERNANCE.md). It is process guidance for agents, not
-product semantics. The product source of truth remains
+[Project Governance](https://github.com/ktjn/modelable/blob/main/GOVERNANCE.md).
+It is process guidance for agents, not product semantics. The product source of
+truth remains
 [architecture.md](architecture.md).
 
 ## 1. Purpose
 
 Agent governance exists to keep repository changes reviewable, locally
 verifiable, and aligned with Modelable's core contract guarantees and
-[Product Principles](../GOVERNANCE.md#3-product-principles-in-governance):
+[Product Principles](https://github.com/ktjn/modelable/blob/main/GOVERNANCE.md#3-product-principles-in-governance):
 
 - Published model and projection versions are immutable.
 - Incompatible changes require new versions.
@@ -23,7 +24,10 @@ These rules apply to documentation, samples, future source code, tests, generate
 
 Agents must:
 
-- Consult [AGENTS.md](../AGENTS.md) for the current project state and [ROADMAP.md](../ROADMAP.md) for planned work before starting.
+- Consult [AGENTS.md](https://github.com/ktjn/modelable/blob/main/AGENTS.md)
+  for the current project state and
+  [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) for
+  planned work before starting.
 - Read the relevant specification before editing.
 - Keep changes small enough for meaningful review.
 - Add or update tests with any code change that affects parser behavior, validation, compatibility checks, lineage, planning, runtime execution, governance, security, or generated artifacts.
@@ -106,9 +110,11 @@ Run these commands from `cli/`. The final non-mutating Ruff checks are required
 after any auto-fix or formatting step; they mirror the first CLI gates in
 GitHub Actions and prevent unformatted changes from skipping the test suite.
 If the formatter or static-analysis commands change, update this section,
-[AGENTS.md](../AGENTS.md), and [CONTRIBUTING.md](../CONTRIBUTING.md) together.
+[AGENTS.md](https://github.com/ktjn/modelable/blob/main/AGENTS.md), and
+[CONTRIBUTING.md](https://github.com/ktjn/modelable/blob/main/CONTRIBUTING.md)
+together.
 **If a milestone is completed, update the status table in
-[AGENTS.md](../AGENTS.md).**
+[AGENTS.md](https://github.com/ktjn/modelable/blob/main/AGENTS.md).**
 
 For LSP or VS Code extension changes, also run:
 

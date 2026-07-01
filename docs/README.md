@@ -1,8 +1,9 @@
 # Modelable Documentation
 
-Start with the [root README](../README.md) for the shortest installation and
-example path. The documentation set is intentionally small; each document has
-one role.
+Start with the
+[root README](https://github.com/ktjn/modelable/blob/main/README.md) for the
+shortest installation and example path. The documentation set is intentionally
+small; each document has one role.
 
 ## Use Modelable
 
@@ -14,7 +15,8 @@ one role.
   AI-assisted authoring, and development tooling.
 - [Compiler reference](compiler-reference.md): emitters, generated artifacts,
   compatibility metadata, registry state, and distributed lineage.
-- [Sample scenarios](../samples/README.md): worked `.mdl` examples.
+- [Sample scenarios](https://github.com/ktjn/modelable/tree/main/samples):
+  worked `.mdl` examples.
 
 ## Understand the Project
 
@@ -25,7 +27,9 @@ one role.
 - [Maintainer and agent guide](maintainers.md): local gates, review policy,
   release process, and automation rules.
 
-The [roadmap](../ROADMAP.md) is directional. A deferred item is not committed
-until it has an issue and accepted design. Project-level policy remains in
-[GOVERNANCE.md](../GOVERNANCE.md), [CONTRIBUTING.md](../CONTRIBUTING.md), and
-[SECURITY.md](../SECURITY.md).
+The [roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) is
+directional. A deferred item is not committed until it has an issue and
+accepted design. Project-level policy remains in
+[GOVERNANCE.md](https://github.com/ktjn/modelable/blob/main/GOVERNANCE.md),
+[CONTRIBUTING.md](https://github.com/ktjn/modelable/blob/main/CONTRIBUTING.md),
+and [SECURITY.md](https://github.com/ktjn/modelable/blob/main/SECURITY.md).

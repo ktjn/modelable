@@ -96,7 +96,6 @@ Modelable 1.0 stabilizes the local compiler and language-server toolchain.
 - Remote tracked-spec polling and authenticated source access.
 - Runtime subscriptions, adapters, replay, and materialization.
 - Distributed registry synchronization beyond the current file-first model.
-- Hosted documentation.
 
 ## Development
 

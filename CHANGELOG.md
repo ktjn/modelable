@@ -6,6 +6,11 @@ breaking changes when they are called out explicitly.
 
 ## [Unreleased]
 
+### Added
+
+- Hosted documentation is published with MkDocs on GitHub Pages and linked from
+  package metadata and GitHub releases (#108).
+
 ## [1.0.2] - 2026-06-28
 
 ### Fixed

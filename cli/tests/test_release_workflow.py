@@ -51,6 +51,7 @@ def test_release_workflow_contains_release_gates() -> None:
     assert "environment: pypi" in text
     assert "id-token: write" in text
     assert "npm run package" in text
+    assert "https://ktjn.github.io/modelable/" in text
 
 
 def test_release_workflow_uses_current_actions() -> None:
@@ -64,6 +65,27 @@ def test_release_workflow_uses_current_actions() -> None:
         "softprops/action-gh-release",
     }
     _assert_workflow_actions_are_pinned("release.yml")
+
+
+def test_docs_workflow_uses_current_actions() -> None:
+    assert _workflow_action_names("docs.yml") == {
+        "actions/checkout",
+        "actions/deploy-pages",
+        "actions/upload-pages-artifact",
+        "astral-sh/setup-uv",
+    }
+    _assert_workflow_actions_are_pinned("docs.yml")
+
+
+def test_docs_workflow_builds_strict_mkdocs_site() -> None:
+    workflow = _workflow("docs.yml")
+    steps = workflow["jobs"]["build"]["steps"]
+    commands = "\n".join(step["run"] for step in steps if "run" in step)
+
+    assert "mkdocs==1.6.1" in commands
+    assert "mkdocs-material==9.7.6" in commands
+    assert "mkdocs build --strict" in commands
+    assert workflow["jobs"]["deploy"]["environment"]["url"] == "${{ steps.deployment.outputs.page_url }}"
 
 
 def test_validation_workflow_uses_current_actions() -> None:
