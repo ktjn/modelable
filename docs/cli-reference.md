@@ -613,7 +613,35 @@ modelable compile ./models --target openlineage --out ./dist/openlineage
 
 ---
 
-### 5.17 `compile --target fhir-profile` — Export FHIR R4 profiles
+### 5.17 `sync --lineage marquez` — Push OpenLineage events to Marquez
+
+```text
+modelable sync PATH --lineage marquez --url URL [--token TOKEN] [--dry-run]
+```
+
+**Phase 3 — implemented for the first live lineage target.**
+
+Generates the same deterministic OpenLineage events as
+`compile --target openlineage` and posts each event to a Marquez-compatible
+`POST /api/v1/lineage` endpoint. `--url` may be either the Marquez base URL or
+the full lineage endpoint URL. `--token` sends a bearer token; when omitted,
+the command reads `MODELABLE_OPENLINEAGE_TOKEN`.
+
+`--dry-run` lists the events that would be posted without contacting the
+backend. Catalog synchronization is reserved through the same command surface
+(`--catalog openmetadata`) but remains unimplemented until the OpenMetadata
+target design is accepted.
+
+**Examples:**
+
+```bash
+modelable sync ./models --lineage marquez --url http://localhost:5000
+modelable sync ./models --lineage marquez --url http://localhost:5000 --dry-run
+```
+
+---
+
+### 5.18 `compile --target fhir-profile` — Export FHIR R4 profiles
 
 ```text
 modelable compile PATH --target fhir-profile --out DIR
@@ -652,19 +680,21 @@ modelable compile ./models --target fhir-profile --out ./dist/fhir
 
 ---
 
-### 5.18 `publish openmetadata` — Push metadata to OpenMetadata
+### 5.19 `sync --catalog openmetadata` — Push metadata to OpenMetadata
 
 ```text
-modelable publish openmetadata PATH [--url URL]
+modelable sync PATH --catalog openmetadata --url URL
 ```
 
 **Phase 3 — not yet implemented.**
 
-Pushes the OpenMetadata export document to a live OpenMetadata instance.
+Reserved command surface for pushing the OpenMetadata export document to a live
+OpenMetadata instance. Use `compile --target openmetadata` for local export and
+`sync --lineage marquez` for the implemented live lineage target.
 
 ---
 
-### 5.19 `compile --target odcs` — Export Open Data Contract Standard documents
+### 5.20 `compile --target odcs` — Export Open Data Contract Standard documents
 
 ```text
 modelable compile PATH --target odcs --out DIR

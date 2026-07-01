@@ -13,6 +13,7 @@ from modelable.commands.lsp import register_lsp_commands
 from modelable.commands.runtime import register_runtime_commands
 from modelable.commands.scenario import register_scenario_commands
 from modelable.commands.spec import register_spec_commands
+from modelable.commands.sync import register_sync_commands
 from modelable.commands.workspace import register_workspace_commands
 
 
@@ -39,3 +40,4 @@ register_scenario_commands(cli)
 register_runtime_commands(cli)
 register_apicurio_commands(cli)
 register_spec_commands(cli)
+register_sync_commands(cli)

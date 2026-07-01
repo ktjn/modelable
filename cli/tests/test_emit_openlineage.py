@@ -47,6 +47,7 @@ domain customer {
     event = projection_art.content
     assert event["eventType"] == "COMPLETE"
     assert event["producer"] == "https://github.com/ktjn/modelable"
+    assert event["schemaURL"] == "https://openlineage.io/spec/1-0-5/OpenLineage.json#/definitions/RunEvent"
     assert event["job"] == {
         "namespace": "modelable://customer",
         "name": "compile/customer.CustomerSummary.v1",

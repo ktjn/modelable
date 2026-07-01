@@ -28,6 +28,7 @@ from modelable.parser.ir import (
 from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref
 
 PRODUCER = "https://github.com/ktjn/modelable"
+RUN_EVENT_SCHEMA_URL = "https://openlineage.io/spec/1-0-5/OpenLineage.json#/definitions/RunEvent"
 SCHEMA_FACET_URL = "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json"
 COLUMN_LINEAGE_FACET_URL = "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json"
 EVENT_TIME = "1970-01-01T00:00:00.000Z"
@@ -112,6 +113,7 @@ def _event(
         "inputs": inputs or [],
         "outputs": outputs,
         "producer": PRODUCER,
+        "schemaURL": RUN_EVENT_SCHEMA_URL,
     }
 
 

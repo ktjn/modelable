@@ -10,6 +10,9 @@ breaking changes when they are called out explicitly.
 
 - Hosted documentation is published with MkDocs on GitHub Pages and linked from
   package metadata and GitHub releases (#108).
+- `modelable sync --lineage marquez` posts generated OpenLineage events to a
+  Marquez-compatible `/api/v1/lineage` endpoint, with `--dry-run` support for
+  reviewing events before publishing (#105).
 
 ## [1.0.2] - 2026-06-28
 
