@@ -16,9 +16,11 @@ OpenLineage event, ODCS), compatibility and lineage reports, governance findings
 Apicurio JSON Schema push/pull, and the VS Code extension as a VSIX companion
 artifact.
 
-**Deferred from 1.0 (tracked as issues):** VS Code Marketplace distribution
-(#104), remote tracked-spec polling (#106), distributed registry
-synchronization (#109), and runtime subscriptions and materialization (#110).
+**Deferred from 1.0:** VS Code Marketplace distribution, remote tracked-spec
+polling, distributed registry synchronization, live OpenMetadata catalog
+synchronization, and runtime subscriptions and materialization. These remain
+future candidates until a fresh issue and accepted design define a concrete
+implementation slice.
 
 ## Next
 
@@ -46,20 +48,22 @@ Recently shipped, still hardening:
   validating OpenMetadata output and hardening live catalog synchronization
   against real consumers.
 
-Deferred, not yet started:
+Deferred candidates, not yet started:
 
 - Live OpenMetadata catalog synchronization once local export has enough
   validation evidence for a specific deployment target and a follow-up issue.
 - Remote tracked-spec polling and authenticated source access for dbt, FHIR,
   ODCS, and future external specifications (current support is local-file
   only).
+- VS Code Marketplace distribution.
+- Distributed registry synchronization beyond the current file-first model.
+- Runtime subscriptions, adapters, replay, and materialization.
 - Additional artifact formats driven by concrete consumers.
 
 ## Later
 
-- Runtime subscriptions, adapters, replay, and materialization.
-- Distributed registry synchronization beyond the current file-first model.
-- VS Code Marketplace distribution.
+- Advanced runtime adapters, materializers, and distributed registry services
+  after the deferred candidates above have accepted designs.
 
 See [docs/architecture.md](docs/architecture.md) for the
 product model and [GitHub issues](https://github.com/ktjn/modelable/issues) for
