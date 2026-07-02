@@ -26,6 +26,7 @@ from modelable.emitters.typescript import emit_typescript
 from modelable.planner.plans import write_plans
 from modelable.registry.factory import get_registry
 from modelable.registry.index import build_registry
+from modelable.registry.oci import OCIRegistryError
 
 _DEFAULT_OUT_DIRS: dict[str, Path] = {
     target.name: target.default_out_dir
@@ -57,17 +58,24 @@ def register_compile_commands(cli_group: click.Group) -> None:
 @click.option(
     "--registry",
     "registry_path",
-    type=click.Path(path_type=Path),
-    default=Path(".modelable/registry.db"),
+    type=str,
+    default=".modelable/registry.db",
     help="Path to the registry index file.",
 )
-def compile(source: Path, target: str, out_dir: Path | None, registry_path: Path) -> None:
+def compile(source: Path, target: str, out_dir: Path | None, registry_path: str) -> None:
     """Compile Modelable definitions and write the local registry index."""
     workspace = load_workspace_or_exit(source)
 
-    build_registry(workspace, registry_path.parent)
     registry = get_registry(registry_path)
-    registry.push(registry_path)
+    if registry_path.startswith("oci://"):
+        built_registry_path = build_registry(workspace, Path(".modelable"))
+    else:
+        local_registry_path = Path(registry_path)
+        built_registry_path = build_registry(workspace, local_registry_path.parent)
+    try:
+        registry.push(built_registry_path)
+    except OCIRegistryError as exc:
+        raise click.ClickException(str(exc)) from exc
     console.print(f"[green]OK[/green] wrote {registry_path}")
 
     plans_dir = Path(".modelable/plans")
