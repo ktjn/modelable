@@ -266,20 +266,13 @@ environment. Do not add long-lived package-index credentials. Do not blindly
 rerun a failed publication; inspect the first failure and publish a new version
 if an immutable artifact already reached the index.
 
-### 1.0 release additional requirements
+### 1.0 release outcome
 
-Before tagging the 1.0 final:
-
-- Register the PyPI trusted publisher (`ktjn/modelable`, `release.yml`,
-  `pypi` environment) and remove the `if: false` guard from the `publish` job
-  in `.github/workflows/release.yml`.
-- Attach Observable conformance evidence (PR link or sanitized log) to the
-  Modelable 1.0 release issue before merging the release PR.
-- Replace public-alpha wording in `README.md`, `CONTRIBUTING.md`, and
-  `SECURITY.md` with 1.0 stable references as part of the release PR.
-- Update `SECURITY.md` supported-versions to reflect the 1.0 stable support
-  policy (security fixes applied to latest stable, earlier versions asked to
-  upgrade).
+Modelable 1.0 is tagged and published. The PyPI publish job uses trusted
+publishing through the protected `pypi` environment, repository documentation
+uses the 1.0 stable-surface language, and `SECURITY.md` defines the current
+1.0.x support policy. The VS Code Marketplace publish job remains disabled
+because Marketplace distribution is deferred from the 1.0 surface.
 
 ## 9. 1.x Compatibility Policy
 
