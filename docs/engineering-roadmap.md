@@ -11,26 +11,7 @@ file so a reader can verify the claim without re-deriving it.
 
 ## Correctness and reliability
 
-### 1. `oci://` registry paths silently no-op instead of failing
-
-**Evidence:** `cli/src/modelable/registry/oci.py` — `OCIRegistry.push()` and
-`.pull()` each contain only a `# TODO` comment and a `print(f"... (not
-implemented)")`. `cli/src/modelable/registry/factory.py` routes any registry
-path beginning with `oci://` to this class, and
-`cli/src/modelable/commands/compile.py:70` calls `registry.push(...)`
-unconditionally as part of `modelable compile`.
-
-**Impact:** A user who points `--registry` at an `oci://` URL gets a silent
-no-op: the command exits successfully, prints a line easy to miss in normal
-output, and nothing is pushed or pulled. This is a data-loss-shaped footgun
-(the user believes their artifact was published to the registry).
-
-**Suggested fix:** Either implement OCI push/pull, or raise
-`NotImplementedError` (or a clear `ModelableError`) from both methods so the
-CLI fails loudly instead of pretending to succeed. Add a test asserting the
-failure behavior either way.
-
-### 2. `mypy --strict` is configured but not enforced anywhere
+### 1. `mypy --strict` is configured but not enforced anywhere
 
 **Evidence:** `cli/pyproject.toml` sets `[tool.mypy] strict = true`, but
 `mypy` does not appear in `.github/workflows/validate.yml`, and both
@@ -50,7 +31,7 @@ introduce errors beyond the baseline. Shrink the baseline opportunistically
 as modules are touched. This turns "not clean yet" into a ratchet instead of
 an indefinitely deferred gate.
 
-### 3. No dependency vulnerability scanning in CI
+### 2. No dependency vulnerability scanning in CI
 
 **Evidence:** No `pip-audit`, `osv-scanner`, `safety`, or similar step exists
 in any workflow under `.github/workflows/`. `codeql.yml` covers static
@@ -64,7 +45,7 @@ sit unnoticed between Dependabot's weekly cadence and manual awareness.
 `cli/` and an `npm audit --omit=dev` (or equivalent) step for `vscode/` to
 `validate.yml`, gated the same way as the other changed-surface jobs.
 
-### 4. CodeQL only runs on manual `workflow_dispatch`
+### 3. CodeQL only runs on manual `workflow_dispatch`
 
 **Evidence:** `.github/workflows/codeql.yml` has `on: workflow_dispatch`
 only — no `push`, `pull_request`, or `schedule` trigger.
@@ -78,7 +59,7 @@ consider adding `push: branches: [main]` if runtime cost is acceptable.
 
 ## Test and coverage visibility
 
-### 5. `pytest-cov` is installed but coverage is never measured in CI
+### 4. `pytest-cov` is installed but coverage is never measured in CI
 
 **Evidence:** `cli/pyproject.toml` declares `pytest-cov` as a dev dependency
 and configures `[tool.coverage.run] source = ["src/modelable"]`, but
@@ -99,7 +80,7 @@ is optional; visibility alone is the main win.
 
 ## Dependency management
 
-### 6. Dependabot groups every dependency into one PR per ecosystem
+### 5. Dependabot groups every dependency into one PR per ecosystem
 
 **Evidence:** `.github/dependabot.yml` uses `patterns: ["*"]` for the
 `python-dependencies`, `vscode-dependencies`, and `actions` groups, so all
@@ -127,9 +108,6 @@ independently of routine dependency churn.
   `uv`'s Python 3.14 download failed in this sandboxed environment). Worth a
   one-line rationale in `CONTRIBUTING.md` so new contributors don't wonder
   why the floor is so high.
-- **`registry/oci.py` scope:** if OCI support isn't planned soon, consider
-  removing the `oci://` routing from `factory.py` entirely until a real
-  implementation exists, rather than shipping a reachable dead code path.
 
 ## Out of scope for this document
 

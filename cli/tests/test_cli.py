@@ -165,6 +165,41 @@ domain customer {
         assert "registry.db" in result.output
 
 
+def test_compile_with_oci_registry_fails_loudly(tmp_path):
+    mdl = tmp_path / "customer.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            cli,
+            [
+                "compile",
+                str(mdl),
+                "--target",
+                "markdown",
+                "--registry",
+                "oci://registry.example/modelable",
+                "--out",
+                str(tmp_path / "dist"),
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "OCI registry support is not implemented" in result.output
+        assert "OK wrote oci://registry.example/modelable" not in result.output
+
+
 def test_graph_export_writes_json_from_workspace(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
