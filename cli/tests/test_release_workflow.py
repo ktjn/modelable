@@ -136,6 +136,15 @@ def test_validation_workflow_uses_distinct_uv_cache_suffixes() -> None:
         assert setup_uv_steps[0]["with"]["cache-suffix"] == expected_suffix
 
 
+def test_validation_workflow_runs_dependency_audits() -> None:
+    workflow = _workflow("validate.yml")
+    cli_commands = "\n".join(step["run"] for step in workflow["jobs"]["cli"]["steps"] if "run" in step)
+    vscode_commands = "\n".join(step["run"] for step in workflow["jobs"]["vscode"]["steps"] if "run" in step)
+
+    assert "uv run --with pip-audit pip-audit --strict --progress-spinner off" in cli_commands
+    assert "npm audit --omit=dev" in vscode_commands
+
+
 def test_codeql_workflow_has_required_permissions() -> None:
     workflow = REPOSITORY_ROOT / ".github" / "workflows" / "codeql.yml"
     text = workflow.read_text(encoding="utf-8")
@@ -148,3 +157,10 @@ def test_codeql_workflow_has_required_permissions() -> None:
         assert permission in text
 
     assert "upload: never" in text
+
+
+def test_codeql_workflow_runs_on_schedule() -> None:
+    workflow = _workflow("codeql.yml")
+
+    assert "workflow_dispatch" in workflow[True]
+    assert workflow[True]["schedule"] == [{"cron": "27 3 * * 1"}]

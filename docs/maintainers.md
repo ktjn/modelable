@@ -191,9 +191,9 @@ Review feedback is blocking when it identifies:
 
 ## 6. CI and Remote Gate Expectations
 
-Remote CI mirrors the local Ruff, test, VS Code, and external-smoke gates for
-the changed surface. It does not replace local verification for ordinary
-development.
+Remote CI mirrors the local Ruff, test, VS Code, dependency-audit, and
+external-smoke gates for the changed surface. It does not replace local
+verification for ordinary development.
 
 Recommended CI gate sequence as implementation expands:
 
@@ -201,6 +201,7 @@ Recommended CI gate sequence as implementation expands:
 format check
 static analysis or type check
 unit tests
+dependency audit
 fixture-based compiler tests
 lineage, compatibility, and governance regression tests
 emitter determinism tests

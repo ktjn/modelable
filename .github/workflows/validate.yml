@@ -91,6 +91,9 @@ jobs:
       - name: Run tests
         run: uv run pytest --tb=short
 
+      - name: Audit Python dependencies
+        run: uv run --with pip-audit pip-audit --strict --progress-spinner off
+
   odcs:
     name: ODCS lint smoke
     needs: changes
@@ -331,4 +334,8 @@ jobs:
 
       - name: Run VS Code smoke tests
         run: xvfb-run -a npm test
+        working-directory: vscode
+
+      - name: Audit VS Code production dependencies
+        run: npm audit --omit=dev
         working-directory: vscode
