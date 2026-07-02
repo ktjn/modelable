@@ -31,35 +31,9 @@ introduce errors beyond the baseline. Shrink the baseline opportunistically
 as modules are touched. This turns "not clean yet" into a ratchet instead of
 an indefinitely deferred gate.
 
-### 2. No dependency vulnerability scanning in CI
-
-**Evidence:** No `pip-audit`, `osv-scanner`, `safety`, or similar step exists
-in any workflow under `.github/workflows/`. `codeql.yml` covers static
-analysis of first-party code but not known-vulnerable third-party
-dependencies.
-
-**Impact:** A vulnerable transitive or direct dependency (Python or npm) can
-sit unnoticed between Dependabot's weekly cadence and manual awareness.
-
-**Suggested fix:** Add a `pip-audit` (or `uv pip audit` equivalent) step for
-`cli/` and an `npm audit --omit=dev` (or equivalent) step for `vscode/` to
-`validate.yml`, gated the same way as the other changed-surface jobs.
-
-### 3. CodeQL only runs on manual `workflow_dispatch`
-
-**Evidence:** `.github/workflows/codeql.yml` has `on: workflow_dispatch`
-only — no `push`, `pull_request`, or `schedule` trigger.
-
-**Impact:** CodeQL results are only as fresh as the last time someone
-remembered to trigger the workflow by hand. In practice this means static
-security analysis is effectively not running on an ongoing basis.
-
-**Suggested fix:** Add a `schedule` trigger (e.g. weekly) at minimum;
-consider adding `push: branches: [main]` if runtime cost is acceptable.
-
 ## Test and coverage visibility
 
-### 4. `pytest-cov` is installed but coverage is never measured in CI
+### 2. `pytest-cov` is installed but coverage is never measured in CI
 
 **Evidence:** `cli/pyproject.toml` declares `pytest-cov` as a dev dependency
 and configures `[tool.coverage.run] source = ["src/modelable"]`, but
@@ -80,7 +54,7 @@ is optional; visibility alone is the main win.
 
 ## Dependency management
 
-### 5. Dependabot groups every dependency into one PR per ecosystem
+### 3. Dependabot groups every dependency into one PR per ecosystem
 
 **Evidence:** `.github/dependabot.yml` uses `patterns: ["*"]` for the
 `python-dependencies`, `vscode-dependencies`, and `actions` groups, so all
