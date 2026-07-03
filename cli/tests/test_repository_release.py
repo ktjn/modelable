@@ -5,6 +5,8 @@ import re
 import tomllib
 from pathlib import Path
 
+import yaml
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -25,6 +27,15 @@ def test_public_repository_files_exist() -> None:
 
     missing = sorted(path for path in required if not (REPOSITORY_ROOT / path).is_file())
     assert missing == []
+
+
+def test_dependabot_groups_only_routine_version_updates() -> None:
+    dependabot = yaml.safe_load((REPOSITORY_ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8"))
+
+    for update in dependabot["updates"]:
+        for group in update.get("groups", {}).values():
+            assert group["applies-to"] == "version-updates"
+            assert group["patterns"] == ["*"]
 
 
 def test_python_package_has_stable_release_metadata() -> None:

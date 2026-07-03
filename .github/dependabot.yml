@@ -7,6 +7,7 @@ updates:
       day: monday
     groups:
       python-dependencies:
+        applies-to: version-updates
         patterns: ["*"]
 
   - package-ecosystem: npm
@@ -16,6 +17,7 @@ updates:
       day: monday
     groups:
       vscode-dependencies:
+        applies-to: version-updates
         patterns: ["*"]
 
   - package-ecosystem: github-actions
@@ -25,4 +27,5 @@ updates:
       day: monday
     groups:
       actions:
+        applies-to: version-updates
         patterns: ["*"]
