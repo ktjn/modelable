@@ -153,7 +153,7 @@ def test_validation_workflow_publishes_cli_coverage_report() -> None:
 
     assert "uv run pytest --tb=short --cov=modelable --cov-report=term-missing --cov-report=xml" in cli_commands
     assert any(
-        step.get("uses", "").startswith("actions/upload-artifact@")
+        step.get("uses") == "actions/upload-artifact@v7.0.1"
         and step.get("with", {}).get("name") == "cli-coverage-xml"
         and step.get("with", {}).get("path") == "cli/coverage.xml"
         for step in cli_steps
