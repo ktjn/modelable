@@ -634,27 +634,26 @@ def _fhir_type_name_for(element: dict[str, Any]) -> str | None:
 def _fhir_build_nested_fields(
     resource_type: str, parent_name: str, child_elements: list[dict[str, Any]], all_elements: list[dict[str, Any]]
 ) -> list[FieldDef]:
-    parent_path = f"{resource_type}.{parent_name}"
-    element_by_path = {e.get("path", ""): e for e in all_elements}
+    parent_segments = [_fhir_normalize_path_segment(segment) for segment in parent_name.split(".")]
 
     children: dict[str, dict[str, Any]] = {}
     deeper: dict[str, list[dict[str, Any]]] = {}
 
     for element in child_elements:
         path = element.get("path", "")
-        if not path.startswith(parent_path + "."):
+        segments = path.split(".")
+        if len(segments) < 2 or segments[0] != resource_type:
             continue
-        suffix = path[len(parent_path) + 1 :]
-        segments = suffix.split(".")
-        child_name = segments[0]
-        if child_name.endswith("[x]"):
-            child_name = child_name[:-3]
+        normalized = [_fhir_normalize_path_segment(segment) for segment in segments[1:]]
+        if normalized[: len(parent_segments)] != parent_segments:
+            continue
+        remaining = normalized[len(parent_segments) :]
+        if not remaining:
+            continue
+        child_name = remaining[0]
 
-        if len(segments) == 1:
-            exact_path = f"{parent_path}.{segments[0]}"
-            exact = element_by_path.get(exact_path)
-            if exact is not None:
-                children[child_name] = exact
+        if len(remaining) == 1:
+            children[child_name] = element
         else:
             if child_name not in deeper:
                 deeper[child_name] = []
@@ -673,6 +672,12 @@ def _fhir_build_nested_fields(
                 field.type = ObjectType(fields=sub_fields)
         fields.append(field)
     return fields
+
+
+def _fhir_normalize_path_segment(segment: str) -> str:
+    if segment.endswith("[x]"):
+        return segment[: -len("[x]")]
+    return segment
 
 
 def _import_odcs(source_text: str, *, domain_name: str | None, source_name: str | None = None) -> ImportedModel:

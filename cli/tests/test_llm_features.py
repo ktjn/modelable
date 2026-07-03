@@ -1601,6 +1601,18 @@ def test_fhir_importer_expands_nested_backbone_elements():
                             "type": [{"code": "CodeableConcept"}],
                         },
                         {
+                            "path": "Observation.component.code.coding",
+                            "min": 0,
+                            "max": "*",
+                            "type": [{"code": "Coding"}],
+                        },
+                        {
+                            "path": "Observation.component.code.coding.code",
+                            "min": 0,
+                            "max": "1",
+                            "type": [{"code": "code"}],
+                        },
+                        {
                             "path": "Observation.component.value[x]",
                             "min": 0,
                             "max": "1",
@@ -1630,10 +1642,66 @@ def test_fhir_importer_expands_nested_backbone_elements():
     assert "domain clinical" in text
     assert "entity Observation @ 1 (additive)" in text
     assert "status: string" in text
-    assert "component" in text
-    assert "code" in text
-    assert "value" in text
-    assert "value" in text
+    assert "component?: array<object {" in text
+    assert "code: object {" in text
+    assert "coding?: array<object {" in text
+    assert "value?: object {" in text
+    assert "unit?: string" in text
+
+
+def test_fhir_importer_preserves_nested_choice_children_in_generate_output(tmp_path):
+    sd = tmp_path / "observation.json"
+    sd.write_text(
+        json.dumps(
+            {
+                "resourceType": "StructureDefinition",
+                "name": "Observation",
+                "type": "Observation",
+                "snapshot": {
+                    "element": [
+                        {"path": "Observation", "min": 0, "max": "*"},
+                        {"path": "Observation.id", "min": 0, "max": "1", "type": [{"code": "id"}]},
+                        {
+                            "path": "Observation.component",
+                            "min": 0,
+                            "max": "*",
+                            "type": [{"code": "BackboneElement"}],
+                        },
+                        {
+                            "path": "Observation.component.value[x]",
+                            "min": 0,
+                            "max": "1",
+                            "type": [{"code": "CodeableConcept"}],
+                        },
+                        {
+                            "path": "Observation.component.value[x].coding",
+                            "min": 0,
+                            "max": "*",
+                            "type": [{"code": "Coding"}],
+                        },
+                        {
+                            "path": "Observation.component.value[x].coding.code",
+                            "min": 0,
+                            "max": "1",
+                            "type": [{"code": "code"}],
+                        },
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    output = tmp_path / "observation.mdl"
+    result = runner.invoke(cli, ["generate", "--from", str(sd), "--domain", "clinical", "--output", str(output)])
+
+    assert result.exit_code == 0, result.output
+    generated = output.read_text(encoding="utf-8")
+    assert "component?: array<object {" in generated
+    assert "value?: object {" in generated
+    assert "coding?: array<object {" in generated
+    assert "code?: string" in generated
 
 
 def test_cli_generate_auto_detects_dbt_manifest_json(tmp_path):
