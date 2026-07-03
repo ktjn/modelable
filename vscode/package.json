@@ -71,7 +71,7 @@
     ]
   },
   "dependencies": {
-    "vscode-languageclient": "^10.0.1"
+    "vscode-languageclient": "^10.1.0"
   },
   "overrides": {
     "mocha": {
@@ -81,7 +81,7 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^26.0.1",
+    "@types/node": "^26.1.0",
     "@types/vscode": "^1.125.0",
     "@vscode/test-electron": "^3.0.0",
     "@vscode/vsce": "^3.9.2",
