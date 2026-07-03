@@ -94,6 +94,7 @@ def test_validation_workflow_uses_current_actions() -> None:
         "actions/checkout",
         "actions/setup-java",
         "actions/setup-node",
+        "actions/upload-artifact",
         "astral-sh/setup-uv",
     }
     _assert_workflow_actions_are_pinned("validate.yml")
@@ -143,6 +144,20 @@ def test_validation_workflow_runs_dependency_audits() -> None:
 
     assert "uv run --with pip-audit pip-audit --strict --progress-spinner off" in cli_commands
     assert "npm audit --omit=dev" in vscode_commands
+
+
+def test_validation_workflow_publishes_cli_coverage_report() -> None:
+    workflow = _workflow("validate.yml")
+    cli_steps = workflow["jobs"]["cli"]["steps"]
+    cli_commands = "\n".join(step["run"] for step in cli_steps if "run" in step)
+
+    assert "uv run pytest --tb=short --cov=modelable --cov-report=term-missing --cov-report=xml" in cli_commands
+    assert any(
+        step.get("uses") == "actions/upload-artifact@v7.0.1"
+        and step.get("with", {}).get("name") == "cli-coverage-xml"
+        and step.get("with", {}).get("path") == "cli/coverage.xml"
+        for step in cli_steps
+    )
 
 
 def test_codeql_workflow_has_required_permissions() -> None:

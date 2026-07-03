@@ -33,43 +33,41 @@ an indefinitely deferred gate.
 
 ## Test and coverage visibility
 
-### 2. `pytest-cov` is installed but coverage is never measured in CI
+### 2. CI publishes CLI coverage visibility without enforcing a threshold
 
 **Evidence:** `cli/pyproject.toml` declares `pytest-cov` as a dev dependency
-and configures `[tool.coverage.run] source = ["src/modelable"]`, but
-`validate.yml`'s `cli` job runs plain `uv run pytest --tb=short` with no
-`--cov` flag, no coverage artifact upload, and no threshold check. A stray
-root-level `.coverage` file suggests coverage has been run locally but isn't
-tracked.
+and configures `[tool.coverage.run] source = ["src/modelable"]`.
+`validate.yml`'s `cli` job now runs `uv run pytest --tb=short
+--cov=modelable --cov-report=term-missing --cov-report=xml` and uploads
+`cli/coverage.xml` as the `cli-coverage-xml` artifact.
 
-**Impact:** There is no visibility into which modules are under-tested, and
-no regression signal if a change silently drops coverage on a
-compatibility-, lineage-, or governance-critical path — exactly the paths
-`docs/maintainers.md` says must have tests.
+**Impact:** PRs now have a concrete coverage artifact and terminal coverage
+summary for the Python package, which makes under-tested compatibility,
+lineage, and governance paths easier to spot. This intentionally stops short
+of a hard percentage gate while the suite is still being broadened.
 
-**Suggested fix:** Add `--cov=modelable --cov-report=xml` to the CI test
-step and upload the report (Codecov, or a simple job-summary percentage
-check) so coverage trends are visible on PRs. A hard minimum-percentage gate
-is optional; visibility alone is the main win.
+**Remaining work:** Decide whether coverage should become a ratcheted signal
+after the artifact has enough history. A future threshold should be tied to
+critical-path coverage rather than an arbitrary repository-wide percentage.
 
 ## Dependency management
 
-### 3. Dependabot groups every dependency into one PR per ecosystem
+### 3. Dependabot routine groups are explicit version-update groups
 
-**Evidence:** `.github/dependabot.yml` uses `patterns: ["*"]` for the
-`python-dependencies`, `vscode-dependencies`, and `actions` groups, so all
-updates for an ecosystem land in a single weekly PR regardless of whether
-they're patch, minor, or major, or security-relevant.
+**Evidence:** `.github/dependabot.yml` keeps one routine group per ecosystem
+for Python, VS Code, and GitHub Actions updates, but each group now declares
+`applies-to: version-updates` before `patterns: ["*"]`.
 
-**Impact:** A security patch is harder to reason about and merge quickly
-when it's bundled with unrelated version bumps; a bad upgrade in one
-dependency can block or delay all the others in the same PR, and `git
-bisect`-style review of "what changed" is harder.
+**Impact:** Routine dependency churn remains grouped for review efficiency,
+while the file documents that those groups are for version updates rather
+than vulnerability remediation. Security updates can be handled as their own
+Dependabot security-update PRs instead of being mixed into unrelated weekly
+version bumps.
 
-**Suggested fix:** Keep the grouping for routine patch/minor bumps (it's
-reasonable noise reduction), but exclude security updates from the group (or
-add a separate ungrouped security-updates rule) so vulnerability fixes ship
-independently of routine dependency churn.
+**Remaining work:** If security-update volume grows, add an explicit
+security-update policy with narrower package patterns or labels. The current
+configuration is deliberately simple until there is real update volume to
+tune against.
 
 ## Process notes (lower priority, informational)
 
