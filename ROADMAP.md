@@ -55,6 +55,68 @@ Deferred candidates, not yet started:
 - Remote tracked-spec polling and authenticated source access for dbt, FHIR,
   ODCS, and future external specifications (current support is local-file
   only).
+- Embedded Modelable authoring for code-first domain models. This future idea
+  would let teams declare Modelable-compatible contracts inside a host language
+  and compile them into the same normalized graph as `.mdl`. It should remain a
+  complement to `.mdl`, not a replacement: embedded declarations should be able
+  to render deterministic `.mdl` snapshots for review, source control,
+  migration, and long-term portability.
+
+  Possible first slice:
+
+  - Start with Python because the compiler is implemented in Python and can
+    statically inspect source with `ast`.
+  - Support model/entity/value definitions, fields, versions, optionality,
+    keys, PII, classification, owners, and server-assigned fields.
+  - Defer projections until the model authoring shape is proven.
+  - Avoid importing or executing user modules; extraction should be static.
+  - Compile embedded definitions into the existing `MdlFile` IR rather than
+    creating a second semantic model.
+  - Add a CLI path such as
+    `modelable generate --from ./models.py --format embedded-python --output generated.mdl`.
+
+  Pros:
+
+  - Lowers adoption friction for application developers.
+  - Lets teams colocate contract metadata with domain classes.
+  - Provides an incremental bridge from code-first models to `.mdl`.
+  - Reuses existing validation, compatibility, lineage, and emitter pipelines
+    if it targets the current IR.
+  - Gives Modelable a stronger migration story for Python services and
+    frameworks.
+
+  Cons and risks:
+
+  - Host-language syntax can hide Modelable semantics behind framework
+    conventions.
+  - Multiple host languages could fragment the authoring experience.
+  - Runtime reflection would be unsafe and non-deterministic; static extraction
+    is required.
+  - Some `.mdl` concepts, especially projections and explicit lineage, may map
+    awkwardly into ordinary classes.
+  - If host-language code becomes the only source of truth, Modelable loses the
+    neutral, reviewable, language-independent contract that `.mdl` provides.
+  - Versioning can become unclear if class evolution is not explicitly modeled.
+  - Tooling burden grows: docs, diagnostics, examples, and editor support may
+    need language-specific variants.
+
+  Open design questions:
+
+  - Should embedded definitions be compile-only, or should they always generate
+    a canonical `.mdl` file?
+  - Is the embedded source allowed to be authoritative, or must generated
+    `.mdl` remain the reviewed contract?
+  - What minimal annotation/decorator vocabulary maps cleanly to existing
+    Modelable IR?
+  - How should embedded declarations express versions without relying on git
+    history or class names?
+  - Should unsupported host-language constructs fail loudly or be ignored with
+    warnings?
+
+  Recommendation: treat embedded Modelable as a migration and
+  developer-experience bridge. The first accepted design should prove that a
+  small embedded Python subset can produce byte-for-byte stable `.mdl` output
+  and pass the same compiler and validation path as handwritten `.mdl`.
 - VS Code Marketplace distribution.
 - Distributed registry synchronization beyond the current file-first model.
 - Runtime subscriptions, adapters, replay, and materialization.
