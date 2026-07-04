@@ -130,6 +130,13 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/protobuf"),
     ),
+    CodegenTarget(
+        name="grpc",
+        description="Scalable gRPC service profile over generated Protocol Buffers schemas",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/grpc"),
+    ),
 )
 
 

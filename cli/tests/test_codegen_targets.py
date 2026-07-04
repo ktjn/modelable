@@ -36,6 +36,7 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "openlineage",
         "odcs",
         "protobuf",
+        "grpc",
     ]
     assert all(target["status"] == "implemented" for target in targets)
 
@@ -108,6 +109,15 @@ def test_codegen_types_include_protobuf_mappings():
     assert "protobuf type mappings" in result.output
     assert "google.protobuf.Timestamp" in result.output
     assert "repeated T" in result.output
+
+
+def test_codegen_types_include_grpc_mappings():
+    result = CliRunner().invoke(cli, ["codegen", "types", "--format", "grpc"])
+
+    assert result.exit_code == 0, result.output
+    assert "grpc type mappings" in result.output
+    assert "CommandEnvelope" in result.output
+    assert "EntityReadService" in result.output
 
 
 def test_type_shape_preserves_nullability_and_collections():

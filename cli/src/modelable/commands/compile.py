@@ -13,6 +13,7 @@ from modelable.emitters.dbt_yaml import emit_dbt_yaml
 from modelable.emitters.diagnostics import deferred_target
 from modelable.emitters.fhir import emit_fhir_profile
 from modelable.emitters.go import emit_go
+from modelable.emitters.grpc import emit_grpc
 from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.markdown import emit_markdown
@@ -198,6 +199,14 @@ def compile(source: Path, target: str, out_dir: Path | None, registry_path: str)
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "protobuf":
         artifacts = emit_protobuf(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            _write_artifact_text(art.path, art.content)
+            _print_artifact_result(art)
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "grpc":
+        artifacts = emit_grpc(workspace, output)
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)
