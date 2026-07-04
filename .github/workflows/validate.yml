@@ -88,6 +88,13 @@ jobs:
       - name: Format check with ruff
         run: uv run ruff format --check .
 
+      - name: Run mypy baseline ratchet
+        run: >
+          uv run python ../.github/scripts/check_mypy_baseline.py
+          --baseline mypy-baseline.txt
+          --
+          uv run mypy src/modelable --no-error-summary --show-error-codes
+
       - name: Run tests
         run: uv run pytest --tb=short --cov=modelable --cov-report=term-missing --cov-report=xml
 

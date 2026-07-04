@@ -58,7 +58,7 @@ Agents must:
 - Use the latest stable framework and tool versions by default, unless the specification, compatibility constraints, existing manifests, or explicit user direction require a different version.
 - Record any deliberate use of an older framework or tool version in the final handoff or PR body.
 - Use `uv` exclusively for Python version management, project setup, dependency management, lockfile generation, and tool execution. Keep packages up to date with the latest stable versions.
-- The project requires Python >= 3.14 (declared in `cli/pyproject.toml` `requires-python` and `[tool.mypy] python_version`). All agents and CI must run under Python 3.14+ for Pydantic v2 validation and modern typing behavior. Strict mypy remains configured for incremental cleanup but is not a required gate until its repository-wide baseline is clean.
+- The project requires Python >= 3.14 (declared in `cli/pyproject.toml` `requires-python` and `[tool.mypy] python_version`). All agents and CI must run under Python 3.14+ for Pydantic v2 validation and modern typing behavior. Strict mypy is enforced as a CI baseline ratchet: existing errors are tracked in `cli/mypy-baseline.txt`, new errors fail the Validate workflow, and resolved baseline lines should be removed as modules are cleaned up.
 - Preserve the existing domain language: domain-owned canonical models, immutable versions, projections, subscriptions, adapter bindings, planner/runtime/materializer, compatibility, lineage, and governance.
 - Maintain backward compatibility within major versions for the `.mdl` language and CLI.
 - Prefer explicit derivation and traceability over implicit behavior.
@@ -199,7 +199,7 @@ Recommended CI gate sequence as implementation expands:
 
 ```text
 format check
-static analysis or type check
+mypy baseline ratchet
 unit tests
 dependency audit
 fixture-based compiler tests
@@ -215,6 +215,11 @@ and push runs execute only the jobs relevant to the files changed in that run;
 manual `workflow_dispatch` runs execute every validation job. Changes to the
 Validate workflow or its workflow regression tests force every validation job so
 CI edits are self-tested.
+
+The CLI job runs strict mypy through
+`.github/scripts/check_mypy_baseline.py`. The script compares current mypy
+output with `cli/mypy-baseline.txt`: new error lines fail CI, while resolved
+lines are reported so the baseline can shrink in the same PR that fixes them.
 
 The OpenMetadata live-smoke CI job must run with
 `MODELABLE_OPENMETADATA_TESTCONTAINERS=1` when changes affect the OpenMetadata
