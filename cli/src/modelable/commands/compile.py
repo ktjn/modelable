@@ -18,6 +18,7 @@ from modelable.emitters.markdown import emit_markdown
 from modelable.emitters.odcs import emit_odcs
 from modelable.emitters.openlineage import emit_openlineage
 from modelable.emitters.openmetadata import emit_openmetadata
+from modelable.emitters.protobuf import emit_protobuf
 from modelable.emitters.python import emit_python
 from modelable.emitters.rust import emit_rust
 from modelable.emitters.sql import emit_sql
@@ -188,6 +189,14 @@ def compile(source: Path, target: str, out_dir: Path | None, registry_path: str)
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "odcs":
         artifacts = emit_odcs(workspace, output)
+        for art in artifacts:
+            assert isinstance(art.content, str)
+            _write_artifact_text(art.path, art.content)
+            _print_artifact_result(art)
+        if not artifacts:
+            console.print("[yellow]No artifacts generated.[/yellow]")
+    elif target == "protobuf":
+        artifacts = emit_protobuf(workspace, output)
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)

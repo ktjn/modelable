@@ -123,6 +123,13 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/odcs"),
     ),
+    CodegenTarget(
+        name="protobuf",
+        description="Protocol Buffers schema artifacts and Modelable schema manifest",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/protobuf"),
+    ),
 )
 
 

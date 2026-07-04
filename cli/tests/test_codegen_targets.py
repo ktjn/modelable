@@ -35,6 +35,7 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "openmetadata",
         "openlineage",
         "odcs",
+        "protobuf",
     ]
     assert all(target["status"] == "implemented" for target in targets)
 
@@ -98,6 +99,15 @@ def test_codegen_types_include_go_mappings():
     assert "go type mappings" in result.output
     assert "time.Time" in result.output
     assert "map[string]V" in result.output
+
+
+def test_codegen_types_include_protobuf_mappings():
+    result = CliRunner().invoke(cli, ["codegen", "types", "--format", "protobuf"])
+
+    assert result.exit_code == 0, result.output
+    assert "protobuf type mappings" in result.output
+    assert "google.protobuf.Timestamp" in result.output
+    assert "repeated T" in result.output
 
 
 def test_type_shape_preserves_nullability_and_collections():

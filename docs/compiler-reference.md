@@ -31,8 +31,8 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | OpenLineage sync | 3 | Implemented for Marquez-compatible `/api/v1/lineage` endpoints |
 | OpenLineage export | 3 | Implemented local artifact; runtime collection deferred |
 | ODCS export | 4 | Implemented local artifact |
+| Protobuf | 5 | Implemented first local artifact slice; gRPC and compatibility validation deferred |
 | Avro | 5 | Deferred |
-| Protobuf | 5 | Deferred |
 | OpenAPI | 5 | Deferred |
 | AsyncAPI | 5 | Deferred |
 
@@ -178,7 +178,13 @@ Deferred and integration emitters must preserve Modelable semantics when
 implemented:
 
 - Avro: preserve logical types and field defaults; avoid incompatible schema evolution.
-- Protobuf: preserve deterministic field numbering through explicit metadata or generated registry state.
+- Protobuf: `compile --target protobuf` emits deterministic `.proto` files and
+  schema manifests for models and projections. The first slice uses
+  declaration-order field numbers for current fields and documents the
+  remaining wire-contract boundary:
+  deleted-field reservations, descriptor sets, Scalable gRPC profile generation,
+  and protobuf/gRPC compatibility validation are deferred follow-up work before
+  protobuf is considered stable for long-lived external wire contracts.
 - SQL DDL: treat SQL as a binding/materialization artifact, not canonical model truth.
 - dbt YAML: describe schemas and model/source metadata without making dbt the source of truth.
 - FHIR R4 profiles: emit R4 `StructureDefinition` constraint profiles for

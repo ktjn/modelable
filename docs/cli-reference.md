@@ -220,7 +220,7 @@ In addition to the requested artifact format, `compile` always writes a `registr
 
 | Flag | Required | Default | Description |
 |:-----|:---------|:--------|:------------|
-| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, `openlineage`, or `odcs` |
+| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, `openlineage`, `odcs`, or `protobuf` |
 | `--out`, `-o` | No | `./dist/<format>` | Output directory |
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
 
@@ -243,6 +243,7 @@ In addition to the requested artifact format, `compile` always writes a `registr
 | `openmetadata` | `./dist/openmetadata` |
 | `openlineage` | `./dist/openlineage` |
 | `odcs` | `./dist/odcs` |
+| `protobuf` | `./dist/protobuf` |
 
 **Artifact ID convention:** `domain.Name.vVersion` (used as filename stem).
 
@@ -256,6 +257,7 @@ modelable compile ./models --target fhir-profile --out ./dist/fhir
 modelable compile ./models --target openmetadata --out ./dist/openmetadata
 modelable compile ./models --target openlineage --out ./dist/openlineage
 modelable compile ./models --target odcs --out ./dist/odcs
+modelable compile ./models --target protobuf --out ./dist/protobuf
 ```
 
 ---
@@ -753,7 +755,72 @@ datacontract lint ./dist/odcs/customer.Customer.v1.odcs.yaml
 
 ---
 
-### 5.20 `spec` — Track external specifications
+### 5.21 `compile --target protobuf` — Export Protocol Buffers schemas
+
+```text
+modelable compile PATH --target protobuf --out DIR
+```
+
+**Modelable 1.1 first slice — implemented as a compile target.**
+
+Exports each model and projection version as a deterministic Protocol Buffers
+`.proto` file plus a `schema-manifest.json` companion document. The target is a
+generated artifact view of `.mdl`; it is not a source of truth.
+
+The first slice emits:
+
+- one `.proto` file per model or projection version;
+- one schema manifest per model or projection version;
+- deterministic package names in the form `modelable.<domain>.v<version>`;
+- deterministic message names from the Modelable model or projection name;
+- declaration-order field numbers starting at `1`;
+- enum declarations with an `_UNSPECIFIED = 0` default value;
+- `google.protobuf.Timestamp` imports when timestamp fields are present.
+
+Output layout:
+
+```text
+dist/protobuf/
+  <domain>/<Name>.v<version>/<Name>.v<version>.proto
+  <domain>/<Name>.v<version>/schema-manifest.json
+```
+
+Representative type mapping:
+
+| Modelable | Protobuf |
+|:----------|:---------|
+| `string`, `uuid`, `date`, `time`, `duration` | `string` |
+| `int` | `int64` |
+| `float` | `double` |
+| `bool` | `bool` |
+| `timestamp` | `google.protobuf.Timestamp` |
+| `binary` | `bytes` |
+| `decimal(p, s)` | `string` |
+| `array<T>` | `repeated T` |
+| `enum(a,b)` | generated enum |
+
+Deferred protobuf/gRPC work remains required before using generated artifacts as
+a long-lived external wire contract: deleted-field reservations, descriptor-set
+generation, `compile --target grpc`, protobuf/gRPC compatibility validation,
+and first-class primary-key or secondary-index metadata beyond existing `@key`.
+
+**Options:**
+
+| Flag | Required | Default | Description |
+|:-----|:---------|:--------|:------------|
+| `--target` | Yes | — | Must be `protobuf` |
+| `--out`, `-o` | No | `./dist/protobuf` | Output directory |
+| `--registry` | No | `.modelable/registry.db` | Registry index path |
+
+**Examples:**
+
+```bash
+modelable compile ./models --target protobuf --out ./dist/protobuf
+```
+
+---
+
+### 5.22 `spec` — Track external specifications
 
 ```text
 modelable spec add ID --kind <dbt|fhir|odcs> --source PATH_OR_URL --ref Domain.Model@version [--source-name NAME] [--path PATH]
