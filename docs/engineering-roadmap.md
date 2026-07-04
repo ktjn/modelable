@@ -11,25 +11,24 @@ file so a reader can verify the claim without re-deriving it.
 
 ## Correctness and reliability
 
-### 1. `mypy --strict` is configured but not enforced anywhere
+### 1. `mypy --strict` is enforced as a baseline ratchet
 
-**Evidence:** `cli/pyproject.toml` sets `[tool.mypy] strict = true`, but
-`mypy` does not appear in `.github/workflows/validate.yml`, and both
-`CONTRIBUTING.md` and `docs/maintainers.md` explicitly note the
-repository-wide baseline isn't clean yet, so it isn't a required gate.
+**Evidence:** `cli/pyproject.toml` sets `[tool.mypy] strict = true`, and the
+Validate workflow now runs
+`.github/scripts/check_mypy_baseline.py --baseline mypy-baseline.txt -- uv run
+mypy src/modelable --no-error-summary --show-error-codes` from the `cli/`
+directory. The initial `cli/mypy-baseline.txt` captures the current strict
+baseline so new error lines fail CI while existing debt remains visible.
 
-**Impact:** Type errors can land on `main` indefinitely; the strict config
-currently documents an aspiration rather than a checked invariant. A ~22k
-line, actively-growing Python codebase without an enforced type gate
-accumulates regressions faster than an occasional manual `mypy` run catches
-them.
+**Impact:** Type regressions can no longer land silently on changed CLI
+surfaces. The gate also reports resolved baseline lines, so typing cleanup can
+shrink the baseline incrementally without requiring the repository to become
+fully strict-clean in one large change.
 
-**Suggested fix:** Add a baseline-diff gate rather than an all-or-nothing
-switch: snapshot the current error count/set (e.g. via `mypy --strict
---txt-report` or a stored baseline file), and fail CI only when new modules
-introduce errors beyond the baseline. Shrink the baseline opportunistically
-as modules are touched. This turns "not clean yet" into a ratchet instead of
-an indefinitely deferred gate.
+**Remaining work:** Burn down the baseline by module, starting with high-churn
+parser, importer, and emitter paths. When the baseline reaches zero, replace
+the ratchet wrapper with a direct `uv run mypy src/modelable` CI step and
+delete `cli/mypy-baseline.txt`.
 
 ## Test and coverage visibility
 
@@ -68,18 +67,6 @@ version bumps.
 security-update policy with narrower package patterns or labels. The current
 configuration is deliberately simple until there is real update volume to
 tune against.
-
-## Process notes (lower priority, informational)
-
-- **Python 3.14 floor:** `cli/.python-version` and `requires-python =
-  ">=3.14"` pin to a very recent Python release. This is a deliberate,
-  documented choice (`docs/maintainers.md` cites Pydantic v2 validation and
-  modern typing behavior), so it isn't a defect, but it does raise the bar
-  for contributors and CI runners whose Python toolchain/network access
-  hasn't caught up yet (encountered directly while preparing this roadmap:
-  `uv`'s Python 3.14 download failed in this sandboxed environment). Worth a
-  one-line rationale in `CONTRIBUTING.md` so new contributors don't wonder
-  why the floor is so high.
 
 ## Out of scope for this document
 

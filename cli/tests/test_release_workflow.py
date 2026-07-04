@@ -146,6 +146,14 @@ def test_validation_workflow_runs_dependency_audits() -> None:
     assert "npm audit --omit=dev" in vscode_commands
 
 
+def test_validation_workflow_runs_mypy_baseline_ratchet() -> None:
+    workflow = _workflow("validate.yml")
+    cli_commands = "\n".join(step["run"] for step in workflow["jobs"]["cli"]["steps"] if "run" in step)
+
+    assert "check_mypy_baseline.py --baseline mypy-baseline.txt" in cli_commands
+    assert "uv run mypy src/modelable --no-error-summary --show-error-codes" in cli_commands
+
+
 def test_validation_workflow_publishes_cli_coverage_report() -> None:
     workflow = _workflow("validate.yml")
     cli_steps = workflow["jobs"]["cli"]["steps"]

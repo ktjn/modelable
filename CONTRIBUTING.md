@@ -13,7 +13,9 @@ interoperability, and generated output are welcome.
 
 ## Development setup
 
-The CLI requires Python 3.14 and uses `uv`:
+The CLI requires Python 3.14 and uses `uv`. Python 3.14 is intentional: the
+compiler and validation stack rely on current Pydantic v2 behavior and modern
+typing semantics, and CI runs the same Python floor.
 
 ```powershell
 cd cli
@@ -26,11 +28,16 @@ uv run pytest tests/ --tb=short
 uv run modelable validate ../samples/mvp --strict
 ```
 
-Strict mypy is available for incremental typing work, but it is not currently
-part of the required local or GitHub gate because the repository-wide baseline
-is not yet clean.
+Strict mypy is enforced in GitHub as a baseline ratchet. The repository-wide
+baseline is not yet clean, so the gate fails only when a change introduces
+errors beyond `cli/mypy-baseline.txt`. When touching typed Python code, run the
+same check locally:
 
-The VS Code extension requires Node.js 24:
+```powershell
+uv run python ../.github/scripts/check_mypy_baseline.py --baseline mypy-baseline.txt -- uv run mypy src/modelable --no-error-summary --show-error-codes
+```
+
+The VS Code extension requires Node.js 26:
 
 ```powershell
 cd vscode
