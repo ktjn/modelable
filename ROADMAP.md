@@ -121,6 +121,9 @@ Deferred candidates, not yet started:
 - Distributed registry synchronization beyond the current file-first model.
 - Runtime subscriptions, adapters, replay, and materialization.
 - Additional artifact formats driven by concrete consumers.
+- Protobuf and Scalable gRPC profile generation for the sibling Scalable
+  project. The accepted design target is documented in
+  [docs/superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md](docs/superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md).
 
 ## Later
 
