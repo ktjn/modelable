@@ -200,6 +200,26 @@ def _type_mappings_for(format_name: str) -> list[tuple[str, str, str | None]]:
             ("object { ... }", "{ ... }", "inline objects become nested structs"),
             ("named", "Name", None),
         ]
+    if format_name == "protobuf":
+        return [
+            ("string", "string", "optional fields use optional string"),
+            ("bool", "bool", "optional fields use optional bool"),
+            ("int", "int64", "optional fields use optional int64"),
+            ("float", "double", "optional fields use optional double"),
+            ("uuid", "string", "preserves uuid value as text"),
+            ("timestamp", "google.protobuf.Timestamp", "imports google/protobuf/timestamp.proto"),
+            ("date", "string", "preserves date value as text"),
+            ("time", "string", "preserves time value as text"),
+            ("duration", "string", "preserves duration value as text"),
+            ("binary", "bytes", "optional fields use optional bytes"),
+            ("decimal(p, s)", "string", "decimal precision and scale encoded as text"),
+            ("array<T>", "repeated T", None),
+            ("map<K, V>", "bytes", "first slice defers map expansion"),
+            ("ref<T>", "bytes", "first slice defers nested reference message expansion"),
+            ("enum(...)", "GeneratedEnum", "enum values start with UNSPECIFIED = 0"),
+            ("object { ... }", "bytes", "first slice defers inline object expansion"),
+            ("named", "bytes", "first slice defers named value object expansion"),
+        ]
     if format_name == "markdown":
         return [
             ("string", "string", "rendered as canonical .mdl text"),
