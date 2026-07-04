@@ -16,6 +16,8 @@ from modelable.parser.ir import (
     DomainDef,
     EnumType,
     FieldDef,
+    FieldType,
+    MdlFile,
     ModelVersion,
     PrimitiveType,
     ProjectionField,
@@ -44,13 +46,15 @@ def emit_protobuf(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit Protocol Buffers schema artifacts for model versions."""
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
-        for model_name, versions in domain.models.items():
-            for version in versions:
-                proto, manifest = _emit_model_version(domain, model_name, version, out_dir)
+        for model_name, model_versions in domain.models.items():
+            for model_version in model_versions:
+                proto, manifest = _emit_model_version(domain, model_name, model_version, out_dir)
                 artifacts.extend([proto, manifest])
-        for projection_name, versions in domain.projections.items():
-            for version in versions:
-                proto, manifest = _emit_projection_version(domain, projection_name, version, out_dir, workspace.mdl)
+        for projection_name, projection_versions in domain.projections.items():
+            for projection_version in projection_versions:
+                proto, manifest = _emit_projection_version(
+                    domain, projection_name, projection_version, out_dir, workspace.mdl
+                )
                 artifacts.extend([proto, manifest])
     return artifacts
 
@@ -98,7 +102,7 @@ def _emit_model_version(
 
 
 def _emit_projection_version(
-    domain: DomainDef, projection_name: str, version: ProjectionVersion, out_dir: Path, mdl
+    domain: DomainDef, projection_name: str, version: ProjectionVersion, out_dir: Path, mdl: MdlFile
 ) -> tuple[EmittedArtifact, EmittedArtifact]:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     proto_fields = [
@@ -153,7 +157,7 @@ def _field_to_proto(field: FieldDef, *, message_name: str, field_number: int) ->
 
 
 def _projection_field_to_proto(
-    field: ProjectionField, projection: ProjectionVersion, mdl, *, message_name: str, field_number: int
+    field: ProjectionField, projection: ProjectionVersion, mdl: MdlFile, *, message_name: str, field_number: int
 ) -> _ProtoField:
     field_type = _resolve_projection_field_type(field, projection, mdl)
     type_name, enum = _type_to_proto(field_type, message_name=message_name, field_name=field.name)
@@ -167,7 +171,7 @@ def _projection_field_to_proto(
     )
 
 
-def _resolve_projection_field_type(field: ProjectionField, projection: ProjectionVersion, mdl):
+def _resolve_projection_field_type(field: ProjectionField, projection: ProjectionVersion, mdl: MdlFile) -> FieldType:
     mapping = field.mapping
     if isinstance(mapping, ComputedMapping):
         return PrimitiveType(kind="string")
@@ -184,13 +188,16 @@ def _resolve_projection_field_type(field: ProjectionField, projection: Projectio
     except LookupError:
         return PrimitiveType(kind="string")
 
+    if not isinstance(resolved.version, ModelVersion):
+        return PrimitiveType(kind="string")
+
     for source_field in resolved.version.fields:
         if source_field.name == mapping.source_field:
             return source_field.type
     return PrimitiveType(kind="string")
 
 
-def _type_to_proto(field_type, *, message_name: str, field_name: str) -> tuple[str, _ProtoEnum | None]:
+def _type_to_proto(field_type: FieldType, *, message_name: str, field_name: str) -> tuple[str, _ProtoEnum | None]:
     if isinstance(field_type, PrimitiveType):
         return _primitive_to_proto(field_type.kind), None
     if isinstance(field_type, DecimalType):

@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 
 from modelable.commands.common import console, load_workspace_or_exit
+from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.csharp import emit_csharp
 from modelable.emitters.dbt_yaml import emit_dbt_yaml
 from modelable.emitters.diagnostics import deferred_target
@@ -243,7 +244,7 @@ def docs(source: Path, out_dir: Path | None) -> None:
     sys.exit(0)
 
 
-def _print_artifact_result(art) -> None:
+def _print_artifact_result(art: EmittedArtifact) -> None:
     for warning in art.warnings:
         console.print(f"[yellow]WARN[/yellow] {warning}")
     console.print(f"[green]OK[/green] {art.path} [dim]{art.content_hash}[/dim]")
