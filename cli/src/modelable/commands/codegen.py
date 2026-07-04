@@ -220,6 +220,15 @@ def _type_mappings_for(format_name: str) -> list[tuple[str, str, str | None]]:
             ("object { ... }", "bytes", "first slice defers inline object expansion"),
             ("named", "bytes", "first slice defers named value object expansion"),
         ]
+    if format_name == "grpc":
+        return [
+            ("model/entity payloads", "generated protobuf messages", "same schema projection as protobuf target"),
+            ("commands", "CommandEnvelope", "generic app-bound command ingress"),
+            ("command results", "CommandResultEnvelope", "generic committed/rejected result envelope"),
+            ("entity reads", "EntityReadService", "generic get/list/list-by-index read profile"),
+            ("schema identity", "SchemaIdentity", "schema id and fingerprint metadata"),
+            ("indexes", "IndexMetadata", "first slice reports existing @key metadata only"),
+        ]
     if format_name == "markdown":
         return [
             ("string", "string", "rendered as canonical .mdl text"),

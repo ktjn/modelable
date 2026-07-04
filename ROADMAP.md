@@ -47,11 +47,16 @@ Recently shipped, still hardening:
   Marquez-compatible endpoint with a live Testcontainers smoke; continue
   validating OpenMetadata output and hardening live catalog synchronization
   against real consumers.
-- Protobuf generation has started as Modelable 1.1 work. The current
-  `compile --target protobuf` slice emits deterministic `.proto` files and
-  schema manifests for models and projections; deleted-field reservations,
-  descriptor sets, the Scalable gRPC profile, and protobuf/gRPC compatibility
-  validation remain follow-up work before long-lived wire contracts are stable.
+- Protobuf and Scalable gRPC generation have started as Modelable 1.1 work.
+  The current `compile --target protobuf` slice emits deterministic `.proto`
+  files and schema manifests for models and projections. The current
+  `compile --target grpc` slice emits Protobuf payload schemas, generic
+  Scalable command/read services, and service manifests. Deleted-field
+  reservations, descriptor sets, richer index metadata, Scalable registration
+  fixtures, and protobuf/gRPC compatibility validation remain follow-up work
+  before long-lived wire or transport contracts are stable. The accepted design
+  target is documented in
+  [docs/superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md](docs/superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md).
 
 Deferred candidates, not yet started:
 
@@ -126,9 +131,6 @@ Deferred candidates, not yet started:
 - Distributed registry synchronization beyond the current file-first model.
 - Runtime subscriptions, adapters, replay, and materialization.
 - Additional artifact formats driven by concrete consumers.
-- Scalable gRPC profile generation for the sibling Scalable project. The
-  accepted design target is documented in
-  [docs/superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md](docs/superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md).
 
 ## Later
 
