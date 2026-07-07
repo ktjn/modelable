@@ -266,7 +266,7 @@ def _resolve_projection_field_type_string(field: ProjectionField, projection: Pr
     try:
         source_domain, source_model = projection.source.model.rsplit(".", 1)
         resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", projection.source.version)
-    except ValueError, LookupError:
+    except (ValueError, LookupError):
         return "text"
 
     for src_field in resolved.version.fields:
@@ -281,7 +281,7 @@ def _resolve_lineage(field: ProjectionField, projection: ProjectionVersion, mdl:
     try:
         source_domain, source_model = projection.source.model.rsplit(".", 1)
         resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", projection.source.version)
-    except ValueError, LookupError:
+    except (ValueError, LookupError):
         return None
 
     for src_field in resolved.version.fields:

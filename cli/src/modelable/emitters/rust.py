@@ -858,7 +858,7 @@ def _resolve_merged_projection_wire(field, projection: ProjectionVersion, mdl) -
     try:
         source_domain, source_model = projection.source.model.rsplit(".", 1)
         resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", projection.source.version)
-    except ValueError, LookupError:
+    except (ValueError, LookupError):
         return field.wire_targets()
     for src_field in resolved.version.fields:
         if src_field.name == field.mapping.source_field:

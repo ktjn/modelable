@@ -178,5 +178,5 @@ def _int_or_none(value: object) -> int | None:
         return None
     try:
         return int(cast("int | str | bytes | bytearray | SupportsIndex", value))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None

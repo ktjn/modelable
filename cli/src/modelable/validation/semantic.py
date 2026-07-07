@@ -645,7 +645,7 @@ def _resolve_field_type_from_version(mdl: MdlFile, version, field_name: str):
             return None
         try:
             source_domain, source_model = version.source.model.rsplit(".", 1)
-        except ValueError, AttributeError:
+        except (ValueError, AttributeError):
             return None
         try:
             resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", version.source.version)
