@@ -200,6 +200,92 @@ domain customer {
         assert "OK wrote oci://registry.example/modelable" not in result.output
 
 
+def test_compile_allocates_and_persists_registry_ids(tmp_path):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "test-team"
+  semantic SchemaId : u32 { registry: true }
+}
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            cli,
+            ["compile", str(mdl), "--target", "rust", "--out", str(tmp_path / "dist")],
+        )
+
+        assert result.exit_code == 0
+        lock_path = Path("registry-ids.lock")
+        assert lock_path.exists()
+        assert json.loads(lock_path.read_text(encoding="utf-8")) == {"platform.SchemaId": 1}
+
+
+def test_compile_is_stable_across_repeated_runs(tmp_path):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "test-team"
+  semantic SchemaId : u32 { registry: true }
+}
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        for _ in range(2):
+            result = runner.invoke(
+                cli,
+                ["compile", str(mdl), "--target", "rust", "--out", str(tmp_path / "dist")],
+            )
+            assert result.exit_code == 0
+
+        assert json.loads(Path("registry-ids.lock").read_text(encoding="utf-8")) == {"platform.SchemaId": 1}
+
+
+def test_compile_rejects_orphaned_registry_id_without_flag(tmp_path):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "test-team"
+  semantic SchemaId : u32 { registry: true }
+}
+""",
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        Path("registry-ids.lock").write_text('{"platform.RemovedId": 1, "platform.SchemaId": 2}\n', encoding="utf-8")
+        result = runner.invoke(
+            cli,
+            ["compile", str(mdl), "--target", "rust", "--out", str(tmp_path / "dist")],
+        )
+        assert result.exit_code != 0
+        assert "platform.RemovedId" in result.output
+
+        result_allowed = runner.invoke(
+            cli,
+            [
+                "compile",
+                str(mdl),
+                "--target",
+                "rust",
+                "--out",
+                str(tmp_path / "dist"),
+                "--allow-orphaned-registry-ids",
+            ],
+        )
+        assert result_allowed.exit_code == 0
+
+
 def test_graph_export_writes_json_from_workspace(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(

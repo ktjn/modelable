@@ -15,7 +15,12 @@ from modelable.planner.lineage import build_projection_lineage
 from modelable.registry.resolver import resolved_version_spec
 
 
-def build_registry(workspace: Workspace, output_dir: str | Path = ".modelable") -> Path:
+def build_registry(
+    workspace: Workspace,
+    output_dir: str | Path = ".modelable",
+    *,
+    registry_ids: dict[str, int] | None = None,
+) -> Path:
     """Write a rebuildable SQLite registry index for a validated workspace."""
     if workspace.errors:
         joined = "\n".join(render_diagnostic(diagnostic) for diagnostic in workspace.errors)
@@ -31,9 +36,20 @@ def build_registry(workspace: Workspace, output_dir: str | Path = ".modelable") 
     with sqlite3.connect(registry_path) as conn:
         conn.executescript(schema)
         _insert_workspace(conn, workspace)
+        _insert_registry_ids(conn, registry_ids)
         conn.commit()
 
     return registry_path
+
+
+def _insert_registry_ids(conn: sqlite3.Connection, registry_ids: dict[str, int] | None) -> None:
+    if not registry_ids:
+        return
+    for name, allocated_id in registry_ids.items():
+        conn.execute(
+            "insert into registry_ids (name, allocated_id, first_registered_at) values (?, ?, ?)",
+            (name, allocated_id, None),
+        )
 
 
 def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:

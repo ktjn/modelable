@@ -117,3 +117,9 @@ create table por_log (
   issued_at text not null,
   signature text
 );
+
+create table registry_ids (
+  name text primary key,
+  allocated_id integer unique not null,
+  first_registered_at text
+);
