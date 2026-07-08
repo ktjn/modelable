@@ -82,6 +82,7 @@ models/
 | `float` | 64-bit float |
 | `bool` | Boolean |
 | `uuid` | UUID v4 |
+| `uuid(7)` | UUIDv7 (timestamp-ordered); `uuid` with no argument is unchanged and still defaults to v4 |
 | `timestamp` | UTC datetime with microsecond precision |
 | `date` | Calendar date (no time) |
 | `time` | Time of day (no date) |

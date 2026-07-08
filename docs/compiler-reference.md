@@ -123,6 +123,7 @@ Type mapping:
 | `float` | `{ "type": "number" }` |
 | `decimal(p,s)` | `{ "type": "string", "pattern": "^-?\\d+(\\.\\d+)?$" }` |
 | `uuid` | `{ "type": "string", "format": "uuid" }` |
+| `uuid(7)` | `{ "type": "string", "format": "uuid", "x-modelable-uuid-version": 7 }` |
 | `timestamp` | `{ "type": "string", "format": "date-time" }` |
 | `date` | `{ "type": "string", "format": "date" }` |
 | `time` | `{ "type": "string", "format": "time" }` |
