@@ -188,7 +188,9 @@ def _shape_base_to_java(
         return "BigDecimal"
     if shape.kind == "fixed_binary":
         field_ref = f"{owner_type}.{'.'.join(path)}"
-        warnings.append(type_loss(f"{field_ref} (binary({shape.length}) length is not enforced by the Java type system)"))
+        warnings.append(
+            type_loss(f"{field_ref} (binary({shape.length}) length is not enforced by the Java type system)")
+        )
         return "byte[]"
     if shape.kind == "array":
         element = shape.element or TypeShape(kind="primitive", ref="object")

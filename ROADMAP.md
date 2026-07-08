@@ -76,9 +76,16 @@ Recently shipped, still hardening:
   TypeScript, SQL Postgres/ClickHouse, JSON Schema, Protobuf, FHIR profile),
   per the task-by-task plan at
   [docs/superpowers/plans/2026-07-07-fixed-width-integer-primitives-first-slice.md](docs/superpowers/plans/2026-07-07-fixed-width-integer-primitives-first-slice.md).
-  Fixed-length `binary(N)` (also 1.2) has not started. A third compatibility
-  signal for state-migration necessity (gap 8 of that request) remains an
-  open question with no accepted grammar; see the response design section 11.
+  The second slice — fixed-length `binary(N)`, bounded to `1..=4096` bytes —
+  has also shipped: grammar, a new `FixedBinaryType` IR node, the length
+  bound, and a mapping in Rust, Go, Java, C#, Python, TypeScript, SQL
+  Postgres/ClickHouse, JSON Schema, and Protobuf, per the task-by-task plan
+  at
+  [docs/superpowers/plans/2026-07-08-fixed-length-binary-primitive-first-slice.md](docs/superpowers/plans/2026-07-08-fixed-length-binary-primitive-first-slice.md).
+  Modelable 1.2 (both its slices) is now complete; the `semantic` type-alias
+  mechanism (1.3) has not started. A third compatibility signal for
+  state-migration necessity (gap 8 of that request) remains an open question
+  with no accepted grammar; see the response design section 11.
 
 Deferred candidates, not yet started:
 
