@@ -266,6 +266,8 @@ def _shape_base_annotation(
         return _primitive_to_go(shape.ref or "string", imports=imports, warnings=warnings, field_ref=field_ref)
     if shape.kind == "decimal":
         return "string"
+    if shape.kind == "fixed_binary":
+        return f"[{shape.length}]byte"
     if shape.kind == "array":
         element = shape.element or TypeShape(kind="primitive", ref="object")
         element_type = _shape_annotation(

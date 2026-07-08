@@ -52,7 +52,9 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     lines.append("{")
     for field in version.fields:
         shape = TypeShape.from_field_type(field.type, optional=field.optional)
-        csharp_type = _shape_to_csharp(shape, owner_type=type_name, path=[field.name], definitions=nested_definitions)
+        csharp_type = _shape_to_csharp(
+            shape, owner_type=type_name, path=[field.name], definitions=nested_definitions, warnings=warnings
+        )
         prefix = "required " if not (shape.optional or shape.nullable) else ""
         lines.append(f"    public {prefix}{csharp_type} {_property_name(field.name)} {{ get; init; }}")
     lines.append("}")
@@ -93,7 +95,11 @@ def _emit_projection(
             prefix = "required "
         else:
             csharp_type = _shape_to_csharp(
-                field_shape, owner_type=type_name, path=[field.name], definitions=nested_definitions
+                field_shape,
+                owner_type=type_name,
+                path=[field.name],
+                definitions=nested_definitions,
+                warnings=warnings,
             )
             prefix = "required " if not (field_shape.optional or field_shape.nullable) else ""
         lines.append(f"    public {prefix}{csharp_type} {_property_name(field.name)} {{ get; init; }}")
@@ -141,8 +147,9 @@ def _shape_to_csharp(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    warnings: list[str],
 ) -> str:
-    base = _shape_base_to_csharp(shape, owner_type=owner_type, path=path, definitions=definitions)
+    base = _shape_base_to_csharp(shape, owner_type=owner_type, path=path, definitions=definitions, warnings=warnings)
     if shape.optional or shape.nullable:
         return f"{base}?"
     return base
@@ -154,19 +161,28 @@ def _shape_base_to_csharp(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    warnings: list[str],
 ) -> str:
     if shape.kind == "primitive":
         return _primitive_to_csharp(shape.ref or "string")
     if shape.kind == "decimal":
         return "decimal"
+    if shape.kind == "fixed_binary":
+        field_ref = f"{owner_type}.{'.'.join(path)}"
+        warnings.append(type_loss(f"{field_ref} (binary({shape.length}) length is not enforced by the C# type system)"))
+        return "byte[]"
     if shape.kind == "array":
         element = shape.element or TypeShape(kind="primitive", ref="object")
-        return (
-            f"List<{_shape_to_csharp(element, owner_type=owner_type, path=[*path, 'Item'], definitions=definitions)}>"
+        inner = _shape_to_csharp(
+            element, owner_type=owner_type, path=[*path, "Item"], definitions=definitions, warnings=warnings
         )
+        return f"List<{inner}>"
     if shape.kind == "map":
         value = shape.value or TypeShape(kind="primitive", ref="object")
-        return f"Dictionary<string, {_shape_to_csharp(value, owner_type=owner_type, path=[*path, 'Value'], definitions=definitions)}>"
+        inner = _shape_to_csharp(
+            value, owner_type=owner_type, path=[*path, "Value"], definitions=definitions, warnings=warnings
+        )
+        return f"Dictionary<string, {inner}>"
     if shape.kind == "ref":
         return "string"
     if shape.kind == "enum":
@@ -177,7 +193,7 @@ def _shape_base_to_csharp(
         type_name = _nested_type_name(owner_type, path)
         if type_name not in definitions:
             definitions[type_name] = _build_record_definition(
-                type_name, shape, owner_type=owner_type, path=path, definitions=definitions
+                type_name, shape, owner_type=owner_type, path=path, definitions=definitions, warnings=warnings
             )
         return type_name
     return "object"
@@ -221,6 +237,7 @@ def _build_record_definition(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    warnings: list[str],
 ) -> list[str]:
     lines = [f"public sealed record {type_name}", "{"]
     for field in shape.fields:
@@ -230,6 +247,7 @@ def _build_record_definition(
             owner_type=owner_type,
             path=[*path, field.name],
             definitions=definitions,
+            warnings=warnings,
         )
         prefix = "required " if not (child_shape.optional or child_shape.nullable) else ""
         lines.append(f"    public {prefix}{child_type} {_property_name(field.name)} {{ get; init; }}")

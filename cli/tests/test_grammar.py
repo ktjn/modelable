@@ -96,6 +96,32 @@ def test_fixed_width_integer_ir_kinds():
     assert fields["delta"].kind == "i64"
 
 
+def test_parse_fixed_length_binary():
+    tree = parse_text("""
+    domain types {
+      owner: "test-team"
+      entity Widths @ 1 (additive) {
+        @key id: uuid
+        keyHash: binary(32)
+        avatar: binary
+      }
+    }
+    """)
+    assert tree.data == "start"
+
+
+def test_fixed_length_binary_ir_shape():
+    ir = parse_text_to_ir(
+        SIMPLE_MODEL.replace(
+            "total: decimal(12, 2)",
+            "total: decimal(12, 2)\n    keyHash: binary(32)",
+        )
+    )
+    fields = {f.name: f.type for f in ir.domains[0].models["Customer"][0].fields}
+    assert fields["keyHash"].kind == "fixed_binary"
+    assert fields["keyHash"].length == 32
+
+
 def test_parse_composite_types():
     tree = parse_text("""
     domain types {

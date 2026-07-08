@@ -203,6 +203,29 @@ domain types {
     assert any("TypesWidthsV1.j" in warning for warning in art.warnings)
 
 
+def test_emit_go_fixed_length_binary_maps_to_array(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    keyHash: binary(32)
+    avatar: binary
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_go(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "types.Widths@1")
+    assert 'KeyHash [32]byte `json:"keyHash"`' in art.content
+    assert 'Avatar []byte `json:"avatar"`' in art.content
+    assert art.warnings == []
+
+
 def test_emit_go_temporal_types_inject_time_import(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
