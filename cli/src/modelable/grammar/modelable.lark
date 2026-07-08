@@ -25,6 +25,7 @@ domain_item: owner_attr
            | auto_projections_decl
            | generate_block
            | semantic_decl
+           | index_decl
 
 owner_attr: "owner" ":" ESCAPED_STRING
 contact_attr: "contact" ":" ESCAPED_STRING
@@ -227,6 +228,18 @@ semantic_body: "{" semantic_item* "}"
 semantic_item: "registry" ":" bool_literal
 bool_literal: "true"  -> bl_true
             | "false" -> bl_false
+
+index_decl: "index" IDENT "@" INT "{" index_item* "}"
+index_item: primary_index | secondary_index
+primary_index: "primary" IDENT ("," IDENT)*
+secondary_index: "secondary" IDENT "{" secondary_index_item* "}"
+secondary_index_item: key_item | sort_item | unique_item
+key_item: "key" ":" "[" IDENT ("," IDENT)* "]"
+sort_item: "sort" ":" "[" sort_field ("," sort_field)* "]"
+unique_item: "unique" ":" bool_literal
+sort_field: IDENT sort_dir?
+sort_dir: "asc"  -> sd_asc
+        | "desc" -> sd_desc
 
 auto_projection_item: auto_projection_kind auto_projection_option*
 auto_projection_kind: "db"      -> apk_db

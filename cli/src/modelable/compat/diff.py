@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from modelable.parser.ir import AnnDeprecated, EnumType, FieldDef, ModelVersion
+from modelable.parser.ir import AnnDeprecated, EnumType, FieldDef, IndexDecl, ModelVersion
 
 
 @dataclass(frozen=True)
@@ -167,3 +167,30 @@ def _deprecated_replacement(field: FieldDef) -> str | None:
 
 def _type_signature(field: FieldDef) -> str:
     return json.dumps(field.type.model_dump(mode="json"), sort_keys=True)
+
+
+def compare_index_decls(old_index: IndexDecl | None, new_index: IndexDecl | None) -> list[FieldChange]:
+    """Surface index structure changes between two model versions.
+
+    Does not classify whether a given change is wire-breaking — no
+    `validate-compat` classification tiers exist in this codebase yet.
+    This only makes index changes visible in a compatibility report's
+    findings, per the source requirement that index changes be "visible
+    as a schema and rebuild event."
+    """
+    if old_index is None and new_index is None:
+        return []
+
+    changes: list[FieldChange] = []
+    old_primary = old_index.primary if old_index else []
+    new_primary = new_index.primary if new_index else []
+    if old_primary != new_primary:
+        changes.append(FieldChange(kind="index_changed", field_name="primary"))
+
+    old_secondary = {s.name: s for s in (old_index.secondary if old_index else [])}
+    new_secondary = {s.name: s for s in (new_index.secondary if new_index else [])}
+    for name in sorted(set(old_secondary) | set(new_secondary)):
+        if old_secondary.get(name) != new_secondary.get(name):
+            changes.append(FieldChange(kind="index_changed", field_name=name))
+
+    return changes

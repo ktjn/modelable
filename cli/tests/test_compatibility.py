@@ -241,3 +241,54 @@ def test_breaking_declaration_can_admit_breaking_changes():
     report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
     assert report.status == "breaking"
     assert any("removed_field name" in finding for finding in report.findings)
+
+
+def test_index_changed_is_visible_when_secondary_index_added():
+    mdl = parse_text_to_ir(
+        """
+        domain platform {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+                 status:  string
+          }
+          entity Order @ 2 (additive) {
+            @key orderId: uuid
+                 status:  string
+          }
+          index Order @ 2 {
+            primary orderId
+            secondary byStatus {
+              key: [status]
+            }
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "platform", "Order", 1, 2)
+    assert any(change.kind == "index_changed" for change in report.changes)
+
+
+def test_index_changed_is_not_flagged_when_neither_version_has_one():
+    mdl = parse_text_to_ir(
+        """
+        domain platform {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+          }
+          entity Order @ 2 (additive) {
+            @key orderId: uuid
+                 status:  string
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "platform", "Order", 1, 2)
+    assert not any(change.kind == "index_changed" for change in report.changes)

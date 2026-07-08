@@ -143,9 +143,25 @@ Recently shipped, still hardening:
   [`2026-07-04-scalable-protobuf-grpc-support-design.md`](docs/superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md)
   and unaffected by this gap, per the task-by-task plan at
   [docs/superpowers/plans/2026-07-08-wire-format-contract-first-slice.md](docs/superpowers/plans/2026-07-08-wire-format-contract-first-slice.md).
-  A third compatibility signal for state-migration necessity (gap 8
-  of that request) remains an open question with no accepted grammar; see
-  the response design section 11.
+  Primary key / secondary index / sort-key syntax (gap 7, the last of the
+  seven concretely-scheduled gaps) has also shipped: an `index <Model> @
+  <version> { primary ...; secondary ... }` declaration parallel in shape
+  to `auto projections`, with `primary` validated against the model's
+  `@key` field set (a correction found during planning: composite `@key`
+  sets aren't representable in the language today — every entity/aggregate
+  requires exactly one `@key` field — so this validation is
+  forward-compatible rather than presently exercising the multi-field
+  case), `secondary` index field-reference validation, `index_changed`
+  visibility (not yet a breaking/additive verdict) in compatibility
+  reports, and Postgres `CREATE INDEX`/`CREATE UNIQUE INDEX` DDL
+  generation. ClickHouse index DDL and the protobuf/gRPC read-replica
+  index model consuming `index_decl` directly are deferred follow-ups,
+  per the task-by-task plan at
+  [docs/superpowers/plans/2026-07-08-primary-secondary-index-syntax-first-slice.md](docs/superpowers/plans/2026-07-08-primary-secondary-index-syntax-first-slice.md).
+  All seven concretely-scheduled gaps from Scalable's feature-gaps request
+  are now shipped. A third compatibility signal for state-migration
+  necessity (gap 8 of that request) remains an open question with no
+  accepted grammar; see the response design section 11.
 
 Deferred candidates, not yet started:
 

@@ -441,6 +441,63 @@ Only the Rust emitter generates a distinct type for `semantic` declarations in t
 
 ---
 
+### 3.9 Index Declarations
+
+An `index` declaration is bound to one model version, parallel in shape to `auto projections`. It declares the model's primary key column order and any secondary indexes.
+
+```mdl
+entity Order @ 3 (additive) {
+  @key       orderId:    uuid
+             customerId: uuid
+             status:     enum(pending, shipped, delivered)
+             createdAt:  timestamp
+}
+
+index Order @ 3 {
+  primary orderId
+
+  secondary byCustomer {
+    key:    [customerId]
+    sort:   [createdAt desc]
+    unique: false
+  }
+
+  secondary byStatus {
+    key: [status, createdAt]
+  }
+}
+```
+
+#### `primary`
+
+`primary` must name exactly the model version's `@key` field(s) — no more, no fewer, and every model version today has exactly one `@key` field (composite keys aren't representable in the language yet, so in practice `primary` is always a single name). The declaration is still required explicitly, rather than inferred from `@key`, so that composite-key column order has a place to be recorded once composite keys are supported.
+
+#### `secondary`
+
+Each `secondary` block names a lookup index:
+
+- **`key`** — required. The equality-lookup column(s), in order.
+- **`sort`** — optional, defaults to none. Additional column(s) appended after `key`, with an optional `asc`/`desc` direction (`asc` is the default and rarely written explicitly).
+- **`unique`** — optional, defaults to `false`.
+
+`key` and `sort` field names reference fields on the indexed *model* — not a projection. Both `primary` and every `secondary`'s `key`/`sort` list are validated against the model version's own fields at compile time.
+
+#### Constraints
+
+- `index` may only target `entity` or `aggregate` models (the only kinds that carry `@key`).
+- One `index` declaration per model version — declaring it twice for the same `(model, version)` is a compile error.
+- Secondary index names must be unique within one `index` block.
+
+#### Compatibility visibility
+
+Changing an `index` declaration between two published model versions (adding, removing, or altering `primary` or a `secondary` block) is surfaced as an `index_changed` entry in that model's compatibility report (`registry.db`'s `compatibility_reports` table) — visible, but not yet classified as breaking or additive; no compiler guard prevents publishing an index change today.
+
+#### Emitter support (this slice)
+
+Only the Postgres SQL emitter consumes `index` declarations, generating `CREATE INDEX`/`CREATE UNIQUE INDEX` statements for each `secondary` block (see [Compiler Reference](compiler-reference.md)). ClickHouse DDL and the protobuf/gRPC read-replica index model are deferred follow-ups.
+
+---
+
 ## 4. Output Targets
 
 ### 4.1 Workspace-level generate block

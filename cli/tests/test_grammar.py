@@ -1,5 +1,6 @@
 import pytest
 
+from modelable.parser.ir import SortField
 from modelable.parser.parse import ParseError, parse_file, parse_text, parse_text_to_ir
 
 
@@ -443,3 +444,73 @@ def test_uuid_invalid_version_is_parse_error():
     except ParseError as exc:
         assert "uuid" in str(exc).lower()
         assert "5" in str(exc)
+
+
+def test_parse_index_decl():
+    tree = parse_text("""
+    domain platform {
+      owner: "platform-team"
+      entity Order @ 3 (additive) {
+        @key   orderId:    uuid
+               customerId: uuid
+               status:     enum(pending, shipped, delivered)
+               createdAt:  timestamp
+      }
+
+      index Order @ 3 {
+        primary orderId
+
+        secondary byCustomer {
+          key:    [customerId]
+          sort:   [createdAt desc]
+          unique: false
+        }
+
+        secondary byStatus {
+          key: [status, createdAt]
+        }
+      }
+    }
+    """)
+    assert tree.data == "start"
+
+
+def test_index_decl_ir_shape():
+    ir = parse_text_to_ir("""
+    domain platform {
+      owner: "platform-team"
+      entity Order @ 3 (additive) {
+        @key   orderId:    uuid
+               customerId: uuid
+               status:     enum(pending, shipped, delivered)
+               createdAt:  timestamp
+      }
+
+      index Order @ 3 {
+        primary orderId
+
+        secondary byCustomer {
+          key:    [customerId]
+          sort:   [createdAt desc]
+          unique: false
+        }
+
+        secondary byStatus {
+          key:    [status, createdAt]
+          unique: true
+        }
+      }
+    }
+    """)
+    decl = ir.domains[0].index_decls[0]
+    assert decl.model == "Order"
+    assert decl.version == 3
+    assert decl.primary == ["orderId"]
+    by_customer = next(s for s in decl.secondary if s.name == "byCustomer")
+    assert by_customer.key == ["customerId"]
+    assert by_customer.sort == [SortField(field="createdAt", direction="desc")]
+    assert by_customer.unique is False
+    by_status = next(s for s in decl.secondary if s.name == "byStatus")
+    assert by_status.key == ["status", "createdAt"]
+    assert by_status.sort == []
+    assert by_status.unique is True

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from modelable.compat.diff import FieldChange, compare_model_versions
-from modelable.parser.ir import ChangeKind, DirectMapping, MdlFile, ModelVersion
+from modelable.compat.diff import FieldChange, compare_index_decls, compare_model_versions
+from modelable.parser.ir import ChangeKind, DirectMapping, IndexDecl, MdlFile, ModelVersion
 
 
 @dataclass(frozen=True)
@@ -37,6 +37,9 @@ def check_model_version_compatibility(
     old_version = _find_version(mdl, domain_name, model_name, from_version)
     new_version = _find_version(mdl, domain_name, model_name, to_version)
     changes = compare_model_versions(old_version, new_version)
+    old_index = _find_index_decl(mdl, domain_name, model_name, from_version)
+    new_index = _find_index_decl(mdl, domain_name, model_name, to_version)
+    changes.extend(compare_index_decls(old_index, new_index))
     findings = [_format_finding(change) for change in changes]
     status = "breaking" if _has_breaking_change(changes, new_version) else "compatible"
     return CompatibilityReport(
@@ -143,7 +146,25 @@ def _find_version(
     raise LookupError(f"unknown model version {domain_name}.{model_name}@{version}")
 
 
+def _find_index_decl(
+    mdl: MdlFile,
+    domain_name: str,
+    model_name: str,
+    version: int,
+) -> IndexDecl | None:
+    for domain in mdl.domains:
+        if domain.name != domain_name:
+            continue
+        return next(
+            (decl for decl in domain.index_decls if decl.model == model_name and decl.version == version),
+            None,
+        )
+    return None
+
+
 def _format_finding(change: FieldChange) -> str:
+    if change.kind == "index_changed":
+        return f"index_changed {change.field_name}"
     if change.kind == "renamed_field":
         return f"renamed_field {change.field_name} -> {change.replacement}"
     if change.kind == "nullability_changed":

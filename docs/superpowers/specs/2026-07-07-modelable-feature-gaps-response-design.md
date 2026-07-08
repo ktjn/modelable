@@ -527,6 +527,30 @@ consumers:
   DDL statements generated from `secondary` blocks — a concrete
   improvement independent of Scalable.
 
+**Correction (found during implementation planning):** the rationale
+above for restating `primary` explicitly ("composite keys have an
+explicit declared order") assumes composite `@key` sets are
+representable. They aren't — `validation/semantic.py`'s existing
+`_validate_models` already requires `entity`/`aggregate` model versions
+to carry **exactly one** `@key` field; anything else is a compile error.
+The set-equality validation between `primary` and the model's `@key`
+field names is still implemented as designed (forward-compatible if
+composite keys are ever added, and it still catches a typo'd or stale
+field name), but in practice every `primary` clause this validates today
+will be a single-name list — the "explicit declared order" benefit
+doesn't apply yet.
+
+Also, `sql.py`'s `CREATE TABLE` DDL is generated per-*projection*, not
+per-model — a `binding` maps a fully-qualified model name to a table, and
+DDL is emitted for whichever projection's `source.model` matches that
+binding. `index`'s `secondary` field references (which name fields on
+the *model*, not a projection) are resolved through to the emitting
+projection's own field names via its `DirectMapping`s; a referenced field
+that the projection doesn't include is skipped with a warning rather than
+emitted as a broken column reference. `grpc.py` consuming `index_decl`
+directly and ClickHouse index DDL are deferred to follow-up slices — see
+the implementation plan's Scope section for the reasoning on each.
+
 ## 11. Gap 8 — Third Compatibility Signal (Open Question)
 
 No grammar is accepted here. The source document itself frames this as

@@ -104,6 +104,7 @@ def validate_diagnostics(mdl: MdlFile, path: str | Path | None = None) -> list[D
         _validate_models(domain.name, domain.models, diagnostics, path)
         _validate_projections(domain.name, domain.projections, diagnostics, path, mdl)
         _validate_semantic_types(domain, mdl, diagnostics, path)
+        _validate_index_decls(domain, diagnostics, path)
     return diagnostics
 
 
@@ -806,6 +807,84 @@ def _resolve_field_type_from_version(mdl: MdlFile, version, field_name: str):
             return None
         return _resolve_field_type_from_version(mdl, resolved.version, mapping.source_field)
     return None
+
+
+def _validate_index_decls(
+    domain: DomainDef,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    seen_model_versions: set[tuple[str, int]] = set()
+    for decl in domain.index_decls:
+        fqn = f"{domain.name}.{decl.model}@{decl.version}"
+
+        if (decl.model, decl.version) in seen_model_versions:
+            diagnostics.append(_diag("SEM", f"{fqn}: index is declared more than once for this model version", path))
+        seen_model_versions.add((decl.model, decl.version))
+
+        model_versions = domain.models.get(decl.model)
+        if model_versions is None:
+            diagnostics.append(_diag("SEM", f"{fqn}: index references unknown model '{decl.model}'", path))
+            continue
+        model_version = next((mv for mv in model_versions if mv.version == decl.version), None)
+        if model_version is None:
+            diagnostics.append(
+                _diag("SEM", f"{fqn}: index references {decl.model}@{decl.version} which does not exist", path)
+            )
+            continue
+
+        if model_version.model_kind not in (ModelKind.entity, ModelKind.aggregate):
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{fqn}: index may only target 'entity' or 'aggregate' models, "
+                    f"but '{decl.model}' is '{model_version.model_kind.value}'",
+                    path,
+                )
+            )
+            continue
+
+        field_names = {field.name for field in model_version.fields}
+        key_field_names = {field.name for field in model_version.fields if field.is_key}
+
+        if set(decl.primary) != key_field_names:
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{fqn}: index primary {sorted(decl.primary)} must exactly match "
+                    f"the model's @key field(s) {sorted(key_field_names)}",
+                    path,
+                )
+            )
+
+        seen_secondary_names: set[str] = set()
+        for secondary in decl.secondary:
+            if secondary.name in seen_secondary_names:
+                diagnostics.append(
+                    _diag("SEM", f"{fqn}: secondary index '{secondary.name}' is declared more than once", path)
+                )
+            seen_secondary_names.add(secondary.name)
+
+            for field_name in secondary.key:
+                if field_name not in field_names:
+                    diagnostics.append(
+                        _diag(
+                            "SEM",
+                            f"{fqn}: secondary index '{secondary.name}' references undeclared field "
+                            f"'{field_name}' in 'key'",
+                            path,
+                        )
+                    )
+            for sort_field in secondary.sort:
+                if sort_field.field not in field_names:
+                    diagnostics.append(
+                        _diag(
+                            "SEM",
+                            f"{fqn}: secondary index '{secondary.name}' references undeclared field "
+                            f"'{sort_field.field}' in 'sort'",
+                            path,
+                        )
+                    )
 
 
 def _diag(code: str, message: str, path: str | Path | None) -> Diagnostic:

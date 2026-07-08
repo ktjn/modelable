@@ -416,6 +416,25 @@ class SemanticTypeDecl(BaseModel):
     registry: bool = False
 
 
+class SortField(BaseModel):
+    field: str
+    direction: Literal["asc", "desc"] = "asc"
+
+
+class SecondaryIndexDecl(BaseModel):
+    name: str
+    key: list[str] = Field(default_factory=list)
+    sort: list[SortField] = Field(default_factory=list)
+    unique: bool = False
+
+
+class IndexDecl(BaseModel):
+    model: str
+    version: int
+    primary: list[str] = Field(default_factory=list)
+    secondary: list[SecondaryIndexDecl] = Field(default_factory=list)
+
+
 class GenerateTarget(BaseModel):
     name: str
     dialect: str | None = None
@@ -452,6 +471,7 @@ class DomainDef(BaseModel):
     auto_projections: list[AutoProjectionDecl] = Field(default_factory=list)
     generate_targets: list[GenerateTarget] = Field(default_factory=list)
     semantic_types: list[SemanticTypeDecl] = Field(default_factory=list)
+    index_decls: list[IndexDecl] = Field(default_factory=list)
 
 
 class WorkspaceDef(BaseModel):

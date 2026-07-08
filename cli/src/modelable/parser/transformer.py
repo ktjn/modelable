@@ -34,6 +34,7 @@ from modelable.parser.ir import (
     FieldType,
     FixedBinaryType,
     GenerateTarget,
+    IndexDecl,
     JoinRef,
     MapType,
     MdlFile,
@@ -45,7 +46,9 @@ from modelable.parser.ir import (
     ProjectionField,
     ProjectionVersion,
     RefType,
+    SecondaryIndexDecl,
     SemanticTypeDecl,
+    SortField,
     SourceRef,
     VersionExact,
     VersionMin,
@@ -104,6 +107,7 @@ class MdlTransformer(Transformer[list[object], Any]):
         auto_projections: list[AutoProjectionDecl] = []
         generate_targets: list[GenerateTarget] = []
         semantic_types: list[SemanticTypeDecl] = []
+        index_decls: list[IndexDecl] = []
 
         for tag, value in [item for item in items[1:] if isinstance(item, tuple)]:
             if tag == "owner":
@@ -124,6 +128,8 @@ class MdlTransformer(Transformer[list[object], Any]):
                 generate_targets = value
             elif tag == "semantic":
                 semantic_types.append(value)
+            elif tag == "index":
+                index_decls.append(value)
 
         return DomainDef(
             name=name,
@@ -135,6 +141,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             auto_projections=auto_projections,
             generate_targets=generate_targets,
             semantic_types=semantic_types,
+            index_decls=index_decls,
         )
 
     def domain_name(self, items: list[object]) -> str:
@@ -240,6 +247,62 @@ class MdlTransformer(Transformer[list[object], Any]):
                 underlying=underlying,  # type: ignore[arg-type]
                 registry=body.get("registry", False),
             ),
+        )
+
+    def sd_asc(self, _items: list[object]) -> str:
+        return "asc"
+
+    def sd_desc(self, _items: list[object]) -> str:
+        return "desc"
+
+    def sort_dir(self, items: list[object]) -> str:
+        return items[0]  # type: ignore[return-value]
+
+    def sort_field(self, items: list[object]) -> SortField:
+        direction = items[1] if len(items) > 1 else "asc"
+        return SortField(field=str(items[0]), direction=direction)  # type: ignore[arg-type]
+
+    def key_item(self, items: list[object]) -> tuple[str, list[str]]:
+        return ("key", [str(item) for item in items])
+
+    def sort_item(self, items: list[object]) -> tuple[str, list[SortField]]:
+        return ("sort", list(items))  # type: ignore[arg-type]
+
+    def unique_item(self, items: list[object]) -> tuple[str, bool]:
+        return ("unique", items[0])  # type: ignore[return-value]
+
+    def secondary_index_item(self, items: list[object]) -> tuple[str, object]:
+        return items[0]  # type: ignore[return-value]
+
+    def secondary_index(self, items: list[object]) -> SecondaryIndexDecl:
+        name = str(items[0])
+        parts: dict[str, object] = dict(item for item in items[1:] if isinstance(item, tuple))
+        return SecondaryIndexDecl(
+            name=name,
+            key=parts.get("key", []),  # type: ignore[arg-type]
+            sort=parts.get("sort", []),  # type: ignore[arg-type]
+            unique=parts.get("unique", False),  # type: ignore[arg-type]
+        )
+
+    def primary_index(self, items: list[object]) -> tuple[str, list[str]]:
+        return ("primary", [str(item) for item in items])
+
+    def index_item(self, items: list[object]) -> object:
+        return items[0]
+
+    def index_decl(self, items: list[object]) -> tuple[str, IndexDecl]:
+        model = str(items[0])
+        version = int(items[1])
+        primary: list[str] = []
+        secondary: list[SecondaryIndexDecl] = []
+        for item in items[2:]:
+            if isinstance(item, tuple) and item[0] == "primary":
+                primary = item[1]
+            elif isinstance(item, SecondaryIndexDecl):
+                secondary.append(item)
+        return (
+            "index",
+            IndexDecl(model=model, version=version, primary=primary, secondary=secondary),
         )
 
     def field_decl(self, items: list[object]) -> FieldDef:
