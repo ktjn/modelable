@@ -192,6 +192,74 @@ domain types {
     assert "pub avatar: Vec<u8>," in art.content
 
 
+def test_emit_rust_semantic_type_newtype(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "test-team"
+
+  semantic ModuleId : u32
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "platform.ModuleId")
+    assert art.path == tmp_path / "out" / "platform" / "module_id.rs"
+    assert "pub struct ModuleId(pub u32);" in art.content
+    assert "impl From<u32> for ModuleId" in art.content
+    assert "impl From<ModuleId> for u32" in art.content
+    assert "impl std::ops::Deref for ModuleId" in art.content
+    assert "type Target = u32;" in art.content
+    assert "Copy" in art.content
+    assert "Eq" in art.content
+    assert "Hash" in art.content
+
+
+def test_emit_rust_semantic_type_over_string_omits_copy(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "test-team"
+
+  semantic Notes : decimal(12, 2)
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "platform.Notes")
+    assert "pub struct Notes(pub String);" in art.content
+    assert "Copy" not in art.content
+
+
+def test_emit_rust_field_referencing_semantic_type_uses_newtype(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "test-team"
+
+  semantic ModuleId : u32
+
+  entity Schema @ 1 (additive) {
+    @key moduleId: ModuleId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "platform.Schema@1")
+    assert "use super::module_id::ModuleId;" in art.content
+    assert "pub module_id: ModuleId," in art.content
+
+
 def test_emit_rust_temporal_types_map_to_string(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

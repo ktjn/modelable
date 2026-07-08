@@ -462,8 +462,7 @@ def _validate_semantic_types(
                 diagnostics.append(
                     _diag(
                         "SEM",
-                        f"{domain.name}: semantic type '{decl.name}' references undeclared semantic type "
-                        f"'{next_name}'",
+                        f"{domain.name}: semantic type '{decl.name}' references undeclared semantic type '{next_name}'",
                         path,
                     )
                 )

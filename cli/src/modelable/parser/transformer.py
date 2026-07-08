@@ -221,13 +221,13 @@ class MdlTransformer(Transformer[list[object], Any]):
         return False
 
     def bool_literal(self, items: list[object]) -> bool:
-        return items[0]
+        return items[0]  # type: ignore[return-value]
 
     def semantic_item(self, items: list[object]) -> tuple[str, bool]:
-        return ("registry", items[0])
+        return ("registry", items[0])  # type: ignore[return-value]
 
     def semantic_body(self, items: list[object]) -> dict[str, bool]:
-        return dict(items)
+        return dict(items)  # type: ignore[arg-type]
 
     def semantic_decl(self, items: list[object]) -> tuple[str, SemanticTypeDecl]:
         name = str(items[0])
@@ -237,7 +237,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             "semantic",
             SemanticTypeDecl(
                 name=name,
-                underlying=underlying,
+                underlying=underlying,  # type: ignore[arg-type]
                 registry=body.get("registry", False),
             ),
         )
