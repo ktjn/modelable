@@ -401,7 +401,7 @@ domain catalog {
 }
 ```
 
-`registry: true` marks the type as a candidate for deterministic registry ID allocation (Modelable 1.4). In this slice it is parsed and validated but not yet consumed by any emitter.
+`registry: true` marks the type for deterministic registry ID allocation. `modelable compile` allocates a small, monotonically increasing integer id for every `registry: true` declaration and persists it in a git-tracked `registry-ids.lock` ledger at the workspace root — ids are never reassigned or reused, even if a declaration is later removed. See the [CLI Reference](cli-reference.md) `compile` section for the allocation mechanics and flags. In this slice the allocated id is exposed only in the Rust emitter's generated doc comments; other targets don't yet surface it.
 
 #### Referencing a semantic type
 

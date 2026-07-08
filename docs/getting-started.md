@@ -34,6 +34,12 @@ Generated artifacts are consumer contracts, not the source of truth. Commit
 `.mdl` definitions; regenerate schemas, language bindings, and Markdown in CI
 unless a consumer workflow deliberately reviews generated output.
 
+The one exception is `registry-ids.lock`: although `compile` writes it, it
+must be committed, not regenerated in CI from scratch. It's the durable
+record of which small integer id was allocated to each `semantic ...
+{ registry: true }` declaration, and ids are never reassigned or reused —
+treat it like a database migration history, not a build artifact.
+
 Before upgrading, read the root
 [changelog](https://github.com/ktjn/modelable/blob/main/CHANGELOG.md) for
 language or artifact compatibility notes.

@@ -8,6 +8,23 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- `registry-ids.lock`, a git-tracked JSON ledger at the workspace root that
+  `modelable compile` reads and updates: every `semantic ...
+  { registry: true }` declaration gets a small, monotonically-increasing
+  integer id, allocated in deterministic (domain, then declaration name)
+  order and never reassigned or reused, even after the declaration is
+  removed. Removing a declaration leaves an "orphaned" ledger entry that
+  `compile` errors on by default; pass `--allow-orphaned-registry-ids` to
+  keep it reserved instead. `registry.db` gained a `registry_ids` table,
+  populated as a read-through cache of the lock file for ad hoc SQL
+  queries — the lock file remains the source of truth. The Rust emitter
+  surfaces the allocated id as a `/// registry id: N` doc comment on the
+  generated newtype struct. This is the first slice of Modelable 1.4, part
+  of Modelable's response to Scalable's feature-gaps request; see
+  `docs/superpowers/specs/2026-07-07-modelable-feature-gaps-response-design.md`.
+  Exposing the id in the protobuf schema manifest (blocked on protobuf
+  gaining semantic-type support at all) and a `modelable inspect`
+  id-lookup surface are deferred follow-ups.
 - `semantic Name: Underlying`, a domain-level type-alias declaration whose
   underlying type is a primitive, `decimal(p,s)`, `binary(N)`, or another
   semantic type (chains are validated for cycles and dangling references, up

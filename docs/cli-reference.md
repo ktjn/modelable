@@ -208,13 +208,26 @@ modelable diff customer.Customer@1 customer.Customer@2
 ### 5.5 `compile` — Compile definitions to artifact formats
 
 ```text
-modelable compile SOURCE --target TARGET [--out DIR] [--registry PATH]
+modelable compile SOURCE --target TARGET [--out DIR] [--registry PATH] [--registry-ids PATH] [--allow-orphaned-registry-ids]
 ```
 
 Compiles model and projection definitions to a target artifact format. `SOURCE`
 is a path to a `.mdl` file or directory.
 
 In addition to the requested artifact format, `compile` always writes a `registry.db` SQLite index and plan documents to `.modelable/` in the current directory. These derived files are build artifacts — not source files — and should be added to `.gitignore`.
+
+`compile` also reads and updates `registry-ids.lock`, a JSON ledger at the
+workspace root mapping every `semantic ... { registry: true }` declaration
+(keyed `domain.Name`) to its allocated small integer id. New declarations get
+the next id after the current maximum; existing ids are never reassigned or
+reused, even after a declaration is removed — a removed name becomes an
+"orphan" that `compile` refuses to silently drop unless
+`--allow-orphaned-registry-ids` is passed, in which case the orphaned id
+stays reserved. Unlike `registry.db`, **`registry-ids.lock` must be committed
+to git** — it is the durable source of truth for id allocation, not a
+disposable build artifact. `registry.db` gains a matching `registry_ids`
+table populated as a read-through cache of the lock file for ad hoc SQL
+queries; the lock file remains authoritative.
 
 **Options:**
 
@@ -223,6 +236,8 @@ In addition to the requested artifact format, `compile` always writes a `registr
 | `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, `openlineage`, `odcs`, `protobuf`, or `grpc` |
 | `--out`, `-o` | No | `./dist/<format>` | Output directory |
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
+| `--registry-ids` | No | `registry-ids.lock` | Registry id allocation ledger path (commit this file) |
+| `--allow-orphaned-registry-ids` | No | off | Tolerate ledger entries with no matching `registry: true` declaration instead of erroring |
 
 **Default output subdirectories:**
 

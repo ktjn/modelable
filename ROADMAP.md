@@ -94,8 +94,21 @@ Recently shipped, still hardening:
   resolve a semantic type reference to its underlying type unchanged, per
   the task-by-task plan at
   [docs/superpowers/plans/2026-07-08-semantic-type-alias-mechanism-first-slice.md](docs/superpowers/plans/2026-07-08-semantic-type-alias-mechanism-first-slice.md).
-  Modelable 1.4 (deterministic small-integer registry id allocation) has not
-  started. A third compatibility signal for state-migration necessity (gap 8
+  Modelable 1.4 (deterministic small-integer registry id allocation) has
+  shipped its first slice: `modelable compile` now allocates a small,
+  monotonically-increasing integer id for every `semantic ...
+  { registry: true }` declaration and persists it in a git-tracked
+  `registry-ids.lock` ledger at the workspace root, with orphaned-id
+  detection (a `--allow-orphaned-registry-ids` escape hatch tolerates but
+  never reuses an id whose declaration was removed). `registry.db` gained a
+  `registry_ids` table populated as a read-through cache of the lock file,
+  and the Rust emitter surfaces the allocated id as a `/// registry id: N`
+  doc comment on the generated newtype. Exposing the id in the protobuf
+  schema manifest (blocked on protobuf gaining semantic-type support at
+  all) and a `modelable inspect` id-lookup surface are deferred follow-up
+  work, per the task-by-task plan at
+  [docs/superpowers/plans/2026-07-08-registry-id-allocation-first-slice.md](docs/superpowers/plans/2026-07-08-registry-id-allocation-first-slice.md).
+  A third compatibility signal for state-migration necessity (gap 8
   of that request) remains an open question with no accepted grammar; see
   the response design section 11.
 
