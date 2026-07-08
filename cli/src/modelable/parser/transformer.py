@@ -371,6 +371,36 @@ class MdlTransformer(Transformer[list[object], Any]):
     def pt_json(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="json")
 
+    def pt_u8(self, _items: list[object]) -> PrimitiveType:
+        return PrimitiveType(kind="u8")
+
+    def pt_u16(self, _items: list[object]) -> PrimitiveType:
+        return PrimitiveType(kind="u16")
+
+    def pt_u32(self, _items: list[object]) -> PrimitiveType:
+        return PrimitiveType(kind="u32")
+
+    def pt_u64(self, _items: list[object]) -> PrimitiveType:
+        return PrimitiveType(kind="u64")
+
+    def pt_u128(self, _items: list[object]) -> PrimitiveType:
+        return PrimitiveType(kind="u128")
+
+    def pt_i8(self, _items: list[object]) -> PrimitiveType:
+        return PrimitiveType(kind="i8")
+
+    def pt_i16(self, _items: list[object]) -> PrimitiveType:
+        return PrimitiveType(kind="i16")
+
+    def pt_i32(self, _items: list[object]) -> PrimitiveType:
+        return PrimitiveType(kind="i32")
+
+    def pt_i64(self, _items: list[object]) -> PrimitiveType:
+        return PrimitiveType(kind="i64")
+
+    def pt_i128(self, _items: list[object]) -> PrimitiveType:
+        return PrimitiveType(kind="i128")
+
     def primitive_type(self, items: list[object]) -> object:
         return items[0]
 

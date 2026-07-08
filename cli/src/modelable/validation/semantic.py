@@ -42,6 +42,19 @@ _VALID_TS_FIELD_CASE_VALUES = {
     "PascalCase",
 }
 
+_INTEGER_BOUNDS: dict[str, tuple[int, int]] = {
+    "u8": (0, 2**8 - 1),
+    "u16": (0, 2**16 - 1),
+    "u32": (0, 2**32 - 1),
+    "u64": (0, 2**64 - 1),
+    "u128": (0, 2**128 - 1),
+    "i8": (-(2**7), 2**7 - 1),
+    "i16": (-(2**15), 2**15 - 1),
+    "i32": (-(2**31), 2**31 - 1),
+    "i64": (-(2**63), 2**63 - 1),
+    "i128": (-(2**127), 2**127 - 1),
+}
+
 _AGGREGATE_FUNCTIONS = ("count", "sum", "min", "max", "avg")
 _AGGREGATE_PATTERN = re.compile(
     r"\b(" + "|".join(_AGGREGATE_FUNCTIONS) + r")\s*\(",
@@ -179,6 +192,7 @@ def _validate_models(
                     field_path=[field.name],
                     field_type=field.type,
                 )
+                _validate_default_value_range(f"{fqn}@{version.version}", field, diagnostics, path)
 
         for index in range(1, len(versions)):
             previous = versions[index - 1]
@@ -326,6 +340,35 @@ def _validate_declaration_wire_annotations(
 
 def _find_field(version: ModelVersion, field_name: str):
     return next((field for field in version.fields if field.name == field_name), None)
+
+
+def _validate_default_value_range(
+    fqn: str,
+    field: FieldDef,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    if field.default is None:
+        return
+    if not isinstance(field.type, PrimitiveType):
+        return
+    bounds = _INTEGER_BOUNDS.get(field.type.kind)
+    if bounds is None:
+        return
+    try:
+        value = int(field.default.strip())
+    except ValueError:
+        return
+    low, high = bounds
+    if not (low <= value <= high):
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{field.name}' default {value} is out of range for {field.type.kind} "
+                f"(valid range {low}..{high})",
+                path,
+            )
+        )
 
 
 def _validate_field_annotations(

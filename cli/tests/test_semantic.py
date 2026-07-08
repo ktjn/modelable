@@ -473,3 +473,52 @@ def test_model_level_wire_target_other_than_json_field_case_is_rejected():
     errors = validate(mdl)
 
     assert any("only @wire(json.fieldcase: ...)" in error.lower() for error in errors)
+
+
+def test_fixed_width_default_out_of_range_is_error():
+    mdl = parse_text_to_ir("""
+    domain types {
+      owner: "test-team"
+      entity Widths @ 1 (additive) {
+        @key id: uuid
+        score: u8 = 300
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("u8" in e and "range" in e.lower() for e in errors)
+
+
+def test_fixed_width_default_in_range_is_valid():
+    mdl = parse_text_to_ir("""
+    domain types {
+      owner: "test-team"
+      entity Widths @ 1 (additive) {
+        @key id: uuid
+        score: u8 = 200
+        delta: i8 = -100
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert errors == []
+
+
+def test_fixed_width_negative_default_on_unsigned_is_error():
+    mdl = parse_text_to_ir("""
+    domain types {
+      owner: "test-team"
+      entity Widths @ 1 (additive) {
+        @key id: uuid
+        score: u32 = -1
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("u32" in e for e in errors)

@@ -819,6 +819,16 @@ def _primitive_to_rust(kind: str) -> str:
         "duration": "String",
         "binary": "Vec<u8>",
         "json": "serde_json::Value",
+        "u8": "u8",
+        "u16": "u16",
+        "u32": "u32",
+        "u64": "u64",
+        "u128": "u128",
+        "i8": "i8",
+        "i16": "i16",
+        "i32": "i32",
+        "i64": "i64",
+        "i128": "i128",
     }
     return mapping.get(kind, "String")
 
