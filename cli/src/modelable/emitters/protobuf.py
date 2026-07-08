@@ -34,6 +34,7 @@ class _ProtoField:
     type_name: str
     enum: _ProtoEnum | None
     key: bool
+    fixed_length: int | None = None
 
 
 @dataclass(frozen=True)
@@ -143,7 +144,7 @@ def _emit_projection_version(
 
 
 def _field_to_proto(field: FieldDef, *, message_name: str, field_number: int) -> _ProtoField:
-    type_name, enum = _type_to_proto(field.type, message_name=message_name, field_name=field.name)
+    type_name, enum, fixed_length = _type_to_proto(field.type, message_name=message_name, field_name=field.name)
     if field.optional and not type_name.startswith("repeated "):
         type_name = f"optional {type_name}"
     return _ProtoField(
@@ -153,6 +154,7 @@ def _field_to_proto(field: FieldDef, *, message_name: str, field_number: int) ->
         type_name=type_name,
         enum=enum,
         key=any(isinstance(annotation, AnnKey) for annotation in field.annotations),
+        fixed_length=fixed_length,
     )
 
 
@@ -160,7 +162,7 @@ def _projection_field_to_proto(
     field: ProjectionField, projection: ProjectionVersion, mdl: MdlFile, *, message_name: str, field_number: int
 ) -> _ProtoField:
     field_type = _resolve_projection_field_type(field, projection, mdl)
-    type_name, enum = _type_to_proto(field_type, message_name=message_name, field_name=field.name)
+    type_name, enum, fixed_length = _type_to_proto(field_type, message_name=message_name, field_name=field.name)
     return _ProtoField(
         source_name=field.name,
         proto_name=_snake_case(field.name),
@@ -168,6 +170,7 @@ def _projection_field_to_proto(
         type_name=type_name,
         enum=enum,
         key=False,
+        fixed_length=fixed_length,
     )
 
 
@@ -197,21 +200,26 @@ def _resolve_projection_field_type(field: ProjectionField, projection: Projectio
     return PrimitiveType(kind="string")
 
 
-def _type_to_proto(field_type: FieldType, *, message_name: str, field_name: str) -> tuple[str, _ProtoEnum | None]:
+def _type_to_proto(
+    field_type: FieldType, *, message_name: str, field_name: str
+) -> tuple[str, _ProtoEnum | None, int | None]:
     if isinstance(field_type, PrimitiveType):
-        return _primitive_to_proto(field_type.kind), None
+        type_name, fixed_length = _primitive_to_proto(field_type.kind)
+        return type_name, None, fixed_length
     if isinstance(field_type, DecimalType):
-        return "string", None
+        return "string", None, None
     if isinstance(field_type, ArrayType):
-        inner, _ = _type_to_proto(field_type.item, message_name=message_name, field_name=field_name)
-        return f"repeated {inner.removeprefix('optional ')}", None
+        inner, _, _ = _type_to_proto(field_type.item, message_name=message_name, field_name=field_name)
+        return f"repeated {inner.removeprefix('optional ')}", None, None
     if isinstance(field_type, EnumType):
         enum = _ProtoEnum(name=f"{message_name}{_pascal_case(field_name)}", values=tuple(field_type.values))
-        return enum.name, enum
-    return "bytes", None
+        return enum.name, enum, None
+    return "bytes", None, None
 
 
-def _primitive_to_proto(kind: str) -> str:
+def _primitive_to_proto(kind: str) -> tuple[str, int | None]:
+    if kind in ("u128", "i128"):
+        return "bytes", 16
     return {
         "string": "string",
         "uuid": "string",
@@ -223,7 +231,15 @@ def _primitive_to_proto(kind: str) -> str:
         "bool": "bool",
         "timestamp": "google.protobuf.Timestamp",
         "binary": "bytes",
-    }.get(kind, "string")
+        "u8": "uint32",
+        "u16": "uint32",
+        "u32": "uint32",
+        "u64": "uint64",
+        "i8": "int32",
+        "i16": "int32",
+        "i32": "int32",
+        "i64": "int64",
+    }.get(kind, "string"), None
 
 
 def _render_proto(*, package: str, message_name: str, fields: list[_ProtoField]) -> str:
@@ -257,33 +273,28 @@ def _manifest_json(*, domain: str, name: str, kind: str, version: int, ref: str,
                 "kind": kind,
                 "schema_id": f"modelable://{domain}/{name}/v{version}/protobuf",
                 "schema_fingerprint": _schema_fingerprint(fields),
-                "fields": [
-                    {
-                        "name": field.source_name,
-                        "proto_name": field.proto_name,
-                        "number": field.number,
-                        "type": field.type_name,
-                        "key": field.key,
-                    }
-                    for field in fields
-                ],
+                "fields": [_manifest_field(field) for field in fields],
             }
         ],
     }
     return json.dumps(schema, indent=2, ensure_ascii=False) + "\n"
 
 
+def _manifest_field(field: _ProtoField) -> dict:
+    entry = {
+        "name": field.source_name,
+        "proto_name": field.proto_name,
+        "number": field.number,
+        "type": field.type_name,
+        "key": field.key,
+    }
+    if field.fixed_length is not None:
+        entry["fixed_length"] = field.fixed_length
+    return entry
+
+
 def _schema_fingerprint(fields: list[_ProtoField]) -> str:
-    normalized = [
-        {
-            "name": field.source_name,
-            "proto_name": field.proto_name,
-            "number": field.number,
-            "type": field.type_name,
-            "key": field.key,
-        }
-        for field in fields
-    ]
+    normalized = [_manifest_field(field) for field in fields]
     return compute_content_hash(json.dumps(normalized, indent=2, ensure_ascii=False))
 
 

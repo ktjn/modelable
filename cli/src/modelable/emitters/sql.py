@@ -55,10 +55,12 @@ def _emit_projection_ddl(
     table_name = _resolve_table_name(version, mdl, dialect) or _snake_case(projection_name)
 
     columns: list[str] = []
+    checks: list[str] = []
     warnings: list[str] = []
 
     for field in version.fields:
         field_type = _resolve_field_type(field, version, mdl)
+        col_name = _snake_case(field.name)
         if field_type is None:
             warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
             col_type = "TEXT" if dialect == "postgres" else "String"
@@ -67,9 +69,10 @@ def _emit_projection_ddl(
             optional = _is_optional(field, version, mdl)
             if dialect == "postgres":
                 col_type = _pg_col_type(field_type, wire, optional=optional)
+                if _pg_needs_unsigned_check(field_type):
+                    checks.append(f"    CHECK ({col_name} >= 0)")
             else:
                 col_type = _ch_col_type(field_type, wire, optional=optional)
-        col_name = _snake_case(field.name)
         columns.append(f"    {col_name} {col_type}")
 
     if not columns:
@@ -79,7 +82,7 @@ def _emit_projection_ddl(
     lines.append(f"-- {domain.name}.{projection_name} v{version.version}")
     if dialect == "postgres":
         lines.append(f"CREATE TABLE IF NOT EXISTS {table_name} (")
-        lines.append(",\n".join(columns))
+        lines.append(",\n".join([*columns, *checks]))
         lines.append(");")
     else:
         lines.append(f"CREATE TABLE IF NOT EXISTS {table_name}")
@@ -168,7 +171,19 @@ _PG_PRIMITIVE: dict[str, str] = {
     "uuid": "UUID",
     "duration": "INTERVAL",
     "binary": "BYTEA",
+    "u8": "SMALLINT",
+    "u16": "INTEGER",
+    "u32": "BIGINT",
+    "u64": "NUMERIC(20, 0)",
+    "u128": "NUMERIC(39, 0)",
+    "i8": "SMALLINT",
+    "i16": "SMALLINT",
+    "i32": "INTEGER",
+    "i64": "BIGINT",
+    "i128": "NUMERIC(39, 0)",
 }
+
+_PG_UNSIGNED_KINDS = frozenset({"u8", "u16", "u32", "u64", "u128"})
 
 
 def _pg_base_type(field_type, wire: dict) -> str:
@@ -201,6 +216,10 @@ def _pg_col_type(field_type, wire: dict, *, optional: bool) -> str:
     return base if optional else f"{base} NOT NULL"
 
 
+def _pg_needs_unsigned_check(field_type) -> bool:
+    return isinstance(field_type, PrimitiveType) and field_type.kind in _PG_UNSIGNED_KINDS
+
+
 # ---------------------------------------------------------------------------
 # ClickHouse type mapping
 # ---------------------------------------------------------------------------
@@ -216,6 +235,16 @@ _CH_PRIMITIVE: dict[str, str] = {
     "uuid": "UUID",
     "duration": "String",
     "binary": "String",
+    "u8": "UInt8",
+    "u16": "UInt16",
+    "u32": "UInt32",
+    "u64": "UInt64",
+    "u128": "UInt128",
+    "i8": "Int8",
+    "i16": "Int16",
+    "i32": "Int32",
+    "i64": "Int64",
+    "i128": "Int128",
 }
 
 

@@ -137,6 +137,123 @@ domain finance {
     assert "amount NUMERIC(12, 2) NOT NULL" in art.content
 
 
+def test_emit_sql_postgres_fixed_width_integers(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    a: u8
+    b: u16
+    c: u32
+    d: u64
+    e: u128
+    f: i8
+    g: i16
+    h: i32
+    i: i64
+    j: i128
+  }
+
+  projection WidthsRow @ 1
+    from types.Widths @ 1 as w
+  {
+    id <- w.id
+    a <- w.a
+    b <- w.b
+    c <- w.c
+    d <- w.d
+    e <- w.e
+    f <- w.f
+    g <- w.g
+    h <- w.h
+    i <- w.i
+    j <- w.j
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_sql(workspace, tmp_path / "out", "postgres")
+    art = next(a for a in artifacts if a.ref == "types.WidthsRow@1")
+    assert "a SMALLINT NOT NULL" in art.content
+    assert "b INTEGER NOT NULL" in art.content
+    assert "c BIGINT NOT NULL" in art.content
+    assert "d NUMERIC(20, 0) NOT NULL" in art.content
+    assert "e NUMERIC(39, 0) NOT NULL" in art.content
+    assert "f SMALLINT NOT NULL" in art.content
+    assert "g SMALLINT NOT NULL" in art.content
+    assert "h INTEGER NOT NULL" in art.content
+    assert "i BIGINT NOT NULL" in art.content
+    assert "j NUMERIC(39, 0) NOT NULL" in art.content
+    assert "CHECK (a >= 0)" in art.content
+    assert "CHECK (b >= 0)" in art.content
+    assert "CHECK (c >= 0)" in art.content
+    assert "CHECK (d >= 0)" in art.content
+    assert "CHECK (e >= 0)" in art.content
+    assert "CHECK (f >= 0)" not in art.content
+    assert "CHECK (g >= 0)" not in art.content
+    assert "CHECK (h >= 0)" not in art.content
+    assert "CHECK (i >= 0)" not in art.content
+    assert "CHECK (j >= 0)" not in art.content
+
+
+def test_emit_sql_clickhouse_fixed_width_integers(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    a: u8
+    b: u16
+    c: u32
+    d: u64
+    e: u128
+    f: i8
+    g: i16
+    h: i32
+    i: i64
+    j: i128
+  }
+
+  projection WidthsRow @ 1
+    from types.Widths @ 1 as w
+  {
+    id <- w.id
+    a <- w.a
+    b <- w.b
+    c <- w.c
+    d <- w.d
+    e <- w.e
+    f <- w.f
+    g <- w.g
+    h <- w.h
+    i <- w.i
+    j <- w.j
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_sql(workspace, tmp_path / "out", "clickhouse")
+    art = next(a for a in artifacts if a.ref == "types.WidthsRow@1")
+    assert "a UInt8" in art.content
+    assert "b UInt16" in art.content
+    assert "c UInt32" in art.content
+    assert "d UInt64" in art.content
+    assert "e UInt128" in art.content
+    assert "f Int8" in art.content
+    assert "g Int16" in art.content
+    assert "h Int32" in art.content
+    assert "i Int64" in art.content
+    assert "j Int128" in art.content
+    assert art.warnings == []
+
+
 def test_emit_sql_clickhouse_basic(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """

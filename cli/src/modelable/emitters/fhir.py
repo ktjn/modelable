@@ -409,6 +409,18 @@ def _primitive_type(kind: str) -> str:
         "time": "time",
         "timestamp": "dateTime",
         "uuid": "string",
+        "u8": "integer",
+        "u16": "integer",
+        # u32's range (0..4294967295) exceeds FHIR integer's 32-bit signed range
+        # (max 2147483647), so it maps to string like the wider unsigned kinds.
+        "u32": "string",
+        "u64": "string",
+        "u128": "string",
+        "i8": "integer",
+        "i16": "integer",
+        "i32": "integer",
+        "i64": "string",
+        "i128": "string",
     }
     return mapping.get(kind, "string")
 
