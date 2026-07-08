@@ -124,6 +124,25 @@ Recently shipped, still hardening:
   other parameterized type as its declaration syntax, never prose), per
   the task-by-task plan at
   [docs/superpowers/plans/2026-07-08-uuidv7-compatible-identifier-first-slice.md](docs/superpowers/plans/2026-07-08-uuidv7-compatible-identifier-first-slice.md).
+  The wire-format contract gap (#5) has also shipped: a new
+  `docs/wire-format-contract.md` pins the Rust and Protobuf emitters'
+  actual field-ordering, per-type encoding, and enum-discriminant rules
+  (verified directly against the emitter source, not aspirational — it
+  also documents two real, previously-undocumented gaps found while
+  writing it: `map<K,V>` has no Protobuf mapping and falls through to an
+  opaque `bytes`, and Protobuf has no semantic-type reference resolution
+  at all), and a golden-fixture regression suite
+  (`cli/tests/fixtures/wire_golden/`, `cli/tests/test_wire_golden.py`)
+  fails CI the moment either emitter's output drifts from the committed
+  baseline. This gap adds no grammar, IR, or emitter behavior — only
+  documentation and a regression-test pin — and lands independently of
+  the other four shipped gaps. The larger protobuf/gRPC capability set
+  (descriptor sets, richer index metadata, `validate-compat`
+  compatibility checking, deleted-field reservations) remains tracked
+  separately under
+  [`2026-07-04-scalable-protobuf-grpc-support-design.md`](docs/superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md)
+  and unaffected by this gap, per the task-by-task plan at
+  [docs/superpowers/plans/2026-07-08-wire-format-contract-first-slice.md](docs/superpowers/plans/2026-07-08-wire-format-contract-first-slice.md).
   A third compatibility signal for state-migration necessity (gap 8
   of that request) remains an open question with no accepted grammar; see
   the response design section 11.

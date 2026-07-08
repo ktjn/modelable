@@ -8,6 +8,18 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- `docs/wire-format-contract.md`, pinning the Rust and Protobuf emitters'
+  field-ordering, per-type encoding, and enum-discriminant rules, plus a
+  golden-fixture regression suite (`cli/tests/fixtures/wire_golden/`,
+  `cli/tests/test_wire_golden.py`) that fails CI on any byte-level drift
+  in generated output. No emitter behavior changes — this is
+  documentation and regression-test infrastructure only. Documents two
+  previously-undocumented gaps found while writing it: `map<K,V>` has no
+  Protobuf mapping (falls through to an opaque `bytes`), and Protobuf has
+  no semantic-type reference resolution at all. This is Scalable's
+  feature-gaps request gap #5, landing independently of the other five
+  shipped gaps; see
+  `docs/superpowers/specs/2026-07-07-modelable-feature-gaps-response-design.md`.
 - `uuid(7)`, a UUIDv7 (timestamp-ordered) variant of the existing `uuid`
   primitive — `uuid` with no argument is unchanged and still defaults to
   v4. The transformer rejects any version argument other than `4`/`7` as
