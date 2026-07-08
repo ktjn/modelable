@@ -254,6 +254,67 @@ domain types {
     assert art.warnings == []
 
 
+def test_emit_sql_postgres_fixed_length_binary(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    keyHash: binary(32)
+    avatar: binary
+  }
+
+  projection WidthsRow @ 1
+    from types.Widths @ 1 as w
+  {
+    id <- w.id
+    keyHash <- w.keyHash
+    avatar <- w.avatar
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_sql(workspace, tmp_path / "out", "postgres")
+    art = next(a for a in artifacts if a.ref == "types.WidthsRow@1")
+    assert "key_hash BYTEA NOT NULL" in art.content
+    assert "avatar BYTEA NOT NULL" in art.content
+    assert "CHECK (octet_length(key_hash) = 32)" in art.content
+    assert "CHECK (octet_length(avatar)" not in art.content
+
+
+def test_emit_sql_clickhouse_fixed_length_binary(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    keyHash: binary(32)
+    avatar: binary
+  }
+
+  projection WidthsRow @ 1
+    from types.Widths @ 1 as w
+  {
+    id <- w.id
+    keyHash <- w.keyHash
+    avatar <- w.avatar
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_sql(workspace, tmp_path / "out", "clickhouse")
+    art = next(a for a in artifacts if a.ref == "types.WidthsRow@1")
+    assert "key_hash FixedString(32)" in art.content
+    assert "avatar String" in art.content
+    assert art.warnings == []
+
+
 def test_emit_sql_clickhouse_basic(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """

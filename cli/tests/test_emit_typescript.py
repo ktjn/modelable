@@ -245,6 +245,28 @@ domain types {
     assert "j: bigint;" in art.content
 
 
+def test_emit_typescript_fixed_length_binary_maps_to_string(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    keyHash: binary(32)
+    avatar: binary
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "types.Widths@1")
+    assert "keyHash: string;" in art.content
+    assert "avatar: string;" in art.content
+
+
 def test_emit_typescript_temporal_types_map_to_string(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

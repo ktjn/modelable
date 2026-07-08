@@ -12,6 +12,7 @@ from modelable.parser.ir import (
     DirectMapping,
     DomainDef,
     EnumType,
+    FixedBinaryType,
     MapType,
     MdlFile,
     NamedType,
@@ -71,6 +72,8 @@ def _emit_projection_ddl(
                 col_type = _pg_col_type(field_type, wire, optional=optional)
                 if _pg_needs_unsigned_check(field_type):
                     checks.append(f"    CHECK ({col_name} >= 0)")
+                if isinstance(field_type, FixedBinaryType):
+                    checks.append(f"    CHECK (octet_length({col_name}) = {field_type.length})")
             else:
                 col_type = _ch_col_type(field_type, wire, optional=optional)
         columns.append(f"    {col_name} {col_type}")
@@ -197,6 +200,8 @@ def _pg_base_type(field_type, wire: dict) -> str:
         return _PG_PRIMITIVE.get(field_type.kind, "TEXT")
     if isinstance(field_type, DecimalType):
         return f"NUMERIC({field_type.precision}, {field_type.scale})"
+    if isinstance(field_type, FixedBinaryType):
+        return "BYTEA"
     if isinstance(field_type, ArrayType):
         element = _pg_base_type(field_type.item, {})
         return f"{element}[]"
@@ -265,6 +270,8 @@ def _ch_base_type(field_type, wire: dict) -> str:
         return _CH_PRIMITIVE.get(field_type.kind, "String")
     if isinstance(field_type, DecimalType):
         return f"Decimal({field_type.precision}, {field_type.scale})"
+    if isinstance(field_type, FixedBinaryType):
+        return f"FixedString({field_type.length})"
     if isinstance(field_type, ArrayType):
         element = _ch_base_type(field_type.item, {})
         return f"Array({element})"

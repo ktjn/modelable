@@ -142,6 +142,35 @@ domain types {
     Draft202012Validator.check_schema(schema)
 
 
+def test_emit_fixed_length_binary_has_length_extension(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    keyHash: binary(32)
+    avatar: binary
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_json_schema(workspace, tmp_path / "out")
+    schema = artifacts[0].content
+    props = schema["properties"]
+
+    assert props["keyHash"]["type"] == "string"
+    assert props["keyHash"]["contentEncoding"] == "base64"
+    assert props["keyHash"]["x-modelable-fixed-length"] == 32
+    assert "x-modelable-fixed-length" not in props["avatar"]
+
+    Draft202012Validator.check_schema(schema)
+
+
 def test_emit_projection_with_lineage(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

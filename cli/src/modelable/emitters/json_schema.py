@@ -22,6 +22,7 @@ from modelable.parser.ir import (
     DomainDef,
     EnumType,
     FieldDef,
+    FixedBinaryType,
     MapType,
     ModelVersion,
     NamedType,
@@ -334,6 +335,12 @@ def _type_to_json_schema(field_type, defs: dict[str, dict] | None = None, path: 
             "type": "string",
             "pattern": r"^-?\d+(\.\d+)?$",
             "x-modelable-field": {"decimalPrecision": field_type.precision, "decimalScale": field_type.scale},
+        }
+    if isinstance(field_type, FixedBinaryType):
+        return {
+            "type": "string",
+            "contentEncoding": "base64",
+            "x-modelable-fixed-length": field_type.length,
         }
     if isinstance(field_type, ArrayType):
         return {
