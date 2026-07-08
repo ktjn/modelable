@@ -107,7 +107,9 @@ def _append_cross_enum_from_impls(
     return result
 
 
-def emit_rust(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
+def emit_rust(
+    workspace: Workspace, out_dir: Path, *, registry_ids: dict[str, int] | None = None
+) -> list[EmittedArtifact]:
     """Emit Rust source files for every model and projection version."""
     postgres_sources = _adapter_bound_sources(workspace.mdl, "postgres")
     clickhouse_sources = _adapter_bound_sources(workspace.mdl, "clickhouse")
@@ -115,7 +117,9 @@ def emit_rust(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
         for decl in domain.semantic_types:
-            artifacts.append(_emit_semantic_type(domain, decl, out_dir))
+            qualified_name = f"{domain.name}.{decl.name}"
+            allocated_id = (registry_ids or {}).get(qualified_name) if decl.registry else None
+            artifacts.append(_emit_semantic_type(domain, decl, out_dir, allocated_id=allocated_id))
         for model_name, versions in domain.models.items():
             for version in versions:
                 artifacts.append(
@@ -247,7 +251,9 @@ def _rust_type_for_semantic_underlying(underlying: FieldType) -> tuple[str, list
     return "String", ["Debug", "Clone", "PartialEq"], None
 
 
-def _emit_semantic_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path) -> EmittedArtifact:
+def _emit_semantic_type(
+    domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path, *, allocated_id: int | None = None
+) -> EmittedArtifact:
     artifact_id = f"{domain.name}.{decl.name}"
     struct_name = decl.name
     rust_type, base_derives, use_statement = _rust_type_for_semantic_underlying(decl.underlying)
@@ -257,6 +263,8 @@ def _emit_semantic_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path
     if use_statement:
         lines.append(use_statement)
         lines.append("")
+    if allocated_id is not None:
+        lines.append(f"/// registry id: {allocated_id}")
     lines.append(f"#[derive({', '.join(derives)})]")
     lines.append("#[serde(transparent)]")
     lines.append(f"pub struct {struct_name}(pub {rust_type});")

@@ -306,3 +306,21 @@ domain billing {
             "computed",
         ),
     ]
+
+
+def test_build_registry_populates_registry_ids_table(tmp_path):
+    source = tmp_path / "platform.mdl"
+    source.write_text(
+        """
+domain platform {
+  owner: "test-team"
+  semantic SchemaId : u32 { registry: true }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    registry_path = build_registry(workspace, tmp_path / ".modelable", registry_ids={"platform.SchemaId": 1})
+
+    with sqlite3.connect(registry_path) as conn:
+        assert conn.execute("select name, allocated_id from registry_ids").fetchall() == [("platform.SchemaId", 1)]

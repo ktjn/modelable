@@ -28,6 +28,7 @@ from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
 from modelable.planner.plans import write_plans
 from modelable.registry.factory import get_registry
+from modelable.registry.ids import allocate_registry_ids, read_lock_file, write_lock_file
 from modelable.registry.index import build_registry
 from modelable.registry.oci import OCIRegistryError
 
@@ -65,16 +66,44 @@ def register_compile_commands(cli_group: click.Group) -> None:
     default=".modelable/registry.db",
     help="Path to the registry index file.",
 )
-def compile(source: Path, target: str, out_dir: Path | None, registry_path: str) -> None:
+@click.option(
+    "--registry-ids",
+    "registry_ids_path",
+    type=click.Path(path_type=Path),
+    default=Path("registry-ids.lock"),
+    help="Path to the registry id allocation ledger (must be committed to git).",
+)
+@click.option(
+    "--allow-orphaned-registry-ids",
+    is_flag=True,
+    help="Tolerate ledger entries with no matching 'registry: true' declaration instead of erroring.",
+)
+def compile(
+    source: Path,
+    target: str,
+    out_dir: Path | None,
+    registry_path: str,
+    registry_ids_path: Path,
+    allow_orphaned_registry_ids: bool,
+) -> None:
     """Compile Modelable definitions and write the local registry index."""
     workspace = load_workspace_or_exit(source)
 
+    existing_registry_ids = read_lock_file(registry_ids_path)
+    try:
+        registry_ids = allocate_registry_ids(
+            workspace.mdl, existing_registry_ids, allow_orphaned=allow_orphaned_registry_ids
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    write_lock_file(registry_ids_path, registry_ids)
+
     registry = get_registry(registry_path)
     if registry_path.startswith("oci://"):
-        built_registry_path = build_registry(workspace, Path(".modelable"))
+        built_registry_path = build_registry(workspace, Path(".modelable"), registry_ids=registry_ids)
     else:
         local_registry_path = Path(registry_path)
-        built_registry_path = build_registry(workspace, local_registry_path.parent)
+        built_registry_path = build_registry(workspace, local_registry_path.parent, registry_ids=registry_ids)
     try:
         registry.push(built_registry_path)
     except OCIRegistryError as exc:
@@ -137,7 +166,7 @@ def compile(source: Path, target: str, out_dir: Path | None, registry_path: str)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "rust":
-        artifacts = emit_rust(workspace, output)
+        artifacts = emit_rust(workspace, output, registry_ids=registry_ids)
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)
