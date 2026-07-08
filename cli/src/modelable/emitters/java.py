@@ -186,6 +186,12 @@ def _shape_base_to_java(
         return _primitive_to_java(shape.ref or "string", warnings=warnings, field_ref=field_ref)
     if shape.kind == "decimal":
         return "BigDecimal"
+    if shape.kind == "fixed_binary":
+        field_ref = f"{owner_type}.{'.'.join(path)}"
+        warnings.append(
+            type_loss(f"{field_ref} (binary({shape.length}) length is not enforced by the Java type system)")
+        )
+        return "byte[]"
     if shape.kind == "array":
         element = shape.element or TypeShape(kind="primitive", ref="object")
         inner = _shape_to_java(

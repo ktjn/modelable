@@ -32,6 +32,7 @@ from modelable.parser.ir import (
     FieldDef,
     FieldMapping,
     FieldType,
+    FixedBinaryType,
     GenerateTarget,
     JoinRef,
     MapType,
@@ -225,7 +226,18 @@ class MdlTransformer(Transformer[list[object], Any]):
             optional=any(item == "?" for item in rest),
             type=type_item
             if isinstance(
-                type_item, (PrimitiveType, DecimalType, ArrayType, MapType, RefType, EnumType, ObjectType, NamedType)
+                type_item,
+                (
+                    PrimitiveType,
+                    DecimalType,
+                    FixedBinaryType,
+                    ArrayType,
+                    MapType,
+                    RefType,
+                    EnumType,
+                    ObjectType,
+                    NamedType,
+                ),
             )
             else PrimitiveType(kind="string"),
             default=default,
@@ -406,6 +418,9 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def decimal_type(self, items: list[object]) -> DecimalType:
         return DecimalType(precision=int(items[0]), scale=int(items[1]))
+
+    def fixed_binary_type(self, items: list[object]) -> FixedBinaryType:
+        return FixedBinaryType(length=int(items[0]))
 
     def enum_member(self, items: list[object]) -> str:
         return str(items[0])

@@ -181,6 +181,11 @@ class DecimalType(BaseModel):
     scale: int
 
 
+class FixedBinaryType(BaseModel):
+    kind: Literal["fixed_binary"] = "fixed_binary"
+    length: int
+
+
 class ArrayType(BaseModel):
     kind: Literal["array"] = "array"
     item: FieldType
@@ -213,7 +218,7 @@ class NamedType(BaseModel):
 
 
 FieldType = Annotated[
-    PrimitiveType | DecimalType | ArrayType | MapType | RefType | EnumType | ObjectType | NamedType,
+    PrimitiveType | DecimalType | FixedBinaryType | ArrayType | MapType | RefType | EnumType | ObjectType | NamedType,
     Field(discriminator="kind"),
 ]
 

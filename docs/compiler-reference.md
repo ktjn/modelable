@@ -128,6 +128,7 @@ Type mapping:
 | `time` | `{ "type": "string", "format": "time" }` |
 | `duration` | `{ "type": "string", "format": "duration" }` |
 | `binary` | `{ "type": "string", "contentEncoding": "base64" }` |
+| `binary(N)` | `{ "type": "string", "contentEncoding": "base64", "x-modelable-fixed-length": N }` |
 | `enum(a,b)` | `{ "type": "string", "enum": ["a", "b"] }` |
 | `array<T>` | `{ "type": "array", "items": <T schema> }` |
 | `map<K,V>` | `{ "type": "object", "additionalProperties": <V schema> }` |

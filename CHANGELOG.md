@@ -8,6 +8,15 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- `binary(N)`, a fixed-length variant of the existing variable-length
+  `binary` primitive, bounded to `1..=4096` bytes, with a defined mapping
+  in every currently implemented emitter (Rust and Go map to native
+  fixed-size arrays; Java and C# map to `byte[]` with a warning noting the
+  length isn't enforced by the type system; Python maps to bare `bytes`;
+  TypeScript, SQL Postgres/ClickHouse, JSON Schema, and Protobuf all gained
+  a mapping too). `binary` is unchanged. This is the second slice of
+  Modelable's response to Scalable's feature-gaps request; see
+  `docs/superpowers/specs/2026-07-07-modelable-feature-gaps-response-design.md`.
 - Ten fixed-width integer primitives — `u8, u16, u32, u64, u128, i8, i16,
   i32, i64, i128` — as siblings to the existing `int`, with default-value
   range validation and a defined mapping in every currently implemented

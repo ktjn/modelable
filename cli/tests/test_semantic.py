@@ -522,3 +522,51 @@ def test_fixed_width_negative_default_on_unsigned_is_error():
     errors = validate(mdl)
 
     assert any("u32" in e for e in errors)
+
+
+def test_fixed_binary_length_out_of_range_is_error():
+    mdl = parse_text_to_ir("""
+    domain types {
+      owner: "test-team"
+      entity Widths @ 1 (additive) {
+        @key id: uuid
+        keyHash: binary(5000)
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("keyHash" in e and "4096" in e for e in errors)
+
+
+def test_fixed_binary_zero_length_is_error():
+    mdl = parse_text_to_ir("""
+    domain types {
+      owner: "test-team"
+      entity Widths @ 1 (additive) {
+        @key id: uuid
+        keyHash: binary(0)
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("keyHash" in e for e in errors)
+
+
+def test_fixed_binary_in_range_is_valid():
+    mdl = parse_text_to_ir("""
+    domain types {
+      owner: "test-team"
+      entity Widths @ 1 (additive) {
+        @key id: uuid
+        keyHash: binary(32)
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert errors == []

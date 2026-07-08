@@ -13,6 +13,7 @@ from modelable.parser.ir import (
     DecimalType,
     EnumType,
     FieldDef,
+    FixedBinaryType,
     MdlFile,
     ModelKind,
     ModelVersion,
@@ -193,6 +194,7 @@ def _validate_models(
                     field_type=field.type,
                 )
                 _validate_default_value_range(f"{fqn}@{version.version}", field, diagnostics, path)
+                _validate_fixed_binary_length(f"{fqn}@{version.version}", field, diagnostics, path)
 
         for index in range(1, len(versions)):
             previous = versions[index - 1]
@@ -366,6 +368,24 @@ def _validate_default_value_range(
                 "SEM",
                 f"{fqn}: field '{field.name}' default {value} is out of range for {field.type.kind} "
                 f"(valid range {low}..{high})",
+                path,
+            )
+        )
+
+
+def _validate_fixed_binary_length(
+    fqn: str,
+    field: FieldDef,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    if not isinstance(field.type, FixedBinaryType):
+        return
+    if not (1 <= field.type.length <= 4096):
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{field.name}' binary({field.type.length}) length must be between 1 and 4096",
                 path,
             )
         )

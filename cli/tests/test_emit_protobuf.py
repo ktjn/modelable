@@ -136,6 +136,36 @@ domain types {
     assert "fixed_length" not in fields_by_name["i"]
 
 
+def test_emit_protobuf_fixed_length_binary(tmp_path):
+    (tmp_path / "types.mdl").write_text(
+        """
+domain types {
+  owner: "test-team"
+
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    keyHash: binary(32)
+    avatar: binary
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+
+    proto = next(art for art in artifacts if art.path.name == "Widths.v1.proto")
+    assert "bytes key_hash = 2;" in proto.content
+    assert "bytes avatar = 3;" in proto.content
+
+    manifest = next(art for art in artifacts if art.path.name == "schema-manifest.json")
+    fields_by_name = {f["name"]: f for f in json.loads(manifest.content)["schemas"][0]["fields"]}
+    assert fields_by_name["keyHash"]["type"] == "bytes"
+    assert fields_by_name["keyHash"]["fixed_length"] == 32
+    assert "fixed_length" not in fields_by_name["avatar"]
+
+
 def test_compile_protobuf_writes_proto_and_manifest(tmp_path):
     mdl = tmp_path / "customer.mdl"
     mdl.write_text(

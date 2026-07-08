@@ -87,7 +87,8 @@ models/
 | `time` | Time of day (no date) |
 | `duration` | ISO 8601 duration |
 | `decimal(p,s)` | Arbitrary-precision decimal |
-| `binary` | Raw bytes |
+| `binary` | Raw bytes, variable length |
+| `binary(N)` | Raw bytes, fixed length `N` (`1..=4096`) |
 | `array<T>` | Ordered list |
 | `map<K,V>` | Key-value map |
 | `ref<Domain.Model>` | Cross-domain reference |

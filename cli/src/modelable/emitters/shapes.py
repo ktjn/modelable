@@ -7,6 +7,7 @@ from modelable.parser.ir import (
     DecimalType,
     EnumType,
     FieldType,
+    FixedBinaryType,
     MapType,
     NamedType,
     ObjectType,
@@ -60,6 +61,7 @@ class TypeShape:
     fields: tuple[TypeShapeField, ...] = ()
     precision: int | None = None
     scale: int | None = None
+    length: int | None = None
 
     @classmethod
     def from_field(cls, value: str | FieldType, *, optional: bool = False) -> TypeShape:
@@ -78,6 +80,8 @@ class TypeShape:
                 precision=field_type.precision,
                 scale=field_type.scale,
             )
+        if isinstance(field_type, FixedBinaryType):
+            return cls(kind="fixed_binary", optional=optional, length=field_type.length)
         if isinstance(field_type, ArrayType):
             return cls(kind="array", optional=optional, element=cls.from_field_type(field_type.item))
         if isinstance(field_type, MapType):
@@ -122,6 +126,8 @@ class TypeShape:
             if self.precision is None or self.scale is None:
                 return "decimal(p, s)"
             return f"decimal({self.precision}, {self.scale})"
+        if self.kind == "fixed_binary":
+            return f"binary({self.length})" if self.length is not None else "binary(N)"
         if self.kind == "array":
             inner = self.element.describe() if self.element is not None else "?"
             return f"array<{inner}>"

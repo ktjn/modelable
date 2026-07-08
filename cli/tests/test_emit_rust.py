@@ -170,6 +170,28 @@ domain types {
     assert "pub j: i128," in art.content
 
 
+def test_emit_rust_fixed_length_binary_maps_to_array(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    keyHash: binary(32)
+    avatar: binary
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "types.Widths@1")
+    assert "pub key_hash: [u8; 32]," in art.content
+    assert "pub avatar: Vec<u8>," in art.content
+
+
 def test_emit_rust_temporal_types_map_to_string(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

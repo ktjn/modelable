@@ -17,6 +17,7 @@ from modelable.parser.ir import (
     EnumType,
     FieldDef,
     FieldType,
+    FixedBinaryType,
     MdlFile,
     ModelVersion,
     PrimitiveType,
@@ -208,6 +209,8 @@ def _type_to_proto(
         return type_name, None, fixed_length
     if isinstance(field_type, DecimalType):
         return "string", None, None
+    if isinstance(field_type, FixedBinaryType):
+        return "bytes", None, field_type.length
     if isinstance(field_type, ArrayType):
         inner, _, _ = _type_to_proto(field_type.item, message_name=message_name, field_name=field_name)
         return f"repeated {inner.removeprefix('optional ')}", None, None

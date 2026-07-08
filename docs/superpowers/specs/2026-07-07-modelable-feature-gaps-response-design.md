@@ -349,7 +349,7 @@ none are implemented emitter targets as of this writing):
 | Java | `byte[]` + Javadoc noting required length; length enforced only via constructor check (`type_loss`, partial). |
 | C# | `byte[]` + XML doc; same partial-enforcement tier as Java. |
 | Python | `Annotated[bytes, Field(min_length=N, max_length=N)]` — fully enforced. |
-| TypeScript | `Uint8Array` + JSDoc noting required length (TS's type system can't encode array length). |
+| TypeScript | `string`, same as plain `binary` (this emitter already represents all `binary` fields as base64-flavored `string`, never `Uint8Array` — `binary(N)` follows that existing convention rather than introducing an inconsistent representation). |
 | SQL (Postgres) | `BYTEA` + `CHECK (octet_length(col) = N)`. |
 | SQL (MySQL) | `BINARY(N)` — exact native match. |
 | SQL (ClickHouse) | `FixedString(N)` — exact native match. |

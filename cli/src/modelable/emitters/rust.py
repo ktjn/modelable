@@ -751,6 +751,8 @@ def _shape_base_annotation(
         return _primitive_to_rust(shape.ref or "string")
     if shape.kind == "decimal":
         return "String"
+    if shape.kind == "fixed_binary":
+        return f"[u8; {shape.length}]"
     if shape.kind == "array":
         element = shape.element or TypeShape(kind="primitive", ref="object")
         element_type = _shape_annotation(

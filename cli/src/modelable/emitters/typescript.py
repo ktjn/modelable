@@ -14,6 +14,7 @@ from modelable.parser.ir import (
     DomainDef,
     EnumType,
     FieldDef,
+    FixedBinaryType,
     MapType,
     ModelVersion,
     NamedType,
@@ -350,6 +351,8 @@ def _type_to_ts(
         }
         return mapping.get(field_type.kind, "unknown")
     if isinstance(field_type, DecimalType):
+        return "string"
+    if isinstance(field_type, FixedBinaryType):
         return "string"
     if isinstance(field_type, ArrayType):
         item_ts = _type_to_ts(field_type.item, resolved_refs=resolved_refs, named_imports=named_imports)
