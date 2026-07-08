@@ -398,3 +398,48 @@ def test_projection_level_wire_field_case_annotation():
     projection = mdl.domains[0].projections["SpanRow"][0]
     wire_targets = projection.wire_targets()
     assert wire_targets["json"].field_case == "snake_case"
+
+
+def test_parse_uuid_v7():
+    tree = parse_text("""
+    domain platform {
+      owner: "platform-team"
+      entity Command @ 1 (additive) {
+        @key commandId: uuid(7)
+      }
+    }
+    """)
+    assert tree.data == "start"
+
+
+def test_uuid_v7_ir_shape():
+    ir = parse_text_to_ir("""
+    domain platform {
+      owner: "platform-team"
+      entity Command @ 1 (additive) {
+        @key commandId: uuid(7)
+                legacyId: uuid
+      }
+    }
+    """)
+    fields = {f.name: f.type for f in ir.domains[0].models["Command"][0].fields}
+    assert fields["commandId"].kind == "uuid"
+    assert fields["commandId"].version == 7
+    assert fields["legacyId"].kind == "uuid"
+    assert fields["legacyId"].version == 4
+
+
+def test_uuid_invalid_version_is_parse_error():
+    try:
+        parse_text_to_ir("""
+        domain platform {
+          owner: "platform-team"
+          entity Command @ 1 (additive) {
+            @key commandId: uuid(5)
+          }
+        }
+        """)
+        raise AssertionError("expected ParseError")
+    except ParseError as exc:
+        assert "uuid" in str(exc).lower()
+        assert "5" in str(exc)

@@ -160,6 +160,8 @@ def _emit_projection(
 
 def _type_str(field_type) -> str:
     if isinstance(field_type, PrimitiveType):
+        if field_type.kind == "uuid" and field_type.version == 7:
+            return "uuid(7)"
         return field_type.kind
     if isinstance(field_type, DecimalType):
         return f"decimal({field_type.precision},{field_type.scale})"

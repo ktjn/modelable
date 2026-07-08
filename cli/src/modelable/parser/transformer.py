@@ -404,8 +404,13 @@ class MdlTransformer(Transformer[list[object], Any]):
     def pt_timestamp(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="timestamp")
 
-    def pt_uuid(self, _items: list[object]) -> PrimitiveType:
-        return PrimitiveType(kind="uuid")
+    def pt_uuid(self, items: list[object]) -> PrimitiveType:
+        if not items:
+            return PrimitiveType(kind="uuid")
+        version = int(items[0])
+        if version not in (4, 7):
+            raise ValueError(f"uuid version must be 4 or 7, got {version}")
+        return PrimitiveType(kind="uuid", version=version)
 
     def pt_duration(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="duration")

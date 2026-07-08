@@ -3,6 +3,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from lark import Lark, Tree, UnexpectedInput
+from lark.exceptions import VisitError
 
 from modelable.parser.ir import MdlFile, ParseError
 from modelable.parser.transformer import MdlTransformer
@@ -40,6 +41,10 @@ def parse_text_to_ir(text: str, path: str | Path | None = None) -> MdlFile:
         return MdlTransformer().transform(parse_text(text))
     except ValueError as exc:
         raise ParseError(str(exc)) from exc
+    except VisitError as exc:
+        if isinstance(exc.orig_exc, ValueError):
+            raise ParseError(str(exc.orig_exc)) from exc.orig_exc
+        raise
 
 
 def parse_file_to_ir(path: str | Path) -> MdlFile:

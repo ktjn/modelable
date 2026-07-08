@@ -170,6 +170,43 @@ pattern that gap 6 (`binary(N)`) reuses, so it should land first even
 though gap 1 is higher priority — it's the cheapest gap and de-risks the
 grammar/transformer plumbing the bigger gaps depend on.
 
+**Correction (found during implementation):** gap 6 (`binary(N)`) shipped
+in Modelable 1.2 as a **separate top-level `type_expr` alternative**
+(`fixed_binary_type: "binary" "(" INT ")"`, producing a distinct
+`FixedBinaryType` IR node), the same way `decimal(p, s)` already worked —
+not as a parameterized variant of an existing `primitive_type`
+alternative. This gap doesn't follow that shape: `uuid(7)` stays a
+`PrimitiveType(kind="uuid")` with an added `version` field, matching this
+section's original grammar sketch (`"uuid" ("(" INT ")")? -> pt_uuid`,
+inline in the `primitive_type` rule) rather than gap 6's actual shipped
+pattern. In other words, gap 6 didn't end up reusing a pattern gap 2
+established, because gap 2 hadn't landed yet when gap 6 shipped — the two
+gaps turned out to be independent, not sequenced by a shared mechanism.
+
+The SQL Postgres `DEFAULT uuidv7()` improvement described above does not
+have an existing mechanism to hook into: `sql.py` has no `@server`-driven
+`DEFAULT`-clause generation for *any* type today (grepped the whole file —
+no `DEFAULT` keyword appears in `_pg_col_type`/`_pg_base_type` at all).
+Adding one is a new emitter capability, not an extension of an existing
+per-type mapping, and is out of scope for this slice; deferred as a
+follow-up once/if `@server`-driven column defaults become a real emitter
+feature for reasons beyond `uuid(7)` alone.
+
+Similarly, "render as prose" for Markdown and LSP hover doesn't fit the
+existing rendering conventions: `markdown.py`'s `_type_str` renders every
+parameterized type as its `.mdl` declaration syntax (`decimal(10,2)`,
+`array<string>`), never as an English description, and `hover.py` renders
+every field's type as the bare `field.type.kind` discriminator string
+uniformly across all `FieldType` variants (including `decimal` and
+`fixed_binary`, which don't show their precision/scale/length in hover
+either). Singling out `uuid(7)` for a prose description in Markdown or a
+detail-bearing hover would be inconsistent with how every other
+parameterized type is already rendered in both places. This slice renders
+`uuid(7)` as `uuid(7)` in Markdown (matching `decimal`/`binary`
+precedent) and leaves hover unchanged (`type: uuid`, matching
+`decimal`/`fixed_binary` precedent) rather than adding a
+uuid-specific carve-out to either.
+
 ## 6. Gap 3 — Semantic-Type / Type-Alias Mechanism
 
 **Decision:** a new top-level declaration inside `domain`, named
