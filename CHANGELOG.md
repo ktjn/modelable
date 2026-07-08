@@ -8,6 +8,13 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Ten fixed-width integer primitives — `u8, u16, u32, u64, u128, i8, i16,
+  i32, i64, i128` — as siblings to the existing `int`, with default-value
+  range validation and a defined mapping in every currently implemented
+  emitter (Rust, Go, Java, C#, Python, TypeScript, SQL Postgres/ClickHouse,
+  JSON Schema, Protobuf, FHIR profile). `int` is unchanged. This is the
+  first slice of Modelable's response to Scalable's feature-gaps request;
+  see `docs/superpowers/specs/2026-07-07-modelable-feature-gaps-response-design.md`.
 - Hosted documentation is published with MkDocs on GitHub Pages and linked from
   package metadata and GitHub releases (#108).
 - `modelable sync --lineage marquez` posts generated OpenLineage events to a

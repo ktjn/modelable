@@ -70,12 +70,15 @@ Recently shipped, still hardening:
   the `semantic` type-alias mechanism lands in 1.3 (depends on 1.2's
   fixed-width integers); deterministic small-integer registry id allocation
   lands in 1.4 (depends on 1.3's `registry: true` marker). The first
-  implementation slice — fixed-width integer primitives — has a task-by-task
-  plan at
+  implementation slice — fixed-width integer primitives (`u8`..`i128`) — has
+  shipped: grammar, IR, default-value range validation, and a mapping in
+  every currently implemented emitter (Rust, Go, Java, C#, Python,
+  TypeScript, SQL Postgres/ClickHouse, JSON Schema, Protobuf, FHIR profile),
+  per the task-by-task plan at
   [docs/superpowers/plans/2026-07-07-fixed-width-integer-primitives-first-slice.md](docs/superpowers/plans/2026-07-07-fixed-width-integer-primitives-first-slice.md).
-  A third compatibility signal for state-migration necessity (gap 8 of that
-  request) remains an open question with no accepted grammar; see the
-  response design section 11.
+  Fixed-length `binary(N)` (also 1.2) has not started. A third compatibility
+  signal for state-migration necessity (gap 8 of that request) remains an
+  open question with no accepted grammar; see the response design section 11.
 
 Deferred candidates, not yet started:
 
