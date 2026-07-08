@@ -11,14 +11,18 @@ from modelable.parser.ir import (
     ClassificationLevel,
     ComputedMapping,
     DecimalType,
+    DomainDef,
     EnumType,
     FieldDef,
+    FieldType,
     FixedBinaryType,
     MdlFile,
     ModelKind,
     ModelVersion,
+    NamedType,
     ObjectType,
     PrimitiveType,
+    SemanticTypeDecl,
 )
 from modelable.registry.resolver import resolve_model_ref
 
@@ -99,6 +103,7 @@ def validate_diagnostics(mdl: MdlFile, path: str | Path | None = None) -> list[D
             )
         _validate_models(domain.name, domain.models, diagnostics, path)
         _validate_projections(domain.name, domain.projections, diagnostics, path, mdl)
+        _validate_semantic_types(domain, mdl, diagnostics, path)
     return diagnostics
 
 
@@ -389,6 +394,92 @@ def _validate_fixed_binary_length(
                 path,
             )
         )
+
+
+_SEMANTIC_UNDERLYING_TYPES = (PrimitiveType, DecimalType, FixedBinaryType, NamedType)
+_SEMANTIC_CHAIN_DEPTH_LIMIT = 32
+
+
+def _validate_semantic_types(
+    domain: DomainDef,
+    mdl: MdlFile,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    seen_names: set[str] = set()
+    for decl in domain.semantic_types:
+        if decl.name in seen_names:
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{domain.name}: semantic type '{decl.name}' is declared more than once",
+                    path,
+                )
+            )
+        seen_names.add(decl.name)
+
+        if decl.name in domain.models:
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{domain.name}: semantic type '{decl.name}' collides with a model of the same name",
+                    path,
+                )
+            )
+
+        if not isinstance(decl.underlying, _SEMANTIC_UNDERLYING_TYPES):
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{domain.name}: semantic type '{decl.name}' has unsupported underlying type "
+                    f"'{decl.underlying.kind}' (must be a primitive, decimal, binary(N), or another semantic type)",
+                    path,
+                )
+            )
+
+    all_semantic_types: dict[str, SemanticTypeDecl] = {
+        other_decl.name: other_decl for other_domain in mdl.domains for other_decl in other_domain.semantic_types
+    }
+
+    for decl in domain.semantic_types:
+        if not isinstance(decl.underlying, NamedType):
+            continue
+        visited: list[str] = [decl.name]
+        current: FieldType = decl.underlying
+        while isinstance(current, NamedType):
+            next_name = current.name
+            if next_name in visited:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{domain.name}: semantic type '{decl.name}' has a cycle in its underlying chain: "
+                        f"{' -> '.join([*visited, next_name])}",
+                        path,
+                    )
+                )
+                break
+            if next_name not in all_semantic_types:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{domain.name}: semantic type '{decl.name}' references undeclared semantic type "
+                        f"'{next_name}'",
+                        path,
+                    )
+                )
+                break
+            if len(visited) >= _SEMANTIC_CHAIN_DEPTH_LIMIT:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{domain.name}: semantic type '{decl.name}' underlying chain exceeds "
+                        f"{_SEMANTIC_CHAIN_DEPTH_LIMIT} levels",
+                        path,
+                    )
+                )
+                break
+            visited.append(next_name)
+            current = all_semantic_types[next_name].underlying
 
 
 def _validate_field_annotations(

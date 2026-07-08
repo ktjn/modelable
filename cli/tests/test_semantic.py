@@ -570,3 +570,74 @@ def test_fixed_binary_in_range_is_valid():
     errors = validate(mdl)
 
     assert errors == []
+
+
+def test_semantic_type_rejects_array_underlying():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      semantic Bad : array<string>
+    }
+    """)
+    errors = validate(mdl)
+    assert any("Bad" in e for e in errors)
+
+
+def test_semantic_type_chained_underlying_is_valid():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      semantic Base : u32
+      semantic Wrapped : Base
+    }
+    """)
+    assert validate(mdl) == []
+
+
+def test_semantic_type_dangling_underlying_reference_is_error():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      semantic Wrapped : DoesNotExist
+    }
+    """)
+    errors = validate(mdl)
+    assert any("Wrapped" in e and "DoesNotExist" in e for e in errors)
+
+
+def test_semantic_type_cycle_is_error():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      semantic A : B
+      semantic B : A
+    }
+    """)
+    errors = validate(mdl)
+    assert any("cycle" in e.lower() for e in errors)
+
+
+def test_semantic_type_duplicate_name_in_domain_is_error():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      semantic ModuleId : u32
+      semantic ModuleId : u64
+    }
+    """)
+    errors = validate(mdl)
+    assert any("ModuleId" in e for e in errors)
+
+
+def test_semantic_type_name_colliding_with_model_is_error():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      semantic Schema : u32
+      entity Schema @ 1 (additive) {
+        @key id: uuid
+      }
+    }
+    """)
+    errors = validate(mdl)
+    assert any("Schema" in e for e in errors)

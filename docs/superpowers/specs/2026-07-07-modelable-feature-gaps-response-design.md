@@ -191,16 +191,51 @@ domain platform {
 }
 ```
 
-Fields reference a semantic type the same way they reference another
-domain's model — bare `IDENT` for same-domain, `Domain.Name` for
-cross-domain — reusing the existing dotted-ref resolution path used by
-`ref<Domain.Model>`:
+Fields reference a semantic type with a bare `IDENT`:
 
 ```mdl
 entity Schema @ 1 (additive) {
-  @key moduleId: platform.ModuleId
+  @key moduleId: ModuleId
 }
 ```
+
+**Correction (found during implementation of the first slice):** the
+original text of this section said fields would reference a semantic
+type "the same way they reference another domain's model — bare `IDENT`
+for same-domain, `Domain.Name` for cross-domain — reusing the existing
+dotted-ref resolution path used by `ref<Domain.Model>`." Neither half of
+that holds up against the actual codebase:
+
+- `type_expr`'s existing bare-`IDENT` alternative already resolves as a
+  **workspace-wide flat search**, not a domain-scoped one — every
+  existing consumer (e.g. `rust.py`'s `_resolve_named_type_map`) searches
+  `mdl.domains` in full and takes the first match, with no domain
+  qualification at all. There is no existing "same-domain vs.
+  cross-domain" distinction to reuse for semantic types either, so a bare
+  `ModuleId` reference already resolves correctly regardless of which
+  domain declares it or which domain references it, with zero grammar
+  changes beyond the `semantic` declaration itself.
+- There is no existing dotted (`Domain.Name`) bare-type-reference
+  grammar or resolution path to reuse. `ref<Domain.Model>` is a distinct
+  mechanism — it resolves through `resolve_model_ref`, which requires a
+  version spec that a `semantic` declaration (unversioned) doesn't have,
+  and reusing it would incorrectly imply semantic types carry the
+  versioning semantics of models. Dotted qualification for semantic-type
+  references is deferred; the flat-search behavior above already covers
+  the common case this gap exists for (unique, workspace-recognizable
+  names like `ModuleId`, `SchemaId`), and a real namespacing mechanism
+  for `NamedType` in general is a bigger, separate language decision that
+  affects every `NamedType` consumer, not just semantic types.
+- `BOOL` is not an existing terminal. The grammar has no boolean-literal
+  production anywhere (`= false` on a `bool` field is captured as raw,
+  untyped `EXPRESSION` text). `semantic_item`'s `registry: BOOL` needs a
+  new `bool_literal: "true" -> bl_true | "false" -> bl_false` production,
+  mirroring the existing `change_kind`/`model_kind` keyword-alternative
+  pattern in this grammar.
+- "Reuse the existing dependency-graph pass that already prevents `ref<>`
+  cycles" — no such pass exists anywhere in the codebase (`ref<>` cycles
+  are not currently detected at all). Chain-depth bounding and cycle
+  detection for `semantic` underlying-type chains is new code, not reuse.
 
 **Grammar:**
 
@@ -208,31 +243,64 @@ entity Schema @ 1 (additive) {
 domain_item: ... | semantic_decl
 semantic_decl: "semantic" IDENT ":" type_expr semantic_body?
 semantic_body: "{" semantic_item* "}"
-semantic_item: "registry" ":" BOOL
+semantic_item: "registry" ":" bool_literal
+bool_literal: "true" -> bl_true | "false" -> bl_false
 ```
 
 **IR:** `SemanticTypeDecl(name: str, underlying: FieldType, registry: bool = False)`
-added to `DomainDef`. A field's `NamedType` resolves against declared
-`semantic` names in addition to whatever it already resolves against.
+added to `DomainDef` as `semantic_types: list[SemanticTypeDecl]` —
+a plain list, not a dict, mirroring the existing `auto_projections: list[AutoProjectionDecl]`
+field (semantic types are unversioned, so there's no natural
+version-keyed dict shape the way `models`/`projections` have; a list also
+lets validation catch duplicate names explicitly instead of a dict
+silently overwriting one declaration with another). A field's `NamedType`
+resolves against declared `semantic` names using the same flat,
+workspace-wide search every other `NamedType` consumer already performs,
+extended to also scan `domain.semantic_types` alongside `domain.models`.
 
-**Validation:** the underlying type must be a primitive, `decimal(p,s)`,
-or another `semantic` type (bounded chain depth, cycle detection required
-— reuse the existing dependency-graph pass that already prevents
-`ref<>` cycles). Two `semantic` types wrapping the same primitive are
-non-interchangeable: CEL expressions that compare or assign across
-distinct semantic types are validator errors (`expressions/cel.py`) —
-this nominal-typing check in CEL is the one piece of this gap that is
-*not* in the first slice; it ships as an explicit follow-up once the
-declaration and Rust emission are proven.
+**Validation:**
+
+- The underlying type must be a `PrimitiveType`, `DecimalType`,
+  `FixedBinaryType`, or a `NamedType` referencing another declared
+  `semantic` type — `ArrayType`, `MapType`, `RefType`, `EnumType`, and
+  `ObjectType` are rejected (semantic types wrap scalars, not
+  collections or composites).
+- A `NamedType` underlying reference must resolve to a real `semantic`
+  declaration somewhere in the workspace; a dangling reference is an
+  error.
+- Chain depth is bounded (32 levels) and cycles are detected by walking
+  the underlying chain with a visited-name set — new code, per the
+  correction above.
+- Semantic type names must be unique within a domain, and must not
+  collide with a model name in the same domain (both participate in the
+  same flat `NamedType` search space, so a collision would make
+  resolution ambiguous).
+- Two `semantic` types wrapping the same primitive are non-interchangeable:
+  CEL expressions that compare or assign across distinct semantic types
+  are validator errors (`expressions/cel.py`) — this nominal-typing check
+  in CEL is the one piece of this gap that is *not* in the first slice;
+  it ships as an explicit follow-up once the declaration and Rust
+  emission are proven.
 
 **Target mapping (first slice: Rust only, matching the interim
 workaround this gap is meant to retire):**
 
-- **Rust:** `pub struct ModuleId(pub u32);` with `From`/`TryFrom`/`Deref`
-  derived, generated alongside the wrapped model's file. This directly
-  replaces the handwritten adapter layer described in the Rust target
-  design doc section 7 — once this ships, that adapter layer is deleted,
-  not kept as a permanent shim.
+- **Rust:** `pub struct ModuleId(pub u32);` with `From<u32> for ModuleId`,
+  `From<ModuleId> for u32`, and `Deref<Target = u32>` derived — not
+  `TryFrom`, which the original text of this section listed alongside
+  them. A pure newtype wrapper with no additional constraints has no
+  fallible conversion path to justify `TryFrom` yet; it can be added once
+  a real validated-construction use case exists. Emitted as one file per
+  `semantic` declaration (`<domain>/<snake_name>.rs`, no version suffix,
+  since the declaration itself is unversioned), alongside the domain's
+  model files. Referencing fields resolve to the semantic type's struct
+  name and a `use super::<module>::<Name>;` import through the exact
+  same `_resolve_named_type_map`-style mechanism `rust.py` already uses
+  for plain `NamedType` object references — extended to also recognize
+  semantic-type names, not a new mechanism. This directly replaces the
+  handwritten adapter layer described in the Rust target design doc
+  section 7 — once this ships, that adapter layer is deleted, not kept
+  as a permanent shim.
 - **Go** (follow-up): `type ModuleId uint32` — Go's named-type system is
   a near-exact fit, low additional cost once Rust proves the shape.
 - **Java/C#** (follow-up): `record ModuleId(int value) {}` / `readonly record struct ModuleId(int Value)`.
