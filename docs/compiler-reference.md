@@ -196,7 +196,19 @@ implemented:
   remaining wire-contract boundary: deleted-field reservations, descriptor
   sets, and protobuf compatibility validation are deferred follow-up work
   before protobuf is considered stable for long-lived external wire contracts.
-- SQL DDL: treat SQL as a binding/materialization artifact, not canonical model truth.
+- SQL DDL: treat SQL as a binding/materialization artifact, not canonical
+  model truth. `index` declarations (see [Language Reference
+  §3.9](language-reference.md#39-index-declarations)) generate
+  `CREATE INDEX IF NOT EXISTS`/`CREATE UNIQUE INDEX IF NOT EXISTS`
+  statements after the table's `CREATE TABLE`, Postgres only — the
+  `secondary` block's `key` fields form the leading index columns, its
+  `sort` fields are appended with `DESC` where declared (`asc` needs no
+  suffix). Every field name is resolved from the indexed *model* through
+  to the emitting projection's own column name via its `DirectMapping`s;
+  a referenced field the projection doesn't include is skipped (with a
+  `type_loss` warning) rather than emitted as a broken column reference.
+  ClickHouse index DDL is deferred — ClickHouse's data-skipping-index
+  model doesn't map mechanically onto the same statement shape.
 - dbt YAML: describe schemas and model/source metadata without making dbt the source of truth.
 - FHIR R4 profiles: emit R4 `StructureDefinition` constraint profiles for
   projection artifacts. The current hardening boundary supports projections

@@ -8,6 +8,22 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- `index <Model> @ <version> { primary ...; secondary ... }`, a
+  domain-level declaration parallel in shape to `auto projections`:
+  `primary` must exactly match the model version's `@key` field(s), and
+  each `secondary` block declares a `key` (required), `sort` (optional,
+  with `asc`/`desc` direction), and `unique` (optional, default `false`).
+  Validated at compile time (model/version existence, entity/aggregate-only,
+  primary-matches-@key, secondary field references, duplicate names).
+  Index changes between two published model versions are surfaced as an
+  `index_changed` entry in that model's compatibility report — visible,
+  not yet classified as breaking or additive. The Postgres SQL emitter
+  generates `CREATE INDEX`/`CREATE UNIQUE INDEX` statements from
+  `secondary` blocks. This is Scalable's feature-gaps request gap #7, the
+  last of the seven concretely-scheduled gaps; see
+  `docs/superpowers/specs/2026-07-07-modelable-feature-gaps-response-design.md`.
+  ClickHouse index DDL and the protobuf/gRPC read-replica index model
+  consuming this declaration directly are deferred.
 - `docs/wire-format-contract.md`, pinning the Rust and Protobuf emitters'
   field-ordering, per-type encoding, and enum-discriminant rules, plus a
   golden-fixture regression suite (`cli/tests/fixtures/wire_golden/`,
