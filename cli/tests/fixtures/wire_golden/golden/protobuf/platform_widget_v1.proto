@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package modelable.platform.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message Widget {
+  string widget_id = 1;
+  string legacy_id = 2;
+  string name = 3;
+  int64 quantity = 4;
+  double weight = 5;
+  bool active = 6;
+  google.protobuf.Timestamp created_at = 7;
+  string born_on = 8;
+  string daily_at = 9;
+  string ttl = 10;
+  bytes blob = 11;
+  bytes checksum = 12;
+  string price = 13;
+  uint32 small_count = 14;
+  uint32 medium_count = 15;
+  uint32 big_count = 16;
+  uint64 huge_count = 17;
+  bytes massive_count = 18;
+  int32 small_delta = 19;
+  int32 medium_delta = 20;
+  int32 big_delta = 21;
+  int64 huge_delta = 22;
+  bytes massive_delta = 23;
+  WidgetStatus status = 24;
+  repeated string tags = 25;
+  bytes attributes = 26;
+}
+
+enum WidgetStatus {
+  WIDGET_STATUS_UNSPECIFIED = 0;
+  WIDGET_STATUS_ACTIVE = 1;
+  WIDGET_STATUS_INACTIVE = 2;
+  WIDGET_STATUS_DISCONTINUED = 3;
+}

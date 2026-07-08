@@ -1,0 +1,32 @@
+domain platform {
+  owner: "platform-team"
+
+  entity Widget @ 1 (additive) {
+    @key   widgetId:      uuid(7)
+           legacyId:      uuid
+           name:          string
+           quantity:      int
+           weight:        float
+           active:        bool
+           createdAt:     timestamp
+           bornOn:        date
+           dailyAt:       time
+           ttl:           duration
+           blob:          binary
+           checksum:      binary(32)
+           price:         decimal(10, 2)
+           smallCount:    u8
+           mediumCount:   u16
+           bigCount:      u32
+           hugeCount:     u64
+           massiveCount:  u128
+           smallDelta:    i8
+           mediumDelta:   i16
+           bigDelta:      i32
+           hugeDelta:     i64
+           massiveDelta:  i128
+           status:        enum(active, inactive, discontinued)
+           tags:          array<string>
+           attributes:    map<string, int>
+  }
+}
