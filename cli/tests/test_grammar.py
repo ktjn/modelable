@@ -122,6 +122,62 @@ def test_fixed_length_binary_ir_shape():
     assert fields["keyHash"].length == 32
 
 
+def test_parse_semantic_type_decl():
+    tree = parse_text("""
+    domain platform {
+      owner: "platform-team"
+
+      semantic ModuleId : u32 {
+        registry: true
+      }
+
+      semantic Identity128 : u128
+
+      entity Schema @ 1 (additive) {
+        @key moduleId: ModuleId
+      }
+    }
+    """)
+    assert tree.data == "start"
+
+
+def test_semantic_type_decl_ir_shape():
+    ir = parse_text_to_ir("""
+    domain platform {
+      owner: "platform-team"
+
+      semantic ModuleId : u32 {
+        registry: true
+      }
+
+      semantic Identity128 : u128
+    }
+    """)
+    domain = ir.domains[0]
+    by_name = {s.name: s for s in domain.semantic_types}
+    assert by_name["ModuleId"].underlying.kind == "u32"
+    assert by_name["ModuleId"].registry is True
+    assert by_name["Identity128"].underlying.kind == "u128"
+    assert by_name["Identity128"].registry is False
+
+
+def test_field_referencing_semantic_type_is_named_type():
+    ir = parse_text_to_ir("""
+    domain platform {
+      owner: "platform-team"
+
+      semantic ModuleId : u32
+
+      entity Schema @ 1 (additive) {
+        @key moduleId: ModuleId
+      }
+    }
+    """)
+    field = ir.domains[0].models["Schema"][0].fields[0]
+    assert field.type.kind == "named"
+    assert field.type.name == "ModuleId"
+
+
 def test_parse_composite_types():
     tree = parse_text("""
     domain types {

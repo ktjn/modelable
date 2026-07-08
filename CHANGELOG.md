@@ -8,6 +8,21 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- `semantic Name: Underlying`, a domain-level type-alias declaration whose
+  underlying type is a primitive, `decimal(p,s)`, `binary(N)`, or another
+  semantic type (chains are validated for cycles and dangling references, up
+  to 32 levels deep). An optional `registry: true` marker is parsed and
+  validated but not yet consumed by any emitter — it is a forward-compatible
+  hook for Modelable 1.4's deterministic registry id allocation. Field
+  declarations reference a semantic type by its bare name, resolved
+  workspace-wide the same way model references already are. The Rust
+  emitter generates a `#[serde(transparent)]` newtype struct with
+  `From`/`Deref` impls for each declaration; all other emitters resolve a
+  semantic type reference to its underlying type unchanged (extending
+  semantic-type support to those targets is deferred follow-up work). This
+  is the first slice of Modelable 1.3, part of Modelable's response to
+  Scalable's feature-gaps request; see
+  `docs/superpowers/specs/2026-07-07-modelable-feature-gaps-response-design.md`.
 - `binary(N)`, a fixed-length variant of the existing variable-length
   `binary` primitive, bounded to `1..=4096` bytes, with a defined mapping
   in every currently implemented emitter (Rust and Go map to native

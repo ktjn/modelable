@@ -24,6 +24,7 @@ domain_item: owner_attr
            | projection_decl
            | auto_projections_decl
            | generate_block
+           | semantic_decl
 
 owner_attr: "owner" ":" ESCAPED_STRING
 contact_attr: "contact" ":" ESCAPED_STRING
@@ -220,6 +221,12 @@ import_source: "from" "registry" ESCAPED_STRING
 pinned_import: "at" dotted_ref "@" INT "#" IDENT
 consumer_decl: "consumer" IDENT? "{" ignored_block_item* "}"
 auto_projections_decl: "auto" "projections" IDENT "@" INT "{" auto_projection_item* "}"
+
+semantic_decl: "semantic" IDENT ":" type_expr semantic_body?
+semantic_body: "{" semantic_item* "}"
+semantic_item: "registry" ":" bool_literal
+bool_literal: "true"  -> bl_true
+            | "false" -> bl_false
 
 auto_projection_item: auto_projection_kind auto_projection_option*
 auto_projection_kind: "db"      -> apk_db

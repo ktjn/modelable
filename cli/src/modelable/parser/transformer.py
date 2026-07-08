@@ -45,6 +45,7 @@ from modelable.parser.ir import (
     ProjectionField,
     ProjectionVersion,
     RefType,
+    SemanticTypeDecl,
     SourceRef,
     VersionExact,
     VersionMin,
@@ -102,6 +103,7 @@ class MdlTransformer(Transformer[list[object], Any]):
         projections: dict[str, list[ProjectionVersion]] = {}
         auto_projections: list[AutoProjectionDecl] = []
         generate_targets: list[GenerateTarget] = []
+        semantic_types: list[SemanticTypeDecl] = []
 
         for tag, value in [item for item in items[1:] if isinstance(item, tuple)]:
             if tag == "owner":
@@ -120,6 +122,8 @@ class MdlTransformer(Transformer[list[object], Any]):
                 auto_projections.append(value)
             elif tag == "generate":
                 generate_targets = value
+            elif tag == "semantic":
+                semantic_types.append(value)
 
         return DomainDef(
             name=name,
@@ -130,6 +134,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             projections=projections,
             auto_projections=auto_projections,
             generate_targets=generate_targets,
+            semantic_types=semantic_types,
         )
 
     def domain_name(self, items: list[object]) -> str:
@@ -208,6 +213,34 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def ck_breaking(self, _items: list[object]) -> ChangeKind:
         return ChangeKind.breaking
+
+    def bl_true(self, _items: list[object]) -> bool:
+        return True
+
+    def bl_false(self, _items: list[object]) -> bool:
+        return False
+
+    def bool_literal(self, items: list[object]) -> bool:
+        return items[0]  # type: ignore[return-value]
+
+    def semantic_item(self, items: list[object]) -> tuple[str, bool]:
+        return ("registry", items[0])  # type: ignore[return-value]
+
+    def semantic_body(self, items: list[object]) -> dict[str, bool]:
+        return dict(items)  # type: ignore[arg-type]
+
+    def semantic_decl(self, items: list[object]) -> tuple[str, SemanticTypeDecl]:
+        name = str(items[0])
+        underlying = items[1]
+        body = items[2] if len(items) > 2 and isinstance(items[2], dict) else {}
+        return (
+            "semantic",
+            SemanticTypeDecl(
+                name=name,
+                underlying=underlying,  # type: ignore[arg-type]
+                registry=body.get("registry", False),
+            ),
+        )
 
     def field_decl(self, items: list[object]) -> FieldDef:
         annotations = [item for item in items if isinstance(item, ANNOTATION_TYPES)]

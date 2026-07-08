@@ -385,6 +385,61 @@ The compiler generates `CustomerDb @ 2`, `CustomerRequest @ 2`, `CustomerReply @
 
 ---
 
+### 3.8 Semantic Types
+
+A `semantic` declaration gives a domain-meaningful name to a primitive, `decimal(p,s)`, `binary(N)`, or another semantic type. It does not introduce a new representation — the underlying type is unchanged for parsing, validation, and (where an emitter doesn't yet support semantic types) serialization. Its purpose is to let field declarations reference `ModuleId` instead of `string`, everywhere the same domain concept is used.
+
+#### Syntax
+
+```mdl
+domain catalog {
+  semantic ModuleId: string
+
+  semantic ProductSku: string {
+    registry: true
+  }
+}
+```
+
+`registry: true` marks the type as a candidate for deterministic registry ID allocation (Modelable 1.4). In this slice it is parsed and validated but not yet consumed by any emitter.
+
+#### Referencing a semantic type
+
+Semantic types are referenced the same way models are: by their bare name. Resolution is workspace-wide (not scoped to the declaring domain), matching how `ref<Domain.Model>` and other cross-domain lookups already work.
+
+```mdl
+domain catalog {
+  semantic ModuleId: string
+
+  entity Module @ 1 {
+    @key   moduleId: ModuleId
+           name:     string
+  }
+}
+```
+
+#### Chaining
+
+A semantic type's underlying type may itself be another semantic type, forming a chain:
+
+```mdl
+semantic RawSku:     string
+semantic ProductSku: RawSku
+```
+
+Chains must be acyclic and are limited to 32 levels. Referencing an undeclared semantic type, or a self-referential/mutually-referential chain, is a compile error.
+
+#### Constraints
+
+- The underlying type must be a primitive, `decimal(p,s)`, `binary(N)`, or another semantic type — not an `array`, `map`, `enum`, `object`, or model reference.
+- A semantic type's name must be unique within its declaring domain and must not collide with a model name in that domain.
+
+#### Emitter support (this slice)
+
+Only the Rust emitter generates a distinct type for `semantic` declarations in this slice — a newtype wrapper (see [Compiler Reference](compiler-reference.md)). All other targets (TypeScript, SQL, JSON Schema, Avro, Protobuf, FHIR, GraphQL, dbt, OpenLineage, OpenMetadata, ODCS, markdown, Go, Java, C#, Python) resolve a semantic type reference to its underlying type, unchanged from pre-1.3 behavior. Extending semantic-type support to those targets is deferred to follow-up slices.
+
+---
+
 ## 4. Output Targets
 
 ### 4.1 Workspace-level generate block

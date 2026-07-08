@@ -409,6 +409,12 @@ class AutoProjectionDecl(BaseModel):
     targets: list[AutoProjectionTarget]
 
 
+class SemanticTypeDecl(BaseModel):
+    name: str
+    underlying: FieldType
+    registry: bool = False
+
+
 class GenerateTarget(BaseModel):
     name: str
     dialect: str | None = None
@@ -444,6 +450,7 @@ class DomainDef(BaseModel):
     projections: dict[str, list[ProjectionVersion]] = Field(default_factory=dict)
     auto_projections: list[AutoProjectionDecl] = Field(default_factory=list)
     generate_targets: list[GenerateTarget] = Field(default_factory=list)
+    semantic_types: list[SemanticTypeDecl] = Field(default_factory=list)
 
 
 class WorkspaceDef(BaseModel):

@@ -82,10 +82,22 @@ Recently shipped, still hardening:
   Postgres/ClickHouse, JSON Schema, and Protobuf, per the task-by-task plan
   at
   [docs/superpowers/plans/2026-07-08-fixed-length-binary-primitive-first-slice.md](docs/superpowers/plans/2026-07-08-fixed-length-binary-primitive-first-slice.md).
-  Modelable 1.2 (both its slices) is now complete; the `semantic` type-alias
-  mechanism (1.3) has not started. A third compatibility signal for
-  state-migration necessity (gap 8 of that request) remains an open question
-  with no accepted grammar; see the response design section 11.
+  Modelable 1.2 (both its slices) is now complete. The `semantic` type-alias
+  mechanism (1.3) has shipped its first slice: a `semantic Name: Underlying`
+  domain-level declaration (grammar, `SemanticTypeDecl` IR node, an optional
+  `registry: true` marker for 1.4 to consume), validation of the underlying
+  type, chained semantic-type references, and cycle/dangling-reference
+  detection, plus a Rust newtype emitter (`#[serde(transparent)]` tuple
+  struct with `From`/`Deref` impls). Extending semantic-type support to the
+  other emitters (Go, Java, C#, Python, TypeScript, SQL, JSON Schema,
+  Protobuf, FHIR, and the rest) is deferred follow-up work — they currently
+  resolve a semantic type reference to its underlying type unchanged, per
+  the task-by-task plan at
+  [docs/superpowers/plans/2026-07-08-semantic-type-alias-mechanism-first-slice.md](docs/superpowers/plans/2026-07-08-semantic-type-alias-mechanism-first-slice.md).
+  Modelable 1.4 (deterministic small-integer registry id allocation) has not
+  started. A third compatibility signal for state-migration necessity (gap 8
+  of that request) remains an open question with no accepted grammar; see
+  the response design section 11.
 
 Deferred candidates, not yet started:
 
