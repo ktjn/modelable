@@ -221,6 +221,7 @@ implemented:
   facets from the local graph. Runtime event collection remains outside the
   local emitter boundary.
 - Generated-language targets beyond TypeScript: C#, Java, Python, Rust, and Go. These targets are implemented in the local codegen boundary; additional future targets stay deferred.
+- Semantic types (`semantic Name: Underlying`, see [Language Reference §3.8](language-reference.md#38-semantic-types)): the Rust emitter generates a `#[serde(transparent)]` tuple-struct newtype per declaration (`pub struct Name(pub Underlying);`) with `From`/`From`(reverse) conversions and `Deref` to the underlying type. Derives (`Debug`, `Clone`, plus `Copy`/`Eq`/`Hash` where the underlying Rust type supports them) are chosen per underlying kind — e.g. integers and `uuid::Uuid` derive `Copy + Eq + Hash`, `String` and `f64`-backed types omit `Copy`, and `f64` additionally omits `Eq`/`Hash`. Fields that reference a semantic type use the newtype directly, with a `use` import generated the same way cross-domain model references are resolved. All other emitters resolve a semantic type reference to its underlying type and do not yet generate a distinct type; extending semantic-type support to those targets is deferred follow-up work.
 
 ## 11. Diagnostics
 
