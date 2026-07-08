@@ -81,7 +81,7 @@ def _collect_ref_imports(field_type, mdl, resolved_refs: dict[str, str]) -> None
                 resolved: ResolvedModelRef = resolve_model_ref(mdl, target, VersionMin(min_inclusive=1))
                 iface = _stable_interface_name(resolved.domain_name, resolved.model_name, resolved.version.version)
                 resolved_refs[target] = iface
-            except (LookupError, ValueError):
+            except LookupError, ValueError:
                 pass
     elif isinstance(field_type, ArrayType):
         _collect_ref_imports(field_type.item, mdl, resolved_refs)

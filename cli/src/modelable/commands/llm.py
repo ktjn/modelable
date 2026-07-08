@@ -554,7 +554,7 @@ def chat(
     while True:
         try:
             user_message = click.prompt("you", prompt_suffix="> ", default="", show_default=False)
-        except (EOFError, click.Abort):
+        except EOFError, click.Abort:
             break
         if not user_message.strip():
             continue
