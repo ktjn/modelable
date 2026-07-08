@@ -133,6 +133,37 @@ domain finance {
     assert "taxRate: Optional[Decimal] = None" in art.content
 
 
+def test_emit_python_fixed_width_integers_map_to_int(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    a: u8
+    b: u16
+    c: u32
+    d: u64
+    e: u128
+    f: i8
+    g: i16
+    h: i32
+    i: i64
+    j: i128
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_python(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "types.Widths@1")
+    for name in "abcdefghij":
+        assert f"{name}: int" in art.content
+    assert art.warnings == []
+
+
 def test_emit_python_temporal_types_map_to_datetime(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

@@ -52,7 +52,13 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     params: list[str] = []
     for field in version.fields:
         shape = TypeShape.from_field_type(field.type, optional=field.optional)
-        java_type = _shape_to_java(shape, owner_type=type_name, path=[field.name], definitions=nested_definitions)
+        java_type = _shape_to_java(
+            shape,
+            owner_type=type_name,
+            path=[field.name],
+            definitions=nested_definitions,
+            warnings=warnings,
+        )
         params.append(f"    {java_type} {_field_name(field.name)}")
     lines.append(f"public record {type_name}(")
     lines.append(",\n".join(params))
@@ -93,7 +99,11 @@ def _emit_projection(
             java_type = "Object"
         else:
             java_type = _shape_to_java(
-                field_shape, owner_type=type_name, path=[field.name], definitions=nested_definitions
+                field_shape,
+                owner_type=type_name,
+                path=[field.name],
+                definitions=nested_definitions,
+                warnings=warnings,
             )
         params.append(f"    {java_type} {_field_name(field.name)}")
     lines.append(f"public record {type_name}(")
@@ -119,6 +129,7 @@ def _header_lines(package_name: str) -> list[str]:
         f"package {package_name};",
         "",
         "import java.math.BigDecimal;",
+        "import java.math.BigInteger;",
         "import java.time.Duration;",
         "import java.time.Instant;",
         "import java.time.LocalDate;",
@@ -154,8 +165,9 @@ def _shape_to_java(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    warnings: list[str],
 ) -> str:
-    base = _shape_base_to_java(shape, owner_type=owner_type, path=path, definitions=definitions)
+    base = _shape_base_to_java(shape, owner_type=owner_type, path=path, definitions=definitions, warnings=warnings)
     if shape.optional or shape.nullable:
         return f"Optional<{base}>"
     return base
@@ -167,17 +179,25 @@ def _shape_base_to_java(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    warnings: list[str],
 ) -> str:
     if shape.kind == "primitive":
-        return _primitive_to_java(shape.ref or "string")
+        field_ref = f"{owner_type}.{'.'.join(path)}"
+        return _primitive_to_java(shape.ref or "string", warnings=warnings, field_ref=field_ref)
     if shape.kind == "decimal":
         return "BigDecimal"
     if shape.kind == "array":
         element = shape.element or TypeShape(kind="primitive", ref="object")
-        return f"List<{_shape_to_java(element, owner_type=owner_type, path=[*path, 'Item'], definitions=definitions)}>"
+        inner = _shape_to_java(
+            element, owner_type=owner_type, path=[*path, "Item"], definitions=definitions, warnings=warnings
+        )
+        return f"List<{inner}>"
     if shape.kind == "map":
         value = shape.value or TypeShape(kind="primitive", ref="object")
-        return f"Map<String, {_shape_to_java(value, owner_type=owner_type, path=[*path, 'Value'], definitions=definitions)}>"
+        inner = _shape_to_java(
+            value, owner_type=owner_type, path=[*path, "Value"], definitions=definitions, warnings=warnings
+        )
+        return f"Map<String, {inner}>"
     if shape.kind == "ref":
         return "String"
     if shape.kind == "enum":
@@ -193,12 +213,15 @@ def _shape_base_to_java(
                 owner_type=owner_type,
                 path=path,
                 definitions=definitions,
+                warnings=warnings,
             )
         return type_name
     return "Object"
 
 
-def _primitive_to_java(kind: str) -> str:
+def _primitive_to_java(kind: str, *, warnings: list[str], field_ref: str) -> str:
+    if kind in ("u8", "u16", "u32", "u64"):
+        warnings.append(type_loss(field_ref))
     mapping = {
         "string": "String",
         "bool": "Boolean",
@@ -210,6 +233,16 @@ def _primitive_to_java(kind: str) -> str:
         "time": "LocalTime",
         "duration": "Duration",
         "binary": "byte[]",
+        "u8": "Byte",
+        "u16": "Short",
+        "u32": "Integer",
+        "u64": "Long",
+        "u128": "BigInteger",
+        "i8": "Byte",
+        "i16": "Short",
+        "i32": "Integer",
+        "i64": "Long",
+        "i128": "BigInteger",
     }
     return mapping.get(kind, "String")
 
@@ -225,6 +258,7 @@ def _build_record_definition(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    warnings: list[str],
 ) -> list[str]:
     lines = [f"    public record {type_name}("]
     params: list[str] = []
@@ -235,6 +269,7 @@ def _build_record_definition(
             owner_type=owner_type,
             path=[*path, field.name],
             definitions=definitions,
+            warnings=warnings,
         )
         params.append(f"        {child_type} {_field_name(field.name)}")
     lines.append(",\n".join(params))

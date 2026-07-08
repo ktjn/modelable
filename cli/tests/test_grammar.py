@@ -63,6 +63,39 @@ def test_parse_all_primitive_types():
     assert tree.data == "start"
 
 
+def test_parse_all_fixed_width_integer_types():
+    tree = parse_text("""
+    domain types {
+      owner: "test-team"
+      entity FixedWidth @ 1 (additive) {
+        a: u8
+        b: u16
+        c: u32
+        d: u64
+        e: u128
+        f: i8
+        g: i16
+        h: i32
+        i: i64
+        j: i128
+      }
+    }
+    """)
+    assert tree.data == "start"
+
+
+def test_fixed_width_integer_ir_kinds():
+    ir = parse_text_to_ir(
+        SIMPLE_MODEL.replace(
+            "total: decimal(12, 2)",
+            "total: decimal(12, 2)\n    moduleId: u32\n    delta: i64",
+        )
+    )
+    fields = {f.name: f.type for f in ir.domains[0].models["Customer"][0].fields}
+    assert fields["moduleId"].kind == "u32"
+    assert fields["delta"].kind == "i64"
+
+
 def test_parse_composite_types():
     tree = parse_text("""
     domain types {

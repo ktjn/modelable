@@ -406,7 +406,24 @@ def _pascalize_part(value: str) -> str:
     return value[:1].upper() + value[1:] if value else value
 
 
+_INTEGER_BOUNDS: dict[str, tuple[int, int]] = {
+    "u8": (0, 2**8 - 1),
+    "u16": (0, 2**16 - 1),
+    "u32": (0, 2**32 - 1),
+    "u64": (0, 2**64 - 1),
+    "u128": (0, 2**128 - 1),
+    "i8": (-(2**7), 2**7 - 1),
+    "i16": (-(2**15), 2**15 - 1),
+    "i32": (-(2**31), 2**31 - 1),
+    "i64": (-(2**63), 2**63 - 1),
+    "i128": (-(2**127), 2**127 - 1),
+}
+
+
 def _primitive_to_json_schema(kind: str) -> dict:
+    if kind in _INTEGER_BOUNDS:
+        low, high = _INTEGER_BOUNDS[kind]
+        return {"type": "integer", "minimum": low, "maximum": high}
     mapping: dict[str, dict] = {
         "string": {"type": "string"},
         "bool": {"type": "boolean"},

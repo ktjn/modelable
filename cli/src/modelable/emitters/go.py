@@ -49,12 +49,14 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     type_name = _stable_type_name(domain.name, model_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
     imports: set[str] = set()
+    warnings: list[str] = []
     field_specs = _field_specs_from_model_fields(
         version.fields,
         owner_type=type_name,
         path=[],
         definitions=nested_definitions,
         imports=imports,
+        warnings=warnings,
     )
 
     lines = _header_lines(_package_name(domain.name), imports)
@@ -69,7 +71,7 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
         path=out_dir / _module_path(domain.name, type_name),
         content=text,
         content_hash=compute_content_hash(text),
-        warnings=[],
+        warnings=warnings,
     )
 
 
@@ -99,6 +101,7 @@ def _emit_projection(
             path=[field.name],
             definitions=nested_definitions,
             imports=imports,
+            warnings=warnings,
         )
         optional = field_shape.optional or field_shape.nullable
         field_specs.append((index, field.name, annotation, optional))
@@ -185,6 +188,7 @@ def _field_specs_from_model_fields(
     path: list[str],
     definitions: dict[str, list[str]],
     imports: set[str],
+    warnings: list[str],
 ) -> list[tuple[int, str, str, bool]]:
     specs: list[tuple[int, str, str, bool]] = []
     for index, field in enumerate(fields):
@@ -195,6 +199,7 @@ def _field_specs_from_model_fields(
             path=[*path, field.name],
             definitions=definitions,
             imports=imports,
+            warnings=warnings,
         )
         default_none = shape.optional or shape.nullable
         specs.append((index, field.name, annotation, default_none))
@@ -208,6 +213,7 @@ def _field_specs_from_object_fields(
     path: list[str],
     definitions: dict[str, list[str]],
     imports: set[str],
+    warnings: list[str],
 ) -> list[tuple[int, str, str, bool]]:
     specs: list[tuple[int, str, str, bool]] = []
     for index, field in enumerate(fields):
@@ -217,6 +223,7 @@ def _field_specs_from_object_fields(
             path=[*path, field.name],
             definitions=definitions,
             imports=imports,
+            warnings=warnings,
         )
         default_none = field.optional or field.shape.optional or field.shape.nullable
         specs.append((index, field.name, annotation, default_none))
@@ -230,8 +237,16 @@ def _shape_annotation(
     path: list[str],
     definitions: dict[str, list[str]],
     imports: set[str],
+    warnings: list[str],
 ) -> str:
-    base = _shape_base_annotation(shape, owner_type=owner_type, path=path, definitions=definitions, imports=imports)
+    base = _shape_base_annotation(
+        shape,
+        owner_type=owner_type,
+        path=path,
+        definitions=definitions,
+        imports=imports,
+        warnings=warnings,
+    )
     if shape.optional or shape.nullable:
         return f"*{base}"
     return base
@@ -244,9 +259,11 @@ def _shape_base_annotation(
     path: list[str],
     definitions: dict[str, list[str]],
     imports: set[str],
+    warnings: list[str],
 ) -> str:
     if shape.kind == "primitive":
-        return _primitive_to_go(shape.ref or "string", imports=imports)
+        field_ref = f"{owner_type}.{'.'.join(path)}"
+        return _primitive_to_go(shape.ref or "string", imports=imports, warnings=warnings, field_ref=field_ref)
     if shape.kind == "decimal":
         return "string"
     if shape.kind == "array":
@@ -257,6 +274,7 @@ def _shape_base_annotation(
             path=[*path, "Item"],
             definitions=definitions,
             imports=imports,
+            warnings=warnings,
         )
         return f"[]{element_type}"
     if shape.kind == "map":
@@ -267,6 +285,7 @@ def _shape_base_annotation(
             path=[*path, "Value"],
             definitions=definitions,
             imports=imports,
+            warnings=warnings,
         )
         return f"map[string]{value_type}"
     if shape.kind == "ref":
@@ -286,13 +305,17 @@ def _shape_base_annotation(
                     path=path,
                     definitions=definitions,
                     imports=imports,
+                    warnings=warnings,
                 ),
             )
         return type_name
     return "any"
 
 
-def _primitive_to_go(kind: str, *, imports: set[str]) -> str:
+def _primitive_to_go(kind: str, *, imports: set[str], warnings: list[str], field_ref: str) -> str:
+    if kind in ("u128", "i128"):
+        warnings.append(type_loss(field_ref))
+        return "[16]byte"
     mapping = {
         "string": "string",
         "bool": "bool",
@@ -304,6 +327,14 @@ def _primitive_to_go(kind: str, *, imports: set[str]) -> str:
         "time": "time.Time",
         "duration": "time.Duration",
         "binary": "[]byte",
+        "u8": "uint8",
+        "u16": "uint16",
+        "u32": "uint32",
+        "u64": "uint64",
+        "i8": "int8",
+        "i16": "int16",
+        "i32": "int32",
+        "i64": "int64",
     }
     result = mapping.get(kind, "string")
     if result.startswith("time."):

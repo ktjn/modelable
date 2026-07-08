@@ -105,6 +105,43 @@ domain customer {
     Draft202012Validator.check_schema(schema)
 
 
+def test_emit_fixed_width_integers_have_bounds(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    a: u8
+    e: u128
+    j: i128
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_json_schema(workspace, tmp_path / "out")
+    schema = artifacts[0].content
+    props = schema["properties"]
+
+    assert props["a"]["type"] == "integer"
+    assert props["a"]["minimum"] == 0
+    assert props["a"]["maximum"] == 255
+
+    assert props["e"]["type"] == "integer"
+    assert props["e"]["minimum"] == 0
+    assert props["e"]["maximum"] == 2**128 - 1
+
+    assert props["j"]["type"] == "integer"
+    assert props["j"]["minimum"] == -(2**127)
+    assert props["j"]["maximum"] == 2**127 - 1
+
+    Draft202012Validator.check_schema(schema)
+
+
 def test_emit_projection_with_lineage(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

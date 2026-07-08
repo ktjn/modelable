@@ -195,6 +195,16 @@ def _primitive_to_csharp(kind: str) -> str:
         "time": "TimeOnly",
         "duration": "TimeSpan",
         "binary": "byte[]",
+        "u8": "byte",
+        "u16": "ushort",
+        "u32": "uint",
+        "u64": "ulong",
+        "u128": "UInt128",
+        "i8": "sbyte",
+        "i16": "short",
+        "i32": "int",
+        "i64": "long",
+        "i128": "Int128",
     }
     return mapping.get(kind, "string")
 

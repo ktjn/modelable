@@ -255,6 +255,16 @@ def _primitive_to_python(kind: str) -> str:
         "time": "time",
         "duration": "timedelta",
         "binary": "bytes",
+        "u8": "int",
+        "u16": "int",
+        "u32": "int",
+        "u64": "int",
+        "u128": "int",
+        "i8": "int",
+        "i16": "int",
+        "i32": "int",
+        "i64": "int",
+        "i128": "int",
     }
     return mapping.get(kind, "str")
 

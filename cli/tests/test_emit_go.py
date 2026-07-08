@@ -162,6 +162,47 @@ domain finance {
     assert 'TaxRate *string `json:"taxRate,omitempty"`' in art.content
 
 
+def test_emit_go_fixed_width_integers_map_to_native_types(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    a: u8
+    b: u16
+    c: u32
+    d: u64
+    e: u128
+    f: i8
+    g: i16
+    h: i32
+    i: i64
+    j: i128
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_go(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "types.Widths@1")
+    assert 'A uint8 `json:"a"`' in art.content
+    assert 'B uint16 `json:"b"`' in art.content
+    assert 'C uint32 `json:"c"`' in art.content
+    assert 'D uint64 `json:"d"`' in art.content
+    assert 'E [16]byte `json:"e"`' in art.content
+    assert 'F int8 `json:"f"`' in art.content
+    assert 'G int16 `json:"g"`' in art.content
+    assert 'H int32 `json:"h"`' in art.content
+    assert 'I int64 `json:"i"`' in art.content
+    assert 'J [16]byte `json:"j"`' in art.content
+    assert len(art.warnings) == 2
+    assert any("TypesWidthsV1.e" in warning for warning in art.warnings)
+    assert any("TypesWidthsV1.j" in warning for warning in art.warnings)
+
+
 def test_emit_go_temporal_types_inject_time_import(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

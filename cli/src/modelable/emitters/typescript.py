@@ -337,6 +337,16 @@ def _type_to_ts(
             "duration": "string",
             "binary": "string",
             "json": "unknown",
+            "u8": "number",
+            "u16": "number",
+            "u32": "number",
+            "u64": "bigint",
+            "u128": "bigint",
+            "i8": "number",
+            "i16": "number",
+            "i32": "number",
+            "i64": "bigint",
+            "i128": "bigint",
         }
         return mapping.get(field_type.kind, "unknown")
     if isinstance(field_type, DecimalType):

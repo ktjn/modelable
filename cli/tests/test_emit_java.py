@@ -127,6 +127,46 @@ domain finance {
     assert "Optional<BigDecimal> taxRate" in art.content
 
 
+def test_emit_java_fixed_width_integers_map_to_boxed_types(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    a: u8
+    b: u16
+    c: u32
+    d: u64
+    e: u128
+    f: i8
+    g: i16
+    h: i32
+    i: i64
+    j: i128
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_java(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "types.Widths@1")
+    assert "import java.math.BigInteger;" in art.content
+    assert "Byte a" in art.content
+    assert "Short b" in art.content
+    assert "Integer c" in art.content
+    assert "Long d" in art.content
+    assert "BigInteger e" in art.content
+    assert "Byte f" in art.content
+    assert "Short g" in art.content
+    assert "Integer h" in art.content
+    assert "Long i" in art.content
+    assert "BigInteger j" in art.content
+    assert len(art.warnings) == 4
+
+
 def test_emit_java_temporal_types_map_to_java_time(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

@@ -119,6 +119,7 @@ Type mapping:
 | `string` | `{ "type": "string" }` |
 | `bool` | `{ "type": "boolean" }` |
 | `int` | `{ "type": "integer", "format": "int64" }` |
+| `u8`..`u128`, `i8`..`i128` | `{ "type": "integer", "minimum": ..., "maximum": ... }` bounds per width |
 | `float` | `{ "type": "number" }` |
 | `decimal(p,s)` | `{ "type": "string", "pattern": "^-?\\d+(\\.\\d+)?$" }` |
 | `uuid` | `{ "type": "string", "format": "uuid" }` |

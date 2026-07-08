@@ -132,6 +132,44 @@ domain finance {
     assert "pub tax_rate: Option<String>," in art.content
 
 
+def test_emit_rust_fixed_width_integers_map_to_native_types(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain types {
+  owner: "test-team"
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    a: u8
+    b: u16
+    c: u32
+    d: u64
+    e: u128
+    f: i8
+    g: i16
+    h: i32
+    i: i64
+    j: i128
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "types.Widths@1")
+    assert "pub a: u8," in art.content
+    assert "pub b: u16," in art.content
+    assert "pub c: u32," in art.content
+    assert "pub d: u64," in art.content
+    assert "pub e: u128," in art.content
+    assert "pub f: i8," in art.content
+    assert "pub g: i16," in art.content
+    assert "pub h: i32," in art.content
+    assert "pub i: i64," in art.content
+    assert "pub j: i128," in art.content
+
+
 def test_emit_rust_temporal_types_map_to_string(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

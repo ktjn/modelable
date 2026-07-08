@@ -85,6 +85,57 @@ enum CustomerStatus {
     ]
 
 
+def test_emit_protobuf_fixed_width_integers(tmp_path):
+    (tmp_path / "types.mdl").write_text(
+        """
+domain types {
+  owner: "test-team"
+
+  entity Widths @ 1 (additive) {
+    @key id: uuid
+    a: u8
+    b: u16
+    c: u32
+    d: u64
+    e: u128
+    f: i8
+    g: i16
+    h: i32
+    i: i64
+    j: i128
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+
+    proto = next(art for art in artifacts if art.path.name == "Widths.v1.proto")
+    assert "uint32 a = 2;" in proto.content
+    assert "uint32 b = 3;" in proto.content
+    assert "uint32 c = 4;" in proto.content
+    assert "uint64 d = 5;" in proto.content
+    assert "bytes e = 6;" in proto.content
+    assert "int32 f = 7;" in proto.content
+    assert "int32 g = 8;" in proto.content
+    assert "int32 h = 9;" in proto.content
+    assert "int64 i = 10;" in proto.content
+    assert "bytes j = 11;" in proto.content
+
+    manifest = next(art for art in artifacts if art.path.name == "schema-manifest.json")
+    fields_by_name = {f["name"]: f for f in json.loads(manifest.content)["schemas"][0]["fields"]}
+    assert fields_by_name["a"]["type"] == "uint32"
+    assert fields_by_name["d"]["type"] == "uint64"
+    assert fields_by_name["e"]["type"] == "bytes"
+    assert fields_by_name["e"]["fixed_length"] == 16
+    assert fields_by_name["j"]["type"] == "bytes"
+    assert fields_by_name["j"]["fixed_length"] == 16
+    assert "fixed_length" not in fields_by_name["a"]
+    assert "fixed_length" not in fields_by_name["i"]
+
+
 def test_compile_protobuf_writes_proto_and_manifest(tmp_path):
     mdl = tmp_path / "customer.mdl"
     mdl.write_text(

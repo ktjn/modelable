@@ -125,7 +125,7 @@ scope note):
 | JSON Schema | `{"type":"integer","minimum":..,"maximum":..}` | same | Bounds encode width; no unsigned keyword needed. |
 | Protobuf | `uint32`/`uint64`, u128 → `bytes` (16-byte BE) + manifest metadata | `int32`/`int64`, i128 → `bytes` + manifest metadata | proto3 has no 8/16-bit or 128-bit scalar. |
 | Avro | `"int"`/`"long"`, 128-bit → `{"type":"fixed","size":16}` | same | Avro's `fixed` type is an exact match for 128-bit. |
-| FHIR R4 | `integer` for ≤32-bit, `string` + `type_loss` for 64/128-bit | same | FHIR R4 has no 64-bit primitive (`integer64` is R5). |
+| FHIR R4 | `integer` for `u8`/`u16`, `string` for `u32`/`u64`/`u128` | `integer` for `i8`/`i16`/`i32`, `string` for `i64`/`i128` | FHIR `integer` is 32-bit **signed** (no `integer64` until R5); `u32`'s range exceeds it, so `u32` maps to `string` like the wider unsigned kinds — only `i8`/`i16`/`i32` and `u8`/`u16` safely fit. |
 | dbt/OpenLineage/OpenMetadata/ODCS/Markdown | nearest declared numeric type name + width as extension metadata | same | Metadata/catalog formats; width is documented, not enforced. |
 
 ## 5. Gap 2 — UUIDv7-Compatible Identifier

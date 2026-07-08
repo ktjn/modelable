@@ -124,6 +124,48 @@ domain clinical {
     }
 
 
+def test_emit_fhir_profile_fixed_width_integers_map_to_integer_or_string(tmp_path):
+    (tmp_path / "clinical.mdl").write_text(
+        """
+domain clinical {
+  owner: "clinical-platform"
+
+  entity Patient @ 1 (additive) {
+    @key patientId: uuid
+    active: bool
+    widthA: u8
+    widthE: u128
+    widthF: i8
+    widthJ: i128
+  }
+
+  projection PatientProfile @ 1
+    from clinical.Patient @ 1 as p
+  {
+    patientId <- p.patientId
+    active <- p.active
+    widthA <- p.widthA
+    widthE <- p.widthE
+    widthF <- p.widthF
+    widthJ <- p.widthJ
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_fhir_profile(workspace, tmp_path / "out")
+
+    profile = next(a for a in artifacts if a.ref == "clinical.PatientProfile@1")
+    doc = json.loads(profile.content)
+    elements = {element["id"]: element for element in doc["snapshot"]["element"]}
+
+    assert elements["Patient.extension:widthA.value[x]"]["type"] == [{"code": "integer"}]
+    assert elements["Patient.extension:widthE.value[x]"]["type"] == [{"code": "string"}]
+    assert elements["Patient.extension:widthF.value[x]"]["type"] == [{"code": "integer"}]
+    assert elements["Patient.extension:widthJ.value[x]"]["type"] == [{"code": "string"}]
+
+
 def test_emit_fhir_profile_warns_for_unsupported_base_resources(tmp_path):
     (tmp_path / "billing.mdl").write_text(
         """
