@@ -329,7 +329,10 @@ def _field_to_json_schema(
 
 def _type_to_json_schema(field_type, defs: dict[str, dict] | None = None, path: list[str] | None = None) -> dict:
     if isinstance(field_type, PrimitiveType):
-        return _primitive_to_json_schema(field_type.kind)
+        schema = _primitive_to_json_schema(field_type.kind)
+        if field_type.kind == "uuid" and field_type.version == 7:
+            schema = {**schema, "x-modelable-uuid-version": 7}
+        return schema
     if isinstance(field_type, DecimalType):
         return {
             "type": "string",

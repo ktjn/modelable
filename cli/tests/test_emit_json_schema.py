@@ -443,3 +443,25 @@ domain example {
     assert props["tags"]["items"] == {}
 
     Draft202012Validator.check_schema(schema)
+
+
+def test_emit_json_schema_uuid_v7_adds_version_extension(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "test-team"
+  entity Command @ 1 (additive) {
+    @key commandId: uuid(7)
+            legacyId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_json_schema(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "platform.Command@1")
+    props = art.content["properties"]
+    assert props["commandId"]["x-modelable-uuid-version"] == 7
+    assert "x-modelable-uuid-version" not in props["legacyId"]

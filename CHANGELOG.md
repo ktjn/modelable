@@ -8,6 +8,19 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- `uuid(7)`, a UUIDv7 (timestamp-ordered) variant of the existing `uuid`
+  primitive — `uuid` with no argument is unchanged and still defaults to
+  v4. The transformer rejects any version argument other than `4`/`7` as
+  a parse-time error. No emitter's underlying type mapping changes (every
+  target still emits its existing `uuid` representation for both
+  versions); JSON Schema gains an `x-modelable-uuid-version: 7` extension
+  key and Markdown renders `uuid(7)` explicitly. This is Scalable's
+  feature-gaps request gap #2, landing independently of the other four
+  shipped gaps; see
+  `docs/superpowers/specs/2026-07-07-modelable-feature-gaps-response-design.md`.
+  SQL Postgres `DEFAULT uuidv7()` generation and prose-style
+  descriptions in Markdown/LSP hover are deferred — neither has an
+  existing mechanism to extend.
 - `registry-ids.lock`, a git-tracked JSON ledger at the workspace root that
   `modelable compile` reads and updates: every `semantic ...
   { registry: true }` declaration gets a small, monotonically-increasing

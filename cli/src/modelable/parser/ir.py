@@ -173,6 +173,7 @@ class PrimitiveType(BaseModel):
         "i64",
         "i128",
     ]
+    version: Literal[4, 7] = 4
 
 
 class DecimalType(BaseModel):

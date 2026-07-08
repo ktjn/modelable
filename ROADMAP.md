@@ -108,6 +108,22 @@ Recently shipped, still hardening:
   all) and a `modelable inspect` id-lookup surface are deferred follow-up
   work, per the task-by-task plan at
   [docs/superpowers/plans/2026-07-08-registry-id-allocation-first-slice.md](docs/superpowers/plans/2026-07-08-registry-id-allocation-first-slice.md).
+  The UUIDv7-compatible identifier gap (#2, originally sequenced first as
+  cheap/independent 1.1 work but not implemented until now) has also
+  shipped: `uuid` is a parameterized primitive, `uuid(7)` selects
+  timestamp-ordered UUIDv7 (`uuid` with no argument is unchanged, still
+  defaults to v4), with a `PrimitiveType.version` IR field, parse-time
+  validation rejecting any argument other than `4`/`7`, an
+  `x-modelable-uuid-version` JSON Schema extension, and `uuid(7)`
+  Markdown rendering. No emitter's underlying *type* mapping changes
+  (every target still emits its existing `uuid` representation for both
+  versions). SQL Postgres `DEFAULT uuidv7()` generation and prose-style
+  Markdown/LSP-hover descriptions are deferred — neither has an existing
+  mechanism to hook into (`sql.py` has no `@server`-driven `DEFAULT`
+  generation for any type today, and both renderers already render every
+  other parameterized type as its declaration syntax, never prose), per
+  the task-by-task plan at
+  [docs/superpowers/plans/2026-07-08-uuidv7-compatible-identifier-first-slice.md](docs/superpowers/plans/2026-07-08-uuidv7-compatible-identifier-first-slice.md).
   A third compatibility signal for state-migration necessity (gap 8
   of that request) remains an open question with no accepted grammar; see
   the response design section 11.

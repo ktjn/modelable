@@ -343,3 +343,24 @@ domain customer {
     assert any(
         len(part) == 64 and all(ch in "0123456789abcdef" for ch in part.lower()) for part in result.output.split()
     )
+
+
+def test_emit_markdown_renders_uuid_version(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "test-team"
+  entity Command @ 1 (additive) {
+    @key commandId: uuid(7)
+            legacyId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_markdown(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "platform.Command@1")
+    assert "uuid(7)" in art.content
+    assert "legacyId" in art.content
