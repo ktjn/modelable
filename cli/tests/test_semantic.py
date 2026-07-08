@@ -641,3 +641,110 @@ def test_semantic_type_name_colliding_with_model_is_error():
     """)
     errors = validate(mdl)
     assert any("Schema" in e for e in errors)
+
+
+def test_index_decl_primary_must_match_key_field():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+             status:  string
+      }
+      index Order @ 1 {
+        primary status
+      }
+    }
+    """)
+    errors = validate(mdl)
+    assert any("Order" in e and "primary" in e.lower() for e in errors)
+
+
+def test_index_decl_valid_primary_and_secondary_is_valid():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+             status:  string
+      }
+      index Order @ 1 {
+        primary orderId
+        secondary byStatus {
+          key: [status]
+        }
+      }
+    }
+    """)
+    assert validate(mdl) == []
+
+
+def test_index_decl_secondary_field_reference_must_exist():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+      }
+      index Order @ 1 {
+        primary orderId
+        secondary byMissing {
+          key: [doesNotExist]
+        }
+      }
+    }
+    """)
+    errors = validate(mdl)
+    assert any("doesNotExist" in e for e in errors)
+
+
+def test_index_decl_duplicate_secondary_name_is_error():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+             status:  string
+      }
+      index Order @ 1 {
+        primary orderId
+        secondary byStatus {
+          key: [status]
+        }
+        secondary byStatus {
+          key: [status]
+        }
+      }
+    }
+    """)
+    errors = validate(mdl)
+    assert any("byStatus" in e for e in errors)
+
+
+def test_index_decl_referencing_unknown_model_is_error():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      index DoesNotExist @ 1 {
+        primary id
+      }
+    }
+    """)
+    errors = validate(mdl)
+    assert any("DoesNotExist" in e for e in errors)
+
+
+def test_index_decl_on_value_model_is_error():
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      value Money @ 1 (additive) {
+        amount: decimal(10, 2)
+      }
+      index Money @ 1 {
+        primary amount
+      }
+    }
+    """)
+    errors = validate(mdl)
+    assert any("Money" in e for e in errors)

@@ -87,6 +87,9 @@ def _emit_projection_ddl(
         lines.append(f"CREATE TABLE IF NOT EXISTS {table_name} (")
         lines.append(",\n".join([*columns, *checks]))
         lines.append(");")
+        index_lines, index_warnings = _emit_secondary_index_ddl(version, table_name, mdl)
+        lines.extend(index_lines)
+        warnings.extend(index_warnings)
     else:
         lines.append(f"CREATE TABLE IF NOT EXISTS {table_name}")
         lines.append("(")
@@ -116,6 +119,77 @@ def _resolve_table_name(version: ProjectionVersion, mdl: MdlFile, dialect: str) 
         resolved = adapter_types.get(b.adapter, b.adapter)
         if resolved == dialect and b.model == src_model:
             return b.table
+    return None
+
+
+def _emit_secondary_index_ddl(version: ProjectionVersion, table_name: str, mdl: MdlFile) -> tuple[list[str], list[str]]:
+    """Render CREATE INDEX statements for the model version's `index` declaration, if any.
+
+    Index field names reference the source *model*, not this projection —
+    each is resolved through this projection's DirectMapping fields to its
+    own column name. A referenced field the projection doesn't include is
+    skipped (with a warning) rather than emitted as a broken column
+    reference.
+    """
+    lines: list[str] = []
+    warnings: list[str] = []
+    try:
+        source_domain, source_model = version.source.model.rsplit(".", 1)
+    except ValueError:
+        return lines, warnings
+    domain_def = next((d for d in mdl.domains if d.name == source_domain), None)
+    if domain_def is None:
+        return lines, warnings
+    try:
+        resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", version.source.version)
+    except LookupError:
+        return lines, warnings
+    index_decl = next(
+        (
+            decl
+            for decl in domain_def.index_decls
+            if decl.model == source_model and decl.version == resolved.version.version
+        ),
+        None,
+    )
+    if index_decl is None:
+        return lines, warnings
+
+    for secondary in index_decl.secondary:
+        columns: list[str] = []
+        skipped = False
+        for field_name in secondary.key:
+            column = _resolve_projection_column(field_name, version)
+            if column is None:
+                warnings.append(type_loss(f"secondary index '{secondary.name}': field '{field_name}' is not projected"))
+                skipped = True
+                break
+            columns.append(column)
+        if skipped:
+            continue
+        for sort_field in secondary.sort:
+            column = _resolve_projection_column(sort_field.field, version)
+            if column is None:
+                warnings.append(
+                    type_loss(f"secondary index '{secondary.name}': field '{sort_field.field}' is not projected")
+                )
+                skipped = True
+                break
+            columns.append(f"{column} DESC" if sort_field.direction == "desc" else column)
+        if skipped or not columns:
+            continue
+
+        keyword = "UNIQUE INDEX" if secondary.unique else "INDEX"
+        index_name = _snake_case(secondary.name)
+        lines.append(f"CREATE {keyword} IF NOT EXISTS {index_name} ON {table_name} ({', '.join(columns)});")
+
+    return lines, warnings
+
+
+def _resolve_projection_column(source_field_name: str, version: ProjectionVersion) -> str | None:
+    for field in version.fields:
+        if isinstance(field.mapping, DirectMapping) and field.mapping.source_field == source_field_name:
+            return _snake_case(field.name)
     return None
 
 
