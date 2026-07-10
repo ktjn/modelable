@@ -105,7 +105,9 @@ jobs:
           path: cli/coverage.xml
 
       - name: Audit Python dependencies
-        run: uv run --with pip-audit pip-audit --strict --progress-spinner off
+        run: |
+          uv export --no-emit-project --format requirements-txt -o audit-requirements.txt
+          uv run --with pip-audit pip-audit --strict --progress-spinner off -r audit-requirements.txt
 
   odcs:
     name: ODCS lint smoke
