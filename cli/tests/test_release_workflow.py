@@ -142,7 +142,8 @@ def test_validation_workflow_runs_dependency_audits() -> None:
     cli_commands = "\n".join(step["run"] for step in workflow["jobs"]["cli"]["steps"] if "run" in step)
     vscode_commands = "\n".join(step["run"] for step in workflow["jobs"]["vscode"]["steps"] if "run" in step)
 
-    assert "uv run --with pip-audit pip-audit --strict --progress-spinner off" in cli_commands
+    assert "uv export --no-emit-project --format requirements-txt -o audit-requirements.txt" in cli_commands
+    assert "uv run --with pip-audit pip-audit --strict --progress-spinner off -r audit-requirements.txt" in cli_commands
     assert "npm audit --omit=dev" in vscode_commands
 
 
