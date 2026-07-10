@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-10
+
 ### Added
 
 - `index <Model> @ <version> { primary ...; secondary ... }`, a
