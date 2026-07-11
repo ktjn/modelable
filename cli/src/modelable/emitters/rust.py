@@ -167,7 +167,13 @@ def _artifact_id(domain: str, name: str, version: int) -> str:
 
 def _pascalize(value: str) -> str:
     parts = [part for part in re.split(r"[^A-Za-z0-9]+", value) if part]
-    return "".join(part[:1].upper() + part[1:] for part in parts) or "Generated"
+
+    def _title(part: str) -> str:
+        if part.isupper():
+            return part[:1] + part[1:].lower()
+        return part[:1].upper() + part[1:]
+
+    return "".join(_title(part) for part in parts) or "Generated"
 
 
 def _snake_case(value: str) -> str:

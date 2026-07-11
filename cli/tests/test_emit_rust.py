@@ -1169,6 +1169,43 @@ domain telecom {
     assert "    3gpp," not in art.content
 
 
+def test_pascalize_titlecases_all_uppercase_tokens():
+    from modelable.emitters.rust import _pascalize
+
+    assert _pascalize("INTERNAL") == "Internal"
+    assert _pascalize("SERVER_CLIENT") == "ServerClient"
+    assert _pascalize("AlreadyPascalCase") == "AlreadyPascalCase"
+    assert _pascalize("camelCase") == "CamelCase"
+
+
+def test_emit_rust_screaming_snake_case_enum_value_becomes_pascal_case(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: uuid
+    spanKind: enum(INTERNAL, SERVER, CLIENT, PRODUCER, CONSUMER)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    art = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    # Rust variant names are idiomatic PascalCase, not the raw wire casing
+    assert "Internal," in art.content
+    assert "Server," in art.content
+    assert "Client," in art.content
+    assert "Producer," in art.content
+    assert "Consumer," in art.content
+    assert "INTERNAL," not in art.content
+    # The wire value is preserved via serde rename so the wire contract doesn't shift
+    assert '#[serde(rename = "INTERNAL")]' in art.content
+    assert '#[serde(rename = "SERVER")]' in art.content
+
+
 def test_emit_rust_wire_rust_type_applies_to_array_element(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """
@@ -1444,6 +1481,6 @@ binding span-binding {
     proj = next(a for a in artifacts if a.ref == "telemetry.SpanRow@1")
     # Match arm generated for enum → String conversion
     assert "span_kind: match src.span_kind {" in proj.content
-    assert 'TelemetrySpanV1SpanKind::INTERNAL => "INTERNAL".to_string(),' in proj.content
+    assert 'TelemetrySpanV1SpanKind::Internal => "INTERNAL".to_string(),' in proj.content
     # Must NOT use .into() for the enum field
     assert "span_kind: src.span_kind.into()," not in proj.content
