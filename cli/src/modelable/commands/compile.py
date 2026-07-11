@@ -84,7 +84,11 @@ def _find_domain_scope_violations(mdl: MdlFile, requested: set[str]) -> list[str
                     _collect_named_type_names(field.type, names)
                     for name in names:
                         target_domain = _domain_defining(mdl, name)
-                        if target_domain is not None and target_domain != domain.name and target_domain not in requested:
+                        if (
+                            target_domain is not None
+                            and target_domain != domain.name
+                            and target_domain not in requested
+                        ):
                             violations.append(
                                 f"{domain.name}.{model_name}@{version.version} field '{field.name}' "
                                 f"references type '{name}' defined in domain '{target_domain}', "
