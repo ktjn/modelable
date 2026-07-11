@@ -26,7 +26,7 @@
 - Consumes: nothing new.
 - Produces: `_pascalize(value: str) -> str` in `modelable.emitters.rust` now title-cases every split token regardless of input casing (previously left tokens beyond the first character untouched, so an all-caps token stayed all-caps).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `cli/tests/test_emit_rust.py`, after `test_emit_rust_enum_field_numeric_prefix_sanitized` (around line 1170):
 
@@ -68,12 +68,12 @@ domain tracing {
     assert '#[serde(rename = "SERVER")]' in art.content
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd cli && python -m pytest tests/test_emit_rust.py -k "pascalize_titlecases or screaming_snake_case_enum" -v`
 Expected: both FAIL — `test_pascalize_titlecases_all_uppercase_tokens` fails on `_pascalize("INTERNAL") == "Internal"` (actual: `"INTERNAL"`); `test_emit_rust_screaming_snake_case_enum_value_becomes_pascal_case` fails because `"Internal,"` is not in the generated content (it contains `"INTERNAL,"` instead).
 
-- [ ] **Step 3: Fix `_pascalize`**
+- [x] **Step 3: Fix `_pascalize`**
 
 In `cli/src/modelable/emitters/rust.py:168-170`, change:
 
@@ -99,12 +99,12 @@ def _pascalize(value: str) -> str:
 
 **Why not a plain `part[1:].lower()` on every part:** a single-token PascalCase input (no separators, e.g. `LogEntry`) is one split part, `"LogEntry"`. Lowercasing its remainder unconditionally turns it into `"Logentry"`, silently mangling every already-correct entity/model name in the corpus. Only lowering the remainder when the *whole* token is uppercase (`part.isupper()`) fixes the SCREAMING_SNAKE_CASE case (each token there — `INTERNAL`, `SERVER` — is fully uppercase) while leaving PascalCase/camelCase/mixed-case tokens exactly as the old code left them.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd cli && python -m pytest tests/test_emit_rust.py -v`
 Expected: PASS — full file, including the two new tests and every pre-existing `test_emit_rust*` test (the fix only changes behavior for tokens that are entirely uppercase, so existing PascalCase/camelCase/snake_case fixtures — including single-token names like `LogEntry` or `OrderRow` — are unaffected).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add cli/src/modelable/emitters/rust.py cli/tests/test_emit_rust.py
@@ -123,7 +123,7 @@ git commit -m "fix(rust): pascalize all-caps enum values instead of leaving them
 - Consumes: nothing new.
 - Produces: `_pascalize(value: str) -> str` in `modelable.emitters.csharp`, same fixed behavior as Task 1's Rust version. Note: the C# emitter maps `enum`-kind fields straight to C# `string` (`cli/src/modelable/emitters/csharp.py:188-189`) and never synthesizes an enum member identifier from the wire values, so this fix has no enum-identifier-level effect today — it only changes `_stable_type_name`/`_namespace_name`/`_property_name`/`_nested_type_name` output, and only for all-uppercase domain/model/field names (verify via a direct unit test of `_pascalize`, not a full-pipeline enum test, since there is no C# enum identifier output to assert against).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `cli/tests/test_emit_csharp.py`, near the top of the file (after the imports, before the first test):
 
@@ -137,12 +137,12 @@ def test_pascalize_titlecases_all_uppercase_tokens():
     assert _pascalize("camelCase") == "CamelCase"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd cli && python -m pytest tests/test_emit_csharp.py -k pascalize_titlecases -v`
 Expected: FAIL on `_pascalize("INTERNAL") == "Internal"` (actual: `"INTERNAL"`).
 
-- [ ] **Step 3: Fix `_pascalize`**
+- [x] **Step 3: Fix `_pascalize`**
 
 In `cli/src/modelable/emitters/csharp.py:31-33`, change:
 
@@ -168,12 +168,12 @@ def _pascalize(value: str) -> str:
 
 **Why not a plain `part[1:].lower()` on every part:** see Task 1's note — a single-token PascalCase input (e.g. a domain or model name with no separators) is one split part, and unconditionally lowering its remainder would mangle every already-correct name in the corpus. Only lowering the remainder when the whole token is uppercase (`part.isupper()`) is the same fix applied in Task 1.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd cli && python -m pytest tests/test_emit_csharp.py -v`
 Expected: PASS — full file, including the new test and every pre-existing `test_emit_csharp*`/`test_cli_compile_csharp*` test.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add cli/src/modelable/emitters/csharp.py cli/tests/test_emit_csharp.py
@@ -192,7 +192,7 @@ git commit -m "fix(csharp): pascalize all-caps tokens instead of leaving them SC
 - Consumes: `Workspace` (`modelable.compiler.workspace.Workspace`, a frozen dataclass with `.mdl: MdlFile`), `MdlFile` (`modelable.parser.ir.MdlFile`, a pydantic `BaseModel` with `.domains: list[DomainDef]`), `DomainDef.name: str`.
 - Produces: `compile` CLI command gains a `--domain <name>` option (Click, `multiple=True`, repeatable, default `()`). When one or more `--domain` values are given: unknown names raise `click.ClickException` naming the bad value(s) and the available domains; known names restrict the workspace passed to the target emitter (all 16 target branches) to just those domains, while registry id allocation, registry push, and `.modelable/plans` writing keep using the full, unfiltered workspace. Omitting `--domain` is behaviorally identical to today.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `cli/tests/test_cli_compile.py`:
 
@@ -303,12 +303,12 @@ def test_compile_without_domain_flag_compiles_whole_workspace(tmp_path):
     assert (out / "nlq" / "nlq_query_v1.rs").exists()
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd cli && python -m pytest tests/test_cli_compile.py -v`
 Expected: FAIL — `no such option: --domain` (Click rejects the unrecognized option) for the three tests that pass `--domain`; the fourth (`test_compile_without_domain_flag_compiles_whole_workspace`) currently PASSES already (today's default behavior), which is fine — it's here as a regression guard for the change about to be made.
 
-- [ ] **Step 3: Add the `--domain` option and workspace scoping**
+- [x] **Step 3: Add the `--domain` option and workspace scoping**
 
 In `cli/src/modelable/commands/compile.py`, add the `dataclasses` import at the top of the file (after `from pathlib import Path`):
 
@@ -362,7 +362,7 @@ Right after `workspace = load_workspace_or_exit(source)`, add the domain-scoping
 
 Then, in every target branch inside the `if target == "json-schema": ... elif target == ...` chain (lines ~121-255), replace the workspace argument passed to each `emit_*` call — `workspace` becomes `emit_workspace` — for all of: `emit_json_schema`, `emit_markdown`, `emit_typescript`, `emit_csharp`, `emit_java`, `emit_python`, `emit_rust`, `emit_go`, `emit_dbt_yaml`, `emit_fhir_profile`, `emit_openmetadata`, `emit_openlineage`, `emit_odcs`, `emit_protobuf`, `emit_grpc`, `emit_sql`. Do not change the `registry.push(built_registry_path)` or `write_plans(workspace, plans_dir)` calls above this block — those must keep using the original, unfiltered `workspace`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd cli && python -m pytest tests/test_cli_compile.py cli/tests/test_emit_rust.py cli/tests/test_emit_csharp.py -v`
 
@@ -370,12 +370,12 @@ Run: `cd cli && python -m pytest tests/test_cli_compile.py cli/tests/test_emit_r
 
 Expected: PASS — all four new tests in `test_cli_compile.py`, plus every pre-existing `test_emit_rust.py`/`test_emit_csharp.py` test (which never pass `--domain`, exercising the unchanged default path).
 
-- [ ] **Step 5: Run the full test suite**
+- [x] **Step 5: Run the full test suite**
 
 Run: `cd cli && python -m pytest -v`
 Expected: PASS — no regressions in registry, plans, or other emitter tests, since `--domain` only touches the target-emission branches and the whole-workspace path is unchanged when the flag is omitted.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add cli/src/modelable/commands/compile.py cli/tests/test_cli_compile.py
@@ -383,6 +383,14 @@ git commit -m "feat(compile): add repeatable --domain filter to scope target emi
 ```
 
 ---
+
+## Status: shipped (PR #157, merged)
+
+All three tasks landed as planned. Code review on the PR surfaced two further fixes not in the original plan, both merged into the same branch before merge:
+
+- **mypy baseline ratchet regen** (`cli/mypy-baseline.txt`): the `_pascalize` fix inserted 6 lines per file, shifting every downstream error's line number and tripping the line-number-keyed ratchet check. Regenerated the baseline — 463 errors before and after, pure shift, nothing new or resolved.
+- **`--domain` cross-domain dangling-reference guard** (`cli/src/modelable/commands/compile.py`): the shipped Task 3 silently degraded output (lossy fallback types + `EMIT002` warnings, exit 0) when a requested domain's projection or field referenced a model in an excluded domain, instead of the compile-time error this plan's own "Out of scope" section called for. Added `_find_domain_scope_violations` to detect this before scoping the workspace and raise `click.ClickException` instead.
+- A `ruff format` fixup for one unwrapped long line in the cross-domain guard.
 
 ## Out of scope (per design doc)
 
