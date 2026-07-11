@@ -28,3 +28,6 @@ scripts/__pycache__/
 vscode/.vscode-test/
 vscode/out/
 vscode/*.vsix
+
+# Subagent-driven-development progress ledger (scratch state, not project output)
+.superpowers/
