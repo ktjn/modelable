@@ -274,6 +274,59 @@ environment. Do not add long-lived package-index credentials. Do not blindly
 rerun a failed publication; inspect the first failure and publish a new version
 if an immutable artifact already reached the index.
 
+### Concrete command sequence
+
+Determine the version bump from the changelog-worthy commits since the last
+tag (`git log v<last>..HEAD --oneline`): a new backward-compatible feature or
+flag is a minor bump, a fix-only set of commits is a patch bump, per
+[§9](#9-1x-compatibility-policy).
+
+```text
+git checkout main && git pull --ff-only
+git checkout -b release-<version>
+
+# Edit CHANGELOG.md: rename `## [Unreleased]` content into a new
+# `## [<version>] - <date>` section (keep an empty `## [Unreleased]` above it).
+# Bump the version in cli/pyproject.toml and vscode/package.json to match.
+cd cli && uv lock                       # regenerates cli/uv.lock's modelable entry
+# vscode/package-lock.json needs the same version at its top two "version"
+# fields only (root package + the "" entry) — do not touch dependency
+# entries that happen to share the same version number.
+
+uv run ruff format --check .
+uv run ruff check .
+uv run python ../.github/scripts/check_mypy_baseline.py --baseline mypy-baseline.txt -- uv run mypy src/modelable --no-error-summary --show-error-codes
+uv run pytest tests/ -q --deselect tests/test_llm_provider_integration.py --deselect tests/test_codegen_docker_smoke.py
+
+cd .. && git add CHANGELOG.md cli/pyproject.toml cli/uv.lock vscode/package.json vscode/package-lock.json
+git commit -m "Release <version>"
+git push -u origin release-<version>
+gh pr create --title "Release <version>" --body "..."
+```
+
+Before opening the release PR, confirm the full test suite is green on a
+fresh checkout of `main` — `test_repository_release.py::test_local_markdown_links_resolve`
+and the other repository-hygiene checks in that file are release gates but
+are not path-gated the same way as CLI code changes, so an unrelated
+docs/archival change on `main` can silently break the release pipeline
+between releases. Fix any such break in its own PR before the version-bump
+PR, so the release commit stays focused on the version bump.
+
+After the release PR merges:
+
+```text
+git checkout main && git pull --ff-only
+git tag -a v<version> -m "Release <version>"
+git push origin v<version>
+```
+
+Pushing the tag triggers `.github/workflows/release.yml`: it re-runs the full
+gate, builds the wheel/sdist/VSIX, verifies a clean install, then (on the tag
+push, not `workflow_dispatch`) publishes to PyPI via trusted publishing and
+creates the GitHub release. Watch the workflow run to completion before
+telling anyone the release shipped — a failure after the build job but before
+`publish` means nothing reached PyPI even though the tag exists.
+
 ### 1.0 release outcome
 
 Modelable 1.0 is tagged and published. The PyPI publish job uses trusted
