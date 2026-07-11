@@ -24,7 +24,7 @@ close that gap.
   after the moved one — a wire-breaking change with no compiler guard
   today. Validating *compatibility* between two versions of a schema
   (`modelable validate-compat`) is tracked separately in
-  [`2026-07-04-scalable-protobuf-grpc-support-design.md`](superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md)
+  [`2026-07-04-scalable-protobuf-grpc-support-design.md`](superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md)
   and is not implemented. Section 4 below calls out each place this
   matters.
 - **Descriptor sets, richer index metadata, or Scalable registration
