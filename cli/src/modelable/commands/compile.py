@@ -27,6 +27,7 @@ from modelable.emitters.rust import emit_rust
 from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
+from modelable.parser.ir import ArrayType, FieldType, MapType, MdlFile, NamedType, ObjectType
 from modelable.planner.plans import write_plans
 from modelable.registry.factory import get_registry
 from modelable.registry.ids import allocate_registry_ids, read_lock_file, write_lock_file
@@ -38,6 +39,71 @@ _DEFAULT_OUT_DIRS: dict[str, Path] = {
     for target in list_implemented_codegen_targets()
     if target.default_out_dir is not None
 }
+
+
+def _collect_named_type_names(field_type: FieldType, result: set[str]) -> None:
+    """Recursively collect NamedType names referenced by a field type."""
+    if isinstance(field_type, NamedType):
+        result.add(field_type.name)
+    elif isinstance(field_type, ArrayType):
+        _collect_named_type_names(field_type.item, result)
+    elif isinstance(field_type, MapType):
+        _collect_named_type_names(field_type.value, result)
+    elif isinstance(field_type, ObjectType):
+        for field in field_type.fields:
+            _collect_named_type_names(field.type, result)
+
+
+def _domain_defining(mdl: MdlFile, name: str) -> str | None:
+    """Return the name of the domain that defines a model or semantic type, or None."""
+    for domain in mdl.domains:
+        if name in domain.models:
+            return domain.name
+        if any(decl.name == name for decl in domain.semantic_types):
+            return domain.name
+    return None
+
+
+def _find_domain_scope_violations(mdl: MdlFile, requested: set[str]) -> list[str]:
+    """Find dependencies of requested domains that resolve only outside the requested set.
+
+    Checks both NamedType field references (recursively, across arrays/maps/nested
+    objects) and projection source/join model references. Uses the full, unfiltered
+    `mdl` to resolve where a dependency actually lives, so a reference to a domain
+    that isn't part of the workspace at all is left alone (that is `validate`'s job,
+    not this filter's).
+    """
+    violations: list[str] = []
+    for domain in mdl.domains:
+        if domain.name not in requested:
+            continue
+        for model_name, versions in domain.models.items():
+            for version in versions:
+                for field in version.fields:
+                    names: set[str] = set()
+                    _collect_named_type_names(field.type, names)
+                    for name in names:
+                        target_domain = _domain_defining(mdl, name)
+                        if target_domain is not None and target_domain != domain.name and target_domain not in requested:
+                            violations.append(
+                                f"{domain.name}.{model_name}@{version.version} field '{field.name}' "
+                                f"references type '{name}' defined in domain '{target_domain}', "
+                                "which is excluded by --domain"
+                            )
+        for projection_name, proj_versions in domain.projections.items():
+            for proj_version in proj_versions:
+                ref_models = [proj_version.source.model, *(join.model for join in proj_version.joins)]
+                for ref_model in ref_models:
+                    try:
+                        source_domain, _ = ref_model.rsplit(".", 1)
+                    except ValueError:
+                        continue
+                    if source_domain != domain.name and source_domain not in requested:
+                        violations.append(
+                            f"{domain.name}.{projection_name}@{proj_version.version} references "
+                            f"'{ref_model}' in domain '{source_domain}', which is excluded by --domain"
+                        )
+    return violations
 
 
 def register_compile_commands(cli_group: click.Group) -> None:
@@ -106,6 +172,15 @@ def compile(
             raise click.ClickException(
                 f"Unknown --domain value(s): {', '.join(unknown_domains)}. "
                 f"Available domains: {', '.join(sorted(known_domains))}"
+            )
+        requested = set(domains)
+        violations = _find_domain_scope_violations(workspace.mdl, requested)
+        if violations:
+            raise click.ClickException(
+                "Cannot scope compilation with --domain: the requested domain(s) have "
+                "dependencies outside the requested set:\n"
+                + "\n".join(f"  - {v}" for v in violations)
+                + "\nAdd the missing domain(s) to --domain, or narrow the requested set."
             )
         scoped_domains = [d for d in workspace.mdl.domains if d.name in domains]
         emit_workspace = dataclasses.replace(
