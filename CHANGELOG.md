@@ -6,6 +6,26 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-11
+
+### Added
+
+- `compile --domain <name>` (repeatable), a filter that scopes emitter
+  output to the requested domain(s) instead of always emitting the whole
+  workspace. Any in-scope model, projection, or field that references a
+  dependency outside the requested domain set now fails compilation with
+  a clear error naming the dangling reference, rather than silently
+  degrading to a lossy fallback type (e.g. `uuid` -> `String`) with only
+  an `EMIT002` warning.
+
+### Fixed
+
+- Rust emitter: all-caps enum values (e.g. `USD`) are now pascalized
+  (`Usd`) instead of being left as `SCREAMING_CASE`, matching Rust enum
+  naming conventions.
+- C# emitter: all-caps tokens are now pascalized instead of being left
+  as `SCREAMING_CASE`, matching C# naming conventions.
+
 ## [1.1.0] - 2026-07-10
 
 ### Added
