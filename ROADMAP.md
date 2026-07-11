@@ -56,14 +56,14 @@ Recently shipped, still hardening:
   fixtures, and protobuf/gRPC compatibility validation remain follow-up work
   before long-lived wire or transport contracts are stable. The accepted design
   target is documented in
-  [docs/superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md](docs/superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md).
+  [docs/superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md](docs/superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md).
 - Scalable filed a concrete feature-gaps request against Modelable
   (`ktjn/scalable` `docs/analysis/2026-07-07-modelable-feature-gaps.md`,
   8 items). The accepted response — `.mdl` syntax, IR shape, and per-target
   emitter mapping for each item, plus a build order that differs from the
   source document's priority order because several items depend on ones
   ranked lower — is documented in
-  [docs/superpowers/specs/2026-07-07-modelable-feature-gaps-response-design.md](docs/superpowers/specs/2026-07-07-modelable-feature-gaps-response-design.md).
+  [docs/superpowers/specs/archived/2026-07-07-modelable-feature-gaps-response-design.md](docs/superpowers/specs/archived/2026-07-07-modelable-feature-gaps-response-design.md).
   Build order: UUIDv7-compatible `uuid(7)` and wire-format-contract/index-syntax
   completion land in 1.1 alongside the protobuf/gRPC work above; fixed-width
   integer primitives (`u8`..`i128`) and fixed-length `binary(N)` land in 1.2;
@@ -75,13 +75,13 @@ Recently shipped, still hardening:
   every currently implemented emitter (Rust, Go, Java, C#, Python,
   TypeScript, SQL Postgres/ClickHouse, JSON Schema, Protobuf, FHIR profile),
   per the task-by-task plan at
-  [docs/superpowers/plans/2026-07-07-fixed-width-integer-primitives-first-slice.md](docs/superpowers/plans/2026-07-07-fixed-width-integer-primitives-first-slice.md).
+  [docs/superpowers/plans/archived/2026-07-07-fixed-width-integer-primitives-first-slice.md](docs/superpowers/plans/archived/2026-07-07-fixed-width-integer-primitives-first-slice.md).
   The second slice — fixed-length `binary(N)`, bounded to `1..=4096` bytes —
   has also shipped: grammar, a new `FixedBinaryType` IR node, the length
   bound, and a mapping in Rust, Go, Java, C#, Python, TypeScript, SQL
   Postgres/ClickHouse, JSON Schema, and Protobuf, per the task-by-task plan
   at
-  [docs/superpowers/plans/2026-07-08-fixed-length-binary-primitive-first-slice.md](docs/superpowers/plans/2026-07-08-fixed-length-binary-primitive-first-slice.md).
+  [docs/superpowers/plans/archived/2026-07-08-fixed-length-binary-primitive-first-slice.md](docs/superpowers/plans/archived/2026-07-08-fixed-length-binary-primitive-first-slice.md).
   Modelable 1.2 (both its slices) is now complete. The `semantic` type-alias
   mechanism (1.3) has shipped its first slice: a `semantic Name: Underlying`
   domain-level declaration (grammar, `SemanticTypeDecl` IR node, an optional
@@ -93,7 +93,7 @@ Recently shipped, still hardening:
   Protobuf, FHIR, and the rest) is deferred follow-up work — they currently
   resolve a semantic type reference to its underlying type unchanged, per
   the task-by-task plan at
-  [docs/superpowers/plans/2026-07-08-semantic-type-alias-mechanism-first-slice.md](docs/superpowers/plans/2026-07-08-semantic-type-alias-mechanism-first-slice.md).
+  [docs/superpowers/plans/archived/2026-07-08-semantic-type-alias-mechanism-first-slice.md](docs/superpowers/plans/archived/2026-07-08-semantic-type-alias-mechanism-first-slice.md).
   Modelable 1.4 (deterministic small-integer registry id allocation) has
   shipped its first slice: `modelable compile` now allocates a small,
   monotonically-increasing integer id for every `semantic ...
@@ -107,7 +107,7 @@ Recently shipped, still hardening:
   schema manifest (blocked on protobuf gaining semantic-type support at
   all) and a `modelable inspect` id-lookup surface are deferred follow-up
   work, per the task-by-task plan at
-  [docs/superpowers/plans/2026-07-08-registry-id-allocation-first-slice.md](docs/superpowers/plans/2026-07-08-registry-id-allocation-first-slice.md).
+  [docs/superpowers/plans/archived/2026-07-08-registry-id-allocation-first-slice.md](docs/superpowers/plans/archived/2026-07-08-registry-id-allocation-first-slice.md).
   The UUIDv7-compatible identifier gap (#2, originally sequenced first as
   cheap/independent 1.1 work but not implemented until now) has also
   shipped: `uuid` is a parameterized primitive, `uuid(7)` selects
@@ -123,7 +123,7 @@ Recently shipped, still hardening:
   generation for any type today, and both renderers already render every
   other parameterized type as its declaration syntax, never prose), per
   the task-by-task plan at
-  [docs/superpowers/plans/2026-07-08-uuidv7-compatible-identifier-first-slice.md](docs/superpowers/plans/2026-07-08-uuidv7-compatible-identifier-first-slice.md).
+  [docs/superpowers/plans/archived/2026-07-08-uuidv7-compatible-identifier-first-slice.md](docs/superpowers/plans/archived/2026-07-08-uuidv7-compatible-identifier-first-slice.md).
   The wire-format contract gap (#5) has also shipped: a new
   `docs/wire-format-contract.md` pins the Rust and Protobuf emitters'
   actual field-ordering, per-type encoding, and enum-discriminant rules
@@ -140,9 +140,9 @@ Recently shipped, still hardening:
   (descriptor sets, richer index metadata, `validate-compat`
   compatibility checking, deleted-field reservations) remains tracked
   separately under
-  [`2026-07-04-scalable-protobuf-grpc-support-design.md`](docs/superpowers/specs/2026-07-04-scalable-protobuf-grpc-support-design.md)
+  [`2026-07-04-scalable-protobuf-grpc-support-design.md`](docs/superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md)
   and unaffected by this gap, per the task-by-task plan at
-  [docs/superpowers/plans/2026-07-08-wire-format-contract-first-slice.md](docs/superpowers/plans/2026-07-08-wire-format-contract-first-slice.md).
+  [docs/superpowers/plans/archived/2026-07-08-wire-format-contract-first-slice.md](docs/superpowers/plans/archived/2026-07-08-wire-format-contract-first-slice.md).
   Primary key / secondary index / sort-key syntax (gap 7, the last of the
   seven concretely-scheduled gaps) has also shipped: an `index <Model> @
   <version> { primary ...; secondary ... }` declaration parallel in shape
@@ -157,7 +157,7 @@ Recently shipped, still hardening:
   generation. ClickHouse index DDL and the protobuf/gRPC read-replica
   index model consuming `index_decl` directly are deferred follow-ups,
   per the task-by-task plan at
-  [docs/superpowers/plans/2026-07-08-primary-secondary-index-syntax-first-slice.md](docs/superpowers/plans/2026-07-08-primary-secondary-index-syntax-first-slice.md).
+  [docs/superpowers/plans/archived/2026-07-08-primary-secondary-index-syntax-first-slice.md](docs/superpowers/plans/archived/2026-07-08-primary-secondary-index-syntax-first-slice.md).
   All seven concretely-scheduled gaps from Scalable's feature-gaps request
   are now shipped. A third compatibility signal for state-migration
   necessity (gap 8 of that request) remains an open question with no
