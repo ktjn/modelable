@@ -7,6 +7,15 @@ from modelable.compiler.workspace import load_workspace
 from modelable.emitters.csharp import emit_csharp
 
 
+def test_pascalize_titlecases_all_uppercase_tokens():
+    from modelable.emitters.csharp import _pascalize
+
+    assert _pascalize("INTERNAL") == "Internal"
+    assert _pascalize("SERVER_CLIENT") == "ServerClient"
+    assert _pascalize("AlreadyPascalCase") == "AlreadyPascalCase"
+    assert _pascalize("camelCase") == "CamelCase"
+
+
 def test_emit_csharp_model_and_projection(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
