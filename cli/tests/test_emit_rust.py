@@ -1,4 +1,7 @@
 import hashlib
+import os
+import subprocess
+import sys
 
 from click.testing import CliRunner
 
@@ -430,6 +433,86 @@ domain orders {
     # Every named type referenced by a field must have a matching use import.
     assert "use super::buyer_id::BuyerId;" in proj_art.content
     assert "use super::orders_order_line_v1::OrdersOrderLineV1;" in proj_art.content
+
+
+def test_emit_rust_named_type_use_statements_are_hash_seed_independent(tmp_path):
+    """Rust output must be byte-identical across processes/interpreters.
+
+    `use` statements for named-type fields are built by iterating a `set` of
+    reference names. CPython's set iteration order for strings depends on
+    PYTHONHASHSEED, so an unsorted iteration reorders the generated `use`
+    lines between runs unless the seed is pinned — breaking reproducible
+    builds. Run the emitter in two subprocesses with different hash seeds
+    and require identical output.
+    """
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "test-team"
+
+  semantic BuyerId : uuid(7)
+  semantic CartId : uuid(7)
+  semantic OrderId : uuid(7)
+
+  value OrderLine @ 1 (additive) {
+    sku: string
+  }
+
+  entity Order @ 1 (additive) {
+    @key orderId: OrderId
+    cartId: CartId
+    buyerId: BuyerId
+    lines: array<OrderLine>
+  }
+
+  event OrderPlaced @ 1 (additive) {
+    orderId: OrderId
+    cartId: CartId
+    buyerId: BuyerId
+    lines: array<OrderLine>
+  }
+
+  projection OrderHistory @ 1
+    from orders.OrderPlaced @ 1 as placed
+  {
+    orderId <- placed.orderId
+    cartId <- placed.cartId
+    buyerId <- placed.buyerId
+    lines <- placed.lines
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    script = tmp_path / "emit.py"
+    script.write_text(
+        "import sys\n"
+        "from pathlib import Path\n"
+        "from modelable.compiler.workspace import load_workspace\n"
+        "from modelable.emitters.rust import emit_rust\n"
+        "workspace = load_workspace(Path(sys.argv[1]))\n"
+        "artifacts = emit_rust(workspace, Path(sys.argv[1]) / 'out')\n"
+        "for artifact in sorted(artifacts, key=lambda a: a.ref):\n"
+        "    print(artifact.ref)\n"
+        "    print(artifact.content)\n",
+        encoding="utf-8",
+    )
+
+    def run_with_seed(seed: str) -> str:
+        env = {**os.environ, "PYTHONHASHSEED": seed}
+        result = subprocess.run(
+            [sys.executable, str(script), str(tmp_path)],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        )
+        return result.stdout
+
+    output_seed_0 = run_with_seed("0")
+    output_seed_1 = run_with_seed("1")
+    assert output_seed_0 == output_seed_1
 
 
 def test_emit_rust_struct_has_serde_derives(tmp_path):

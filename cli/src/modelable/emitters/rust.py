@@ -217,7 +217,7 @@ def _resolve_named_type_map(named_refs: set, mdl: MdlFile | None) -> tuple[dict[
         return {}, []
     resolved_map: dict[str, str] = {}
     use_statements: list[str] = []
-    for name in named_refs:
+    for name in sorted(named_refs):
         resolved = False
         for domain in mdl.domains:
             if name in domain.models:
