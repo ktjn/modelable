@@ -388,6 +388,50 @@ domain customer {
     assert "pub name: String," in proj_art.content
 
 
+def test_emit_rust_projection_imports_named_type_fields(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "test-team"
+
+  semantic BuyerId : uuid(7)
+
+  value OrderLine @ 1 (additive) {
+    sku: string
+    quantity: u32
+  }
+
+  event OrderPlaced @ 1 (additive) {
+    orderId: uuid
+    buyerId: BuyerId
+    lines: array<OrderLine>
+  }
+
+  projection OrderHistory @ 1
+    from orders.OrderPlaced @ 1 as placed
+  {
+    orderId <- placed.orderId
+    buyerId <- placed.buyerId
+    lines <- placed.lines
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    from modelable.compiler.workspace import load_workspace
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj_art = next(a for a in artifacts if a.ref == "orders.OrderHistory@1")
+    # Field types must be the generated Rust type names, not the raw .mdl names.
+    assert "pub buyer_id: BuyerId," in proj_art.content
+    assert "pub lines: Vec<OrdersOrderLineV1>," in proj_art.content
+    # Every named type referenced by a field must have a matching use import.
+    assert "use super::buyer_id::BuyerId;" in proj_art.content
+    assert "use super::orders_order_line_v1::OrdersOrderLineV1;" in proj_art.content
+
+
 def test_emit_rust_struct_has_serde_derives(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

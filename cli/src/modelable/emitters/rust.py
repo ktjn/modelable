@@ -198,6 +198,16 @@ def _collect_named_type_refs(field_type, result: set) -> None:
         _collect_named_type_refs(field_type.value, result)
 
 
+def _collect_named_type_refs_from_shape(shape: TypeShape, result: set[str]) -> None:
+    """Recursively collect NamedType references from a resolved TypeShape."""
+    if shape.kind == "named" and shape.ref:
+        result.add(shape.ref)
+    elif shape.kind == "array" and shape.element is not None:
+        _collect_named_type_refs_from_shape(shape.element, result)
+    elif shape.kind == "map" and shape.value is not None:
+        _collect_named_type_refs_from_shape(shape.value, result)
+
+
 def _resolve_named_type_map(named_refs: set, mdl: MdlFile | None) -> tuple[dict[str, str], list[str]]:
     """Resolve NamedType references to Rust type names from the workspace.
 
@@ -385,10 +395,19 @@ def _emit_projection(
     nested_definitions: dict[str, list[str]] = {}
     local_enum_info: dict[str, list[str]] = {}
 
+    field_shapes: dict[str, TypeShape | None] = {
+        field.name: _resolve_projection_field_shape(field, version, mdl) for field in version.fields
+    }
+    named_refs: set[str] = set()
+    for field_shape in field_shapes.values():
+        if field_shape is not None:
+            _collect_named_type_refs_from_shape(field_shape, named_refs)
+    named_type_map, use_statements = _resolve_named_type_map(named_refs, mdl)
+
     field_specs: list[_FieldSpec] = []
     warnings: list[str] = []
     for index, field in enumerate(version.fields):
-        field_shape = _resolve_projection_field_shape(field, version, mdl)
+        field_shape = field_shapes[field.name]
         if field_shape is None:
             warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
             field_specs.append(_FieldSpec(index=index, name=field.name, annotation="String", optional=False))
@@ -407,6 +426,7 @@ def _emit_projection(
                 rust_hint=wire.get("rust"),
                 clickhouse_hint=wire.get("clickhouse"),
                 enum_info=local_enum_info,
+                named_type_map=named_type_map,
             )
         optional = field_shape.optional or field_shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field_shape, clickhouse=clickhouse_row)
@@ -433,6 +453,7 @@ def _emit_projection(
         clickhouse=clickhouse_row,
         uuid=needs_uuid,
         serde_json=needs_serde_json,
+        extra_uses=use_statements,
     )
     lines.extend(
         _render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated)
