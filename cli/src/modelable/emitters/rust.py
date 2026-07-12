@@ -198,6 +198,16 @@ def _collect_named_type_refs(field_type, result: set) -> None:
         _collect_named_type_refs(field_type.value, result)
 
 
+def _collect_named_type_refs_from_shape(shape: TypeShape, result: set[str]) -> None:
+    """Recursively collect NamedType references from a resolved TypeShape."""
+    if shape.kind == "named" and shape.ref:
+        result.add(shape.ref)
+    elif shape.kind == "array" and shape.element is not None:
+        _collect_named_type_refs_from_shape(shape.element, result)
+    elif shape.kind == "map" and shape.value is not None:
+        _collect_named_type_refs_from_shape(shape.value, result)
+
+
 def _resolve_named_type_map(named_refs: set, mdl: MdlFile | None) -> tuple[dict[str, str], list[str]]:
     """Resolve NamedType references to Rust type names from the workspace.
 
@@ -207,7 +217,7 @@ def _resolve_named_type_map(named_refs: set, mdl: MdlFile | None) -> tuple[dict[
         return {}, []
     resolved_map: dict[str, str] = {}
     use_statements: list[str] = []
-    for name in named_refs:
+    for name in sorted(named_refs):
         resolved = False
         for domain in mdl.domains:
             if name in domain.models:
@@ -351,8 +361,13 @@ def _emit_model(
     needs_serde_with = _any_needs_serde_with(field_specs)
     needs_uuid = _any_needs_uuid(field_specs)
     needs_serde_json = _any_needs_serde_json(field_specs)
+    needs_hashmap = _any_needs_hashmap(field_specs, nested_definitions)
     lines = _header_lines(
-        serde_with=needs_serde_with, uuid=needs_uuid, serde_json=needs_serde_json, extra_uses=use_statements
+        serde_with=needs_serde_with,
+        uuid=needs_uuid,
+        serde_json=needs_serde_json,
+        hashmap=needs_hashmap,
+        extra_uses=use_statements,
     )
     lines.extend(_render_struct_definition(type_name, field_specs))
     lines.extend(_render_nested_definitions(nested_definitions))
@@ -385,10 +400,19 @@ def _emit_projection(
     nested_definitions: dict[str, list[str]] = {}
     local_enum_info: dict[str, list[str]] = {}
 
+    field_shapes: dict[str, TypeShape | None] = {
+        field.name: _resolve_projection_field_shape(field, version, mdl) for field in version.fields
+    }
+    named_refs: set[str] = set()
+    for field_shape in field_shapes.values():
+        if field_shape is not None:
+            _collect_named_type_refs_from_shape(field_shape, named_refs)
+    named_type_map, use_statements = _resolve_named_type_map(named_refs, mdl)
+
     field_specs: list[_FieldSpec] = []
     warnings: list[str] = []
     for index, field in enumerate(version.fields):
-        field_shape = _resolve_projection_field_shape(field, version, mdl)
+        field_shape = field_shapes[field.name]
         if field_shape is None:
             warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
             field_specs.append(_FieldSpec(index=index, name=field.name, annotation="String", optional=False))
@@ -407,6 +431,7 @@ def _emit_projection(
                 rust_hint=wire.get("rust"),
                 clickhouse_hint=wire.get("clickhouse"),
                 enum_info=local_enum_info,
+                named_type_map=named_type_map,
             )
         optional = field_shape.optional or field_shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field_shape, clickhouse=clickhouse_row)
@@ -421,6 +446,7 @@ def _emit_projection(
     needs_serde_json = _any_needs_serde_json(field_specs) or any(
         _projection_field_is_json_passthrough_to_string(f, version, mdl) for f in version.fields
     )
+    needs_hashmap = _any_needs_hashmap(field_specs, nested_definitions)
     storage_gated = sqlx_fromrow or clickhouse_row
     extra_derives: list[str] = []
     if sqlx_fromrow:
@@ -433,6 +459,8 @@ def _emit_projection(
         clickhouse=clickhouse_row,
         uuid=needs_uuid,
         serde_json=needs_serde_json,
+        hashmap=needs_hashmap,
+        extra_uses=use_statements,
     )
     lines.extend(
         _render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated)
@@ -541,6 +569,9 @@ def _emit_from_impl(
                 lines.append(f"use super::{src_module}::{enum_type};")
     if storage_gated:
         lines.append('#[cfg(feature = "storage")]')
+    # Direct-mapped fields always go through `.into()` below, which is a no-op
+    # (and a clippy lint) when the source and projected field share a type.
+    lines.append("#[allow(clippy::useless_conversion)]")
     lines.append(f"impl From<{src_type_name}> for {proj_type_name} {{")
     lines.append(f"    fn from(src: {src_type_name}) -> Self {{")
     lines.append("        Self {")
@@ -608,6 +639,16 @@ def _any_needs_serde_json(field_specs: list[_FieldSpec]) -> bool:
     return any("serde_json::Value" in spec.annotation for spec in field_specs)
 
 
+def _any_needs_hashmap(field_specs: list[_FieldSpec], nested_definitions: dict[str, list[str]] | None = None) -> bool:
+    if any("HashMap<" in spec.annotation for spec in field_specs):
+        return True
+    if nested_definitions:
+        for lines in nested_definitions.values():
+            if any("HashMap<" in line for line in lines):
+                return True
+    return False
+
+
 def _shape_involves_object(shape: TypeShape) -> bool:
     """Return True if the shape contains an inline object type.
 
@@ -630,13 +671,13 @@ def _header_lines(
     clickhouse: bool = False,
     uuid: bool = False,
     serde_json: bool = False,
+    hashmap: bool = False,
     extra_uses: list[str] | None = None,
 ) -> list[str]:
-    lines = [
-        "// @generated by Modelable",
-        "use std::collections::HashMap;",
-        "",
-    ]
+    lines = ["// @generated by Modelable"]
+    if hashmap:
+        lines.append("use std::collections::HashMap;")
+    lines.append("")
     if clickhouse:
         lines.insert(1, "// requires: clickhouse (https://docs.rs/clickhouse)")
     if sqlx:

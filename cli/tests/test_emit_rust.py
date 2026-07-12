@@ -1,4 +1,7 @@
 import hashlib
+import os
+import subprocess
+import sys
 
 from click.testing import CliRunner
 
@@ -388,6 +391,168 @@ domain customer {
     assert "pub name: String," in proj_art.content
 
 
+def test_emit_rust_projection_imports_named_type_fields(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "test-team"
+
+  semantic BuyerId : uuid(7)
+
+  value OrderLine @ 1 (additive) {
+    sku: string
+    quantity: u32
+  }
+
+  event OrderPlaced @ 1 (additive) {
+    orderId: uuid
+    buyerId: BuyerId
+    lines: array<OrderLine>
+  }
+
+  projection OrderHistory @ 1
+    from orders.OrderPlaced @ 1 as placed
+  {
+    orderId <- placed.orderId
+    buyerId <- placed.buyerId
+    lines <- placed.lines
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    from modelable.compiler.workspace import load_workspace
+
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj_art = next(a for a in artifacts if a.ref == "orders.OrderHistory@1")
+    # Field types must be the generated Rust type names, not the raw .mdl names.
+    assert "pub buyer_id: BuyerId," in proj_art.content
+    assert "pub lines: Vec<OrdersOrderLineV1>," in proj_art.content
+    # Every named type referenced by a field must have a matching use import.
+    assert "use super::buyer_id::BuyerId;" in proj_art.content
+    assert "use super::orders_order_line_v1::OrdersOrderLineV1;" in proj_art.content
+
+
+def test_emit_rust_named_type_use_statements_are_hash_seed_independent(tmp_path):
+    """Rust output must be byte-identical across processes/interpreters.
+
+    `use` statements for named-type fields are built by iterating a `set` of
+    reference names. CPython's set iteration order for strings depends on
+    PYTHONHASHSEED, so an unsorted iteration reorders the generated `use`
+    lines between runs unless the seed is pinned — breaking reproducible
+    builds. Run the emitter in two subprocesses with different hash seeds
+    and require identical output.
+    """
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "test-team"
+
+  semantic BuyerId : uuid(7)
+  semantic CartId : uuid(7)
+  semantic OrderId : uuid(7)
+
+  value OrderLine @ 1 (additive) {
+    sku: string
+  }
+
+  entity Order @ 1 (additive) {
+    @key orderId: OrderId
+    cartId: CartId
+    buyerId: BuyerId
+    lines: array<OrderLine>
+  }
+
+  event OrderPlaced @ 1 (additive) {
+    orderId: OrderId
+    cartId: CartId
+    buyerId: BuyerId
+    lines: array<OrderLine>
+  }
+
+  projection OrderHistory @ 1
+    from orders.OrderPlaced @ 1 as placed
+  {
+    orderId <- placed.orderId
+    cartId <- placed.cartId
+    buyerId <- placed.buyerId
+    lines <- placed.lines
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    script = tmp_path / "emit.py"
+    script.write_text(
+        "import sys\n"
+        "from pathlib import Path\n"
+        "from modelable.compiler.workspace import load_workspace\n"
+        "from modelable.emitters.rust import emit_rust\n"
+        "workspace = load_workspace(Path(sys.argv[1]))\n"
+        "artifacts = emit_rust(workspace, Path(sys.argv[1]) / 'out')\n"
+        "for artifact in sorted(artifacts, key=lambda a: a.ref):\n"
+        "    print(artifact.ref)\n"
+        "    print(artifact.content)\n",
+        encoding="utf-8",
+    )
+
+    def run_with_seed(seed: str) -> str:
+        env = {**os.environ, "PYTHONHASHSEED": seed}
+        result = subprocess.run(
+            [sys.executable, str(script), str(tmp_path)],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        )
+        return result.stdout
+
+    output_seed_0 = run_with_seed("0")
+    output_seed_1 = run_with_seed("1")
+    assert output_seed_0 == output_seed_1
+
+
+def test_emit_rust_omits_hashmap_import_when_unused(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "test-team"
+  value OrderLine @ 1 (additive) {
+    sku: string
+    quantity: u32
+  }
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    lines: array<OrderLine>
+  }
+
+  projection OrderView @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    lines <- o.lines
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    # Neither struct has a map field, so the HashMap import (and the unused
+    # import it would otherwise produce) must not appear.
+    line_art = next(a for a in artifacts if a.ref == "orders.OrderLine@1")
+    order_art = next(a for a in artifacts if a.ref == "orders.Order@1")
+    view_art = next(a for a in artifacts if a.ref == "orders.OrderView@1")
+    assert "use std::collections::HashMap;" not in line_art.content
+    assert "use std::collections::HashMap;" not in order_art.content
+    assert "use std::collections::HashMap;" not in view_art.content
+
+
 def test_emit_rust_struct_has_serde_derives(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
@@ -769,6 +934,9 @@ domain customer {
     assert "customer_id: src.customer_id.into()," in proj.content
     assert "display_name: src.display_name.into()," in proj.content
     assert "use super::customer_customer_v1::CustomerCustomerV1;" in proj.content
+    # Direct-mapped fields keep an unconditional `.into()`, which is a no-op
+    # when source and target share a type; silence the resulting clippy lint.
+    assert "#[allow(clippy::useless_conversion)]\nimpl From<CustomerCustomerV1>" in proj.content
     # Model struct itself should NOT have a From impl (no projection source)
     model = next(a for a in artifacts if a.ref == "customer.Customer@1")
     assert "impl From<" not in model.content
