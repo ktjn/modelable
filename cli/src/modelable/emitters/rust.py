@@ -562,6 +562,9 @@ def _emit_from_impl(
                 lines.append(f"use super::{src_module}::{enum_type};")
     if storage_gated:
         lines.append('#[cfg(feature = "storage")]')
+    # Direct-mapped fields always go through `.into()` below, which is a no-op
+    # (and a clippy lint) when the source and projected field share a type.
+    lines.append("#[allow(clippy::useless_conversion)]")
     lines.append(f"impl From<{src_type_name}> for {proj_type_name} {{")
     lines.append(f"    fn from(src: {src_type_name}) -> Self {{")
     lines.append("        Self {")

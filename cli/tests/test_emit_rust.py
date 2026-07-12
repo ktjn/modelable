@@ -896,6 +896,9 @@ domain customer {
     assert "customer_id: src.customer_id.into()," in proj.content
     assert "display_name: src.display_name.into()," in proj.content
     assert "use super::customer_customer_v1::CustomerCustomerV1;" in proj.content
+    # Direct-mapped fields keep an unconditional `.into()`, which is a no-op
+    # when source and target share a type; silence the resulting clippy lint.
+    assert "#[allow(clippy::useless_conversion)]\nimpl From<CustomerCustomerV1>" in proj.content
     # Model struct itself should NOT have a From impl (no projection source)
     model = next(a for a in artifacts if a.ref == "customer.Customer@1")
     assert "impl From<" not in model.content
