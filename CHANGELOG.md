@@ -6,6 +6,26 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-12
+
+### Fixed
+
+- Rust emitter: projection fields referencing a named, value, or semantic
+  type now compile with the correct generated type name and a matching
+  `use` import. Previously such fields kept the raw `.mdl` type name and no
+  import was ever emitted, so any projection with a field of this shape
+  failed to compile.
+- Rust emitter: generated `use` statement order for named-type imports is
+  now deterministic across processes. It previously depended on Python
+  `set` iteration order (hash-randomization-dependent), so two clean builds
+  of the same model could produce byte-different output.
+- Rust emitter: `std::collections::HashMap` is only imported in generated
+  files that actually use it, instead of unconditionally in every file,
+  avoiding an `unused_imports` warning under `-D warnings`.
+- Rust emitter: generated projection `From` impls now silence
+  `clippy::useless_conversion` on their direct-mapped fields, which always
+  call `.into()` even when the source and target field share a type.
+
 ## [1.2.0] - 2026-07-11
 
 ### Added
