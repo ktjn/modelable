@@ -515,6 +515,44 @@ domain orders {
     assert output_seed_0 == output_seed_1
 
 
+def test_emit_rust_omits_hashmap_import_when_unused(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "test-team"
+  value OrderLine @ 1 (additive) {
+    sku: string
+    quantity: u32
+  }
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    lines: array<OrderLine>
+  }
+
+  projection OrderView @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    lines <- o.lines
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    # Neither struct has a map field, so the HashMap import (and the unused
+    # import it would otherwise produce) must not appear.
+    line_art = next(a for a in artifacts if a.ref == "orders.OrderLine@1")
+    order_art = next(a for a in artifacts if a.ref == "orders.Order@1")
+    view_art = next(a for a in artifacts if a.ref == "orders.OrderView@1")
+    assert "use std::collections::HashMap;" not in line_art.content
+    assert "use std::collections::HashMap;" not in order_art.content
+    assert "use std::collections::HashMap;" not in view_art.content
+
+
 def test_emit_rust_struct_has_serde_derives(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
