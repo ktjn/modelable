@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "modelable"
-version = "1.2.0"
+version = "1.2.1"
 description = "Compiler and language server for versioned, domain-owned data models"
 readme = "README.md"
 license = "Apache-2.0"
