@@ -70,7 +70,7 @@ jobs:
         uses: actions/checkout@v7.0.0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.0
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
           cache-dependency-glob: cli/uv.lock
@@ -124,7 +124,7 @@ jobs:
         uses: actions/checkout@v7.0.0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.0
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
           cache-dependency-glob: cli/uv.lock
@@ -156,7 +156,7 @@ jobs:
         uses: actions/checkout@v7.0.0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.0
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
           cache-dependency-glob: cli/uv.lock
@@ -215,7 +215,7 @@ jobs:
         uses: actions/checkout@v7.0.0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.0
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
           cache-dependency-glob: cli/uv.lock
@@ -228,7 +228,7 @@ jobs:
         run: uv sync --extra dev --frozen
 
       - name: Install Java for FHIR Validator
-        uses: actions/setup-java@v5.4.0
+        uses: actions/setup-java@v5.5.0
         with:
           distribution: temurin
           java-version: "21"
@@ -265,7 +265,7 @@ jobs:
         uses: actions/checkout@v7.0.0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.0
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
           cache-dependency-glob: cli/uv.lock
@@ -318,7 +318,7 @@ jobs:
         uses: actions/checkout@v7.0.0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.0
+        uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
           cache-dependency-glob: cli/uv.lock
