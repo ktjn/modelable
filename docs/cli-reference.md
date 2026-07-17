@@ -208,7 +208,7 @@ modelable diff customer.Customer@1 customer.Customer@2
 ### 5.5 `compile` — Compile definitions to artifact formats
 
 ```text
-modelable compile SOURCE --target TARGET [--out DIR] [--registry PATH] [--registry-ids PATH] [--allow-orphaned-registry-ids]
+modelable compile SOURCE --target TARGET [--out DIR] [--registry PATH] [--registry-ids PATH] [--allow-orphaned-registry-ids] [--descriptor-set]
 ```
 
 Compiles model and projection definitions to a target artifact format. `SOURCE`
@@ -238,6 +238,7 @@ queries; the lock file remains authoritative.
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
 | `--registry-ids` | No | `registry-ids.lock` | Registry id allocation ledger path (commit this file) |
 | `--allow-orphaned-registry-ids` | No | off | Tolerate ledger entries with no matching `registry: true` declaration instead of erroring |
+| `--descriptor-set` | No | disabled | For `protobuf` and `grpc` targets, compile generated `.proto` files into descriptor `.pb` artifacts; requires `protoc` on `PATH` |
 
 **Default output subdirectories:**
 
@@ -775,7 +776,7 @@ datacontract lint ./dist/odcs/customer.Customer.v1.odcs.yaml
 ### 5.21 `compile --target protobuf` — Export Protocol Buffers schemas
 
 ```text
-modelable compile PATH --target protobuf --out DIR
+modelable compile PATH --target protobuf --out DIR [--descriptor-set]
 ```
 
 **Modelable 1.1 first slice — implemented as a compile target.**
@@ -800,7 +801,8 @@ The first slice emits:
   failures for unsupported map shapes;
 - `google.protobuf.Timestamp` imports when timestamp fields are present;
 - declared primary/secondary index metadata in model `schema-manifest.json`
-  files.
+  files;
+- optional compiled descriptor artifacts when `--descriptor-set` is passed.
 
 Output layout:
 
@@ -808,6 +810,7 @@ Output layout:
 dist/protobuf/
   <domain>/semantic-types.proto
   <domain>/<Name>.v<version>/<Name>.v<version>.proto
+  <domain>/<Name>.v<version>/<Name>.v<version>.descriptor.pb  # with --descriptor-set
   <domain>/<Name>.v<version>/schema-manifest.json
 ```
 
@@ -827,8 +830,8 @@ Representative type mapping:
 | `enum(a,b)` | generated enum |
 
 Deferred protobuf work remains required before using generated artifacts as
-a long-lived external wire contract: deleted-field reservations, descriptor-set
-generation, and protobuf compatibility validation.
+a long-lived external wire contract: deleted-field reservations and protobuf
+compatibility validation.
 
 **Options:**
 
@@ -838,6 +841,7 @@ generation, and protobuf compatibility validation.
 | `--out`, `-o` | No | `./dist/protobuf` | Output directory |
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
 | `--registry-ids` | No | `registry-ids.lock` | Registry id allocation ledger; allocated semantic IDs are included in schema manifests |
+| `--descriptor-set` | No | disabled | Compile generated `.proto` files into per-schema descriptor `.pb` artifacts; requires `protoc` on `PATH` |
 
 **Examples:**
 
@@ -850,7 +854,7 @@ modelable compile ./models --target protobuf --out ./dist/protobuf
 ### 5.22 `compile --target grpc` — Export the Scalable gRPC profile
 
 ```text
-modelable compile PATH --target grpc --out DIR
+modelable compile PATH --target grpc --out DIR [--descriptor-set]
 ```
 
 **Modelable 1.1 first slice — implemented as a compile target.**
@@ -876,7 +880,9 @@ The first slice emits:
   schema-identity, and index-metadata envelope messages;
 - `read_indexes` service-manifest metadata from declared primary/secondary
   indexes, with primary fallback metadata derived from existing `@key` fields
-  when no index declaration exists.
+  when no index declaration exists;
+- optional compiled service descriptor artifacts when `--descriptor-set` is
+  passed.
 
 Output layout:
 
@@ -885,14 +891,14 @@ dist/grpc/
   <domain>/semantic-types.proto
   <domain>/<Name>.v<version>/<Name>.v<version>.proto
   <domain>/<Name>.v<version>/<Name>.v<version>.grpc.proto
+  <domain>/<Name>.v<version>/<Name>.v<version>.grpc.descriptor.pb  # with --descriptor-set
   <domain>/<Name>.v<version>/schema-manifest.json
   <domain>/<Name>.v<version>/service-manifest.json
 ```
 
 Deferred gRPC work remains required before using generated artifacts as a
-long-lived transport contract: descriptor-set generation, protobuf/gRPC
-compatibility validation, and a Scalable-side fixture that registers generated
-descriptors and manifests.
+long-lived transport contract: protobuf/gRPC compatibility validation and a
+Scalable-side fixture that registers generated descriptors and manifests.
 
 **Options:**
 
@@ -902,6 +908,7 @@ descriptors and manifests.
 | `--out`, `-o` | No | `./dist/grpc` | Output directory |
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
 | `--registry-ids` | No | `registry-ids.lock` | Registry id allocation ledger; allocated semantic IDs are included in payload schema manifests |
+| `--descriptor-set` | No | disabled | Compile generated service profile into per-service descriptor `.pb` artifacts; requires `protoc` on `PATH` |
 
 **Examples:**
 
