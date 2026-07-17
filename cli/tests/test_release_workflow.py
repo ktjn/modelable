@@ -131,7 +131,9 @@ def test_validation_workflow_uses_distinct_uv_cache_suffixes() -> None:
     }
 
     for job_name, expected_suffix in expected_suffixes.items():
-        setup_uv_steps = [step for step in jobs[job_name]["steps"] if step.get("uses") == "astral-sh/setup-uv@v8.3.0"]
+        setup_uv_steps = [
+            step for step in jobs[job_name]["steps"] if str(step.get("uses", "")).startswith("astral-sh/setup-uv@")
+        ]
         assert len(setup_uv_steps) == 1
         assert setup_uv_steps[0]["with"]["cache-dependency-glob"] == "cli/uv.lock"
         assert setup_uv_steps[0]["with"]["cache-suffix"] == expected_suffix
