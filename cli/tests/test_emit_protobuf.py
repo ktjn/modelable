@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.protobuf import emit_protobuf
+from modelable.registry.signature import compute_version_signature
 
 
 def test_emit_protobuf_entity_proto_and_manifest(tmp_path):
@@ -457,3 +458,143 @@ domain consumer {
         match=r"ambiguous semantic type 'SharedId'.*alpha.SharedId.*beta.SharedId",
     ):
         emit_protobuf(workspace, tmp_path / "out")
+
+
+def test_emit_protobuf_manifest_separates_canonical_and_semantic_identity(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+  semantic Label : string
+
+  entity Schema @ 3 (additive) {
+    @key schemaId: SchemaId
+    parentSchemaId?: SchemaId
+    label: Label
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    version = workspace.mdl.domains[0].models["Schema"][0]
+
+    artifacts = emit_protobuf(
+        workspace,
+        tmp_path / "out",
+        registry_ids={"platform.SchemaId": 11, "platform.Label": 99},
+    )
+    manifest = next(
+        art for art in artifacts if art.ref == "platform.Schema@3" and art.path.name == "schema-manifest.json"
+    )
+    schema = json.loads(manifest.content)["schemas"][0]
+
+    assert schema["modelable_signature"] == compute_version_signature("platform", "Schema", version)
+    assert schema["schema_fingerprint"] != schema["modelable_signature"]
+    assert schema["semantic_types"] == [
+        {
+            "ref": "platform.Label",
+            "proto_type": ".modelable.platform.semantic.Label",
+            "underlying_type": "string",
+        },
+        {
+            "ref": "platform.SchemaId",
+            "proto_type": ".modelable.platform.semantic.SchemaId",
+            "underlying_type": "uint32",
+            "registry_id": 11,
+        },
+    ]
+    fields = {field["name"]: field for field in schema["fields"]}
+    assert fields["schemaId"]["semantic_type"] == "platform.SchemaId"
+    assert fields["parentSchemaId"]["semantic_type"] == "platform.SchemaId"
+    assert fields["label"]["semantic_type"] == "platform.Label"
+
+
+def test_emit_protobuf_projection_manifest_has_canonical_signature(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+
+  entity Schema @ 1 (additive) {
+    @key schemaId: SchemaId
+  }
+
+  projection SchemaView @ 2
+    from platform.Schema @ 1 as s
+  {
+    schemaId <- s.schemaId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    version = workspace.mdl.domains[0].projections["SchemaView"][0]
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+    manifest = next(
+        art for art in artifacts if art.ref == "platform.SchemaView@2" and art.path.name == "schema-manifest.json"
+    )
+    schema = json.loads(manifest.content)["schemas"][0]
+
+    assert schema["modelable_signature"] == compute_version_signature("platform", "SchemaView", version)
+    assert schema["semantic_types"][0]["ref"] == "platform.SchemaId"
+    assert "registry_id" not in schema["semantic_types"][0]
+
+
+def test_emit_protobuf_registry_allocation_does_not_change_wire_fingerprint(
+    tmp_path,
+):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+  entity Schema @ 1 (additive) {
+    @key schemaId: SchemaId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    without_id = emit_protobuf(workspace, tmp_path / "without")
+    with_id = emit_protobuf(
+        workspace,
+        tmp_path / "with",
+        registry_ids={"platform.SchemaId": 23},
+    )
+
+    def schema(artifacts):
+        manifest = next(art for art in artifacts if art.path.name == "schema-manifest.json")
+        return json.loads(manifest.content)["schemas"][0]
+
+    assert schema(without_id)["schema_fingerprint"] == schema(with_id)["schema_fingerprint"]
+    assert "registry_id" not in schema(without_id)["semantic_types"][0]
+    assert schema(with_id)["semantic_types"][0]["registry_id"] == 23
+
+
+@pytest.mark.parametrize("registry_id", [True, 0, -1, 2**32])
+def test_emit_protobuf_rejects_invalid_registry_id(tmp_path, registry_id):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    with pytest.raises(
+        ValueError,
+        match=r"registry id for platform.SchemaId must be between 1 and 4294967295",
+    ):
+        emit_protobuf(
+            workspace,
+            tmp_path / "out",
+            registry_ids={"platform.SchemaId": registry_id},
+        )

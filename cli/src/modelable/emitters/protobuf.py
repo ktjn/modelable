@@ -27,6 +27,7 @@ from modelable.parser.ir import (
     SemanticTypeDecl,
 )
 from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.signature import compute_version_signature
 
 
 @dataclass(frozen=True)
@@ -132,7 +133,7 @@ def _emit_model_version(
         domain=domain.name,
         name=model_name,
         kind=version.model_kind.value,
-        version=version.version,
+        version=version,
         ref=f"{domain.name}.{model_name}@{version.version}",
         fields=proto_fields,
     )
@@ -186,7 +187,7 @@ def _emit_projection_version(
         domain=domain.name,
         name=projection_name,
         kind="projection",
-        version=version.version,
+        version=version,
         ref=f"{domain.name}.{projection_name}@{version.version}",
         fields=proto_fields,
     )
@@ -506,15 +507,26 @@ def _render_proto(*, package: str, message_name: str, fields: list[_ProtoField])
     return "\n".join(lines)
 
 
-def _manifest_json(*, domain: str, name: str, kind: str, version: int, ref: str, fields: list[_ProtoField]) -> str:
+def _manifest_json(
+    *,
+    domain: str,
+    name: str,
+    kind: str,
+    version: ModelVersion | ProjectionVersion,
+    ref: str,
+    fields: list[_ProtoField],
+) -> str:
+    semantics = _referenced_semantics(fields)
     schema = {
         "target": "protobuf",
         "schemas": [
             {
                 "ref": ref,
                 "kind": kind,
-                "schema_id": f"modelable://{domain}/{name}/v{version}/protobuf",
-                "schema_fingerprint": _schema_fingerprint(fields),
+                "schema_id": f"modelable://{domain}/{name}/v{version.version}/protobuf",
+                "modelable_signature": compute_version_signature(domain, name, version),
+                "schema_fingerprint": _schema_fingerprint(fields, semantics),
+                "semantic_types": [_manifest_semantic(semantic, include_registry_id=True) for semantic in semantics],
                 "fields": [_manifest_field(field) for field in fields],
             }
         ],
@@ -532,11 +544,37 @@ def _manifest_field(field: _ProtoField) -> dict:
     }
     if field.fixed_length is not None:
         entry["fixed_length"] = field.fixed_length
+    if field.semantic is not None:
+        entry["semantic_type"] = field.semantic.ref
     return entry
 
 
-def _schema_fingerprint(fields: list[_ProtoField]) -> str:
-    normalized = [_manifest_field(field) for field in fields]
+def _manifest_semantic(semantic: _SemanticProtoType, *, include_registry_id: bool) -> dict[str, object]:
+    entry: dict[str, object] = {
+        "ref": semantic.ref,
+        "proto_type": semantic.proto_type,
+        "underlying_type": semantic.underlying_type,
+    }
+    if semantic.fixed_length is not None:
+        entry["fixed_length"] = semantic.fixed_length
+    if include_registry_id and semantic.registry_id is not None:
+        entry["registry_id"] = semantic.registry_id
+    return entry
+
+
+def _referenced_semantics(fields: list[_ProtoField]) -> list[_SemanticProtoType]:
+    by_ref = {field.semantic.ref: field.semantic for field in fields if field.semantic is not None}
+    return [by_ref[ref] for ref in sorted(by_ref)]
+
+
+def _schema_fingerprint(
+    fields: list[_ProtoField],
+    semantics: list[_SemanticProtoType],
+) -> str:
+    normalized = {
+        "fields": [_manifest_field(field) for field in fields],
+        "semantic_types": [_manifest_semantic(semantic, include_registry_id=False) for semantic in semantics],
+    }
     return compute_content_hash(json.dumps(normalized, indent=2, ensure_ascii=False))
 
 
