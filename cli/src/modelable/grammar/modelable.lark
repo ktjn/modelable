@@ -41,6 +41,7 @@ model_change: "(" change_kind ")"
 
 model_body_item: field_decl
                | access_block
+               | reservation_block
 
 model_kind: "entity"    -> mk_entity
           | "aggregate" -> mk_aggregate
@@ -131,6 +132,7 @@ projection_body_item: proj_field
                     | subscription_block
                     | generate_block
                     | materialisation_block
+                    | reservation_block
 
 source_clause: "from" dotted_ref "@" version_spec "as" IDENT join_clause* where_clause? group_clause?
 
@@ -164,6 +166,11 @@ materialisation_block: "materialisation" "{" materialisation_item* "}"
 materialisation_item: IDENT ":" EXPRESSION
 
 qualified_field: IDENT "." IDENT
+
+reservation_block: "reserved" "protobuf" "{" reservation_item* "}"
+reservation_item: reserved_numbers | reserved_names
+reserved_numbers: "numbers" ":" "[" INT ("," INT)* "]"
+reserved_names: "names" ":" "[" ESCAPED_STRING ("," ESCAPED_STRING)* "]"
 
 
 // -- Generate ----------------------------------------------------------------

@@ -277,6 +277,29 @@ class AccessBlock(BaseModel):
     properties: dict[str, list[AccessGrant]] = Field(default_factory=dict)
 
 
+class ProtobufReservations(BaseModel):
+    numbers: list[int] = Field(default_factory=list)
+    names: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _validate(self) -> ProtobufReservations:
+        if not self.numbers and not self.names:
+            raise ValueError("protobuf reservations must reserve at least one number or name")
+        seen_numbers: set[int] = set()
+        for number in self.numbers:
+            if number <= 0:
+                raise ValueError("protobuf reservation numbers must be positive")
+            if number in seen_numbers:
+                raise ValueError(f"duplicate protobuf reservation number {number}")
+            seen_numbers.add(number)
+        seen_names: set[str] = set()
+        for name in self.names:
+            if name in seen_names:
+                raise ValueError(f"duplicate protobuf reservation name {name}")
+            seen_names.add(name)
+        return self
+
+
 class ModelVersion(BaseModel):
     model_kind: ModelKind
     version: int
@@ -286,6 +309,7 @@ class ModelVersion(BaseModel):
     has_version_header: bool = True
     has_change_kind: bool = True
     annotations: list[Annotation] = Field(default_factory=list)
+    protobuf_reservations: ProtobufReservations | None = None
 
     def wire_targets(self) -> dict[str, WireTargetHint]:
         from modelable.parser.wire import wire_targets_from_annotations
@@ -390,6 +414,7 @@ class ProjectionVersion(BaseModel):
     auto_generated: bool = False
     access: AccessBlock | None = None
     annotations: list[Annotation] = Field(default_factory=list)
+    protobuf_reservations: ProtobufReservations | None = None
 
     def wire_targets(self) -> dict[str, WireTargetHint]:
         from modelable.parser.wire import wire_targets_from_annotations

@@ -45,6 +45,7 @@ from modelable.parser.ir import (
     PrimitiveType,
     ProjectionField,
     ProjectionVersion,
+    ProtobufReservations,
     RefType,
     SecondaryIndexDecl,
     SemanticTypeDecl,
@@ -169,6 +170,7 @@ class MdlTransformer(Transformer[list[object], Any]):
         change_kind = header[2] if header is not None else ChangeKind.additive
         has_change_kind = header[3] if header is not None else False
         access = next((item for item in items[body_start:] if isinstance(item, AccessBlock)), None)
+        reservation = next((item for item in items[body_start:] if isinstance(item, ProtobufReservations)), None)
         model_kind = items[0] if isinstance(items[0], ModelKind) else ModelKind.entity
         model_version = ModelVersion(
             model_kind=model_kind,
@@ -179,6 +181,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             has_version_header=header is not None,
             has_change_kind=has_change_kind,
             annotations=annotations,
+            protobuf_reservations=reservation,
         )
         return ("model", (name, model_version))
 
@@ -345,6 +348,25 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def field_default(self, items: list[object]) -> tuple[str, str]:
         return ("default", str(items[0]).strip())
+
+    def reserved_numbers(self, items: list[object]) -> tuple[str, list[int]]:
+        return ("numbers", [int(str(item)) for item in items])
+
+    def reserved_names(self, items: list[object]) -> tuple[str, list[str]]:
+        return ("names", [_str(item) for item in items])
+
+    def reservation_item(self, items: list[object]) -> object:
+        return items[0]
+
+    def reservation_block(self, items: list[object]) -> ProtobufReservations:
+        parts: dict[str, object] = {}
+        for item in items:
+            if isinstance(item, tuple):
+                parts[item[0]] = item[1]
+        return ProtobufReservations(
+            numbers=parts.get("numbers", []),  # type: ignore[arg-type]
+            names=parts.get("names", []),  # type: ignore[arg-type]
+        )
 
     def ann_key(self, _items: list[object]) -> AnnKey:
         return AnnKey()
@@ -568,6 +590,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             source, joins, where, group_by = items[source_index]
             body_start = source_index + 1
         access = next((item for item in items[body_start:] if isinstance(item, AccessBlock)), None)
+        reservation = next((item for item in items[body_start:] if isinstance(item, ProtobufReservations)), None)
         projection_version = ProjectionVersion(
             version=int(items[1]),
             source=source,
@@ -577,6 +600,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             fields=[item for item in items[body_start:] if isinstance(item, ProjectionField)],
             access=access,
             annotations=annotations,
+            protobuf_reservations=reservation,
         )
         return ("projection", (str(items[0]), projection_version))
 
