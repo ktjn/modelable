@@ -393,6 +393,10 @@ def _write_rust_smoke(tmp_path: Path, out: Path) -> None:
                     };
 
                     assert_eq!(customer.display_name, view.display_name);
+                    assert_eq!(CustomerCustomerV1::SCHEMA_VERSION, 1);
+                    assert_eq!(CustomerCustomerV1::SCHEMA_CONTENT_SIGNATURE.len(), 32);
+                    assert_eq!(CustomerCustomerViewV1::SCHEMA_VERSION, 1);
+                    assert_eq!(CustomerCustomerViewV1::SCHEMA_CONTENT_SIGNATURE.len(), 32);
                 }
             }
             """

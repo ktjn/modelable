@@ -25,6 +25,7 @@ from modelable.parser.ir import (
     SemanticTypeDecl,
 )
 from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.signature import compute_version_signature
 
 
 @dataclass
@@ -276,6 +277,41 @@ def _render_registry_id_impl(type_name: str, allocated_id: int) -> list[str]:
     ]
 
 
+def _signature_bytes(signature: str) -> bytes:
+    try:
+        raw = bytes.fromhex(signature)
+    except ValueError as exc:
+        raise ValueError("canonical Modelable signature must be hexadecimal") from exc
+    if len(raw) != 32:
+        raise ValueError("canonical Modelable signature must contain exactly 32 bytes")
+    return raw
+
+
+def _render_schema_identity_impl(
+    type_name: str,
+    version: int,
+    signature: str,
+    *,
+    storage_gated: bool = False,
+) -> list[str]:
+    values = _signature_bytes(signature)
+    lines = [""]
+    if storage_gated:
+        lines.append('#[cfg(feature = "storage")]')
+    lines.extend(
+        [
+            f"impl {type_name} {{",
+            f"    pub const SCHEMA_VERSION: u32 = {version};",
+            "    pub const SCHEMA_CONTENT_SIGNATURE: [u8; 32] = [",
+        ]
+    )
+    for offset in range(0, len(values), 8):
+        row = ", ".join(f"0x{value:02x}" for value in values[offset : offset + 8])
+        lines.append(f"        {row},")
+    lines.extend(["    ];", "}"])
+    return lines
+
+
 def _emit_semantic_type(
     domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path, *, allocated_id: int | None = None
 ) -> EmittedArtifact:
@@ -381,6 +417,13 @@ def _emit_model(
         extra_uses=use_statements,
     )
     lines.extend(_render_struct_definition(type_name, field_specs))
+    lines.extend(
+        _render_schema_identity_impl(
+            type_name,
+            version.version,
+            compute_version_signature(domain.name, model_name, version),
+        )
+    )
     lines.extend(_render_nested_definitions(nested_definitions))
 
     text = "\n".join(lines) + "\n"
@@ -475,6 +518,14 @@ def _emit_projection(
     )
     lines.extend(
         _render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated)
+    )
+    lines.extend(
+        _render_schema_identity_impl(
+            type_name,
+            version.version,
+            compute_version_signature(domain.name, projection_name, version),
+            storage_gated=storage_gated,
+        )
     )
     lines.extend(_render_nested_definitions(nested_definitions))
     lines.extend(
