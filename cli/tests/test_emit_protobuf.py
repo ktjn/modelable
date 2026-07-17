@@ -306,6 +306,150 @@ domain platform {
     assert first_schema["schema_fingerprint"]
 
 
+def test_emit_protobuf_schema_manifest_includes_declared_indexes(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+    createdAt: timestamp
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byCustomer {
+      key: [customerId]
+      sort: [createdAt desc]
+      unique: false
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+
+    manifest = next(
+        art for art in artifacts if art.ref == "platform.Order@1" and art.path.name == "schema-manifest.json"
+    )
+    schema = json.loads(manifest.content)["schemas"][0]
+    assert schema["indexes"] == {
+        "primary": {
+            "index_name": "primary",
+            "index_version": 1,
+            "key_fields": ["orderId"],
+            "sort_fields": [],
+            "unique": True,
+        },
+        "secondary": [
+            {
+                "index_name": "byCustomer",
+                "index_version": 1,
+                "key_fields": ["customerId"],
+                "sort_fields": [{"field": "createdAt", "direction": "desc"}],
+                "unique": False,
+            }
+        ],
+    }
+
+
+def test_emit_protobuf_projection_manifest_does_not_duplicate_model_indexes(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byCustomer {
+      key: [customerId]
+    }
+  }
+
+  projection OrderView @ 1
+    from platform.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    customerId <- o.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+
+    projection_manifest = next(
+        art for art in artifacts if art.ref == "platform.OrderView@1" and art.path.name == "schema-manifest.json"
+    )
+    projection_schema = json.loads(projection_manifest.content)["schemas"][0]
+    assert "indexes" not in projection_schema
+
+
+def test_emit_protobuf_declared_indexes_change_schema_fingerprint(tmp_path):
+    without_index = tmp_path / "without"
+    with_index = tmp_path / "with"
+    without_index.mkdir()
+    with_index.mkdir()
+    without_source = """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+  }
+}
+"""
+    with_source = """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byCustomer {
+      key: [customerId]
+    }
+  }
+}
+"""
+    (without_index / "model.mdl").write_text(without_source, encoding="utf-8")
+    (with_index / "model.mdl").write_text(with_source, encoding="utf-8")
+    without_schema = json.loads(
+        next(
+            art
+            for art in emit_protobuf(load_workspace(without_index), tmp_path / "out-without")
+            if art.ref == "platform.Order@1" and art.path.name == "schema-manifest.json"
+        ).content
+    )["schemas"][0]
+    with_schema = json.loads(
+        next(
+            art
+            for art in emit_protobuf(load_workspace(with_index), tmp_path / "out-with")
+            if art.ref == "platform.Order@1" and art.path.name == "schema-manifest.json"
+        ).content
+    )["schemas"][0]
+
+    assert "indexes" not in without_schema
+    assert "indexes" in with_schema
+    assert without_schema["schema_fingerprint"] != with_schema["schema_fingerprint"]
+
+
 def test_emit_protobuf_fixed_width_integers(tmp_path):
     (tmp_path / "types.mdl").write_text(
         """

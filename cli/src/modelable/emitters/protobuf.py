@@ -18,6 +18,7 @@ from modelable.parser.ir import (
     FieldDef,
     FieldType,
     FixedBinaryType,
+    IndexDecl,
     MapType,
     MdlFile,
     ModelVersion,
@@ -139,6 +140,7 @@ def _emit_model_version(
         message_name=model_name,
         fields=proto_fields,
     )
+    indexes = _manifest_indexes(_index_decl_for(domain, model_name, version.version))
     manifest_content = _manifest_json(
         domain=domain.name,
         name=model_name,
@@ -146,6 +148,7 @@ def _emit_model_version(
         version=version,
         ref=f"{domain.name}.{model_name}@{version.version}",
         fields=proto_fields,
+        indexes=indexes,
     )
     base_path = out_dir / domain.name / f"{model_name}.v{version.version}"
 
@@ -610,23 +613,58 @@ def _manifest_json(
     version: ModelVersion | ProjectionVersion,
     ref: str,
     fields: list[_ProtoField],
+    indexes: dict[str, object] | None = None,
 ) -> str:
     semantics = _referenced_semantics(fields)
+    schema_entry: dict[str, object] = {
+        "ref": ref,
+        "kind": kind,
+        "schema_id": f"modelable://{domain}/{name}/v{version.version}/protobuf",
+        "modelable_signature": compute_version_signature(domain, name, version),
+        "schema_fingerprint": _schema_fingerprint(fields, semantics, indexes),
+        "semantic_types": [_manifest_semantic(semantic, include_registry_id=True) for semantic in semantics],
+        "fields": [_manifest_field(field) for field in fields],
+    }
+    if indexes is not None:
+        schema_entry["indexes"] = indexes
     schema = {
         "target": "protobuf",
-        "schemas": [
-            {
-                "ref": ref,
-                "kind": kind,
-                "schema_id": f"modelable://{domain}/{name}/v{version.version}/protobuf",
-                "modelable_signature": compute_version_signature(domain, name, version),
-                "schema_fingerprint": _schema_fingerprint(fields, semantics),
-                "semantic_types": [_manifest_semantic(semantic, include_registry_id=True) for semantic in semantics],
-                "fields": [_manifest_field(field) for field in fields],
-            }
-        ],
+        "schemas": [schema_entry],
     }
     return json.dumps(schema, indent=2, ensure_ascii=False) + "\n"
+
+
+def _index_decl_for(domain: DomainDef, name: str, version: int) -> IndexDecl | None:
+    return next(
+        (decl for decl in domain.index_decls if decl.model == name and decl.version == version),
+        None,
+    )
+
+
+def _manifest_indexes(index_decl: IndexDecl | None) -> dict[str, object] | None:
+    if index_decl is None:
+        return None
+    return {
+        "primary": {
+            "index_name": "primary",
+            "index_version": index_decl.version,
+            "key_fields": list(index_decl.primary),
+            "sort_fields": [],
+            "unique": True,
+        },
+        "secondary": [
+            {
+                "index_name": secondary.name,
+                "index_version": index_decl.version,
+                "key_fields": list(secondary.key),
+                "sort_fields": [
+                    {"field": sort_field.field, "direction": sort_field.direction} for sort_field in secondary.sort
+                ],
+                "unique": secondary.unique,
+            }
+            for secondary in index_decl.secondary
+        ],
+    }
 
 
 def _manifest_field(field: _ProtoField) -> dict[str, object]:
@@ -682,11 +720,14 @@ def _referenced_semantics(fields: list[_ProtoField]) -> list[_SemanticProtoType]
 def _schema_fingerprint(
     fields: list[_ProtoField],
     semantics: list[_SemanticProtoType],
+    indexes: dict[str, object] | None = None,
 ) -> str:
-    normalized = {
+    normalized: dict[str, object] = {
         "fields": [_manifest_field(field) for field in fields],
         "semantic_types": [_manifest_semantic(semantic, include_registry_id=False) for semantic in semantics],
     }
+    if indexes is not None:
+        normalized["indexes"] = indexes
     return compute_content_hash(json.dumps(normalized, indent=2, ensure_ascii=False))
 
 
