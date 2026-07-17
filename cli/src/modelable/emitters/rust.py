@@ -91,6 +91,8 @@ def _append_cross_enum_from_impls(
     for artifact in artifacts:
         appendage = extra.get(artifact.artifact_id)
         if appendage:
+            if not isinstance(artifact.content, str):
+                raise TypeError(f"Rust artifact {artifact.artifact_id} content must be text")
             new_content = artifact.content.rstrip("\n") + "\n" + "\n".join(appendage) + "\n"
             result.append(
                 EmittedArtifact(

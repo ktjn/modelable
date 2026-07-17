@@ -55,7 +55,10 @@ def sync(source: Path, lineage: str | None, catalog: str | None, url: str, token
     client = OpenLineageClient(url, token=token or os.getenv("MODELABLE_OPENLINEAGE_TOKEN"))
     try:
         for event in events:
-            client.post_event(event.content)
+            event_content = event.content
+            if not isinstance(event_content, dict):
+                continue
+            client.post_event(event_content)
             console.print(f"[green]OK[/green] synced {event.artifact_id} to {url}")
     except OpenLineageSyncError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
