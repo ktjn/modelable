@@ -1060,6 +1060,10 @@ See the [Modelable Tooling Reference](cli-reference.md) for the full command ref
 - dbt `schema.yml` export/import, FHIR R4 `StructureDefinition` export/import.
 - Multi-source joins in projections (composite-key joins across domains).
 - C#, Java, Python, Rust, and Go native code generation.
+- Protobuf payload schemas and Scalable-oriented gRPC service generation.
+- Fixed-width integers, fixed-length binary values, UUIDv7-compatible
+  identifiers, semantic types, deterministic registry IDs, and index
+  declarations.
 
 ### Deferred
 
@@ -1068,7 +1072,8 @@ See the [Modelable Tooling Reference](cli-reference.md) for the full command ref
 - Materialized projection into PostgreSQL (Phase 5).
 - Live OpenMetadata catalog synchronization (local export only is shipped; see [integrations.md](integrations.md)).
 - Runtime OpenLineage event collection beyond design-time Modelable events.
-- Avro, Protobuf, OpenAPI, AsyncAPI generation (Phase 5) — import-only support exists via LLM-assisted generators.
+- Avro, OpenAPI, and AsyncAPI generation (Phase 5) — import-only support exists
+  via LLM-assisted generators.
 - Stateful aggregations.
 - Windowed aggregations.
 - Multiple stream backends.

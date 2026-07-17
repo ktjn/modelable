@@ -1,254 +1,138 @@
 # Roadmap
 
-Modelable's current release is a local compiler and language-server toolchain
-for versioned, domain-owned model contracts. The roadmap is directional; an
-item is not committed until it has an issue and an accepted design.
+Modelable is a local compiler and language-server toolchain for versioned,
+domain-owned model contracts. This roadmap orders outcomes rather than assigning
+unconfirmed release numbers. An item becomes committed work only when it has a
+GitHub issue and an accepted design.
 
-## 1.0 — shipped 2026-06-28
+## Current baseline
 
-Modelable 1.0 stabilizes the local compiler and language-server toolchain.
+The latest published release is 1.2.1. The stable 1.x surface includes:
 
-**Stable at 1.0:** `.mdl` language, CLI commands (`validate`, `compile`,
-`check`, `generate`, `attach`, `spec`, language server), all current generated
-artifact formats (JSON Schema, TypeScript, C#, Java, Python, Rust, Go, SQL
-DDL, dbt `schema.yml`, Markdown, FHIR R4 profile, OpenMetadata JSON,
-OpenLineage event, ODCS), compatibility and lineage reports, governance findings,
-Apicurio JSON Schema push/pull, and the VS Code extension as a VSIX companion
-artifact.
+- The `.mdl` language, semantic validation, compatibility and lineage reports,
+  governance findings, the language server, and the VS Code extension distributed
+  as a release artifact.
+- Deterministic generation for JSON Schema, TypeScript, C#, Java, Python, Rust,
+  Go, SQL DDL, dbt `schema.yml`, Markdown, FHIR R4 profiles, OpenMetadata,
+  OpenLineage, ODCS, Protobuf, and Scalable-oriented gRPC services.
+- Local dbt, FHIR, and ODCS import and tracked-spec drift workflows.
+- Apicurio JSON Schema publish/pull and Marquez-compatible OpenLineage sync.
+- Public conformance fixtures, hosted documentation, and external-validator
+  smoke coverage for supported integration surfaces.
 
-**Deferred from 1.0:** VS Code Marketplace distribution, remote tracked-spec
-polling, distributed registry synchronization, live OpenMetadata catalog
-synchronization, and runtime subscriptions and materialization. These remain
-future candidates until a fresh issue and accepted design define a concrete
-implementation slice.
+Recent compiler-contract additions are shipped but not yet complete across every
+target:
 
-## Next
+- Fixed-width integers, fixed-length binary values, and `uuid(7)`.
+- Rust nominal newtypes for `semantic` declarations.
+- Deterministic small-integer allocation for `semantic ... { registry: true }`
+  declarations through the git-tracked `registry-ids.lock` ledger.
+- Primary and secondary index declarations, currently consumed by PostgreSQL
+  generation.
+- Protobuf payload schemas and generic Scalable command/read services.
+- A documented Rust/Protobuf wire-format contract with golden fixtures.
 
-Recently shipped, still hardening:
+The changelog records release-level detail. The archived
+[Scalable feature-gaps response](docs/superpowers/specs/archived/2026-07-07-modelable-feature-gaps-response-design.md)
+and
+[Protobuf/gRPC design](docs/superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md)
+record the decisions behind the recent contract work.
 
-- Hosted documentation is published at
-  [ktjn.github.io/modelable](https://ktjn.github.io/modelable/) from `main`;
-  continue treating broken docs builds and links as release-blocking issues.
-- The public conformance fixture under `samples/conformance/` mirrors the
-  formerly private release checks for contributor-facing smoke coverage.
-- `modelable generate --from` now bootstraps `.mdl` models from dbt
-  `manifest.json`/`schema.yml`, FHIR R4 `StructureDefinition`, and ODCS
-  documents; continue hardening edge cases (complex FHIR types, dbt
-  model-version selection, ODCS field-level nuance) as real usage surfaces
-  gaps.
-- `modelable attach`/`modelable spec` now track dbt/FHIR/ODCS drift with
-  additive/breaking diffs; continue hardening beyond direct-element mapping
-  (e.g. complex FHIR types, dbt semantic-layer constructs).
-- FHIR R4 profile mapping covers Patient/Observation/Encounter with
-  extension/slice mapping for Modelable-only fields and an HL7 FHIR
-  Validator smoke; continue hardening deep/recursive structure coverage.
-- OpenMetadata and OpenLineage local export are implemented, and
-  `modelable sync --lineage marquez` can post OpenLineage events to a
-  Marquez-compatible endpoint with a live Testcontainers smoke; continue
-  validating OpenMetadata output and hardening live catalog synchronization
-  against real consumers.
-- Protobuf and Scalable gRPC generation have started as Modelable 1.1 work.
-  The current `compile --target protobuf` slice emits deterministic `.proto`
-  files and schema manifests for models and projections. The current
-  `compile --target grpc` slice emits Protobuf payload schemas, generic
-  Scalable command/read services, and service manifests. Deleted-field
-  reservations, descriptor sets, richer index metadata, Scalable registration
-  fixtures, and protobuf/gRPC compatibility validation remain follow-up work
-  before long-lived wire or transport contracts are stable. The accepted design
-  target is documented in
-  [docs/superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md](docs/superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md).
-- Scalable filed a concrete feature-gaps request against Modelable
-  (`ktjn/scalable` `docs/analysis/2026-07-07-modelable-feature-gaps.md`,
-  8 items). The accepted response — `.mdl` syntax, IR shape, and per-target
-  emitter mapping for each item, plus a build order that differs from the
-  source document's priority order because several items depend on ones
-  ranked lower — is documented in
-  [docs/superpowers/specs/archived/2026-07-07-modelable-feature-gaps-response-design.md](docs/superpowers/specs/archived/2026-07-07-modelable-feature-gaps-response-design.md).
-  Build order: UUIDv7-compatible `uuid(7)` and wire-format-contract/index-syntax
-  completion land in 1.1 alongside the protobuf/gRPC work above; fixed-width
-  integer primitives (`u8`..`i128`) and fixed-length `binary(N)` land in 1.2;
-  the `semantic` type-alias mechanism lands in 1.3 (depends on 1.2's
-  fixed-width integers); deterministic small-integer registry id allocation
-  lands in 1.4 (depends on 1.3's `registry: true` marker). The first
-  implementation slice — fixed-width integer primitives (`u8`..`i128`) — has
-  shipped: grammar, IR, default-value range validation, and a mapping in
-  every currently implemented emitter (Rust, Go, Java, C#, Python,
-  TypeScript, SQL Postgres/ClickHouse, JSON Schema, Protobuf, FHIR profile),
-  per the task-by-task plan at
-  [docs/superpowers/plans/archived/2026-07-07-fixed-width-integer-primitives-first-slice.md](docs/superpowers/plans/archived/2026-07-07-fixed-width-integer-primitives-first-slice.md).
-  The second slice — fixed-length `binary(N)`, bounded to `1..=4096` bytes —
-  has also shipped: grammar, a new `FixedBinaryType` IR node, the length
-  bound, and a mapping in Rust, Go, Java, C#, Python, TypeScript, SQL
-  Postgres/ClickHouse, JSON Schema, and Protobuf, per the task-by-task plan
-  at
-  [docs/superpowers/plans/archived/2026-07-08-fixed-length-binary-primitive-first-slice.md](docs/superpowers/plans/archived/2026-07-08-fixed-length-binary-primitive-first-slice.md).
-  Modelable 1.2 (both its slices) is now complete. The `semantic` type-alias
-  mechanism (1.3) has shipped its first slice: a `semantic Name: Underlying`
-  domain-level declaration (grammar, `SemanticTypeDecl` IR node, an optional
-  `registry: true` marker for 1.4 to consume), validation of the underlying
-  type, chained semantic-type references, and cycle/dangling-reference
-  detection, plus a Rust newtype emitter (`#[serde(transparent)]` tuple
-  struct with `From`/`Deref` impls). Extending semantic-type support to the
-  other emitters (Go, Java, C#, Python, TypeScript, SQL, JSON Schema,
-  Protobuf, FHIR, and the rest) is deferred follow-up work — they currently
-  resolve a semantic type reference to its underlying type unchanged, per
-  the task-by-task plan at
-  [docs/superpowers/plans/archived/2026-07-08-semantic-type-alias-mechanism-first-slice.md](docs/superpowers/plans/archived/2026-07-08-semantic-type-alias-mechanism-first-slice.md).
-  Modelable 1.4 (deterministic small-integer registry id allocation) has
-  shipped its first slice: `modelable compile` now allocates a small,
-  monotonically-increasing integer id for every `semantic ...
-  { registry: true }` declaration and persists it in a git-tracked
-  `registry-ids.lock` ledger at the workspace root, with orphaned-id
-  detection (a `--allow-orphaned-registry-ids` escape hatch tolerates but
-  never reuses an id whose declaration was removed). `registry.db` gained a
-  `registry_ids` table populated as a read-through cache of the lock file,
-  and the Rust emitter surfaces the allocated id as a `/// registry id: N`
-  doc comment on the generated newtype. Emitting the allocated id as a stable
-  generated Rust constant usable by downstream code, with emitter test
-  coverage, is deferred follow-up work. Generated Rust schema identity metadata
-  should also expose each versioned declaration's declared version and
-  canonical Modelable version signature as stable constants sourced from the
-  registry signature machinery, rather than requiring downstream code to
-  maintain parallel values; target-specific wire fingerprints remain separate
-  manifest metadata. Exposing the id in the protobuf schema manifest
-  (blocked on protobuf gaining semantic-type support at all) and a
-  `modelable inspect` id-lookup surface are also deferred follow-up work, per
-  the task-by-task plan at
-  [docs/superpowers/plans/archived/2026-07-08-registry-id-allocation-first-slice.md](docs/superpowers/plans/archived/2026-07-08-registry-id-allocation-first-slice.md).
-  The UUIDv7-compatible identifier gap (#2, originally sequenced first as
-  cheap/independent 1.1 work but not implemented until now) has also
-  shipped: `uuid` is a parameterized primitive, `uuid(7)` selects
-  timestamp-ordered UUIDv7 (`uuid` with no argument is unchanged, still
-  defaults to v4), with a `PrimitiveType.version` IR field, parse-time
-  validation rejecting any argument other than `4`/`7`, an
-  `x-modelable-uuid-version` JSON Schema extension, and `uuid(7)`
-  Markdown rendering. No emitter's underlying *type* mapping changes
-  (every target still emits its existing `uuid` representation for both
-  versions). SQL Postgres `DEFAULT uuidv7()` generation and prose-style
-  Markdown/LSP-hover descriptions are deferred — neither has an existing
-  mechanism to hook into (`sql.py` has no `@server`-driven `DEFAULT`
-  generation for any type today, and both renderers already render every
-  other parameterized type as its declaration syntax, never prose), per
-  the task-by-task plan at
-  [docs/superpowers/plans/archived/2026-07-08-uuidv7-compatible-identifier-first-slice.md](docs/superpowers/plans/archived/2026-07-08-uuidv7-compatible-identifier-first-slice.md).
-  The wire-format contract gap (#5) has also shipped: a new
-  `docs/wire-format-contract.md` pins the Rust and Protobuf emitters'
-  actual field-ordering, per-type encoding, and enum-discriminant rules
-  (verified directly against the emitter source, not aspirational — it
-  also documents two real, previously-undocumented gaps found while
-  writing it: `map<K,V>` has no Protobuf mapping and falls through to an
-  opaque `bytes`, and Protobuf has no semantic-type reference resolution
-  at all), and a golden-fixture regression suite
-  (`cli/tests/fixtures/wire_golden/`, `cli/tests/test_wire_golden.py`)
-  fails CI the moment either emitter's output drifts from the committed
-  baseline. This gap adds no grammar, IR, or emitter behavior — only
-  documentation and a regression-test pin — and lands independently of
-  the other four shipped gaps. The larger protobuf/gRPC capability set
-  (descriptor sets, richer index metadata, `validate-compat`
-  compatibility checking, deleted-field reservations) remains tracked
-  separately under
-  [`2026-07-04-scalable-protobuf-grpc-support-design.md`](docs/superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md)
-  and unaffected by this gap, per the task-by-task plan at
-  [docs/superpowers/plans/archived/2026-07-08-wire-format-contract-first-slice.md](docs/superpowers/plans/archived/2026-07-08-wire-format-contract-first-slice.md).
-  Primary key / secondary index / sort-key syntax (gap 7, the last of the
-  seven concretely-scheduled gaps) has also shipped: an `index <Model> @
-  <version> { primary ...; secondary ... }` declaration parallel in shape
-  to `auto projections`, with `primary` validated against the model's
-  `@key` field set (a correction found during planning: composite `@key`
-  sets aren't representable in the language today — every entity/aggregate
-  requires exactly one `@key` field — so this validation is
-  forward-compatible rather than presently exercising the multi-field
-  case), `secondary` index field-reference validation, `index_changed`
-  visibility (not yet a breaking/additive verdict) in compatibility
-  reports, and Postgres `CREATE INDEX`/`CREATE UNIQUE INDEX` DDL
-  generation. ClickHouse index DDL and the protobuf/gRPC read-replica
-  index model consuming `index_decl` directly are deferred follow-ups,
-  per the task-by-task plan at
-  [docs/superpowers/plans/archived/2026-07-08-primary-secondary-index-syntax-first-slice.md](docs/superpowers/plans/archived/2026-07-08-primary-secondary-index-syntax-first-slice.md).
-  All seven concretely-scheduled gaps from Scalable's feature-gaps request
-  are now shipped. A third compatibility signal for state-migration
-  necessity (gap 8 of that request) remains an open question with no
-  accepted grammar; see the response design section 11.
+## Priority 1 — complete the Scalable and Rust contract path
 
-Deferred candidates, not yet started:
+The next product work should make Modelable-generated identities and transport
+contracts directly consumable by Scalable without parallel handwritten
+metadata.
 
-- Live OpenMetadata catalog synchronization once local export has enough
-  validation evidence for a specific deployment target and a follow-up issue.
-- Remote tracked-spec polling and authenticated source access for dbt, FHIR,
-  ODCS, and future external specifications (current support is local-file
-  only).
-- Embedded Modelable authoring for code-first domain models. This future idea
-  would let teams declare Modelable-compatible contracts inside a host language
-  and compile them into the same normalized graph as `.mdl`. It should remain a
-  complement to `.mdl`, not a replacement: embedded declarations should be able
-  to render deterministic `.mdl` snapshots for review, source control,
-  migration, and long-term portability.
+Work should proceed in dependency order:
 
-  Possible first slice:
+1. **Emit stable Rust identity constants.**
+   Emit an allocated registry ID constant for registry-backed semantic
+   newtypes. Emit each versioned model and projection's declared version and
+   canonical Modelable version signature as generated constants sourced from
+   the existing registry signature machinery. Keep target-specific wire
+   fingerprints in manifests rather than presenting them as canonical model
+   identity.
+2. **Carry semantic identity into Protobuf.**
+   Add semantic-type resolution to the Protobuf emitter and expose registry IDs
+   in the schema manifest. Preserve nominal identity where Protobuf supports it
+   and document any representation that must remain structural.
+3. **Close Protobuf schema-fidelity gaps.**
+   Replace the current opaque `bytes` fallback for `map<K,V>` with a documented,
+   deterministic mapping and carry declared primary/secondary index metadata
+   into the schema and service manifests.
+4. **Make the wire contract enforceable over time.**
+   Produce descriptor sets, reserve deleted field numbers and names, and add
+   Protobuf/gRPC compatibility validation before generated contracts are treated
+   as long-lived transport APIs.
+5. **Prove Scalable registration end to end.**
+   Add consumer fixtures that register generated schema identity, command/read
+   services, and index metadata without duplicating Modelable-owned constants.
 
-  - Start with Python because the compiler is implemented in Python and can
-    statically inspect source with `ast`.
-  - Support model/entity/value definitions, fields, versions, optionality,
-    keys, PII, classification, owners, and server-assigned fields.
-  - Defer projections until the model authoring shape is proven.
-  - Avoid importing or executing user modules; extraction should be static.
-  - Compile embedded definitions into the existing `MdlFile` IR rather than
-    creating a second semantic model.
-  - Add a CLI path such as
-    `modelable generate --from ./models.py --format embedded-python --output generated.mdl`.
+Completion means a Scalable consumer can compile generated Rust and Protobuf
+artifacts, register them using generated identity metadata, and detect an
+incompatible transport change in CI.
 
-  Pros:
+## Priority 2 — improve adoption and cross-target consistency
 
-  - Lowers adoption friction for application developers.
-  - Lets teams colocate contract metadata with domain classes.
-  - Provides an incremental bridge from code-first models to `.mdl`.
-  - Reuses existing validation, compatibility, lineage, and emitter pipelines
-    if it targets the current IR.
-  - Gives Modelable a stronger migration story for Python services and
-    frameworks.
+After the Scalable/Rust path is complete:
 
-  Cons and risks:
+1. Extend nominal semantic-type generation beyond Rust, prioritizing
+   TypeScript, Go, Java, C#, Python, JSON Schema, and SQL according to concrete
+   consumer demand. Targets that intentionally erase nominal identity must say
+   so explicitly.
+2. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
+   generated constants and registry state are easy to diagnose.
+3. Publish the VS Code extension through the Marketplace once the release and
+   support process is defined.
+4. Continue conformance, documentation, diagnostics, and importer hardening
+   where contributor or user reports expose real gaps.
 
-  - Host-language syntax can hide Modelable semantics behind framework
-    conventions.
-  - Multiple host languages could fragment the authoring experience.
-  - Runtime reflection would be unsafe and non-deterministic; static extraction
-    is required.
-  - Some `.mdl` concepts, especially projections and explicit lineage, may map
-    awkwardly into ordinary classes.
-  - If host-language code becomes the only source of truth, Modelable loses the
-    neutral, reviewable, language-independent contract that `.mdl` provides.
-  - Versioning can become unclear if class evolution is not explicitly modeled.
-  - Tooling burden grows: docs, diagnostics, examples, and editor support may
-    need language-specific variants.
+Completion means a new team can install the CLI and editor tooling, understand
+generated identity and compatibility behavior, and adopt a supported target
+without relying on internal repository knowledge.
 
-  Open design questions:
+## Priority 3 — deepen external integrations
 
-  - Should embedded definitions be compile-only, or should they always generate
-    a canonical `.mdl` file?
-  - Is the embedded source allowed to be authoritative, or must generated
-    `.mdl` remain the reviewed contract?
-  - What minimal annotation/decorator vocabulary maps cleanly to existing
-    Modelable IR?
-  - How should embedded declarations express versions without relying on git
-    history or class names?
-  - Should unsupported host-language constructs fail loudly or be ignored with
-    warnings?
+Integration work follows adoption work unless a concrete deployment provides a
+stronger near-term requirement:
 
-  Recommendation: treat embedded Modelable as a migration and
-  developer-experience bridge. The first accepted design should prove that a
-  small embedded Python subset can produce byte-for-byte stable `.mdl` output
-  and pass the same compiler and validation path as handwritten `.mdl`.
-- VS Code Marketplace distribution.
-- Distributed registry synchronization beyond the current file-first model.
-- Runtime subscriptions, adapters, replay, and materialization.
-- Additional artifact formats driven by concrete consumers.
+1. Add live OpenMetadata catalog synchronization for one explicitly supported
+   deployment shape. Local export and container-backed validation remain the
+   prerequisite evidence.
+2. Add remote, authenticated tracked-spec sources for dbt, FHIR, and ODCS while
+   preserving deterministic local snapshots and reviewable drift.
+3. Harden complex FHIR structures, dbt semantic-layer constructs and model
+   version selection, and ODCS field-level mappings as real inputs expose gaps.
+4. Add lineage stitching for external dbt exposures and similar consumers when
+   the external identity contract is concrete.
 
-## Later
+Completion means at least one real deployment can pull or synchronize external
+contracts reproducibly without making an external service the source of truth
+for Modelable models.
 
-- Advanced runtime adapters, materializers, and distributed registry services
-  after the deferred candidates above have accepted designs.
+## Candidate pool
 
-See [docs/architecture.md](docs/architecture.md) for the
-product model and [GitHub issues](https://github.com/ktjn/modelable/issues) for
-work that is ready for discussion or implementation.
+These ideas are intentionally unordered until a concrete consumer, issue, and
+accepted design establish their value:
+
+- Embedded Python authoring that statically extracts a small, deterministic
+  subset into canonical `.mdl` without importing or executing user code.
+- Distributed registry synchronization beyond the current file-first ledger
+  and local registry cache.
+- Additional artifact formats requested by a real consumer.
+- A third compatibility signal for state-migration necessity.
+
+## Outside the near-term compiler roadmap
+
+Runtime subscriptions, adapters, replay, materialization, and hosted distributed
+registry services are separate product concerns. They should not displace
+compiler-contract, adoption, or integration work without an explicit product
+decision and accepted architecture.
+
+Repository-health work is tracked separately in the
+[engineering improvement roadmap](docs/engineering-roadmap.md). See
+[architecture](docs/architecture.md) for the product boundary,
+[integrations](docs/integrations.md) for external-tool research, and
+[GitHub issues](https://github.com/ktjn/modelable/issues) for work that is ready
+for discussion or implementation.

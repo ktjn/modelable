@@ -5,7 +5,7 @@
 > actually provide today, verified directly against their source. It does
 > not describe aspirational behavior — every rule below is enforced by the
 > golden-fixture regression suite at
-> [`cli/tests/fixtures/wire_golden/`](../cli/tests/fixtures/wire_golden/)
+> [`cli/tests/fixtures/wire_golden/`](https://github.com/ktjn/modelable/tree/main/cli/tests/fixtures/wire_golden)
 > (test file: `cli/tests/test_wire_golden.py`).
 
 ## 1. Status and Scope
@@ -110,11 +110,11 @@ snake-cased from their `.mdl` camelCase source (`widgetId` → `widget_id`).
 
 ## 6. How This Is Enforced
 
-[`cli/tests/fixtures/wire_golden/wire_golden.mdl`](../cli/tests/fixtures/wire_golden/wire_golden.mdl)
+[`cli/tests/fixtures/wire_golden/wire_golden.mdl`](https://github.com/ktjn/modelable/blob/main/cli/tests/fixtures/wire_golden/wire_golden.mdl)
 is a single representative entity covering every row in section 3's table
 except semantic-type references (out of scope for a primitive-focused
 fixture; see the table above).
-[`cli/tests/test_wire_golden.py`](../cli/tests/test_wire_golden.py)
+[`cli/tests/test_wire_golden.py`](https://github.com/ktjn/modelable/blob/main/cli/tests/test_wire_golden.py)
 compiles it fresh on every test run and asserts the Rust struct file and
 the Protobuf `.proto` file match the committed golden files in
 `cli/tests/fixtures/wire_golden/golden/` **byte-for-byte**.

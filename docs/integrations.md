@@ -344,7 +344,7 @@ This slots into the existing phased plan from
 | 3 — Catalog/governance sync | OpenMetadata | + OpenLineage export |
 | 4 — Contract interchange | ODCS, Data Contract CLI | dbt `schema.yml` export, dbt model/source-table import, dbt manifest model/source-table import, and ODCS local-file import/export are implemented; remote polling remains deferred |
 | 4b (new) — Domain-specific interchange | — | FHIR R4 StructureDefinition export and local-file import are implemented; Patient/Observation/Encounter profile bases have hardened element mapping with representative cardinality and direct slice coverage; Modelable-only fields are mapped to FHIR extension slices with companion Extension StructureDefinitions; representative HL7 FHIR Validator smoke is implemented; deep nested slice conformance remains deferred |
-| 5 — Event/API/runtime targets | Avro, Protobuf, OpenAPI, AsyncAPI, runtime stack | + Iceberg/Delta schema target, analytics tracking-plan target, GraphQL SDL |
+| 5 — Event/API/runtime targets | Avro, OpenAPI, AsyncAPI, runtime stack | Protobuf and Scalable-oriented gRPC generation are implemented; descriptor sets and compatibility validation remain follow-up work. Other candidates: Iceberg/Delta schema, analytics tracking plans, and GraphQL SDL |
 
 ## 6. Non-goals
 
