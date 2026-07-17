@@ -87,6 +87,42 @@ enum CustomerStatus {
     ]
 
 
+def test_emit_protobuf_maps_use_native_map_type_and_manifest_metadata(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Widget @ 1 (additive) {
+    @key widgetId: uuid
+    attributes: map<string, int>
+    counts?: map<u32, u64>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+
+    proto = next(art for art in artifacts if art.ref == "platform.Widget@1" and art.path.suffix == ".proto")
+    assert "map<string, int64> attributes = 2;" in proto.content
+    assert "map<uint32, uint64> counts = 3;" in proto.content
+    assert "optional map" not in proto.content
+    assert "bytes attributes" not in proto.content
+    assert "bytes counts" not in proto.content
+
+    manifest = next(
+        art for art in artifacts if art.ref == "platform.Widget@1" and art.path.name == "schema-manifest.json"
+    )
+    fields = {field["name"]: field for field in json.loads(manifest.content)["schemas"][0]["fields"]}
+    assert fields["attributes"]["type"] == "map<string, int64>"
+    assert fields["attributes"]["map"] == {"key_type": "string", "value_type": "int64"}
+    assert fields["counts"]["type"] == "map<uint32, uint64>"
+    assert fields["counts"]["map"] == {"key_type": "uint32", "value_type": "uint64"}
+
+
 def test_emit_protobuf_fixed_width_integers(tmp_path):
     (tmp_path / "types.mdl").write_text(
         """
@@ -400,7 +436,7 @@ domain platform {
     assert ".modelable.platform.semantic.SchemaId schema_id = 1;" in proto.content
 
 
-def test_emit_protobuf_keeps_nonsemantic_named_type_and_map_fallbacks(tmp_path):
+def test_emit_protobuf_keeps_nonsemantic_named_type_fallbacks(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """
 domain example {
@@ -425,7 +461,7 @@ domain example {
     proto = next(art for art in artifacts if art.ref == "example.Customer@1" and art.path.suffix == ".proto")
 
     assert "bytes address = 2;" in proto.content
-    assert "bytes attributes = 3;" in proto.content
+    assert "map<string, string> attributes = 3;" in proto.content
     assert "semantic-types.proto" not in proto.content
 
 
