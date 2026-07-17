@@ -56,7 +56,9 @@ Work should proceed in dependency order:
 2. **Carry semantic identity into Protobuf.**
    Add semantic-type resolution to the Protobuf emitter and expose registry IDs
    in the schema manifest. Preserve nominal identity where Protobuf supports it
-   and document any representation that must remain structural.
+   and document any representation that must remain structural. The accepted
+   design is documented in
+   [Protobuf Semantic Identity — Design](docs/superpowers/specs/2026-07-17-protobuf-semantic-identity-design.md).
 3. **Close Protobuf schema-fidelity gaps.**
    Replace the current opaque `bytes` fallback for `map<K,V>` with a documented,
    deterministic mapping and carry declared primary/secondary index metadata
