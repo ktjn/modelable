@@ -168,6 +168,56 @@ service EntityReadService {
     ]
 
 
+def test_emit_grpc_service_manifest_uses_declared_index_metadata(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+    createdAt: timestamp
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byCustomer {
+      key: [customerId]
+      sort: [createdAt desc]
+      unique: false
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_grpc(workspace, tmp_path / "out")
+
+    service_manifest = next(
+        art for art in artifacts if art.ref == "platform.Order@1" and art.path.name == "service-manifest.json"
+    )
+    manifest_doc = json.loads(service_manifest.content)
+    assert manifest_doc["read_indexes"] == [
+        {
+            "index_name": "primary",
+            "index_version": 1,
+            "key_fields": ["orderId"],
+            "sort_fields": [],
+            "unique": True,
+        },
+        {
+            "index_name": "byCustomer",
+            "index_version": 1,
+            "key_fields": ["customerId"],
+            "sort_fields": ["createdAt desc"],
+            "unique": False,
+        },
+    ]
+
+
 def test_compile_grpc_writes_payload_service_and_manifests(tmp_path):
     mdl = tmp_path / "customer.mdl"
     mdl.write_text(

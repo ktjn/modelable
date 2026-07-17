@@ -39,6 +39,7 @@ def emit_grpc(
             ref=ref,
             service_proto=f"{name}.v{version}.grpc.proto",
             fields=schema.get("fields", []),
+            indexes=schema.get("indexes"),
         )
         artifacts.append(
             EmittedArtifact(
@@ -191,8 +192,7 @@ service EntityReadService {{
 """
 
 
-def _service_manifest_json(*, ref: str, service_proto: str, fields: object) -> str:
-    key_fields = _key_fields(fields)
+def _service_manifest_json(*, ref: str, service_proto: str, fields: object, indexes: object = None) -> str:
     manifest: dict[str, object] = {
         "target": "grpc",
         "ref": ref,
@@ -200,19 +200,69 @@ def _service_manifest_json(*, ref: str, service_proto: str, fields: object) -> s
         "service_proto": service_proto,
         "services": ["CommandService", "EntityReadService"],
         "entity_types": [ref],
-        "read_indexes": [],
+        "read_indexes": _read_indexes(indexes, fields),
     }
-    if key_fields:
-        manifest["read_indexes"] = [
-            {
-                "index_name": "primary",
-                "index_version": 1,
-                "key_fields": key_fields,
-                "sort_fields": [],
-                "unique": True,
-            }
-        ]
     return json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
+
+
+def _read_indexes(indexes: object, fields: object) -> list[dict[str, object]]:
+    declared = _declared_read_indexes(indexes)
+    if declared:
+        return declared
+    key_fields = _key_fields(fields)
+    if not key_fields:
+        return []
+    return [
+        {
+            "index_name": "primary",
+            "index_version": 1,
+            "key_fields": key_fields,
+            "sort_fields": [],
+            "unique": True,
+        }
+    ]
+
+
+def _declared_read_indexes(indexes: object) -> list[dict[str, object]]:
+    if not isinstance(indexes, dict):
+        return []
+    primary = indexes.get("primary")
+    secondary = indexes.get("secondary")
+    result: list[dict[str, object]] = []
+    if isinstance(primary, dict):
+        result.append(_service_index(primary))
+    if isinstance(secondary, list):
+        for item in secondary:
+            if isinstance(item, dict):
+                result.append(_service_index(item))
+    return result
+
+
+def _service_index(index: dict[object, object]) -> dict[str, object]:
+    version = index.get("index_version", 1)
+    key_fields = index.get("key_fields", [])
+    return {
+        "index_name": str(index.get("index_name", "")),
+        "index_version": version if isinstance(version, int) else 1,
+        "key_fields": [field for field in key_fields if isinstance(field, str)] if isinstance(key_fields, list) else [],
+        "sort_fields": _service_sort_fields(index.get("sort_fields", [])),
+        "unique": bool(index.get("unique", False)),
+    }
+
+
+def _service_sort_fields(sort_fields: object) -> list[str]:
+    if not isinstance(sort_fields, list):
+        return []
+    rendered: list[str] = []
+    for sort_field in sort_fields:
+        if isinstance(sort_field, str):
+            rendered.append(sort_field)
+        elif isinstance(sort_field, dict):
+            field = sort_field.get("field")
+            direction = sort_field.get("direction")
+            if isinstance(field, str):
+                rendered.append(f"{field} desc" if direction == "desc" else field)
+    return rendered
 
 
 def _key_fields(fields: object) -> list[str]:
