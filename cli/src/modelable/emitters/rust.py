@@ -267,6 +267,15 @@ def _rust_type_for_semantic_underlying(underlying: FieldType) -> tuple[str, list
     return "String", ["Debug", "Clone", "PartialEq"], None
 
 
+def _render_registry_id_impl(type_name: str, allocated_id: int) -> list[str]:
+    return [
+        "",
+        f"impl {type_name} {{",
+        f"    pub const REGISTRY_ID: u32 = {allocated_id};",
+        "}",
+    ]
+
+
 def _emit_semantic_type(
     domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path, *, allocated_id: int | None = None
 ) -> EmittedArtifact:
@@ -284,6 +293,8 @@ def _emit_semantic_type(
     lines.append(f"#[derive({', '.join(derives)})]")
     lines.append("#[serde(transparent)]")
     lines.append(f"pub struct {struct_name}(pub {rust_type});")
+    if allocated_id is not None:
+        lines.extend(_render_registry_id_impl(struct_name, allocated_id))
     lines.append("")
     lines.append(f"impl From<{rust_type}> for {struct_name} {{")
     lines.append(f"    fn from(value: {rust_type}) -> Self {{")

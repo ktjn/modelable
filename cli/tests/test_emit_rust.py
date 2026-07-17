@@ -263,7 +263,7 @@ domain platform {
     assert "pub module_id: ModuleId," in art.content
 
 
-def test_emit_rust_semantic_type_with_allocated_id_gets_doc_comment(tmp_path):
+def test_emit_rust_registry_semantic_type_with_allocated_id_gets_constant(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
         """
@@ -279,9 +279,10 @@ domain platform {
     artifacts = emit_rust(workspace, tmp_path / "out", registry_ids={"platform.SchemaId": 1})
     art = next(a for a in artifacts if a.ref == "platform.SchemaId")
     assert "/// registry id: 1" in art.content
+    assert "impl SchemaId {\n    pub const REGISTRY_ID: u32 = 1;\n}" in art.content
 
 
-def test_emit_rust_semantic_type_without_allocated_id_has_no_doc_comment(tmp_path):
+def test_emit_rust_registry_semantic_type_without_allocated_id_has_no_identity(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
         """
@@ -297,6 +298,26 @@ domain platform {
     artifacts = emit_rust(workspace, tmp_path / "out")
     art = next(a for a in artifacts if a.ref == "platform.SchemaId")
     assert "registry id" not in art.content
+    assert "pub const REGISTRY_ID" not in art.content
+
+
+def test_emit_rust_non_registry_semantic_type_ignores_allocated_id(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "test-team"
+
+  semantic ModuleId : u32
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out", registry_ids={"platform.ModuleId": 7})
+    art = next(a for a in artifacts if a.ref == "platform.ModuleId")
+    assert "registry id" not in art.content
+    assert "pub const REGISTRY_ID" not in art.content
 
 
 def test_emit_rust_temporal_types_map_to_string(tmp_path):
