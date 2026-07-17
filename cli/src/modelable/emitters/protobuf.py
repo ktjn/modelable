@@ -735,6 +735,8 @@ def _manifest_field(field: _ProtoField) -> dict[str, object]:
         entry["fixed_length"] = field.fixed_length
     if field.semantic is not None:
         entry["semantic_type"] = field.semantic.ref
+    if field.enum is not None:
+        entry["enum_values"] = list(field.enum.values)
     if field.map is not None:
         map_entry: dict[str, object] = {
             "key_type": field.map.key_type,

@@ -73,7 +73,14 @@ enum CustomerStatus {
     assert manifest_doc["schemas"][0]["fields"] == [
         {"name": "customerId", "proto_name": "customer_id", "number": 1, "type": "string", "key": True},
         {"name": "email", "proto_name": "email", "number": 2, "type": "optional string", "key": False},
-        {"name": "status", "proto_name": "status", "number": 3, "type": "CustomerStatus", "key": False},
+        {
+            "name": "status",
+            "proto_name": "status",
+            "number": 3,
+            "type": "CustomerStatus",
+            "key": False,
+            "enum_values": ["active", "blocked"],
+        },
         {
             "name": "joinedAt",
             "proto_name": "joined_at",
