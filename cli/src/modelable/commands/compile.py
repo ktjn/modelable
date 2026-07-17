@@ -8,9 +8,10 @@ from pathlib import Path
 import click
 
 from modelable.commands.common import console, load_workspace_or_exit
-from modelable.emitters.base import EmittedArtifact
+from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.csharp import emit_csharp
 from modelable.emitters.dbt_yaml import emit_dbt_yaml
+from modelable.emitters.descriptors import DescriptorGenerationError, compile_descriptor_set
 from modelable.emitters.diagnostics import deferred_target
 from modelable.emitters.fhir import emit_fhir_profile
 from modelable.emitters.go import emit_go
@@ -365,6 +366,11 @@ def compile(
             output,
             registry_ids=registry_ids,
         )
+        if descriptor_set:
+            try:
+                artifacts = _emit_protobuf_with_descriptors(artifacts, output)
+            except DescriptorGenerationError as exc:
+                raise click.ClickException(str(exc)) from exc
         for art in artifacts:
             _write_artifact(art)
             _print_artifact_result(art)
@@ -440,3 +446,67 @@ def _write_artifact(art: EmittedArtifact) -> None:
         art.path.write_text(json.dumps(art.content, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     else:
         art.path.write_text(art.content, encoding="utf-8")
+
+
+def _emit_protobuf_with_descriptors(artifacts: list[EmittedArtifact], output: Path) -> list[EmittedArtifact]:
+    for art in artifacts:
+        if art.path.name != "schema-manifest.json":
+            _write_artifact(art)
+
+    result: list[EmittedArtifact] = []
+    for art in artifacts:
+        if art.path.name != "schema-manifest.json":
+            result.append(art)
+            continue
+        assert isinstance(art.content, str)
+        schema = json.loads(art.content)["schemas"][0]
+        ref = str(schema["ref"])
+        proto_name = art.path.parent.name + ".proto"
+        proto_path = art.path.parent / proto_name
+        descriptor_path = art.path.parent / (art.path.parent.name + ".descriptor.pb")
+        descriptor_bytes = compile_descriptor_set(
+            proto_root=output,
+            proto_files=[proto_path],
+            out_path=descriptor_path,
+            target_ref=ref,
+        )
+        descriptor_artifact = EmittedArtifact(
+            target=art.target,
+            ref=art.ref,
+            artifact_id=f"{art.artifact_id}.descriptor",
+            path=descriptor_path,
+            content=descriptor_bytes,
+            content_hash=compute_content_hash(descriptor_bytes),
+        )
+        manifest_content = _with_schema_descriptor_metadata(
+            art.content,
+            descriptor_path=descriptor_path,
+            descriptor_hash=descriptor_artifact.content_hash,
+        )
+        manifest_artifact = EmittedArtifact(
+            target=art.target,
+            ref=art.ref,
+            artifact_id=art.artifact_id,
+            path=art.path,
+            content=manifest_content,
+            content_hash=compute_content_hash(manifest_content),
+            warnings=art.warnings,
+        )
+        result.extend([descriptor_artifact, manifest_artifact])
+    return result
+
+
+def _with_schema_descriptor_metadata(
+    manifest_content: str,
+    *,
+    descriptor_path: Path,
+    descriptor_hash: str,
+) -> str:
+    manifest = json.loads(manifest_content)
+    schema = manifest["schemas"][0]
+    schema["descriptor"] = {
+        "path": descriptor_path.name,
+        "content_hash": descriptor_hash,
+        "include_imports": True,
+    }
+    return json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import stat
 import sys
@@ -167,8 +168,86 @@ domain platform {
     )
     out = tmp_path / "dist"
 
-    result = CliRunner().invoke(cli, ["compile", str(mdl), "--target", "protobuf", "--out", str(out)])
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ["compile", str(mdl), "--target", "protobuf", "--out", str(out)])
 
     assert result.exit_code == 0, result.output
     assert (out / "platform" / "Order.v1" / "Order.v1.proto").exists()
     assert not (out / "platform" / "Order.v1" / "Order.v1.descriptor.pb").exists()
+
+
+def test_compile_protobuf_descriptor_set_writes_descriptor_and_manifest_metadata(tmp_path, monkeypatch):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    _write_python_fake_protoc(
+        bin_dir,
+        source=(
+            "from pathlib import Path\n"
+            "import sys\n"
+            "out = next(arg.split('=', 1)[1] for arg in sys.argv[1:] if arg.startswith('--descriptor_set_out='))\n"
+            "Path(out).write_bytes(b'protobuf-descriptor')\n"
+        ),
+    )
+    monkeypatch.setenv("PATH", str(bin_dir) + os.pathsep + os.environ.get("PATH", ""))
+    out = tmp_path / "dist"
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            cli,
+            ["compile", str(mdl), "--target", "protobuf", "--out", str(out), "--descriptor-set"],
+        )
+
+    assert result.exit_code == 0, result.output
+    descriptor = out / "platform" / "Order.v1" / "Order.v1.descriptor.pb"
+    assert descriptor.read_bytes().strip() == b"protobuf-descriptor"
+    schema = json.loads((out / "platform" / "Order.v1" / "schema-manifest.json").read_text(encoding="utf-8"))[
+        "schemas"
+    ][0]
+    assert schema["descriptor"] == {
+        "path": "Order.v1.descriptor.pb",
+        "content_hash": compute_content_hash(descriptor.read_bytes()),
+        "include_imports": True,
+    }
+
+
+def test_compile_protobuf_descriptor_set_fails_when_protoc_is_missing(tmp_path, monkeypatch):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            cli,
+            ["compile", str(mdl), "--target", "protobuf", "--out", str(tmp_path / "dist"), "--descriptor-set"],
+        )
+
+    assert result.exit_code != 0
+    assert "descriptor generation requires protoc on PATH" in result.output
