@@ -352,9 +352,11 @@ Only item 2 is marked shipped. Protobuf map/index fidelity, descriptor sets,
 reserved fields, compatibility validation, and Scalable consumer fixtures
 remain later dependency-ordered slices.
 
-This design and its implementation plan stay in the active
-`docs/superpowers/specs/` and `docs/superpowers/plans/` directories until the
-implementation merges. They are archived immediately after merge.
+This design and its
+[implementation plan](../plans/2026-07-17-protobuf-semantic-identity.md) stay
+in the active `docs/superpowers/specs/` and `docs/superpowers/plans/`
+directories until the implementation merges. They are archived immediately
+after merge.
 
 ## 10. Out of Scope
 
