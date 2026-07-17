@@ -38,6 +38,7 @@ def build_registry(
         _insert_workspace(conn, workspace)
         _insert_registry_ids(conn, registry_ids)
         conn.commit()
+    conn.close()
 
     return registry_path
 
