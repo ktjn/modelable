@@ -238,3 +238,96 @@ message CustomerSummary {
 }
 """
     )
+
+
+def test_emit_protobuf_semantic_bundles_are_stable_and_flatten_chains(tmp_path):
+    (tmp_path / "semantic.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  semantic EntityId : uuid
+  semantic OrderId : EntityId
+  semantic SchemaId : u32 { registry: true }
+  semantic RecordedAt : timestamp
+  semantic ContentHash : binary(32)
+  semantic Amount : decimal(12, 2)
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(
+        workspace,
+        tmp_path / "out",
+        registry_ids={"platform.SchemaId": 7},
+    )
+
+    bundle = next(art for art in artifacts if art.path.name == "semantic-types.proto")
+    assert bundle.target == "protobuf"
+    assert bundle.ref == "platform.semantic-types"
+    assert bundle.artifact_id == "platform.semantic-types"
+    assert bundle.path == tmp_path / "out" / "platform" / "semantic-types.proto"
+    assert (
+        bundle.content
+        == """syntax = "proto3";
+
+package modelable.platform.semantic;
+
+import "google/protobuf/timestamp.proto";
+
+message Amount {
+  string value = 1;
+}
+
+message ContentHash {
+  bytes value = 1;
+}
+
+message EntityId {
+  string value = 1;
+}
+
+message OrderId {
+  string value = 1;
+}
+
+message RecordedAt {
+  google.protobuf.Timestamp value = 1;
+}
+
+message SchemaId {
+  uint32 value = 1;
+}
+"""
+    )
+
+
+def test_emit_protobuf_semantic_bundles_are_domain_scoped_and_deterministic(tmp_path):
+    (tmp_path / "semantic.mdl").write_text(
+        """
+domain zeta {
+  owner: "zeta-team"
+  semantic ZetaId : u64
+}
+
+domain alpha {
+  owner: "alpha-team"
+  semantic AlphaId : i32
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    first = emit_protobuf(workspace, tmp_path / "first")
+    second = emit_protobuf(workspace, tmp_path / "second")
+    first_bundles = [(art.ref, art.content) for art in first if art.path.name == "semantic-types.proto"]
+    second_bundles = [(art.ref, art.content) for art in second if art.path.name == "semantic-types.proto"]
+
+    assert first_bundles == second_bundles
+    assert [ref for ref, _ in first_bundles] == [
+        "alpha.semantic-types",
+        "zeta.semantic-types",
+    ]

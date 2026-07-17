@@ -20,11 +20,38 @@ from modelable.parser.ir import (
     FixedBinaryType,
     MdlFile,
     ModelVersion,
+    NamedType,
     PrimitiveType,
     ProjectionField,
     ProjectionVersion,
+    SemanticTypeDecl,
 )
 from modelable.registry.resolver import resolve_model_ref
+
+
+@dataclass(frozen=True)
+class _SemanticProtoType:
+    ref: str
+    declaring_domain: str
+    proto_type: str
+    underlying_type: str
+    fixed_length: int | None
+    registry_id: int | None
+
+
+@dataclass(frozen=True)
+class _SemanticIndex:
+    by_name: dict[str, tuple[_SemanticProtoType, ...]]
+    by_domain: dict[str, tuple[_SemanticProtoType, ...]]
+
+    def resolve(self, name: str) -> _SemanticProtoType | None:
+        candidates = self.by_name.get(name, ())
+        if not candidates:
+            return None
+        if len(candidates) > 1:
+            refs = ", ".join(candidate.ref for candidate in candidates)
+            raise ValueError(f"ambiguous semantic type '{name}'; candidates: {refs}")
+        return candidates[0]
 
 
 @dataclass(frozen=True)
@@ -44,9 +71,15 @@ class _ProtoEnum:
     values: tuple[str, ...]
 
 
-def emit_protobuf(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
-    """Emit Protocol Buffers schema artifacts for model versions."""
-    artifacts: list[EmittedArtifact] = []
+def emit_protobuf(
+    workspace: Workspace,
+    out_dir: Path,
+    *,
+    registry_ids: dict[str, int] | None = None,
+) -> list[EmittedArtifact]:
+    """Emit Protocol Buffers schema artifacts for semantic types, models, and projections."""
+    semantic_index = _build_semantic_index(workspace.mdl, registry_ids)
+    artifacts = _emit_semantic_bundles(semantic_index, out_dir)
     for domain in workspace.mdl.domains:
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
@@ -243,6 +276,133 @@ def _primitive_to_proto(kind: str) -> tuple[str, int | None]:
         "i32": "int32",
         "i64": "int64",
     }.get(kind, "string"), None
+
+
+def _validate_registry_id(ref: str, value: int) -> int:
+    maximum = 2**32 - 1
+    if type(value) is not int or not 1 <= value <= maximum:
+        raise ValueError(f"registry id for {ref} must be between 1 and {maximum}")
+    return value
+
+
+def _semantic_declarations(
+    mdl: MdlFile,
+) -> dict[str, tuple[tuple[str, SemanticTypeDecl], ...]]:
+    grouped: dict[str, list[tuple[str, SemanticTypeDecl]]] = {}
+    for domain in mdl.domains:
+        for decl in domain.semantic_types:
+            grouped.setdefault(decl.name, []).append((domain.name, decl))
+    return {name: tuple(sorted(candidates, key=lambda candidate: candidate[0])) for name, candidates in grouped.items()}
+
+
+def _unique_semantic_decl(
+    name: str,
+    declarations: dict[str, tuple[tuple[str, SemanticTypeDecl], ...]],
+) -> tuple[str, SemanticTypeDecl]:
+    candidates = declarations.get(name, ())
+    if not candidates:
+        raise ValueError(f"semantic type '{name}' is not declared")
+    if len(candidates) > 1:
+        refs = ", ".join(f"{domain}.{decl.name}" for domain, decl in candidates)
+        raise ValueError(f"ambiguous semantic type '{name}'; candidates: {refs}")
+    return candidates[0]
+
+
+def _semantic_terminal_type(
+    decl: SemanticTypeDecl,
+    declarations: dict[str, tuple[tuple[str, SemanticTypeDecl], ...]],
+) -> FieldType:
+    current = decl.underlying
+    visited = {decl.name}
+    while isinstance(current, NamedType):
+        if current.name in visited:
+            raise ValueError(f"semantic type cycle encountered at '{current.name}'")
+        visited.add(current.name)
+        _, next_decl = _unique_semantic_decl(current.name, declarations)
+        current = next_decl.underlying
+    return current
+
+
+def _semantic_terminal_proto(field_type: FieldType) -> tuple[str, int | None]:
+    if isinstance(field_type, PrimitiveType):
+        return _primitive_to_proto(field_type.kind)
+    if isinstance(field_type, DecimalType):
+        return "string", None
+    if isinstance(field_type, FixedBinaryType):
+        return "bytes", field_type.length
+    raise ValueError(f"unsupported semantic terminal type: {type(field_type).__name__}")
+
+
+def _semantic_package(domain: str) -> str:
+    normalized = re.sub(r"[^0-9A-Za-z_]+", "_", domain).strip("_").lower()
+    return f"modelable.{normalized}.semantic"
+
+
+def _build_semantic_index(
+    mdl: MdlFile,
+    registry_ids: dict[str, int] | None,
+) -> _SemanticIndex:
+    declarations = _semantic_declarations(mdl)
+    by_name: dict[str, list[_SemanticProtoType]] = {}
+    by_domain: dict[str, list[_SemanticProtoType]] = {}
+    for domain in sorted(mdl.domains, key=lambda item: item.name):
+        for decl in sorted(domain.semantic_types, key=lambda item: item.name):
+            ref = f"{domain.name}.{decl.name}"
+            terminal, fixed_length = _semantic_terminal_proto(_semantic_terminal_type(decl, declarations))
+            allocated = (registry_ids or {}).get(ref) if decl.registry else None
+            if allocated is not None:
+                allocated = _validate_registry_id(ref, allocated)
+            semantic = _SemanticProtoType(
+                ref=ref,
+                declaring_domain=domain.name,
+                proto_type=f".{_semantic_package(domain.name)}.{decl.name}",
+                underlying_type=terminal,
+                fixed_length=fixed_length,
+                registry_id=allocated,
+            )
+            by_name.setdefault(decl.name, []).append(semantic)
+            by_domain.setdefault(domain.name, []).append(semantic)
+    return _SemanticIndex(
+        by_name={name: tuple(values) for name, values in by_name.items()},
+        by_domain={domain: tuple(values) for domain, values in by_domain.items()},
+    )
+
+
+def _render_semantic_bundle(domain: str, definitions: tuple[_SemanticProtoType, ...]) -> str:
+    lines = ['syntax = "proto3";', "", f"package {_semantic_package(domain)};", ""]
+    if any(definition.underlying_type == "google.protobuf.Timestamp" for definition in definitions):
+        lines.extend(['import "google/protobuf/timestamp.proto";', ""])
+    for index, definition in enumerate(definitions):
+        if index:
+            lines.append("")
+        message_name = definition.proto_type.rsplit(".", 1)[1]
+        lines.extend(
+            [
+                f"message {message_name} {{",
+                f"  {definition.underlying_type} value = 1;",
+                "}",
+            ]
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _emit_semantic_bundles(index: _SemanticIndex, out_dir: Path) -> list[EmittedArtifact]:
+    artifacts: list[EmittedArtifact] = []
+    for domain, definitions in sorted(index.by_domain.items()):
+        content = _render_semantic_bundle(domain, definitions)
+        ref = f"{domain}.semantic-types"
+        artifacts.append(
+            EmittedArtifact(
+                target="protobuf",
+                ref=ref,
+                artifact_id=ref,
+                path=out_dir / domain / "semantic-types.proto",
+                content=content,
+                content_hash=compute_content_hash(content),
+            )
+        )
+    return artifacts
 
 
 def _render_proto(*, package: str, message_name: str, fields: list[_ProtoField]) -> str:
