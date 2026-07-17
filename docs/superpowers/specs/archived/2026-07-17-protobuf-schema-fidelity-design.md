@@ -4,7 +4,7 @@ Date: 2026-07-17
 
 ## 1. Purpose
 
-Priority 1 item 3 in [ROADMAP.md](../../../ROADMAP.md) closes two known gaps in
+Priority 1 item 3 in [ROADMAP.md](../../../../ROADMAP.md) closes two known gaps in
 the Protobuf and Scalable gRPC contract path:
 
 - `map<K,V>` fields currently emit opaque `bytes`, which erases the map's wire
