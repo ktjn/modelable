@@ -701,7 +701,7 @@ domain platform {
     }
   }
 }
-""",
+"""
     (without_index / "model.mdl").write_text(without_source, encoding="utf-8")
     (with_index / "model.mdl").write_text(with_source, encoding="utf-8")
     without_schema = json.loads(
