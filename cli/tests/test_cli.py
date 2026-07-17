@@ -223,6 +223,8 @@ domain platform {
         lock_path = Path("registry-ids.lock")
         assert lock_path.exists()
         assert json.loads(lock_path.read_text(encoding="utf-8")) == {"platform.SchemaId": 1}
+        generated = (tmp_path / "dist" / "platform" / "schema_id.rs").read_text(encoding="utf-8")
+        assert "pub const REGISTRY_ID: u32 = 1;" in generated
 
 
 def test_compile_is_stable_across_repeated_runs(tmp_path):

@@ -25,6 +25,7 @@ from modelable.parser.ir import (
     SemanticTypeDecl,
 )
 from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.signature import compute_version_signature
 
 
 @dataclass
@@ -267,6 +268,54 @@ def _rust_type_for_semantic_underlying(underlying: FieldType) -> tuple[str, list
     return "String", ["Debug", "Clone", "PartialEq"], None
 
 
+def _render_registry_id_impl(type_name: str, allocated_id: int) -> list[str]:
+    _validate_rust_u32_constant("REGISTRY_ID", allocated_id, minimum=1)
+    return [
+        "",
+        f"impl {type_name} {{",
+        f"    pub const REGISTRY_ID: u32 = {allocated_id};",
+        "}",
+    ]
+
+
+def _validate_rust_u32_constant(name: str, value: int, *, minimum: int) -> None:
+    maximum = 2**32 - 1
+    if type(value) is not int or not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+
+
+def _signature_bytes(signature: str) -> bytes:
+    if re.fullmatch(r"[0-9a-fA-F]{64}", signature) is None:
+        raise ValueError("canonical Modelable signature must contain exactly 64 hexadecimal characters")
+    return bytes.fromhex(signature)
+
+
+def _render_schema_identity_impl(
+    type_name: str,
+    version: int,
+    signature: str,
+    *,
+    storage_gated: bool = False,
+) -> list[str]:
+    _validate_rust_u32_constant("SCHEMA_VERSION", version, minimum=0)
+    values = _signature_bytes(signature)
+    lines = [""]
+    if storage_gated:
+        lines.append('#[cfg(feature = "storage")]')
+    lines.extend(
+        [
+            f"impl {type_name} {{",
+            f"    pub const SCHEMA_VERSION: u32 = {version};",
+            "    pub const SCHEMA_CONTENT_SIGNATURE: [u8; 32] = [",
+        ]
+    )
+    for offset in range(0, len(values), 8):
+        row = ", ".join(f"0x{value:02x}" for value in values[offset : offset + 8])
+        lines.append(f"        {row},")
+    lines.extend(["    ];", "}"])
+    return lines
+
+
 def _emit_semantic_type(
     domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path, *, allocated_id: int | None = None
 ) -> EmittedArtifact:
@@ -284,6 +333,8 @@ def _emit_semantic_type(
     lines.append(f"#[derive({', '.join(derives)})]")
     lines.append("#[serde(transparent)]")
     lines.append(f"pub struct {struct_name}(pub {rust_type});")
+    if allocated_id is not None:
+        lines.extend(_render_registry_id_impl(struct_name, allocated_id))
     lines.append("")
     lines.append(f"impl From<{rust_type}> for {struct_name} {{")
     lines.append(f"    fn from(value: {rust_type}) -> Self {{")
@@ -370,6 +421,13 @@ def _emit_model(
         extra_uses=use_statements,
     )
     lines.extend(_render_struct_definition(type_name, field_specs))
+    lines.extend(
+        _render_schema_identity_impl(
+            type_name,
+            version.version,
+            compute_version_signature(domain.name, model_name, version),
+        )
+    )
     lines.extend(_render_nested_definitions(nested_definitions))
 
     text = "\n".join(lines) + "\n"
@@ -464,6 +522,14 @@ def _emit_projection(
     )
     lines.extend(
         _render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated)
+    )
+    lines.extend(
+        _render_schema_identity_impl(
+            type_name,
+            version.version,
+            compute_version_signature(domain.name, projection_name, version),
+            storage_gated=storage_gated,
+        )
     )
     lines.extend(_render_nested_definitions(nested_definitions))
     lines.extend(

@@ -234,7 +234,17 @@ implemented:
   facets from the local graph. Runtime event collection remains outside the
   local emitter boundary.
 - Generated-language targets beyond TypeScript: C#, Java, Python, Rust, and Go. These targets are implemented in the local codegen boundary; additional future targets stay deferred.
-- Semantic types (`semantic Name: Underlying`, see [Language Reference §3.8](language-reference.md#38-semantic-types)): the Rust emitter generates a `#[serde(transparent)]` tuple-struct newtype per declaration (`pub struct Name(pub Underlying);`) with `From`/`From`(reverse) conversions and `Deref` to the underlying type. Derives (`Debug`, `Clone`, plus `Copy`/`Eq`/`Hash` where the underlying Rust type supports them) are chosen per underlying kind — e.g. integers and `uuid::Uuid` derive `Copy + Eq + Hash`, `String` and `f64`-backed types omit `Copy`, and `f64` additionally omits `Eq`/`Hash`. Fields that reference a semantic type use the newtype directly, with a `use` import generated the same way cross-domain model references are resolved. When a declaration is `registry: true` and has an entry in `registry-ids.lock`, the generated struct also carries a `/// registry id: N` doc comment immediately above its `#[derive(...)]` attribute. All other emitters resolve a semantic type reference to its underlying type and do not yet generate a distinct type; extending semantic-type support to those targets, and exposing the allocated id in the protobuf schema manifest, is deferred follow-up work.
+- Semantic types (`semantic Name: Underlying`, see [Language Reference §3.8](language-reference.md#38-semantic-types)): the Rust emitter generates a `#[serde(transparent)]` tuple-struct newtype per declaration (`pub struct Name(pub Underlying);`) with `From`/`From`(reverse) conversions and `Deref` to the underlying type. Derives (`Debug`, `Clone`, plus `Copy`/`Eq`/`Hash` where the underlying Rust type supports them) are chosen per underlying kind — e.g. integers and `uuid::Uuid` derive `Copy + Eq + Hash`, `String` and `f64`-backed types omit `Copy`, and `f64` additionally omits `Eq`/`Hash`. Fields that reference a semantic type use the newtype directly, with a `use` import generated the same way cross-domain model references are resolved. When a declaration is `registry: true` and has an entry in `registry-ids.lock`, the generated struct retains its `/// registry id: N` doc comment and exposes the allocation as an associated `u32` constant such as `RuntimeKernelConfigSchemaId::REGISTRY_ID`. A direct emitter call without supplied allocations omits the constant. All other emitters resolve a semantic type reference to its underlying type and do not yet generate a distinct type; extending semantic-type support to those targets, and exposing the allocated ID in the Protobuf schema manifest, is deferred follow-up work.
+
+Every generated Rust model and projection exposes its declared version as an
+associated `u32` constant such as
+`RuntimeKernelConfigV1::SCHEMA_VERSION`. It also exposes the canonical
+Modelable signature as
+`RuntimeKernelConfigV1::SCHEMA_CONTENT_SIGNATURE`, a dependency-free
+`[u8; 32]` produced from `compute_version_signature()`. This canonical
+contract identity is distinct from the generated Rust artifact's text hash
+and from target-specific wire fingerprints such as Protobuf
+`schema_fingerprint`.
 
 ## 11. Diagnostics
 
