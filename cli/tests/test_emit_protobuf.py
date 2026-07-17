@@ -627,3 +627,51 @@ domain platform {
         "schemas"
     ][0]
     assert schema["semantic_types"][0]["registry_id"] == 1
+
+
+def test_compile_protobuf_domain_scope_preserves_semantic_ambiguity(tmp_path):
+    mdl = tmp_path / "ambiguous.mdl"
+    mdl.write_text(
+        """
+domain alpha {
+  owner: "alpha-team"
+  semantic SharedId : u32
+}
+
+domain beta {
+  owner: "beta-team"
+  semantic SharedId : u64
+}
+
+domain consumer {
+  owner: "consumer-team"
+  entity UsesShared @ 1 (additive) {
+    @key id: SharedId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "compile",
+            str(mdl),
+            "--target",
+            "protobuf",
+            "--out",
+            str(tmp_path / "dist"),
+            "--registry",
+            str(tmp_path / ".modelable" / "registry.db"),
+            "--registry-ids",
+            str(tmp_path / "registry-ids.lock"),
+            "--domain",
+            "alpha",
+            "--domain",
+            "consumer",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "ambiguous type 'SharedId'; candidates: alpha.SharedId, beta.SharedId" in result.output

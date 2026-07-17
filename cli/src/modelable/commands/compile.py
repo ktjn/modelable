@@ -54,14 +54,15 @@ def _collect_named_type_names(field_type: FieldType, result: set[str]) -> None:
             _collect_named_type_names(field.type, result)
 
 
-def _domain_defining(mdl: MdlFile, name: str) -> str | None:
-    """Return the name of the domain that defines a model or semantic type, or None."""
-    for domain in mdl.domains:
-        if name in domain.models:
-            return domain.name
-        if any(decl.name == name for decl in domain.semantic_types):
-            return domain.name
-    return None
+def _domains_defining(mdl: MdlFile, name: str) -> tuple[str, ...]:
+    """Return every domain that defines a model or semantic type with this name."""
+    return tuple(
+        sorted(
+            domain.name
+            for domain in mdl.domains
+            if name in domain.models or any(decl.name == name for decl in domain.semantic_types)
+        )
+    )
 
 
 def _find_domain_scope_violations(mdl: MdlFile, requested: set[str]) -> list[str]:
@@ -83,7 +84,15 @@ def _find_domain_scope_violations(mdl: MdlFile, requested: set[str]) -> list[str
                     names: set[str] = set()
                     _collect_named_type_names(field.type, names)
                     for name in names:
-                        target_domain = _domain_defining(mdl, name)
+                        target_domains = _domains_defining(mdl, name)
+                        if len(target_domains) > 1:
+                            candidates = ", ".join(f"{target_domain}.{name}" for target_domain in target_domains)
+                            violations.append(
+                                f"{domain.name}.{model_name}@{version.version} field '{field.name}' "
+                                f"references ambiguous type '{name}'; candidates: {candidates}"
+                            )
+                            continue
+                        target_domain = target_domains[0] if target_domains else None
                         if (
                             target_domain is not None
                             and target_domain != domain.name
