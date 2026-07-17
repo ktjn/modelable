@@ -87,6 +87,369 @@ enum CustomerStatus {
     ]
 
 
+def test_emit_protobuf_maps_use_native_map_type_and_manifest_metadata(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Widget @ 1 (additive) {
+    @key widgetId: uuid
+    attributes: map<string, int>
+    counts?: map<u32, u64>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+
+    proto = next(art for art in artifacts if art.ref == "platform.Widget@1" and art.path.suffix == ".proto")
+    assert "map<string, int64> attributes = 2;" in proto.content
+    assert "map<uint32, uint64> counts = 3;" in proto.content
+    assert "optional map" not in proto.content
+    assert "bytes attributes" not in proto.content
+    assert "bytes counts" not in proto.content
+
+    manifest = next(
+        art for art in artifacts if art.ref == "platform.Widget@1" and art.path.name == "schema-manifest.json"
+    )
+    fields = {field["name"]: field for field in json.loads(manifest.content)["schemas"][0]["fields"]}
+    assert fields["attributes"]["type"] == "map<string, int64>"
+    assert fields["attributes"]["map"] == {"key_type": "string", "value_type": "int64"}
+    assert fields["counts"]["type"] == "map<uint32, uint64>"
+    assert fields["counts"]["map"] == {"key_type": "uint32", "value_type": "uint64"}
+
+
+def test_emit_protobuf_map_values_can_reference_semantic_wrappers_and_timestamps(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+}
+
+domain runtime {
+  owner: "runtime-team"
+
+  entity RuntimeIndex @ 1 (additive) {
+    @key runtimeId: uuid
+    schemas: map<string, SchemaId>
+    seenAt: map<string, timestamp>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out", registry_ids={"platform.SchemaId": 17})
+
+    proto = next(art for art in artifacts if art.ref == "runtime.RuntimeIndex@1" and art.path.suffix == ".proto")
+    assert 'import "google/protobuf/timestamp.proto";' in proto.content
+    assert 'import "platform/semantic-types.proto";' in proto.content
+    assert "map<string, .modelable.platform.semantic.SchemaId> schemas = 2;" in proto.content
+    assert "map<string, google.protobuf.Timestamp> seen_at = 3;" in proto.content
+
+    manifest = next(
+        art for art in artifacts if art.ref == "runtime.RuntimeIndex@1" and art.path.name == "schema-manifest.json"
+    )
+    schema = json.loads(manifest.content)["schemas"][0]
+    assert schema["semantic_types"] == [
+        {
+            "ref": "platform.SchemaId",
+            "proto_type": ".modelable.platform.semantic.SchemaId",
+            "underlying_type": "uint32",
+            "registry_id": 17,
+        }
+    ]
+    fields = {field["name"]: field for field in schema["fields"]}
+    assert fields["schemas"]["map"] == {
+        "key_type": "string",
+        "value_type": ".modelable.platform.semantic.SchemaId",
+        "value_semantic_type": "platform.SchemaId",
+    }
+    assert "semantic_type" not in fields["schemas"]
+
+
+def test_emit_protobuf_map_values_preserve_fixed_length_and_inline_enum_metadata(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Widget @ 1 (additive) {
+    @key widgetId: uuid
+    checksums: map<string, binary(32)>
+    states: map<string, enum(active, blocked)>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+
+    proto = next(art for art in artifacts if art.ref == "platform.Widget@1" and art.path.suffix == ".proto")
+    assert "map<string, bytes> checksums = 2;" in proto.content
+    assert "map<string, WidgetStates> states = 3;" in proto.content
+    assert "enum WidgetStates" in proto.content
+
+    manifest = next(
+        art for art in artifacts if art.ref == "platform.Widget@1" and art.path.name == "schema-manifest.json"
+    )
+    fields = {field["name"]: field for field in json.loads(manifest.content)["schemas"][0]["fields"]}
+    assert fields["checksums"]["map"] == {
+        "key_type": "string",
+        "value_type": "bytes",
+        "value_fixed_length": 32,
+    }
+    assert fields["states"]["map"] == {"key_type": "string", "value_type": "WidgetStates"}
+
+
+def test_emit_protobuf_rejects_unsupported_map_key_type(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  entity Widget @ 1 (additive) {
+    @key widgetId: uuid
+    byUuid: map<uuid, string>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    with pytest.raises(ValueError, match=r"Widget.byUuid.*protobuf map key type uuid is not supported"):
+        emit_protobuf(workspace, tmp_path / "out")
+
+
+def test_emit_protobuf_rejects_unsupported_map_value_named_type(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  value Address @ 1 (additive) {
+    line1: string
+  }
+
+  entity Widget @ 1 (additive) {
+    @key widgetId: uuid
+    addresses: map<string, Address>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    with pytest.raises(ValueError, match=r"Widget.addresses.*protobuf map value named type Address is not supported"):
+        emit_protobuf(workspace, tmp_path / "out")
+
+
+def test_emit_protobuf_rejects_nested_map_value(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  entity Widget @ 1 (additive) {
+    @key widgetId: uuid
+    nested: map<string, map<string, int>>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    with pytest.raises(
+        ValueError,
+        match=r"Widget.nested.*protobuf map value type map<string, int64> is not supported",
+    ):
+        emit_protobuf(workspace, tmp_path / "out")
+
+
+def test_emit_protobuf_map_shape_affects_schema_fingerprint_and_is_deterministic(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  entity Widget @ 1 (additive) {
+    @key widgetId: uuid
+    attributes: map<string, int>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    first = emit_protobuf(workspace, tmp_path / "first")
+    second = emit_protobuf(workspace, tmp_path / "second")
+
+    def schema(artifacts):
+        manifest = next(
+            art for art in artifacts if art.ref == "platform.Widget@1" and art.path.name == "schema-manifest.json"
+        )
+        return json.loads(manifest.content)["schemas"][0]
+
+    first_schema = schema(first)
+    second_schema = schema(second)
+    assert first_schema == second_schema
+    assert first_schema["fields"][1]["map"] == {"key_type": "string", "value_type": "int64"}
+    assert first_schema["schema_fingerprint"]
+
+
+def test_emit_protobuf_schema_manifest_includes_declared_indexes(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+    createdAt: timestamp
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byCustomer {
+      key: [customerId]
+      sort: [createdAt desc]
+      unique: false
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+
+    manifest = next(
+        art for art in artifacts if art.ref == "platform.Order@1" and art.path.name == "schema-manifest.json"
+    )
+    schema = json.loads(manifest.content)["schemas"][0]
+    assert schema["indexes"] == {
+        "primary": {
+            "index_name": "primary",
+            "index_version": 1,
+            "key_fields": ["orderId"],
+            "sort_fields": [],
+            "unique": True,
+        },
+        "secondary": [
+            {
+                "index_name": "byCustomer",
+                "index_version": 1,
+                "key_fields": ["customerId"],
+                "sort_fields": [{"field": "createdAt", "direction": "desc"}],
+                "unique": False,
+            }
+        ],
+    }
+
+
+def test_emit_protobuf_projection_manifest_does_not_duplicate_model_indexes(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byCustomer {
+      key: [customerId]
+    }
+  }
+
+  projection OrderView @ 1
+    from platform.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    customerId <- o.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+
+    projection_manifest = next(
+        art for art in artifacts if art.ref == "platform.OrderView@1" and art.path.name == "schema-manifest.json"
+    )
+    projection_schema = json.loads(projection_manifest.content)["schemas"][0]
+    assert "indexes" not in projection_schema
+
+
+def test_emit_protobuf_declared_indexes_change_schema_fingerprint(tmp_path):
+    without_index = tmp_path / "without"
+    with_index = tmp_path / "with"
+    without_index.mkdir()
+    with_index.mkdir()
+    without_source = """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+  }
+}
+"""
+    with_source = """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byCustomer {
+      key: [customerId]
+    }
+  }
+}
+"""
+    (without_index / "model.mdl").write_text(without_source, encoding="utf-8")
+    (with_index / "model.mdl").write_text(with_source, encoding="utf-8")
+    without_schema = json.loads(
+        next(
+            art
+            for art in emit_protobuf(load_workspace(without_index), tmp_path / "out-without")
+            if art.ref == "platform.Order@1" and art.path.name == "schema-manifest.json"
+        ).content
+    )["schemas"][0]
+    with_schema = json.loads(
+        next(
+            art
+            for art in emit_protobuf(load_workspace(with_index), tmp_path / "out-with")
+            if art.ref == "platform.Order@1" and art.path.name == "schema-manifest.json"
+        ).content
+    )["schemas"][0]
+
+    assert "indexes" not in without_schema
+    assert "indexes" in with_schema
+    assert without_schema["schema_fingerprint"] != with_schema["schema_fingerprint"]
+
+
 def test_emit_protobuf_fixed_width_integers(tmp_path):
     (tmp_path / "types.mdl").write_text(
         """
@@ -192,6 +555,44 @@ domain customer {
     assert result.exit_code == 0, result.output
     assert (out / "customer" / "Customer.v1" / "Customer.v1.proto").exists()
     assert (out / "customer" / "Customer.v1" / "schema-manifest.json").exists()
+
+
+def test_compile_protobuf_writes_native_map_and_index_manifest(tmp_path):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    attributes: map<string, int>
+    customerId: uuid
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byCustomer {
+      key: [customerId]
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    out = tmp_path / "dist"
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli, ["compile", str(mdl), "--target", "protobuf", "--out", str(out)])
+
+    assert result.exit_code == 0, result.output
+    proto = (out / "platform" / "Order.v1" / "Order.v1.proto").read_text(encoding="utf-8")
+    assert "map<string, int64> attributes = 2;" in proto
+    schema = json.loads((out / "platform" / "Order.v1" / "schema-manifest.json").read_text(encoding="utf-8"))[
+        "schemas"
+    ][0]
+    assert schema["fields"][1]["map"] == {"key_type": "string", "value_type": "int64"}
+    assert schema["indexes"]["secondary"][0]["index_name"] == "byCustomer"
 
 
 def test_emit_protobuf_projection_uses_resolved_source_field_types(tmp_path):
@@ -400,7 +801,7 @@ domain platform {
     assert ".modelable.platform.semantic.SchemaId schema_id = 1;" in proto.content
 
 
-def test_emit_protobuf_keeps_nonsemantic_named_type_and_map_fallbacks(tmp_path):
+def test_emit_protobuf_keeps_nonsemantic_named_type_fallback(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """
 domain example {
@@ -413,7 +814,6 @@ domain example {
   entity Customer @ 1 (additive) {
     @key customerId: uuid
     address: Address
-    attributes: map<string, string>
   }
 }
 """,
@@ -425,7 +825,6 @@ domain example {
     proto = next(art for art in artifacts if art.ref == "example.Customer@1" and art.path.suffix == ".proto")
 
     assert "bytes address = 2;" in proto.content
-    assert "bytes attributes = 3;" in proto.content
     assert "semantic-types.proto" not in proto.content
 
 

@@ -168,6 +168,56 @@ service EntityReadService {
     ]
 
 
+def test_emit_grpc_service_manifest_uses_declared_index_metadata(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+    createdAt: timestamp
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byCustomer {
+      key: [customerId]
+      sort: [createdAt desc]
+      unique: false
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_grpc(workspace, tmp_path / "out")
+
+    service_manifest = next(
+        art for art in artifacts if art.ref == "platform.Order@1" and art.path.name == "service-manifest.json"
+    )
+    manifest_doc = json.loads(service_manifest.content)
+    assert manifest_doc["read_indexes"] == [
+        {
+            "index_name": "primary",
+            "index_version": 1,
+            "key_fields": ["orderId"],
+            "sort_fields": [],
+            "unique": True,
+        },
+        {
+            "index_name": "byCustomer",
+            "index_version": 1,
+            "key_fields": ["customerId"],
+            "sort_fields": ["createdAt desc"],
+            "unique": False,
+        },
+    ]
+
+
 def test_compile_grpc_writes_payload_service_and_manifests(tmp_path):
     mdl = tmp_path / "customer.mdl"
     mdl.write_text(
@@ -195,6 +245,38 @@ domain customer {
     assert (base / "Customer.v1.grpc.proto").exists()
     assert (base / "schema-manifest.json").exists()
     assert (base / "service-manifest.json").exists()
+
+
+def test_compile_grpc_writes_declared_read_indexes(tmp_path):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byCustomer {
+      key: [customerId]
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    out = tmp_path / "dist"
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli, ["compile", str(mdl), "--target", "grpc", "--out", str(out)])
+
+    assert result.exit_code == 0, result.output
+    manifest = json.loads((out / "platform" / "Order.v1" / "service-manifest.json").read_text(encoding="utf-8"))
+    assert [index["index_name"] for index in manifest["read_indexes"]] == ["primary", "byCustomer"]
 
 
 def test_compile_grpc_passes_registry_allocations_to_payload_manifest(tmp_path):

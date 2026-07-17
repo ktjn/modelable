@@ -18,6 +18,8 @@ from modelable.parser.ir import (
     FieldDef,
     FieldType,
     FixedBinaryType,
+    IndexDecl,
+    MapType,
     MdlFile,
     ModelVersion,
     NamedType,
@@ -65,12 +67,21 @@ class _ProtoField:
     key: bool
     fixed_length: int | None = None
     semantic: _SemanticProtoType | None = None
+    map: _ProtoMap | None = None
 
 
 @dataclass(frozen=True)
 class _ProtoEnum:
     name: str
     values: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class _ProtoMap:
+    key_type: str
+    value_type: str
+    value_fixed_length: int | None = None
+    value_semantic: _SemanticProtoType | None = None
 
 
 def emit_protobuf(
@@ -129,6 +140,7 @@ def _emit_model_version(
         message_name=model_name,
         fields=proto_fields,
     )
+    indexes = _manifest_indexes(_index_decl_for(domain, model_name, version.version))
     manifest_content = _manifest_json(
         domain=domain.name,
         name=model_name,
@@ -136,6 +148,7 @@ def _emit_model_version(
         version=version,
         ref=f"{domain.name}.{model_name}@{version.version}",
         fields=proto_fields,
+        indexes=indexes,
     )
     base_path = out_dir / domain.name / f"{model_name}.v{version.version}"
 
@@ -218,13 +231,13 @@ def _field_to_proto(
     field_number: int,
     semantic_index: _SemanticIndex,
 ) -> _ProtoField:
-    type_name, enum, fixed_length, semantic = _type_to_proto(
+    type_name, enum, fixed_length, semantic, proto_map = _type_to_proto(
         field.type,
         message_name=message_name,
         field_name=field.name,
         semantic_index=semantic_index,
     )
-    if field.optional and not type_name.startswith("repeated "):
+    if field.optional and not type_name.startswith("repeated ") and proto_map is None:
         type_name = f"optional {type_name}"
     return _ProtoField(
         source_name=field.name,
@@ -235,6 +248,7 @@ def _field_to_proto(
         key=any(isinstance(annotation, AnnKey) for annotation in field.annotations),
         fixed_length=fixed_length,
         semantic=semantic,
+        map=proto_map,
     )
 
 
@@ -248,7 +262,7 @@ def _projection_field_to_proto(
     semantic_index: _SemanticIndex,
 ) -> _ProtoField:
     field_type = _resolve_projection_field_type(field, projection, mdl)
-    type_name, enum, fixed_length, semantic = _type_to_proto(
+    type_name, enum, fixed_length, semantic, proto_map = _type_to_proto(
         field_type,
         message_name=message_name,
         field_name=field.name,
@@ -263,6 +277,7 @@ def _projection_field_to_proto(
         key=False,
         fixed_length=fixed_length,
         semantic=semantic,
+        map=proto_map,
     )
 
 
@@ -298,31 +313,116 @@ def _type_to_proto(
     message_name: str,
     field_name: str,
     semantic_index: _SemanticIndex,
-) -> tuple[str, _ProtoEnum | None, int | None, _SemanticProtoType | None]:
+) -> tuple[str, _ProtoEnum | None, int | None, _SemanticProtoType | None, _ProtoMap | None]:
     if isinstance(field_type, PrimitiveType):
         type_name, fixed_length = _primitive_to_proto(field_type.kind)
-        return type_name, None, fixed_length, None
+        return type_name, None, fixed_length, None, None
     if isinstance(field_type, DecimalType):
-        return "string", None, None, None
+        return "string", None, None, None, None
     if isinstance(field_type, FixedBinaryType):
-        return "bytes", None, field_type.length, None
+        return "bytes", None, field_type.length, None, None
     if isinstance(field_type, NamedType):
         semantic = semantic_index.resolve(field_type.name)
         if semantic is not None:
-            return semantic.proto_type, None, None, semantic
-        return "bytes", None, None, None
+            return semantic.proto_type, None, None, semantic, None
+        return "bytes", None, None, None, None
+    if isinstance(field_type, MapType):
+        key_type = _map_key_to_proto(field_type.key, message_name=message_name, field_name=field_name)
+        value_type, value_fixed_length, value_semantic, value_enum = _map_value_to_proto(
+            field_type.value,
+            message_name=message_name,
+            field_name=field_name,
+            semantic_index=semantic_index,
+        )
+        proto_map = _ProtoMap(
+            key_type=key_type,
+            value_type=value_type,
+            value_fixed_length=value_fixed_length,
+            value_semantic=value_semantic,
+        )
+        return f"map<{key_type}, {value_type}>", value_enum, None, None, proto_map
     if isinstance(field_type, ArrayType):
-        inner, _, _, semantic = _type_to_proto(
+        inner, _, _, semantic, item_map = _type_to_proto(
             field_type.item,
             message_name=message_name,
             field_name=field_name,
             semantic_index=semantic_index,
         )
-        return f"repeated {inner.removeprefix('optional ')}", None, None, semantic
+        if item_map is not None:
+            raise ValueError(f"protobuf field '{field_name}' cannot use a map inside an array")
+        return f"repeated {inner.removeprefix('optional ')}", None, None, semantic, None
     if isinstance(field_type, EnumType):
         enum = _ProtoEnum(name=f"{message_name}{_pascal_case(field_name)}", values=tuple(field_type.values))
-        return enum.name, enum, None, None
-    return "bytes", None, None, None
+        return enum.name, enum, None, None, None
+    return "bytes", None, None, None, None
+
+
+def _map_key_to_proto(field_type: FieldType, *, message_name: str, field_name: str) -> str:
+    if not isinstance(field_type, PrimitiveType):
+        raise ValueError(
+            f"{message_name}.{field_name}: protobuf map key type {_type_display(field_type)} is not supported"
+        )
+
+    if field_type.kind not in {"string", "int", "bool", "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64"}:
+        raise ValueError(f"{message_name}.{field_name}: protobuf map key type {field_type.kind} is not supported")
+    type_name, fixed_length = _primitive_to_proto(field_type.kind)
+    if fixed_length is not None or type_name not in {
+        "string",
+        "int32",
+        "int64",
+        "uint32",
+        "uint64",
+        "bool",
+    }:
+        raise ValueError(f"{message_name}.{field_name}: protobuf map key type {field_type.kind} is not supported")
+    return type_name
+
+
+def _map_value_to_proto(
+    field_type: FieldType,
+    *,
+    message_name: str,
+    field_name: str,
+    semantic_index: _SemanticIndex,
+) -> tuple[str, int | None, _SemanticProtoType | None, _ProtoEnum | None]:
+    if isinstance(field_type, NamedType) and semantic_index.resolve(field_type.name) is None:
+        raise ValueError(
+            f"{message_name}.{field_name}: protobuf map value named type {field_type.name} is not supported"
+        )
+
+    type_name, enum, fixed_length, semantic, proto_map = _type_to_proto(
+        field_type,
+        message_name=message_name,
+        field_name=field_name,
+        semantic_index=semantic_index,
+    )
+    if proto_map is not None:
+        raise ValueError(
+            f"{message_name}.{field_name}: protobuf map value type {_type_display(field_type)} is not supported"
+        )
+    if type_name.startswith("repeated "):
+        raise ValueError(
+            f"{message_name}.{field_name}: protobuf map value type {_type_display(field_type)} is not supported"
+        )
+    return type_name.removeprefix("optional "), fixed_length, semantic, enum
+
+
+def _type_display(field_type: FieldType) -> str:
+    if isinstance(field_type, PrimitiveType):
+        return _primitive_to_proto(field_type.kind)[0]
+    if isinstance(field_type, DecimalType):
+        return "decimal"
+    if isinstance(field_type, FixedBinaryType):
+        return f"binary({field_type.length})"
+    if isinstance(field_type, NamedType):
+        return field_type.name
+    if isinstance(field_type, MapType):
+        return f"map<{_type_display(field_type.key)}, {_type_display(field_type.value)}>"
+    if isinstance(field_type, ArrayType):
+        return f"array<{_type_display(field_type.item)}>"
+    if isinstance(field_type, EnumType):
+        return "enum"
+    return type(field_type).__name__
 
 
 def _primitive_to_proto(kind: str) -> tuple[str, int | None]:
@@ -482,9 +582,7 @@ def _render_proto(*, package: str, message_name: str, fields: list[_ProtoField])
     imports: set[str] = set()
     if any("google.protobuf.Timestamp" in field.type_name for field in fields):
         imports.add("google/protobuf/timestamp.proto")
-    imports.update(
-        f"{field.semantic.declaring_domain}/semantic-types.proto" for field in fields if field.semantic is not None
-    )
+    imports.update(f"{semantic.declaring_domain}/semantic-types.proto" for semantic in _referenced_semantics(fields))
     for import_path in sorted(imports):
         lines.append(f'import "{import_path}";')
     if imports:
@@ -515,27 +613,62 @@ def _manifest_json(
     version: ModelVersion | ProjectionVersion,
     ref: str,
     fields: list[_ProtoField],
+    indexes: dict[str, object] | None = None,
 ) -> str:
     semantics = _referenced_semantics(fields)
+    schema_entry: dict[str, object] = {
+        "ref": ref,
+        "kind": kind,
+        "schema_id": f"modelable://{domain}/{name}/v{version.version}/protobuf",
+        "modelable_signature": compute_version_signature(domain, name, version),
+        "schema_fingerprint": _schema_fingerprint(fields, semantics, indexes),
+        "semantic_types": [_manifest_semantic(semantic, include_registry_id=True) for semantic in semantics],
+        "fields": [_manifest_field(field) for field in fields],
+    }
+    if indexes is not None:
+        schema_entry["indexes"] = indexes
     schema = {
         "target": "protobuf",
-        "schemas": [
-            {
-                "ref": ref,
-                "kind": kind,
-                "schema_id": f"modelable://{domain}/{name}/v{version.version}/protobuf",
-                "modelable_signature": compute_version_signature(domain, name, version),
-                "schema_fingerprint": _schema_fingerprint(fields, semantics),
-                "semantic_types": [_manifest_semantic(semantic, include_registry_id=True) for semantic in semantics],
-                "fields": [_manifest_field(field) for field in fields],
-            }
-        ],
+        "schemas": [schema_entry],
     }
     return json.dumps(schema, indent=2, ensure_ascii=False) + "\n"
 
 
-def _manifest_field(field: _ProtoField) -> dict:
-    entry = {
+def _index_decl_for(domain: DomainDef, name: str, version: int) -> IndexDecl | None:
+    return next(
+        (decl for decl in domain.index_decls if decl.model == name and decl.version == version),
+        None,
+    )
+
+
+def _manifest_indexes(index_decl: IndexDecl | None) -> dict[str, object] | None:
+    if index_decl is None:
+        return None
+    return {
+        "primary": {
+            "index_name": "primary",
+            "index_version": index_decl.version,
+            "key_fields": list(index_decl.primary),
+            "sort_fields": [],
+            "unique": True,
+        },
+        "secondary": [
+            {
+                "index_name": secondary.name,
+                "index_version": index_decl.version,
+                "key_fields": list(secondary.key),
+                "sort_fields": [
+                    {"field": sort_field.field, "direction": sort_field.direction} for sort_field in secondary.sort
+                ],
+                "unique": secondary.unique,
+            }
+            for secondary in index_decl.secondary
+        ],
+    }
+
+
+def _manifest_field(field: _ProtoField) -> dict[str, object]:
+    entry: dict[str, object] = {
         "name": field.source_name,
         "proto_name": field.proto_name,
         "number": field.number,
@@ -546,6 +679,16 @@ def _manifest_field(field: _ProtoField) -> dict:
         entry["fixed_length"] = field.fixed_length
     if field.semantic is not None:
         entry["semantic_type"] = field.semantic.ref
+    if field.map is not None:
+        map_entry: dict[str, object] = {
+            "key_type": field.map.key_type,
+            "value_type": field.map.value_type,
+        }
+        if field.map.value_fixed_length is not None:
+            map_entry["value_fixed_length"] = field.map.value_fixed_length
+        if field.map.value_semantic is not None:
+            map_entry["value_semantic_type"] = field.map.value_semantic.ref
+        entry["map"] = map_entry
     return entry
 
 
@@ -564,17 +707,27 @@ def _manifest_semantic(semantic: _SemanticProtoType, *, include_registry_id: boo
 
 def _referenced_semantics(fields: list[_ProtoField]) -> list[_SemanticProtoType]:
     by_ref = {field.semantic.ref: field.semantic for field in fields if field.semantic is not None}
+    by_ref.update(
+        {
+            field.map.value_semantic.ref: field.map.value_semantic
+            for field in fields
+            if field.map is not None and field.map.value_semantic is not None
+        }
+    )
     return [by_ref[ref] for ref in sorted(by_ref)]
 
 
 def _schema_fingerprint(
     fields: list[_ProtoField],
     semantics: list[_SemanticProtoType],
+    indexes: dict[str, object] | None = None,
 ) -> str:
-    normalized = {
+    normalized: dict[str, object] = {
         "fields": [_manifest_field(field) for field in fields],
         "semantic_types": [_manifest_semantic(semantic, include_registry_id=False) for semantic in semantics],
     }
+    if indexes is not None:
+        normalized["indexes"] = indexes
     return compute_content_hash(json.dumps(normalized, indent=2, ensure_ascii=False))
 
 

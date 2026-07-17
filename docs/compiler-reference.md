@@ -31,8 +31,8 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | OpenLineage sync | 3 | Implemented for Marquez-compatible `/api/v1/lineage` endpoints |
 | OpenLineage export | 3 | Implemented local artifact; runtime collection deferred |
 | ODCS export | 4 | Implemented local artifact |
-| Protobuf | 5 | Implemented first local artifact slice; compatibility validation deferred |
-| Scalable gRPC profile | 5 | Implemented first local artifact slice; descriptor and compatibility validation deferred |
+| Protobuf | 5 | Implemented local artifact with native supported maps and schema manifest index metadata; compatibility validation deferred |
+| Scalable gRPC profile | 5 | Implemented local artifact with declared read-index metadata; descriptor and compatibility validation deferred |
 | Avro | 5 | Deferred |
 | OpenAPI | 5 | Deferred |
 | AsyncAPI | 5 | Deferred |
@@ -184,18 +184,23 @@ implemented:
 - Avro: preserve logical types and field defaults; avoid incompatible schema evolution.
 - Scalable gRPC profile: `compile --target grpc` emits the Protobuf payload
   schemas, generic Scalable command/read service definitions, schema manifests,
-  and service manifests for models and projections. The first slice exposes
+  and service manifests for models and projections. The target exposes
   `CommandService`, `EntityReadService`, envelope contracts, schema identity,
-  and primary index metadata from existing `@key` fields. Descriptor sets,
-  richer index metadata, Scalable registration fixtures, and protobuf/gRPC
+  and `read_indexes` from declared primary/secondary indexes, with an inferred
+  primary fallback from existing `@key` fields when no index declaration
+  exists. Descriptor sets, Scalable registration fixtures, and protobuf/gRPC
   compatibility validation remain deferred follow-up work before gRPC is
   considered stable for long-lived external transport contracts.
 - Protobuf: `compile --target protobuf` emits deterministic `.proto` files and
-  schema manifests for models and projections. The first slice uses
-  declaration-order field numbers for current fields and documents the
-  remaining wire-contract boundary: deleted-field reservations, descriptor
-  sets, and protobuf compatibility validation are deferred follow-up work
-  before protobuf is considered stable for long-lived external wire contracts.
+  schema manifests for models and projections. Supported `map<K,V>` fields
+  render as native Protobuf maps, unsupported map shapes fail clearly, and
+  model schema manifests include declared primary/secondary `indexes`
+  metadata. Field manifest entries for maps record `map.key_type`,
+  `map.value_type`, and optional `map.value_fixed_length` or
+  `map.value_semantic_type`. The remaining wire-contract boundary is
+  deleted-field reservations, descriptor sets, and protobuf compatibility
+  validation before protobuf is considered stable for long-lived external wire
+  contracts.
 - SQL DDL: treat SQL as a binding/materialization artifact, not canonical
   model truth. `index` declarations (see [Language Reference
   §3.9](language-reference.md#39-index-declarations)) generate

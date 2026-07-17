@@ -30,7 +30,7 @@ message Widget {
   bytes massive_delta = 23;
   WidgetStatus status = 24;
   repeated string tags = 25;
-  bytes attributes = 26;
+  map<string, int64> attributes = 26;
 }
 
 enum WidgetStatus {

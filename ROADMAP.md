@@ -60,11 +60,11 @@ Work should proceed in dependency order:
    signatures, and target-specific wire fingerprints in schema manifests. The
    accepted design is documented in
    [Protobuf Semantic Identity — Design](docs/superpowers/specs/archived/2026-07-17-protobuf-semantic-identity-design.md).
-3. **Close Protobuf schema-fidelity gaps.**
-   Replace the current opaque `bytes` fallback for `map<K,V>` with a documented,
-   deterministic mapping and carry declared primary/secondary index metadata
-   into the schema and service manifests.
-4. **Make the wire contract enforceable over time.**
+3. **Shipped: close Protobuf schema-fidelity gaps.**
+   Supported `map<K,V>` fields now render as native Protobuf maps instead of
+   opaque `bytes`, unsupported map shapes fail clearly, and declared
+   primary/secondary index metadata flows into schema and service manifests.
+4. **Next: make the wire contract enforceable over time.**
    Produce descriptor sets, reserve deleted field numbers and names, and add
    Protobuf/gRPC compatibility validation before generated contracts are treated
    as long-lived transport APIs.
@@ -72,8 +72,8 @@ Work should proceed in dependency order:
    Add consumer fixtures that register generated schema identity, command/read
    services, and index metadata without duplicating Modelable-owned constants.
 
-The next dependency-ordered slice is item 3: closing Protobuf schema-fidelity
-gaps.
+The next dependency-ordered slice is item 4: making the wire contract
+enforceable over time.
 
 Completion means a Scalable consumer can compile generated Rust and Protobuf
 artifacts, register them using generated identity metadata, and detect an
