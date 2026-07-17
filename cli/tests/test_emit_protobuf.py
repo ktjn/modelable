@@ -598,3 +598,32 @@ domain platform {
             tmp_path / "out",
             registry_ids={"platform.SchemaId": registry_id},
         )
+
+
+def test_compile_protobuf_passes_registry_allocations_to_manifest(tmp_path):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+  entity Schema @ 1 (additive) {
+    @key schemaId: SchemaId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    out = tmp_path / "dist"
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            cli,
+            ["compile", str(mdl), "--target", "protobuf", "--out", str(out)],
+        )
+
+    assert result.exit_code == 0, result.output
+    schema = json.loads((out / "platform" / "Schema.v1" / "schema-manifest.json").read_text(encoding="utf-8"))[
+        "schemas"
+    ][0]
+    assert schema["semantic_types"][0]["registry_id"] == 1

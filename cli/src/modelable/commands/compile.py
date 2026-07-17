@@ -329,7 +329,11 @@ def compile(
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "protobuf":
-        artifacts = emit_protobuf(emit_workspace, output)
+        artifacts = emit_protobuf(
+            emit_workspace,
+            output,
+            registry_ids=registry_ids,
+        )
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)
@@ -337,7 +341,11 @@ def compile(
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "grpc":
-        artifacts = emit_grpc(emit_workspace, output)
+        artifacts = emit_grpc(
+            emit_workspace,
+            output,
+            registry_ids=registry_ids,
+        )
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)
