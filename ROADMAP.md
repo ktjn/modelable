@@ -105,8 +105,13 @@ Recently shipped, still hardening:
   and the Rust emitter surfaces the allocated id as a `/// registry id: N`
   doc comment on the generated newtype. Emitting the allocated id as a stable
   generated Rust constant usable by downstream code, with emitter test
-  coverage, is deferred follow-up work. Exposing the id in the protobuf schema
-  manifest (blocked on protobuf gaining semantic-type support at all) and a
+  coverage, is deferred follow-up work. Generated Rust schema identity metadata
+  should also expose each versioned declaration's declared version and
+  canonical Modelable version signature as stable constants sourced from the
+  registry signature machinery, rather than requiring downstream code to
+  maintain parallel values; target-specific wire fingerprints remain separate
+  manifest metadata. Exposing the id in the protobuf schema manifest
+  (blocked on protobuf gaining semantic-type support at all) and a
   `modelable inspect` id-lookup surface are also deferred follow-up work, per
   the task-by-task plan at
   [docs/superpowers/plans/archived/2026-07-08-registry-id-allocation-first-slice.md](docs/superpowers/plans/archived/2026-07-08-registry-id-allocation-first-slice.md).
