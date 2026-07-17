@@ -8,6 +8,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added opt-in Protobuf and gRPC descriptor artifact generation via
+  `compile --target protobuf|grpc --descriptor-set`.
 - Protobuf and gRPC generation now preserve semantic types as stable
   declaring-domain wrapper messages and expose semantic refs, registry IDs,
   canonical Modelable signatures, and target-specific wire fingerprints in

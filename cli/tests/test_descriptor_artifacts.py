@@ -325,3 +325,31 @@ domain platform {
 
     assert result.exit_code != 0
     assert "descriptor generation requires protoc on PATH" in result.output
+
+
+def test_compile_grpc_without_descriptor_set_does_not_require_protoc_or_write_descriptor(tmp_path, monkeypatch):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    out = tmp_path / "dist"
+
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ["compile", str(mdl), "--target", "grpc", "--out", str(out)])
+
+    assert result.exit_code == 0, result.output
+    assert (out / "platform" / "Order.v1" / "Order.v1.grpc.proto").exists()
+    assert not (out / "platform" / "Order.v1" / "Order.v1.grpc.descriptor.pb").exists()
+    manifest = json.loads((out / "platform" / "Order.v1" / "service-manifest.json").read_text(encoding="utf-8"))
+    assert "descriptor" not in manifest

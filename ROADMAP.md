@@ -65,9 +65,11 @@ Work should proceed in dependency order:
    opaque `bytes`, unsupported map shapes fail clearly, and declared
    primary/secondary index metadata flows into schema and service manifests.
 4. **Next: make the wire contract enforceable over time.**
-   Produce descriptor sets, reserve deleted field numbers and names, and add
-   Protobuf/gRPC compatibility validation before generated contracts are treated
-   as long-lived transport APIs.
+   Descriptor artifacts now ship for Protobuf and gRPC through opt-in
+   `--descriptor-set` generation. The remaining active work is to reserve
+   deleted field numbers and names and add Protobuf/gRPC compatibility
+   validation before generated contracts are treated as long-lived transport
+   APIs.
 5. **Prove Scalable registration end to end.**
    Add consumer fixtures that register generated schema identity, command/read
    services, and index metadata without duplicating Modelable-owned constants.

@@ -27,7 +27,7 @@ close that gap.
   [`2026-07-04-scalable-protobuf-grpc-support-design.md`](superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md)
   and is not implemented. Section 4 below calls out each place this
   matters.
-- **Descriptor sets, richer index metadata, or Scalable registration
+- **Richer index metadata compatibility checks or Scalable registration
   fixtures.** Also tracked under the design doc above, not this one.
 - **Value-level canonicalization.** Decimal literals and timestamp
   strings pass through the compiler unmodified — there is no numeric
@@ -133,3 +133,7 @@ as an unreviewed follow-up.
 **If this test fails and you didn't intend to change emitter output:**
 that's exactly what this suite exists to catch. Do not regenerate the
 golden files to make it pass; find and fix the unintended drift instead.
+
+When `--descriptor-set` is used, Modelable also emits compiled descriptor
+artifacts. These descriptors are the compiled target-specific contract surface
+that later compatibility validation will compare.
