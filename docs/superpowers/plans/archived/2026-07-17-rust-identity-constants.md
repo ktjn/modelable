@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Implement the accepted design in `docs/superpowers/specs/2026-07-17-rust-identity-constants-design.md`; do not widen this slice into Protobuf, descriptor-set, inspect, or Scalable changes.
+- Implement the accepted design in `docs/superpowers/specs/archived/2026-07-17-rust-identity-constants-design.md`; do not widen this slice into Protobuf, descriptor-set, inspect, or Scalable changes.
 - `REGISTRY_ID` comes only from an explicit allocation supplied for a `registry: true` semantic type. Never invent a sentinel.
 - `SCHEMA_CONTENT_SIGNATURE` must come only from `compute_version_signature()`; do not use `EmittedArtifact.content_hash` or a target-specific wire fingerprint.
 - Emit constants only on top-level semantic, model, and projection types. Nested structs and enums receive no identity constants.

@@ -52,7 +52,7 @@ Work should proceed in dependency order:
    and canonical Modelable version signature. Target-specific wire
    fingerprints remain separate manifest metadata rather than canonical model
    identity. The accepted design is documented in
-   [Rust Identity Constants — Design](docs/superpowers/specs/2026-07-17-rust-identity-constants-design.md).
+   [Rust Identity Constants — Design](docs/superpowers/specs/archived/2026-07-17-rust-identity-constants-design.md).
 2. **Carry semantic identity into Protobuf.**
    Add semantic-type resolution to the Protobuf emitter and expose registry IDs
    in the schema manifest. Preserve nominal identity where Protobuf supports it

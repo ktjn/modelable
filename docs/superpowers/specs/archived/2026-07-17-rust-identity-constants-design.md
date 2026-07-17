@@ -15,7 +15,7 @@ hand-writes its runtime-kernel-configuration schema ID and version even though
 the ID is already committed in `registry-ids.lock` and the version is already
 declared in `.mdl`.
 
-The first item in [ROADMAP.md](../../../ROADMAP.md) Priority 1 is therefore a
+The first item in [ROADMAP.md](../../../../ROADMAP.md) Priority 1 is therefore a
 focused Rust-emitter slice: make Modelable's existing identity data directly
 consumable as associated constants without introducing a dependency on
 Scalable types or a second identity scheme.
