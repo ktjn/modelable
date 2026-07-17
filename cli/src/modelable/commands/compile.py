@@ -382,6 +382,11 @@ def compile(
             output,
             registry_ids=registry_ids,
         )
+        if descriptor_set:
+            try:
+                artifacts = _emit_grpc_with_descriptors(artifacts, output)
+            except DescriptorGenerationError as exc:
+                raise click.ClickException(str(exc)) from exc
         for art in artifacts:
             _write_artifact(art)
             _print_artifact_result(art)
@@ -505,6 +510,72 @@ def _with_schema_descriptor_metadata(
     manifest = json.loads(manifest_content)
     schema = manifest["schemas"][0]
     schema["descriptor"] = {
+        "path": descriptor_path.name,
+        "content_hash": descriptor_hash,
+        "include_imports": True,
+    }
+    return json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
+
+
+def _emit_grpc_with_descriptors(artifacts: list[EmittedArtifact], output: Path) -> list[EmittedArtifact]:
+    for art in artifacts:
+        if art.path.name != "service-manifest.json":
+            _write_artifact(art)
+
+    result: list[EmittedArtifact] = []
+    for art in artifacts:
+        if art.path.name != "service-manifest.json":
+            result.append(art)
+            continue
+        assert isinstance(art.content, str)
+        manifest = json.loads(art.content)
+        ref = str(manifest["ref"])
+        service_proto = art.path.parent / str(manifest["service_proto"])
+        payload_proto = art.path.parent / (art.path.parent.name + ".proto")
+        descriptor_path = art.path.parent / (art.path.parent.name + ".grpc.descriptor.pb")
+        proto_files = [service_proto]
+        if payload_proto.exists():
+            proto_files.append(payload_proto)
+        descriptor_bytes = compile_descriptor_set(
+            proto_root=output,
+            proto_files=proto_files,
+            out_path=descriptor_path,
+            target_ref=ref,
+        )
+        descriptor_artifact = EmittedArtifact(
+            target=art.target,
+            ref=art.ref,
+            artifact_id=f"{art.artifact_id}.descriptor",
+            path=descriptor_path,
+            content=descriptor_bytes,
+            content_hash=compute_content_hash(descriptor_bytes),
+        )
+        manifest_content = _with_service_descriptor_metadata(
+            art.content,
+            descriptor_path=descriptor_path,
+            descriptor_hash=descriptor_artifact.content_hash,
+        )
+        manifest_artifact = EmittedArtifact(
+            target=art.target,
+            ref=art.ref,
+            artifact_id=art.artifact_id,
+            path=art.path,
+            content=manifest_content,
+            content_hash=compute_content_hash(manifest_content),
+            warnings=art.warnings,
+        )
+        result.extend([descriptor_artifact, manifest_artifact])
+    return result
+
+
+def _with_service_descriptor_metadata(
+    manifest_content: str,
+    *,
+    descriptor_path: Path,
+    descriptor_hash: str,
+) -> str:
+    manifest = json.loads(manifest_content)
+    manifest["descriptor"] = {
         "path": descriptor_path.name,
         "content_hash": descriptor_hash,
         "include_imports": True,
