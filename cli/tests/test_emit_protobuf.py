@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from click.testing import CliRunner
 
 from modelable.cli import cli
@@ -331,3 +332,128 @@ domain alpha {
         "alpha.semantic-types",
         "zeta.semantic-types",
     ]
+
+
+def test_emit_protobuf_models_import_nominal_semantic_wrappers(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+}
+
+domain runtime {
+  owner: "runtime-team"
+  semantic CommandId : uuid
+
+  entity RuntimeConfig @ 1 (additive) {
+    @key commandId: CommandId
+    schemaId: SchemaId
+    relatedSchemaIds: array<SchemaId>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+    proto = next(art for art in artifacts if art.ref == "runtime.RuntimeConfig@1" and art.path.suffix == ".proto")
+
+    assert 'import "platform/semantic-types.proto";' in proto.content
+    assert 'import "runtime/semantic-types.proto";' in proto.content
+    assert proto.content.index('import "platform/semantic-types.proto";') < proto.content.index(
+        'import "runtime/semantic-types.proto";'
+    )
+    assert ".modelable.runtime.semantic.CommandId command_id = 1;" in proto.content
+    assert ".modelable.platform.semantic.SchemaId schema_id = 2;" in proto.content
+    assert "repeated .modelable.platform.semantic.SchemaId related_schema_ids = 3;" in proto.content
+
+
+def test_emit_protobuf_projection_preserves_source_semantic_type(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+
+  entity Schema @ 1 (additive) {
+    @key schemaId: SchemaId
+  }
+
+  projection SchemaView @ 1
+    from platform.Schema @ 1 as s
+  {
+    schemaId <- s.schemaId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+    proto = next(art for art in artifacts if art.ref == "platform.SchemaView@1" and art.path.suffix == ".proto")
+
+    assert 'import "platform/semantic-types.proto";' in proto.content
+    assert ".modelable.platform.semantic.SchemaId schema_id = 1;" in proto.content
+
+
+def test_emit_protobuf_keeps_nonsemantic_named_type_and_map_fallbacks(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain example {
+  owner: "example-team"
+
+  value Address @ 1 (additive) {
+    line1: string
+  }
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    address: Address
+    attributes: map<string, string>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_protobuf(workspace, tmp_path / "out")
+    proto = next(art for art in artifacts if art.ref == "example.Customer@1" and art.path.suffix == ".proto")
+
+    assert "bytes address = 2;" in proto.content
+    assert "bytes attributes = 3;" in proto.content
+    assert "semantic-types.proto" not in proto.content
+
+
+def test_emit_protobuf_rejects_ambiguous_unqualified_semantic_reference(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain alpha {
+  owner: "alpha-team"
+  semantic SharedId : u32
+}
+
+domain beta {
+  owner: "beta-team"
+  semantic SharedId : u64
+}
+
+domain consumer {
+  owner: "consumer-team"
+  entity UsesShared @ 1 (additive) {
+    @key id: SharedId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    with pytest.raises(
+        ValueError,
+        match=r"ambiguous semantic type 'SharedId'.*alpha.SharedId.*beta.SharedId",
+    ):
+        emit_protobuf(workspace, tmp_path / "out")

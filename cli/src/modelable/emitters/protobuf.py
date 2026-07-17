@@ -63,6 +63,7 @@ class _ProtoField:
     enum: _ProtoEnum | None
     key: bool
     fixed_length: int | None = None
+    semantic: _SemanticProtoType | None = None
 
 
 @dataclass(frozen=True)
@@ -83,23 +84,43 @@ def emit_protobuf(
     for domain in workspace.mdl.domains:
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
-                proto, manifest = _emit_model_version(domain, model_name, model_version, out_dir)
+                proto, manifest = _emit_model_version(
+                    domain,
+                    model_name,
+                    model_version,
+                    out_dir,
+                    semantic_index,
+                )
                 artifacts.extend([proto, manifest])
         for projection_name, projection_versions in domain.projections.items():
             for projection_version in projection_versions:
                 proto, manifest = _emit_projection_version(
-                    domain, projection_name, projection_version, out_dir, workspace.mdl
+                    domain,
+                    projection_name,
+                    projection_version,
+                    out_dir,
+                    workspace.mdl,
+                    semantic_index,
                 )
                 artifacts.extend([proto, manifest])
     return artifacts
 
 
 def _emit_model_version(
-    domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path
+    domain: DomainDef,
+    model_name: str,
+    version: ModelVersion,
+    out_dir: Path,
+    semantic_index: _SemanticIndex,
 ) -> tuple[EmittedArtifact, EmittedArtifact]:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     proto_fields = [
-        _field_to_proto(field, message_name=model_name, field_number=index)
+        _field_to_proto(
+            field,
+            message_name=model_name,
+            field_number=index,
+            semantic_index=semantic_index,
+        )
         for index, field in enumerate(version.fields, start=1)
     ]
     proto_content = _render_proto(
@@ -137,11 +158,23 @@ def _emit_model_version(
 
 
 def _emit_projection_version(
-    domain: DomainDef, projection_name: str, version: ProjectionVersion, out_dir: Path, mdl: MdlFile
+    domain: DomainDef,
+    projection_name: str,
+    version: ProjectionVersion,
+    out_dir: Path,
+    mdl: MdlFile,
+    semantic_index: _SemanticIndex,
 ) -> tuple[EmittedArtifact, EmittedArtifact]:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     proto_fields = [
-        _projection_field_to_proto(field, version, mdl, message_name=projection_name, field_number=index)
+        _projection_field_to_proto(
+            field,
+            version,
+            mdl,
+            message_name=projection_name,
+            field_number=index,
+            semantic_index=semantic_index,
+        )
         for index, field in enumerate(version.fields, start=1)
     ]
     proto_content = _render_proto(
@@ -177,8 +210,19 @@ def _emit_projection_version(
     return proto_artifact, manifest_artifact
 
 
-def _field_to_proto(field: FieldDef, *, message_name: str, field_number: int) -> _ProtoField:
-    type_name, enum, fixed_length = _type_to_proto(field.type, message_name=message_name, field_name=field.name)
+def _field_to_proto(
+    field: FieldDef,
+    *,
+    message_name: str,
+    field_number: int,
+    semantic_index: _SemanticIndex,
+) -> _ProtoField:
+    type_name, enum, fixed_length, semantic = _type_to_proto(
+        field.type,
+        message_name=message_name,
+        field_name=field.name,
+        semantic_index=semantic_index,
+    )
     if field.optional and not type_name.startswith("repeated "):
         type_name = f"optional {type_name}"
     return _ProtoField(
@@ -189,14 +233,26 @@ def _field_to_proto(field: FieldDef, *, message_name: str, field_number: int) ->
         enum=enum,
         key=any(isinstance(annotation, AnnKey) for annotation in field.annotations),
         fixed_length=fixed_length,
+        semantic=semantic,
     )
 
 
 def _projection_field_to_proto(
-    field: ProjectionField, projection: ProjectionVersion, mdl: MdlFile, *, message_name: str, field_number: int
+    field: ProjectionField,
+    projection: ProjectionVersion,
+    mdl: MdlFile,
+    *,
+    message_name: str,
+    field_number: int,
+    semantic_index: _SemanticIndex,
 ) -> _ProtoField:
     field_type = _resolve_projection_field_type(field, projection, mdl)
-    type_name, enum, fixed_length = _type_to_proto(field_type, message_name=message_name, field_name=field.name)
+    type_name, enum, fixed_length, semantic = _type_to_proto(
+        field_type,
+        message_name=message_name,
+        field_name=field.name,
+        semantic_index=semantic_index,
+    )
     return _ProtoField(
         source_name=field.name,
         proto_name=_snake_case(field.name),
@@ -205,6 +261,7 @@ def _projection_field_to_proto(
         enum=enum,
         key=False,
         fixed_length=fixed_length,
+        semantic=semantic,
     )
 
 
@@ -235,22 +292,36 @@ def _resolve_projection_field_type(field: ProjectionField, projection: Projectio
 
 
 def _type_to_proto(
-    field_type: FieldType, *, message_name: str, field_name: str
-) -> tuple[str, _ProtoEnum | None, int | None]:
+    field_type: FieldType,
+    *,
+    message_name: str,
+    field_name: str,
+    semantic_index: _SemanticIndex,
+) -> tuple[str, _ProtoEnum | None, int | None, _SemanticProtoType | None]:
     if isinstance(field_type, PrimitiveType):
         type_name, fixed_length = _primitive_to_proto(field_type.kind)
-        return type_name, None, fixed_length
+        return type_name, None, fixed_length, None
     if isinstance(field_type, DecimalType):
-        return "string", None, None
+        return "string", None, None, None
     if isinstance(field_type, FixedBinaryType):
-        return "bytes", None, field_type.length
+        return "bytes", None, field_type.length, None
+    if isinstance(field_type, NamedType):
+        semantic = semantic_index.resolve(field_type.name)
+        if semantic is not None:
+            return semantic.proto_type, None, None, semantic
+        return "bytes", None, None, None
     if isinstance(field_type, ArrayType):
-        inner, _, _ = _type_to_proto(field_type.item, message_name=message_name, field_name=field_name)
-        return f"repeated {inner.removeprefix('optional ')}", None, None
+        inner, _, _, semantic = _type_to_proto(
+            field_type.item,
+            message_name=message_name,
+            field_name=field_name,
+            semantic_index=semantic_index,
+        )
+        return f"repeated {inner.removeprefix('optional ')}", None, None, semantic
     if isinstance(field_type, EnumType):
         enum = _ProtoEnum(name=f"{message_name}{_pascal_case(field_name)}", values=tuple(field_type.values))
-        return enum.name, enum, None
-    return "bytes", None, None
+        return enum.name, enum, None, None
+    return "bytes", None, None, None
 
 
 def _primitive_to_proto(kind: str) -> tuple[str, int | None]:
@@ -407,8 +478,16 @@ def _emit_semantic_bundles(index: _SemanticIndex, out_dir: Path) -> list[Emitted
 
 def _render_proto(*, package: str, message_name: str, fields: list[_ProtoField]) -> str:
     lines = ['syntax = "proto3";', "", f"package {package};", ""]
+    imports: set[str] = set()
     if any("google.protobuf.Timestamp" in field.type_name for field in fields):
-        lines.extend(['import "google/protobuf/timestamp.proto";', ""])
+        imports.add("google/protobuf/timestamp.proto")
+    imports.update(
+        f"{field.semantic.declaring_domain}/semantic-types.proto" for field in fields if field.semantic is not None
+    )
+    for import_path in sorted(imports):
+        lines.append(f'import "{import_path}";')
+    if imports:
+        lines.append("")
 
     lines.append(f"message {message_name} {{")
     for field in fields:
