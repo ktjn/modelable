@@ -269,6 +269,7 @@ def _rust_type_for_semantic_underlying(underlying: FieldType) -> tuple[str, list
 
 
 def _render_registry_id_impl(type_name: str, allocated_id: int) -> list[str]:
+    _validate_rust_u32_constant("REGISTRY_ID", allocated_id, minimum=1)
     return [
         "",
         f"impl {type_name} {{",
@@ -277,14 +278,16 @@ def _render_registry_id_impl(type_name: str, allocated_id: int) -> list[str]:
     ]
 
 
+def _validate_rust_u32_constant(name: str, value: int, *, minimum: int) -> None:
+    maximum = 2**32 - 1
+    if type(value) is not int or not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}")
+
+
 def _signature_bytes(signature: str) -> bytes:
-    try:
-        raw = bytes.fromhex(signature)
-    except ValueError as exc:
-        raise ValueError("canonical Modelable signature must be hexadecimal") from exc
-    if len(raw) != 32:
-        raise ValueError("canonical Modelable signature must contain exactly 32 bytes")
-    return raw
+    if re.fullmatch(r"[0-9a-fA-F]{64}", signature) is None:
+        raise ValueError("canonical Modelable signature must contain exactly 64 hexadecimal characters")
+    return bytes.fromhex(signature)
 
 
 def _render_schema_identity_impl(
@@ -294,6 +297,7 @@ def _render_schema_identity_impl(
     *,
     storage_gated: bool = False,
 ) -> list[str]:
+    _validate_rust_u32_constant("SCHEMA_VERSION", version, minimum=0)
     values = _signature_bytes(signature)
     lines = [""]
     if storage_gated:

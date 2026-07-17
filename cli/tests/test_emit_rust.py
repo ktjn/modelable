@@ -115,11 +115,33 @@ domain customer {
     assert "pub struct CustomerCustomerViewV1Address" in proj_art.content
 
 
-@pytest.mark.parametrize("signature", ["not-hex", "00" * 31, "00" * 33])
+@pytest.mark.parametrize("signature", ["not-hex", "00" * 31, "00" * 33, "00 " * 32])
 def test_rust_signature_bytes_rejects_malformed_digest(signature: str):
     assert hasattr(rust_emitter, "_signature_bytes")
     with pytest.raises(ValueError, match="canonical Modelable signature"):
         rust_emitter._signature_bytes(signature)
+
+
+@pytest.mark.parametrize("version", [True, -1, 2**32])
+def test_rust_schema_version_rejects_values_outside_u32(version: int):
+    with pytest.raises(ValueError, match="SCHEMA_VERSION must be between 0 and 4294967295"):
+        rust_emitter._render_schema_identity_impl("SchemaV1", version, "00" * 32)
+
+
+@pytest.mark.parametrize("registry_id", [True, 0, 2**32])
+def test_rust_registry_id_rejects_values_outside_positive_u32(registry_id: int):
+    with pytest.raises(ValueError, match="REGISTRY_ID must be between 1 and 4294967295"):
+        rust_emitter._render_registry_id_impl("SchemaId", registry_id)
+
+
+def test_rust_identity_constants_accept_u32_boundaries():
+    schema_lines = rust_emitter._render_schema_identity_impl("SchemaV0", 0, "00" * 32)
+    max_schema_lines = rust_emitter._render_schema_identity_impl("SchemaVMax", 2**32 - 1, "00" * 32)
+    registry_lines = rust_emitter._render_registry_id_impl("SchemaId", 2**32 - 1)
+
+    assert "    pub const SCHEMA_VERSION: u32 = 0;" in schema_lines
+    assert "    pub const SCHEMA_VERSION: u32 = 4294967295;" in max_schema_lines
+    assert "    pub const REGISTRY_ID: u32 = 4294967295;" in registry_lines
 
 
 def test_cli_compile_rust_writes_files(tmp_path):
