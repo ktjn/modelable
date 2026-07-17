@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
+from modelable.compiler.workspace import load_workspace
+from modelable.emitters.protobuf import emit_protobuf
 from modelable.parser import parse_text_to_ir
 from modelable.parser.ir import ParseError
 
@@ -91,3 +95,92 @@ domain billing {
 }
 """
         )
+
+
+def test_emit_protobuf_renders_reserved_numbers_and_names(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 2 (additive) {
+    reserved protobuf {
+      numbers: [3, 7]
+      names: ["legacy_status"]
+    }
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    artifacts = emit_protobuf(load_workspace(source), tmp_path / "out")
+    proto = next(artifact for artifact in artifacts if artifact.path.name == "Customer.v2.proto")
+
+    assert "  reserved 3, 7;" in proto.content
+    assert '  reserved "legacy_status";' in proto.content
+
+
+def test_emit_protobuf_manifest_records_reservations_and_fingerprint_changes(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 2 (additive) {
+    reserved protobuf {
+      numbers: [3]
+      names: ["legacy_status"]
+    }
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    artifacts = emit_protobuf(load_workspace(source), tmp_path / "out")
+    manifest = next(artifact for artifact in artifacts if artifact.path.name == "schema-manifest.json")
+    schema = json.loads(manifest.content)["schemas"][0]
+
+    assert schema["reservations"] == {"numbers": [3], "names": ["legacy_status"]}
+
+    without_reservations = tmp_path / "without.mdl"
+    without_reservations.write_text(
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    without_manifest = next(
+        artifact
+        for artifact in emit_protobuf(load_workspace(without_reservations), tmp_path / "without")
+        if artifact.path.name == "schema-manifest.json"
+    )
+    assert json.loads(without_manifest.content)["schemas"][0]["schema_fingerprint"] != schema["schema_fingerprint"]
+
+
+def test_emit_protobuf_rejects_field_colliding_with_reserved_number(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 2 (additive) {
+    reserved protobuf {
+      numbers: [2]
+    }
+    @key customerId: uuid
+    displayName: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="reserved protobuf field number 2"):
+        emit_protobuf(load_workspace(source), tmp_path / "out")

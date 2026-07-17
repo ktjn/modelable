@@ -26,6 +26,7 @@ from modelable.parser.ir import (
     PrimitiveType,
     ProjectionField,
     ProjectionVersion,
+    ProtobufReservations,
     SemanticTypeDecl,
 )
 from modelable.registry.resolver import resolve_model_ref
@@ -135,10 +136,16 @@ def _emit_model_version(
         )
         for index, field in enumerate(version.fields, start=1)
     ]
+    _validate_reservations(
+        proto_fields,
+        version.protobuf_reservations,
+        ref=f"{domain.name}.{model_name}@{version.version}",
+    )
     proto_content = _render_proto(
         package=_package_name(domain.name, version.version),
         message_name=model_name,
         fields=proto_fields,
+        reservations=version.protobuf_reservations,
     )
     indexes = _manifest_indexes(_index_decl_for(domain, model_name, version.version))
     manifest_content = _manifest_json(
@@ -149,6 +156,7 @@ def _emit_model_version(
         ref=f"{domain.name}.{model_name}@{version.version}",
         fields=proto_fields,
         indexes=indexes,
+        reservations=version.protobuf_reservations,
     )
     base_path = out_dir / domain.name / f"{model_name}.v{version.version}"
 
@@ -191,10 +199,16 @@ def _emit_projection_version(
         )
         for index, field in enumerate(version.fields, start=1)
     ]
+    _validate_reservations(
+        proto_fields,
+        version.protobuf_reservations,
+        ref=f"{domain.name}.{projection_name}@{version.version}",
+    )
     proto_content = _render_proto(
         package=_package_name(domain.name, version.version),
         message_name=projection_name,
         fields=proto_fields,
+        reservations=version.protobuf_reservations,
     )
     manifest_content = _manifest_json(
         domain=domain.name,
@@ -203,6 +217,7 @@ def _emit_projection_version(
         version=version,
         ref=f"{domain.name}.{projection_name}@{version.version}",
         fields=proto_fields,
+        reservations=version.protobuf_reservations,
     )
     base_path = out_dir / domain.name / f"{projection_name}.v{version.version}"
     proto_artifact = EmittedArtifact(
@@ -577,7 +592,44 @@ def _emit_semantic_bundles(index: _SemanticIndex, out_dir: Path) -> list[Emitted
     return artifacts
 
 
-def _render_proto(*, package: str, message_name: str, fields: list[_ProtoField]) -> str:
+def _validate_reservations(
+    fields: list[_ProtoField],
+    reservations: ProtobufReservations | None,
+    *,
+    ref: str,
+) -> None:
+    if reservations is None:
+        return
+    reserved_numbers = set(reservations.numbers)
+    reserved_names = set(reservations.names)
+    for field in fields:
+        if field.number in reserved_numbers:
+            raise ValueError(f"{ref}: field {field.source_name} uses reserved protobuf field number {field.number}")
+        if field.source_name in reserved_names or field.proto_name in reserved_names:
+            raise ValueError(f"{ref}: field {field.source_name} uses reserved protobuf field name {field.proto_name}")
+
+
+def _reservation_lines(reservations: ProtobufReservations | None) -> list[str]:
+    if reservations is None:
+        return []
+    lines: list[str] = []
+    if reservations.numbers:
+        lines.append(f"  reserved {', '.join(str(number) for number in reservations.numbers)};")
+    if reservations.names:
+        names = ", ".join(json.dumps(name) for name in reservations.names)
+        lines.append(f"  reserved {names};")
+    if lines:
+        lines.append("")
+    return lines
+
+
+def _render_proto(
+    *,
+    package: str,
+    message_name: str,
+    fields: list[_ProtoField],
+    reservations: ProtobufReservations | None = None,
+) -> str:
     lines = ['syntax = "proto3";', "", f"package {package};", ""]
     imports: set[str] = set()
     if any("google.protobuf.Timestamp" in field.type_name for field in fields):
@@ -589,6 +641,7 @@ def _render_proto(*, package: str, message_name: str, fields: list[_ProtoField])
         lines.append("")
 
     lines.append(f"message {message_name} {{")
+    lines.extend(_reservation_lines(reservations))
     for field in fields:
         lines.append(f"  {field.type_name} {field.proto_name} = {field.number};")
     lines.append("}")
@@ -614,6 +667,7 @@ def _manifest_json(
     ref: str,
     fields: list[_ProtoField],
     indexes: dict[str, object] | None = None,
+    reservations: ProtobufReservations | None = None,
 ) -> str:
     semantics = _referenced_semantics(fields)
     schema_entry: dict[str, object] = {
@@ -621,12 +675,14 @@ def _manifest_json(
         "kind": kind,
         "schema_id": f"modelable://{domain}/{name}/v{version.version}/protobuf",
         "modelable_signature": compute_version_signature(domain, name, version),
-        "schema_fingerprint": _schema_fingerprint(fields, semantics, indexes),
+        "schema_fingerprint": _schema_fingerprint(fields, semantics, indexes, reservations),
         "semantic_types": [_manifest_semantic(semantic, include_registry_id=True) for semantic in semantics],
         "fields": [_manifest_field(field) for field in fields],
     }
     if indexes is not None:
         schema_entry["indexes"] = indexes
+    if reservations is not None:
+        schema_entry["reservations"] = _manifest_reservations(reservations)
     schema = {
         "target": "protobuf",
         "schemas": [schema_entry],
@@ -692,6 +748,13 @@ def _manifest_field(field: _ProtoField) -> dict[str, object]:
     return entry
 
 
+def _manifest_reservations(reservations: ProtobufReservations) -> dict[str, object]:
+    return {
+        "numbers": list(reservations.numbers),
+        "names": list(reservations.names),
+    }
+
+
 def _manifest_semantic(semantic: _SemanticProtoType, *, include_registry_id: bool) -> dict[str, object]:
     entry: dict[str, object] = {
         "ref": semantic.ref,
@@ -721,6 +784,7 @@ def _schema_fingerprint(
     fields: list[_ProtoField],
     semantics: list[_SemanticProtoType],
     indexes: dict[str, object] | None = None,
+    reservations: ProtobufReservations | None = None,
 ) -> str:
     normalized: dict[str, object] = {
         "fields": [_manifest_field(field) for field in fields],
@@ -728,6 +792,8 @@ def _schema_fingerprint(
     }
     if indexes is not None:
         normalized["indexes"] = indexes
+    if reservations is not None:
+        normalized["reservations"] = _manifest_reservations(reservations)
     return compute_content_hash(json.dumps(normalized, indent=2, ensure_ascii=False))
 
 
