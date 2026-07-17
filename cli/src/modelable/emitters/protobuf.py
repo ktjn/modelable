@@ -79,6 +79,7 @@ class _ProtoEnum:
 class _ProtoMap:
     key_type: str
     value_type: str
+    value_fixed_length: int | None = None
     value_semantic: _SemanticProtoType | None = None
 
 
@@ -323,8 +324,8 @@ def _type_to_proto(
             return semantic.proto_type, None, None, semantic, None
         return "bytes", None, None, None, None
     if isinstance(field_type, MapType):
-        key_type = _map_key_to_proto(field_type.key, field_name=field_name)
-        value_type, value_semantic = _map_value_to_proto(
+        key_type = _map_key_to_proto(field_type.key, message_name=message_name, field_name=field_name)
+        value_type, value_fixed_length, value_semantic, value_enum = _map_value_to_proto(
             field_type.value,
             message_name=message_name,
             field_name=field_name,
@@ -333,9 +334,10 @@ def _type_to_proto(
         proto_map = _ProtoMap(
             key_type=key_type,
             value_type=value_type,
+            value_fixed_length=value_fixed_length,
             value_semantic=value_semantic,
         )
-        return f"map<{key_type}, {value_type}>", None, None, None, proto_map
+        return f"map<{key_type}, {value_type}>", value_enum, None, None, proto_map
     if isinstance(field_type, ArrayType):
         inner, _, _, semantic, item_map = _type_to_proto(
             field_type.item,
@@ -352,10 +354,14 @@ def _type_to_proto(
     return "bytes", None, None, None, None
 
 
-def _map_key_to_proto(field_type: FieldType, *, field_name: str) -> str:
+def _map_key_to_proto(field_type: FieldType, *, message_name: str, field_name: str) -> str:
     if not isinstance(field_type, PrimitiveType):
-        raise ValueError(f"protobuf map field '{field_name}' must use a scalar primitive key")
+        raise ValueError(
+            f"{message_name}.{field_name}: protobuf map key type {_type_display(field_type)} is not supported"
+        )
 
+    if field_type.kind not in {"string", "int", "bool", "u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64"}:
+        raise ValueError(f"{message_name}.{field_name}: protobuf map key type {field_type.kind} is not supported")
     type_name, fixed_length = _primitive_to_proto(field_type.kind)
     if fixed_length is not None or type_name not in {
         "string",
@@ -365,7 +371,7 @@ def _map_key_to_proto(field_type: FieldType, *, field_name: str) -> str:
         "uint64",
         "bool",
     }:
-        raise ValueError(f"protobuf map field '{field_name}' has unsupported key type '{field_type.kind}'")
+        raise ValueError(f"{message_name}.{field_name}: protobuf map key type {field_type.kind} is not supported")
     return type_name
 
 
@@ -375,18 +381,45 @@ def _map_value_to_proto(
     message_name: str,
     field_name: str,
     semantic_index: _SemanticIndex,
-) -> tuple[str, _SemanticProtoType | None]:
-    type_name, _, _, semantic, proto_map = _type_to_proto(
+) -> tuple[str, int | None, _SemanticProtoType | None, _ProtoEnum | None]:
+    if isinstance(field_type, NamedType) and semantic_index.resolve(field_type.name) is None:
+        raise ValueError(
+            f"{message_name}.{field_name}: protobuf map value named type {field_type.name} is not supported"
+        )
+
+    type_name, enum, fixed_length, semantic, proto_map = _type_to_proto(
         field_type,
         message_name=message_name,
         field_name=field_name,
         semantic_index=semantic_index,
     )
     if proto_map is not None:
-        raise ValueError(f"protobuf map field '{field_name}' cannot use another map as its value")
+        raise ValueError(
+            f"{message_name}.{field_name}: protobuf map value type {_type_display(field_type)} is not supported"
+        )
     if type_name.startswith("repeated "):
-        raise ValueError(f"protobuf map field '{field_name}' cannot use an array as its value")
-    return type_name.removeprefix("optional "), semantic
+        raise ValueError(
+            f"{message_name}.{field_name}: protobuf map value type {_type_display(field_type)} is not supported"
+        )
+    return type_name.removeprefix("optional "), fixed_length, semantic, enum
+
+
+def _type_display(field_type: FieldType) -> str:
+    if isinstance(field_type, PrimitiveType):
+        return _primitive_to_proto(field_type.kind)[0]
+    if isinstance(field_type, DecimalType):
+        return "decimal"
+    if isinstance(field_type, FixedBinaryType):
+        return f"binary({field_type.length})"
+    if isinstance(field_type, NamedType):
+        return field_type.name
+    if isinstance(field_type, MapType):
+        return f"map<{_type_display(field_type.key)}, {_type_display(field_type.value)}>"
+    if isinstance(field_type, ArrayType):
+        return f"array<{_type_display(field_type.item)}>"
+    if isinstance(field_type, EnumType):
+        return "enum"
+    return type(field_type).__name__
 
 
 def _primitive_to_proto(kind: str) -> tuple[str, int | None]:
@@ -613,6 +646,8 @@ def _manifest_field(field: _ProtoField) -> dict[str, object]:
             "key_type": field.map.key_type,
             "value_type": field.map.value_type,
         }
+        if field.map.value_fixed_length is not None:
+            map_entry["value_fixed_length"] = field.map.value_fixed_length
         if field.map.value_semantic is not None:
             map_entry["value_semantic_type"] = field.map.value_semantic.ref
         entry["map"] = map_entry
