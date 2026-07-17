@@ -103,10 +103,12 @@ Recently shipped, still hardening:
   never reuses an id whose declaration was removed). `registry.db` gained a
   `registry_ids` table populated as a read-through cache of the lock file,
   and the Rust emitter surfaces the allocated id as a `/// registry id: N`
-  doc comment on the generated newtype. Exposing the id in the protobuf
-  schema manifest (blocked on protobuf gaining semantic-type support at
-  all) and a `modelable inspect` id-lookup surface are deferred follow-up
-  work, per the task-by-task plan at
+  doc comment on the generated newtype. Emitting the allocated id as a stable
+  generated Rust constant usable by downstream code, with emitter test
+  coverage, is deferred follow-up work. Exposing the id in the protobuf schema
+  manifest (blocked on protobuf gaining semantic-type support at all) and a
+  `modelable inspect` id-lookup surface are also deferred follow-up work, per
+  the task-by-task plan at
   [docs/superpowers/plans/archived/2026-07-08-registry-id-allocation-first-slice.md](docs/superpowers/plans/archived/2026-07-08-registry-id-allocation-first-slice.md).
   The UUIDv7-compatible identifier gap (#2, originally sequenced first as
   cheap/independent 1.1 work but not implemented until now) has also
