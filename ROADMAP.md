@@ -52,7 +52,8 @@ Work should proceed in dependency order:
    canonical Modelable version signature as generated constants sourced from
    the existing registry signature machinery. Keep target-specific wire
    fingerprints in manifests rather than presenting them as canonical model
-   identity.
+   identity. The accepted design is documented in
+   [Rust Identity Constants — Design](docs/superpowers/specs/2026-07-17-rust-identity-constants-design.md).
 2. **Carry semantic identity into Protobuf.**
    Add semantic-type resolution to the Protobuf emitter and expose registry IDs
    in the schema manifest. Preserve nominal identity where Protobuf supports it
