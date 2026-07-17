@@ -46,12 +46,11 @@ metadata.
 
 Work should proceed in dependency order:
 
-1. **Emit stable Rust identity constants.**
-   Emit an allocated registry ID constant for registry-backed semantic
-   newtypes. Emit each versioned model and projection's declared version and
-   canonical Modelable version signature as generated constants sourced from
-   the existing registry signature machinery. Keep target-specific wire
-   fingerprints in manifests rather than presenting them as canonical model
+1. **Shipped: emit stable Rust identity constants.**
+   Registry-backed semantic newtypes now expose their allocated registry ID,
+   and each versioned Rust model and projection exposes its declared version
+   and canonical Modelable version signature. Target-specific wire
+   fingerprints remain separate manifest metadata rather than canonical model
    identity. The accepted design is documented in
    [Rust Identity Constants — Design](docs/superpowers/specs/2026-07-17-rust-identity-constants-design.md).
 2. **Carry semantic identity into Protobuf.**
@@ -69,6 +68,9 @@ Work should proceed in dependency order:
 5. **Prove Scalable registration end to end.**
    Add consumer fixtures that register generated schema identity, command/read
    services, and index metadata without duplicating Modelable-owned constants.
+
+The next dependency-ordered slice is item 2: carrying semantic identity into
+Protobuf.
 
 Completion means a Scalable consumer can compile generated Rust and Protobuf
 artifacts, register them using generated identity metadata, and detect an

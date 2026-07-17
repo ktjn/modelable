@@ -6,6 +6,13 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+### Added
+
+- Generated Rust registry-backed semantic newtypes now expose their allocated
+  ID as `REGISTRY_ID`. Generated Rust models and projections expose
+  `SCHEMA_VERSION` and the canonical Modelable signature as a dependency-free
+  `[u8; 32]` `SCHEMA_CONTENT_SIGNATURE`.
+
 ## [1.2.1] - 2026-07-12
 
 ### Fixed
