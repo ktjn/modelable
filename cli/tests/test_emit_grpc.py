@@ -247,6 +247,38 @@ domain customer {
     assert (base / "service-manifest.json").exists()
 
 
+def test_compile_grpc_writes_declared_read_indexes(tmp_path):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byCustomer {
+      key: [customerId]
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    out = tmp_path / "dist"
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(cli, ["compile", str(mdl), "--target", "grpc", "--out", str(out)])
+
+    assert result.exit_code == 0, result.output
+    manifest = json.loads((out / "platform" / "Order.v1" / "service-manifest.json").read_text(encoding="utf-8"))
+    assert [index["index_name"] for index in manifest["read_indexes"]] == ["primary", "byCustomer"]
+
+
 def test_compile_grpc_passes_registry_allocations_to_payload_manifest(tmp_path):
     mdl = tmp_path / "platform.mdl"
     mdl.write_text(

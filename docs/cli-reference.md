@@ -796,7 +796,11 @@ The first slice emits:
 - deterministic message names from the Modelable model or projection name;
 - declaration-order field numbers starting at `1`;
 - enum declarations with an `_UNSPECIFIED = 0` default value;
-- `google.protobuf.Timestamp` imports when timestamp fields are present.
+- native Protobuf maps for supported `map<K,V>` fields, with clear target
+  failures for unsupported map shapes;
+- `google.protobuf.Timestamp` imports when timestamp fields are present;
+- declared primary/secondary index metadata in model `schema-manifest.json`
+  files.
 
 Output layout:
 
@@ -819,12 +823,12 @@ Representative type mapping:
 | `binary` | `bytes` |
 | `decimal(p, s)` | `string` |
 | `array<T>` | `repeated T` |
+| `map<K,V>` | native `map<K,V>` for supported key/value shapes |
 | `enum(a,b)` | generated enum |
 
 Deferred protobuf work remains required before using generated artifacts as
 a long-lived external wire contract: deleted-field reservations, descriptor-set
-generation, protobuf compatibility validation, and first-class primary-key or
-secondary-index metadata beyond existing `@key`.
+generation, and protobuf compatibility validation.
 
 **Options:**
 
@@ -870,7 +874,9 @@ The first slice emits:
 - generic `CommandService` and `EntityReadService` service definitions;
 - generic command, command-result, read-result, list-result, read-request,
   schema-identity, and index-metadata envelope messages;
-- primary read-index metadata derived from existing `@key` fields.
+- `read_indexes` service-manifest metadata from declared primary/secondary
+  indexes, with primary fallback metadata derived from existing `@key` fields
+  when no index declaration exists.
 
 Output layout:
 
@@ -885,8 +891,8 @@ dist/grpc/
 
 Deferred gRPC work remains required before using generated artifacts as a
 long-lived transport contract: descriptor-set generation, protobuf/gRPC
-compatibility validation, richer index metadata, and a Scalable-side fixture
-that registers generated descriptors and manifests.
+compatibility validation, and a Scalable-side fixture that registers generated
+descriptors and manifests.
 
 **Options:**
 
