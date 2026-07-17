@@ -41,6 +41,21 @@ domain customer {
 }
 """
 
+PROTOBUF_SAMPLE_MDL = """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+}
+
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    schemaId: SchemaId
+  }
+}
+"""
+
 SMOKE_UUID = "123e4567-e89b-12d3-a456-426614174000"
 
 TARGETS = [
@@ -50,6 +65,7 @@ TARGETS = [
     ("rust", "rust:1.95.0", "cargo"),
     ("go", "golang:1.26.3", "go"),
     ("typescript", "node:26.0.0-slim", "npx"),
+    ("protobuf", "python:3.14.4-slim", "protoc"),
 ]
 
 
@@ -72,14 +88,27 @@ def _run_docker(workdir: Path, image: str, command: str) -> subprocess.Completed
 
 def _compile_target(tmp_path: Path, target: str) -> tuple[Path, Path]:
     mdl = tmp_path / "customer.mdl"
-    mdl.write_text(textwrap.dedent(SAMPLE_MDL).strip() + "\n", encoding="utf-8")
+    sample = PROTOBUF_SAMPLE_MDL if target == "protobuf" else SAMPLE_MDL
+    mdl.write_text(textwrap.dedent(sample).strip() + "\n", encoding="utf-8")
 
     out = tmp_path / "generated" / target
     result = CliRunner().invoke(
         cli,
-        ["compile", str(mdl), "--target", target, "--out", str(out)],
+        [
+            "compile",
+            str(mdl),
+            "--target",
+            target,
+            "--out",
+            str(out),
+            "--registry",
+            str(tmp_path / ".modelable" / "registry.db"),
+            "--registry-ids",
+            str(tmp_path / "registry-ids.lock"),
+        ],
     )
     assert result.exit_code == 0, result.output
+    assert (tmp_path / "registry-ids.lock").exists()
     return mdl, out
 
 
@@ -154,6 +183,19 @@ def test_codegen_backends_compile_inside_docker(tmp_path, target: str, image: st
             tmp_path,
             image,
             "/usr/local/bin/npx --yes -p typescript@5.9.2 tsc -p tsconfig.json",
+        )
+        _assert_docker_success(result, target)
+        return
+
+    if target == "protobuf":
+        result = _run_docker(
+            tmp_path,
+            image,
+            "apt-get update >/dev/null"
+            " && apt-get install -y --no-install-recommends protobuf-compiler >/dev/null"
+            " && find generated/protobuf -name '*.proto' -print0"
+            " | xargs -0 protoc -I generated/protobuf"
+            " --descriptor_set_out=/tmp/modelable.pb --include_imports",
         )
         _assert_docker_success(result, target)
         return

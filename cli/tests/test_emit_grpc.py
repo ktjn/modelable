@@ -195,3 +195,110 @@ domain customer {
     assert (base / "Customer.v1.grpc.proto").exists()
     assert (base / "schema-manifest.json").exists()
     assert (base / "service-manifest.json").exists()
+
+
+def test_compile_grpc_passes_registry_allocations_to_payload_manifest(tmp_path):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+  entity Schema @ 1 (additive) {
+    @key schemaId: SchemaId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    out = tmp_path / "dist"
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            cli,
+            ["compile", str(mdl), "--target", "grpc", "--out", str(out)],
+        )
+
+    assert result.exit_code == 0, result.output
+    schema = json.loads((out / "platform" / "Schema.v1" / "schema-manifest.json").read_text(encoding="utf-8"))[
+        "schemas"
+    ][0]
+    assert schema["semantic_types"][0]["registry_id"] == 1
+    assert (out / "platform" / "semantic-types.proto").exists()
+
+
+def test_emit_grpc_retargets_semantic_payload_artifacts_unchanged(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+  entity Schema @ 1 (additive) {
+    @key schemaId: SchemaId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_grpc(
+        workspace,
+        tmp_path / "out",
+        registry_ids={"platform.SchemaId": 5},
+    )
+
+    bundle = next(art for art in artifacts if art.path.name == "semantic-types.proto")
+    assert bundle.target == "grpc"
+    assert "message SchemaId" in bundle.content
+    schema_manifest = next(art for art in artifacts if art.path.name == "schema-manifest.json")
+    schema = json.loads(schema_manifest.content)["schemas"][0]
+    assert schema["semantic_types"][0]["registry_id"] == 5
+    assert schema["fields"][0]["semantic_type"] == "platform.SchemaId"
+
+
+def test_compile_grpc_domain_scope_preserves_semantic_ambiguity(tmp_path):
+    mdl = tmp_path / "ambiguous.mdl"
+    mdl.write_text(
+        """
+domain alpha {
+  owner: "alpha-team"
+  semantic SharedId : u32
+}
+
+domain beta {
+  owner: "beta-team"
+  semantic SharedId : u64
+}
+
+domain consumer {
+  owner: "consumer-team"
+  entity UsesShared @ 1 (additive) {
+    @key id: SharedId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "compile",
+            str(mdl),
+            "--target",
+            "grpc",
+            "--out",
+            str(tmp_path / "dist"),
+            "--registry",
+            str(tmp_path / ".modelable" / "registry.db"),
+            "--registry-ids",
+            str(tmp_path / "registry-ids.lock"),
+            "--domain",
+            "alpha",
+            "--domain",
+            "consumer",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "ambiguous type 'SharedId'; candidates: alpha.SharedId, beta.SharedId" in result.output

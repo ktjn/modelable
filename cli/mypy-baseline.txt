@@ -123,7 +123,7 @@ src/modelable/emitters/openmetadata.py:55: error: Item "None" of "list[Any] | st
 src/modelable/emitters/openmetadata.py:55: error: Item "str" of "list[Any] | str | None" has no attribute "extend"  [union-attr]
 src/modelable/emitters/openmetadata.py:58: error: Argument 1 to "compute_content_hash" has incompatible type "dict[str, list[Any] | str | None]"; expected "dict[str, object] | str"  [arg-type]
 src/modelable/emitters/openmetadata.py:66: error: Argument "content" to "EmittedArtifact" has incompatible type "dict[str, list[Any] | str | None]"; expected "dict[str, object] | str"  [arg-type]
-src/modelable/emitters/protobuf.py:286: error: Missing type arguments for generic type "dict"  [type-arg]
+src/modelable/emitters/protobuf.py:537: error: Missing type arguments for generic type "dict"  [type-arg]
 src/modelable/emitters/python.py:159: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
 src/modelable/emitters/python.py:175: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
 src/modelable/emitters/python.py:21: error: Incompatible types in assignment (expression has type "list[ProjectionVersion]", variable has type "list[ModelVersion]")  [assignment]

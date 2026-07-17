@@ -172,3 +172,55 @@ def test_compile_domain_flag_succeeds_when_projection_source_included(tmp_path):
     # The projection field must keep the source's real type (uuid), not degrade to a lossy String.
     assert "pub customer_id: uuid::Uuid," in text
     assert "pub customer_id: String," not in text
+
+
+def test_compile_rust_domain_scope_allows_unrelated_duplicate_model_names(
+    tmp_path,
+):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain alpha {
+  owner: "alpha-team"
+
+  value Address @ 1 (additive) {
+    line1: string
+  }
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    address: Address
+  }
+}
+
+domain beta {
+  owner: "beta-team"
+
+  value Address @ 1 (additive) {
+    code: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    out = tmp_path / "dist" / "rust"
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            cli,
+            [
+                "compile",
+                str(mdl),
+                "--target",
+                "rust",
+                "--domain",
+                "alpha",
+                "--out",
+                str(out),
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert (out / "alpha").exists()
+    assert not (out / "beta").exists()

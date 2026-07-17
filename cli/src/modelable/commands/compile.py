@@ -55,7 +55,7 @@ def _collect_named_type_names(field_type: FieldType, result: set[str]) -> None:
 
 
 def _domain_defining(mdl: MdlFile, name: str) -> str | None:
-    """Return the name of the domain that defines a model or semantic type, or None."""
+    """Return the first domain that defines a model or semantic type, or None."""
     for domain in mdl.domains:
         if name in domain.models:
             return domain.name
@@ -64,7 +64,19 @@ def _domain_defining(mdl: MdlFile, name: str) -> str | None:
     return None
 
 
-def _find_domain_scope_violations(mdl: MdlFile, requested: set[str]) -> list[str]:
+def _semantic_domains_defining(mdl: MdlFile, name: str) -> tuple[str, ...]:
+    """Return every domain that declares this semantic type name."""
+    return tuple(
+        sorted(domain.name for domain in mdl.domains if any(decl.name == name for decl in domain.semantic_types))
+    )
+
+
+def _find_domain_scope_violations(
+    mdl: MdlFile,
+    requested: set[str],
+    *,
+    resolve_semantics: bool = False,
+) -> list[str]:
     """Find dependencies of requested domains that resolve only outside the requested set.
 
     Checks both NamedType field references (recursively, across arrays/maps/nested
@@ -83,7 +95,15 @@ def _find_domain_scope_violations(mdl: MdlFile, requested: set[str]) -> list[str
                     names: set[str] = set()
                     _collect_named_type_names(field.type, names)
                     for name in names:
-                        target_domain = _domain_defining(mdl, name)
+                        semantic_domains = _semantic_domains_defining(mdl, name) if resolve_semantics else ()
+                        if len(semantic_domains) > 1:
+                            candidates = ", ".join(f"{target_domain}.{name}" for target_domain in semantic_domains)
+                            violations.append(
+                                f"{domain.name}.{model_name}@{version.version} field '{field.name}' "
+                                f"references ambiguous type '{name}'; candidates: {candidates}"
+                            )
+                            continue
+                        target_domain = semantic_domains[0] if semantic_domains else _domain_defining(mdl, name)
                         if (
                             target_domain is not None
                             and target_domain != domain.name
@@ -178,7 +198,11 @@ def compile(
                 f"Available domains: {', '.join(sorted(known_domains))}"
             )
         requested = set(domains)
-        violations = _find_domain_scope_violations(workspace.mdl, requested)
+        violations = _find_domain_scope_violations(
+            workspace.mdl,
+            requested,
+            resolve_semantics=target in ("protobuf", "grpc"),
+        )
         if violations:
             raise click.ClickException(
                 "Cannot scope compilation with --domain: the requested domain(s) have "
@@ -329,7 +353,11 @@ def compile(
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "protobuf":
-        artifacts = emit_protobuf(emit_workspace, output)
+        artifacts = emit_protobuf(
+            emit_workspace,
+            output,
+            registry_ids=registry_ids,
+        )
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)
@@ -337,7 +365,11 @@ def compile(
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
     elif target == "grpc":
-        artifacts = emit_grpc(emit_workspace, output)
+        artifacts = emit_grpc(
+            emit_workspace,
+            output,
+            registry_ids=registry_ids,
+        )
         for art in artifacts:
             assert isinstance(art.content, str)
             _write_artifact_text(art.path, art.content)

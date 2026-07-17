@@ -53,10 +53,13 @@ Work should proceed in dependency order:
    fingerprints remain separate manifest metadata rather than canonical model
    identity. The accepted design is documented in
    [Rust Identity Constants — Design](docs/superpowers/specs/archived/2026-07-17-rust-identity-constants-design.md).
-2. **Carry semantic identity into Protobuf.**
-   Add semantic-type resolution to the Protobuf emitter and expose registry IDs
-   in the schema manifest. Preserve nominal identity where Protobuf supports it
-   and document any representation that must remain structural.
+2. **Shipped: carry semantic identity into Protobuf.**
+   The Protobuf and gRPC targets now emit stable declaring-domain semantic
+   wrapper messages, preserve nominal identity in model and projection fields,
+   and expose semantic refs, allocated registry IDs, canonical Modelable
+   signatures, and target-specific wire fingerprints in schema manifests. The
+   accepted design is documented in
+   [Protobuf Semantic Identity — Design](docs/superpowers/specs/2026-07-17-protobuf-semantic-identity-design.md).
 3. **Close Protobuf schema-fidelity gaps.**
    Replace the current opaque `bytes` fallback for `map<K,V>` with a documented,
    deterministic mapping and carry declared primary/secondary index metadata
@@ -69,8 +72,8 @@ Work should proceed in dependency order:
    Add consumer fixtures that register generated schema identity, command/read
    services, and index metadata without duplicating Modelable-owned constants.
 
-The next dependency-ordered slice is item 2: carrying semantic identity into
-Protobuf.
+The next dependency-ordered slice is item 3: closing Protobuf schema-fidelity
+gaps.
 
 Completion means a Scalable consumer can compile generated Rust and Protobuf
 artifacts, register them using generated identity metadata, and detect an

@@ -9,10 +9,19 @@ from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.protobuf import emit_protobuf
 
 
-def emit_grpc(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
+def emit_grpc(
+    workspace: Workspace,
+    out_dir: Path,
+    *,
+    registry_ids: dict[str, int] | None = None,
+) -> list[EmittedArtifact]:
     """Emit the Scalable gRPC profile beside generated protobuf payload schemas."""
     artifacts: list[EmittedArtifact] = []
-    protobuf_artifacts = emit_protobuf(workspace, out_dir)
+    protobuf_artifacts = emit_protobuf(
+        workspace,
+        out_dir,
+        registry_ids=registry_ids,
+    )
     artifacts.extend(_retarget_payload_artifacts(protobuf_artifacts))
 
     for manifest_artifact in protobuf_artifacts:
