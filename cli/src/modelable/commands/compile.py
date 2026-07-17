@@ -176,6 +176,12 @@ def register_compile_commands(cli_group: click.Group) -> None:
     default=(),
     help="Restrict compilation to the named domain(s) (repeatable). Omit to compile the whole workspace.",
 )
+@click.option(
+    "--descriptor-set",
+    "descriptor_set",
+    is_flag=True,
+    help="For protobuf and grpc targets, compile generated .proto files into descriptor .pb artifacts.",
+)
 def compile(
     source: Path,
     target: str,
@@ -184,6 +190,7 @@ def compile(
     registry_ids_path: Path,
     allow_orphaned_registry_ids: bool,
     domains: tuple[str, ...],
+    descriptor_set: bool,
 ) -> None:
     """Compile Modelable definitions and write the local registry index."""
     workspace = load_workspace_or_exit(source)
@@ -359,8 +366,7 @@ def compile(
             registry_ids=registry_ids,
         )
         for art in artifacts:
-            assert isinstance(art.content, str)
-            _write_artifact_text(art.path, art.content)
+            _write_artifact(art)
             _print_artifact_result(art)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
@@ -371,8 +377,7 @@ def compile(
             registry_ids=registry_ids,
         )
         for art in artifacts:
-            assert isinstance(art.content, str)
-            _write_artifact_text(art.path, art.content)
+            _write_artifact(art)
             _print_artifact_result(art)
         if not artifacts:
             console.print("[yellow]No artifacts generated.[/yellow]")
@@ -425,3 +430,13 @@ def _print_artifact_result(art: EmittedArtifact) -> None:
 def _write_artifact_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+
+def _write_artifact(art: EmittedArtifact) -> None:
+    art.path.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(art.content, bytes):
+        art.path.write_bytes(art.content)
+    elif isinstance(art.content, dict):
+        art.path.write_text(json.dumps(art.content, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    else:
+        art.path.write_text(art.content, encoding="utf-8")

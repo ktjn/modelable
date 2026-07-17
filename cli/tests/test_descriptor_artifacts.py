@@ -7,7 +7,10 @@ import sys
 from pathlib import Path
 
 import pytest
+from click.testing import CliRunner
 
+from modelable.cli import cli
+from modelable.commands.compile import _write_artifact
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.descriptors import DescriptorGenerationError, compile_descriptor_set
 
@@ -131,3 +134,41 @@ def test_compile_descriptor_set_reports_protoc_failure(tmp_path, monkeypatch):
             out_path=proto_root / "Order.v1.descriptor.pb",
             target_ref="platform.Order@1",
         )
+
+
+def test_write_artifact_writes_bytes(tmp_path):
+    artifact = EmittedArtifact(
+        target="protobuf",
+        ref="platform.Order@1",
+        artifact_id="platform.Order.v1.descriptor",
+        path=tmp_path / "Order.v1.descriptor.pb",
+        content=b"\x00descriptor",
+        content_hash=compute_content_hash(b"\x00descriptor"),
+    )
+
+    _write_artifact(artifact)
+
+    assert artifact.path.read_bytes() == b"\x00descriptor"
+
+
+def test_compile_accepts_descriptor_set_flag_for_protobuf_without_changing_default_behavior(tmp_path):
+    mdl = tmp_path / "platform.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    out = tmp_path / "dist"
+
+    result = CliRunner().invoke(cli, ["compile", str(mdl), "--target", "protobuf", "--out", str(out)])
+
+    assert result.exit_code == 0, result.output
+    assert (out / "platform" / "Order.v1" / "Order.v1.proto").exists()
+    assert not (out / "platform" / "Order.v1" / "Order.v1.descriptor.pb").exists()
