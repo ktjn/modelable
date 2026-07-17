@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Implement the accepted
-  [design contract](../specs/2026-07-17-protobuf-semantic-identity-design.md).
+  [design contract](../../specs/archived/2026-07-17-protobuf-semantic-identity-design.md).
 - Emit one `<out>/<domain>/semantic-types.proto` bundle for every domain containing semantic declarations.
 - Use package `modelable.<normalized-domain>.semantic`; consumers use leading-dot fully qualified wrapper names.
 - Emit one wrapper message per semantic declaration, sorted by name, with a single `value = 1` field.

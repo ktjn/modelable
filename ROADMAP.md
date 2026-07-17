@@ -59,7 +59,7 @@ Work should proceed in dependency order:
    and expose semantic refs, allocated registry IDs, canonical Modelable
    signatures, and target-specific wire fingerprints in schema manifests. The
    accepted design is documented in
-   [Protobuf Semantic Identity — Design](docs/superpowers/specs/2026-07-17-protobuf-semantic-identity-design.md).
+   [Protobuf Semantic Identity — Design](docs/superpowers/specs/archived/2026-07-17-protobuf-semantic-identity-design.md).
 3. **Close Protobuf schema-fidelity gaps.**
    Replace the current opaque `bytes` fallback for `map<K,V>` with a documented,
    deterministic mapping and carry declared primary/secondary index metadata
