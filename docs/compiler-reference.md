@@ -31,8 +31,8 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | OpenLineage sync | 3 | Implemented for Marquez-compatible `/api/v1/lineage` endpoints |
 | OpenLineage export | 3 | Implemented local artifact; runtime collection deferred |
 | ODCS export | 4 | Implemented local artifact |
-| Protobuf | 5 | Implemented local artifact with opt-in descriptor artifacts and native supported maps; compatibility validation deferred |
-| Scalable gRPC profile | 5 | Implemented local artifact with opt-in service descriptors and declared read-index metadata; compatibility validation deferred |
+| Protobuf | 5 | Implemented local artifact with opt-in descriptor artifacts, native supported maps, source reservations, and manifest-based compatibility validation |
+| Scalable gRPC profile | 5 | Implemented local artifact with opt-in service descriptors, declared read-index metadata, and manifest-based compatibility validation |
 | Avro | 5 | Deferred |
 | OpenAPI | 5 | Deferred |
 | AsyncAPI | 5 | Deferred |
@@ -190,9 +190,12 @@ implemented:
   primary fallback from existing `@key` fields when no index declaration
   exists. When `--descriptor-set` is used, each service emits a compiled
   `<Name>.v<version>.grpc.descriptor.pb` descriptor artifact and records it in
-  `service-manifest.json`. Scalable registration fixtures and protobuf/gRPC
-  compatibility validation remain deferred follow-up work before gRPC is
-  considered stable for long-lived external transport contracts.
+  `service-manifest.json`. Manifest-based compatibility validation compares
+  generated service metadata and reports read-index changes as
+  `requires_read_rebuild`. Descriptor-binary diffing, explicit
+  rebuild/migration declarations, and Scalable registration fixtures remain
+  follow-up work before gRPC is considered stable for long-lived external
+  transport contracts.
 - Protobuf: `compile --target protobuf` emits deterministic `.proto` files and
   schema manifests for models and projections. Supported `map<K,V>` fields
   render as native Protobuf maps, unsupported map shapes fail clearly, and
@@ -201,8 +204,11 @@ implemented:
   `map.value_type`, and optional `map.value_fixed_length` or
   `map.value_semantic_type`. When `--descriptor-set` is used, each schema emits
   a compiled `<Name>.v<version>.descriptor.pb` descriptor artifact and records
-  it in `schema-manifest.json`. The remaining wire-contract boundary is
-  deleted-field reservations and protobuf compatibility validation before
+  it in `schema-manifest.json`. `reserved protobuf` declarations render
+  deleted-field reservations and manifest-based compatibility validation
+  guards field-number reuse, deleted-field reservations, target type changes,
+  requiredness changes, and inline enum value reuse. Descriptor-binary diffing,
+  field-number pinning, and enum reservations remain follow-up work before
   protobuf is considered stable for long-lived external wire contracts.
 - SQL DDL: treat SQL as a binding/materialization artifact, not canonical
   model truth. `index` declarations (see [Language Reference

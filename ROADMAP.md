@@ -64,18 +64,22 @@ Work should proceed in dependency order:
    Supported `map<K,V>` fields now render as native Protobuf maps instead of
    opaque `bytes`, unsupported map shapes fail clearly, and declared
    primary/secondary index metadata flows into schema and service manifests.
-4. **Next: make the wire contract enforceable over time.**
+4. **Shipped: make the first wire-contract guard enforceable over time.**
    Descriptor artifacts now ship for Protobuf and gRPC through opt-in
-   `--descriptor-set` generation. The remaining active work is to reserve
-   deleted field numbers and names and add Protobuf/gRPC compatibility
-   validation before generated contracts are treated as long-lived transport
-   APIs.
+   `--descriptor-set` generation. Source-level Protobuf reservations now
+   preserve deleted field numbers and names, and
+   `validate-compat --target protobuf|grpc` validates generated manifests for
+   field-number reuse, deleted-field reservations, target type changes,
+   requiredness changes, inline enum value reuse, and gRPC read-index changes.
+   Remaining follow-ups are descriptor-binary diffing, explicit field-number
+   pinning, enum reservations, explicit rebuild/migration declarations, and
+   Scalable registration fixtures.
 5. **Prove Scalable registration end to end.**
    Add consumer fixtures that register generated schema identity, command/read
    services, and index metadata without duplicating Modelable-owned constants.
 
-The next dependency-ordered slice is item 4: making the wire contract
-enforceable over time.
+The next dependency-ordered slice is item 5: proving Scalable registration end
+to end.
 
 Completion means a Scalable consumer can compile generated Rust and Protobuf
 artifacts, register them using generated identity metadata, and detect an

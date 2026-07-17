@@ -205,7 +205,35 @@ modelable diff customer.Customer@1 customer.Customer@2
 
 ---
 
-### 5.5 `compile` — Compile definitions to artifact formats
+### 5.5 `validate-compat` — Validate target compatibility
+
+```text
+modelable validate-compat --from OLD --to NEW --target protobuf|grpc
+```
+
+Compares generated target manifests from two Modelable workspaces without
+requiring `protoc`. `wire_compatible` and `read_compatible` exit `0`;
+`requires_read_rebuild`, `requires_state_migration`, and `breaking` exit
+non-zero.
+
+**Options:**
+
+| Flag | Required | Description |
+|:-----|:---------|:------------|
+| `--from` | Yes | Old `.mdl` file or workspace directory |
+| `--to` | Yes | New `.mdl` file or workspace directory |
+| `--target` | Yes | Target compatibility profile: `protobuf` or `grpc` |
+
+**Examples:**
+
+```bash
+modelable validate-compat --from ./old-models --to ./models --target protobuf
+modelable validate-compat --from ./old-models --to ./models --target grpc
+```
+
+---
+
+### 5.6 `compile` — Compile definitions to artifact formats
 
 ```text
 modelable compile SOURCE --target TARGET [--out DIR] [--registry PATH] [--registry-ids PATH] [--allow-orphaned-registry-ids] [--descriptor-set]
@@ -829,9 +857,11 @@ Representative type mapping:
 | `map<K,V>` | native `map<K,V>` for supported key/value shapes |
 | `enum(a,b)` | generated enum |
 
-Deferred protobuf work remains required before using generated artifacts as
-a long-lived external wire contract: deleted-field reservations and protobuf
-compatibility validation.
+Generated Protobuf artifacts support `reserved protobuf` declarations for
+deleted field numbers and names. `modelable validate-compat --target protobuf`
+guards field-number reuse, deleted-field reservations, target type changes,
+requiredness changes, and inline enum value reuse. Descriptor-binary diffing,
+explicit field-number pinning, and enum reservations remain follow-up work.
 
 **Options:**
 
@@ -896,9 +926,11 @@ dist/grpc/
   <domain>/<Name>.v<version>/service-manifest.json
 ```
 
-Deferred gRPC work remains required before using generated artifacts as a
-long-lived transport contract: protobuf/gRPC compatibility validation and a
-Scalable-side fixture that registers generated descriptors and manifests.
+Generated gRPC artifacts participate in
+`modelable validate-compat --target grpc`; read-index changes are reported as
+`requires_read_rebuild`. Scalable-side fixtures that register generated
+descriptors and manifests remain follow-up work before treating the generated
+service profile as a fully proven runtime integration.
 
 **Options:**
 
