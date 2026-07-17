@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from click.testing import CliRunner
+
+from modelable.cli import cli
 from modelable.compat.targets import compare_grpc_artifacts, compare_protobuf_manifests
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.grpc import emit_grpc
@@ -259,3 +262,73 @@ domain billing {
 
     assert report.status == "requires_read_rebuild"
     assert any(finding.code == "read_index_changed" for finding in report.findings)
+
+
+def test_validate_compat_cli_passes_wire_compatible_change(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName?: string
+  }
+}
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["validate-compat", "--from", str(old), "--to", str(new), "--target", "protobuf"],
+    )
+
+    assert result.exit_code == 0
+    assert "status: wire_compatible" in result.output
+    assert "- no target compatibility findings" in result.output
+
+
+def test_validate_compat_cli_fails_breaking_change(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    legacyStatus: string
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["validate-compat", "--from", str(old), "--to", str(new), "--target", "protobuf"],
+    )
+
+    assert result.exit_code == 1
+    assert "status: breaking" in result.output
+    assert "removed_field_not_reserved" in result.output
