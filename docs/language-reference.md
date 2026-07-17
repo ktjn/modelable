@@ -437,7 +437,13 @@ Chains must be acyclic and are limited to 32 levels. Referencing an undeclared s
 
 #### Emitter support (this slice)
 
-Only the Rust emitter generates a distinct type for `semantic` declarations in this slice — a newtype wrapper (see [Compiler Reference](compiler-reference.md)). All other targets (TypeScript, SQL, JSON Schema, Avro, Protobuf, FHIR, GraphQL, dbt, OpenLineage, OpenMetadata, ODCS, markdown, Go, Java, C#, Python) resolve a semantic type reference to its underlying type, unchanged from pre-1.3 behavior. Extending semantic-type support to those targets is deferred to follow-up slices.
+The Rust emitter generates a newtype wrapper for each `semantic` declaration,
+while the Protobuf and gRPC targets generate nominal declaring-domain wrapper
+messages (see the [Compiler Reference](compiler-reference.md)). Other targets
+(TypeScript, SQL, JSON Schema, Avro, FHIR, GraphQL, dbt, OpenLineage,
+OpenMetadata, ODCS, markdown, Go, Java, C#, Python) continue to resolve a
+semantic type reference structurally. Extending nominal semantic-type support
+to those targets is deferred to follow-up slices.
 
 ---
 

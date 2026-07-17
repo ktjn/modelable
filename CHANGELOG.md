@@ -8,6 +8,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Protobuf and gRPC generation now preserve semantic types as stable
+  declaring-domain wrapper messages and expose semantic refs, registry IDs,
+  canonical Modelable signatures, and target-specific wire fingerprints in
+  schema manifests.
 - Generated Rust registry-backed semantic newtypes now expose their allocated
   ID as `REGISTRY_ID`. Generated Rust models and projections expose
   `SCHEMA_VERSION` and the canonical Modelable signature as a dependency-free

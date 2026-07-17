@@ -77,7 +77,11 @@ Neither emitter sorts, groups, or otherwise reorders fields.
 | `enum(...)` | `pub enum` with `#[serde(rename = "...")]` per variant | a sibling `enum` message with a synthetic `_UNSPECIFIED = 0` plus declaration-order sequential values (see section 4) |
 | `array<T>` | `Vec<T>` | `repeated <T>` |
 | `map<K,V>` | `HashMap<K,V>` | **`bytes`** — Protobuf has no map-type handling in `_type_to_proto` today; this is a real, unaddressed gap, not a deliberate encoding choice. Modeling a `map<K,V>` field and compiling to Protobuf produces an opaque `bytes` field with no wire-level structure. Included in the golden fixture below anyway — pinning current (imperfect) output still catches an *unintentional* regression to this fallback, even though the fallback itself is a known gap, not a guarantee. |
-| Semantic type reference (`semantic Name: Underlying`) | the generated newtype (see `compiler-reference.md`) | **unsupported** — `protobuf.py` has no `NamedType` resolution at all; a field referencing a semantic type (or any named model) falls through to the same `bytes` catch-all as an unrecognized type. Not included in the golden fixture below — it's out of scope for a *primitive*-type-focused representative fixture, not because pinning it would be wrong. |
+| Semantic type reference (`semantic Name: Underlying`) | the generated newtype (see the [compiler reference](compiler-reference.md)) | a fully qualified declaring-domain wrapper message with one `value = 1` field mapped from the terminal scalar; alias chains flatten rather than nest. The schema manifest records the qualified semantic ref and optional registry allocation. Unsupported maps containing semantic values remain opaque `bytes`. |
+
+Adopting a generated Protobuf semantic wrapper is an intentional wire change
+from the previous opaque `bytes` fallback. Existing consumers must regenerate
+their schemas and bindings together when moving to this compiler behavior.
 
 ## 4. Enum Discriminant Stability
 
