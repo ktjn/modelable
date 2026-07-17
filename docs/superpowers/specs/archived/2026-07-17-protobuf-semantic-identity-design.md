@@ -14,7 +14,7 @@ nominal identity. The companion `schema-manifest.json` also has no record of
 which semantic declaration a field references or which stable registry ID was
 allocated to a `registry: true` declaration.
 
-Priority 1 item 2 in [ROADMAP.md](../../../ROADMAP.md) therefore adds semantic
+Priority 1 item 2 in [ROADMAP.md](../../../../ROADMAP.md) therefore adds semantic
 identity to the Protobuf and Scalable gRPC targets. This follows the shipped
 Rust identity constants slice while preserving the distinction between
 canonical Modelable identity and target-specific Protobuf wire identity.
@@ -353,7 +353,7 @@ reserved fields, compatibility validation, and Scalable consumer fixtures
 remain later dependency-ordered slices.
 
 This design and its
-[implementation plan](../plans/2026-07-17-protobuf-semantic-identity.md) stay
+[implementation plan](../../plans/archived/2026-07-17-protobuf-semantic-identity.md) stay
 in the active `docs/superpowers/specs/` and `docs/superpowers/plans/`
 directories until the implementation merges. They are archived immediately
 after merge.
