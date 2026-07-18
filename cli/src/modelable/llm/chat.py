@@ -14,6 +14,7 @@ from modelable.llm.context import (
     build_workspace_summary,
     parse_model_ref,
 )
+from modelable.llm.conversation import ConversationSession
 from modelable.llm.engine import recommend_cli, update_definition
 from modelable.llm.providers import LLMProvider, LLMRequest
 from modelable.llm.qa import answer_question
@@ -24,6 +25,7 @@ class ChatState:
     ref: str | None = None
     workspace_summary: str | None = None
     history: list[tuple[str, str]] = field(default_factory=list)
+    session: ConversationSession | None = field(default=None, repr=False)
 
 
 CHAT_SYSTEM_PROMPT = """You are Modelable's interactive assistant.
@@ -60,32 +62,56 @@ def chat_turn(
     provider: LLMProvider | None = None,
 ) -> str:
     stripped = message.strip()
-    if stripped.startswith("/"):
-        response = _handle_chat_command(workspace, path, stripped, state=state, provider=provider)
-    elif _looks_like_update_request(stripped):
-        ref = _resolve_update_ref(stripped, state.ref)
-        if ref is None:
-            response = "Provide a ref or set one with /ref."
+    command = stripped.partition(" ")[0].lower()
+    if command in {"/apply", "/discard", "/ask"}:
+        if command == "/ask" and not stripped.partition(" ")[2].strip():
+            response = "Provide a question after /ask."
         else:
-            instruction = _strip_update_ref_from_message(stripped, ref=ref)
-            try:
-                result = update_definition(path, ref, instruction, provider=provider, write=False)
-            except ValueError as exc:
-                response = f"ERROR: {exc}"
-            else:
-                response = _render_update_preview(result)
-    else:
-        response = chat_reply(
-            workspace,
-            message,
-            ref=state.ref,
-            workspace_summary=state.workspace_summary,
+            response = _conversation_turn(
+                path,
+                stripped,
+                state=state,
+                provider=provider,
+            )
+    elif stripped.startswith("/"):
+        active_workspace = state.session.workspace if state.session is not None else workspace
+        response = _handle_chat_command(
+            active_workspace,
+            path,
+            stripped,
+            state=state,
             provider=provider,
-            history=state.history,
+        )
+    else:
+        response = _conversation_turn(
+            path,
+            stripped,
+            state=state,
+            provider=provider,
         )
     state.history.append(("user", message))
     state.history.append(("assistant", response))
     return response
+
+
+def _conversation_turn(
+    path: Path,
+    message: str,
+    *,
+    state: ChatState,
+    provider: LLMProvider | None,
+) -> str:
+    if state.session is None:
+        state.session = ConversationSession(
+            path=path,
+            provider=provider,
+            focused_ref=state.ref,
+        )
+        state.session.history.extend(state.history)
+    reply = state.session.turn(message)
+    state.ref = state.session.focused_ref
+    state.workspace_summary = build_workspace_summary(state.session.workspace)
+    return reply.text
 
 
 def _build_user_prompt(
@@ -143,6 +169,8 @@ def _handle_chat_command(
         if not args:
             return state.ref or "No focus ref is set."
         state.ref = args[0]
+        if state.session is not None:
+            state.session.focused_ref = state.ref
         return f"Focused on {state.ref}."
     if command == "context":
         return _build_context_summary(workspace, ref=state.ref)
@@ -191,7 +219,7 @@ def _handle_chat_command(
 def _chat_help() -> str:
     return (
         "Commands: /help, /ref <ref>, /context, /describe [ref], /recommend <ref> [consumer], "
-        "/ask <question>, /update <ref> <instruction> (preview only), /exit"
+        "/ask <question>, /update <ref> <instruction> (preview only), /apply, /discard, /exit"
     )
 
 
