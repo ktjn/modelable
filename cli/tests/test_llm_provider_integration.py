@@ -308,7 +308,19 @@ domain customer {
     def fake_urlopen(req: request.Request, timeout: float):
         captured["system"] = json.loads(req.data.decode("utf-8"))["messages"][0]["content"]
         return DummyResponse(
-            json.dumps({"message": {"content": "I can apply that change directly in chat."}}).encode("utf-8")
+            json.dumps(
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "kind": "clarification",
+                                "question": "Should I stage email as optional?",
+                                "reason": "The request asks how rather than requesting a change.",
+                            }
+                        )
+                    }
+                }
+            ).encode("utf-8")
         )
 
     monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
@@ -331,9 +343,9 @@ domain customer {
         ],
     )
     assert result.exit_code == 0, result.output
-    assert "apply that change directly" in result.output
-    assert "previewed through the update pipeline" in captured["system"]
-    assert "modelable update" not in captured["system"]
+    assert "Should I stage email as optional?" in result.output
+    assert "Return JSON only matching the supplied closed schema" in captured["system"]
+    assert "Never emit raw patches" in captured["system"]
 
 
 def test_chat_command_uses_anthropic_provider_when_available(tmp_path, monkeypatch):
@@ -372,7 +384,18 @@ domain customer {
         return DummyResponse(
             json.dumps(
                 {
-                    "content": [{"type": "text", "text": "anthropic response"}],
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(
+                                {
+                                    "kind": "clarification",
+                                    "question": "Should I stage email as optional?",
+                                    "reason": "The request asks how rather than requesting a change.",
+                                }
+                            ),
+                        }
+                    ],
                     "usage": {"input_tokens": 11, "output_tokens": 3},
                 }
             ).encode("utf-8")
@@ -397,10 +420,10 @@ domain customer {
         ],
     )
     assert result.exit_code == 0, result.output
-    assert "anthropic response" in result.output
+    assert "Should I stage email as optional?" in result.output
     assert captured["url"] == "https://api.anthropic.com/v1/messages"
-    assert "previewed through the update pipeline" in captured["system"]
-    assert "modelable update" not in captured["system"]
+    assert "Return JSON only matching the supplied closed schema" in captured["system"]
+    assert "Never emit raw patches" in captured["system"]
 
 
 def test_update_command_uses_provider_flags(tmp_path, monkeypatch):
@@ -650,7 +673,7 @@ domain customer {
     assert "confirm classification before publishing" in response
 
 
-def test_chat_freeform_edit_request_shows_preview_without_writing(tmp_path):
+def test_chat_freeform_edit_request_requires_provider_without_writing(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
@@ -672,7 +695,7 @@ domain customer {
         state=state,
     )
     assert "Wrote changes to" not in response
-    assert "email?: string" in response
+    assert "Configure an LLM provider" in response
     assert mdl.read_text(encoding="utf-8") == original
 
 
