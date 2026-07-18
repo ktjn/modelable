@@ -283,6 +283,16 @@ suite('Modelable LSP Smoke Tests', function () {
   });
 
   test('document symbols include the current projection fields', async () => {
+    // VS Code can cache an empty result requested by the outline before the
+    // extension finishes its initial didOpen. Bump the in-memory document
+    // version without changing its final text so this assertion queries the
+    // ready provider instead of that startup cache entry.
+    const document = await vscode.workspace.openTextDocument(uri);
+    const editor = await vscode.window.showTextDocument(document);
+    await editor.edit(edit => edit.insert(new vscode.Position(0, 0), ' '));
+    await editor.edit(edit => edit.delete(
+      new vscode.Range(0, 0, 0, 1),
+    ));
     const names = await documentSymbolNames(uri);
     assert.ok(names.includes('ml-credit-risk'), `Expected ml-credit-risk in document symbols: ${names.join(', ')}`);
     assert.ok(

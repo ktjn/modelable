@@ -96,17 +96,18 @@ After the Scalable/Rust path is complete:
    multi-file changes with textual diffs and affected-definition explanations
    before explicit confirmation. The completed design is archived in
    [Conversational Workspace Management — Design](docs/superpowers/specs/archived/2026-07-18-conversational-workspace-management-design.md).
-2. **Next:** reuse the conversational planner and workspace editor in a VS Code
-   chat/editor experience exposed through language-server requests. The
-   extension should remain a thin UI and must not duplicate `.mdl` editing or
-   validation logic in TypeScript. The approved design is in
-   [VS Code Conversational Foundation — Design](docs/superpowers/specs/2026-07-18-vscode-conversational-foundation-design.md).
-3. **After the VS Code client foundation:** add an optional provider adapter
+2. **Shipped:** reuse the conversational planner and workspace editor through
+   the native VS Code `@modelable` participant and versioned language-server
+   requests. The extension remains a thin UI: Python owns provider
+   configuration, typed plans, validation, exact previews, writes, rollback,
+   and reload. The completed design is archived in
+   [VS Code Conversational Foundation — Design](docs/superpowers/specs/archived/2026-07-18-vscode-conversational-foundation-design.md).
+3. **Next:** add an optional provider adapter
    for the VS Code Language Model API so users can select a model available in
    their editor. Native model output must still pass through Python-owned typed
    plan parsing, validation, preview, and workspace editing; the extension must
    not duplicate those safety boundaries in TypeScript.
-4. **After the VS Code provider foundation:** extend conversational management
+4. **After the native-model provider adapter:** extend conversational management
    to compilation, registry synchronization, publishing, and external-service
    operations only after each action has an explicit authorization, preview,
    confirmation, and audit policy.

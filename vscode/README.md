@@ -28,6 +28,39 @@ The extension registers `*.mdl` files as `mdl` documents and resolves the langua
 
 Open a `.mdl` file in the development host to test diagnostics, completion, hover, definition, references, symbols, formatting, rename, and code actions.
 
+## Conversational workspace management
+
+The extension contributes a native `@modelable` participant to VS Code Chat.
+It can answer grounded questions and preview the same typed workspace changes
+as `modelable chat`:
+
+```text
+@modelable is the workspace valid?
+@modelable add a customer entity with address
+@modelable add a projection for active customers
+```
+
+Read-only validation, ownership, lineage, dependency, index, compatibility,
+model, and projection questions work without a model provider. Creating or
+updating definitions requires the provider configured for the workspace or
+CLI environment; the extension adds no separate provider setting.
+
+Modelable selects the workspace containing the active `.mdl` editor. If there
+is no active model editor, exactly one open folder containing `workspace.mdl`
+must be available. Multiple candidates are ambiguous, and the participant asks
+you to open a model file instead of guessing. Save all dirty `.mdl` documents
+under the selected root before planning, applying, or discarding a change.
+
+Mutation requests return a textual preview with assumptions, changed and
+affected definitions, compatibility and validation findings, and a unified
+diff. **View Diff** opens the exact captured before/after snapshots in VS
+Code's diff editor; it does not reread or infer source. Use the native **Apply
+change set** or **Discard** follow-up, or `/apply` and `/discard`, to act on the
+exact pending change-set ID. A stale preview, changed source, expired session,
+or restarted language server is rejected without writing; repeat the request
+to create a fresh preview. Use `/reset` to close the current session and clear
+its preview documents. Idle server sessions expire after 30 minutes.
+
 ## Packaging for use in another project
 
 Build an installable `.vsix`:

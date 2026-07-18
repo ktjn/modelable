@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Implement [VS Code Conversational Foundation — Design](../specs/2026-07-18-vscode-conversational-foundation-design.md) exactly.
+- Implement [VS Code Conversational Foundation — Design](../../specs/archived/2026-07-18-vscode-conversational-foundation-design.md) exactly.
 - Use participant ID `modelable-vscode.modelable`.
 - Use custom protocol version `1`; reject absent, malformed, or unsupported versions.
 - Use the existing `resolve_llm_config` and `build_provider` Python functions. Add no VS Code-specific Modelable provider settings.

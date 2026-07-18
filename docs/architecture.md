@@ -1058,7 +1058,15 @@ Conversational workspace management is an application-service layer over the
 compiler. Its dependency direction is:
 
 ```text
-CLI chat / future VS Code chat
+CLI chat
+  -> ConversationSession
+  -> conversational planner
+  -> workspace editor
+  -> parser, IR, renderer, validator, compatibility and dependency analysis
+
+VS Code ChatParticipant
+  -> vscode-languageclient custom request v1
+  -> bounded Python ConversationSession registry
   -> conversational planner
   -> workspace editor
   -> parser, IR, renderer, validator, compatibility and dependency analysis
@@ -1076,9 +1084,17 @@ The compiler remains authoritative for parsing, normalized IR, rendering,
 validation, compatibility, and dependency analysis. Compiler modules never
 depend on provider, chat, or conversation-state modules.
 
-The language server is the planned transport for a future VS Code chat/editor
-experience. That extension will render typed conversation state and textual
-diffs without reimplementing `.mdl` editing or validation in TypeScript.
+The language server is also the implemented transport for the native VS Code
+`@modelable` participant. A versioned custom protocol carries active-editor
+focus, dirty-document URIs, session identity, exact change-set identity, and
+structured replies. The server bounds the in-memory registry to 32 sessions
+and expires idle entries after 30 minutes. The extension renders canonical
+text, server-supplied definition anchors, and exact virtual before/after
+snapshots in VS Code's built-in diff editor.
+
+The extension does not parse `.mdl`, synthesize plans, validate a staged
+workspace, apply a `WorkspaceEdit`, or write source files. All semantic
+planning and changes remain Python-owned compiler/application-service work.
 Conversational compilation, synchronization, publishing, and other external
 actions remain separate future work because each requires an explicit
 authorization, preview, confirmation, and audit policy.
@@ -1099,6 +1115,9 @@ authorization, preview, confirmation, and audit policy.
   complete entity/projection proposals, compatibility-aware textual previews,
   explicit confirmation, stale-source detection, rollback protection, and
   post-apply reload.
+- Native VS Code `@modelable` workspace questions and management through the
+  versioned language-server conversation service, exact diff snapshots, and
+  apply/discard/reset lifecycle controls.
 
 ### Deferred
 

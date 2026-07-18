@@ -11,9 +11,9 @@ entity and projection creation, compatibility-aware updates, textual previews,
 affected-definition explanations, refinement, apply, and discard.
 
 It builds on the archived
-[Conversational Workspace Management — Design](archived/2026-07-18-conversational-workspace-management-design.md)
+[Conversational Workspace Management — Design](2026-07-18-conversational-workspace-management-design.md)
 and implements the next authoring slice in the
-[roadmap](../../../ROADMAP.md).
+[roadmap](../../../../ROADMAP.md).
 
 The extension remains a thin client. It sends prompts and editor context over a
 versioned custom language-server protocol, then renders structured results from
@@ -638,7 +638,7 @@ and external-service actions remain later work with separate authorization,
 preview, confirmation, and audit policy.
 
 The execution sequence is defined in the
-[VS Code Conversational Foundation Implementation Plan](../plans/2026-07-18-vscode-conversational-foundation.md).
+[VS Code Conversational Foundation Implementation Plan](../../plans/archived/2026-07-18-vscode-conversational-foundation.md).
 
 ## 18. Acceptance Criteria
 
