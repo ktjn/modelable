@@ -99,20 +99,26 @@ After the Scalable/Rust path is complete:
 2. **Next:** reuse the conversational planner and workspace editor in a VS Code
    chat/editor experience exposed through language-server requests. The
    extension should remain a thin UI and must not duplicate `.mdl` editing or
-   validation logic in TypeScript.
-3. **After the VS Code client foundation:** extend conversational management
+   validation logic in TypeScript. The approved design is in
+   [VS Code Conversational Foundation — Design](docs/superpowers/specs/2026-07-18-vscode-conversational-foundation-design.md).
+3. **After the VS Code client foundation:** add an optional provider adapter
+   for the VS Code Language Model API so users can select a model available in
+   their editor. Native model output must still pass through Python-owned typed
+   plan parsing, validation, preview, and workspace editing; the extension must
+   not duplicate those safety boundaries in TypeScript.
+4. **After the VS Code provider foundation:** extend conversational management
    to compilation, registry synchronization, publishing, and external-service
    operations only after each action has an explicit authorization, preview,
    confirmation, and audit policy.
-4. Extend nominal semantic-type generation beyond Rust, prioritizing
+5. Extend nominal semantic-type generation beyond Rust, prioritizing
    TypeScript, Go, Java, C#, Python, JSON Schema, and SQL according to concrete
    consumer demand. Targets that intentionally erase nominal identity must say
    so explicitly.
-5. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
+6. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
    generated constants and registry state are easy to diagnose.
-6. Publish the VS Code extension through the Marketplace once the release and
+7. Publish the VS Code extension through the Marketplace once the release and
    support process is defined.
-7. Continue conformance, documentation, diagnostics, and importer hardening
+8. Continue conformance, documentation, diagnostics, and importer hardening
    where contributor or user reports expose real gaps.
 
 Completion means a new team can install the CLI and editor tooling, understand
