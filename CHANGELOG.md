@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added safe conversational workspace management to `modelable chat`:
+  grounded ownership, lineage, dependency, index, compatibility, and
+  validation questions; complete entity and projection proposals through
+  closed typed plans; compatibility-aware textual diffs with affected
+  definitions; refinement and discard; and explicit fingerprint-protected
+  application with rollback and workspace reload. Deterministic questions
+  remain available offline, while mutation synthesis requires a configured
+  provider.
 - Added source-level Protobuf field reservations and
   `validate-compat --target protobuf|grpc` compatibility validation.
 - Added opt-in Protobuf and gRPC descriptor artifact generation via

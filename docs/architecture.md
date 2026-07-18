@@ -1052,6 +1052,37 @@ See the [Modelable Tooling Reference](cli-reference.md) for the full command ref
 - Basic CLI for publishing, validating, compiling, and exporting definitions.
 - `modelable inspect <Entity>@<v> --auto` command to display the compiler-expanded auto projections.
 
+### 17.4 Conversational authoring services
+
+Conversational workspace management is an application-service layer over the
+compiler. Its dependency direction is:
+
+```text
+CLI chat / future VS Code chat
+  -> conversational planner
+  -> workspace editor
+  -> parser, IR, renderer, validator, compatibility and dependency analysis
+```
+
+The schema-constrained planner produces typed query, change-set,
+clarification, or unsupported results. The provider-independent workspace
+editor applies only semantic operations to copied IR documents, renders and
+validates a staged workspace, calculates compatibility and dependency impact,
+and owns fingerprinted preview/apply behavior with rollback protection. The
+conversation service owns pending proposal state and explicit confirmation;
+the Click command is a thin transport adapter.
+
+The compiler remains authoritative for parsing, normalized IR, rendering,
+validation, compatibility, and dependency analysis. Compiler modules never
+depend on provider, chat, or conversation-state modules.
+
+The language server is the planned transport for a future VS Code chat/editor
+experience. That extension will render typed conversation state and textual
+diffs without reimplementing `.mdl` editing or validation in TypeScript.
+Conversational compilation, synchronization, publishing, and other external
+actions remain separate future work because each requires an explicit
+authorization, preview, confirmation, and audit policy.
+
 ### Shipped beyond the original MVP scope
 
 - OpenMetadata and OpenLineage local export (`compile --target openmetadata|openlineage`) plus
@@ -1064,6 +1095,10 @@ See the [Modelable Tooling Reference](cli-reference.md) for the full command ref
 - Fixed-width integers, fixed-length binary values, UUIDv7-compatible
   identifiers, semantic types, deterministic registry IDs, and index
   declarations.
+- Safe conversational CLI workspace management with grounded questions,
+  complete entity/projection proposals, compatibility-aware textual previews,
+  explicit confirmation, stale-source detection, rollback protection, and
+  post-apply reload.
 
 ### Deferred
 
