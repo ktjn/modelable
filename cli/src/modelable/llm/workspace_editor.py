@@ -466,6 +466,9 @@ class WorkspaceEditor:
         originals: dict[Path, tuple[bool, bytes]] = {}
         temporary_paths: dict[Path, Path] = {}
         replaced_paths: list[Path] = []
+        workspace: Workspace | None = None
+        apply_error: Exception | None = None
+        recovery_errors: list[str] = []
         try:
             for path in written_paths:
                 existed = path.exists()
@@ -485,16 +488,29 @@ class WorkspaceEditor:
                 rendered = "; ".join(render_diagnostic(diagnostic) for diagnostic in reload_errors)
                 raise WorkspaceApplyError(f"Reloaded workspace has validation errors: {rendered}")
         except Exception as error:
-            rollback_errors = self._rollback_replacements(replaced_paths, originals)
-            if rollback_errors:
-                details = "; ".join(rollback_errors)
-                raise WorkspaceApplyError(
-                    f"Workspace apply failed and rollback was incomplete ({details}): {error}"
-                ) from error
-            raise WorkspaceApplyError(f"Workspace apply failed and was rolled back: {error}") from error
+            apply_error = error
+            try:
+                recovery_errors.extend(self._rollback_replacements(replaced_paths, originals))
+            except Exception as rollback_error:
+                recovery_errors.append(f"rollback processing failed: {rollback_error}")
         finally:
-            for temporary_path in temporary_paths.values():
-                temporary_path.unlink(missing_ok=True)
+            unreplaced_temporaries = [
+                temporary_path for path, temporary_path in temporary_paths.items() if path not in replaced_paths
+            ]
+            try:
+                recovery_errors.extend(self._cleanup_temporary_files(unreplaced_temporaries))
+            except Exception as cleanup_error:
+                recovery_errors.append(f"temporary cleanup processing failed: {cleanup_error}")
+
+        if apply_error is not None:
+            if recovery_errors:
+                details = "; ".join(recovery_errors)
+                raise WorkspaceApplyError(
+                    f"Workspace apply failed ({apply_error}); rollback/cleanup failures: {details}"
+                ) from apply_error
+            raise WorkspaceApplyError(f"Workspace apply failed and was rolled back: {apply_error}") from apply_error
+        if workspace is None:
+            raise WorkspaceApplyError("Workspace apply completed without a reloaded workspace")
 
         self.workspace = workspace
         return AppliedChangeSet(
@@ -533,10 +549,25 @@ class WorkspaceEditor:
                 temporary.flush()
                 os.fsync(temporary.fileno())
             return temporary_path
-        except Exception:
+        except Exception as error:
+            cleanup_errors: list[str] = []
             if temporary_path is not None:
-                temporary_path.unlink(missing_ok=True)
+                cleanup_errors = WorkspaceEditor._cleanup_temporary_files([temporary_path])
+            if cleanup_errors:
+                raise WorkspaceApplyError(
+                    f"Temporary file write failed ({error}); cleanup failures: {'; '.join(cleanup_errors)}"
+                ) from error
             raise
+
+    @staticmethod
+    def _cleanup_temporary_files(temporary_paths: list[Path]) -> list[str]:
+        errors: list[str] = []
+        for temporary_path in temporary_paths:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except Exception as error:
+                errors.append(f"{temporary_path}: {error}")
+        return errors
 
     @classmethod
     def _rollback_replacements(
@@ -558,7 +589,7 @@ class WorkspaceEditor:
                 errors.append(f"{path}: {error}")
             finally:
                 if restoration is not None:
-                    restoration.unlink(missing_ok=True)
+                    errors.extend(cls._cleanup_temporary_files([restoration]))
         return errors
 
     def _copy_documents(self) -> dict[Path, _EditableDocument]:

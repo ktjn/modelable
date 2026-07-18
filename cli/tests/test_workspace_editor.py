@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -219,6 +220,75 @@ def test_apply_rolls_back_when_second_replace_fails(tmp_path, monkeypatch) -> No
 
     assert {path: path.read_bytes() for path in originals} == originals
     assert not list(tmp_path.glob(".modelable-edit-*"))
+
+
+def test_apply_reports_restoration_and_restoration_cleanup_failures(tmp_path, monkeypatch) -> None:
+    _write_empty_two_domain_workspace(tmp_path)
+    editor = WorkspaceEditor(tmp_path)
+    pending = editor.preview(two_file_plan())
+    real_replace = os.replace
+    real_unlink = Path.unlink
+    calls = 0
+    restoration_temp = None
+
+    def fail_apply_and_restoration(source, destination):
+        nonlocal calls, restoration_temp
+        calls += 1
+        if calls == 2:
+            raise OSError("injected apply replace failure")
+        if calls == 3:
+            restoration_temp = Path(source)
+            raise OSError("injected restoration replace failure")
+        real_replace(source, destination)
+
+    def fail_restoration_cleanup(path, *args, **kwargs):
+        if path == restoration_temp:
+            raise OSError("injected restoration cleanup failure")
+        real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "replace", fail_apply_and_restoration)
+    monkeypatch.setattr(Path, "unlink", fail_restoration_cleanup)
+
+    with pytest.raises(WorkspaceApplyError) as captured:
+        editor.apply(pending)
+
+    message = str(captured.value)
+    assert "injected apply replace failure" in message
+    assert "injected restoration replace failure" in message
+    assert "injected restoration cleanup failure" in message
+
+
+def test_apply_reports_unreplaced_candidate_cleanup_failure(tmp_path, monkeypatch) -> None:
+    _write_empty_two_domain_workspace(tmp_path)
+    editor = WorkspaceEditor(tmp_path)
+    pending = editor.preview(two_file_plan())
+    real_replace = os.replace
+    real_unlink = Path.unlink
+    calls = 0
+    unreplaced_temp = None
+
+    def fail_second_replace(source, destination):
+        nonlocal calls, unreplaced_temp
+        calls += 1
+        if calls == 2:
+            unreplaced_temp = Path(source)
+            raise OSError("injected apply replace failure")
+        real_replace(source, destination)
+
+    def fail_candidate_cleanup(path, *args, **kwargs):
+        if path == unreplaced_temp:
+            raise OSError("injected candidate cleanup failure")
+        real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "replace", fail_second_replace)
+    monkeypatch.setattr(Path, "unlink", fail_candidate_cleanup)
+
+    with pytest.raises(WorkspaceApplyError) as captured:
+        editor.apply(pending)
+
+    message = str(captured.value)
+    assert "injected apply replace failure" in message
+    assert "injected candidate cleanup failure" in message
 
 
 def test_apply_rolls_back_new_destination_and_cleans_temporary_files(tmp_path, monkeypatch) -> None:
