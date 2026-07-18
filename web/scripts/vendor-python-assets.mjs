@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto';
 import {
+  access,
   copyFile,
   mkdir,
   readFile,
-  readdir,
   rm,
   writeFile,
 } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const RUNTIME_ASSET_NAMES = [
@@ -25,9 +25,38 @@ const PYODIDE_PACKAGE_ROOT = join(WEB_ROOT, 'node_modules', 'pyodide');
 const PYODIDE_OUTPUT_ROOT = join(WEB_ROOT, 'public', 'pyodide');
 const PYTHON_OUTPUT_ROOT = join(WEB_ROOT, 'public', 'python');
 const BROWSER_LOCK_PATH = join(WEB_ROOT, '..', 'cli', 'browser', 'browser-lock.json');
+const VENDOR_MANIFEST_NAME = 'vendor-manifest.json';
 
 export function pyodidePackageDestination(fileName) {
-  return join(PYODIDE_OUTPUT_ROOT, fileName);
+  return safeAssetDestination(PYODIDE_OUTPUT_ROOT, fileName);
+}
+
+export function safeAssetDestination(root, fileName) {
+  if (
+    typeof fileName !== 'string' ||
+    fileName.length === 0 ||
+    fileName === '.' ||
+    fileName === '..' ||
+    isAbsolute(fileName) ||
+    fileName.includes('/') ||
+    fileName.includes('\\') ||
+    basename(fileName) !== fileName
+  ) {
+    throw new Error(`Unsafe asset filename: ${String(fileName)}`);
+  }
+
+  const resolvedRoot = resolve(root);
+  const destination = resolve(resolvedRoot, fileName);
+  const relativeDestination = relative(resolvedRoot, destination);
+  if (
+    relativeDestination.length === 0 ||
+    relativeDestination.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) ||
+    relativeDestination === '..' ||
+    isAbsolute(relativeDestination)
+  ) {
+    throw new Error(`Unsafe asset filename: ${fileName}`);
+  }
+  return destination;
 }
 
 export function resolvePackageClosure(lock, roots) {
@@ -65,6 +94,17 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, 'utf8'));
 }
 
+async function readJsonIfPresent(path) {
+  try {
+    return await readJson(path);
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
 async function downloadVerified(url, destination, expectedSha256) {
   const response = await fetch(url);
   if (!response.ok) {
@@ -75,11 +115,22 @@ async function downloadVerified(url, destination, expectedSha256) {
   await writeFile(destination, bytes);
 }
 
-async function cleanVendoredPythonAssets(fileNames) {
-  await mkdir(PYTHON_OUTPUT_ROOT, { recursive: true });
+export async function cleanVendoredPythonAssets(pythonRoot, currentExternalFileNames) {
+  const vendorManifestPath = safeAssetDestination(pythonRoot, VENDOR_MANIFEST_NAME);
+  const priorManifest = await readJsonIfPresent(vendorManifestPath);
+  const priorExternalFileNames = priorManifest?.externalWheels ?? [];
+  if (!Array.isArray(priorExternalFileNames)) {
+    throw new Error('Invalid vendor manifest: externalWheels must be an array');
+  }
+  const destinations = [...new Set([...priorExternalFileNames, ...currentExternalFileNames])].map(
+    (fileName) => safeAssetDestination(pythonRoot, fileName),
+  );
+  const runtimeManifestPath = safeAssetDestination(pythonRoot, 'runtime-manifest.json');
+
+  await mkdir(pythonRoot, { recursive: true });
   await Promise.all([
-    ...fileNames.map((fileName) => rm(join(PYTHON_OUTPUT_ROOT, fileName), { force: true })),
-    rm(join(PYTHON_OUTPUT_ROOT, 'runtime-manifest.json'), { force: true }),
+    ...destinations.map((destination) => rm(destination, { force: true })),
+    rm(runtimeManifestPath, { force: true }),
   ]);
 }
 
@@ -89,13 +140,19 @@ export async function vendorPythonAssets() {
   const selectedPackages = resolvePackageClosure(pyodideLock, browserLock.roots);
   const packageEntries = selectedPackages.map((name) => pyodideLock.packages[name]);
   const externalWheels = browserLock.externalWheels;
+  const packageDestinations = packageEntries.map((entry) =>
+    pyodidePackageDestination(entry.file_name),
+  );
+  const externalDestinations = externalWheels.map((wheel) =>
+    safeAssetDestination(PYTHON_OUTPUT_ROOT, wheel.fileName),
+  );
 
+  await cleanVendoredPythonAssets(
+    PYTHON_OUTPUT_ROOT,
+    externalWheels.map((wheel) => wheel.fileName),
+  );
   await rm(PYODIDE_OUTPUT_ROOT, { recursive: true, force: true });
   await mkdir(PYODIDE_OUTPUT_ROOT, { recursive: true });
-  await cleanVendoredPythonAssets([
-    ...packageEntries.map((entry) => entry.file_name),
-    ...externalWheels.map((wheel) => wheel.fileName),
-  ]);
 
   await Promise.all(
     RUNTIME_ASSET_NAMES.map((fileName) =>
@@ -103,25 +160,23 @@ export async function vendorPythonAssets() {
     ),
   );
 
-  for (const entry of packageEntries) {
+  for (const [index, entry] of packageEntries.entries()) {
     await downloadVerified(
       new URL(entry.file_name, PYODIDE_CDN_ROOT),
-      pyodidePackageDestination(entry.file_name),
+      packageDestinations[index],
       entry.sha256,
     );
   }
-  for (const wheel of externalWheels) {
-    await downloadVerified(
-      wheel.url,
-      join(PYTHON_OUTPUT_ROOT, wheel.fileName),
-      wheel.sha256,
-    );
+  for (const [index, wheel] of externalWheels.entries()) {
+    await downloadVerified(wheel.url, externalDestinations[index], wheel.sha256);
   }
 
   const browserManifest = await readJson(join(PYTHON_OUTPUT_ROOT, 'browser-manifest.json'));
   const modelableWheel = browserManifest.wheel;
-  const outputNames = await readdir(PYTHON_OUTPUT_ROOT);
-  if (!outputNames.includes(modelableWheel)) {
+  const modelableDestination = safeAssetDestination(PYTHON_OUTPUT_ROOT, modelableWheel);
+  try {
+    await access(modelableDestination);
+  } catch {
     throw new Error(`Generated Modelable wheel is missing: ${modelableWheel}`);
   }
 
@@ -130,8 +185,20 @@ export async function vendorPythonAssets() {
     `/modelable/playground/python/${modelableWheel}`,
   ].sort();
   await writeFile(
-    join(PYTHON_OUTPUT_ROOT, 'runtime-manifest.json'),
+    safeAssetDestination(PYTHON_OUTPUT_ROOT, 'runtime-manifest.json'),
     `${JSON.stringify({ wheelUrls }, null, 2)}\n`,
+    'utf8',
+  );
+  await writeFile(
+    safeAssetDestination(PYTHON_OUTPUT_ROOT, VENDOR_MANIFEST_NAME),
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        externalWheels: externalWheels.map((wheel) => wheel.fileName).sort(),
+      },
+      null,
+      2,
+    )}\n`,
     'utf8',
   );
 }
