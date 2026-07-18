@@ -19,16 +19,16 @@ close that gap.
 
 **What this document does not guarantee:**
 
-- **Wire compatibility across schema changes.** Reordering fields in a
-  `.mdl` model, for example, silently renumbers every Protobuf field
-  after the moved one — a wire-breaking change with no compiler guard
-  today. Validating *compatibility* between two versions of a schema
-  (`modelable validate-compat`) is tracked separately in
-  [`2026-07-04-scalable-protobuf-grpc-support-design.md`](superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md)
-  and is not implemented. Section 4 below calls out each place this
-  matters.
-- **Richer index metadata compatibility checks or Scalable registration
-  fixtures.** Also tracked under the design doc above, not this one.
+- **Descriptor-binary compatibility diffing.** `modelable validate-compat
+  --target protobuf|grpc` guards field-number reuse, deleted-field
+  reservations, target type changes, requiredness changes, inline enum value
+  reuse, and gRPC read-index changes. The first slice is manifest-based and
+  does not compare descriptor binaries.
+- **Explicit field-number pinning, enum reservations, or Scalable registration
+  fixtures.** The source language supports deleted-field Protobuf reservations
+  today, but explicit per-field numbers, reserved enum ordinals/names, and
+  consumer fixtures that register generated descriptors and manifests remain
+  follow-up work.
 - **Value-level canonicalization.** Decimal literals and timestamp
   strings pass through the compiler unmodified — there is no numeric
   reformatting or truncation applied to field *values* (as opposed to
@@ -42,8 +42,10 @@ Neither emitter sorts, groups, or otherwise reorders fields.
 
 - **Protobuf:** field numbers are assigned `1..N` by declaration order
   (`enumerate(version.fields, start=1)`). There is no support for
-  explicit field-number pinning or reserved-number gaps yet — moving a
-  field's declaration position changes its wire number.
+  explicit field-number pinning yet, but deleted fields can reserve their
+  former numbers and generated names with `reserved protobuf` blocks. Moving a
+  field's declaration position changes its wire number and is reported by
+  `modelable validate-compat --target protobuf`.
 - **Rust:** struct fields are emitted in declaration order too, but this
   has no wire-format consequence by itself: generated structs derive
   `serde::Serialize`/`Deserialize` for JSON, which is field-name-keyed,

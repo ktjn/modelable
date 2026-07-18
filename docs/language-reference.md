@@ -149,6 +149,23 @@ model Customer @ 2 (additive) {
 
 `(breaking)` — at least one incompatible change (field removed, renamed, type changed, required field added). All projections referencing this model must be re-validated.
 
+### 2.6 Protobuf reservations
+
+Model and projection versions may reserve deleted Protobuf field numbers and
+field names:
+
+```mdl
+reserved protobuf {
+  numbers: [3, 7]
+  names: ["legacy_status"]
+}
+```
+
+Reservations are version-local. A field in the same version may not reuse a
+reserved number, source field name, or generated Protobuf field name. The
+Protobuf and gRPC targets use these reservations to render `reserved`
+declarations and to validate target compatibility.
+
 ---
 
 ## 3. Projections, Lineage, and Derivation
@@ -506,9 +523,9 @@ Each `secondary` block names a lookup index:
 
 Changing an `index` declaration between two published model versions (adding, removing, or altering `primary` or a `secondary` block) is surfaced as an `index_changed` entry in that model's compatibility report (`registry.db`'s `compatibility_reports` table) — visible, but not yet classified as breaking or additive; no compiler guard prevents publishing an index change today.
 
-#### Emitter support (this slice)
+#### Emitter support
 
-Only the Postgres SQL emitter consumes `index` declarations, generating `CREATE INDEX`/`CREATE UNIQUE INDEX` statements for each `secondary` block (see [Compiler Reference](compiler-reference.md)). ClickHouse DDL and the protobuf/gRPC read-replica index model are deferred follow-ups.
+The Postgres SQL emitter consumes `index` declarations, generating `CREATE INDEX`/`CREATE UNIQUE INDEX` statements for each `secondary` block (see [Compiler Reference](compiler-reference.md)). The Protobuf target records declared indexes in schema manifests, and the gRPC target records `read_indexes` in service manifests. `modelable validate-compat --target grpc` reports read-index changes as `requires_read_rebuild`. ClickHouse DDL remains a deferred follow-up.
 
 ---
 

@@ -8,6 +8,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added source-level Protobuf field reservations and
+  `validate-compat --target protobuf|grpc` compatibility validation.
 - Added opt-in Protobuf and gRPC descriptor artifact generation via
   `compile --target protobuf|grpc --descriptor-set`.
 - Protobuf and gRPC generation now preserve semantic types as stable
