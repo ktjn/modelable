@@ -6,8 +6,13 @@ const {
   LanguageClient,
   RevealOutputChannelOn,
 } = require('vscode-languageclient/node');
+const { ConversationClient } = require('./conversationClient');
+const {
+  registerConversationParticipant,
+} = require('./conversationParticipant');
 
 let client;
+let conversationClient;
 
 /**
  * Resolution order:
@@ -91,10 +96,30 @@ async function activate(context) {
   }
 
   client = nextClient;
-  context.subscriptions.push(client, outputChannel);
+  conversationClient = new ConversationClient(nextClient);
+  const participant = registerConversationParticipant(
+    vscode,
+    conversationClient,
+    nextClient.initializeResult,
+  );
+  const conversationCleanup = {
+    dispose() {
+      void conversationClient?.closeAll();
+    },
+  };
+  context.subscriptions.push(
+    client,
+    outputChannel,
+    participant,
+    conversationCleanup,
+  );
 }
 
 async function deactivate() {
+  if (conversationClient) {
+    await conversationClient.closeAll();
+    conversationClient = undefined;
+  }
   if (client) {
     await client.stop();
     client = undefined;
