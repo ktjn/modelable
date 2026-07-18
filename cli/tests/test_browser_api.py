@@ -19,6 +19,13 @@ def test_open_workspace_returns_hashes_and_no_diagnostics():
     assert len(result.source_hashes["inmemory:///customer.mdl"]) == 64
 
 
+def test_open_workspace_source_hashes_are_deeply_immutable():
+    result = BrowserCompiler().open_workspace((BrowserSource(uri="inmemory:///customer.mdl", text=VALID, version=1),))
+
+    with pytest.raises(TypeError):
+        result.source_hashes["inmemory:///customer.mdl"] = "mutated"
+
+
 def test_open_workspace_rejects_duplicate_uris():
     source = BrowserSource(uri="inmemory:///customer.mdl", text=VALID, version=1)
 
@@ -126,6 +133,22 @@ def test_compile_json_schema_returns_text_artifact():
     assert json.loads(result.artifacts[0].content)["title"] == "Customer"
 
 
+def test_compile_json_schema_blocks_duplicate_definitions_across_uris():
+    sources = (
+        BrowserSource(uri="inmemory:///customer-a.mdl", text=VALID, version=1),
+        BrowserSource(uri="inmemory:///customer-b.mdl", text=VALID, version=1),
+    )
+
+    result = BrowserCompiler().compile_json_schema(sources)
+
+    assert result.artifacts == ()
+    assert any(diagnostic.message.startswith("duplicate domain 'customer'") for diagnostic in result.diagnostics)
+    assert any(
+        diagnostic.message.startswith("duplicate model version customer.Customer@1")
+        for diagnostic in result.diagnostics
+    )
+
+
 def test_dispatch_opens_workspace_from_json():
     response = json.loads(
         dispatch_browser_request(
@@ -147,6 +170,7 @@ def test_dispatch_opens_workspace_from_json():
     assert response["ok"] is True
     assert response["result"]["diagnostics"] == []
     assert set(response["result"]["source_hashes"]) == {"inmemory:///customer.mdl"}
+    assert isinstance(response["result"]["source_hashes"], dict)
 
 
 def test_dispatch_rejects_unknown_method_without_traceback():

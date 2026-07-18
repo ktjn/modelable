@@ -80,6 +80,17 @@ def _dispatch(
     raise ValueError(f"Unsupported browser compiler method: {method}")
 
 
+def _serialize_result(
+    result: BrowserWorkspaceResult | BrowserFormatResult | BrowserCompileResult,
+) -> dict[str, Any]:
+    if isinstance(result, BrowserWorkspaceResult):
+        return {
+            "diagnostics": [asdict(diagnostic) for diagnostic in result.diagnostics],
+            "source_hashes": dict(result.source_hashes),
+        }
+    return asdict(result)
+
+
 def dispatch_browser_request(method: str, payload_json: str) -> str:
     if method not in _METHODS:
         return _invalid_request(f"Unsupported browser compiler method: {method}")
@@ -96,7 +107,7 @@ def dispatch_browser_request(method: str, payload_json: str) -> str:
         return _invalid_request("Payload does not match method schema")
 
     return json.dumps(
-        {"ok": True, "result": asdict(result)},
+        {"ok": True, "result": _serialize_result(result)},
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),

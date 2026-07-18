@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import MappingProxyType
+
 from modelable.browser.dto import (
     BrowserArtifact,
     BrowserCompileResult,
@@ -65,7 +67,7 @@ def _load_workspace(sources: tuple[BrowserSource, ...]) -> Workspace | BrowserWo
             except ParseError as error:
                 return BrowserWorkspaceResult(
                     diagnostics=(_browser_diagnostic(error.diagnostic(source.uri)),),
-                    source_hashes={},
+                    source_hashes=MappingProxyType({}),
                 )
         raise
 
@@ -81,7 +83,7 @@ class BrowserCompiler:
             return workspace
         return BrowserWorkspaceResult(
             diagnostics=tuple(_browser_diagnostic(error) for error in workspace.errors),
-            source_hashes={source.uri: source.content_hash for source in workspace.sources},
+            source_hashes=MappingProxyType({source.uri: source.content_hash for source in workspace.sources}),
         )
 
     def format_source(self, source: BrowserSource) -> BrowserFormatResult:

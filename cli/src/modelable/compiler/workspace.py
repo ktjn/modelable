@@ -101,12 +101,13 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
 
 def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) -> list[Diagnostic]:
     errors: list[Diagnostic] = []
-    domains: dict[str, Path | None] = {}
-    model_versions: dict[tuple[str, str, int], Path | None] = {}
-    projection_versions: dict[tuple[str, str, int], Path | None] = {}
-    generated_projection_versions: dict[tuple[str, str, int], Path | None] = {}
+    domains: dict[str, str] = {}
+    model_versions: dict[tuple[str, str, int], str] = {}
+    projection_versions: dict[tuple[str, str, int], str] = {}
+    generated_projection_versions: dict[tuple[str, str, int], str] = {}
 
     for source in sources:
+        source_location = str(source.path) if source.path is not None else source.uri
         for domain in source.mdl.domains:
             previous_domain_path = domains.get(domain.name)
             if previous_domain_path is not None:
@@ -115,11 +116,11 @@ def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) 
                         code="SEM",
                         message=(f"duplicate domain '{domain.name}' also defined in {previous_domain_path}"),
                         severity="error",
-                        path=str(source.path) if source.path is not None else source.uri,
+                        path=source_location,
                     )
                 )
             else:
-                domains[domain.name] = source.path
+                domains[domain.name] = source_location
 
             for model_name, versions in domain.models.items():
                 for version in versions:
@@ -135,11 +136,11 @@ def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) 
                                     f"also defined in {previous_model_path}"
                                 ),
                                 severity="error",
-                                path=str(source.path) if source.path is not None else source.uri,
+                                path=source_location,
                             )
                         )
                     else:
-                        model_versions[key] = source.path
+                        model_versions[key] = source_location
 
             for projection_name, versions in domain.projections.items():
                 for version in versions:
@@ -159,11 +160,11 @@ def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) 
                                     f"also defined in {previous_projection_path}"
                                 ),
                                 severity="error",
-                                path=str(source.path) if source.path is not None else source.uri,
+                                path=source_location,
                             )
                         )
                     else:
-                        projection_versions[key] = source.path
+                        projection_versions[key] = source_location
 
             for auto_projection in domain.auto_projections:
                 for target in auto_projection.targets:
@@ -182,11 +183,11 @@ def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) 
                                     f"{previous_generated_path}"
                                 ),
                                 severity="error",
-                                path=str(source.path) if source.path is not None else source.uri,
+                                path=source_location,
                             )
                         )
                     else:
-                        generated_projection_versions[key] = source.path
+                        generated_projection_versions[key] = source_location
 
                     explicit_projection_path = projection_versions.get(key)
                     if explicit_projection_path is not None:
@@ -200,7 +201,7 @@ def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) 
                                     f"{explicit_projection_path}"
                                 ),
                                 severity="error",
-                                path=str(source.path) if source.path is not None else source.uri,
+                                path=source_location,
                             )
                         )
 

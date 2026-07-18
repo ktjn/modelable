@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 
@@ -33,7 +34,7 @@ class BrowserArtifact:
 @dataclass(frozen=True)
 class BrowserWorkspaceResult:
     diagnostics: tuple[BrowserDiagnostic, ...]
-    source_hashes: dict[str, str]
+    source_hashes: Mapping[str, str]
 
 
 @dataclass(frozen=True)
