@@ -5,12 +5,17 @@ import { loadPyodide, type PyodideInterface } from 'pyodide';
 
 import {
   BROWSER_COMPILER_PROTOCOL_VERSION,
-  type BrowserCompilerErrorCode,
   type BrowserCompilerFailure,
   type BrowserCompilerRequest,
   type BrowserCompilerResponse,
   isBrowserCompilerRequest,
 } from './protocol';
+import {
+  dispatchPythonRequest,
+  failure,
+  sanitizedError,
+  validateRuntimeManifest,
+} from './worker-support';
 
 interface PyProxyLike {
   destroy(): void;
@@ -24,58 +29,11 @@ interface KeywordCallablePyProxy extends PyProxyLike {
   callKwargs(...args: unknown[]): unknown;
 }
 
-interface RuntimeManifest {
-  wheelUrls: unknown;
-}
-
-interface PythonDispatchSuccess {
-  ok: true;
-  result: unknown;
-}
-
-interface PythonDispatchFailure {
-  ok: false;
-  error?: unknown;
-}
-
-type PythonDispatchResponse =
-  | PythonDispatchSuccess
-  | PythonDispatchFailure;
-
 const scope = self;
 let initialization: Promise<void> | undefined;
 let dispatchBrowserRequest: CallablePyProxy | undefined;
 let initializationFailure: BrowserCompilerFailure['error'] | undefined;
 let ready = false;
-
-function sanitizedError(
-  code: BrowserCompilerErrorCode,
-): BrowserCompilerFailure['error'] {
-  const messages: Record<BrowserCompilerErrorCode, string> = {
-    INITIALIZATION_FAILED: 'Compiler runtime initialization failed',
-    INVALID_REQUEST: 'Browser compiler request is invalid',
-    UNSUPPORTED_PROTOCOL: 'Browser compiler protocol version is unsupported',
-    COMPILER_FAILED: 'Compiler request failed',
-  };
-  return { code, message: messages[code] };
-}
-
-function failure(
-  id: string,
-  codeOrError:
-    | BrowserCompilerErrorCode
-    | BrowserCompilerFailure['error'],
-): BrowserCompilerFailure {
-  return {
-    protocolVersion: BROWSER_COMPILER_PROTOCOL_VERSION,
-    id,
-    ok: false,
-    error:
-      typeof codeOrError === 'string'
-        ? sanitizedError(codeOrError)
-        : codeOrError,
-  };
-}
 
 function requestId(value: unknown): string {
   if (
@@ -101,15 +59,6 @@ function hasUnsupportedVersion(value: unknown): boolean {
   );
 }
 
-function isPyProxy(value: unknown): value is PyProxyLike {
-  return (
-    (typeof value === 'object' || typeof value === 'function') &&
-    value !== null &&
-    'destroy' in value &&
-    typeof value.destroy === 'function'
-  );
-}
-
 function developmentError(message: string, error: unknown): void {
   if (import.meta.env.DEV) {
     console.error(message, error);
@@ -125,25 +74,7 @@ async function readWheelUrls(): Promise<string[]> {
   if (!response.ok) {
     throw new Error(`Runtime manifest request failed: ${response.status}`);
   }
-  const manifest = (await response.json()) as RuntimeManifest;
-  if (
-    !Array.isArray(manifest.wheelUrls) ||
-    !manifest.wheelUrls.every((url) => typeof url === 'string')
-  ) {
-    throw new Error('Runtime manifest has invalid wheel URLs');
-  }
-
-  const expectedRoot = new URL('../python/', scope.location.href);
-  return manifest.wheelUrls.map((value) => {
-    const url = new URL(value, manifestUrl);
-    if (
-      url.origin !== expectedRoot.origin ||
-      !url.pathname.startsWith(expectedRoot.pathname)
-    ) {
-      throw new Error('Runtime manifest contains a non-local wheel URL');
-    }
-    return url.href;
-  });
+  return validateRuntimeManifest(await response.json(), manifestUrl);
 }
 
 async function initializeRuntime(): Promise<void> {
@@ -189,55 +120,17 @@ async function ensureInitialized(): Promise<void> {
   return initialization;
 }
 
-function parsePythonResponse(value: unknown): PythonDispatchResponse {
-  if (typeof value !== 'string') {
-    throw new TypeError('Python dispatcher did not return JSON text');
-  }
-  const parsed = JSON.parse(value) as unknown;
-  if (
-    typeof parsed !== 'object' ||
-    parsed === null ||
-    Array.isArray(parsed) ||
-    !('ok' in parsed) ||
-    typeof parsed.ok !== 'boolean'
-  ) {
-    throw new TypeError('Python dispatcher returned an invalid response');
-  }
-  if (parsed.ok && !('result' in parsed)) {
-    throw new TypeError('Python dispatcher omitted its result');
-  }
-  return parsed as PythonDispatchResponse;
-}
-
 function dispatch(request: BrowserCompilerRequest): BrowserCompilerResponse {
   if (!ready || dispatchBrowserRequest === undefined) {
     return failure(request.id, 'INITIALIZATION_FAILED');
   }
 
-  let returned: unknown;
-  try {
-    returned = dispatchBrowserRequest(
-      request.method,
-      JSON.stringify(request.payload),
-    );
-    const parsed = parsePythonResponse(returned);
-    if (!parsed.ok) {
-      return failure(request.id, 'INVALID_REQUEST');
-    }
-    return {
-      protocolVersion: BROWSER_COMPILER_PROTOCOL_VERSION,
-      id: request.id,
-      ok: true,
-      result: parsed.result,
-    };
-  } catch (error: unknown) {
-    developmentError('Browser compiler dispatch failed', error);
-    return failure(request.id, 'COMPILER_FAILED');
-  } finally {
-    if (isPyProxy(returned)) {
-      returned.destroy();
-    }
-  }
+  return dispatchPythonRequest(
+    request,
+    dispatchBrowserRequest,
+    (error: unknown) =>
+      developmentError('Browser compiler dispatch failed', error),
+  );
 }
 
 scope.addEventListener(

@@ -13,7 +13,11 @@ import type {
 
 class FakeWorker implements WorkerLike {
   readonly posted: BrowserCompilerRequest[] = [];
-  terminated = false;
+  terminateCount = 0;
+  readonly removed = {
+    message: 0,
+    error: 0,
+  };
   private readonly messageListeners = new Set<
     (event: MessageEvent<unknown>) => void
   >();
@@ -48,13 +52,15 @@ class FakeWorker implements WorkerLike {
       this.messageListeners.delete(
         listener as (event: MessageEvent<unknown>) => void,
       );
+      this.removed.message += 1;
     } else {
       this.errorListeners.delete(listener as (event: ErrorEvent) => void);
+      this.removed.error += 1;
     }
   }
 
   terminate(): void {
-    this.terminated = true;
+    this.terminateCount += 1;
   }
 
   respond(response: BrowserCompilerResponse): void {
@@ -67,6 +73,12 @@ class FakeWorker implements WorkerLike {
     for (const listener of this.errorListeners) {
       listener({ message: 'secret worker details' } as ErrorEvent);
     }
+  }
+
+  listenerCount(type: 'message' | 'error'): number {
+    return type === 'message'
+      ? this.messageListeners.size
+      : this.errorListeners.size;
   }
 }
 
@@ -155,6 +167,35 @@ describe('BrowserCompilerClient', () => {
         message: 'Compiler worker failed',
       });
     }
+    expect(worker.removed).toEqual({ message: 1, error: 1 });
+    expect(worker.listenerCount('message')).toBe(0);
+    expect(worker.listenerCount('error')).toBe(0);
+    expect(worker.terminateCount).toBe(1);
+
+    client.dispose();
+    client.dispose();
+    expect(worker.terminateCount).toBe(1);
+  });
+
+  test('malformed responses reject pending work and clean up exactly once', async () => {
+    const worker = new FakeWorker();
+    const client = new BrowserCompilerClient(worker);
+    const pending = client.initialize();
+
+    worker.respond({ unexpected: 'response' } as never);
+
+    await expect(pending).rejects.toMatchObject({
+      code: 'COMPILER_FAILED',
+      message: 'Compiler worker returned an invalid response',
+    });
+    expect(worker.removed).toEqual({ message: 1, error: 1 });
+    expect(worker.listenerCount('message')).toBe(0);
+    expect(worker.listenerCount('error')).toBe(0);
+    expect(worker.terminateCount).toBe(1);
+
+    worker.fail();
+    client.dispose();
+    expect(worker.terminateCount).toBe(1);
   });
 
   test('typed failures reject with BrowserCompilerError code', async () => {
@@ -191,7 +232,7 @@ describe('BrowserCompilerClient', () => {
       client.openWorkspace([{ uri: 'x.mdl', text: 'x', version: 1 }]),
     ).rejects.toMatchObject({ code: 'COMPILER_FAILED' });
     expect(worker.posted).toHaveLength(0);
-    expect(worker.terminated).toBe(true);
+    expect(worker.terminateCount).toBe(1);
   });
 
   test('dispose rejects pending requests and terminates the worker', async () => {
@@ -200,9 +241,11 @@ describe('BrowserCompilerClient', () => {
     const pending = client.initialize();
 
     client.dispose();
+    client.dispose();
 
     await expect(pending).rejects.toMatchObject({ code: 'COMPILER_FAILED' });
-    expect(worker.terminated).toBe(true);
+    expect(worker.removed).toEqual({ message: 1, error: 1 });
+    expect(worker.terminateCount).toBe(1);
   });
 
   test('source DTOs preserve uri, text, and version', async () => {

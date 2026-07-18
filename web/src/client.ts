@@ -50,11 +50,10 @@ export class BrowserCompilerClient {
   private readonly pending = new Map<string, PendingRequest>();
   private initializationPromise: Promise<void> | undefined;
   private terminalError: BrowserCompilerError | undefined;
-  private disposed = false;
 
   private readonly onMessage = (event: MessageEvent<unknown>): void => {
     if (!isBrowserCompilerResponse(event.data)) {
-      this.fail(
+      this.transitionToTerminal(
         new BrowserCompilerError(
           'COMPILER_FAILED',
           'Compiler worker returned an invalid response',
@@ -80,7 +79,7 @@ export class BrowserCompilerClient {
   };
 
   private readonly onError = (): void => {
-    this.fail(
+    this.transitionToTerminal(
       new BrowserCompilerError('COMPILER_FAILED', 'Compiler worker failed'),
     );
   };
@@ -125,14 +124,7 @@ export class BrowserCompilerClient {
   }
 
   dispose(): void {
-    if (this.disposed) {
-      return;
-    }
-    this.disposed = true;
-    this.worker.removeEventListener('message', this.onMessage);
-    this.worker.removeEventListener('error', this.onError);
-    this.worker.terminate();
-    this.fail(
+    this.transitionToTerminal(
       new BrowserCompilerError(
         'COMPILER_FAILED',
         'Compiler client has been disposed',
@@ -165,19 +157,19 @@ export class BrowserCompilerClient {
   }
 
   private unavailableError(): BrowserCompilerError | undefined {
-    if (this.disposed) {
-      return new BrowserCompilerError(
-        'COMPILER_FAILED',
-        'Compiler client has been disposed',
-      );
-    }
     return this.terminalError;
   }
 
-  private fail(error: BrowserCompilerError): void {
-    this.terminalError ??= error;
+  private transitionToTerminal(error: BrowserCompilerError): void {
+    if (this.terminalError !== undefined) {
+      return;
+    }
+    this.terminalError = error;
+    this.worker.removeEventListener('message', this.onMessage);
+    this.worker.removeEventListener('error', this.onError);
+    this.worker.terminate();
     for (const pending of this.pending.values()) {
-      pending.reject(this.terminalError);
+      pending.reject(error);
     }
     this.pending.clear();
   }
