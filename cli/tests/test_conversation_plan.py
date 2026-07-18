@@ -289,6 +289,97 @@ def test_conversation_planner_repairs_invalid_provider_plan() -> None:
     assert "operations" in requests[1].user
 
 
+def test_conversation_planner_returns_typed_unsupported_when_initial_provider_call_fails() -> None:
+    from modelable.llm.conversation_plan import UnsupportedPlan
+    from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
+
+    calls = 0
+
+    @dataclass(frozen=True)
+    class FailingProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            nonlocal calls
+            calls += 1
+            raise RuntimeError("provider unavailable")
+
+    plan = ConversationPlanner(FailingProvider(), repair_attempts=2).plan(
+        "Create a customer model",
+        PlannerContext(workspace_summary="", focused_ref=None, history=(), pending_plan=None),
+    )
+
+    assert isinstance(plan, UnsupportedPlan)
+    assert calls == 1
+    assert "provider" in plan.reason.lower()
+    assert "unavailable" in plan.reason.lower()
+
+
+def test_conversation_planner_returns_typed_unsupported_when_repair_provider_call_fails() -> None:
+    from modelable.llm.conversation_plan import UnsupportedPlan
+    from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
+
+    calls = 0
+
+    @dataclass(frozen=True)
+    class RepairFailingProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return LLMResponse(content="{malformed", provider="fake", model="fake")
+            raise RuntimeError("repair transport failed")
+
+    plan = ConversationPlanner(RepairFailingProvider(), repair_attempts=2).plan(
+        "Create a customer model",
+        PlannerContext(workspace_summary="", focused_ref=None, history=(), pending_plan=None),
+    )
+
+    assert isinstance(plan, UnsupportedPlan)
+    assert calls == 2
+    assert "provider" in plan.reason.lower()
+    assert "repair transport failed" in plan.reason
+
+
+def test_conversation_planner_honors_exact_configured_repair_attempt_count() -> None:
+    from modelable.llm.conversation_plan import UnsupportedPlan
+    from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
+
+    calls = 0
+
+    @dataclass(frozen=True)
+    class MalformedProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            nonlocal calls
+            calls += 1
+            return LLMResponse(content="{malformed", provider="fake", model="fake")
+
+    plan = ConversationPlanner(MalformedProvider(), repair_attempts=3).plan(
+        "Create a customer model",
+        PlannerContext(workspace_summary="", focused_ref=None, history=(), pending_plan=None),
+    )
+
+    assert isinstance(plan, UnsupportedPlan)
+    assert calls == 4
+
+
+def test_conversation_planner_exhausted_malformed_responses_are_actionable() -> None:
+    from modelable.llm.conversation_plan import UnsupportedPlan
+    from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
+
+    @dataclass(frozen=True)
+    class MalformedProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            return LLMResponse(content="{malformed", provider="fake", model="fake")
+
+    plan = ConversationPlanner(MalformedProvider(), repair_attempts=1).plan(
+        "Create a customer model",
+        PlannerContext(workspace_summary="", focused_ref=None, history=(), pending_plan=None),
+    )
+
+    assert isinstance(plan, UnsupportedPlan)
+    assert "valid typed plan" in plan.reason.lower()
+    assert "expecting property name" in plan.reason.lower()
+
+
 def test_conversation_request_exposes_only_closed_typed_plan_schema() -> None:
     from modelable.llm.conversation_planner import PlannerContext, build_conversation_request
 
@@ -386,3 +477,18 @@ def test_offline_planner_routes_commands_questions_and_mutations() -> None:
     assert "provider" in mutation.reason.lower()
     assert isinstance(polite_mutation, UnsupportedPlan)
     assert "provider" in polite_mutation.reason.lower()
+
+
+@pytest.mark.parametrize("command", ["/compile", "/sync", "/publish"])
+def test_offline_planner_routes_slash_operations_to_operations_roadmap(command: str) -> None:
+    from modelable.llm.conversation_plan import UnsupportedPlan
+    from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
+
+    plan = ConversationPlanner(None).plan(
+        command,
+        PlannerContext(workspace_summary="", focused_ref=None, history=(), pending_plan=None),
+    )
+
+    assert isinstance(plan, UnsupportedPlan)
+    assert plan.roadmap_area == "operations"
+    assert "operational" in plan.reason.lower()

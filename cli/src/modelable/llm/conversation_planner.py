@@ -56,7 +56,10 @@ class ConversationPlanner:
         if self.provider is None:
             return self._offline_plan(message, context)
         request = build_conversation_request(message=message, context=context)
-        response = self.provider.complete(request)
+        try:
+            response = self.provider.complete(request)
+        except Exception as error:
+            return self._provider_failure(message, error, phase="initial plan request")
         try:
             return parse_conversation_plan(response.content)
         except Exception as error:
@@ -72,13 +75,16 @@ class ConversationPlanner:
             raise RuntimeError("Conversation plan repair requires an LLM provider")
         validation_error = str(error)
         for _ in range(self.repair_attempts):
-            response = self.provider.complete(
-                _request(
-                    message=message,
-                    context=context,
-                    validation_error=validation_error,
+            try:
+                response = self.provider.complete(
+                    _request(
+                        message=message,
+                        context=context,
+                        validation_error=validation_error,
+                    )
                 )
-            )
+            except Exception as provider_error:
+                return self._provider_failure(message, provider_error, phase="plan repair request")
             try:
                 return parse_conversation_plan(response.content)
             except Exception as repair_error:
@@ -108,6 +114,8 @@ class ConversationPlanner:
                 return self._offline_plan(arguments, context)
             if command in {"/update", "/create", "/change"}:
                 return self._provider_required(message)
+            if command in {"/compile", "/sync", "/publish"}:
+                return self._operational_unsupported(message)
             return UnsupportedPlan(
                 request=message,
                 reason=f"Slash command {command} is not a conversational planning command.",
@@ -115,11 +123,7 @@ class ConversationPlanner:
 
         lower = stripped.lower()
         if any(operation in lower for operation in ("compile", "sync", "publish", "deploy", "external")):
-            return UnsupportedPlan(
-                request=message,
-                reason="Operational and external actions are outside conversational workspace planning.",
-                roadmap_area="operations",
-            )
+            return self._operational_unsupported(message)
         if re.search(
             r"\b(?:add|create|change|rename|remove|delete|set|update|replace|make)\b",
             lower,
@@ -174,6 +178,21 @@ class ConversationPlanner:
             reason=(
                 "This request requires intent synthesis. Configure an LLM provider for conversational change planning."
             ),
+        )
+
+    @staticmethod
+    def _provider_failure(message: str, error: Exception, *, phase: str) -> UnsupportedPlan:
+        return UnsupportedPlan(
+            request=message,
+            reason=f"The configured provider failed during the {phase}: {error}",
+        )
+
+    @staticmethod
+    def _operational_unsupported(message: str) -> UnsupportedPlan:
+        return UnsupportedPlan(
+            request=message,
+            reason="Operational and external actions are outside conversational workspace planning.",
+            roadmap_area="operations",
         )
 
 

@@ -144,14 +144,18 @@ class WorkspaceQueryService:
             new_ref = parse_model_ref(refs[1])
         except TypeError, ValueError:
             return "Compatibility refs must use domain.Model@version syntax."
-        if (old_ref.domain, old_ref.name) != (new_ref.domain, new_ref.name):
-            return f"Compatibility queries require two versions of the same model; received {refs[0]} and {refs[1]}."
-        old_resolution = self._resolve(refs[0], expected_kind="model")
+        old_resolution = self._resolve(refs[0])
         if isinstance(old_resolution, str):
             return old_resolution
-        new_resolution = self._resolve(refs[1], expected_kind="model")
+        new_resolution = self._resolve(refs[1])
         if isinstance(new_resolution, str):
             return new_resolution
+        for ref, resolution in zip(refs, (old_resolution, new_resolution), strict=True):
+            definition_kind = resolution[2]
+            if definition_kind != "model":
+                return f"Compatibility requires model references; {ref} is a {definition_kind}."
+        if (old_ref.domain, old_ref.name) != (new_ref.domain, new_ref.name):
+            return f"Compatibility queries require two versions of the same model; received {refs[0]} and {refs[1]}."
         try:
             report = check_model_version_compatibility(
                 self.workspace.mdl,
@@ -173,12 +177,7 @@ class WorkspaceQueryService:
             f"- {render_diagnostic(diagnostic)}" for diagnostic in self.workspace.errors
         )
 
-    def _resolve(
-        self,
-        ref: str,
-        *,
-        expected_kind: str | None = None,
-    ) -> tuple[DomainDef, ModelRef, str, object] | str:
+    def _resolve(self, ref: str) -> tuple[DomainDef, ModelRef, str, object] | str:
         try:
             model_ref = parse_model_ref(ref)
         except TypeError, ValueError:
@@ -192,8 +191,6 @@ class WorkspaceQueryService:
             ("model", domain.models),
             ("projection", domain.projections),
         ):
-            if expected_kind is not None and definition_kind != expected_kind:
-                continue
             versions = definitions.get(model_ref.name)
             if versions:
                 definition = next(
