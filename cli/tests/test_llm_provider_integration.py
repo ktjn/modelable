@@ -15,6 +15,57 @@ from modelable.llm.engine import update_definition
 from modelable.llm.providers import LLMRequest, LLMResponse, OllamaProvider, build_provider
 
 
+class SequenceProvider:
+    def __init__(self, *responses: str) -> None:
+        self.responses = list(responses)
+        self.requests: list[LLMRequest] = []
+
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        self.requests.append(request)
+        return LLMResponse(
+            content=self.responses.pop(0),
+            provider="fake",
+            model="test-model",
+        )
+
+
+def _create_customer_plan_json() -> str:
+    return json.dumps(
+        {
+            "kind": "change_set",
+            "summary": "Create customer.Customer@1",
+            "assumptions": ["Address is inline"],
+            "operations": [
+                {
+                    "kind": "create_model",
+                    "domain": "customer",
+                    "name": "Customer",
+                    "model_kind": "entity",
+                    "fields": [
+                        {
+                            "name": "customerId",
+                            "type": {"kind": "uuid"},
+                            "annotations": [{"kind": "key"}],
+                        },
+                        {
+                            "name": "address",
+                            "type": {
+                                "kind": "object",
+                                "fields": [
+                                    {"name": "street", "type": {"kind": "string"}},
+                                    {"name": "city", "type": {"kind": "string"}},
+                                    {"name": "postalCode", "type": {"kind": "string"}},
+                                    {"name": "country", "type": {"kind": "string"}},
+                                ],
+                            },
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+
+
 def _provenance_path(path: Path) -> Path:
     return path.with_name(f"{path.name}.provenance.json")
 
@@ -424,6 +475,159 @@ domain customer {
     assert captured["url"] == "https://api.anthropic.com/v1/messages"
     assert "Return JSON only matching the supplied closed schema" in captured["system"]
     assert "Never emit raw patches" in captured["system"]
+
+
+def test_chat_single_message_previews_complete_entity_without_writing(tmp_path, monkeypatch):
+    source = tmp_path / "customer.mdl"
+    original = 'domain customer {\n  owner: "customer-team"\n}\n'
+    source.write_text(original, encoding="utf-8")
+    provider = SequenceProvider(_create_customer_plan_json())
+    monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: provider)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--message",
+            "add a customer entity with address",
+            "--provider",
+            "ollama",
+            "--model",
+            "llama3.1",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Apply change set" in result.output
+    assert "customer.Customer@1" in result.output
+    assert source.read_text(encoding="utf-8") == original
+
+
+def test_chat_interactive_session_applies_its_pending_change(tmp_path, monkeypatch):
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        'domain customer {\n  owner: "customer-team"\n}\n',
+        encoding="utf-8",
+    )
+    provider = SequenceProvider(_create_customer_plan_json())
+    monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: provider)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--provider",
+            "ollama",
+            "--model",
+            "llama3.1",
+        ],
+        input="add a customer entity with address\n/apply\n/exit\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Apply change set" in result.output
+    assert "Applied change set" in result.output
+    assert "entity Customer @ 1" in source.read_text(encoding="utf-8")
+    assert len(provider.requests) == 1
+
+
+def test_chat_honors_zero_configured_plan_repair_attempts(tmp_path, monkeypatch):
+    source = tmp_path / "customer.mdl"
+    original = 'domain customer {\n  owner: "customer-team"\n}\n'
+    source.write_text(original, encoding="utf-8")
+    provider = SequenceProvider("{not valid json", _create_customer_plan_json())
+    monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: provider)
+    monkeypatch.setenv("MODELABLE_LLM_REPAIR_ATTEMPTS", "0")
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--message",
+            "add a customer entity with address",
+            "--provider",
+            "ollama",
+            "--model",
+            "llama3.1",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "did not return a valid typed plan" in result.output
+    assert len(provider.requests) == 1
+    assert source.read_text(encoding="utf-8") == original
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("/describe customer.Customer@1", "customerId"),
+        ("/context", "projection CustomerView @ 1"),
+        ("Who owns customer.Customer@1?", "customer-team"),
+        ("Show lineage for customer.CustomerView@1", "customer.Customer@1.customerId"),
+        ("What depends on customer.Customer@1?", "customer.CustomerView@1"),
+    ],
+)
+def test_chat_offline_queries_remain_available(tmp_path, message, expected):
+    (tmp_path / "customer.mdl").write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--message",
+            message,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert expected in result.output
+
+
+def test_chat_offline_creation_request_requires_provider_without_writing(tmp_path):
+    source = tmp_path / "customer.mdl"
+    original = 'domain customer {\n  owner: "customer-team"\n}\n'
+    source.write_text(original, encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--message",
+            "add a customer entity with address",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Configure an LLM provider" in result.output
+    assert source.read_text(encoding="utf-8") == original
 
 
 def test_update_command_uses_provider_flags(tmp_path, monkeypatch):
