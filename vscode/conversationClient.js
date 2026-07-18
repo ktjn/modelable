@@ -92,15 +92,27 @@ async function resolveConversationContext(vscodeApi = vscode) {
 }
 
 class ConversationClient {
-  constructor(languageClient, vscodeApi = vscode, randomUUID = crypto.randomUUID) {
+  constructor(
+    languageClient,
+    vscodeApi = vscode,
+    randomUUID = crypto.randomUUID,
+    outputChannel,
+  ) {
     this.languageClient = languageClient;
     this.vscode = vscodeApi;
     this.randomUUID = randomUUID;
+    this.outputChannel = outputChannel;
     this.sessionIds = new Set();
+    this.invalidatedSessionIds = new Set();
   }
 
   async turn(request, chatContext, token) {
-    const metadata = recoverSessionMetadata(chatContext.history ?? []);
+    const recovered = recoverSessionMetadata(chatContext.history ?? []);
+    const metadata = (
+      recovered && !this.invalidatedSessionIds.has(recovered.sessionId)
+    )
+      ? recovered
+      : undefined;
     const context = await resolveConversationContext(this.vscode);
     if (
       metadata !== undefined &&
@@ -115,21 +127,60 @@ class ConversationClient {
       ? 'describe the current workspace and supported management tasks'
       : request.prompt;
     this.sessionIds.add(sessionId);
-
-    return this.languageClient.sendRequest(
-      TURN_METHOD,
-      {
-        protocolVersion: PROTOCOL_VERSION,
-        sessionId,
-        createSession: metadata === undefined,
-        workspaceUri: context.workspaceUri.toString(),
-        message,
-        activeDocumentUri: context.activeDocumentUri?.toString(),
-        position: context.position,
-        dirtyDocumentUris: context.dirtyDocumentUris.map(uri => uri.toString()),
-      },
-      token,
+    const startedAt = Date.now();
+    this._log(
+      `conversation kind=turn protocol=${PROTOCOL_VERSION} lifecycle=${
+        metadata === undefined ? 'create' : 'continue'
+      }`,
     );
+    try {
+      const reply = await this.languageClient.sendRequest(
+        TURN_METHOD,
+        {
+          protocolVersion: PROTOCOL_VERSION,
+          sessionId,
+          createSession: metadata === undefined,
+          workspaceUri: context.workspaceUri.toString(),
+          message,
+          activeDocumentUri: context.activeDocumentUri?.toString(),
+          position: context.position,
+          dirtyDocumentUris: context.dirtyDocumentUris.map(uri => uri.toString()),
+        },
+        token,
+      );
+      this._log(
+        `conversation kind=turn protocol=${PROTOCOL_VERSION} ` +
+        `elapsedMs=${Date.now() - startedAt} reply=${reply.kind}`,
+      );
+      return reply;
+    } catch (error) {
+      const cancelled = (
+        token?.isCancellationRequested ||
+        (
+          this.vscode.CancellationError &&
+          error instanceof this.vscode.CancellationError
+        )
+      );
+      if (cancelled) {
+        error.modelableSessionId = sessionId;
+        this.forgetSession(sessionId);
+        try {
+          await this._closeRequest(sessionId);
+        } catch {
+          // Cancellation invalidation is local-first; server cleanup is best effort.
+        }
+        this._log(
+          `conversation kind=turn protocol=${PROTOCOL_VERSION} ` +
+          `elapsedMs=${Date.now() - startedAt} error=cancelled`,
+        );
+      } else {
+        this._log(
+          `conversation kind=turn protocol=${PROTOCOL_VERSION} ` +
+          `elapsedMs=${Date.now() - startedAt} error=${errorCode(error)}`,
+        );
+      }
+      throw error;
+    }
   }
 
   apply(metadata, dirtyDocumentUris, token) {
@@ -141,7 +192,6 @@ class ConversationClient {
         changeSetId: metadata.changeSetId,
         dirtyDocumentUris: dirtyDocumentUris.map(uri => uri.toString()),
       },
-      token,
     );
   }
 
@@ -163,19 +213,32 @@ class ConversationClient {
   }
 
   async close(sessionId) {
-    try {
-      await this.languageClient.sendRequest(CLOSE_METHOD, {
-        protocolVersion: PROTOCOL_VERSION,
-        sessionId,
-      });
-    } finally {
-      this.sessionIds.delete(sessionId);
-    }
+    this.forgetSession(sessionId);
+    await this._closeRequest(sessionId);
   }
 
   async closeAll() {
     const sessionIds = [...this.sessionIds];
     await Promise.allSettled(sessionIds.map(sessionId => this.close(sessionId)));
+  }
+
+  forgetSession(sessionId) {
+    this.sessionIds.delete(sessionId);
+    this.invalidatedSessionIds.add(sessionId);
+  }
+
+  async _closeRequest(sessionId) {
+    this._log(
+      `conversation lifecycle=close protocol=${PROTOCOL_VERSION}`,
+    );
+    return this.languageClient.sendRequest(CLOSE_METHOD, {
+      protocolVersion: PROTOCOL_VERSION,
+      sessionId,
+    });
+  }
+
+  _log(message) {
+    this.outputChannel?.appendLine(message);
   }
 }
 
@@ -191,6 +254,20 @@ function collectDirtyDocumentUris(vscodeApi, workspaceUri) {
     .sort((left, right) => left.toString().localeCompare(right.toString()));
 }
 
+function errorCode(error) {
+  const message = error instanceof Error ? error.message : '';
+  if (/expired/i.test(message)) {
+    return 'session_expired';
+  }
+  if (/provider/i.test(message)) {
+    return 'provider';
+  }
+  if (/protocol/i.test(message)) {
+    return 'protocol';
+  }
+  return 'request_failed';
+}
+
 module.exports = {
   APPLY_METHOD,
   CLOSE_METHOD,
@@ -200,6 +277,7 @@ module.exports = {
   PROTOCOL_VERSION,
   TURN_METHOD,
   collectDirtyDocumentUris,
+  errorCode,
   recoverSessionMetadata,
   resolveConversationContext,
 };

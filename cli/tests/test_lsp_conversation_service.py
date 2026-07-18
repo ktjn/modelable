@@ -41,6 +41,26 @@ def test_find_focused_ref_returns_containing_definition(tmp_path: Path) -> None:
     assert document_symbols.find_focused_ref(index, source.as_uri(), 0, 0) is None
 
 
+def test_find_focused_ref_covers_multiline_projection_header(tmp_path: Path) -> None:
+    source = tmp_path / "features.mdl"
+    source.write_text(
+        'domain "ml" {\n'
+        '  owner: "ml-team"\n'
+        "  projection Features @ 1\n"
+        "    from customer.Customer @ 1 as customer\n"
+        "    join billing.Bill @ 1 as bill on customer.customerId == bill.customerId\n"
+        "  {\n"
+        "    customerId <- customer.customerId\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    index = LspWorkspaceIndex()
+    index.upsert_document(source.as_uri(), source.read_text(encoding="utf-8"))
+
+    assert document_symbols.find_focused_ref(index, source.as_uri(), 4, 10) == "ml.Features@1"
+
+
 def test_find_workspace_root_uses_nearest_manifest(tmp_path: Path) -> None:
     root = tmp_path / "modelable"
     nested = root / "domains" / "customer"
@@ -145,6 +165,24 @@ def test_registry_expires_idle_sessions(tmp_path: Path) -> None:
     service.turn(_turn_params(root, create_session=True))
     now[0] = 1801.0
 
+    with pytest.raises(ConversationSessionError, match="expired"):
+        service.turn(_turn_params(root, create_session=False))
+
+
+def test_registry_keeps_exact_boundary_and_expires_immediately_after(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    now = [0.0]
+    service = LspConversationService(
+        session_factory=_session_factory,
+        clock=lambda: now[0],
+    )
+    service.turn(_turn_params(root, create_session=True))
+    now[0] = 1800.0
+
+    assert service.turn(_turn_params(root, create_session=False))["kind"] == "answer"
+
+    now[0] = 3600.001
     with pytest.raises(ConversationSessionError, match="expired"):
         service.turn(_turn_params(root, create_session=False))
 
@@ -259,11 +297,53 @@ def test_registry_rejects_duplicate_creation_and_updates_focus(tmp_path: Path) -
     )
     service = LspConversationService(session_factory=capture_session)
 
-    service.turn(params, index=index)
+    reply = service.turn(params, index=index)
 
     assert sessions[0].focused_ref == "customer.Customer@1"
+    assert reply["focusedRef"] == "customer.Customer@1"
     with pytest.raises(ConversationSessionError, match="already exists"):
         service.turn(params, index=index)
+
+
+def test_registry_resolves_nested_active_root_and_manifestless_fallback(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    nested = root / "domains" / "customer"
+    source = _write_customer_workspace(nested)
+    (root / "workspace.mdl").write_text('workspace default { name: "example" }\n', encoding="utf-8")
+    service = LspConversationService(session_factory=_session_factory)
+    nested_params = _turn_params(root, create_session=True).model_copy(update={"active_document_uri": source.as_uri()})
+
+    reply = service.turn(nested_params)
+
+    assert reply["workspaceUri"] == root.as_uri()
+
+    fallback = tmp_path / "fallback"
+    fallback_source = _write_customer_workspace(fallback)
+    fallback_service = LspConversationService(session_factory=_session_factory)
+    fallback_reply = fallback_service.turn(
+        _turn_params(fallback, create_session=True).model_copy(update={"active_document_uri": fallback_source.as_uri()})
+    )
+    assert fallback_reply["kind"] == "answer"
+
+
+def test_registry_rejects_malformed_workspace_uri(tmp_path: Path) -> None:
+    params = _turn_params(tmp_path, create_session=True).model_copy(
+        update={"workspace_uri": "https://example.com/workspace"}
+    )
+
+    with pytest.raises(ConversationSessionError, match="file URI"):
+        LspConversationService(session_factory=_session_factory).turn(params)
+
+
+def test_registry_reports_provider_configuration_failure(tmp_path: Path) -> None:
+    _write_customer_workspace(tmp_path)
+    (tmp_path / "workspace.mdl").write_text(
+        'workspace default {\n  name: "example"\n  ai {\n    provider: "unsupported-provider"\n  }\n}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConversationSessionError, match="provider configuration"):
+        LspConversationService().turn(_turn_params(tmp_path, create_session=True))
 
 
 def test_registry_close_is_idempotent(tmp_path: Path) -> None:

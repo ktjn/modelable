@@ -230,6 +230,25 @@ suite('Modelable conversation participant', () => {
     );
 
     assert.match(requestResult.errorDetails.message, /save these files/i);
+
+    registerConversationParticipant(
+      vscodeApi,
+      { turn: async () => assert.fail('version 2 must not send a request') },
+      {
+        capabilities: {
+          experimental: {
+            modelableConversation: { protocolVersion: 2 },
+          },
+        },
+      },
+    );
+    const futureResult = await handlers[2](
+      { prompt: 'hello' },
+      { history: [] },
+      { markdown() {} },
+      {},
+    );
+    assert.match(futureResult.errorDetails.message, /upgrade.*language server/i);
   });
 
   test('conversation client sends exact turn and lifecycle payloads', async () => {
@@ -245,7 +264,7 @@ suite('Modelable conversation participant', () => {
         };
       },
     };
-    const api = fakeVscode({
+    const api: any = fakeVscode({
       folders: ['/workspace'],
       active: '/workspace/customer.mdl',
     });
@@ -691,6 +710,214 @@ suite('Modelable conversation participant', () => {
     );
 
     assert.match(result.errorDetails.message, /current pending change set/i);
+  });
+
+  test('cancelled turns close and invalidate the session before the next turn', async () => {
+    class FakeCancellationError extends Error {}
+    const calls: any[] = [];
+    let turnCount = 0;
+    const languageClient = {
+      sendRequest: async (method: string, payload: any) => {
+        calls.push([method, payload]);
+        if (method === 'modelable/conversation/turn') {
+          turnCount += 1;
+          if (turnCount === 1) {
+            throw new FakeCancellationError('cancelled');
+          }
+          return {
+            kind: 'answer',
+            text: 'valid',
+            sessionId: payload.sessionId,
+            workspaceUri: payload.workspaceUri,
+          };
+        }
+        return undefined;
+      },
+    };
+    const api: any = fakeVscode({
+      folders: ['/workspace'],
+      active: '/workspace/customer.mdl',
+    });
+    api.CancellationError = FakeCancellationError;
+    const ids = ['session-1', 'session-2'];
+    const client = new ConversationClient(
+      languageClient,
+      api,
+      () => ids.shift(),
+    );
+
+    await assert.rejects(
+      () => client.turn(
+        { prompt: 'first request' },
+        { history: [] },
+        { isCancellationRequested: true },
+      ),
+      FakeCancellationError,
+    );
+    await client.turn(
+      { prompt: 'second request' },
+      {
+        history: [{
+          result: {
+            metadata: {
+              modelable: {
+                protocolVersion: 1,
+                sessionId: 'session-1',
+                workspaceUri: 'file:///workspace',
+              },
+            },
+          },
+        }],
+      },
+      { isCancellationRequested: false },
+    );
+
+    assert.strictEqual(calls[1][0], 'modelable/conversation/close');
+    assert.strictEqual(calls[2][1].sessionId, 'session-2');
+    assert.strictEqual(calls[2][1].createSession, true);
+  });
+
+  test('conversation logs contain lifecycle fields but no prompt or reply content', async () => {
+    const lines: string[] = [];
+    const output = { appendLine: (line: string) => lines.push(line) };
+    const api = fakeVscode({
+      folders: ['/workspace'],
+      active: '/workspace/customer.mdl',
+    });
+    const client = new ConversationClient(
+      {
+        sendRequest: async (_method: string, payload: any) => ({
+          kind: 'answer',
+          text: 'diff-secret API_KEY=credential diagnostic-private',
+          sessionId: payload.sessionId,
+          workspaceUri: payload.workspaceUri,
+        }),
+      },
+      api,
+      () => 'session-1',
+      output,
+    );
+
+    await client.turn(
+      { prompt: 'prompt-private' },
+      { history: [] },
+      {},
+    );
+
+    const logged = lines.join('\n');
+    assert.match(logged, /kind=turn/);
+    assert.match(logged, /protocol=1/);
+    assert.match(logged, /reply=answer/);
+    assert.match(logged, /elapsedMs=\d+/);
+    for (const secret of [
+      'prompt-private',
+      'diff-secret',
+      'credential',
+      'diagnostic-private',
+    ]) {
+      assert.strictEqual(logged.includes(secret), false);
+    }
+  });
+
+  test('participant cancellation clears previews and returns no stale metadata', async () => {
+    let handler: Function | undefined;
+    const deleted: string[] = [];
+    const error: any = new Error('cancelled');
+    error.modelableSessionId = 'session-1';
+    registerConversationParticipant(
+      {
+        CancellationError: class extends Error {},
+        chat: {
+          createChatParticipant: (_id: string, value: Function) => {
+            handler = value;
+            return { dispose() {} };
+          },
+        },
+      },
+      {
+        turn: async () => { throw error; },
+        forgetSession: (sessionId: string) => deleted.push(`forgot:${sessionId}`),
+      },
+      {
+        capabilities: {
+          experimental: {
+            modelableConversation: { protocolVersion: 1 },
+          },
+        },
+      },
+      {
+        deleteSession: (sessionId: string) => deleted.push(`preview:${sessionId}`),
+      },
+    );
+
+    const result = await handler!(
+      { prompt: 'slow request' },
+      { history: [] },
+      { markdown() {} },
+      { isCancellationRequested: true },
+    );
+
+    assert.deepStrictEqual(deleted, [
+      'forgot:session-1',
+      'preview:session-1',
+    ]);
+    assert.strictEqual(result?.metadata, undefined);
+  });
+
+  test('expired recovered sessions clear previews and request a fresh turn', async () => {
+    let handler: Function | undefined;
+    const cleared: string[] = [];
+    registerConversationParticipant(
+      {
+        chat: {
+          createChatParticipant: (_id: string, value: Function) => {
+            handler = value;
+            return { dispose() {} };
+          },
+        },
+      },
+      {
+        turn: async () => {
+          throw new Error('Conversation session session-1 is unknown or expired.');
+        },
+        forgetSession: (sessionId: string) => cleared.push(`forgot:${sessionId}`),
+      },
+      {
+        capabilities: {
+          experimental: {
+            modelableConversation: { protocolVersion: 1 },
+          },
+        },
+      },
+      {
+        deleteSession: (sessionId: string) => cleared.push(`preview:${sessionId}`),
+      },
+    );
+
+    const result = await handler!(
+      { prompt: 'continue' },
+      {
+        history: [{
+          result: {
+            metadata: {
+              modelable: {
+                protocolVersion: 1,
+                sessionId: 'session-1',
+                workspaceUri: 'file:///workspace',
+              },
+            },
+          },
+        }],
+      },
+      { markdown() {} },
+      {},
+    );
+
+    assert.deepStrictEqual(cleared, [
+      'forgot:session-1',
+      'preview:session-1',
+    ]);
+    assert.match(result.errorDetails.message, /repeat the request/i);
   });
 });
 

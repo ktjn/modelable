@@ -59,6 +59,11 @@ class PreviewStore {
     }
   }
 
+  hasSession(sessionId) {
+    const prefix = `${sessionId}\0`;
+    return [...this.changeSets.keys()].some(key => key.startsWith(prefix));
+  }
+
   async showDiff(sessionId, changeSetId) {
     const descriptors = this.changeSets.get(
       changeSetKey(sessionId, changeSetId),

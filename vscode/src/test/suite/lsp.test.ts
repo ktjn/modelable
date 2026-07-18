@@ -205,6 +205,39 @@ suite('Modelable LSP Smoke Tests', function () {
     assert.ok(ext.isActive, 'Extension is not active');
   });
 
+  test('conversation question and reset cross the real language-client boundary', async () => {
+    const editor = await vscode.window.showTextDocument(
+      await vscode.workspace.openTextDocument(uri),
+    );
+    const focus = new vscode.Position(21, 12);
+    editor.selection = new vscode.Selection(focus, focus);
+
+    const reply = await vscode.commands.executeCommand<{
+      kind: string;
+      protocolVersion: number;
+      sessionId: string;
+      focusedRef?: string;
+    }>(
+      'modelable.test.conversationTurn',
+      { prompt: 'is the workspace valid?' },
+    );
+
+    assert.ok(reply);
+    assert.strictEqual(reply.kind, 'answer');
+    assert.strictEqual(reply.protocolVersion, 1);
+    assert.ok(reply.sessionId);
+    assert.strictEqual(
+      reply.focusedRef,
+      'ml-credit-risk.CreditFeaturesOffline@3',
+    );
+
+    const reset = await vscode.commands.executeCommand<{ kind: string }>(
+      'modelable.test.conversationTurn',
+      { resetSessionId: reply.sessionId },
+    );
+    assert.strictEqual(reset?.kind, 'reset');
+  });
+
   test('hover returns content for a cross-domain type reference', async () => {
     // Line 19 (0-indexed), char 15: inside `lending.LoanApplication @ 1`
     const position = new vscode.Position(19, 15);

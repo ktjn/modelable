@@ -28,8 +28,8 @@ function registerConversationParticipant(
         };
       }
 
+      const metadata = recoverSessionMetadata(context.history ?? []);
       try {
-        const metadata = recoverSessionMetadata(context.history ?? []);
         if (request.command === 'reset') {
           if (metadata?.sessionId) {
             await conversationClient.close(metadata.sessionId);
@@ -82,6 +82,39 @@ function registerConversationParticipant(
         }
         return chatResult(reply);
       } catch (error) {
+        const cancelled = (
+          request.command !== 'apply' &&
+          (
+            token?.isCancellationRequested ||
+            (
+              vscodeApi.CancellationError &&
+              error instanceof vscodeApi.CancellationError
+            )
+          )
+        );
+        if (cancelled) {
+          const sessionId = error?.modelableSessionId ?? metadata?.sessionId;
+          if (sessionId) {
+            conversationClient.forgetSession(sessionId);
+            previewStore?.deleteSession(sessionId);
+          }
+          return {};
+        }
+        if (
+          metadata?.sessionId &&
+          /unknown or expired|session.*expired/i.test(
+            error instanceof Error ? error.message : '',
+          )
+        ) {
+          conversationClient.forgetSession(metadata.sessionId);
+          previewStore?.deleteSession(metadata.sessionId);
+          return {
+            errorDetails: {
+              message:
+                'The Modelable conversation session expired or the language server restarted. Repeat the request to start a fresh session.',
+            },
+          };
+        }
         return {
           errorDetails: {
             message: sanitizedErrorMessage(error),

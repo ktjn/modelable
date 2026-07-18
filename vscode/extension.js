@@ -97,7 +97,12 @@ async function activate(context) {
   }
 
   client = nextClient;
-  conversationClient = new ConversationClient(nextClient);
+  conversationClient = new ConversationClient(
+    nextClient,
+    vscode,
+    undefined,
+    outputChannel,
+  );
   const previewStore = new PreviewStore(vscode);
   const participant = registerConversationParticipant(
     vscode,
@@ -113,6 +118,30 @@ async function activate(context) {
     'modelable.conversation.viewDiff',
     args => previewStore.showDiff(args.sessionId, args.changeSetId),
   );
+  const testConversationCommand = (
+    context.extensionMode === vscode.ExtensionMode.Test
+  )
+    ? vscode.commands.registerCommand(
+        'modelable.test.conversationTurn',
+        async args => {
+          if (args.resetSessionId) {
+            await conversationClient.close(args.resetSessionId);
+            previewStore.deleteSession(args.resetSessionId);
+            return { kind: 'reset' };
+          }
+          const tokenSource = new vscode.CancellationTokenSource();
+          try {
+            return await conversationClient.turn(
+              { prompt: args.prompt },
+              { history: [] },
+              tokenSource.token,
+            );
+          } finally {
+            tokenSource.dispose();
+          }
+        },
+      )
+    : undefined;
   const conversationCleanup = {
     dispose() {
       void conversationClient?.closeAll();
@@ -124,6 +153,7 @@ async function activate(context) {
     participant,
     previewProvider,
     viewDiffCommand,
+    ...(testConversationCommand ? [testConversationCommand] : []),
     conversationCleanup,
   );
 }

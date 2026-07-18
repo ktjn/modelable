@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from modelable.compiler.workspace import load_workspace
@@ -113,12 +113,15 @@ class LspConversationService:
 
     def _build_session(self, root: Path, focused_ref: str | None) -> ConversationSession:
         workspace = load_workspace(root)
-        config = resolve_llm_config(workspace=workspace.mdl.workspace)
-        provider = build_provider(
-            config.provider,
-            model=config.model,
-            base_url=config.base_url,
-        )
+        try:
+            config = resolve_llm_config(workspace=workspace.mdl.workspace)
+            provider = build_provider(
+                config.provider,
+                model=config.model,
+                base_url=config.base_url,
+            )
+        except (TypeError, ValueError) as error:
+            raise ConversationSessionError(f"Invalid Modelable LLM provider configuration: {error}") from error
         return ConversationSession(
             path=root,
             provider=provider,
@@ -168,6 +171,8 @@ class LspConversationService:
         session_id: str,
         entry: _SessionEntry,
     ) -> dict[str, object]:
+        if reply.focused_ref is None and entry.session.focused_ref is not None:
+            reply = replace(reply, focused_ref=entry.session.focused_ref)
         refs = {item.ref for item in reply.changed}
         refs.update(item.ref for item in reply.affected)
         locations = {

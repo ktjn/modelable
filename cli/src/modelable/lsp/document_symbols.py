@@ -188,10 +188,14 @@ def _make_field_symbol(
 
 def _block_end_line(lines: list[str], start_line: int) -> int:
     depth = 0
+    opened = False
     for line_no in range(start_line, len(lines)):
-        depth += lines[line_no].count("{")
+        opening_count = lines[line_no].count("{")
+        if opening_count:
+            opened = True
+        depth += opening_count
         depth -= lines[line_no].count("}")
-        if line_no > start_line and depth <= 0:
+        if opened and line_no > start_line and depth <= 0:
             return line_no
     return max(len(lines) - 1, start_line)
 
