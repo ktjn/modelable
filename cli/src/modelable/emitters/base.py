@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import PurePath
 from typing import Any
 
 ArtifactContent = dict[str, Any] | str | bytes
@@ -14,7 +14,7 @@ class EmittedArtifact:
     target: str
     ref: str  # "domain.Name@version"
     artifact_id: str  # "domain.Name.vVersion"
-    path: Path
+    path: PurePath
     content: ArtifactContent
     content_hash: str
     warnings: list[str] = field(default_factory=list)

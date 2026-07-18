@@ -1,12 +1,8 @@
 from __future__ import annotations
 
 from pathlib import PurePath, PurePosixPath
-from typing import TYPE_CHECKING, cast
 
 from jsonschema import Draft202012Validator
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
@@ -115,7 +111,7 @@ def _emit_model_version(
         target="json-schema",
         ref=f"{domain.name}.{model_name}@{version.version}",
         artifact_id=artifact_id,
-        path=cast("Path", path),
+        path=path,
         content=schema,
         content_hash=compute_content_hash(schema),
         warnings=warnings,
@@ -197,7 +193,7 @@ def _emit_projection_version(
         target="json-schema",
         ref=f"{domain.name}.{projection_name}@{version.version}",
         artifact_id=artifact_id,
-        path=cast("Path", path),
+        path=path,
         content=schema,
         content_hash=compute_content_hash(schema),
         warnings=warnings,

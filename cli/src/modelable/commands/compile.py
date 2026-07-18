@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import sys
-from pathlib import Path
+from pathlib import Path, PurePath
 
 import click
 
@@ -425,7 +425,7 @@ def docs(source: Path, out_dir: Path | None) -> None:
     artifacts = emit_markdown(workspace, output)
     for art in artifacts:
         assert isinstance(art.content, str)
-        art.path.write_text(art.content, encoding="utf-8")
+        Path(art.path).write_text(art.content, encoding="utf-8")
         _print_artifact_result(art)
     if not artifacts:
         console.print("[yellow]No artifacts generated.[/yellow]")
@@ -438,19 +438,21 @@ def _print_artifact_result(art: EmittedArtifact) -> None:
     console.print(f"[green]OK[/green] {art.path} [dim]{art.content_hash}[/dim]")
 
 
-def _write_artifact_text(path: Path, content: str) -> None:
+def _write_artifact_text(path: PurePath, content: str) -> None:
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
 
 def _write_artifact(art: EmittedArtifact) -> None:
-    art.path.parent.mkdir(parents=True, exist_ok=True)
+    path = Path(art.path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     if isinstance(art.content, bytes):
-        art.path.write_bytes(art.content)
+        path.write_bytes(art.content)
     elif isinstance(art.content, dict):
-        art.path.write_text(json.dumps(art.content, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        path.write_text(json.dumps(art.content, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     else:
-        art.path.write_text(art.content, encoding="utf-8")
+        path.write_text(art.content, encoding="utf-8")
 
 
 def _emit_protobuf_with_descriptors(artifacts: list[EmittedArtifact], output: Path) -> list[EmittedArtifact]:
@@ -467,8 +469,8 @@ def _emit_protobuf_with_descriptors(artifacts: list[EmittedArtifact], output: Pa
         schema = json.loads(art.content)["schemas"][0]
         ref = str(schema["ref"])
         proto_name = art.path.parent.name + ".proto"
-        proto_path = art.path.parent / proto_name
-        descriptor_path = art.path.parent / (art.path.parent.name + ".descriptor.pb")
+        proto_path = Path(art.path.parent / proto_name)
+        descriptor_path = Path(art.path.parent / (art.path.parent.name + ".descriptor.pb"))
         descriptor_bytes = compile_descriptor_set(
             proto_root=output,
             proto_files=[proto_path],
@@ -530,9 +532,9 @@ def _emit_grpc_with_descriptors(artifacts: list[EmittedArtifact], output: Path) 
         assert isinstance(art.content, str)
         manifest = json.loads(art.content)
         ref = str(manifest["ref"])
-        service_proto = art.path.parent / str(manifest["service_proto"])
-        payload_proto = art.path.parent / (art.path.parent.name + ".proto")
-        descriptor_path = art.path.parent / (art.path.parent.name + ".grpc.descriptor.pb")
+        service_proto = Path(art.path.parent / str(manifest["service_proto"]))
+        payload_proto = Path(art.path.parent / (art.path.parent.name + ".proto"))
+        descriptor_path = Path(art.path.parent / (art.path.parent.name + ".grpc.descriptor.pb"))
         proto_files = [service_proto]
         if payload_proto.exists():
             proto_files.append(payload_proto)
