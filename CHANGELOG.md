@@ -8,6 +8,11 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added a static browser compiler proof at `/modelable/playground/`. The
+  same-origin Pyodide worker uses the existing Modelable compiler to validate
+  and format in-memory sources and generate JSON Schema through protocol v1,
+  with native/browser conformance, performance, and asset-size budgets enforced
+  by the browser validation gate.
 - Added safe conversational workspace management to `modelable chat`:
   grounded ownership, lineage, dependency, index, compatibility, and
   validation questions; complete entity and projection proposals through

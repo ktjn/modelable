@@ -151,6 +151,40 @@ uv run --project cli python .github/scripts/assemble_pages.py --site site --web-
 Pull requests only build and test the browser proof. Only pushes to `main`
 deploy the combined documentation and playground artifact.
 
+### Browser proof troubleshooting
+
+- **Checksum or manifest failure during `prepare:python`:** do not patch
+  generated files under `web/public/python`. Confirm
+  `cli/browser/browser-lock.json` contains the intended pinned identities, then
+  run `npm run prepare:python` from `web/`. The wheel builder writes its
+  SHA-256 to `browser-manifest.json`; the vendor step verifies downloaded
+  assets before replacing the prior staged runtime.
+- **`INITIALIZATION_FAILED` in the proof:** inspect the browser network panel
+  for the same-origin `pyodide/`, `python/runtime-manifest.json`, and two
+  manifest wheel requests, then run `npm run build` and `npm run test:e2e` from
+  `web/`. The production UI deliberately sanitizes Python and worker
+  exceptions, so use the development console and failed request status rather
+  than expecting a traceback in the page.
+- **Native/browser conformance mismatch:** run
+  `uv run python .github/scripts/run_browser_spike.py`. Review the fixture and
+  normalized result difference before changing snapshots. Regenerate
+  `cli/tests/conformance/browser/snapshots` with
+  `uv run --project cli python cli/scripts/write_browser_conformance.py
+  --output cli/tests/conformance/browser/snapshots` only for an intentional,
+  reviewed semantic change.
+- **Size or timing budget failure:** run `npm run build`, then
+  `npm run check:budgets` and `npm run test:e2e` from `web/`. The JSON output
+  identifies the wheel, application, or additional-Python size category;
+  Playwright prints initialization, validation, and generation medians. Keep
+  the budgets fixed unless an approved design change explicitly revises them.
+- **GitHub Pages base-path failure:** keep Vite's base at
+  `/modelable/playground/`, build both surfaces, and run
+  `uv run --project cli python .github/scripts/assemble_pages.py --site site
+  --web-dist web/dist` from the repository root. Confirm
+  `site/playground/index.html` exists and generated HTML contains no
+  origin-root `/assets/` URLs. The assembler must compose the proof into the
+  MkDocs output; deploying `web/dist` by itself drops the documentation.
+
 ## 4. Test Gates
 
 Test gates are selected by risk and touched surface.

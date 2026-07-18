@@ -1,10 +1,9 @@
 # Modelable Playground Architecture
 
-> **Status:** Long-term product vision. The active first delivery slice is the
-> focused [Browser Compiler WASM Spike — Design](https://github.com/ktjn/modelable/blob/main/docs/superpowers/specs/2026-07-18-browser-compiler-wasm-spike-design.md).
-> Its browser-wheel, in-memory compiler, conformance, performance, and Pages
-> requirements replace Phase 1 below. Editor, visualization, local AI, offline,
-> and plugin phases remain deferred until that spike is complete.
+> **Status:** Long-term product vision with Phase 1 shipped. The completed
+> [Browser Compiler WASM Spike — Design](https://github.com/ktjn/modelable/blob/main/docs/superpowers/specs/archived/2026-07-18-browser-compiler-wasm-spike-design.md)
+> is archived. Editor, visualization, persistence, local AI, offline, and
+> plugin phases remain deferred.
 
 ## 1. Purpose
 
@@ -907,10 +906,34 @@ Any remote telemetry must be opt-in, documented, and scrubbed of source text, pr
 
 ## 24. Delivery roadmap
 
-### Phase 1: browser compiler spike
+### Phase 1: browser compiler spike — shipped
 
-The authoritative scope and completion criteria are defined in
-[Browser Compiler WASM Spike — Design](https://github.com/ktjn/modelable/blob/main/docs/superpowers/specs/2026-07-18-browser-compiler-wasm-spike-design.md).
+The static proof is deployed under
+[`/modelable/playground/`](https://ktjn.github.io/modelable/playground/). It
+supports Validate, Format, and Generate JSON Schema through
+`BrowserCompilerClient` protocol v1 and a module Web Worker. The worker loads
+Pyodide `314.0.2` with Python `3.14.2`; the runtime, locked Python dependencies,
+fixtures, and generated `modelable-browser` wheel are all same-origin assets.
+
+The final Windows/Chromium gate measured these gzip-compressed payloads:
+
+- `modelable-browser` wheel: 57,224 bytes (2 MiB budget).
+- Application HTML, CSS, and JavaScript: 13,721 bytes (750 KiB budget).
+- Additional Python wheels: 2,528,120 bytes (15 MiB budget), excluding the
+  base Pyodide runtime.
+
+The same gate measured these browser medians:
+
+- Cold initialization: 2,371.54 ms (20,000 ms budget).
+- Cached initialization: 2,861.93 ms (5,000 ms budget).
+- Validation: 11.50 ms (500 ms budget).
+- JSON Schema generation: 32.30 ms (1,000 ms budget).
+
+These figures are one final local measurement, not service-level guarantees;
+CI reruns the budgets to catch regressions. The proof intentionally defers the
+editor, visualization, persistence, and AI phases below. The completed scope
+and acceptance criteria are archived in
+[Browser Compiler WASM Spike — Design](https://github.com/ktjn/modelable/blob/main/docs/superpowers/specs/archived/2026-07-18-browser-compiler-wasm-spike-design.md).
 
 ### Phase 2: editor MVP
 

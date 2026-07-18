@@ -1,12 +1,12 @@
-# Browser Compiler WASM Spike — Design
+# 2026-07-18 Browser Compiler WASM Spike — Design
 
 ## Status
 
-Approved for implementation planning.
+Shipped and archived on 2026-07-18.
 
 This specification defines the Phase 0 browser-compiler proof of concept. It
 replaces the first delivery phase in
-[Modelable Playground Architecture](../../playground-design.md) as the
+[Modelable Playground Architecture](../../../playground-design.md) as the
 authoritative scope for the next browser/WASM slice. The broader playground
 document remains the long-term product vision.
 

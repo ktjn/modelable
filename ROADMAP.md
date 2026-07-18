@@ -102,17 +102,18 @@ After the Scalable/Rust path is complete:
    configuration, typed plans, validation, exact previews, writes, rollback,
    and reload. The completed design is archived in
    [VS Code Conversational Foundation — Design](docs/superpowers/specs/archived/2026-07-18-vscode-conversational-foundation-design.md).
-3. **Next:** prove the compiler in WebAssembly with a focused browser spike.
-   Build a browser-only wheel for pinned Pyodide, expose in-memory validation,
-   formatting, and JSON Schema generation through a versioned Web Worker
-   protocol, verify native/browser conformance and performance budgets, and
-   publish the proof under the existing GitHub Pages artifact. The approved
-   design is [Browser Compiler WASM Spike — Design](docs/superpowers/specs/2026-07-18-browser-compiler-wasm-spike-design.md).
-4. **After the browser-compiler spike:** add an optional provider adapter for
-   the VS Code Language Model API so users can select a model available in
-   their editor. Native model output must still pass through Python-owned typed
-   plan parsing, validation, preview, and workspace editing; the extension must
-   not duplicate those safety boundaries in TypeScript.
+3. **Shipped:** prove the compiler in WebAssembly with a focused browser spike.
+   The static proof at `/modelable/playground/` loads a browser-only wheel in
+   pinned, same-origin Pyodide; exposes in-memory validation, formatting, and
+   JSON Schema generation through a versioned Web Worker protocol; verifies
+   native/browser conformance and performance budgets; and ships in the
+   existing GitHub Pages artifact. The completed design is archived in
+   [Browser Compiler WASM Spike — Design](docs/superpowers/specs/archived/2026-07-18-browser-compiler-wasm-spike-design.md).
+4. **Next:** add an optional provider adapter for the VS Code Language Model
+   API so users can select a model available in their editor. Native model
+   output must still pass through Python-owned typed plan parsing, validation,
+   preview, and workspace editing; the extension must not duplicate those
+   safety boundaries in TypeScript.
 5. **After the native-model provider adapter:** extend conversational management
    to compilation, registry synchronization, publishing, and external-service
    operations only after each action has an explicit authorization, preview,
