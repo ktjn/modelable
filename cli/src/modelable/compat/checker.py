@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from modelable.compat.diff import FieldChange, compare_index_decls, compare_model_versions
-from modelable.parser.ir import ChangeKind, DirectMapping, IndexDecl, MdlFile, ModelVersion
+from modelable.parser.ir import DirectMapping, IndexDecl, MdlFile, ModelVersion
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,7 @@ def check_model_version_compatibility(
     new_index = _find_index_decl(mdl, domain_name, model_name, to_version)
     changes.extend(compare_index_decls(old_index, new_index))
     findings = [_format_finding(change) for change in changes]
-    status = "breaking" if _has_breaking_change(changes, new_version) else "compatible"
+    status = "breaking" if _has_breaking_change(changes) else "compatible"
     return CompatibilityReport(
         domain_name=domain_name,
         model_name=model_name,
@@ -129,6 +129,24 @@ def analyze_impact(
     return ProjectionImpact(dep_domain_name, dep_proj_name, dep_version, "compatible")
 
 
+def find_projection_dependents(mdl: MdlFile, ref: str) -> list[tuple[str, str, int]]:
+    """Return projections that resolve to the exact model version in ``ref``."""
+    model_ref, version_text = ref.rsplit("@", 1)
+    version = int(version_text)
+    dependents: list[tuple[str, str, int]] = []
+    for domain in mdl.domains:
+        for projection_name, versions in domain.projections.items():
+            for projection in versions:
+                sources = [(projection.source.model, projection.source.version)]
+                sources.extend((join.model, join.version) for join in projection.joins)
+                if any(
+                    source_model == model_ref and getattr(source_version, "version", None) == version
+                    for source_model, source_version in sources
+                ):
+                    dependents.append((domain.name, projection_name, projection.version))
+    return sorted(dependents)
+
+
 def _find_version(
     mdl: MdlFile,
     domain_name: str,
@@ -191,10 +209,10 @@ def _bool_word(value: bool | None) -> str:
     return "optional" if value else "required"
 
 
-def _has_breaking_change(changes: list[FieldChange], new_version: ModelVersion) -> bool:
+def _has_breaking_change(changes: list[FieldChange]) -> bool:
     for change in changes:
         if change.kind in {"removed_field", "renamed_field", "type_changed", "enum_changed", "identity_changed"}:
             return True
         if change.kind == "added_field" and change.to_optional is False:
             return True
-    return new_version.change_kind == ChangeKind.breaking
+    return False

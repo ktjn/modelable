@@ -243,6 +243,72 @@ def test_breaking_declaration_can_admit_breaking_changes():
     assert any("removed_field name" in finding for finding in report.findings)
 
 
+def test_compatibility_status_is_based_on_structure_not_declared_change_kind():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (breaking) {
+            @key customerId: uuid
+            name: string
+          }
+          entity Customer @ 2 (breaking) {
+            @key customerId: uuid
+            name: string
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
+    assert report.status == "compatible"
+    assert report.findings == []
+
+
+def test_find_projection_dependents_is_public_and_includes_joined_sources():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          owner: "customer-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            name: string
+          }
+        }
+        domain billing {
+          owner: "billing-team"
+          entity Invoice @ 1 (additive) {
+            @key invoiceId: uuid
+            customerId: uuid
+          }
+        }
+        domain reporting {
+          owner: "reporting-team"
+          projection JoinedCustomer @ 1
+            from billing.Invoice @ 1 as i
+            join customer.Customer @ 1 as c on i.customerId == c.customerId
+          {
+            customerName <- c.name
+          }
+          projection DirectCustomer @ 1
+            from customer.Customer @ 1 as c
+          {
+            customerName <- c.name
+          }
+        }
+        """
+    )
+
+    from modelable.compat import find_projection_dependents
+
+    assert find_projection_dependents(mdl, "customer.Customer@1") == [
+        ("reporting", "DirectCustomer", 1),
+        ("reporting", "JoinedCustomer", 1),
+    ]
+
+
 def test_index_changed_is_visible_when_secondary_index_added():
     mdl = parse_text_to_ir(
         """
