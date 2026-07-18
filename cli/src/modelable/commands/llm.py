@@ -8,9 +8,8 @@ from rich.console import Console
 
 from modelable.commands.diff import run_diff
 from modelable.compiler.workspace import load_workspace
-from modelable.llm.chat import ChatState, chat_turn
 from modelable.llm.config import resolve_llm_config
-from modelable.llm.context import build_workspace_summary
+from modelable.llm.conversation import ConversationSession
 from modelable.llm.engine import (
     answer_model_question_cli,
     attach_external_version,
@@ -536,7 +535,6 @@ def chat(
 ) -> None:
     """Chat with a model about the current workspace."""
     workspace = load_workspace(path)
-    workspace_summary = build_workspace_summary(workspace)
     config = resolve_llm_config(
         flag_provider=provider,
         flag_model=model,
@@ -544,10 +542,18 @@ def chat(
         workspace=workspace.mdl.workspace,
     )
     llm_provider = build_provider(config.provider, model=config.model, base_url=config.base_url)
-    state = ChatState(ref=ref, workspace_summary=workspace_summary)
+    session = ConversationSession(
+        path=path,
+        provider=llm_provider,
+        focused_ref=ref,
+        repair_attempts=config.repair_attempts,
+    )
 
     if message is not None:
-        console.print(chat_turn(workspace, message, path=path, state=state, provider=llm_provider))
+        if message.strip().lower() in {"/exit", "/quit"}:
+            console.print("/exit")
+        else:
+            console.print(session.turn(message).text)
         return
 
     console.print("Modelable chat. Type /exit to quit.")
@@ -558,7 +564,6 @@ def chat(
             break
         if not user_message.strip():
             continue
-        response = chat_turn(workspace, user_message, path=path, state=state, provider=llm_provider)
-        if response == "/exit":
+        if user_message.strip().lower() in {"/exit", "/quit"}:
             break
-        console.print(f"assistant> {response}")
+        console.print(f"assistant> {session.turn(user_message).text}")
