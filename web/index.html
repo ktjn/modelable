@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; worker-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'"
+    >
+    <title>Modelable Browser Compiler</title>
+  </head>
+  <body>
+    <main>
+      <h1>Modelable Browser Compiler</h1>
+      <p id="status" role="status">Loading compiler…</p>
+      <label for="source">Model source</label>
+      <textarea id="source" rows="16"></textarea>
+      <div>
+        <button id="compile" type="button">Compile</button>
+        <button id="cancel" type="button">Cancel</button>
+      </div>
+      <h2>Diagnostics</h2>
+      <pre id="diagnostics"></pre>
+      <h2>Artifacts</h2>
+      <pre id="artifacts"></pre>
+      <h2>Metrics</h2>
+      <pre id="metrics"></pre>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
