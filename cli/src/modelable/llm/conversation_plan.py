@@ -242,17 +242,20 @@ type Operation = Annotated[
 ]
 
 
+type QueryKind = Literal[
+    "summary",
+    "ownership",
+    "lineage",
+    "dependents",
+    "indexes",
+    "compatibility",
+    "validation",
+]
+
+
 class QueryPlan(StrictPlanModel):
     kind: Literal["query"] = "query"
-    query_kind: Literal[
-        "summary",
-        "ownership",
-        "lineage",
-        "dependents",
-        "indexes",
-        "compatibility",
-        "validation",
-    ]
+    query_kind: QueryKind
     refs: list[str] = Field(default_factory=list)
     question: str
 
@@ -292,3 +295,7 @@ def parse_conversation_plan(text: str) -> ConversationPlan:
         stripped = re.sub(r"^```(?:json)?\s*", "", stripped, flags=re.IGNORECASE)
         stripped = re.sub(r"\s*```$", "", stripped)
     return _CONVERSATION_PLAN_ADAPTER.validate_python(json.loads(stripped))
+
+
+def conversation_plan_json_schema() -> dict[str, object]:
+    return _CONVERSATION_PLAN_ADAPTER.json_schema()

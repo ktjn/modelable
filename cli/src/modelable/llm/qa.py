@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 from modelable.compiler.workspace import Workspace
-from modelable.llm.context import parse_model_ref
+from modelable.llm.context import ModelRef, parse_model_ref
+from modelable.llm.conversation_plan import QueryKind, QueryPlan
+from modelable.parser.ir import ProjectionField
 
 
 def answer_question(workspace: Workspace, question: str) -> str:
+    typed_plan = _legacy_query_plan(question)
+    if typed_plan is not None:
+        # Keep the adapter local to preserve a one-way import boundary.
+        from modelable.llm.workspace_query import WorkspaceQueryService
+
+        return WorkspaceQueryService(workspace).execute(typed_plan).text
+
     lower = question.lower().strip()
     if "owner" in lower or "who owns" in lower:
         return _answer_owner_question(workspace, question)
@@ -15,6 +24,29 @@ def answer_question(workspace: Workspace, question: str) -> str:
     if "field" in lower or "model" in lower:
         return _answer_model_question(workspace, question)
     return "I can answer ownership, lineage, dependency, and validation questions when you point me at a model or projection."
+
+
+def _legacy_query_plan(question: str) -> QueryPlan | None:
+    lower = question.lower().strip()
+    ref = _extract_ref(question)
+    if "valid" in lower or "diagnostic" in lower:
+        return QueryPlan(query_kind="validation", refs=[], question=question)
+    if ref is None:
+        return None
+    refs = [f"{ref.domain}.{ref.name}@{ref.version}"]
+    if "owner" in lower or "who owns" in lower:
+        query_kind: QueryKind = "ownership"
+    elif "lineage" in lower or "where did" in lower:
+        query_kind = "lineage"
+    elif "depend" in lower or "impact" in lower or "break" in lower:
+        query_kind = "dependents"
+    elif "index" in lower or "look it up" in lower:
+        query_kind = "indexes"
+    elif "field" in lower or "model" in lower or "projection" in lower or "describe" in lower:
+        query_kind = "summary"
+    else:
+        return None
+    return QueryPlan(query_kind=query_kind, refs=refs, question=question)
 
 
 def _answer_owner_question(workspace: Workspace, question: str) -> str:
@@ -75,7 +107,7 @@ def _answer_model_question(workspace: Workspace, question: str) -> str:
     return _workspace_summary(workspace)
 
 
-def _extract_ref(question: str):
+def _extract_ref(question: str) -> ModelRef | None:
     tokens = question.replace("?", " ").replace(",", " ").split()
     for token in tokens:
         if "@" in token and "." in token:
@@ -119,7 +151,7 @@ def _workspace_summary(workspace: Workspace) -> str:
     return "\n".join(lines) if lines else "Workspace is empty."
 
 
-def _field_lineage(field) -> str:
+def _field_lineage(field: ProjectionField) -> str:
     mapping = field.mapping
     if mapping.kind == "direct":
         return f"direct {mapping.source_alias}.{mapping.source_field}"
