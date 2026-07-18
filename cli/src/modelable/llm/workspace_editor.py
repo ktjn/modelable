@@ -3,6 +3,8 @@ from __future__ import annotations
 import difflib
 import hashlib
 import json
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -73,6 +75,14 @@ class WorkspaceEditError(ValueError):
     pass
 
 
+class StaleChangeSetError(WorkspaceEditError):
+    pass
+
+
+class WorkspaceApplyError(WorkspaceEditError):
+    pass
+
+
 _DRAFT_EDIT_WARNING = (
     "Draft edit requested: local publication state is not known, so this may rewrite a published contract."
 )
@@ -110,6 +120,16 @@ class PendingChangeSet:
     compatibility: list[CompatibilityFinding]
     diagnostics: list[Diagnostic]
     diff_text: str
+    focus_ref: str | None
+
+
+@dataclass(frozen=True)
+class AppliedChangeSet:
+    change_set_id: str
+    written_paths: tuple[Path, ...]
+    changed: list[ChangedDefinition]
+    compatibility: list[CompatibilityFinding]
+    workspace: Workspace
     focus_ref: str | None
 
 
@@ -433,6 +453,113 @@ class WorkspaceEditor:
             diff_text=diff_text,
             focus_ref=focus_ref,
         )
+
+    def apply(self, pending: PendingChangeSet) -> AppliedChangeSet:
+        if self._current_source_fingerprints() != pending.source_fingerprints:
+            raise StaleChangeSetError("Workspace sources changed after this change set was previewed")
+
+        restaged = self.preview(pending.plan)
+        if restaged != pending:
+            raise StaleChangeSetError("Change set no longer matches its deterministic preview")
+
+        written_paths = tuple(sorted(pending.candidate_sources))
+        originals: dict[Path, tuple[bool, bytes]] = {}
+        temporary_paths: dict[Path, Path] = {}
+        replaced_paths: list[Path] = []
+        try:
+            for path in written_paths:
+                existed = path.exists()
+                originals[path] = (existed, path.read_bytes() if existed else b"")
+                temporary_paths[path] = self._write_temporary_file(
+                    path,
+                    pending.candidate_sources[path].encode("utf-8"),
+                )
+
+            for path in written_paths:
+                os.replace(temporary_paths[path], path)
+                replaced_paths.append(path)
+
+            workspace = load_workspace(self.root)
+            reload_errors = [diagnostic for diagnostic in workspace.errors if diagnostic.severity == "error"]
+            if reload_errors:
+                rendered = "; ".join(render_diagnostic(diagnostic) for diagnostic in reload_errors)
+                raise WorkspaceApplyError(f"Reloaded workspace has validation errors: {rendered}")
+        except Exception as error:
+            rollback_errors = self._rollback_replacements(replaced_paths, originals)
+            if rollback_errors:
+                details = "; ".join(rollback_errors)
+                raise WorkspaceApplyError(
+                    f"Workspace apply failed and rollback was incomplete ({details}): {error}"
+                ) from error
+            raise WorkspaceApplyError(f"Workspace apply failed and was rolled back: {error}") from error
+        finally:
+            for temporary_path in temporary_paths.values():
+                temporary_path.unlink(missing_ok=True)
+
+        self.workspace = workspace
+        return AppliedChangeSet(
+            change_set_id=pending.change_set_id,
+            written_paths=written_paths,
+            changed=pending.changed,
+            compatibility=pending.compatibility,
+            workspace=workspace,
+            focus_ref=pending.focus_ref,
+        )
+
+    def _current_source_fingerprints(self) -> dict[Path, str]:
+        paths = (
+            [self.root]
+            if self.root.is_file() and self.root.suffix == ".mdl"
+            else sorted(self.root.rglob("*.mdl"), key=lambda path: path.as_posix())
+        )
+        try:
+            return {
+                path: hashlib.sha256(path.read_text(encoding="utf-8").encode("utf-8")).hexdigest() for path in paths
+            }
+        except (OSError, UnicodeError) as error:
+            raise StaleChangeSetError(f"Could not verify workspace source fingerprints: {error}") from error
+
+    @staticmethod
+    def _write_temporary_file(destination: Path, content: bytes) -> Path:
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                dir=destination.parent,
+                prefix=".modelable-edit-",
+                delete=False,
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+                temporary.write(content)
+                temporary.flush()
+                os.fsync(temporary.fileno())
+            return temporary_path
+        except Exception:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+            raise
+
+    @classmethod
+    def _rollback_replacements(
+        cls,
+        replaced_paths: list[Path],
+        originals: dict[Path, tuple[bool, bytes]],
+    ) -> list[str]:
+        errors: list[str] = []
+        for path in reversed(replaced_paths):
+            existed, content = originals[path]
+            restoration: Path | None = None
+            try:
+                if existed:
+                    restoration = cls._write_temporary_file(path, content)
+                    os.replace(restoration, path)
+                else:
+                    path.unlink(missing_ok=True)
+            except Exception as error:
+                errors.append(f"{path}: {error}")
+            finally:
+                if restoration is not None:
+                    restoration.unlink(missing_ok=True)
+        return errors
 
     def _copy_documents(self) -> dict[Path, _EditableDocument]:
         documents: dict[Path, _EditableDocument] = {}

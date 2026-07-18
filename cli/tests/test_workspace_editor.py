@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import os
+from dataclasses import replace
+
 import pytest
 
+import modelable.llm.workspace_editor as workspace_editor_module
+from modelable.diagnostics.model import Diagnostic
 from modelable.llm.conversation_plan import (
     AddField,
     AddProjectionField,
@@ -33,7 +38,13 @@ from modelable.llm.conversation_plan import (
     SetProjectionMapping,
     SetProjectionSource,
 )
-from modelable.llm.workspace_editor import ChangedDefinition, WorkspaceEditError, WorkspaceEditor
+from modelable.llm.workspace_editor import (
+    ChangedDefinition,
+    StaleChangeSetError,
+    WorkspaceApplyError,
+    WorkspaceEditError,
+    WorkspaceEditor,
+)
 from modelable.parser.ir import AnnKey, AnnPii, ComputedMapping, FieldDef, ObjectType, PrimitiveType
 from modelable.parser.parse import parse_text_to_ir
 
@@ -110,6 +121,14 @@ def _write_empty_customer_domain(tmp_path):
     return source, original
 
 
+def _write_empty_two_domain_workspace(tmp_path):
+    customer = tmp_path / "customer.mdl"
+    billing = tmp_path / "billing.mdl"
+    customer.write_text('domain customer {\n  owner: "customer-team"\n}\n', encoding="utf-8")
+    billing.write_text('domain billing {\n  owner: "billing-team"\n}\n', encoding="utf-8")
+    return customer, billing
+
+
 def _write_customer_model(tmp_path):
     source = tmp_path / "customer.mdl"
     source.write_text(
@@ -127,6 +146,138 @@ domain customer {
         encoding="utf-8",
     )
     return source
+
+
+def test_apply_writes_exact_preview_and_reloads_workspace(tmp_path) -> None:
+    _write_empty_customer_domain(tmp_path)
+    editor = WorkspaceEditor(tmp_path)
+    pending = editor.preview(create_customer_plan())
+
+    applied = editor.apply(pending)
+
+    assert applied.change_set_id == pending.change_set_id
+    assert applied.changed == pending.changed
+    assert applied.workspace.errors == []
+    assert (tmp_path / "customer.mdl").read_text(encoding="utf-8") == pending.candidate_sources[
+        tmp_path / "customer.mdl"
+    ]
+    assert not list(tmp_path.glob(".modelable-edit-*"))
+
+
+def test_apply_rejects_changed_source_fingerprint(tmp_path) -> None:
+    source, _ = _write_empty_customer_domain(tmp_path)
+    editor = WorkspaceEditor(tmp_path)
+    pending = editor.preview(create_customer_plan())
+    source.write_text(source.read_text(encoding="utf-8") + "\n// concurrent\n", encoding="utf-8")
+
+    with pytest.raises(StaleChangeSetError):
+        editor.apply(pending)
+
+
+def test_apply_rejects_new_workspace_source(tmp_path) -> None:
+    _write_empty_customer_domain(tmp_path)
+    editor = WorkspaceEditor(tmp_path)
+    pending = editor.preview(create_customer_plan())
+    (tmp_path / "billing.mdl").write_text(
+        'domain billing {\n  owner: "billing-team"\n}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(StaleChangeSetError):
+        editor.apply(pending)
+
+
+def test_apply_rejects_changed_confirmed_preview(tmp_path) -> None:
+    _write_empty_customer_domain(tmp_path)
+    editor = WorkspaceEditor(tmp_path)
+    pending = editor.preview(create_customer_plan())
+    changed_confirmation = replace(pending, diff_text=f"{pending.diff_text}\nchanged")
+
+    with pytest.raises(StaleChangeSetError):
+        editor.apply(changed_confirmation)
+
+
+def test_apply_rolls_back_when_second_replace_fails(tmp_path, monkeypatch) -> None:
+    _write_empty_two_domain_workspace(tmp_path)
+    editor = WorkspaceEditor(tmp_path)
+    pending = editor.preview(two_file_plan())
+    originals = {path: path.read_bytes() for path in pending.candidate_sources}
+    real_replace = os.replace
+    calls = 0
+
+    def fail_second_replace(source, destination):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("injected replace failure")
+        real_replace(source, destination)
+
+    monkeypatch.setattr(os, "replace", fail_second_replace)
+
+    with pytest.raises(WorkspaceApplyError, match="rolled back"):
+        editor.apply(pending)
+
+    assert {path: path.read_bytes() for path in originals} == originals
+    assert not list(tmp_path.glob(".modelable-edit-*"))
+
+
+def test_apply_rolls_back_new_destination_and_cleans_temporary_files(tmp_path, monkeypatch) -> None:
+    customer, _ = _write_empty_customer_domain(tmp_path)
+    editor = WorkspaceEditor(tmp_path)
+    pending = editor.preview(create_customer_plan())
+    new_destination = tmp_path / "billing.mdl"
+    staged = replace(
+        pending,
+        candidate_sources={
+            **pending.candidate_sources,
+            new_destination: 'domain billing {\n  owner: "billing-team"\n}\n',
+        },
+    )
+    monkeypatch.setattr(editor, "preview", lambda plan: staged)
+    original = customer.read_bytes()
+    real_replace = os.replace
+    calls = 0
+
+    def fail_second_replace(source, destination):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("injected replace failure")
+        real_replace(source, destination)
+
+    monkeypatch.setattr(os, "replace", fail_second_replace)
+
+    with pytest.raises(WorkspaceApplyError, match="rolled back"):
+        editor.apply(staged)
+
+    assert customer.read_bytes() == original
+    assert not new_destination.exists()
+    assert not list(tmp_path.glob(".modelable-edit-*"))
+
+
+def test_apply_rolls_back_when_reloaded_workspace_has_errors(tmp_path, monkeypatch) -> None:
+    source, original = _write_empty_customer_domain(tmp_path)
+    editor = WorkspaceEditor(tmp_path)
+    pending = editor.preview(create_customer_plan())
+    reloaded = workspace_editor_module.load_workspace(tmp_path)
+    invalid_reload = replace(
+        reloaded,
+        errors=[
+            Diagnostic(
+                code="SEM",
+                message="injected reload failure",
+                severity="error",
+                path=str(source),
+            )
+        ],
+    )
+    monkeypatch.setattr(workspace_editor_module, "load_workspace", lambda root: invalid_reload)
+
+    with pytest.raises(WorkspaceApplyError, match="rolled back"):
+        editor.apply(pending)
+
+    assert source.read_text(encoding="utf-8") == original
+    assert not list(tmp_path.glob(".modelable-edit-*"))
 
 
 def test_preview_creates_complete_entity_without_writing(tmp_path) -> None:
