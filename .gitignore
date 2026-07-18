@@ -29,5 +29,13 @@ vscode/.vscode-test/
 vscode/out/
 vscode/*.vsix
 
+# Browser compiler build and test outputs
+cli/dist/browser/
+web/public/pyodide/
+web/public/python/
+web/dist/
+web/test-results/
+web/playwright-report/
+
 # Subagent-driven-development progress ledger (scratch state, not project output)
 .superpowers/
