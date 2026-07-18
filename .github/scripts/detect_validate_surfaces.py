@@ -6,6 +6,29 @@ from collections.abc import Iterable
 from pathlib import Path
 
 SURFACE_NAMES = ("cli", "vscode", "odcs", "openmetadata", "openlineage", "fhir", "browser")
+_BROWSER_PACKAGE_TREES = (
+    "browser",
+    "compat",
+    "compiler",
+    "diagnostics",
+    "expressions",
+    "governance",
+    "grammar",
+    "parser",
+    "planner",
+    "validation",
+)
+_BROWSER_PACKAGE_FILES = {
+    "__init__.py",
+    "_pydantic_py314_compat.py",
+    "emitters/__init__.py",
+    "emitters/base.py",
+    "emitters/diagnostics.py",
+    "emitters/json_schema.py",
+    "registry/__init__.py",
+    "registry/resolver.py",
+    "registry/signature.py",
+}
 WORKFLOW_POLICY_FILES = {
     ".github/scripts/detect_validate_surfaces.py",
     ".github/workflows/validate.yml",
@@ -118,26 +141,31 @@ def _has_external_export_risk(path: str) -> bool:
 
 
 def _has_browser_risk(path: str) -> bool:
+    package_path = "cli/src/modelable/"
     return (
         _has_prefix(
             path,
             (
                 "web/",
                 "cli/browser/",
-                "cli/src/modelable/browser/",
                 "cli/tests/conformance/browser/",
                 "cli/tests/test_browser_",
-                "cli/src/modelable/compiler/",
-                "cli/src/modelable/parser/",
-                "cli/src/modelable/validation/",
+                *(f"{package_path}{tree}/" for tree in _BROWSER_PACKAGE_TREES),
             ),
         )
         or path
         in {
+            ".github/scripts/assemble_pages.py",
+            ".github/scripts/run_browser_spike.py",
+            ".github/workflows/docs.yml",
+            "cli/pyproject.toml",
+            "cli/uv.lock",
             "cli/scripts/build_browser_wheel.py",
             "cli/scripts/write_browser_conformance.py",
-            "cli/src/modelable/emitters/json_schema.py",
+            "cli/tests/test_pages_assembly.py",
             "docs/playground-design.md",
+            "docs/maintainers.md",
+            *(f"{package_path}{relative}" for relative in _BROWSER_PACKAGE_FILES),
         }
         or (
             _has_prefix(

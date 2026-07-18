@@ -113,6 +113,20 @@ def test_docs_workflow_builds_strict_mkdocs_site() -> None:
     assert workflow["jobs"]["deploy"]["environment"]["url"] == "${{ steps.deployment.outputs.page_url }}"
 
 
+def test_docs_workflow_manual_dispatch_builds_without_deploying() -> None:
+    workflow = _workflow("docs.yml")
+
+    assert "workflow_dispatch" in workflow[True]
+    assert workflow["jobs"]["deploy"]["if"] == ("github.event_name == 'push' && github.ref == 'refs/heads/main'")
+
+
+def test_docs_workflow_main_push_can_deploy() -> None:
+    workflow = _workflow("docs.yml")
+
+    assert workflow[True]["push"]["branches"] == ["main"]
+    assert workflow["jobs"]["deploy"]["if"] == ("github.event_name == 'push' && github.ref == 'refs/heads/main'")
+
+
 def test_validation_workflow_uses_current_actions() -> None:
     assert _workflow_action_names("validate.yml") == {
         "actions/cache",
