@@ -25,7 +25,20 @@ const PYODIDE_PACKAGE_ROOT = join(WEB_ROOT, 'node_modules', 'pyodide');
 const PYODIDE_OUTPUT_ROOT = join(WEB_ROOT, 'public', 'pyodide');
 const PYTHON_OUTPUT_ROOT = join(WEB_ROOT, 'public', 'python');
 const BROWSER_LOCK_PATH = join(WEB_ROOT, '..', 'cli', 'browser', 'browser-lock.json');
+const BROWSER_MANIFEST_NAME = 'browser-manifest.json';
+const RUNTIME_MANIFEST_NAME = 'runtime-manifest.json';
 const VENDOR_MANIFEST_NAME = 'vendor-manifest.json';
+const BROWSER_MANIFEST_FIELDS = [
+  'commit',
+  'distribution',
+  'platform',
+  'pyodide',
+  'python',
+  'schemaVersion',
+  'sha256',
+  'version',
+  'wheel',
+];
 
 export function pyodidePackageDestination(fileName) {
   return safeAssetDestination(PYODIDE_OUTPUT_ROOT, fileName);
@@ -105,6 +118,112 @@ async function readJsonIfPresent(path) {
   }
 }
 
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function requireNonemptyString(object, field, manifestName) {
+  if (typeof object[field] !== 'string' || object[field].length === 0) {
+    throw new Error(`Invalid ${manifestName}: ${field} must be a nonempty string`);
+  }
+}
+
+function validateBrowserManifest(manifest, pythonRoot) {
+  if (!isPlainObject(manifest)) {
+    throw new Error('Invalid browser manifest: expected an object');
+  }
+  const fields = Object.keys(manifest).sort();
+  if (
+    fields.length !== BROWSER_MANIFEST_FIELDS.length ||
+    fields.some((field, index) => field !== BROWSER_MANIFEST_FIELDS[index])
+  ) {
+    throw new Error('Invalid browser manifest: unexpected fields');
+  }
+  if (manifest.schemaVersion !== 1) {
+    throw new Error('Invalid browser manifest: unsupported schemaVersion');
+  }
+  if (manifest.distribution !== 'modelable-browser') {
+    throw new Error('Invalid browser manifest: unexpected distribution');
+  }
+  for (const field of ['commit', 'platform', 'pyodide', 'python', 'version']) {
+    requireNonemptyString(manifest, field, 'browser manifest');
+  }
+  if (typeof manifest.sha256 !== 'string' || !/^[0-9a-f]{64}$/i.test(manifest.sha256)) {
+    throw new Error('Invalid browser manifest: sha256 must be a hexadecimal SHA-256');
+  }
+  const wheelDestination = safeAssetDestination(pythonRoot, manifest.wheel);
+  if (!manifest.wheel.endsWith('.whl')) {
+    throw new Error('Invalid browser manifest: wheel must be a .whl basename');
+  }
+  return { wheel: manifest.wheel, wheelDestination };
+}
+
+function validateExternalWheelName(pythonRoot, fileName, protectedNames, source) {
+  const destination = safeAssetDestination(pythonRoot, fileName);
+  if (!fileName.endsWith('.whl')) {
+    throw new Error(`Invalid ${source}: external entry must be a .whl basename`);
+  }
+  if (protectedNames.has(fileName.toLowerCase())) {
+    throw new Error(`Invalid ${source}: external entry targets protected asset ${fileName}`);
+  }
+  return destination;
+}
+
+function validatePriorVendorManifest(manifest) {
+  if (manifest === undefined) {
+    return [];
+  }
+  if (!isPlainObject(manifest)) {
+    throw new Error('Invalid vendor manifest: expected an object');
+  }
+  if (manifest.schemaVersion !== 1) {
+    throw new Error('Invalid vendor manifest: unsupported schemaVersion');
+  }
+  if (!Array.isArray(manifest.externalWheels)) {
+    throw new Error('Invalid vendor manifest: externalWheels must be an array');
+  }
+  return manifest.externalWheels;
+}
+
+export async function preparePythonAssetPlan(pythonRoot, currentExternalFileNames) {
+  const browserManifestPath = safeAssetDestination(pythonRoot, BROWSER_MANIFEST_NAME);
+  const runtimeManifestPath = safeAssetDestination(pythonRoot, RUNTIME_MANIFEST_NAME);
+  const vendorManifestPath = safeAssetDestination(pythonRoot, VENDOR_MANIFEST_NAME);
+  const browserManifest = await readJson(browserManifestPath);
+  const modelable = validateBrowserManifest(browserManifest, pythonRoot);
+  try {
+    await access(modelable.wheelDestination);
+  } catch {
+    throw new Error(`Generated Modelable wheel is missing: ${modelable.wheel}`);
+  }
+
+  const protectedNames = new Set(
+    [
+      BROWSER_MANIFEST_NAME,
+      RUNTIME_MANIFEST_NAME,
+      VENDOR_MANIFEST_NAME,
+      modelable.wheel,
+    ].map((name) => name.toLowerCase()),
+  );
+  const priorManifest = await readJsonIfPresent(vendorManifestPath);
+  const priorExternalFileNames = validatePriorVendorManifest(priorManifest);
+  const priorDestinations = priorExternalFileNames.map((fileName) =>
+    validateExternalWheelName(pythonRoot, fileName, protectedNames, 'vendor manifest'),
+  );
+  const externalDestinations = currentExternalFileNames.map((fileName) =>
+    validateExternalWheelName(pythonRoot, fileName, protectedNames, 'browser lock'),
+  );
+
+  return {
+    browserManifestPath,
+    runtimeManifestPath,
+    vendorManifestPath,
+    modelableWheel: modelable.wheel,
+    cleanupDestinations: [...new Set([...priorDestinations, ...externalDestinations])],
+    externalDestinations,
+  };
+}
+
 async function downloadVerified(url, destination, expectedSha256) {
   const response = await fetch(url);
   if (!response.ok) {
@@ -115,23 +234,32 @@ async function downloadVerified(url, destination, expectedSha256) {
   await writeFile(destination, bytes);
 }
 
-export async function cleanVendoredPythonAssets(pythonRoot, currentExternalFileNames) {
-  const vendorManifestPath = safeAssetDestination(pythonRoot, VENDOR_MANIFEST_NAME);
-  const priorManifest = await readJsonIfPresent(vendorManifestPath);
-  const priorExternalFileNames = priorManifest?.externalWheels ?? [];
-  if (!Array.isArray(priorExternalFileNames)) {
-    throw new Error('Invalid vendor manifest: externalWheels must be an array');
+function validatedDownload(url, destination, sha256, source) {
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new Error(`Invalid ${source}: download URL is invalid`);
   }
-  const destinations = [...new Set([...priorExternalFileNames, ...currentExternalFileNames])].map(
-    (fileName) => safeAssetDestination(pythonRoot, fileName),
-  );
-  const runtimeManifestPath = safeAssetDestination(pythonRoot, 'runtime-manifest.json');
+  if (parsedUrl.protocol !== 'https:') {
+    throw new Error(`Invalid ${source}: download URL must use HTTPS`);
+  }
+  if (typeof sha256 !== 'string' || !/^[0-9a-f]{64}$/i.test(sha256)) {
+    throw new Error(`Invalid ${source}: sha256 must be a hexadecimal SHA-256`);
+  }
+  return { url: parsedUrl, destination, sha256 };
+}
 
-  await mkdir(pythonRoot, { recursive: true });
+async function executePythonCleanup(plan) {
   await Promise.all([
-    ...destinations.map((destination) => rm(destination, { force: true })),
-    rm(runtimeManifestPath, { force: true }),
+    ...plan.cleanupDestinations.map((destination) => rm(destination, { force: true })),
+    rm(plan.runtimeManifestPath, { force: true }),
   ]);
+}
+
+export async function cleanVendoredPythonAssets(pythonRoot, currentExternalFileNames) {
+  const plan = await preparePythonAssetPlan(pythonRoot, currentExternalFileNames);
+  await executePythonCleanup(plan);
 }
 
 export async function vendorPythonAssets() {
@@ -143,54 +271,56 @@ export async function vendorPythonAssets() {
   const packageDestinations = packageEntries.map((entry) =>
     pyodidePackageDestination(entry.file_name),
   );
-  const externalDestinations = externalWheels.map((wheel) =>
-    safeAssetDestination(PYTHON_OUTPUT_ROOT, wheel.fileName),
-  );
-
-  await cleanVendoredPythonAssets(
+  const pythonPlan = await preparePythonAssetPlan(
     PYTHON_OUTPUT_ROOT,
     externalWheels.map((wheel) => wheel.fileName),
   );
-  await rm(PYODIDE_OUTPUT_ROOT, { recursive: true, force: true });
-  await mkdir(PYODIDE_OUTPUT_ROOT, { recursive: true });
-
-  await Promise.all(
-    RUNTIME_ASSET_NAMES.map((fileName) =>
-      copyFile(join(PYODIDE_PACKAGE_ROOT, fileName), join(PYODIDE_OUTPUT_ROOT, fileName)),
-    ),
-  );
-
-  for (const [index, entry] of packageEntries.entries()) {
-    await downloadVerified(
+  const packageDownloads = packageEntries.map((entry, index) =>
+    validatedDownload(
       new URL(entry.file_name, PYODIDE_CDN_ROOT),
       packageDestinations[index],
       entry.sha256,
-    );
-  }
-  for (const [index, wheel] of externalWheels.entries()) {
-    await downloadVerified(wheel.url, externalDestinations[index], wheel.sha256);
-  }
+      'Pyodide lock entry',
+    ),
+  );
+  const externalDownloads = externalWheels.map((wheel, index) =>
+    validatedDownload(
+      wheel.url,
+      pythonPlan.externalDestinations[index],
+      wheel.sha256,
+      'browser lock external wheel',
+    ),
+  );
+  const runtimeCopies = RUNTIME_ASSET_NAMES.map((fileName) => ({
+    source: safeAssetDestination(PYODIDE_PACKAGE_ROOT, fileName),
+    destination: safeAssetDestination(PYODIDE_OUTPUT_ROOT, fileName),
+  }));
+  await Promise.all(runtimeCopies.map(({ source }) => access(source)));
 
-  const browserManifest = await readJson(join(PYTHON_OUTPUT_ROOT, 'browser-manifest.json'));
-  const modelableWheel = browserManifest.wheel;
-  const modelableDestination = safeAssetDestination(PYTHON_OUTPUT_ROOT, modelableWheel);
-  try {
-    await access(modelableDestination);
-  } catch {
-    throw new Error(`Generated Modelable wheel is missing: ${modelableWheel}`);
+  await executePythonCleanup(pythonPlan);
+  await rm(PYODIDE_OUTPUT_ROOT, { recursive: true, force: true });
+  await mkdir(PYODIDE_OUTPUT_ROOT, { recursive: true });
+
+  await Promise.all(runtimeCopies.map(({ source, destination }) => copyFile(source, destination)));
+
+  for (const download of packageDownloads) {
+    await downloadVerified(download.url, download.destination, download.sha256);
+  }
+  for (const download of externalDownloads) {
+    await downloadVerified(download.url, download.destination, download.sha256);
   }
 
   const wheelUrls = [
     ...externalWheels.map((wheel) => `/modelable/playground/python/${wheel.fileName}`),
-    `/modelable/playground/python/${modelableWheel}`,
+    `/modelable/playground/python/${pythonPlan.modelableWheel}`,
   ].sort();
   await writeFile(
-    safeAssetDestination(PYTHON_OUTPUT_ROOT, 'runtime-manifest.json'),
+    pythonPlan.runtimeManifestPath,
     `${JSON.stringify({ wheelUrls }, null, 2)}\n`,
     'utf8',
   );
   await writeFile(
-    safeAssetDestination(PYTHON_OUTPUT_ROOT, VENDOR_MANIFEST_NAME),
+    pythonPlan.vendorManifestPath,
     `${JSON.stringify(
       {
         schemaVersion: 1,
