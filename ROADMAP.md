@@ -102,24 +102,30 @@ After the Scalable/Rust path is complete:
    configuration, typed plans, validation, exact previews, writes, rollback,
    and reload. The completed design is archived in
    [VS Code Conversational Foundation — Design](docs/superpowers/specs/archived/2026-07-18-vscode-conversational-foundation-design.md).
-3. **Next:** add an optional provider adapter
-   for the VS Code Language Model API so users can select a model available in
+3. **Next:** prove the compiler in WebAssembly with a focused browser spike.
+   Build a browser-only wheel for pinned Pyodide, expose in-memory validation,
+   formatting, and JSON Schema generation through a versioned Web Worker
+   protocol, verify native/browser conformance and performance budgets, and
+   publish the proof under the existing GitHub Pages artifact. The approved
+   design is [Browser Compiler WASM Spike — Design](docs/superpowers/specs/2026-07-18-browser-compiler-wasm-spike-design.md).
+4. **After the browser-compiler spike:** add an optional provider adapter for
+   the VS Code Language Model API so users can select a model available in
    their editor. Native model output must still pass through Python-owned typed
    plan parsing, validation, preview, and workspace editing; the extension must
    not duplicate those safety boundaries in TypeScript.
-4. **After the native-model provider adapter:** extend conversational management
+5. **After the native-model provider adapter:** extend conversational management
    to compilation, registry synchronization, publishing, and external-service
    operations only after each action has an explicit authorization, preview,
    confirmation, and audit policy.
-5. Extend nominal semantic-type generation beyond Rust, prioritizing
+6. Extend nominal semantic-type generation beyond Rust, prioritizing
    TypeScript, Go, Java, C#, Python, JSON Schema, and SQL according to concrete
    consumer demand. Targets that intentionally erase nominal identity must say
    so explicitly.
-6. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
+7. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
    generated constants and registry state are easy to diagnose.
-7. Publish the VS Code extension through the Marketplace once the release and
+8. Publish the VS Code extension through the Marketplace once the release and
    support process is defined.
-8. Continue conformance, documentation, diagnostics, and importer hardening
+9. Continue conformance, documentation, diagnostics, and importer hardening
    where contributor or user reports expose real gaps.
 
 Completion means a new team can install the CLI and editor tooling, understand

@@ -1,5 +1,11 @@
 # Modelable Playground Architecture
 
+> **Status:** Long-term product vision. The active first delivery slice is the
+> focused [Browser Compiler WASM Spike — Design](https://github.com/ktjn/modelable/blob/main/docs/superpowers/specs/2026-07-18-browser-compiler-wasm-spike-design.md).
+> Its browser-wheel, in-memory compiler, conformance, performance, and Pages
+> requirements replace Phase 1 below. Editor, visualization, local AI, offline,
+> and plugin phases remain deferred until that spike is complete.
+
 ## 1. Purpose
 
 The Modelable Playground is a fully static, browser-native IDE for Modelable. It runs without backend services. Parsing, validation, compatibility analysis, code generation, visualization, and optional AI-assisted workflows execute on the user's device.
@@ -903,10 +909,8 @@ Any remote telemetry must be opt-in, documented, and scrubbed of source text, pr
 
 ### Phase 1: browser compiler spike
 
-- Extract browser-compatible core dependencies.
-- Build and load the Modelable wheel in Pyodide.
-- Validate and compile one in-memory file.
-- Deploy static proof of concept.
+The authoritative scope and completion criteria are defined in
+[Browser Compiler WASM Spike — Design](https://github.com/ktjn/modelable/blob/main/docs/superpowers/specs/2026-07-18-browser-compiler-wasm-spike-design.md).
 
 ### Phase 2: editor MVP
 
