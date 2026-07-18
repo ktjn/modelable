@@ -6,8 +6,8 @@ from pathlib import Path
 import click
 
 from modelable.commands.common import console, load_workspace_or_exit, render_version_spec
+from modelable.compiler.render import render_model_version, render_projection_version
 from modelable.llm.context import parse_model_ref_version_spec
-from modelable.llm.render import render_model_version, render_projection_version
 from modelable.planner.lineage import build_projection_lineage
 from modelable.registry.resolver import resolve_model_ref
 

@@ -13,6 +13,7 @@ from modelable.compat.checker import (
     check_model_version_compatibility,
     find_projection_dependents,
 )
+from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import (
     Workspace,
     WorkspaceDocumentSource,
@@ -51,7 +52,6 @@ from modelable.llm.conversation_plan import (
     SetProjectionMapping,
     SetProjectionSource,
 )
-from modelable.llm.render import render_mdl
 from modelable.parser.ir import (
     ChangeKind,
     ComputedMapping,

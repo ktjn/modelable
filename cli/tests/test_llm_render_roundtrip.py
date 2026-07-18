@@ -1,5 +1,12 @@
-from modelable.llm.render import render_mdl
+from modelable.compiler.render import render_mdl
 from modelable.parser.parse import parse_text_to_ir
+
+
+def test_canonical_renderer_is_compiler_owned():
+    mdl = parse_text_to_ir(
+        'domain customer {\n  owner: "team"\n  entity Customer @ 1 (additive) {\n    @key id: uuid\n  }\n}\n'
+    )
+    assert render_mdl(mdl).startswith("domain customer {")
 
 
 def test_render_mdl_preserves_editor_relevant_ir() -> None:
