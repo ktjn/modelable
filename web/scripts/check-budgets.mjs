@@ -13,21 +13,22 @@ const CATEGORY_NAMES = Object.keys(BUDGETS);
 
 export function categorizeAsset(path) {
   const normalized = path.replaceAll('\\', '/');
-  if (/^python\/modelable_browser-[^/]+\.whl$/.test(normalized)) {
+  if (
+    /^python\/(?:[^/]+\/)*modelable_browser-[^/]+\.whl$/.test(normalized)
+  ) {
     return 'modelableWheel';
   }
   if (
-    normalized === 'index.html' ||
-    /^assets\/[^/]+\.css$/.test(normalized) ||
-    /^assets\/[^/]+\.js$/.test(normalized)
-  ) {
-    return 'application';
-  }
-  if (
-    /^pyodide\/[^/]+\.whl$/.test(normalized) ||
-    /^python\/lark-[^/]+\.whl$/.test(normalized)
+    /^pyodide\/(?:[^/]+\/)*[^/]+\.whl$/.test(normalized) ||
+    /^python\/(?:[^/]+\/)*lark-[^/]+\.whl$/.test(normalized)
   ) {
     return 'additionalPython';
+  }
+  if (
+    !/^(?:fixtures|pyodide|python)(?:\/|$)/.test(normalized) &&
+    /\.(?:html|css|js)$/.test(normalized)
+  ) {
+    return 'application';
   }
   return undefined;
 }
@@ -45,7 +46,9 @@ async function walkFiles(root, directory = root) {
   const paths = [];
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     const path = resolve(directory, entry.name);
-    if (entry.isDirectory()) {
+    if (entry.isSymbolicLink()) {
+      continue;
+    } else if (entry.isDirectory()) {
       paths.push(...(await walkFiles(root, path)));
     } else if (entry.isFile()) {
       paths.push(path);
