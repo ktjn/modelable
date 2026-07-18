@@ -157,8 +157,11 @@ deploy the combined documentation and playground artifact.
   generated files under `web/public/python`. Confirm
   `cli/browser/browser-lock.json` contains the intended pinned identities, then
   run `npm run prepare:python` from `web/`. The wheel builder writes its
-  SHA-256 to `browser-manifest.json`; the vendor step verifies downloaded
-  assets before replacing the prior staged runtime.
+  SHA-256 to `browser-manifest.json`. The vendor step validates its complete
+  plan before mutation and preserves the generated Modelable wheel and browser
+  manifest during cleanup. Each downloaded archive is checksum-verified before
+  that archive is written. A checksum failure stops the build but may leave
+  generated staging incomplete; correct the lock or source and rerun the build.
 - **`INITIALIZATION_FAILED` in the proof:** inspect the browser network panel
   for the same-origin `pyodide/`, `python/runtime-manifest.json`, and two
   manifest wheel requests, then run `npm run build` and `npm run test:e2e` from
