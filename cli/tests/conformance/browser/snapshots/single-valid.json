@@ -1,0 +1,25 @@
+{
+  "compile": {
+    "artifacts": [
+      {
+        "content": "{\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",\n  \"$id\": \"customer.Customer.v1\",\n  \"type\": \"object\",\n  \"title\": \"Customer\",\n  \"x-modelable\": {\n    \"domain\": \"customer\",\n    \"name\": \"Customer\",\n    \"kind\": \"entity\",\n    \"version\": 1,\n    \"changeKind\": \"additive\",\n    \"owner\": \"customer-platform\"\n  },\n  \"x-modelable-por\": {\n    \"model\": \"customer.Customer.v1\",\n    \"issuer\": \"modelable-registry.local\",\n    \"issuedAt\": \"1970-01-01T00:00:00Z\"\n  },\n  \"properties\": {\n    \"customerId\": {\n      \"type\": \"string\",\n      \"format\": \"uuid\",\n      \"x-modelable-field\": {\n        \"key\": true\n      }\n    },\n    \"displayName\": {\n      \"type\": \"string\"\n    },\n    \"address\": {\n      \"$ref\": \"#/$defs/Address\"\n    },\n    \"creditLimit\": {\n      \"type\": \"string\",\n      \"pattern\": \"^-?\\\\d+(\\\\.\\\\d+)?$\",\n      \"x-modelable-field\": {\n        \"decimalPrecision\": 12,\n        \"decimalScale\": 2\n      }\n    }\n  },\n  \"required\": [\n    \"customerId\",\n    \"address\",\n    \"creditLimit\"\n  ],\n  \"$defs\": {\n    \"Address\": {\n      \"title\": \"Address\",\n      \"type\": \"object\",\n      \"properties\": {\n        \"line1\": {\n          \"type\": \"string\"\n        },\n        \"postalCode\": {\n          \"type\": \"string\"\n        }\n      },\n      \"required\": [\n        \"line1\"\n      ]\n    }\n  }\n}\n",
+        "media_type": "application/schema+json",
+        "path": "customer.Customer.v1.json",
+        "source_refs": [
+          "customer.Customer@1"
+        ]
+      }
+    ],
+    "diagnostics": []
+  },
+  "format": {
+    "diagnostics": [],
+    "replacement_text": "domain customer {\n  owner: \"customer-platform\"\n  entity Customer @ 1 (additive) {\n    @key customerId: uuid\n    displayName?: string\n    address: object { line1: string postalCode?: string }\n    creditLimit: decimal(12, 2)\n  }\n}\n\nworkspace {\n  name: \"browser-conformance\"\n  description: \"Small browser compiler conformance workspace.\"\n}\n"
+  },
+  "open": {
+    "diagnostics": [],
+    "source_hashes": {
+      "fixture:///single-valid.mdl": "a4e4f3eb9410a08edc5502ed3880cd002cd383988127c1f2287371f2df205596"
+    }
+  }
+}

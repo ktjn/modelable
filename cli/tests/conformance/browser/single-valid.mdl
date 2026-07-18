@@ -1,0 +1,18 @@
+workspace {
+  name: "browser-conformance"
+  description: "Small browser compiler conformance workspace."
+}
+
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName?: string
+    address: object {
+      line1: string
+      postalCode?: string
+    }
+    creditLimit: decimal(12, 2)
+  }
+}

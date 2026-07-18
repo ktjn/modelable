@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 
 // @ts-expect-error The production vendor is an ESM JavaScript command module.
-import { RUNTIME_ASSET_NAMES, cleanVendoredPythonAssets, pyodidePackageDestination, resolvePackageClosure, safeAssetDestination, verifySha256 } from '../scripts/vendor-python-assets.mjs';
+import { RUNTIME_ASSET_NAMES, copyBrowserConformanceAssets, cleanVendoredPythonAssets, prepareBrowserConformanceAssetPlan, pyodidePackageDestination, resolvePackageClosure, safeAssetDestination, verifySha256 } from '../scripts/vendor-python-assets.mjs';
 
 const temporaryDirectories: string[] = [];
 
@@ -236,5 +236,63 @@ describe('same-origin Python assets', () => {
     expect(html).toContain("connect-src 'self'");
     expect(html).toContain("object-src 'none'");
     expect(html).toContain("base-uri 'none'");
+  });
+
+  test('plans browser conformance assets in stable relative-name order', async () => {
+    const root = await temporaryDirectory();
+    const fixtures = join(root, 'fixtures');
+    const snapshots = join(fixtures, 'snapshots');
+    await mkdir(snapshots, { recursive: true });
+    const fixtureNames = [
+      'single-valid.mdl',
+      'multi-domain-customer.mdl',
+      'multi-domain-order.mdl',
+      'invalid-parse.mdl',
+      'invalid-reference.mdl',
+      'invalid-semantic.mdl',
+    ];
+    const snapshotNames = [
+      'single-valid.json',
+      'multi-domain.json',
+      'invalid-parse.json',
+      'invalid-reference.json',
+      'invalid-semantic.json',
+    ];
+    await Promise.all([
+      ...fixtureNames.map((name) => writeFile(join(fixtures, name), `fixture ${name}`)),
+      ...snapshotNames.map((name) =>
+        writeFile(join(snapshots, name), JSON.stringify({ open: {} })),
+      ),
+    ]);
+
+    const plan = await prepareBrowserConformanceAssetPlan(fixtures, join(root, 'public'));
+
+    expect(plan.map((entry: { relativeName: string }) => entry.relativeName)).toEqual([
+      'invalid-parse.json',
+      'invalid-parse.mdl',
+      'invalid-reference.json',
+      'invalid-reference.mdl',
+      'invalid-semantic.json',
+      'invalid-semantic.mdl',
+      'multi-domain-customer.mdl',
+      'multi-domain-order.mdl',
+      'multi-domain.json',
+      'single-valid.json',
+      'single-valid.mdl',
+    ]);
+  });
+
+  test('rejects an incomplete conformance manifest before replacing output', async () => {
+    const root = await temporaryDirectory();
+    const fixtures = join(root, 'fixtures');
+    const output = join(root, 'public');
+    await mkdir(join(fixtures, 'snapshots'), { recursive: true });
+    await mkdir(output, { recursive: true });
+    await writeFile(join(output, 'preserve.txt'), 'preserve');
+
+    await expect(copyBrowserConformanceAssets(fixtures, output)).rejects.toThrow(
+      /conformance asset manifest/i,
+    );
+    await expect(readFile(join(output, 'preserve.txt'), 'utf8')).resolves.toBe('preserve');
   });
 });

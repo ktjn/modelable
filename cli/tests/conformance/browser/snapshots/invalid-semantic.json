@@ -1,0 +1,29 @@
+{
+  "open": {
+    "diagnostics": [
+      {
+        "code": "SEM",
+        "column": null,
+        "end_column": null,
+        "end_line": null,
+        "line": null,
+        "message": "customer.Customer: versions must be strictly ascending, but found 1 followed by 1",
+        "severity": "error",
+        "uri": "fixture:///invalid-semantic.mdl"
+      },
+      {
+        "code": "SEM",
+        "column": null,
+        "end_column": null,
+        "end_line": null,
+        "line": null,
+        "message": "duplicate model version customer.Customer@1 also defined in fixture:///invalid-semantic.mdl",
+        "severity": "error",
+        "uri": "fixture:///invalid-semantic.mdl"
+      }
+    ],
+    "source_hashes": {
+      "fixture:///invalid-semantic.mdl": "fd862344d975bdbb978920fd6d03bc5d0f693c5071dc6187ad506ad7aa7c4ad2"
+    }
+  }
+}

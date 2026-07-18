@@ -3,6 +3,7 @@ import {
   access,
   copyFile,
   mkdir,
+  readdir,
   readFile,
   rm,
   writeFile,
@@ -24,6 +25,8 @@ const WEB_ROOT = join(SCRIPT_DIRECTORY, '..');
 const PYODIDE_PACKAGE_ROOT = join(WEB_ROOT, 'node_modules', 'pyodide');
 const PYODIDE_OUTPUT_ROOT = join(WEB_ROOT, 'public', 'pyodide');
 const PYTHON_OUTPUT_ROOT = join(WEB_ROOT, 'public', 'python');
+const FIXTURE_SOURCE_ROOT = join(WEB_ROOT, '..', 'cli', 'tests', 'conformance', 'browser');
+const FIXTURE_OUTPUT_ROOT = join(WEB_ROOT, 'public', 'fixtures');
 const BROWSER_LOCK_PATH = join(WEB_ROOT, '..', 'cli', 'browser', 'browser-lock.json');
 const BROWSER_MANIFEST_NAME = 'browser-manifest.json';
 const RUNTIME_MANIFEST_NAME = 'runtime-manifest.json';
@@ -39,6 +42,13 @@ const BROWSER_MANIFEST_FIELDS = [
   'version',
   'wheel',
 ];
+export const BROWSER_CONFORMANCE_SCENARIOS = {
+  'invalid-parse': ['invalid-parse.mdl'],
+  'invalid-reference': ['invalid-reference.mdl'],
+  'invalid-semantic': ['invalid-semantic.mdl'],
+  'multi-domain': ['multi-domain-customer.mdl', 'multi-domain-order.mdl'],
+  'single-valid': ['single-valid.mdl'],
+};
 
 export function pyodidePackageDestination(fileName) {
   return safeAssetDestination(PYODIDE_OUTPUT_ROOT, fileName);
@@ -262,6 +272,71 @@ export async function cleanVendoredPythonAssets(pythonRoot, currentExternalFileN
   await executePythonCleanup(plan);
 }
 
+export async function prepareBrowserConformanceAssetPlan(fixtureRoot, outputRoot) {
+  const expectedFixtures = Object.values(BROWSER_CONFORMANCE_SCENARIOS).flat().sort();
+  const expectedSnapshots = Object.keys(BROWSER_CONFORMANCE_SCENARIOS)
+    .map((name) => `${name}.json`)
+    .sort();
+  const fixtureNames = (await readdir(fixtureRoot))
+    .filter((name) => name.endsWith('.mdl'))
+    .sort();
+  const snapshotRoot = join(fixtureRoot, 'snapshots');
+  const snapshotNames = (await readdir(snapshotRoot))
+    .filter((name) => name.endsWith('.json'))
+    .sort();
+
+  if (
+    JSON.stringify(fixtureNames) !== JSON.stringify(expectedFixtures) ||
+    JSON.stringify(snapshotNames) !== JSON.stringify(expectedSnapshots)
+  ) {
+    throw new Error('Invalid browser conformance asset manifest');
+  }
+
+  const entries = [
+    ...fixtureNames.map((name) => ({
+      relativeName: name,
+      source: safeAssetDestination(fixtureRoot, name),
+      destination: safeAssetDestination(outputRoot, name),
+      kind: 'fixture',
+    })),
+    ...snapshotNames.map((name) => ({
+      relativeName: name,
+      source: safeAssetDestination(snapshotRoot, name),
+      destination: safeAssetDestination(outputRoot, name),
+      kind: 'snapshot',
+    })),
+  ].sort((left, right) =>
+    left.relativeName < right.relativeName ? -1 : left.relativeName > right.relativeName ? 1 : 0,
+  );
+
+  for (const entry of entries) {
+    const contents = await readFile(entry.source, 'utf8');
+    if (contents.length === 0) {
+      throw new Error(`Invalid browser conformance asset manifest: ${entry.relativeName} is empty`);
+    }
+    if (entry.kind === 'snapshot') {
+      const snapshot = JSON.parse(contents);
+      if (!isPlainObject(snapshot) || !isPlainObject(snapshot.open)) {
+        throw new Error(
+          `Invalid browser conformance asset manifest: ${entry.relativeName} has no open result`,
+        );
+      }
+    }
+  }
+  return entries;
+}
+
+async function executeBrowserConformanceCopy(plan, outputRoot) {
+  await rm(outputRoot, { recursive: true, force: true });
+  await mkdir(outputRoot, { recursive: true });
+  await Promise.all(plan.map(({ source, destination }) => copyFile(source, destination)));
+}
+
+export async function copyBrowserConformanceAssets(fixtureRoot, outputRoot) {
+  const plan = await prepareBrowserConformanceAssetPlan(fixtureRoot, outputRoot);
+  await executeBrowserConformanceCopy(plan, outputRoot);
+}
+
 export async function vendorPythonAssets() {
   const browserLock = await readJson(BROWSER_LOCK_PATH);
   const pyodideLock = await readJson(join(PYODIDE_PACKAGE_ROOT, 'pyodide-lock.json'));
@@ -274,6 +349,10 @@ export async function vendorPythonAssets() {
   const pythonPlan = await preparePythonAssetPlan(
     PYTHON_OUTPUT_ROOT,
     externalWheels.map((wheel) => wheel.fileName),
+  );
+  const fixturePlan = await prepareBrowserConformanceAssetPlan(
+    FIXTURE_SOURCE_ROOT,
+    FIXTURE_OUTPUT_ROOT,
   );
   const packageDownloads = packageEntries.map((entry, index) =>
     validatedDownload(
@@ -331,6 +410,7 @@ export async function vendorPythonAssets() {
     )}\n`,
     'utf8',
   );
+  await executeBrowserConformanceCopy(fixturePlan, FIXTURE_OUTPUT_ROOT);
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : undefined;
