@@ -1,4 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
+
+type Source = { uri: string; text: string; version: number };
+type TestClient = {
+  openWorkspace(sources: Source[]): Promise<unknown>;
+  formatSource(source: Source): Promise<unknown>;
+  compileJsonSchema(sources: Source[]): Promise<unknown>;
+};
 
 const scenarios = {
   'invalid-parse': ['invalid-parse.mdl'],
@@ -17,12 +24,6 @@ test('browser compiler matches every native snapshot', async ({ page }) => {
   for (const [scenario, fixtureNames] of Object.entries(scenarios)) {
     const actual = await page.evaluate(
       async ({ fixtureNames, scenario }) => {
-        type Source = { uri: string; text: string; version: number };
-        type TestClient = {
-          openWorkspace(sources: Source[]): Promise<unknown>;
-          formatSource(source: Source): Promise<unknown>;
-          compileJsonSchema(sources: Source[]): Promise<unknown>;
-        };
         const client = (
           globalThis as typeof globalThis & {
             __modelableBrowserCompiler?: TestClient;
@@ -58,6 +59,111 @@ test('browser compiler matches every native snapshot', async ({ page }) => {
     expect(sortObject(actual)).toEqual(sortObject(expectedSnapshot));
   }
 });
+
+test('browser compiler stays within initialization and operation budgets', async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(180_000);
+  const coldInitialize = await measureColdInitializations(browser);
+  const cachedContext = await browser.newContext();
+  const cachedPage = await cachedContext.newPage();
+  try {
+    await initializePage(cachedPage);
+    const cachedInitialize: number[] = [];
+    for (let index = 0; index < 3; index += 1) {
+      const started = performance.now();
+      await cachedPage.reload();
+      await waitForCompiler(cachedPage);
+      cachedInitialize.push(performance.now() - started);
+    }
+
+    const operationTimings = await cachedPage.evaluate(async () => {
+      const client = (
+        globalThis as typeof globalThis & {
+          __modelableBrowserCompiler?: TestClient;
+        }
+      ).__modelableBrowserCompiler;
+      if (client === undefined) {
+        throw new Error('Test client was not exposed');
+      }
+      const sources = [
+        {
+          uri: 'fixture:///budget.mdl',
+          text: await (
+            await fetch(new URL('fixtures/single-valid.mdl', location.href))
+          ).text(),
+          version: 1,
+        },
+      ];
+      const validate: number[] = [];
+      const compile: number[] = [];
+      for (let index = 0; index < 3; index += 1) {
+        let started = performance.now();
+        await client.openWorkspace(sources);
+        validate.push(performance.now() - started);
+        started = performance.now();
+        await client.compileJsonSchema(sources);
+        compile.push(performance.now() - started);
+      }
+      return { validate, compile };
+    });
+
+    const medians = {
+      coldInitializeMedian: median(coldInitialize),
+      cachedInitializeMedian: median(cachedInitialize),
+      validateMedian: median(operationTimings.validate),
+      compileMedian: median(operationTimings.compile),
+    };
+    const performanceReport = JSON.stringify(medians);
+    testInfo.annotations.push({
+      type: 'performance',
+      description: performanceReport,
+    });
+    await testInfo.attach('performance-medians', {
+      body: performanceReport,
+      contentType: 'application/json',
+    });
+    console.log(`Browser performance medians: ${performanceReport}`);
+
+    expect(medians.coldInitializeMedian).toBeLessThanOrEqual(20_000);
+    expect(medians.cachedInitializeMedian).toBeLessThanOrEqual(5_000);
+    expect(medians.validateMedian).toBeLessThanOrEqual(500);
+    expect(medians.compileMedian).toBeLessThanOrEqual(1_000);
+  } finally {
+    await cachedContext.close();
+  }
+});
+
+async function measureColdInitializations(browser: Browser): Promise<number[]> {
+  const timings: number[] = [];
+  for (let index = 0; index < 3; index += 1) {
+    const context = await browser.newContext();
+    try {
+      const page = await context.newPage();
+      const started = performance.now();
+      await initializePage(page);
+      timings.push(performance.now() - started);
+    } finally {
+      await context.close();
+    }
+  }
+  return timings;
+}
+
+async function initializePage(page: Page): Promise<void> {
+  await page.goto('?test=1');
+  await waitForCompiler(page);
+}
+
+async function waitForCompiler(page: Page): Promise<void> {
+  await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
+    timeout: 30_000,
+  });
+}
+
+function median(values: number[]): number {
+  return [...values].sort((left, right) => left - right)[1]!;
+}
 
 function sortObject(value: unknown): unknown {
   if (Array.isArray(value)) {
