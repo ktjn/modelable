@@ -17,7 +17,7 @@ This design defines the next cohesive slice: source-level reservations plus
 ## 2. Context
 
 The accepted archived
-[Scalable Protobuf and gRPC Support Design](archived/2026-07-04-scalable-protobuf-grpc-support-design.md)
+[Scalable Protobuf and gRPC Support Design](2026-07-04-scalable-protobuf-grpc-support-design.md)
 requires stable field numbers, reserved deleted numbers and names, and
 Protobuf/gRPC compatibility validation. Current behavior is intentionally
 simpler:
