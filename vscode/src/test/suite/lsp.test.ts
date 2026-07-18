@@ -205,6 +205,39 @@ suite('Modelable LSP Smoke Tests', function () {
     assert.ok(ext.isActive, 'Extension is not active');
   });
 
+  test('conversation question and reset cross the real language-client boundary', async () => {
+    const editor = await vscode.window.showTextDocument(
+      await vscode.workspace.openTextDocument(uri),
+    );
+    const focus = new vscode.Position(21, 12);
+    editor.selection = new vscode.Selection(focus, focus);
+
+    const reply = await vscode.commands.executeCommand<{
+      kind: string;
+      protocolVersion: number;
+      sessionId: string;
+      focusedRef?: string;
+    }>(
+      'modelable.test.conversationTurn',
+      { prompt: 'is the workspace valid?' },
+    );
+
+    assert.ok(reply);
+    assert.strictEqual(reply.kind, 'answer');
+    assert.strictEqual(reply.protocolVersion, 1);
+    assert.ok(reply.sessionId);
+    assert.strictEqual(
+      reply.focusedRef,
+      'ml-credit-risk.CreditFeaturesOffline@3',
+    );
+
+    const reset = await vscode.commands.executeCommand<{ kind: string }>(
+      'modelable.test.conversationTurn',
+      { resetSessionId: reply.sessionId },
+    );
+    assert.strictEqual(reset?.kind, 'reset');
+  });
+
   test('hover returns content for a cross-domain type reference', async () => {
     // Line 19 (0-indexed), char 15: inside `lending.LoanApplication @ 1`
     const position = new vscode.Position(19, 15);
@@ -250,6 +283,16 @@ suite('Modelable LSP Smoke Tests', function () {
   });
 
   test('document symbols include the current projection fields', async () => {
+    // VS Code can cache an empty result requested by the outline before the
+    // extension finishes its initial didOpen. Bump the in-memory document
+    // version without changing its final text so this assertion queries the
+    // ready provider instead of that startup cache entry.
+    const document = await vscode.workspace.openTextDocument(uri);
+    const editor = await vscode.window.showTextDocument(document);
+    await editor.edit(edit => edit.insert(new vscode.Position(0, 0), ' '));
+    await editor.edit(edit => edit.delete(
+      new vscode.Range(0, 0, 0, 1),
+    ));
     const names = await documentSymbolNames(uri);
     assert.ok(names.includes('ml-credit-risk'), `Expected ml-credit-risk in document symbols: ${names.join(', ')}`);
     assert.ok(

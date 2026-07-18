@@ -17,6 +17,8 @@ from helpers import SCENARIOS, SERVER_CMD
 from lsprotocol import types
 from pytest_lsp.client import make_test_lsp_client
 
+from modelable.lsp.conversation_protocol import TURN_METHOD
+
 SAMPLES = SCENARIOS.parent
 
 
@@ -34,6 +36,49 @@ async def _open_and_get_diagnostics(client, path: Path) -> list[types.Diagnostic
     )
     await client.wait_for_notification(types.TEXT_DOCUMENT_PUBLISH_DIAGNOSTICS)
     return list(client.diagnostics.get(path.as_uri(), []))
+
+
+async def test_conversation_question_over_real_json_rpc(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        "domain customer {\n"
+        '  owner: "customer-team"\n'
+        "  entity Customer @ 1 (additive) {\n"
+        "    @key customerId: uuid\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    client = make_test_lsp_client()
+    await client.start_io(*SERVER_CMD)
+    await client.initialize_session(
+        types.InitializeParams(
+            capabilities=types.ClientCapabilities(),
+            root_uri=tmp_path.as_uri(),
+            workspace_folders=[types.WorkspaceFolder(uri=tmp_path.as_uri(), name=tmp_path.name)],
+        )
+    )
+    try:
+        reply = await client.protocol.send_request_async(
+            TURN_METHOD,
+            {
+                "protocolVersion": 1,
+                "sessionId": "integration-session",
+                "createSession": True,
+                "workspaceUri": tmp_path.as_uri(),
+                "message": "is the workspace valid?",
+                "activeDocumentUri": source.as_uri(),
+                "position": {"line": 2, "character": 10},
+                "dirtyDocumentUris": [],
+            },
+        )
+    finally:
+        await client.shutdown_session()
+
+    assert reply.kind == "answer"
+    assert reply.sessionId == "integration-session"
+    assert reply.focusedRef is None
+    assert "no diagnostics" in reply.text
 
 
 # ---------------------------------------------------------------------------

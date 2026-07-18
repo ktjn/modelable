@@ -122,6 +122,14 @@ def test_preview_and_apply_complete_entity(tmp_path: Path) -> None:
     assert "customer.Customer@1" in preview.text
     assert "- create_model: customer.Customer@1" in preview.text
     assert "Address is inline" in preview.text
+    assert preview.changed[0].ref == "customer.Customer@1"
+    assert preview.affected == ()
+    assert preview.change_set_id is not None
+    assert len(preview.preview_files) == 1
+    assert preview.preview_files[0].path == source
+    assert preview.preview_files[0].existed_before is True
+    assert preview.preview_files[0].before_text == original
+    assert "entity Customer @ 1" in preview.preview_files[0].after_text
     assert session.pending is not None
     assert source.read_text(encoding="utf-8") == original
 
@@ -129,6 +137,9 @@ def test_preview_and_apply_complete_entity(tmp_path: Path) -> None:
 
     assert applied.kind == "applied"
     assert "customer.Customer@1" in applied.text
+    assert applied.written_paths == (source,)
+    assert applied.changed[0].ref == "customer.Customer@1"
+    assert applied.focused_ref == "customer.Customer@1"
     assert session.pending is None
     assert session.focused_ref == "customer.Customer@1"
     assert "entity Customer @ 1" in source.read_text(encoding="utf-8")

@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from importlib import import_module
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from lsprotocol import types
 
@@ -61,6 +62,78 @@ def test_lsp_server_advertises_code_actions():
 
     assert result.capabilities.code_action_provider is not None
     assert result.capabilities.code_action_provider.code_action_kinds == [types.CodeActionKind.QuickFix]
+
+
+def test_lsp_server_advertises_conversation_protocol_version() -> None:
+    result = lsp_server.initialize(
+        lsp_server.server,
+        types.InitializeParams(capabilities=types.ClientCapabilities()),
+    )
+
+    assert result.capabilities.experimental == {
+        "modelableConversation": {
+            "protocolVersion": 1,
+        }
+    }
+
+
+def test_conversation_turn_validates_and_delegates() -> None:
+    service = Mock()
+    service.turn.return_value = {"kind": "answer", "text": "valid"}
+    index = object()
+    ls = SimpleNamespace(
+        conversations=service,
+        index_for=Mock(return_value=index),
+    )
+    payload = {
+        "protocolVersion": 1,
+        "sessionId": "session-1",
+        "createSession": True,
+        "workspaceUri": "file:///workspace",
+        "message": "is the workspace valid?",
+        "activeDocumentUri": "file:///workspace/customer.mdl",
+        "dirtyDocumentUris": [],
+    }
+
+    result = lsp_server.conversation_turn(ls, payload)
+
+    assert result == {"kind": "answer", "text": "valid"}
+    params = service.turn.call_args.args[0]
+    assert params.session_id == "session-1"
+    service.turn.assert_called_once_with(params, index=index)
+
+
+def test_conversation_apply_and_discard_validate_and_delegate() -> None:
+    service = Mock()
+    service.apply.return_value = {"kind": "applied"}
+    service.discard.return_value = {"kind": "discarded"}
+    ls = SimpleNamespace(conversations=service)
+    payload = {
+        "protocolVersion": 1,
+        "sessionId": "session-1",
+        "changeSetId": "change-1",
+        "dirtyDocumentUris": [],
+    }
+
+    assert lsp_server.conversation_apply(ls, payload) == {"kind": "applied"}
+    assert lsp_server.conversation_discard(ls, payload) == {"kind": "discarded"}
+    assert service.apply.call_args.args[0].change_set_id == "change-1"
+    assert service.discard.call_args.args[0].change_set_id == "change-1"
+
+
+def test_conversation_close_is_idempotently_delegated() -> None:
+    service = Mock()
+    ls = SimpleNamespace(conversations=service)
+    payload = {
+        "protocolVersion": 1,
+        "sessionId": "session-1",
+    }
+
+    assert lsp_server.conversation_close(ls, payload) is None
+    assert lsp_server.conversation_close(ls, payload) is None
+
+    assert service.close.call_count == 2
+    service.close.assert_called_with("session-1")
 
 
 @dataclass

@@ -316,6 +316,8 @@ boundary needed by one:
 A follow-up can expose these services through language-server requests. The VS
 Code extension remains a thin client that renders conversation state and diffs;
 it must not reimplement `.mdl` editing or validation in TypeScript.
+That follow-up is specified in
+[VS Code Conversational Foundation — Design](../2026-07-18-vscode-conversational-foundation-design.md).
 
 ## 13. Testing Strategy
 
@@ -374,7 +376,9 @@ Implementation must update:
 The [roadmap](../../../../ROADMAP.md) must retain explicit follow-ups for:
 
 1. VS Code chat/editor integration through language-server requests.
-2. Conversational compilation, registry synchronization, publishing, and
+2. An optional VS Code Language Model API provider adapter that retains
+   Python-owned typed planning, validation, preview, and editing.
+3. Conversational compilation, registry synchronization, publishing, and
    external-service management with separate authorization and confirmation
    policies.
 

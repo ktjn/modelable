@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 from modelable.compiler.workspace import load_workspace
-from modelable.diagnostics.model import render_diagnostic
+from modelable.diagnostics.model import Diagnostic, render_diagnostic
 from modelable.llm.context import build_workspace_summary
 from modelable.llm.conversation_plan import (
     ChangeSetPlan,
@@ -17,12 +17,23 @@ from modelable.llm.conversation_plan import (
 from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
 from modelable.llm.providers import LLMProvider
 from modelable.llm.workspace_editor import (
+    AffectedDefinition,
     AppliedChangeSet,
+    ChangedDefinition,
+    CompatibilityFinding,
     PendingChangeSet,
     WorkspaceEditError,
     WorkspaceEditor,
 )
 from modelable.llm.workspace_query import QueryResult, WorkspaceQueryService
+
+
+@dataclass(frozen=True)
+class ConversationPreviewFile:
+    path: Path
+    existed_before: bool
+    before_text: str
+    after_text: str
 
 
 @dataclass(frozen=True)
@@ -38,6 +49,13 @@ class ConversationReply:
     ]
     text: str
     change_set_id: str | None = None
+    focused_ref: str | None = None
+    changed: tuple[ChangedDefinition, ...] = ()
+    affected: tuple[AffectedDefinition, ...] = ()
+    compatibility: tuple[CompatibilityFinding, ...] = ()
+    diagnostics: tuple[Diagnostic, ...] = ()
+    preview_files: tuple[ConversationPreviewFile, ...] = ()
+    written_paths: tuple[Path, ...] = ()
 
 
 class ConversationSession:
@@ -116,10 +134,26 @@ class ConversationSession:
             if replaced_id is not None
             else ""
         )
+        current_sources = {source.path: source.text for source in self.workspace.sources if source.path is not None}
+        preview_files = tuple(
+            ConversationPreviewFile(
+                path=path,
+                existed_before=path in current_sources,
+                before_text=current_sources.get(path, ""),
+                after_text=after_text,
+            )
+            for path, after_text in sorted(pending.candidate_sources.items())
+        )
         return ConversationReply(
             kind="preview",
             text=replacement + render_pending_change_set(pending),
             change_set_id=pending.change_set_id,
+            focused_ref=pending.focus_ref,
+            changed=tuple(pending.changed),
+            affected=tuple(pending.affected),
+            compatibility=tuple(pending.compatibility),
+            diagnostics=tuple(pending.diagnostics),
+            preview_files=preview_files,
         )
 
     def _apply_pending(self) -> ConversationReply:
@@ -147,6 +181,10 @@ class ConversationSession:
             kind="applied",
             text=render_applied_change_set(applied),
             change_set_id=applied.change_set_id,
+            focused_ref=applied.focus_ref,
+            changed=tuple(applied.changed),
+            compatibility=tuple(applied.compatibility),
+            written_paths=applied.written_paths,
         )
 
     def _discard_pending(self) -> ConversationReply:

@@ -1245,6 +1245,30 @@ The standalone `modelable update` command retains its existing behavior and
 provenance sidecars; chat confirmation applies only to a pending conversational
 change set.
 
+#### VS Code `@modelable` companion
+
+The VS Code extension exposes the same Python conversation service through a
+native `@modelable` chat participant. For example:
+
+```text
+@modelable is the workspace valid?
+@modelable add a customer entity with address
+@modelable add a projection for active customers
+```
+
+The active `.mdl` editor selects the workspace and focused definition. Without
+an active model editor, exactly one open folder containing `workspace.mdl`
+must be available. Save dirty model files before sending a turn. Mutation
+replies retain the canonical textual preview and add server-supplied definition
+anchors plus **View Diff**, which opens exact virtual before/after snapshots.
+Apply and Discard are native follow-ups tied to the exact pending change-set ID;
+`/reset` closes the session. Expired, restarted, stale, or source-diverged
+sessions require a fresh preview and write nothing.
+
+Provider resolution is identical to `modelable chat`: workspace and environment
+configuration remain Python-owned. The extension does not parse, validate, or
+write `.mdl` files and does not apply a VS Code `WorkspaceEdit`.
+
 **Defined in:** section 12.
 
 ### 10.6 `registry` — Federated registry management

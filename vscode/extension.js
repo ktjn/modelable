@@ -6,8 +6,14 @@ const {
   LanguageClient,
   RevealOutputChannelOn,
 } = require('vscode-languageclient/node');
+const { ConversationClient } = require('./conversationClient');
+const {
+  registerConversationParticipant,
+} = require('./conversationParticipant');
+const { PreviewStore } = require('./conversationPreview');
 
 let client;
+let conversationClient;
 
 /**
  * Resolution order:
@@ -91,10 +97,72 @@ async function activate(context) {
   }
 
   client = nextClient;
-  context.subscriptions.push(client, outputChannel);
+  conversationClient = new ConversationClient(
+    nextClient,
+    vscode,
+    undefined,
+    outputChannel,
+  );
+  const previewStore = new PreviewStore(vscode);
+  const participant = registerConversationParticipant(
+    vscode,
+    conversationClient,
+    nextClient.initializeResult,
+    previewStore,
+  );
+  const previewProvider = vscode.workspace.registerTextDocumentContentProvider(
+    'modelable-preview',
+    previewStore,
+  );
+  const viewDiffCommand = vscode.commands.registerCommand(
+    'modelable.conversation.viewDiff',
+    args => previewStore.showDiff(args.sessionId, args.changeSetId),
+  );
+  const testConversationCommand = (
+    context.extensionMode === vscode.ExtensionMode.Test
+  )
+    ? vscode.commands.registerCommand(
+        'modelable.test.conversationTurn',
+        async args => {
+          if (args.resetSessionId) {
+            await conversationClient.close(args.resetSessionId);
+            previewStore.deleteSession(args.resetSessionId);
+            return { kind: 'reset' };
+          }
+          const tokenSource = new vscode.CancellationTokenSource();
+          try {
+            return await conversationClient.turn(
+              { prompt: args.prompt },
+              { history: [] },
+              tokenSource.token,
+            );
+          } finally {
+            tokenSource.dispose();
+          }
+        },
+      )
+    : undefined;
+  const conversationCleanup = {
+    dispose() {
+      void conversationClient?.closeAll();
+    },
+  };
+  context.subscriptions.push(
+    client,
+    outputChannel,
+    participant,
+    previewProvider,
+    viewDiffCommand,
+    ...(testConversationCommand ? [testConversationCommand] : []),
+    conversationCleanup,
+  );
 }
 
 async function deactivate() {
+  if (conversationClient) {
+    await conversationClient.closeAll();
+    conversationClient = undefined;
+  }
   if (client) {
     await client.stop();
     client = undefined;

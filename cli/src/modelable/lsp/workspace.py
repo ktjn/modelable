@@ -81,3 +81,14 @@ def uri_to_path(uri: str) -> Path | None:
     elif len(path) >= 3 and path.startswith("/") and path[2] == ":":
         path = path[1:]
     return Path(path)
+
+
+def find_workspace_root(file_path: Path) -> Path | None:
+    directory = file_path.parent
+    while True:
+        if (directory / "workspace.mdl").exists():
+            return directory
+        parent = directory.parent
+        if parent == directory:
+            return None
+        directory = parent

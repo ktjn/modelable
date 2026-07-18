@@ -16,6 +16,12 @@ releases could contain breaking changes when called out explicitly.
   application with rollback and workspace reload. Deterministic questions
   remain available offline, while mutation synthesis requires a configured
   provider.
+- Added the native VS Code `@modelable` chat participant for grounded
+  workspace questions and safe entity, projection, and contract management
+  through the Python language-server service. It includes active-editor focus,
+  saved-source enforcement, affected-definition anchors, exact virtual
+  before/after diffs, apply/discard follow-ups, reset, bounded session cleanup,
+  restart recovery, and privacy-safe lifecycle logging.
 - Added source-level Protobuf field reservations and
   `validate-compat --target protobuf|grpc` compatibility validation.
 - Added opt-in Protobuf and gRPC descriptor artifact generation via
