@@ -71,6 +71,7 @@ workspace default {
     parsed = parse_text_to_ir(source)
     reparsed = parse_text_to_ir(render_mdl(parsed))
 
+    assert parsed.domains[1].projections["BillingCustomer"][0].joins[0].cardinality == "many_to_one"
     assert reparsed == parsed
 
 

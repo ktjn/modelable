@@ -201,12 +201,11 @@ def _render_projection(projection_name: str, version: ProjectionVersion) -> list
     for join in version.joins:
         join_prefix = "left join" if join.join_kind == "left" else "join"
         join_line = f"  {join_prefix} {join.model} @ {_render_version_spec(join.version)} as {join.alias} on {join.on}"
-        if join.cardinality:
-            join_line += f" cardinality: {join.cardinality}"
-        annotations = " ".join(_render_annotations(join.annotations))
-        if annotations:
-            join_line += f" {annotations}"
         lines.append(join_line)
+        if join.cardinality:
+            lines.append(f"    cardinality: {join.cardinality}")
+        for annotation in _render_annotations(join.annotations):
+            lines.append(f"    {annotation}")
     if version.where:
         lines.append(f"  where {version.where}")
     if version.group_by:
