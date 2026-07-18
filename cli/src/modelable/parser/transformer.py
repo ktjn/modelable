@@ -969,3 +969,6 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def ai_item(self, items):
         return items[0]
+
+    def join_option(self, items: list[object]) -> object:
+        return items[0]
