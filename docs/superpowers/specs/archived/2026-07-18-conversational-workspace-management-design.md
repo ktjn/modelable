@@ -371,7 +371,7 @@ Implementation must update:
 - `CHANGELOG.md` with user-visible behavior; and
 - `ROADMAP.md` as delivery stages ship.
 
-The [roadmap](../../../ROADMAP.md) must retain explicit follow-ups for:
+The [roadmap](../../../../ROADMAP.md) must retain explicit follow-ups for:
 
 1. VS Code chat/editor integration through language-server requests.
 2. Conversational compilation, registry synchronization, publishing, and
@@ -379,7 +379,7 @@ The [roadmap](../../../ROADMAP.md) must retain explicit follow-ups for:
    policies.
 
 The execution sequence is defined in the
-[Conversational Workspace Management Implementation Plan](../plans/2026-07-18-conversational-workspace-management.md).
+[Conversational Workspace Management Implementation Plan](../../plans/archived/2026-07-18-conversational-workspace-management.md).
 
 No ADR change is required for this design because it preserves the existing
 compiler authority and local-first architecture. It introduces an application

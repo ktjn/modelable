@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.14, Pydantic v2, Lark-backed Modelable parser, Click/Rich CLI, pytest, existing compatibility and workspace services.
 
-**Design:** [Conversational Workspace Management — Design](../specs/2026-07-18-conversational-workspace-management-design.md)
+**Design:** [Conversational Workspace Management — Design](../../specs/archived/2026-07-18-conversational-workspace-management-design.md)
 
 ## Global Constraints
 

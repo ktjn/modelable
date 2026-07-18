@@ -995,7 +995,10 @@ modelable spec sync customer-dbt --write
 
 ## 6. AI Integration Details
 
-The `update` and `chat` commands use the configured LLM provider. The model is configurable by command flag, environment variable, or workspace config; see section 12.
+The `update` command and mutation planning in `chat` use the configured LLM
+provider. Deterministic workspace questions in `chat` remain available without
+a provider. The model is configurable by command flag, environment variable,
+or workspace config; see section 12.
 
 - `describe` and `generate` use local workspace summaries and import/scaffolding logic.
 - Generated `.mdl` output is validated through the Lark parser pipeline when `--output` is supplied to `generate`. Malformed output is caught before writing to disk.
@@ -1119,17 +1122,128 @@ When the command writes a file, it prints a concise audit summary including the 
 modelable chat --path PATH [--ref <Domain.Model@version>] [--message TEXT] [--provider NAME] [--model MODEL] [--base-url URL]
 ```
 
-Starts a conversational session against the configured model. Without `--message`, the command prompts for turns until `/exit` or EOF. `--message` sends a single turn and exits, which is useful for tests and scripts. The chat command never writes files; editing still goes through `update`.
+Starts one persistent conversational session against the workspace. Without
+`--message`, the command prompts for turns until `/exit`, `/quit`, or EOF.
+`--message` sends one turn and exits, which is useful for read-only questions,
+preview automation, and tests. `--ref` supplies the initial focused model or
+projection.
 
-Within the session, slash commands provide structured actions:
+Read-only questions execute immediately. Supported deterministic question
+types cover:
 
-- `/help` prints the available chat commands.
-- `/ref <ref>` sets the focused model or projection.
-- `/context` prints the current workspace or focused-ref summary.
-- `/describe [ref]` prints a summary without changing state.
-- `/recommend <ref> [consumer]` prints a recommendation from the current workspace.
-- `/ask <question>` asks a workspace question using the same reasoning helpers.
-- `/update <ref> <instruction>` shows a validated preview diff without writing.
+- workspace, model, and projection summaries;
+- ownership;
+- projection lineage;
+- downstream dependents and impact;
+- declared indexes;
+- compatibility between two versions; and
+- workspace validation diagnostics.
+
+`/context`, `/describe [ref]`, and `/ask <question>` provide explicit offline
+forms. Natural-language equivalents such as
+`Who owns customer.Customer@1?` and
+`What depends on customer.Customer@1?` work without a provider.
+
+Mutation requests require a configured provider because they require intent
+synthesis. They may create a complete entity or projection, add or revise
+fields and indexes, or update projection sources, mappings, joins, filters,
+and grouping through a closed typed operation vocabulary. For example:
+
+```text
+add a customer entity with address
+create a customer summary projection from customer.Customer@1
+add an optional loyaltyTier field to customer.Customer@2
+```
+
+Changes to an existing published contract append the next version by default.
+An in-place edit requires an explicit draft-edit request. Its preview warns
+that Modelable cannot infer publication state from local source files.
+
+Mutation turns never write immediately. The session stages a deterministic
+change set and prints these sections in order:
+
+1. Summary
+2. Assumptions
+3. Proposed definitions and operations
+4. Changed definitions
+5. Affected definitions
+6. Compatibility and validation
+7. Unified diff
+8. Confirmation instructions and change-set ID
+
+The affected-definition section explains downstream entity and projection
+impact. Empty affected or compatibility sections are shown as `- none`; they
+are not omitted. Unified diffs are grouped by source file and remain plain
+text for terminals, logs, and future editor clients.
+
+Only one proposal is pending. A new mutation request refines and replaces it
+with an explicit replacement notice. Read-only questions leave it untouched.
+Use natural-language `apply`, `apply it`, or `confirm`, or use `/apply`, to
+apply the exact displayed change-set ID. Use `/discard` (or `discard`,
+`discard it`, or `cancel`) to clear it without writing.
+
+Before applying, Modelable verifies every source fingerprint and rebuilds the
+staged workspace. If a source changed after preview, application is rejected
+and the proposal remains pending for review or discard. Multi-file writes use
+rollback protection and report success only after the workspace reloads.
+
+The following condensed transcript abbreviates paths and diff context. The
+`Proposed change set` label identifies the change-set ID returned with the
+preview; the section names match the CLI output:
+
+```text
+you> add a customer entity with address
+assistant> Proposed change set 4f83a912
+Summary
+Create customer.Customer@1
+
+Assumptions
+- Address is inline
+
+Proposed definitions and operations
+- create_model: customer.Customer@1
+
+Changed definitions
+- customer.Customer@1: created entity
+
+Affected definitions
+- none
+
+Compatibility and validation
+- none
+
+Unified diff
+--- customer.mdl
++++ customer.mdl (preview)
+@@
++  entity Customer @ 1 (additive) {
++    @key customerId: uuid
++    address: object { street: string city: string postalCode: string country: string }
++  }
+
+Apply change set 4f83a912 with /apply or refine it with another request.
+Use /discard to cancel.
+
+you> /apply
+assistant> Applied change set 4f83a912.
+Written paths
+- customer.mdl
+Changed definitions
+- customer.Customer@1: created entity
+Focused reference
+customer.Customer@1
+```
+
+Without a provider, a mutation request explains that intent synthesis requires
+provider configuration and leaves all files unchanged. Compilation, registry
+synchronization, publishing, deployment, filesystem, shell, and other
+external operational requests remain unsupported in this release. They are
+roadmap follow-ups with separate authorization, preview, confirmation, and
+audit requirements.
+
+The standalone `modelable update` command retains its existing behavior and
+provenance sidecars; chat confirmation applies only to a pending conversational
+change set.
 
 **Defined in:** section 12.
 
