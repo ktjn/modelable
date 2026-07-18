@@ -85,19 +85,33 @@ Completion means a Scalable consumer can compile generated Rust and Protobuf
 artifacts, register them using generated identity metadata, and detect an
 incompatible transport change in CI.
 
-## Priority 2 — improve adoption and cross-target consistency
+## Priority 2 — improve authoring, adoption, and cross-target consistency
 
 After the Scalable/Rust path is complete:
 
-1. Extend nominal semantic-type generation beyond Rust, prioritizing
+1. Add safe conversational workspace management to the existing CLI chat.
+   Natural-language requests should use typed plans and a reusable workspace
+   editor to answer grounded questions, create complete entities and
+   projections, append compatibility-aware versions, and preview atomic
+   multi-file changes with textual diffs and affected-definition explanations
+   before explicit confirmation. The accepted design is documented in
+   [Conversational Workspace Management — Design](docs/superpowers/specs/2026-07-18-conversational-workspace-management-design.md).
+2. Reuse the conversational planner and workspace editor in a VS Code
+   chat/editor experience exposed through language-server requests. The
+   extension should remain a thin UI and must not duplicate `.mdl` editing or
+   validation logic in TypeScript.
+3. Extend conversational management to compilation, registry synchronization,
+   publishing, and external-service operations only after each action has an
+   explicit authorization, preview, confirmation, and audit policy.
+4. Extend nominal semantic-type generation beyond Rust, prioritizing
    TypeScript, Go, Java, C#, Python, JSON Schema, and SQL according to concrete
    consumer demand. Targets that intentionally erase nominal identity must say
    so explicitly.
-2. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
+5. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
    generated constants and registry state are easy to diagnose.
-3. Publish the VS Code extension through the Marketplace once the release and
+6. Publish the VS Code extension through the Marketplace once the release and
    support process is defined.
-4. Continue conformance, documentation, diagnostics, and importer hardening
+7. Continue conformance, documentation, diagnostics, and importer hardening
    where contributor or user reports expose real gaps.
 
 Completion means a new team can install the CLI and editor tooling, understand
