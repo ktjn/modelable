@@ -5,7 +5,7 @@ import os
 from collections.abc import Iterable
 from pathlib import Path
 
-SURFACE_NAMES = ("cli", "vscode", "odcs", "openmetadata", "openlineage", "fhir")
+SURFACE_NAMES = ("cli", "vscode", "odcs", "openmetadata", "openlineage", "fhir", "browser")
 WORKFLOW_POLICY_FILES = {
     ".github/scripts/detect_validate_surfaces.py",
     ".github/workflows/validate.yml",
@@ -47,6 +47,9 @@ def detect_surfaces(changed_files: Iterable[str], *, event_name: str = "pull_req
         outputs["openmetadata"] = True
         outputs["openlineage"] = True
         outputs["fhir"] = True
+
+    if any(_has_browser_risk(path) for path in paths):
+        outputs["browser"] = True
 
     if any(path == "cli/src/modelable/emitters/odcs.py" or path == "cli/tests/test_emit_odcs.py" for path in paths):
         outputs["odcs"] = True
@@ -111,6 +114,41 @@ def _has_external_export_risk(path: str) -> bool:
             "cli/src/modelable/governance/",
             "cli/src/modelable/validation/",
         ),
+    )
+
+
+def _has_browser_risk(path: str) -> bool:
+    return (
+        _has_prefix(
+            path,
+            (
+                "web/",
+                "cli/browser/",
+                "cli/src/modelable/browser/",
+                "cli/tests/conformance/browser/",
+                "cli/tests/test_browser_",
+                "cli/src/modelable/compiler/",
+                "cli/src/modelable/parser/",
+                "cli/src/modelable/validation/",
+            ),
+        )
+        or path
+        in {
+            "cli/scripts/build_browser_wheel.py",
+            "cli/scripts/write_browser_conformance.py",
+            "cli/src/modelable/emitters/json_schema.py",
+            "docs/playground-design.md",
+        }
+        or (
+            _has_prefix(
+                path,
+                (
+                    "docs/superpowers/specs/",
+                    "docs/superpowers/plans/",
+                ),
+            )
+            and "browser-compiler-wasm" in path
+        )
     )
 
 

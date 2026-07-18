@@ -28,6 +28,7 @@ def test_docs_only_change_skips_code_and_external_smoke_jobs() -> None:
         "openmetadata": False,
         "openlineage": False,
         "fhir": False,
+        "browser": False,
     }
 
 
@@ -43,6 +44,7 @@ def test_cli_change_runs_core_cli_job_without_unrelated_external_smokes() -> Non
         "openmetadata": False,
         "openlineage": False,
         "fhir": False,
+        "browser": False,
     }
 
 
@@ -57,6 +59,7 @@ def test_lsp_change_runs_cli_and_vscode_jobs() -> None:
     assert outputs["openmetadata"] is False
     assert outputs["openlineage"] is False
     assert outputs["fhir"] is False
+    assert outputs["browser"] is False
 
 
 def test_export_format_surfaces_run_only_relevant_external_smokes() -> None:
@@ -80,7 +83,20 @@ def test_shared_model_graph_change_runs_all_export_smokes() -> None:
         "openmetadata": True,
         "openlineage": True,
         "fhir": True,
+        "browser": True,
     }
+
+
+def test_browser_surface_routes_browser_proof_and_browser_compiler_changes() -> None:
+    detector = _load_detector()
+
+    assert detector.detect_surfaces(["web/src/main.ts"])["browser"] is True
+    assert detector.detect_surfaces(["cli/src/modelable/browser/api.py"])["browser"] is True
+    assert detector.detect_surfaces(["cli/scripts/build_browser_wheel.py"])["browser"] is True
+    assert detector.detect_surfaces(["docs/playground-design.md"])["browser"] is True
+    assert detector.detect_surfaces(["cli/src/modelable/compiler/render.py"])["browser"] is True
+    assert detector.detect_surfaces(["cli/src/modelable/emitters/json_schema.py"])["browser"] is True
+    assert detector.detect_surfaces(["README.md"])["browser"] is False
 
 
 def test_manual_dispatch_and_validate_workflow_changes_run_every_job() -> None:

@@ -22,6 +22,7 @@ jobs:
       openmetadata: ${{ steps.filter.outputs.openmetadata }}
       openlineage: ${{ steps.filter.outputs.openlineage }}
       fhir: ${{ steps.filter.outputs.fhir }}
+      browser: ${{ steps.filter.outputs.browser }}
 
     steps:
       - name: Check out repository
@@ -108,6 +109,63 @@ jobs:
         run: |
           uv export --no-emit-project --format requirements-txt -o audit-requirements.txt
           uv run --with pip-audit pip-audit --strict --progress-spinner off -r audit-requirements.txt
+
+  browser:
+    name: Browser compiler spike
+    needs: changes
+    if: needs.changes.outputs.browser == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: cli/uv.lock
+          cache-suffix: browser
+
+      - name: Install Python
+        run: uv python install 3.14
+        working-directory: cli
+
+      - name: Sync CLI dependencies
+        run: uv sync --extra dev --frozen
+        working-directory: cli
+
+      - name: Install Node
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install browser dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: web
+
+      - name: Run browser compiler spike gate
+        run: uv run python .github/scripts/run_browser_spike.py --skip-install
+
+      - name: Upload Playwright report on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: browser-playwright-report
+          path: web/output/playwright
+
+      - name: Upload browser distribution on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: browser-distribution
+          path: web/dist
 
   odcs:
     name: ODCS lint smoke

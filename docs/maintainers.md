@@ -139,6 +139,18 @@ cd cli
 uv run pytest tests/test_release_metadata.py tests/test_release_workflow.py -v
 ```
 
+For browser compiler or playground changes, run the complete spike gate and
+compose the same combined Pages artifact used by CI from the repository root:
+
+```powershell
+uv run python .github/scripts/run_browser_spike.py
+uvx --from mkdocs==1.6.1 --with mkdocs-material==9.7.6 mkdocs build --strict
+uv run --project cli python .github/scripts/assemble_pages.py --site site --web-dist web/dist
+```
+
+Pull requests only build and test the browser proof. Only pushes to `main`
+deploy the combined documentation and playground artifact.
+
 ## 4. Test Gates
 
 Test gates are selected by risk and touched surface.
@@ -157,6 +169,7 @@ Test gates are selected by risk and touched surface.
 | Scalable gRPC export format | `uv run pytest tests/test_emit_grpc.py tests/test_emit_protobuf.py tests/test_codegen_targets.py -q` from `cli/` |
 | FHIR R4 profile export format | `uv run pytest tests/test_emit_fhir.py tests/test_fhir_validator.py -q` plus `MODELABLE_FHIR_VALIDATOR=1 MODELABLE_FHIR_VALIDATOR_JAR=<path-to-validator_cli.jar> uv run pytest tests/test_fhir_validator.py --tb=short -q` from `cli/` when the HL7 validator jar is available |
 | LSP, VS Code extension, or editor integration | Focused LSP tests plus `cd vscode && npm ci && npm run build && npm test` |
+| Browser compiler or playground | `uv run python .github/scripts/run_browser_spike.py` plus strict MkDocs build and combined Pages assembly |
 | Release pipeline or packaging metadata | Focused release metadata/workflow tests plus the full local CLI gate |
 | Runtime, subscriptions, adapters, or materializers | Unit tests, integration or smoke tests for the adapter boundary, and failure-mode coverage |
 | Security, permissions, PII, or restricted fields | Negative tests proving unauthorized exposure is rejected or reported as a governance finding |
