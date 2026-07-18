@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 
 import pytest
+from jsonschema import ValidationError as JsonSchemaValidationError
 from pydantic import ValidationError
 
 from modelable.llm.conversation_plan import (
@@ -92,6 +93,31 @@ def test_change_plan_rejects_raw_patch_and_path_fields() -> None:
     }
 
     with pytest.raises(ValidationError):
+        parse_conversation_plan(json.dumps(payload))
+
+
+def test_change_plan_rejects_forbidden_fields_nested_inside_ir_types() -> None:
+    payload = {
+        "kind": "change_set",
+        "summary": "unsafe nested field",
+        "operations": [
+            {
+                "kind": "create_model",
+                "domain": "customer",
+                "name": "Customer",
+                "model_kind": "entity",
+                "fields": [
+                    {
+                        "name": "customerId",
+                        "type": {"kind": "uuid", "path": "/tmp/escape"},
+                        "annotations": [{"kind": "key", "command": "run"}],
+                    }
+                ],
+            }
+        ],
+    }
+
+    with pytest.raises(JsonSchemaValidationError):
         parse_conversation_plan(json.dumps(payload))
 
 
@@ -294,6 +320,19 @@ def test_conversation_request_exposes_only_closed_typed_plan_schema() -> None:
         '"validation_override"',
     ):
         assert forbidden not in schema_text
+
+    def assert_closed_objects(node: object) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "object" and "properties" in node:
+                assert node.get("additionalProperties") is False
+            for value in node.values():
+                assert_closed_objects(value)
+        elif isinstance(node, list):
+            for value in node:
+                assert_closed_objects(value)
+
+    assert_closed_objects(request.schema)
+    assert json.dumps(request.schema, sort_keys=True) in request.system
 
 
 def test_conversation_system_prompt_states_safety_and_ambiguity_rules() -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -182,6 +183,7 @@ def _request(
     context: PlannerContext,
     validation_error: str | None,
 ) -> LLMRequest:
+    schema = conversation_plan_json_schema()
     lines = [f"Workspace summary:\n{context.workspace_summary}"]
     lines.append(f"Focused reference: {context.focused_ref or 'none'}")
     if context.history:
@@ -197,11 +199,11 @@ def _request(
             "Return a corrected JSON object matching the supplied schema."
         )
     return LLMRequest(
-        system=SYSTEM_PROMPT,
+        system=f"{SYSTEM_PROMPT}\nJSON schema:\n{json.dumps(schema, sort_keys=True)}",
         user="\n\n".join(lines),
         temperature=0.05 if validation_error is not None else 0.1,
         response_format="json",
-        schema=conversation_plan_json_schema(),
+        schema=schema,
     )
 
 

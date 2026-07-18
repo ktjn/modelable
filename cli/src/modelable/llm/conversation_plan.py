@@ -4,6 +4,7 @@ import json
 import re
 from typing import Annotated, Literal
 
+from jsonschema import Draft202012Validator
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from modelable.parser.ir import Annotation, FieldDef, FieldType, ModelKind, SortField
@@ -294,8 +295,24 @@ def parse_conversation_plan(text: str) -> ConversationPlan:
     if stripped.startswith("```"):
         stripped = re.sub(r"^```(?:json)?\s*", "", stripped, flags=re.IGNORECASE)
         stripped = re.sub(r"\s*```$", "", stripped)
-    return _CONVERSATION_PLAN_ADAPTER.validate_python(json.loads(stripped))
+    payload = json.loads(stripped)
+    plan = _CONVERSATION_PLAN_ADAPTER.validate_python(payload)
+    Draft202012Validator(conversation_plan_json_schema()).validate(payload)
+    return plan
 
 
 def conversation_plan_json_schema() -> dict[str, object]:
-    return _CONVERSATION_PLAN_ADAPTER.json_schema()
+    schema = _CONVERSATION_PLAN_ADAPTER.json_schema()
+    _close_object_schemas(schema)
+    return schema
+
+
+def _close_object_schemas(node: object) -> None:
+    if isinstance(node, dict):
+        if node.get("type") == "object" and "properties" in node:
+            node["additionalProperties"] = False
+        for value in node.values():
+            _close_object_schemas(value)
+    elif isinstance(node, list):
+        for value in node:
+            _close_object_schemas(value)
