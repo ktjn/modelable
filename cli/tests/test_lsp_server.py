@@ -63,6 +63,19 @@ def test_lsp_server_advertises_code_actions():
     assert result.capabilities.code_action_provider.code_action_kinds == [types.CodeActionKind.QuickFix]
 
 
+def test_lsp_server_advertises_conversation_protocol_version() -> None:
+    result = lsp_server.initialize(
+        lsp_server.server,
+        types.InitializeParams(capabilities=types.ClientCapabilities()),
+    )
+
+    assert result.capabilities.experimental == {
+        "modelableConversation": {
+            "protocolVersion": 1,
+        }
+    }
+
+
 @dataclass
 class _Workspace:
     errors: list[Diagnostic]

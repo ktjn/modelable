@@ -12,6 +12,7 @@ from pygls.protocol import json_rpc
 
 from modelable.lsp.code_actions import build_code_actions
 from modelable.lsp.completion import build_completion
+from modelable.lsp.conversation_protocol import PROTOCOL_VERSION
 from modelable.lsp.definition import build_definition
 from modelable.lsp.diagnostics import to_lsp_diagnostics
 from modelable.lsp.document_symbols import build_document_symbols
@@ -99,6 +100,11 @@ def _build_initialize_result() -> types.InitializeResult:
                     change_notifications=True,
                 )
             ),
+            experimental={
+                "modelableConversation": {
+                    "protocolVersion": PROTOCOL_VERSION,
+                }
+            },
         )
     )
 
