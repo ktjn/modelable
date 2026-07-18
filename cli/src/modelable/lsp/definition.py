@@ -4,6 +4,7 @@ import re
 
 from lsprotocol import types
 
+from modelable.compiler.workspace import Workspace
 from modelable.llm.context import parse_model_ref
 from modelable.lsp.workspace import LspWorkspaceIndex
 from modelable.registry.resolver import resolve_model_ref
@@ -107,6 +108,10 @@ def _definition_for_qualified_ref(workspace, ref: str) -> types.Location | None:
     if model_ref.name in domain.projections:
         return _definition_for_decl(workspace, model_ref.domain, "projection", model_ref.name, model_ref.version)
     return None
+
+
+def definition_location_for_ref(workspace: Workspace, ref: str) -> types.Location | None:
+    return _definition_for_qualified_ref(workspace, ref)
 
 
 def _definition_for_unversioned_ref(workspace, domain_name: str, name: str) -> types.Location | None:

@@ -89,6 +89,33 @@ def build_document_symbols(
     return symbols
 
 
+def find_focused_ref(
+    index: LspWorkspaceIndex,
+    uri: str,
+    line: int,
+    character: int,
+) -> str | None:
+    symbols = build_document_symbols(index, uri) or []
+    position = types.Position(line=line, character=character)
+    for domain in symbols:
+        for declaration in domain.children or []:
+            if not _position_in_range(position, declaration.range):
+                continue
+            detail = declaration.detail or ""
+            _, separator, version_text = detail.partition("@")
+            if not separator or not version_text.strip().isdigit():
+                return None
+            return f"{domain.name}.{declaration.name}@{int(version_text.strip())}"
+    return None
+
+
+def _position_in_range(position: types.Position, range_: types.Range) -> bool:
+    start = (range_.start.line, range_.start.character)
+    current = (position.line, position.character)
+    end = (range_.end.line, range_.end.character)
+    return start <= current <= end
+
+
 def _make_domain_symbol(
     lines: list[str],
     line_no: int,

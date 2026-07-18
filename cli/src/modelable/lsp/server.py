@@ -25,7 +25,7 @@ from modelable.lsp.inlay_hints import build_inlay_hints
 from modelable.lsp.references import build_references
 from modelable.lsp.rename import build_prepare_rename, build_rename
 from modelable.lsp.semantic_tokens import build_semantic_tokens, semantic_tokens_legend
-from modelable.lsp.workspace import LspWorkspaceIndex, uri_to_path
+from modelable.lsp.workspace import LspWorkspaceIndex, find_workspace_root, uri_to_path
 from modelable.lsp.workspace_symbols import build_workspace_symbols
 
 feature_manager.asyncio.iscoroutinefunction = inspect.iscoroutinefunction
@@ -48,7 +48,7 @@ class ModelableLanguageServer(LanguageServer):
         if path is not None:
             # Keep index routing stable even when no workspace.mdl exists:
             # use the file's parent directory as the effective root.
-            root = _find_workspace_root(path) or path.parent
+            root = find_workspace_root(path) or path.parent
             if root not in self._indexes:
                 self._indexes[root] = LspWorkspaceIndex()
             return self._indexes[root]
@@ -148,7 +148,7 @@ def did_open(ls: ModelableLanguageServer, params: types.DidOpenTextDocumentParam
     uri = params.text_document.uri
     path = uri_to_path(uri)
     if path is not None:
-        scan_root = _find_workspace_root(path) or path.parent
+        scan_root = find_workspace_root(path) or path.parent
         if scan_root not in ls._scanned_dirs:
             index = _get_index_for_root(ls, scan_root)
             _scan_and_load_path(ls, scan_root, index)
@@ -323,18 +323,6 @@ def folding_range(ls: ModelableLanguageServer, params: types.FoldingRangeParams)
 @server.feature(types.TEXT_DOCUMENT_INLAY_HINT)
 def inlay_hint(ls: ModelableLanguageServer, params: types.InlayHintParams) -> list[types.InlayHint] | None:
     return build_inlay_hints(ls.index_for(params.text_document.uri), params.text_document.uri, params.range)
-
-
-def _find_workspace_root(file_path: Path) -> Path | None:
-    """Walk up the ancestor chain to find the nearest directory containing workspace.mdl."""
-    directory = file_path.parent
-    while True:
-        if (directory / "workspace.mdl").exists():
-            return directory
-        parent = directory.parent
-        if parent == directory:
-            return None
-        directory = parent
 
 
 def _get_index_for_root(ls: ModelableLanguageServer, root: Path) -> LspWorkspaceIndex:
