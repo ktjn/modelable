@@ -116,9 +116,14 @@ The response then exposes:
 - **Apply change set**
 - **Discard**
 
-The Apply button is the explicit confirmation. A second modal confirmation is
-not required because the user has already received the complete preview and the
-button identifies the action precisely. A later natural-language message
+**View Diff** is a response command button. Apply and Discard are native chat
+follow-up buttons whose prompts route back through the same participant and
+session. This lets their applied or discarded result become part of chat
+history without relying on undocumented workbench commands.
+
+The Apply follow-up is the explicit confirmation. A second modal confirmation
+is not required because the user has already received the complete preview and
+the button identifies the action precisely. A later natural-language message
 refines or replaces the pending proposal through the shared conversation
 service.
 
@@ -157,12 +162,12 @@ The extension owns presentation and editor integration only:
 - virtual preview documents; and
 - invocation of the built-in diff editor.
 
-The extension commands behind response buttons are:
+The extension command behind the diff response button is:
 
 - `modelable.conversation.viewDiff`
-- `modelable.conversation.apply`
-- `modelable.conversation.discard`
-- `modelable.conversation.reset`
+
+Apply, Discard, and Reset remain participant commands rather than standalone
+extension commands.
 
 Python owns all semantic behavior:
 
@@ -224,6 +229,7 @@ Request:
 {
   "protocolVersion": 1,
   "sessionId": "uuid",
+  "createSession": true,
   "workspaceUri": "file:///workspace",
   "message": "add a customer entity with address",
   "activeDocumentUri": "file:///workspace/customer.mdl",
@@ -232,10 +238,13 @@ Request:
 }
 ```
 
-`activeDocumentUri` and `position` are optional. The server creates the session
-when `sessionId` is not registered and reuses it on subsequent turns. A reused
-session must remain bound to the same workspace URI. Position values use the
-zero-based LSP line and character convention.
+`activeDocumentUri` and `position` are optional. `createSession` is true only
+when the extension did not recover Modelable session metadata from chat
+history. The server creates an unregistered session only when that flag is
+true. An unregistered ID with `createSession: false` is expired and must not be
+silently reconstructed. A reused session must remain bound to the same
+workspace URI. Position values use the zero-based LSP line and character
+convention.
 
 ### 7.2 Apply
 
@@ -333,10 +342,14 @@ All request methods return the same reply envelope:
 - `unsupported`
 - `error`
 
-Changed definitions contain `ref` and `reason`. Affected definitions contain
-`ref`, `status`, and `reason`. Compatibility findings contain `ref`, `status`,
+Changed definitions contain `ref`, `reason`, and an optional serialized
+definition location. Affected definitions contain `ref`, `status`, `reason`,
+and the same optional location. Compatibility findings contain `ref`, `status`,
 and `message`. Diagnostics contain path, line, column, severity, code, and
 message using JSON primitives rather than Python or LSP protocol objects.
+Locations contain URI and zero-based start/end positions. A newly proposed
+definition may have no current-workspace location until it is applied; its
+preview file remains available through View Diff.
 
 Each preview file contains:
 
@@ -363,6 +376,10 @@ conversation identifier or chat-close event. The extension therefore:
 3. recovers it from the latest Modelable response in `ChatContext.history`;
 4. includes it in every language-server request; and
 5. starts a new ID when metadata is absent, invalid, reset, or cancelled.
+
+The first turn sends `createSession: true`. Turns recovered from result metadata
+send `createSession: false`, allowing the server to distinguish a new chat from
+an expired or restarted session.
 
 Metadata uses this shape:
 
@@ -573,7 +590,7 @@ failures, and multi-root isolation.
 - Render every reply kind without parsing canonical prose.
 - Store and release virtual preview snapshots.
 - Open exact before/after snapshots in the built-in diff editor.
-- Route Apply and Discard with exact session and change-set IDs.
+- Route Apply and Discard follow-ups with exact session and change-set IDs.
 - Clear local state on reset, cancellation, expired session, and deactivation.
 - Preserve existing activation and language-server smoke coverage.
 
@@ -619,6 +636,9 @@ The later native-provider adapter must not bypass Python plan validation or
 workspace editing. Conversational compilation, synchronization, publishing,
 and external-service actions remain later work with separate authorization,
 preview, confirmation, and audit policy.
+
+The execution sequence is defined in the
+[VS Code Conversational Foundation Implementation Plan](../plans/2026-07-18-vscode-conversational-foundation.md).
 
 ## 18. Acceptance Criteria
 
