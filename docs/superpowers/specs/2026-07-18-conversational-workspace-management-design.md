@@ -378,6 +378,9 @@ The [roadmap](../../../ROADMAP.md) must retain explicit follow-ups for:
    external-service management with separate authorization and confirmation
    policies.
 
+The execution sequence is defined in the
+[Conversational Workspace Management Implementation Plan](../plans/2026-07-18-conversational-workspace-management.md).
+
 No ADR change is required for this design because it preserves the existing
 compiler authority and local-first architecture. It introduces an application
 service over documented parser, validation, compatibility, and language-server
