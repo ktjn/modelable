@@ -16,7 +16,7 @@ CLOSE_METHOD = "modelable/conversation/close"
 
 
 class _ProtocolModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid", populate_by_name=True, from_attributes=True)
 
     protocol_version: int = Field(alias="protocolVersion", frozen=True)
 
@@ -29,7 +29,7 @@ class _ProtocolModel(BaseModel):
 
 
 class ConversationPosition(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
 
     line: int = Field(ge=0)
     character: int = Field(ge=0)

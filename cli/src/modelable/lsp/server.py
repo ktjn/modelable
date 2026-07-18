@@ -12,7 +12,17 @@ from pygls.protocol import json_rpc
 
 from modelable.lsp.code_actions import build_code_actions
 from modelable.lsp.completion import build_completion
-from modelable.lsp.conversation_protocol import PROTOCOL_VERSION
+from modelable.lsp.conversation_protocol import (
+    APPLY_METHOD,
+    CLOSE_METHOD,
+    DISCARD_METHOD,
+    PROTOCOL_VERSION,
+    TURN_METHOD,
+    ConversationChangeSetParams,
+    ConversationCloseParams,
+    ConversationTurnParams,
+)
+from modelable.lsp.conversation_service import LspConversationService
 from modelable.lsp.definition import build_definition
 from modelable.lsp.diagnostics import to_lsp_diagnostics
 from modelable.lsp.document_symbols import build_document_symbols
@@ -42,6 +52,7 @@ class ModelableLanguageServer(LanguageServer):
         self._debounce_tasks: dict[str, asyncio.Task] = {}
         self._root_uri: str | None = None
         self._scanned_dirs: set[Path] = set()
+        self.conversations = LspConversationService()
 
     def index_for(self, uri: str) -> LspWorkspaceIndex:
         path = uri_to_path(uri)
@@ -107,6 +118,43 @@ def _build_initialize_result() -> types.InitializeResult:
             },
         )
     )
+
+
+@server.feature(TURN_METHOD)
+def conversation_turn(
+    ls: ModelableLanguageServer,
+    payload: dict[str, object],
+) -> dict[str, object]:
+    params = ConversationTurnParams.model_validate(payload)
+    index = ls.index_for(params.active_document_uri) if params.active_document_uri is not None else None
+    return ls.conversations.turn(params, index=index)
+
+
+@server.feature(APPLY_METHOD)
+def conversation_apply(
+    ls: ModelableLanguageServer,
+    payload: dict[str, object],
+) -> dict[str, object]:
+    params = ConversationChangeSetParams.model_validate(payload)
+    return ls.conversations.apply(params)
+
+
+@server.feature(DISCARD_METHOD)
+def conversation_discard(
+    ls: ModelableLanguageServer,
+    payload: dict[str, object],
+) -> dict[str, object]:
+    params = ConversationChangeSetParams.model_validate(payload)
+    return ls.conversations.discard(params)
+
+
+@server.feature(CLOSE_METHOD)
+def conversation_close(
+    ls: ModelableLanguageServer,
+    payload: dict[str, object],
+) -> None:
+    params = ConversationCloseParams.model_validate(payload)
+    ls.conversations.close(params.session_id)
 
 
 @server.feature(types.INITIALIZED)
