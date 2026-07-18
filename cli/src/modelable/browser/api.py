@@ -10,6 +10,7 @@ from modelable.browser.dto import (
     BrowserSource,
     BrowserWorkspaceResult,
 )
+from modelable.browser.errors import BrowserRequestValidationError
 from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import (
     Workspace,
@@ -24,7 +25,7 @@ from modelable.parser.parse import parse_text_to_ir
 from modelable.validation.semantic import validate_diagnostics
 
 
-class BrowserInputError(ValueError):
+class BrowserInputError(BrowserRequestValidationError):
     """Raised when a browser compiler request has invalid source metadata."""
 
 

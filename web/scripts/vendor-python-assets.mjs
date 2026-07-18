@@ -206,6 +206,7 @@ export async function preparePythonAssetPlan(pythonRoot, currentExternalFileName
   } catch {
     throw new Error(`Generated Modelable wheel is missing: ${modelable.wheel}`);
   }
+  verifySha256(await readFile(modelable.wheelDestination), browserManifest.sha256);
 
   const protectedNames = new Set(
     [

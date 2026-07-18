@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,14 +10,14 @@ import { RUNTIME_ASSET_NAMES, copyBrowserConformanceAssets, cleanVendoredPythonA
 
 const temporaryDirectories: string[] = [];
 
-function browserManifest(wheel = 'modelable.whl') {
+function browserManifest(wheel = 'modelable.whl', wheelBytes = 'modelable') {
   return {
     schemaVersion: 1,
     distribution: 'modelable-browser',
     version: '1.2.1',
     commit: 'a'.repeat(40),
     wheel,
-    sha256: 'b'.repeat(64),
+    sha256: createHash('sha256').update(wheelBytes).digest('hex'),
     pyodide: '314.0.2',
     python: '3.14.2',
     platform: 'pyemscripten_2026_0_wasm32',
@@ -29,11 +30,18 @@ async function temporaryDirectory(): Promise<string> {
   return directory;
 }
 
-async function writeBrowserArtifacts(pythonRoot: string, wheel = 'modelable.whl'): Promise<void> {
+async function writeBrowserArtifacts(
+  pythonRoot: string,
+  wheel = 'modelable.whl',
+  wheelBytes = 'modelable',
+): Promise<void> {
   await mkdir(pythonRoot, { recursive: true });
   await Promise.all([
-    writeFile(join(pythonRoot, 'browser-manifest.json'), JSON.stringify(browserManifest(wheel))),
-    writeFile(join(pythonRoot, wheel), 'modelable'),
+    writeFile(
+      join(pythonRoot, 'browser-manifest.json'),
+      JSON.stringify(browserManifest(wheel, wheelBytes)),
+    ),
+    writeFile(join(pythonRoot, wheel), wheelBytes),
     writeFile(join(pythonRoot, 'runtime-manifest.json'), 'preserve until plan is valid'),
   ]);
 }
@@ -151,6 +159,36 @@ describe('same-origin Python assets', () => {
 
     await expect(access(join(pythonRoot, 'lark-old.whl'))).rejects.toThrow();
     await expect(access(join(pythonRoot, 'lark-new.whl'))).rejects.toThrow();
+    await expect(access(join(pythonRoot, 'modelable.whl'))).resolves.toBeUndefined();
+    await expect(access(join(pythonRoot, 'browser-manifest.json'))).resolves.toBeUndefined();
+  });
+
+  test('rejects a tampered generated wheel before mutating prior outputs', async () => {
+    const pythonRoot = await temporaryDirectory();
+    await writeBrowserArtifacts(pythonRoot);
+    await Promise.all([
+      writeFile(join(pythonRoot, 'modelable.whl'), 'tampered'),
+      writeFile(join(pythonRoot, 'prior.whl'), 'prior'),
+      writeFile(
+        join(pythonRoot, 'vendor-manifest.json'),
+        JSON.stringify({ schemaVersion: 1, externalWheels: ['prior.whl'] }),
+      ),
+    ]);
+
+    await expect(cleanVendoredPythonAssets(pythonRoot, [])).rejects.toThrow(
+      /SHA-256 mismatch/,
+    );
+    await expect(readFile(join(pythonRoot, 'runtime-manifest.json'), 'utf8')).resolves.toBe(
+      'preserve until plan is valid',
+    );
+    await expect(readFile(join(pythonRoot, 'prior.whl'), 'utf8')).resolves.toBe('prior');
+  });
+
+  test('accepts a generated wheel matching the browser manifest digest', async () => {
+    const pythonRoot = await temporaryDirectory();
+    await writeBrowserArtifacts(pythonRoot);
+
+    await expect(cleanVendoredPythonAssets(pythonRoot, [])).resolves.toBeUndefined();
     await expect(access(join(pythonRoot, 'modelable.whl'))).resolves.toBeUndefined();
     await expect(access(join(pythonRoot, 'browser-manifest.json'))).resolves.toBeUndefined();
   });

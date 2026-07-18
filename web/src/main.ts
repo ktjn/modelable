@@ -10,6 +10,7 @@ import type {
 import './style.css';
 
 const client = new BrowserCompilerClient();
+globalThis.addEventListener('pagehide', () => client.dispose(), { once: true });
 const source = element<HTMLTextAreaElement>('source');
 const status = element<HTMLParagraphElement>('status');
 const diagnostics = element<HTMLPreElement>('diagnostics');
@@ -172,6 +173,7 @@ async function initialize(): Promise<void> {
     diagnostics.textContent = 'No diagnostics.';
     setState('ready', 'Compiler ready');
   } catch (error: unknown) {
+    client.dispose();
     initializationDuration = performance.now() - started;
     renderError(error);
     setState('error', 'Compiler initialization failed');

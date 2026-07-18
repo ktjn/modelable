@@ -4,13 +4,14 @@ import json
 from dataclasses import asdict
 from typing import Any
 
-from modelable.browser.api import BrowserCompiler, BrowserInputError
+from modelable.browser.api import BrowserCompiler
 from modelable.browser.dto import (
     BrowserCompileResult,
     BrowserFormatResult,
     BrowserSource,
     BrowserWorkspaceResult,
 )
+from modelable.browser.errors import BrowserRequestValidationError
 
 _METHODS = {
     "workspace.open",
@@ -37,12 +38,12 @@ def _invalid_request(message: str) -> str:
 
 def _require_exact_fields(value: dict[str, Any], fields: set[str]) -> None:
     if set(value) != fields:
-        raise ValueError("Payload does not match method schema")
+        raise BrowserRequestValidationError("Payload does not match method schema")
 
 
 def _source(value: Any) -> BrowserSource:
     if not isinstance(value, dict):
-        raise TypeError("Source must be an object")
+        raise BrowserRequestValidationError("Source must be an object")
     _require_exact_fields(value, _SOURCE_FIELDS)
     uri = value["uri"]
     text = value["text"]
@@ -53,13 +54,18 @@ def _source(value: Any) -> BrowserSource:
         or not isinstance(version, int)
         or isinstance(version, bool)
     ):
-        raise TypeError("Source fields have invalid types")
-    return BrowserSource(uri=uri, text=text, version=version)
+        raise BrowserRequestValidationError("Source fields have invalid types")
+    try:
+        return BrowserSource(uri=uri, text=text, version=version)
+    except BrowserRequestValidationError:
+        raise
+    except (KeyError, TypeError, ValueError) as error:
+        raise BrowserRequestValidationError("Source could not be constructed") from error
 
 
 def _sources(value: Any) -> tuple[BrowserSource, ...]:
     if not isinstance(value, list):
-        raise TypeError("Sources must be an array")
+        raise BrowserRequestValidationError("Sources must be an array")
     return tuple(_source(source) for source in value)
 
 
@@ -77,7 +83,7 @@ def _dispatch(
     if method == "compile.jsonSchema":
         _require_exact_fields(payload, {"sources"})
         return compiler.compile_json_schema(_sources(payload["sources"]))
-    raise ValueError(f"Unsupported browser compiler method: {method}")
+    raise AssertionError(f"Unsupported validated browser compiler method: {method}")
 
 
 def _serialize_result(
@@ -97,13 +103,11 @@ def dispatch_browser_request(method: str, payload_json: str) -> str:
     try:
         payload = json.loads(payload_json)
         if not isinstance(payload, dict):
-            raise TypeError("Payload must be an object")
+            raise BrowserRequestValidationError("Payload must be an object")
         result = _dispatch(method, payload)
     except json.JSONDecodeError:
         return _invalid_request("Payload must be valid JSON")
-    except BrowserInputError:
-        return _invalid_request("Invalid browser compiler input")
-    except KeyError, TypeError, ValueError:
+    except BrowserRequestValidationError:
         return _invalid_request("Payload does not match method schema")
 
     return json.dumps(

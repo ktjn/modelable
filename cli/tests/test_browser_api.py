@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+import modelable.browser.dispatch as browser_dispatch
 from modelable.browser import (
     BrowserCompiler,
     BrowserSource,
@@ -215,3 +216,70 @@ def test_dispatch_requires_an_object_with_exact_source_fields():
     assert non_object["ok"] is False
     assert extra_field["ok"] is False
     assert "C:/private/customer.mdl" not in json.dumps(extra_field)
+
+
+@pytest.mark.parametrize("exception_type", [ValueError, TypeError])
+def test_dispatch_propagates_unexpected_compiler_exceptions(
+    monkeypatch: pytest.MonkeyPatch,
+    exception_type: type[Exception],
+) -> None:
+    secret = "C:/private/checkout/customer.mdl TOP SECRET SOURCE"
+
+    def fail_operation(
+        _self: BrowserCompiler,
+        _sources: tuple[BrowserSource, ...],
+    ) -> None:
+        raise exception_type(secret)
+
+    monkeypatch.setattr(BrowserCompiler, "open_workspace", fail_operation)
+
+    with pytest.raises(exception_type) as raised:
+        dispatch_browser_request(
+            "workspace.open",
+            json.dumps(
+                {
+                    "sources": [
+                        {
+                            "uri": "inmemory:///customer.mdl",
+                            "text": VALID,
+                            "version": 1,
+                        }
+                    ]
+                }
+            ),
+        )
+
+    assert secret in str(raised.value)
+
+
+def test_dispatch_classifies_dto_construction_errors_as_invalid_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    secret = "C:/private/checkout/customer.mdl TOP SECRET SOURCE"
+    assert hasattr(browser_dispatch, "BrowserRequestValidationError")
+
+    def reject_dto(**_values: object) -> BrowserSource:
+        raise browser_dispatch.BrowserRequestValidationError(secret)
+
+    monkeypatch.setattr(browser_dispatch, "BrowserSource", reject_dto)
+
+    response = json.loads(
+        dispatch_browser_request(
+            "source.format",
+            json.dumps(
+                {
+                    "source": {
+                        "uri": "inmemory:///customer.mdl",
+                        "text": VALID,
+                        "version": 1,
+                    }
+                }
+            ),
+        )
+    )
+
+    assert response["error"] == {
+        "code": "INVALID_REQUEST",
+        "message": "Payload does not match method schema",
+    }
+    assert secret not in json.dumps(response)

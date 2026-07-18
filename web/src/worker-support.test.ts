@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from 'vitest';
 import type { BrowserCompilerRequest } from './protocol';
 import {
   dispatchPythonRequest,
+  validatePythonRuntime,
   validateRuntimeManifest,
 } from './worker-support';
 
@@ -97,6 +98,20 @@ describe('validateRuntimeManifest', () => {
         manifestUrl,
       ),
     ).toThrow('python directory');
+  });
+});
+
+describe('validatePythonRuntime', () => {
+  test('accepts only the locked CPython and Emscripten platform', () => {
+    expect(() =>
+      validatePythonRuntime('3.14.2', 'emscripten'),
+    ).not.toThrow();
+    expect(() => validatePythonRuntime('3.14.1', 'emscripten')).toThrow(
+      'CPython 3.14.2',
+    );
+    expect(() => validatePythonRuntime('3.14.2', 'linux')).toThrow(
+      'Emscripten',
+    );
   });
 });
 

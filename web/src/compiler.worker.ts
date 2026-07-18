@@ -14,6 +14,7 @@ import {
   dispatchPythonRequest,
   failure,
   sanitizedError,
+  validatePythonRuntime,
   validateRuntimeManifest,
 } from './worker-support';
 
@@ -84,6 +85,12 @@ async function initializeRuntime(): Promise<void> {
     const pyodide: PyodideInterface = await loadPyodide({
       indexURL: new URL('../pyodide/', self.location.href).href,
     });
+    validatePythonRuntime(
+      pyodide.runPython(
+        'import platform; platform.python_version()',
+      ),
+      pyodide.runPython('import sys; sys.platform'),
+    );
     await pyodide.loadPackage([
       'micropip',
       'pydantic',

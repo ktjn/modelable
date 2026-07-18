@@ -98,3 +98,74 @@ test('does not expose the compiler client without explicit test opt-in', async (
     ),
   ).toBe(false);
 });
+
+test('disposes the page client on pagehide exactly once', async ({ page }) => {
+  await page.goto('?test=1');
+  await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
+    timeout: 30_000,
+  });
+
+  const result = await page.evaluate(async () => {
+    const client = (
+      globalThis as typeof globalThis & {
+        __modelableBrowserCompiler?: {
+          openWorkspace(sources: unknown[]): Promise<unknown>;
+          dispose(): void;
+        };
+      }
+    ).__modelableBrowserCompiler;
+    if (client === undefined) {
+      throw new Error('Test client was not exposed');
+    }
+    globalThis.dispatchEvent(new PageTransitionEvent('pagehide'));
+    globalThis.dispatchEvent(new PageTransitionEvent('pagehide'));
+    return client.openWorkspace([]).then(
+      () => ({ resolved: true }),
+      (error: { message?: string }) => ({
+        resolved: false,
+        message: error.message,
+      }),
+    );
+  });
+
+  expect(result).toEqual({
+    resolved: false,
+    message: 'Compiler client has been disposed',
+  });
+});
+
+test('disposes the client after unrecoverable page initialization failure', async ({
+  page,
+}) => {
+  await page.route('**/fixtures/single-valid.mdl', (route) => route.abort());
+  await page.goto('?test=1');
+  await expect(page.getByRole('status')).toHaveText(
+    /compiler initialization failed/i,
+    { timeout: 30_000 },
+  );
+
+  const result = await page.evaluate(async () => {
+    const client = (
+      globalThis as typeof globalThis & {
+        __modelableBrowserCompiler?: {
+          openWorkspace(sources: unknown[]): Promise<unknown>;
+        };
+      }
+    ).__modelableBrowserCompiler;
+    if (client === undefined) {
+      throw new Error('Test client was not exposed');
+    }
+    return client.openWorkspace([]).then(
+      () => ({ resolved: true }),
+      (error: { message?: string }) => ({
+        resolved: false,
+        message: error.message,
+      }),
+    );
+  });
+
+  expect(result).toEqual({
+    resolved: false,
+    message: 'Compiler client has been disposed',
+  });
+});

@@ -16,6 +16,7 @@ CLI_ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY_ROOT = CLI_ROOT.parent
 SOURCE_ROOT = CLI_ROOT / "src"
 BROWSER_ROOT = CLI_ROOT / "browser"
+BROWSER_OVERRIDES_ROOT = BROWSER_ROOT / "overrides"
 
 INCLUDE_TREES = (
     "browser",
@@ -109,13 +110,30 @@ def build_browser_wheel(output_dir: Path) -> Path:
     with tempfile.TemporaryDirectory() as temporary_directory:
         staging_root = Path(temporary_directory)
         shutil.copy2(BROWSER_ROOT / "pyproject.toml", staging_root / "pyproject.toml")
+        shutil.copy2(
+            BROWSER_ROOT / "build-constraints.txt",
+            staging_root / "build-constraints.txt",
+        )
         for relative_path, source_path in zip(selected, source_paths, strict=True):
             destination = staging_root / "src" / relative_path
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source_path, destination)
+        shutil.copytree(
+            BROWSER_OVERRIDES_ROOT,
+            staging_root / "src",
+            dirs_exist_ok=True,
+        )
 
         subprocess.run(
-            ["uv", "build", "--wheel", "--out-dir", str(output_dir)],
+            [
+                "uv",
+                "build",
+                "--wheel",
+                "--build-constraints",
+                str(staging_root / "build-constraints.txt"),
+                "--out-dir",
+                str(output_dir),
+            ],
             cwd=staging_root,
             check=True,
         )

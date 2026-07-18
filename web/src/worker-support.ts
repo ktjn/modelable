@@ -124,6 +124,18 @@ export function validateRuntimeManifest(
   return wheels.map(({ href }) => href);
 }
 
+export function validatePythonRuntime(
+  version: unknown,
+  platform: unknown,
+): void {
+  if (version !== '3.14.2') {
+    throw new Error('Browser runtime must use CPython 3.14.2');
+  }
+  if (platform !== 'emscripten') {
+    throw new Error('Browser runtime must use the Emscripten platform');
+  }
+}
+
 function parsePythonResponse(value: unknown): PythonDispatchResponse {
   if (typeof value !== 'string') {
     throw new TypeError('Python dispatcher did not return JSON text');
