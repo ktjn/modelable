@@ -9,7 +9,11 @@ const {
 } = require('../../../conversationClient');
 const {
   registerConversationParticipant,
+  renderReply,
 } = require('../../../conversationParticipant');
+const {
+  PreviewStore,
+} = require('../../../conversationPreview');
 
 suite('Modelable conversation participant', () => {
   test('manifest contributes the native chat participant', () => {
@@ -29,6 +33,12 @@ suite('Modelable conversation participant', () => {
     assert.ok(
       manifest.activationEvents.includes(
         'onChatParticipant:modelable-vscode.modelable',
+      ),
+    );
+    assert.ok(
+      manifest.contributes.commands.some(
+        (item: { command: string }) =>
+          item.command === 'modelable.conversation.viewDiff',
       ),
     );
   });
@@ -343,6 +353,345 @@ suite('Modelable conversation participant', () => {
       /reset.*new chat/i,
     );
   });
+
+  test('preview store retains exact before and after snapshots', () => {
+    const store = new PreviewStore(fakeVscode({ folders: [] }));
+    const keys = store.put('session-1', 'change-1', [
+      {
+        uri: 'file:///workspace/customer.mdl',
+        existedBefore: true,
+        beforeText: 'before',
+        afterText: 'after',
+      },
+    ]);
+
+    assert.strictEqual(
+      store.provideTextDocumentContent(keys[0].beforeUri),
+      'before',
+    );
+    assert.strictEqual(
+      store.provideTextDocumentContent(keys[0].afterUri),
+      'after',
+    );
+    store.deleteChangeSet('session-1', 'change-1');
+    assert.strictEqual(
+      store.provideTextDocumentContent(keys[0].afterUri),
+      undefined,
+    );
+  });
+
+  test('preview store represents a new file with an empty before snapshot', () => {
+    const store = new PreviewStore(fakeVscode({ folders: [] }));
+    const [descriptor] = store.put('session-1', 'change-1', [
+      {
+        uri: 'file:///workspace/address.mdl',
+        existedBefore: false,
+        beforeText: '',
+        afterText: 'domain address {}',
+      },
+    ]);
+
+    assert.strictEqual(
+      store.provideTextDocumentContent(descriptor.beforeUri),
+      '',
+    );
+  });
+
+  test('structured preview rendering caches snapshots, anchors refs, and adds one safe button', () => {
+    const markdown: string[] = [];
+    const anchors: Array<[string, string]> = [];
+    const buttons: any[] = [];
+    const puts: any[] = [];
+    const stream = {
+      markdown: (value: string) => markdown.push(value),
+      anchor: (uri: FakeUri, label: string) =>
+        anchors.push([uri.toString(), label]),
+      button: (button: any) => buttons.push(button),
+    };
+    const previewStore = {
+      put: (...args: any[]) => puts.push(args),
+    };
+    const reply = {
+      kind: 'preview',
+      text: 'Canonical preview',
+      sessionId: 'session-1',
+      changeSetId: 'change-1',
+      changedDefinitions: [{
+        ref: 'customer.Customer@1',
+        location: { uri: 'file:///workspace/customer.mdl' },
+      }],
+      affectedDefinitions: [{
+        ref: 'billing.Bill@1',
+        location: { uri: 'file:///workspace/billing.mdl' },
+      }],
+      previewFiles: [{
+        uri: 'file:///workspace/customer.mdl',
+        existedBefore: true,
+        beforeText: 'before',
+        afterText: 'after',
+      }],
+    };
+
+    renderReply(
+      reply,
+      stream,
+      fakeVscode({ folders: [] }),
+      previewStore,
+    );
+
+    assert.deepStrictEqual(markdown, ['Canonical preview']);
+    assert.deepStrictEqual(anchors, [
+      ['file:///workspace/customer.mdl', 'customer.Customer@1'],
+      ['file:///workspace/billing.mdl', 'billing.Bill@1'],
+    ]);
+    assert.strictEqual(puts.length, 1);
+    assert.strictEqual(buttons.length, 1);
+    assert.deepStrictEqual(buttons[0], {
+      command: 'modelable.conversation.viewDiff',
+      title: 'View Diff',
+      arguments: [{
+        sessionId: 'session-1',
+        changeSetId: 'change-1',
+      }],
+    });
+    assert.strictEqual(
+      JSON.stringify(buttons[0]).includes('before'),
+      false,
+    );
+  });
+
+  test('plain answers do not cache preview content', () => {
+    const previewStore = {
+      put: () => assert.fail('plain replies must not register snapshots'),
+    };
+
+    renderReply(
+      {
+        kind: 'answer',
+        text: 'Grounded answer',
+        changedDefinitions: [],
+        affectedDefinitions: [],
+        previewFiles: [],
+      },
+      { markdown() {}, anchor() {}, button() {} },
+      fakeVscode({ folders: [] }),
+      previewStore,
+    );
+  });
+
+  test('preview results offer native apply and discard followups', () => {
+    const participant: any = { dispose() {} };
+    const vscodeApi = {
+      chat: {
+        createChatParticipant: () => participant,
+      },
+    };
+    registerConversationParticipant(
+      vscodeApi,
+      { turn: async () => undefined },
+      {
+        capabilities: {
+          experimental: {
+            modelableConversation: { protocolVersion: 1 },
+          },
+        },
+      },
+    );
+
+    assert.deepStrictEqual(
+      participant.followupProvider.provideFollowups({
+        metadata: {
+          modelable: {
+            protocolVersion: 1,
+            kind: 'preview',
+            sessionId: 'session-1',
+            workspaceUri: 'file:///workspace',
+            changeSetId: 'change-1',
+          },
+        },
+      }),
+      [
+        {
+          prompt: '',
+          label: 'Apply change set',
+          participant: 'modelable-vscode.modelable',
+          command: 'apply',
+        },
+        {
+          prompt: '',
+          label: 'Discard',
+          participant: 'modelable-vscode.modelable',
+          command: 'discard',
+        },
+      ],
+    );
+    assert.deepStrictEqual(
+      participant.followupProvider.provideFollowups({
+        metadata: { modelable: { kind: 'answer' } },
+      }),
+      [],
+    );
+  });
+
+  test('apply, discard, and reset route exact metadata and clean successful previews', async () => {
+    let handler: Function | undefined;
+    const vscodeApi = {
+      Uri: {
+        parse: (value: string) => new FakeUri(value.slice('file://'.length)),
+      },
+      chat: {
+        createChatParticipant: (_id: string, value: Function) => {
+          handler = value;
+          return { dispose() {} };
+        },
+      },
+    };
+    const calls: any[] = [];
+    const conversationClient = {
+      dirtyDocumentUris: (workspaceUri: string) => {
+        calls.push(['dirty', workspaceUri]);
+        return [new FakeUri('/workspace/customer.mdl')];
+      },
+      apply: async (metadata: any, dirty: FakeUri[], token: object) => {
+        calls.push(['apply', metadata, dirty, token]);
+        return {
+          kind: 'applied',
+          text: 'Applied.',
+          sessionId: metadata.sessionId,
+          workspaceUri: metadata.workspaceUri,
+          changeSetId: metadata.changeSetId,
+        };
+      },
+      discard: async (metadata: any, token: object) => {
+        calls.push(['discard', metadata, token]);
+        return {
+          kind: 'discarded',
+          text: 'Discarded.',
+          sessionId: metadata.sessionId,
+          workspaceUri: metadata.workspaceUri,
+          changeSetId: metadata.changeSetId,
+        };
+      },
+      close: async (sessionId: string) => {
+        calls.push(['close', sessionId]);
+      },
+    };
+    const deleted: any[] = [];
+    const previewStore = {
+      deleteChangeSet: (...args: any[]) => deleted.push(['change', ...args]),
+      deleteSession: (...args: any[]) => deleted.push(['session', ...args]),
+    };
+    registerConversationParticipant(
+      vscodeApi,
+      conversationClient,
+      {
+        capabilities: {
+          experimental: {
+            modelableConversation: { protocolVersion: 1 },
+          },
+        },
+      },
+      previewStore,
+    );
+    assert.ok(handler);
+    const metadata = {
+      protocolVersion: 1,
+      sessionId: 'session-1',
+      workspaceUri: 'file:///workspace',
+      changeSetId: 'change-1',
+      kind: 'preview',
+    };
+    const context = {
+      history: [{ result: { metadata: { modelable: metadata } } }],
+    };
+    const stream = { markdown() {}, anchor() {}, button() {} };
+    const token = {};
+
+    await handler!({ command: 'apply', prompt: '' }, context, stream, token);
+    await handler!({ command: 'discard', prompt: '' }, context, stream, token);
+    const reset = await handler!(
+      { command: 'reset', prompt: '' },
+      context,
+      stream,
+      token,
+    );
+
+    assert.deepStrictEqual(calls, [
+      ['dirty', 'file:///workspace'],
+      [
+        'apply',
+        metadata,
+        [new FakeUri('/workspace/customer.mdl')],
+        token,
+      ],
+      ['discard', metadata, token],
+      ['close', 'session-1'],
+    ]);
+    assert.deepStrictEqual(deleted, [
+      ['change', 'session-1', 'change-1'],
+      ['change', 'session-1', 'change-1'],
+      ['session', 'session-1'],
+    ]);
+    assert.strictEqual(
+      Object.prototype.hasOwnProperty.call(
+        reset.metadata.modelable,
+        'sessionId',
+      ),
+      false,
+    );
+  });
+
+  test('failed apply retains cached preview content', async () => {
+    let handler: Function | undefined;
+    const previewStore = {
+      deleteChangeSet: () => assert.fail('failed apply must retain preview'),
+    };
+    registerConversationParticipant(
+      {
+        chat: {
+          createChatParticipant: (_id: string, value: Function) => {
+            handler = value;
+            return { dispose() {} };
+          },
+        },
+      },
+      {
+        dirtyDocumentUris: () => [],
+        apply: async () => {
+          throw new Error('Change set old-id is not the current pending change set.');
+        },
+      },
+      {
+        capabilities: {
+          experimental: {
+            modelableConversation: { protocolVersion: 1 },
+          },
+        },
+      },
+      previewStore,
+    );
+    const result = await handler!(
+      { command: 'apply', prompt: '' },
+      {
+        history: [{
+          result: {
+            metadata: {
+              modelable: {
+                protocolVersion: 1,
+                sessionId: 'session-1',
+                workspaceUri: 'file:///workspace',
+                changeSetId: 'old-id',
+              },
+            },
+          },
+        }],
+      },
+      { markdown() {}, anchor() {}, button() {} },
+      {},
+    );
+
+    assert.match(result.errorDetails.message, /current pending change set/i);
+  });
 });
 
 class FakeUri {
@@ -394,6 +743,11 @@ function fakeVscode(options: {
 
   return {
     Uri: {
+      parse: (value: string) => (
+        value.startsWith('file://')
+          ? new FakeUri(value.slice('file://'.length))
+          : new FakeUri(value)
+      ),
       joinPath: (base: FakeUri, ...segments: string[]) =>
         new FakeUri(path.posix.join(base.fsPath, ...segments)),
     },

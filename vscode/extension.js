@@ -10,6 +10,7 @@ const { ConversationClient } = require('./conversationClient');
 const {
   registerConversationParticipant,
 } = require('./conversationParticipant');
+const { PreviewStore } = require('./conversationPreview');
 
 let client;
 let conversationClient;
@@ -97,10 +98,20 @@ async function activate(context) {
 
   client = nextClient;
   conversationClient = new ConversationClient(nextClient);
+  const previewStore = new PreviewStore(vscode);
   const participant = registerConversationParticipant(
     vscode,
     conversationClient,
     nextClient.initializeResult,
+    previewStore,
+  );
+  const previewProvider = vscode.workspace.registerTextDocumentContentProvider(
+    'modelable-preview',
+    previewStore,
+  );
+  const viewDiffCommand = vscode.commands.registerCommand(
+    'modelable.conversation.viewDiff',
+    args => previewStore.showDiff(args.sessionId, args.changeSetId),
   );
   const conversationCleanup = {
     dispose() {
@@ -111,6 +122,8 @@ async function activate(context) {
     client,
     outputChannel,
     participant,
+    previewProvider,
+    viewDiffCommand,
     conversationCleanup,
   );
 }

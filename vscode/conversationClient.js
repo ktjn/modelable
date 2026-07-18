@@ -158,6 +158,10 @@ class ConversationClient {
     );
   }
 
+  dirtyDocumentUris(workspaceUri) {
+    return collectDirtyDocumentUris(this.vscode, workspaceUri);
+  }
+
   async close(sessionId) {
     try {
       await this.languageClient.sendRequest(CLOSE_METHOD, {
@@ -175,6 +179,18 @@ class ConversationClient {
   }
 }
 
+function collectDirtyDocumentUris(vscodeApi, workspaceUri) {
+  return (vscodeApi.workspace.textDocuments ?? [])
+    .filter(document => (
+      document.isDirty &&
+      document.languageId === 'mdl' &&
+      vscodeApi.workspace.getWorkspaceFolder(document.uri)?.uri.toString() ===
+        workspaceUri
+    ))
+    .map(document => document.uri)
+    .sort((left, right) => left.toString().localeCompare(right.toString()));
+}
+
 module.exports = {
   APPLY_METHOD,
   CLOSE_METHOD,
@@ -183,6 +199,7 @@ module.exports = {
   DISCARD_METHOD,
   PROTOCOL_VERSION,
   TURN_METHOD,
+  collectDirtyDocumentUris,
   recoverSessionMetadata,
   resolveConversationContext,
 };
