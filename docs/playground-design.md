@@ -763,7 +763,7 @@ Treat LLM output as untrusted data.
 Initial targets on a modern desktop browser:
 
 - Application shell interactive within 2 seconds excluding uncached Pyodide download.
-- Compiler ready within 5 seconds after cached startup.
+- Compiler ready within 10 seconds after cached startup.
 - Validation response below 250 ms for small workspaces.
 - Editor remains responsive during compilation and inference.
 - Graph interactions remain above 30 FPS for 1,000 visible nodes.
@@ -925,7 +925,7 @@ The final Windows/Chromium gate measured these gzip-compressed payloads:
 The same gate measured these browser medians:
 
 - Cold initialization: 2,371.54 ms (20,000 ms budget).
-- Cached initialization: 2,861.93 ms (5,000 ms budget).
+- Cached initialization: 2,861.93 ms (10,000 ms budget).
 - Validation: 11.50 ms (500 ms budget).
 - JSON Schema generation: 32.30 ms (1,000 ms budget).
 

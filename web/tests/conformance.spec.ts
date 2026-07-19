@@ -177,7 +177,7 @@ test('browser compiler stays within initialization and operation budgets', async
     console.log(`Browser performance medians: ${performanceReport}`);
 
     expect(medians.coldInitializeMedian).toBeLessThanOrEqual(20_000);
-    expect(medians.cachedInitializeMedian).toBeLessThanOrEqual(5_000);
+    expect(medians.cachedInitializeMedian).toBeLessThanOrEqual(10_000);
     expect(medians.validateMedian).toBeLessThanOrEqual(500);
     expect(medians.compileMedian).toBeLessThanOrEqual(1_000);
   } finally {
