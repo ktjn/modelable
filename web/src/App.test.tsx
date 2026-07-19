@@ -333,6 +333,77 @@ describe('App', () => {
     expect(screen.getByRole('status').textContent).toMatch(/compiler ready/i);
   });
 
+  test('recovers with retained editor state after a BFCache restoration', async () => {
+    const firstClient = new FakeCompilerClient();
+    const secondClient = new FakeCompilerClient();
+    const createClient = vi
+      .fn()
+      .mockReturnValueOnce(firstClient)
+      .mockReturnValueOnce(secondClient);
+    const { unmount } = render(<App createClient={createClient} />);
+    await initialize(firstClient);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+    const generation = latestRequest(firstClient.compileRequests);
+    await act(async () => {
+      generation.resolve({
+        diagnostics: [],
+        artifacts: [
+          {
+            path: 'customer.schema.json',
+            media_type: 'application/schema+json',
+            content: '{"title":"Customer"}',
+            source_refs: ['file:///main.mdl'],
+          },
+        ],
+      });
+      await generation.promise;
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Model source' }), {
+      target: { value: 'record Restored {}' },
+    });
+
+    const pagehide = new Event('pagehide');
+    Object.defineProperty(pagehide, 'persisted', { value: true });
+    const pageshow = new Event('pageshow');
+    Object.defineProperty(pageshow, 'persisted', { value: true });
+    act(() => {
+      window.dispatchEvent(pagehide);
+      window.dispatchEvent(pageshow);
+      window.dispatchEvent(pageshow);
+    });
+
+    expect(firstClient.dispose).toHaveBeenCalledTimes(1);
+    expect(createClient).toHaveBeenCalledTimes(2);
+    expect(
+      (screen.getByRole('button', { name: 'Validate' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen.getByRole('textbox', {
+          name: 'Model source',
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toBe('record Restored {}');
+    expect(screen.getByLabelText('Artifact output').textContent).toBe(
+      '{"title":"Customer"}',
+    );
+    expect(screen.getByText(/artifact is stale/i)).toBeTruthy();
+
+    await initialize(secondClient);
+    expect(
+      (screen.getByRole('button', { name: 'Validate' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+
+    unmount();
+    expect(firstClient.dispose).toHaveBeenCalledTimes(1);
+    expect(secondClient.dispose).toHaveBeenCalledTimes(1);
+    window.dispatchEvent(pageshow);
+    expect(createClient).toHaveBeenCalledTimes(2);
+  });
+
   test('provides a focusable target for the skip link', () => {
     const client = new FakeCompilerClient();
     const template = document.createElement('template');

@@ -53,6 +53,7 @@ export function App({
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const operationPendingRef = useRef(false);
+  const recoveryPendingRef = useRef(false);
   const revisionRef = useRef(initialAppState.revision);
 
   useEffect(() => {
@@ -81,7 +82,20 @@ export function App({
         delete exposedGlobal.__modelableBrowserCompiler;
       }
     };
-    window.addEventListener('pagehide', dispose);
+    const handlePageHide = (event: PageTransitionEvent): void => {
+      recoveryPendingRef.current = event.persisted;
+      dispose();
+    };
+    const handlePageShow = (event: PageTransitionEvent): void => {
+      if (!event.persisted || !recoveryPendingRef.current) {
+        return;
+      }
+      recoveryPendingRef.current = false;
+      dispatch({ type: 'retryRequested' });
+      setClientAttempt((attempt) => attempt + 1);
+    };
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('pageshow', handlePageShow);
 
     void client.initialize().then(
       () => {
@@ -101,7 +115,8 @@ export function App({
     );
 
     return () => {
-      window.removeEventListener('pagehide', dispose);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('pageshow', handlePageShow);
       dispose();
     };
   }, [clientAttempt, createClient, now]);
