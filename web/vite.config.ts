@@ -6,13 +6,20 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         manualChunks(id) {
           return id.includes('/node_modules/monaco-editor/')
             ? 'monaco'
             : undefined;
         },
+      },
+    },
+  },
+  worker: {
+    rolldownOptions: {
+      output: {
+        entryFileNames: 'assets/[name]-[hash].js',
       },
     },
   },

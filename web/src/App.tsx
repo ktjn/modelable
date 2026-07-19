@@ -74,6 +74,7 @@ export function App({
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [clientAttempt, setClientAttempt] = useState(0);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [statusIsError, setStatusIsError] = useState(false);
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const sourceFileInputRef = useRef<HTMLInputElement>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
@@ -135,11 +136,13 @@ export function App({
     void client.initialize().then(
       () => {
         if (clientRef.current === client) {
+          setStatusIsError(false);
           dispatch({ type: 'initialized', duration: now() - startedAt });
         }
       },
       (error: unknown) => {
         if (clientRef.current === client) {
+          setStatusIsError(true);
           dispatch({
             type: 'runtimeFailed',
             message: asCompilerError(error).message,
@@ -171,6 +174,7 @@ export function App({
       const revision = source.version;
       const startedAt = now();
       operationPendingRef.current = true;
+      setStatusIsError(false);
       dispatch({ type: 'operationStarted', operation, revision });
 
       try {
@@ -183,6 +187,7 @@ export function App({
             diagnostics: result.diagnostics,
             duration: now() - startedAt,
           });
+          setStatusIsError(false);
           return;
         }
         if (operation === 'format') {
@@ -201,6 +206,7 @@ export function App({
             diagnostics: result.diagnostics,
             duration: now() - startedAt,
           });
+          setStatusIsError(false);
           return;
         }
 
@@ -210,6 +216,7 @@ export function App({
           hasErrorDiagnostics(result.diagnostics) ||
           result.artifacts.length === 0
         ) {
+          setStatusIsError(true);
           dispatch({
             type: 'operationFailed',
             operation,
@@ -220,6 +227,7 @@ export function App({
           });
           return;
         }
+        setStatusIsError(false);
         dispatch({
           type: 'operationSucceeded',
           operation,
@@ -231,6 +239,7 @@ export function App({
       } catch (error: unknown) {
         const compilerError = asCompilerError(error);
         const duration = now() - startedAt;
+        setStatusIsError(true);
         if (compilerError.code === 'COMPILER_FAILED') {
           dispatch({
             type: 'runtimeFailed',
@@ -253,11 +262,62 @@ export function App({
     [now, state.runtime],
   );
 
+  const handleValidate = useCallback((): void => {
+    void runOperation('validate');
+  }, [runOperation]);
+  const handleFormat = useCallback((): void => {
+    void runOperation('format');
+  }, [runOperation]);
+  const handleGenerate = useCallback((): void => {
+    void runOperation('generate');
+  }, [runOperation]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (
+        state.runtime !== 'ready' ||
+        operationPendingRef.current
+      ) {
+        return;
+      }
+      const commandModifier = event.ctrlKey || event.metaKey;
+      if (
+        commandModifier &&
+        event.shiftKey &&
+        event.key === 'Enter'
+      ) {
+        event.preventDefault();
+        handleValidate();
+        return;
+      }
+      if (
+        event.shiftKey &&
+        event.altKey &&
+        event.code === 'KeyF'
+      ) {
+        event.preventDefault();
+        handleFormat();
+        return;
+      }
+      if (
+        commandModifier &&
+        !event.shiftKey &&
+        event.key === 'Enter'
+      ) {
+        event.preventDefault();
+        handleGenerate();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleFormat, handleGenerate, handleValidate, state.runtime]);
+
   const retryCompiler = (): void => {
     const client = clientRef.current;
     clientRef.current = null;
     client?.dispose();
     operationPendingRef.current = false;
+    setStatusIsError(false);
     dispatch({ type: 'retryRequested' });
     setClientAttempt((attempt) => attempt + 1);
   };
@@ -333,23 +393,22 @@ export function App({
   }`;
 
   return (
-    <main className="workbench">
+    <main className="workbench" data-state={state.runtime}>
       <header className="workbench-header">
         <div>
           <p className="eyebrow">Local schema workbench</p>
           <h1>Modelable playground</h1>
         </div>
-        <p role="status" aria-live="polite">
-          {state.status} · {diagnosticLabel}
-        </p>
-        <p className="timings">
-          {state.initializationDuration === null
-            ? null
-            : `Initialized in ${state.initializationDuration.toFixed(0)} ms`}
-          {state.lastOperationDuration === null
-            ? null
-            : ` · Last operation ${state.lastOperationDuration.toFixed(0)} ms`}
-        </p>
+        <div className="state-block">
+          <span className="state-signal" aria-hidden="true" />
+          <p
+            className="status"
+            role={statusIsError ? 'alert' : 'status'}
+            aria-live={statusIsError ? 'assertive' : 'polite'}
+          >
+            {state.status} · {diagnosticLabel}
+          </p>
+        </div>
       </header>
       <nav className="toolbar" aria-label="Playground actions">
         <input
@@ -373,23 +432,26 @@ export function App({
         <button
           type="button"
           disabled={actionsDisabled}
-          onClick={() => void runOperation('validate')}
+          aria-keyshortcuts="Control+Shift+Enter Meta+Shift+Enter"
+          onClick={handleValidate}
         >
           Validate
         </button>
         <button
           type="button"
           disabled={actionsDisabled}
-          onClick={() => void runOperation('format')}
+          aria-keyshortcuts="Shift+Alt+F"
+          onClick={handleFormat}
         >
           Format
         </button>
         <button
           type="button"
           disabled={actionsDisabled}
-          onClick={() => void runOperation('generate')}
+          aria-keyshortcuts="Control+Enter Meta+Enter"
+          onClick={handleGenerate}
         >
-          Generate
+          Generate JSON Schema
         </button>
         <button
           type="button"
@@ -413,22 +475,82 @@ export function App({
           </button>
         ) : null}
       </nav>
-      {fileError === null ? null : <p role="alert">{fileError}</p>}
+      {fileError === null ? null : (
+        <p className="error-label" role="alert">
+          File error: {fileError}
+        </p>
+      )}
       <section className="workspace" aria-label="Single-file workspace">
-        <section id="source-editor" aria-label="Modelable source" tabIndex={-1}>
+        <section
+          className="source-pane"
+          id="source-editor"
+          aria-label="Modelable source"
+          tabIndex={-1}
+          onFocus={(event) => {
+            if (event.target === event.currentTarget) {
+              sourceEditorRef.current?.focus();
+            }
+          }}
+        >
+          <div className="pane-heading">
+            <div>
+              <p className="pane-index">Source 01</p>
+              <h2>Modelable source</h2>
+            </div>
+            <p className="local-note">Runs locally in this browser</p>
+          </div>
           <SourceEditor
             ref={sourceEditorRef}
             initialValue={initialSource}
             markers={normalizedDiagnostics.markers}
             onRevisionChange={(revision) => {
               revisionRef.current = revision;
+              setStatusIsError(false);
               dispatch({ type: 'revisionChanged', revision });
             }}
           />
+          <section
+            className="diagnostics"
+            aria-label="Document diagnostics"
+            data-testid="diagnostics"
+          >
+            <h3>Diagnostics</h3>
+            {state.diagnostics.length > 0 ? (
+              <ul>
+                {state.diagnostics.map((diagnostic, index) => (
+                  <li key={`${diagnostic.code}-${index}`}>
+                    <strong>{diagnostic.code}</strong>{' '}
+                    {diagnostic.message}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No diagnostics</p>
+            )}
+          </section>
         </section>
-        <section aria-label="Generated JSON Schema">
+        <section
+          className="artifact-pane"
+          aria-label="Generated JSON Schema"
+          data-testid="artifacts"
+        >
+          <div className="pane-heading">
+            <div>
+              <p className="pane-index">Artifact 02</p>
+              <h2>Generated JSON Schema</h2>
+            </div>
+            {artifactIsStale ? (
+              <p className="stale-label">
+                Stale—source changed after generation
+              </p>
+            ) : (
+              <p className="fresh-label">
+                {selectedArtifact === null ? 'No artifact yet' : 'Current'}
+              </p>
+            )}
+          </div>
           {state.artifacts.length > 1 ? (
-            <label>
+            <label className="artifact-picker">
               Artifact
               <select
                 value={state.selectedArtifactPath ?? ''}
@@ -447,25 +569,23 @@ export function App({
               </select>
             </label>
           ) : null}
-          {artifactIsStale ? (
-            <p>Stale—source changed after generation</p>
-          ) : null}
           <ArtifactEditor value={selectedArtifact?.content ?? ''} />
         </section>
       </section>
-      {normalizedDiagnostics.documentDiagnostics.length > 0 ? (
-        <section aria-label="Document diagnostics">
-          <ul>
-            {normalizedDiagnostics.documentDiagnostics.map(
-              (diagnostic, index) => (
-                <li key={`${diagnostic.code}-${index}`}>
-                  {diagnostic.message}
-                </li>
-              ),
-            )}
-          </ul>
-        </section>
-      ) : null}
+      <footer className="metrics-strip" data-testid="metrics">
+        <p className="metrics-label">Browser compiler timing</p>
+        <p className="timings">
+          Initialization{' '}
+          {state.initializationDuration === null
+            ? 'pending'
+            : `${state.initializationDuration.toFixed(1)} ms`}
+          {' · '}Operation{' '}
+          {state.lastOperationDuration === null
+            ? 'not run'
+            : `${state.lastOperationDuration.toFixed(1)} ms`}
+        </p>
+        <p className="privacy-note">No source leaves this page</p>
+      </footer>
     </main>
   );
 }

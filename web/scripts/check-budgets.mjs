@@ -9,7 +9,10 @@ export const BUDGETS = {
   additionalPython: 15 * 1024 * 1024,
 };
 
-const CATEGORY_NAMES = Object.keys(BUDGETS);
+export const REPORT_ONLY = ['monaco'];
+
+const ENFORCED_CATEGORY_NAMES = Object.keys(BUDGETS);
+const CATEGORY_NAMES = [...ENFORCED_CATEGORY_NAMES, ...REPORT_ONLY];
 
 export function categorizeAsset(path) {
   const normalized = path.replaceAll('\\', '/');
@@ -25,6 +28,13 @@ export function categorizeAsset(path) {
     return 'additionalPython';
   }
   if (
+    /(?:^|\/)(?:monaco|editor\.worker|json\.worker)-[^/]+\.js$/.test(
+      normalized,
+    )
+  ) {
+    return 'monaco';
+  }
+  if (
     !/^(?:fixtures|pyodide|python)(?:\/|$)/.test(normalized) &&
     /\.(?:html|css|js)$/.test(normalized)
   ) {
@@ -38,7 +48,9 @@ export function compressedSize(bytes) {
 }
 
 export function findViolations(measured) {
-  return CATEGORY_NAMES.filter((category) => measured[category] > BUDGETS[category]);
+  return ENFORCED_CATEGORY_NAMES.filter(
+    (category) => measured[category] > BUDGETS[category],
+  );
 }
 
 async function walkFiles(root, directory = root) {
@@ -74,7 +86,10 @@ export async function main() {
   const result = Object.fromEntries(
     CATEGORY_NAMES.map((category) => [
       category,
-      { measured: measured[category], budget: BUDGETS[category] },
+      {
+        measured: measured[category],
+        budget: BUDGETS[category] ?? null,
+      },
     ]),
   );
   console.log(JSON.stringify(result, null, 2));

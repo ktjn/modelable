@@ -10,6 +10,7 @@ import * as budgetChecker from '../scripts/check-budgets.mjs';
 
 const {
   BUDGETS,
+  REPORT_ONLY,
   categorizeAsset,
   compressedSize,
   findViolations,
@@ -33,6 +34,19 @@ afterEach(async () => {
 });
 
 describe('browser asset budgets', () => {
+  test('reports named Monaco bundles outside the enforced application budget', () => {
+    expect(REPORT_ONLY).toEqual(['monaco']);
+    for (const path of [
+      'assets/monaco-ABC.js',
+      'assets/editor.worker-ABC.js',
+      'assets/json.worker-ABC.js',
+      'chunks/workers/editor.worker-ABC.js',
+    ]) {
+      expect(categorizeAsset(path)).toBe('monaco');
+    }
+    expect(categorizeAsset('assets/monaco-ABC.css')).toBe('application');
+  });
+
   test.each([
     ['python/modelable_browser-1.2.1-py3-none-any.whl', 'modelableWheel'],
     ['python/releases/modelable_browser-1.2.1-py3-none-any.whl', 'modelableWheel'],
@@ -76,6 +90,7 @@ describe('browser asset budgets', () => {
       modelableWheel: BUDGETS.modelableWheel + 1,
       application: BUDGETS.application,
       additionalPython: BUDGETS.additionalPython + 42,
+      monaco: Number.MAX_SAFE_INTEGER,
     };
 
     expect(findViolations(measured)).toEqual([
@@ -84,11 +99,29 @@ describe('browser asset budgets', () => {
     ]);
   });
 
+  test('Monaco size can never hide an enforced application violation', () => {
+    const measured = {
+      modelableWheel: BUDGETS.modelableWheel,
+      application: BUDGETS.application + 1,
+      additionalPython: BUDGETS.additionalPython,
+      monaco: 0,
+    };
+
+    expect(findViolations(measured)).toEqual(['application']);
+  });
+
   test('measures recursive application and Python assets with exact per-file gzip totals', async () => {
     const root = await temporaryDirectory();
     const assets = {
       'pages/nested/index.html': Buffer.from('<main>nested app</main>'),
       'chunks/nested/index-ABC.js': Buffer.from('export const nested = true;'),
+      'chunks/nested/monaco-ABC.js': Buffer.from('export const monaco = true;'),
+      'workers/editor.worker-ABC.js': Buffer.from(
+        'self.onmessage = () => "editor";',
+      ),
+      'workers/json.worker-ABC.js': Buffer.from(
+        'self.onmessage = () => "json";',
+      ),
       'workers/compiler/nested-worker.js': Buffer.from('self.onmessage = () => {};'),
       'styles/themes/index-ABC.css': Buffer.from('main { color: rebeccapurple; }'),
       'python/releases/modelable_browser-1.2.1-py3-none-any.whl':
@@ -123,6 +156,11 @@ describe('browser asset budgets', () => {
           'pyodide/packages/pydantic/pydantic-2.12.5-py3-none-any.whl'
         ],
       ].reduce((total, bytes) => total + gzipSync(bytes).byteLength, 0),
+      monaco: [
+        assets['chunks/nested/monaco-ABC.js'],
+        assets['workers/editor.worker-ABC.js'],
+        assets['workers/json.worker-ABC.js'],
+      ].reduce((total, bytes) => total + gzipSync(bytes).byteLength, 0),
     });
   });
 
@@ -148,6 +186,7 @@ describe('browser asset budgets', () => {
       modelableWheel: 0,
       application: gzipSync(Buffer.from('inside')).byteLength,
       additionalPython: 0,
+      monaco: 0,
     });
   });
 });

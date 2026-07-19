@@ -16,6 +16,16 @@ const scenarios = {
 } as const;
 
 test('browser compiler matches every native snapshot', async ({ page }) => {
+  const nonLocalRequests: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      url.origin !== 'http://127.0.0.1:4173'
+    ) {
+      nonLocalRequests.push(url.href);
+    }
+  });
   await page.goto('?test=1');
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
     timeout: 30_000,
@@ -58,6 +68,7 @@ test('browser compiler matches every native snapshot', async ({ page }) => {
 
     expect(sortObject(actual)).toEqual(sortObject(expectedSnapshot));
   }
+  expect(nonLocalRequests).toEqual([]);
 });
 
 test('browser compiler stays within initialization and operation budgets', async ({

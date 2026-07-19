@@ -23,6 +23,7 @@ import type {
 
 const sourceEditorSpies = vi.hoisted(() => ({
   applyFormattedText: vi.fn(),
+  focus: vi.fn(),
 }));
 
 vi.mock('./editor/SourceEditor', async () => {
@@ -69,7 +70,9 @@ vi.mock('./editor/SourceEditor', async () => {
           versionRef.current += 1;
           onRevisionChange(versionRef.current);
         },
-        focus() {},
+        focus() {
+          sourceEditorSpies.focus();
+        },
       }));
 
       return (
@@ -202,7 +205,9 @@ async function generateArtifacts(
   client: FakeCompilerClient,
   artifacts: BrowserCompileResult['artifacts'],
 ): Promise<void> {
-  fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Generate JSON Schema' }),
+  );
   const request = latestRequest(client.compileRequests);
   await act(async () => {
     request.resolve({ diagnostics: [], artifacts });
@@ -213,6 +218,7 @@ async function generateArtifacts(
 afterEach(() => {
   cleanup();
   sourceEditorSpies.applyFormattedText.mockReset();
+  sourceEditorSpies.focus.mockReset();
 });
 
 describe('App', () => {
@@ -220,7 +226,7 @@ describe('App', () => {
     const client = new FakeCompilerClient();
     render(<App createClient={() => client} now={() => 10} />);
 
-    for (const name of ['Validate', 'Format', 'Generate']) {
+    for (const name of ['Validate', 'Format', 'Generate JSON Schema']) {
       expect(
         (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
       ).toBe(true);
@@ -231,7 +237,7 @@ describe('App', () => {
 
     await initialize(client);
 
-    for (const name of ['Validate', 'Format', 'Generate']) {
+    for (const name of ['Validate', 'Format', 'Generate JSON Schema']) {
       expect(
         (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
       ).toBe(false);
@@ -248,11 +254,131 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
 
     expect(client.openWorkspace).toHaveBeenCalledTimes(1);
-    for (const name of ['Validate', 'Format', 'Generate']) {
+    for (const name of ['Validate', 'Format', 'Generate JSON Schema']) {
       expect(
         (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
       ).toBe(true);
     }
+  });
+
+  test('runs enabled compiler commands through their keyboard shortcuts', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.keyDown(window, {
+      key: 'Enter',
+      code: 'Enter',
+      ctrlKey: true,
+      shiftKey: true,
+    });
+    expect(client.openWorkspace).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      const request = latestRequest(client.workspaceRequests);
+      request.resolve({ diagnostics: [], source_hashes: {} });
+      await request.promise;
+    });
+
+    fireEvent.keyDown(window, {
+      key: 'F',
+      code: 'KeyF',
+      altKey: true,
+      shiftKey: true,
+    });
+    expect(client.formatSource).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      const request = latestRequest(client.formatRequests);
+      request.resolve({ diagnostics: [], replacement_text: null });
+      await request.promise;
+    });
+
+    fireEvent.keyDown(window, {
+      key: 'Enter',
+      code: 'Enter',
+      ctrlKey: true,
+    });
+    expect(client.compileJsonSchema).toHaveBeenCalledTimes(1);
+  });
+
+  test('ignores keyboard shortcuts while the compiler is loading or working', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+
+    fireEvent.keyDown(window, {
+      key: 'Enter',
+      code: 'Enter',
+      ctrlKey: true,
+      shiftKey: true,
+    });
+    expect(client.openWorkspace).not.toHaveBeenCalled();
+
+    await initialize(client);
+    fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
+    expect(client.openWorkspace).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(window, {
+      key: 'F',
+      code: 'KeyF',
+      altKey: true,
+      shiftKey: true,
+    });
+    fireEvent.keyDown(window, {
+      key: 'Enter',
+      code: 'Enter',
+      ctrlKey: true,
+    });
+    expect(client.formatSource).not.toHaveBeenCalled();
+    expect(client.compileJsonSchema).not.toHaveBeenCalled();
+  });
+
+  test('exposes visible toolbar names and command shortcuts', () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+
+    const shortcuts = new Map([
+      ['Validate', 'Control+Shift+Enter Meta+Shift+Enter'],
+      ['Format', 'Shift+Alt+F'],
+      ['Generate JSON Schema', 'Control+Enter Meta+Enter'],
+    ]);
+    for (const button of screen.getAllByRole('button')) {
+      expect(button.textContent?.trim()).not.toBe('');
+      const expectedShortcut = shortcuts.get(button.textContent?.trim() ?? '');
+      if (expectedShortcut !== undefined) {
+        expect(button.getAttribute('aria-keyshortcuts')).toBe(expectedShortcut);
+      }
+    }
+    expect(shortcuts.size).toBe(3);
+  });
+
+  test('announces operation failures as alerts', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
+    const request = latestRequest(client.workspaceRequests);
+    await act(async () => {
+      request.reject(
+        new BrowserCompilerError(
+          'INVALID_REQUEST',
+          'Validation request failed',
+        ),
+      );
+      await expect(request.promise).rejects.toThrow(
+        'Validation request failed',
+      );
+    });
+
+    expect(screen.getByRole('alert').textContent).toMatch(
+      /validation request failed/i,
+    );
+    expect(screen.queryByRole('status')).toBeNull();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Model source' }), {
+      target: { value: 'record Recovered {}' },
+    });
+    expect(screen.getByRole('status').textContent).toMatch(/source changed/i);
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   test('renders validation diagnostics from the current revision', async () => {
@@ -590,7 +716,9 @@ describe('App', () => {
     render(<App createClient={() => client} />);
     await initialize(client);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate JSON Schema' }),
+    );
     const initialRequest = latestRequest(client.compileRequests);
     await act(async () => {
       initialRequest.resolve({
@@ -609,7 +737,9 @@ describe('App', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Model source' }), {
       target: { value: 'record Edited {}' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate JSON Schema' }),
+    );
     const failedRequest = latestRequest(client.compileRequests);
     await act(async () => {
       failedRequest.resolve({
@@ -770,7 +900,9 @@ describe('App', () => {
     const { unmount } = render(<App createClient={createClient} />);
     await initialize(firstClient);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate JSON Schema' }),
+    );
     const generation = latestRequest(firstClient.compileRequests);
     await act(async () => {
       generation.resolve({
@@ -833,7 +965,7 @@ describe('App', () => {
     expect(createClient).toHaveBeenCalledTimes(2);
   });
 
-  test('provides a focusable target for the skip link', () => {
+  test('routes the skip link target to the source editor focus handle', () => {
     const client = new FakeCompilerClient();
     const template = document.createElement('template');
     template.innerHTML = indexHtml;
@@ -850,5 +982,6 @@ describe('App', () => {
 
     target?.focus();
     expect(document.activeElement).toBe(target);
+    expect(sourceEditorSpies.focus).toHaveBeenCalledTimes(1);
   });
 });
