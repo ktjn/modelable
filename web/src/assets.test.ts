@@ -270,6 +270,7 @@ describe('same-origin Python assets', () => {
     const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
     expect(html).toContain("script-src 'self' 'wasm-unsafe-eval'");
+    expect(html).toContain("font-src 'self' data:");
     expect(html).toContain("worker-src 'self'");
     expect(html).toContain("connect-src 'self'");
     expect(html).toContain("object-src 'none'");
