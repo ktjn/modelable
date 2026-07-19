@@ -6,6 +6,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
@@ -159,6 +160,31 @@ async function initialize(client: FakeCompilerClient): Promise<void> {
   });
 }
 
+async function importSource(file: File): Promise<void> {
+  const input = document.querySelector<HTMLInputElement>(
+    'input[type="file"]',
+  );
+  if (input === null) {
+    throw new Error('Expected a source file input');
+  }
+  fireEvent.change(input, { target: { files: [file] } });
+  await waitFor(() => {
+    expect(input.value).toBe('');
+  });
+}
+
+async function generateArtifacts(
+  client: FakeCompilerClient,
+  artifacts: BrowserCompileResult['artifacts'],
+): Promise<void> {
+  fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+  const request = latestRequest(client.compileRequests);
+  await act(async () => {
+    request.resolve({ diagnostics: [], artifacts });
+    await request.promise;
+  });
+}
+
 afterEach(() => {
   cleanup();
   sourceEditorSpies.applyFormattedText.mockReset();
@@ -221,6 +247,84 @@ describe('App', () => {
 
     expect(screen.getByText('Customer is invalid')).toBeTruthy();
     expect(screen.getByRole('status').textContent).toMatch(/1 diagnostic/i);
+  });
+
+  test('imports source and clears diagnostics', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
+    const request = latestRequest(client.workspaceRequests);
+    await act(async () => {
+      request.resolve({
+        diagnostics: [documentDiagnostic],
+        source_hashes: {},
+      });
+      await request.promise;
+    });
+
+    await importSource(
+      new File(['record Customer {}'], 'customer.mdl', {
+        type: 'text/plain',
+      }),
+    );
+
+    expect(
+      (screen.getByRole('textbox', {
+        name: 'Model source',
+      }) as HTMLTextAreaElement).value,
+    ).toBe('record Customer {}');
+    expect(screen.queryByText('Customer is invalid')).toBeNull();
+  });
+
+  test('confirms before replacing changed source and respects cancellation', async () => {
+    const client = new FakeCompilerClient();
+    const confirmReplace = vi.fn(() => false);
+    render(
+      <App
+        createClient={() => client}
+        confirmReplace={confirmReplace}
+      />,
+    );
+    await initialize(client);
+    const editor = screen.getByRole('textbox', { name: 'Model source' });
+    fireEvent.change(editor, {
+      target: { value: 'record Unsaved {}' },
+    });
+
+    await importSource(new File(['record Imported {}'], 'imported.mdl'));
+
+    expect(confirmReplace).toHaveBeenCalledOnce();
+    expect((editor as HTMLTextAreaElement).value).toBe(
+      'record Unsaved {}',
+    );
+  });
+
+  test('exports current source with a sanitized mdl filename', async () => {
+    const client = new FakeCompilerClient();
+    const download = vi.fn();
+    render(<App createClient={() => client} download={download} />);
+    await initialize(client);
+
+    await importSource(
+      new File(['record Imported {}'], 'Customer<>.txt'),
+    );
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Model source' }),
+      {
+        target: { value: 'record Edited {}' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Export source' }),
+    );
+
+    expect(download).toHaveBeenCalledWith(
+      'record Edited {}',
+      'Customer.mdl',
+      'text/plain',
+    );
   });
 
   test('ignores a validation result after the source revision changes', async () => {
@@ -301,7 +405,113 @@ describe('App', () => {
     expect(screen.getByLabelText('Artifact output').textContent).toBe(
       '{"title":"Customer"}',
     );
-    expect(screen.getByText(/artifact is stale/i)).toBeTruthy();
+    expect(
+      screen.getByText('Stale—source changed after generation'),
+    ).toBeTruthy();
+  });
+
+  test('renders generated artifacts in compiler order', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    await generateArtifacts(client, [
+      {
+        path: 'z-last.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Z"}',
+        source_refs: ['file:///main.mdl'],
+      },
+      {
+        path: 'a-first.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"A"}',
+        source_refs: ['file:///main.mdl'],
+      },
+    ]);
+
+    const options = screen
+      .getByRole('combobox', { name: 'Artifact' })
+      .querySelectorAll('option');
+    expect([...options].map((option) => option.textContent)).toEqual([
+      'z-last.schema.json',
+      'a-first.schema.json',
+    ]);
+  });
+
+  test('selecting an artifact updates the preview', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    await generateArtifacts(client, [
+      {
+        path: 'customer.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Customer"}',
+        source_refs: ['file:///main.mdl'],
+      },
+      {
+        path: 'order.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Order"}',
+        source_refs: ['file:///main.mdl'],
+      },
+    ]);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Artifact' }), {
+      target: { value: 'order.schema.json' },
+    });
+
+    expect(screen.getByLabelText('Artifact output').textContent).toBe(
+      '{"title":"Order"}',
+    );
+  });
+
+  test('exports only the selected artifact with a json filename', async () => {
+    const client = new FakeCompilerClient();
+    const download = vi.fn();
+    render(<App createClient={() => client} download={download} />);
+    await initialize(client);
+
+    await generateArtifacts(client, [
+      {
+        path: 'customer.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Customer"}',
+        source_refs: ['file:///main.mdl'],
+      },
+      {
+        path: '../Order<>.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Order"}',
+        source_refs: ['file:///main.mdl'],
+      },
+    ]);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Artifact' }), {
+      target: { value: '../Order<>.schema.json' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Export artifact' }),
+    );
+
+    expect(download).toHaveBeenCalledWith(
+      '{"title":"Order"}',
+      'Order-.schema.json',
+      'application/schema+json',
+    );
+  });
+
+  test('disables artifact export before successful generation', () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Export artifact',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
   });
 
   test('retries initialization with a fresh client', async () => {
@@ -389,7 +599,9 @@ describe('App', () => {
     expect(screen.getByLabelText('Artifact output').textContent).toBe(
       '{"title":"Customer"}',
     );
-    expect(screen.getByText(/artifact is stale/i)).toBeTruthy();
+    expect(
+      screen.getByText('Stale—source changed after generation'),
+    ).toBeTruthy();
 
     await initialize(secondClient);
     expect(

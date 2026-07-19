@@ -17,6 +17,11 @@ import initialSource from './example.mdl?raw';
 import { ArtifactEditor } from './editor/ArtifactEditor';
 import { SourceEditor } from './editor/SourceEditor';
 import type { SourceEditorHandle } from './editor/types';
+import {
+  downloadText,
+  readSourceFile,
+  sanitizeDownloadName,
+} from './files';
 
 const SOURCE_URI = 'file:///main.mdl';
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
@@ -26,6 +31,8 @@ const performanceNow = (): number => performance.now();
 export interface AppProps {
   createClient?: () => BrowserCompilerClientLike;
   now?: () => number;
+  confirmReplace?: (message: string) => boolean;
+  download?: typeof downloadText;
 }
 
 function asCompilerError(error: unknown): BrowserCompilerError {
@@ -47,14 +54,19 @@ function hasErrorDiagnostics(
 export function App({
   createClient = createBrowserCompilerClient,
   now = performanceNow,
+  confirmReplace = globalThis.confirm,
+  download = downloadText,
 }: AppProps) {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [clientAttempt, setClientAttempt] = useState(0);
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
+  const sourceFileInputRef = useRef<HTMLInputElement>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const operationPendingRef = useRef(false);
   const recoveryPendingRef = useRef(false);
   const revisionRef = useRef(initialAppState.revision);
+  const cleanSourceRef = useRef(initialSource);
+  const sourceFilenameRef = useRef('main.mdl');
 
   useEffect(() => {
     const client = createClient();
@@ -227,6 +239,50 @@ export function App({
     setClientAttempt((attempt) => attempt + 1);
   };
 
+  const importSourceFile = async (
+    input: HTMLInputElement,
+  ): Promise<void> => {
+    const file = input.files?.[0];
+    if (file === undefined) {
+      return;
+    }
+    try {
+      const imported = await readSourceFile(file);
+      const sourceEditor = sourceEditorRef.current;
+      if (sourceEditor === null) {
+        return;
+      }
+      const currentText = sourceEditor.getSource().text;
+      if (
+        currentText !== cleanSourceRef.current &&
+        !confirmReplace(
+          'Replace the current source and discard unsaved changes?',
+        )
+      ) {
+        return;
+      }
+      cleanSourceRef.current = imported.text;
+      sourceFilenameRef.current = imported.name;
+      sourceEditor.replaceText(imported.text);
+      sourceEditor.focus();
+    } finally {
+      input.value = '';
+    }
+  };
+
+  const exportSource = (): void => {
+    const source = sourceEditorRef.current?.getSource();
+    if (source === undefined) {
+      return;
+    }
+    download(
+      source.text,
+      sanitizeDownloadName(sourceFilenameRef.current, '.mdl'),
+      'text/plain',
+    );
+    cleanSourceRef.current = source.text;
+  };
+
   const normalizedDiagnostics = normalizeDiagnostics(
     state.diagnostics,
     SOURCE_URI,
@@ -263,8 +319,24 @@ export function App({
         </p>
       </header>
       <nav className="toolbar" aria-label="Playground actions">
-        <button type="button">Import</button>
-        <button type="button">Export source</button>
+        <input
+          ref={sourceFileInputRef}
+          type="file"
+          accept=".mdl,.txt,text/plain"
+          hidden
+          onChange={(event) =>
+            void importSourceFile(event.currentTarget)
+          }
+        />
+        <button
+          type="button"
+          onClick={() => sourceFileInputRef.current?.click()}
+        >
+          Import
+        </button>
+        <button type="button" onClick={exportSource}>
+          Export source
+        </button>
         <button
           type="button"
           disabled={actionsDisabled}
@@ -286,7 +358,20 @@ export function App({
         >
           Generate
         </button>
-        <button type="button" disabled={selectedArtifact === null}>
+        <button
+          type="button"
+          disabled={selectedArtifact === null}
+          onClick={() => {
+            if (selectedArtifact === null) {
+              return;
+            }
+            download(
+              selectedArtifact.content,
+              sanitizeDownloadName(selectedArtifact.path, '.json'),
+              selectedArtifact.media_type,
+            );
+          }}
+        >
           Export artifact
         </button>
         {state.runtime === 'failed' ? (
@@ -328,7 +413,9 @@ export function App({
               </select>
             </label>
           ) : null}
-          {artifactIsStale ? <p>Artifact is stale</p> : null}
+          {artifactIsStale ? (
+            <p>Stale—source changed after generation</p>
+          ) : null}
           <ArtifactEditor value={selectedArtifact?.content ?? ''} />
         </section>
       </section>
