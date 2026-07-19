@@ -935,7 +935,9 @@ editor, visualization, persistence, and AI phases below. The completed scope
 and acceptance criteria are archived in
 [Browser Compiler WASM Spike — Design](https://github.com/ktjn/modelable/blob/main/docs/superpowers/specs/archived/2026-07-18-browser-compiler-wasm-spike-design.md).
 
-### Phase 2: editor MVP — shipped
+### Phase 2: editor MVP
+
+**Status: Shipped.**
 
 The shipped single-file editor includes:
 
