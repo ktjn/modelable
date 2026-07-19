@@ -1,6 +1,13 @@
+import { useRef } from 'react';
+
 import initialSource from './example.mdl?raw';
+import { ArtifactEditor } from './editor/ArtifactEditor';
+import { SourceEditor } from './editor/SourceEditor';
+import type { SourceEditorHandle } from './editor/types';
 
 export function App() {
+  const sourceEditorRef = useRef<SourceEditorHandle>(null);
+
   return (
     <main className="workbench">
       <header className="workbench-header">
@@ -21,13 +28,17 @@ export function App() {
         <button type="button" disabled>Export artifact</button>
       </nav>
       <section className="workspace" aria-label="Single-file workspace">
-        <section
-          id="source-editor"
-          aria-label="Modelable source"
-          data-initial-source={initialSource}
-          tabIndex={-1}
-        />
-        <section aria-label="Generated JSON Schema" />
+        <section id="source-editor" aria-label="Modelable source" tabIndex={-1}>
+          <SourceEditor
+            ref={sourceEditorRef}
+            initialValue={initialSource}
+            markers={[]}
+            onRevisionChange={() => undefined}
+          />
+        </section>
+        <section aria-label="Generated JSON Schema">
+          <ArtifactEditor value="" />
+        </section>
       </section>
     </main>
   );

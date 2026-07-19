@@ -6,6 +6,15 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          return id.includes('/node_modules/monaco-editor/')
+            ? 'monaco'
+            : undefined;
+        },
+      },
+    },
   },
   test: {
     environment: 'node',

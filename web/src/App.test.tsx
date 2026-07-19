@@ -1,10 +1,17 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import indexHtml from '../index.html?raw';
 import { App } from './App';
+
+vi.mock('./editor/SourceEditor', () => ({
+  SourceEditor: () => <div />,
+}));
+vi.mock('./editor/ArtifactEditor', () => ({
+  ArtifactEditor: () => <div />,
+}));
 
 afterEach(cleanup);
 
