@@ -229,8 +229,10 @@ button:disabled {
 .source-editor,
 .artifact-editor {
   width: 100%;
+  height: clamp(24rem, 58vh, 44rem);
   max-width: 100%;
   min-width: 0;
+  min-height: 24rem;
   border: 1px solid var(--rule);
   border-left: 0.3rem solid var(--signal);
   overflow: hidden;

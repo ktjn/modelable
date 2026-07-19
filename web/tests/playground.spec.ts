@@ -241,6 +241,49 @@ test('has no automated accessibility violations when ready', async ({
   expect(results.violations).toEqual([]);
 });
 
+test('allows Monaco to apply its runtime layout styles', async ({ page }) => {
+  const cspViolations: string[] = [];
+  page.on('console', (message) => {
+    if (
+      message.type() === 'error' &&
+      message.text().includes('Content Security Policy')
+    ) {
+      cspViolations.push(message.text());
+    }
+  });
+
+  await page.goto('');
+  await waitForReady(page);
+
+  expect(cspViolations).toEqual([]);
+});
+
+test('keeps the desktop editor workspace within a bounded page height', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('');
+  await waitForReady(page);
+
+  const dimensions = await page.evaluate(() => ({
+    documentHeight: document.documentElement.scrollHeight,
+    sourceEditorHeight:
+      document.querySelector('.source-editor')?.getBoundingClientRect().height ??
+      0,
+    artifactEditorHeight:
+      document
+        .querySelector('.artifact-editor')
+        ?.getBoundingClientRect().height ?? 0,
+  }));
+
+  expect(dimensions.documentHeight).toBeLessThanOrEqual(1440);
+  expect(dimensions.sourceEditorHeight).toBeGreaterThanOrEqual(384);
+  expect(dimensions.sourceEditorHeight).toBeLessThanOrEqual(720);
+  expect(dimensions.artifactEditorHeight).toBe(
+    dimensions.sourceEditorHeight,
+  );
+});
+
 test('stacks both panes without horizontal overflow at 320 CSS pixels', async ({
   page,
 }) => {

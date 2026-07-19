@@ -106,11 +106,5 @@ export const SourceEditor = forwardRef<
     [initialValue],
   );
 
-  return (
-    <div
-      className="source-editor"
-      ref={containerRef}
-      style={{ height: '100%', minHeight: '24rem' }}
-    />
-  );
+  return <div className="source-editor" ref={containerRef} />;
 });
