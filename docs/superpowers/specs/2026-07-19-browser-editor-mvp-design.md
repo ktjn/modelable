@@ -13,6 +13,9 @@ visualization, local-AI, and offline phases.
 The repository [roadmap](../../../ROADMAP.md) identifies this specification as
 the next browser/WASM delivery slice.
 
+Execution is decomposed in the
+[Browser Editor MVP Implementation Plan](../plans/2026-07-19-browser-editor-mvp.md).
+
 ## Context
 
 The browser compiler proof established that Modelable can load a pinned,
@@ -127,7 +130,8 @@ The shell stores only:
 - the active operation, if any;
 - the current source revision;
 - normalized diagnostics and their summary;
-- the latest generated artifact and its source revision; and
+- the latest generated artifacts, selected artifact path, and their source
+  revision; and
 - import/export presentation state.
 
 It does not mirror every source edit into React state.
@@ -224,10 +228,12 @@ source unchanged.
 ### Generate
 
 Generation validates and compiles the current source, then pretty-prints the
-successful JSON Schema result in the read-only artifact model. When a later
-source revision or failed generation makes the displayed artifact outdated,
-the artifact remains available but is visibly marked stale. It is not silently
-presented as current output.
+selected successful JSON Schema result in the read-only artifact model. When
+one source produces multiple artifacts, the artifact pane provides a path-based
+selector and initially selects the first compiler-ordered artifact. When a
+later source revision or failed generation makes the displayed artifacts
+outdated, they remain available but are visibly marked stale. They are not
+silently presented as current output.
 
 ### Import and export
 
@@ -237,8 +243,9 @@ exported state, replacement requires confirmation. Imports have a documented
 size limit and produce actionable errors for unsupported or unreadable files.
 
 Source export downloads the current editor content with a sanitized `.mdl`
-filename. Artifact export downloads the current generated result with a
-sanitized `.json` filename. Export is implemented entirely in the browser.
+filename. Artifact export downloads the currently selected generated result
+with a sanitized `.json` filename. Export is implemented entirely in the
+browser.
 
 ## Security and privacy
 
