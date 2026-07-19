@@ -1,0 +1,363 @@
+:root {
+  color: #17252a;
+  background: #eef3f2;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-synthesis: none;
+  --workbench: #eef3f2;
+  --paper: #ffffff;
+  --graphite: #17252a;
+  --signal: #3157d5;
+  --verified: #147565;
+  --diagnostic: #b5472d;
+  --rule: #b9c6c7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 20rem;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--workbench);
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 10;
+  top: 0.5rem;
+  left: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  color: var(--paper);
+  background: var(--graphite);
+  transform: translateY(-160%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.workbench {
+  width: min(100%, 96rem);
+  min-height: 100vh;
+  margin: 0 auto;
+  border-inline: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.instrument-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 1.35rem clamp(1rem, 3vw, 2.75rem);
+  border-bottom: 1px solid var(--graphite);
+}
+
+.eyebrow,
+.bay-index,
+.local-note,
+.panel-heading span,
+.metrics-label,
+.privacy-note {
+  margin: 0;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.69rem;
+  line-height: 1.4;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0.1rem 0 0;
+  font-family: Bahnschrift, "Arial Narrow", sans-serif;
+  font-size: clamp(2rem, 5vw, 3.7rem);
+  font-stretch: condensed;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.state-block {
+  width: min(21rem, 42vw);
+}
+
+.state-signal {
+  display: block;
+  width: 100%;
+  height: 0.3rem;
+  margin-bottom: 0.65rem;
+  background: var(--signal);
+  transform-origin: left;
+}
+
+body[data-state="initializing"] .state-signal,
+body[data-state="busy"] .state-signal {
+  animation: scan 1.2s ease-in-out infinite alternate;
+}
+
+body[data-state="ready"] .state-signal {
+  background: var(--verified);
+}
+
+body[data-state="error"] .state-signal {
+  background: var(--diagnostic);
+}
+
+.status {
+  margin: 0;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(25rem, 1.25fr) minmax(20rem, 0.75fr);
+  min-height: calc(100vh - 11.5rem);
+}
+
+.source-bay,
+.result-panel {
+  padding: clamp(1rem, 2vw, 1.75rem);
+}
+
+.source-bay {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--graphite);
+}
+
+.bay-heading,
+.panel-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+label,
+h2 {
+  display: block;
+  margin: 0.15rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: 0.015em;
+}
+
+.local-note {
+  color: var(--verified);
+  text-align: right;
+}
+
+textarea,
+pre {
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.62;
+  tab-size: 2;
+}
+
+textarea {
+  width: 100%;
+  min-height: 18.5rem;
+  flex: 1;
+  resize: vertical;
+  padding: 1rem;
+  border: 1px solid var(--rule);
+  border-left: 0.3rem solid var(--signal);
+  border-radius: 0;
+  color: var(--graphite);
+  background: #f9fbfb;
+  caret-color: var(--signal);
+}
+
+.source-help {
+  margin: 0.55rem 0 0;
+  color: #536468;
+  font-size: 0.78rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+button {
+  min-height: 2.65rem;
+  padding: 0.62rem 1rem;
+  border: 1px solid var(--graphite);
+  border-radius: 0;
+  color: var(--paper);
+  background: var(--graphite);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+button:last-child {
+  margin-left: auto;
+  background: var(--signal);
+  border-color: var(--signal);
+}
+
+button:hover:not(:disabled) {
+  color: var(--graphite);
+  background: var(--paper);
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.38;
+}
+
+:focus-visible {
+  outline: 0.2rem solid var(--signal);
+  outline-offset: 0.18rem;
+}
+
+.result-bay {
+  display: grid;
+  min-width: 0;
+  grid-template-rows: minmax(12rem, 0.7fr) minmax(16rem, 1.3fr);
+}
+
+.result-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.result-panel + .result-panel {
+  border-top: 1px solid var(--graphite);
+}
+
+.panel-heading {
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.panel-heading span {
+  color: #536468;
+}
+
+pre {
+  max-height: 42vh;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.artifact-panel pre {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.metrics-strip {
+  display: grid;
+  grid-template-columns: auto minmax(16rem, 1fr) auto;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 4.5rem;
+  padding: 0.8rem clamp(1rem, 3vw, 2.75rem);
+  border-top: 1px solid var(--graphite);
+  background: var(--workbench);
+}
+
+.metrics-strip pre {
+  color: var(--signal);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.privacy-note {
+  color: var(--verified);
+  text-align: right;
+}
+
+@keyframes scan {
+  from {
+    transform: scaleX(0.16);
+  }
+  to {
+    transform: scaleX(0.58);
+  }
+}
+
+@media (max-width: 50rem) {
+  .instrument-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .state-block {
+    width: 100%;
+  }
+
+  .status {
+    text-align: left;
+  }
+
+  .workspace {
+    display: block;
+  }
+
+  .source-bay {
+    border-right: 0;
+    border-bottom: 1px solid var(--graphite);
+  }
+
+  .result-bay {
+    display: block;
+  }
+
+  .result-panel {
+    min-height: 16rem;
+  }
+
+  .metrics-strip {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+
+  .privacy-note {
+    text-align: left;
+  }
+}
+
+@media (max-width: 31rem) {
+  .bay-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .local-note {
+    text-align: left;
+  }
+
+  button,
+  button:last-child {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

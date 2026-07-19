@@ -2,7 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from modelable.compiler.workspace import discover_mdl_files, load_workspace
+from modelable.compiler.workspace import (
+    WorkspaceDocumentSource,
+    discover_mdl_files,
+    load_workspace,
+    load_workspace_from_sources,
+)
 
 
 def _write_model(path: Path, domain: str, model: str) -> None:
@@ -73,6 +78,40 @@ def test_load_workspace_reports_duplicate_model_versions_across_files(tmp_path):
     workspace = load_workspace(tmp_path)
 
     assert any("duplicate model version customer.Customer@1" in diagnostic.message for diagnostic in workspace.errors)
+
+
+def test_load_workspace_reports_duplicates_across_uri_only_sources():
+    source_text = """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key id: uuid
+  }
+}
+"""
+    workspace = load_workspace_from_sources(
+        [
+            WorkspaceDocumentSource(
+                path=None,
+                uri="inmemory:///customer-a.mdl",
+                text=source_text,
+            ),
+            WorkspaceDocumentSource(
+                path=None,
+                uri="inmemory:///customer-b.mdl",
+                text=source_text,
+            ),
+        ]
+    )
+
+    assert any(
+        diagnostic.message == "duplicate domain 'customer' also defined in inmemory:///customer-a.mdl"
+        for diagnostic in workspace.errors
+    )
+    assert any(
+        diagnostic.message == ("duplicate model version customer.Customer@1 also defined in inmemory:///customer-a.mdl")
+        for diagnostic in workspace.errors
+    )
 
 
 def test_load_workspace_reports_auto_projection_generated_name_conflict(tmp_path):

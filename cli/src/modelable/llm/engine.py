@@ -7,6 +7,7 @@ from os import environ
 from pathlib import Path
 
 from modelable.compat.diff import FieldChange, compare_model_versions
+from modelable.compiler.render import render_mdl, render_model_version, render_projection_version
 from modelable.compiler.workspace import load_workspace
 from modelable.diagnostics.model import render_diagnostic
 from modelable.emitters.csharp import emit_csharp
@@ -29,7 +30,6 @@ from modelable.llm.importers import import_from_path, import_from_text
 from modelable.llm.providers import LLMProvider, build_provider
 from modelable.llm.qa import answer_question
 from modelable.llm.recommendations import recommend_for_model
-from modelable.llm.render import render_mdl, render_model_version, render_projection_version
 from modelable.llm.update_plan import (
     UpdateChange,
     UpdatePlan,

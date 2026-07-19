@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+FIXTURE_ROOT = Path(__file__).parent / "conformance" / "browser"
+SNAPSHOT_ROOT = FIXTURE_ROOT / "snapshots"
+GENERATOR = Path(__file__).parents[1] / "scripts" / "write_browser_conformance.py"
+SNAPSHOT_NAMES = (
+    "invalid-parse.json",
+    "invalid-reference.json",
+    "invalid-semantic.json",
+    "multi-domain.json",
+    "single-valid.json",
+)
+
+
+def _generate(output: Path) -> None:
+    subprocess.run(
+        [
+            sys.executable,
+            str(GENERATOR),
+            "--fixtures",
+            str(FIXTURE_ROOT),
+            "--output",
+            str(output),
+        ],
+        check=True,
+    )
+
+
+def _collect_strings(
+    value: object,
+    strings: list[str],
+    uris: list[str],
+    portable_strings: list[str],
+    key: str | None = None,
+) -> None:
+    if isinstance(value, str):
+        strings.append(value)
+        if key != "content":
+            portable_strings.append(value)
+        if key == "uri":
+            uris.append(value)
+    elif isinstance(value, list):
+        for item in value:
+            _collect_strings(item, strings, uris, portable_strings, key)
+    elif isinstance(value, dict):
+        for item_key, item in value.items():
+            assert "duration" not in item_key.lower()
+            assert "timing" not in item_key.lower()
+            _collect_strings(item, strings, uris, portable_strings, item_key)
+
+
+def test_native_browser_snapshots_are_deterministic(tmp_path: Path) -> None:
+    generated = tmp_path / "snapshots"
+
+    _generate(generated)
+
+    assert tuple(path.name for path in sorted(generated.glob("*.json"))) == SNAPSHOT_NAMES
+    for name in SNAPSHOT_NAMES:
+        assert (generated / name).read_bytes() == (SNAPSHOT_ROOT / name).read_bytes()
+
+
+def test_native_browser_snapshots_are_portable_and_sanitized() -> None:
+    checkout = str(Path(__file__).parents[2].resolve())
+    forbidden = (checkout, checkout.replace("\\", "/"), "Traceback")
+
+    paths = sorted(SNAPSHOT_ROOT.glob("*.json"))
+    assert tuple(path.name for path in paths) == SNAPSHOT_NAMES
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        snapshot = json.loads(text)
+        strings: list[str] = []
+        uris: list[str] = []
+        portable_strings: list[str] = []
+
+        _collect_strings(snapshot, strings, uris, portable_strings)
+        assert text.endswith("\n")
+        assert not any(value in item for item in strings for value in forbidden)
+        assert not any(marker in item.lower() for item in strings for marker in ("duration", "timing"))
+        assert not any("\\" in uri for uri in uris)
+        assert not any("\\" in item for item in portable_strings)
+
+
+def test_reference_scenario_records_a_reference_diagnostic() -> None:
+    snapshot = json.loads((SNAPSHOT_ROOT / "invalid-reference.json").read_text(encoding="utf-8"))
+
+    assert snapshot["open"]["diagnostics"]
+    assert any("reference" in diagnostic["message"] for diagnostic in snapshot["open"]["diagnostics"])

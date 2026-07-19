@@ -1,0 +1,30 @@
+{
+  "compile": {
+    "artifacts": [
+      {
+        "content": "{\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",\n  \"$id\": \"customer.Customer.v1\",\n  \"type\": \"object\",\n  \"title\": \"Customer\",\n  \"x-modelable\": {\n    \"domain\": \"customer\",\n    \"name\": \"Customer\",\n    \"kind\": \"entity\",\n    \"version\": 1,\n    \"changeKind\": \"additive\",\n    \"owner\": \"customer-platform\"\n  },\n  \"x-modelable-por\": {\n    \"model\": \"customer.Customer.v1\",\n    \"issuer\": \"modelable-registry.local\",\n    \"issuedAt\": \"1970-01-01T00:00:00Z\"\n  },\n  \"properties\": {\n    \"customerId\": {\n      \"type\": \"string\",\n      \"format\": \"uuid\",\n      \"x-modelable-field\": {\n        \"key\": true\n      }\n    },\n    \"displayName\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"customerId\",\n    \"displayName\"\n  ]\n}\n",
+        "media_type": "application/schema+json",
+        "path": "customer.Customer.v1.json",
+        "source_refs": [
+          "customer.Customer@1"
+        ]
+      },
+      {
+        "content": "{\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",\n  \"$id\": \"sales.Order.v1\",\n  \"type\": \"object\",\n  \"title\": \"Order\",\n  \"x-modelable\": {\n    \"domain\": \"sales\",\n    \"name\": \"Order\",\n    \"kind\": \"entity\",\n    \"version\": 1,\n    \"changeKind\": \"additive\",\n    \"owner\": \"order-platform\"\n  },\n  \"x-modelable-por\": {\n    \"model\": \"sales.Order.v1\",\n    \"issuer\": \"modelable-registry.local\",\n    \"issuedAt\": \"1970-01-01T00:00:00Z\"\n  },\n  \"properties\": {\n    \"orderId\": {\n      \"type\": \"string\",\n      \"format\": \"uuid\",\n      \"x-modelable-field\": {\n        \"key\": true\n      }\n    },\n    \"customer\": {\n      \"type\": \"string\",\n      \"x-modelable-ref\": \"customer.Customer\"\n    },\n    \"total\": {\n      \"type\": \"string\",\n      \"pattern\": \"^-?\\\\d+(\\\\.\\\\d+)?$\",\n      \"x-modelable-field\": {\n        \"decimalPrecision\": 12,\n        \"decimalScale\": 2\n      }\n    }\n  },\n  \"required\": [\n    \"orderId\",\n    \"customer\",\n    \"total\"\n  ]\n}\n",
+        "media_type": "application/schema+json",
+        "path": "sales.Order.v1.json",
+        "source_refs": [
+          "sales.Order@1"
+        ]
+      }
+    ],
+    "diagnostics": []
+  },
+  "open": {
+    "diagnostics": [],
+    "source_hashes": {
+      "fixture:///multi-domain-customer.mdl": "1fee8c3c1fbc42875901a3f102e1877f020aaef48787454e538a26aed124c79c",
+      "fixture:///multi-domain-order.mdl": "6d06d5091a0c8171fb381924c57cb3092db2b8c27f5f862bfcfdb01cc8acd6b8"
+    }
+  }
+}

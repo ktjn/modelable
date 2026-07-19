@@ -1,0 +1,9 @@
+domain sales {
+  owner: "order-platform"
+
+  projection MissingCustomer @ 1
+    from customer.Customer @ 2 as customer
+  {
+    customerId <- customer.customerId
+  }
+}

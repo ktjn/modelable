@@ -1,10 +1,10 @@
 import pytest
 
+from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.rust import emit_rust
 from modelable.emitters.typescript import emit_typescript
-from modelable.llm.render import render_mdl
 from modelable.parser.ir import AnnWire
 from modelable.parser.parse import parse_text_to_ir
 

@@ -1,0 +1,24 @@
+{
+  "name": "modelable-browser-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:python": "uv run --project ../cli python ../cli/scripts/build_browser_wheel.py --output ../web/public/python && node scripts/vendor-python-assets.mjs",
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "npm run prepare:python && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:e2e": "playwright test",
+    "check:budgets": "node scripts/check-budgets.mjs"
+  },
+  "dependencies": {
+    "pyodide": "314.0.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "@types/node": "26.1.1",
+    "typescript": "7.0.2",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
+  }
+}

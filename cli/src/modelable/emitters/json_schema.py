@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import PurePath, PurePosixPath
 
 from jsonschema import Draft202012Validator
 
@@ -39,7 +39,7 @@ from modelable.parser.ir import (
 from modelable.registry.resolver import resolve_model_ref
 
 
-def emit_json_schema(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
+def emit_json_schema(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifact]:
     """Emit JSON Schema 2020-12 artifacts for every model and projection version."""
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
@@ -55,11 +55,18 @@ def emit_json_schema(workspace: Workspace, out_dir: Path) -> list[EmittedArtifac
     return artifacts
 
 
+def emit_json_schema_artifacts(workspace: Workspace) -> list[EmittedArtifact]:
+    """Return deterministic JSON Schema artifacts without writing files."""
+    return emit_json_schema(workspace, PurePosixPath())
+
+
 def _artifact_id(domain: str, name: str, version: int) -> str:
     return f"{domain}.{name}.v{version}"
 
 
-def _emit_model_version(domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path) -> EmittedArtifact:
+def _emit_model_version(
+    domain: DomainDef, model_name: str, version: ModelVersion, out_dir: PurePath
+) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     schema: dict = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -118,7 +125,7 @@ def _emit_projection_version(
     domain: DomainDef,
     projection_name: str,
     version: ProjectionVersion,
-    out_dir: Path,
+    out_dir: PurePath,
     mdl,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)

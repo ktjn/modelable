@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-from modelable.llm.render import render_model_version
+from modelable.compiler.render import render_model_version
 from modelable.parser.ir import (
     AnnClassification,
     AnnKey,

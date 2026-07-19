@@ -1,12 +1,36 @@
 import hashlib
 import json
+from pathlib import PurePath, PurePosixPath
+from typing import get_type_hints
 
 from click.testing import CliRunner
 from jsonschema import Draft202012Validator
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
-from modelable.emitters.json_schema import emit_json_schema
+from modelable.emitters.base import EmittedArtifact, render_artifact_text
+from modelable.emitters.json_schema import emit_json_schema, emit_json_schema_artifacts
+
+
+def test_json_schema_artifacts_are_relative_and_rendered_in_memory(tmp_path):
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        'domain customer {\n  owner: "team"\n  entity Customer @ 1 (additive) {\n    @key id: uuid\n  }\n}\n',
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_json_schema_artifacts(workspace)
+
+    assert [artifact.path for artifact in artifacts] == [PurePosixPath("customer.Customer.v1.json")]
+    rendered = render_artifact_text(artifacts[0])
+    assert rendered.endswith("\n")
+    assert '"title": "Customer"' in rendered
+    assert not (tmp_path / "customer.Customer.v1.json").exists()
+
+
+def test_emitted_artifact_path_contract_accepts_pure_paths():
+    assert get_type_hints(EmittedArtifact)["path"] is PurePath
 
 
 def test_emit_simple_model(tmp_path):

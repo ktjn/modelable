@@ -1,0 +1,17 @@
+{
+  "open": {
+    "diagnostics": [
+      {
+        "code": "PARSE",
+        "column": -1,
+        "end_column": null,
+        "end_line": null,
+        "line": -1,
+        "message": "Unexpected end-of-input. Expected one of: \n\t* LPAR\n\t* RBRACE\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* ACCESS\n\t* ACCESS\n\t* RESERVED\n\t* RESERVED\n\t* __ANON_0\n\t* __ANON_1\n\t* __ANON_2\n\t* __ANON_3\n\t* __ANON_4\n\t* __ANON_5\n\t* __ANON_6\n\t* __ANON_7\n\t* __ANON_8\n\t* __ANON_9\n\t* __ANON_9\n\t* EQUAL\n",
+        "severity": "error",
+        "uri": "fixture:///invalid-parse.mdl"
+      }
+    ],
+    "source_hashes": {}
+  }
+}

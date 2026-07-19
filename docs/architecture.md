@@ -60,6 +60,25 @@ Modelable is designed to wrap existing systems. It should not require a "rip and
 
 The system should reject invalid or incompatible definitions before runtime when possible. Runtime failures should be reserved for operational issues such as unavailable streams, write conflicts, bad source payloads, or adapter outages.
 
+### 2.8 One Compiler Across Native and Browser Surfaces
+
+The shipped browser proof preserves this implemented dependency direction:
+
+```text
+Minimal browser UI
+  -> BrowserCompilerClient protocol v1
+  -> module Web Worker
+  -> pinned same-origin Pyodide
+  -> modelable.browser BrowserCompiler
+  -> parser, validator, canonical renderer, JSON Schema emitter
+```
+
+The `modelable-browser` wheel is staged deterministically from the existing
+`cli/src/modelable` source tree. Its selected module closure excludes desktop
+surfaces such as the CLI, language server, database adapters, sockets, and
+subprocess integration. It is a browser distribution of the same compiler
+semantics, not a second semantic implementation.
+
 ## 3. Core Concepts
 
 ### 3.1 Domain

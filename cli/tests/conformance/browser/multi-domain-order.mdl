@@ -1,0 +1,9 @@
+domain sales {
+  owner: "order-platform"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customer: ref<customer.Customer>
+    total: decimal(12, 2)
+  }
+}
