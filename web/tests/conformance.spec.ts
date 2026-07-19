@@ -1,4 +1,11 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type Browser,
+  type BrowserContext,
+  type Page,
+  type Request,
+} from '@playwright/test';
 
 type Source = { uri: string; text: string; version: number };
 type TestClient = {
@@ -14,18 +21,45 @@ const scenarios = {
   'multi-domain': ['multi-domain-customer.mdl', 'multi-domain-order.mdl'],
   'single-valid': ['single-valid.mdl'],
 } as const;
+const localOrigin = 'http://127.0.0.1:4173';
+const localRequestAudits = new WeakMap<BrowserContext, () => void>();
 
-test('browser compiler matches every native snapshot', async ({ page }) => {
-  const nonLocalRequests: string[] = [];
-  page.on('request', (request) => {
+function startLocalRequestAudit(context: BrowserContext): () => void {
+  const offOriginRequests: string[] = [];
+  const handleRequest = (request: Request): void => {
     const url = new URL(request.url());
     if (
       (url.protocol === 'http:' || url.protocol === 'https:') &&
-      url.origin !== 'http://127.0.0.1:4173'
+      url.origin !== localOrigin
     ) {
-      nonLocalRequests.push(url.href);
+      offOriginRequests.push(url.href);
     }
-  });
+  };
+  let finished = false;
+  context.on('request', handleRequest);
+  return () => {
+    if (finished) {
+      return;
+    }
+    finished = true;
+    context.off('request', handleRequest);
+    expect(
+      offOriginRequests,
+      'Every HTTP(S) request must stay on the local preview origin',
+    ).toEqual([]);
+  };
+}
+
+test.beforeEach(({ context }) => {
+  localRequestAudits.set(context, startLocalRequestAudit(context));
+});
+
+test.afterEach(({ context }) => {
+  localRequestAudits.get(context)?.();
+  localRequestAudits.delete(context);
+});
+
+test('browser compiler matches every native snapshot', async ({ page }) => {
   await page.goto('?test=1');
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
     timeout: 30_000,
@@ -68,7 +102,6 @@ test('browser compiler matches every native snapshot', async ({ page }) => {
 
     expect(sortObject(actual)).toEqual(sortObject(expectedSnapshot));
   }
-  expect(nonLocalRequests).toEqual([]);
 });
 
 test('browser compiler stays within initialization and operation budgets', async ({
@@ -77,6 +110,7 @@ test('browser compiler stays within initialization and operation budgets', async
   test.setTimeout(180_000);
   const coldInitialize = await measureColdInitializations(browser);
   const cachedContext = await browser.newContext();
+  const finishCachedRequestAudit = startLocalRequestAudit(cachedContext);
   const cachedPage = await cachedContext.newPage();
   try {
     await initializePage(cachedPage);
@@ -141,7 +175,11 @@ test('browser compiler stays within initialization and operation budgets', async
     expect(medians.validateMedian).toBeLessThanOrEqual(500);
     expect(medians.compileMedian).toBeLessThanOrEqual(1_000);
   } finally {
-    await cachedContext.close();
+    try {
+      finishCachedRequestAudit();
+    } finally {
+      await cachedContext.close();
+    }
   }
 });
 
@@ -149,13 +187,18 @@ async function measureColdInitializations(browser: Browser): Promise<number[]> {
   const timings: number[] = [];
   for (let index = 0; index < 3; index += 1) {
     const context = await browser.newContext();
+    const finishRequestAudit = startLocalRequestAudit(context);
     try {
       const page = await context.newPage();
       const started = performance.now();
       await initializePage(page);
       timings.push(performance.now() - started);
     } finally {
-      await context.close();
+      try {
+        finishRequestAudit();
+      } finally {
+        await context.close();
+      }
     }
   }
   return timings;

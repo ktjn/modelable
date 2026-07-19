@@ -1,5 +1,11 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Page,
+  type Request,
+} from '@playwright/test';
 
 const validCompact =
   'domain customer { owner: "team" entity Customer @ 1 (additive) { @key customerId: uuid displayName?: string } }';
@@ -7,18 +13,46 @@ const invalidSource = 'this is not valid Modelable source';
 const importedSource =
   'domain imported { owner: "team" entity Imported @ 1 (additive) { @key importedId: uuid } }';
 const runtimeManifest = '**/python/runtime-manifest.json';
+const localOrigin = 'http://127.0.0.1:4173';
+const localRequestAudits = new WeakMap<BrowserContext, () => void>();
 
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(globalThis, 'EditContext', {
-      configurable: true,
-      value: undefined,
-    });
-  });
+function startLocalRequestAudit(context: BrowserContext): () => void {
+  const offOriginRequests: string[] = [];
+  const handleRequest = (request: Request): void => {
+    const url = new URL(request.url());
+    if (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      url.origin !== localOrigin
+    ) {
+      offOriginRequests.push(url.href);
+    }
+  };
+  let finished = false;
+  context.on('request', handleRequest);
+  return () => {
+    if (finished) {
+      return;
+    }
+    finished = true;
+    context.off('request', handleRequest);
+    expect(
+      offOriginRequests,
+      'Every HTTP(S) request must stay on the local preview origin',
+    ).toEqual([]);
+  };
+}
+
+test.beforeEach(({ context }) => {
+  localRequestAudits.set(context, startLocalRequestAudit(context));
+});
+
+test.afterEach(({ context }) => {
+  localRequestAudits.get(context)?.();
+  localRequestAudits.delete(context);
 });
 
 function modelSource(page: Page) {
-  return page.locator('textarea[aria-label^="Model source"]');
+  return page.getByRole('textbox', { name: 'Model source' });
 }
 
 function artifactOutput(page: Page) {
@@ -29,10 +63,13 @@ function sourceOutput(page: Page) {
   return page.locator('.source-editor .view-lines');
 }
 
-async function replaceSource(page: Page, text: string): Promise<void> {
-  const source = modelSource(page);
+async function focusSourceEditor(page: Page): Promise<void> {
   await sourceOutput(page).click({ position: { x: 8, y: 8 } });
-  await expect(source).toBeFocused();
+  await expect(modelSource(page)).toBeFocused();
+}
+
+async function replaceSource(page: Page, text: string): Promise<void> {
+  await focusSourceEditor(page);
   await page.keyboard.press('Control+a');
   await page.keyboard.press('Backspace');
   await expect(sourceOutput(page)).toHaveText('');
@@ -49,14 +86,6 @@ test('initializes locally and supports the complete editor workflow', async ({
   page,
 }) => {
   test.setTimeout(90_000);
-  const networkRequests: string[] = [];
-  page.on('request', (request) => {
-    const url = request.url();
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      networkRequests.push(url);
-    }
-  });
-
   let releaseManifest!: () => void;
   const manifestGate = new Promise<void>((resolve) => {
     releaseManifest = resolve;
@@ -67,6 +96,9 @@ test('initializes locally and supports the complete editor workflow', async ({
   });
 
   await page.goto('?test=1', { waitUntil: 'domcontentloaded' });
+  expect(
+    await page.evaluate(() => typeof globalThis.EditContext),
+  ).toBe('function');
   const actions = [
     page.getByRole('button', { name: 'Validate' }),
     page.getByRole('button', { name: 'Format' }),
@@ -80,7 +112,6 @@ test('initializes locally and supports the complete editor workflow', async ({
   await waitForReady(page);
   await page.unroute(runtimeManifest);
 
-  const source = modelSource(page);
   await expect(sourceOutput(page)).toContainText(/entity\s+Customer/);
   await replaceSource(page, invalidSource);
   await actions[0].click();
@@ -91,8 +122,8 @@ test('initializes locally and supports the complete editor workflow', async ({
   await expect
     .poll(() => page.locator('.source-editor .view-line').count())
     .toBeGreaterThan(1);
-  await source.focus();
-  await source.press('Control+z');
+  await focusSourceEditor(page);
+  await page.keyboard.press('Control+z');
   await expect(page.locator('.source-editor .view-line')).toHaveCount(1);
   await expect(sourceOutput(page)).toContainText(
     /domain\s+customer.*displayName\?:\s+string/,
@@ -137,12 +168,6 @@ test('initializes locally and supports the complete editor workflow', async ({
   await expect(page.getByTestId('metrics')).toContainText(
     /operation\s+\d+\.\d ms/i,
   );
-  expect(networkRequests.length).toBeGreaterThan(0);
-  expect(
-    networkRequests.every(
-      (url) => new URL(url).origin === 'http://127.0.0.1:4173',
-    ),
-  ).toBe(true);
 });
 
 test('keeps keyboard access clear and treats hostile-looking source as text', async ({
@@ -174,6 +199,36 @@ test('keeps keyboard access clear and treats hostile-looking source as text', as
     ),
   ).toBe(false);
   await expect(page.locator('img')).toHaveCount(0);
+});
+
+test('retains the labeled textarea fallback when EditContext is unavailable', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(globalThis, 'EditContext', {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  await page.goto('');
+  await waitForReady(page);
+
+  const fallback = page.locator(
+    'textarea[aria-label^="Model source"]',
+  );
+  await expect(fallback).toBeAttached();
+  await page.getByRole('link', { name: 'Skip to source' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(fallback).toBeFocused();
+
+  await replaceSource(page, validCompact);
+  await page.keyboard.press('Control+Shift+Enter');
+  await expect(page.getByRole('status')).toHaveText(
+    /validation complete/i,
+  );
+  await expect(page.getByTestId('diagnostics')).toContainText(
+    'No diagnostics',
+  );
 });
 
 test('has no automated accessibility violations when ready', async ({
