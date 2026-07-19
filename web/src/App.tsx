@@ -27,6 +27,10 @@ const SOURCE_URI = 'file:///main.mdl';
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
 const performanceNow = (): number => performance.now();
+const sourceFileErrorMessages = new Set([
+  'Choose a .mdl or .txt source file',
+  'Source files must be 1 MiB or smaller',
+]);
 
 export interface AppProps {
   createClient?: () => BrowserCompilerClientLike;
@@ -51,6 +55,16 @@ function hasErrorDiagnostics(
   return diagnostics.some((diagnostic) => diagnostic.severity === 'error');
 }
 
+function sourceFileErrorMessage(error: unknown): string {
+  if (
+    error instanceof Error &&
+    sourceFileErrorMessages.has(error.message)
+  ) {
+    return error.message;
+  }
+  return 'Could not read the selected source file. Try another .mdl or .txt file.';
+}
+
 export function App({
   createClient = createBrowserCompilerClient,
   now = performanceNow,
@@ -59,6 +73,7 @@ export function App({
 }: AppProps) {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [clientAttempt, setClientAttempt] = useState(0);
+  const [fileError, setFileError] = useState<string | null>(null);
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const sourceFileInputRef = useRef<HTMLInputElement>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
@@ -265,6 +280,9 @@ export function App({
       sourceFilenameRef.current = imported.name;
       sourceEditor.replaceText(imported.text);
       sourceEditor.focus();
+      setFileError(null);
+    } catch (error: unknown) {
+      setFileError(sourceFileErrorMessage(error));
     } finally {
       input.value = '';
     }
@@ -380,6 +398,7 @@ export function App({
           </button>
         ) : null}
       </nav>
+      {fileError === null ? null : <p role="alert">{fileError}</p>}
       <section className="workspace" aria-label="Single-file workspace">
         <section id="source-editor" aria-label="Modelable source" tabIndex={-1}>
           <SourceEditor

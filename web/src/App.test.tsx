@@ -13,6 +13,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import indexHtml from '../index.html?raw';
 import { App } from './App';
 import { BrowserCompilerError } from './client';
+import { MAX_IMPORT_BYTES } from './files';
 import type {
   BrowserCompileResult,
   BrowserFormatResult,
@@ -160,7 +161,7 @@ async function initialize(client: FakeCompilerClient): Promise<void> {
   });
 }
 
-async function importSource(file: File): Promise<void> {
+function chooseSourceFile(file: File): void {
   const input = document.querySelector<HTMLInputElement>(
     'input[type="file"]',
   );
@@ -168,8 +169,21 @@ async function importSource(file: File): Promise<void> {
     throw new Error('Expected a source file input');
   }
   fireEvent.change(input, { target: { files: [file] } });
+}
+
+async function importSource(
+  file: File,
+  expectedText: string,
+): Promise<void> {
+  chooseSourceFile(file);
   await waitFor(() => {
-    expect(input.value).toBe('');
+    expect(
+      (
+        screen.getByRole('textbox', {
+          name: 'Model source',
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toBe(expectedText);
   });
 }
 
@@ -268,6 +282,7 @@ describe('App', () => {
       new File(['record Customer {}'], 'customer.mdl', {
         type: 'text/plain',
       }),
+      'record Customer {}',
     );
 
     expect(
@@ -276,6 +291,83 @@ describe('App', () => {
       }) as HTMLTextAreaElement).value,
     ).toBe('record Customer {}');
     expect(screen.queryByText('Customer is invalid')).toBeNull();
+  });
+
+  test('shows an unsupported import error and recovers on a valid import', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+    const editor = screen.getByRole('textbox', { name: 'Model source' });
+    const initialText = (editor as HTMLTextAreaElement).value;
+
+    chooseSourceFile(new File(['not source'], 'customer.json'));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /choose a \.mdl or \.txt source file/i,
+    );
+    expect((editor as HTMLTextAreaElement).value).toBe(initialText);
+    expect(screen.getByRole('status').textContent).toMatch(
+      /compiler ready/i,
+    );
+
+    chooseSourceFile(
+      new File(['record Customer {}'], 'customer.mdl'),
+    );
+    await waitFor(() => {
+      expect((editor as HTMLTextAreaElement).value).toBe(
+        'record Customer {}',
+      );
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  test('shows an oversized import error without replacing source', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+    const editor = screen.getByRole('textbox', { name: 'Model source' });
+    const initialText = (editor as HTMLTextAreaElement).value;
+
+    chooseSourceFile(
+      new File(
+        [new Uint8Array(MAX_IMPORT_BYTES + 1)],
+        'large.mdl',
+      ),
+    );
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /1 MiB or smaller/i,
+    );
+    expect((editor as HTMLTextAreaElement).value).toBe(initialText);
+    expect(screen.getByRole('status').textContent).toMatch(
+      /compiler ready/i,
+    );
+  });
+
+  test('sanitizes unreadable import errors without replacing source', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+    const editor = screen.getByRole('textbox', { name: 'Model source' });
+    const initialText = (editor as HTMLTextAreaElement).value;
+    const file = new File(['source'], 'customer.mdl');
+    Object.defineProperty(file, 'text', {
+      value: vi.fn().mockRejectedValue(
+        new Error('sensitive C:\\private\\source.mdl failure'),
+      ),
+    });
+
+    chooseSourceFile(file);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(
+      /could not read the selected source file/i,
+    );
+    expect(alert.textContent).not.toMatch(/sensitive|private/i);
+    expect((editor as HTMLTextAreaElement).value).toBe(initialText);
+    expect(screen.getByRole('status').textContent).toMatch(
+      /compiler ready/i,
+    );
   });
 
   test('confirms before replacing changed source and respects cancellation', async () => {
@@ -293,9 +385,13 @@ describe('App', () => {
       target: { value: 'record Unsaved {}' },
     });
 
-    await importSource(new File(['record Imported {}'], 'imported.mdl'));
+    chooseSourceFile(
+      new File(['record Imported {}'], 'imported.mdl'),
+    );
+    await waitFor(() => {
+      expect(confirmReplace).toHaveBeenCalledOnce();
+    });
 
-    expect(confirmReplace).toHaveBeenCalledOnce();
     expect((editor as HTMLTextAreaElement).value).toBe(
       'record Unsaved {}',
     );
@@ -309,6 +405,7 @@ describe('App', () => {
 
     await importSource(
       new File(['record Imported {}'], 'Customer<>.txt'),
+      'record Imported {}',
     );
     fireEvent.change(
       screen.getByRole('textbox', { name: 'Model source' }),

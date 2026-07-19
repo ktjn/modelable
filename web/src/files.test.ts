@@ -33,6 +33,39 @@ describe('local file boundary', () => {
     );
   });
 
+  test.each([
+    ['/tmp/Customer.mdl', '.mdl', 'Customer.mdl'],
+    ['C:\\exports\\Order.json', '.json', 'Order.json'],
+  ] as const)(
+    'uses only the basename from %s',
+    (name, extension, expected) => {
+      expect(sanitizeDownloadName(name, extension)).toBe(expected);
+    },
+  );
+
+  test.each([
+    'cOn',
+    'PrN',
+    'aUx',
+    'NuL',
+    ...Array.from({ length: 9 }, (_, index) => `cOm${index + 1}`),
+    ...Array.from({ length: 9 }, (_, index) => `LpT${index + 1}`),
+  ])('prefixes reserved device name %s case-insensitively', (device) => {
+    const separator = device.length % 2 === 0 ? '/' : '\\';
+    expect(
+      sanitizeDownloadName(
+        `tmp${separator}${device}.txt`,
+        '.mdl',
+      ),
+    ).toBe(`_${device}.mdl`);
+  });
+
+  test('prefixes a reserved device stem even with extensions', () => {
+    expect(
+      sanitizeDownloadName('C:\\exports\\CON.report.json', '.json'),
+    ).toBe('_CON.report.json');
+  });
+
   test('revokes the object URL after starting a download', () => {
     const createObjectURL = vi.fn(() => 'blob:test');
     const revokeObjectURL = vi.fn();

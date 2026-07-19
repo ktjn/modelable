@@ -22,13 +22,19 @@ export function sanitizeDownloadName(
   extension: '.mdl' | '.json',
 ) {
   const basename = name.split(/[\\/]/).at(-1) ?? name;
-  const stem =
+  const sanitizedStem =
     basename
       .normalize('NFKC')
       .replace(/\.[^.]+$/, '')
       .replace(/[^a-zA-Z0-9._-]+/g, '-')
       .replace(/^[.-]+|[.-]+$/g, '')
       .slice(0, 96) || 'modelable';
+  const stem =
+    /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(
+      sanitizedStem,
+    )
+      ? `_${sanitizedStem}`
+      : sanitizedStem;
   return `${stem}${extension}`;
 }
 
