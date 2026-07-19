@@ -241,7 +241,9 @@ test('has no automated accessibility violations when ready', async ({
   expect(results.violations).toEqual([]);
 });
 
-test('allows Monaco to apply its runtime layout styles', async ({ page }) => {
+test('allows Monaco to apply its runtime styles and bundled icon font', async ({
+  page,
+}) => {
   const cspViolations: string[] = [];
   page.on('console', (message) => {
     if (
@@ -254,6 +256,13 @@ test('allows Monaco to apply its runtime layout styles', async ({ page }) => {
 
   await page.goto('');
   await waitForReady(page);
+  await page.evaluate(async () => {
+    const font = new FontFace(
+      'modelable-csp-font-probe',
+      'url(data:font/ttf;base64,AAEAAA==)',
+    );
+    await font.load().catch(() => undefined);
+  });
 
   expect(cspViolations).toEqual([]);
 });
