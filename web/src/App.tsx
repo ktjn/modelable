@@ -21,7 +21,12 @@ export function App() {
         <button type="button" disabled>Export artifact</button>
       </nav>
       <section className="workspace" aria-label="Single-file workspace">
-        <section aria-label="Modelable source" data-initial-source={initialSource} />
+        <section
+          id="source-editor"
+          aria-label="Modelable source"
+          data-initial-source={initialSource}
+          tabIndex={-1}
+        />
         <section aria-label="Generated JSON Schema" />
       </section>
     </main>
