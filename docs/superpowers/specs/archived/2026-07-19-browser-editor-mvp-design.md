@@ -2,19 +2,19 @@
 
 ## Status
 
-Approved for implementation planning on 2026-07-19.
+Shipped and archived on 2026-07-19.
 
 This specification defines Phase 2 of the
-[Modelable Playground Architecture](../../playground-design.md). It turns the
+[Modelable Playground Architecture](../../../playground-design.md). It turns the
 shipped browser compiler proof into a usable, deliberately single-file editor.
 The broader playground document remains authoritative for later workspace,
 visualization, local-AI, and offline phases.
 
-The repository [roadmap](../../../ROADMAP.md) identifies this specification as
-the next browser/WASM delivery slice.
+The repository [roadmap](../../../../ROADMAP.md) records this specification as
+the shipped browser editor MVP.
 
 Execution is decomposed in the
-[Browser Editor MVP Implementation Plan](../plans/2026-07-19-browser-editor-mvp.md).
+[Browser Editor MVP Implementation Plan](../../plans/archived/2026-07-19-browser-editor-mvp.md).
 
 ## Context
 
@@ -64,7 +64,7 @@ This phase does not include:
 
 These exclusions preserve the approved single-file boundary. In particular,
 WebLLM remains an explicit
-[Phase 6 local-AI capability](../../playground-design.md#phase-6-local-ai), not
+[Phase 6 local-AI capability](../../../playground-design.md#phase-6-local-ai), not
 an omitted feature. That phase will run WebLLM outside Pyodide through the
 provider interface and feed untrusted model output through the existing typed
 planning, validation, preview, and acceptance boundary.

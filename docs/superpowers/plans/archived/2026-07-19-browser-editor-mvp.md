@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 19.2.7, React DOM 19.2.7, Monaco Editor 0.55.1, TypeScript 7.0.2, Vite 8.1.5, Vitest 4.1.10, Testing Library, jsdom, Playwright 1.61.1, Pyodide 314.0.2.
 
-**Design:** [Browser Editor MVP — Design](../specs/2026-07-19-browser-editor-mvp-design.md)
+**Design:** [Browser Editor MVP — Design](../../specs/archived/2026-07-19-browser-editor-mvp-design.md)
 
 ## Global Constraints
 

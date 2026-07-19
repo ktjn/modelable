@@ -8,7 +8,7 @@ from types import ModuleType
 
 import pytest
 
-SCRIPT = Path(__file__).parents[2] / ".github" / "scripts" / "run_browser_spike.py"
+SCRIPT = Path(__file__).parents[2] / ".github" / "scripts" / "run_browser_playground.py"
 EXPECTED_NPM_CMD_CALLS = [
     ("cli", ("uv", "run", "ruff", "check", ".")),
     ("cli", ("uv", "run", "ruff", "format", "--check", ".")),
@@ -41,7 +41,7 @@ EXPECTED_NPM_CMD_CALLS = [
 
 
 def _load_runner() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("run_browser_spike", SCRIPT)
+    spec = importlib.util.spec_from_file_location("run_browser_playground", SCRIPT)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)

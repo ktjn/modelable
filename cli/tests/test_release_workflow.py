@@ -179,7 +179,7 @@ def test_validation_workflow_uses_distinct_uv_cache_suffixes() -> None:
         assert setup_uv_steps[0]["with"]["cache-suffix"] == expected_suffix
 
 
-def test_validation_workflow_runs_complete_browser_spike_gate() -> None:
+def test_validation_workflow_runs_complete_browser_playground_gate() -> None:
     workflow = _workflow("validate.yml")
     steps = workflow["jobs"]["browser"]["steps"]
     commands = "\n".join(step["run"] for step in steps if "run" in step)
@@ -192,7 +192,7 @@ def test_validation_workflow_runs_complete_browser_spike_gate() -> None:
     assert "uv sync --extra dev --frozen" in commands
     assert "npm ci" in commands
     assert "npx playwright install --with-deps chromium" in commands
-    assert "uv run python .github/scripts/run_browser_spike.py --skip-install" in commands
+    assert "uv run python .github/scripts/run_browser_playground.py --skip-install" in commands
     assert any(
         step.get("uses") == "actions/upload-artifact@v7.0.1"
         and step.get("if") == "${{ failure() }}"

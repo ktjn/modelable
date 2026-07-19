@@ -935,16 +935,20 @@ editor, visualization, persistence, and AI phases below. The completed scope
 and acceptance criteria are archived in
 [Browser Compiler WASM Spike — Design](https://github.com/ktjn/modelable/blob/main/docs/superpowers/specs/archived/2026-07-18-browser-compiler-wasm-spike-design.md).
 
-### Phase 2: editor MVP
+### Phase 2: editor MVP — shipped
 
-- Add React application shell.
-- Add Monaco editor.
-- Add diagnostics and formatting.
-- Add generated artifact preview.
-- Add import/export.
+The shipped single-file editor includes:
 
-The approved single-file scope and acceptance criteria are defined in
-[Browser Editor MVP — Design](superpowers/specs/2026-07-19-browser-editor-mvp-design.md).
+- a responsive React application shell;
+- Monaco source editing with ranged diagnostics and undo-preserving formatting;
+- selected generated-artifact preview in a read-only Monaco model;
+- explicit source import plus source and artifact export;
+- recoverable compiler failure with retry while preserving source text;
+- unit, component, keyboard, and automated accessibility coverage; and
+- static, same-origin deployment under `/modelable/playground/`.
+
+The completed scope and acceptance criteria are archived in
+[Browser Editor MVP — Design](superpowers/specs/archived/2026-07-19-browser-editor-mvp-design.md).
 
 ### Phase 3: workspace and language services
 

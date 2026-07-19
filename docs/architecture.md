@@ -65,7 +65,7 @@ The system should reject invalid or incompatible definitions before runtime when
 The shipped browser proof preserves this implemented dependency direction:
 
 ```text
-Minimal browser UI
+React and Monaco single-file editor
   -> BrowserCompilerClient protocol v1
   -> module Web Worker
   -> pinned same-origin Pyodide
