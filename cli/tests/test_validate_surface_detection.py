@@ -123,7 +123,7 @@ def test_shared_model_graph_change_runs_all_export_smokes() -> None:
         "cli/src/modelable/registry/signature.py",
         "cli/pyproject.toml",
         "cli/uv.lock",
-        ".github/scripts/run_browser_spike.py",
+        ".github/scripts/run_browser_playground.py",
         ".github/scripts/assemble_pages.py",
         ".github/workflows/docs.yml",
         "docs/playground-design.md",

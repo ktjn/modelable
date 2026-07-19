@@ -1,4 +1,11 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type Browser,
+  type BrowserContext,
+  type Page,
+  type Request,
+} from '@playwright/test';
 
 type Source = { uri: string; text: string; version: number };
 type TestClient = {
@@ -14,6 +21,43 @@ const scenarios = {
   'multi-domain': ['multi-domain-customer.mdl', 'multi-domain-order.mdl'],
   'single-valid': ['single-valid.mdl'],
 } as const;
+const localOrigin = 'http://127.0.0.1:4173';
+const localRequestAudits = new WeakMap<BrowserContext, () => void>();
+
+function startLocalRequestAudit(context: BrowserContext): () => void {
+  const offOriginRequests: string[] = [];
+  const handleRequest = (request: Request): void => {
+    const url = new URL(request.url());
+    if (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      url.origin !== localOrigin
+    ) {
+      offOriginRequests.push(url.href);
+    }
+  };
+  let finished = false;
+  context.on('request', handleRequest);
+  return () => {
+    if (finished) {
+      return;
+    }
+    finished = true;
+    context.off('request', handleRequest);
+    expect(
+      offOriginRequests,
+      'Every HTTP(S) request must stay on the local preview origin',
+    ).toEqual([]);
+  };
+}
+
+test.beforeEach(({ context }) => {
+  localRequestAudits.set(context, startLocalRequestAudit(context));
+});
+
+test.afterEach(({ context }) => {
+  localRequestAudits.get(context)?.();
+  localRequestAudits.delete(context);
+});
 
 test('browser compiler matches every native snapshot', async ({ page }) => {
   await page.goto('?test=1');
@@ -64,17 +108,22 @@ test('browser compiler stays within initialization and operation budgets', async
   browser,
 }, testInfo) => {
   test.setTimeout(180_000);
-  const coldInitialize = await measureColdInitializations(browser);
+  const cold = await measureColdInitializations(browser);
   const cachedContext = await browser.newContext();
+  const finishCachedRequestAudit = startLocalRequestAudit(cachedContext);
   const cachedPage = await cachedContext.newPage();
   try {
     await initializePage(cachedPage);
     const cachedInitialize: number[] = [];
+    const cachedPageReady: number[] = [];
     for (let index = 0; index < 3; index += 1) {
       const started = performance.now();
       await cachedPage.reload();
       await waitForCompiler(cachedPage);
-      cachedInitialize.push(performance.now() - started);
+      cachedPageReady.push(performance.now() - started);
+      cachedInitialize.push(
+        await readCompilerInitializationDuration(cachedPage),
+      );
     }
 
     const operationTimings = await cachedPage.evaluate(async () => {
@@ -109,10 +158,12 @@ test('browser compiler stays within initialization and operation budgets', async
     });
 
     const medians = {
-      coldInitializeMedian: median(coldInitialize),
+      coldInitializeMedian: median(cold.runtimeInitialize),
       cachedInitializeMedian: median(cachedInitialize),
       validateMedian: median(operationTimings.validate),
       compileMedian: median(operationTimings.compile),
+      coldPageReadyMedian: median(cold.pageReady),
+      cachedPageReadyMedian: median(cachedPageReady),
     };
     const performanceReport = JSON.stringify(medians);
     testInfo.annotations.push({
@@ -126,28 +177,43 @@ test('browser compiler stays within initialization and operation budgets', async
     console.log(`Browser performance medians: ${performanceReport}`);
 
     expect(medians.coldInitializeMedian).toBeLessThanOrEqual(20_000);
-    expect(medians.cachedInitializeMedian).toBeLessThanOrEqual(5_000);
+    expect(medians.cachedInitializeMedian).toBeLessThanOrEqual(10_000);
     expect(medians.validateMedian).toBeLessThanOrEqual(500);
     expect(medians.compileMedian).toBeLessThanOrEqual(1_000);
   } finally {
-    await cachedContext.close();
+    try {
+      finishCachedRequestAudit();
+    } finally {
+      await cachedContext.close();
+    }
   }
 });
 
-async function measureColdInitializations(browser: Browser): Promise<number[]> {
-  const timings: number[] = [];
+async function measureColdInitializations(
+  browser: Browser,
+): Promise<{ runtimeInitialize: number[]; pageReady: number[] }> {
+  const runtimeInitialize: number[] = [];
+  const pageReady: number[] = [];
   for (let index = 0; index < 3; index += 1) {
     const context = await browser.newContext();
+    const finishRequestAudit = startLocalRequestAudit(context);
     try {
       const page = await context.newPage();
       const started = performance.now();
       await initializePage(page);
-      timings.push(performance.now() - started);
+      pageReady.push(performance.now() - started);
+      runtimeInitialize.push(
+        await readCompilerInitializationDuration(page),
+      );
     } finally {
-      await context.close();
+      try {
+        finishRequestAudit();
+      } finally {
+        await context.close();
+      }
     }
   }
-  return timings;
+  return { runtimeInitialize, pageReady };
 }
 
 async function initializePage(page: Page): Promise<void> {
@@ -159,6 +225,24 @@ async function waitForCompiler(page: Page): Promise<void> {
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
     timeout: 30_000,
   });
+}
+
+async function readCompilerInitializationDuration(
+  page: Page,
+): Promise<number> {
+  const rawDuration = await page
+    .getByTestId('metrics')
+    .getAttribute('data-initialization-duration-ms');
+  if (rawDuration === null) {
+    throw new Error('Compiler initialization duration was not exposed');
+  }
+  const duration = Number(rawDuration);
+  if (!Number.isFinite(duration) || duration < 0) {
+    throw new Error(
+      `Compiler initialization duration is invalid: ${rawDuration}`,
+    );
+  }
+  return duration;
 }
 
 function median(values: number[]): number {

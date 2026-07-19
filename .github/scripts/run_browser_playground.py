@@ -65,7 +65,7 @@ def run_commands(
 
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run the complete browser compiler spike gate.")
+    parser = argparse.ArgumentParser(description="Run the complete browser playground gate.")
     parser.add_argument(
         "--skip-install",
         action="store_true",

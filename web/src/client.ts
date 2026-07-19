@@ -174,3 +174,12 @@ export class BrowserCompilerClient {
     this.pending.clear();
   }
 }
+
+export type BrowserCompilerClientLike = Pick<
+  BrowserCompilerClient,
+  | 'initialize'
+  | 'openWorkspace'
+  | 'formatSource'
+  | 'compileJsonSchema'
+  | 'dispose'
+>;

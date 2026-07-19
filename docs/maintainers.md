@@ -139,19 +139,19 @@ cd cli
 uv run pytest tests/test_release_metadata.py tests/test_release_workflow.py -v
 ```
 
-For browser compiler or playground changes, run the complete spike gate and
+For browser compiler or playground changes, run the complete playground gate and
 compose the same combined Pages artifact used by CI from the repository root:
 
 ```powershell
-uv run python .github/scripts/run_browser_spike.py
+uv run python .github/scripts/run_browser_playground.py
 uvx --from mkdocs==1.6.1 --with mkdocs-material==9.7.6 mkdocs build --strict
 uv run --project cli python .github/scripts/assemble_pages.py --site site --web-dist web/dist
 ```
 
-Pull requests only build and test the browser proof. Only pushes to `main`
+Pull requests only build and test the browser playground. Only pushes to `main`
 deploy the combined documentation and playground artifact.
 
-### Browser proof troubleshooting
+### Browser playground troubleshooting
 
 - **Checksum or manifest failure during `prepare:python`:** do not patch
   generated files under `web/public/python`. Confirm
@@ -162,14 +162,17 @@ deploy the combined documentation and playground artifact.
   manifest during cleanup. Each downloaded archive is checksum-verified before
   that archive is written. A checksum failure stops the build but may leave
   generated staging incomplete; correct the lock or source and rerun the build.
-- **`INITIALIZATION_FAILED` in the proof:** inspect the browser network panel
+- **`INITIALIZATION_FAILED` or an unavailable editor:** inspect the browser
+  console for Monaco worker startup failures and the network panel
   for the same-origin `pyodide/`, `python/runtime-manifest.json`, and two
   manifest wheel requests, then run `npm run build` and `npm run test:e2e` from
-  `web/`. The production UI deliberately sanitizes Python and worker
-  exceptions, so use the development console and failed request status rather
-  than expecting a traceback in the page.
+  `web/`. Monaco editor and JSON workers are bundled as same-origin assets, just
+  like the pinned Pyodide runtime and Python wheels. The production UI
+  deliberately sanitizes Python and worker exceptions, so use the development
+  console and failed request status rather than expecting a traceback in the
+  page.
 - **Native/browser conformance mismatch:** run
-  `uv run python .github/scripts/run_browser_spike.py`. Review the fixture and
+  `uv run python .github/scripts/run_browser_playground.py`. Review the fixture and
   normalized result difference before changing snapshots. Regenerate
   `cli/tests/conformance/browser/snapshots` with
   `uv run --project cli python cli/scripts/write_browser_conformance.py
@@ -177,9 +180,12 @@ deploy the combined documentation and playground artifact.
   reviewed semantic change.
 - **Size or timing budget failure:** run `npm run build`, then
   `npm run check:budgets` and `npm run test:e2e` from `web/`. The JSON output
-  identifies the wheel, application, or additional-Python size category;
-  Playwright prints initialization, validation, and generation medians. Keep
-  the budgets fixed unless an approved design change explicitly revises them.
+  identifies the wheel, application, additional-Python, and Monaco size
+  categories. Monaco is reported separately without a limit; the existing
+  compiler application, wheel, Python dependency, and timing budgets remain
+  enforced. Playwright prints initialization, validation, and generation
+  medians. Keep the enforced budgets fixed unless an approved design change
+  explicitly revises them.
 - **GitHub Pages base-path failure:** keep Vite's base at
   `/modelable/playground/`, build both surfaces, and run
   `uv run --project cli python .github/scripts/assemble_pages.py --site site
@@ -206,7 +212,7 @@ Test gates are selected by risk and touched surface.
 | Scalable gRPC export format | `uv run pytest tests/test_emit_grpc.py tests/test_emit_protobuf.py tests/test_codegen_targets.py -q` from `cli/` |
 | FHIR R4 profile export format | `uv run pytest tests/test_emit_fhir.py tests/test_fhir_validator.py -q` plus `MODELABLE_FHIR_VALIDATOR=1 MODELABLE_FHIR_VALIDATOR_JAR=<path-to-validator_cli.jar> uv run pytest tests/test_fhir_validator.py --tb=short -q` from `cli/` when the HL7 validator jar is available |
 | LSP, VS Code extension, or editor integration | Focused LSP tests plus `cd vscode && npm ci && npm run build && npm test` |
-| Browser compiler or playground | `uv run python .github/scripts/run_browser_spike.py` plus strict MkDocs build and combined Pages assembly |
+| Browser compiler or playground | `uv run python .github/scripts/run_browser_playground.py` plus strict MkDocs build and combined Pages assembly |
 | Release pipeline or packaging metadata | Focused release metadata/workflow tests plus the full local CLI gate |
 | Runtime, subscriptions, adapters, or materializers | Unit tests, integration or smoke tests for the adapter boundary, and failure-mode coverage |
 | Security, permissions, PII, or restricted fields | Negative tests proving unauthorized exposure is rejected or reported as a governance finding |

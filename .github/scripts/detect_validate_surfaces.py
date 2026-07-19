@@ -156,7 +156,7 @@ def _has_browser_risk(path: str) -> bool:
         or path
         in {
             ".github/scripts/assemble_pages.py",
-            ".github/scripts/run_browser_spike.py",
+            ".github/scripts/run_browser_playground.py",
             ".github/workflows/docs.yml",
             "cli/pyproject.toml",
             "cli/uv.lock",

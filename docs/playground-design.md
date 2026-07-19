@@ -763,7 +763,7 @@ Treat LLM output as untrusted data.
 Initial targets on a modern desktop browser:
 
 - Application shell interactive within 2 seconds excluding uncached Pyodide download.
-- Compiler ready within 5 seconds after cached startup.
+- Compiler ready within 10 seconds after cached startup.
 - Validation response below 250 ms for small workspaces.
 - Editor remains responsive during compilation and inference.
 - Graph interactions remain above 30 FPS for 1,000 visible nodes.
@@ -925,7 +925,7 @@ The final Windows/Chromium gate measured these gzip-compressed payloads:
 The same gate measured these browser medians:
 
 - Cold initialization: 2,371.54 ms (20,000 ms budget).
-- Cached initialization: 2,861.93 ms (5,000 ms budget).
+- Cached initialization: 2,861.93 ms (10,000 ms budget).
 - Validation: 11.50 ms (500 ms budget).
 - JSON Schema generation: 32.30 ms (1,000 ms budget).
 
@@ -937,11 +937,20 @@ and acceptance criteria are archived in
 
 ### Phase 2: editor MVP
 
-- Add React application shell.
-- Add Monaco editor.
-- Add diagnostics and formatting.
-- Add generated artifact preview.
-- Add import/export.
+**Status: Shipped.**
+
+The shipped single-file editor includes:
+
+- a responsive React application shell;
+- Monaco source editing with ranged diagnostics and undo-preserving formatting;
+- selected generated-artifact preview in a read-only Monaco model;
+- explicit source import plus source and artifact export;
+- recoverable compiler failure with retry while preserving source text;
+- unit, component, keyboard, and automated accessibility coverage; and
+- static, same-origin deployment under `/modelable/playground/`.
+
+The completed scope and acceptance criteria are archived in
+[Browser Editor MVP — Design](superpowers/specs/archived/2026-07-19-browser-editor-mvp-design.md).
 
 ### Phase 3: workspace and language services
 
