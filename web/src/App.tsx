@@ -243,6 +243,8 @@ export function App({
         if (compilerError.code === 'COMPILER_FAILED') {
           dispatch({
             type: 'runtimeFailed',
+            operation,
+            revision,
             message: compilerError.message,
             duration,
           });

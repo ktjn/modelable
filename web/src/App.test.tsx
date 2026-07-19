@@ -757,6 +757,198 @@ describe('App', () => {
     ).toBeTruthy();
   });
 
+  test('marks current artifacts stale for error diagnostics and restores current status after regeneration', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+    await generateArtifacts(client, [
+      {
+        path: 'customer.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Customer"}',
+        source_refs: ['file:///main.mdl'],
+      },
+      {
+        path: 'order.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Order"}',
+        source_refs: ['file:///main.mdl'],
+      },
+    ]);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Artifact' }), {
+      target: { value: 'order.schema.json' },
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate JSON Schema' }),
+    );
+    const failedRequest = latestRequest(client.compileRequests);
+    await act(async () => {
+      failedRequest.resolve({
+        diagnostics: [documentDiagnostic],
+        artifacts: [],
+      });
+      await failedRequest.promise;
+    });
+
+    expect(screen.getByLabelText('Artifact output').textContent).toBe(
+      '{"title":"Order"}',
+    );
+    expect(
+      (
+        screen.getByRole('combobox', {
+          name: 'Artifact',
+        }) as HTMLSelectElement
+      ).value,
+    ).toBe('order.schema.json');
+    expect(
+      screen.getByText('Stale—source changed after generation'),
+    ).toBeTruthy();
+
+    await generateArtifacts(client, [
+      {
+        path: 'customer.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Regenerated"}',
+        source_refs: ['file:///main.mdl'],
+      },
+    ]);
+    expect(screen.getByText('Current')).toBeTruthy();
+  });
+
+  test('marks current artifacts stale for a recoverable generation error and restores current status after regeneration', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+    await generateArtifacts(client, [
+      {
+        path: 'customer.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Customer"}',
+        source_refs: ['file:///main.mdl'],
+      },
+      {
+        path: 'order.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Order"}',
+        source_refs: ['file:///main.mdl'],
+      },
+    ]);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Artifact' }), {
+      target: { value: 'order.schema.json' },
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate JSON Schema' }),
+    );
+    const failedRequest = latestRequest(client.compileRequests);
+    await act(async () => {
+      failedRequest.reject(
+        new BrowserCompilerError(
+          'INVALID_REQUEST',
+          'Generation request failed',
+        ),
+      );
+      await expect(failedRequest.promise).rejects.toThrow(
+        'Generation request failed',
+      );
+    });
+
+    expect(screen.getByLabelText('Artifact output').textContent).toBe(
+      '{"title":"Order"}',
+    );
+    expect(
+      (
+        screen.getByRole('combobox', {
+          name: 'Artifact',
+        }) as HTMLSelectElement
+      ).value,
+    ).toBe('order.schema.json');
+    expect(
+      screen.getByText('Stale—source changed after generation'),
+    ).toBeTruthy();
+
+    await generateArtifacts(client, [
+      {
+        path: 'customer.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Regenerated"}',
+        source_refs: ['file:///main.mdl'],
+      },
+    ]);
+    expect(screen.getByText('Current')).toBeTruthy();
+  });
+
+  test('marks current artifacts stale for an operation-time compiler failure and restores current status after retry', async () => {
+    const firstClient = new FakeCompilerClient();
+    const secondClient = new FakeCompilerClient();
+    const createClient = vi
+      .fn()
+      .mockReturnValueOnce(firstClient)
+      .mockReturnValueOnce(secondClient);
+    render(<App createClient={createClient} />);
+    await initialize(firstClient);
+    await generateArtifacts(firstClient, [
+      {
+        path: 'customer.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Customer"}',
+        source_refs: ['file:///main.mdl'],
+      },
+      {
+        path: 'order.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Order"}',
+        source_refs: ['file:///main.mdl'],
+      },
+    ]);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Artifact' }), {
+      target: { value: 'order.schema.json' },
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate JSON Schema' }),
+    );
+    const failedRequest = latestRequest(firstClient.compileRequests);
+    await act(async () => {
+      failedRequest.reject(
+        new BrowserCompilerError(
+          'COMPILER_FAILED',
+          'Compiler worker failed',
+        ),
+      );
+      await expect(failedRequest.promise).rejects.toThrow(
+        'Compiler worker failed',
+      );
+    });
+
+    expect(screen.getByLabelText('Artifact output').textContent).toBe(
+      '{"title":"Order"}',
+    );
+    expect(
+      (
+        screen.getByRole('combobox', {
+          name: 'Artifact',
+        }) as HTMLSelectElement
+      ).value,
+    ).toBe('order.schema.json');
+    expect(
+      screen.getByText('Stale—source changed after generation'),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry compiler' }));
+    await initialize(secondClient);
+    await generateArtifacts(secondClient, [
+      {
+        path: 'customer.schema.json',
+        media_type: 'application/schema+json',
+        content: '{"title":"Regenerated"}',
+        source_refs: ['file:///main.mdl'],
+      },
+    ]);
+    expect(screen.getByText('Current')).toBeTruthy();
+  });
+
   test('renders generated artifacts in compiler order', async () => {
     const client = new FakeCompilerClient();
     render(<App createClient={() => client} />);

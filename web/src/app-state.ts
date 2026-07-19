@@ -31,7 +31,13 @@ export const initialAppState: AppState = {
 
 export type AppAction =
   | { type: 'initialized'; duration: number }
-  | { type: 'runtimeFailed'; message: string; duration: number | null }
+  | {
+      type: 'runtimeFailed';
+      message: string;
+      duration: number | null;
+      operation?: CompilerOperation;
+      revision?: number;
+    }
   | { type: 'retryRequested' }
   | { type: 'revisionChanged'; revision: number }
   | {
@@ -78,6 +84,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         runtime: 'failed',
         operation: null,
+        artifactRevision:
+          action.operation === 'generate' &&
+          action.revision === state.revision
+            ? null
+            : state.artifactRevision,
         status: action.message,
         initializationDuration:
           state.runtime === 'loading'
@@ -140,6 +151,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         runtime: 'ready',
         operation: null,
+        artifactRevision:
+          action.operation === 'generate' &&
+          action.revision === state.revision
+            ? null
+            : state.artifactRevision,
         diagnostics:
           action.revision === state.revision &&
           action.diagnostics !== undefined
