@@ -9,74 +9,13 @@
     >
     <meta
       name="description"
-      content="A local browser proof for validating, formatting, and compiling Modelable schemas."
+      content="A local browser editor for validating, formatting, and compiling Modelable schemas."
     >
-    <title>Modelable Local Compiler</title>
+    <title>Modelable Playground</title>
   </head>
   <body>
-    <a class="skip-link" href="#source">Skip to source</a>
-    <main class="workbench">
-      <header class="instrument-header">
-        <div>
-          <p class="eyebrow">Local browser proof</p>
-          <h1>Modelable compiler</h1>
-        </div>
-        <div class="state-block">
-          <span class="state-signal" aria-hidden="true"></span>
-          <p id="status" class="status" role="status">Initializing compiler…</p>
-        </div>
-      </header>
-
-      <section class="workspace" aria-label="Compiler workbench">
-        <div class="source-bay">
-          <div class="bay-heading">
-            <div>
-              <p class="bay-index">Source / fixture:///playground.mdl</p>
-              <label for="source">Model source</label>
-            </div>
-            <span class="local-note">Runs on this device</span>
-          </div>
-          <textarea
-            id="source"
-            rows="15"
-            spellcheck="false"
-            aria-describedby="source-help"
-          ></textarea>
-          <p id="source-help" class="source-help">
-            Edit the fixture, then run one compiler operation.
-          </p>
-          <div class="actions" aria-label="Compiler actions">
-            <button id="validate" type="button" disabled>Validate</button>
-            <button id="format" type="button" disabled>Format</button>
-            <button id="generate" type="button" disabled>Generate JSON Schema</button>
-          </div>
-        </div>
-
-        <div class="result-bay">
-          <section class="result-panel" aria-labelledby="diagnostics-heading">
-            <div class="panel-heading">
-              <h2 id="diagnostics-heading">Diagnostics</h2>
-              <span>Compiler output</span>
-            </div>
-            <pre id="diagnostics" data-testid="diagnostics">Waiting for compiler.</pre>
-          </section>
-          <section class="result-panel artifact-panel" aria-labelledby="artifacts-heading">
-            <div class="panel-heading">
-              <h2 id="artifacts-heading">JSON Schema</h2>
-              <span>Generated preview</span>
-            </div>
-            <pre id="artifacts" data-testid="artifacts">Generate JSON Schema to preview artifacts.</pre>
-          </section>
-        </div>
-      </section>
-
-      <footer class="metrics-strip">
-        <p class="metrics-label">Runtime readout</p>
-        <pre id="metrics" data-testid="metrics">initialization  — ms
-operation       — ms</pre>
-        <p class="privacy-note">Source stays in this browser.</p>
-      </footer>
-    </main>
-    <script type="module" src="/src/main.ts"></script>
+    <a class="skip-link" href="#source-editor">Skip to source</a>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,0 +1,9 @@
+domain customer {
+  owner: "team-customer"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+    email?: string
+  }
+}
