@@ -728,7 +728,7 @@ A service worker update must not silently invalidate unsaved workspace state.
 
 ## 16.2 Content Security Policy
 
-Use a restrictive CSP. Avoid `unsafe-eval` unless a required runtime makes it unavoidable. If Pyodide or WebLLM requires exceptions, document and isolate them.
+Use a restrictive CSP. Avoid `unsafe-eval` unless a required runtime makes it unavoidable. If Pyodide or WebLLM requires exceptions, document and isolate them. Monaco requires runtime-generated style elements and attributes for editor layout, so the static playground permits `unsafe-inline` only in `style-src`; `script-src` remains limited to same-origin scripts and the WebAssembly evaluation required by Pyodide.
 
 Restrict connections to:
 

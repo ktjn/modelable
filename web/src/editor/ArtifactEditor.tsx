@@ -46,11 +46,5 @@ export function ArtifactEditor({ value }: ArtifactEditorProps) {
     }
   }, [value]);
 
-  return (
-    <div
-      className="artifact-editor"
-      ref={containerRef}
-      style={{ height: '100%', minHeight: '24rem' }}
-    />
-  );
+  return <div className="artifact-editor" ref={containerRef} />;
 }
