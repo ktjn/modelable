@@ -1,12 +1,232 @@
-import { useRef } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 
+import { appReducer, initialAppState } from './app-state';
+import {
+  BrowserCompilerClient,
+  BrowserCompilerError,
+  type BrowserCompilerClientLike,
+} from './client';
+import { normalizeDiagnostics } from './diagnostics';
 import initialSource from './example.mdl?raw';
 import { ArtifactEditor } from './editor/ArtifactEditor';
 import { SourceEditor } from './editor/SourceEditor';
 import type { SourceEditorHandle } from './editor/types';
 
-export function App() {
+const SOURCE_URI = 'file:///main.mdl';
+const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
+  new BrowserCompilerClient();
+const performanceNow = (): number => performance.now();
+
+export interface AppProps {
+  createClient?: () => BrowserCompilerClientLike;
+  now?: () => number;
+}
+
+function asCompilerError(error: unknown): BrowserCompilerError {
+  if (error instanceof BrowserCompilerError) {
+    return error;
+  }
+  return new BrowserCompilerError(
+    'COMPILER_FAILED',
+    'Compiler request failed',
+  );
+}
+
+function hasErrorDiagnostics(
+  diagnostics: { severity: string }[],
+): boolean {
+  return diagnostics.some((diagnostic) => diagnostic.severity === 'error');
+}
+
+export function App({
+  createClient = createBrowserCompilerClient,
+  now = performanceNow,
+}: AppProps) {
+  const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const [clientAttempt, setClientAttempt] = useState(0);
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
+  const clientRef = useRef<BrowserCompilerClientLike>(null);
+  const operationPendingRef = useRef(false);
+  const revisionRef = useRef(initialAppState.revision);
+
+  useEffect(() => {
+    const client = createClient();
+    const startedAt = now();
+    clientRef.current = client;
+    operationPendingRef.current = false;
+
+    const exposedGlobal = globalThis as typeof globalThis & {
+      __modelableBrowserCompiler?: BrowserCompilerClientLike;
+    };
+    if (
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('test') === '1'
+    ) {
+      exposedGlobal.__modelableBrowserCompiler = client;
+    }
+
+    const dispose = (): void => {
+      if (clientRef.current !== client) {
+        return;
+      }
+      clientRef.current = null;
+      client.dispose();
+      if (exposedGlobal.__modelableBrowserCompiler === client) {
+        delete exposedGlobal.__modelableBrowserCompiler;
+      }
+    };
+    window.addEventListener('pagehide', dispose);
+
+    void client.initialize().then(
+      () => {
+        if (clientRef.current === client) {
+          dispatch({ type: 'initialized', duration: now() - startedAt });
+        }
+      },
+      (error: unknown) => {
+        if (clientRef.current === client) {
+          dispatch({
+            type: 'runtimeFailed',
+            message: asCompilerError(error).message,
+            duration: now() - startedAt,
+          });
+        }
+      },
+    );
+
+    return () => {
+      window.removeEventListener('pagehide', dispose);
+      dispose();
+    };
+  }, [clientAttempt, createClient, now]);
+
+  const runOperation = useCallback(
+    async (operation: 'validate' | 'format' | 'generate'): Promise<void> => {
+      if (state.runtime !== 'ready' || operationPendingRef.current) {
+        return;
+      }
+      const client = clientRef.current;
+      const sourceEditor = sourceEditorRef.current;
+      if (client === null || sourceEditor === null) {
+        return;
+      }
+
+      const source = sourceEditor.getSource();
+      const revision = source.version;
+      const startedAt = now();
+      operationPendingRef.current = true;
+      dispatch({ type: 'operationStarted', operation, revision });
+
+      try {
+        if (operation === 'validate') {
+          const result = await client.openWorkspace([source]);
+          dispatch({
+            type: 'operationSucceeded',
+            operation,
+            revision,
+            diagnostics: result.diagnostics,
+            duration: now() - startedAt,
+          });
+          return;
+        }
+        if (operation === 'format') {
+          const result = await client.formatSource(source);
+          if (
+            result.replacement_text !== null &&
+            !hasErrorDiagnostics(result.diagnostics) &&
+            revisionRef.current === revision
+          ) {
+            sourceEditor.applyFormattedText(result.replacement_text);
+          }
+          dispatch({
+            type: 'operationSucceeded',
+            operation,
+            revision,
+            diagnostics: result.diagnostics,
+            duration: now() - startedAt,
+          });
+          return;
+        }
+
+        const result = await client.compileJsonSchema([source]);
+        const duration = now() - startedAt;
+        if (
+          hasErrorDiagnostics(result.diagnostics) ||
+          result.artifacts.length === 0
+        ) {
+          dispatch({
+            type: 'operationFailed',
+            operation,
+            revision,
+            message: 'Generation failed',
+            diagnostics: result.diagnostics,
+            duration,
+          });
+          return;
+        }
+        dispatch({
+          type: 'operationSucceeded',
+          operation,
+          revision,
+          diagnostics: result.diagnostics,
+          artifacts: result.artifacts,
+          duration,
+        });
+      } catch (error: unknown) {
+        const compilerError = asCompilerError(error);
+        const duration = now() - startedAt;
+        if (compilerError.code === 'COMPILER_FAILED') {
+          dispatch({
+            type: 'runtimeFailed',
+            message: compilerError.message,
+            duration,
+          });
+        } else {
+          dispatch({
+            type: 'operationFailed',
+            operation,
+            revision,
+            message: compilerError.message,
+            duration,
+          });
+        }
+      } finally {
+        operationPendingRef.current = false;
+      }
+    },
+    [now, state.runtime],
+  );
+
+  const retryCompiler = (): void => {
+    const client = clientRef.current;
+    clientRef.current = null;
+    client?.dispose();
+    operationPendingRef.current = false;
+    dispatch({ type: 'retryRequested' });
+    setClientAttempt((attempt) => attempt + 1);
+  };
+
+  const normalizedDiagnostics = normalizeDiagnostics(
+    state.diagnostics,
+    SOURCE_URI,
+  );
+  const selectedArtifact =
+    state.artifacts.find(
+      (artifact) => artifact.path === state.selectedArtifactPath,
+    ) ?? null;
+  const artifactIsStale =
+    state.artifacts.length > 0 &&
+    state.artifactRevision !== state.revision;
+  const actionsDisabled = state.runtime !== 'ready';
+  const diagnosticLabel = `${state.diagnostics.length} ${
+    state.diagnostics.length === 1 ? 'diagnostic' : 'diagnostics'
+  }`;
 
   return (
     <main className="workbench">
@@ -16,30 +236,100 @@ export function App() {
           <h1>Modelable playground</h1>
         </div>
         <p role="status" aria-live="polite">
-          Initializing compiler…
+          {state.status} · {diagnosticLabel}
+        </p>
+        <p className="timings">
+          {state.initializationDuration === null
+            ? null
+            : `Initialized in ${state.initializationDuration.toFixed(0)} ms`}
+          {state.lastOperationDuration === null
+            ? null
+            : ` · Last operation ${state.lastOperationDuration.toFixed(0)} ms`}
         </p>
       </header>
       <nav className="toolbar" aria-label="Playground actions">
         <button type="button">Import</button>
         <button type="button">Export source</button>
-        <button type="button" disabled>Validate</button>
-        <button type="button" disabled>Format</button>
-        <button type="button" disabled>Generate</button>
-        <button type="button" disabled>Export artifact</button>
+        <button
+          type="button"
+          disabled={actionsDisabled}
+          onClick={() => void runOperation('validate')}
+        >
+          Validate
+        </button>
+        <button
+          type="button"
+          disabled={actionsDisabled}
+          onClick={() => void runOperation('format')}
+        >
+          Format
+        </button>
+        <button
+          type="button"
+          disabled={actionsDisabled}
+          onClick={() => void runOperation('generate')}
+        >
+          Generate
+        </button>
+        <button type="button" disabled={selectedArtifact === null}>
+          Export artifact
+        </button>
+        {state.runtime === 'failed' ? (
+          <button type="button" onClick={retryCompiler}>
+            Retry compiler
+          </button>
+        ) : null}
       </nav>
       <section className="workspace" aria-label="Single-file workspace">
         <section id="source-editor" aria-label="Modelable source" tabIndex={-1}>
           <SourceEditor
             ref={sourceEditorRef}
             initialValue={initialSource}
-            markers={[]}
-            onRevisionChange={() => undefined}
+            markers={normalizedDiagnostics.markers}
+            onRevisionChange={(revision) => {
+              revisionRef.current = revision;
+              dispatch({ type: 'revisionChanged', revision });
+            }}
           />
         </section>
         <section aria-label="Generated JSON Schema">
-          <ArtifactEditor value="" />
+          {state.artifacts.length > 1 ? (
+            <label>
+              Artifact
+              <select
+                value={state.selectedArtifactPath ?? ''}
+                onChange={(event) =>
+                  dispatch({
+                    type: 'artifactSelected',
+                    path: event.target.value,
+                  })
+                }
+              >
+                {state.artifacts.map((artifact) => (
+                  <option key={artifact.path} value={artifact.path}>
+                    {artifact.path}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {artifactIsStale ? <p>Artifact is stale</p> : null}
+          <ArtifactEditor value={selectedArtifact?.content ?? ''} />
         </section>
       </section>
+      {normalizedDiagnostics.documentDiagnostics.length > 0 ? (
+        <section aria-label="Document diagnostics">
+          <ul>
+            {normalizedDiagnostics.documentDiagnostics.map(
+              (diagnostic, index) => (
+                <li key={`${diagnostic.code}-${index}`}>
+                  {diagnostic.message}
+                </li>
+              ),
+            )}
+          </ul>
+        </section>
+      ) : null}
     </main>
   );
 }
