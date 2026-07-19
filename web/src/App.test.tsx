@@ -118,6 +118,17 @@ function latestRequest<T>(requests: Deferred<T>[]): Deferred<T> {
   return request;
 }
 
+function fileWithDeferredText(
+  name: string,
+  text: Deferred<string>,
+): File {
+  const file = new File([], name);
+  Object.defineProperty(file, 'text', {
+    value: vi.fn(() => text.promise),
+  });
+  return file;
+}
+
 class FakeCompilerClient {
   readonly initialization = deferred<void>();
   readonly workspaceRequests: Deferred<BrowserWorkspaceResult>[] = [];
@@ -367,6 +378,115 @@ describe('App', () => {
     expect((editor as HTMLTextAreaElement).value).toBe(initialText);
     expect(screen.getByRole('status').textContent).toMatch(
       /compiler ready/i,
+    );
+  });
+
+  test('ignores an older import that resolves after the latest import', async () => {
+    const client = new FakeCompilerClient();
+    const download = vi.fn();
+    const slowText = deferred<string>();
+    render(<App createClient={() => client} download={download} />);
+    await initialize(client);
+    const editor = screen.getByRole('textbox', { name: 'Model source' });
+
+    chooseSourceFile(fileWithDeferredText('old.mdl', slowText));
+    chooseSourceFile(new File(['record Latest {}'], 'latest.mdl'));
+    await waitFor(() => {
+      expect((editor as HTMLTextAreaElement).value).toBe(
+        'record Latest {}',
+      );
+    });
+
+    await act(async () => {
+      slowText.resolve('record Old {}');
+      await slowText.promise;
+    });
+
+    expect((editor as HTMLTextAreaElement).value).toBe(
+      'record Latest {}',
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Export source' }),
+    );
+    expect(download).toHaveBeenCalledWith(
+      'record Latest {}',
+      'latest.mdl',
+      'text/plain',
+    );
+  });
+
+  test('an older import cannot change the latest clean snapshot', async () => {
+    const client = new FakeCompilerClient();
+    const confirmReplace = vi.fn(() => false);
+    const slowText = deferred<string>();
+    render(
+      <App
+        createClient={() => client}
+        confirmReplace={confirmReplace}
+      />,
+    );
+    await initialize(client);
+    const editor = screen.getByRole('textbox', { name: 'Model source' });
+
+    chooseSourceFile(fileWithDeferredText('old.mdl', slowText));
+    chooseSourceFile(new File(['record Latest {}'], 'latest.mdl'));
+    await waitFor(() => {
+      expect((editor as HTMLTextAreaElement).value).toBe(
+        'record Latest {}',
+      );
+    });
+    await act(async () => {
+      slowText.resolve('record Old {}');
+      await slowText.promise;
+    });
+
+    fireEvent.change(editor, {
+      target: { value: 'record Latest {}' },
+    });
+    chooseSourceFile(new File(['record Next {}'], 'next.mdl'));
+    await waitFor(() => {
+      expect((editor as HTMLTextAreaElement).value).toBe(
+        'record Next {}',
+      );
+    });
+    expect(confirmReplace).not.toHaveBeenCalled();
+  });
+
+  test('ignores an older import that rejects after the latest import', async () => {
+    const client = new FakeCompilerClient();
+    const download = vi.fn();
+    const slowText = deferred<string>();
+    render(<App createClient={() => client} download={download} />);
+    await initialize(client);
+    const editor = screen.getByRole('textbox', { name: 'Model source' });
+
+    chooseSourceFile(fileWithDeferredText('old.mdl', slowText));
+    chooseSourceFile(new File(['record Latest {}'], 'latest.mdl'));
+    await waitFor(() => {
+      expect((editor as HTMLTextAreaElement).value).toBe(
+        'record Latest {}',
+      );
+    });
+
+    await act(async () => {
+      slowText.reject(new Error('late unreadable failure'));
+      await expect(slowText.promise).rejects.toThrow(
+        'late unreadable failure',
+      );
+    });
+
+    expect((editor as HTMLTextAreaElement).value).toBe(
+      'record Latest {}',
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Export source' }),
+    );
+    expect(download).toHaveBeenCalledWith(
+      'record Latest {}',
+      'latest.mdl',
+      'text/plain',
     );
   });
 

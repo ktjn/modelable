@@ -79,9 +79,17 @@ export function App({
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const operationPendingRef = useRef(false);
   const recoveryPendingRef = useRef(false);
+  const importAttemptRef = useRef(0);
   const revisionRef = useRef(initialAppState.revision);
   const cleanSourceRef = useRef(initialSource);
   const sourceFilenameRef = useRef('main.mdl');
+
+  useEffect(
+    () => () => {
+      importAttemptRef.current += 1;
+    },
+    [],
+  );
 
   useEffect(() => {
     const client = createClient();
@@ -261,8 +269,13 @@ export function App({
     if (file === undefined) {
       return;
     }
+    const attempt = importAttemptRef.current + 1;
+    importAttemptRef.current = attempt;
     try {
       const imported = await readSourceFile(file);
+      if (importAttemptRef.current !== attempt) {
+        return;
+      }
       const sourceEditor = sourceEditorRef.current;
       if (sourceEditor === null) {
         return;
@@ -282,7 +295,9 @@ export function App({
       sourceEditor.focus();
       setFileError(null);
     } catch (error: unknown) {
-      setFileError(sourceFileErrorMessage(error));
+      if (importAttemptRef.current === attempt) {
+        setFileError(sourceFileErrorMessage(error));
+      }
     } finally {
       input.value = '';
     }
