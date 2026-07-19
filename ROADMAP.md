@@ -109,13 +109,14 @@ After the Scalable/Rust path is complete:
    native/browser conformance and performance budgets; and ships in the
    existing GitHub Pages artifact. The completed design is archived in
    [Browser Compiler WASM Spike — Design](docs/superpowers/specs/archived/2026-07-18-browser-compiler-wasm-spike-design.md).
-4. **Next:** add an optional provider adapter for the VS Code Language Model
-   API so users can select a model available in their editor. Native model
-   output must still pass through Python-owned typed plan parsing, validation,
-   preview, and workspace editing; the extension must not duplicate those
-   safety boundaries in TypeScript.
-5. **After the native-model provider adapter:** extend conversational management
-   to compilation, registry synchronization, publishing, and external-service
+4. **Next:** turn the browser compiler proof into the editor MVP from
+   [the playground delivery roadmap](docs/playground-design.md#phase-2-editor-mvp).
+   Add the application shell, Monaco editing, diagnostics, formatting,
+   generated-artifact preview, and explicit import/export while keeping
+   compiler semantics in the existing Pyodide worker. The approved scope is in
+   [Browser Editor MVP — Design](docs/superpowers/specs/2026-07-19-browser-editor-mvp-design.md).
+5. **After the browser editor MVP:** extend conversational management to
+   compilation, registry synchronization, publishing, and external-service
    operations only after each action has an explicit authorization, preview,
    confirmation, and audit policy.
 6. Extend nominal semantic-type generation beyond Rust, prioritizing
@@ -163,6 +164,11 @@ accepted design establish their value:
   and local registry cache.
 - Additional artifact formats requested by a real consumer.
 - A third compatibility signal for state-migration necessity.
+- An optional provider adapter for the VS Code Language Model API so users can
+  select a model available in their editor. Native model output must still
+  pass through Python-owned typed plan parsing, validation, preview, and
+  workspace editing; the extension must not duplicate those safety boundaries
+  in TypeScript.
 
 ## Outside the near-term compiler roadmap
 

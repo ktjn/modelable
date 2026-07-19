@@ -943,6 +943,9 @@ and acceptance criteria are archived in
 - Add generated artifact preview.
 - Add import/export.
 
+The approved single-file scope and acceptance criteria are defined in
+[Browser Editor MVP — Design](superpowers/specs/2026-07-19-browser-editor-mvp-design.md).
+
 ### Phase 3: workspace and language services
 
 - Multi-file workspace.
