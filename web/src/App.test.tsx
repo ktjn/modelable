@@ -224,7 +224,11 @@ afterEach(() => {
 describe('App', () => {
   test('disables actions during initialization and enables them after success', async () => {
     const client = new FakeCompilerClient();
-    render(<App createClient={() => client} now={() => 10} />);
+    const now = vi
+      .fn<() => number>()
+      .mockReturnValueOnce(100)
+      .mockReturnValueOnce(350);
+    render(<App createClient={() => client} now={now} />);
 
     for (const name of ['Validate', 'Format', 'Generate JSON Schema']) {
       expect(
@@ -243,6 +247,11 @@ describe('App', () => {
       ).toBe(false);
     }
     expect(screen.getByRole('status').textContent).toMatch(/compiler ready/i);
+    expect(
+      screen.getByTestId('metrics').getAttribute(
+        'data-initialization-duration-ms',
+      ),
+    ).toBe('250');
   });
 
   test('disables duplicate actions while one request is pending', async () => {

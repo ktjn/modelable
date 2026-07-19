@@ -574,7 +574,13 @@ export function App({
           <ArtifactEditor value={selectedArtifact?.content ?? ''} />
         </section>
       </section>
-      <footer className="metrics-strip" data-testid="metrics">
+      <footer
+        className="metrics-strip"
+        data-testid="metrics"
+        data-initialization-duration-ms={
+          state.initializationDuration ?? undefined
+        }
+      >
         <p className="metrics-label">Browser compiler timing</p>
         <p className="timings">
           Initialization{' '}
