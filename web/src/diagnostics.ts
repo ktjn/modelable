@@ -18,7 +18,8 @@ export function normalizeDiagnostics(
   diagnostics: BrowserDiagnostic[],
   sourceUri: string,
 ): NormalizedDiagnostics {
-  const markers: editor.IMarkerData[] = [];
+  const markers =
+    normalizeDiagnosticsByUri(diagnostics, [sourceUri]).get(sourceUri) ?? [];
   const documentDiagnostics: BrowserDiagnostic[] = [];
   for (const diagnostic of diagnostics) {
     if (
@@ -27,6 +28,26 @@ export function normalizeDiagnostics(
       diagnostic.column === null
     ) {
       documentDiagnostics.push(diagnostic);
+    }
+  }
+  return { markers, documentDiagnostics };
+}
+
+export function normalizeDiagnosticsByUri(
+  diagnostics: BrowserDiagnostic[],
+  sourceUris: Iterable<string>,
+): Map<string, editor.IMarkerData[]> {
+  const markersByUri = new Map<string, editor.IMarkerData[]>();
+  for (const uri of sourceUris) {
+    markersByUri.set(uri, []);
+  }
+  for (const diagnostic of diagnostics) {
+    const markers = markersByUri.get(diagnostic.uri);
+    if (
+      markers === undefined ||
+      diagnostic.line === null ||
+      diagnostic.column === null
+    ) {
       continue;
     }
     markers.push({
@@ -45,5 +66,5 @@ export function normalizeDiagnostics(
       ),
     });
   }
-  return { markers, documentDiagnostics };
+  return markersByUri;
 }

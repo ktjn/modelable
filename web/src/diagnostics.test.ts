@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
 
-import { normalizeDiagnostics } from './diagnostics';
+import {
+  normalizeDiagnostics,
+  normalizeDiagnosticsByUri,
+} from './diagnostics';
 import type { BrowserDiagnostic } from './protocol';
 
 const ranged: BrowserDiagnostic = {
@@ -41,4 +44,19 @@ describe('normalizeDiagnostics', () => {
     expect(result.markers).toEqual([]);
     expect(result.documentDiagnostics).toHaveLength(2);
   });
+});
+
+test('routes markers to every matching file model', () => {
+  const result = normalizeDiagnosticsByUri(
+    [
+      { ...ranged, uri: 'file:///a.mdl' },
+      { ...ranged, uri: 'file:///b.mdl' },
+      { ...ranged, uri: 'file:///b.mdl', code: 'E200' },
+      { ...ranged, uri: 'file:///outside.mdl' },
+    ],
+    ['file:///a.mdl', 'file:///b.mdl'],
+  );
+
+  expect(result.get('file:///a.mdl')).toHaveLength(1);
+  expect(result.get('file:///b.mdl')).toHaveLength(2);
 });
