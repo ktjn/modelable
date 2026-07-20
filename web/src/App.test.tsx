@@ -20,6 +20,7 @@ import type {
   BrowserSource,
   BrowserWorkspaceResult,
 } from './protocol';
+import type { PlaygroundWorkspace } from './workspace';
 
 const sourceEditorSpies = vi.hoisted(() => ({
   applyFormattedText: vi.fn(),
@@ -31,44 +32,42 @@ vi.mock('./editor/SourceEditor', async () => {
     forwardRef,
     useImperativeHandle,
     useRef,
-    useState,
   } = await import('react');
   return {
     SourceEditor: forwardRef(function FakeSourceEditor(
       {
-        initialValue,
-        onRevisionChange,
+        files,
+        activeFile,
+        onContentChange,
       }: {
-        initialValue: string;
-        onRevisionChange(version: number): void;
+        files: PlaygroundWorkspace['files'];
+        activeFile: string;
+        onContentChange(path: string, content: string): void;
       },
       ref,
     ) {
-      const [value, setValue] = useState(initialValue);
-      const valueRef = useRef(value);
-      const versionRef = useRef(1);
-
-      valueRef.current = value;
+      const propsRef = useRef({ files, activeFile, onContentChange });
+      propsRef.current = { files, activeFile, onContentChange };
+      const active = files.find((file) => file.path === activeFile);
       useImperativeHandle(ref, () => ({
         getSource(): BrowserSource {
+          const current = propsRef.current;
+          const file = current.files.find(
+            (candidate) => candidate.path === current.activeFile,
+          );
           return {
-            uri: 'file:///main.mdl',
-            text: valueRef.current,
-            version: versionRef.current,
+            uri: `file:///${current.activeFile}`,
+            text: file?.content ?? '',
+            version: file?.version ?? 1,
           };
         },
-        applyFormattedText(text: string) {
-          sourceEditorSpies.applyFormattedText(text);
-          valueRef.current = text;
-          setValue(text);
-          versionRef.current += 1;
-          onRevisionChange(versionRef.current);
+        applyFormattedText(path: string, text: string) {
+          sourceEditorSpies.applyFormattedText(path, text);
+          propsRef.current.onContentChange(path, text);
         },
         replaceText(text: string) {
-          valueRef.current = text;
-          setValue(text);
-          versionRef.current += 1;
-          onRevisionChange(versionRef.current);
+          const current = propsRef.current;
+          current.onContentChange(current.activeFile, text);
         },
         focus() {
           sourceEditorSpies.focus();
@@ -78,12 +77,9 @@ vi.mock('./editor/SourceEditor', async () => {
       return (
         <textarea
           aria-label="Model source"
-          value={value}
+          value={active?.content ?? ''}
           onChange={(event) => {
-            valueRef.current = event.target.value;
-            setValue(event.target.value);
-            versionRef.current += 1;
-            onRevisionChange(versionRef.current);
+            onContentChange(activeFile, event.target.value);
           }}
         />
       );
@@ -222,6 +218,42 @@ afterEach(() => {
 });
 
 describe('App', () => {
+  test('validation and generation send every file in path order', async () => {
+    const client = new FakeCompilerClient();
+    const workspace: PlaygroundWorkspace = {
+      schemaVersion: 1,
+      id: 'local',
+      revision: 3,
+      activeFile: 'a.mdl',
+      files: [
+        { path: 'z.mdl', content: 'domain z {}', version: 1 },
+        { path: 'a.mdl', content: 'domain a {}', version: 2 },
+      ],
+    };
+    render(
+      <App createClient={() => client} initialWorkspace={workspace} />,
+    );
+    await initialize(client);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
+    expect(client.openWorkspace).toHaveBeenLastCalledWith([
+      { uri: 'file:///a.mdl', text: 'domain a {}', version: 2 },
+      { uri: 'file:///z.mdl', text: 'domain z {}', version: 1 },
+    ]);
+    await act(async () => {
+      const request = latestRequest(client.workspaceRequests);
+      request.resolve({ diagnostics: [], source_hashes: {} });
+      await request.promise;
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate JSON Schema' }),
+    );
+    expect(client.compileJsonSchema).toHaveBeenLastCalledWith(
+      client.openWorkspace.mock.calls.at(-1)?.[0],
+    );
+  });
+
   test('disables actions during initialization and enables them after success', async () => {
     const client = new FakeCompilerClient();
     const now = vi
@@ -716,11 +748,40 @@ describe('App', () => {
     });
 
     expect(sourceEditorSpies.applyFormattedText).toHaveBeenCalledWith(
+      'main.mdl',
       'record Customer {\n}\n',
     );
   });
 
-  test('retains and marks the old artifact stale after failed generation', async () => {
+  test('ignores formatted text after the active file is edited', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Format' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Model source' }), {
+      target: { value: 'record EditedWhileFormatting {}' },
+    });
+    const request = latestRequest(client.formatRequests);
+    await act(async () => {
+      request.resolve({
+        diagnostics: [],
+        replacement_text: 'record StaleFormat {}',
+      });
+      await request.promise;
+    });
+
+    expect(sourceEditorSpies.applyFormattedText).not.toHaveBeenCalled();
+    expect(
+      (
+        screen.getByRole('textbox', {
+          name: 'Model source',
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toBe('record EditedWhileFormatting {}');
+  });
+
+  test('clears artifacts after a workspace edit before failed generation', async () => {
     const client = new FakeCompilerClient();
     render(<App createClient={() => client} />);
     await initialize(client);
@@ -758,12 +819,8 @@ describe('App', () => {
       await failedRequest.promise;
     });
 
-    expect(screen.getByLabelText('Artifact output').textContent).toBe(
-      '{"title":"Customer"}',
-    );
-    expect(
-      screen.getByText('Stale—source changed after generation'),
-    ).toBeTruthy();
+    expect(screen.getByLabelText('Artifact output').textContent).toBe('');
+    expect(screen.getByText('No artifact yet')).toBeTruthy();
   });
 
   test('marks current artifacts stale for error diagnostics and restores current status after regeneration', async () => {
@@ -1146,12 +1203,8 @@ describe('App', () => {
         }) as HTMLTextAreaElement
       ).value,
     ).toBe('record Restored {}');
-    expect(screen.getByLabelText('Artifact output').textContent).toBe(
-      '{"title":"Customer"}',
-    );
-    expect(
-      screen.getByText('Stale—source changed after generation'),
-    ).toBeTruthy();
+    expect(screen.getByLabelText('Artifact output').textContent).toBe('');
+    expect(screen.getByText('No artifact yet')).toBeTruthy();
 
     await initialize(secondClient);
     expect(

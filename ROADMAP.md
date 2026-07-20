@@ -38,11 +38,57 @@ and
 [Protobuf/gRPC design](docs/superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md)
 record the decisions behind the recent contract work.
 
-## Priority 1 — complete the Scalable and Rust contract path
+## Priority 1 — advance the Playground
 
-The next product work should make Modelable-generated identities and transport
-contracts directly consumable by Scalable without parallel handwritten
-metadata.
+The Playground is now the immediate product priority. The shipped browser
+compiler and single-file editor prove the delivery path; the next work must
+replace the temporary single-file state model before language services,
+visualization, analysis, or local AI build on it.
+
+Work proceeds in phase order, with one active phase at a time:
+
+1. **Shipped: browser compiler spike.**
+   The static proof loads the pinned browser wheel in same-origin Pyodide and
+   verifies validation, formatting, JSON Schema generation, native/browser
+   conformance, and performance budgets. The completed design is archived in
+   [Browser Compiler WASM Spike — Design](docs/superpowers/specs/archived/2026-07-18-browser-compiler-wasm-spike-design.md).
+2. **Shipped: single-file editor MVP.**
+   React and Monaco provide source diagnostics, formatting, generated-artifact
+   preview, import/export, recovery, accessibility coverage, and static GitHub
+   Pages delivery. The completed design is archived in
+   [Browser Editor MVP — Design](docs/superpowers/specs/archived/2026-07-19-browser-editor-mvp-design.md).
+3. **Active next slice: multi-file workspace and IndexedDB persistence.**
+   Replace the single-file application state with a versioned virtual
+   workspace, safe file lifecycle operations, deterministic whole-workspace
+   compiler requests, automatic local restoration, and explicit corrupt-state
+   recovery. The accepted scope is documented in
+   [Playground Workspace and Persistence — Design](docs/superpowers/specs/2026-07-20-playground-workspace-persistence-design.md).
+4. **Next: browser-native language services.**
+   Add completion, hover, definition, references, and rename over the durable
+   multi-file workspace without running the desktop LSP transport in the
+   browser.
+5. **Then: visualization and analysis.**
+   Deliver stable graph DTOs, domain/entity views, source navigation, lineage,
+   compatibility, and governance views in the phase order defined by
+   [the Playground architecture](docs/playground-design.md).
+6. **Then: local AI.**
+   Add WebLLM model download and provider UX only after workspace editing and
+   analysis boundaries are stable. Model output remains untrusted and must use
+   typed planning, validation, preview, and explicit acceptance.
+7. **Then: offline hardening and extensibility.**
+   Add the service worker, offline workspace support, performance and security
+   hardening, extension boundaries, and additional views after the core
+   workspace and language-service contracts have shipped.
+
+The next implementation slice is item 3. Completion means users can build and
+restore a multi-file local workspace before higher-level Playground features
+depend on it.
+
+## Priority 2 — complete the Scalable and Rust contract path
+
+The next non-Playground product track makes Modelable-generated identities and
+transport contracts directly consumable by Scalable without parallel
+handwritten metadata.
 
 Work should proceed in dependency order:
 
@@ -78,16 +124,16 @@ Work should proceed in dependency order:
    Add consumer fixtures that register generated schema identity, command/read
    services, and index metadata without duplicating Modelable-owned constants.
 
-The next dependency-ordered slice is item 5: proving Scalable registration end
-to end.
+The next dependency-ordered Scalable slice remains item 5: proving Scalable
+registration end to end.
 
 Completion means a Scalable consumer can compile generated Rust and Protobuf
 artifacts, register them using generated identity metadata, and detect an
 incompatible transport change in CI.
 
-## Priority 2 — improve authoring, adoption, and cross-target consistency
+## Priority 3 — improve authoring, adoption, and cross-target consistency
 
-After the Scalable/Rust path is complete:
+After the active Playground foundation and Scalable/Rust path:
 
 1. **Shipped:** safe conversational workspace management in the existing CLI
    chat. Natural-language requests use typed plans and a reusable workspace
@@ -102,22 +148,7 @@ After the Scalable/Rust path is complete:
    configuration, typed plans, validation, exact previews, writes, rollback,
    and reload. The completed design is archived in
    [VS Code Conversational Foundation — Design](docs/superpowers/specs/archived/2026-07-18-vscode-conversational-foundation-design.md).
-3. **Shipped:** prove the compiler in WebAssembly with a focused browser spike.
-   The static proof at `/modelable/playground/` loads a browser-only wheel in
-   pinned, same-origin Pyodide; exposes in-memory validation, formatting, and
-   JSON Schema generation through a versioned Web Worker protocol; verifies
-   native/browser conformance and performance budgets; and ships in the
-   existing GitHub Pages artifact. The completed design is archived in
-   [Browser Compiler WASM Spike — Design](docs/superpowers/specs/archived/2026-07-18-browser-compiler-wasm-spike-design.md).
-4. **Shipped:** turn the browser compiler proof into the single-file editor MVP
-   from
-   [the playground delivery roadmap](docs/playground-design.md#phase-2-editor-mvp).
-   The React and Monaco shell provides diagnostics, formatting, selected
-   generated-artifact preview, import/export, failure retry, accessibility
-   coverage, and static deployment while compiler semantics remain in the
-   existing Pyodide worker. The completed design is archived in
-   [Browser Editor MVP — Design](docs/superpowers/specs/archived/2026-07-19-browser-editor-mvp-design.md).
-5. **Shipped:** local Conversational Compilation Management through CLI chat
+3. **Shipped:** local Conversational Compilation Management through CLI chat
    and the native VS Code participant. A shared application service stages the
    real compiler output, reports exact text/binary file evidence and affected
    definitions, requires literal or native confirmation, checks source and
@@ -127,22 +158,22 @@ After the Scalable/Rust path is complete:
    Registry synchronization, publishing, and external-service operations remain
    separate follow-ups with their own authorization, credential, preview,
    confirmation, and audit policies.
-6. Extend nominal semantic-type generation beyond Rust, prioritizing
+4. Extend nominal semantic-type generation beyond Rust, prioritizing
    TypeScript, Go, Java, C#, Python, JSON Schema, and SQL according to concrete
    consumer demand. Targets that intentionally erase nominal identity must say
    so explicitly.
-7. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
+5. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
    generated constants and registry state are easy to diagnose.
-8. Publish the VS Code extension through the Marketplace once the release and
+6. Publish the VS Code extension through the Marketplace once the release and
    support process is defined.
-9. Continue conformance, documentation, diagnostics, and importer hardening
+7. Continue conformance, documentation, diagnostics, and importer hardening
    where contributor or user reports expose real gaps.
 
 Completion means a new team can install the CLI and editor tooling, understand
 generated identity and compatibility behavior, and adopt a supported target
 without relying on internal repository knowledge.
 
-## Priority 3 — deepen external integrations
+## Priority 4 — deepen external integrations
 
 Integration work follows adoption work unless a concrete deployment provides a
 stronger near-term requirement:
@@ -177,9 +208,6 @@ accepted design establish their value:
   pass through Python-owned typed plan parsing, validation, preview, and
   workspace editing; the extension must not duplicate those safety boundaries
   in TypeScript.
-- WebLLM-backed conversational planning in the browser playground. It remains
-  separate from the shipped local compiler/editor surface and must retain the
-  same typed-plan and explicit-authorization boundaries.
 
 ## Outside the near-term compiler roadmap
 

@@ -1,4 +1,9 @@
 import type { BrowserArtifact, BrowserDiagnostic } from './protocol';
+import {
+  mutateWorkspace,
+  type PlaygroundWorkspace,
+  type WorkspaceMutation,
+} from './workspace';
 
 export type RuntimePhase = 'loading' | 'ready' | 'working' | 'failed';
 export type CompilerOperation = 'validate' | 'format' | 'generate';
@@ -62,6 +67,15 @@ export type AppAction =
       duration: number;
     }
   | { type: 'artifactSelected'; path: string };
+
+export type WorkspaceAppState = Omit<AppState, 'revision'> & {
+  workspace: PlaygroundWorkspace;
+};
+
+export type WorkspaceAppAction =
+  | AppAction
+  | { type: 'workspaceReplaced'; workspace: PlaygroundWorkspace }
+  | { type: 'workspaceMutated'; mutation: WorkspaceMutation };
 
 const operationLabels: Record<CompilerOperation, string> = {
   validate: 'Validation',
@@ -170,4 +184,41 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       }
       return { ...state, selectedArtifactPath: action.path };
   }
+}
+
+export function workspaceAppReducer(
+  state: WorkspaceAppState,
+  action: WorkspaceAppAction,
+): WorkspaceAppState {
+  if (action.type === 'workspaceReplaced') {
+    return invalidateDerivedWorkspaceState(state, action.workspace);
+  }
+  if (action.type === 'workspaceMutated') {
+    return invalidateDerivedWorkspaceState(
+      state,
+      mutateWorkspace(state.workspace, action.mutation),
+    );
+  }
+
+  const reduced = appReducer(
+    { ...state, revision: state.workspace.revision },
+    action,
+  );
+  const { revision: _revision, ...workspaceState } = reduced;
+  return { ...workspaceState, workspace: state.workspace };
+}
+
+function invalidateDerivedWorkspaceState(
+  state: WorkspaceAppState,
+  workspace: PlaygroundWorkspace,
+): WorkspaceAppState {
+  return {
+    ...state,
+    workspace,
+    diagnostics: [],
+    artifacts: [],
+    selectedArtifactPath: null,
+    artifactRevision: null,
+    status: 'Source changed',
+  };
 }

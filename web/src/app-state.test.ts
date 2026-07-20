@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'vitest';
 
-import { appReducer, initialAppState } from './app-state';
+import {
+  appReducer,
+  initialAppState,
+  workspaceAppReducer,
+  type WorkspaceAppState,
+} from './app-state';
+import { createDefaultWorkspace, mutateWorkspace } from './workspace';
 
 const customerArtifact = {
   path: 'customer.schema.json',
@@ -167,4 +173,47 @@ describe('appReducer', () => {
     });
     expect(runtimeFailure.artifactRevision).toBe(3);
   });
+});
+
+test('workspace edits invalidate diagnostics and artifacts', () => {
+  const initialWorkspace = createDefaultWorkspace('domain demo {}');
+  const twoFileWorkspace = mutateWorkspace(initialWorkspace, {
+    type: 'create',
+    path: 'customer.mdl',
+    content: 'domain customer {}',
+  });
+  const { revision: _revision, ...baseState } = initialAppState;
+  const state: WorkspaceAppState = {
+    ...baseState,
+    runtime: 'ready',
+    workspace: twoFileWorkspace,
+    diagnostics: [
+      {
+        code: 'E100',
+        severity: 'error',
+        message: 'Invalid',
+        uri: 'file:///customer.mdl',
+        line: 1,
+        column: 1,
+        end_line: 1,
+        end_column: 2,
+      },
+    ],
+    artifacts: [customerArtifact],
+    artifactRevision: twoFileWorkspace.revision,
+  };
+
+  const next = workspaceAppReducer(state, {
+    type: 'workspaceMutated',
+    mutation: {
+      type: 'update',
+      path: 'customer.mdl',
+      content: 'domain customer { entity Customer@1 {} }',
+    },
+  });
+
+  expect(next.workspace.revision).toBe(twoFileWorkspace.revision + 1);
+  expect(next.diagnostics).toEqual([]);
+  expect(next.artifacts).toEqual([]);
+  expect(next.artifactRevision).toBeNull();
 });
