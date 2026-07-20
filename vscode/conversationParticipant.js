@@ -57,7 +57,6 @@ function registerConversationParticipant(
             reply = await conversationClient.apply(
               metadata,
               dirtyDocumentUris,
-              token,
             );
           } else {
             reply = await conversationClient.discard(metadata, token);
@@ -177,6 +176,7 @@ function renderReply(reply, stream, vscodeApi, previewStore) {
   const compilationFiles = reply.compilationFiles ?? [];
   const textFiles = compilationFiles
     .filter(file => (
+      isTextMediaType(file.mediaType) &&
       typeof file.beforeText === 'string' &&
       typeof file.afterText === 'string'
     ))
@@ -186,10 +186,8 @@ function renderReply(reply, stream, vscodeApi, previewStore) {
       beforeText: file.beforeText,
       afterText: file.afterText,
     }));
-  const binaryFiles = compilationFiles.filter(file => (
-    typeof file.beforeText !== 'string' ||
-    typeof file.afterText !== 'string'
-  ));
+  const binaryFiles = compilationFiles.filter(file =>
+    !isTextMediaType(file.mediaType));
   for (const file of binaryFiles) {
     stream.markdown(
       `\n\n- Binary ${inlineCode(file.category)} ` +
@@ -263,6 +261,23 @@ function fileName(uri) {
   } catch {
     return safeText(uri);
   }
+}
+
+function isTextMediaType(mediaType) {
+  const normalized = String(mediaType ?? '')
+    .split(';', 1)[0]
+    .trim()
+    .toLowerCase();
+  return (
+    normalized.startsWith('text/') ||
+    normalized === 'application/json' ||
+    normalized === 'application/yaml' ||
+    normalized === 'application/x-yaml' ||
+    normalized === 'application/xml' ||
+    normalized.endsWith('+json') ||
+    normalized.endsWith('+yaml') ||
+    normalized.endsWith('+xml')
+  );
 }
 
 function safeInteger(value) {

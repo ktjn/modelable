@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const vscode = require('vscode');
 
 const PROTOCOL_VERSION = 2;
@@ -178,7 +180,7 @@ class ConversationClient {
     }
   }
 
-  apply(metadata, dirtyDocumentUris, token) {
+  apply(metadata, dirtyDocumentUris) {
     return this.languageClient.sendRequest(
       APPLY_METHOD,
       {
@@ -187,7 +189,6 @@ class ConversationClient {
         changeSetId: metadata.changeSetId,
         dirtyDocumentUris: dirtyDocumentUris.map(uri => uri.toString()),
       },
-      token,
     );
   }
 
@@ -243,11 +244,41 @@ function collectDirtyDocumentUris(vscodeApi, workspaceUri) {
     .filter(document => (
       document.isDirty &&
       document.uri?.scheme === 'file' &&
-      vscodeApi.workspace.getWorkspaceFolder(document.uri)?.uri.toString() ===
-        workspaceUri
+      isFileUriInsideWorkspace(vscodeApi, workspaceUri, document.uri)
     ))
     .map(document => document.uri)
     .sort((left, right) => left.toString().localeCompare(right.toString()));
+}
+
+function isFileUriInsideWorkspace(vscodeApi, workspaceUri, documentUri) {
+  try {
+    const rootUri = vscodeApi.Uri.parse(workspaceUri);
+    if (rootUri.scheme !== 'file' || documentUri?.scheme !== 'file') {
+      return false;
+    }
+    const rootPath = canonicalPath(rootUri.fsPath);
+    const documentPath = canonicalPath(documentUri.fsPath);
+    const relative = path.relative(rootPath, documentPath);
+    return (
+      relative === '' ||
+      (
+        relative !== '..' &&
+        !relative.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relative)
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+function canonicalPath(filePath) {
+  const resolved = path.resolve(filePath);
+  try {
+    return fs.realpathSync.native(resolved);
+  } catch {
+    return resolved;
+  }
 }
 
 function errorCode(error) {
@@ -274,6 +305,7 @@ module.exports = {
   TURN_METHOD,
   collectDirtyDocumentUris,
   errorCode,
+  isFileUriInsideWorkspace,
   recoverSessionMetadata,
   resolveConversationContext,
 };

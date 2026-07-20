@@ -80,11 +80,22 @@ suite('Modelable conversation participant', () => {
 
   test('active model selects its folder and reports every dirty file there', async () => {
     const api = fakeVscode({
-      folders: ['/workspace', '/other'],
+      folders: ['/workspace', '/workspace/dist', '/other'],
       active: '/workspace/customer.mdl',
       documents: [
         { path: '/workspace/customer.mdl', languageId: 'mdl', isDirty: true },
         { path: '/workspace/notes.txt', languageId: 'plaintext', isDirty: true },
+        {
+          path: '/workspace/dist/rust/customer.rs',
+          languageId: 'rust',
+          isDirty: true,
+        },
+        {
+          path: '/workspace/virtual.txt',
+          languageId: 'plaintext',
+          isDirty: true,
+          scheme: 'untitled',
+        },
         { path: '/other/order.mdl', languageId: 'mdl', isDirty: true },
       ],
     });
@@ -100,6 +111,7 @@ suite('Modelable conversation participant', () => {
       context.dirtyDocumentUris.map((uri: FakeUri) => uri.toString()),
       [
         'file:///workspace/customer.mdl',
+        'file:///workspace/dist/rust/customer.rs',
         'file:///workspace/notes.txt',
       ],
     );
@@ -340,6 +352,11 @@ suite('Modelable conversation participant', () => {
         ],
       ],
     );
+    assert.strictEqual(
+      calls[1].token,
+      undefined,
+      'native Apply must not attach a cancellation token after authorization',
+    );
   });
 
   test('recovered sessions cannot silently switch workspaces', async () => {
@@ -533,6 +550,48 @@ suite('Modelable conversation participant', () => {
           afterText: null,
           diffText: null,
         },
+        {
+          category: 'artifact',
+          uri: 'file:///workspace/dist/schema.json',
+          status: 'unchanged',
+          mediaType: 'application/json',
+          ref: null,
+          beforeHash: 'json-hash',
+          afterHash: 'json-hash',
+          beforeSize: 20,
+          afterSize: 20,
+          beforeText: null,
+          afterText: null,
+          diffText: null,
+        },
+        {
+          category: 'plan',
+          uri: 'file:///workspace/.modelable/plans/customer.yaml',
+          status: 'unchanged',
+          mediaType: 'application/yaml',
+          ref: null,
+          beforeHash: 'yaml-hash',
+          afterHash: 'yaml-hash',
+          beforeSize: 30,
+          afterSize: 30,
+          beforeText: null,
+          afterText: null,
+          diffText: null,
+        },
+        {
+          category: 'artifact',
+          uri: 'file:///workspace/dist/rust/unchanged.rs',
+          status: 'unchanged',
+          mediaType: 'text/x-rust',
+          ref: null,
+          beforeHash: 'rust-hash',
+          afterHash: 'rust-hash',
+          beforeSize: 40,
+          afterSize: 40,
+          beforeText: null,
+          afterText: null,
+          diffText: null,
+        },
       ],
       registryIdChanges: [{
         ref: 'customer.SchemaId',
@@ -560,6 +619,10 @@ suite('Modelable conversation participant', () => {
     assert.match(markdown.join('\n'), /registry\.db.*SHA-256.*binary-hash/is);
     assert.match(markdown.join('\n'), /registry.*changed.*registry\.db/is);
     assert.match(markdown.join('\n'), /customer\.SchemaId.*17/s);
+    assert.doesNotMatch(
+      markdown.join('\n'),
+      /Binary.*(?:schema\.json|customer\.yaml|unchanged\.rs)/is,
+    );
     const descriptors = store.changeSets.get('session-1\0compile-1');
     assert.strictEqual(descriptors.length, 1);
     assert.match(descriptors[0].beforeUri.toString(), /before\.rs$/);
@@ -821,7 +884,7 @@ suite('Modelable conversation participant', () => {
         'apply',
         metadata,
         [new FakeUri('/workspace/dist/rust/customer.rs')],
-        token,
+        undefined,
       ],
       ['discard', metadata, token],
       ['close', 'session-1'],
@@ -1102,25 +1165,31 @@ suite('Modelable conversation participant', () => {
 });
 
 class FakeUri {
-  constructor(readonly fsPath: string) {}
-
-  get scheme(): string {
-    return 'file';
-  }
+  constructor(
+    readonly fsPath: string,
+    readonly scheme: string = 'file',
+  ) {}
 
   get path(): string {
     return this.fsPath;
   }
 
   toString(): string {
-    return `file://${this.fsPath}`;
+    return this.scheme === 'file'
+      ? `file://${this.fsPath}`
+      : `${this.scheme}:${this.fsPath}`;
   }
 }
 
 function fakeVscode(options: {
   folders: string[];
   active?: string;
-  documents?: Array<{ path: string; languageId: string; isDirty: boolean }>;
+  documents?: Array<{
+    path: string;
+    languageId: string;
+    isDirty: boolean;
+    scheme?: string;
+  }>;
   manifests?: string[];
 }) {
   const folders = options.folders.map(folderPath => ({
@@ -1131,8 +1200,9 @@ function fakeVscode(options: {
     documentPath: string,
     languageId = 'mdl',
     isDirty = false,
+    scheme = 'file',
   ) => ({
-    uri: new FakeUri(documentPath),
+    uri: new FakeUri(documentPath, scheme),
     languageId,
     isDirty,
   });
@@ -1169,7 +1239,12 @@ function fakeVscode(options: {
     workspace: {
       workspaceFolders: folders,
       textDocuments: (options.documents ?? []).map(document =>
-        documentFor(document.path, document.languageId, document.isDirty),
+        documentFor(
+          document.path,
+          document.languageId,
+          document.isDirty,
+          document.scheme,
+        ),
       ),
       getWorkspaceFolder,
       fs: {
