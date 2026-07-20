@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import get_args
 
 import pytest
 from jsonschema import ValidationError as JsonSchemaValidationError
@@ -11,10 +12,12 @@ from modelable.llm.conversation_plan import (
     ChangeSetPlan,
     CompilePlan,
     CreateModel,
+    ImplementedTarget,
     QueryPlan,
     parse_conversation_plan,
 )
 from modelable.llm.providers import LLMRequest, LLMResponse
+from modelable.operations.compilation import TARGETS
 
 
 def valid_compile_payload() -> dict[str, object]:
@@ -46,28 +49,11 @@ def test_compile_plan_rejects_operational_escape_hatches(field: str) -> None:
         parse_conversation_plan(json.dumps(payload))
 
 
-@pytest.mark.parametrize(
-    "target",
-    [
-        "json-schema",
-        "markdown",
-        "typescript",
-        "csharp",
-        "java",
-        "python",
-        "rust",
-        "go",
-        "sql-postgres",
-        "sql-clickhouse",
-        "dbt-yaml",
-        "fhir-profile",
-        "openmetadata",
-        "openlineage",
-        "odcs",
-        "protobuf",
-        "grpc",
-    ],
-)
+def test_compile_plan_target_vocabulary_matches_canonical_implemented_targets() -> None:
+    assert set(get_args(ImplementedTarget.__value__)) == set(TARGETS)
+
+
+@pytest.mark.parametrize("target", TARGETS)
 def test_compile_plan_accepts_every_implemented_target(target: str) -> None:
     plan = parse_conversation_plan(json.dumps(valid_compile_payload() | {"target": target}))
 
@@ -95,7 +81,22 @@ def test_compile_plan_rejects_descriptors_for_other_targets() -> None:
 
 @pytest.mark.parametrize(
     "output",
-    ["/tmp/generated", "../generated", "dist/../../generated", ".", "", r"C:\generated", r"dist\generated"],
+    [
+        "/tmp/generated",
+        "//server/share",
+        "../generated",
+        "dist/../../generated",
+        ".",
+        "",
+        r"C:\generated",
+        "C:/generated",
+        r"dist\generated",
+        "https://example.test/generated",
+        "file:generated",
+        "dist/\ngenerated",
+        "dist/\0generated",
+        "dist/\x7fgenerated",
+    ],
 )
 def test_compile_plan_rejects_unsafe_or_non_normalized_output(output: str) -> None:
     with pytest.raises(ValidationError, match="output"):
@@ -107,6 +108,26 @@ def test_compile_plan_normalizes_safe_relative_output() -> None:
 
     assert isinstance(plan, CompilePlan)
     assert plan.output == "dist/rust"
+
+
+@pytest.mark.parametrize(
+    "domain",
+    [
+        "",
+        " ",
+        "https://example.test/customer",
+        "file:customer",
+        "../customer",
+        "customer/models",
+        r"customer\models",
+        "customer\nbilling",
+        "customer\0billing",
+        "customer\x7fbilling",
+    ],
+)
+def test_compile_plan_rejects_invalid_domain_values(domain: str) -> None:
+    with pytest.raises(ValidationError, match="domain"):
+        parse_conversation_plan(json.dumps(valid_compile_payload() | {"domains": [domain]}))
 
 
 def test_parse_create_model_plan_with_nested_address() -> None:
@@ -544,7 +565,9 @@ def test_conversation_system_prompt_states_safety_and_ambiguity_rules() -> None:
     assert "append" in system and "version" in system
     assert "operations" in system
     assert "local generation" in system
-    assert "arbitrary filesystem paths" in system
+    assert "normalized local relative output" in system
+    assert "arbitrary or external filesystem operations" in system
+    assert "filesystem, shell command, and other external operations are unsupported" not in system
     for example in ('"target":"rust"', '"target":"json-schema"', '"target":"protobuf"'):
         assert example in system.replace(" ", "")
     for unsupported in ("sync", "publish", "credential", "shell", "remote"):
@@ -645,6 +668,23 @@ def test_parse_compile_command_accepts_exact_design_syntax(
         "/compile terraform",
         '/compile rust --out "unterminated',
         "/compile rust extra",
+        r"/compile rust --out dist\generated",
+        '/compile rust --out "dist\\generated"',
+        "/compile rust --out /tmp/generated",
+        "/compile rust --out //server/share",
+        "/compile rust --out ../generated",
+        "/compile rust --out C:/generated",
+        "/compile rust --out https://example.test/generated",
+        "/compile rust --out file:generated",
+        "/compile rust --out 'dist/\ngenerated'",
+        "/compile rust --out 'dist/\0generated'",
+        "/compile rust --out 'dist/\x7fgenerated'",
+        "/compile rust --domain ''",
+        "/compile rust --domain https://example.test/customer",
+        "/compile rust --domain file:customer",
+        "/compile rust --domain ../customer",
+        r"/compile rust --domain customer\models",
+        "/compile rust --domain 'customer\nbilling'",
     ],
 )
 def test_parse_compile_command_clarifies_unknown_missing_or_invalid_options(command: str) -> None:

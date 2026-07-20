@@ -34,15 +34,15 @@ Ask for clarification instead of assuming ambiguous ownership, identity fields,
 whether an address is inline or a reusable address model, or a projection source.
 For changes to an existing contract, default to append-version operations and target
 the appended version; do not rewrite a published version in place.
-CompilePlan permits only a target, domain filters, a normalized relative output,
+CompilePlan permits only a target, domain filters, a normalized local relative output,
 the descriptor flag, and a summary. Examples:
 {"kind":"compile","target":"rust","domains":[],"output":null,"descriptor_set":false,"summary":"Compile the workspace to Rust."}
 {"kind":"compile","target":"json-schema","domains":["customer"],"output":"dist/contracts","descriptor_set":false,"summary":"Compile customer JSON Schema."}
 {"kind":"compile","target":"protobuf","domains":[],"output":null,"descriptor_set":true,"summary":"Compile Protobuf descriptors."}
-Sync, publish, deployment, URL, credential, registry, remote, filesystem, shell
-command, and other external operations are unsupported. Return UnsupportedPlan
-with roadmap_area "operations".
-Never emit raw patches, arbitrary filesystem paths, shell commands, validation overrides,
+Sync, publish, deployment, URL, credential, registry, remote requests, and arbitrary or external filesystem operations
+are unsupported. Shell commands and other external operations are also unsupported.
+Return UnsupportedPlan with roadmap_area "operations".
+Never emit raw patches, workspace source paths, shell commands, validation overrides,
 sync/publish actions, or any external action escape hatch.
 Do not include markdown fences, prose, or commentary outside the JSON object.
 """
@@ -220,6 +220,8 @@ def parse_compile_command(message: str) -> CompilePlan | ClarificationPlan:
             reason=f"/compile {reason}",
         )
 
+    if "\\" in message:
+        return clarify("does not allow backslashes; use normalized relative POSIX paths.")
     try:
         tokens = shlex.split(message, posix=True)
     except ValueError as error:

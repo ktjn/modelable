@@ -303,8 +303,23 @@ class CompilePlan(StrictPlanModel):
     def validate_compile_options(self) -> CompilePlan:
         if self.descriptor_set and self.target not in {"protobuf", "grpc"}:
             raise ValueError("descriptor_set is supported only for protobuf and grpc targets")
+        for domain in self.domains:
+            if (
+                not domain.strip()
+                or _contains_control_character(domain)
+                or _is_scheme_or_drive_form(domain)
+                or domain in {".", ".."}
+                or "/" in domain
+                or "\\" in domain
+            ):
+                raise ValueError("domains must contain non-empty names, not paths, URLs, or control characters")
         if self.output is not None:
-            if not self.output or "\\" in self.output or re.match(r"^[A-Za-z]:", self.output):
+            if (
+                not self.output
+                or _contains_control_character(self.output)
+                or _is_scheme_or_drive_form(self.output)
+                or "\\" in self.output
+            ):
                 raise ValueError("output must be a normalized relative POSIX path")
             path = PurePosixPath(self.output)
             if path.is_absolute() or ".." in path.parts:
@@ -314,6 +329,18 @@ class CompilePlan(StrictPlanModel):
                 raise ValueError("output must name a relative directory")
             self.output = normalized
         return self
+
+
+_CONTROL_CHARACTER_RE = re.compile(r"[\x00-\x1f\x7f]")
+_SCHEME_OR_DRIVE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
+
+
+def _contains_control_character(value: str) -> bool:
+    return _CONTROL_CHARACTER_RE.search(value) is not None
+
+
+def _is_scheme_or_drive_form(value: str) -> bool:
+    return _SCHEME_OR_DRIVE_RE.match(value) is not None
 
 
 class ClarificationPlan(StrictPlanModel):
