@@ -8,7 +8,15 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { IDBFactory } from 'fake-indexeddb';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from 'vitest';
 
 import indexHtml from '../index.html?raw';
 import { App } from './App';
@@ -20,6 +28,11 @@ import type {
   BrowserWorkspaceResult,
 } from './protocol';
 import type { PlaygroundWorkspace } from './workspace';
+import type { WorkspaceRepository } from './workspace-repository';
+import type {
+  WorkspaceLoadResult,
+  WorkspaceSaveResult,
+} from './workspace-repository';
 
 const sourceEditorSpies = vi.hoisted(() => ({
   applyFormattedText: vi.fn(),
@@ -157,6 +170,9 @@ async function initialize(client: FakeCompilerClient): Promise<void> {
     client.initialization.resolve();
     await client.initialization.promise;
   });
+  await waitFor(() => {
+    expect(screen.queryByText(/restoring local workspace/i)).toBeNull();
+  });
 }
 
 function chooseWorkspaceFiles(files: File[]): void {
@@ -186,6 +202,13 @@ afterEach(() => {
   sourceEditorSpies.focus.mockReset();
 });
 
+beforeEach(() => {
+  Object.defineProperty(globalThis, 'indexedDB', {
+    configurable: true,
+    value: new IDBFactory(),
+  });
+});
+
 describe('App', () => {
   test('validation and generation send every file in path order', async () => {
     const client = new FakeCompilerClient();
@@ -199,8 +222,21 @@ describe('App', () => {
         { path: 'a.mdl', content: 'domain a {}', version: 2 },
       ],
     };
+    const repository: WorkspaceRepository = {
+      load: vi.fn(async (): Promise<WorkspaceLoadResult> => ({
+        status: 'ready',
+        workspace,
+      })),
+      save: vi.fn(
+        async (): Promise<WorkspaceSaveResult> => 'saved',
+      ),
+      remove: vi.fn(async () => undefined),
+    };
     render(
-      <App createClient={() => client} initialWorkspace={workspace} />,
+      <App
+        createClient={() => client}
+        createRepository={() => repository}
+      />,
     );
     await initialize(client);
 
@@ -231,14 +267,7 @@ describe('App', () => {
       .mockReturnValueOnce(350);
     render(<App createClient={() => client} now={now} />);
 
-    for (const name of ['Validate', 'Format', 'Generate JSON Schema']) {
-      expect(
-        (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
-      ).toBe(true);
-    }
-    expect(screen.getByRole('status').textContent).toMatch(
-      /initializing compiler/i,
-    );
+    expect(screen.getByText(/restoring local workspace/i)).toBeTruthy();
 
     await initialize(client);
 
@@ -263,7 +292,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
     fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
 
-    expect(client.openWorkspace).toHaveBeenCalledTimes(1);
+    expect(client.openWorkspace).toHaveBeenCalledTimes(2);
     for (const name of ['Validate', 'Format', 'Generate JSON Schema']) {
       expect(
         (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
@@ -282,7 +311,7 @@ describe('App', () => {
       ctrlKey: true,
       shiftKey: true,
     });
-    expect(client.openWorkspace).toHaveBeenCalledTimes(1);
+    expect(client.openWorkspace).toHaveBeenCalledTimes(2);
     await act(async () => {
       const request = latestRequest(client.workspaceRequests);
       request.resolve({ diagnostics: [], source_hashes: {} });
@@ -324,7 +353,7 @@ describe('App', () => {
 
     await initialize(client);
     fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
-    expect(client.openWorkspace).toHaveBeenCalledTimes(1);
+    expect(client.openWorkspace).toHaveBeenCalledTimes(2);
 
     fireEvent.keyDown(window, {
       key: 'F',
@@ -341,9 +370,10 @@ describe('App', () => {
     expect(client.compileJsonSchema).not.toHaveBeenCalled();
   });
 
-  test('exposes visible toolbar names and command shortcuts', () => {
+  test('exposes visible toolbar names and command shortcuts', async () => {
     const client = new FakeCompilerClient();
     render(<App createClient={() => client} />);
+    await initialize(client);
 
     const shortcuts = new Map([
       ['Validate', 'Control+Shift+Enter Meta+Shift+Enter'],
@@ -566,6 +596,80 @@ describe('App', () => {
         }) as HTMLTextAreaElement
       ).value,
     ).toBe(originalSource);
+  });
+
+  test('keeps the playground usable when local storage is unavailable', async () => {
+    const client = new FakeCompilerClient();
+    const repository: WorkspaceRepository = {
+      load: vi.fn(async () => {
+        throw new Error('storage unavailable');
+      }),
+      save: vi.fn(async () => {
+        throw new Error('storage unavailable');
+      }),
+      remove: vi.fn(async () => undefined),
+    };
+    render(
+      <App
+        createClient={() => client}
+        createRepository={() => repository}
+      />,
+    );
+    await initialize(client);
+
+    expect(screen.getByText(/storage unavailable/i)).toBeTruthy();
+    expect(
+      (screen.getByRole('button', { name: 'Validate' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+    expect(
+      screen.getByRole('button', { name: 'Retry storage' }),
+    ).toBeTruthy();
+  });
+
+  test('exports and explicitly resets incompatible stored state', async () => {
+    const client = new FakeCompilerClient();
+    const raw = { schemaVersion: 99, source: '<script>secret</script>' };
+    const repository: WorkspaceRepository = {
+      load: vi.fn(async (): Promise<WorkspaceLoadResult> => ({
+        status: 'recovery-required',
+        reason: 'incompatible',
+        raw,
+      })),
+      save: vi.fn(
+        async (): Promise<WorkspaceSaveResult> => 'saved',
+      ),
+      remove: vi.fn(async () => undefined),
+    };
+    const download = vi.fn();
+    render(
+      <App
+        createClient={() => client}
+        createRepository={() => repository}
+        download={download}
+      />,
+    );
+
+    expect(
+      await screen.findByText('Stored workspace needs recovery'),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toContain('secret');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Export recovery data' }),
+    );
+    expect(download).toHaveBeenCalledWith(
+      JSON.stringify(raw, null, 2),
+      'modelable-playground-recovery.json',
+      'application/json',
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Reset local workspace' }),
+    );
+    expect(
+      await screen.findByRole('button', { name: 'main.mdl' }),
+    ).toBeTruthy();
+    expect(repository.remove).toHaveBeenCalledWith('local');
   });
 
   test('ignores formatted text after the active file is edited', async () => {
@@ -921,9 +1025,10 @@ describe('App', () => {
     );
   });
 
-  test('disables artifact export before successful generation', () => {
+  test('disables artifact export before successful generation', async () => {
     const client = new FakeCompilerClient();
     render(<App createClient={() => client} />);
+    await initialize(client);
 
     expect(
       (
@@ -953,6 +1058,9 @@ describe('App', () => {
       await expect(firstClient.initialization.promise).rejects.toThrow(
         'Python runtime unavailable',
       );
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(/restoring local workspace/i)).toBeNull();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry compiler' }));
@@ -1034,7 +1142,7 @@ describe('App', () => {
     expect(createClient).toHaveBeenCalledTimes(2);
   });
 
-  test('routes the skip link target to the source editor focus handle', () => {
+  test('routes the skip link target to the source editor focus handle', async () => {
     const client = new FakeCompilerClient();
     const template = document.createElement('template');
     template.innerHTML = indexHtml;
@@ -1042,6 +1150,7 @@ describe('App', () => {
       template.content.querySelector<HTMLAnchorElement>('.skip-link');
 
     render(<App createClient={() => client} />);
+    await initialize(client);
 
     const href = skipLink?.getAttribute('href');
     expect(href).toBe('#source-editor');

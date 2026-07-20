@@ -4,6 +4,7 @@ import { describe, expect, test, vi } from 'vitest';
 
 import {
   MAX_IMPORT_BYTES,
+  downloadRecoveryData,
   downloadText,
   readWorkspaceFiles,
   sanitizeDownloadName,
@@ -44,6 +45,16 @@ describe('local file boundary', () => {
   test('sanitizes an untrusted download filename', () => {
     expect(sanitizeDownloadName('../Customer<>', '.mdl')).toBe(
       'Customer.mdl',
+    );
+  });
+
+  test('downloads raw recovery data without rendering it', () => {
+    const download = vi.fn();
+    downloadRecoveryData({ source: '<script>x</script>' }, download);
+    expect(download).toHaveBeenCalledWith(
+      '{\n  "source": "<script>x</script>"\n}',
+      'modelable-playground-recovery.json',
+      'application/json',
     );
   });
 

@@ -78,3 +78,14 @@ export function downloadText(
     objectUrls.revokeObjectURL(url);
   }
 }
+
+export function downloadRecoveryData(
+  raw: unknown,
+  download: typeof downloadText = downloadText,
+): void {
+  download(
+    JSON.stringify(raw, null, 2),
+    'modelable-playground-recovery.json',
+    'application/json',
+  );
+}

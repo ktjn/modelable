@@ -23,9 +23,12 @@ import { SourceEditor } from './editor/SourceEditor';
 import type { SourceEditorHandle } from './editor/types';
 import {
   downloadText,
+  downloadRecoveryData,
   type ImportedWorkspaceFile,
   sanitizeDownloadName,
 } from './files';
+import { usePersistentWorkspace } from './usePersistentWorkspace';
+import { WorkspaceRecovery } from './WorkspaceRecovery';
 import { WorkspaceFiles } from './WorkspaceFiles';
 import {
   createDefaultWorkspace,
@@ -35,13 +38,30 @@ import {
   type PlaygroundWorkspace,
   type WorkspaceMutation,
 } from './workspace';
+import {
+  IndexedDbWorkspaceRepository,
+  type WorkspaceRepository,
+} from './workspace-repository';
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
+const createWorkspaceRepository = (): WorkspaceRepository => {
+  if (globalThis.indexedDB === undefined) {
+    const unavailable = async (): Promise<never> => {
+      throw new Error('IndexedDB is unavailable');
+    };
+    return {
+      load: unavailable,
+      save: unavailable,
+      remove: unavailable,
+    };
+  }
+  return new IndexedDbWorkspaceRepository(globalThis.indexedDB);
+};
 const performanceNow = (): number => performance.now();
 
 export interface AppProps {
   createClient?: () => BrowserCompilerClientLike;
-  initialWorkspace?: PlaygroundWorkspace;
+  createRepository?: () => WorkspaceRepository;
   now?: () => number;
   confirmReplace?: (message: string) => boolean;
   download?: typeof downloadText;
@@ -65,14 +85,19 @@ function hasErrorDiagnostics(
 
 export function App({
   createClient = createBrowserCompilerClient,
-  initialWorkspace,
+  createRepository = createWorkspaceRepository,
   now = performanceNow,
   confirmReplace = globalThis.confirm,
   download = downloadText,
 }: AppProps) {
   const initialWorkspaceRef = useRef(
-    initialWorkspace ?? createDefaultWorkspace(initialSource),
+    createDefaultWorkspace(initialSource),
   );
+  const [repository] = useState(() => createRepository());
+  const persistentWorkspace = usePersistentWorkspace({
+    repository,
+    defaultWorkspace: initialWorkspaceRef.current,
+  });
   const [state, dispatch] = useReducer(
     workspaceAppReducer,
     initialWorkspaceRef.current,
@@ -87,8 +112,21 @@ export function App({
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const operationPendingRef = useRef(false);
   const recoveryPendingRef = useRef(false);
+  const openedClientsRef = useRef(
+    new WeakSet<BrowserCompilerClientLike>(),
+  );
   const workspaceRef = useRef(state.workspace);
   workspaceRef.current = state.workspace;
+
+  useEffect(() => {
+    if (workspaceRef.current !== persistentWorkspace.workspace) {
+      workspaceRef.current = persistentWorkspace.workspace;
+      dispatch({
+        type: 'workspaceReplaced',
+        workspace: persistentWorkspace.workspace,
+      });
+    }
+  }, [persistentWorkspace.workspace]);
 
   useEffect(() => {
     const client = createClient();
@@ -156,6 +194,28 @@ export function App({
       dispose();
     };
   }, [clientAttempt, createClient, now]);
+
+  useEffect(() => {
+    if (
+      state.runtime !== 'ready' ||
+      persistentWorkspace.phase === 'restoring' ||
+      persistentWorkspace.phase === 'recovery-required'
+    ) {
+      return;
+    }
+    const client = clientRef.current;
+    if (client === null || openedClientsRef.current.has(client)) {
+      return;
+    }
+    openedClientsRef.current.add(client);
+    void client
+      .openWorkspace(workspaceSources(persistentWorkspace.workspace))
+      .catch(() => undefined);
+  }, [
+    persistentWorkspace.phase,
+    persistentWorkspace.workspace,
+    state.runtime,
+  ]);
 
   const runOperation = useCallback(
     async (operation: 'validate' | 'format' | 'generate'): Promise<void> => {
@@ -298,17 +358,21 @@ export function App({
   }, [runOperation]);
 
   const replaceWorkspace = useCallback(
-    (workspace: PlaygroundWorkspace): void => {
+    (workspace: PlaygroundWorkspace, immediate = false): void => {
       workspaceRef.current = workspace;
+      persistentWorkspace.replace(workspace, { immediate });
       setStatusIsError(false);
       dispatch({ type: 'workspaceReplaced', workspace });
     },
-    [],
+    [persistentWorkspace.replace],
   );
 
   const applyWorkspaceMutation = useCallback(
-    (mutation: WorkspaceMutation): void => {
-      replaceWorkspace(mutateWorkspace(workspaceRef.current, mutation));
+    (mutation: WorkspaceMutation, immediate = false): void => {
+      replaceWorkspace(
+        mutateWorkspace(workspaceRef.current, mutation),
+        immediate,
+      );
     },
     [replaceWorkspace],
   );
@@ -342,7 +406,10 @@ export function App({
         }
       }
       if (mutations.length > 0) {
-        replaceWorkspace(mutateWorkspaceBatch(current, mutations));
+        replaceWorkspace(
+          mutateWorkspaceBatch(current, mutations),
+          true,
+        );
       }
     },
     [confirmReplace, replaceWorkspace],
@@ -426,10 +493,46 @@ export function App({
   const artifactIsStale =
     state.artifacts.length > 0 &&
     state.artifactRevision !== state.workspace.revision;
-  const actionsDisabled = state.runtime !== 'ready';
+  const actionsDisabled =
+    state.runtime !== 'ready' ||
+    persistentWorkspace.phase === 'restoring' ||
+    persistentWorkspace.phase === 'recovery-required';
   const diagnosticLabel = `${state.diagnostics.length} ${
     state.diagnostics.length === 1 ? 'diagnostic' : 'diagnostics'
   }`;
+
+  if (persistentWorkspace.phase === 'restoring') {
+    return (
+      <main className="workbench">
+        <section className="workspace-loading" aria-live="polite">
+          <p className="eyebrow">Local schema workbench</p>
+          <h1>Modelable playground</h1>
+          <p>Restoring local workspace…</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (
+    persistentWorkspace.phase === 'recovery-required' &&
+    persistentWorkspace.recovery !== null
+  ) {
+    return (
+      <main className="workbench">
+        <WorkspaceRecovery
+          reason={persistentWorkspace.recovery.reason}
+          onExport={() =>
+            downloadRecoveryData(
+              persistentWorkspace.recovery?.raw,
+              download,
+            )
+          }
+          onReset={() => void persistentWorkspace.reset()}
+          onRetry={() => void persistentWorkspace.retry()}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="workbench" data-state={state.runtime}>
@@ -446,6 +549,13 @@ export function App({
             aria-live={statusIsError ? 'assertive' : 'polite'}
           >
             {state.status} · {diagnosticLabel}
+          </p>
+          <p className="persistence-status" aria-live="polite">
+            {persistentWorkspace.phase === 'saved'
+              ? 'Saved locally'
+              : persistentWorkspace.phase === 'saving'
+                ? 'Saving locally…'
+                : 'Storage unavailable · changes remain in this tab'}
           </p>
         </div>
       </header>
@@ -498,6 +608,14 @@ export function App({
             Retry compiler
           </button>
         ) : null}
+        {persistentWorkspace.phase === 'memory-only' ? (
+          <button
+            type="button"
+            onClick={() => void persistentWorkspace.retry()}
+          >
+            Retry storage
+          </button>
+        ) : null}
       </nav>
       <section className="workspace" aria-label="Modelable workspace">
         <section
@@ -523,7 +641,7 @@ export function App({
               workspace={state.workspace}
               disabled={actionsDisabled}
               onCreate={(path) =>
-                applyWorkspaceMutation({ type: 'create', path })
+                applyWorkspaceMutation({ type: 'create', path }, true)
               }
               onImport={importWorkspaceFiles}
               onRename={(path) =>
@@ -531,7 +649,7 @@ export function App({
                   type: 'rename',
                   from: workspaceRef.current.activeFile,
                   to: path,
-                })
+                }, true)
               }
               onDelete={() => {
                 const activeFile = workspaceRef.current.activeFile;
@@ -543,7 +661,7 @@ export function App({
                   applyWorkspaceMutation({
                     type: 'delete',
                     path: activeFile,
-                  });
+                  }, true);
                 }
               }}
               onSelect={(path) =>
@@ -560,6 +678,7 @@ export function App({
                   workspaceRef.current,
                   { type: 'update', path, content },
                 );
+                persistentWorkspace.replace(workspaceRef.current);
                 setStatusIsError(false);
                 dispatch({
                   type: 'workspaceMutated',
