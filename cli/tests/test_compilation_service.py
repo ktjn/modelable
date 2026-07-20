@@ -125,12 +125,14 @@ def test_apply_writes_exact_stage_and_private_audit(tmp_path: Path) -> None:
         policy=CompilationPolicy.conversation(),
     )
     staged = {item.destination: item.staged_path.read_bytes() for item in pending.files}
+    assert pending.audit_path == (tmp_path / ".modelable" / "audit" / "compilations" / "compile-1.json").resolve()
 
     applied = service.apply(pending, confirmation=confirmation_for(pending))
 
     assert {path: path.read_bytes() for path in staged} == staged
     assert applied.written_paths == tuple(sorted((*staged, applied.audit_path)))
     assert applied.action_id == pending.action_id
+    assert applied.audit_path == pending.audit_path
     assert applied.files == pending.files
     assert applied.affected_definitions == pending.affected_definitions
     audit = json.loads(applied.audit_path.read_text(encoding="utf-8"))

@@ -471,6 +471,9 @@ def test_lsp_compile_apply_uses_protocol_v2(tmp_path: Path) -> None:
     preview = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "compile to rust"}))
     action_id = preview["changeSetId"]
     assert isinstance(action_id, str)
+    assert (
+        preview["auditUri"] == (root / ".modelable" / "audit" / "compilations" / f"{action_id}.json").resolve().as_uri()
+    )
 
     reply = service.apply(
         _change_set_params(
@@ -521,6 +524,47 @@ def test_lsp_compile_apply_rejects_dirty_generated_destination(tmp_path: Path) -
         )
 
     assert str(destination) in str(error.value)
+    service.discard(_change_set_params(session_id="session-1", change_set_id=action_id))
+
+
+def test_lsp_compile_apply_rejects_dirty_planned_audit_destination(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    sessions: list[ConversationSession] = []
+
+    def compile_session(root: Path, focused_ref: str | None) -> ConversationSession:
+        session = ConversationSession(
+            path=root,
+            provider=_CompileProvider(),
+            focused_ref=focused_ref,
+            compilation_service=CompilationService(temp_root=tmp_path),
+        )
+        sessions.append(session)
+        return session
+
+    service = LspConversationService(session_factory=compile_session)
+    preview = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "compile to rust"}))
+    action_id = preview["changeSetId"]
+    pending = sessions[0].pending
+    assert isinstance(action_id, str)
+    assert isinstance(pending, PendingCompilation)
+    audit_path = root / ".modelable" / "audit" / "compilations" / f"{action_id}.json"
+    assert not audit_path.exists()
+
+    with pytest.raises(
+        ConversationSessionError,
+        match=r"^Save generated files before applying the compilation: ",
+    ) as error:
+        service.apply(
+            _change_set_params(
+                session_id="session-1",
+                change_set_id=action_id,
+                dirty_document_uris=(audit_path.as_uri(),),
+            )
+        )
+
+    assert str(audit_path.resolve()) in str(error.value)
+    assert sessions[0].pending is pending
     service.discard(_change_set_params(session_id="session-1", change_set_id=action_id))
 
 

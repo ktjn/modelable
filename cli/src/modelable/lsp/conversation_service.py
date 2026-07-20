@@ -187,6 +187,7 @@ class LspConversationService:
         if not isinstance(pending, PendingCompilation):
             return
         destinations = {item.destination.resolve() for item in pending.files}
+        destinations.add(pending.audit_path.resolve())
         dirty_destinations = {
             path.resolve()
             for uri in dirty_document_uris

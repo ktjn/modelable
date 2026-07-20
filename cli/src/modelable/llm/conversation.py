@@ -327,6 +327,7 @@ class ConversationSession:
             affected=pending.affected_definitions,
             compilation_files=pending.files,
             registry_id_changes=pending.registry_id_changes,
+            audit_path=pending.audit_path,
         )
 
     def _apply_pending(self) -> ConversationReply:
@@ -380,7 +381,7 @@ class ConversationSession:
         except FileTransactionCommittedError as error:
             self._cleanup_backlog.pop(pending.action_id, None)
             self.pending = None
-            audit_path = pending.workspace_root / ".modelable" / "audit" / "compilations" / f"{pending.action_id}.json"
+            audit_path = pending.audit_path
             return ConversationReply(
                 kind="applied",
                 text=render_committed_compilation_cleanup_error(pending, error, audit_path),

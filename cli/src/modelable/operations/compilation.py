@@ -186,6 +186,10 @@ class PendingCompilation:
     preview_timestamp: str
     audit_resolved_parent: Path
 
+    @property
+    def audit_path(self) -> Path:
+        return _compilation_audit_path(self.workspace_root, self.action_id)
+
 
 @dataclass(frozen=True)
 class CompilationConfirmation:
@@ -428,7 +432,7 @@ class CompilationService:
     ) -> AppliedCompilation:
         try:
             _verify_confirmation(pending, confirmation)
-            audit_path = pending.workspace_root / ".modelable" / "audit" / "compilations" / f"{pending.action_id}.json"
+            audit_path = pending.audit_path
             audit_staged_path = pending.staging_dir / "compilation-audit.json"
             audit_staged_path.write_bytes(
                 _audit_record(
@@ -1022,6 +1026,10 @@ def _bytes_hash(content: bytes) -> str:
 
 def _timestamp_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _compilation_audit_path(workspace_root: Path, action_id: str) -> Path:
+    return workspace_root / ".modelable" / "audit" / "compilations" / f"{action_id}.json"
 
 
 def _verify_confirmation(

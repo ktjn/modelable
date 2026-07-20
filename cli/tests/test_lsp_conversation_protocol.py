@@ -185,6 +185,7 @@ def test_serialize_compile_preview_protocol_v2(tmp_path) -> None:
         text="Compilation preview",
         change_set_id="compile-1",
         operation_kind="compile",
+        audit_path=tmp_path / ".modelable" / "audit" / "compilations" / "compile-1.json",
         compilation_files=(
             CompilationFilePreview(
                 category="artifact",
@@ -262,7 +263,10 @@ def test_serialize_compile_preview_protocol_v2(tmp_path) -> None:
         },
     ]
     assert payload["registryIdChanges"] == [{"ref": "customer.SchemaId", "registryId": 1}]
-    assert payload["auditUri"] is None
+    assert (
+        payload["auditUri"]
+        == (tmp_path / ".modelable" / "audit" / "compilations" / "compile-1.json").resolve().as_uri()
+    )
 
 
 def test_serialize_compile_applied_reply_includes_audit_uri(tmp_path) -> None:

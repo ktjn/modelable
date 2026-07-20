@@ -118,6 +118,10 @@ async def test_compilation_preview_and_apply_over_real_json_rpc(tmp_path: Path) 
         assert preview.changeSetId
         assert preview.compilationFiles
         assert all(item.uri.startswith(tmp_path.resolve().as_uri()) for item in preview.compilationFiles)
+        assert (
+            preview.auditUri
+            == (tmp_path / ".modelable" / "audit" / "compilations" / f"{preview.changeSetId}.json").resolve().as_uri()
+        )
         assert not (tmp_path / "dist" / "rust").exists()
 
         applied = await client.protocol.send_request_async(
