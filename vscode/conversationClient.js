@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const vscode = require('vscode');
 
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 const TURN_METHOD = 'modelable/conversation/turn';
 const APPLY_METHOD = 'modelable/conversation/apply';
 const DISCARD_METHOD = 'modelable/conversation/discard';
@@ -68,15 +68,10 @@ async function resolveConversationContext(vscodeApi = vscode) {
   )
     ? activeDocument.uri
     : undefined;
-  const dirtyDocumentUris = (vscodeApi.workspace.textDocuments ?? [])
-    .filter(document => (
-      document.isDirty &&
-      document.languageId === 'mdl' &&
-      vscodeApi.workspace.getWorkspaceFolder(document.uri)?.uri.toString() ===
-        selectedFolder.uri.toString()
-    ))
-    .map(document => document.uri)
-    .sort((left, right) => left.toString().localeCompare(right.toString()));
+  const dirtyDocumentUris = collectDirtyDocumentUris(
+    vscodeApi,
+    selectedFolder.uri.toString(),
+  );
 
   return {
     workspaceUri: selectedFolder.uri,
@@ -192,6 +187,7 @@ class ConversationClient {
         changeSetId: metadata.changeSetId,
         dirtyDocumentUris: dirtyDocumentUris.map(uri => uri.toString()),
       },
+      token,
     );
   }
 
@@ -246,7 +242,7 @@ function collectDirtyDocumentUris(vscodeApi, workspaceUri) {
   return (vscodeApi.workspace.textDocuments ?? [])
     .filter(document => (
       document.isDirty &&
-      document.languageId === 'mdl' &&
+      document.uri?.scheme === 'file' &&
       vscodeApi.workspace.getWorkspaceFolder(document.uri)?.uri.toString() ===
         workspaceUri
     ))

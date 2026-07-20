@@ -224,7 +224,7 @@ suite('Modelable LSP Smoke Tests', function () {
 
     assert.ok(reply);
     assert.strictEqual(reply.kind, 'answer');
-    assert.strictEqual(reply.protocolVersion, 1);
+    assert.strictEqual(reply.protocolVersion, 2);
     assert.ok(reply.sessionId);
     assert.strictEqual(
       reply.focusedRef,

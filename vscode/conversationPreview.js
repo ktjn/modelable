@@ -19,8 +19,9 @@ class PreviewStore {
           encodeURIComponent(changeSetId),
           encodeURIComponent(file.uri),
         ].join('/');
-        const beforeUri = this.vscode.Uri.parse(`${base}/before.mdl`);
-        const afterUri = this.vscode.Uri.parse(`${base}/after.mdl`);
+        const suffix = previewSuffix(file.uri);
+        const beforeUri = this.vscode.Uri.parse(`${base}/before${suffix}`);
+        const afterUri = this.vscode.Uri.parse(`${base}/after${suffix}`);
         this.contents.set(beforeUri.toString(), file.beforeText);
         this.contents.set(afterUri.toString(), file.afterText);
         return {
@@ -104,26 +105,29 @@ function changeSetKey(sessionId, changeSetId) {
 function relativeLabels(uris) {
   const paths = uris.map(uri => {
     try {
-      return decodeURIComponent(new URL(uri).pathname).replace(/^\/([A-Za-z]:)/, '$1');
+      return decodeURIComponent(new URL(uri).pathname)
+        .replace(/^\/([A-Za-z]:)/, '$1')
+        .replaceAll('\\', '/');
     } catch {
-      return uri;
+      return uri.replaceAll('\\', '/');
     }
   });
   if (paths.length === 0) {
     return [];
   }
   const common = commonDirectory(paths);
-  return paths.map(filePath => path.relative(common, filePath) || path.basename(filePath));
+  return paths.map(filePath =>
+    path.posix.relative(common, filePath) || path.posix.basename(filePath));
 }
 
 function commonDirectory(paths) {
-  let common = path.dirname(paths[0]);
+  let common = path.posix.dirname(paths[0]);
   for (const filePath of paths.slice(1)) {
     while (
       filePath !== common &&
-      !filePath.startsWith(`${common}${path.sep}`)
+      !filePath.startsWith(`${common}/`)
     ) {
-      const parent = path.dirname(common);
+      const parent = path.posix.dirname(common);
       if (parent === common) {
         return common;
       }
@@ -133,7 +137,20 @@ function commonDirectory(paths) {
   return common;
 }
 
+function previewSuffix(uri) {
+  try {
+    const suffix = path.posix.extname(decodeURIComponent(new URL(uri).pathname));
+    if (/^\.[A-Za-z0-9][A-Za-z0-9._+-]*$/.test(suffix)) {
+      return suffix;
+    }
+  } catch {
+    // Fall through to a neutral text suffix for malformed source URIs.
+  }
+  return '.txt';
+}
+
 module.exports = {
   PreviewStore,
+  previewSuffix,
   relativeLabels,
 };
