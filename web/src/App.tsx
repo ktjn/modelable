@@ -6,13 +6,17 @@ import {
   useState,
 } from 'react';
 
-import { appReducer, initialAppState } from './app-state';
+import {
+  initialAppState,
+  workspaceAppReducer,
+  type WorkspaceAppState,
+} from './app-state';
 import {
   BrowserCompilerClient,
   BrowserCompilerError,
   type BrowserCompilerClientLike,
 } from './client';
-import { normalizeDiagnostics } from './diagnostics';
+import { normalizeDiagnosticsByUri } from './diagnostics';
 import initialSource from './example.mdl?raw';
 import { ArtifactEditor } from './editor/ArtifactEditor';
 import { SourceEditor } from './editor/SourceEditor';
@@ -22,8 +26,11 @@ import {
   readSourceFile,
   sanitizeDownloadName,
 } from './files';
-
-const SOURCE_URI = 'file:///main.mdl';
+import {
+  createDefaultWorkspace,
+  workspaceSources,
+  type PlaygroundWorkspace,
+} from './workspace';
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
 const performanceNow = (): number => performance.now();
@@ -34,6 +41,7 @@ const sourceFileErrorMessages = new Set([
 
 export interface AppProps {
   createClient?: () => BrowserCompilerClientLike;
+  initialWorkspace?: PlaygroundWorkspace;
   now?: () => number;
   confirmReplace?: (message: string) => boolean;
   download?: typeof downloadText;
@@ -67,11 +75,22 @@ function sourceFileErrorMessage(error: unknown): string {
 
 export function App({
   createClient = createBrowserCompilerClient,
+  initialWorkspace,
   now = performanceNow,
   confirmReplace = globalThis.confirm,
   download = downloadText,
 }: AppProps) {
-  const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const initialWorkspaceRef = useRef(
+    initialWorkspace ?? createDefaultWorkspace(initialSource),
+  );
+  const [state, dispatch] = useReducer(
+    workspaceAppReducer,
+    initialWorkspaceRef.current,
+    (workspace): WorkspaceAppState => {
+      const { revision: _revision, ...appState } = initialAppState;
+      return { ...appState, workspace };
+    },
+  );
   const [clientAttempt, setClientAttempt] = useState(0);
   const [fileError, setFileError] = useState<string | null>(null);
   const [statusIsError, setStatusIsError] = useState(false);
@@ -81,9 +100,15 @@ export function App({
   const operationPendingRef = useRef(false);
   const recoveryPendingRef = useRef(false);
   const importAttemptRef = useRef(0);
-  const revisionRef = useRef(initialAppState.revision);
-  const cleanSourceRef = useRef(initialSource);
-  const sourceFilenameRef = useRef('main.mdl');
+  const workspaceRef = useRef(state.workspace);
+  const initialActiveFile = initialWorkspaceRef.current.files.find(
+    (file) => file.path === initialWorkspaceRef.current.activeFile,
+  );
+  const cleanSourceRef = useRef(initialActiveFile?.content ?? '');
+  const sourceFilenameRef = useRef(
+    initialActiveFile?.path ?? initialWorkspaceRef.current.activeFile,
+  );
+  workspaceRef.current = state.workspace;
 
   useEffect(
     () => () => {
@@ -170,8 +195,24 @@ export function App({
         return;
       }
 
-      const source = sourceEditor.getSource();
-      const revision = source.version;
+      const workspace = state.workspace;
+      const sources = workspaceSources(workspace);
+      const revision = workspace.revision;
+      const activePath = workspace.activeFile;
+      const activeFile = workspace.files.find(
+        (file) => file.path === activePath,
+      );
+      const activeSource = sources.find(
+        (source) =>
+          source.uri ===
+          `file:///${activePath
+            .split('/')
+            .map(encodeURIComponent)
+            .join('/')}`,
+      );
+      if (activeFile === undefined || activeSource === undefined) {
+        return;
+      }
       const startedAt = now();
       operationPendingRef.current = true;
       setStatusIsError(false);
@@ -179,7 +220,7 @@ export function App({
 
       try {
         if (operation === 'validate') {
-          const result = await client.openWorkspace([source]);
+          const result = await client.openWorkspace(sources);
           dispatch({
             type: 'operationSucceeded',
             operation,
@@ -191,13 +232,22 @@ export function App({
           return;
         }
         if (operation === 'format') {
-          const result = await client.formatSource(source);
+          const result = await client.formatSource(activeSource);
+          const currentWorkspace = workspaceRef.current;
+          const currentFile = currentWorkspace.files.find(
+            (file) => file.path === activePath,
+          );
           if (
             result.replacement_text !== null &&
             !hasErrorDiagnostics(result.diagnostics) &&
-            revisionRef.current === revision
+            currentWorkspace.revision === revision &&
+            currentWorkspace.activeFile === activePath &&
+            currentFile?.version === activeFile.version
           ) {
-            sourceEditor.applyFormattedText(result.replacement_text);
+            sourceEditor.applyFormattedText(
+              activePath,
+              result.replacement_text,
+            );
           }
           dispatch({
             type: 'operationSucceeded',
@@ -210,7 +260,7 @@ export function App({
           return;
         }
 
-        const result = await client.compileJsonSchema([source]);
+        const result = await client.compileJsonSchema(sources);
         const duration = now() - startedAt;
         if (
           hasErrorDiagnostics(result.diagnostics) ||
@@ -261,7 +311,7 @@ export function App({
         operationPendingRef.current = false;
       }
     },
-    [now, state.runtime],
+    [now, state.runtime, state.workspace],
   );
 
   const handleValidate = useCallback((): void => {
@@ -338,11 +388,10 @@ export function App({
       if (importAttemptRef.current !== attempt) {
         return;
       }
-      const sourceEditor = sourceEditorRef.current;
-      if (sourceEditor === null) {
-        return;
-      }
-      const currentText = sourceEditor.getSource().text;
+      const currentFile = state.workspace.files.find(
+        (candidate) => candidate.path === state.workspace.activeFile,
+      );
+      const currentText = currentFile?.content ?? '';
       if (
         currentText !== cleanSourceRef.current &&
         !confirmReplace(
@@ -353,8 +402,15 @@ export function App({
       }
       cleanSourceRef.current = imported.text;
       sourceFilenameRef.current = imported.name;
-      sourceEditor.replaceText(imported.text);
-      sourceEditor.focus();
+      dispatch({
+        type: 'workspaceMutated',
+        mutation: {
+          type: 'update',
+          path: state.workspace.activeFile,
+          content: imported.text,
+        },
+      });
+      sourceEditorRef.current?.focus();
       setFileError(null);
     } catch (error: unknown) {
       if (importAttemptRef.current === attempt) {
@@ -366,21 +422,26 @@ export function App({
   };
 
   const exportSource = (): void => {
-    const source = sourceEditorRef.current?.getSource();
+    const source = state.workspace.files.find(
+      (file) => file.path === state.workspace.activeFile,
+    );
     if (source === undefined) {
       return;
     }
     download(
-      source.text,
+      source.content,
       sanitizeDownloadName(sourceFilenameRef.current, '.mdl'),
       'text/plain',
     );
-    cleanSourceRef.current = source.text;
+    cleanSourceRef.current = source.content;
   };
 
-  const normalizedDiagnostics = normalizeDiagnostics(
+  const sourceUris = workspaceSources(state.workspace).map(
+    (source) => source.uri,
+  );
+  const markersByUri = normalizeDiagnosticsByUri(
     state.diagnostics,
-    SOURCE_URI,
+    sourceUris,
   );
   const selectedArtifact =
     state.artifacts.find(
@@ -388,7 +449,7 @@ export function App({
     ) ?? null;
   const artifactIsStale =
     state.artifacts.length > 0 &&
-    state.artifactRevision !== state.revision;
+    state.artifactRevision !== state.workspace.revision;
   const actionsDisabled = state.runtime !== 'ready';
   const diagnosticLabel = `${state.diagnostics.length} ${
     state.diagnostics.length === 1 ? 'diagnostic' : 'diagnostics'
@@ -482,7 +543,7 @@ export function App({
           File error: {fileError}
         </p>
       )}
-      <section className="workspace" aria-label="Single-file workspace">
+      <section className="workspace" aria-label="Modelable workspace">
         <section
           className="source-pane"
           id="source-editor"
@@ -503,12 +564,15 @@ export function App({
           </div>
           <SourceEditor
             ref={sourceEditorRef}
-            initialValue={initialSource}
-            markers={normalizedDiagnostics.markers}
-            onRevisionChange={(revision) => {
-              revisionRef.current = revision;
+            files={state.workspace.files}
+            activeFile={state.workspace.activeFile}
+            markersByUri={markersByUri}
+            onContentChange={(path, content) => {
               setStatusIsError(false);
-              dispatch({ type: 'revisionChanged', revision });
+              dispatch({
+                type: 'workspaceMutated',
+                mutation: { type: 'update', path, content },
+              });
             }}
           />
           <section
