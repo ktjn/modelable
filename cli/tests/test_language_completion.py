@@ -32,17 +32,26 @@ domain billing {
 @dataclass(frozen=True)
 class _Catalog:
     def domain_names(self) -> tuple[str, ...]:
-        return ("remote",)
+        return ("remote", "customer", "archive", "remote")
 
     def references(self) -> tuple[tuple[str, str], ...]:
-        return (("remote", "RemoteCustomer"),)
+        return (
+            ("remote", "Zulu"),
+            ("remote", "RemoteCustomer"),
+            ("remote", "Alpha"),
+            ("remote", "RemoteCustomer"),
+        )
 
     def model_versions(self) -> tuple[tuple[str, str, int], ...]:
-        return (("remote", "RemoteCustomer", 2), ("remote", "RemoteCustomer", 12))
+        return (
+            ("remote", "RemoteCustomer", 12),
+            ("remote", "RemoteCustomer", 2),
+            ("remote", "RemoteCustomer", 12),
+        )
 
     def field_names(self, domain: str, name: str, version: int) -> tuple[str, ...]:
         if (domain, name, version) == ("remote", "RemoteCustomer", 2):
-            return ("remoteId", "remoteName")
+            return ("remoteName", "remoteId", "remoteName")
         return ()
 
 
@@ -105,15 +114,15 @@ def test_completion_suggests_local_domains_and_declarations() -> None:
 
 
 def test_completion_suggests_catalog_versions_and_import_models() -> None:
-    versions = _complete_line("from remote.RemoteCustomer @1", catalog=_Catalog())
+    versions = _complete_line("from remote.RemoteCustomer @", catalog=_Catalog())
     models = _complete_line(
-        'import domain remote from registry "peer" at remote.R',
+        'import domain remote from registry "peer" at remote.',
         catalog=_Catalog(),
     )
 
-    assert [item.label for item in versions] == ["12"]
+    assert [item.label for item in versions] == ["2", "12"]
     assert versions[0].kind == "value"
-    assert [item.label for item in models] == ["RemoteCustomer"]
+    assert [item.label for item in models] == ["Alpha", "RemoteCustomer", "Zulu"]
     assert models[0].kind == "class"
 
 
@@ -170,11 +179,24 @@ def test_completion_converts_codepoint_prefix_span_to_utf16_range() -> None:
     assert result[0].replacement == LanguageRange.at(line, 3, line, 12)
 
 
-def test_completion_deduplicates_catalog_candidates_deterministically() -> None:
+def test_completion_canonicalizes_catalog_candidates_with_group_precedence() -> None:
     result = _complete_line("domain ", catalog=_Catalog())
+    references = _complete_line("from ", catalog=_Catalog())
 
-    assert [item.label for item in result] == ["billing", "customer", "remote"]
-    assert [item.sort_text for item in result] == ["0000", "0001", "0002"]
+    assert [item.label for item in result] == [
+        "billing",
+        "customer",
+        "archive",
+        "remote",
+    ]
+    assert [item.sort_text for item in result] == ["0000", "0001", "0002", "0003"]
+    assert [item.label for item in references] == [
+        "customer.Customer",
+        "billing.BillingCustomer",
+        "remote.Alpha",
+        "remote.RemoteCustomer",
+        "remote.Zulu",
+    ]
 
 
 @pytest.mark.parametrize(

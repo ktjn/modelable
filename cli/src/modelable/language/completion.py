@@ -233,7 +233,10 @@ def _catalog_domain_candidates(
 ) -> list[_Candidate]:
     if catalog is None:
         return []
-    return _filtered_candidates([_Candidate(name, "module") for name in catalog.domain_names()], prefix)
+    return _filtered_candidates(
+        [_Candidate(name, "module") for name in sorted(catalog.domain_names())],
+        prefix,
+    )
 
 
 def _catalog_reference_candidates(
@@ -243,7 +246,7 @@ def _catalog_reference_candidates(
     if catalog is None:
         return []
     return _filtered_candidates(
-        [_Candidate(f"{domain}.{name}", "class") for domain, name in catalog.references()],
+        [_Candidate(f"{domain}.{name}", "class") for domain, name in sorted(catalog.references())],
         prefix,
     )
 
@@ -270,7 +273,7 @@ def _alias_field_candidates(
     domain_name, model_name, version = reference
     fields = _workspace_fields(workspace, domain_name, model_name, version)
     if not fields and catalog is not None:
-        fields = catalog.field_names(domain_name, model_name, version)
+        fields = tuple(sorted(catalog.field_names(domain_name, model_name, version)))
     candidates = [_Candidate(field_name, "property") for field_name in fields]
     return _filtered_candidates(candidates, alias_prefix or prefix)
 
@@ -287,7 +290,7 @@ def _version_candidates(
     version_prefix = _version_prefix(before_cursor)
     candidates = [
         _Candidate(str(version), "value")
-        for domain, model, version in catalog.model_versions()
+        for domain, model, version in sorted(catalog.model_versions())
         if domain == domain_name
         and model == model_name
         and (not version_prefix or str(version).startswith(version_prefix))
@@ -402,7 +405,7 @@ def _import_pin_model_candidates(
     model_prefix = match.group("prefix") or ""
     candidates = [
         _Candidate(model_name, "class")
-        for domain, model_name in catalog.references()
+        for domain, model_name in sorted(catalog.references())
         if domain == domain_name and (not model_prefix or model_name.lower().startswith(model_prefix.lower()))
     ]
     return _filtered_candidates(candidates, prefix)
