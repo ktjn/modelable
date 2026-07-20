@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from pathlib import PurePosixPath
 from typing import Annotated, Literal
 
@@ -306,6 +307,7 @@ class CompilePlan(StrictPlanModel):
         for domain in self.domains:
             if (
                 not domain.strip()
+                or domain != domain.strip()
                 or _contains_control_character(domain)
                 or _is_scheme_or_drive_form(domain)
                 or domain in {".", ".."}
@@ -316,6 +318,7 @@ class CompilePlan(StrictPlanModel):
         if self.output is not None:
             if (
                 not self.output
+                or self.output != self.output.strip()
                 or _contains_control_character(self.output)
                 or _is_scheme_or_drive_form(self.output)
                 or "\\" in self.output
@@ -331,12 +334,11 @@ class CompilePlan(StrictPlanModel):
         return self
 
 
-_CONTROL_CHARACTER_RE = re.compile(r"[\x00-\x1f\x7f]")
 _SCHEME_OR_DRIVE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 
 
 def _contains_control_character(value: str) -> bool:
-    return _CONTROL_CHARACTER_RE.search(value) is not None
+    return any(unicodedata.category(character) in {"Cc", "Cf"} for character in value)
 
 
 def _is_scheme_or_drive_form(value: str) -> bool:
