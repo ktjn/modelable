@@ -87,6 +87,14 @@ _INTERNAL_MODELABLE_PATHS = {
 }
 
 
+def default_output_dir(target: str) -> Path:
+    """Return the authoritative default output directory for a target."""
+    try:
+        return _DEFAULT_OUT_DIRS[target]
+    except KeyError as error:
+        raise CompilationError(f"Unknown compilation target: {target}") from error
+
+
 class CompilationError(Exception):
     """A user-facing failure while compiling a workspace."""
 

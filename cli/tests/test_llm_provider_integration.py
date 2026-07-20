@@ -585,7 +585,7 @@ domain platform {
     )
 
     assert result.exit_code == 0, result.output
-    assert "Only the literal /apply" in result.output
+    assert "Only the exact case-sensitive /apply" in result.output
     assert pending
     assert not pending[0].staging_dir.exists()
 
@@ -638,6 +638,45 @@ domain platform {
     assert isinstance(result.exception, RuntimeError)
     assert pending
     assert not pending[0].staging_dir.exists()
+
+
+def test_chat_prints_conversation_replies_with_rich_markup_disabled(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "workspace.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    class RecordingConsole:
+        def print(self, *objects: object, **kwargs: object) -> None:
+            calls.append((objects, kwargs))
+
+    monkeypatch.setattr("modelable.commands.llm.console", RecordingConsole())
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--message",
+            "/compile rust",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    reply_calls = [kwargs for objects, kwargs in calls if objects and "Normalized plan" in str(objects[0])]
+    assert reply_calls == [{"markup": False, "highlight": False}]
 
 
 def test_chat_honors_zero_configured_plan_repair_attempts(tmp_path, monkeypatch):

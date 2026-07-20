@@ -1,3 +1,4 @@
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -17,7 +18,11 @@ from modelable.llm.conversation_plan import (
 )
 from modelable.llm.providers import LLMRequest, LLMResponse
 from modelable.llm.workspace_editor import WorkspaceApplyError
-from modelable.operations.compilation import CompilationError, CompilationService, PendingCompilation
+from modelable.operations.compilation import (
+    CompilationError,
+    CompilationService,
+    PendingCompilation,
+)
 from modelable.operations.file_transaction import FileTransactionCommittedError, RollbackError
 from modelable.parser.ir import AnnKey, FieldDef, ObjectType, PrimitiveType
 
@@ -153,7 +158,7 @@ def test_preview_and_apply_complete_entity(tmp_path: Path) -> None:
     assert "Compatibility and validation" in preview.text
     assert "Unified diff" in preview.text
     assert "customer.Customer@1" in preview.text
-    assert "- create_model: customer.Customer@1" in preview.text
+    assert "- create\\_model: customer.Customer@1" in preview.text
     assert "Address is inline" in preview.text
     assert preview.changed[0].ref == "customer.Customer@1"
     assert preview.affected == ()
@@ -197,7 +202,7 @@ def test_refinement_reports_replaced_pending_change_set(tmp_path: Path) -> None:
     assert second.text.startswith(f"Replaced pending change set {first.change_set_id} with {second.change_set_id}.")
 
 
-@pytest.mark.parametrize("confirmation", ["apply", "apply it", "confirm", "/apply"])
+@pytest.mark.parametrize("confirmation", ["apply", " apply ", "apply it", "confirm", "/apply", "/apply "])
 def test_natural_and_explicit_confirmation_apply_pending_change(
     tmp_path: Path,
     confirmation: str,
@@ -368,7 +373,7 @@ def test_apply_without_pending_change_writes_nothing(tmp_path: Path) -> None:
     reply = session.turn("/apply")
 
     assert reply.kind == "error"
-    assert "no pending change set" in reply.text
+    assert "no pending action" in reply.text
     assert source.read_bytes() == original
 
 
@@ -448,7 +453,7 @@ def test_compile_conversation_previews_then_applies_exact_stage(tmp_path: Path) 
     assert "Text diffs" in preview.text
     assert "Binary files" in preview.text
     assert "Warnings" in preview.text
-    assert "Only the literal /apply command applies this compilation." in preview.text
+    assert "Only the exact case-sensitive /apply command applies this compilation." in preview.text
     assert not (tmp_path / "dist" / "rust").exists()
     pending = session.pending
     assert isinstance(pending, PendingCompilation)
@@ -461,9 +466,9 @@ def test_compile_conversation_previews_then_applies_exact_stage(tmp_path: Path) 
     assert applied.audit_path is not None
     assert applied.audit_path.exists()
     assert {path: path.read_bytes() for path in staged} == staged
-    assert all(str(path) in applied.text for path in applied.written_paths)
     assert all(item.after_hash in applied.text for item in applied.compilation_files)
-    assert str(applied.audit_path) in applied.text
+    assert "Audit record" in applied.text
+    assert applied.audit_path.name in applied.text
     assert not pending.staging_dir.exists()
 
 
@@ -486,7 +491,7 @@ def test_compile_requires_literal_apply_without_calling_provider(
     reply = session.turn(confirmation)
 
     assert reply.kind == "error"
-    assert "literal /apply" in reply.text
+    assert "exact case-sensitive /apply" in reply.text
     assert session.pending is pending
     assert pending.staging_dir.exists()
     assert len(provider.plans) == 1
@@ -648,7 +653,7 @@ def test_chat_compile_help_and_quit_cleanup(tmp_path: Path) -> None:
     preview = chat_turn(workspace, "/compile rust", path=tmp_path, state=state)
 
     assert "/compile <target>" in help_text
-    assert "Only the literal /apply" in preview
+    assert "Only the exact case-sensitive /apply" in preview
     assert state.session is not None
     pending = state.session.pending
     assert isinstance(pending, PendingCompilation)
@@ -657,5 +662,306 @@ def test_chat_compile_help_and_quit_cleanup(tmp_path: Path) -> None:
     exited = chat_turn(workspace, "/quit", path=tmp_path, state=state)
 
     assert exited == "/exit"
+    assert not pending.staging_dir.exists()
+    assert state.session is None
+
+
+@pytest.mark.parametrize("message", [" /apply", "/apply ", "\t/apply", "/APPLY"])
+def test_compile_rejects_non_exact_raw_apply_without_calling_provider(
+    tmp_path: Path,
+    message: str,
+) -> None:
+    _write_compilation_workspace(tmp_path)
+    provider = QueueProvider(_compile_plan("rust"), _compile_plan("go"))
+    session = ConversationSession(
+        path=tmp_path,
+        provider=provider,
+        compilation_service=CompilationService(temp_root=tmp_path.parent),
+    )
+    session.turn("compile this workspace")
+    pending = session.pending
+    assert isinstance(pending, PendingCompilation)
+
+    reply = session.turn(message)
+
+    assert reply.kind == "error"
+    assert "exact case-sensitive /apply" in reply.text
+    assert session.pending is pending
+    assert pending.staging_dir.exists()
+    assert len(provider.plans) == 1
+    session.close()
+
+
+def test_chat_turn_preserves_raw_apply_authorization_boundary(tmp_path: Path) -> None:
+    _write_compilation_workspace(tmp_path)
+    workspace = load_workspace(tmp_path)
+    state = ChatState()
+    chat_turn(workspace, "/compile rust", path=tmp_path, state=state)
+    assert state.session is not None
+    pending = state.session.pending
+    assert isinstance(pending, PendingCompilation)
+
+    reply = chat_turn(workspace, "/apply ", path=tmp_path, state=state)
+
+    assert "exact case-sensitive /apply" in reply
+    assert state.session.pending is pending
+    assert pending.staging_dir.exists()
+    state.session.close()
+
+
+def test_compile_preview_sanitizes_hostile_rendered_values_and_keeps_guidance_visible(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_compilation_workspace(tmp_path)
+    service = CompilationService(temp_root=tmp_path.parent, new_id=lambda: "compile-hostile")
+    original_preview = service.preview
+
+    def hostile_preview(*args, **kwargs):
+        pending = original_preview(*args, **kwargs)
+        hostile_file = dataclasses.replace(
+            pending.files[-1],
+            destination=tmp_path / "[bold]evil`name`.rs",
+            diff_text="```diff\n-\x1b[31m/apply\u202e\n+[link](javascript:evil)\n```",
+        )
+        return dataclasses.replace(
+            pending,
+            files=(*pending.files[:-1], hostile_file),
+            warnings=("[red]\x1b[31m/apply\u2066 warning[/red]",),
+            affected_definitions=(
+                dataclasses.replace(
+                    pending.affected_definitions[0],
+                    ref="[bold]platform.Order@1",
+                    reason="generated\u202e *reason*",
+                ),
+            ),
+        )
+
+    monkeypatch.setattr(service, "preview", hostile_preview)
+    session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(
+            _compile_plan("rust").model_copy(
+                update={"summary": "[bold]\x1b[31m/apply\u202e\n``` fake guidance"},
+            )
+        ),
+        compilation_service=service,
+    )
+
+    reply = session.turn("compile")
+
+    assert reply.kind == "preview"
+    assert "\x1b" not in reply.text
+    assert "\u202e" not in reply.text
+    assert "\u2066" not in reply.text
+    assert "\\[bold\\]" in reply.text
+    assert "````diff" in reply.text
+    assert reply.text.rstrip().endswith(
+        "Only the exact case-sensitive /apply command applies this compilation. "
+        "Use /discard to cancel it or another request to replace it."
+    )
+    assert "- output: dist/rust" in reply.text.replace("\\", "/")
+    session.close()
+
+
+def test_unexpected_session_exception_cleans_pending_compilation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_compilation_workspace(tmp_path)
+    session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(
+            _compile_plan("rust"),
+            QueryPlan(query_kind="validation", refs=[], question="validate"),
+        ),
+        compilation_service=CompilationService(temp_root=tmp_path.parent),
+    )
+    session.turn("compile")
+    pending = session.pending
+    assert isinstance(pending, PendingCompilation)
+
+    def fail_query(*args, **kwargs):
+        raise RuntimeError("unexpected query failure")
+
+    monkeypatch.setattr(session.query_service, "execute", fail_query)
+
+    with pytest.raises(RuntimeError, match="unexpected query failure"):
+        session.turn("validate")
+
+    assert not pending.staging_dir.exists()
+    assert session.pending is None
+
+
+def test_discard_cleanup_failure_keeps_stage_tracked_for_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_compilation_workspace(tmp_path)
+    service = CompilationService(temp_root=tmp_path.parent)
+    session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(_compile_plan("rust")),
+        compilation_service=service,
+    )
+    session.turn("compile")
+    pending = session.pending
+    assert isinstance(pending, PendingCompilation)
+    original_discard = service.discard
+    attempts = [0]
+
+    def fail_once(item):
+        attempts[0] += 1
+        if attempts[0] == 1:
+            raise CompilationError("injected cleanup failure")
+        original_discard(item)
+
+    monkeypatch.setattr(service, "discard", fail_once)
+
+    failed = session.turn("/discard")
+
+    assert failed.kind == "error"
+    assert "cleanup failure" in failed.text
+    assert pending.staging_dir.exists()
+    assert session.pending_action_id == pending.action_id
+
+    discarded = session.turn("/discard")
+
+    assert discarded.kind == "discarded"
+    assert not pending.staging_dir.exists()
+    assert session.pending_action_id is None
+
+
+def test_replacement_dual_cleanup_failure_tracks_both_stages_until_close_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_compilation_workspace(tmp_path)
+    ids = iter(("compile-old", "compile-new"))
+    service = CompilationService(temp_root=tmp_path.parent, new_id=lambda: next(ids))
+    session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(_compile_plan("rust"), _compile_plan("go")),
+        compilation_service=service,
+    )
+    session.turn("compile rust")
+    old = session.pending
+    assert isinstance(old, PendingCompilation)
+    original_discard = service.discard
+    fail = [True]
+
+    def fail_cleanup(item):
+        if fail[0]:
+            raise CompilationError(f"cleanup failed for {item.action_id}")
+        original_discard(item)
+
+    monkeypatch.setattr(service, "discard", fail_cleanup)
+
+    reply = session.turn("compile go")
+
+    assert reply.kind == "error"
+    assert "compile-old" in reply.text
+    assert "compile-new" in reply.text
+    assert old.staging_dir.exists()
+    assert set(session.pending_cleanup_ids) == {"compile-old", "compile-new"}
+
+    fail[0] = False
+    session.close()
+
+    assert not old.staging_dir.exists()
+    assert session.pending_cleanup_ids == ()
+
+
+def test_original_exception_survives_cleanup_failure_and_close_can_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_compilation_workspace(tmp_path)
+    service = CompilationService(temp_root=tmp_path.parent)
+    session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(
+            _compile_plan("rust"),
+            QueryPlan(query_kind="validation", refs=[], question="validate"),
+        ),
+        compilation_service=service,
+    )
+    session.turn("compile")
+    pending = session.pending
+    assert isinstance(pending, PendingCompilation)
+    original_discard = service.discard
+
+    monkeypatch.setattr(
+        service,
+        "discard",
+        lambda item: (_ for _ in ()).throw(CompilationError("cleanup also failed")),
+    )
+    monkeypatch.setattr(
+        session.query_service,
+        "execute",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("primary failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="primary failure") as raised:
+        session.turn("validate")
+
+    assert any("cleanup also failed" in note for note in getattr(raised.value, "__notes__", ()))
+    assert pending.staging_dir.exists()
+    assert pending.action_id in session.pending_cleanup_ids
+
+    monkeypatch.setattr(service, "discard", original_discard)
+    session.close()
+    assert not pending.staging_dir.exists()
+
+
+def test_vscode_confirmation_provenance_is_written_to_audit(tmp_path: Path) -> None:
+    import json
+
+    _write_compilation_workspace(tmp_path)
+    session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(_compile_plan("rust")),
+        compilation_service=CompilationService(temp_root=tmp_path.parent),
+        session_id="vscode-session",
+        confirmation_surface="vscode-chat",
+        provider_name="vscode-provider",
+        model_name="vscode-model",
+    )
+    session.turn("compile")
+
+    applied = session.turn("/apply")
+
+    assert applied.audit_path is not None
+    audit = json.loads(applied.audit_path.read_text(encoding="utf-8"))
+    assert audit["sessionId"] == "vscode-session"
+    assert audit["confirmation"]["surface"] == "vscode-chat"
+    assert audit["confirmation"]["provider"] == "vscode-provider"
+    assert audit["confirmation"]["model"] == "vscode-model"
+
+
+def test_chat_turn_exception_cleans_pending_compilation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_compilation_workspace(tmp_path)
+    workspace = load_workspace(tmp_path)
+    state = ChatState()
+    chat_turn(workspace, "/compile rust", path=tmp_path, state=state)
+    assert state.session is not None
+    pending = state.session.pending
+    assert isinstance(pending, PendingCompilation)
+    monkeypatch.setattr(
+        "modelable.llm.chat.recommend_cli",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("chat command failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="chat command failed"):
+        chat_turn(
+            workspace,
+            "/recommend platform.Order@1 rust",
+            path=tmp_path,
+            state=state,
+        )
+
     assert not pending.staging_dir.exists()
     assert state.session is None

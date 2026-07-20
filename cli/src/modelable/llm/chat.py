@@ -6,6 +6,7 @@ import shlex
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 from modelable.compiler.workspace import Workspace
 from modelable.llm.context import (
@@ -28,6 +29,7 @@ class ChatState:
     session: ConversationSession | None = field(default=None, repr=False)
     provider_name: str | None = None
     model_name: str | None = None
+    confirmation_surface: Literal["cli-chat", "vscode-chat"] = "cli-chat"
 
 
 CHAT_SYSTEM_PROMPT = """You are Modelable's interactive assistant.
@@ -63,6 +65,24 @@ def chat_turn(
     state: ChatState,
     provider: LLMProvider | None = None,
 ) -> str:
+    try:
+        return _chat_turn(workspace, message, path=path, state=state, provider=provider)
+    except BaseException as error:
+        try:
+            close_chat(state)
+        except Exception as cleanup_error:
+            error.add_note(str(cleanup_error))
+        raise
+
+
+def _chat_turn(
+    workspace: Workspace,
+    message: str,
+    *,
+    path: Path,
+    state: ChatState,
+    provider: LLMProvider | None = None,
+) -> str:
     stripped = message.strip()
     command = stripped.partition(" ")[0].lower()
     if command in {"/exit", "/quit"}:
@@ -74,11 +94,12 @@ def chat_turn(
         else:
             response = _conversation_turn(
                 path,
-                stripped,
+                message,
                 state=state,
                 provider=provider,
                 provider_name=state.provider_name,
                 model_name=state.model_name,
+                confirmation_surface=state.confirmation_surface,
             )
     elif stripped.startswith("/"):
         active_workspace = state.session.workspace if state.session is not None else workspace
@@ -92,11 +113,12 @@ def chat_turn(
     else:
         response = _conversation_turn(
             path,
-            stripped,
+            message,
             state=state,
             provider=provider,
             provider_name=state.provider_name,
             model_name=state.model_name,
+            confirmation_surface=state.confirmation_surface,
         )
     state.history.append(("user", message))
     state.history.append(("assistant", response))
@@ -117,6 +139,7 @@ def _conversation_turn(
     provider: LLMProvider | None,
     provider_name: str | None = None,
     model_name: str | None = None,
+    confirmation_surface: Literal["cli-chat", "vscode-chat"] = "cli-chat",
 ) -> str:
     if state.session is None:
         state.session = ConversationSession(
@@ -125,6 +148,7 @@ def _conversation_turn(
             focused_ref=state.ref,
             provider_name=provider_name,
             model_name=model_name,
+            confirmation_surface=confirmation_surface,
         )
         state.session.history.extend(state.history)
     reply = state.session.turn(message)

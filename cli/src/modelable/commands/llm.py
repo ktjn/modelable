@@ -549,6 +549,7 @@ def chat(
         repair_attempts=config.repair_attempts,
         provider_name=config.provider,
         model_name=config.model,
+        confirmation_surface="cli-chat",
     )
 
     try:
@@ -560,7 +561,12 @@ def chat(
 
                 console.print(chat_help())
             else:
-                console.print(session.turn(message).text)
+                console.print(
+                    session.turn(message).text,
+                    markup=False,
+                    highlight=False,
+                )
+            session.close()
             return
 
         console.print("Modelable chat. Type /help for commands or /exit to quit.")
@@ -578,6 +584,16 @@ def chat(
 
                 console.print(f"assistant> {chat_help()}")
                 continue
-            console.print(f"assistant> {session.turn(user_message).text}")
-    finally:
+            console.print(
+                f"assistant> {session.turn(user_message).text}",
+                markup=False,
+                highlight=False,
+            )
+    except BaseException as error:
+        try:
+            session.close()
+        except Exception as cleanup_error:
+            error.add_note(str(cleanup_error))
+        raise
+    else:
         session.close()
