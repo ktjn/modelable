@@ -57,3 +57,29 @@ def test_workspace_edit_rejects_invalid_ranges() -> None:
 
     with pytest.raises(ValueError, match="end"):
         LanguageWorkspaceEdit.from_edits((edit,))
+
+
+def test_workspace_edit_constructor_canonicalizes_unsorted_edits() -> None:
+    edits = (
+        LanguageTextEdit("file:///z.mdl", LanguageRange.at(0, 0, 0, 1), "Z", 1, "z-hash"),
+        LanguageTextEdit("file:///a.mdl", LanguageRange.at(0, 0, 0, 1), "A1", 2, "a-hash"),
+        LanguageTextEdit("file:///a.mdl", LanguageRange.at(1, 0, 1, 1), "A2", 2, "a-hash"),
+    )
+
+    result = LanguageWorkspaceEdit(edits)
+
+    assert [(edit.uri, edit.range.start.line) for edit in result.edits] == [
+        ("file:///a.mdl", 1),
+        ("file:///a.mdl", 0),
+        ("file:///z.mdl", 0),
+    ]
+
+
+def test_workspace_edit_constructor_rejects_overlapping_ranges() -> None:
+    edits = (
+        LanguageTextEdit("file:///a.mdl", LanguageRange.at(0, 0, 0, 4), "A", 2, "hash"),
+        LanguageTextEdit("file:///a.mdl", LanguageRange.at(0, 3, 0, 5), "B", 2, "hash"),
+    )
+
+    with pytest.raises(ValueError, match="overlap"):
+        LanguageWorkspaceEdit(edits)

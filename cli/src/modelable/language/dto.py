@@ -77,29 +77,36 @@ class LanguageTextEdit:
     expected_hash: str
 
 
+def _canonical_edits(edits: Iterable[LanguageTextEdit]) -> tuple[LanguageTextEdit, ...]:
+    ascending = sorted(edits, key=lambda edit: (edit.uri, edit.range))
+    previous: LanguageTextEdit | None = None
+    for edit in ascending:
+        edit.range.validate()
+        if previous is not None and edit.uri == previous.uri and edit.range.start < previous.range.end:
+            raise ValueError(f"Text edit ranges overlap for {edit.uri}")
+        previous = edit
+
+    canonical: list[LanguageTextEdit] = []
+    group_start = 0
+    while group_start < len(ascending):
+        group_end = group_start + 1
+        while group_end < len(ascending) and ascending[group_end].uri == ascending[group_start].uri:
+            group_end += 1
+        canonical.extend(reversed(ascending[group_start:group_end]))
+        group_start = group_end
+    return tuple(canonical)
+
+
 @dataclass(frozen=True)
 class LanguageWorkspaceEdit:
     edits: tuple[LanguageTextEdit, ...]
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "edits", _canonical_edits(self.edits))
+
     @classmethod
     def from_edits(cls, edits: Iterable[LanguageTextEdit]) -> Self:
-        ascending = sorted(edits, key=lambda edit: (edit.uri, edit.range))
-        previous: LanguageTextEdit | None = None
-        for edit in ascending:
-            edit.range.validate()
-            if previous is not None and edit.uri == previous.uri and edit.range.start < previous.range.end:
-                raise ValueError(f"Text edit ranges overlap for {edit.uri}")
-            previous = edit
-
-        canonical: list[LanguageTextEdit] = []
-        group_start = 0
-        while group_start < len(ascending):
-            group_end = group_start + 1
-            while group_end < len(ascending) and ascending[group_end].uri == ascending[group_start].uri:
-                group_end += 1
-            canonical.extend(reversed(ascending[group_start:group_end]))
-            group_start = group_end
-        return cls(tuple(canonical))
+        return cls(tuple(edits))
 
 
 class CompletionCatalog(Protocol):
