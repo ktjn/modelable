@@ -42,8 +42,10 @@ class FakeProvider:
 class QueueProvider:
     def __init__(self, *plans: ConversationPlan) -> None:
         self.plans = list(plans)
+        self.requests: list[LLMRequest] = []
 
     def complete(self, request: LLMRequest) -> LLMResponse:
+        self.requests.append(request)
         return LLMResponse(
             content=self.plans.pop(0).model_dump_json(),
             provider="fake",
@@ -965,3 +967,123 @@ def test_chat_turn_exception_cleans_pending_compilation(
 
     assert not pending.staging_dir.exists()
     assert state.session is None
+
+
+def test_explicit_compile_with_options_bypasses_configured_provider(tmp_path: Path) -> None:
+    _write_compilation_workspace(tmp_path)
+    provider = QueueProvider(
+        UnsupportedPlan(
+            request="/compile rust",
+            reason="provider must not control deterministic commands",
+        )
+    )
+    session = ConversationSession(
+        path=tmp_path,
+        provider=provider,
+        compilation_service=CompilationService(temp_root=tmp_path.parent),
+    )
+
+    reply = session.turn(
+        "/compile rust --domain platform --out generated/rust",
+    )
+
+    assert reply.kind == "preview"
+    assert reply.operation_kind == "compile"
+    assert provider.requests == []
+    pending = session.pending
+    assert isinstance(pending, PendingCompilation)
+    assert pending.request.target == "rust"
+    assert pending.request.domains == ("platform",)
+    assert pending.request.out_dir == Path("generated/rust")
+    session.close()
+
+
+@pytest.mark.parametrize("phase", ["preview", "apply"])
+def test_compile_errors_sanitize_hostile_public_text(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    phase: str,
+) -> None:
+    _write_compilation_workspace(tmp_path)
+    service = CompilationService(temp_root=tmp_path.parent)
+    hostile = "\x1b[31m[link](command:evil)\u202e\x00"
+    session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(_compile_plan("rust")),
+        compilation_service=service,
+    )
+    if phase == "preview":
+        monkeypatch.setattr(
+            service,
+            "preview",
+            lambda *args, **kwargs: (_ for _ in ()).throw(CompilationError(hostile)),
+        )
+        reply = session.turn("compile")
+    else:
+        session.turn("compile")
+        monkeypatch.setattr(
+            service,
+            "apply",
+            lambda *args, **kwargs: (_ for _ in ()).throw(OSError(hostile)),
+        )
+        reply = session.turn("/apply")
+
+    assert reply.kind == "error"
+    assert "\x1b" not in reply.text
+    assert "\u202e" not in reply.text
+    assert "\x00" not in reply.text
+    assert "\\[link\\](command:evil)" in reply.text
+    assert "[link](command:evil)" not in reply.text
+    session.close()
+
+
+def test_cleanup_only_discard_reports_compilation_identity_and_retries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_compilation_workspace(tmp_path)
+    ids = iter(("compile-old", "compile-new"))
+    service = CompilationService(temp_root=tmp_path.parent, new_id=lambda: next(ids))
+    session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(_compile_plan("rust"), _compile_plan("go")),
+        compilation_service=service,
+    )
+    session.turn("compile rust")
+    old = session.pending
+    assert isinstance(old, PendingCompilation)
+    original_discard = service.discard
+    old_attempts = [0]
+
+    def fail_old_twice(item):
+        if item.action_id == "compile-old":
+            old_attempts[0] += 1
+            if old_attempts[0] <= 2:
+                raise CompilationError("old cleanup failed")
+        original_discard(item)
+
+    monkeypatch.setattr(service, "discard", fail_old_twice)
+    replacement = session.turn("compile go")
+
+    assert replacement.kind == "error"
+    assert session.pending is None
+    assert session.pending_action_id is None
+    assert session.pending_cleanup_ids == ("compile-old",)
+
+    failed_retry = session.turn("/discard")
+
+    assert failed_retry.kind == "error"
+    assert failed_retry.operation_kind == "compile"
+    assert failed_retry.change_set_id == "compile-old"
+    assert "staged compilation cleanup" in failed_retry.text
+    assert session.pending_cleanup_ids == ("compile-old",)
+    assert old.staging_dir.exists()
+
+    discarded = session.turn("/discard")
+
+    assert discarded.kind == "discarded"
+    assert discarded.operation_kind == "compile"
+    assert discarded.change_set_id == "compile-old"
+    assert "staged compilation cleanup compile-old" in discarded.text
+    assert session.pending_cleanup_ids == ()
+    assert not old.staging_dir.exists()

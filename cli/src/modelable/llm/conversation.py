@@ -14,11 +14,16 @@ from modelable.llm.conversation_plan import (
     ChangeSetPlan,
     ClarificationPlan,
     CompilePlan,
+    ConversationPlan,
     Operation,
     QueryPlan,
     UnsupportedPlan,
 )
-from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
+from modelable.llm.conversation_planner import (
+    ConversationPlanner,
+    PlannerContext,
+    parse_compile_command,
+)
 from modelable.llm.providers import LLMProvider
 from modelable.llm.workspace_editor import (
     AffectedDefinition,
@@ -190,15 +195,20 @@ class ConversationSession:
         return reply
 
     def _plan_and_execute(self, message: str) -> ConversationReply:
-        plan = self.planner.plan(
-            message,
-            PlannerContext(
-                workspace_summary=build_workspace_summary(self.workspace),
-                focused_ref=self.focused_ref,
-                history=tuple(self.history),
-                pending_plan=self.pending.plan if isinstance(self.pending, PendingChangeSet) else None,
-            ),
-        )
+        command = message.split(maxsplit=1)
+        plan: ConversationPlan
+        if command and command[0] == "/compile":
+            plan = parse_compile_command(message)
+        else:
+            plan = self.planner.plan(
+                message,
+                PlannerContext(
+                    workspace_summary=build_workspace_summary(self.workspace),
+                    focused_ref=self.focused_ref,
+                    history=tuple(self.history),
+                    pending_plan=self.pending.plan if isinstance(self.pending, PendingChangeSet) else None,
+                ),
+            )
         if isinstance(plan, QueryPlan):
             return ConversationReply(
                 kind="answer",
@@ -287,7 +297,10 @@ class ConversationSession:
                 policy=CompilationPolicy.conversation(),
             )
         except CompilationError as error:
-            return ConversationReply(kind="error", text=f"Could not preview compilation: {error}")
+            return ConversationReply(
+                kind="error",
+                text=f"Could not preview compilation: {_escape_inline(error)}",
+            )
         cleanup_errors = self._dispose_actions((replaced,))
         if cleanup_errors:
             cleanup_errors += self._dispose_actions((pending,))
@@ -387,7 +400,7 @@ class ConversationSession:
                 self._cleanup_backlog[pending.action_id] = pending
             return ConversationReply(
                 kind="error",
-                text=f"Could not apply compilation {pending.action_id}: {error}",
+                text=(f"Could not apply compilation {_escape_inline(pending.action_id)}: {_escape_inline(error)}"),
                 change_set_id=pending.action_id,
                 operation_kind="compile",
             )
@@ -408,16 +421,22 @@ class ConversationSession:
     def _discard_pending(self) -> ConversationReply:
         if self.pending is None and not self._cleanup_backlog:
             return ConversationReply(kind="error", text="There is no pending action to discard.")
-        change_set_id = _pending_id(self.pending)
+        cleanup_only = self.pending is None
+        cleanup_ids = tuple(sorted(self._cleanup_backlog))
+        change_set_id = _pending_id(self.pending) or (cleanup_ids[0] if cleanup_ids else None)
         operation_kind: Literal["source_change", "compile"] = (
-            "compile" if _is_pending_compilation(self.pending) else "source_change"
+            "compile" if cleanup_only or _is_pending_compilation(self.pending) else "source_change"
         )
         cleanup_errors = self._dispose_actions((self.pending, *self._cleanup_backlog.values()))
         if cleanup_errors:
             return ConversationReply(
                 kind="error",
                 text=_render_cleanup_failure(
-                    "Could not fully discard the pending action; cleanup will be retried.",
+                    (
+                        "Could not fully discard staged compilation cleanup; cleanup will be retried."
+                        if cleanup_only
+                        else "Could not fully discard the pending action; cleanup will be retried."
+                    ),
                     cleanup_errors,
                 ),
                 change_set_id=change_set_id,
@@ -426,7 +445,11 @@ class ConversationSession:
         self.pending = None
         return ConversationReply(
             kind="discarded",
-            text=f"Discarded pending action {change_set_id}.",
+            text=(
+                f"Discarded staged compilation cleanup {', '.join(cleanup_ids)}."
+                if cleanup_only
+                else f"Discarded pending action {change_set_id}."
+            ),
             change_set_id=change_set_id,
             operation_kind=operation_kind,
         )
