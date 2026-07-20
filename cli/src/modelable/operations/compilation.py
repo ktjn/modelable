@@ -1,7 +1,15 @@
 from __future__ import annotations
 
 import dataclasses
+import difflib
+import hashlib
 import json
+import os
+import re
+import shutil
+import tempfile
+import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -27,6 +35,7 @@ from modelable.emitters.rust import emit_rust
 from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
+from modelable.llm.workspace_editor import AffectedDefinition
 from modelable.parser.ir import ArrayType, FieldType, MapType, MdlFile, NamedType, ObjectType, ParseError
 from modelable.planner.plans import write_plans
 from modelable.registry.factory import get_registry
@@ -58,6 +67,12 @@ _DEFAULT_OUT_DIRS: dict[str, Path] = {
     target.name: target.default_out_dir
     for target in list_implemented_codegen_targets()
     if target.default_out_dir is not None
+}
+_TEXT_PREVIEW_LIMIT = 2 * 1024 * 1024
+_INTERNAL_MODELABLE_PATHS = {
+    (".modelable", "audit"),
+    (".modelable", "locks"),
+    (".modelable", "staging"),
 }
 
 
@@ -92,6 +107,61 @@ class CompilationRequest:
 
 
 @dataclass(frozen=True)
+class CompilationPolicy:
+    restrict_to_workspace: bool
+    write_audit: bool
+
+    @classmethod
+    def conversation(cls) -> CompilationPolicy:
+        return cls(restrict_to_workspace=True, write_audit=True)
+
+
+@dataclass(frozen=True)
+class FileFingerprint:
+    path: Path
+    content_hash: str
+    size: int
+    resolved_parent: Path
+
+
+@dataclass(frozen=True)
+class CompilationFilePreview:
+    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor"]
+    destination: Path
+    staged_path: Path
+    status: Literal["created", "changed", "unchanged"]
+    media_type: str
+    ref: str | None
+    before_hash: str | None
+    after_hash: str
+    before_size: int
+    after_size: int
+    before_text: str | None
+    after_text: str | None
+    diff_text: str | None
+
+
+@dataclass(frozen=True)
+class RegistryIdChange:
+    ref: str
+    registry_id: int
+
+
+@dataclass(frozen=True)
+class PendingCompilation:
+    action_id: str
+    request: CompilationRequest
+    workspace_root: Path
+    staging_dir: Path
+    files: tuple[CompilationFilePreview, ...]
+    source_fingerprints: tuple[FileFingerprint, ...]
+    affected_definitions: tuple[AffectedDefinition, ...]
+    registry_id_changes: tuple[RegistryIdChange, ...]
+    warnings: tuple[str, ...]
+    manifest_fingerprint: str
+
+
+@dataclass(frozen=True)
 class CompilationEvent:
     level: Literal["ok", "warning", "info"]
     message: str
@@ -106,8 +176,515 @@ class DirectCompilationResult:
 
 
 class CompilationService:
+    def __init__(
+        self,
+        *,
+        temp_root: Path | None = None,
+        new_id: Callable[[], str] = lambda: str(uuid.uuid4()),
+    ) -> None:
+        self.temp_root = temp_root
+        self.new_id = new_id
+
     def execute_direct(self, request: CompilationRequest) -> DirectCompilationResult:
         return _execute_compilation(request)
+
+    def preview(
+        self,
+        request: CompilationRequest,
+        *,
+        policy: CompilationPolicy,
+    ) -> PendingCompilation:
+        workspace_root = _workspace_root(request.source)
+        workspace = _load_preview_workspace(request.source)
+        source_paths = _validated_source_paths(workspace, workspace_root)
+        layout = _validate_preview_request(request, workspace_root, source_paths, policy)
+        source_fingerprints = tuple(_fingerprint_source(path) for path in source_paths)
+        existing_registry_ids = read_lock_file(layout.registry_ids)
+        if self.temp_root is not None and Path(self.temp_root).resolve().is_relative_to(workspace_root):
+            raise CompilationError("Compilation staging must be created outside the workspace.")
+
+        staging_dir = Path(
+            tempfile.mkdtemp(
+                prefix="modelable-compile-",
+                dir=self.temp_root,
+            )
+        ).resolve()
+        try:
+            staged_request = _stage_request(request, workspace_root, staging_dir, layout)
+            if layout.registry_ids.exists():
+                staged_request.registry_ids_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(layout.registry_ids, staged_request.registry_ids_path)
+
+            previous_cwd = Path.cwd()
+            try:
+                os.chdir(staging_dir)
+                result = _execute_compilation(staged_request)
+            finally:
+                os.chdir(previous_cwd)
+
+            files = _build_file_previews(
+                result.written_paths,
+                staging_dir=staging_dir,
+                workspace_root=workspace_root,
+                source_paths=set(source_paths),
+                layout=layout,
+            )
+            _check_text_preview_limit(files)
+            staged_registry_ids = read_lock_file(staged_request.registry_ids_path)
+            registry_id_changes = tuple(
+                RegistryIdChange(ref, registry_id)
+                for ref, registry_id in sorted(staged_registry_ids.items())
+                if ref not in existing_registry_ids
+            )
+            affected_definitions = _affected_definitions(workspace, request)
+            warnings = tuple(event.message for event in result.events if event.level == "warning")
+            action_id = self.new_id()
+            manifest_fingerprint = _manifest_fingerprint(
+                action_id=action_id,
+                request=request,
+                workspace_root=workspace_root,
+                files=files,
+                source_fingerprints=source_fingerprints,
+                affected_definitions=affected_definitions,
+                registry_id_changes=registry_id_changes,
+                warnings=warnings,
+            )
+            return PendingCompilation(
+                action_id=action_id,
+                request=request,
+                workspace_root=workspace_root,
+                staging_dir=staging_dir,
+                files=files,
+                source_fingerprints=source_fingerprints,
+                affected_definitions=affected_definitions,
+                registry_id_changes=registry_id_changes,
+                warnings=warnings,
+                manifest_fingerprint=manifest_fingerprint,
+            )
+        except BaseException:
+            _remove_staging(staging_dir)
+            raise
+
+    def discard(self, pending: PendingCompilation) -> None:
+        _remove_staging(pending.staging_dir)
+
+
+@dataclass(frozen=True)
+class _PreviewLayout:
+    out_dir: Path
+    registry: Path
+    registry_ids: Path
+
+
+def _workspace_root(source: Path) -> Path:
+    resolved = source.resolve()
+    if resolved.is_file():
+        return resolved.parent
+    return resolved
+
+
+def _load_preview_workspace(source: Path) -> Workspace:
+    try:
+        workspace = load_workspace(source)
+    except FileNotFoundError as exc:
+        raise CompilationError(str(exc)) from exc
+    except ParseError as exc:
+        raise CompilationDiagnosticsError(
+            (exc.diagnostic(path=str(source)),),
+            origin="parse",
+        ) from exc
+    if workspace.errors:
+        raise CompilationDiagnosticsError(tuple(workspace.errors), origin="workspace")
+    return workspace
+
+
+def _validated_source_paths(workspace: Workspace, workspace_root: Path) -> tuple[Path, ...]:
+    paths: list[Path] = []
+    for source in workspace.sources:
+        if source.path is None:
+            continue
+        path = source.path.resolve()
+        if not path.is_relative_to(workspace_root):
+            raise CompilationError(f".mdl source resolves outside the workspace: {source.path}")
+        paths.append(path)
+    return tuple(sorted(paths))
+
+
+def _validate_preview_request(
+    request: CompilationRequest,
+    workspace_root: Path,
+    source_paths: tuple[Path, ...],
+    policy: CompilationPolicy,
+) -> _PreviewLayout:
+    if request.target not in TARGETS:
+        raise CompilationError(f"Unknown compilation target: {request.target}")
+    if request.registry_path.startswith("oci://"):
+        raise CompilationError("OCI registry paths are not allowed for conversational compilation.")
+    if request.descriptor_set and request.target not in ("protobuf", "grpc"):
+        raise CompilationError("descriptor sets are supported only for protobuf and grpc targets")
+    if not policy.restrict_to_workspace:
+        raise CompilationError("Compilation preview requires a workspace-restricted policy.")
+
+    output = request.out_dir or _DEFAULT_OUT_DIRS[request.target]
+    out_dir = _resolve_conversation_path(
+        workspace_root,
+        output,
+        label="output path",
+        source_paths=source_paths,
+        reject_modelable=True,
+    )
+    registry = _resolve_conversation_path(
+        workspace_root,
+        Path(request.registry_path),
+        label="registry path",
+        source_paths=source_paths,
+    )
+    registry_ids = _resolve_conversation_path(
+        workspace_root,
+        request.registry_ids_path,
+        label="registry ID path",
+        source_paths=source_paths,
+    )
+    if registry == registry_ids:
+        raise CompilationError("Registry and registry ID paths must be distinct.")
+    if out_dir == registry_ids or out_dir.is_relative_to(registry_ids):
+        raise CompilationError("Output path overlaps the registry ID control path.")
+    if out_dir == registry or out_dir.is_relative_to(registry):
+        raise CompilationError("Output path overlaps the registry control path.")
+    return _PreviewLayout(out_dir=out_dir, registry=registry, registry_ids=registry_ids)
+
+
+def _resolve_conversation_path(
+    workspace_root: Path,
+    path: Path,
+    *,
+    label: str,
+    source_paths: tuple[Path, ...] | set[Path],
+    reject_modelable: bool = False,
+) -> Path:
+    if path.is_absolute():
+        raise CompilationError(f"{label} must be workspace-relative.")
+    lexical = workspace_root / path
+    resolved = lexical.resolve(strict=False)
+    if not resolved.is_relative_to(workspace_root):
+        raise CompilationError(f"{label} resolves outside the workspace: {path}")
+
+    relative_parts = tuple(part.lower() for part in lexical.relative_to(workspace_root).parts)
+    if ".git" in relative_parts:
+        raise CompilationError(f"{label} must not be inside .git: {path}")
+    for prohibited in _INTERNAL_MODELABLE_PATHS:
+        if relative_parts[: len(prohibited)] == prohibited:
+            rendered = "/".join(prohibited)
+            raise CompilationError(f"{label} must not be inside {rendered}: {path}")
+    if reject_modelable and relative_parts[:1] == (".modelable",):
+        raise CompilationError(f"output path must not use internal .modelable paths: {path}")
+    if (
+        any(resolved == source or resolved.is_relative_to(source) for source in source_paths)
+        or lexical.resolve(strict=False).suffix.lower() == ".mdl"
+    ):
+        raise CompilationError(f"{label} overlaps a .mdl source: {path}")
+    return lexical
+
+
+def _stage_request(
+    request: CompilationRequest,
+    workspace_root: Path,
+    staging_dir: Path,
+    layout: _PreviewLayout,
+) -> CompilationRequest:
+    def staged(path: Path) -> Path:
+        return staging_dir / path.relative_to(workspace_root)
+
+    return dataclasses.replace(
+        request,
+        source=request.source.resolve(),
+        out_dir=staged(layout.out_dir),
+        registry_path=str(staged(layout.registry)),
+        registry_ids_path=staged(layout.registry_ids),
+    )
+
+
+def _build_file_previews(
+    written_paths: tuple[Path, ...],
+    *,
+    staging_dir: Path,
+    workspace_root: Path,
+    source_paths: set[Path],
+    layout: _PreviewLayout,
+) -> tuple[CompilationFilePreview, ...]:
+    previews: list[CompilationFilePreview] = []
+    for written_path in sorted(set(written_paths)):
+        staged_path = written_path.resolve()
+        if not staged_path.is_relative_to(staging_dir):
+            raise CompilationError(f"Compiler wrote outside the staging directory: {written_path}")
+        relative = staged_path.relative_to(staging_dir)
+        destination = workspace_root / relative
+        _resolve_conversation_path(
+            workspace_root,
+            relative,
+            label="generated destination",
+            source_paths=source_paths,
+            reject_modelable=relative.parts[:1] == (".modelable",)
+            and not (
+                destination == layout.registry
+                or destination == layout.registry_ids
+                or relative.parts[:2] == (".modelable", "plans")
+            ),
+        )
+        category = _file_category(destination, layout)
+        before_bytes = destination.read_bytes() if destination.exists() else None
+        after_bytes = staged_path.read_bytes()
+        previews.append(
+            _file_preview(
+                category=category,
+                destination=destination,
+                staged_path=staged_path,
+                before_bytes=before_bytes,
+                after_bytes=after_bytes,
+            )
+        )
+    return tuple(sorted(previews, key=lambda item: item.destination.as_posix()))
+
+
+def _file_category(
+    destination: Path,
+    layout: _PreviewLayout,
+) -> Literal["registry_ids", "registry", "plan", "artifact", "descriptor"]:
+    if destination == layout.registry_ids:
+        return "registry_ids"
+    if destination == layout.registry:
+        return "registry"
+    if destination.suffix == ".pb":
+        return "descriptor"
+    if destination.name.endswith(".plan.json"):
+        return "plan"
+    return "artifact"
+
+
+def _file_preview(
+    *,
+    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor"],
+    destination: Path,
+    staged_path: Path,
+    before_bytes: bytes | None,
+    after_bytes: bytes,
+) -> CompilationFilePreview:
+    before_hash = _bytes_hash(before_bytes) if before_bytes is not None else None
+    after_hash = _bytes_hash(after_bytes)
+    status: Literal["created", "changed", "unchanged"]
+    if before_bytes is None:
+        status = "created"
+    elif before_bytes == after_bytes:
+        status = "unchanged"
+    else:
+        status = "changed"
+
+    before_text: str | None = None
+    after_text: str | None = None
+    diff_text: str | None = None
+    is_binary = category in ("registry", "descriptor")
+    if not is_binary:
+        try:
+            decoded_after = after_bytes.decode("utf-8")
+            decoded_before = "" if before_bytes is None else before_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            is_binary = True
+        else:
+            if status != "unchanged":
+                before_text = decoded_before
+                after_text = decoded_after
+                diff_text = "".join(
+                    difflib.unified_diff(
+                        decoded_before.splitlines(keepends=True),
+                        decoded_after.splitlines(keepends=True),
+                        fromfile=str(destination),
+                        tofile=str(destination),
+                    )
+                )
+
+    return CompilationFilePreview(
+        category=category,
+        destination=destination,
+        staged_path=staged_path,
+        status=status,
+        media_type=_media_type(destination, binary=is_binary),
+        ref=_file_ref(destination, category),
+        before_hash=before_hash,
+        after_hash=after_hash,
+        before_size=len(before_bytes) if before_bytes is not None else 0,
+        after_size=len(after_bytes),
+        before_text=before_text,
+        after_text=after_text,
+        diff_text=diff_text,
+    )
+
+
+def _media_type(path: Path, *, binary: bool) -> str:
+    if binary:
+        return "application/octet-stream"
+    if path.suffix == ".json" or path.name.endswith(".lock"):
+        return "application/json"
+    if path.suffix in (".yaml", ".yml"):
+        return "application/yaml"
+    return "text/plain; charset=utf-8"
+
+
+def _file_ref(
+    path: Path,
+    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor"],
+) -> str | None:
+    if category == "plan":
+        stem = path.name.removesuffix(".plan.json")
+        domain_and_name, _, version = stem.rpartition(".v")
+        return f"{domain_and_name}@{version}" if domain_and_name and version else None
+    for index in range(len(path.parts) - 1, 0, -1):
+        match = re.match(r"^(?P<name>.+)\.v(?P<version>\d+)(?:[.-].*)?$", path.parts[index])
+        if match is not None:
+            name = match.group("name")
+            domain = path.parts[index - 1]
+            qualified_name = name if "." in name else f"{domain}.{name}"
+            return f"{qualified_name}@{match.group('version')}"
+    return None
+
+
+def _check_text_preview_limit(files: tuple[CompilationFilePreview, ...]) -> None:
+    payload = [
+        {
+            "before": item.before_text,
+            "after": item.after_text,
+            "diff": item.diff_text,
+        }
+        for item in files
+        if item.after_text is not None
+    ]
+    size = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+    if size > _TEXT_PREVIEW_LIMIT:
+        raise CompilationError(
+            "Compilation text preview exceeds the 2 MiB limit; use direct modelable compile instead."
+        )
+
+
+def _fingerprint_source(path: Path) -> FileFingerprint:
+    content = path.read_bytes()
+    return FileFingerprint(
+        path=path,
+        content_hash=_bytes_hash(content),
+        size=len(content),
+        resolved_parent=path.parent.resolve(),
+    )
+
+
+def _affected_definitions(
+    workspace: Workspace,
+    request: CompilationRequest,
+) -> tuple[AffectedDefinition, ...]:
+    requested = set(request.domains)
+    affected: dict[str, AffectedDefinition] = {}
+    for domain in workspace.mdl.domains:
+        if requested and domain.name not in requested:
+            continue
+        values = [
+            AffectedDefinition(domain.name, "compiled", "domain selected for compilation"),
+            *(
+                AffectedDefinition(
+                    f"{domain.name}.{name}@{version.version}",
+                    "consumed",
+                    f"{request.target} artifact input",
+                )
+                for name, versions in domain.models.items()
+                for version in versions
+            ),
+            *(
+                AffectedDefinition(
+                    f"{domain.name}.{name}@{version.version}",
+                    "consumed",
+                    f"{request.target} artifact input",
+                )
+                for name, versions in domain.projections.items()
+                for version in versions
+            ),
+            *(
+                AffectedDefinition(
+                    f"{domain.name}.{declaration.name}",
+                    "consumed",
+                    "semantic type used by compilation",
+                )
+                for declaration in domain.semantic_types
+            ),
+        ]
+        affected.update((item.ref, item) for item in values)
+    return tuple(affected[ref] for ref in sorted(affected))
+
+
+def _manifest_fingerprint(
+    *,
+    action_id: str,
+    request: CompilationRequest,
+    workspace_root: Path,
+    files: tuple[CompilationFilePreview, ...],
+    source_fingerprints: tuple[FileFingerprint, ...],
+    affected_definitions: tuple[AffectedDefinition, ...],
+    registry_id_changes: tuple[RegistryIdChange, ...],
+    warnings: tuple[str, ...],
+) -> str:
+    manifest = {
+        "action_id": action_id,
+        "request": {
+            "source": str(request.source),
+            "target": request.target,
+            "out_dir": str(request.out_dir) if request.out_dir is not None else None,
+            "registry_path": request.registry_path,
+            "registry_ids_path": str(request.registry_ids_path),
+            "allow_orphaned_registry_ids": request.allow_orphaned_registry_ids,
+            "domains": request.domains,
+            "descriptor_set": request.descriptor_set,
+        },
+        "workspace_root": str(workspace_root),
+        "files": [
+            {
+                "category": item.category,
+                "destination": str(item.destination),
+                "status": item.status,
+                "media_type": item.media_type,
+                "ref": item.ref,
+                "before_hash": item.before_hash,
+                "after_hash": item.after_hash,
+                "before_size": item.before_size,
+                "after_size": item.after_size,
+                "resolved_parent": str(item.destination.parent.resolve()),
+            }
+            for item in files
+        ],
+        "sources": [
+            {
+                "path": str(item.path),
+                "content_hash": item.content_hash,
+                "size": item.size,
+                "resolved_parent": str(item.resolved_parent),
+            }
+            for item in source_fingerprints
+        ],
+        "affected": [dataclasses.asdict(item) for item in affected_definitions],
+        "registry_id_changes": [dataclasses.asdict(item) for item in registry_id_changes],
+        "warnings": warnings,
+    }
+    serialized = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return _bytes_hash(serialized.encode("utf-8"))
+
+
+def _bytes_hash(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def _remove_staging(path: Path) -> None:
+    if not path.exists():
+        return
+    try:
+        shutil.rmtree(path)
+    except OSError as exc:
+        raise CompilationError(f"Compilation staging cleanup failed: {path}") from exc
+    if path.exists():
+        raise CompilationError(f"Compilation staging cleanup failed: {path}")
 
 
 def _execute_compilation(request: CompilationRequest) -> DirectCompilationResult:
