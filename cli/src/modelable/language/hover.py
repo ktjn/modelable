@@ -475,14 +475,62 @@ def _projection_reference_for_alias(
     lines = text.splitlines()
     end_line = min(line, len(lines) - 1)
     active_projection = "\n".join(lines[scope_line : end_line + 1])
-    for match in _SOURCE_ALIAS_PATTERN.finditer(active_projection):
-        if match.group("alias") != alias:
+    masked_projection = _mask_ignored_regions(active_projection)
+    for match in _SOURCE_ALIAS_PATTERN.finditer(masked_projection):
+        if _matched_text(active_projection, match, "alias") != alias:
             continue
-        model = re.sub(r"\s*\.\s*", ".", match.group("model"))
-        version_text = re.sub(r"\s+", "", match.group("version"))
-        domain, model, version = parse_model_ref_version_spec(f"{match.group('domain')}.{model}@{version_text}")
+        domain_text = _matched_text(active_projection, match, "domain")
+        model_text = _matched_text(active_projection, match, "model")
+        version_text = _matched_text(active_projection, match, "version")
+        model_text = re.sub(r"\s*\.\s*", ".", model_text)
+        version_text = re.sub(r"\s+", "", version_text)
+        domain, model, version = parse_model_ref_version_spec(f"{domain_text}.{model_text}@{version_text}")
         return f"{domain}.{model}", version
     return None
+
+
+def _matched_text(
+    source: str,
+    match: re.Match[str],
+    group: str,
+) -> str:
+    start, end = match.span(group)
+    return source[start:end]
+
+
+def _mask_ignored_regions(text: str) -> str:
+    masked = list(text)
+    index = 0
+    while index < len(text):
+        if text.startswith("//", index):
+            while index < len(text) and text[index] not in "\r\n":
+                masked[index] = " "
+                index += 1
+            continue
+
+        if text[index] != '"':
+            index += 1
+            continue
+
+        masked[index] = " "
+        index += 1
+        while index < len(text):
+            if text[index] == "\\":
+                masked[index] = " "
+                index += 1
+                if index < len(text):
+                    if text[index] not in "\r\n":
+                        masked[index] = " "
+                    index += 1
+                continue
+            if text[index] == '"':
+                masked[index] = " "
+                index += 1
+                break
+            if text[index] not in "\r\n":
+                masked[index] = " "
+            index += 1
+    return "".join(masked)
 
 
 def _current_scope(
