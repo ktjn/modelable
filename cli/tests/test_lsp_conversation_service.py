@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 from modelable.compiler.workspace import load_workspace
 from modelable.llm.conversation import ConversationSession
-from modelable.llm.conversation_plan import ChangeSetPlan, CreateModel, FieldSpec
+from modelable.llm.conversation_plan import ChangeSetPlan, CompilePlan, CreateModel, FieldSpec
 from modelable.llm.providers import LLMRequest, LLMResponse
 from modelable.lsp import definition, document_symbols
 from modelable.lsp import workspace as lsp_workspace
@@ -20,6 +21,7 @@ from modelable.lsp.conversation_service import (
     LspConversationService,
 )
 from modelable.lsp.workspace import LspWorkspaceIndex
+from modelable.operations.compilation import CompilationService, PendingCompilation
 from modelable.parser.ir import AnnKey, PrimitiveType
 
 
@@ -127,7 +129,7 @@ def _turn_params(
 ) -> ConversationTurnParams:
     return ConversationTurnParams.model_validate(
         {
-            "protocolVersion": 1,
+            "protocolVersion": 2,
             "sessionId": session_id,
             "createSession": create_session,
             "workspaceUri": root.as_uri(),
@@ -359,6 +361,262 @@ def test_registry_close_is_idempotent(tmp_path: Path) -> None:
         service.turn(_turn_params(root, create_session=False))
 
 
+class _CompileProvider:
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        plan = CompilePlan(
+            target="rust",
+            summary="Compile to Rust.",
+        )
+        return LLMResponse(
+            content=plan.model_dump_json(),
+            provider="lsp-provider",
+            model="lsp-model",
+        )
+
+
+def test_registry_close_disposes_compilation_staging(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    sessions: list[ConversationSession] = []
+
+    def compile_session(root: Path, focused_ref: str | None) -> ConversationSession:
+        session = ConversationSession(
+            path=root,
+            provider=_CompileProvider(),
+            focused_ref=focused_ref,
+            compilation_service=CompilationService(temp_root=tmp_path),
+        )
+        sessions.append(session)
+        return session
+
+    service = LspConversationService(session_factory=compile_session)
+    service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "compile to rust"}))
+    pending = sessions[0].pending
+    assert isinstance(pending, PendingCompilation)
+
+    service.close("session-1")
+
+    assert not pending.staging_dir.exists()
+
+
+def test_registry_expiry_disposes_compilation_staging(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    now = [0.0]
+    sessions: list[ConversationSession] = []
+
+    def compile_session(root: Path, focused_ref: str | None) -> ConversationSession:
+        session = ConversationSession(
+            path=root,
+            provider=_CompileProvider(),
+            focused_ref=focused_ref,
+            compilation_service=CompilationService(temp_root=tmp_path),
+        )
+        sessions.append(session)
+        return session
+
+    service = LspConversationService(
+        session_factory=compile_session,
+        clock=lambda: now[0],
+    )
+    service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "compile to rust"}))
+    pending = sessions[0].pending
+    assert isinstance(pending, PendingCompilation)
+    now[0] = 1801.0
+
+    with pytest.raises(ConversationSessionError, match="expired"):
+        service.turn(_turn_params(root, create_session=False))
+
+    assert not pending.staging_dir.exists()
+
+
+def test_registry_lru_eviction_disposes_compilation_staging(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    sessions: list[ConversationSession] = []
+
+    def compile_session(root: Path, focused_ref: str | None) -> ConversationSession:
+        session = ConversationSession(
+            path=root,
+            provider=_CompileProvider(),
+            focused_ref=focused_ref,
+            compilation_service=CompilationService(temp_root=tmp_path),
+        )
+        sessions.append(session)
+        return session
+
+    service = LspConversationService(max_sessions=1, session_factory=compile_session)
+    service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "compile to rust"}))
+    pending = sessions[0].pending
+    assert isinstance(pending, PendingCompilation)
+
+    service.turn(_turn_params(root, session_id="session-2", create_session=True))
+
+    assert not pending.staging_dir.exists()
+
+
+def test_lsp_compile_apply_uses_protocol_v2(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+
+    def compile_session(root: Path, focused_ref: str | None) -> ConversationSession:
+        return ConversationSession(
+            path=root,
+            provider=_CompileProvider(),
+            focused_ref=focused_ref,
+            compilation_service=CompilationService(temp_root=tmp_path),
+        )
+
+    service = LspConversationService(session_factory=compile_session)
+    preview = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "compile to rust"}))
+    action_id = preview["changeSetId"]
+    assert isinstance(action_id, str)
+    assert (
+        preview["auditUri"] == (root / ".modelable" / "audit" / "compilations" / f"{action_id}.json").resolve().as_uri()
+    )
+
+    reply = service.apply(
+        _change_set_params(
+            session_id="session-1",
+            change_set_id=action_id,
+        )
+    )
+
+    assert reply["kind"] == "applied"
+    assert reply["operationKind"] == "compile"
+    assert reply["changeSetId"] == action_id
+    assert reply["auditUri"] is not None
+
+
+def test_lsp_compile_apply_rejects_dirty_generated_destination(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    sessions: list[ConversationSession] = []
+
+    def compile_session(root: Path, focused_ref: str | None) -> ConversationSession:
+        session = ConversationSession(
+            path=root,
+            provider=_CompileProvider(),
+            focused_ref=focused_ref,
+            compilation_service=CompilationService(temp_root=tmp_path),
+        )
+        sessions.append(session)
+        return session
+
+    service = LspConversationService(session_factory=compile_session)
+    preview = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "compile to rust"}))
+    action_id = preview["changeSetId"]
+    pending = sessions[0].pending
+    assert isinstance(action_id, str)
+    assert isinstance(pending, PendingCompilation)
+    destination = pending.files[0].destination
+
+    with pytest.raises(
+        ConversationSessionError,
+        match=r"^Save generated files before applying the compilation: ",
+    ) as error:
+        service.apply(
+            _change_set_params(
+                session_id="session-1",
+                change_set_id=action_id,
+                dirty_document_uris=(destination.as_uri(),),
+            )
+        )
+
+    assert str(destination) in str(error.value)
+    service.discard(_change_set_params(session_id="session-1", change_set_id=action_id))
+
+
+def test_lsp_compile_apply_rejects_dirty_planned_audit_destination(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    sessions: list[ConversationSession] = []
+
+    def compile_session(root: Path, focused_ref: str | None) -> ConversationSession:
+        session = ConversationSession(
+            path=root,
+            provider=_CompileProvider(),
+            focused_ref=focused_ref,
+            compilation_service=CompilationService(temp_root=tmp_path),
+        )
+        sessions.append(session)
+        return session
+
+    service = LspConversationService(session_factory=compile_session)
+    preview = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "compile to rust"}))
+    action_id = preview["changeSetId"]
+    pending = sessions[0].pending
+    assert isinstance(action_id, str)
+    assert isinstance(pending, PendingCompilation)
+    audit_path = root / ".modelable" / "audit" / "compilations" / f"{action_id}.json"
+    assert not audit_path.exists()
+
+    with pytest.raises(
+        ConversationSessionError,
+        match=r"^Save generated files before applying the compilation: ",
+    ) as error:
+        service.apply(
+            _change_set_params(
+                session_id="session-1",
+                change_set_id=action_id,
+                dirty_document_uris=(audit_path.as_uri(),),
+            )
+        )
+
+    assert str(audit_path.resolve()) in str(error.value)
+    assert sessions[0].pending is pending
+    service.discard(_change_set_params(session_id="session-1", change_set_id=action_id))
+
+
+def test_lsp_compile_apply_allows_dirty_unrelated_file(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    unrelated = _write_customer_workspace(root)
+
+    def compile_session(root: Path, focused_ref: str | None) -> ConversationSession:
+        return ConversationSession(
+            path=root,
+            provider=_CompileProvider(),
+            focused_ref=focused_ref,
+            compilation_service=CompilationService(temp_root=tmp_path),
+        )
+
+    service = LspConversationService(session_factory=compile_session)
+    preview = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "compile to rust"}))
+    action_id = preview["changeSetId"]
+    assert isinstance(action_id, str)
+
+    reply = service.apply(
+        _change_set_params(
+            session_id="session-1",
+            change_set_id=action_id,
+            dirty_document_uris=(unrelated.as_uri(),),
+        )
+    )
+
+    assert reply["kind"] == "applied"
+
+
+def test_default_lsp_session_uses_real_vscode_confirmation_provenance(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    service = LspConversationService()
+
+    service.turn(
+        _turn_params(root, session_id="real-vscode-session", create_session=True).model_copy(
+            update={"message": "/compile rust"}
+        )
+    )
+    session = service._sessions["real-vscode-session"].session
+
+    applied = session.turn("/apply")
+
+    assert applied.audit_path is not None
+    audit = json.loads(applied.audit_path.read_text(encoding="utf-8"))
+    assert audit["sessionId"] == "real-vscode-session"
+    assert audit["confirmation"]["surface"] == "vscode-chat"
+    assert audit["confirmation"]["model"] == "modelable-local"
+
+
 class _CreateAccountProvider:
     def complete(self, request: LLMRequest) -> LLMResponse:
         plan = ChangeSetPlan(
@@ -401,7 +659,7 @@ def _change_set_params(
 ) -> ConversationChangeSetParams:
     return ConversationChangeSetParams.model_validate(
         {
-            "protocolVersion": 1,
+            "protocolVersion": 2,
             "sessionId": session_id,
             "changeSetId": change_set_id,
             "dirtyDocumentUris": list(dirty_document_uris),
@@ -419,7 +677,7 @@ def test_apply_requires_the_exact_pending_change_set_id(tmp_path: Path) -> None:
     change_set_id = preview["changeSetId"]
     assert isinstance(change_set_id, str)
 
-    with pytest.raises(ConversationSessionError, match="current pending change set"):
+    with pytest.raises(ConversationSessionError, match="current pending action"):
         service.apply(
             _change_set_params(
                 session_id="session-1",
@@ -457,7 +715,7 @@ def test_discard_requires_the_exact_pending_change_set_id(tmp_path: Path) -> Non
     change_set_id = preview["changeSetId"]
     assert isinstance(change_set_id, str)
 
-    with pytest.raises(ConversationSessionError, match="current pending change set"):
+    with pytest.raises(ConversationSessionError, match="current pending action"):
         service.discard(
             _change_set_params(
                 session_id="session-1",

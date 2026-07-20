@@ -1080,14 +1080,14 @@ compiler. Its dependency direction is:
 CLI chat
   -> ConversationSession
   -> conversational planner
-  -> workspace editor
+  -> workspace editor (source changes) or CompilationService (local compilation)
   -> parser, IR, renderer, validator, compatibility and dependency analysis
 
 VS Code ChatParticipant
-  -> vscode-languageclient custom request v1
+  -> vscode-languageclient custom request v2
   -> bounded Python ConversationSession registry
   -> conversational planner
-  -> workspace editor
+  -> workspace editor or CompilationService
   -> parser, IR, renderer, validator, compatibility and dependency analysis
 ```
 
@@ -1099,6 +1099,26 @@ and owns fingerprinted preview/apply behavior with rollback protection. The
 conversation service owns pending proposal state and explicit confirmation;
 the Click command is a thin transport adapter.
 
+`CompilationService` is the shared application boundary for both direct and
+conversational compilation. Direct `modelable compile` constructs a trusted
+request, compiles in isolation, and promotes its complete result
+transactionally while retaining its existing CLI policy. Conversation
+surfaces construct only closed local requests: implemented target, existing
+domain filters, normalized workspace-relative output, and the Protobuf/gRPC
+descriptor switch. They cannot select credentials, URLs, remote registries,
+commands, environment values, compiler flags, or freshness overrides.
+
+Conversational preview runs the real compiler in private staging without
+workspace writes and retains an immutable destination manifest. That manifest
+contains exact staged bytes, before/after hashes and sizes, complete text
+snapshots and diffs, binary evidence, affected definitions, registry-ID
+allocations, warnings, and source/destination fingerprints. Only exact
+confirmation bound to the current session and pending action promotes those
+bytes; apply does not compile again. Freshness checks and a workspace-scoped
+file transaction protect generated destinations, registry state, plan files,
+descriptor artifacts, and the final privacy-preserving audit record. A failed
+promotion restores prior files and removes newly created transaction paths.
+
 The compiler remains authoritative for parsing, normalized IR, rendering,
 validation, compatibility, and dependency analysis. Compiler modules never
 depend on provider, chat, or conversation-state modules.
@@ -1108,15 +1128,17 @@ The language server is also the implemented transport for the native VS Code
 focus, dirty-document URIs, session identity, exact change-set identity, and
 structured replies. The server bounds the in-memory registry to 32 sessions
 and expires idle entries after 30 minutes. The extension renders canonical
-text, server-supplied definition anchors, and exact virtual before/after
-snapshots in VS Code's built-in diff editor.
+text, server-supplied definition anchors, structured compilation files, binary
+hashes and sizes, registry-ID additions, audit links, and exact virtual
+before/after snapshots in VS Code's built-in diff editor. Python rejects an
+apply when a dirty editor matches a generated destination.
 
 The extension does not parse `.mdl`, synthesize plans, validate a staged
 workspace, apply a `WorkspaceEdit`, or write source files. All semantic
 planning and changes remain Python-owned compiler/application-service work.
-Conversational compilation, synchronization, publishing, and other external
-actions remain separate future work because each requires an explicit
-authorization, preview, confirmation, and audit policy.
+Registry synchronization, publishing, and other external actions remain
+separate future work because each requires its own credential, authorization,
+preview, confirmation, and audit policy.
 
 ### Shipped beyond the original MVP scope
 
@@ -1137,6 +1159,10 @@ authorization, preview, confirmation, and audit policy.
 - Native VS Code `@modelable` workspace questions and management through the
   versioned language-server conversation service, exact diff snapshots, and
   apply/discard/reset lifecycle controls.
+- Local conversational compilation in CLI chat and VS Code, with real staged
+  output, structured file and affected-definition evidence, literal
+  confirmation, dirty-destination and freshness checks, rollback, and
+  privacy-preserving audit records.
 
 ### Deferred
 
@@ -1156,6 +1182,9 @@ authorization, preview, confirmation, and audit policy.
 - Automatic migration generation.
 - Kafka runtime provisioning, Redis materialisers, ClickHouse loaders, Feast, API gateways, dbt, Great Expectations, Soda.
 - Distributed registry peer server (HTTP API for runtime lineage queries) — Phase 2, if needed.
+- Conversational registry synchronization, publishing, and external-service
+  actions.
+- WebLLM and a VS Code Language Model API provider adapter.
 
 ## 18. Non-Goals
 

@@ -32,12 +32,13 @@ Open a `.mdl` file in the development host to test diagnostics, completion, hove
 
 The extension contributes a native `@modelable` participant to VS Code Chat.
 It can answer grounded questions and preview the same typed workspace changes
-as `modelable chat`:
+and local compilations as `modelable chat`:
 
 ```text
 @modelable is the workspace valid?
 @modelable add a customer entity with address
 @modelable add a projection for active customers
+@modelable compile this workspace to Rust
 ```
 
 Read-only validation, ownership, lineage, dependency, index, compatibility,
@@ -54,12 +55,41 @@ under the selected root before planning, applying, or discarding a change.
 Mutation requests return a textual preview with assumptions, changed and
 affected definitions, compatibility and validation findings, and a unified
 diff. **View Diff** opens the exact captured before/after snapshots in VS
-Code's diff editor; it does not reread or infer source. Use the native **Apply
-change set** or **Discard** follow-up, or `/apply` and `/discard`, to act on the
-exact pending change-set ID. A stale preview, changed source, expired session,
-or restarted language server is rejected without writing; repeat the request
-to create a fresh preview. Use `/reset` to close the current session and clear
-its preview documents. Idle server sessions expire after 30 minutes.
+Code's diff editor; it does not reread or infer source.
+
+Local compilation accepts natural-language requests through the configured
+provider or the deterministic command:
+
+```text
+@modelable /compile <target> [--domain <name> ...] [--out <relative-path>] [--descriptor-set]
+```
+
+The Python service stages the real compile without changing the workspace.
+Replies list affected domains and definitions, created/changed/unchanged files,
+registry-ID additions, full text diffs, and binary byte sizes and SHA-256
+hashes. **View generated diffs** opens exact staged text snapshots and supports
+choosing among multiple outputs. Protobuf and gRPC alone accept
+`--descriptor-set`; outputs must remain inside the workspace. Text previews
+above 2 MiB fail with guidance to use direct `modelable compile`.
+
+Use the native **Apply change set** or **Apply compilation** follow-up as
+appropriate, or `/apply`, to act on the exact pending action ID. Only a literal
+case-sensitive `/apply` or the native action authorizes a compilation; natural
+language aliases authorize source changes only. **Discard** and `/discard`
+remove staging. Compilation apply also checks every dirty file-scheme document
+in the workspace and refuses only when one matches a generated destination;
+save or close that file first.
+
+A stale preview, changed source or destination, expired session, or restarted
+language server is rejected without writing; repeat the request to create a
+fresh preview. Successful compilation applies promote the exact staged bytes
+with rollback protection and link to the privacy-preserving audit under
+`.modelable/audit/compilations/`. Use `/reset` to close the current session and
+clear its preview documents and staging. Idle server sessions expire after 30
+minutes.
+
+Registry synchronization, publishing, external-service actions, WebLLM, and a
+VS Code Language Model API adapter are not implemented by this participant.
 
 ## Packaging for use in another project
 

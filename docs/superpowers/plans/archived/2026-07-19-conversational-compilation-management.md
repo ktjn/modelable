@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Implement [Conversational Compilation Management — Design](../specs/2026-07-19-conversational-compilation-management-design.md) exactly.
+- Implement [Conversational Compilation Management — Design](../../specs/archived/2026-07-19-conversational-compilation-management-design.md) exactly.
 - Compilation is local-only; planner output cannot contain URLs, credentials, registry paths, commands, executables, environment variables, or arbitrary flags.
 - Conversational output paths are workspace-relative, stay inside the resolved workspace, avoid `.git` and internal `.modelable` control paths, and never overlap `.mdl` sources.
 - Preview must not create or modify any workspace file.

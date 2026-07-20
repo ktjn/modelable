@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added local conversational compilation to `modelable chat` and the native
+  VS Code `@modelable` participant. Deterministic `/compile` and typed
+  natural-language plans now stage the real compiler output without workspace
+  writes, explain affected definitions and exact text/binary file evidence,
+  require literal or native Apply authorization, reject stale or dirty
+  destinations, promote the captured bytes with rollback, and write
+  privacy-preserving compilation audit records. Direct `modelable compile`
+  remains available for previews above the 2 MiB conversation limit.
 - Added a static browser compiler proof at `/modelable/playground/`. The
   same-origin Pyodide worker uses the existing Modelable compiler to validate
   and format in-memory sources and generate JSON Schema through protocol v1,

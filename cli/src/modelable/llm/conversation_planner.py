@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 from dataclasses import dataclass
+from typing import cast
+
+from pydantic import ValidationError
 
 from modelable.llm.conversation_plan import (
     ChangeSetPlan,
     ClarificationPlan,
+    CompilePlan,
     ConversationPlan,
+    ImplementedTarget,
     QueryKind,
     QueryPlan,
     UnsupportedPlan,
@@ -17,9 +23,10 @@ from modelable.llm.conversation_plan import (
 from modelable.llm.providers import LLMProvider, LLMRequest
 
 SYSTEM_PROMPT = """You plan grounded requests against a Modelable workspace.
-Return JSON only matching the supplied closed schema. Return exactly one of the four plan kinds:
+Return JSON only matching the supplied closed schema. Return exactly one of the five plan kinds:
 - QueryPlan with kind "query" for deterministic workspace facts.
 - ChangeSetPlan with kind "change_set" for typed workspace edits.
+- CompilePlan with kind "compile" only for local generation in the current workspace.
 - ClarificationPlan with kind "clarification" when required intent is ambiguous.
 - UnsupportedPlan with kind "unsupported" when the request is outside planning.
 
@@ -27,10 +34,16 @@ Ask for clarification instead of assuming ambiguous ownership, identity fields,
 whether an address is inline or a reusable address model, or a projection source.
 For changes to an existing contract, default to append-version operations and target
 the appended version; do not rewrite a published version in place.
-Compile, sync, publish, deployment, filesystem, shell command, and other external
-operations are unsupported. Return UnsupportedPlan with roadmap_area "operations".
-Never emit raw patches, filesystem paths, shell commands, validation overrides,
-compile/sync/publish actions, or any external action escape hatch.
+CompilePlan permits only a target, domain filters, a normalized local relative output,
+the descriptor flag, and a summary. Examples:
+{"kind":"compile","target":"rust","domains":[],"output":null,"descriptor_set":false,"summary":"Compile the workspace to Rust."}
+{"kind":"compile","target":"json-schema","domains":["customer"],"output":"dist/contracts","descriptor_set":false,"summary":"Compile customer JSON Schema."}
+{"kind":"compile","target":"protobuf","domains":[],"output":null,"descriptor_set":true,"summary":"Compile Protobuf descriptors."}
+Sync, publish, deployment, URL, credential, registry, remote requests, and arbitrary or external filesystem operations
+are unsupported. Shell commands and other external operations are also unsupported.
+Return UnsupportedPlan with roadmap_area "operations".
+Never emit raw patches, workspace source paths, shell commands, validation overrides,
+sync/publish actions, or any external action escape hatch.
 Do not include markdown fences, prose, or commentary outside the JSON object.
 """
 
@@ -114,7 +127,9 @@ class ConversationPlanner:
                 return self._offline_plan(arguments, context)
             if command in {"/update", "/create", "/change"}:
                 return self._provider_required(message)
-            if command in {"/compile", "/sync", "/publish"}:
+            if command == "/compile":
+                return parse_compile_command(message)
+            if command in {"/sync", "/publish"}:
                 return self._operational_unsupported(message)
             return UnsupportedPlan(
                 request=message,
@@ -194,6 +209,68 @@ class ConversationPlanner:
             reason="Operational and external actions are outside conversational workspace planning.",
             roadmap_area="operations",
         )
+
+
+def parse_compile_command(message: str) -> CompilePlan | ClarificationPlan:
+    syntax = "/compile <target> [--domain <name> ...] [--out <relative-path>] [--descriptor-set]"
+
+    def clarify(reason: str) -> ClarificationPlan:
+        return ClarificationPlan(
+            question=f"Use {syntax}.",
+            reason=f"/compile {reason}",
+        )
+
+    if "\\" in message:
+        return clarify("does not allow backslashes; use normalized relative POSIX paths.")
+    try:
+        tokens = shlex.split(message, posix=True)
+    except ValueError as error:
+        return clarify(f"could not be parsed: {error}.")
+    if not tokens or tokens[0] != "/compile":
+        return clarify("must use the exact command syntax.")
+    if len(tokens) < 2 or tokens[1].startswith("--"):
+        return clarify("requires a target.")
+
+    target = tokens[1]
+    domains: list[str] = []
+    output: str | None = None
+    descriptor_set = False
+    index = 2
+    while index < len(tokens):
+        option = tokens[index]
+        if option == "--domain":
+            if index + 1 >= len(tokens) or tokens[index + 1].startswith("--"):
+                return clarify("option --domain requires a value.")
+            domains.append(tokens[index + 1])
+            index += 2
+            continue
+        if option == "--out":
+            if output is not None:
+                return clarify("option --out may be provided only once.")
+            if index + 1 >= len(tokens) or tokens[index + 1].startswith("--"):
+                return clarify("option --out requires a value.")
+            output = tokens[index + 1]
+            index += 2
+            continue
+        if option == "--descriptor-set":
+            if descriptor_set:
+                return clarify("option --descriptor-set may be provided only once.")
+            descriptor_set = True
+            index += 1
+            continue
+        return clarify(f"does not recognize option or argument {option!r}.")
+
+    scope = ", ".join(domains) if domains else "the workspace"
+    try:
+        return CompilePlan(
+            target=cast(ImplementedTarget, target),
+            domains=domains,
+            output=output,
+            descriptor_set=descriptor_set,
+            summary=f"Compile {scope} to {target}.",
+        )
+    except ValidationError as error:
+        return clarify(f"options are invalid: {error}.")
 
 
 def _request(

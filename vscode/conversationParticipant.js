@@ -23,7 +23,7 @@ function registerConversationParticipant(
         return {
           errorDetails: {
             message:
-              'Upgrade the Modelable language server to a version that supports conversation protocol 1.',
+              'Upgrade the Modelable language server to a version that supports conversation protocol 2.',
           },
         };
       }
@@ -57,14 +57,13 @@ function registerConversationParticipant(
             reply = await conversationClient.apply(
               metadata,
               dirtyDocumentUris,
-              token,
             );
           } else {
             reply = await conversationClient.discard(metadata, token);
           }
         } else {
           reply = await conversationClient.turn(
-            request,
+            requestForTurn(request),
             context,
             token,
           );
@@ -131,7 +130,9 @@ function registerConversationParticipant(
       return [
         {
           prompt: '',
-          label: 'Apply change set',
+          label: result.metadata.modelable.operationKind === 'compile'
+            ? 'Apply compilation'
+            : 'Apply change set',
           participant: PARTICIPANT_ID,
           command: 'apply',
         },
@@ -145,6 +146,21 @@ function registerConversationParticipant(
     },
   };
   return participant;
+}
+
+function requestForTurn(request) {
+  if (request.command !== 'compile') {
+    return request;
+  }
+  const argumentsText = typeof request.prompt === 'string'
+    ? request.prompt
+    : '';
+  return {
+    ...request,
+    prompt: argumentsText.length > 0
+      ? `/compile ${argumentsText}`
+      : '/compile',
+  };
 }
 
 function requirePendingMetadata(metadata) {
@@ -172,20 +188,62 @@ function renderReply(reply, stream, vscodeApi, previewStore) {
       );
     }
   }
+  const compilationFiles = reply.compilationFiles ?? [];
+  const textFiles = compilationFiles
+    .filter(file => (
+      isTextMediaType(file.mediaType) &&
+      typeof file.beforeText === 'string' &&
+      typeof file.afterText === 'string'
+    ))
+    .map(file => ({
+      uri: file.uri,
+      existedBefore: file.status !== 'created',
+      beforeText: file.beforeText,
+      afterText: file.afterText,
+    }));
+  const binaryFiles = compilationFiles.filter(file =>
+    !isTextMediaType(file.mediaType));
+  for (const file of binaryFiles) {
+    stream.markdown(
+      `\n\n- Binary ${inlineCode(file.category)} ` +
+      `${inlineCode(file.status)} ${inlineCode(fileName(file.uri))}: ` +
+      `${safeInteger(file.afterSize)} bytes, SHA-256 ` +
+      `${inlineCode(file.afterHash ?? 'unavailable')}`,
+    );
+  }
+  for (const item of reply.registryIdChanges ?? []) {
+    stream.markdown(
+      `\n\n- Registry ID ${inlineCode(item.ref)}: ` +
+      `${safeInteger(item.registryId)}`,
+    );
+  }
+  if (reply.auditUri) {
+    stream.anchor(
+      vscodeApi.Uri.parse(reply.auditUri),
+      'View compilation audit',
+    );
+  }
   if (
     reply.kind === 'preview' &&
     reply.sessionId &&
     reply.changeSetId &&
-    (reply.previewFiles?.length ?? 0) > 0
+    (
+      (reply.previewFiles?.length ?? 0) > 0 ||
+      textFiles.length > 0
+    )
   ) {
     previewStore?.put(
       reply.sessionId,
       reply.changeSetId,
-      reply.previewFiles,
+      reply.operationKind === 'compile'
+        ? textFiles
+        : reply.previewFiles,
     );
     stream.button({
       command: 'modelable.conversation.viewDiff',
-      title: 'View Diff',
+      title: reply.operationKind === 'compile'
+        ? 'View generated diffs'
+        : 'View Diff',
       arguments: [{
         sessionId: reply.sessionId,
         changeSetId: reply.changeSetId,
@@ -203,9 +261,58 @@ function chatResult(reply) {
         workspaceUri: reply.workspaceUri,
         changeSetId: reply.changeSetId,
         kind: reply.kind,
+        ...(reply.operationKind
+          ? { operationKind: reply.operationKind }
+          : {}),
       },
     },
   };
+}
+
+function fileName(uri) {
+  try {
+    const pathname = decodeURIComponent(new URL(uri).pathname);
+    return safeText(pathname.split('/').pop() || uri);
+  } catch {
+    return safeText(uri);
+  }
+}
+
+function isTextMediaType(mediaType) {
+  const normalized = String(mediaType ?? '')
+    .split(';', 1)[0]
+    .trim()
+    .toLowerCase();
+  return (
+    normalized.startsWith('text/') ||
+    normalized === 'application/json' ||
+    normalized === 'application/yaml' ||
+    normalized === 'application/x-yaml' ||
+    normalized === 'application/xml' ||
+    normalized.endsWith('+json') ||
+    normalized.endsWith('+yaml') ||
+    normalized.endsWith('+xml')
+  );
+}
+
+function safeInteger(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? String(value) : 'unknown';
+}
+
+function safeText(value) {
+  return String(value ?? '')
+    .replace(/\x1B(?:[@-_][0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))/g, '')
+    .replace(/[\u0000-\u001F\u007F-\u009F\u061C\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '');
+}
+
+function inlineCode(value) {
+  const safe = safeText(value);
+  const longestRun = Math.max(
+    0,
+    ...([...safe.matchAll(/`+/g)].map(match => match[0].length)),
+  );
+  const fence = '`'.repeat(longestRun + 1);
+  return `${fence} ${safe} ${fence}`;
 }
 
 function sanitizedErrorMessage(error) {
@@ -230,6 +337,7 @@ function sanitizedErrorMessage(error) {
 module.exports = {
   PARTICIPANT_ID,
   chatResult,
+  requestForTurn,
   requirePendingMetadata,
   renderReply,
   registerConversationParticipant,

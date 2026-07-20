@@ -72,7 +72,7 @@ def test_lsp_server_advertises_conversation_protocol_version() -> None:
 
     assert result.capabilities.experimental == {
         "modelableConversation": {
-            "protocolVersion": 1,
+            "protocolVersion": 2,
         }
     }
 
@@ -86,7 +86,7 @@ def test_conversation_turn_validates_and_delegates() -> None:
         index_for=Mock(return_value=index),
     )
     payload = {
-        "protocolVersion": 1,
+        "protocolVersion": 2,
         "sessionId": "session-1",
         "createSession": True,
         "workspaceUri": "file:///workspace",
@@ -109,7 +109,7 @@ def test_conversation_apply_and_discard_validate_and_delegate() -> None:
     service.discard.return_value = {"kind": "discarded"}
     ls = SimpleNamespace(conversations=service)
     payload = {
-        "protocolVersion": 1,
+        "protocolVersion": 2,
         "sessionId": "session-1",
         "changeSetId": "change-1",
         "dirtyDocumentUris": [],
@@ -125,7 +125,7 @@ def test_conversation_close_is_idempotently_delegated() -> None:
     service = Mock()
     ls = SimpleNamespace(conversations=service)
     payload = {
-        "protocolVersion": 1,
+        "protocolVersion": 2,
         "sessionId": "session-1",
     }
 

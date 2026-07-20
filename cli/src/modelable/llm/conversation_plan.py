@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
+from pathlib import PurePosixPath
 from typing import Annotated, Literal
 
 from jsonschema import Draft202012Validator
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from modelable.parser.ir import Annotation, FieldDef, FieldType, ModelKind, SortField
 
@@ -269,6 +271,80 @@ class ChangeSetPlan(StrictPlanModel):
     operations: list[Operation] = Field(min_length=1)
 
 
+type ImplementedTarget = Literal[
+    "json-schema",
+    "markdown",
+    "typescript",
+    "csharp",
+    "java",
+    "python",
+    "rust",
+    "go",
+    "sql-postgres",
+    "sql-clickhouse",
+    "dbt-yaml",
+    "fhir-profile",
+    "openmetadata",
+    "openlineage",
+    "odcs",
+    "protobuf",
+    "grpc",
+]
+
+
+class CompilePlan(StrictPlanModel):
+    kind: Literal["compile"] = "compile"
+    target: ImplementedTarget
+    domains: list[str] = Field(default_factory=list)
+    output: str | None = None
+    descriptor_set: bool = False
+    summary: str
+
+    @model_validator(mode="after")
+    def validate_compile_options(self) -> CompilePlan:
+        if self.descriptor_set and self.target not in {"protobuf", "grpc"}:
+            raise ValueError("descriptor_set is supported only for protobuf and grpc targets")
+        for domain in self.domains:
+            if (
+                not domain.strip()
+                or domain != domain.strip()
+                or _contains_control_character(domain)
+                or _is_scheme_or_drive_form(domain)
+                or domain in {".", ".."}
+                or "/" in domain
+                or "\\" in domain
+            ):
+                raise ValueError("domains must contain non-empty names, not paths, URLs, or control characters")
+        if self.output is not None:
+            if (
+                not self.output
+                or self.output != self.output.strip()
+                or _contains_control_character(self.output)
+                or _is_scheme_or_drive_form(self.output)
+                or "\\" in self.output
+            ):
+                raise ValueError("output must be a normalized relative POSIX path")
+            path = PurePosixPath(self.output)
+            if path.is_absolute() or ".." in path.parts:
+                raise ValueError("output must be a normalized relative POSIX path without parent traversal")
+            normalized = str(path)
+            if normalized in {"", "."}:
+                raise ValueError("output must name a relative directory")
+            self.output = normalized
+        return self
+
+
+_SCHEME_OR_DRIVE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
+
+
+def _contains_control_character(value: str) -> bool:
+    return any(unicodedata.category(character) in {"Cc", "Cf"} for character in value)
+
+
+def _is_scheme_or_drive_form(value: str) -> bool:
+    return _SCHEME_OR_DRIVE_RE.match(value) is not None
+
+
 class ClarificationPlan(StrictPlanModel):
     kind: Literal["clarification"] = "clarification"
     question: str
@@ -283,7 +359,7 @@ class UnsupportedPlan(StrictPlanModel):
 
 
 type ConversationPlan = Annotated[
-    QueryPlan | ChangeSetPlan | ClarificationPlan | UnsupportedPlan,
+    QueryPlan | ChangeSetPlan | CompilePlan | ClarificationPlan | UnsupportedPlan,
     Field(discriminator="kind"),
 ]
 

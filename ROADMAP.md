@@ -117,12 +117,13 @@ After the Scalable/Rust path is complete:
    coverage, and static deployment while compiler semantics remain in the
    existing Pyodide worker. The completed design is archived in
    [Browser Editor MVP — Design](docs/superpowers/specs/archived/2026-07-19-browser-editor-mvp-design.md).
-5. **Next:** extend conversational operational management one authorization
-   boundary at a time. The first slice adds local compilation through a shared
-   application service with real staged output, affected-definition
-   explanations, exact confirmation, rollback, and privacy-preserving audit
-   records. Its accepted scope is documented in
-   [Conversational Compilation Management — Design](docs/superpowers/specs/2026-07-19-conversational-compilation-management-design.md).
+5. **Shipped:** local Conversational Compilation Management through CLI chat
+   and the native VS Code participant. A shared application service stages the
+   real compiler output, reports exact text/binary file evidence and affected
+   definitions, requires literal or native confirmation, checks source and
+   destination freshness, promotes the staged bytes with rollback, and writes
+   privacy-preserving audit records. The completed design is archived in
+   [Conversational Compilation Management — Design](docs/superpowers/specs/archived/2026-07-19-conversational-compilation-management-design.md).
    Registry synchronization, publishing, and external-service operations remain
    separate follow-ups with their own authorization, credential, preview,
    confirmation, and audit policies.
@@ -176,6 +177,9 @@ accepted design establish their value:
   pass through Python-owned typed plan parsing, validation, preview, and
   workspace editing; the extension must not duplicate those safety boundaries
   in TypeScript.
+- WebLLM-backed conversational planning in the browser playground. It remains
+  separate from the shipped local compiler/editor surface and must retain the
+  same typed-plan and explicit-authorization boundaries.
 
 ## Outside the near-term compiler roadmap
 

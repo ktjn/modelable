@@ -3,7 +3,9 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from inspect import signature
 from pathlib import Path
+from typing import cast
 
 from modelable.compiler.workspace import load_workspace
 from modelable.llm.config import resolve_llm_config
@@ -17,8 +19,9 @@ from modelable.lsp.conversation_protocol import (
 from modelable.lsp.definition import definition_location_for_ref
 from modelable.lsp.document_symbols import find_focused_ref
 from modelable.lsp.workspace import LspWorkspaceIndex, find_workspace_root, uri_to_path
+from modelable.operations.compilation import PendingCompilation
 
-SessionFactory = Callable[[Path, str | None], ConversationSession]
+SessionFactory = Callable[..., ConversationSession]
 
 
 class ConversationSessionError(ValueError):
@@ -45,7 +48,7 @@ class LspConversationService:
         self.max_sessions = max_sessions
         self.idle_seconds = idle_seconds
         self.clock = clock
-        self.session_factory = session_factory or self._build_session
+        self.session_factory = cast(SessionFactory, session_factory or self._build_session)
         self._sessions: dict[str, _SessionEntry] = {}
 
     def turn(
@@ -70,7 +73,7 @@ class LspConversationService:
             entry = _SessionEntry(
                 workspace_uri=params.workspace_uri,
                 root=root,
-                session=self.session_factory(root, focused_ref),
+                session=self._new_session(root, focused_ref, params.session_id),
                 touched_at=now,
             )
             self._sessions[params.session_id] = entry
@@ -91,13 +94,16 @@ class LspConversationService:
 
     def close(self, session_id: str) -> None:
         self._prune_expired(self.clock())
-        self._sessions.pop(session_id, None)
+        self._close_session(session_id)
 
     def apply(self, params: ConversationChangeSetParams) -> dict[str, object]:
         now = self.clock()
         entry = self._require_session(params.session_id, now)
         self._require_pending(entry, params.change_set_id)
-        self._require_saved(entry.root, params.dirty_document_uris)
+        if entry.session.pending_operation_kind == "compile":
+            self._require_compilation_destinations_saved(entry, params.dirty_document_uris)
+        else:
+            self._require_saved(entry.root, params.dirty_document_uris)
         reply = entry.session.turn("/apply")
         entry.touched_at = now
         return self._serialize(reply, params.session_id, entry)
@@ -111,7 +117,12 @@ class LspConversationService:
         entry.touched_at = now
         return self._serialize(reply, params.session_id, entry)
 
-    def _build_session(self, root: Path, focused_ref: str | None) -> ConversationSession:
+    def _build_session(
+        self,
+        root: Path,
+        focused_ref: str | None,
+        session_id: str,
+    ) -> ConversationSession:
         workspace = load_workspace(root)
         try:
             config = resolve_llm_config(workspace=workspace.mdl.workspace)
@@ -127,7 +138,23 @@ class LspConversationService:
             provider=provider,
             focused_ref=focused_ref,
             repair_attempts=config.repair_attempts,
+            session_id=session_id,
+            provider_name=config.provider,
+            model_name=config.model,
+            confirmation_surface="vscode-chat",
         )
+
+    def _new_session(
+        self,
+        root: Path,
+        focused_ref: str | None,
+        session_id: str,
+    ) -> ConversationSession:
+        try:
+            signature(self.session_factory).bind(root, focused_ref, session_id)
+        except TypeError, ValueError:
+            return self.session_factory(root, focused_ref)
+        return self.session_factory(root, focused_ref, session_id)
 
     def _resolve_root(self, params: ConversationTurnParams) -> Path:
         workspace_path = uri_to_path(params.workspace_uri)
@@ -150,6 +177,25 @@ class LspConversationService:
         if dirty_paths:
             paths = ", ".join(str(path) for path in sorted(dirty_paths))
             raise ConversationSessionError(f"Save these files before continuing the conversation: {paths}")
+
+    def _require_compilation_destinations_saved(
+        self,
+        entry: _SessionEntry,
+        dirty_document_uris: tuple[str, ...],
+    ) -> None:
+        pending = entry.session.pending
+        if not isinstance(pending, PendingCompilation):
+            return
+        destinations = {item.destination.resolve() for item in pending.files}
+        destinations.add(pending.audit_path.resolve())
+        dirty_destinations = {
+            path.resolve()
+            for uri in dirty_document_uris
+            if (path := uri_to_path(uri)) is not None and path.resolve() in destinations
+        }
+        if dirty_destinations:
+            paths = ", ".join(str(path) for path in sorted(dirty_destinations))
+            raise ConversationSessionError(f"Save generated files before applying the compilation: {paths}")
 
     def _focused_ref(
         self,
@@ -197,10 +243,9 @@ class LspConversationService:
         return entry
 
     def _require_pending(self, entry: _SessionEntry, change_set_id: str) -> None:
-        pending = entry.session.pending
-        if pending is None or pending.change_set_id != change_set_id:
+        if entry.session.pending_action_id != change_set_id:
             raise ConversationSessionError(
-                f"Change set {change_set_id} is not the current pending change set for this session."
+                f"Pending action {change_set_id} is not the current pending action for this session."
             )
 
     def _prune_expired(self, now: float) -> None:
@@ -208,7 +253,7 @@ class LspConversationService:
             session_id for session_id, entry in self._sessions.items() if now - entry.touched_at > self.idle_seconds
         ]
         for session_id in expired:
-            del self._sessions[session_id]
+            self._close_session(session_id)
 
     def _evict_if_full(self) -> None:
         if len(self._sessions) < self.max_sessions:
@@ -220,4 +265,14 @@ class LspConversationService:
                 candidate,
             ),
         )
+        self._close_session(session_id)
+
+    def _close_session(self, session_id: str) -> None:
+        entry = self._sessions.get(session_id)
+        if entry is None:
+            return
+        try:
+            entry.session.close()
+        except Exception as error:
+            raise ConversationSessionError(f"Could not close conversation session {session_id}: {error}") from error
         del self._sessions[session_id]

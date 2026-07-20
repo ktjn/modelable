@@ -1,11 +1,15 @@
 import json
+from importlib import import_module
 from importlib.metadata import version
 from pathlib import Path
+from unittest.mock import Mock
 
 from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
+from modelable.diagnostics.model import render_diagnostic
+from modelable.parser.ir import ParseError
 from modelable.registry.signature import compute_version_signature
 
 
@@ -24,6 +28,42 @@ def test_root_bootstrap_script_delegates_to_uv_entrypoint():
     assert script.read_text(encoding="utf-8") == (
         '#!/usr/bin/env bash\nset -euo pipefail\n\ncd "$(dirname "$0")/../cli"\nexec uv run modelable "$@"\n'
     )
+
+
+def test_compile_renders_parse_failure_as_rich_error_line(tmp_path, monkeypatch):
+    mdl = tmp_path / "broken.mdl"
+    mdl.write_text("domain broken {", encoding="utf-8")
+    try:
+        load_workspace(mdl)
+    except ParseError as error:
+        expected = f"[red]ERROR[/red] {render_diagnostic(error.diagnostic(path=str(mdl)))}"
+    else:
+        raise AssertionError("expected malformed workspace to fail parsing")
+    fake_console = Mock()
+    monkeypatch.setattr(import_module("modelable.commands.compile"), "console", fake_console)
+
+    result = CliRunner().invoke(
+        cli,
+        ["compile", str(mdl), "--target", "rust", "--out", str(tmp_path / "dist")],
+    )
+
+    assert result.exit_code == 1
+    fake_console.print.assert_called_once_with(expected)
+
+
+def test_compile_renders_each_semantic_diagnostic_as_unwrapped_rich_error_line():
+    mdl = Path(__file__).parent / "fixtures" / "cel_error_cases.mdl"
+    workspace = load_workspace(mdl)
+    assert len(workspace.errors) > 1
+    expected = "".join(f"ERROR {render_diagnostic(diagnostic)}\n" for diagnostic in workspace.errors)
+
+    result = CliRunner().invoke(
+        cli,
+        ["compile", str(mdl), "--target", "rust", "--out", "dist"],
+    )
+
+    assert result.exit_code == 1
+    assert result.output == expected
 
 
 def test_validate_valid_file(tmp_path):

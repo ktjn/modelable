@@ -4,10 +4,12 @@ import * as path from 'path';
 
 const {
   ConversationClient,
+  isFileUriInsideWorkspace,
   recoverSessionMetadata,
   resolveConversationContext,
 } = require('../../../conversationClient');
 const {
+  chatResult,
   registerConversationParticipant,
   renderReply,
 } = require('../../../conversationParticipant');
@@ -28,7 +30,15 @@ suite('Modelable conversation participant', () => {
     assert.strictEqual(participant.name, 'modelable');
     assert.deepStrictEqual(
       participant.commands.map((item: { name: string }) => item.name),
-      ['help', 'apply', 'discard', 'reset'],
+      ['help', 'compile', 'apply', 'discard', 'reset'],
+    );
+    const compileCommand = participant.commands.find(
+      (item: { name: string }) => item.name === 'compile',
+    );
+    assert.match(compileCommand.description, /\/compile <target>/);
+    assert.match(
+      compileCommand.description,
+      /--domain.*--out.*--descriptor-set/,
     );
     assert.ok(
       manifest.activationEvents.includes(
@@ -45,7 +55,7 @@ suite('Modelable conversation participant', () => {
 
   test('recovers only compatible Modelable session metadata', () => {
     const compatible = {
-      protocolVersion: 1,
+      protocolVersion: 2,
       sessionId: 'session-1',
       workspaceUri: 'file:///workspace',
       changeSetId: 'change-1',
@@ -65,7 +75,7 @@ suite('Modelable conversation participant', () => {
           result: {
             metadata: {
               modelable: {
-                protocolVersion: 2,
+                protocolVersion: 3,
                 sessionId: 'future',
                 workspaceUri: 'file:///workspace',
               },
@@ -77,13 +87,24 @@ suite('Modelable conversation participant', () => {
     );
   });
 
-  test('active model selects its folder and reports only dirty models there', async () => {
+  test('active model selects its folder and reports every dirty file there', async () => {
     const api = fakeVscode({
-      folders: ['/workspace', '/other'],
+      folders: ['/workspace', '/workspace/dist', '/other'],
       active: '/workspace/customer.mdl',
       documents: [
         { path: '/workspace/customer.mdl', languageId: 'mdl', isDirty: true },
         { path: '/workspace/notes.txt', languageId: 'plaintext', isDirty: true },
+        {
+          path: '/workspace/dist/rust/customer.rs',
+          languageId: 'rust',
+          isDirty: true,
+        },
+        {
+          path: '/workspace/virtual.txt',
+          languageId: 'plaintext',
+          isDirty: true,
+          scheme: 'untitled',
+        },
         { path: '/other/order.mdl', languageId: 'mdl', isDirty: true },
       ],
     });
@@ -97,9 +118,78 @@ suite('Modelable conversation participant', () => {
     );
     assert.deepStrictEqual(
       context.dirtyDocumentUris.map((uri: FakeUri) => uri.toString()),
-      ['file:///workspace/customer.mdl'],
+      [
+        'file:///workspace/customer.mdl',
+        'file:///workspace/dist/rust/customer.rs',
+        'file:///workspace/notes.txt',
+      ],
     );
     assert.deepStrictEqual(context.position, { line: 3, character: 8 });
+  });
+
+  test('workspace containment canonicalizes missing descendants without admitting symlink escapes', () => {
+    const root = path.resolve(path.parse(process.cwd()).root, 'virtual', 'link');
+    const realRoot = path.resolve(path.parse(process.cwd()).root, 'virtual', 'real');
+    const outside = path.resolve(path.parse(process.cwd()).root, 'virtual', 'outside');
+    const generated = path.join(root, 'dist', 'new.rs');
+    const escaped = path.join(root, 'escape', 'new.rs');
+    const lexicalEscape = path.join(root, '..', 'outside', 'new.rs');
+    const sibling = path.resolve(`${root}-sibling`, 'new.rs');
+    const canonical = new Map([
+      [root, realRoot],
+      [path.join(root, 'escape'), outside],
+    ]);
+    const calls: string[] = [];
+    const realpath = (value: string) => {
+      const resolved = path.resolve(value);
+      calls.push(resolved);
+      const result = canonical.get(resolved);
+      if (!result) {
+        throw new Error('missing');
+      }
+      return result;
+    };
+    const api = fakeVscode({ folders: [] });
+    const workspaceUri = new FakeUri(root).toString();
+
+    assert.strictEqual(
+      isFileUriInsideWorkspace(
+        api,
+        workspaceUri,
+        new FakeUri(generated),
+        realpath,
+      ),
+      true,
+    );
+    assert.strictEqual(
+      isFileUriInsideWorkspace(
+        api,
+        workspaceUri,
+        new FakeUri(escaped),
+        realpath,
+      ),
+      false,
+    );
+    assert.strictEqual(
+      isFileUriInsideWorkspace(
+        api,
+        workspaceUri,
+        new FakeUri(lexicalEscape),
+        realpath,
+      ),
+      false,
+    );
+    assert.strictEqual(
+      isFileUriInsideWorkspace(
+        api,
+        workspaceUri,
+        new FakeUri(sibling),
+        realpath,
+      ),
+      false,
+    );
+    assert.ok(calls.includes(path.join(root, 'dist')));
+    assert.ok(calls.includes(root));
   });
 
   test('one manifest folder is selected without an active model', async () => {
@@ -155,7 +245,7 @@ suite('Modelable conversation participant', () => {
     const initializeResult = {
       capabilities: {
         experimental: {
-          modelableConversation: { protocolVersion: 1 },
+          modelableConversation: { protocolVersion: 2 },
         },
       },
     };
@@ -179,12 +269,77 @@ suite('Modelable conversation participant', () => {
 
     assert.deepStrictEqual(streamed, ['Workspace validation passed.']);
     assert.deepStrictEqual(result.metadata.modelable, {
-      protocolVersion: 1,
+      protocolVersion: 2,
       sessionId: 'session-1',
       workspaceUri: 'file:///workspace',
       changeSetId: null,
       kind: 'answer',
     });
+  });
+
+  test('native compile command forwards exact deterministic parser input', async () => {
+    let handler: Function | undefined;
+    const forwarded: string[] = [];
+    const vscodeApi = {
+      chat: {
+        createChatParticipant: (_id: string, value: Function) => {
+          handler = value;
+          return { dispose() {} };
+        },
+      },
+    };
+    registerConversationParticipant(
+      vscodeApi,
+      {
+        turn: async (request: { prompt: string }) => {
+          forwarded.push(request.prompt);
+          return {
+            kind: 'clarification',
+            text: 'Deterministic compile parser response.',
+            sessionId: `session-${forwarded.length}`,
+            workspaceUri: 'file:///workspace',
+            changeSetId: null,
+          };
+        },
+      },
+      {
+        capabilities: {
+          experimental: {
+            modelableConversation: { protocolVersion: 2 },
+          },
+        },
+      },
+    );
+    assert.ok(handler);
+    const stream = { markdown() {}, anchor() {}, button() {} };
+
+    await handler!(
+      {
+        command: 'compile',
+        prompt: 'rust --domain customer --out "dist/rust output"',
+      },
+      { history: [] },
+      stream,
+      {},
+    );
+    await handler!(
+      { command: 'compile', prompt: '' },
+      { history: [] },
+      stream,
+      {},
+    );
+    await handler!(
+      { command: 'compile', prompt: 'rust --unknown value' },
+      { history: [] },
+      stream,
+      {},
+    );
+
+    assert.deepStrictEqual(forwarded, [
+      '/compile rust --domain customer --out "dist/rust output"',
+      '/compile',
+      '/compile rust --unknown value',
+    ]);
   });
 
   test('participant reports capability and request failures as chat errors', async () => {
@@ -217,7 +372,7 @@ suite('Modelable conversation participant', () => {
       {
         capabilities: {
           experimental: {
-            modelableConversation: { protocolVersion: 1 },
+            modelableConversation: { protocolVersion: 2 },
           },
         },
       },
@@ -233,11 +388,11 @@ suite('Modelable conversation participant', () => {
 
     registerConversationParticipant(
       vscodeApi,
-      { turn: async () => assert.fail('version 2 must not send a request') },
+      { turn: async () => assert.fail('version 3 must not send a request') },
       {
         capabilities: {
           experimental: {
-            modelableConversation: { protocolVersion: 2 },
+            modelableConversation: { protocolVersion: 3 },
           },
         },
       },
@@ -284,7 +439,7 @@ suite('Modelable conversation participant', () => {
     assert.deepStrictEqual(calls[0], {
       method: 'modelable/conversation/turn',
       payload: {
-        protocolVersion: 1,
+        protocolVersion: 2,
         sessionId: 'generated-session',
         createSession: true,
         workspaceUri: 'file:///workspace',
@@ -297,7 +452,7 @@ suite('Modelable conversation participant', () => {
     });
 
     const metadata = {
-      protocolVersion: 1,
+      protocolVersion: 2,
       sessionId: 'generated-session',
       workspaceUri: 'file:///workspace',
       changeSetId: 'change-1',
@@ -312,7 +467,7 @@ suite('Modelable conversation participant', () => {
         [
           'modelable/conversation/apply',
           {
-            protocolVersion: 1,
+            protocolVersion: 2,
             sessionId: 'generated-session',
             changeSetId: 'change-1',
             dirtyDocumentUris: ['file:///workspace/customer.mdl'],
@@ -321,7 +476,7 @@ suite('Modelable conversation participant', () => {
         [
           'modelable/conversation/discard',
           {
-            protocolVersion: 1,
+            protocolVersion: 2,
             sessionId: 'generated-session',
             changeSetId: 'change-1',
             dirtyDocumentUris: [],
@@ -330,11 +485,16 @@ suite('Modelable conversation participant', () => {
         [
           'modelable/conversation/close',
           {
-            protocolVersion: 1,
+            protocolVersion: 2,
             sessionId: 'generated-session',
           },
         ],
       ],
+    );
+    assert.strictEqual(
+      calls[1].token,
+      undefined,
+      'native Apply must not attach a cancellation token after authorization',
     );
   });
 
@@ -359,7 +519,7 @@ suite('Modelable conversation participant', () => {
             result: {
               metadata: {
                 modelable: {
-                  protocolVersion: 1,
+                  protocolVersion: 2,
                   sessionId: 'session-1',
                   workspaceUri: 'file:///workspace',
                 },
@@ -479,6 +639,199 @@ suite('Modelable conversation participant', () => {
     );
   });
 
+  test('compile preview stores generated text snapshots and renders operational details', () => {
+    const markdown: string[] = [];
+    const anchors: Array<[string, string]> = [];
+    const buttons: any[] = [];
+    const store = new PreviewStore(fakeVscode({ folders: [] }));
+    const reply = {
+      protocolVersion: 2,
+      kind: 'preview',
+      operationKind: 'compile',
+      text: 'Compile customer to Rust.',
+      sessionId: 'session-1',
+      workspaceUri: 'file:///workspace',
+      changeSetId: 'compile-1',
+      changedDefinitions: [],
+      affectedDefinitions: [{
+        ref: 'customer.Customer@1',
+        status: 'affected',
+        reason: 'Generates the Rust customer type.',
+        location: { uri: 'file:///workspace/customer.mdl' },
+      }],
+      previewFiles: [],
+      compilationFiles: [
+        {
+          category: 'artifact',
+          uri: 'file:///workspace/dist/rust/customer.rs',
+          status: 'created',
+          mediaType: 'text/x-rust',
+          ref: 'customer.Customer@1',
+          beforeHash: null,
+          afterHash: 'text-hash',
+          beforeSize: 0,
+          afterSize: 24,
+          beforeText: '',
+          afterText: 'pub struct Customer {}',
+          diffText: '--- before\n+++ after\n',
+        },
+        {
+          category: 'registry',
+          uri: 'file:///workspace/.modelable/registry.db',
+          status: 'changed',
+          mediaType: 'application/vnd.sqlite3',
+          ref: null,
+          beforeHash: 'old-hash',
+          afterHash: 'binary-hash',
+          beforeSize: 2048,
+          afterSize: 4096,
+          beforeText: null,
+          afterText: null,
+          diffText: null,
+        },
+        {
+          category: 'artifact',
+          uri: 'file:///workspace/dist/schema.json',
+          status: 'unchanged',
+          mediaType: 'application/json',
+          ref: null,
+          beforeHash: 'json-hash',
+          afterHash: 'json-hash',
+          beforeSize: 20,
+          afterSize: 20,
+          beforeText: null,
+          afterText: null,
+          diffText: null,
+        },
+        {
+          category: 'plan',
+          uri: 'file:///workspace/.modelable/plans/customer.yaml',
+          status: 'unchanged',
+          mediaType: 'application/yaml',
+          ref: null,
+          beforeHash: 'yaml-hash',
+          afterHash: 'yaml-hash',
+          beforeSize: 30,
+          afterSize: 30,
+          beforeText: null,
+          afterText: null,
+          diffText: null,
+        },
+        {
+          category: 'artifact',
+          uri: 'file:///workspace/dist/rust/unchanged.rs',
+          status: 'unchanged',
+          mediaType: 'text/x-rust',
+          ref: null,
+          beforeHash: 'rust-hash',
+          afterHash: 'rust-hash',
+          beforeSize: 40,
+          afterSize: 40,
+          beforeText: null,
+          afterText: null,
+          diffText: null,
+        },
+      ],
+      registryIdChanges: [{
+        ref: 'customer.SchemaId',
+        registryId: 17,
+      }],
+      auditUri: null,
+    };
+    const stream = {
+      markdown: (value: string) => markdown.push(value),
+      anchor: (uri: FakeUri, label: string) =>
+        anchors.push([uri.toString(), label]),
+      button: (button: any) => buttons.push(button),
+    };
+
+    renderReply(reply, stream, fakeVscode({ folders: [] }), store);
+
+    assert.deepStrictEqual(buttons, [{
+      command: 'modelable.conversation.viewDiff',
+      title: 'View generated diffs',
+      arguments: [{ sessionId: 'session-1', changeSetId: 'compile-1' }],
+    }]);
+    assert.deepStrictEqual(anchors, [
+      ['file:///workspace/customer.mdl', 'customer.Customer@1'],
+    ]);
+    assert.match(markdown.join('\n'), /registry\.db.*SHA-256.*binary-hash/is);
+    assert.match(markdown.join('\n'), /registry.*changed.*registry\.db/is);
+    assert.match(markdown.join('\n'), /customer\.SchemaId.*17/s);
+    assert.doesNotMatch(
+      markdown.join('\n'),
+      /Binary.*(?:schema\.json|customer\.yaml|unchanged\.rs)/is,
+    );
+    const descriptors = store.changeSets.get('session-1\0compile-1');
+    assert.strictEqual(descriptors.length, 1);
+    assert.match(descriptors[0].beforeUri.toString(), /before\.rs$/);
+    assert.match(descriptors[0].afterUri.toString(), /after\.rs$/);
+    assert.strictEqual(
+      store.provideTextDocumentContent(descriptors[0].afterUri),
+      'pub struct Customer {}',
+    );
+  });
+
+  test('compile preview offers multiple generated diffs and applied audit link', async () => {
+    const picked: string[] = [];
+    const commands: any[] = [];
+    const api: any = fakeVscode({ folders: [] });
+    api.window.showQuickPick = async (items: any[]) => {
+      picked.push(...items.map(item => item.label));
+      return items[1];
+    };
+    api.commands = {
+      executeCommand: async (...args: any[]) => commands.push(args),
+    };
+    const store = new PreviewStore(api);
+    store.put('session-1', 'compile-1', [
+      {
+        uri: 'file:///workspace/dist/rust/customer.rs',
+        existedBefore: false,
+        beforeText: '',
+        afterText: 'customer',
+      },
+      {
+        uri: 'file:///workspace/dist/rust/order.rs',
+        existedBefore: true,
+        beforeText: 'old order',
+        afterText: 'new order',
+      },
+    ]);
+
+    await store.showDiff('session-1', 'compile-1');
+
+    assert.deepStrictEqual(picked, ['customer.rs', 'order.rs']);
+    assert.strictEqual(commands[0][0], 'vscode.diff');
+    assert.match(commands[0][1].toString(), /before\.rs$/);
+    assert.match(commands[0][2].toString(), /after\.rs$/);
+
+    const anchors: Array<[string, string]> = [];
+    renderReply(
+      {
+        kind: 'applied',
+        operationKind: 'compile',
+        text: 'Applied compilation.',
+        sessionId: 'session-1',
+        workspaceUri: 'file:///workspace',
+        changeSetId: 'compile-1',
+        auditUri: 'file:///workspace/.modelable/audit/compilations/compile-1.json',
+      },
+      {
+        markdown() {},
+        anchor: (uri: FakeUri, label: string) =>
+          anchors.push([uri.toString(), label]),
+        button() {},
+      },
+      api,
+      store,
+    );
+    assert.deepStrictEqual(anchors, [[
+      'file:///workspace/.modelable/audit/compilations/compile-1.json',
+      'View compilation audit',
+    ]]);
+  });
+
   test('plain answers do not cache preview content', () => {
     const previewStore = {
       put: () => assert.fail('plain replies must not register snapshots'),
@@ -511,7 +864,7 @@ suite('Modelable conversation participant', () => {
       {
         capabilities: {
           experimental: {
-            modelableConversation: { protocolVersion: 1 },
+            modelableConversation: { protocolVersion: 2 },
           },
         },
       },
@@ -521,7 +874,7 @@ suite('Modelable conversation participant', () => {
       participant.followupProvider.provideFollowups({
         metadata: {
           modelable: {
-            protocolVersion: 1,
+            protocolVersion: 2,
             kind: 'preview',
             sessionId: 'session-1',
             workspaceUri: 'file:///workspace',
@@ -550,6 +903,35 @@ suite('Modelable conversation participant', () => {
       }),
       [],
     );
+
+    const compilationResult = chatResult({
+      kind: 'preview',
+      operationKind: 'compile',
+      sessionId: 'session-1',
+      workspaceUri: 'file:///workspace',
+      changeSetId: 'compile-1',
+    });
+    assert.strictEqual(
+      compilationResult.metadata.modelable.operationKind,
+      'compile',
+    );
+    assert.deepStrictEqual(
+      participant.followupProvider.provideFollowups(compilationResult),
+      [
+        {
+          prompt: '',
+          label: 'Apply compilation',
+          participant: 'modelable-vscode.modelable',
+          command: 'apply',
+        },
+        {
+          prompt: '',
+          label: 'Discard',
+          participant: 'modelable-vscode.modelable',
+          command: 'discard',
+        },
+      ],
+    );
   });
 
   test('apply, discard, and reset route exact metadata and clean successful previews', async () => {
@@ -569,7 +951,7 @@ suite('Modelable conversation participant', () => {
     const conversationClient = {
       dirtyDocumentUris: (workspaceUri: string) => {
         calls.push(['dirty', workspaceUri]);
-        return [new FakeUri('/workspace/customer.mdl')];
+        return [new FakeUri('/workspace/dist/rust/customer.rs')];
       },
       apply: async (metadata: any, dirty: FakeUri[], token: object) => {
         calls.push(['apply', metadata, dirty, token]);
@@ -606,7 +988,7 @@ suite('Modelable conversation participant', () => {
       {
         capabilities: {
           experimental: {
-            modelableConversation: { protocolVersion: 1 },
+            modelableConversation: { protocolVersion: 2 },
           },
         },
       },
@@ -614,7 +996,7 @@ suite('Modelable conversation participant', () => {
     );
     assert.ok(handler);
     const metadata = {
-      protocolVersion: 1,
+      protocolVersion: 2,
       sessionId: 'session-1',
       workspaceUri: 'file:///workspace',
       changeSetId: 'change-1',
@@ -640,8 +1022,8 @@ suite('Modelable conversation participant', () => {
       [
         'apply',
         metadata,
-        [new FakeUri('/workspace/customer.mdl')],
-        token,
+        [new FakeUri('/workspace/dist/rust/customer.rs')],
+        undefined,
       ],
       ['discard', metadata, token],
       ['close', 'session-1'],
@@ -683,7 +1065,7 @@ suite('Modelable conversation participant', () => {
       {
         capabilities: {
           experimental: {
-            modelableConversation: { protocolVersion: 1 },
+            modelableConversation: { protocolVersion: 2 },
           },
         },
       },
@@ -696,7 +1078,7 @@ suite('Modelable conversation participant', () => {
           result: {
             metadata: {
               modelable: {
-                protocolVersion: 1,
+                protocolVersion: 2,
                 sessionId: 'session-1',
                 workspaceUri: 'file:///workspace',
                 changeSetId: 'old-id',
@@ -761,7 +1143,7 @@ suite('Modelable conversation participant', () => {
           result: {
             metadata: {
               modelable: {
-                protocolVersion: 1,
+                protocolVersion: 2,
                 sessionId: 'session-1',
                 workspaceUri: 'file:///workspace',
               },
@@ -806,7 +1188,7 @@ suite('Modelable conversation participant', () => {
 
     const logged = lines.join('\n');
     assert.match(logged, /kind=turn/);
-    assert.match(logged, /protocol=1/);
+    assert.match(logged, /protocol=2/);
     assert.match(logged, /reply=answer/);
     assert.match(logged, /elapsedMs=\d+/);
     for (const secret of [
@@ -841,7 +1223,7 @@ suite('Modelable conversation participant', () => {
       {
         capabilities: {
           experimental: {
-            modelableConversation: { protocolVersion: 1 },
+            modelableConversation: { protocolVersion: 2 },
           },
         },
       },
@@ -885,7 +1267,7 @@ suite('Modelable conversation participant', () => {
       {
         capabilities: {
           experimental: {
-            modelableConversation: { protocolVersion: 1 },
+            modelableConversation: { protocolVersion: 2 },
           },
         },
       },
@@ -901,7 +1283,7 @@ suite('Modelable conversation participant', () => {
           result: {
             metadata: {
               modelable: {
-                protocolVersion: 1,
+                protocolVersion: 2,
                 sessionId: 'session-1',
                 workspaceUri: 'file:///workspace',
               },
@@ -922,25 +1304,31 @@ suite('Modelable conversation participant', () => {
 });
 
 class FakeUri {
-  constructor(readonly fsPath: string) {}
-
-  get scheme(): string {
-    return 'file';
-  }
+  constructor(
+    readonly fsPath: string,
+    readonly scheme: string = 'file',
+  ) {}
 
   get path(): string {
     return this.fsPath;
   }
 
   toString(): string {
-    return `file://${this.fsPath}`;
+    return this.scheme === 'file'
+      ? `file://${this.fsPath}`
+      : `${this.scheme}:${this.fsPath}`;
   }
 }
 
 function fakeVscode(options: {
   folders: string[];
   active?: string;
-  documents?: Array<{ path: string; languageId: string; isDirty: boolean }>;
+  documents?: Array<{
+    path: string;
+    languageId: string;
+    isDirty: boolean;
+    scheme?: string;
+  }>;
   manifests?: string[];
 }) {
   const folders = options.folders.map(folderPath => ({
@@ -951,8 +1339,9 @@ function fakeVscode(options: {
     documentPath: string,
     languageId = 'mdl',
     isDirty = false,
+    scheme = 'file',
   ) => ({
-    uri: new FakeUri(documentPath),
+    uri: new FakeUri(documentPath, scheme),
     languageId,
     isDirty,
   });
@@ -989,7 +1378,12 @@ function fakeVscode(options: {
     workspace: {
       workspaceFolders: folders,
       textDocuments: (options.documents ?? []).map(document =>
-        documentFor(document.path, document.languageId, document.isDirty),
+        documentFor(
+          document.path,
+          document.languageId,
+          document.isDirty,
+          document.scheme,
+        ),
       ),
       getWorkspaceFolder,
       fs: {

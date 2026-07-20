@@ -1,7 +1,9 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const vscode = require('vscode');
 
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 const TURN_METHOD = 'modelable/conversation/turn';
 const APPLY_METHOD = 'modelable/conversation/apply';
 const DISCARD_METHOD = 'modelable/conversation/discard';
@@ -68,15 +70,10 @@ async function resolveConversationContext(vscodeApi = vscode) {
   )
     ? activeDocument.uri
     : undefined;
-  const dirtyDocumentUris = (vscodeApi.workspace.textDocuments ?? [])
-    .filter(document => (
-      document.isDirty &&
-      document.languageId === 'mdl' &&
-      vscodeApi.workspace.getWorkspaceFolder(document.uri)?.uri.toString() ===
-        selectedFolder.uri.toString()
-    ))
-    .map(document => document.uri)
-    .sort((left, right) => left.toString().localeCompare(right.toString()));
+  const dirtyDocumentUris = collectDirtyDocumentUris(
+    vscodeApi,
+    selectedFolder.uri.toString(),
+  );
 
   return {
     workspaceUri: selectedFolder.uri,
@@ -183,7 +180,7 @@ class ConversationClient {
     }
   }
 
-  apply(metadata, dirtyDocumentUris, token) {
+  apply(metadata, dirtyDocumentUris) {
     return this.languageClient.sendRequest(
       APPLY_METHOD,
       {
@@ -246,12 +243,56 @@ function collectDirtyDocumentUris(vscodeApi, workspaceUri) {
   return (vscodeApi.workspace.textDocuments ?? [])
     .filter(document => (
       document.isDirty &&
-      document.languageId === 'mdl' &&
-      vscodeApi.workspace.getWorkspaceFolder(document.uri)?.uri.toString() ===
-        workspaceUri
+      document.uri?.scheme === 'file' &&
+      isFileUriInsideWorkspace(vscodeApi, workspaceUri, document.uri)
     ))
     .map(document => document.uri)
     .sort((left, right) => left.toString().localeCompare(right.toString()));
+}
+
+function isFileUriInsideWorkspace(
+  vscodeApi,
+  workspaceUri,
+  documentUri,
+  realpath = fs.realpathSync.native,
+) {
+  try {
+    const rootUri = vscodeApi.Uri.parse(workspaceUri);
+    if (rootUri.scheme !== 'file' || documentUri?.scheme !== 'file') {
+      return false;
+    }
+    const rootPath = canonicalPath(rootUri.fsPath, realpath);
+    const documentPath = canonicalPath(documentUri.fsPath, realpath);
+    const relative = path.relative(rootPath, documentPath);
+    return (
+      relative === '' ||
+      (
+        relative !== '..' &&
+        !relative.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relative)
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+function canonicalPath(filePath, realpath) {
+  const resolved = path.resolve(filePath);
+  const missingSegments = [];
+  let candidate = resolved;
+  while (true) {
+    try {
+      return path.join(realpath(candidate), ...missingSegments);
+    } catch {
+      const parent = path.dirname(candidate);
+      if (parent === candidate) {
+        return resolved;
+      }
+      missingSegments.unshift(path.basename(candidate));
+      candidate = parent;
+    }
+  }
 }
 
 function errorCode(error) {
@@ -278,6 +319,7 @@ module.exports = {
   TURN_METHOD,
   collectDirtyDocumentUris,
   errorCode,
+  isFileUriInsideWorkspace,
   recoverSessionMetadata,
   resolveConversationContext,
 };

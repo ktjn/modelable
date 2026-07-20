@@ -62,7 +62,7 @@ async def test_conversation_question_over_real_json_rpc(tmp_path: Path) -> None:
         reply = await client.protocol.send_request_async(
             TURN_METHOD,
             {
-                "protocolVersion": 1,
+                "protocolVersion": 2,
                 "sessionId": "integration-session",
                 "createSession": True,
                 "workspaceUri": tmp_path.as_uri(),
