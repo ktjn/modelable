@@ -63,7 +63,7 @@ function registerConversationParticipant(
           }
         } else {
           reply = await conversationClient.turn(
-            request,
+            requestForTurn(request),
             context,
             token,
           );
@@ -146,6 +146,21 @@ function registerConversationParticipant(
     },
   };
   return participant;
+}
+
+function requestForTurn(request) {
+  if (request.command !== 'compile') {
+    return request;
+  }
+  const argumentsText = typeof request.prompt === 'string'
+    ? request.prompt
+    : '';
+  return {
+    ...request,
+    prompt: argumentsText.length > 0
+      ? `/compile ${argumentsText}`
+      : '/compile',
+  };
 }
 
 function requirePendingMetadata(metadata) {
@@ -322,6 +337,7 @@ function sanitizedErrorMessage(error) {
 module.exports = {
   PARTICIPANT_ID,
   chatResult,
+  requestForTurn,
   requirePendingMetadata,
   renderReply,
   registerConversationParticipant,

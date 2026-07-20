@@ -46,6 +46,10 @@
             "description": "Show supported Modelable chat actions."
           },
           {
+            "name": "compile",
+            "description": "Compile locally with /compile <target> [--domain <name>] [--out <path>] [--descriptor-set]."
+          },
+          {
             "name": "apply",
             "description": "Apply the exact pending change set."
           },

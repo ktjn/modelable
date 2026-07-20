@@ -30,7 +30,15 @@ suite('Modelable conversation participant', () => {
     assert.strictEqual(participant.name, 'modelable');
     assert.deepStrictEqual(
       participant.commands.map((item: { name: string }) => item.name),
-      ['help', 'apply', 'discard', 'reset'],
+      ['help', 'compile', 'apply', 'discard', 'reset'],
+    );
+    const compileCommand = participant.commands.find(
+      (item: { name: string }) => item.name === 'compile',
+    );
+    assert.match(compileCommand.description, /\/compile <target>/);
+    assert.match(
+      compileCommand.description,
+      /--domain.*--out.*--descriptor-set/,
     );
     assert.ok(
       manifest.activationEvents.includes(
@@ -267,6 +275,71 @@ suite('Modelable conversation participant', () => {
       changeSetId: null,
       kind: 'answer',
     });
+  });
+
+  test('native compile command forwards exact deterministic parser input', async () => {
+    let handler: Function | undefined;
+    const forwarded: string[] = [];
+    const vscodeApi = {
+      chat: {
+        createChatParticipant: (_id: string, value: Function) => {
+          handler = value;
+          return { dispose() {} };
+        },
+      },
+    };
+    registerConversationParticipant(
+      vscodeApi,
+      {
+        turn: async (request: { prompt: string }) => {
+          forwarded.push(request.prompt);
+          return {
+            kind: 'clarification',
+            text: 'Deterministic compile parser response.',
+            sessionId: `session-${forwarded.length}`,
+            workspaceUri: 'file:///workspace',
+            changeSetId: null,
+          };
+        },
+      },
+      {
+        capabilities: {
+          experimental: {
+            modelableConversation: { protocolVersion: 2 },
+          },
+        },
+      },
+    );
+    assert.ok(handler);
+    const stream = { markdown() {}, anchor() {}, button() {} };
+
+    await handler!(
+      {
+        command: 'compile',
+        prompt: 'rust --domain customer --out "dist/rust output"',
+      },
+      { history: [] },
+      stream,
+      {},
+    );
+    await handler!(
+      { command: 'compile', prompt: '' },
+      { history: [] },
+      stream,
+      {},
+    );
+    await handler!(
+      { command: 'compile', prompt: 'rust --unknown value' },
+      { history: [] },
+      stream,
+      {},
+    );
+
+    assert.deepStrictEqual(forwarded, [
+      '/compile rust --domain customer --out "dist/rust output"',
+      '/compile',
+      '/compile rust --unknown value',
+    ]);
   });
 
   test('participant reports capability and request failures as chat errors', async () => {
