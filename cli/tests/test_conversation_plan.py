@@ -9,11 +9,104 @@ from pydantic import ValidationError
 
 from modelable.llm.conversation_plan import (
     ChangeSetPlan,
+    CompilePlan,
     CreateModel,
     QueryPlan,
     parse_conversation_plan,
 )
 from modelable.llm.providers import LLMRequest, LLMResponse
+
+
+def valid_compile_payload() -> dict[str, object]:
+    return {
+        "kind": "compile",
+        "target": "rust",
+        "domains": ["customer"],
+        "output": None,
+        "descriptor_set": False,
+        "summary": "Compile customer.",
+    }
+
+
+def test_compile_plan_is_closed_and_schema_validated() -> None:
+    plan = parse_conversation_plan(json.dumps(valid_compile_payload()))
+
+    assert isinstance(plan, CompilePlan)
+    assert plan.target == "rust"
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["url", "token", "registry", "command", "environment", "flags", "allow_orphaned_registry_ids"],
+)
+def test_compile_plan_rejects_operational_escape_hatches(field: str) -> None:
+    payload = valid_compile_payload() | {field: "forbidden"}
+
+    with pytest.raises(ValidationError):
+        parse_conversation_plan(json.dumps(payload))
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "json-schema",
+        "markdown",
+        "typescript",
+        "csharp",
+        "java",
+        "python",
+        "rust",
+        "go",
+        "sql-postgres",
+        "sql-clickhouse",
+        "dbt-yaml",
+        "fhir-profile",
+        "openmetadata",
+        "openlineage",
+        "odcs",
+        "protobuf",
+        "grpc",
+    ],
+)
+def test_compile_plan_accepts_every_implemented_target(target: str) -> None:
+    plan = parse_conversation_plan(json.dumps(valid_compile_payload() | {"target": target}))
+
+    assert isinstance(plan, CompilePlan)
+    assert plan.target == target
+
+
+def test_compile_plan_rejects_unimplemented_target() -> None:
+    with pytest.raises(ValidationError):
+        parse_conversation_plan(json.dumps(valid_compile_payload() | {"target": "terraform"}))
+
+
+@pytest.mark.parametrize("target", ["protobuf", "grpc"])
+def test_compile_plan_allows_descriptors_only_for_descriptor_targets(target: str) -> None:
+    plan = parse_conversation_plan(json.dumps(valid_compile_payload() | {"target": target, "descriptor_set": True}))
+
+    assert isinstance(plan, CompilePlan)
+    assert plan.descriptor_set is True
+
+
+def test_compile_plan_rejects_descriptors_for_other_targets() -> None:
+    with pytest.raises(ValidationError, match="descriptor"):
+        parse_conversation_plan(json.dumps(valid_compile_payload() | {"target": "rust", "descriptor_set": True}))
+
+
+@pytest.mark.parametrize(
+    "output",
+    ["/tmp/generated", "../generated", "dist/../../generated", ".", "", r"C:\generated", r"dist\generated"],
+)
+def test_compile_plan_rejects_unsafe_or_non_normalized_output(output: str) -> None:
+    with pytest.raises(ValidationError, match="output"):
+        parse_conversation_plan(json.dumps(valid_compile_payload() | {"output": output}))
+
+
+def test_compile_plan_normalizes_safe_relative_output() -> None:
+    plan = parse_conversation_plan(json.dumps(valid_compile_payload() | {"output": "dist/./rust/"}))
+
+    assert isinstance(plan, CompilePlan)
+    assert plan.output == "dist/rust"
 
 
 def test_parse_create_model_plan_with_nested_address() -> None:
@@ -400,15 +493,19 @@ def test_conversation_request_exposes_only_closed_typed_plan_schema() -> None:
     assert '"changesetplan"' in schema_text
     assert '"clarificationplan"' in schema_text
     assert '"unsupportedplan"' in schema_text
+    assert '"compileplan"' in schema_text
     for forbidden in (
         '"patch"',
         '"path"',
         '"command"',
-        '"compile"',
         '"sync"',
         '"publish"',
         '"external_action"',
         '"validation_override"',
+        '"url"',
+        '"token"',
+        '"registry"',
+        '"environment"',
     ):
         assert forbidden not in schema_text
 
@@ -440,13 +537,17 @@ def test_conversation_system_prompt_states_safety_and_ambiguity_rules() -> None:
     )
     system = request.system.lower()
 
-    for plan_kind in ("query", "change_set", "clarification", "unsupported"):
+    for plan_kind in ("query", "change_set", "compile", "clarification", "unsupported"):
         assert plan_kind in system
     for ambiguity in ("ownership", "identity", "reusable address", "source"):
         assert ambiguity in system
     assert "append" in system and "version" in system
     assert "operations" in system
-    for unsupported in ("compile", "sync", "publish", "external"):
+    assert "local generation" in system
+    assert "arbitrary filesystem paths" in system
+    for example in ('"target":"rust"', '"target":"json-schema"', '"target":"protobuf"'):
+        assert example in system.replace(" ", "")
+    for unsupported in ("sync", "publish", "credential", "shell", "remote"):
         assert unsupported in system
 
 
@@ -479,7 +580,7 @@ def test_offline_planner_routes_commands_questions_and_mutations() -> None:
     assert "provider" in polite_mutation.reason.lower()
 
 
-@pytest.mark.parametrize("command", ["/compile", "/sync", "/publish"])
+@pytest.mark.parametrize("command", ["/sync", "/publish"])
 def test_offline_planner_routes_slash_operations_to_operations_roadmap(command: str) -> None:
     from modelable.llm.conversation_plan import UnsupportedPlan
     from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
@@ -492,3 +593,79 @@ def test_offline_planner_routes_slash_operations_to_operations_roadmap(command: 
     assert isinstance(plan, UnsupportedPlan)
     assert plan.roadmap_area == "operations"
     assert "operational" in plan.reason.lower()
+
+
+@pytest.mark.parametrize(
+    ("command", "target", "domains", "output", "descriptor_set"),
+    [
+        ("/compile rust", "rust", [], None, False),
+        (
+            "/compile json-schema --domain customer --domain billing --out 'dist/contracts'",
+            "json-schema",
+            ["customer", "billing"],
+            "dist/contracts",
+            False,
+        ),
+        (
+            "/compile protobuf --domain customer --descriptor-set",
+            "protobuf",
+            ["customer"],
+            None,
+            True,
+        ),
+    ],
+)
+def test_parse_compile_command_accepts_exact_design_syntax(
+    command: str,
+    target: str,
+    domains: list[str],
+    output: str | None,
+    descriptor_set: bool,
+) -> None:
+    from modelable.llm.conversation_planner import parse_compile_command
+
+    plan = parse_compile_command(command)
+
+    assert isinstance(plan, CompilePlan)
+    assert plan.target == target
+    assert plan.domains == domains
+    assert plan.output == output
+    assert plan.descriptor_set is descriptor_set
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "/compile",
+        "/compile rust --domain",
+        "/compile rust --out",
+        "/compile rust --unknown value",
+        "/compile rust --out dist/rust --out dist/other",
+        "/compile rust --descriptor-set",
+        "/compile terraform",
+        '/compile rust --out "unterminated',
+        "/compile rust extra",
+    ],
+)
+def test_parse_compile_command_clarifies_unknown_missing_or_invalid_options(command: str) -> None:
+    from modelable.llm.conversation_plan import ClarificationPlan
+    from modelable.llm.conversation_planner import parse_compile_command
+
+    plan = parse_compile_command(command)
+
+    assert isinstance(plan, ClarificationPlan)
+    assert "/compile" in plan.reason
+
+
+def test_offline_planner_uses_deterministic_compile_parser() -> None:
+    from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
+
+    plan = ConversationPlanner(None).plan(
+        "/compile rust --domain customer --out dist/rust",
+        PlannerContext(workspace_summary="", focused_ref=None, history=(), pending_plan=None),
+    )
+
+    assert isinstance(plan, CompilePlan)
+    assert plan.target == "rust"
+    assert plan.domains == ["customer"]
+    assert plan.output == "dist/rust"

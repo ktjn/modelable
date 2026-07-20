@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import PurePosixPath
 from typing import Annotated, Literal
 
 from jsonschema import Draft202012Validator
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from modelable.parser.ir import Annotation, FieldDef, FieldType, ModelKind, SortField
 
@@ -269,6 +270,52 @@ class ChangeSetPlan(StrictPlanModel):
     operations: list[Operation] = Field(min_length=1)
 
 
+type ImplementedTarget = Literal[
+    "json-schema",
+    "markdown",
+    "typescript",
+    "csharp",
+    "java",
+    "python",
+    "rust",
+    "go",
+    "sql-postgres",
+    "sql-clickhouse",
+    "dbt-yaml",
+    "fhir-profile",
+    "openmetadata",
+    "openlineage",
+    "odcs",
+    "protobuf",
+    "grpc",
+]
+
+
+class CompilePlan(StrictPlanModel):
+    kind: Literal["compile"] = "compile"
+    target: ImplementedTarget
+    domains: list[str] = Field(default_factory=list)
+    output: str | None = None
+    descriptor_set: bool = False
+    summary: str
+
+    @model_validator(mode="after")
+    def validate_compile_options(self) -> CompilePlan:
+        if self.descriptor_set and self.target not in {"protobuf", "grpc"}:
+            raise ValueError("descriptor_set is supported only for protobuf and grpc targets")
+        if self.output is not None:
+            if not self.output or "\\" in self.output or re.match(r"^[A-Za-z]:", self.output):
+                raise ValueError("output must be a normalized relative POSIX path")
+            path = PurePosixPath(self.output)
+            if path.is_absolute() or ".." in path.parts:
+                raise ValueError("output must be a normalized relative POSIX path without parent traversal")
+            normalized = str(path)
+            if normalized in {"", "."}:
+                raise ValueError("output must name a relative directory")
+            self.output = normalized
+        return self
+
+
 class ClarificationPlan(StrictPlanModel):
     kind: Literal["clarification"] = "clarification"
     question: str
@@ -283,7 +330,7 @@ class UnsupportedPlan(StrictPlanModel):
 
 
 type ConversationPlan = Annotated[
-    QueryPlan | ChangeSetPlan | ClarificationPlan | UnsupportedPlan,
+    QueryPlan | ChangeSetPlan | CompilePlan | ClarificationPlan | UnsupportedPlan,
     Field(discriminator="kind"),
 ]
 
