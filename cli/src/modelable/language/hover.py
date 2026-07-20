@@ -11,14 +11,14 @@ from modelable.llm.context import (
     build_model_summary,
     build_projection_summary,
     parse_model_ref,
+    parse_model_ref_version_spec,
 )
 from modelable.parser.ir import (
     FieldDef,
-    JoinRef,
     ModelVersion,
     ProjectionField,
     ProjectionVersion,
-    SourceRef,
+    VersionSpec,
 )
 from modelable.registry.resolver import resolve_model_ref
 
@@ -27,6 +27,13 @@ _QUALIFIED_REF_PATTERN = re.compile(
 )
 _REF_TYPE_PATTERN = re.compile(r"ref\s*<\s*(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*>")
 _FIELD_REF_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
+_SOURCE_ALIAS_PATTERN = re.compile(
+    r"^\s*(?:from|join)\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\."
+    r"(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*"
+    r"(?P<version>\d+(?:#[0-9a-fA-F]+)?|>=\s*\d+(?:\s*<\s*\d+)?)\s+as\s+"
+    r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)"
+    r"(?:\s+on\s+.*)?$"
+)
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
@@ -195,7 +202,7 @@ def _hover_for_bare_word(
     scope = _current_scope(text, line)
     if scope is None:
         return None
-    domain_name, kind, name, version = scope
+    domain_name, kind, name, version, _scope_line = scope
     domain = next(
         (domain for domain in workspace.mdl.domains if domain.name == domain_name),
         None,
@@ -266,7 +273,7 @@ def _hover_for_field_reference(
     scope = _current_scope(text, line)
     if scope is None:
         return None
-    domain_name, kind, name, version = scope
+    domain_name, kind, name, version, scope_line = scope
     domain = next(
         (domain for domain in workspace.mdl.domains if domain.name == domain_name),
         None,
@@ -312,44 +319,32 @@ def _hover_for_field_reference(
     )
     if projection_version is None:
         return None
-    source_refs: list[SourceRef | JoinRef] = [
-        projection_version.source,
-        *projection_version.joins,
-    ]
-    for source_ref in source_refs:
-        if source_ref.alias != alias:
-            continue
-        try:
-            resolved = resolve_model_ref(
-                workspace.mdl,
-                source_ref.model,
-                source_ref.version,
-            )
-        except LookupError:
-            break
-        return _hover_for_source_field(
-            workspace,
-            resolved.domain_name,
-            resolved.model_name,
-            resolved.version.version,
-            field_name,
-            line,
-            start,
-            end,
-        )
-    projection_field = next(
-        (item for item in projection_version.fields if item.name == field_name),
-        None,
+    current_reference = _projection_reference_for_alias(
+        text,
+        scope_line,
+        line,
+        alias,
     )
-    if projection_field is None:
+    if current_reference is None:
         return None
-    return _HoverInfo(
-        markdown=_markdown_block(
-            f"{domain_name}.{name}@{version}.{projection_field.name}\nmapping: {_mapping_text(projection_field)}"
-        ),
-        line=line,
-        start=start,
-        end=end,
+    model_ref, version_spec = current_reference
+    try:
+        resolved = resolve_model_ref(
+            workspace.mdl,
+            model_ref,
+            version_spec,
+        )
+    except LookupError:
+        return None
+    return _hover_for_source_field(
+        workspace,
+        resolved.domain_name,
+        resolved.model_name,
+        resolved.version.version,
+        field_name,
+        line,
+        start,
+        end,
     )
 
 
@@ -471,30 +466,52 @@ def _language_hover(info: _HoverInfo, text_line: str) -> LanguageHover:
     )
 
 
+def _projection_reference_for_alias(
+    text: str,
+    scope_line: int,
+    line: int,
+    alias: str,
+) -> tuple[str, VersionSpec | int] | None:
+    lines = text.splitlines()
+    end_line = min(line, len(lines) - 1)
+    for item in lines[scope_line + 1 : end_line + 1]:
+        match = _SOURCE_ALIAS_PATTERN.match(item)
+        if match is None or match.group("alias") != alias:
+            continue
+        domain, model, version = parse_model_ref_version_spec(
+            f"{match.group('domain')}.{match.group('model')}@{match.group('version')}"
+        )
+        return f"{domain}.{model}", version
+    return None
+
+
 def _current_scope(
     text: str,
     line: int,
-) -> tuple[str, str, str, int] | None:
+) -> tuple[str, str, str, int, int] | None:
     lines = text.splitlines()
     current_domain: str | None = None
     current_kind: str | None = None
     current_name: str | None = None
     current_version: int | None = None
-    for item in lines[: line + 1]:
+    current_line: int | None = None
+    for index, item in enumerate(lines[: line + 1]):
         domain_match = _DOMAIN_PATTERN.match(item)
         if domain_match:
             current_domain = domain_match.group("quoted") or domain_match.group("name")
             current_kind = None
             current_name = None
             current_version = None
+            current_line = None
             continue
         declaration_match = _DECL_PATTERN.match(item)
         if declaration_match and current_domain is not None:
             current_kind = "model" if declaration_match.group("kind") != "projection" else "projection"
             current_name = declaration_match.group("name")
             current_version = int(declaration_match.group("version"))
-    if current_domain and current_kind and current_name and current_version is not None:
-        return current_domain, current_kind, current_name, current_version
+            current_line = index
+    if current_domain and current_kind and current_name and current_version is not None and current_line is not None:
+        return current_domain, current_kind, current_name, current_version, current_line
     return None
 
 
