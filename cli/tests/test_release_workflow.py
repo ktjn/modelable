@@ -28,6 +28,16 @@ def _workflow_action_names(workflow_name: str) -> set[str]:
     return {action.rsplit("@", 1)[0] for action in _workflow_actions(workflow_name)}
 
 
+def test_conversational_compilation_documentation_and_roadmap_contract() -> None:
+    cli_reference = (REPOSITORY_ROOT / "docs" / "cli-reference.md").read_text(encoding="utf-8")
+    roadmap = (REPOSITORY_ROOT / "ROADMAP.md").read_text(encoding="utf-8")
+
+    assert "literal /apply" in cli_reference
+    assert ".modelable/audit/compilations/" in cli_reference
+    assert "Conversational Compilation Management" in roadmap
+    assert "specs/archived/2026-07-19-conversational-compilation-management-design.md" in roadmap
+
+
 def _assert_workflow_actions_are_pinned(workflow_name: str) -> None:
     for action in _workflow_actions(workflow_name):
         action_name, separator, ref = action.rpartition("@")

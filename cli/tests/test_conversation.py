@@ -693,6 +693,7 @@ def test_chat_compile_help_and_quit_cleanup(tmp_path: Path) -> None:
     help_text = chat_turn(workspace, "/help", path=tmp_path, state=state)
     preview = chat_turn(workspace, "/compile rust", path=tmp_path, state=state)
 
+    assert "/compile" in help_text
     assert "/compile <target>" in help_text
     assert "Only the exact case-sensitive /apply" in preview
     assert state.session is not None

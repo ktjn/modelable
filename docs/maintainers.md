@@ -132,6 +132,32 @@ npm test
 
 On Windows, close any running desktop VS Code windows before `npm test`; the smoke runner fails fast if the desktop app is still holding the update mutex.
 
+For conversational compilation changes, exercise both application-service
+callers. Direct `modelable compile` must preserve its public targets, options,
+console behavior, output bytes, and errors. A chat acceptance case must use a
+fake provider to preview `compile this workspace to Rust`, confirm that no
+workspace bytes changed, capture the exact staged bytes and affected
+definitions, then issue the literal `/apply` and compare every written byte to
+staging. Also verify that:
+
+- changing a source, generated destination, registry input, parent path, or
+  staged file makes apply stale;
+- dirty generated destinations block VS Code apply while unrelated dirty files
+  do not;
+- an injected promotion or audit failure restores prior files and removes new
+  transaction paths;
+- discard, replacement, expiry, reset, quit, and exceptional close remove
+  private staging; and
+- `.modelable/audit/compilations/<action-id>.json` contains hashes, sizes,
+  canonical plan, affected references, and confirmation provenance, but no
+  prompt, response, source/artifact content, credentials, tokens, environment
+  values, or unrelated paths.
+
+Keep conversational planning local-only. Registry synchronization, publishing,
+external services, WebLLM, and the VS Code native-model adapter require
+separate accepted designs. Preview text over 2 MiB must continue to fail with
+guidance to use direct `modelable compile`.
+
 For release pipeline or packaging metadata changes, also run:
 
 ```text
@@ -211,7 +237,8 @@ Test gates are selected by risk and touched surface.
 | Protobuf export format | `uv run pytest tests/test_emit_protobuf.py tests/test_codegen_targets.py -q` from `cli/` |
 | Scalable gRPC export format | `uv run pytest tests/test_emit_grpc.py tests/test_emit_protobuf.py tests/test_codegen_targets.py -q` from `cli/` |
 | FHIR R4 profile export format | `uv run pytest tests/test_emit_fhir.py tests/test_fhir_validator.py -q` plus `MODELABLE_FHIR_VALIDATOR=1 MODELABLE_FHIR_VALIDATOR_JAR=<path-to-validator_cli.jar> uv run pytest tests/test_fhir_validator.py --tb=short -q` from `cli/` when the HL7 validator jar is available |
-| LSP, VS Code extension, or editor integration | Focused LSP tests plus `cd vscode && npm ci && npm run build && npm test` |
+| LSP, VS Code extension, or editor integration | Focused LSP tests plus `cd vscode && npm ci && npm run check && npm run build && npm test && npm run package` |
+| Conversational compilation | Focused conversation, compilation service, transaction, audit, protocol, and VS Code tests; fake-provider preview/apply acceptance; exact staged-byte and audit-privacy checks; then the complete CLI and VS Code gates |
 | Browser compiler or playground | `uv run python .github/scripts/run_browser_playground.py` plus strict MkDocs build and combined Pages assembly |
 | Release pipeline or packaging metadata | Focused release metadata/workflow tests plus the full local CLI gate |
 | Runtime, subscriptions, adapters, or materializers | Unit tests, integration or smoke tests for the adapter boundary, and failure-mode coverage |

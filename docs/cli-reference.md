@@ -1235,11 +1235,70 @@ customer.Customer@1
 ```
 
 Without a provider, a mutation request explains that intent synthesis requires
-provider configuration and leaves all files unchanged. Compilation, registry
-synchronization, publishing, deployment, filesystem, shell, and other
-external operational requests remain unsupported in this release. They are
-roadmap follow-ups with separate authorization, preview, confirmation, and
-audit requirements.
+provider configuration and leaves all files unchanged. Registry
+synchronization, publishing, deployment, filesystem, shell, and other external
+operational requests remain unsupported. They are roadmap follow-ups with
+separate authorization, credential, preview, confirmation, and audit
+requirements.
+
+#### Local conversational compilation
+
+Chat can stage a real local compilation either from a natural-language request
+or from the deterministic command:
+
+```text
+/compile <target> [--domain <name> ...] [--out <relative-path>] [--descriptor-set]
+```
+
+For example, `compile this workspace to Rust`, `compile the customer domain to
+JSON Schema`, and `/compile protobuf --domain customer --descriptor-set` all
+produce the same closed `CompilePlan`. Natural-language compilation requires a
+configured provider; `/compile` does not call one. Targets are the implemented
+targets listed under `modelable compile` in section 5.6.
+Repeat `--domain` to select multiple domains. Domain names must exist and the
+selected scope must include its required dependencies. `--out` must be a
+normalized, relative POSIX directory inside the workspace; it cannot overlap
+source files, `.git`, `.modelable/audit`, or Modelable's staging and lock
+locations. Omitting it uses the target's normal `dist/...` default.
+`--descriptor-set` is accepted only for Protobuf and gRPC and requires local
+`protoc`.
+
+Preview runs the real compiler in a private temporary directory outside the
+workspace. It does not create output directories or change source, generated,
+registry, ledger, plan, descriptor, or audit bytes. The textual preview shows:
+
+1. the normalized target, domains, output, and descriptor choice;
+2. affected domains, entities, projections, semantic types, emitted-artifact
+   references, cross-domain dependencies, and registry-ID additions;
+3. every created, changed, and unchanged destination;
+4. complete unified before/after diffs for UTF-8 text files; and
+5. exact before/after byte sizes and SHA-256 hashes for binary files such as
+   `registry.db` and descriptor sets, plus warnings.
+
+Only the literal /apply command, entered exactly and case-sensitively, can
+authorize a CLI compilation preview. The aliases `apply`, `apply it`, and
+`confirm` continue to apply source-edit proposals but do not authorize
+compilation. `/discard`, a replacement request, session expiry, `/quit`, or
+`/reset` disposes the staged bytes. Preview text above 2 MiB is rejected before
+it can become pending; use direct `modelable compile` for that output.
+
+Apply rechecks all source, destination, registry-ledger, registry-database,
+parent-path, symlink, manifest, and staged-file fingerprints. Any mismatch
+makes the preview stale and requires a new preview; Modelable does not merge or
+overwrite a concurrently changed generated file. Promotion copies the exact
+staged bytes without recompiling. Existing destinations are backed up,
+individual replacements are atomic, and any replacement, verification, or
+audit failure rolls back changed files and removes files and empty directories
+created by that failed apply. Files outside the manifest are never deleted.
+
+Every successful conversational apply writes
+`.modelable/audit/compilations/<action-id>.json`. The versioned record includes
+the canonical plan, confirmation surface, provider/model identity when known,
+affected references, destination paths/statuses/sizes/hashes, registry-ID
+allocations, warnings, manifest fingerprint, and outcome. It excludes prompts,
+responses, source and artifact contents, credentials, tokens, environment
+variables, and unrelated paths. Direct `modelable compile` remains the trusted
+non-conversational fallback and does not write this conversational audit.
 
 The standalone `modelable update` command retains its existing behavior and
 provenance sidecars; chat confirmation applies only to a pending conversational
@@ -1247,13 +1306,14 @@ change set.
 
 #### VS Code `@modelable` companion
 
-The VS Code extension exposes the same Python conversation service through a
-native `@modelable` chat participant. For example:
+The VS Code extension exposes the same Python conversation and compilation
+services through a native `@modelable` chat participant. For example:
 
 ```text
 @modelable is the workspace valid?
 @modelable add a customer entity with address
 @modelable add a projection for active customers
+@modelable compile this workspace to Rust
 ```
 
 The active `.mdl` editor selects the workspace and focused definition. Without
@@ -1261,9 +1321,13 @@ an active model editor, exactly one open folder containing `workspace.mdl`
 must be available. Save dirty model files before sending a turn. Mutation
 replies retain the canonical textual preview and add server-supplied definition
 anchors plus **View Diff**, which opens exact virtual before/after snapshots.
-Apply and Discard are native follow-ups tied to the exact pending change-set ID;
-`/reset` closes the session. Expired, restarted, stale, or source-diverged
-sessions require a fresh preview and write nothing.
+Compilation replies add affected-definition anchors, structured generated-file
+evidence, **View generated diffs** for text outputs, binary hash/size summaries,
+registry-ID additions, and an audit link after apply. Apply and Discard are
+native follow-ups tied to the exact pending action ID. Applying a compilation
+also refuses any dirty open generated destination; save or close it first.
+`/reset` closes the session. Expired, restarted, stale, source-diverged, or
+destination-diverged sessions require a fresh preview and write nothing.
 
 Provider resolution is identical to `modelable chat`: workspace and environment
 configuration remain Python-owned. The extension does not parse, validate, or
