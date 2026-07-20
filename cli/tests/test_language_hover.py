@@ -1,4 +1,5 @@
 import pytest
+from markdown_it import MarkdownIt
 
 from modelable.language.dto import LanguagePosition, LanguageRange
 from modelable.language.hover import hover
@@ -343,6 +344,44 @@ def test_hover_markdown_has_no_active_content() -> None:
     assert "<" not in result.markdown
     assert "](" not in result.markdown
     assert "&lt;img src=x&gt;" in result.markdown
+
+
+def test_projection_hover_renders_hostile_expression_as_plaintext() -> None:
+    text = WORKSPACE_TEXT.replace(
+        "    displayName = c.customerName",
+        """    displayName = c.customerName
+    ```
+    [remote]: https://attacker.example/pixel
+    ![reference-image][remote]
+    ![inline-image](https://attacker.example/inline)
+    [inline-link](https://attacker.example/link)
+    <img src="https://attacker.example/raw">""",
+    )
+    result = hover(
+        parsed_language_workspace(text),
+        URI,
+        position_of(text, "displayName = c.customerName", "displayName"),
+    )
+
+    assert result is not None
+    assert all(line.startswith("    ") for line in result.markdown.split("\n"))
+
+    tokens = MarkdownIt().parse(result.markdown)
+    flattened = [child for token in tokens for child in (token, *(token.children or []))]
+    assert [token.type for token in tokens] == ["code_block"]
+    assert "fence" not in [token.type for token in flattened]
+    assert not {
+        "link_open",
+        "image",
+        "html_block",
+        "html_inline",
+    }.intersection(token.type for token in flattened)
+    assert not [
+        value
+        for token in flattened
+        for attribute in ("href", "src")
+        if (value := token.attrGet(attribute)) is not None and value.startswith(("http://", "https://", "//"))
+    ]
 
 
 def test_hover_converts_codepoint_span_to_utf16_range() -> None:

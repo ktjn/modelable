@@ -587,7 +587,7 @@ def _safe_markdown(value: str) -> str:
 
 
 def _markdown_block(text: str) -> str:
-    return f"```text\n{_safe_markdown(text)}\n```"
+    return "\n".join(f"    {line}" for line in _safe_markdown(text).split("\n"))
 
 
 def _mapping_text(field: ProjectionField) -> str:
