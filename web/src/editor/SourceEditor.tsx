@@ -54,6 +54,7 @@ export const SourceEditor = forwardRef<
   const listenersRef = useRef(
     new Map<string, { dispose(): void }>(),
   );
+  const localVersionHighWaterRef = useRef(new Map<string, number>());
   const viewStatesRef = useRef(
     new Map<string, editor.ICodeEditorViewState | null>(),
   );
@@ -115,8 +116,27 @@ export const SourceEditor = forwardRef<
       return;
     }
 
-    registry.reconcile(files);
+    const reconciledFiles = files.map((file) => {
+      const localVersion = localVersionHighWaterRef.current.get(file.path);
+      if (localVersion === undefined) {
+        return file;
+      }
+      if (file.version >= localVersion) {
+        localVersionHighWaterRef.current.delete(file.path);
+        return file;
+      }
+      const model = registry.model(file.path);
+      return model === undefined
+        ? file
+        : { ...file, content: model.getValue() };
+    });
+    registry.reconcile(reconciledFiles);
     const paths = new Set(registry.paths());
+    for (const path of localVersionHighWaterRef.current.keys()) {
+      if (!paths.has(path)) {
+        localVersionHighWaterRef.current.delete(path);
+      }
+    }
     for (const [path, listener] of listenersRef.current) {
       if (!paths.has(path)) {
         listener.dispose();
@@ -135,6 +155,15 @@ export const SourceEditor = forwardRef<
         path,
         model.onDidChangeContent(() => {
           if (!registry.isApplyingExternalChange()) {
+            const renderedVersion =
+              filesRef.current.find((file) => file.path === path)?.version ??
+              0;
+            const localVersion =
+              localVersionHighWaterRef.current.get(path) ?? renderedVersion;
+            localVersionHighWaterRef.current.set(
+              path,
+              Math.max(localVersion, renderedVersion) + 1,
+            );
             contentCallbackRef.current(path, model.getValue());
           }
         }),

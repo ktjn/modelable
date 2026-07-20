@@ -28,6 +28,7 @@ import {
 } from './files';
 import {
   createDefaultWorkspace,
+  mutateWorkspace,
   workspaceSources,
   type PlaygroundWorkspace,
 } from './workspace';
@@ -195,7 +196,7 @@ export function App({
         return;
       }
 
-      const workspace = state.workspace;
+      const workspace = workspaceRef.current;
       const sources = workspaceSources(workspace);
       const revision = workspace.revision;
       const activePath = workspace.activeFile;
@@ -311,7 +312,7 @@ export function App({
         operationPendingRef.current = false;
       }
     },
-    [now, state.runtime, state.workspace],
+    [now, state.runtime],
   );
 
   const handleValidate = useCallback((): void => {
@@ -568,6 +569,10 @@ export function App({
             activeFile={state.workspace.activeFile}
             markersByUri={markersByUri}
             onContentChange={(path, content) => {
+              workspaceRef.current = mutateWorkspace(
+                workspaceRef.current,
+                { type: 'update', path, content },
+              );
               setStatusIsError(false);
               dispatch({
                 type: 'workspaceMutated',

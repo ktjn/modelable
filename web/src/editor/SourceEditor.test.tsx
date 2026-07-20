@@ -8,6 +8,7 @@ import type { PlaygroundFile } from '../workspace';
 import { SourceEditor } from './SourceEditor';
 
 const monaco = vi.hoisted(() => {
+  const models = new Map<string, editor.ITextModel>();
   const sourceEditor = {
     currentModel: null as editor.ITextModel | null,
     dispose: vi.fn(),
@@ -34,9 +35,14 @@ const monaco = vi.hoisted(() => {
         return sourceEditor;
       },
     ),
-    createModel: vi.fn((content: string, _language: string, uri: string) =>
-      fakeModel(content, uri),
+    createModel: vi.fn(
+      (content: string, _language: string, uri: string) => {
+        const model = fakeModel(content, uri);
+        models.set(uri, model);
+        return model;
+      },
     ),
+    models,
     setModelMarkers: vi.fn(),
     sourceEditor,
   };
@@ -55,6 +61,7 @@ vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  monaco.models.clear();
   monaco.sourceEditor.currentModel = null;
 });
 
@@ -92,6 +99,39 @@ test('switches active models and restores in-session view state', () => {
   expect(monaco.sourceEditor.restoreViewState).toHaveBeenCalledWith(
     aViewState,
   );
+});
+
+test('does not overwrite newer Monaco edits with an older React snapshot', () => {
+  const onContentChange = vi.fn();
+  const initialFile: PlaygroundFile = {
+    path: 'main.mdl',
+    content: '',
+    version: 1,
+  };
+  const props = {
+    activeFile: 'main.mdl',
+    markersByUri: new Map(),
+    onContentChange,
+  };
+  const { rerender } = render(
+    <SourceEditor {...props} files={[initialFile]} />,
+  );
+  const model = monaco.models.get('file:///main.mdl');
+  expect(model).toBeDefined();
+
+  model?.setValue('d');
+  model?.setValue('do');
+  expect(onContentChange).toHaveBeenNthCalledWith(1, 'main.mdl', 'd');
+  expect(onContentChange).toHaveBeenNthCalledWith(2, 'main.mdl', 'do');
+
+  rerender(
+    <SourceEditor
+      {...props}
+      files={[{ ...initialFile, content: 'd', version: 2 }]}
+    />,
+  );
+
+  expect(model?.getValue()).toBe('do');
 });
 
 function fakeModel(content: string, uri: string): editor.ITextModel {

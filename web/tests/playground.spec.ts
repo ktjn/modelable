@@ -139,7 +139,10 @@ test('initializes locally and supports the complete editor workflow', async ({
   );
 
   await replaceSource(page, `${validCompact}\n`);
-  await expect(page.getByText(/stale.source changed/i)).toBeVisible();
+  await expect(page.getByText('No artifact yet')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Export artifact' }),
+  ).toBeDisabled();
 
   page.once('dialog', async (dialog) => {
     expect(dialog.message()).toContain('discard unsaved changes');
@@ -151,6 +154,10 @@ test('initializes locally and supports the complete editor workflow', async ({
     buffer: Buffer.from(importedSource),
   });
   await expect(sourceOutput(page)).toContainText(/domain\s+imported/);
+  await actions[2].click();
+  await expect(artifactOutput(page)).toContainText(
+    /"title":\s+"Imported"/,
+  );
 
   const sourceDownloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export source' }).click();
