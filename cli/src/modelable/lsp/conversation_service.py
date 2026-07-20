@@ -19,6 +19,7 @@ from modelable.lsp.conversation_protocol import (
 from modelable.lsp.definition import definition_location_for_ref
 from modelable.lsp.document_symbols import find_focused_ref
 from modelable.lsp.workspace import LspWorkspaceIndex, find_workspace_root, uri_to_path
+from modelable.operations.compilation import PendingCompilation
 
 SessionFactory = Callable[..., ConversationSession]
 
@@ -100,11 +101,9 @@ class LspConversationService:
         entry = self._require_session(params.session_id, now)
         self._require_pending(entry, params.change_set_id)
         if entry.session.pending_operation_kind == "compile":
-            raise ConversationSessionError(
-                "Compilation apply requires conversation protocol v2; "
-                "use CLI chat or discard this preview until the client is upgraded."
-            )
-        self._require_saved(entry.root, params.dirty_document_uris)
+            self._require_compilation_destinations_saved(entry, params.dirty_document_uris)
+        else:
+            self._require_saved(entry.root, params.dirty_document_uris)
         reply = entry.session.turn("/apply")
         entry.touched_at = now
         return self._serialize(reply, params.session_id, entry)
@@ -178,6 +177,24 @@ class LspConversationService:
         if dirty_paths:
             paths = ", ".join(str(path) for path in sorted(dirty_paths))
             raise ConversationSessionError(f"Save these files before continuing the conversation: {paths}")
+
+    def _require_compilation_destinations_saved(
+        self,
+        entry: _SessionEntry,
+        dirty_document_uris: tuple[str, ...],
+    ) -> None:
+        pending = entry.session.pending
+        if not isinstance(pending, PendingCompilation):
+            return
+        destinations = {item.destination.resolve() for item in pending.files}
+        dirty_destinations = {
+            path.resolve()
+            for uri in dirty_document_uris
+            if (path := uri_to_path(uri)) is not None and path.resolve() in destinations
+        }
+        if dirty_destinations:
+            paths = ", ".join(str(path) for path in sorted(dirty_destinations))
+            raise ConversationSessionError(f"Save generated files before applying the compilation: {paths}")
 
     def _focused_ref(
         self,

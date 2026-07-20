@@ -7,8 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from modelable.diagnostics.model import Diagnostic
 from modelable.llm.conversation import ConversationReply
+from modelable.operations.compilation import CompilationFilePreview
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 TURN_METHOD = "modelable/conversation/turn"
 APPLY_METHOD = "modelable/conversation/apply"
 DISCARD_METHOD = "modelable/conversation/discard"
@@ -70,6 +71,7 @@ def serialize_conversation_reply(
         "sessionId": session_id,
         "workspaceUri": workspace_uri,
         "changeSetId": reply.change_set_id,
+        "operationKind": reply.operation_kind,
         "focusedRef": reply.focused_ref,
         "changedDefinitions": [
             {
@@ -106,7 +108,33 @@ def serialize_conversation_reply(
             }
             for item in reply.preview_files
         ],
+        "compilationFiles": [_serialize_compilation_file(item) for item in reply.compilation_files],
+        "registryIdChanges": [
+            {
+                "ref": item.ref,
+                "registryId": item.registry_id,
+            }
+            for item in reply.registry_id_changes
+        ],
+        "auditUri": reply.audit_path.resolve().as_uri() if reply.audit_path is not None else None,
         "writtenPaths": [path.resolve().as_uri() for path in reply.written_paths],
+    }
+
+
+def _serialize_compilation_file(item: CompilationFilePreview) -> dict[str, object]:
+    return {
+        "category": item.category,
+        "uri": item.destination.resolve().as_uri(),
+        "status": item.status,
+        "mediaType": item.media_type,
+        "ref": item.ref,
+        "beforeHash": item.before_hash,
+        "afterHash": item.after_hash,
+        "beforeSize": item.before_size,
+        "afterSize": item.after_size,
+        "beforeText": item.before_text,
+        "afterText": item.after_text,
+        "diffText": item.diff_text,
     }
 
 

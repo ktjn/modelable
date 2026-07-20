@@ -129,7 +129,7 @@ def _turn_params(
 ) -> ConversationTurnParams:
     return ConversationTurnParams.model_validate(
         {
-            "protocolVersion": 1,
+            "protocolVersion": 2,
             "sessionId": session_id,
             "createSession": create_session,
             "workspaceUri": root.as_uri(),
@@ -455,9 +455,7 @@ def test_registry_lru_eviction_disposes_compilation_staging(tmp_path: Path) -> N
     assert not pending.staging_dir.exists()
 
 
-def test_lsp_compile_apply_returns_protocol_guidance_without_attribute_error(
-    tmp_path: Path,
-) -> None:
+def test_lsp_compile_apply_uses_protocol_v2(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     _write_customer_workspace(root)
 
@@ -474,20 +472,84 @@ def test_lsp_compile_apply_returns_protocol_guidance_without_attribute_error(
     action_id = preview["changeSetId"]
     assert isinstance(action_id, str)
 
-    with pytest.raises(ConversationSessionError, match="protocol v2"):
-        service.apply(
-            _change_set_params(
-                session_id="session-1",
-                change_set_id=action_id,
-            )
-        )
-
-    service.discard(
+    reply = service.apply(
         _change_set_params(
             session_id="session-1",
             change_set_id=action_id,
         )
     )
+
+    assert reply["kind"] == "applied"
+    assert reply["operationKind"] == "compile"
+    assert reply["changeSetId"] == action_id
+    assert reply["auditUri"] is not None
+
+
+def test_lsp_compile_apply_rejects_dirty_generated_destination(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    sessions: list[ConversationSession] = []
+
+    def compile_session(root: Path, focused_ref: str | None) -> ConversationSession:
+        session = ConversationSession(
+            path=root,
+            provider=_CompileProvider(),
+            focused_ref=focused_ref,
+            compilation_service=CompilationService(temp_root=tmp_path),
+        )
+        sessions.append(session)
+        return session
+
+    service = LspConversationService(session_factory=compile_session)
+    preview = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "compile to rust"}))
+    action_id = preview["changeSetId"]
+    pending = sessions[0].pending
+    assert isinstance(action_id, str)
+    assert isinstance(pending, PendingCompilation)
+    destination = pending.files[0].destination
+
+    with pytest.raises(
+        ConversationSessionError,
+        match=r"^Save generated files before applying the compilation: ",
+    ) as error:
+        service.apply(
+            _change_set_params(
+                session_id="session-1",
+                change_set_id=action_id,
+                dirty_document_uris=(destination.as_uri(),),
+            )
+        )
+
+    assert str(destination) in str(error.value)
+    service.discard(_change_set_params(session_id="session-1", change_set_id=action_id))
+
+
+def test_lsp_compile_apply_allows_dirty_unrelated_file(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    unrelated = _write_customer_workspace(root)
+
+    def compile_session(root: Path, focused_ref: str | None) -> ConversationSession:
+        return ConversationSession(
+            path=root,
+            provider=_CompileProvider(),
+            focused_ref=focused_ref,
+            compilation_service=CompilationService(temp_root=tmp_path),
+        )
+
+    service = LspConversationService(session_factory=compile_session)
+    preview = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "compile to rust"}))
+    action_id = preview["changeSetId"]
+    assert isinstance(action_id, str)
+
+    reply = service.apply(
+        _change_set_params(
+            session_id="session-1",
+            change_set_id=action_id,
+            dirty_document_uris=(unrelated.as_uri(),),
+        )
+    )
+
+    assert reply["kind"] == "applied"
 
 
 def test_default_lsp_session_uses_real_vscode_confirmation_provenance(tmp_path: Path) -> None:
@@ -553,7 +615,7 @@ def _change_set_params(
 ) -> ConversationChangeSetParams:
     return ConversationChangeSetParams.model_validate(
         {
-            "protocolVersion": 1,
+            "protocolVersion": 2,
             "sessionId": session_id,
             "changeSetId": change_set_id,
             "dirtyDocumentUris": list(dirty_document_uris),
