@@ -95,7 +95,8 @@ export class BrowserLanguageServiceController {
         line: position.line,
         character: position.character,
       });
-      return this.observed?.revision === captured.revision
+      return !this.disposed &&
+        this.observed?.revision === captured.revision
         ? result
         : undefined;
     } catch (error: unknown) {
@@ -118,7 +119,8 @@ export class BrowserLanguageServiceController {
         line: position.line,
         character: position.character,
       });
-      return this.observed?.revision === captured.revision
+      return !this.disposed &&
+        this.observed?.revision === captured.revision
         ? result
         : undefined;
     } catch (error: unknown) {
@@ -127,7 +129,11 @@ export class BrowserLanguageServiceController {
   }
 
   async retry(): Promise<void> {
-    if (this.disposed) {
+    if (
+      this.disposed ||
+      (this.lastFailure !== undefined &&
+        isTerminalError(this.lastFailure))
+    ) {
       return;
     }
     this.lastFailure = undefined;
@@ -185,7 +191,11 @@ export class BrowserLanguageServiceController {
         );
       }
     } catch (error: unknown) {
-      if (this.disposed || isStaleError(error)) {
+      if (
+        this.disposed ||
+        this.observed?.revision !== workspace.revision ||
+        isStaleError(error)
+      ) {
         return;
       }
       const compilerError = toCompilerError(error);
@@ -199,6 +209,7 @@ export class BrowserLanguageServiceController {
     workspaceRevision: number,
   ): T | undefined {
     if (
+      this.disposed ||
       isStaleError(error) ||
       this.observed?.revision !== workspaceRevision
     ) {

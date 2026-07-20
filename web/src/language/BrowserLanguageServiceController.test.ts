@@ -187,6 +187,29 @@ describe('BrowserLanguageServiceController', () => {
     expect(onDiagnostics).toHaveBeenCalledWith(3, []);
   });
 
+  test('suppresses failures from synchronization superseded by a newer revision', async () => {
+    const client = new FakeClient();
+    const first = deferred<BrowserWorkspaceResult>();
+    client.openWorkspace.mockImplementationOnce(() => first.promise);
+    const onError = vi.fn();
+    const controller = new BrowserLanguageServiceController(client, {
+      onError,
+    });
+    controller.observe(workspaceAt(2));
+    const synchronization = controller.synchronize();
+
+    controller.observe(workspaceAt(3));
+    first.reject(
+      new BrowserCompilerError(
+        'LANGUAGE_UNAVAILABLE',
+        'Language services unavailable',
+      ),
+    );
+    await synchronization;
+
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   test('suppresses provider results after a newer workspace is observed', async () => {
     const client = new FakeClient();
     const completion = deferred<BrowserCompletionResult>();
@@ -227,6 +250,78 @@ describe('BrowserLanguageServiceController', () => {
       character: 3,
     });
   });
+
+  test('suppresses a completion success that arrives after disposal', async () => {
+    const client = new FakeClient();
+    const completion = deferred<BrowserCompletionResult>();
+    client.completion.mockImplementationOnce(() => completion.promise);
+    const controller = new BrowserLanguageServiceController(client);
+    const captured = workspaceAt(2);
+    controller.observe(captured);
+    await controller.synchronize();
+
+    const result = controller.completion(
+      captured,
+      'file:///main.mdl',
+      { line: 0, character: 0 },
+    );
+    await Promise.resolve();
+    controller.dispose();
+    completion.resolve({ items: [] });
+
+    await expect(result).resolves.toBeUndefined();
+  });
+
+  test('suppresses a hover success that arrives after disposal', async () => {
+    const client = new FakeClient();
+    const hover = deferred<BrowserHoverResult>();
+    client.hover.mockImplementationOnce(() => hover.promise);
+    const controller = new BrowserLanguageServiceController(client);
+    const captured = workspaceAt(2);
+    controller.observe(captured);
+    await controller.synchronize();
+
+    const result = controller.hover(
+      captured,
+      'file:///main.mdl',
+      { line: 0, character: 0 },
+    );
+    await Promise.resolve();
+    controller.dispose();
+    hover.resolve({ hover: null });
+
+    await expect(result).resolves.toBeUndefined();
+  });
+
+  test.each(['completion', 'hover'] as const)(
+    'suppresses terminal %s errors that arrive after disposal',
+    async (method) => {
+      const client = new FakeClient();
+      const provider = deferred<never>();
+      client[method].mockImplementationOnce(() => provider.promise);
+      const onError = vi.fn();
+      const controller = new BrowserLanguageServiceController(client, {
+        onError,
+      });
+      const captured = workspaceAt(2);
+      controller.observe(captured);
+      await controller.synchronize();
+
+      const result = controller[method](
+        captured,
+        'file:///main.mdl',
+        { line: 0, character: 0 },
+      );
+      await Promise.resolve();
+      controller.dispose();
+      provider.reject(
+        new BrowserCompilerError('COMPILER_FAILED', 'Worker failed'),
+      );
+
+      await expect(result).resolves.toBeUndefined();
+      expect(onError).not.toHaveBeenCalled();
+    },
+  );
 
   test('silently suppresses stale synchronization and provider errors', async () => {
     const client = new FakeClient();
@@ -274,25 +369,31 @@ describe('BrowserLanguageServiceController', () => {
     expect(client.dispose).not.toHaveBeenCalled();
   });
 
-  test('reports terminal client failures and does not replace a disposed client on retry', async () => {
-    const client = new FakeClient();
-    const terminal = new BrowserCompilerError(
-      'COMPILER_FAILED',
-      'Compiler client has been disposed',
-    );
-    client.openWorkspace.mockRejectedValue(terminal);
-    const onError = vi.fn();
-    const controller = new BrowserLanguageServiceController(client, {
-      onError,
-    });
-    controller.observe(workspaceAt(2));
+  test.each([
+    'INITIALIZATION_FAILED',
+    'COMPILER_FAILED',
+    'UNSUPPORTED_PROTOCOL',
+  ] as const)(
+    'reports terminal %s failures and does not reuse that client on retry',
+    async (code) => {
+      const client = new FakeClient();
+      const terminal = new BrowserCompilerError(
+        code,
+        'Compiler client is terminal',
+      );
+      client.openWorkspace.mockRejectedValue(terminal);
+      const onError = vi.fn();
+      const controller = new BrowserLanguageServiceController(client, {
+        onError,
+      });
+      controller.observe(workspaceAt(2));
 
-    await controller.synchronize();
-    await controller.retry();
-    expect(client.openWorkspace).toHaveBeenCalledTimes(2);
-    expect(onError).toHaveBeenNthCalledWith(1, terminal);
-    expect(onError).toHaveBeenNthCalledWith(2, terminal);
-  });
+      await controller.synchronize();
+      await controller.retry();
+      expect(client.openWorkspace).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenNthCalledWith(1, terminal);
+    },
+  );
 
   test('dispose cancels synchronization and disposes the shared client once', async () => {
     const client = new FakeClient();
