@@ -15,7 +15,7 @@ from modelable.llm.context import (
     parse_model_ref,
 )
 from modelable.llm.conversation import ConversationSession
-from modelable.llm.engine import recommend_cli, update_definition
+from modelable.llm.engine import AttachResult, UpdateResult, recommend_cli, update_definition
 from modelable.llm.providers import LLMProvider, LLMRequest
 from modelable.llm.qa import answer_question
 
@@ -26,6 +26,8 @@ class ChatState:
     workspace_summary: str | None = None
     history: list[tuple[str, str]] = field(default_factory=list)
     session: ConversationSession | None = field(default=None, repr=False)
+    provider_name: str | None = None
+    model_name: str | None = None
 
 
 CHAT_SYSTEM_PROMPT = """You are Modelable's interactive assistant.
@@ -63,7 +65,10 @@ def chat_turn(
 ) -> str:
     stripped = message.strip()
     command = stripped.partition(" ")[0].lower()
-    if command in {"/apply", "/discard", "/ask"}:
+    if command in {"/exit", "/quit"}:
+        close_chat(state)
+        response = "/exit"
+    elif command in {"/apply", "/discard", "/ask", "/compile"}:
         if command == "/ask" and not stripped.partition(" ")[2].strip():
             response = "Provide a question after /ask."
         else:
@@ -72,6 +77,8 @@ def chat_turn(
                 stripped,
                 state=state,
                 provider=provider,
+                provider_name=state.provider_name,
+                model_name=state.model_name,
             )
     elif stripped.startswith("/"):
         active_workspace = state.session.workspace if state.session is not None else workspace
@@ -88,10 +95,18 @@ def chat_turn(
             stripped,
             state=state,
             provider=provider,
+            provider_name=state.provider_name,
+            model_name=state.model_name,
         )
     state.history.append(("user", message))
     state.history.append(("assistant", response))
     return response
+
+
+def close_chat(state: ChatState) -> None:
+    if state.session is not None:
+        state.session.close()
+        state.session = None
 
 
 def _conversation_turn(
@@ -100,12 +115,16 @@ def _conversation_turn(
     *,
     state: ChatState,
     provider: LLMProvider | None,
+    provider_name: str | None = None,
+    model_name: str | None = None,
 ) -> str:
     if state.session is None:
         state.session = ConversationSession(
             path=path,
             provider=provider,
             focused_ref=state.ref,
+            provider_name=provider_name,
+            model_name=model_name,
         )
         state.session.history.extend(state.history)
     reply = state.session.turn(message)
@@ -164,7 +183,7 @@ def _handle_chat_command(
     args = parts[1:]
 
     if command in {"help", "?"}:
-        return _chat_help()
+        return chat_help()
     if command == "ref":
         if not args:
             return state.ref or "No focus ref is set."
@@ -216,18 +235,20 @@ def _handle_chat_command(
     return f"Unknown command: {command}. Try /help."
 
 
-def _chat_help() -> str:
+def chat_help() -> str:
     return (
         "Commands: /help, /ref <ref>, /context, /describe [ref], /recommend <ref> [consumer], "
-        "/ask <question>, /update <ref> <instruction> (preview only), /apply, /discard, /exit"
+        "/ask <question>, /update <ref> <instruction> (preview only), "
+        "/compile <target> [--domain <name> ...] [--out <relative-path>] [--descriptor-set], "
+        "/apply, /discard, /exit"
     )
 
 
-def _render_update_preview(result) -> str:
+def _render_update_preview(result: UpdateResult | AttachResult) -> str:
     return _render_update_result(result, written=False)
 
 
-def _render_update_result(result, *, written: bool = True) -> str:
+def _render_update_result(result: UpdateResult | AttachResult, *, written: bool = True) -> str:
     diff = difflib.unified_diff(
         result.original_content.splitlines(),
         result.content.splitlines(),

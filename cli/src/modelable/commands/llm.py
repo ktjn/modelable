@@ -547,23 +547,37 @@ def chat(
         provider=llm_provider,
         focused_ref=ref,
         repair_attempts=config.repair_attempts,
+        provider_name=config.provider,
+        model_name=config.model,
     )
 
-    if message is not None:
-        if message.strip().lower() in {"/exit", "/quit"}:
-            console.print("/exit")
-        else:
-            console.print(session.turn(message).text)
-        return
+    try:
+        if message is not None:
+            if message.strip().lower() in {"/exit", "/quit"}:
+                console.print("/exit")
+            elif message.strip().lower() in {"/help", "/?"}:
+                from modelable.llm.chat import chat_help
 
-    console.print("Modelable chat. Type /exit to quit.")
-    while True:
-        try:
-            user_message = click.prompt("you", prompt_suffix="> ", default="", show_default=False)
-        except EOFError, click.Abort:
-            break
-        if not user_message.strip():
-            continue
-        if user_message.strip().lower() in {"/exit", "/quit"}:
-            break
-        console.print(f"assistant> {session.turn(user_message).text}")
+                console.print(chat_help())
+            else:
+                console.print(session.turn(message).text)
+            return
+
+        console.print("Modelable chat. Type /help for commands or /exit to quit.")
+        while True:
+            try:
+                user_message = click.prompt("you", prompt_suffix="> ", default="", show_default=False)
+            except EOFError, click.Abort:
+                break
+            if not user_message.strip():
+                continue
+            if user_message.strip().lower() in {"/exit", "/quit"}:
+                break
+            if user_message.strip().lower() in {"/help", "/?"}:
+                from modelable.llm.chat import chat_help
+
+                console.print(f"assistant> {chat_help()}")
+                continue
+            console.print(f"assistant> {session.turn(user_message).text}")
+    finally:
+        session.close()

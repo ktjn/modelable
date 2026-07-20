@@ -13,6 +13,7 @@ from modelable.llm.chat import ChatState, chat_reply, chat_turn
 from modelable.llm.config import LlmConfig, resolve_llm_config
 from modelable.llm.engine import update_definition
 from modelable.llm.providers import LLMRequest, LLMResponse, OllamaProvider, build_provider
+from modelable.operations.compilation import CompilationService
 
 
 class SequenceProvider:
@@ -533,6 +534,110 @@ def test_chat_interactive_session_applies_its_pending_change(tmp_path, monkeypat
     assert "Applied change set" in result.output
     assert "entity Customer @ 1" in source.read_text(encoding="utf-8")
     assert len(provider.requests) == 1
+
+
+@pytest.mark.parametrize(
+    ("arguments", "input_text"),
+    [
+        (["--message", "/compile rust"], None),
+        ([], "/compile rust\n/quit\n"),
+        ([], "/compile rust\n"),
+    ],
+)
+def test_chat_closes_compile_staging_on_single_message_quit_and_eof(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    arguments: list[str],
+    input_text: str | None,
+) -> None:
+    (tmp_path / "workspace.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    service = CompilationService(temp_root=tmp_path.parent, new_id=lambda: "compile-cli")
+    pending = []
+    original_preview = service.preview
+
+    def recording_preview(*args, **kwargs):
+        result = original_preview(*args, **kwargs)
+        pending.append(result)
+        return result
+
+    from modelable.llm.conversation import ConversationSession
+
+    def session_factory(**kwargs):
+        return ConversationSession(**kwargs, compilation_service=service)
+
+    monkeypatch.setattr(service, "preview", recording_preview)
+    monkeypatch.setattr("modelable.commands.llm.ConversationSession", session_factory)
+
+    result = CliRunner().invoke(
+        cli,
+        ["chat", "--path", str(tmp_path), *arguments],
+        input=input_text,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Only the literal /apply" in result.output
+    assert pending
+    assert not pending[0].staging_dir.exists()
+
+
+def test_chat_closes_compile_staging_when_turn_raises(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "workspace.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    service = CompilationService(temp_root=tmp_path.parent, new_id=lambda: "compile-error")
+    pending = []
+    original_preview = service.preview
+
+    def recording_preview(*args, **kwargs):
+        result = original_preview(*args, **kwargs)
+        pending.append(result)
+        return result
+
+    from modelable.llm.conversation import ConversationSession
+
+    class FailingSession(ConversationSession):
+        def turn(self, message: str):
+            if message == "explode":
+                raise RuntimeError("injected chat failure")
+            return super().turn(message)
+
+    def session_factory(**kwargs):
+        return FailingSession(**kwargs, compilation_service=service)
+
+    monkeypatch.setattr(service, "preview", recording_preview)
+    monkeypatch.setattr("modelable.commands.llm.ConversationSession", session_factory)
+
+    result = CliRunner().invoke(
+        cli,
+        ["chat", "--path", str(tmp_path)],
+        input="/compile rust\nexplode\n",
+    )
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, RuntimeError)
+    assert pending
+    assert not pending[0].staging_dir.exists()
 
 
 def test_chat_honors_zero_configured_plan_repair_attempts(tmp_path, monkeypatch):
