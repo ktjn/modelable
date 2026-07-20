@@ -180,6 +180,44 @@ def test_hover_resolves_new_projection_alias_bound_to_same_semantic_source() -> 
     assert "type: string" in result.markdown
 
 
+@pytest.mark.parametrize("join_keyword", ["join", "left join"])
+def test_hover_resolves_current_join_alias(join_keyword: str) -> None:
+    text = WORKSPACE_TEXT.replace(
+        "    from sales.Customer @ 1 as c",
+        f"    from sales.Customer @ 1 as c\n    {join_keyword} sales.Customer @ 1 as d on c.customerId == d.customerId",
+    ).replace(
+        "    displayName = c.customerName",
+        "    displayName = d.customerName",
+    )
+
+    result = hover(
+        parsed_language_workspace(text),
+        URI,
+        position_of(text, "displayName = d.customerName", "d.customerName"),
+    )
+
+    assert result is not None
+    assert "sales.Customer@1.customerName" in result.markdown
+    assert "type: string" in result.markdown
+
+
+def test_hover_resolves_same_line_source_clause_with_noncanonical_whitespace() -> None:
+    text = WORKSPACE_TEXT.replace(
+        "  projection CustomerView @ 1\n    from sales.Customer @ 1 as c\n  {",
+        "  projection CustomerView @ 1   from   sales . Customer @1   as c   {",
+    )
+
+    result = hover(
+        parsed_language_workspace(text),
+        URI,
+        position_of(text, "displayName = c.customerName", "c.customerName"),
+    )
+
+    assert result is not None
+    assert "sales.Customer@1.customerName" in result.markdown
+    assert "type: string" in result.markdown
+
+
 def test_hover_rejects_current_alias_retargeted_to_unavailable_source() -> None:
     state = parsed_language_workspace()
     current = (

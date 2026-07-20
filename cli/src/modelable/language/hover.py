@@ -28,11 +28,11 @@ _QUALIFIED_REF_PATTERN = re.compile(
 _REF_TYPE_PATTERN = re.compile(r"ref\s*<\s*(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*>")
 _FIELD_REF_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
 _SOURCE_ALIAS_PATTERN = re.compile(
-    r"^\s*(?:from|join)\s+(?P<domain>[A-Za-z_][A-Za-z0-9_.-]*)\."
-    r"(?P<model>[A-Za-z_][A-Za-z0-9_.-]*)\s*@\s*"
-    r"(?P<version>\d+(?:#[0-9a-fA-F]+)?|>=\s*\d+(?:\s*<\s*\d+)?)\s+as\s+"
-    r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)"
-    r"(?:\s+on\s+.*)?$"
+    r"(?<![A-Za-z0-9_-])(?:from|(?:left\s+)?join)\s+"
+    r"(?P<domain>[A-Za-z_][A-Za-z0-9_-]*)\s*\.\s*"
+    r"(?P<model>[A-Za-z_][A-Za-z0-9_-]*(?:\s*\.\s*[A-Za-z_][A-Za-z0-9_-]*)*)"
+    r"\s*@\s*(?P<version>\d+(?:\s*#\s*[0-9a-fA-F]+)?|>=\s*\d+(?:\s*<\s*\d+)?)"
+    r"\s+as\s+(?P<alias>[A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_-])"
 )
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
@@ -474,13 +474,13 @@ def _projection_reference_for_alias(
 ) -> tuple[str, VersionSpec | int] | None:
     lines = text.splitlines()
     end_line = min(line, len(lines) - 1)
-    for item in lines[scope_line + 1 : end_line + 1]:
-        match = _SOURCE_ALIAS_PATTERN.match(item)
-        if match is None or match.group("alias") != alias:
+    active_projection = "\n".join(lines[scope_line : end_line + 1])
+    for match in _SOURCE_ALIAS_PATTERN.finditer(active_projection):
+        if match.group("alias") != alias:
             continue
-        domain, model, version = parse_model_ref_version_spec(
-            f"{match.group('domain')}.{match.group('model')}@{match.group('version')}"
-        )
+        model = re.sub(r"\s*\.\s*", ".", match.group("model"))
+        version_text = re.sub(r"\s+", "", match.group("version"))
+        domain, model, version = parse_model_ref_version_spec(f"{match.group('domain')}.{model}@{version_text}")
         return f"{domain}.{model}", version
     return None
 
