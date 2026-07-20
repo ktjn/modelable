@@ -220,7 +220,12 @@ class CompilationService:
         temp_root: Path | None = None,
         new_id: Callable[[], str] = lambda: str(uuid.uuid4()),
         clock: Callable[[], str] = lambda: _timestamp_now(),
-        transaction_factory: Callable[[Path], FileTransaction] = (lambda root: FileTransaction(workspace_root=root)),
+        transaction_factory: Callable[[Path], FileTransaction] = (
+            lambda root: FileTransaction(
+                workspace_root=root,
+                lock_timeout=30,
+            )
+        ),
     ) -> None:
         self.temp_root = temp_root
         self.new_id = new_id
@@ -283,7 +288,10 @@ class CompilationService:
                 destination=mapper.destination_for(path),
                 staged_path=path.resolve(),
             )
-            for path in run.direct.written_paths
+            for path in sorted(
+                run.direct.written_paths,
+                key=mapper.promotion_order,
+            )
         )
         written_paths = self.transaction_factory(workspace_root).promote(staged_files)
         return DirectCompilationResult(
@@ -346,7 +354,16 @@ class CompilationService:
                 artifacts=run.artifacts,
                 registry_id_changes=registry_id_changes,
             )
-            warnings = tuple(event.message for event in result.events if event.level == "warning")
+            warnings = tuple(
+                _sanitize_preview_warning(
+                    event.message,
+                    files=files,
+                    staging_dir=staging_dir,
+                    workspace_root=workspace_root,
+                )
+                for event in result.events
+                if event.level == "warning"
+            )
             action_id = self.new_id()
             preview_timestamp = self.clock()
             audit_resolved_parent = (workspace_root / ".modelable" / "audit" / "compilations").resolve(strict=False)
@@ -392,14 +409,7 @@ class CompilationService:
     ) -> AppliedCompilation:
         try:
             _verify_confirmation(pending, confirmation)
-            _verify_freshness(pending)
             audit_path = pending.workspace_root / ".modelable" / "audit" / "compilations" / f"{pending.action_id}.json"
-            if audit_path.exists():
-                raise StaleCompilationError(f"Compilation audit destination changed after preview: {audit_path}")
-            if audit_path.parent.resolve(strict=False) != pending.audit_resolved_parent:
-                raise StaleCompilationError(
-                    f"Compilation audit resolved parent changed after preview: {audit_path.parent}"
-                )
             audit_staged_path = pending.staging_dir / "compilation-audit.json"
             audit_staged_path.write_bytes(
                 _audit_record(
@@ -422,7 +432,13 @@ class CompilationService:
                     staged_path=audit_staged_path,
                 )
             )
-            written_paths = self.transaction_factory(pending.workspace_root).promote(transaction_files)
+            written_paths = self.transaction_factory(pending.workspace_root).promote(
+                transaction_files,
+                validate=lambda: _verify_apply_freshness(
+                    pending,
+                    audit_path,
+                ),
+            )
             return AppliedCompilation(
                 action_id=pending.action_id,
                 written_paths=written_paths,
@@ -448,6 +464,18 @@ class _DirectPathMapper:
     staged_registry_ids: Path
     staged_registry: Path
     staged_plans: Path
+
+    def promotion_order(self, staged_path: Path) -> tuple[int, str]:
+        resolved = staged_path.resolve()
+        if resolved == self.staged_registry_ids.resolve():
+            return (0, str(resolved))
+        if resolved == self.staged_registry.resolve():
+            return (1, str(resolved))
+        if resolved.is_relative_to(self.staged_plans.resolve()):
+            return (2, str(resolved))
+        if resolved.is_relative_to(self.staged_output.resolve()):
+            return (3, str(resolved))
+        return (4, str(resolved))
 
     def destination_for(self, staged_path: Path) -> Path:
         resolved = staged_path.resolve()
@@ -768,6 +796,26 @@ def _check_text_preview_limit(files: tuple[CompilationFilePreview, ...]) -> None
         )
 
 
+def _sanitize_preview_warning(
+    warning: str,
+    *,
+    files: tuple[CompilationFilePreview, ...],
+    staging_dir: Path,
+    workspace_root: Path,
+) -> str:
+    sanitized = warning
+    for item in sorted(
+        files,
+        key=lambda file: len(str(file.staged_path)),
+        reverse=True,
+    ):
+        logical_path = item.destination.relative_to(workspace_root).as_posix()
+        sanitized = sanitized.replace(str(item.staged_path), logical_path)
+        sanitized = sanitized.replace(item.staged_path.as_posix(), logical_path)
+    sanitized = sanitized.replace(str(staging_dir), ".")
+    return sanitized.replace(staging_dir.as_posix(), ".")
+
+
 def _fingerprint_source(path: Path) -> FileFingerprint:
     content = path.read_bytes()
     return FileFingerprint(
@@ -1015,6 +1063,17 @@ def _verify_freshness(pending: PendingCompilation) -> None:
     )
     if manifest_fingerprint != pending.manifest_fingerprint:
         raise StaleCompilationError("Compilation manifest changed after preview.")
+
+
+def _verify_apply_freshness(
+    pending: PendingCompilation,
+    audit_path: Path,
+) -> None:
+    _verify_freshness(pending)
+    if audit_path.exists():
+        raise StaleCompilationError(f"Compilation audit destination changed after preview: {audit_path}")
+    if audit_path.parent.resolve(strict=False) != pending.audit_resolved_parent:
+        raise StaleCompilationError(f"Compilation audit resolved parent changed after preview: {audit_path.parent}")
 
 
 def _category_label(

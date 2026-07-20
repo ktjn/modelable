@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import os
+import time
+import uuid
 from collections.abc import Callable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
@@ -53,6 +55,24 @@ class FileTransactionError(Exception):
         super().__init__(message)
 
 
+class FileTransactionCommittedError(Exception):
+    """Promotion committed, but post-commit cleanup was incomplete."""
+
+    committed = True
+
+    def __init__(
+        self,
+        written_paths: Sequence[Path],
+        cleanup_errors: Sequence[RollbackError],
+    ) -> None:
+        self.written_paths = tuple(written_paths)
+        self.cleanup_errors = tuple(cleanup_errors)
+        details = "\n".join(f"  - {item}" for item in self.cleanup_errors)
+        super().__init__(
+            "File transaction committed, but cleanup was incomplete:" + (f"\n{details}" if details else "")
+        )
+
+
 @dataclass(frozen=True)
 class _Promotion:
     file: StagedFile
@@ -66,21 +86,53 @@ class FileTransaction:
         *,
         workspace_root: Path | None = None,
         replace: Callable[[str | Path, str | Path], None] = os.replace,
+        copy_file: Callable[[Path, Path], None] | None = None,
+        unlink: Callable[..., None] | None = None,
+        lock_write: Callable[[int, bytes], int] = os.write,
+        fsync: Callable[[int], None] = os.fsync,
+        lock_timeout: float = 0,
+        lock_poll_interval: float = 0.01,
+        new_id: Callable[[], str] = lambda: uuid.uuid4().hex,
     ) -> None:
         self.workspace_root = workspace_root.resolve() if workspace_root is not None else None
         self._replace = replace
+        self._copy_file = copy_file or _copy_file
+        self._unlink = unlink or _unlink
+        self._lock_write = lock_write
+        self._fsync = fsync
+        self._lock_timeout = lock_timeout
+        self._lock_poll_interval = lock_poll_interval
+        self._token = new_id()
         self._lock_path: Path | None = None
-        self._lock_directories: tuple[Path, ...] = ()
 
-    def promote(self, files: Sequence[StagedFile]) -> tuple[Path, ...]:
-        ordered = tuple(files)
+    def promote(
+        self,
+        files: Sequence[StagedFile],
+        *,
+        validate: Callable[[], None] | None = None,
+    ) -> tuple[Path, ...]:
+        ordered = _last_writers(tuple(files))
         if not ordered:
             return ()
-        destinations = [file.destination for file in ordered]
-        if len(set(destinations)) != len(destinations):
-            raise FileTransactionError(ValueError("duplicate transaction destination"))
+        destinations = tuple(file.destination for file in ordered)
         root = self.workspace_root or _common_root(destinations)
-        self._acquire_lock(root)
+        try:
+            self._acquire_lock(root)
+        except LockContentionError:
+            raise
+        except Exception as error:
+            release_errors = self._release_lock()
+            raise FileTransactionError(error, release_errors) from error
+
+        if validate is not None:
+            try:
+                validate()
+            except Exception as error:
+                release_errors = self._release_lock()
+                if release_errors:
+                    raise FileTransactionError(error, release_errors) from error
+                raise
+
         promotions: list[_Promotion] = []
         promoted: list[_Promotion] = []
         created_directories: list[Path] = []
@@ -89,18 +141,17 @@ class FileTransaction:
                 if _file_hash(file.staged_path) != file.content_hash:
                     raise OSError(f"staged file hash verification failed before promotion: {file.staged_path}")
                 created_directories.extend(_ensure_parent(file.destination.parent))
-                temporary = file.destination.parent / (f".{file.destination.name}.modelable-tmp-{index}")
+                temporary = file.destination.parent / (f".{file.destination.name}.modelable-tmp-{self._token}-{index}")
                 backup = (
-                    file.destination.parent / f".{file.destination.name}.modelable-backup-{index}"
+                    file.destination.parent / f".{file.destination.name}.modelable-backup-{self._token}-{index}"
                     if file.destination.exists()
                     else None
                 )
-                if temporary.exists() or (backup is not None and backup.exists()):
-                    raise OSError(f"transaction temporary already exists for {file.destination}")
+                promotion = _Promotion(file, temporary, backup)
+                promotions.append(promotion)
                 if backup is not None:
-                    _copy_file(file.destination, backup)
-                _copy_file(file.staged_path, temporary)
-                promotions.append(_Promotion(file, temporary, backup))
+                    self._copy_file(file.destination, backup)
+                self._copy_file(file.staged_path, temporary)
 
             for promotion in promotions:
                 self._replace(promotion.temporary, promotion.file.destination)
@@ -109,58 +160,68 @@ class FileTransaction:
             for promotion in promotions:
                 if _file_hash(promotion.file.destination) != promotion.file.content_hash:
                     raise OSError(f"post-write hash verification failed for {promotion.file.destination}")
-
-            for promotion in promotions:
-                if promotion.backup is not None:
-                    promotion.backup.unlink()
-            return tuple(sorted(destinations))
         except Exception as error:
             rollback_errors = self._rollback(
                 promoted,
                 promotions,
                 created_directories,
             )
+            rollback_errors.extend(self._release_lock())
             raise FileTransactionError(error, rollback_errors) from error
-        finally:
-            self._cleanup_temporaries(promotions)
-            self._release_lock()
+
+        cleanup_errors = self._dispose_after_commit(promotions)
+        cleanup_errors.extend(self._release_lock())
+        written_paths = tuple(sorted(destinations))
+        if cleanup_errors:
+            raise FileTransactionCommittedError(written_paths, cleanup_errors)
+        return written_paths
 
     def _acquire_lock(self, root: Path) -> None:
         lock_path = root / ".modelable" / "locks" / "compilation.lock"
-        self._lock_directories = tuple(_ensure_parent(lock_path.parent))
+        _ensure_parent(lock_path.parent)
+        deadline = time.monotonic() + self._lock_timeout
+        while True:
+            try:
+                descriptor = os.open(
+                    lock_path,
+                    os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                    0o600,
+                )
+                break
+            except FileExistsError as exc:
+                if time.monotonic() >= deadline:
+                    raise LockContentionError(f"Compilation promotion is already in progress for {root}.") from exc
+                time.sleep(self._lock_poll_interval)
+        self._lock_path = lock_path
         try:
-            descriptor = os.open(
-                lock_path,
-                os.O_CREAT | os.O_EXCL | os.O_WRONLY,
-                0o600,
-            )
-        except FileExistsError as exc:
-            _remove_empty_directories(self._lock_directories)
-            self._lock_directories = ()
-            raise LockContentionError(f"Compilation promotion is already in progress for {root}.") from exc
-        try:
-            os.write(descriptor, b"locked\n")
-            os.fsync(descriptor)
+            self._lock_write(descriptor, b"locked\n")
+            self._fsync(descriptor)
         finally:
             os.close(descriptor)
-        self._lock_path = lock_path
 
     def _rollback(
         self,
         promoted: Sequence[_Promotion],
         promotions: Sequence[_Promotion],
         created_directories: Sequence[Path],
-    ) -> tuple[RollbackError, ...]:
+    ) -> list[RollbackError]:
         errors: list[RollbackError] = []
+        preserved_backups: set[Path] = set()
         for promotion in reversed(promoted):
             try:
                 if promotion.backup is None:
-                    promotion.file.destination.unlink(missing_ok=True)
+                    self._unlink(promotion.file.destination, missing_ok=True)
                 else:
                     self._replace(promotion.backup, promotion.file.destination)
             except Exception as error:
                 errors.append(RollbackError(promotion.file.destination, error))
-        self._cleanup_temporaries(promotions, errors)
+                if promotion.backup is not None:
+                    preserved_backups.add(promotion.backup)
+        self._cleanup_preparation(
+            promotions,
+            errors,
+            preserved=preserved_backups,
+        )
         for directory in dict.fromkeys(created_directories):
             try:
                 directory.rmdir()
@@ -169,29 +230,69 @@ class FileTransaction:
             except OSError as error:
                 if directory.exists() and not any(directory.iterdir()):
                     errors.append(RollbackError(directory, error))
-        return tuple(errors)
+        return errors
 
-    def _cleanup_temporaries(
+    def _cleanup_preparation(
         self,
         promotions: Sequence[_Promotion],
-        errors: list[RollbackError] | None = None,
+        errors: list[RollbackError],
+        *,
+        preserved: set[Path] | None = None,
     ) -> None:
+        keep = preserved or set()
         for promotion in promotions:
             for path in (promotion.temporary, promotion.backup):
-                if path is None:
+                if path is None or path in keep:
                     continue
                 try:
-                    path.unlink(missing_ok=True)
+                    self._unlink(path, missing_ok=True)
                 except OSError as error:
-                    if errors is not None:
-                        errors.append(RollbackError(path, error))
+                    errors.append(RollbackError(path, error))
 
-    def _release_lock(self) -> None:
-        if self._lock_path is not None:
-            self._lock_path.unlink(missing_ok=True)
-            self._lock_path = None
-        _remove_empty_directories(self._lock_directories)
-        self._lock_directories = ()
+    def _dispose_after_commit(
+        self,
+        promotions: Sequence[_Promotion],
+    ) -> list[RollbackError]:
+        errors: list[RollbackError] = []
+        for promotion in promotions:
+            if promotion.backup is None:
+                continue
+            try:
+                self._unlink(promotion.backup, missing_ok=True)
+            except OSError as error:
+                errors.append(RollbackError(promotion.backup, error))
+                self._quarantine(promotion.backup)
+        return errors
+
+    def _release_lock(self) -> list[RollbackError]:
+        if self._lock_path is None:
+            return []
+        lock_path = self._lock_path
+        errors: list[RollbackError] = []
+        try:
+            self._unlink(lock_path, missing_ok=True)
+        except OSError:
+            released = lock_path.with_name(f".compilation-lock-released-{self._token}")
+            try:
+                self._replace(lock_path, released)
+            except OSError as release_error:
+                errors.append(RollbackError(lock_path, release_error))
+            else:
+                with suppress(OSError):
+                    self._unlink(released, missing_ok=True)
+        self._lock_path = None
+        return errors
+
+    def _quarantine(self, path: Path) -> None:
+        quarantine = path.with_name(f".{path.name}.modelable-cleanup-{self._token}")
+        with suppress(OSError):
+            self._replace(path, quarantine)
+            self._unlink(quarantine, missing_ok=True)
+
+
+def _last_writers(files: tuple[StagedFile, ...]) -> tuple[StagedFile, ...]:
+    last_index = {file.destination: index for index, file in enumerate(files)}
+    return tuple(file for index, file in enumerate(files) if last_index[file.destination] == index)
 
 
 def _copy_file(source: Path, destination: Path) -> None:
@@ -211,6 +312,10 @@ def _copy_file(source: Path, destination: Path) -> None:
         os.close(descriptor)
 
 
+def _unlink(path: Path, *, missing_ok: bool = False) -> None:
+    path.unlink(missing_ok=missing_ok)
+
+
 def _ensure_parent(path: Path) -> list[Path]:
     missing: list[Path] = []
     current = path
@@ -220,12 +325,6 @@ def _ensure_parent(path: Path) -> list[Path]:
     for directory in reversed(missing):
         directory.mkdir()
     return missing
-
-
-def _remove_empty_directories(paths: Sequence[Path]) -> None:
-    for path in paths:
-        with suppress(OSError):
-            path.rmdir()
 
 
 def _common_root(destinations: Sequence[Path]) -> Path:

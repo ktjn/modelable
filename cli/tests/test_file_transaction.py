@@ -179,3 +179,145 @@ def test_transaction_cleans_lock_temporaries_and_backups_after_success(
     assert not (workspace / ".modelable" / "locks" / "compilation.lock").exists()
     assert not list(workspace.rglob("*.modelable-tmp-*"))
     assert not list(workspace.rglob("*.modelable-backup-*"))
+
+
+@pytest.mark.parametrize("failure_kind", ["backup", "temporary"])
+def test_preparation_copy_failure_cleans_partial_files_and_allows_retry(
+    tmp_path: Path,
+    failure_kind: str,
+) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "result.txt"
+    destination.write_bytes(b"before")
+    files = _staged_files(stage, [destination])
+    failed = False
+
+    def partial_copy(source: Path, target: Path) -> None:
+        nonlocal failed
+        is_target = (
+            ".modelable-backup-" in target.name if failure_kind == "backup" else ".modelable-tmp-" in target.name
+        )
+        if is_target and not failed:
+            failed = True
+            target.write_bytes(b"partial")
+            raise OSError(f"injected {failure_kind} copy failure")
+        target.write_bytes(source.read_bytes())
+
+    with pytest.raises(FileTransactionError, match=f"{failure_kind} copy failure"):
+        FileTransaction(
+            workspace_root=workspace,
+            copy_file=partial_copy,
+        ).promote(files)
+
+    assert destination.read_bytes() == b"before"
+    assert not list(workspace.rglob("*.modelable-tmp-*"))
+    assert not list(workspace.rglob("*.modelable-backup-*"))
+    assert not (workspace / ".modelable" / "locks" / "compilation.lock").exists()
+
+    assert FileTransaction(workspace_root=workspace).promote(files) == (destination,)
+    assert destination.read_bytes() == b"after-0"
+
+
+def test_partial_backup_disposal_failure_is_explicitly_committed_and_retry_safe(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    first_stage = tmp_path / "first-stage"
+    second_stage = tmp_path / "second-stage"
+    workspace.mkdir()
+    first_stage.mkdir()
+    second_stage.mkdir()
+    destinations = [workspace / "one.txt", workspace / "two.txt"]
+    for destination in destinations:
+        destination.write_bytes(b"before")
+    disposed_backups = 0
+
+    def fail_second_backup_unlink(path: Path, *, missing_ok: bool = False) -> None:
+        nonlocal disposed_backups
+        if ".modelable-backup-" in path.name:
+            disposed_backups += 1
+            if disposed_backups == 2:
+                raise OSError("injected backup disposal failure")
+        path.unlink(missing_ok=missing_ok)
+
+    with pytest.raises(Exception) as raised:
+        FileTransaction(
+            workspace_root=workspace,
+            unlink=fail_second_backup_unlink,
+        ).promote(_staged_files(first_stage, destinations))
+
+    assert getattr(raised.value, "committed", False)
+    assert [path.read_bytes() for path in destinations] == [b"after-0", b"after-1"]
+    assert not (workspace / ".modelable" / "locks" / "compilation.lock").exists()
+
+    FileTransaction(workspace_root=workspace).promote(_staged_files(second_stage, destinations))
+    assert [path.read_bytes() for path in destinations] == [b"after-0", b"after-1"]
+
+
+@pytest.mark.parametrize("failure_kind", ["write", "fsync"])
+def test_lock_initialization_failure_removes_owned_lock_and_allows_retry(
+    tmp_path: Path,
+    failure_kind: str,
+) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "result.txt"
+    files = _staged_files(stage, [destination])
+
+    def fail_write(descriptor: int, content: bytes) -> int:
+        if failure_kind == "write":
+            raise OSError("injected lock write failure")
+        return os.write(descriptor, content)
+
+    def fail_fsync(descriptor: int) -> None:
+        if failure_kind == "fsync":
+            raise OSError("injected lock fsync failure")
+        os.fsync(descriptor)
+
+    with pytest.raises(FileTransactionError, match=f"lock {failure_kind} failure"):
+        FileTransaction(
+            workspace_root=workspace,
+            lock_write=fail_write,
+            fsync=fail_fsync,
+        ).promote(files)
+
+    assert not destination.exists()
+    assert not (workspace / ".modelable" / "locks" / "compilation.lock").exists()
+    FileTransaction(workspace_root=workspace).promote(files)
+    assert destination.read_bytes() == b"after-0"
+
+
+def test_lock_unlink_failure_uses_safe_release_and_allows_retry(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    first_stage = tmp_path / "first-stage"
+    second_stage = tmp_path / "second-stage"
+    workspace.mkdir()
+    first_stage.mkdir()
+    second_stage.mkdir()
+    destination = workspace / "result.txt"
+    failed = False
+
+    def fail_lock_unlink(path: Path, *, missing_ok: bool = False) -> None:
+        nonlocal failed
+        if path.name == "compilation.lock" and not failed:
+            failed = True
+            raise OSError("injected lock unlink failure")
+        path.unlink(missing_ok=missing_ok)
+
+    written = FileTransaction(
+        workspace_root=workspace,
+        unlink=fail_lock_unlink,
+    ).promote(_staged_files(first_stage, [destination]))
+
+    assert written == (destination,)
+    assert destination.read_bytes() == b"after-0"
+    assert not (workspace / ".modelable" / "locks" / "compilation.lock").exists()
+    FileTransaction(workspace_root=workspace).promote(_staged_files(second_stage, [destination]))
+    assert destination.read_bytes() == b"after-0"

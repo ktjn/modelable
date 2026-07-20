@@ -323,7 +323,7 @@ def test_audit_promotion_failure_rolls_back_compilation_files(
     before = snapshot_tree(tmp_path)
 
     class AuditFailingTransaction(FileTransaction):
-        def promote(self, files):
+        def promote(self, files, *, validate=None):
             audit_destination = files[-1].destination
 
             def fail_audit(source_path, destination_path):
@@ -332,7 +332,7 @@ def test_audit_promotion_failure_rolls_back_compilation_files(
                 os.replace(source_path, destination_path)
 
             self._replace = fail_audit
-            return super().promote(files)
+            return super().promote(files, validate=validate)
 
     service = CompilationService(
         temp_root=tmp_path.parent,
@@ -348,6 +348,97 @@ def test_audit_promotion_failure_rolls_back_compilation_files(
 
     assert snapshot_tree(tmp_path) == before
     assert not pending.staging_dir.exists()
+
+
+def test_waiting_apply_rechecks_freshness_under_workspace_lock(
+    tmp_path: Path,
+) -> None:
+    source = write_workspace(tmp_path)
+    identifiers = iter(("first-action", "second-action"))
+    first_replace_started = threading.Event()
+    release_first_replace = threading.Event()
+    blocked_once = False
+
+    def synchronized_replace(source_path, destination_path):
+        nonlocal blocked_once
+        if ".modelable-tmp-" in Path(source_path).name and not blocked_once:
+            blocked_once = True
+            first_replace_started.set()
+            assert release_first_replace.wait(timeout=10)
+        os.replace(source_path, destination_path)
+
+    service = CompilationService(
+        temp_root=tmp_path.parent,
+        new_id=lambda: next(identifiers),
+        transaction_factory=lambda root: FileTransaction(
+            workspace_root=root,
+            replace=synchronized_replace,
+            lock_timeout=10,
+        ),
+    )
+    first = service.preview(
+        CompilationRequest(source=source, target="rust"),
+        policy=CompilationPolicy.conversation(),
+    )
+    second = service.preview(
+        CompilationRequest(source=source, target="rust"),
+        policy=CompilationPolicy.conversation(),
+    )
+    first_staged = {item.destination: item.staged_path.read_bytes() for item in first.files}
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first_future = executor.submit(
+            service.apply,
+            first,
+            confirmation=confirmation_for(first),
+        )
+        assert first_replace_started.wait(timeout=10)
+        second_future = executor.submit(
+            service.apply,
+            second,
+            confirmation=confirmation_for(second),
+        )
+        release_first_replace.set()
+        applied = first_future.result(timeout=20)
+        with pytest.raises(StaleCompilationError):
+            second_future.result(timeout=20)
+
+    assert {path: path.read_bytes() for path in first_staged} == first_staged
+    assert applied.audit_path.exists()
+    assert not (tmp_path / ".modelable" / "audit" / "compilations" / "second-action.json").exists()
+
+
+def test_json_schema_validation_warning_never_leaks_staging_path_to_audit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from modelable.emitters import json_schema
+
+    source = write_workspace(tmp_path)
+    service = CompilationService(
+        temp_root=tmp_path.parent,
+        new_id=lambda: "warning-action",
+    )
+
+    def fail_validation(schema) -> None:
+        raise ValueError("injected schema validation detail")
+
+    monkeypatch.setattr(
+        json_schema.Draft202012Validator,
+        "check_schema",
+        fail_validation,
+    )
+    pending = service.preview(
+        CompilationRequest(source=source, target="json-schema"),
+        policy=CompilationPolicy.conversation(),
+    )
+
+    assert any("EMIT004" in warning for warning in pending.warnings)
+    assert all(str(pending.staging_dir) not in warning for warning in pending.warnings)
+    applied = service.apply(pending, confirmation=confirmation_for(pending))
+    serialized = applied.audit_path.read_text(encoding="utf-8")
+    assert str(pending.staging_dir) not in serialized
+    assert "modelable-compile-" not in serialized
 
 
 def test_preview_stages_exact_files_without_mutating_workspace(tmp_path: Path) -> None:
@@ -1155,3 +1246,39 @@ def test_execute_direct_preserves_relative_plan_and_artifact_events(
     assert artifact_events
     assert all(not event.path.is_absolute() for event in artifact_events if event.path is not None)
     assert all(event.message == str(event.path) for event in artifact_events)
+
+
+def test_execute_direct_preserves_last_writer_for_overlapping_registry_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    source = write_workspace(tmp_path)
+    reference_ledger = tmp_path / "reference-ids.lock"
+    reference_registry = tmp_path / "reference-registry.db"
+    CompilationService().execute_direct(
+        CompilationRequest(
+            source=source,
+            target="rust",
+            out_dir=tmp_path / "reference-generated",
+            registry_path=str(reference_registry),
+            registry_ids_path=reference_ledger,
+        )
+    )
+    expected_registry = reference_registry.read_bytes()
+    overlap = tmp_path / "overlap-state"
+
+    result = CompilationService().execute_direct(
+        CompilationRequest(
+            source=source,
+            target="rust",
+            out_dir=tmp_path / "generated",
+            registry_path=str(overlap),
+            registry_ids_path=overlap,
+        )
+    )
+
+    assert overlap.read_bytes() == expected_registry
+    assert result.written_paths.count(overlap) == 1
+    assert result.events[0].message == f"wrote {overlap}"
+    assert not (tmp_path / ".modelable" / "audit").exists()
