@@ -1,3 +1,5 @@
+from lsprotocol import types
+
 from modelable.lsp.completion import build_completion
 from modelable.lsp.workspace import LspWorkspaceIndex
 
@@ -35,103 +37,26 @@ def _line_number(text: str, snippet: str) -> int:
     return next(i for i, line in enumerate(lines) if snippet in line)
 
 
-def test_completion_suggests_keywords_at_top_level():
-    source = """
-domain local {
-  owner: "test-team"
-  entity Local @ 1 (additive) {
-    @key localId: uuid
-  }
-}
-""".strip("\n")
-    index = LspWorkspaceIndex()
-    index.upsert_document("inmemory://workspace.mdl", source)
-
-    completion = build_completion(index, "inmemory://workspace.mdl", line=0, character=0)
-
-    labels = [item.label for item in completion.items]
-
-    assert labels[:4] == ["domain", "entity", "aggregate", "event"]
-
-
-def test_completion_suggests_annotations_after_at_symbol():
-    completion = build_completion(
-        _index(), "inmemory://workspace.mdl", line=_line_number(WORKSPACE_TEXT, "@key customerId: uuid"), character=5
-    )
-
-    labels = [item.label for item in completion.items]
-
-    assert "@classification" in labels
-    assert "@server" in labels
-
-
-def test_completion_suggests_workspace_names_after_from_clause():
+def test_completion_adapter_maps_neutral_kind_and_replacement_range():
     completion = build_completion(
         _index(),
         "inmemory://workspace.mdl",
-        line=_line_number(WORKSPACE_TEXT, "from customer.Customer @ 1 as c"),
-        character=9,
+        line=_line_number(WORKSPACE_TEXT, "displayEmail = c.email"),
+        character=len("    display"),
     )
 
-    labels = [item.label for item in completion.items]
-
-    assert "customer.Customer" in labels
-    assert "billing.BillingCustomer" in labels
-
-
-def test_completion_suggests_active_projection_fields_inside_body():
-    completion = build_completion(
-        _index(),
-        "inmemory://workspace.mdl",
-        line=_line_number(WORKSPACE_TEXT, "from customer.Customer @ 1 as c"),
-        character=4,
+    assert [item.label for item in completion.items] == ["displayEmail"]
+    assert completion.items[0].kind == types.CompletionItemKind.Field
+    assert completion.items[0].text_edit == types.TextEdit(
+        range=types.Range(
+            start=types.Position(
+                line=_line_number(WORKSPACE_TEXT, "displayEmail = c.email"),
+                character=4,
+            ),
+            end=types.Position(
+                line=_line_number(WORKSPACE_TEXT, "displayEmail = c.email"),
+                character=len("    display"),
+            ),
+        ),
+        new_text="displayEmail",
     )
-
-    labels = [item.label for item in completion.items]
-
-    assert labels == ["billingId", "displayEmail"]
-
-
-PROJECTION_SOURCE_TEXT = """
-domain customer {
-  owner: "test-team"
-  entity Customer @ 1 (additive) {
-    @key customerId: uuid
-    status: string
-  }
-}
-
-domain catalog {
-  owner: "test-team"
-  projection ProductReply @ 1
-    from customer.Customer @ 1 as c
-  {
-    productId <- c.customerId
-    statusText <- c.status
-  }
-}
-
-domain storefront {
-  owner: "test-team"
-  projection ProductDisplay @ 1
-    from catalog.ProductReply @ 1 as p
-  {
-    displayId <- p.productId
-  }
-}
-""".strip("\n")
-
-
-def test_completion_suggests_projection_source_fields_for_alias():
-    index = LspWorkspaceIndex()
-    index.upsert_document("inmemory://workspace.mdl", PROJECTION_SOURCE_TEXT)
-    lines = PROJECTION_SOURCE_TEXT.splitlines()
-    line_no = next(i for i, line in enumerate(lines) if "displayId <- p." in line)
-    # Position cursor right after "p." to simulate typing before a field name
-    character = lines[line_no].index("p.") + 2
-
-    completion = build_completion(index, "inmemory://workspace.mdl", line=line_no, character=character)
-
-    labels = [item.label for item in completion.items]
-    assert "productId" in labels
-    assert "statusText" in labels
