@@ -980,7 +980,7 @@ static deployment sends no source off-origin.
 - Definition, references, and rename.
 - Cross-file language-service behavior over the shipped durable workspace.
 
-The proposed scope and delivery boundary are documented in
+The accepted scope and delivery boundary are documented in
 [Playground Browser Language Services — Design](superpowers/specs/2026-07-20-playground-browser-language-services-design.md).
 
 No additional ADR is required for Phase 3b: direct Monaco-to-compiler RPC and

@@ -2,7 +2,10 @@
 
 ## Status
 
-Proposed for user review on 2026-07-20.
+Accepted on 2026-07-20.
+
+Execution is broken into reviewable tasks in the
+[Playground Browser Language Services implementation plan](../plans/2026-07-20-playground-browser-language-services.md).
 
 This specification defines Phase 3b of the
 [Modelable Playground architecture](../../playground-design.md). It builds on
