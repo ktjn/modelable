@@ -5,7 +5,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+import modelable.browser.dispatch as browser_dispatch
+from modelable.browser import dispatch_browser_request
+
 FIXTURE_ROOT = Path(__file__).parent / "conformance" / "browser"
+LANGUAGE_FIXTURE_ROOT = Path(__file__).parent / "conformance" / "language"
 SNAPSHOT_ROOT = FIXTURE_ROOT / "snapshots"
 GENERATOR = Path(__file__).parents[1] / "scripts" / "write_browser_conformance.py"
 SNAPSHOT_NAMES = (
@@ -90,3 +94,39 @@ def test_reference_scenario_records_a_reference_diagnostic() -> None:
 
     assert snapshot["open"]["diagnostics"]
     assert any("reference" in diagnostic["message"] for diagnostic in snapshot["open"]["diagnostics"])
+
+
+def _dispatch(method: str, payload: object) -> dict:
+    return json.loads(dispatch_browser_request(method, json.dumps(payload)))
+
+
+def _language_fixture(name: str) -> dict:
+    return json.loads((LANGUAGE_FIXTURE_ROOT / name).read_text(encoding="utf-8"))
+
+
+def test_language_valid_fixture_conforms_for_completion_and_hover() -> None:
+    browser_dispatch._reset_compiler_for_tests()
+    fixture = _language_fixture("workspace-valid.json")
+
+    opened = _dispatch("workspace.open", fixture["workspace"])
+    completion = _dispatch("language.completion", fixture["completion"]["request"])
+    hover = _dispatch("language.hover", fixture["hover"]["request"])
+
+    assert opened["result"]["diagnostics"] == []
+    assert [item["label"] for item in completion["result"]["items"]] == fixture["completion"]["labels"]
+    assert fixture["hover"]["markdownContains"] in hover["result"]["hover"]["markdown"]
+
+
+def test_language_invalid_current_fixture_keeps_last_parseable_results() -> None:
+    browser_dispatch._reset_compiler_for_tests()
+    valid = _language_fixture("workspace-valid.json")
+    invalid = _language_fixture("workspace-invalid-current.json")
+    _dispatch("workspace.open", valid["workspace"])
+
+    opened = _dispatch("workspace.open", invalid["workspace"])
+    completion = _dispatch("language.completion", invalid["completion"]["request"])
+    hover = _dispatch("language.hover", invalid["hover"]["request"])
+
+    assert opened["result"]["diagnostics"][0]["code"] == "PARSE"
+    assert [item["label"] for item in completion["result"]["items"]] == invalid["completion"]["labels"]
+    assert invalid["hover"]["markdownContains"] in hover["result"]["hover"]["markdown"]

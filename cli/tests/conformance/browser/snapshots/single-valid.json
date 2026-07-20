@@ -20,6 +20,7 @@
     "diagnostics": [],
     "source_hashes": {
       "fixture:///single-valid.mdl": "a4e4f3eb9410a08edc5502ed3880cd002cd383988127c1f2287371f2df205596"
-    }
+    },
+    "workspace_revision": 1
   }
 }

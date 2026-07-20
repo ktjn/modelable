@@ -14,6 +14,7 @@
     ],
     "source_hashes": {
       "fixture:///invalid-reference.mdl": "97ae29211653e5ad9339fc131d222c4dccd94e061a03a2383863724154dceada"
-    }
+    },
+    "workspace_revision": 1
   }
 }

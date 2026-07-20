@@ -25,6 +25,7 @@
     "source_hashes": {
       "fixture:///multi-domain-customer.mdl": "1fee8c3c1fbc42875901a3f102e1877f020aaef48787454e538a26aed124c79c",
       "fixture:///multi-domain-order.mdl": "6d06d5091a0c8171fb381924c57cb3092db2b8c27f5f862bfcfdb01cc8acd6b8"
-    }
+    },
+    "workspace_revision": 1
   }
 }

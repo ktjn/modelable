@@ -24,6 +24,7 @@
     ],
     "source_hashes": {
       "fixture:///invalid-semantic.mdl": "fd862344d975bdbb978920fd6d03bc5d0f693c5071dc6187ad506ad7aa7c4ad2"
-    }
+    },
+    "workspace_revision": 1
   }
 }

@@ -1,0 +1,33 @@
+{
+  "workspace": {
+    "workspaceRevision": 1,
+    "sources": [
+      {
+        "uri": "file:///customer.mdl",
+        "text": "domain customer {\n  owner: \"team\"\n  entity Customer @ 1 (additive) {\n    @key customer_id: uuid\n    customer_name: string\n  }\n}\n",
+        "version": 1
+      }
+    ]
+  },
+  "completion": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///customer.mdl",
+      "line": 4,
+      "character": 4
+    },
+    "labels": [
+      "customer_id",
+      "customer_name"
+    ]
+  },
+  "hover": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///customer.mdl",
+      "line": 3,
+      "character": 10
+    },
+    "markdownContains": "customer_id"
+  }
+}
