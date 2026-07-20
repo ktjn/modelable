@@ -165,3 +165,117 @@ domain customer {
     assert uri not in index.documents
     assert index.language.current_document(uri) is None
     assert index.workspace is None
+
+
+def _source(uri: str, domain: str) -> WorkspaceDocumentSource:
+    return WorkspaceDocumentSource(
+        path=None,
+        uri=uri,
+        text=f'domain {domain} {{\n  owner: "test-team"\n}}',
+    )
+
+
+def _assert_document_snapshots_match(index: LspWorkspaceIndex) -> None:
+    assert {uri: source.text for uri, source in index.documents.items()} == {
+        uri: document.text for uri, document in index.language.documents.items()
+    }
+
+
+def test_lsp_document_mapping_update_mediates_changes_and_no_ops():
+    index = LspWorkspaceIndex()
+    first_uri = "inmemory://a.mdl"
+    second_uri = "inmemory://b.mdl"
+    first = _source(first_uri, "first")
+    second = _source(second_uri, "second")
+
+    index.documents.update({second_uri: second, first_uri: first})
+
+    assert index.language.revision == 2
+    assert index.language.current_document(first_uri).version == 1
+    assert index.language.current_document(second_uri).version == 1
+    _assert_document_snapshots_match(index)
+
+    index.documents.update({first_uri: first})
+
+    assert index.language.revision == 2
+    assert index.language.current_document(first_uri).version == 1
+    _assert_document_snapshots_match(index)
+
+
+def test_lsp_document_mapping_setdefault_mediates_insert_and_existing_no_op():
+    index = LspWorkspaceIndex()
+    uri = "inmemory://a.mdl"
+    source = _source(uri, "first")
+
+    inserted = index.documents.setdefault(uri, source)
+    revision = index.language.revision
+    existing = index.documents.setdefault(uri, _source(uri, "replacement"))
+
+    assert inserted == source
+    assert existing == source
+    assert revision == 1
+    assert index.language.revision == revision
+    assert index.language.current_document(uri).version == 1
+    _assert_document_snapshots_match(index)
+
+
+def test_lsp_document_mapping_pop_mediates_removal_and_missing_no_op():
+    index = LspWorkspaceIndex()
+    first_uri = "inmemory://a.mdl"
+    second_uri = "inmemory://b.mdl"
+    index.upsert_document(first_uri, _source(first_uri, "first").text)
+    index.upsert_document(second_uri, _source(second_uri, "second").text)
+
+    removed = index.documents.pop(first_uri)
+    revision = index.language.revision
+    missing = index.documents.pop("inmemory://missing.mdl", None)
+
+    assert removed.uri == first_uri
+    assert missing is None
+    assert revision == 3
+    assert index.language.revision == revision
+    _assert_document_snapshots_match(index)
+
+
+def test_lsp_document_mapping_popitem_mediates_removal():
+    index = LspWorkspaceIndex()
+    first_uri = "inmemory://a.mdl"
+    second_uri = "inmemory://b.mdl"
+    index.upsert_document(first_uri, _source(first_uri, "first").text)
+    index.upsert_document(second_uri, _source(second_uri, "second").text)
+
+    removed_uri, removed = index.documents.popitem()
+
+    assert removed_uri in {first_uri, second_uri}
+    assert removed.uri == removed_uri
+    assert index.language.revision == 3
+    _assert_document_snapshots_match(index)
+
+
+def test_lsp_document_mapping_clear_mediates_each_removal_and_rebuilds():
+    index = LspWorkspaceIndex()
+    first_uri = "inmemory://a.mdl"
+    second_uri = "inmemory://b.mdl"
+    index.upsert_document(first_uri, _source(first_uri, "first").text)
+    index.upsert_document(second_uri, _source(second_uri, "second").text)
+
+    index.documents.clear()
+
+    assert index.language.revision == 4
+    assert index.workspace is None
+    _assert_document_snapshots_match(index)
+
+
+def test_lsp_document_mapping_in_place_union_mediates_change_and_no_op():
+    index = LspWorkspaceIndex()
+    uri = "inmemory://a.mdl"
+    source = _source(uri, "first")
+
+    index.documents |= {uri: source}
+    revision = index.language.revision
+    index.documents |= {uri: source}
+
+    assert revision == 1
+    assert index.language.revision == revision
+    assert index.language.current_document(uri).version == 1
+    _assert_document_snapshots_match(index)

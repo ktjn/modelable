@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping, MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -11,10 +12,19 @@ from modelable.compiler.workspace import (
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
 
 
-class _LspDocumentMap(dict[str, WorkspaceDocumentSource]):
+class _LspDocumentMap(MutableMapping[str, WorkspaceDocumentSource]):
     def __init__(self, index: LspWorkspaceIndex) -> None:
-        super().__init__()
         self._index = index
+        self._sources: dict[str, WorkspaceDocumentSource] = {}
+
+    def __getitem__(self, uri: str) -> WorkspaceDocumentSource:
+        return self._sources[uri]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._sources)
+
+    def __len__(self) -> int:
+        return len(self._sources)
 
     def __setitem__(self, uri: str, source: WorkspaceDocumentSource) -> None:
         self._index._set_document_source(uri, source)
@@ -24,11 +34,18 @@ class _LspDocumentMap(dict[str, WorkspaceDocumentSource]):
             raise KeyError(uri)
         self._index.remove_document(uri)
 
+    def __ior__(
+        self,
+        other: Mapping[str, WorkspaceDocumentSource],
+    ) -> _LspDocumentMap:
+        self.update(other)
+        return self
+
     def _store(self, uri: str, source: WorkspaceDocumentSource) -> None:
-        super().__setitem__(uri, source)
+        self._sources[uri] = source
 
     def _remove(self, uri: str) -> None:
-        super().__delitem__(uri)
+        del self._sources[uri]
 
 
 @dataclass
@@ -43,8 +60,18 @@ class LspWorkspaceIndex:
         self._documents = _LspDocumentMap(self)
 
     @property
-    def documents(self) -> dict[str, WorkspaceDocumentSource]:
+    def documents(self) -> MutableMapping[str, WorkspaceDocumentSource]:
         return self._documents
+
+    @documents.setter
+    def documents(
+        self,
+        documents: MutableMapping[str, WorkspaceDocumentSource],
+    ) -> None:
+        if documents is self._documents:
+            return
+        self._documents.clear()
+        self._documents.update(documents)
 
     @property
     def workspace(self) -> Workspace | None:
