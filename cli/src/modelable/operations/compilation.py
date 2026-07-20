@@ -316,10 +316,11 @@ class CompilationService:
                 key=mapper.promotion_order,
             )
         )
-        written_paths = self.transaction_factory(workspace_root).promote(staged_files)
-        if staged_output.is_dir():
-            output = request.out_dir or _DEFAULT_OUT_DIRS[request.target]
-            output.mkdir(parents=True, exist_ok=True)
+        output = request.out_dir or _DEFAULT_OUT_DIRS[request.target]
+        written_paths = self.transaction_factory(workspace_root).promote(
+            staged_files,
+            required_directories=(output,) if staged_output.is_dir() else (),
+        )
         return DirectCompilationResult(
             written_paths=written_paths,
             events=tuple(mapper.event(event) for event in run.direct.events),

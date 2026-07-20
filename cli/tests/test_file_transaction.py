@@ -92,6 +92,53 @@ def test_transaction_removes_created_files_and_empty_directories_on_failure(
     assert not (workspace / ".modelable" / "locks").exists()
 
 
+def test_transaction_removes_new_required_directory_when_file_promotion_fails(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "result.txt"
+    destination.write_bytes(b"before")
+    output = workspace / "generated" / "rust"
+
+    with pytest.raises(FileTransactionError, match="injected promotion failure"):
+        FileTransaction(
+            workspace_root=workspace,
+            replace=FailingReplace(0),
+        ).promote(
+            _staged_files(stage, [destination]),
+            required_directories=(output,),
+        )
+
+    assert destination.read_bytes() == b"before"
+    assert not output.exists()
+    assert not (workspace / "generated").exists()
+
+
+def test_transaction_retains_new_and_preexisting_required_directories_on_success(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    created_output = workspace / "generated" / "rust"
+    existing_output = workspace / "existing"
+    existing_output.mkdir()
+    user_file = existing_output / "keep.txt"
+    user_file.write_bytes(b"user")
+
+    written = FileTransaction(workspace_root=workspace).promote(
+        (),
+        required_directories=(created_output, existing_output),
+    )
+
+    assert written == ()
+    assert created_output.is_dir()
+    assert existing_output.is_dir()
+    assert user_file.read_bytes() == b"user"
+
+
 def test_transaction_rejects_workspace_lock_contention(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     stage = tmp_path / "stage"

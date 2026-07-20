@@ -115,12 +115,14 @@ class FileTransaction:
         files: Sequence[StagedFile],
         *,
         validate: Callable[[], None] | None = None,
+        required_directories: Sequence[Path] = (),
     ) -> tuple[Path, ...]:
         ordered = _last_writers(tuple(files))
-        if not ordered:
+        directories = _unique_directories(required_directories)
+        if not ordered and not directories:
             return ()
         destinations = tuple(file.destination for file in ordered)
-        root = self.workspace_root or _common_root(destinations)
+        root = self.workspace_root or _common_root((*destinations, *directories))
         try:
             self._acquire_lock(root)
         except LockContentionError:
@@ -162,6 +164,13 @@ class FileTransaction:
                     self._copy_file(file.destination, backup)
                     _copy_metadata(file.destination, backup)
                 self._copy_file(file.staged_path, temporary)
+
+            for directory in directories:
+                _ensure_directory(
+                    directory,
+                    mkdir=self._mkdir,
+                    created=created_directories,
+                )
 
             if validate is not None:
                 validate()
@@ -363,6 +372,11 @@ def _last_writers(files: tuple[StagedFile, ...]) -> tuple[StagedFile, ...]:
     return tuple(file for index, file in enumerate(files) if last_index[identities[index]] == index)
 
 
+def _unique_directories(directories: Sequence[Path]) -> tuple[Path, ...]:
+    by_identity = {directory.resolve(strict=False): directory for directory in directories}
+    return tuple(sorted(by_identity.values(), key=lambda path: path.as_posix()))
+
+
 def _copy_file(source: Path, destination: Path) -> None:
     content = source.read_bytes()
     descriptor = os.open(
@@ -414,6 +428,17 @@ def _ensure_parent(
             continue
         if created is not None:
             created.append(directory)
+
+
+def _ensure_directory(
+    path: Path,
+    *,
+    mkdir: Callable[[Path], None],
+    created: list[Path],
+) -> None:
+    _ensure_parent(path, mkdir=mkdir, created=created)
+    if not path.is_dir():
+        raise FileExistsError(f"Required output directory is not a directory: {path}")
 
 
 def _common_root(destinations: Sequence[Path]) -> Path:

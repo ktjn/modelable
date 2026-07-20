@@ -1106,6 +1106,32 @@ domain platform {
     assert not list(request.out_dir.iterdir())
 
 
+def test_execute_direct_rejects_zero_artifact_output_file_before_committing_state(
+    tmp_path: Path,
+) -> None:
+    source = write_workspace(
+        tmp_path,
+        """
+domain platform {
+  owner: "platform-team"
+}
+""",
+    )
+    request = request_for(tmp_path, source, "rust")
+    assert request.out_dir is not None
+    request.out_dir.parent.mkdir(parents=True)
+    request.out_dir.write_bytes(b"blocker")
+    before = snapshot_tree(tmp_path)
+
+    with pytest.raises(FileTransactionError):
+        CompilationService().execute_direct(request)
+
+    assert snapshot_tree(tmp_path) == before
+    assert request.out_dir.read_bytes() == b"blocker"
+    assert not request.registry_ids_path.exists()
+    assert not Path(request.registry_path).exists()
+
+
 def test_execute_direct_rejects_orphaned_registry_ledger_entry(tmp_path: Path) -> None:
     source = write_workspace(tmp_path)
     ledger = tmp_path / "registry-ids.lock"
