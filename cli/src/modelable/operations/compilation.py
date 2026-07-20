@@ -40,7 +40,12 @@ from modelable.operations.compilation_audit import (
     CompilationAuditDestination,
     CompilationAuditRecord,
 )
-from modelable.operations.file_transaction import FileTransaction, StagedFile
+from modelable.operations.file_transaction import (
+    FileTransaction,
+    FileTransactionCommittedError,
+    RollbackError,
+    StagedFile,
+)
 from modelable.parser.ir import ArrayType, FieldDef, FieldType, MapType, MdlFile, NamedType, ObjectType, ParseError
 from modelable.planner.plans import write_plans
 from modelable.registry.factory import get_registry
@@ -241,13 +246,19 @@ class CompilationService:
             )
         ).resolve()
         try:
-            return self._execute_direct_staged(
+            result = self._execute_direct_staged(
                 request,
                 workspace_root=workspace_root,
                 staging_dir=staging_dir,
             )
-        finally:
+        except FileTransactionCommittedError as error:
+            _remove_staging_after_commit(staging_dir, error)
+            raise
+        except BaseException:
             _remove_staging(staging_dir)
+            raise
+        _remove_staging(staging_dir)
+        return result
 
     def _execute_direct_staged(
         self,
@@ -439,15 +450,21 @@ class CompilationService:
                     audit_path,
                 ),
             )
-            return AppliedCompilation(
+            applied = AppliedCompilation(
                 action_id=pending.action_id,
                 written_paths=written_paths,
                 affected_definitions=pending.affected_definitions,
                 files=pending.files,
                 audit_path=audit_path,
             )
-        finally:
+        except FileTransactionCommittedError as error:
+            _remove_staging_after_commit(pending.staging_dir, error)
+            raise
+        except BaseException:
             _remove_staging(pending.staging_dir)
+            raise
+        _remove_staging(pending.staging_dir)
+        return applied
 
 
 @dataclass(frozen=True)
@@ -1129,6 +1146,22 @@ def _remove_staging(path: Path) -> None:
         raise CompilationError(f"Compilation staging cleanup failed: {path}") from exc
     if path.exists():
         raise CompilationError(f"Compilation staging cleanup failed: {path}")
+
+
+def _remove_staging_after_commit(
+    path: Path,
+    committed_error: FileTransactionCommittedError,
+) -> None:
+    try:
+        _remove_staging(path)
+    except Exception as cleanup_error:
+        raise FileTransactionCommittedError(
+            committed_error.written_paths,
+            (
+                *committed_error.cleanup_errors,
+                RollbackError(path, cleanup_error),
+            ),
+        ) from committed_error
 
 
 def _execute_compilation(request: CompilationRequest) -> DirectCompilationResult:

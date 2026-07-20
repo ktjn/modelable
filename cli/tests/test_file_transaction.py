@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 
 from modelable.operations.file_transaction import (
     FileTransaction,
+    FileTransactionCommittedError,
     FileTransactionError,
     LockContentionError,
     StagedFile,
@@ -85,6 +88,7 @@ def test_transaction_removes_created_files_and_empty_directories_on_failure(
         ).promote(_staged_files(stage, destinations))
 
     assert not (workspace / "new").exists()
+    assert not (workspace / ".modelable" / "locks").exists()
 
 
 def test_transaction_rejects_workspace_lock_contention(tmp_path: Path) -> None:
@@ -177,6 +181,7 @@ def test_transaction_cleans_lock_temporaries_and_backups_after_success(
     assert written == (destination,)
     assert destination.read_bytes() == b"after-0"
     assert not (workspace / ".modelable" / "locks" / "compilation.lock").exists()
+    assert not (workspace / ".modelable" / "locks").exists()
     assert not list(workspace.rglob("*.modelable-tmp-*"))
     assert not list(workspace.rglob("*.modelable-backup-*"))
 
@@ -321,3 +326,114 @@ def test_lock_unlink_failure_uses_safe_release_and_allows_retry(
     assert not (workspace / ".modelable" / "locks" / "compilation.lock").exists()
     FileTransaction(workspace_root=workspace).promote(_staged_files(second_stage, [destination]))
     assert destination.read_bytes() == b"after-0"
+
+
+def test_mid_chain_directory_creation_failure_cleans_created_parents(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "target" / "middle" / "leaf" / "result.txt"
+
+    def fail_middle(path: Path) -> None:
+        if path.name == "middle":
+            raise OSError("injected middle mkdir failure")
+        path.mkdir()
+
+    with pytest.raises(FileTransactionError, match="middle mkdir failure"):
+        FileTransaction(
+            workspace_root=workspace,
+            mkdir=fail_middle,
+        ).promote(_staged_files(stage, [destination]))
+
+    assert not (workspace / "target").exists()
+    assert not (workspace / ".modelable" / "locks").exists()
+
+
+@pytest.mark.parametrize("failure_kind", ["rename", "delete"])
+def test_quarantine_failures_are_individually_reported_with_backup_state(
+    tmp_path: Path,
+    failure_kind: str,
+) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "result.txt"
+    destination.write_bytes(b"before")
+
+    def failing_unlink(path: Path, *, missing_ok: bool = False) -> None:
+        if ".modelable-backup-" in path.name:
+            raise OSError("injected backup unlink failure")
+        if "modelable-cleanup-" in path.name and failure_kind == "delete":
+            raise OSError("injected quarantine deletion failure")
+        path.unlink(missing_ok=missing_ok)
+
+    def failing_replace(source: str | Path, target: str | Path) -> None:
+        if ".modelable-backup-" in Path(source).name and failure_kind == "rename":
+            raise OSError("injected quarantine rename failure")
+        os.replace(source, target)
+
+    with pytest.raises(FileTransactionCommittedError) as raised:
+        FileTransaction(
+            workspace_root=workspace,
+            unlink=failing_unlink,
+            replace=failing_replace,
+        ).promote(_staged_files(stage, [destination]))
+
+    assert raised.value.committed
+    assert len(raised.value.cleanup_errors) == 2
+    assert destination.read_bytes() == b"after-0"
+    backup_files = list(workspace.glob("*.modelable-backup-*"))
+    quarantine_files = list(workspace.glob("*modelable-cleanup-*"))
+    if failure_kind == "rename":
+        assert backup_files
+        assert not quarantine_files
+        assert backup_files[0].read_bytes() == b"before"
+    else:
+        assert not backup_files
+        assert quarantine_files
+        assert quarantine_files[0].read_bytes() == b"before"
+    assert any(error.path.exists() for error in raised.value.cleanup_errors)
+
+
+def test_concurrent_virgin_lock_parent_creation_enters_normal_contention(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    first_stage = tmp_path / "first-stage"
+    second_stage = tmp_path / "second-stage"
+    workspace.mkdir()
+    first_stage.mkdir()
+    second_stage.mkdir()
+    parent_barrier = threading.Barrier(2)
+
+    def synchronized_mkdir(path: Path) -> None:
+        if path.name == ".modelable":
+            parent_barrier.wait(timeout=10)
+        path.mkdir()
+
+    first = FileTransaction(
+        workspace_root=workspace,
+        mkdir=synchronized_mkdir,
+        lock_timeout=10,
+    )
+    second = FileTransaction(
+        workspace_root=workspace,
+        mkdir=synchronized_mkdir,
+        lock_timeout=10,
+    )
+    first_files = _staged_files(first_stage, [workspace / "first.txt"])
+    second_files = _staged_files(second_stage, [workspace / "second.txt"])
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = (
+            executor.submit(first.promote, first_files),
+            executor.submit(second.promote, second_files),
+        )
+        results = [future.result(timeout=20) for future in futures]
+
+    assert results == [(workspace / "first.txt",), (workspace / "second.txt",)]
+    assert not (workspace / ".modelable" / "locks").exists()

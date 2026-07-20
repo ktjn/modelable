@@ -23,7 +23,11 @@ from modelable.operations.compilation import (
     CompilationService,
     StaleCompilationError,
 )
-from modelable.operations.file_transaction import FileTransaction, FileTransactionError
+from modelable.operations.file_transaction import (
+    FileTransaction,
+    FileTransactionCommittedError,
+    FileTransactionError,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -174,6 +178,7 @@ def test_apply_rejects_stale_source(tmp_path: Path) -> None:
         service.apply(pending, confirmation=confirmation_for(pending))
 
     assert not pending.staging_dir.exists()
+    assert not (tmp_path / ".modelable" / "locks").exists()
 
 
 def test_apply_rejects_changed_resolved_parent_even_with_same_bytes(
@@ -1282,3 +1287,110 @@ def test_execute_direct_preserves_last_writer_for_overlapping_registry_paths(
     assert result.written_paths.count(overlap) == 1
     assert result.events[0].message == f"wrote {overlap}"
     assert not (tmp_path / ".modelable" / "audit").exists()
+
+
+def test_execute_direct_normalizes_relative_and_absolute_overlapping_state_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    source = write_workspace(tmp_path)
+    reference_registry = tmp_path / "reference-registry.db"
+    CompilationService().execute_direct(
+        CompilationRequest(
+            source=source,
+            target="rust",
+            out_dir=tmp_path / "reference-generated",
+            registry_path=str(reference_registry),
+            registry_ids_path=Path("reference-ids.lock"),
+        )
+    )
+    expected_registry = reference_registry.read_bytes()
+    absolute_state = (tmp_path / "mixed-state").resolve()
+
+    result = CompilationService().execute_direct(
+        CompilationRequest(
+            source=source,
+            target="rust",
+            out_dir=tmp_path / "generated",
+            registry_path=str(absolute_state),
+            registry_ids_path=Path("mixed-state"),
+        )
+    )
+
+    assert absolute_state.read_bytes() == expected_registry
+    assert absolute_state in result.written_paths
+    assert Path("mixed-state") not in result.written_paths
+    assert result.events[0].message == f"wrote {absolute_state}"
+
+
+@pytest.mark.parametrize("mode", ["direct", "apply"])
+def test_committed_outcome_survives_staging_cleanup_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    source = write_workspace(tmp_path)
+    ledger = tmp_path / "registry-ids.lock"
+    ledger.write_text('{"platform.SchemaId": 1}\n', encoding="utf-8")
+    failed_backup = False
+
+    def fail_backup_unlink(path: Path, *, missing_ok: bool = False) -> None:
+        nonlocal failed_backup
+        if ".modelable-backup-" in path.name and not failed_backup:
+            failed_backup = True
+            raise OSError("injected committed backup cleanup failure")
+        path.unlink(missing_ok=missing_ok)
+
+    service = CompilationService(
+        temp_root=tmp_path.parent,
+        transaction_factory=lambda root: FileTransaction(
+            workspace_root=root,
+            unlink=fail_backup_unlink,
+        ),
+    )
+    pending = None
+    if mode == "direct":
+
+        def operation():
+            return service.execute_direct(
+                CompilationRequest(
+                    source=source,
+                    target="rust",
+                    registry_ids_path=ledger,
+                )
+            )
+
+    else:
+        pending = service.preview(
+            CompilationRequest(source=source, target="rust"),
+            policy=CompilationPolicy.conversation(),
+        )
+
+        def operation():
+            assert pending is not None
+            return service.apply(
+                pending,
+                confirmation=confirmation_for(pending),
+            )
+
+    original_remove_staging = compilation._remove_staging
+
+    def fail_staging_cleanup(path: Path) -> None:
+        if path.name.startswith("modelable-"):
+            raise CompilationError(f"injected staging cleanup failure: {path}")
+        original_remove_staging(path)
+
+    monkeypatch.setattr(compilation, "_remove_staging", fail_staging_cleanup)
+
+    with pytest.raises(FileTransactionCommittedError) as raised:
+        operation()
+
+    assert raised.value.committed
+    assert raised.value.written_paths
+    assert len(raised.value.cleanup_errors) >= 2
+    assert any("staging cleanup failure" in str(error) for error in raised.value.cleanup_errors)
+    if pending is not None:
+        audit = tmp_path / ".modelable" / "audit" / "compilations" / f"{pending.action_id}.json"
+        assert audit.exists()

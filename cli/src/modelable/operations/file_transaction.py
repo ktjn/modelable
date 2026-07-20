@@ -88,6 +88,7 @@ class FileTransaction:
         replace: Callable[[str | Path, str | Path], None] = os.replace,
         copy_file: Callable[[Path, Path], None] | None = None,
         unlink: Callable[..., None] | None = None,
+        mkdir: Callable[[Path], None] | None = None,
         lock_write: Callable[[int, bytes], int] = os.write,
         fsync: Callable[[int], None] = os.fsync,
         lock_timeout: float = 0,
@@ -98,12 +99,15 @@ class FileTransaction:
         self._replace = replace
         self._copy_file = copy_file or _copy_file
         self._unlink = unlink or _unlink
+        self._mkdir = mkdir or _mkdir
         self._lock_write = lock_write
         self._fsync = fsync
         self._lock_timeout = lock_timeout
         self._lock_poll_interval = lock_poll_interval
         self._token = new_id()
         self._lock_path: Path | None = None
+        self._waiter_path: Path | None = None
+        self._lock_directories: tuple[Path, ...] = ()
 
     def promote(
         self,
@@ -140,7 +144,11 @@ class FileTransaction:
             for index, file in enumerate(ordered):
                 if _file_hash(file.staged_path) != file.content_hash:
                     raise OSError(f"staged file hash verification failed before promotion: {file.staged_path}")
-                created_directories.extend(_ensure_parent(file.destination.parent))
+                _ensure_parent(
+                    file.destination.parent,
+                    mkdir=self._mkdir,
+                    created=created_directories,
+                )
                 temporary = file.destination.parent / (f".{file.destination.name}.modelable-tmp-{self._token}-{index}")
                 backup = (
                     file.destination.parent / f".{file.destination.name}.modelable-backup-{self._token}-{index}"
@@ -178,8 +186,26 @@ class FileTransaction:
 
     def _acquire_lock(self, root: Path) -> None:
         lock_path = root / ".modelable" / "locks" / "compilation.lock"
-        _ensure_parent(lock_path.parent)
+        self._lock_directories = (lock_path.parent, lock_path.parent.parent)
         deadline = time.monotonic() + self._lock_timeout
+        waiter_path = lock_path.with_name(f".compilation-waiter-{self._token}-{uuid.uuid4().hex}")
+        while True:
+            _ensure_parent(lock_path.parent, mkdir=self._mkdir)
+            try:
+                waiter_descriptor = os.open(
+                    waiter_path,
+                    os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                    0o600,
+                )
+                os.close(waiter_descriptor)
+                self._waiter_path = waiter_path
+                break
+            except FileExistsError:
+                waiter_path = lock_path.with_name(f".compilation-waiter-{self._token}-{uuid.uuid4().hex}")
+            except FileNotFoundError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(self._lock_poll_interval)
         while True:
             try:
                 descriptor = os.open(
@@ -190,9 +216,18 @@ class FileTransaction:
                 break
             except FileExistsError as exc:
                 if time.monotonic() >= deadline:
+                    self._remove_waiter()
+                    self._cleanup_lock_directories()
                     raise LockContentionError(f"Compilation promotion is already in progress for {root}.") from exc
                 time.sleep(self._lock_poll_interval)
+            except FileNotFoundError:
+                if time.monotonic() >= deadline:
+                    self._remove_waiter()
+                    self._cleanup_lock_directories()
+                    raise
+                time.sleep(self._lock_poll_interval)
         self._lock_path = lock_path
+        self._remove_waiter()
         try:
             self._lock_write(descriptor, b"locked\n")
             self._fsync(descriptor)
@@ -222,7 +257,7 @@ class FileTransaction:
             errors,
             preserved=preserved_backups,
         )
-        for directory in dict.fromkeys(created_directories):
+        for directory in reversed(tuple(dict.fromkeys(created_directories))):
             try:
                 directory.rmdir()
             except FileNotFoundError:
@@ -261,38 +296,62 @@ class FileTransaction:
                 self._unlink(promotion.backup, missing_ok=True)
             except OSError as error:
                 errors.append(RollbackError(promotion.backup, error))
-                self._quarantine(promotion.backup)
+                errors.extend(self._quarantine(promotion.backup))
         return errors
 
     def _release_lock(self) -> list[RollbackError]:
-        if self._lock_path is None:
-            return []
-        lock_path = self._lock_path
         errors: list[RollbackError] = []
-        try:
-            self._unlink(lock_path, missing_ok=True)
-        except OSError:
-            released = lock_path.with_name(f".compilation-lock-released-{self._token}")
+        self._remove_waiter()
+        if self._lock_path is not None:
+            lock_path = self._lock_path
             try:
-                self._replace(lock_path, released)
-            except OSError as release_error:
-                errors.append(RollbackError(lock_path, release_error))
-            else:
-                with suppress(OSError):
-                    self._unlink(released, missing_ok=True)
-        self._lock_path = None
+                self._unlink(lock_path, missing_ok=True)
+            except OSError:
+                released = lock_path.with_name(f".compilation-lock-released-{self._token}")
+                try:
+                    self._replace(lock_path, released)
+                except OSError as release_error:
+                    errors.append(RollbackError(lock_path, release_error))
+                else:
+                    with suppress(OSError):
+                        self._unlink(released, missing_ok=True)
+            self._lock_path = None
+        self._cleanup_lock_directories()
         return errors
 
-    def _quarantine(self, path: Path) -> None:
-        quarantine = path.with_name(f".{path.name}.modelable-cleanup-{self._token}")
+    def _remove_waiter(self) -> None:
+        if self._waiter_path is None:
+            return
         with suppress(OSError):
+            self._unlink(self._waiter_path, missing_ok=True)
+        self._waiter_path = None
+
+    def _cleanup_lock_directories(self) -> None:
+        for directory in self._lock_directories:
+            with suppress(FileNotFoundError, OSError):
+                directory.rmdir()
+        self._lock_directories = ()
+
+    def _quarantine(self, path: Path) -> list[RollbackError]:
+        errors: list[RollbackError] = []
+        path_id = hashlib.sha256(os.fsencode(path)).hexdigest()[:12]
+        quarantine = path.with_name(f".modelable-cleanup-{self._token}-{path_id}")
+        try:
             self._replace(path, quarantine)
+        except OSError as error:
+            errors.append(RollbackError(path, error))
+            return errors
+        try:
             self._unlink(quarantine, missing_ok=True)
+        except OSError as error:
+            errors.append(RollbackError(quarantine, error))
+        return errors
 
 
 def _last_writers(files: tuple[StagedFile, ...]) -> tuple[StagedFile, ...]:
-    last_index = {file.destination: index for index, file in enumerate(files)}
-    return tuple(file for index, file in enumerate(files) if last_index[file.destination] == index)
+    identities = tuple(file.destination.resolve(strict=False) for file in files)
+    last_index = {identity: index for index, identity in enumerate(identities)}
+    return tuple(file for index, file in enumerate(files) if last_index[identities[index]] == index)
 
 
 def _copy_file(source: Path, destination: Path) -> None:
@@ -316,15 +375,28 @@ def _unlink(path: Path, *, missing_ok: bool = False) -> None:
     path.unlink(missing_ok=missing_ok)
 
 
-def _ensure_parent(path: Path) -> list[Path]:
+def _mkdir(path: Path) -> None:
+    path.mkdir()
+
+
+def _ensure_parent(
+    path: Path,
+    *,
+    mkdir: Callable[[Path], None],
+    created: list[Path] | None = None,
+) -> None:
     missing: list[Path] = []
     current = path
     while not current.exists():
         missing.append(current)
         current = current.parent
     for directory in reversed(missing):
-        directory.mkdir()
-    return missing
+        try:
+            mkdir(directory)
+        except FileExistsError:
+            continue
+        if created is not None:
+            created.append(directory)
 
 
 def _common_root(destinations: Sequence[Path]) -> Path:
