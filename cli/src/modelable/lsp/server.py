@@ -235,10 +235,10 @@ def did_close(ls: ModelableLanguageServer, params: types.DidCloseTextDocumentPar
 @server.feature(types.TEXT_DOCUMENT_HOVER)
 def hover(ls: ModelableLanguageServer, params: types.HoverParams) -> types.Hover | None:
     return build_hover(
-        ls.index_for(params.text_document.uri),
-        params.text_document.uri,
-        params.position.line,
-        params.position.character,
+        index=ls.index_for(params.text_document.uri),
+        uri=params.text_document.uri,
+        line=params.position.line,
+        character=params.position.character,
     )
 
 
