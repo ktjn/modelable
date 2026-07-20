@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from modelable.compiler.workspace import Workspace
 from modelable.language.dto import LanguageHover, LanguagePosition, LanguageRange
-from modelable.language.positions import codepoint_to_utf16, utf16_to_codepoint
+from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
 from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import (
     build_model_summary,
@@ -60,7 +60,7 @@ def hover(
     if document is None or semantic is None:
         return None
 
-    lines = document.text.splitlines()
+    lines = document_lines(document.text)
     if position.line < 0 or position.line >= len(lines) or position.character < 0:
         return None
     text_line = lines[position.line]
@@ -472,7 +472,7 @@ def _projection_reference_for_alias(
     line: int,
     alias: str,
 ) -> tuple[str, VersionSpec | int] | None:
-    lines = text.splitlines()
+    lines = document_lines(text)
     end_line = min(line, len(lines) - 1)
     active_projection = "\n".join(lines[scope_line : end_line + 1])
     masked_projection = _mask_ignored_regions(active_projection)
@@ -538,7 +538,7 @@ def _current_scope(
     text: str,
     line: int,
 ) -> tuple[str, str, str, int, int] | None:
-    lines = text.splitlines()
+    lines = document_lines(text)
     current_domain: str | None = None
     current_kind: str | None = None
     current_name: str | None = None

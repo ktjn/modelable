@@ -1,3 +1,11 @@
+import re
+
+
+def document_lines(text: str) -> tuple[str, ...]:
+    """Split document text into Monaco/LSP lines without visible terminators."""
+    return tuple(re.split(r"\r\n|\r|\n", text))
+
+
 def codepoint_to_utf16(text: str, codepoint: int) -> int:
     if codepoint < 0 or codepoint > len(text):
         raise ValueError("Code-point position is out of bounds")

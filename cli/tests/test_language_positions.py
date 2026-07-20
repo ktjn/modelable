@@ -1,5 +1,6 @@
 import pytest
 
+import modelable.language.positions as positions
 from modelable.language.positions import codepoint_to_utf16, utf16_to_codepoint
 
 
@@ -27,3 +28,20 @@ def test_codepoint_rejects_out_of_bounds_position(codepoint: int) -> None:
 def test_utf16_rejects_out_of_bounds_position(utf16: int) -> None:
     with pytest.raises(ValueError, match="bounds"):
         utf16_to_codepoint("a😀b", utf16)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("", ("",)),
+        ("first\r\nsecond\nthird\rfourth", ("first", "second", "third", "fourth")),
+        ("first\r\n", ("first", "")),
+        ("first\n", ("first", "")),
+        ("first\r", ("first", "")),
+    ],
+)
+def test_document_lines_excludes_terminators_and_preserves_trailing_empty_line(
+    text: str,
+    expected: tuple[str, ...],
+) -> None:
+    assert positions.document_lines(text) == expected

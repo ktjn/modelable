@@ -21,6 +21,7 @@ SOURCE_TEXT = (
     "}\n"
 )
 SOURCES = [{"uri": URI, "text": SOURCE_TEXT, "version": 1}]
+CRLF_SOURCE_TEXT = SOURCE_TEXT.replace("\n", "\r\n")
 
 
 @pytest.fixture(autouse=True)
@@ -461,6 +462,75 @@ def test_language_request_rejects_invalid_uri_or_utf16_position(
         "message": "Requested language position is invalid",
     }
     assert SOURCE_TEXT not in json.dumps(result)
+
+
+@pytest.mark.parametrize("method", ["language.completion", "language.hover"])
+def test_crlf_language_position_accepts_visible_end_of_line(method: str) -> None:
+    sources = [{"uri": URI, "text": CRLF_SOURCE_TEXT, "version": 1}]
+    dispatch("workspace.open", {"workspaceRevision": 1, "sources": sources})
+    visible_end = len("domain customer {")
+
+    result = dispatch(
+        method,
+        {
+            "workspaceRevision": 1,
+            "uri": URI,
+            "line": 0,
+            "character": visible_end,
+        },
+    )
+
+    assert result["ok"] is True
+
+
+@pytest.mark.parametrize("method", ["language.completion", "language.hover"])
+def test_crlf_language_position_rejects_one_code_unit_past_visible_end(
+    method: str,
+) -> None:
+    sources = [{"uri": URI, "text": CRLF_SOURCE_TEXT, "version": 1}]
+    dispatch("workspace.open", {"workspaceRevision": 1, "sources": sources})
+    past_visible_end = len("domain customer {") + 1
+
+    result = dispatch(
+        method,
+        {
+            "workspaceRevision": 1,
+            "uri": URI,
+            "line": 0,
+            "character": past_visible_end,
+        },
+    )
+
+    assert result["error"]["code"] == "INVALID_POSITION"
+
+
+def test_language_requests_accept_trailing_empty_line_after_final_terminator() -> None:
+    sources = [{"uri": URI, "text": CRLF_SOURCE_TEXT, "version": 1}]
+    dispatch("workspace.open", {"workspaceRevision": 1, "sources": sources})
+    trailing_line = len(SOURCE_TEXT.splitlines())
+
+    completion = dispatch(
+        "language.completion",
+        {
+            "workspaceRevision": 1,
+            "uri": URI,
+            "line": trailing_line,
+            "character": 0,
+        },
+    )
+    hover = dispatch(
+        "language.hover",
+        {
+            "workspaceRevision": 1,
+            "uri": URI,
+            "line": trailing_line,
+            "character": 0,
+        },
+    )
+
+    assert completion["ok"] is True
+    assert completion["result"]["items"]
+    assert hover["result"]["hover"] is None
 
 
 def test_language_request_reports_unavailable_only_after_valid_position() -> None:

@@ -11,7 +11,7 @@ from modelable.language.dto import (
     LanguagePosition,
     LanguageRange,
 )
-from modelable.language.positions import codepoint_to_utf16, utf16_to_codepoint
+from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
 
 _KEYWORDS = (
@@ -93,7 +93,7 @@ def complete(
     if document is None or semantic is None:
         return ()
 
-    lines = document.text.splitlines()
+    lines = document_lines(document.text)
     if position.line < 0 or position.line >= len(lines) or position.character < 0:
         return ()
     try:
@@ -127,7 +127,7 @@ def _candidates(
     cursor: int,
     catalog: CompletionCatalog | None,
 ) -> tuple[list[_Candidate], str]:
-    text_line = text.splitlines()[line]
+    text_line = document_lines(text)[line]
     before_cursor = text_line[:cursor]
     prefix = _completion_prefix(before_cursor)
     scope = _current_scope(text, line)
@@ -171,7 +171,7 @@ def _replacement_range(
     cursor: int,
     prefix: str,
 ) -> LanguageRange:
-    text_line = document.text.splitlines()[line]
+    text_line = document_lines(document.text)[line]
     start = cursor - len(prefix)
     return LanguageRange.at(
         line,
@@ -424,7 +424,7 @@ def _projection_reference_for_alias(
     line: int,
     alias: str,
 ) -> tuple[str, str, int] | None:
-    lines = text.splitlines()
+    lines = document_lines(text)
     end_line = min(line, len(lines) - 1)
     for item in lines[scope.line + 1 : end_line + 1]:
         match = _SOURCE_ALIAS_PATTERN.match(item)
@@ -436,7 +436,7 @@ def _projection_reference_for_alias(
 def _current_scope(text: str, line: int) -> _Scope | None:
     current_domain: str | None = None
     current_scope: _Scope | None = None
-    for index, item in enumerate(text.splitlines()[: line + 1]):
+    for index, item in enumerate(document_lines(text)[: line + 1]):
         domain_match = _DOMAIN_PATTERN.match(item)
         if domain_match:
             current_domain = domain_match.group("quoted") or domain_match.group("name")

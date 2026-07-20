@@ -26,7 +26,7 @@ from modelable.emitters.json_schema import emit_json_schema_artifacts
 from modelable.language.completion import complete
 from modelable.language.dto import LanguagePosition
 from modelable.language.hover import hover
-from modelable.language.positions import utf16_to_codepoint
+from modelable.language.positions import document_lines, utf16_to_codepoint
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
 from modelable.parser.ir import ParseError
 from modelable.parser.parse import parse_text_to_ir
@@ -139,7 +139,7 @@ class BrowserCompiler:
         document = self.language.current_document(request.uri)
         if document is None or request.line < 0 or request.character < 0:
             raise BrowserLanguageError("INVALID_POSITION")
-        lines = document.text.split("\n")
+        lines = document_lines(document.text)
         if request.line >= len(lines):
             raise BrowserLanguageError("INVALID_POSITION")
         try:
