@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import time
 import uuid
 from collections.abc import Callable, Sequence
@@ -159,9 +160,17 @@ class FileTransaction:
                 promotions.append(promotion)
                 if backup is not None:
                     self._copy_file(file.destination, backup)
+                    _copy_metadata(file.destination, backup)
                 self._copy_file(file.staged_path, temporary)
 
+            if validate is not None:
+                validate()
+
             for promotion in promotions:
+                metadata_source = (
+                    promotion.file.destination if promotion.backup is not None else promotion.file.staged_path
+                )
+                _copy_permissions(metadata_source, promotion.temporary)
                 self._replace(promotion.temporary, promotion.file.destination)
                 promoted.append(promotion)
 
@@ -373,6 +382,14 @@ def _copy_file(source: Path, destination: Path) -> None:
 
 def _unlink(path: Path, *, missing_ok: bool = False) -> None:
     path.unlink(missing_ok=missing_ok)
+
+
+def _copy_metadata(source: Path, destination: Path) -> None:
+    shutil.copystat(source, destination)
+
+
+def _copy_permissions(source: Path, destination: Path) -> None:
+    shutil.copymode(source, destination)
 
 
 def _mkdir(path: Path) -> None:

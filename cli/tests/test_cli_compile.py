@@ -271,3 +271,26 @@ domain platform {
         assert custom_ledger.exists()
         assert any((cwd / ".modelable" / "plans").glob("*.json"))
         assert not (custom_ledger.parent / ".modelable" / "plans").exists()
+
+
+def test_compile_empty_domain_creates_requested_output_directory(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+}
+""",
+        encoding="utf-8",
+    )
+    out = tmp_path / "dist" / "rust"
+
+    result = CliRunner().invoke(
+        cli,
+        ["compile", str(mdl), "--target", "rust", "--out", str(out)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "No artifacts generated." in result.output
+    assert out.is_dir()
+    assert not list(out.iterdir())

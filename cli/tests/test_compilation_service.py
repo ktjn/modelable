@@ -1097,9 +1097,13 @@ domain platform {
 """,
     )
 
-    result = CompilationService().execute_direct(request_for(tmp_path, source, "rust"))
+    request = request_for(tmp_path, source, "rust")
+    result = CompilationService().execute_direct(request)
 
     assert any(event.level == "warning" and event.message == "No artifacts generated." for event in result.events)
+    assert request.out_dir is not None
+    assert request.out_dir.is_dir()
+    assert not list(request.out_dir.iterdir())
 
 
 def test_execute_direct_rejects_orphaned_registry_ledger_entry(tmp_path: Path) -> None:

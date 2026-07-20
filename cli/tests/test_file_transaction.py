@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import stat
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -131,6 +132,101 @@ def test_transaction_verifies_promoted_hash_and_rolls_back(tmp_path: Path) -> No
         ).promote(_staged_files(stage, [destination]))
 
     assert _snapshot(workspace) == before
+
+
+def test_transaction_rechecks_all_preimages_after_preparation_before_any_replace(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destinations = [workspace / "one.txt", workspace / "two.txt"]
+    for index, destination in enumerate(destinations):
+        destination.write_bytes(f"before-{index}".encode())
+    raced = False
+
+    def racing_copy(source: Path, target: Path) -> None:
+        nonlocal raced
+        target.write_bytes(source.read_bytes())
+        if ".modelable-tmp-" in target.name and not raced:
+            destinations[1].write_bytes(b"concurrent-change")
+            raced = True
+
+    def validate_preimages() -> None:
+        if destinations[1].read_bytes() != b"before-1":
+            raise OSError("destination changed during transaction")
+
+    with pytest.raises(FileTransactionError, match="destination changed during transaction"):
+        FileTransaction(
+            workspace_root=workspace,
+            copy_file=racing_copy,
+        ).promote(
+            _staged_files(stage, destinations),
+            validate=validate_preimages,
+        )
+
+    assert destinations[0].read_bytes() == b"before-0"
+    assert destinations[1].read_bytes() == b"concurrent-change"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file metadata semantics")
+def test_transaction_success_preserves_existing_destination_permissions(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "result.txt"
+    destination.write_bytes(b"before")
+    destination.chmod(0o640)
+    staged_file = _staged_files(stage, [destination])
+    staged_file[0].staged_path.chmod(0o600)
+
+    FileTransaction(workspace_root=workspace).promote(staged_file)
+
+    assert destination.read_bytes() == b"after-0"
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o640
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file metadata semantics")
+def test_transaction_rollback_restores_existing_destination_metadata(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destinations = [workspace / "one.txt", workspace / "two.txt"]
+    for index, destination in enumerate(destinations):
+        destination.write_bytes(f"before-{index}".encode())
+    destinations[0].chmod(0o640)
+    expected_mtime_ns = 1_700_000_000_123_456_789
+    os.utime(destinations[0], ns=(expected_mtime_ns, expected_mtime_ns))
+
+    with pytest.raises(FileTransactionError, match="injected promotion failure"):
+        FileTransaction(
+            workspace_root=workspace,
+            replace=FailingReplace(1),
+        ).promote(_staged_files(stage, destinations))
+
+    restored = destinations[0].stat()
+    assert destinations[0].read_bytes() == b"before-0"
+    assert stat.S_IMODE(restored.st_mode) == 0o640
+    assert restored.st_mtime_ns == expected_mtime_ns
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file metadata semantics")
+def test_transaction_new_file_uses_staged_legacy_permissions(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "result.txt"
+    staged_file = _staged_files(stage, [destination])
+    staged_file[0].staged_path.chmod(0o644)
+
+    FileTransaction(workspace_root=workspace).promote(staged_file)
+
+    assert destination.read_bytes() == b"after-0"
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o644
 
 
 def test_transaction_surfaces_each_rollback_error(tmp_path: Path) -> None:
