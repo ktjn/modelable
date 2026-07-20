@@ -954,10 +954,34 @@ The completed scope and acceptance criteria are archived in
 
 ### Phase 3: workspace and language services
 
-- Multi-file workspace.
+**Phase 3a — workspace and persistence: Shipped.**
+
+The Playground owns one versioned local workspace containing normalized
+relative `.mdl` paths. The workspace index supports create, multi-file import,
+rename, delete, selection, and Monaco-backed editing. Validation and JSON
+Schema generation always receive the complete workspace in deterministic path
+order.
+
+Workspace snapshots are saved automatically to IndexedDB and restored before
+source is exposed to the compiler. Only workspace source, versions, and active
+selection are stored; diagnostics, generated artifacts, prompts, telemetry,
+and credentials are not. Storage failures keep the editor usable in
+memory-only mode without claiming persistence. Invalid or version-incompatible
+records remain exportable and are never replaced until the user explicitly
+resets them.
+
+This slice intentionally supports one local workspace, `.mdl` files only, and
+no browser language services. All source processing remains local and the
+static deployment sends no source off-origin.
+
+**Phase 3b — browser-native language services: Active next slice.**
+
 - Completion and hover.
 - Definition, references, and rename.
-- IndexedDB persistence.
+- Cross-file language-service behavior over the shipped durable workspace.
+
+No ADR changed for Phase 3a: the implementation follows the accepted
+Playground architecture and introduces no new deployment or security boundary.
 
 ### Phase 4: visualization MVP
 

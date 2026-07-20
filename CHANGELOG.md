@@ -21,6 +21,12 @@ releases could contain breaking changes when called out explicitly.
   and format in-memory sources and generate JSON Schema through protocol v1,
   with native/browser conformance, performance, and asset-size budgets enforced
   by the browser validation gate.
+- Added a durable multi-file workspace to the browser Playground. Users can
+  create, import, rename, delete, select, and edit `.mdl` files; validate and
+  generate JSON Schema from the complete workspace; restore the workspace
+  automatically from IndexedDB; continue in memory when storage is
+  unavailable; and explicitly export or reset invalid stored state. Source
+  remains local, while compiler output is not persisted.
 - Added safe conversational workspace management to `modelable chat`:
   grounded ownership, lineage, dependency, index, compatibility, and
   validation questions; complete entity and projection proposals through

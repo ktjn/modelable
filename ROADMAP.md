@@ -57,13 +57,13 @@ Work proceeds in phase order, with one active phase at a time:
    preview, import/export, recovery, accessibility coverage, and static GitHub
    Pages delivery. The completed design is archived in
    [Browser Editor MVP — Design](docs/superpowers/specs/archived/2026-07-19-browser-editor-mvp-design.md).
-3. **Active next slice: multi-file workspace and IndexedDB persistence.**
-   Replace the single-file application state with a versioned virtual
-   workspace, safe file lifecycle operations, deterministic whole-workspace
-   compiler requests, automatic local restoration, and explicit corrupt-state
-   recovery. The accepted scope is documented in
-   [Playground Workspace and Persistence — Design](docs/superpowers/specs/2026-07-20-playground-workspace-persistence-design.md).
-4. **Next: browser-native language services.**
+3. **Shipped: multi-file workspace and IndexedDB persistence.**
+   The Playground now has a versioned virtual workspace, safe `.mdl` file
+   lifecycle operations, deterministic whole-workspace compiler requests,
+   automatic local restoration, memory-only fallback, and explicit
+   corrupt-state export/reset. The completed scope is archived in
+   [Playground Workspace and Persistence — Design](docs/superpowers/specs/archived/2026-07-20-playground-workspace-persistence-design.md).
+4. **Active next slice: browser-native language services.**
    Add completion, hover, definition, references, and rename over the durable
    multi-file workspace without running the desktop LSP transport in the
    browser.
@@ -80,9 +80,9 @@ Work proceeds in phase order, with one active phase at a time:
    hardening, extension boundaries, and additional views after the core
    workspace and language-service contracts have shipped.
 
-The next implementation slice is item 3. Completion means users can build and
-restore a multi-file local workspace before higher-level Playground features
-depend on it.
+The next implementation slice is item 4. Completion means the durable
+multi-file workspace gains browser-native completion, hover, definition,
+references, and rename without embedding the desktop LSP transport.
 
 ## Priority 2 — complete the Scalable and Rust contract path
 
