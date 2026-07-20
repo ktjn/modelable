@@ -82,6 +82,40 @@ async function waitForReady(page: Page): Promise<void> {
   });
 }
 
+async function createWorkspaceFile(
+  page: Page,
+  path: string,
+  source: string,
+): Promise<void> {
+  await page.getByLabel('Workspace file path').fill(path);
+  await page.getByRole('button', { name: 'New file' }).click();
+  await replaceSource(page, source);
+}
+
+async function seedStoredWorkspace(page: Page, value: unknown): Promise<void> {
+  await page.evaluate(async (record) => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('modelable-playground', 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains('workspaces')) {
+          request.result.createObjectStore('workspaces', { keyPath: 'id' });
+        }
+      };
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const database = request.result;
+        const transaction = database.transaction('workspaces', 'readwrite');
+        transaction.objectStore('workspaces').put(record);
+        transaction.oncomplete = () => {
+          database.close();
+          resolve();
+        };
+        transaction.onerror = () => reject(transaction.error);
+      };
+    });
+  }, value);
+}
+
 test('initializes locally and supports the complete editor workflow', async ({
   page,
 }) => {
@@ -183,6 +217,89 @@ test('initializes locally and supports the complete editor workflow', async ({
   await expect(page.getByTestId('metrics')).toContainText(
     /operation\s+\d+\.\d ms/i,
   );
+});
+
+test('creates, validates, and restores a multi-file workspace', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await page.goto('?test=1');
+  await waitForReady(page);
+  await createWorkspaceFile(
+    page,
+    'customer.mdl',
+    'domain customer { owner: "customer-team" entity Customer @ 1 (additive) { @key customerId: uuid } }',
+  );
+  await page.getByRole('button', { name: 'main.mdl' }).click();
+  await replaceSource(
+    page,
+    'domain sales { owner: "sales-team" entity Order @ 1 (additive) { @key orderId: uuid } }',
+  );
+  await page.getByRole('button', { name: 'Validate' }).click();
+  await expect(page.getByRole('status')).toContainText(
+    /validation complete.*0 diagnostics/i,
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            globalThis as typeof globalThis & {
+              __modelableWorkspaceSourceUris?: string[];
+            }
+          ).__modelableWorkspaceSourceUris,
+      ),
+    )
+    .toEqual(['file:///customer.mdl', 'file:///main.mdl']);
+
+  await page.getByRole('button', { name: 'customer.mdl' }).click();
+  await expect(page.getByText('Saved locally')).toBeVisible();
+  await page.reload();
+  await waitForReady(page);
+  await expect(
+    page.getByRole('button', { name: 'customer.mdl' }),
+  ).toHaveAttribute('aria-current', 'true');
+  await expect(sourceOutput(page)).toContainText(/domain\s+customer/);
+});
+
+test('offers recovery without rendering corrupt stored source', async ({
+  page,
+}) => {
+  await page.goto('?test=1');
+  await waitForReady(page);
+  await seedStoredWorkspace(page, {
+    id: 'local',
+    schemaVersion: 99,
+    source: '<script>not markup</script>',
+  });
+
+  await page.reload();
+  await expect(
+    page.getByText('Stored workspace needs recovery'),
+  ).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('not markup');
+  await page.getByRole('button', { name: 'Reset local workspace' }).click();
+  await expect(
+    page.getByRole('button', { name: 'main.mdl' }),
+  ).toBeVisible();
+});
+
+test('keeps editing available when IndexedDB is unavailable', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(globalThis, 'indexedDB', {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  await page.goto('?test=1');
+  await waitForReady(page);
+  await expect(page.getByText(/storage unavailable/i)).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Retry storage' }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Validate' })).toBeEnabled();
 });
 
 test('keeps keyboard access clear and treats hostile-looking source as text', async ({

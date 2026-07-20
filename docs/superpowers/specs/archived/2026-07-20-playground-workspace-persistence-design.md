@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved for implementation planning on 2026-07-20.
+Shipped and archived on 2026-07-20.
 
 This specification defines Phase 3a of the
 [Modelable Playground Architecture](../../playground-design.md). It follows the

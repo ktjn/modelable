@@ -1,5 +1,7 @@
 # Playground Workspace and Persistence Implementation Plan
 
+**Status:** Completed and archived on 2026-07-20.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the Playground's temporary single-file state with a safe, persistent multi-file Modelable workspace that validates and compiles as one deterministic snapshot.
@@ -11,7 +13,7 @@
 ## Global Constraints
 
 - The accepted
-  [Playground Workspace and Persistence design](../specs/2026-07-20-playground-workspace-persistence-design.md)
+  [Playground Workspace and Persistence design](../../specs/archived/2026-07-20-playground-workspace-persistence-design.md)
   is authoritative.
 - Phase 3a supports one local workspace containing `.mdl` text files only.
 - Paths use forward slashes, remain relative, end in `.mdl`, and reject empty segments, `.`, `..`, absolute paths, URL schemes, control characters, NUL, and normalized duplicates.

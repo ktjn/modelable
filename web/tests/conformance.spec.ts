@@ -59,7 +59,9 @@ test.afterEach(({ context }) => {
   localRequestAudits.delete(context);
 });
 
-test('browser compiler matches every native snapshot', async ({ page }) => {
+test('browser compiler matches native snapshots including cross-file references', async ({
+  page,
+}) => {
   await page.goto('?test=1');
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
     timeout: 30_000,

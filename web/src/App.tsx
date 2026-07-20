@@ -83,6 +83,22 @@ function hasErrorDiagnostics(
   return diagnostics.some((diagnostic) => diagnostic.severity === 'error');
 }
 
+function exposeWorkspaceSourcesForTest(
+  sources: ReturnType<typeof workspaceSources>,
+): void {
+  if (
+    typeof window === 'undefined' ||
+    new URLSearchParams(window.location.search).get('test') !== '1'
+  ) {
+    return;
+  }
+  (
+    globalThis as typeof globalThis & {
+      __modelableWorkspaceSourceUris?: string[];
+    }
+  ).__modelableWorkspaceSourceUris = sources.map((source) => source.uri);
+}
+
 export function App({
   createClient = createBrowserCompilerClient,
   createRepository = createWorkspaceRepository,
@@ -208,9 +224,9 @@ export function App({
       return;
     }
     openedClientsRef.current.add(client);
-    void client
-      .openWorkspace(workspaceSources(persistentWorkspace.workspace))
-      .catch(() => undefined);
+    const sources = workspaceSources(persistentWorkspace.workspace);
+    exposeWorkspaceSourcesForTest(sources);
+    void client.openWorkspace(sources).catch(() => undefined);
   }, [
     persistentWorkspace.phase,
     persistentWorkspace.workspace,
@@ -230,6 +246,7 @@ export function App({
 
       const workspace = workspaceRef.current;
       const sources = workspaceSources(workspace);
+      exposeWorkspaceSourcesForTest(sources);
       const revision = workspace.revision;
       const activePath = workspace.activeFile;
       const activeFile = workspace.files.find(

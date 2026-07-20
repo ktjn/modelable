@@ -73,6 +73,21 @@ OpenLineage event sync are available for derived artifacts. Live catalog
 publishing, distributed synchronization, OpenLineage runtime event collection,
 and runtime materialization remain future candidates.
 
+## Browser playground
+
+The static [Modelable playground](https://ktjn.github.io/modelable/playground/)
+runs the compiler locally in the browser. Its Phase 3a workspace supports
+creating, importing, renaming, deleting, selecting, and editing multiple
+`.mdl` files, then validates or generates JSON Schema from the complete
+workspace.
+
+The one local workspace is restored automatically from IndexedDB. Source text
+never leaves the page; compiler output is not persisted. If browser storage is
+unavailable, editing continues in memory with an explicit status. Invalid or
+incompatible stored data is left untouched until the user exports it or resets
+the workspace. Browser-native completion, hover, navigation, references, and
+rename are the next phase and are not part of Phase 3a.
+
 ## 1.0 stable surface
 
 Modelable 1.0 stabilizes the local compiler and language-server toolchain.
