@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 from modelable.compiler.workspace import Workspace, load_workspace
-from modelable.diagnostics.model import render_diagnostic
+from modelable.diagnostics.model import Diagnostic
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.csharp import emit_csharp
 from modelable.emitters.dbt_yaml import emit_dbt_yaml
@@ -65,6 +65,20 @@ class CompilationError(Exception):
     """A user-facing failure while compiling a workspace."""
 
 
+class CompilationDiagnosticsError(CompilationError):
+    """Structured parse or workspace diagnostics for presentation adapters."""
+
+    def __init__(
+        self,
+        diagnostics: tuple[Diagnostic, ...],
+        *,
+        origin: Literal["parse", "workspace"],
+    ) -> None:
+        self.diagnostics = diagnostics
+        self.origin = origin
+        super().__init__("\n".join(diagnostic.message for diagnostic in diagnostics))
+
+
 @dataclass(frozen=True)
 class CompilationRequest:
     source: Path
@@ -108,10 +122,16 @@ def _execute_compilation(request: CompilationRequest) -> DirectCompilationResult
             events=(CompilationEvent("warning", "No .mdl files found."),),
         )
     except ParseError as exc:
-        raise CompilationError(render_diagnostic(exc.diagnostic(path=str(request.source)))) from exc
+        raise CompilationDiagnosticsError(
+            (exc.diagnostic(path=str(request.source)),),
+            origin="parse",
+        ) from exc
 
     if workspace.errors:
-        raise CompilationError("\n".join(render_diagnostic(diagnostic) for diagnostic in workspace.errors))
+        raise CompilationDiagnosticsError(
+            tuple(workspace.errors),
+            origin="workspace",
+        )
 
     emit_workspace = _scope_workspace(workspace, request)
 
@@ -146,9 +166,9 @@ def _execute_compilation(request: CompilationRequest) -> DirectCompilationResult
     if not request.registry_path.startswith("oci://"):
         written_paths.append(Path(request.registry_path))
 
-    plans_dir = request.registry_ids_path.parent / ".modelable" / "plans"
+    plans_dir = Path(".modelable/plans")
     plan_paths = write_plans(workspace, plans_dir)
-    written_paths.extend(Path(path) for path in plan_paths)
+    written_paths.extend(Path(path).resolve() for path in plan_paths)
     events.extend(CompilationEvent("ok", f"wrote {path}", path=Path(path)) for path in plan_paths)
 
     output = request.out_dir or _DEFAULT_OUT_DIRS[request.target]

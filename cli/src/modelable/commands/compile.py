@@ -7,10 +7,12 @@ import click
 from rich.console import Console
 
 from modelable.commands.common import console, load_workspace_or_exit
+from modelable.diagnostics.model import render_diagnostic
 from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.markdown import emit_markdown
 from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.operations.compilation import (
+    CompilationDiagnosticsError,
     CompilationError,
     CompilationEvent,
     CompilationRequest,
@@ -94,6 +96,14 @@ def compile(
                 descriptor_set=descriptor_set,
             )
         )
+    except CompilationDiagnosticsError as error:
+        for diagnostic in error.diagnostics:
+            message = f"[red]ERROR[/red] {render_diagnostic(diagnostic)}"
+            if error.origin == "workspace":
+                console.print(message, soft_wrap=True)
+            else:
+                console.print(message)
+        sys.exit(1)
     except CompilationError as error:
         raise click.ClickException(str(error)) from error
 

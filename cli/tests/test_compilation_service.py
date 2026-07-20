@@ -54,7 +54,11 @@ def request_for(tmp_path: Path, source: Path, target: str, **kwargs: object) -> 
     )
 
 
-def test_execute_direct_writes_registry_plans_and_rust_artifacts(tmp_path: Path) -> None:
+def test_execute_direct_writes_registry_plans_and_rust_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
     source = write_workspace(tmp_path)
     request = CompilationRequest(
         source=source,

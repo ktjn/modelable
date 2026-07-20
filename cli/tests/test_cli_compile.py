@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from click.testing import CliRunner
 
 from modelable.cli import cli
@@ -224,3 +226,48 @@ domain beta {
     assert result.exit_code == 0, result.output
     assert (out / "alpha").exists()
     assert not (out / "beta").exists()
+
+
+def test_compile_custom_registry_ledger_keeps_plans_in_default_directory(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
+        cwd = Path(cwd)
+        mdl = cwd / "workspace.mdl"
+        mdl.write_text(
+            """
+domain platform {
+  owner: "platform-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+
+  projection OrderView @ 1
+    from platform.Order @ 1 as order
+  {
+    orderId <- order.orderId
+  }
+}
+""",
+            encoding="utf-8",
+        )
+        custom_ledger = cwd / "state" / "registry-ids.lock"
+
+        result = runner.invoke(
+            cli,
+            [
+                "compile",
+                str(mdl),
+                "--target",
+                "rust",
+                "--out",
+                str(cwd / "dist"),
+                "--registry-ids",
+                str(custom_ledger),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert custom_ledger.exists()
+        assert any((cwd / ".modelable" / "plans").glob("*.json"))
+        assert not (custom_ledger.parent / ".modelable" / "plans").exists()
