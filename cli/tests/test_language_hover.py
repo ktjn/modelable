@@ -264,6 +264,49 @@ def test_hover_does_not_bind_alias_from_escaped_quoted_text() -> None:
     assert result is None
 
 
+def test_hover_does_not_bind_alias_from_escaped_single_quoted_text() -> None:
+    state = parsed_language_workspace()
+    current = (
+        WORKSPACE_TEXT.replace(
+            "    from sales.Customer @ 1 as c",
+            "    from sales.Customer @ 1 as d",
+        ).replace(
+            "    id <- c.customerId",
+            "    note = 'ignored \\' from sales.Customer @ 1 as c'\n    id <- d.customerId",
+        )
+        + "\ndomain broken {"
+    )
+    state.synchronize(2, replace_document(state, current))
+
+    result = hover(
+        state,
+        URI,
+        position_of(current, "displayName = c.customerName", "c.customerName"),
+    )
+
+    assert result is None
+
+
+def test_hover_does_not_bind_alias_from_incomplete_single_quoted_text() -> None:
+    state = parsed_language_workspace()
+    current = WORKSPACE_TEXT.replace(
+        "    from sales.Customer @ 1 as c",
+        "    from sales.Customer @ 1 as d",
+    ).replace(
+        "    id <- c.customerId",
+        "    note = 'ignored from sales.Customer @ 1 as c\n    id <- d.customerId",
+    )
+    state.synchronize(2, replace_document(state, current))
+
+    result = hover(
+        state,
+        URI,
+        position_of(current, "displayName = c.customerName", "c.customerName"),
+    )
+
+    assert result is None
+
+
 def test_hover_rejects_current_alias_retargeted_to_unavailable_source() -> None:
     state = parsed_language_workspace()
     current = (

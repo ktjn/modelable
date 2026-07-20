@@ -508,10 +508,11 @@ def _mask_ignored_regions(text: str) -> str:
                 index += 1
             continue
 
-        if text[index] != '"':
+        if text[index] not in "\"'":
             index += 1
             continue
 
+        quote = text[index]
         masked[index] = " "
         index += 1
         while index < len(text):
@@ -523,7 +524,7 @@ def _mask_ignored_regions(text: str) -> str:
                         masked[index] = " "
                     index += 1
                 continue
-            if text[index] == '"':
+            if text[index] == quote:
                 masked[index] = " "
                 index += 1
                 break
