@@ -381,7 +381,11 @@ def _resolve_conversation_path(
     if not resolved.is_relative_to(workspace_root):
         raise CompilationError(f"{label} resolves outside the workspace: {path}")
 
-    relative_parts = tuple(part.lower() for part in resolved.relative_to(workspace_root).parts)
+    relative_parts = tuple(
+        canonical
+        for part in resolved.relative_to(workspace_root).parts
+        if (canonical := _canonical_policy_component(part))
+    )
     if ".git" in relative_parts:
         raise CompilationError(f"{label} must not be inside .git: {path}")
     for prohibited in _INTERNAL_MODELABLE_PATHS:
@@ -396,6 +400,10 @@ def _resolve_conversation_path(
     ):
         raise CompilationError(f"{label} overlaps a .mdl source: {path}")
     return normalized
+
+
+def _canonical_policy_component(component: str) -> str:
+    return component.rstrip(" .").lower()
 
 
 def _stage_request(
@@ -603,7 +611,27 @@ def _affected_definitions(
 
 def _definition_dependencies(mdl: MdlFile, ref: str) -> tuple[str, ...]:
     qualified_name, separator, version_text = ref.rpartition("@")
-    if not separator or not version_text.isdigit():
+    if not separator:
+        domain = next((item for item in mdl.domains if item.name == ref), None)
+        if domain is None:
+            return ()
+        definitions = {
+            *(
+                f"{domain.name}.{name}@{version.version}"
+                for name, versions in domain.models.items()
+                for version in versions
+            ),
+            *(
+                f"{domain.name}.{name}@{version.version}"
+                for name, versions in domain.projections.items()
+                for version in versions
+            ),
+        }
+        domain_dependencies = set(definitions)
+        for definition in definitions:
+            domain_dependencies.update(_definition_dependencies(mdl, definition))
+        return tuple(sorted(domain_dependencies))
+    if not version_text.isdigit():
         return ()
     domain_name, separator, definition_name = qualified_name.partition(".")
     if not separator:
@@ -649,12 +677,15 @@ def _definition_dependencies(mdl: MdlFile, ref: str) -> tuple[str, ...]:
 
 
 def _semantic_refs(mdl: MdlFile, names: set[str]) -> set[str]:
-    return {
-        f"{domain.name}.{declaration.name}"
-        for domain in mdl.domains
-        for declaration in domain.semantic_types
-        if declaration.name in names
-    }
+    refs: set[str] = set()
+    for name in sorted(names):
+        domain_name = _domain_defining(mdl, name)
+        if domain_name is None:
+            continue
+        domain = next(domain for domain in mdl.domains if domain.name == domain_name)
+        if any(declaration.name == name for declaration in domain.semantic_types):
+            refs.add(f"{domain.name}.{name}")
+    return refs
 
 
 def _manifest_fingerprint(

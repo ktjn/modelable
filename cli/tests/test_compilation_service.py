@@ -280,6 +280,98 @@ domain consumer {
     )
 
 
+def test_domain_artifact_reports_complete_definition_and_dependency_closure(tmp_path: Path) -> None:
+    source = write_workspace(
+        tmp_path,
+        """
+domain catalog {
+  owner: "catalog-team"
+  semantic ExternalId : string
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    externalId: ExternalId
+  }
+
+  entity Account @ 1 (additive) {
+    @key accountId: uuid
+    customerId: uuid
+  }
+
+  projection CustomerAccount @ 1
+    from catalog.Customer @ 1 as customer
+    join catalog.Account @ 1 as account on customer.customerId == account.customerId
+  {
+    customerId <- customer.customerId
+    accountId <- account.accountId
+  }
+}
+
+domain unrelated {
+  owner: "unrelated-team"
+  semantic OtherCode : string
+  entity Other @ 1 (additive) {
+    @key otherId: uuid
+    code: OtherCode
+  }
+}
+""",
+    )
+
+    pending = preview_for(
+        tmp_path,
+        source,
+        target="openmetadata",
+        domains=("catalog",),
+    )
+    affected = {item.ref for item in pending.affected_definitions}
+
+    assert {
+        "catalog",
+        "catalog.Customer@1",
+        "catalog.Account@1",
+        "catalog.CustomerAccount@1",
+        "catalog.ExternalId",
+    } <= affected
+    assert not any(ref.startswith("unrelated") for ref in affected)
+
+
+def test_duplicate_semantic_names_report_only_compiler_selected_declaration(tmp_path: Path) -> None:
+    source = write_workspace(
+        tmp_path,
+        """
+domain alpha {
+  owner: "alpha-team"
+  semantic SharedId : string
+}
+
+domain beta {
+  owner: "beta-team"
+  semantic SharedId : u64
+}
+
+domain consumer {
+  owner: "consumer-team"
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    sharedId: SharedId
+  }
+}
+""",
+    )
+
+    pending = preview_for(
+        tmp_path,
+        source,
+        target="openmetadata",
+        domains=("alpha", "consumer"),
+    )
+    affected = {item.ref for item in pending.affected_definitions}
+
+    assert "alpha.SharedId" in affected
+    assert "beta.SharedId" not in affected
+
+
 def test_preview_rejects_text_payload_above_two_mib(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -346,6 +438,39 @@ def test_preview_normalizes_before_rejecting_internal_control_paths(
     monkeypatch.setattr(compilation, "read_lock_file", unexpected_ledger_read)
 
     with pytest.raises(CompilationError, match=r"\.modelable/locks"):
+        CompilationService(temp_root=tmp_path.parent).preview(
+            CompilationRequest(
+                source=source,
+                target="json-schema",
+                registry_ids_path=registry_ids_path,
+            ),
+            policy=CompilationPolicy.conversation(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("registry_ids_path", "message"),
+    [
+        (Path(".modelable/locks./ids.lock"), r"\.modelable/locks"),
+        (Path(".modelable/locks /ids.lock"), r"\.modelable/locks"),
+        (Path(".git./ids.lock"), r"\.git"),
+        (Path(".git /ids.lock"), r"\.git"),
+    ],
+)
+def test_preview_rejects_win32_trailing_dot_and_space_control_aliases_before_reads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    registry_ids_path: Path,
+    message: str,
+) -> None:
+    source = write_workspace(tmp_path)
+
+    def unexpected_ledger_read(path: Path):
+        raise AssertionError(f"ledger read before policy validation: {path}")
+
+    monkeypatch.setattr(compilation, "read_lock_file", unexpected_ledger_read)
+
+    with pytest.raises(CompilationError, match=message):
         CompilationService(temp_root=tmp_path.parent).preview(
             CompilationRequest(
                 source=source,
