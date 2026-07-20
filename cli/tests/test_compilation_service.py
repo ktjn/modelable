@@ -3,12 +3,16 @@ from __future__ import annotations
 import os
 import stat
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import pytest
 
 import modelable.operations.compilation as compilation
+from modelable.compiler.workspace import load_workspace
+from modelable.lsp.definition import definition_location_for_ref
 from modelable.operations.compilation import (
     CompilationError,
     CompilationPolicy,
@@ -99,6 +103,53 @@ def test_preview_stages_exact_files_without_mutating_workspace(tmp_path: Path) -
     assert pending.action_id == "compile-1"
 
 
+def test_overlapping_previews_use_explicit_isolated_plan_destinations(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+    first_source = write_workspace(first_root)
+    second_source = write_workspace(second_root)
+    initial_cwd = Path.cwd()
+    barrier = threading.Barrier(2)
+    observed_plan_dirs: list[Path] = []
+    original_write_plans = compilation.write_plans
+
+    def synchronized_write_plans(workspace, plans_dir: Path):
+        observed_plan_dirs.append(plans_dir)
+        barrier.wait(timeout=10)
+        return original_write_plans(workspace, plans_dir)
+
+    monkeypatch.setattr(compilation, "write_plans", synchronized_write_plans)
+    service = CompilationService(temp_root=tmp_path)
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(
+                    service.preview,
+                    CompilationRequest(source=source, target="json-schema"),
+                    policy=CompilationPolicy.conversation(),
+                )
+                for source in (first_source, second_source)
+            ]
+            pending = [future.result(timeout=20) for future in futures]
+
+        assert Path.cwd() == initial_cwd
+        assert all(path.is_absolute() for path in observed_plan_dirs)
+        assert all(file.staged_path.is_relative_to(item.staging_dir) for item in pending for file in item.files)
+        assert snapshot_tree(first_root) == {Path("workspace.mdl"): first_source.read_bytes()}
+        assert snapshot_tree(second_root) == {Path("workspace.mdl"): second_source.read_bytes()}
+    finally:
+        os.chdir(initial_cwd)
+        for path in tmp_path.glob("modelable-compile-*"):
+            if path.exists():
+                compilation.shutil.rmtree(path)
+
+
 def test_preview_models_are_immutable(tmp_path: Path) -> None:
     pending = preview_for(tmp_path, write_workspace(tmp_path))
 
@@ -177,6 +228,58 @@ def test_preview_manifest_order_and_affected_definitions_are_canonical(tmp_path:
     assert len(pending.manifest_fingerprint) == 64
 
 
+def test_preview_uses_authoritative_python_artifact_refs(tmp_path: Path) -> None:
+    pending = preview_for(tmp_path, write_workspace(tmp_path), target="python")
+
+    artifact_refs = {file.ref for file in pending.files if file.category == "artifact"}
+    assert {"platform.Order@1", "platform.OrderView@1"} <= artifact_refs
+    assert all(file.ref is not None for file in pending.files if file.category == "artifact")
+
+
+def test_affected_definitions_include_actual_cross_domain_dependencies_only(tmp_path: Path) -> None:
+    source = write_workspace(
+        tmp_path,
+        """
+domain shared {
+  owner: "shared-team"
+  entity Source @ 1 (additive) {
+    @key sourceId: uuid
+  }
+  entity Unrelated @ 1 (additive) {
+    @key unrelatedId: uuid
+  }
+}
+
+domain consumer {
+  owner: "consumer-team"
+  projection SourceView @ 1
+    from shared.Source @ 1 as source
+  {
+    sourceId <- source.sourceId
+  }
+}
+""",
+    )
+
+    pending = preview_for(
+        tmp_path,
+        source,
+        target="sql-postgres",
+        domains=("consumer", "shared"),
+    )
+    affected = {item.ref: item for item in pending.affected_definitions}
+
+    assert "consumer.SourceView@1" in affected
+    assert affected["consumer.SourceView@1"].reason == "sql-postgres artifact"
+    assert "shared.Source@1" in affected
+    assert "required by consumer.SourceView@1" in affected["shared.Source@1"].reason
+    assert "shared.Unrelated@1" not in affected
+    workspace = load_workspace(source)
+    assert all(
+        definition_location_for_ref(workspace, ref) is not None for ref in ("consumer.SourceView@1", "shared.Source@1")
+    )
+
+
 def test_preview_rejects_text_payload_above_two_mib(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -219,6 +322,36 @@ def test_preview_rejects_prohibited_output_paths(
     with pytest.raises(CompilationError, match=message):
         CompilationService(temp_root=tmp_path.parent).preview(
             CompilationRequest(source=source, target="json-schema", out_dir=out_dir),
+            policy=CompilationPolicy.conversation(),
+        )
+
+
+@pytest.mark.parametrize(
+    "registry_ids_path",
+    [
+        Path("safe/../.modelable/locks/ids.lock"),
+        Path(".MODELABLE/intermediate/../LOCKS/ids.lock"),
+    ],
+)
+def test_preview_normalizes_before_rejecting_internal_control_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    registry_ids_path: Path,
+) -> None:
+    source = write_workspace(tmp_path)
+
+    def unexpected_ledger_read(path: Path):
+        raise AssertionError(f"ledger read before policy validation: {path}")
+
+    monkeypatch.setattr(compilation, "read_lock_file", unexpected_ledger_read)
+
+    with pytest.raises(CompilationError, match=r"\.modelable/locks"):
+        CompilationService(temp_root=tmp_path.parent).preview(
+            CompilationRequest(
+                source=source,
+                target="json-schema",
+                registry_ids_path=registry_ids_path,
+            ),
             policy=CompilationPolicy.conversation(),
         )
 

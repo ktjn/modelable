@@ -5,7 +5,6 @@ import difflib
 import hashlib
 import json
 import os
-import re
 import shutil
 import tempfile
 import uuid
@@ -36,12 +35,13 @@ from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
 from modelable.llm.workspace_editor import AffectedDefinition
-from modelable.parser.ir import ArrayType, FieldType, MapType, MdlFile, NamedType, ObjectType, ParseError
+from modelable.parser.ir import ArrayType, FieldDef, FieldType, MapType, MdlFile, NamedType, ObjectType, ParseError
 from modelable.planner.plans import write_plans
 from modelable.registry.factory import get_registry
 from modelable.registry.ids import allocate_registry_ids, read_lock_file, write_lock_file
 from modelable.registry.index import build_registry
 from modelable.registry.oci import OCIRegistryError
+from modelable.registry.resolver import resolve_model_ref
 
 TARGETS = (
     "json-schema",
@@ -175,6 +175,12 @@ class DirectCompilationResult:
     events: tuple[CompilationEvent, ...]
 
 
+@dataclass(frozen=True)
+class _CompilationRunResult:
+    direct: DirectCompilationResult
+    artifacts: tuple[EmittedArtifact, ...]
+
+
 class CompilationService:
     def __init__(
         self,
@@ -215,12 +221,12 @@ class CompilationService:
                 staged_request.registry_ids_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(layout.registry_ids, staged_request.registry_ids_path)
 
-            previous_cwd = Path.cwd()
-            try:
-                os.chdir(staging_dir)
-                result = _execute_compilation(staged_request)
-            finally:
-                os.chdir(previous_cwd)
+            run = _run_compilation(
+                staged_request,
+                plans_dir=staging_dir / ".modelable" / "plans",
+            )
+            result = run.direct
+            artifact_refs = {Path(artifact.path).resolve(): artifact.ref for artifact in run.artifacts}
 
             files = _build_file_previews(
                 result.written_paths,
@@ -228,6 +234,7 @@ class CompilationService:
                 workspace_root=workspace_root,
                 source_paths=set(source_paths),
                 layout=layout,
+                artifact_refs=artifact_refs,
             )
             _check_text_preview_limit(files)
             staged_registry_ids = read_lock_file(staged_request.registry_ids_path)
@@ -236,7 +243,12 @@ class CompilationService:
                 for ref, registry_id in sorted(staged_registry_ids.items())
                 if ref not in existing_registry_ids
             )
-            affected_definitions = _affected_definitions(workspace, request)
+            affected_definitions = _affected_definitions(
+                workspace,
+                request,
+                artifacts=run.artifacts,
+                registry_id_changes=registry_id_changes,
+            )
             warnings = tuple(event.message for event in result.events if event.level == "warning")
             action_id = self.new_id()
             manifest_fingerprint = _manifest_fingerprint(
@@ -364,12 +376,12 @@ def _resolve_conversation_path(
 ) -> Path:
     if path.is_absolute():
         raise CompilationError(f"{label} must be workspace-relative.")
-    lexical = workspace_root / path
-    resolved = lexical.resolve(strict=False)
+    normalized = Path(os.path.normpath(workspace_root / path))
+    resolved = normalized.resolve(strict=False)
     if not resolved.is_relative_to(workspace_root):
         raise CompilationError(f"{label} resolves outside the workspace: {path}")
 
-    relative_parts = tuple(part.lower() for part in lexical.relative_to(workspace_root).parts)
+    relative_parts = tuple(part.lower() for part in resolved.relative_to(workspace_root).parts)
     if ".git" in relative_parts:
         raise CompilationError(f"{label} must not be inside .git: {path}")
     for prohibited in _INTERNAL_MODELABLE_PATHS:
@@ -380,10 +392,10 @@ def _resolve_conversation_path(
         raise CompilationError(f"output path must not use internal .modelable paths: {path}")
     if (
         any(resolved == source or resolved.is_relative_to(source) for source in source_paths)
-        or lexical.resolve(strict=False).suffix.lower() == ".mdl"
+        or resolved.suffix.lower() == ".mdl"
     ):
         raise CompilationError(f"{label} overlaps a .mdl source: {path}")
-    return lexical
+    return normalized
 
 
 def _stage_request(
@@ -411,6 +423,7 @@ def _build_file_previews(
     workspace_root: Path,
     source_paths: set[Path],
     layout: _PreviewLayout,
+    artifact_refs: dict[Path, str],
 ) -> tuple[CompilationFilePreview, ...]:
     previews: list[CompilationFilePreview] = []
     for written_path in sorted(set(written_paths)):
@@ -441,6 +454,7 @@ def _build_file_previews(
                 staged_path=staged_path,
                 before_bytes=before_bytes,
                 after_bytes=after_bytes,
+                ref=artifact_refs.get(staged_path),
             )
         )
     return tuple(sorted(previews, key=lambda item: item.destination.as_posix()))
@@ -468,6 +482,7 @@ def _file_preview(
     staged_path: Path,
     before_bytes: bytes | None,
     after_bytes: bytes,
+    ref: str | None,
 ) -> CompilationFilePreview:
     before_hash = _bytes_hash(before_bytes) if before_bytes is not None else None
     after_hash = _bytes_hash(after_bytes)
@@ -508,7 +523,7 @@ def _file_preview(
         staged_path=staged_path,
         status=status,
         media_type=_media_type(destination, binary=is_binary),
-        ref=_file_ref(destination, category),
+        ref=_plan_ref(destination) if category == "plan" else ref,
         before_hash=before_hash,
         after_hash=after_hash,
         before_size=len(before_bytes) if before_bytes is not None else 0,
@@ -529,22 +544,10 @@ def _media_type(path: Path, *, binary: bool) -> str:
     return "text/plain; charset=utf-8"
 
 
-def _file_ref(
-    path: Path,
-    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor"],
-) -> str | None:
-    if category == "plan":
-        stem = path.name.removesuffix(".plan.json")
-        domain_and_name, _, version = stem.rpartition(".v")
-        return f"{domain_and_name}@{version}" if domain_and_name and version else None
-    for index in range(len(path.parts) - 1, 0, -1):
-        match = re.match(r"^(?P<name>.+)\.v(?P<version>\d+)(?:[.-].*)?$", path.parts[index])
-        if match is not None:
-            name = match.group("name")
-            domain = path.parts[index - 1]
-            qualified_name = name if "." in name else f"{domain}.{name}"
-            return f"{qualified_name}@{match.group('version')}"
-    return None
+def _plan_ref(path: Path) -> str | None:
+    stem = path.name.removesuffix(".plan.json")
+    domain_and_name, _, version = stem.rpartition(".v")
+    return f"{domain_and_name}@{version}" if domain_and_name and version else None
 
 
 def _check_text_preview_limit(files: tuple[CompilationFilePreview, ...]) -> None:
@@ -577,43 +580,81 @@ def _fingerprint_source(path: Path) -> FileFingerprint:
 def _affected_definitions(
     workspace: Workspace,
     request: CompilationRequest,
+    *,
+    artifacts: tuple[EmittedArtifact, ...],
+    registry_id_changes: tuple[RegistryIdChange, ...],
 ) -> tuple[AffectedDefinition, ...]:
-    requested = set(request.domains)
     affected: dict[str, AffectedDefinition] = {}
-    for domain in workspace.mdl.domains:
-        if requested and domain.name not in requested:
-            continue
-        values = [
-            AffectedDefinition(domain.name, "compiled", "domain selected for compilation"),
-            *(
-                AffectedDefinition(
-                    f"{domain.name}.{name}@{version.version}",
-                    "consumed",
-                    f"{request.target} artifact input",
-                )
-                for name, versions in domain.models.items()
-                for version in versions
-            ),
-            *(
-                AffectedDefinition(
-                    f"{domain.name}.{name}@{version.version}",
-                    "consumed",
-                    f"{request.target} artifact input",
-                )
-                for name, versions in domain.projections.items()
-                for version in versions
-            ),
-            *(
-                AffectedDefinition(
-                    f"{domain.name}.{declaration.name}",
-                    "consumed",
-                    "semantic type used by compilation",
-                )
-                for declaration in domain.semantic_types
-            ),
-        ]
-        affected.update((item.ref, item) for item in values)
+    artifact_refs = sorted({artifact.ref for artifact in artifacts})
+    for ref in artifact_refs:
+        affected[ref] = AffectedDefinition(ref, "generated", f"{request.target} artifact")
+        for dependency in _definition_dependencies(workspace.mdl, ref):
+            affected.setdefault(
+                dependency,
+                AffectedDefinition(dependency, "consumed", f"required by {ref}"),
+            )
+    for change in registry_id_changes:
+        affected.setdefault(
+            change.ref,
+            AffectedDefinition(change.ref, "allocated", "new registry ID allocated"),
+        )
     return tuple(affected[ref] for ref in sorted(affected))
+
+
+def _definition_dependencies(mdl: MdlFile, ref: str) -> tuple[str, ...]:
+    qualified_name, separator, version_text = ref.rpartition("@")
+    if not separator or not version_text.isdigit():
+        return ()
+    domain_name, separator, definition_name = qualified_name.partition(".")
+    if not separator:
+        return ()
+    domain = next((item for item in mdl.domains if item.name == domain_name), None)
+    if domain is None:
+        return ()
+    version = int(version_text)
+    model = next(
+        (item for item in domain.models.get(definition_name, ()) if item.version == version),
+        None,
+    )
+    projection = next(
+        (item for item in domain.projections.get(definition_name, ()) if item.version == version),
+        None,
+    )
+    dependencies: set[str] = set()
+    if model is not None:
+        for field in model.fields:
+            names: set[str] = set()
+            _collect_named_type_names(field.type, names)
+            dependencies.update(_semantic_refs(mdl, names))
+    if projection is not None:
+        references = [
+            (projection.source.model, projection.source.version),
+            *((join.model, join.version) for join in projection.joins),
+        ]
+        for model_ref, version_spec in references:
+            try:
+                resolved = resolve_model_ref(mdl, model_ref, version_spec)
+            except LookupError:
+                continue
+            dependency = f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}"
+            dependencies.add(dependency)
+            for source_field in resolved.version.fields:
+                if not isinstance(source_field, FieldDef):
+                    continue
+                names = set()
+                _collect_named_type_names(source_field.type, names)
+                dependencies.update(_semantic_refs(mdl, names))
+    dependencies.discard(ref)
+    return tuple(sorted(dependencies))
+
+
+def _semantic_refs(mdl: MdlFile, names: set[str]) -> set[str]:
+    return {
+        f"{domain.name}.{declaration.name}"
+        for domain in mdl.domains
+        for declaration in domain.semantic_types
+        if declaration.name in names
+    }
 
 
 def _manifest_fingerprint(
@@ -688,15 +729,26 @@ def _remove_staging(path: Path) -> None:
 
 
 def _execute_compilation(request: CompilationRequest) -> DirectCompilationResult:
+    return _run_compilation(request, plans_dir=Path(".modelable/plans")).direct
+
+
+def _run_compilation(
+    request: CompilationRequest,
+    *,
+    plans_dir: Path,
+) -> _CompilationRunResult:
     if request.target not in TARGETS:
         raise CompilationError(f"Unknown compilation target: {request.target}")
 
     try:
         workspace = load_workspace(request.source)
     except FileNotFoundError:
-        return DirectCompilationResult(
-            written_paths=(),
-            events=(CompilationEvent("warning", "No .mdl files found."),),
+        return _CompilationRunResult(
+            direct=DirectCompilationResult(
+                written_paths=(),
+                events=(CompilationEvent("warning", "No .mdl files found."),),
+            ),
+            artifacts=(),
         )
     except ParseError as exc:
         raise CompilationDiagnosticsError(
@@ -743,7 +795,6 @@ def _execute_compilation(request: CompilationRequest) -> DirectCompilationResult
     if not request.registry_path.startswith("oci://"):
         written_paths.append(Path(request.registry_path))
 
-    plans_dir = Path(".modelable/plans")
     plan_paths = write_plans(workspace, plans_dir)
     written_paths.extend(Path(path).resolve() for path in plan_paths)
     events.extend(CompilationEvent("ok", f"wrote {path}", path=Path(path)) for path in plan_paths)
@@ -773,9 +824,12 @@ def _execute_compilation(request: CompilationRequest) -> DirectCompilationResult
     if not artifacts:
         events.append(CompilationEvent("warning", "No artifacts generated."))
 
-    return DirectCompilationResult(
-        written_paths=tuple(sorted(set(written_paths))),
-        events=tuple(events),
+    return _CompilationRunResult(
+        direct=DirectCompilationResult(
+            written_paths=tuple(sorted(set(written_paths))),
+            events=tuple(events),
+        ),
+        artifacts=tuple(artifacts),
     )
 
 
