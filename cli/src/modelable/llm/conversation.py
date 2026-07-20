@@ -565,7 +565,7 @@ def render_applied_change_set(applied: AppliedChangeSet) -> str:
 
 
 def render_pending_compilation(pending: PendingCompilation, plan: CompilePlan) -> str:
-    from modelable.operations.compilation import default_output_dir
+    from modelable.operations.compilation import default_output_dir, is_text_media_type
 
     domains = ", ".join(_escape_inline(domain) for domain in plan.domains) if plan.domains else "all"
     output = _escape_inline(plan.output or default_output_dir(plan.target).as_posix())
@@ -613,7 +613,7 @@ def render_pending_compilation(pending: PendingCompilation, plan: CompilePlan) -
             f"({_escape_inline(item.after_hash)})"
         )
         for item in pending.files
-        if item.after_text is None
+        if not is_text_media_type(item.media_type)
     ] or ["- none"]
     sections.append("Binary files\n" + "\n".join(binaries))
     warnings = [_code_block(warning) for warning in pending.warnings] or ["- none"]

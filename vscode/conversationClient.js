@@ -250,14 +250,19 @@ function collectDirtyDocumentUris(vscodeApi, workspaceUri) {
     .sort((left, right) => left.toString().localeCompare(right.toString()));
 }
 
-function isFileUriInsideWorkspace(vscodeApi, workspaceUri, documentUri) {
+function isFileUriInsideWorkspace(
+  vscodeApi,
+  workspaceUri,
+  documentUri,
+  realpath = fs.realpathSync.native,
+) {
   try {
     const rootUri = vscodeApi.Uri.parse(workspaceUri);
     if (rootUri.scheme !== 'file' || documentUri?.scheme !== 'file') {
       return false;
     }
-    const rootPath = canonicalPath(rootUri.fsPath);
-    const documentPath = canonicalPath(documentUri.fsPath);
+    const rootPath = canonicalPath(rootUri.fsPath, realpath);
+    const documentPath = canonicalPath(documentUri.fsPath, realpath);
     const relative = path.relative(rootPath, documentPath);
     return (
       relative === '' ||
@@ -272,12 +277,21 @@ function isFileUriInsideWorkspace(vscodeApi, workspaceUri, documentUri) {
   }
 }
 
-function canonicalPath(filePath) {
+function canonicalPath(filePath, realpath) {
   const resolved = path.resolve(filePath);
-  try {
-    return fs.realpathSync.native(resolved);
-  } catch {
-    return resolved;
+  const missingSegments = [];
+  let candidate = resolved;
+  while (true) {
+    try {
+      return path.join(realpath(candidate), ...missingSegments);
+    } catch {
+      const parent = path.dirname(candidate);
+      if (parent === candidate) {
+        return resolved;
+      }
+      missingSegments.unshift(path.basename(candidate));
+      candidate = parent;
+    }
   }
 }
 

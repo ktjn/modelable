@@ -474,6 +474,45 @@ def test_compile_conversation_previews_then_applies_exact_stage(tmp_path: Path) 
     assert not pending.staging_dir.exists()
 
 
+def test_compile_preview_does_not_render_unchanged_text_as_binary(tmp_path: Path) -> None:
+    _write_compilation_workspace(tmp_path)
+    service = CompilationService(temp_root=tmp_path.parent)
+    first_session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(_compile_plan("rust")),
+        compilation_service=service,
+    )
+    first_session.turn("compile this workspace to Rust")
+    first_pending = first_session.pending
+    assert isinstance(first_pending, PendingCompilation)
+    text_file = next(
+        item
+        for item in first_pending.files
+        if item.media_type.startswith("text/") or item.media_type == "application/json"
+    )
+    text_file.destination.parent.mkdir(parents=True, exist_ok=True)
+    text_file.destination.write_bytes(text_file.staged_path.read_bytes())
+    first_session.turn("/discard")
+
+    second_session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(_compile_plan("rust")),
+        compilation_service=service,
+    )
+    preview = second_session.turn("compile this workspace to Rust")
+    second_pending = second_session.pending
+    assert isinstance(second_pending, PendingCompilation)
+    unchanged = next(item for item in second_pending.files if item.destination == text_file.destination)
+    binary = next(item for item in second_pending.files if item.media_type == "application/octet-stream")
+    binary_section = preview.text.split("Binary files\n", 1)[1].split("\n\nWarnings", 1)[0]
+
+    assert unchanged.status == "unchanged"
+    assert unchanged.after_text is None
+    assert unchanged.after_hash not in binary_section
+    assert binary.after_hash in binary_section
+    second_session.turn("/discard")
+
+
 @pytest.mark.parametrize("confirmation", ["apply", "apply it", "confirm"])
 def test_compile_requires_literal_apply_without_calling_provider(
     tmp_path: Path,

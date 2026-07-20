@@ -802,6 +802,21 @@ def _media_type(path: Path, *, binary: bool) -> str:
     return "text/plain; charset=utf-8"
 
 
+def is_text_media_type(media_type: str) -> bool:
+    normalized = media_type.partition(";")[0].strip().lower()
+    return (
+        normalized.startswith("text/")
+        or normalized
+        in {
+            "application/json",
+            "application/yaml",
+            "application/x-yaml",
+            "application/xml",
+        }
+        or normalized.endswith(("+json", "+yaml", "+xml"))
+    )
+
+
 def _plan_ref(path: Path) -> str | None:
     stem = path.name.removesuffix(".plan.json")
     domain_and_name, _, version = stem.rpartition(".v")

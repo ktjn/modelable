@@ -4,6 +4,7 @@ import * as path from 'path';
 
 const {
   ConversationClient,
+  isFileUriInsideWorkspace,
   recoverSessionMetadata,
   resolveConversationContext,
 } = require('../../../conversationClient');
@@ -116,6 +117,71 @@ suite('Modelable conversation participant', () => {
       ],
     );
     assert.deepStrictEqual(context.position, { line: 3, character: 8 });
+  });
+
+  test('workspace containment canonicalizes missing descendants without admitting symlink escapes', () => {
+    const root = path.resolve(path.parse(process.cwd()).root, 'virtual', 'link');
+    const realRoot = path.resolve(path.parse(process.cwd()).root, 'virtual', 'real');
+    const outside = path.resolve(path.parse(process.cwd()).root, 'virtual', 'outside');
+    const generated = path.join(root, 'dist', 'new.rs');
+    const escaped = path.join(root, 'escape', 'new.rs');
+    const lexicalEscape = path.join(root, '..', 'outside', 'new.rs');
+    const sibling = path.resolve(`${root}-sibling`, 'new.rs');
+    const canonical = new Map([
+      [root, realRoot],
+      [path.join(root, 'escape'), outside],
+    ]);
+    const calls: string[] = [];
+    const realpath = (value: string) => {
+      const resolved = path.resolve(value);
+      calls.push(resolved);
+      const result = canonical.get(resolved);
+      if (!result) {
+        throw new Error('missing');
+      }
+      return result;
+    };
+    const api = fakeVscode({ folders: [] });
+    const workspaceUri = new FakeUri(root).toString();
+
+    assert.strictEqual(
+      isFileUriInsideWorkspace(
+        api,
+        workspaceUri,
+        new FakeUri(generated),
+        realpath,
+      ),
+      true,
+    );
+    assert.strictEqual(
+      isFileUriInsideWorkspace(
+        api,
+        workspaceUri,
+        new FakeUri(escaped),
+        realpath,
+      ),
+      false,
+    );
+    assert.strictEqual(
+      isFileUriInsideWorkspace(
+        api,
+        workspaceUri,
+        new FakeUri(lexicalEscape),
+        realpath,
+      ),
+      false,
+    );
+    assert.strictEqual(
+      isFileUriInsideWorkspace(
+        api,
+        workspaceUri,
+        new FakeUri(sibling),
+        realpath,
+      ),
+      false,
+    );
+    assert.ok(calls.includes(path.join(root, 'dist')));
+    assert.ok(calls.includes(root));
   });
 
   test('one manifest folder is selected without an active model', async () => {
