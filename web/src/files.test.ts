@@ -5,26 +5,40 @@ import { describe, expect, test, vi } from 'vitest';
 import {
   MAX_IMPORT_BYTES,
   downloadText,
-  readSourceFile,
+  readWorkspaceFiles,
   sanitizeDownloadName,
 } from './files';
 
 describe('local file boundary', () => {
-  test.each(['schema.exe', 'schema.json', 'schema'])(
-    'rejects unsupported import %s',
-    async (name) => {
-      await expect(readSourceFile(new File(['text'], name))).rejects.toThrow(
-        /\.mdl or \.txt/i,
-      );
-    },
-  );
+  test('reads multiple mdl files in deterministic name order', async () => {
+    const files = [
+      new File(['domain z {}'], 'z.mdl', { type: 'text/plain' }),
+      new File(['domain a {}'], 'a.mdl', { type: 'text/plain' }),
+    ];
+    await expect(readWorkspaceFiles(files)).resolves.toEqual([
+      { path: 'a.mdl', content: 'domain a {}' },
+      { path: 'z.mdl', content: 'domain z {}' },
+    ]);
+  });
 
-  test('rejects files above the exact size limit', async () => {
-    const file = new File(
-      [new Uint8Array(MAX_IMPORT_BYTES + 1)],
-      'large.mdl',
-    );
-    await expect(readSourceFile(file)).rejects.toThrow(/1 MiB/i);
+  test('rejects non-mdl, oversized, and duplicate normalized names', async () => {
+    await expect(
+      readWorkspaceFiles([new File(['x'], 'source.txt')]),
+    ).rejects.toThrow('Choose .mdl workspace files');
+    await expect(
+      readWorkspaceFiles([
+        new File(
+          [new Uint8Array(MAX_IMPORT_BYTES + 1)],
+          'large.mdl',
+        ),
+      ]),
+    ).rejects.toThrow('Workspace files must be 1 MiB or smaller');
+    await expect(
+      readWorkspaceFiles([
+        new File(['a'], 'same.mdl'),
+        new File(['b'], 'same.mdl'),
+      ]),
+    ).rejects.toThrow('Choose files with unique workspace paths');
   });
 
   test('sanitizes an untrusted download filename', () => {

@@ -31,6 +31,7 @@ body {
 }
 
 button,
+input,
 select {
   font: inherit;
 }
@@ -226,6 +227,140 @@ button:disabled {
   color: var(--verified);
 }
 
+.source-workspace {
+  display: grid;
+  grid-template-columns: minmax(11rem, 13rem) minmax(0, 1fr);
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.workspace-files {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border: 1px solid var(--rule);
+  background: var(--workbench);
+}
+
+.workspace-files-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.workspace-files-label,
+.workspace-files-count,
+.active-file-label,
+.workspace-file-error {
+  margin: 0;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.workspace-files-label {
+  color: var(--graphite);
+  font-weight: 700;
+  letter-spacing: 0.065em;
+  text-transform: uppercase;
+}
+
+.workspace-files-count {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.workspace-file-list {
+  display: flex;
+  max-height: 17rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.45rem;
+  flex-direction: column;
+  gap: 0.3rem;
+  overflow: auto;
+  list-style: none;
+}
+
+.workspace-file-list li {
+  min-width: 0;
+}
+
+.workspace-file {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.65rem;
+  overflow: hidden;
+  color: var(--graphite);
+  background: var(--paper);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.72rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-file[aria-current="true"] {
+  border-color: var(--signal);
+  box-shadow: inset 0.25rem 0 0 var(--signal);
+  color: var(--paper);
+  background: var(--signal);
+}
+
+.active-file-label {
+  display: block;
+  margin: 0.25rem 0.2rem 0;
+  color: var(--verified);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.workspace-file-actions {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: auto;
+  padding: 0.75rem;
+  border-top: 1px solid var(--rule);
+}
+
+.workspace-file-actions label {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.workspace-file-actions input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--graphite);
+  border-radius: 0;
+  padding: 0.55rem 0.65rem;
+  color: var(--graphite);
+  background: var(--paper);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.workspace-file-action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+}
+
+.workspace-file-action-grid button {
+  min-width: 0;
+  padding-inline: 0.35rem;
+  font-size: 0.7rem;
+}
+
+.workspace-file-error {
+  padding: 0 0.75rem 0.75rem;
+  color: var(--diagnostic);
+  font-weight: 700;
+}
+
 .source-editor,
 .artifact-editor {
   width: 100%;
@@ -343,6 +478,34 @@ select {
     border-bottom: 1px solid var(--graphite);
   }
 
+  .source-workspace {
+    display: block;
+  }
+
+  .workspace-files {
+    margin-bottom: 0.75rem;
+  }
+
+  .workspace-file-list {
+    max-height: none;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .workspace-file-list li {
+    flex: 0 0 min(14rem, 72vw);
+  }
+
+  .workspace-file-actions {
+    grid-template-columns: auto minmax(10rem, 1fr) minmax(18rem, 2fr);
+    align-items: center;
+  }
+
+  .workspace-file-actions label {
+    white-space: nowrap;
+  }
+
   .metrics-strip {
     grid-template-columns: 1fr;
     gap: 0.45rem;
@@ -367,6 +530,10 @@ select {
 
   .toolbar button {
     width: 100%;
+  }
+
+  .workspace-file-actions {
+    grid-template-columns: 1fr;
   }
 
   .source-pane,

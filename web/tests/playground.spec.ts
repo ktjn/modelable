@@ -144,17 +144,25 @@ test('initializes locally and supports the complete editor workflow', async ({
     page.getByRole('button', { name: 'Export artifact' }),
   ).toBeDisabled();
 
-  page.once('dialog', async (dialog) => {
-    expect(dialog.message()).toContain('discard unsaved changes');
-    await dialog.accept();
-  });
-  await page.locator('input[type="file"]').setInputFiles({
+  await page
+    .getByLabel('Import workspace files')
+    .setInputFiles({
     name: 'imported.mdl',
     mimeType: 'text/plain',
     buffer: Buffer.from(importedSource),
   });
   await expect(sourceOutput(page)).toContainText(/domain\s+imported/);
   await actions[2].click();
+  const artifactPicker = page.getByRole('combobox', {
+    name: 'Artifact',
+  });
+  const importedArtifact = artifactPicker
+    .locator('option')
+    .filter({ hasText: 'Imported' });
+  await expect(importedArtifact).toHaveCount(1);
+  await artifactPicker.selectOption(
+    (await importedArtifact.getAttribute('value')) ?? '',
+  );
   await expect(artifactOutput(page)).toContainText(
     /"title":\s+"Imported"/,
   );

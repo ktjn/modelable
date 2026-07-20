@@ -13,7 +13,6 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import indexHtml from '../index.html?raw';
 import { App } from './App';
 import { BrowserCompilerError } from './client';
-import { MAX_IMPORT_BYTES } from './files';
 import type {
   BrowserCompileResult,
   BrowserFormatResult,
@@ -117,17 +116,6 @@ function latestRequest<T>(requests: Deferred<T>[]): Deferred<T> {
   return request;
 }
 
-function fileWithDeferredText(
-  name: string,
-  text: Deferred<string>,
-): File {
-  const file = new File([], name);
-  Object.defineProperty(file, 'text', {
-    value: vi.fn(() => text.promise),
-  });
-  return file;
-}
-
 class FakeCompilerClient {
   readonly initialization = deferred<void>();
   readonly workspaceRequests: Deferred<BrowserWorkspaceResult>[] = [];
@@ -171,30 +159,11 @@ async function initialize(client: FakeCompilerClient): Promise<void> {
   });
 }
 
-function chooseSourceFile(file: File): void {
-  const input = document.querySelector<HTMLInputElement>(
-    'input[type="file"]',
+function chooseWorkspaceFiles(files: File[]): void {
+  const input = screen.getByLabelText<HTMLInputElement>(
+    'Import workspace files',
   );
-  if (input === null) {
-    throw new Error('Expected a source file input');
-  }
-  fireEvent.change(input, { target: { files: [file] } });
-}
-
-async function importSource(
-  file: File,
-  expectedText: string,
-): Promise<void> {
-  chooseSourceFile(file);
-  await waitFor(() => {
-    expect(
-      (
-        screen.getByRole('textbox', {
-          name: 'Model source',
-        }) as HTMLTextAreaElement
-      ).value,
-    ).toBe(expectedText);
-  });
+  fireEvent.change(input, { target: { files } });
 }
 
 async function generateArtifacts(
@@ -441,259 +410,12 @@ describe('App', () => {
     expect(screen.getByRole('status').textContent).toMatch(/1 diagnostic/i);
   });
 
-  test('imports source and clears diagnostics', async () => {
-    const client = new FakeCompilerClient();
-    render(<App createClient={() => client} />);
-    await initialize(client);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
-    const request = latestRequest(client.workspaceRequests);
-    await act(async () => {
-      request.resolve({
-        diagnostics: [documentDiagnostic],
-        source_hashes: {},
-      });
-      await request.promise;
-    });
-
-    await importSource(
-      new File(['record Customer {}'], 'customer.mdl', {
-        type: 'text/plain',
-      }),
-      'record Customer {}',
-    );
-
-    expect(
-      (screen.getByRole('textbox', {
-        name: 'Model source',
-      }) as HTMLTextAreaElement).value,
-    ).toBe('record Customer {}');
-    expect(screen.queryByText('Customer is invalid')).toBeNull();
-  });
-
-  test('shows an unsupported import error and recovers on a valid import', async () => {
-    const client = new FakeCompilerClient();
-    render(<App createClient={() => client} />);
-    await initialize(client);
-    const editor = screen.getByRole('textbox', { name: 'Model source' });
-    const initialText = (editor as HTMLTextAreaElement).value;
-
-    chooseSourceFile(new File(['not source'], 'customer.json'));
-
-    expect((await screen.findByRole('alert')).textContent).toMatch(
-      /choose a \.mdl or \.txt source file/i,
-    );
-    expect((editor as HTMLTextAreaElement).value).toBe(initialText);
-    expect(screen.getByRole('status').textContent).toMatch(
-      /compiler ready/i,
-    );
-
-    chooseSourceFile(
-      new File(['record Customer {}'], 'customer.mdl'),
-    );
-    await waitFor(() => {
-      expect((editor as HTMLTextAreaElement).value).toBe(
-        'record Customer {}',
-      );
-    });
-    expect(screen.queryByRole('alert')).toBeNull();
-  });
-
-  test('shows an oversized import error without replacing source', async () => {
-    const client = new FakeCompilerClient();
-    render(<App createClient={() => client} />);
-    await initialize(client);
-    const editor = screen.getByRole('textbox', { name: 'Model source' });
-    const initialText = (editor as HTMLTextAreaElement).value;
-
-    chooseSourceFile(
-      new File(
-        [new Uint8Array(MAX_IMPORT_BYTES + 1)],
-        'large.mdl',
-      ),
-    );
-
-    expect((await screen.findByRole('alert')).textContent).toMatch(
-      /1 MiB or smaller/i,
-    );
-    expect((editor as HTMLTextAreaElement).value).toBe(initialText);
-    expect(screen.getByRole('status').textContent).toMatch(
-      /compiler ready/i,
-    );
-  });
-
-  test('sanitizes unreadable import errors without replacing source', async () => {
-    const client = new FakeCompilerClient();
-    render(<App createClient={() => client} />);
-    await initialize(client);
-    const editor = screen.getByRole('textbox', { name: 'Model source' });
-    const initialText = (editor as HTMLTextAreaElement).value;
-    const file = new File(['source'], 'customer.mdl');
-    Object.defineProperty(file, 'text', {
-      value: vi.fn().mockRejectedValue(
-        new Error('sensitive C:\\private\\source.mdl failure'),
-      ),
-    });
-
-    chooseSourceFile(file);
-
-    const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toMatch(
-      /could not read the selected source file/i,
-    );
-    expect(alert.textContent).not.toMatch(/sensitive|private/i);
-    expect((editor as HTMLTextAreaElement).value).toBe(initialText);
-    expect(screen.getByRole('status').textContent).toMatch(
-      /compiler ready/i,
-    );
-  });
-
-  test('ignores an older import that resolves after the latest import', async () => {
-    const client = new FakeCompilerClient();
-    const download = vi.fn();
-    const slowText = deferred<string>();
-    render(<App createClient={() => client} download={download} />);
-    await initialize(client);
-    const editor = screen.getByRole('textbox', { name: 'Model source' });
-
-    chooseSourceFile(fileWithDeferredText('old.mdl', slowText));
-    chooseSourceFile(new File(['record Latest {}'], 'latest.mdl'));
-    await waitFor(() => {
-      expect((editor as HTMLTextAreaElement).value).toBe(
-        'record Latest {}',
-      );
-    });
-
-    await act(async () => {
-      slowText.resolve('record Old {}');
-      await slowText.promise;
-    });
-
-    expect((editor as HTMLTextAreaElement).value).toBe(
-      'record Latest {}',
-    );
-    expect(screen.queryByRole('alert')).toBeNull();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Export source' }),
-    );
-    expect(download).toHaveBeenCalledWith(
-      'record Latest {}',
-      'latest.mdl',
-      'text/plain',
-    );
-  });
-
-  test('an older import cannot change the latest clean snapshot', async () => {
-    const client = new FakeCompilerClient();
-    const confirmReplace = vi.fn(() => false);
-    const slowText = deferred<string>();
-    render(
-      <App
-        createClient={() => client}
-        confirmReplace={confirmReplace}
-      />,
-    );
-    await initialize(client);
-    const editor = screen.getByRole('textbox', { name: 'Model source' });
-
-    chooseSourceFile(fileWithDeferredText('old.mdl', slowText));
-    chooseSourceFile(new File(['record Latest {}'], 'latest.mdl'));
-    await waitFor(() => {
-      expect((editor as HTMLTextAreaElement).value).toBe(
-        'record Latest {}',
-      );
-    });
-    await act(async () => {
-      slowText.resolve('record Old {}');
-      await slowText.promise;
-    });
-
-    fireEvent.change(editor, {
-      target: { value: 'record Latest {}' },
-    });
-    chooseSourceFile(new File(['record Next {}'], 'next.mdl'));
-    await waitFor(() => {
-      expect((editor as HTMLTextAreaElement).value).toBe(
-        'record Next {}',
-      );
-    });
-    expect(confirmReplace).not.toHaveBeenCalled();
-  });
-
-  test('ignores an older import that rejects after the latest import', async () => {
-    const client = new FakeCompilerClient();
-    const download = vi.fn();
-    const slowText = deferred<string>();
-    render(<App createClient={() => client} download={download} />);
-    await initialize(client);
-    const editor = screen.getByRole('textbox', { name: 'Model source' });
-
-    chooseSourceFile(fileWithDeferredText('old.mdl', slowText));
-    chooseSourceFile(new File(['record Latest {}'], 'latest.mdl'));
-    await waitFor(() => {
-      expect((editor as HTMLTextAreaElement).value).toBe(
-        'record Latest {}',
-      );
-    });
-
-    await act(async () => {
-      slowText.reject(new Error('late unreadable failure'));
-      await expect(slowText.promise).rejects.toThrow(
-        'late unreadable failure',
-      );
-    });
-
-    expect((editor as HTMLTextAreaElement).value).toBe(
-      'record Latest {}',
-    );
-    expect(screen.queryByRole('alert')).toBeNull();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Export source' }),
-    );
-    expect(download).toHaveBeenCalledWith(
-      'record Latest {}',
-      'latest.mdl',
-      'text/plain',
-    );
-  });
-
-  test('confirms before replacing changed source and respects cancellation', async () => {
-    const client = new FakeCompilerClient();
-    const confirmReplace = vi.fn(() => false);
-    render(
-      <App
-        createClient={() => client}
-        confirmReplace={confirmReplace}
-      />,
-    );
-    await initialize(client);
-    const editor = screen.getByRole('textbox', { name: 'Model source' });
-    fireEvent.change(editor, {
-      target: { value: 'record Unsaved {}' },
-    });
-
-    chooseSourceFile(
-      new File(['record Imported {}'], 'imported.mdl'),
-    );
-    await waitFor(() => {
-      expect(confirmReplace).toHaveBeenCalledOnce();
-    });
-
-    expect((editor as HTMLTextAreaElement).value).toBe(
-      'record Unsaved {}',
-    );
-  });
-
-  test('exports current source with a sanitized mdl filename', async () => {
+  test('exports the active source with its mdl filename', async () => {
     const client = new FakeCompilerClient();
     const download = vi.fn();
     render(<App createClient={() => client} download={download} />);
     await initialize(client);
 
-    await importSource(
-      new File(['record Imported {}'], 'Customer<>.txt'),
-      'record Imported {}',
-    );
     fireEvent.change(
       screen.getByRole('textbox', { name: 'Model source' }),
       {
@@ -706,7 +428,7 @@ describe('App', () => {
 
     expect(download).toHaveBeenCalledWith(
       'record Edited {}',
-      'Customer.mdl',
+      'main.mdl',
       'text/plain',
     );
   });
@@ -751,6 +473,99 @@ describe('App', () => {
       'main.mdl',
       'record Customer {\n}\n',
     );
+  });
+
+  test('creates, selects, and deletes workspace files with confirmation', async () => {
+    const client = new FakeCompilerClient();
+    const confirmReplace = vi.fn(() => false);
+    render(
+      <App
+        createClient={() => client}
+        confirmReplace={confirmReplace}
+      />,
+    );
+    await initialize(client);
+
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Workspace file path' }),
+      { target: { value: 'customer.mdl' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'New file' }));
+
+    expect(
+      screen.getByRole('button', { name: 'customer.mdl' }).getAttribute(
+        'aria-current',
+      ),
+    ).toBe('true');
+    expect(
+      (
+        screen.getByRole('textbox', {
+          name: 'Model source',
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toBe('');
+
+    fireEvent.click(screen.getByRole('button', { name: 'main.mdl' }));
+    expect(
+      screen.getByRole('button', { name: 'main.mdl' }).getAttribute(
+        'aria-current',
+      ),
+    ).toBe('true');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Delete active' }),
+    );
+    expect(confirmReplace).toHaveBeenCalledWith(
+      'Delete workspace file main.mdl?',
+    );
+    expect(screen.getByRole('button', { name: 'main.mdl' })).toBeTruthy();
+
+    confirmReplace.mockReturnValue(true);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Delete active' }),
+    );
+    expect(
+      screen.queryByRole('button', { name: 'main.mdl' }),
+    ).toBeNull();
+  });
+
+  test('imports multiple files atomically and confirms each replacement', async () => {
+    const client = new FakeCompilerClient();
+    const confirmReplace = vi.fn(
+      (message: string) => !message.includes('main.mdl'),
+    );
+    render(
+      <App
+        createClient={() => client}
+        confirmReplace={confirmReplace}
+      />,
+    );
+    await initialize(client);
+    const originalSource = (
+      screen.getByRole('textbox', {
+        name: 'Model source',
+      }) as HTMLTextAreaElement
+    ).value;
+
+    chooseWorkspaceFiles([
+      new File(['domain replacement {}'], 'main.mdl'),
+      new File(['domain customer {}'], 'customer.mdl'),
+    ]);
+
+    expect(
+      await screen.findByRole('button', { name: 'customer.mdl' }),
+    ).toBeTruthy();
+    expect(confirmReplace).toHaveBeenCalledWith(
+      'Replace existing workspace file main.mdl?',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'main.mdl' }));
+    expect(
+      (
+        screen.getByRole('textbox', {
+          name: 'Model source',
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toBe(originalSource);
   });
 
   test('ignores formatted text after the active file is edited', async () => {
