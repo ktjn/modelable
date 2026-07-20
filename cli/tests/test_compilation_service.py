@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import dataclasses
+import json
 import os
 import stat
 import sys
@@ -14,11 +16,14 @@ import modelable.operations.compilation as compilation
 from modelable.compiler.workspace import load_workspace
 from modelable.lsp.definition import definition_location_for_ref
 from modelable.operations.compilation import (
+    CompilationConfirmation,
     CompilationError,
     CompilationPolicy,
     CompilationRequest,
     CompilationService,
+    StaleCompilationError,
 )
+from modelable.operations.file_transaction import FileTransaction, FileTransactionError
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -87,6 +92,262 @@ def preview_for(
         ),
         policy=CompilationPolicy.conversation(),
     )
+
+
+def confirmation_for(pending) -> CompilationConfirmation:
+    return CompilationConfirmation(
+        session_id="session-1",
+        action_id=pending.action_id,
+        manifest_fingerprint=pending.manifest_fingerprint,
+        surface="cli-chat",
+        provider="ollama",
+        model="qwen",
+    )
+
+
+def test_apply_writes_exact_stage_and_private_audit(tmp_path: Path) -> None:
+    source = write_workspace(tmp_path)
+    service = CompilationService(
+        temp_root=tmp_path.parent,
+        new_id=lambda: "compile-1",
+        clock=lambda: "2026-07-20T10:00:00Z",
+    )
+    pending = service.preview(
+        CompilationRequest(
+            source=source,
+            target="rust",
+            out_dir=Path("generated/rust"),
+        ),
+        policy=CompilationPolicy.conversation(),
+    )
+    staged = {item.destination: item.staged_path.read_bytes() for item in pending.files}
+
+    applied = service.apply(pending, confirmation=confirmation_for(pending))
+
+    assert {path: path.read_bytes() for path in staged} == staged
+    assert applied.written_paths == tuple(sorted((*staged, applied.audit_path)))
+    assert applied.action_id == pending.action_id
+    assert applied.files == pending.files
+    assert applied.affected_definitions == pending.affected_definitions
+    audit = json.loads(applied.audit_path.read_text(encoding="utf-8"))
+    assert audit["manifestFingerprint"] == pending.manifest_fingerprint
+    assert audit["schemaVersion"] == 1
+    assert "prompt" not in json.dumps(audit).lower()
+    assert not pending.staging_dir.exists()
+
+
+@pytest.mark.parametrize("category", ["registry_ids", "registry", "artifact"])
+def test_apply_rejects_stale_destination_inputs(
+    tmp_path: Path,
+    category: str,
+) -> None:
+    service = CompilationService(temp_root=tmp_path.parent)
+    pending = service.preview(
+        CompilationRequest(
+            source=write_workspace(tmp_path),
+            target="rust",
+            out_dir=Path("generated/rust"),
+        ),
+        policy=CompilationPolicy.conversation(),
+    )
+    destination = next(item.destination for item in pending.files if item.category == category)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(b"concurrent change")
+
+    with pytest.raises(StaleCompilationError, match=category.replace("_", " ")):
+        service.apply(pending, confirmation=confirmation_for(pending))
+
+    assert destination.read_bytes() == b"concurrent change"
+    assert not pending.staging_dir.exists()
+
+
+def test_apply_rejects_stale_source(tmp_path: Path) -> None:
+    source = write_workspace(tmp_path)
+    service = CompilationService(temp_root=tmp_path.parent)
+    pending = service.preview(
+        CompilationRequest(source=source, target="rust"),
+        policy=CompilationPolicy.conversation(),
+    )
+    source.write_text(source.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+
+    with pytest.raises(StaleCompilationError, match="source"):
+        service.apply(pending, confirmation=confirmation_for(pending))
+
+    assert not pending.staging_dir.exists()
+
+
+def test_apply_rejects_changed_resolved_parent_even_with_same_bytes(
+    tmp_path: Path,
+) -> None:
+    source = write_workspace(tmp_path)
+    service = CompilationService(temp_root=tmp_path.parent)
+    initial = service.preview(
+        CompilationRequest(
+            source=source,
+            target="rust",
+            out_dir=Path("generated/rust"),
+        ),
+        policy=CompilationPolicy.conversation(),
+    )
+    initial_artifact = next(item for item in initial.files if item.category == "artifact")
+    initial_artifact.destination.parent.mkdir(parents=True)
+    initial_artifact.destination.write_bytes(initial_artifact.staged_path.read_bytes())
+    service.discard(initial)
+    pending = service.preview(
+        CompilationRequest(
+            source=source,
+            target="rust",
+            out_dir=Path("generated/rust"),
+        ),
+        policy=CompilationPolicy.conversation(),
+    )
+    file = next(item for item in pending.files if item.category == "artifact")
+    outside = tmp_path.parent / f"{tmp_path.name}-redirect"
+    outside.mkdir()
+    redirected = outside / file.destination.name
+    redirected.write_bytes(file.destination.read_bytes())
+    original_parent = file.destination.parent
+    moved_parent = original_parent.with_name(f"{original_parent.name}-original")
+    original_parent.rename(moved_parent)
+    try:
+        original_parent.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        moved_parent.rename(original_parent)
+        pytest.skip("directory symlinks are unavailable")
+
+    with pytest.raises(StaleCompilationError, match="resolved parent"):
+        service.apply(pending, confirmation=confirmation_for(pending))
+
+    assert not pending.staging_dir.exists()
+
+
+def test_apply_rejects_stage_and_manifest_tampering(tmp_path: Path) -> None:
+    service = CompilationService(temp_root=tmp_path.parent)
+    pending = service.preview(
+        CompilationRequest(source=write_workspace(tmp_path), target="rust"),
+        policy=CompilationPolicy.conversation(),
+    )
+    pending.files[0].staged_path.write_bytes(b"tampered")
+
+    with pytest.raises(StaleCompilationError, match="staged"):
+        service.apply(pending, confirmation=confirmation_for(pending))
+
+    pending = service.preview(
+        CompilationRequest(source=tmp_path / "workspace.mdl", target="rust"),
+        policy=CompilationPolicy.conversation(),
+    )
+    tampered = dataclasses.replace(pending, warnings=(*pending.warnings, "tampered"))
+    with pytest.raises(StaleCompilationError, match="manifest"):
+        service.apply(tampered, confirmation=confirmation_for(tampered))
+    assert not pending.staging_dir.exists()
+
+    pending = service.preview(
+        CompilationRequest(source=tmp_path / "workspace.mdl", target="rust"),
+        policy=CompilationPolicy.conversation(),
+    )
+    duplicate_stage = pending.staging_dir / "duplicate-stage"
+    duplicate_stage.write_bytes(pending.files[0].staged_path.read_bytes())
+    relocated_file = dataclasses.replace(
+        pending.files[0],
+        staged_path=duplicate_stage,
+    )
+    tampered = dataclasses.replace(
+        pending,
+        files=(relocated_file, *pending.files[1:]),
+    )
+    with pytest.raises(StaleCompilationError, match="manifest"):
+        service.apply(tampered, confirmation=confirmation_for(tampered))
+    assert not pending.staging_dir.exists()
+
+    pending = service.preview(
+        CompilationRequest(source=tmp_path / "workspace.mdl", target="rust"),
+        policy=CompilationPolicy.conversation(),
+    )
+    tampered = dataclasses.replace(
+        pending,
+        preview_timestamp="2099-01-01T00:00:00Z",
+    )
+    with pytest.raises(StaleCompilationError, match="manifest"):
+        service.apply(tampered, confirmation=confirmation_for(tampered))
+    assert not pending.staging_dir.exists()
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("action_id", "foreign-action", "action"),
+        ("manifest_fingerprint", "0" * 64, "manifest"),
+    ],
+)
+def test_apply_requires_exact_confirmation_binding(
+    tmp_path: Path,
+    field: str,
+    value: str,
+    message: str,
+) -> None:
+    service = CompilationService(temp_root=tmp_path.parent)
+    pending = service.preview(
+        CompilationRequest(source=write_workspace(tmp_path), target="rust"),
+        policy=CompilationPolicy.conversation(),
+    )
+    confirmation = dataclasses.replace(confirmation_for(pending), **{field: value})
+
+    with pytest.raises(StaleCompilationError, match=message):
+        service.apply(pending, confirmation=confirmation)
+
+    assert not pending.staging_dir.exists()
+
+
+def test_apply_promotes_stage_without_recompiling(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = CompilationService(temp_root=tmp_path.parent)
+    pending = service.preview(
+        CompilationRequest(source=write_workspace(tmp_path), target="rust"),
+        policy=CompilationPolicy.conversation(),
+    )
+
+    def unexpected_compile(*args, **kwargs):
+        raise AssertionError("apply recompiled")
+
+    monkeypatch.setattr(compilation, "_run_compilation", unexpected_compile)
+
+    service.apply(pending, confirmation=confirmation_for(pending))
+
+
+def test_audit_promotion_failure_rolls_back_compilation_files(
+    tmp_path: Path,
+) -> None:
+    source = write_workspace(tmp_path)
+    before = snapshot_tree(tmp_path)
+
+    class AuditFailingTransaction(FileTransaction):
+        def promote(self, files):
+            audit_destination = files[-1].destination
+
+            def fail_audit(source_path, destination_path):
+                if Path(destination_path) == audit_destination:
+                    raise OSError("audit write failed")
+                os.replace(source_path, destination_path)
+
+            self._replace = fail_audit
+            return super().promote(files)
+
+    service = CompilationService(
+        temp_root=tmp_path.parent,
+        transaction_factory=lambda root: AuditFailingTransaction(workspace_root=root),
+    )
+    pending = service.preview(
+        CompilationRequest(source=source, target="rust"),
+        policy=CompilationPolicy.conversation(),
+    )
+
+    with pytest.raises(FileTransactionError, match="audit write failed"):
+        service.apply(pending, confirmation=confirmation_for(pending))
+
+    assert snapshot_tree(tmp_path) == before
+    assert not pending.staging_dir.exists()
 
 
 def test_preview_stages_exact_files_without_mutating_workspace(tmp_path: Path) -> None:
@@ -658,11 +919,15 @@ domain nlq {
 )
 def test_execute_direct_supports_every_implemented_target(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
     target: str,
     fixture: str,
     pattern: str,
 ) -> None:
-    result = CompilationService().execute_direct(request_for(tmp_path, FIXTURES / fixture, target))
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / fixture
+    source.write_bytes((FIXTURES / fixture).read_bytes())
+    result = CompilationService().execute_direct(request_for(tmp_path, source, target))
 
     assert any(path.match(pattern) for path in result.written_paths), target
 
@@ -764,3 +1029,129 @@ def test_execute_direct_preserves_unsupported_oci_error(
 
     with pytest.raises(CompilationError, match="OCI registry support is not implemented"):
         CompilationService().execute_direct(request)
+
+
+def test_execute_direct_emitter_failure_leaves_every_destination_unchanged(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    source = write_workspace(tmp_path)
+    ledger = tmp_path / "registry-ids.lock"
+    registry = tmp_path / ".modelable" / "registry.db"
+    plan = tmp_path / ".modelable" / "plans" / "existing.plan.json"
+    artifact = tmp_path / "generated" / "existing.rs"
+    for path, content in (
+        (ledger, b'{"platform.SchemaId": 7}\n'),
+        (registry, b"old registry"),
+        (plan, b"old plan"),
+        (artifact, b"old artifact"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+    before = snapshot_tree(tmp_path)
+
+    def fail_emitter(*args, **kwargs):
+        raise CompilationError("injected emitter failure")
+
+    monkeypatch.setattr(compilation, "_emit_target", fail_emitter)
+
+    with pytest.raises(CompilationError, match="injected emitter failure"):
+        CompilationService().execute_direct(
+            CompilationRequest(
+                source=source,
+                target="rust",
+                out_dir=tmp_path / "generated",
+                registry_path=str(registry),
+                registry_ids_path=ledger,
+                allow_orphaned_registry_ids=True,
+            )
+        )
+
+    assert snapshot_tree(tmp_path) == before
+
+
+def test_execute_direct_promotion_failure_restores_every_destination(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    source = write_workspace(tmp_path)
+    ledger = tmp_path / "registry-ids.lock"
+    registry = tmp_path / ".modelable" / "registry.db"
+    ledger.write_text('{"platform.SchemaId": 1}\n', encoding="utf-8")
+    registry.parent.mkdir(parents=True)
+    registry.write_bytes(b"old registry")
+    before = snapshot_tree(tmp_path)
+    promotions = 0
+    failed = False
+
+    def fail_second_promotion(source_path, destination_path):
+        nonlocal promotions, failed
+        if ".modelable-tmp-" in Path(source_path).name:
+            if promotions == 1 and not failed:
+                failed = True
+                raise OSError("injected direct promotion failure")
+            promotions += 1
+        os.replace(source_path, destination_path)
+
+    service = CompilationService(
+        transaction_factory=lambda root: FileTransaction(
+            workspace_root=root,
+            replace=fail_second_promotion,
+        )
+    )
+
+    with pytest.raises(FileTransactionError, match="injected direct promotion failure"):
+        service.execute_direct(
+            CompilationRequest(
+                source=source,
+                target="rust",
+                out_dir=tmp_path / "generated",
+                registry_path=str(registry),
+                registry_ids_path=ledger,
+            )
+        )
+
+    assert snapshot_tree(tmp_path) == before
+
+
+def test_execute_direct_does_not_write_conversational_audit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    CompilationService(new_id=lambda: "must-not-be-used").execute_direct(
+        request_for(tmp_path, write_workspace(tmp_path), "rust")
+    )
+
+    assert not (tmp_path / ".modelable" / "audit").exists()
+
+
+def test_execute_direct_preserves_relative_plan_and_artifact_events(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    result = CompilationService().execute_direct(
+        CompilationRequest(
+            source=write_workspace(tmp_path),
+            target="rust",
+            out_dir=Path("generated"),
+            registry_path=".modelable/registry.db",
+            registry_ids_path=Path("registry-ids.lock"),
+        )
+    )
+
+    plan_event = next(
+        event for event in result.events if event.path is not None and event.path.name.endswith(".plan.json")
+    )
+    artifact_events = [event for event in result.events if event.path is not None and event.path.suffix == ".rs"]
+    assert plan_event.path is not None
+    assert not plan_event.path.is_absolute()
+    assert plan_event.message == f"wrote {plan_event.path}"
+    assert artifact_events
+    assert all(not event.path.is_absolute() for event in artifact_events if event.path is not None)
+    assert all(event.message == str(event.path) for event in artifact_events)

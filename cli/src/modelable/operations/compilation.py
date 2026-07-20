@@ -10,6 +10,7 @@ import tempfile
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -35,6 +36,11 @@ from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
 from modelable.llm.workspace_editor import AffectedDefinition
+from modelable.operations.compilation_audit import (
+    CompilationAuditDestination,
+    CompilationAuditRecord,
+)
+from modelable.operations.file_transaction import FileTransaction, StagedFile
 from modelable.parser.ir import ArrayType, FieldDef, FieldType, MapType, MdlFile, NamedType, ObjectType, ParseError
 from modelable.planner.plans import write_plans
 from modelable.registry.factory import get_registry
@@ -94,6 +100,10 @@ class CompilationDiagnosticsError(CompilationError):
         super().__init__("\n".join(diagnostic.message for diagnostic in diagnostics))
 
 
+class StaleCompilationError(CompilationError):
+    """A pending compilation no longer matches the confirmed workspace state."""
+
+
 @dataclass(frozen=True)
 class CompilationRequest:
     source: Path
@@ -139,6 +149,7 @@ class CompilationFilePreview:
     before_text: str | None
     after_text: str | None
     diff_text: str | None
+    resolved_parent: Path
 
 
 @dataclass(frozen=True)
@@ -159,6 +170,27 @@ class PendingCompilation:
     registry_id_changes: tuple[RegistryIdChange, ...]
     warnings: tuple[str, ...]
     manifest_fingerprint: str
+    preview_timestamp: str
+    audit_resolved_parent: Path
+
+
+@dataclass(frozen=True)
+class CompilationConfirmation:
+    session_id: str
+    action_id: str
+    manifest_fingerprint: str
+    surface: Literal["cli-chat", "vscode-chat"]
+    provider: str | None
+    model: str | None
+
+
+@dataclass(frozen=True)
+class AppliedCompilation:
+    action_id: str
+    written_paths: tuple[Path, ...]
+    affected_definitions: tuple[AffectedDefinition, ...]
+    files: tuple[CompilationFilePreview, ...]
+    audit_path: Path
 
 
 @dataclass(frozen=True)
@@ -187,12 +219,77 @@ class CompilationService:
         *,
         temp_root: Path | None = None,
         new_id: Callable[[], str] = lambda: str(uuid.uuid4()),
+        clock: Callable[[], str] = lambda: _timestamp_now(),
+        transaction_factory: Callable[[Path], FileTransaction] = (lambda root: FileTransaction(workspace_root=root)),
     ) -> None:
         self.temp_root = temp_root
         self.new_id = new_id
+        self.clock = clock
+        self.transaction_factory = transaction_factory
 
     def execute_direct(self, request: CompilationRequest) -> DirectCompilationResult:
-        return _execute_compilation(request)
+        workspace_root = _workspace_root(request.source)
+        staging_dir = Path(
+            tempfile.mkdtemp(
+                prefix="modelable-direct-compile-",
+                dir=self.temp_root,
+            )
+        ).resolve()
+        try:
+            return self._execute_direct_staged(
+                request,
+                workspace_root=workspace_root,
+                staging_dir=staging_dir,
+            )
+        finally:
+            _remove_staging(staging_dir)
+
+    def _execute_direct_staged(
+        self,
+        request: CompilationRequest,
+        *,
+        workspace_root: Path,
+        staging_dir: Path,
+    ) -> DirectCompilationResult:
+        staged_output = staging_dir / "output"
+        staged_registry_ids = staging_dir / "registry-ids.lock"
+        staged_registry = staging_dir / "registry" / "registry.db"
+        staged_plans = staging_dir / "plans"
+        if request.registry_ids_path.exists():
+            staged_registry_ids.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(request.registry_ids_path, staged_registry_ids)
+        staged_request = dataclasses.replace(
+            request,
+            out_dir=staged_output,
+            registry_path=(
+                request.registry_path if request.registry_path.startswith("oci://") else str(staged_registry)
+            ),
+            registry_ids_path=staged_registry_ids,
+        )
+        run = _run_compilation(
+            staged_request,
+            plans_dir=staged_plans,
+            registry_work_dir=staging_dir / "registry-work",
+        )
+        mapper = _DirectPathMapper(
+            request=request,
+            staged_output=staged_output,
+            staged_registry_ids=staged_registry_ids,
+            staged_registry=staged_registry,
+            staged_plans=staged_plans,
+        )
+        staged_files = tuple(
+            StagedFile.from_path(
+                destination=mapper.destination_for(path),
+                staged_path=path.resolve(),
+            )
+            for path in run.direct.written_paths
+        )
+        written_paths = self.transaction_factory(workspace_root).promote(staged_files)
+        return DirectCompilationResult(
+            written_paths=written_paths,
+            events=tuple(mapper.event(event) for event in run.direct.events),
+        )
 
     def preview(
         self,
@@ -251,15 +348,20 @@ class CompilationService:
             )
             warnings = tuple(event.message for event in result.events if event.level == "warning")
             action_id = self.new_id()
+            preview_timestamp = self.clock()
+            audit_resolved_parent = (workspace_root / ".modelable" / "audit" / "compilations").resolve(strict=False)
             manifest_fingerprint = _manifest_fingerprint(
                 action_id=action_id,
                 request=request,
                 workspace_root=workspace_root,
+                staging_dir=staging_dir,
                 files=files,
                 source_fingerprints=source_fingerprints,
                 affected_definitions=affected_definitions,
                 registry_id_changes=registry_id_changes,
                 warnings=warnings,
+                audit_resolved_parent=audit_resolved_parent,
+                preview_timestamp=preview_timestamp,
             )
             return PendingCompilation(
                 action_id=action_id,
@@ -272,6 +374,8 @@ class CompilationService:
                 registry_id_changes=registry_id_changes,
                 warnings=warnings,
                 manifest_fingerprint=manifest_fingerprint,
+                preview_timestamp=preview_timestamp,
+                audit_resolved_parent=audit_resolved_parent,
             )
         except BaseException:
             _remove_staging(staging_dir)
@@ -280,12 +384,100 @@ class CompilationService:
     def discard(self, pending: PendingCompilation) -> None:
         _remove_staging(pending.staging_dir)
 
+    def apply(
+        self,
+        pending: PendingCompilation,
+        *,
+        confirmation: CompilationConfirmation,
+    ) -> AppliedCompilation:
+        try:
+            _verify_confirmation(pending, confirmation)
+            _verify_freshness(pending)
+            audit_path = pending.workspace_root / ".modelable" / "audit" / "compilations" / f"{pending.action_id}.json"
+            if audit_path.exists():
+                raise StaleCompilationError(f"Compilation audit destination changed after preview: {audit_path}")
+            if audit_path.parent.resolve(strict=False) != pending.audit_resolved_parent:
+                raise StaleCompilationError(
+                    f"Compilation audit resolved parent changed after preview: {audit_path.parent}"
+                )
+            audit_staged_path = pending.staging_dir / "compilation-audit.json"
+            audit_staged_path.write_bytes(
+                _audit_record(
+                    pending,
+                    confirmation,
+                    confirmation_timestamp=self.clock(),
+                ).to_bytes()
+            )
+            transaction_files = [
+                StagedFile(
+                    destination=item.destination,
+                    staged_path=item.staged_path,
+                    content_hash=item.after_hash,
+                )
+                for item in pending.files
+            ]
+            transaction_files.append(
+                StagedFile.from_path(
+                    destination=audit_path,
+                    staged_path=audit_staged_path,
+                )
+            )
+            written_paths = self.transaction_factory(pending.workspace_root).promote(transaction_files)
+            return AppliedCompilation(
+                action_id=pending.action_id,
+                written_paths=written_paths,
+                affected_definitions=pending.affected_definitions,
+                files=pending.files,
+                audit_path=audit_path,
+            )
+        finally:
+            _remove_staging(pending.staging_dir)
+
 
 @dataclass(frozen=True)
 class _PreviewLayout:
     out_dir: Path
     registry: Path
     registry_ids: Path
+
+
+@dataclass(frozen=True)
+class _DirectPathMapper:
+    request: CompilationRequest
+    staged_output: Path
+    staged_registry_ids: Path
+    staged_registry: Path
+    staged_plans: Path
+
+    def destination_for(self, staged_path: Path) -> Path:
+        resolved = staged_path.resolve()
+        if resolved == self.staged_registry_ids.resolve():
+            return self.request.registry_ids_path
+        if resolved == self.staged_registry.resolve():
+            return Path(self.request.registry_path)
+        if resolved.is_relative_to(self.staged_plans.resolve()):
+            relative = resolved.relative_to(self.staged_plans.resolve())
+            return (Path(".modelable") / "plans" / relative).resolve()
+        if resolved.is_relative_to(self.staged_output.resolve()):
+            relative = resolved.relative_to(self.staged_output.resolve())
+            output = self.request.out_dir or _DEFAULT_OUT_DIRS[self.request.target]
+            return output / relative
+        raise CompilationError(f"Direct compiler wrote outside staging: {staged_path}")
+
+    def event(self, event: CompilationEvent) -> CompilationEvent:
+        if event.path is None:
+            staged_registry_message = f"wrote {self.staged_registry}"
+            message = (
+                f"wrote {self.request.registry_path}" if event.message == staged_registry_message else event.message
+            )
+            return dataclasses.replace(event, message=message)
+        resolved = event.path.resolve()
+        if resolved.is_relative_to(self.staged_plans.resolve()):
+            destination = Path(".modelable") / "plans" / resolved.relative_to(self.staged_plans.resolve())
+        else:
+            destination = self.destination_for(event.path)
+        message = f"wrote {destination}" if event.message.startswith("wrote ") else str(destination)
+        return dataclasses.replace(event, message=message, path=destination)
 
 
 def _workspace_root(source: Path) -> Path:
@@ -539,6 +731,7 @@ def _file_preview(
         before_text=before_text,
         after_text=after_text,
         diff_text=diff_text,
+        resolved_parent=destination.parent.resolve(strict=False),
     )
 
 
@@ -693,11 +886,14 @@ def _manifest_fingerprint(
     action_id: str,
     request: CompilationRequest,
     workspace_root: Path,
+    staging_dir: Path,
     files: tuple[CompilationFilePreview, ...],
     source_fingerprints: tuple[FileFingerprint, ...],
     affected_definitions: tuple[AffectedDefinition, ...],
     registry_id_changes: tuple[RegistryIdChange, ...],
     warnings: tuple[str, ...],
+    audit_resolved_parent: Path,
+    preview_timestamp: str,
 ) -> str:
     manifest = {
         "action_id": action_id,
@@ -716,6 +912,7 @@ def _manifest_fingerprint(
             {
                 "category": item.category,
                 "destination": str(item.destination),
+                "staged_path": str(item.staged_path.resolve().relative_to(staging_dir.resolve())),
                 "status": item.status,
                 "media_type": item.media_type,
                 "ref": item.ref,
@@ -723,7 +920,7 @@ def _manifest_fingerprint(
                 "after_hash": item.after_hash,
                 "before_size": item.before_size,
                 "after_size": item.after_size,
-                "resolved_parent": str(item.destination.parent.resolve()),
+                "resolved_parent": str(item.resolved_parent),
             }
             for item in files
         ],
@@ -739,6 +936,8 @@ def _manifest_fingerprint(
         "affected": [dataclasses.asdict(item) for item in affected_definitions],
         "registry_id_changes": [dataclasses.asdict(item) for item in registry_id_changes],
         "warnings": warnings,
+        "audit_resolved_parent": str(audit_resolved_parent),
+        "preview_timestamp": preview_timestamp,
     }
     serialized = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return _bytes_hash(serialized.encode("utf-8"))
@@ -746,6 +945,120 @@ def _manifest_fingerprint(
 
 def _bytes_hash(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
+
+
+def _timestamp_now() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _verify_confirmation(
+    pending: PendingCompilation,
+    confirmation: CompilationConfirmation,
+) -> None:
+    if confirmation.action_id != pending.action_id:
+        raise StaleCompilationError("Compilation confirmation action ID does not match.")
+    if confirmation.manifest_fingerprint != pending.manifest_fingerprint:
+        raise StaleCompilationError("Compilation confirmation manifest fingerprint does not match.")
+
+
+def _verify_freshness(pending: PendingCompilation) -> None:
+    for source in pending.source_fingerprints:
+        if not source.path.is_file():
+            raise StaleCompilationError(f"Compilation source changed after preview: {source.path}")
+        content = source.path.read_bytes()
+        if len(content) != source.size or _bytes_hash(content) != source.content_hash:
+            raise StaleCompilationError(f"Compilation source changed after preview: {source.path}")
+        if source.path.parent.resolve(strict=False) != source.resolved_parent:
+            raise StaleCompilationError(f"Compilation source resolved parent changed after preview: {source.path}")
+
+    for item in pending.files:
+        exists = item.destination.is_file()
+        if item.before_hash is None:
+            if exists or item.destination.exists():
+                raise StaleCompilationError(
+                    f"Compilation {_category_label(item.category)} destination changed "
+                    f"after preview: {item.destination}"
+                )
+        elif not exists:
+            raise StaleCompilationError(
+                f"Compilation {_category_label(item.category)} destination changed after preview: {item.destination}"
+            )
+        else:
+            content = item.destination.read_bytes()
+            if len(content) != item.before_size or _bytes_hash(content) != item.before_hash:
+                raise StaleCompilationError(
+                    f"Compilation {_category_label(item.category)} destination changed "
+                    f"after preview: {item.destination}"
+                )
+        if item.destination.parent.resolve(strict=False) != item.resolved_parent:
+            raise StaleCompilationError(f"Compilation resolved parent changed after preview: {item.destination.parent}")
+
+    for item in pending.files:
+        if not item.staged_path.is_file() or not item.staged_path.resolve().is_relative_to(pending.staging_dir):
+            raise StaleCompilationError(f"Compilation staged file changed after preview: {item.staged_path}")
+        content = item.staged_path.read_bytes()
+        if len(content) != item.after_size or _bytes_hash(content) != item.after_hash:
+            raise StaleCompilationError(f"Compilation staged file changed after preview: {item.staged_path}")
+
+    manifest_fingerprint = _manifest_fingerprint(
+        action_id=pending.action_id,
+        request=pending.request,
+        workspace_root=pending.workspace_root,
+        staging_dir=pending.staging_dir,
+        files=pending.files,
+        source_fingerprints=pending.source_fingerprints,
+        affected_definitions=pending.affected_definitions,
+        registry_id_changes=pending.registry_id_changes,
+        warnings=pending.warnings,
+        audit_resolved_parent=pending.audit_resolved_parent,
+        preview_timestamp=pending.preview_timestamp,
+    )
+    if manifest_fingerprint != pending.manifest_fingerprint:
+        raise StaleCompilationError("Compilation manifest changed after preview.")
+
+
+def _category_label(
+    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor"],
+) -> str:
+    return category.replace("_", " ")
+
+
+def _audit_record(
+    pending: PendingCompilation,
+    confirmation: CompilationConfirmation,
+    *,
+    confirmation_timestamp: str,
+) -> CompilationAuditRecord:
+    output = pending.request.out_dir or _DEFAULT_OUT_DIRS[pending.request.target]
+    return CompilationAuditRecord(
+        action_id=pending.action_id,
+        session_id=confirmation.session_id,
+        preview_timestamp=pending.preview_timestamp,
+        confirmation_timestamp=confirmation_timestamp,
+        confirmation_surface=confirmation.surface,
+        provider=confirmation.provider,
+        model=confirmation.model,
+        plan={
+            "descriptorSet": pending.request.descriptor_set,
+            "domains": list(pending.request.domains),
+            "output": output.as_posix(),
+            "target": pending.request.target,
+        },
+        affected_definitions=tuple(item.ref for item in pending.affected_definitions),
+        destinations=tuple(
+            CompilationAuditDestination(
+                status=item.status,
+                path=item.destination.relative_to(pending.workspace_root).as_posix(),
+                size=item.after_size,
+                content_hash=item.after_hash,
+            )
+            for item in pending.files
+        ),
+        registry_id_allocations=tuple((item.ref, item.registry_id) for item in pending.registry_id_changes),
+        warnings=pending.warnings,
+        manifest_fingerprint=pending.manifest_fingerprint,
+        outcome="applied",
+    )
 
 
 def _remove_staging(path: Path) -> None:
@@ -767,6 +1080,7 @@ def _run_compilation(
     request: CompilationRequest,
     *,
     plans_dir: Path,
+    registry_work_dir: Path = Path(".modelable"),
 ) -> _CompilationRunResult:
     if request.target not in TARGETS:
         raise CompilationError(f"Unknown compilation target: {request.target}")
@@ -808,7 +1122,11 @@ def _run_compilation(
 
     registry = get_registry(request.registry_path)
     if request.registry_path.startswith("oci://"):
-        built_registry_path = build_registry(workspace, Path(".modelable"), registry_ids=registry_ids)
+        built_registry_path = build_registry(
+            workspace,
+            registry_work_dir,
+            registry_ids=registry_ids,
+        )
     else:
         local_registry_path = Path(request.registry_path)
         built_registry_path = build_registry(
