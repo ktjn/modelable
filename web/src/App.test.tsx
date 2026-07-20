@@ -23,7 +23,10 @@ import { App } from './App';
 import { BrowserCompilerError } from './client';
 import type {
   BrowserCompileResult,
+  BrowserCompletionResult,
   BrowserFormatResult,
+  BrowserHoverResult,
+  BrowserLanguagePosition,
   BrowserSource,
   BrowserWorkspaceResult,
 } from './protocol';
@@ -136,11 +139,13 @@ class FakeCompilerClient {
   readonly compileRequests: Deferred<BrowserCompileResult>[] = [];
 
   readonly initialize = vi.fn(() => this.initialization.promise);
-  readonly openWorkspace = vi.fn((_sources: BrowserSource[]) => {
+  readonly openWorkspace = vi.fn(
+    (_workspaceRevision: number, _sources: BrowserSource[]) => {
     const request = deferred<BrowserWorkspaceResult>();
     this.workspaceRequests.push(request);
     return request.promise;
-  });
+    },
+  );
   readonly formatSource = vi.fn((_source: BrowserSource) => {
     const request = deferred<BrowserFormatResult>();
     this.formatRequests.push(request);
@@ -151,6 +156,16 @@ class FakeCompilerClient {
     this.compileRequests.push(request);
     return request.promise;
   });
+  readonly completion = vi.fn(
+    async (
+      _position: BrowserLanguagePosition,
+    ): Promise<BrowserCompletionResult> => ({ items: [] }),
+  );
+  readonly hover = vi.fn(
+    async (
+      _position: BrowserLanguagePosition,
+    ): Promise<BrowserHoverResult> => ({ hover: null }),
+  );
   readonly dispose = vi.fn();
 }
 
@@ -172,6 +187,9 @@ async function initialize(client: FakeCompilerClient): Promise<void> {
   });
   await waitFor(() => {
     expect(screen.queryByText(/restoring local workspace/i)).toBeNull();
+  });
+  await waitFor(() => {
+    expect(client.openWorkspace).toHaveBeenCalledTimes(1);
   });
 }
 
@@ -241,13 +259,20 @@ describe('App', () => {
     await initialize(client);
 
     fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
-    expect(client.openWorkspace).toHaveBeenLastCalledWith([
-      { uri: 'file:///a.mdl', text: 'domain a {}', version: 2 },
-      { uri: 'file:///z.mdl', text: 'domain z {}', version: 1 },
-    ]);
+    expect(client.openWorkspace).toHaveBeenLastCalledWith(
+      3,
+      [
+        { uri: 'file:///a.mdl', text: 'domain a {}', version: 2 },
+        { uri: 'file:///z.mdl', text: 'domain z {}', version: 1 },
+      ],
+    );
     await act(async () => {
       const request = latestRequest(client.workspaceRequests);
-      request.resolve({ diagnostics: [], source_hashes: {} });
+      request.resolve({
+        workspace_revision: 3,
+        diagnostics: [],
+        source_hashes: {},
+      });
       await request.promise;
     });
 
@@ -255,7 +280,7 @@ describe('App', () => {
       screen.getByRole('button', { name: 'Generate JSON Schema' }),
     );
     expect(client.compileJsonSchema).toHaveBeenLastCalledWith(
-      client.openWorkspace.mock.calls.at(-1)?.[0],
+      client.openWorkspace.mock.calls.at(-1)?.[1],
     );
   });
 
@@ -314,7 +339,11 @@ describe('App', () => {
     expect(client.openWorkspace).toHaveBeenCalledTimes(2);
     await act(async () => {
       const request = latestRequest(client.workspaceRequests);
-      request.resolve({ diagnostics: [], source_hashes: {} });
+      request.resolve({
+        workspace_revision: 1,
+        diagnostics: [],
+        source_hashes: {},
+      });
       await request.promise;
     });
 
@@ -430,6 +459,7 @@ describe('App', () => {
     const request = latestRequest(client.workspaceRequests);
     await act(async () => {
       request.resolve({
+        workspace_revision: 1,
         diagnostics: [documentDiagnostic],
         source_hashes: {},
       });
@@ -475,6 +505,7 @@ describe('App', () => {
     const request = latestRequest(client.workspaceRequests);
     await act(async () => {
       request.resolve({
+        workspace_revision: 1,
         diagnostics: [documentDiagnostic],
         source_hashes: {},
       });

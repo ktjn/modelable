@@ -21,6 +21,7 @@ interface PythonDispatchSuccess {
 
 interface PythonDispatchFailure {
   ok: false;
+  error: BrowserCompilerFailure['error'];
 }
 
 type PythonDispatchResponse =
@@ -32,16 +33,22 @@ export type PythonDispatcher = (
   payloadJson: string,
 ) => unknown;
 
+const sanitizedErrorMessages: Record<BrowserCompilerErrorCode, string> = {
+  INITIALIZATION_FAILED: 'Compiler runtime initialization failed',
+  INVALID_REQUEST: 'Browser compiler request is invalid',
+  UNSUPPORTED_PROTOCOL: 'Browser compiler protocol version is unsupported',
+  COMPILER_FAILED: 'Compiler request failed',
+  STALE_WORKSPACE: 'Requested workspace revision is not current',
+  LANGUAGE_UNAVAILABLE: 'Language services are unavailable',
+  INVALID_POSITION: 'Requested language position is invalid',
+  INVALID_RENAME: 'Requested rename is invalid',
+  STALE_EDIT: 'Requested workspace edit is stale',
+};
+
 export function sanitizedError(
   code: BrowserCompilerErrorCode,
 ): BrowserCompilerFailure['error'] {
-  const messages: Record<BrowserCompilerErrorCode, string> = {
-    INITIALIZATION_FAILED: 'Compiler runtime initialization failed',
-    INVALID_REQUEST: 'Browser compiler request is invalid',
-    UNSUPPORTED_PROTOCOL: 'Browser compiler protocol version is unsupported',
-    COMPILER_FAILED: 'Compiler request failed',
-  };
-  return { code, message: messages[code] };
+  return { code, message: sanitizedErrorMessages[code] };
 }
 
 export function failure(
@@ -141,14 +148,28 @@ function parsePythonResponse(value: unknown): PythonDispatchResponse {
     throw new TypeError('Python dispatcher did not return JSON text');
   }
   const parsed = JSON.parse(value) as unknown;
-  if (
-    !isRecord(parsed) ||
-    typeof parsed.ok !== 'boolean' ||
-    (parsed.ok && !Object.hasOwn(parsed, 'result'))
-  ) {
+  if (!isRecord(parsed) || typeof parsed.ok !== 'boolean') {
     throw new TypeError('Python dispatcher returned an invalid response');
   }
-  return parsed as unknown as PythonDispatchResponse;
+  if (
+    parsed.ok &&
+    Object.keys(parsed).length === 2 &&
+    Object.hasOwn(parsed, 'result')
+  ) {
+    return parsed as unknown as PythonDispatchSuccess;
+  }
+  if (
+    !parsed.ok &&
+    Object.keys(parsed).length === 2 &&
+    isRecord(parsed.error) &&
+    Object.keys(parsed.error).length === 2 &&
+    typeof parsed.error.code === 'string' &&
+    typeof parsed.error.message === 'string' &&
+    Object.hasOwn(sanitizedErrorMessages, parsed.error.code)
+  ) {
+    return parsed as unknown as PythonDispatchFailure;
+  }
+  throw new TypeError('Python dispatcher returned an invalid response');
 }
 
 export function dispatchPythonRequest(
@@ -171,7 +192,7 @@ export function dispatchPythonRequest(
     returned = dispatcher(request.method, payloadJson);
     const parsed = parsePythonResponse(returned);
     if (!parsed.ok) {
-      return failure(request.id, 'INVALID_REQUEST');
+      return failure(request.id, parsed.error);
     }
     return {
       protocolVersion: BROWSER_COMPILER_PROTOCOL_VERSION,

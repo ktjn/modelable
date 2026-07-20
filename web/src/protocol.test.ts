@@ -1,13 +1,18 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  BROWSER_COMPILER_PROTOCOL_VERSION,
+  isBrowserCompletionResult,
   isBrowserCompilerRequest,
   isBrowserCompilerResponse,
+  isBrowserHoverResult,
+  isBrowserLanguageLocation,
+  isBrowserWorkspaceResult,
 } from './protocol';
 
 describe('isBrowserCompilerRequest', () => {
   const valid = {
-    protocolVersion: 1,
+    protocolVersion: 2,
     id: 'request-1',
     method: 'workspace.open',
     payload: { sources: [] },
@@ -21,7 +26,7 @@ describe('isBrowserCompilerRequest', () => {
   );
 
   test('rejects unsupported protocol versions', () => {
-    expect(isBrowserCompilerRequest({ ...valid, protocolVersion: 2 })).toBe(
+    expect(isBrowserCompilerRequest({ ...valid, protocolVersion: 1 })).toBe(
       false,
     );
   });
@@ -43,7 +48,7 @@ describe('isBrowserCompilerRequest', () => {
 
 describe('isBrowserCompilerResponse', () => {
   const success = {
-    protocolVersion: 1,
+    protocolVersion: 2,
     id: 'request-1',
     ok: true,
     result: undefined,
@@ -58,7 +63,7 @@ describe('isBrowserCompilerResponse', () => {
 
   test('rejects unsupported protocol versions', () => {
     expect(
-      isBrowserCompilerResponse({ ...success, protocolVersion: 2 }),
+      isBrowserCompilerResponse({ ...success, protocolVersion: 1 }),
     ).toBe(false);
   });
 
@@ -74,7 +79,7 @@ describe('isBrowserCompilerResponse', () => {
   test('rejects failures with unknown error codes', () => {
     expect(
       isBrowserCompilerResponse({
-        protocolVersion: 1,
+        protocolVersion: 2,
         id: 'request-1',
         ok: false,
         error: { code: 'SECRET_ERROR', message: 'nope' },
@@ -86,11 +91,156 @@ describe('isBrowserCompilerResponse', () => {
     expect(isBrowserCompilerResponse(success)).toBe(true);
     expect(
       isBrowserCompilerResponse({
-        protocolVersion: 1,
+        protocolVersion: 2,
         id: 'request-1',
         ok: false,
         error: { code: 'COMPILER_FAILED', message: 'Compiler failed' },
       }),
     ).toBe(true);
+  });
+});
+
+describe('browser protocol v2 result guards', () => {
+  const range = {
+    start: { line: 1, character: 2 },
+    end: { line: 1, character: 4 },
+  };
+  const diagnostic = {
+    code: 'parse',
+    severity: 'error',
+    message: 'Invalid syntax',
+    uri: 'file:///a.mdl',
+    line: 1,
+    column: 2,
+    end_line: 1,
+    end_column: 4,
+  };
+  const completion = {
+    label: 'x',
+    kind: 'property',
+    sort_text: '001',
+    detail: null,
+    documentation: null,
+    replacement: range,
+  };
+
+  test('uses protocol version 2', () => {
+    expect(BROWSER_COMPILER_PROTOCOL_VERSION).toBe(2);
+  });
+
+  test('accepts exact workspace, completion, and hover results', () => {
+    expect(
+      isBrowserWorkspaceResult({
+        workspace_revision: 4,
+        diagnostics: [diagnostic],
+        source_hashes: { 'file:///a.mdl': 'abc' },
+      }),
+    ).toBe(true);
+    expect(isBrowserCompletionResult({ items: [completion] })).toBe(true);
+    expect(
+      isBrowserHoverResult({ hover: { markdown: '**x**', range } }),
+    ).toBe(true);
+    expect(isBrowserHoverResult({ hover: null })).toBe(true);
+  });
+
+  test('rejects unknown fields at every nested language level', () => {
+    expect(
+      isBrowserCompletionResult({
+        items: [{ ...completion, extra: true }],
+      }),
+    ).toBe(false);
+    expect(
+      isBrowserCompletionResult({
+        items: [
+          {
+            ...completion,
+            replacement: {
+              ...range,
+              start: { ...range.start, extra: true },
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isBrowserHoverResult({
+        hover: { markdown: '**x**', range, extra: true },
+      }),
+    ).toBe(false);
+  });
+
+  test('validates exact language locations and their nested ranges', () => {
+    expect(
+      isBrowserLanguageLocation({ uri: 'file:///a.mdl', range }),
+    ).toBe(true);
+    expect(
+      isBrowserLanguageLocation({
+        uri: 'file:///a.mdl',
+        range,
+        extra: true,
+      }),
+    ).toBe(false);
+    expect(isBrowserLanguageLocation({ uri: '', range })).toBe(false);
+  });
+
+  test('rejects invalid nested ranges, versions, hashes, and diagnostics', () => {
+    expect(
+      isBrowserCompletionResult({
+        items: [
+          {
+            ...completion,
+            replacement: {
+              start: { line: 1, character: 4 },
+              end: { line: 1, character: 2 },
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isBrowserWorkspaceResult({
+        workspace_revision: 0,
+        diagnostics: [],
+        source_hashes: {},
+      }),
+    ).toBe(false);
+    expect(
+      isBrowserWorkspaceResult({
+        workspace_revision: 4,
+        diagnostics: [{ ...diagnostic, extra: true }],
+        source_hashes: {},
+      }),
+    ).toBe(false);
+    expect(
+      isBrowserWorkspaceResult({
+        workspace_revision: 4,
+        diagnostics: [],
+        source_hashes: { 'file:///a.mdl': 42 },
+      }),
+    ).toBe(false);
+  });
+
+  test('rejects unknown fields in envelopes and typed errors', () => {
+    expect(
+      isBrowserCompilerResponse({
+        protocolVersion: 2,
+        id: 'request-1',
+        ok: true,
+        result: null,
+        extra: true,
+      }),
+    ).toBe(false);
+    expect(
+      isBrowserCompilerResponse({
+        protocolVersion: 2,
+        id: 'request-1',
+        ok: false,
+        error: {
+          code: 'STALE_WORKSPACE',
+          message: 'stale',
+          extra: true,
+        },
+      }),
+    ).toBe(false);
   });
 });

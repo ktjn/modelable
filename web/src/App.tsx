@@ -226,7 +226,9 @@ export function App({
     openedClientsRef.current.add(client);
     const sources = workspaceSources(persistentWorkspace.workspace);
     exposeWorkspaceSourcesForTest(sources);
-    void client.openWorkspace(sources).catch(() => undefined);
+    void client
+      .openWorkspace(persistentWorkspace.workspace.revision, sources)
+      .catch(() => undefined);
   }, [
     persistentWorkspace.phase,
     persistentWorkspace.workspace,
@@ -270,7 +272,7 @@ export function App({
 
       try {
         if (operation === 'validate') {
-          const result = await client.openWorkspace(sources);
+          const result = await client.openWorkspace(revision, sources);
           dispatch({
             type: 'operationSucceeded',
             operation,

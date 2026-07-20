@@ -1,16 +1,23 @@
-export const BROWSER_COMPILER_PROTOCOL_VERSION = 1 as const;
+export const BROWSER_COMPILER_PROTOCOL_VERSION = 2 as const;
 
 export type BrowserCompilerMethod =
   | 'runtime.initialize'
   | 'workspace.open'
   | 'source.format'
-  | 'compile.jsonSchema';
+  | 'compile.jsonSchema'
+  | 'language.completion'
+  | 'language.hover';
 
 export type BrowserCompilerErrorCode =
   | 'INITIALIZATION_FAILED'
   | 'INVALID_REQUEST'
   | 'UNSUPPORTED_PROTOCOL'
-  | 'COMPILER_FAILED';
+  | 'COMPILER_FAILED'
+  | 'STALE_WORKSPACE'
+  | 'LANGUAGE_UNAVAILABLE'
+  | 'INVALID_POSITION'
+  | 'INVALID_RENAME'
+  | 'STALE_EDIT';
 
 export interface BrowserCompilerRequest {
   protocolVersion: typeof BROWSER_COMPILER_PROTOCOL_VERSION;
@@ -65,8 +72,62 @@ export interface BrowserArtifact {
 }
 
 export interface BrowserWorkspaceResult {
+  workspace_revision: number;
   diagnostics: BrowserDiagnostic[];
   source_hashes: Record<string, string>;
+}
+
+export interface BrowserLanguagePosition {
+  workspaceRevision: number;
+  uri: string;
+  line: number;
+  character: number;
+}
+
+export interface BrowserLanguagePositionValue {
+  line: number;
+  character: number;
+}
+
+export interface BrowserLanguageRange {
+  start: BrowserLanguagePositionValue;
+  end: BrowserLanguagePositionValue;
+}
+
+export interface BrowserLanguageLocation {
+  uri: string;
+  range: BrowserLanguageRange;
+}
+
+export type BrowserCompletionKind =
+  | 'keyword'
+  | 'annotation'
+  | 'module'
+  | 'class'
+  | 'property'
+  | 'reference'
+  | 'value';
+
+export interface BrowserCompletion {
+  label: string;
+  kind: BrowserCompletionKind | null;
+  sort_text: string;
+  detail: string | null;
+  documentation: string | null;
+  replacement: BrowserLanguageRange | null;
+}
+
+export interface BrowserCompletionResult {
+  items: BrowserCompletion[];
+}
+
+export interface BrowserHover {
+  markdown: string;
+  range: BrowserLanguageRange | null;
+}
+
+export interface BrowserHoverResult {
+  hover: BrowserHover | null;
 }
 
 export interface BrowserFormatResult {
@@ -79,11 +140,15 @@ export interface BrowserCompileResult {
   artifacts: BrowserArtifact[];
 }
 
+export type BrowserResultGuard<T> = (value: unknown) => value is T;
+
 const methods = new Set<BrowserCompilerMethod>([
   'runtime.initialize',
   'workspace.open',
   'source.format',
   'compile.jsonSchema',
+  'language.completion',
+  'language.hover',
 ]);
 
 const errorCodes = new Set<BrowserCompilerErrorCode>([
@@ -91,10 +156,56 @@ const errorCodes = new Set<BrowserCompilerErrorCode>([
   'INVALID_REQUEST',
   'UNSUPPORTED_PROTOCOL',
   'COMPILER_FAILED',
+  'STALE_WORKSPACE',
+  'LANGUAGE_UNAVAILABLE',
+  'INVALID_POSITION',
+  'INVALID_RENAME',
+  'STALE_EDIT',
+]);
+
+const completionKinds = new Set<BrowserCompletionKind>([
+  'keyword',
+  'annotation',
+  'module',
+  'class',
+  'property',
+  'reference',
+  'value',
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(
+  value: Record<string, unknown>,
+  expected: readonly string[],
+): boolean {
+  const actual = Object.keys(value);
+  return (
+    actual.length === expected.length &&
+    expected.every((key) => Object.hasOwn(value, key))
+  );
+}
+
+function isIntegerAtLeast(value: unknown, minimum: number): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= minimum;
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
+}
+
+function isNullableCoordinate(value: unknown): value is number | null {
+  return value === null || isIntegerAtLeast(value, 0);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return isRecord(value) && Object.values(value).every((item) => typeof item === 'string');
 }
 
 function hasValidEnvelope(value: Record<string, unknown>): boolean {
@@ -105,15 +216,183 @@ function hasValidEnvelope(value: Record<string, unknown>): boolean {
   );
 }
 
+function comparePositions(
+  left: BrowserLanguagePositionValue,
+  right: BrowserLanguagePositionValue,
+): number {
+  return left.line - right.line || left.character - right.character;
+}
+
+export function isBrowserLanguagePositionValue(
+  value: unknown,
+): value is BrowserLanguagePositionValue {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['line', 'character']) &&
+    isIntegerAtLeast(value.line, 0) &&
+    isIntegerAtLeast(value.character, 0)
+  );
+}
+
+export function isBrowserLanguageRange(
+  value: unknown,
+): value is BrowserLanguageRange {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['start', 'end']) &&
+    isBrowserLanguagePositionValue(value.start) &&
+    isBrowserLanguagePositionValue(value.end) &&
+    comparePositions(value.start, value.end) <= 0
+  );
+}
+
+export function isBrowserLanguageLocation(
+  value: unknown,
+): value is BrowserLanguageLocation {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['uri', 'range']) &&
+    typeof value.uri === 'string' &&
+    value.uri.length > 0 &&
+    isBrowserLanguageRange(value.range)
+  );
+}
+
+export function isBrowserDiagnostic(
+  value: unknown,
+): value is BrowserDiagnostic {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, [
+      'code',
+      'severity',
+      'message',
+      'uri',
+      'line',
+      'column',
+      'end_line',
+      'end_column',
+    ]) &&
+    typeof value.code === 'string' &&
+    typeof value.severity === 'string' &&
+    typeof value.message === 'string' &&
+    typeof value.uri === 'string' &&
+    isNullableCoordinate(value.line) &&
+    isNullableCoordinate(value.column) &&
+    isNullableCoordinate(value.end_line) &&
+    isNullableCoordinate(value.end_column)
+  );
+}
+
+export function isBrowserArtifact(value: unknown): value is BrowserArtifact {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['path', 'media_type', 'content', 'source_refs']) &&
+    typeof value.path === 'string' &&
+    typeof value.media_type === 'string' &&
+    typeof value.content === 'string' &&
+    isStringArray(value.source_refs)
+  );
+}
+
+export function isBrowserWorkspaceResult(
+  value: unknown,
+): value is BrowserWorkspaceResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, [
+      'workspace_revision',
+      'diagnostics',
+      'source_hashes',
+    ]) &&
+    isIntegerAtLeast(value.workspace_revision, 1) &&
+    Array.isArray(value.diagnostics) &&
+    value.diagnostics.every(isBrowserDiagnostic) &&
+    isStringRecord(value.source_hashes)
+  );
+}
+
+export function isBrowserCompletionResult(
+  value: unknown,
+): value is BrowserCompletionResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['items']) &&
+    Array.isArray(value.items) &&
+    value.items.every(
+      (item): item is BrowserCompletion =>
+        isRecord(item) &&
+        hasExactKeys(item, [
+          'label',
+          'kind',
+          'sort_text',
+          'detail',
+          'documentation',
+          'replacement',
+        ]) &&
+        typeof item.label === 'string' &&
+        (item.kind === null ||
+          (typeof item.kind === 'string' &&
+            completionKinds.has(item.kind as BrowserCompletionKind))) &&
+        typeof item.sort_text === 'string' &&
+        isNullableString(item.detail) &&
+        isNullableString(item.documentation) &&
+        (item.replacement === null ||
+          isBrowserLanguageRange(item.replacement)),
+    )
+  );
+}
+
+export function isBrowserHoverResult(
+  value: unknown,
+): value is BrowserHoverResult {
+  if (!isRecord(value) || !hasExactKeys(value, ['hover'])) {
+    return false;
+  }
+  return (
+    value.hover === null ||
+    (isRecord(value.hover) &&
+      hasExactKeys(value.hover, ['markdown', 'range']) &&
+      typeof value.hover.markdown === 'string' &&
+      (value.hover.range === null ||
+        isBrowserLanguageRange(value.hover.range)))
+  );
+}
+
+export function isBrowserFormatResult(
+  value: unknown,
+): value is BrowserFormatResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['diagnostics', 'replacement_text']) &&
+    Array.isArray(value.diagnostics) &&
+    value.diagnostics.every(isBrowserDiagnostic) &&
+    isNullableString(value.replacement_text)
+  );
+}
+
+export function isBrowserCompileResult(
+  value: unknown,
+): value is BrowserCompileResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['diagnostics', 'artifacts']) &&
+    Array.isArray(value.diagnostics) &&
+    value.diagnostics.every(isBrowserDiagnostic) &&
+    Array.isArray(value.artifacts) &&
+    value.artifacts.every(isBrowserArtifact)
+  );
+}
+
 export function isBrowserCompilerRequest(
   value: unknown,
 ): value is BrowserCompilerRequest {
   return (
     isRecord(value) &&
+    hasExactKeys(value, ['protocolVersion', 'id', 'method', 'payload']) &&
     hasValidEnvelope(value) &&
     typeof value.method === 'string' &&
-    methods.has(value.method as BrowserCompilerMethod) &&
-    Object.hasOwn(value, 'payload')
+    methods.has(value.method as BrowserCompilerMethod)
   );
 }
 
@@ -124,12 +403,19 @@ export function isBrowserCompilerResponse(
     return false;
   }
   if (value.ok === true) {
-    return Object.hasOwn(value, 'result');
+    return (
+      hasExactKeys(value, ['protocolVersion', 'id', 'ok', 'result'])
+    );
   }
-  if (value.ok !== false || !isRecord(value.error)) {
+  if (
+    value.ok !== false ||
+    !hasExactKeys(value, ['protocolVersion', 'id', 'ok', 'error']) ||
+    !isRecord(value.error)
+  ) {
     return false;
   }
   return (
+    hasExactKeys(value.error, ['code', 'message']) &&
     typeof value.error.code === 'string' &&
     errorCodes.has(value.error.code as BrowserCompilerErrorCode) &&
     typeof value.error.message === 'string'
