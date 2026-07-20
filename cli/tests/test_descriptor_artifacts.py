@@ -11,9 +11,9 @@ import pytest
 from click.testing import CliRunner
 
 from modelable.cli import cli
-from modelable.commands.compile import _write_artifact
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.descriptors import DescriptorGenerationError, compile_descriptor_set
+from modelable.operations.compilation import _write_artifact
 
 
 def _write_fake_protoc(path: Path, *, body: str) -> Path:
