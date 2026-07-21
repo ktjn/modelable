@@ -232,14 +232,16 @@ def test_definition_returns_none_for_out_of_range_position() -> None:
 
 
 def test_definition_with_utf16_position() -> None:
-    base_text = """
+    decl_uri = "file:///models.mdl"
+    decl_text = """
 domain sales {
   owner: "test-team"
   entity Customer @ 1 (additive) {
     @key customerId: uuid
   }
 }
-
+""".strip("\n")
+    proj_text = """
 domain billing {
   owner: "test-team"
   projection BillingCustomer @ 1
@@ -249,17 +251,32 @@ domain billing {
   }
 }
 """.strip("\n")
-    edited_text = base_text.replace(
+    proj_uri = "file:///projections.mdl"
+    edited_proj = proj_text.replace(
         "    from sales.Customer @ 1 as c",
         "    😀 from sales.Customer @ 1 as c",
     )
-    state = parsed_workspace(base_text)
-    state.synchronize(2, (LanguageDocument.from_text(URI, edited_text, 2),))
+    state = LanguageWorkspace()
+    state.synchronize(
+        1,
+        (
+            LanguageDocument.from_text(decl_uri, decl_text, 1),
+            LanguageDocument.from_text(proj_uri, proj_text, 1),
+        ),
+    )
+    state.synchronize(
+        2,
+        (
+            LanguageDocument.from_text(decl_uri, decl_text, 1),
+            LanguageDocument.from_text(proj_uri, edited_proj, 2),
+        ),
+    )
     result = definition(
         state,
-        URI,
-        position_of(edited_text, "😀 from sales.Customer", "Customer"),
+        proj_uri,
+        position_of(edited_proj, "😀 from sales.Customer", "Customer"),
     )
     assert result is not None
-    decl_line = next(i for i, line in enumerate(base_text.splitlines()) if "entity Customer @ 1" in line)
+    assert result.uri == decl_uri
+    decl_line = next(i for i, line in enumerate(decl_text.splitlines()) if "entity Customer @ 1" in line)
     assert result.range.start.line == decl_line
