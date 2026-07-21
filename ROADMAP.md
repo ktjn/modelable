@@ -63,12 +63,12 @@ Work proceeds in phase order, with one active phase at a time:
    automatic local restoration, memory-only fallback, and explicit
    corrupt-state export/reset. The completed scope is archived in
    [Playground Workspace and Persistence — Design](docs/superpowers/specs/archived/2026-07-20-playground-workspace-persistence-design.md).
-4. **Active next slice: browser-native language services.**
-   Add completion, hover, definition, references, and rename over the durable
-   multi-file workspace without running the desktop LSP transport in the
-   browser. The accepted scope is documented in
-   [Playground Browser Language Services — Design](docs/superpowers/specs/2026-07-20-playground-browser-language-services-design.md).
-5. **Then: visualization and analysis.**
+4. **Shipped: browser-native language services.**
+   The Playground now provides completion, hover, definition, references, and
+   rename over the durable multi-file workspace without running the desktop
+   LSP transport in the browser. The completed design is archived in
+   [Playground Browser Language Services — Design](docs/superpowers/specs/archived/2026-07-20-playground-browser-language-services-design.md).
+5. **Active next slice: visualization and analysis.**
    Deliver stable graph DTOs, domain/entity views, source navigation, lineage,
    compatibility, and governance views in the phase order defined by
    [the Playground architecture](docs/playground-design.md).
@@ -81,9 +81,9 @@ Work proceeds in phase order, with one active phase at a time:
    hardening, extension boundaries, and additional views after the core
    workspace and language-service contracts have shipped.
 
-The next implementation slice is item 4. Completion means the durable
-multi-file workspace gains browser-native completion, hover, definition,
-references, and rename without embedding the desktop LSP transport.
+The next implementation slice is item 5. Completion means the Playground gains
+stable graph DTOs, domain/entity views, source navigation, lineage,
+compatibility, and governance views.
 
 ## Priority 2 — complete the Scalable and Rust contract path
 

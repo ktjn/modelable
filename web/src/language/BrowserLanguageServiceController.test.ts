@@ -6,9 +6,13 @@ import {
 } from '../client';
 import type {
   BrowserCompletionResult,
+  BrowserDefinitionResult,
   BrowserDiagnostic,
   BrowserHoverResult,
   BrowserLanguagePosition,
+  BrowserPreparedRenameResult,
+  BrowserReferencesResult,
+  BrowserRenameResult,
   BrowserSource,
   BrowserWorkspaceResult,
 } from '../protocol';
@@ -83,6 +87,28 @@ class FakeClient implements BrowserCompilerClientLike {
     async (
       _position: BrowserLanguagePosition,
     ): Promise<BrowserHoverResult> => ({ hover: null }),
+  );
+  readonly definition = vi.fn(
+    async (
+      _position: BrowserLanguagePosition,
+    ): Promise<BrowserDefinitionResult> => ({ location: null }),
+  );
+  readonly references = vi.fn(
+    async (
+      _position: BrowserLanguagePosition,
+      _includeDeclaration: boolean,
+    ): Promise<BrowserReferencesResult> => ({ locations: [] }),
+  );
+  readonly prepareRename = vi.fn(
+    async (
+      _position: BrowserLanguagePosition,
+    ): Promise<BrowserPreparedRenameResult> => ({ prepared: null }),
+  );
+  readonly rename = vi.fn(
+    async (
+      _position: BrowserLanguagePosition,
+      _newName: string,
+    ): Promise<BrowserRenameResult> => ({ edit: { edits: [] } }),
   );
   readonly formatSource = vi.fn();
   readonly compileJsonSchema = vi.fn();
@@ -249,6 +275,92 @@ describe('BrowserLanguageServiceController', () => {
       line: 2,
       character: 3,
     });
+  });
+
+  test('synchronizes definition against the captured exact revision', async () => {
+    const client = new FakeClient();
+    const controller = new BrowserLanguageServiceController(client);
+    const captured = workspaceAt(5);
+    controller.observe(captured);
+
+    await expect(
+      controller.definition(captured, 'file:///main.mdl', {
+        line: 2,
+        character: 3,
+      }),
+    ).resolves.toEqual({ location: null });
+    expect(client.definition).toHaveBeenCalledWith({
+      workspaceRevision: 5,
+      uri: 'file:///main.mdl',
+      line: 2,
+      character: 3,
+    });
+  });
+
+  test('synchronizes references with includeDeclaration', async () => {
+    const client = new FakeClient();
+    const controller = new BrowserLanguageServiceController(client);
+    const captured = workspaceAt(5);
+    controller.observe(captured);
+
+    await expect(
+      controller.references(captured, 'file:///main.mdl', {
+        line: 2,
+        character: 3,
+      }, true),
+    ).resolves.toEqual({ locations: [] });
+    expect(client.references).toHaveBeenCalledWith(
+      {
+        workspaceRevision: 5,
+        uri: 'file:///main.mdl',
+        line: 2,
+        character: 3,
+      },
+      true,
+    );
+  });
+
+  test('synchronizes prepareRename against the captured exact revision', async () => {
+    const client = new FakeClient();
+    const controller = new BrowserLanguageServiceController(client);
+    const captured = workspaceAt(5);
+    controller.observe(captured);
+
+    await expect(
+      controller.prepareRename(captured, 'file:///main.mdl', {
+        line: 2,
+        character: 3,
+      }),
+    ).resolves.toEqual({ prepared: null });
+    expect(client.prepareRename).toHaveBeenCalledWith({
+      workspaceRevision: 5,
+      uri: 'file:///main.mdl',
+      line: 2,
+      character: 3,
+    });
+  });
+
+  test('synchronizes rename with newName', async () => {
+    const client = new FakeClient();
+    const controller = new BrowserLanguageServiceController(client);
+    const captured = workspaceAt(5);
+    controller.observe(captured);
+
+    await expect(
+      controller.rename(captured, 'file:///main.mdl', {
+        line: 2,
+        character: 3,
+      }, 'Client'),
+    ).resolves.toEqual({ edit: { edits: [] } });
+    expect(client.rename).toHaveBeenCalledWith(
+      {
+        workspaceRevision: 5,
+        uri: 'file:///main.mdl',
+        line: 2,
+        character: 3,
+      },
+      'Client',
+    );
   });
 
   test('suppresses a completion success that arrives after disposal', async () => {

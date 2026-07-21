@@ -25,9 +25,13 @@ import type { BrowserLanguageServiceController } from './language/BrowserLanguag
 import type {
   BrowserCompileResult,
   BrowserCompletionResult,
+  BrowserDefinitionResult,
   BrowserFormatResult,
   BrowserHoverResult,
   BrowserLanguagePosition,
+  BrowserPreparedRenameResult,
+  BrowserReferencesResult,
+  BrowserRenameResult,
   BrowserSource,
   BrowserWorkspaceResult,
 } from './protocol';
@@ -174,6 +178,28 @@ class FakeCompilerClient {
     async (
       _position: BrowserLanguagePosition,
     ): Promise<BrowserHoverResult> => ({ hover: null }),
+  );
+  readonly definition = vi.fn(
+    async (
+      _position: BrowserLanguagePosition,
+    ): Promise<BrowserDefinitionResult> => ({ location: null }),
+  );
+  readonly references = vi.fn(
+    async (
+      _position: BrowserLanguagePosition,
+      _includeDeclaration: boolean,
+    ): Promise<BrowserReferencesResult> => ({ locations: [] }),
+  );
+  readonly prepareRename = vi.fn(
+    async (
+      _position: BrowserLanguagePosition,
+    ): Promise<BrowserPreparedRenameResult> => ({ prepared: null }),
+  );
+  readonly rename = vi.fn(
+    async (
+      _position: BrowserLanguagePosition,
+      _newName: string,
+    ): Promise<BrowserRenameResult> => ({ edit: { edits: [] } }),
   );
   readonly dispose = vi.fn();
 }

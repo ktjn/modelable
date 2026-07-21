@@ -8,6 +8,19 @@ import {
 } from '@playwright/test';
 
 type Source = { uri: string; text: string; version: number };
+type LanguagePosition = {
+  workspaceRevision: number;
+  uri: string;
+  line: number;
+  character: number;
+};
+type LanguageLocation = {
+  uri: string;
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+};
 type TestClient = {
   openWorkspace(
     workspaceRevision: number,
@@ -15,18 +28,41 @@ type TestClient = {
   ): Promise<unknown>;
   formatSource(source: Source): Promise<unknown>;
   compileJsonSchema(sources: Source[]): Promise<unknown>;
-  completion(position: {
-    workspaceRevision: number;
-    uri: string;
-    line: number;
-    character: number;
-  }): Promise<{ items: { label: string }[] }>;
-  hover(position: {
-    workspaceRevision: number;
-    uri: string;
-    line: number;
-    character: number;
-  }): Promise<{ hover: { markdown: string } | null }>;
+  completion(
+    position: LanguagePosition,
+  ): Promise<{ items: { label: string }[] }>;
+  hover(
+    position: LanguagePosition,
+  ): Promise<{ hover: { markdown: string } | null }>;
+  definition(
+    position: LanguagePosition,
+  ): Promise<{ location: LanguageLocation | null }>;
+  references(
+    position: LanguagePosition,
+    includeDeclaration: boolean,
+  ): Promise<{ locations: LanguageLocation[] }>;
+  prepareRename(
+    position: LanguagePosition,
+  ): Promise<{
+    prepared: {
+      range: LanguageLocation['range'];
+      placeholder: string;
+    } | null;
+  }>;
+  rename(
+    position: LanguagePosition,
+    newName: string,
+  ): Promise<{
+    edit: {
+      edits: {
+        uri: string;
+        range: LanguageLocation['range'];
+        new_text: string;
+        expected_version: number;
+        expected_hash: string;
+      }[];
+    };
+  }>;
 };
 
 const scenarios = {
@@ -177,6 +213,86 @@ test('protocol v2 exposes completion and hover over the synchronized workspace',
   expect(result.hover).toContain('customer_id');
 });
 
+test('protocol v2 exposes definition, references, prepareRename, and rename', async ({
+  page,
+}) => {
+  await page.goto('?test=1');
+  await waitForCompiler(page);
+  const result = await page.evaluate(async () => {
+    const client = (
+      globalThis as typeof globalThis & {
+        __modelableBrowserCompiler?: TestClient;
+      }
+    ).__modelableBrowserCompiler;
+    if (client === undefined) {
+      throw new Error('Test client was not exposed');
+    }
+    const source: Source = {
+      uri: 'file:///customer.mdl',
+      text: [
+        'domain customer {',
+        '  owner: "team"',
+        '  entity Customer @ 1 (additive) {',
+        '    @key customer_id: uuid',
+        '    customer_name: string',
+        '  }',
+        '}',
+      ].join('\n'),
+      version: 1,
+    };
+    const workspaceRevision = 200;
+    await client.openWorkspace(workspaceRevision, [source]);
+
+    const definition = await client.definition({
+      workspaceRevision,
+      uri: source.uri,
+      line: 2,
+      character: 10,
+    });
+
+    const references = await client.references(
+      {
+        workspaceRevision,
+        uri: source.uri,
+        line: 3,
+        character: 10,
+      },
+      true,
+    );
+
+    const prepareRename = await client.prepareRename({
+      workspaceRevision,
+      uri: source.uri,
+      line: 2,
+      character: 10,
+    });
+
+    const rename = await client.rename(
+      {
+        workspaceRevision,
+        uri: source.uri,
+        line: 2,
+        character: 10,
+      },
+      'Client',
+    );
+
+    return { definition, references, prepareRename, rename };
+  });
+
+  expect(result.definition.location).not.toBeNull();
+  expect(result.definition.location!.uri).toBe('file:///customer.mdl');
+  expect(result.definition.location!.range.start.line).toBe(2);
+
+  expect(result.references.locations.length).toBeGreaterThanOrEqual(1);
+
+  expect(result.prepareRename.prepared).not.toBeNull();
+  expect(result.prepareRename.prepared!.placeholder).toBe('Customer');
+
+  expect(result.rename.edit.edits.length).toBeGreaterThanOrEqual(1);
+  expect(result.rename.edit.edits[0]!.new_text).toBe('Client');
+});
+
 test('browser compiler stays within initialization and operation budgets', async ({
   browser,
 }, testInfo) => {
@@ -219,15 +335,68 @@ test('browser compiler stays within initialization and operation budgets', async
       ];
       const validate: number[] = [];
       const compile: number[] = [];
+      const completion: number[] = [];
+      const hover: number[] = [];
+      const definition: number[] = [];
+      const references: number[] = [];
+      const prepareRename: number[] = [];
+      const rename: number[] = [];
+      const languagePosition = {
+        workspaceRevision: 100,
+        uri: sources[0]!.uri,
+        line: 2,
+        character: 10,
+      };
       for (let index = 0; index < 3; index += 1) {
         let started = performance.now();
         await client.openWorkspace(index + 100, sources);
         validate.push(performance.now() - started);
+        languagePosition.workspaceRevision = index + 100;
+
         started = performance.now();
         await client.compileJsonSchema(sources);
         compile.push(performance.now() - started);
+
+        started = performance.now();
+        await client.completion(languagePosition);
+        completion.push(performance.now() - started);
+
+        started = performance.now();
+        await client.hover(languagePosition);
+        hover.push(performance.now() - started);
+
+        started = performance.now();
+        await client.definition(languagePosition);
+        definition.push(performance.now() - started);
+
+        started = performance.now();
+        await client.references(languagePosition, true);
+        references.push(performance.now() - started);
+
+        const renamePosition = {
+          workspaceRevision: languagePosition.workspaceRevision,
+          uri: sources[0]!.uri,
+          line: 8,
+          character: 9,
+        };
+        started = performance.now();
+        await client.prepareRename(renamePosition);
+        prepareRename.push(performance.now() - started);
+
+        started = performance.now();
+        await client.rename(renamePosition, `Client${index}`);
+        rename.push(performance.now() - started);
       }
-      return { validate, compile };
+      return {
+        validate,
+        compile,
+        completion,
+        hover,
+        definition,
+        references,
+        prepareRename,
+        rename,
+      };
     });
 
     const medians = {
@@ -235,6 +404,12 @@ test('browser compiler stays within initialization and operation budgets', async
       cachedInitializeMedian: median(cachedInitialize),
       validateMedian: median(operationTimings.validate),
       compileMedian: median(operationTimings.compile),
+      completionMedian: median(operationTimings.completion),
+      hoverMedian: median(operationTimings.hover),
+      definitionMedian: median(operationTimings.definition),
+      referencesMedian: median(operationTimings.references),
+      prepareRenameMedian: median(operationTimings.prepareRename),
+      renameMedian: median(operationTimings.rename),
       coldPageReadyMedian: median(cold.pageReady),
       cachedPageReadyMedian: median(cachedPageReady),
     };
@@ -253,6 +428,12 @@ test('browser compiler stays within initialization and operation budgets', async
     expect(medians.cachedInitializeMedian).toBeLessThanOrEqual(10_000);
     expect(medians.validateMedian).toBeLessThanOrEqual(500);
     expect(medians.compileMedian).toBeLessThanOrEqual(1_000);
+    expect(medians.completionMedian).toBeLessThanOrEqual(100);
+    expect(medians.hoverMedian).toBeLessThanOrEqual(100);
+    expect(medians.definitionMedian).toBeLessThanOrEqual(150);
+    expect(medians.referencesMedian).toBeLessThanOrEqual(150);
+    expect(medians.prepareRenameMedian).toBeLessThanOrEqual(250);
+    expect(medians.renameMedian).toBeLessThanOrEqual(250);
   } finally {
     try {
       finishCachedRequestAudit();

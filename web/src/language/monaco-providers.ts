@@ -5,6 +5,7 @@ import type {
   BrowserCompletionKind,
   BrowserLanguagePositionValue,
   BrowserLanguageRange,
+  BrowserTextEdit,
 } from '../protocol';
 import type { PlaygroundWorkspace } from '../workspace';
 import type { BrowserLanguageServiceController } from './BrowserLanguageServiceController';
@@ -68,6 +69,88 @@ export function registerModelableProviders(
       };
     },
   });
+  const definitionProvider = monaco.languages.registerDefinitionProvider(
+    'modelable',
+    {
+      async provideDefinition(model, position, token) {
+        const captured = getWorkspace();
+        const result = await controller.definition(
+          captured,
+          model.uri.toString(),
+          fromMonacoPosition(position),
+        );
+        if (
+          token.isCancellationRequested ||
+          result === undefined ||
+          result.location === null
+        ) {
+          return null;
+        }
+        return {
+          uri: monaco.Uri.parse(result.location.uri),
+          range: toMonacoRange(monaco, result.location.range),
+        };
+      },
+    },
+  );
+  const referenceProvider = monaco.languages.registerReferenceProvider(
+    'modelable',
+    {
+      async provideReferences(model, position, context, token) {
+        const captured = getWorkspace();
+        const result = await controller.references(
+          captured,
+          model.uri.toString(),
+          fromMonacoPosition(position),
+          context.includeDeclaration,
+        );
+        if (token.isCancellationRequested || result === undefined) {
+          return null;
+        }
+        return result.locations.map((location) => ({
+          uri: monaco.Uri.parse(location.uri),
+          range: toMonacoRange(monaco, location.range),
+        }));
+      },
+    },
+  );
+  const renameProvider = monaco.languages.registerRenameProvider('modelable', {
+    async provideRenameEdits(model, position, newName, token) {
+      const captured = getWorkspace();
+      const result = await controller.rename(
+        captured,
+        model.uri.toString(),
+        fromMonacoPosition(position),
+        newName,
+      );
+      if (token.isCancellationRequested || result === undefined) {
+        return null;
+      }
+      return toMonacoWorkspaceEdit(monaco, result.edit.edits);
+    },
+    async resolveRenameLocation(model, position, token) {
+      const captured = getWorkspace();
+      const result = await controller.prepareRename(
+        captured,
+        model.uri.toString(),
+        fromMonacoPosition(position),
+      );
+      if (token.isCancellationRequested || result === undefined) {
+        return { range: new monaco.Range(1, 1, 1, 1), text: '' };
+      }
+      if (result.prepared === null) {
+        return {
+          range: new monaco.Range(1, 1, 1, 1),
+          text: '',
+          rejectReason: 'This element cannot be renamed.',
+        };
+      }
+      return {
+        range: toMonacoRange(monaco, result.prepared.range),
+        text: result.prepared.placeholder,
+      };
+    },
+  });
   let disposed = false;
   return {
     dispose() {
@@ -77,6 +160,9 @@ export function registerModelableProviders(
       disposed = true;
       completion.dispose();
       hover.dispose();
+      definitionProvider.dispose();
+      referenceProvider.dispose();
+      renameProvider.dispose();
     },
   };
 }
@@ -145,4 +231,20 @@ function toMonacoRange(
     range.end.line + 1,
     range.end.character + 1,
   );
+}
+
+function toMonacoWorkspaceEdit(
+  monaco: MonacoApi,
+  edits: BrowserTextEdit[],
+): Monaco.languages.WorkspaceEdit {
+  return {
+    edits: edits.map((edit) => ({
+      resource: monaco.Uri.parse(edit.uri),
+      textEdit: {
+        range: toMonacoRange(monaco, edit.range),
+        text: edit.new_text,
+      },
+      versionId: undefined,
+    })),
+  };
 }

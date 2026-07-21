@@ -22,7 +22,7 @@ pygls/lsprotocol adapters, Pyodide worker RPC, TypeScript, React, Monaco Editor,
 Vitest, pytest, and Playwright.
 
 **Design:**
-[Playground Browser Language Services — Design](../specs/2026-07-20-playground-browser-language-services-design.md)
+[Playground Browser Language Services — Design](../../specs/archived/2026-07-20-playground-browser-language-services-design.md)
 
 ## Global Constraints
 

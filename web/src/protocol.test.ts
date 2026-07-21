@@ -5,8 +5,12 @@ import {
   isBrowserCompletionResult,
   isBrowserCompilerRequest,
   isBrowserCompilerResponse,
+  isBrowserDefinitionResult,
   isBrowserHoverResult,
   isBrowserLanguageLocation,
+  isBrowserPreparedRenameResult,
+  isBrowserReferencesResult,
+  isBrowserRenameResult,
   isBrowserWorkspaceResult,
 } from './protocol';
 
@@ -225,6 +229,66 @@ describe('browser protocol v2 result guards', () => {
         source_hashes: { 'file:///a.mdl': 42 },
       }),
     ).toBe(false);
+  });
+
+  test('accepts and validates definition, references, prepareRename, and rename results', () => {
+    expect(isBrowserDefinitionResult({ location: null })).toBe(true);
+    expect(
+      isBrowserDefinitionResult({
+        location: { uri: 'file:///a.mdl', range },
+      }),
+    ).toBe(true);
+    expect(isBrowserDefinitionResult({ location: 'invalid' })).toBe(false);
+    expect(
+      isBrowserDefinitionResult({ location: null, extra: true }),
+    ).toBe(false);
+
+    expect(isBrowserReferencesResult({ locations: [] })).toBe(true);
+    expect(
+      isBrowserReferencesResult({
+        locations: [{ uri: 'file:///a.mdl', range }],
+      }),
+    ).toBe(true);
+    expect(isBrowserReferencesResult({ locations: [{}] })).toBe(false);
+    expect(
+      isBrowserReferencesResult({ locations: [], extra: true }),
+    ).toBe(false);
+
+    expect(isBrowserPreparedRenameResult({ prepared: null })).toBe(true);
+    expect(
+      isBrowserPreparedRenameResult({
+        prepared: { range, placeholder: 'Customer' },
+      }),
+    ).toBe(true);
+    expect(
+      isBrowserPreparedRenameResult({
+        prepared: { range, placeholder: 42 },
+      }),
+    ).toBe(false);
+    expect(
+      isBrowserPreparedRenameResult({ prepared: null, extra: true }),
+    ).toBe(false);
+
+    const edit = {
+      uri: 'file:///a.mdl',
+      range,
+      new_text: 'Client',
+      expected_version: 1,
+      expected_hash: 'abc',
+    };
+    expect(isBrowserRenameResult({ edit: { edits: [edit] } })).toBe(true);
+    expect(isBrowserRenameResult({ edit: { edits: [] } })).toBe(true);
+    expect(
+      isBrowserRenameResult({
+        edit: { edits: [{ ...edit, expected_version: 0 }] },
+      }),
+    ).toBe(false);
+    expect(
+      isBrowserRenameResult({ edit: { edits: [{ ...edit, extra: true }] } }),
+    ).toBe(false);
+    expect(isBrowserRenameResult({ edit: { edits: [], extra: true } })).toBe(
+      false,
+    );
   });
 
   test('rejects unknown fields in envelopes and typed errors', () => {

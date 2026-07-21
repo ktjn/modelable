@@ -27,14 +27,14 @@ releases could contain breaking changes when called out explicitly.
   automatically from IndexedDB; continue in memory when storage is
   unavailable; and explicitly export or reset invalid stored state. Source
   remains local, while compiler output is not persisted.
-- Added the first browser-native language-services batch to the Playground.
+- Completed browser-native language services in the Playground.
   Protocol v2 synchronizes the complete workspace after a 300 ms edit debounce,
   publishes exact-revision live diagnostics without requiring Validate, and
-  provides Monaco completion and hover using current text plus the last
-  parseable semantic snapshot. Stale provider results are discarded, hover
-  Markdown is rendered as untrusted non-HTML content, and all derived language
-  results remain memory-only. Phase 3b stays active for navigation, references,
-  and rename.
+  provides Monaco completion, hover, go-to-definition, find-all-references,
+  and rename using current text plus the last parseable semantic snapshot.
+  Stale provider results are discarded, hover Markdown is rendered as untrusted
+  non-HTML content, rename validates identifiers and carries optimistic
+  concurrency metadata, and all derived language results remain memory-only.
 - Added safe conversational workspace management to `modelable chat`:
   grounded ownership, lineage, dependency, index, compatibility, and
   validation questions; complete entity and projection proposals through
