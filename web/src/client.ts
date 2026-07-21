@@ -7,6 +7,8 @@ import {
   type BrowserCompilerRequest,
   type BrowserDefinitionResult,
   type BrowserFormatResult,
+  type BrowserGraphMode,
+  type BrowserGraphResult,
   type BrowserHoverResult,
   type BrowserLanguagePosition,
   type BrowserPreparedRenameResult,
@@ -20,6 +22,7 @@ import {
   isBrowserCompilerResponse,
   isBrowserDefinitionResult,
   isBrowserFormatResult,
+  isBrowserGraphResult,
   isBrowserHoverResult,
   isBrowserPreparedRenameResult,
   isBrowserReferencesResult,
@@ -222,6 +225,17 @@ export class BrowserCompilerClient {
     );
   }
 
+  graph(
+    workspaceRevision: number,
+    mode: BrowserGraphMode,
+  ): Promise<BrowserGraphResult> {
+    return this.initializedRequest(
+      'workspace.graph',
+      { workspaceRevision, mode },
+      isBrowserGraphResult,
+    );
+  }
+
   dispose(): void {
     this.transitionToTerminal(
       new BrowserCompilerError(
@@ -297,6 +311,7 @@ export type BrowserCompilerClientLike = Pick<
   | 'references'
   | 'prepareRename'
   | 'rename'
+  | 'graph'
   | 'dispose'
 >;
 

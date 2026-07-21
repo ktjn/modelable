@@ -12,6 +12,7 @@ import type {
   BrowserLanguagePosition,
   BrowserPreparedRenameResult,
   BrowserReferencesResult,
+  BrowserGraphResult,
   BrowserRenameResult,
   BrowserSource,
   BrowserWorkspaceResult,
@@ -109,6 +110,16 @@ class FakeClient implements BrowserCompilerClientLike {
       _position: BrowserLanguagePosition,
       _newName: string,
     ): Promise<BrowserRenameResult> => ({ edit: { edits: [] } }),
+  );
+  readonly graph = vi.fn(
+    async (
+      _workspaceRevision: number,
+      _mode: string,
+    ): Promise<BrowserGraphResult> => ({
+      workspace_revision: _workspaceRevision,
+      mode: _mode as 'domain' | 'entity',
+      graph: { schema_version: 1, nodes: [], edges: [] },
+    }),
   );
   readonly formatSource = vi.fn();
   readonly compileJsonSchema = vi.fn();

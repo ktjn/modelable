@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 from modelable.language.dto import (
     LanguageCompletion,
@@ -94,3 +95,45 @@ class BrowserRenameResult:
 class BrowserCompileResult:
     diagnostics: tuple[BrowserDiagnostic, ...]
     artifacts: tuple[BrowserArtifact, ...]
+
+
+@dataclass(frozen=True)
+class BrowserSourceRange:
+    uri: str
+    start_line: int
+    start_character: int
+    end_line: int
+    end_character: int
+
+
+@dataclass(frozen=True)
+class BrowserGraphNode:
+    id: str
+    kind: str
+    label: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_range: BrowserSourceRange | None = None
+
+
+@dataclass(frozen=True)
+class BrowserGraphEdge:
+    id: str
+    source: str
+    target: str
+    kind: str
+    label: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class BrowserGraph:
+    schema_version: int
+    nodes: tuple[BrowserGraphNode, ...]
+    edges: tuple[BrowserGraphEdge, ...]
+
+
+@dataclass(frozen=True)
+class BrowserGraphResult:
+    workspace_revision: int
+    mode: str
+    graph: BrowserGraph

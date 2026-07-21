@@ -109,6 +109,7 @@ def test_shared_model_graph_change_runs_all_export_smokes() -> None:
         "cli/src/modelable/expressions/cel.py",
         "cli/src/modelable/governance/checker.py",
         "cli/src/modelable/grammar/modelable.lark",
+        "cli/src/modelable/graph/export.py",
         "cli/src/modelable/language/completion.py",
         "cli/src/modelable/llm/context.py",
         "cli/src/modelable/parser/ir.py",

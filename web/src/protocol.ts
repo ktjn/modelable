@@ -10,7 +10,8 @@ export type BrowserCompilerMethod =
   | 'language.definition'
   | 'language.references'
   | 'language.prepareRename'
-  | 'language.rename';
+  | 'language.rename'
+  | 'workspace.graph';
 
 export type BrowserCompilerErrorCode =
   | 'INITIALIZATION_FAILED'
@@ -177,6 +178,45 @@ export interface BrowserCompileResult {
   artifacts: BrowserArtifact[];
 }
 
+export type BrowserGraphMode = 'domain' | 'entity';
+
+export interface BrowserSourceRange {
+  uri: string;
+  start_line: number;
+  start_character: number;
+  end_line: number;
+  end_character: number;
+}
+
+export interface BrowserGraphNode {
+  id: string;
+  kind: string;
+  label: string;
+  metadata: Record<string, unknown>;
+  source_range: BrowserSourceRange | null;
+}
+
+export interface BrowserGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  kind: string;
+  label: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface BrowserGraph {
+  schema_version: number;
+  nodes: BrowserGraphNode[];
+  edges: BrowserGraphEdge[];
+}
+
+export interface BrowserGraphResult {
+  workspace_revision: number;
+  mode: BrowserGraphMode;
+  graph: BrowserGraph;
+}
+
 export type BrowserResultGuard<T> = (value: unknown) => value is T;
 
 const methods = new Set<BrowserCompilerMethod>([
@@ -190,6 +230,7 @@ const methods = new Set<BrowserCompilerMethod>([
   'language.references',
   'language.prepareRename',
   'language.rename',
+  'workspace.graph',
 ]);
 
 const errorCodes = new Set<BrowserCompilerErrorCode>([
@@ -498,6 +539,72 @@ export function isBrowserCompileResult(
     value.diagnostics.every(isBrowserDiagnostic) &&
     Array.isArray(value.artifacts) &&
     value.artifacts.every(isBrowserArtifact)
+  );
+}
+
+const graphModes = new Set<BrowserGraphMode>(['domain', 'entity']);
+
+function isBrowserSourceRange(
+  value: unknown,
+): value is BrowserSourceRange {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, [
+      'uri',
+      'start_line',
+      'start_character',
+      'end_line',
+      'end_character',
+    ]) &&
+    typeof value.uri === 'string' &&
+    isIntegerAtLeast(value.start_line, 0) &&
+    isIntegerAtLeast(value.start_character, 0) &&
+    isIntegerAtLeast(value.end_line, 0) &&
+    isIntegerAtLeast(value.end_character, 0)
+  );
+}
+
+function isBrowserGraphNode(value: unknown): value is BrowserGraphNode {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['id', 'kind', 'label', 'metadata', 'source_range']) &&
+    typeof value.id === 'string' &&
+    typeof value.kind === 'string' &&
+    typeof value.label === 'string' &&
+    isRecord(value.metadata) &&
+    (value.source_range === null || isBrowserSourceRange(value.source_range))
+  );
+}
+
+function isBrowserGraphEdge(value: unknown): value is BrowserGraphEdge {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['id', 'source', 'target', 'kind', 'label', 'metadata']) &&
+    typeof value.id === 'string' &&
+    typeof value.source === 'string' &&
+    typeof value.target === 'string' &&
+    typeof value.kind === 'string' &&
+    isNullableString(value.label) &&
+    isRecord(value.metadata)
+  );
+}
+
+export function isBrowserGraphResult(
+  value: unknown,
+): value is BrowserGraphResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['workspace_revision', 'mode', 'graph']) &&
+    isIntegerAtLeast(value.workspace_revision, 1) &&
+    typeof value.mode === 'string' &&
+    graphModes.has(value.mode as BrowserGraphMode) &&
+    isRecord(value.graph) &&
+    hasExactKeys(value.graph, ['schema_version', 'nodes', 'edges']) &&
+    isIntegerAtLeast(value.graph.schema_version, 1) &&
+    Array.isArray(value.graph.nodes) &&
+    value.graph.nodes.every(isBrowserGraphNode) &&
+    Array.isArray(value.graph.edges) &&
+    value.graph.edges.every(isBrowserGraphEdge)
   );
 }
 
