@@ -141,7 +141,7 @@ export function App({
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
   const [mobileView, setMobileView] = useState<'source' | 'graph'>('source');
-  const [graphCollapsed, setGraphCollapsed] = useState(false);
+  const [graphCollapsed, setGraphCollapsed] = useState(true);
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const languageControllerRef =
