@@ -117,6 +117,56 @@ def test_language_valid_fixture_conforms_for_completion_and_hover() -> None:
     assert fixture["hover"]["markdownContains"] in hover["result"]["hover"]["markdown"]
 
 
+def test_language_valid_fixture_conforms_for_definition() -> None:
+    browser_dispatch._reset_compiler_for_tests()
+    fixture = _language_fixture("workspace-valid.json")
+    _dispatch("workspace.open", fixture["workspace"])
+
+    result = _dispatch("language.definition", fixture["definition"]["request"])
+
+    assert result["ok"] is True
+    location = result["result"]["location"]
+    assert location is not None
+    assert location["uri"] == fixture["definition"]["expectLocation"]["uri"]
+    assert location["range"]["start"]["line"] == fixture["definition"]["expectLocation"]["line"]
+
+
+def test_language_valid_fixture_conforms_for_references() -> None:
+    browser_dispatch._reset_compiler_for_tests()
+    fixture = _language_fixture("workspace-valid.json")
+    _dispatch("workspace.open", fixture["workspace"])
+
+    result = _dispatch("language.references", fixture["references"]["request"])
+
+    assert result["ok"] is True
+    assert len(result["result"]["locations"]) >= fixture["references"]["minCount"]
+
+
+def test_language_valid_fixture_conforms_for_prepare_rename() -> None:
+    browser_dispatch._reset_compiler_for_tests()
+    fixture = _language_fixture("workspace-valid.json")
+    _dispatch("workspace.open", fixture["workspace"])
+
+    result = _dispatch("language.prepareRename", fixture["prepareRename"]["request"])
+
+    assert result["ok"] is True
+    assert result["result"]["prepared"] is not None
+    assert result["result"]["prepared"]["placeholder"] == fixture["prepareRename"]["expectPlaceholder"]
+
+
+def test_language_valid_fixture_conforms_for_rename() -> None:
+    browser_dispatch._reset_compiler_for_tests()
+    fixture = _language_fixture("workspace-valid.json")
+    _dispatch("workspace.open", fixture["workspace"])
+
+    result = _dispatch("language.rename", fixture["rename"]["request"])
+
+    assert result["ok"] is True
+    edits = result["result"]["edit"]["edits"]
+    assert len(edits) >= fixture["rename"]["minEdits"]
+    assert all(edit["new_text"] == fixture["rename"]["expectNewText"] for edit in edits)
+
+
 def test_language_invalid_current_fixture_keeps_last_parseable_results() -> None:
     browser_dispatch._reset_compiler_for_tests()
     valid = _language_fixture("workspace-valid.json")

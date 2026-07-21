@@ -29,5 +29,47 @@
       "character": 10
     },
     "markdownContains": "customer_id"
+  },
+  "definition": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///customer.mdl",
+      "line": 2,
+      "character": 10
+    },
+    "expectLocation": {
+      "uri": "file:///customer.mdl",
+      "line": 2
+    }
+  },
+  "references": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///customer.mdl",
+      "line": 3,
+      "character": 10,
+      "includeDeclaration": true
+    },
+    "minCount": 1
+  },
+  "prepareRename": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///customer.mdl",
+      "line": 2,
+      "character": 10
+    },
+    "expectPlaceholder": "Customer"
+  },
+  "rename": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///customer.mdl",
+      "line": 2,
+      "character": 10,
+      "newName": "Client"
+    },
+    "expectNewText": "Client",
+    "minEdits": 1
   }
 }

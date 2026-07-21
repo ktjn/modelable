@@ -9,6 +9,7 @@ BrowserLanguageErrorCode = Literal[
     "STALE_WORKSPACE",
     "LANGUAGE_UNAVAILABLE",
     "INVALID_POSITION",
+    "INVALID_RENAME",
 ]
 
 

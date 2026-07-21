@@ -6,10 +6,14 @@ from modelable.browser.dto import (
     BrowserArtifact,
     BrowserCompileResult,
     BrowserCompletionResult,
+    BrowserDefinitionResult,
     BrowserDiagnostic,
     BrowserFormatResult,
     BrowserHoverResult,
     BrowserLanguagePosition,
+    BrowserPreparedRenameResult,
+    BrowserReferencesResult,
+    BrowserRenameResult,
     BrowserSource,
     BrowserWorkspaceResult,
 )
@@ -24,9 +28,14 @@ from modelable.diagnostics.model import Diagnostic
 from modelable.emitters.base import render_artifact_text
 from modelable.emitters.json_schema import emit_json_schema_artifacts
 from modelable.language.completion import complete
+from modelable.language.definition import definition
 from modelable.language.dto import LanguagePosition
 from modelable.language.hover import hover
 from modelable.language.positions import document_lines, utf16_to_codepoint
+from modelable.language.references import references
+from modelable.language.rename import InvalidRenameError
+from modelable.language.rename import prepare_rename as language_prepare_rename
+from modelable.language.rename import rename as language_rename
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
 from modelable.parser.ir import ParseError
 from modelable.parser.parse import parse_text_to_ir
@@ -129,6 +138,72 @@ class BrowserCompiler:
                 LanguagePosition(request.line, request.character),
             )
         )
+
+    def definition(
+        self,
+        request: BrowserLanguagePosition,
+    ) -> BrowserDefinitionResult:
+        self._validate_language_request(request)
+        if self.language.semantic_workspace() is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        return BrowserDefinitionResult(
+            location=definition(
+                self.language,
+                request.uri,
+                LanguagePosition(request.line, request.character),
+            )
+        )
+
+    def references(
+        self,
+        request: BrowserLanguagePosition,
+        include_declaration: bool,
+    ) -> BrowserReferencesResult:
+        self._validate_language_request(request)
+        if self.language.semantic_workspace() is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        return BrowserReferencesResult(
+            locations=references(
+                self.language,
+                request.uri,
+                LanguagePosition(request.line, request.character),
+                include_declaration=include_declaration,
+            )
+        )
+
+    def prepare_rename(
+        self,
+        request: BrowserLanguagePosition,
+    ) -> BrowserPreparedRenameResult:
+        self._validate_language_request(request)
+        if self.language.semantic_workspace() is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        return BrowserPreparedRenameResult(
+            prepared=language_prepare_rename(
+                self.language,
+                request.uri,
+                LanguagePosition(request.line, request.character),
+            )
+        )
+
+    def rename(
+        self,
+        request: BrowserLanguagePosition,
+        new_name: str,
+    ) -> BrowserRenameResult:
+        self._validate_language_request(request)
+        if self.language.semantic_workspace() is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        try:
+            result = language_rename(
+                self.language,
+                request.uri,
+                LanguagePosition(request.line, request.character),
+                new_name,
+            )
+        except InvalidRenameError as error:
+            raise BrowserLanguageError("INVALID_RENAME") from error
+        return BrowserRenameResult(edit=result)
 
     def _validate_language_request(
         self,

@@ -611,3 +611,176 @@ def test_language_error_messages_do_not_include_source_symbol_or_result_text() -
     assert SOURCE_TEXT not in serialized
     assert secret_symbol not in serialized
     assert secret_result not in serialized
+
+
+def test_dispatch_definition_from_synchronized_workspace() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    result = dispatch(
+        "language.definition",
+        {"workspaceRevision": 7, "uri": URI, "line": 3, "character": 10},
+    )
+
+    assert result["ok"] is True
+    location = result["result"]["location"]
+    assert location is not None
+    assert location["uri"] == URI
+
+
+def test_dispatch_references_from_synchronized_workspace() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    result = dispatch(
+        "language.references",
+        {
+            "workspaceRevision": 7,
+            "uri": URI,
+            "line": 3,
+            "character": 10,
+            "includeDeclaration": True,
+        },
+    )
+
+    assert result["ok"] is True
+    assert len(result["result"]["locations"]) >= 1
+
+
+def test_dispatch_references_rejects_missing_include_declaration() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    result = dispatch(
+        "language.references",
+        {"workspaceRevision": 7, "uri": URI, "line": 3, "character": 10},
+    )
+
+    assert result["error"]["code"] == "INVALID_REQUEST"
+
+
+def test_dispatch_prepare_rename_from_synchronized_workspace() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    result = dispatch(
+        "language.prepareRename",
+        {"workspaceRevision": 7, "uri": URI, "line": 2, "character": 10},
+    )
+
+    assert result["ok"] is True
+    assert result["result"]["prepared"] is not None
+    assert result["result"]["prepared"]["placeholder"] == "Customer"
+
+
+def test_dispatch_rename_from_synchronized_workspace() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    result = dispatch(
+        "language.rename",
+        {
+            "workspaceRevision": 7,
+            "uri": URI,
+            "line": 2,
+            "character": 10,
+            "newName": "Client",
+        },
+    )
+
+    assert result["ok"] is True
+    edits = result["result"]["edit"]["edits"]
+    assert len(edits) >= 1
+    assert all(edit["new_text"] == "Client" for edit in edits)
+
+
+def test_dispatch_rename_rejects_invalid_identifier() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    result = dispatch(
+        "language.rename",
+        {
+            "workspaceRevision": 7,
+            "uri": URI,
+            "line": 2,
+            "character": 10,
+            "newName": "invalid-name",
+        },
+    )
+
+    assert result["error"]["code"] == "INVALID_RENAME"
+
+
+def test_dispatch_rename_rejects_missing_new_name() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    result = dispatch(
+        "language.rename",
+        {"workspaceRevision": 7, "uri": URI, "line": 2, "character": 10},
+    )
+
+    assert result["error"]["code"] == "INVALID_REQUEST"
+
+
+def test_rename_edits_carry_expected_version_and_hash() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    result = dispatch(
+        "language.rename",
+        {
+            "workspaceRevision": 7,
+            "uri": URI,
+            "line": 2,
+            "character": 10,
+            "newName": "Client",
+        },
+    )
+
+    assert result["ok"] is True
+    for edit in result["result"]["edit"]["edits"]:
+        assert edit["expected_version"] == 1
+        assert len(edit["expected_hash"]) == 64
+
+
+@pytest.mark.parametrize(
+    "method",
+    ["language.definition", "language.prepareRename"],
+)
+def test_batch_b_language_methods_reject_stale_revision(method: str) -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    result = dispatch(
+        method,
+        {"workspaceRevision": 6, "uri": URI, "line": 2, "character": 10},
+    )
+
+    assert result["error"]["code"] == "STALE_WORKSPACE"
+
+
+@pytest.mark.parametrize(
+    "method,payload",
+    [
+        (
+            "language.references",
+            {
+                "workspaceRevision": 1,
+                "uri": URI,
+                "line": 0,
+                "character": 0,
+                "includeDeclaration": "yes",
+            },
+        ),
+        (
+            "language.rename",
+            {
+                "workspaceRevision": 1,
+                "uri": URI,
+                "line": 0,
+                "character": 0,
+                "newName": 123,
+            },
+        ),
+    ],
+)
+def test_batch_b_methods_reject_wrong_extra_field_types(
+    method: str,
+    payload: dict,
+) -> None:
+    result = dispatch(method, payload)
+
+    assert result["error"]["code"] == "INVALID_REQUEST"

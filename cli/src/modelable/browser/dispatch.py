@@ -8,9 +8,13 @@ from modelable.browser.api import BrowserCompiler
 from modelable.browser.dto import (
     BrowserCompileResult,
     BrowserCompletionResult,
+    BrowserDefinitionResult,
     BrowserFormatResult,
     BrowserHoverResult,
     BrowserLanguagePosition,
+    BrowserPreparedRenameResult,
+    BrowserReferencesResult,
+    BrowserRenameResult,
     BrowserSource,
     BrowserWorkspaceResult,
 )
@@ -22,6 +26,10 @@ _METHODS = {
     "compile.jsonSchema",
     "language.completion",
     "language.hover",
+    "language.definition",
+    "language.references",
+    "language.prepareRename",
+    "language.rename",
 }
 _SOURCE_FIELDS = {"uri", "text", "version"}
 _LANGUAGE_POSITION_FIELDS = {
@@ -35,6 +43,7 @@ _ERROR_MESSAGES = {
     "STALE_WORKSPACE": "Requested workspace revision is not current",
     "LANGUAGE_UNAVAILABLE": "Language services are unavailable",
     "INVALID_POSITION": "Requested language position is invalid",
+    "INVALID_RENAME": "Rename target is invalid or produces a conflict",
 }
 _compiler = BrowserCompiler()
 
@@ -93,8 +102,12 @@ def _integer(value: Any) -> int:
     return value
 
 
-def _language_position(payload: dict[str, Any]) -> BrowserLanguagePosition:
-    _require_exact_fields(payload, _LANGUAGE_POSITION_FIELDS)
+def _language_position(
+    payload: dict[str, Any],
+    extra_fields: set[str] | None = None,
+) -> BrowserLanguagePosition:
+    expected = _LANGUAGE_POSITION_FIELDS | (extra_fields or set())
+    _require_exact_fields(payload, expected)
     uri = payload["uri"]
     if not isinstance(uri, str):
         raise BrowserRequestValidationError("Language URI must be a string")
@@ -106,10 +119,20 @@ def _language_position(payload: dict[str, Any]) -> BrowserLanguagePosition:
     )
 
 
-def _dispatch(
-    method: str,
-    payload: dict[str, Any],
-) -> BrowserWorkspaceResult | BrowserFormatResult | BrowserCompileResult | BrowserCompletionResult | BrowserHoverResult:
+_DispatchResult = (
+    BrowserWorkspaceResult
+    | BrowserFormatResult
+    | BrowserCompileResult
+    | BrowserCompletionResult
+    | BrowserHoverResult
+    | BrowserDefinitionResult
+    | BrowserReferencesResult
+    | BrowserPreparedRenameResult
+    | BrowserRenameResult
+)
+
+
+def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
     if method == "workspace.open":
         _require_exact_fields(payload, {"workspaceRevision", "sources"})
         return _compiler.open_workspace(
@@ -126,18 +149,26 @@ def _dispatch(
         return _compiler.completion(_language_position(payload))
     if method == "language.hover":
         return _compiler.hover(_language_position(payload))
+    if method == "language.definition":
+        return _compiler.definition(_language_position(payload))
+    if method == "language.references":
+        request = _language_position(payload, extra_fields={"includeDeclaration"})
+        include_declaration = payload["includeDeclaration"]
+        if not isinstance(include_declaration, bool):
+            raise BrowserRequestValidationError("includeDeclaration must be a boolean")
+        return _compiler.references(request, include_declaration)
+    if method == "language.prepareRename":
+        return _compiler.prepare_rename(_language_position(payload))
+    if method == "language.rename":
+        request = _language_position(payload, extra_fields={"newName"})
+        new_name = payload["newName"]
+        if not isinstance(new_name, str):
+            raise BrowserRequestValidationError("newName must be a string")
+        return _compiler.rename(request, new_name)
     raise AssertionError(f"Unsupported validated browser compiler method: {method}")
 
 
-def _serialize_result(
-    result: (
-        BrowserWorkspaceResult
-        | BrowserFormatResult
-        | BrowserCompileResult
-        | BrowserCompletionResult
-        | BrowserHoverResult
-    ),
-) -> dict[str, Any]:
+def _serialize_result(result: _DispatchResult) -> dict[str, Any]:
     if isinstance(result, BrowserWorkspaceResult):
         return {
             "workspace_revision": result.workspace_revision,
