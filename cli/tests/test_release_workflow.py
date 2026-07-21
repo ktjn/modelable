@@ -94,7 +94,7 @@ def test_docs_workflow_builds_strict_mkdocs_site() -> None:
     commands = "\n".join(step["run"] for step in steps if "run" in step)
 
     assert any(
-        step.get("uses") == "actions/setup-node@v6.4.0" and step.get("with", {}).get("node-version") == 26
+        step.get("uses") == "actions/setup-node@v7.0.0" and step.get("with", {}).get("node-version") == 26
         for step in steps
     )
     assert "uv python install 3.14" in commands
@@ -195,7 +195,7 @@ def test_validation_workflow_runs_complete_browser_playground_gate() -> None:
     commands = "\n".join(step["run"] for step in steps if "run" in step)
 
     assert any(
-        step.get("uses") == "actions/setup-node@v6.4.0" and step.get("with", {}).get("node-version") == 26
+        step.get("uses") == "actions/setup-node@v7.0.0" and step.get("with", {}).get("node-version") == 26
         for step in steps
     )
     assert "uv python install 3.14" in commands
