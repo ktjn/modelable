@@ -68,22 +68,28 @@ Work proceeds in phase order, with one active phase at a time:
    rename over the durable multi-file workspace without running the desktop
    LSP transport in the browser. The completed design is archived in
    [Playground Browser Language Services — Design](docs/superpowers/specs/archived/2026-07-20-playground-browser-language-services-design.md).
-5. **Active next slice: visualization and analysis.**
-   Deliver stable graph DTOs, domain/entity views, source navigation, lineage,
-   compatibility, and governance views in the phase order defined by
+5. **Shipped: visualization MVP.**
+   The Playground renders compiler-owned semantic graphs with domain and entity
+   visualization modes using ELK.js layout and React Flow rendering, with
+   responsive layout, accessibility, and performance budgets. The completed
+   design is archived in
+   [Playground Visualization MVP — Design](docs/superpowers/specs/archived/2026-07-21-playground-visualization-design.md).
+6. **Active next slice: analysis views.**
+   Deliver field lineage, compatibility visualization, governance views, and
+   SVG/PNG export in the phase order defined by
    [the Playground architecture](docs/playground-design.md).
-6. **Then: local AI.**
+7. **Then: local AI.**
    Add WebLLM model download and provider UX only after workspace editing and
    analysis boundaries are stable. Model output remains untrusted and must use
    typed planning, validation, preview, and explicit acceptance.
-7. **Then: offline hardening and extensibility.**
+8. **Then: offline hardening and extensibility.**
    Add the service worker, offline workspace support, performance and security
    hardening, extension boundaries, and additional views after the core
    workspace and language-service contracts have shipped.
 
-The next implementation slice is item 5. Completion means the Playground gains
-stable graph DTOs, domain/entity views, source navigation, lineage,
-compatibility, and governance views.
+The next implementation slice is item 6. Completion means the Playground gains
+field lineage, compatibility visualization, governance views, and diagram
+export.
 
 ## Priority 2 — complete the Scalable and Rust contract path
 

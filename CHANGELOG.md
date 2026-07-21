@@ -27,6 +27,15 @@ releases could contain breaking changes when called out explicitly.
   automatically from IndexedDB; continue in memory when storage is
   unavailable; and explicitly export or reset invalid stored state. Source
   remains local, while compiler output is not persisted.
+- Added visualization MVP to the browser Playground. The compiler exposes
+  `workspace.graph` through the browser protocol with domain and entity
+  visualization modes. ELK.js lays out the semantic graph in a dedicated web
+  worker. React Flow renders positioned nodes with custom components carrying
+  non-color-only kind indicators (D/E/V/F/P badges). The graph panel supports
+  desktop collapse/expand with CSS resize, mobile tabbed Source/Graph
+  switching, keyboard navigation, screen-reader labels, and
+  `prefers-reduced-motion` support. Performance budgets enforce ≤ 200 ms
+  median graph operations.
 - Completed browser-native language services in the Playground.
   Protocol v2 synchronizes the complete workspace after a 300 ms edit debounce,
   publishes exact-revision live diagnostics without requiring Validate, and

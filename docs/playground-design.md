@@ -1,10 +1,11 @@
 # Modelable Playground Architecture
 
 > **Status:** Long-term product vision with Phases 1–4 shipped. The browser
-> compiler, single-file editor, multi-file workspace with persistence, and
-> browser-native language services (completion, hover, definition, references,
-> rename) are all archived. Visualization/analysis is the active next slice;
-> local AI, offline, and plugin phases remain deferred.
+> compiler, single-file editor, multi-file workspace with persistence,
+> browser-native language services, and visualization MVP (domain/entity graph
+> views with ELK layout, React Flow rendering, mode switching, and responsive
+> layout) are all archived. Analysis views are the active next slice; local AI,
+> offline, and plugin phases remain deferred.
 
 ## 1. Purpose
 
@@ -996,7 +997,7 @@ file versions, and active selection. Recoverable language failures expose a
 language-service retry, while terminal worker failures recreate the shared
 compiler client and controller together.
 
-**Batch B — definition, references, and rename: Active next slice.**
+**Batch B — definition, references, and rename: Shipped.**
 
 - Cross-file definition and sorted references.
 - Validated, atomic cross-file rename.
@@ -1009,13 +1010,18 @@ No additional ADR is required for Phase 3b: direct Monaco-to-compiler RPC and
 shared compiler-owned language semantics are already accepted Playground
 architecture decisions.
 
-### Phase 4: visualization MVP
+### Phase 4: visualization MVP — shipped
 
-- Stable graph DTO.
-- Domain graph.
-- Entity diagram.
-- Source navigation from graph nodes.
-- ELK layout worker.
+The Playground now renders compiler-owned semantic graphs with domain and
+entity visualization modes. The Python compiler exposes `workspace.graph`
+through the browser protocol; ELK.js lays out nodes in a dedicated web worker;
+React Flow renders the positioned graph with custom node components carrying
+non-color-only kind indicators (D/E/V/F/P badges with thick left borders).
+The graph panel supports desktop collapse/expand with CSS resize, mobile
+tabbed Source/Graph switching, keyboard-navigable nodes, screen-reader labels,
+and `prefers-reduced-motion` support. Performance budgets enforce ≤ 200 ms
+median graph operations. The completed design is archived in
+[Playground Visualization MVP — Design](superpowers/specs/archived/2026-07-21-playground-visualization-design.md).
 
 ### Phase 5: analysis views
 

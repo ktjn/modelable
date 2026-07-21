@@ -2,10 +2,10 @@
 
 ## Status
 
-Accepted on 2026-07-21.
+Shipped on 2026-07-21.
 
 Execution is broken into reviewable tasks in the
-[Playground Visualization implementation plan](../plans/2026-07-21-playground-visualization.md).
+[Playground Visualization implementation plan](../../plans/archived/2026-07-21-playground-visualization.md).
 
 This specification defines Phase 4 of the
 [Modelable Playground Architecture](../../playground-design.md). It builds on
