@@ -127,7 +127,7 @@ def test_definition_on_projection_field_goes_to_its_declaration() -> None:
     assert result is not None
     assert result.uri == URI
     assert result.range.start.line == next(
-        i for i, line in enumerate(WORKSPACE_TEXT.splitlines()) if "displayEmail = c.email" in l
+        i for i, line in enumerate(WORKSPACE_TEXT.splitlines()) if "displayEmail = c.email" in line
     )
 
 
