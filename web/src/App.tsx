@@ -43,6 +43,8 @@ import {
   IndexedDbWorkspaceRepository,
   type WorkspaceRepository,
 } from './workspace-repository';
+import type { BrowserGraphMode, BrowserGraphResult } from './protocol';
+import { GraphPanel } from './visualization/GraphPanel';
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
 const createWorkspaceRepository = (): WorkspaceRepository => {
@@ -140,6 +142,8 @@ export function App({
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
+  const [graphResult, setGraphResult] = useState<BrowserGraphResult | null>(null);
+  const [graphMode, setGraphMode] = useState<BrowserGraphMode>('domain');
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const languageControllerRef =
     useRef<BrowserLanguageServiceController>(null);
@@ -429,6 +433,27 @@ export function App({
   const handleGenerate = useCallback((): void => {
     void runOperation('generate');
   }, [runOperation]);
+
+  const graphModeRef = useRef(graphMode);
+  graphModeRef.current = graphMode;
+
+  const fetchGraph = useCallback((): void => {
+    const client = clientRef.current;
+    const workspace = workspaceRef.current;
+    if (client === null || state.runtime !== 'ready') return;
+    void client.graph(workspace.revision, graphModeRef.current).then(
+      (result) => {
+        if (clientRef.current === client) {
+          setGraphResult(result);
+        }
+      },
+      () => {},
+    );
+  }, [state.runtime]);
+
+  useEffect(() => {
+    fetchGraph();
+  }, [fetchGraph, graphMode, state.workspace.revision]);
 
   const replaceWorkspace = useCallback(
     (workspace: PlaygroundWorkspace, immediate = false): void => {
@@ -843,6 +868,23 @@ export function App({
             </label>
           ) : null}
           <ArtifactEditor value={selectedArtifact?.content ?? ''} />
+        </section>
+        <section
+          className="graph-pane"
+          aria-label="Model graph visualization"
+          data-testid="graph"
+        >
+          <div className="pane-heading">
+            <div>
+              <p className="pane-index">Graph 03</p>
+              <h2>Model graph</h2>
+            </div>
+          </div>
+          <GraphPanel
+            graphResult={graphResult}
+            mode={graphMode}
+            onModeChange={setGraphMode}
+          />
         </section>
       </section>
       <footer

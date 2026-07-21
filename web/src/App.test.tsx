@@ -43,6 +43,10 @@ import type {
   WorkspaceSaveResult,
 } from './workspace-repository';
 
+vi.mock('./visualization/GraphPanel', () => ({
+  GraphPanel: () => null,
+}));
+
 const sourceEditorSpies = vi.hoisted(() => ({
   applyFormattedText: vi.fn(),
   focus: vi.fn(),
