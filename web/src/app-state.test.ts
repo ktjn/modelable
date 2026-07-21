@@ -15,6 +15,17 @@ const customerArtifact = {
   source_refs: ['file:///main.mdl'],
 };
 
+const documentDiagnostic = {
+  code: 'E100',
+  severity: 'error',
+  message: 'Invalid',
+  uri: 'file:///main.mdl',
+  line: 1,
+  column: 1,
+  end_line: 1,
+  end_column: 2,
+};
+
 describe('appReducer', () => {
   test('allows only one operation at a time', () => {
     const working = appReducer(
@@ -216,4 +227,36 @@ test('workspace edits invalidate diagnostics and artifacts', () => {
   expect(next.diagnostics).toEqual([]);
   expect(next.artifacts).toEqual([]);
   expect(next.artifactRevision).toBeNull();
+});
+
+test('live diagnostics are accepted only for the exact workspace revision', () => {
+  const workspace = mutateWorkspace(
+    createDefaultWorkspace('domain demo {}'),
+    {
+      type: 'update',
+      path: 'main.mdl',
+      content: 'domain current {}',
+    },
+  );
+  const { revision: _revision, ...baseState } = initialAppState;
+  const state: WorkspaceAppState = {
+    ...baseState,
+    runtime: 'ready',
+    workspace,
+  };
+
+  const stale = workspaceAppReducer(state, {
+    type: 'liveDiagnosticsPublished',
+    revision: workspace.revision - 1,
+    diagnostics: [documentDiagnostic],
+  });
+  expect(stale).toEqual(state);
+
+  const current = workspaceAppReducer(state, {
+    type: 'liveDiagnosticsPublished',
+    revision: workspace.revision,
+    diagnostics: [documentDiagnostic],
+  });
+  expect(current.diagnostics).toEqual([documentDiagnostic]);
+  expect(current.status).toBe('Initializing compiler…');
 });

@@ -17,7 +17,7 @@ const modelableUrl =
 
 function request(payload: unknown): BrowserCompilerRequest {
   return {
-    protocolVersion: 1,
+    protocolVersion: 2,
     id: 'request-1',
     method: 'source.format',
     payload,
@@ -136,7 +136,7 @@ describe('dispatchPythonRequest', () => {
       const response = dispatchPythonRequest(request(payload()), dispatcher);
 
       expect(response).toEqual({
-        protocolVersion: 1,
+        protocolVersion: 2,
         id: 'request-1',
         ok: false,
         error: {
@@ -162,5 +162,34 @@ describe('dispatchPythonRequest', () => {
       },
     });
     expect(JSON.stringify(response)).not.toContain('checkout path');
+  });
+
+  test('preserves sanitized typed language failures from Python', () => {
+    const response = dispatchPythonRequest(
+      request({
+        workspaceRevision: 1,
+        uri: 'file:///main.mdl',
+        line: 0,
+        character: 0,
+      }),
+      () =>
+        JSON.stringify({
+          ok: false,
+          error: {
+            code: 'STALE_WORKSPACE',
+            message: 'Requested workspace revision is not current',
+          },
+        }),
+    );
+
+    expect(response).toEqual({
+      protocolVersion: 2,
+      id: 'request-1',
+      ok: false,
+      error: {
+        code: 'STALE_WORKSPACE',
+        message: 'Requested workspace revision is not current',
+      },
+    });
   });
 });

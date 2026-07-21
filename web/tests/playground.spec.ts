@@ -64,7 +64,10 @@ function sourceOutput(page: Page) {
 }
 
 async function focusSourceEditor(page: Page): Promise<void> {
-  await sourceOutput(page).click({ position: { x: 8, y: 8 } });
+  await sourceOutput(page).click({
+    position: { x: 8, y: 8 },
+    force: true,
+  });
   await expect(modelSource(page)).toBeFocused();
 }
 
@@ -260,6 +263,177 @@ test('creates, validates, and restores a multi-file workspace', async ({
     page.getByRole('button', { name: 'customer.mdl' }),
   ).toHaveAttribute('aria-current', 'true');
   await expect(sourceOutput(page)).toContainText(/domain\s+customer/);
+});
+
+test('provides cross-file live diagnostics, completion, and hover accessibly', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await page.goto('?test=1');
+  await waitForReady(page);
+  const customerSource = [
+    'domain imported {',
+    '  owner: "team"',
+    '  entity Imported @ 1 (additive) {',
+    '    @key imported_id: uuid',
+    '    imported_name: string',
+    '  }',
+    '}',
+  ].join('\n');
+  const orderSource =
+    'domain sales { owner: "team" entity Order @ 1 (additive) { @key order_id: uuid } }';
+  await page
+    .getByLabel('Import workspace files')
+    .setInputFiles([
+      {
+        name: 'customer.mdl',
+        mimeType: 'text/plain',
+        buffer: Buffer.from(customerSource),
+      },
+      {
+        name: 'order.mdl',
+        mimeType: 'text/plain',
+        buffer: Buffer.from(orderSource),
+      },
+    ]);
+  await page.getByRole('button', { name: 'order.mdl' }).click();
+  await replaceSource(page, `${orderSource} {`);
+  await expect(page.getByTestId('diagnostics')).toContainText('PARSE', {
+    timeout: 10_000,
+  });
+  await replaceSource(page, orderSource);
+  await expect(page.getByTestId('diagnostics')).toContainText(
+    'No diagnostics',
+    { timeout: 10_000 },
+  );
+  await expect(
+    page.getByText('Synchronizing language services…'),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Language services synchronized'),
+  ).toBeVisible({ timeout: 10_000 });
+
+  await createWorkspaceFile(page, 'completion.mdl', 'dom');
+  await expect(
+    page.getByText('Synchronizing language services…'),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Language services synchronized'),
+  ).toBeVisible({ timeout: 10_000 });
+  await page.evaluate(() => {
+    const target = globalThis as typeof globalThis & {
+      __modelableBrowserCompiler?: {
+        completion(...args: unknown[]): Promise<unknown>;
+        hover(...args: unknown[]): Promise<unknown>;
+      };
+      __modelableCompletionInvoked?: boolean;
+      __modelableHoverInvoked?: boolean;
+      __modelableHoverResult?: unknown;
+      __modelableHoverArgs?: unknown[];
+    };
+    const client = target.__modelableBrowserCompiler;
+    if (client === undefined) {
+      throw new Error('Test client was not exposed');
+    }
+    const completion = client.completion.bind(client);
+    const hover = client.hover.bind(client);
+    client.completion = async (...args) => {
+      target.__modelableCompletionInvoked = true;
+      return completion(...args);
+    };
+    client.hover = async (...args) => {
+      target.__modelableHoverInvoked = true;
+      target.__modelableHoverArgs = args;
+      const result = await hover(...args);
+      target.__modelableHoverResult = result;
+      return result;
+    };
+  });
+  await focusSourceEditor(page);
+  await page.keyboard.press('Control+End');
+  await page.keyboard.press('Control+Space');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            globalThis as typeof globalThis & {
+              __modelableCompletionInvoked?: boolean;
+            }
+          ).__modelableCompletionInvoked,
+      ),
+    )
+    .toBe(true);
+  await expect(page.locator('.suggest-widget')).toBeVisible();
+  await expect(page.locator('.suggest-widget')).toContainText('domain');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.suggest-widget')).toBeHidden();
+
+  await page.getByRole('button', { name: 'customer.mdl' }).click();
+  await modelSource(page).focus();
+  await expect(modelSource(page)).toBeFocused();
+  await page.keyboard.press('Control+Home');
+  for (let line = 0; line < 3; line += 1) {
+    await page.keyboard.press('ArrowDown');
+  }
+  const hoverCharacter = 10;
+  for (let index = 0; index < hoverCharacter; index += 1) {
+    await page.keyboard.press('ArrowRight');
+  }
+  await page.keyboard.press('Control+k');
+  await page.keyboard.press('Control+i');
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            globalThis as typeof globalThis & {
+              __modelableHoverInvoked?: boolean;
+            }
+          ).__modelableHoverInvoked,
+      ),
+    )
+    .toBe(true);
+  expect(
+    await page.evaluate(
+      () =>
+        (
+          globalThis as typeof globalThis & {
+            __modelableHoverArgs?: unknown[];
+          }
+        ).__modelableHoverArgs,
+    ),
+  ).toEqual([
+    expect.objectContaining({
+      uri: 'file:///customer.mdl',
+      line: 3,
+      character: hoverCharacter,
+    }),
+  ]);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            globalThis as typeof globalThis & {
+              __modelableHoverResult?: {
+                hover?: { markdown?: string } | null;
+              };
+            }
+          ).__modelableHoverResult?.hover?.markdown,
+      ),
+    )
+    .toContain('imported_id');
+
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth ===
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
 });
 
 test('offers recovery without rendering corrupt stored source', async ({
@@ -482,7 +656,10 @@ test('disposes the page client on pagehide exactly once', async ({ page }) => {
     const client = (
       globalThis as typeof globalThis & {
         __modelableBrowserCompiler?: {
-          openWorkspace(sources: unknown[]): Promise<unknown>;
+          openWorkspace(
+            workspaceRevision: number,
+            sources: unknown[],
+          ): Promise<unknown>;
           dispose(): void;
         };
       }
@@ -492,7 +669,7 @@ test('disposes the page client on pagehide exactly once', async ({ page }) => {
     }
     globalThis.dispatchEvent(new PageTransitionEvent('pagehide'));
     globalThis.dispatchEvent(new PageTransitionEvent('pagehide'));
-    return client.openWorkspace([]).then(
+    return client.openWorkspace(1, []).then(
       () => ({ resolved: true }),
       (error: { message?: string }) => ({
         resolved: false,

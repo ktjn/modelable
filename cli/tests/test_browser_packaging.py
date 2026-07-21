@@ -12,6 +12,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 BUILD_SCRIPT = Path(__file__).parents[1] / "scripts" / "build_browser_wheel.py"
+SOURCE_ROOT = Path(__file__).parents[1] / "src"
 SPEC = spec_from_file_location("build_browser_wheel", BUILD_SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 BUILD_BROWSER_WHEEL = module_from_spec(SPEC)
@@ -43,11 +44,25 @@ EXPECTED_DEPENDENCIES = [
 def test_browser_module_selection_excludes_desktop_surfaces() -> None:
     selected = {path.as_posix() for path in selected_source_paths()}
     assert "modelable/browser/api.py" in selected
+    assert "modelable/language/completion.py" in selected
+    assert "modelable/language/hover.py" in selected
     assert "modelable/grammar/modelable.lark" in selected
     assert not any(path.startswith("modelable/commands/") for path in selected)
     assert not any(path.startswith("modelable/lsp/") for path in selected)
     assert not any(path.startswith("modelable/runtime/") for path in selected)
     assert "modelable/cli.py" not in selected
+
+
+def test_browser_language_surface_has_no_desktop_protocol_imports() -> None:
+    browser_language_paths = [
+        SOURCE_ROOT / path
+        for path in selected_source_paths()
+        if path.as_posix().startswith(("modelable/browser/", "modelable/language/"))
+    ]
+
+    assert not [
+        finding for finding in scan_forbidden_imports(browser_language_paths) if finding[2] in {"pygls", "lsprotocol"}
+    ]
 
 
 def test_browser_module_selection_excludes_interpreter_caches() -> None:

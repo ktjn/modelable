@@ -85,8 +85,13 @@ The one local workspace is restored automatically from IndexedDB. Source text
 never leaves the page; compiler output is not persisted. If browser storage is
 unavailable, editing continues in memory with an explicit status. Invalid or
 incompatible stored data is left untouched until the user exports it or resets
-the workspace. Browser-native completion, hover, navigation, references, and
-rename are the next phase and are not part of Phase 3a.
+the workspace. Protocol v2 now provides 300 ms live diagnostics plus
+browser-native completion and hover over the complete local workspace.
+Completion and hover can use the last parseable semantic snapshot while current
+text contains a syntax error; stale results are discarded. Diagnostics,
+completion results, and hover content remain derived in-memory state and are
+never persisted. Navigation, references, and rename remain the active Phase 3b
+follow-up.
 
 ## 1.0 stable surface
 

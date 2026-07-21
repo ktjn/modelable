@@ -5,14 +5,14 @@
 Shipped and archived on 2026-07-20.
 
 This specification defines Phase 3a of the
-[Modelable Playground Architecture](../../playground-design.md). It follows the
-shipped browser compiler and single-file editor MVP, and establishes the
+[Modelable Playground Architecture](../../../playground-design.md). It follows
+the shipped browser compiler and single-file editor MVP, and establishes the
 workspace foundation required by browser-native language services,
 visualization, analysis, local AI, and offline support.
 
-The repository [roadmap](../../../ROADMAP.md) makes the remaining Playground
-program the immediate product priority and names this specification as the next
-implementation slice.
+The repository [roadmap](../../../../ROADMAP.md) makes the remaining Playground
+program the immediate product priority, records Phase 3a as shipped, and names
+browser-native language services as the next implementation slice.
 
 ## Context
 
@@ -71,8 +71,9 @@ This phase does not include:
 - changing Modelable parsing, validation, formatting, compilation, registry,
   or compatibility semantics.
 
-Browser-native language services are Phase 3b. Visualization, analysis,
-WebLLM, and offline delivery retain their existing later-phase order.
+[Browser-native language services](../2026-07-20-playground-browser-language-services-design.md)
+are Phase 3b. Visualization, analysis, WebLLM, and offline delivery retain
+their existing later-phase order.
 
 ## Chosen approach
 
@@ -94,7 +95,7 @@ file lifecycle and persistence but does not infer Modelable semantics.
 ## Architecture decision scope
 
 No ADR change is required. The
-[Playground Architecture](../../playground-design.md#8-virtual-workspace)
+[Playground Architecture](../../../playground-design.md#8-virtual-workspace)
 already assigns the virtual workspace to the browser application, IndexedDB to
 automatic local persistence, Monaco to editing, and the Python worker to
 compiler semantics. This specification narrows Phase 3 delivery and makes its

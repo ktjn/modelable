@@ -66,7 +66,8 @@ Work proceeds in phase order, with one active phase at a time:
 4. **Active next slice: browser-native language services.**
    Add completion, hover, definition, references, and rename over the durable
    multi-file workspace without running the desktop LSP transport in the
-   browser.
+   browser. The accepted scope is documented in
+   [Playground Browser Language Services — Design](docs/superpowers/specs/2026-07-20-playground-browser-language-services-design.md).
 5. **Then: visualization and analysis.**
    Deliver stable graph DTOs, domain/entity views, source navigation, lineage,
    compatibility, and governance views in the phase order defined by

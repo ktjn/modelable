@@ -12,6 +12,9 @@
         "uri": "fixture:///invalid-parse.mdl"
       }
     ],
-    "source_hashes": {}
+    "source_hashes": {
+      "fixture:///invalid-parse.mdl": "230a1937d1c6432bb6b329c532dd6967863db335af983a95b794786438754646"
+    },
+    "workspace_revision": 1
   }
 }

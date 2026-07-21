@@ -41,13 +41,13 @@ def _sources(fixture_root: Path, names: tuple[str, ...]) -> tuple[BrowserSource,
 
 
 def write_snapshots(fixture_root: Path, output: Path) -> None:
-    compiler = BrowserCompiler()
     output.mkdir(parents=True, exist_ok=True)
 
     for scenario, names in SCENARIOS.items():
+        compiler = BrowserCompiler()
         sources = _sources(fixture_root, names)
         snapshot: dict[str, object] = {
-            "open": _json_value(compiler.open_workspace(sources)),
+            "open": _json_value(compiler.open_workspace(1, sources)),
         }
         if scenario == "single-valid":
             snapshot["format"] = _json_value(compiler.format_source(sources[0]))

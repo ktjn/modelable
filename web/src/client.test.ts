@@ -87,10 +87,18 @@ function success(
   result: unknown,
 ): BrowserCompilerResponse {
   return {
-    protocolVersion: 1,
+    protocolVersion: 2,
     id: request.id,
     ok: true,
     result,
+  };
+}
+
+function workspaceResult(workspaceRevision: number) {
+  return {
+    workspace_revision: workspaceRevision,
+    diagnostics: [],
+    source_hashes: {},
   };
 }
 
@@ -125,10 +133,10 @@ describe('BrowserCompilerClient', () => {
     const client = new BrowserCompilerClient(worker);
     await initialize(client, worker);
 
-    const first = client.openWorkspace([
+    const first = client.openWorkspace(1, [
       { uri: 'first.mdl', text: 'first', version: 1 },
     ]);
-    const second = client.openWorkspace([
+    const second = client.openWorkspace(2, [
       { uri: 'second.mdl', text: 'second', version: 2 },
     ]);
     await Promise.resolve();
@@ -139,11 +147,11 @@ describe('BrowserCompilerClient', () => {
     void first.finally(() => {
       firstSettled = true;
     });
-    worker.respond(success(secondRequest, { second: true }));
-    await expect(second).resolves.toEqual({ second: true });
+    worker.respond(success(secondRequest, workspaceResult(2)));
+    await expect(second).resolves.toEqual(workspaceResult(2));
     expect(firstSettled).toBe(false);
-    worker.respond(success(firstRequest, { first: true }));
-    await expect(first).resolves.toEqual({ first: true });
+    worker.respond(success(firstRequest, workspaceResult(1)));
+    await expect(first).resolves.toEqual(workspaceResult(1));
   });
 
   test('worker errors reject every pending request with sanitized failures', async () => {
@@ -151,7 +159,7 @@ describe('BrowserCompilerClient', () => {
     const client = new BrowserCompilerClient(worker);
     await initialize(client, worker);
 
-    const first = client.openWorkspace([
+    const first = client.openWorkspace(1, [
       { uri: 'first.mdl', text: 'first', version: 1 },
     ]);
     const second = client.formatSource({
@@ -203,7 +211,7 @@ describe('BrowserCompilerClient', () => {
     const client = new BrowserCompilerClient(worker);
     const initialized = client.initialize();
     worker.respond({
-      protocolVersion: 1,
+      protocolVersion: 2,
       id: worker.posted[0]!.id,
       ok: false,
       error: {
@@ -229,7 +237,9 @@ describe('BrowserCompilerClient', () => {
       code: 'COMPILER_FAILED',
     });
     await expect(
-      client.openWorkspace([{ uri: 'x.mdl', text: 'x', version: 1 }]),
+      client.openWorkspace(1, [
+        { uri: 'x.mdl', text: 'x', version: 1 },
+      ]),
     ).rejects.toMatchObject({ code: 'COMPILER_FAILED' });
     expect(worker.posted).toHaveLength(0);
     expect(worker.terminateCount).toBe(1);
@@ -258,22 +268,117 @@ describe('BrowserCompilerClient', () => {
       version: 7,
     };
 
-    const opened = client.openWorkspace([source]);
+    const opened = client.openWorkspace(7, [source]);
     await Promise.resolve();
-    expect(worker.posted[1]?.payload).toEqual({ sources: [source] });
-    worker.respond(success(worker.posted[1]!, {}));
+    expect(worker.posted[1]?.payload).toEqual({
+      workspaceRevision: 7,
+      sources: [source],
+    });
+    worker.respond(success(worker.posted[1]!, workspaceResult(7)));
     await opened;
 
     const formatted = client.formatSource(source);
     await Promise.resolve();
     expect(worker.posted[2]?.payload).toEqual({ source });
-    worker.respond(success(worker.posted[2]!, {}));
+    worker.respond(
+      success(worker.posted[2]!, {
+        diagnostics: [],
+        replacement_text: null,
+      }),
+    );
     await formatted;
 
     const compiled = client.compileJsonSchema([source]);
     await Promise.resolve();
     expect(worker.posted[3]?.payload).toEqual({ sources: [source] });
-    worker.respond(success(worker.posted[3]!, {}));
+    worker.respond(
+      success(worker.posted[3]!, { diagnostics: [], artifacts: [] }),
+    );
     await compiled;
+  });
+
+  test('opens a numbered workspace and sends typed language positions', async () => {
+    const worker = new FakeWorker();
+    const client = new BrowserCompilerClient(worker);
+    await initialize(client, worker);
+    const source: BrowserSource = {
+      uri: 'file:///demo.mdl',
+      text: 'domain Demo',
+      version: 7,
+    };
+
+    const opened = client.openWorkspace(4, [source]);
+    await Promise.resolve();
+    expect(worker.posted[1]?.payload).toEqual({
+      workspaceRevision: 4,
+      sources: [source],
+    });
+    worker.respond(
+      success(worker.posted[1]!, {
+        workspace_revision: 4,
+        diagnostics: [],
+        source_hashes: { 'file:///demo.mdl': 'abc' },
+      }),
+    );
+    await opened;
+
+    const completion = client.completion({
+      workspaceRevision: 4,
+      uri: source.uri,
+      line: 1,
+      character: 2,
+    });
+    await Promise.resolve();
+    expect(worker.posted[2]?.method).toBe('language.completion');
+    expect(worker.posted[2]?.payload).toEqual({
+      workspaceRevision: 4,
+      uri: source.uri,
+      line: 1,
+      character: 2,
+    });
+    worker.respond(success(worker.posted[2]!, { items: [] }));
+    await expect(completion).resolves.toEqual({ items: [] });
+
+    const hover = client.hover({
+      workspaceRevision: 4,
+      uri: source.uri,
+      line: 1,
+      character: 2,
+    });
+    await Promise.resolve();
+    expect(worker.posted[3]?.method).toBe('language.hover');
+    worker.respond(success(worker.posted[3]!, { hover: null }));
+    await expect(hover).resolves.toEqual({ hover: null });
+  });
+
+  test('invalid success payloads transition the client to terminal failure', async () => {
+    const worker = new FakeWorker();
+    const client = new BrowserCompilerClient(worker);
+    await initialize(client, worker);
+
+    const completion = client.completion({
+      workspaceRevision: 1,
+      uri: 'file:///demo.mdl',
+      line: 0,
+      character: 0,
+    });
+    await Promise.resolve();
+    worker.respond(
+      success(worker.posted[1]!, {
+        items: [{ label: 'x', extra: true }],
+      }),
+    );
+
+    await expect(completion).rejects.toMatchObject({
+      code: 'COMPILER_FAILED',
+      message: 'Compiler worker returned an invalid result',
+    });
+    expect(worker.terminateCount).toBe(1);
+    await expect(client.hover({
+      workspaceRevision: 1,
+      uri: 'file:///demo.mdl',
+      line: 0,
+      character: 0,
+    })).rejects.toMatchObject({ code: 'COMPILER_FAILED' });
   });
 });

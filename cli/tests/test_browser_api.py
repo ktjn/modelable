@@ -10,18 +10,46 @@ from modelable.browser import (
 )
 
 VALID = 'domain customer {\n  owner: "team"\n  entity Customer @ 1 (additive) {\n    @key id: uuid\n  }\n}\n'
+URI = "file:///customer.mdl"
+SOURCE_TEXT = (
+    "domain customer {\n"
+    '  owner: "team"\n'
+    "  entity Customer @ 1 (additive) {\n"
+    "    @key customer_id: uuid\n"
+    "    customer_name: string\n"
+    "  }\n"
+    "}\n"
+)
+SOURCES = [{"uri": URI, "text": SOURCE_TEXT, "version": 1}]
+CRLF_SOURCE_TEXT = SOURCE_TEXT.replace("\n", "\r\n")
+
+
+@pytest.fixture(autouse=True)
+def reset_browser_dispatch() -> None:
+    browser_dispatch._reset_compiler_for_tests()
+
+
+def dispatch(method: str, payload: object) -> dict:
+    return json.loads(dispatch_browser_request(method, json.dumps(payload)))
 
 
 def test_open_workspace_returns_hashes_and_no_diagnostics():
-    result = BrowserCompiler().open_workspace((BrowserSource(uri="inmemory:///customer.mdl", text=VALID, version=1),))
+    result = BrowserCompiler().open_workspace(
+        1,
+        (BrowserSource(uri="inmemory:///customer.mdl", text=VALID, version=1),),
+    )
 
+    assert result.workspace_revision == 1
     assert result.diagnostics == ()
     assert set(result.source_hashes) == {"inmemory:///customer.mdl"}
     assert len(result.source_hashes["inmemory:///customer.mdl"]) == 64
 
 
 def test_open_workspace_source_hashes_are_deeply_immutable():
-    result = BrowserCompiler().open_workspace((BrowserSource(uri="inmemory:///customer.mdl", text=VALID, version=1),))
+    result = BrowserCompiler().open_workspace(
+        1,
+        (BrowserSource(uri="inmemory:///customer.mdl", text=VALID, version=1),),
+    )
 
     with pytest.raises(TypeError):
         result.source_hashes["inmemory:///customer.mdl"] = "mutated"
@@ -31,7 +59,7 @@ def test_open_workspace_rejects_duplicate_uris():
     source = BrowserSource(uri="inmemory:///customer.mdl", text=VALID, version=1)
 
     with pytest.raises(ValueError, match="Source URIs must be unique"):
-        BrowserCompiler().open_workspace((source, source))
+        BrowserCompiler().open_workspace(1, (source, source))
 
 
 def test_open_workspace_rejects_non_positive_versions():
@@ -41,7 +69,7 @@ def test_open_workspace_rejects_non_positive_versions():
         ValueError,
         match=r"Source versions must be positive: inmemory:///customer\.mdl",
     ):
-        BrowserCompiler().open_workspace((source,))
+        BrowserCompiler().open_workspace(1, (source,))
 
 
 def test_open_workspace_returns_parse_error_for_the_source():
@@ -51,14 +79,14 @@ def test_open_workspace_returns_parse_error_for_the_source():
         version=1,
     )
 
-    result = BrowserCompiler().open_workspace((source,))
+    result = BrowserCompiler().open_workspace(1, (source,))
 
     assert len(result.diagnostics) == 1
     assert result.diagnostics[0].code == "PARSE"
     assert result.diagnostics[0].severity == "error"
     assert result.diagnostics[0].uri == "inmemory:///broken.mdl"
     assert result.diagnostics[0].line is not None
-    assert result.source_hashes == {}
+    assert set(result.source_hashes) == {"inmemory:///broken.mdl"}
 
 
 def test_open_workspace_preserves_semantic_diagnostic_source_order():
@@ -73,7 +101,7 @@ def test_open_workspace_preserves_semantic_diagnostic_source_order():
         version=1,
     )
 
-    result = BrowserCompiler().open_workspace((first, second))
+    result = BrowserCompiler().open_workspace(1, (first, second))
 
     assert [diagnostic.uri for diagnostic in result.diagnostics[:2]] == [
         first.uri,
@@ -156,13 +184,14 @@ def test_dispatch_opens_workspace_from_json():
             "workspace.open",
             json.dumps(
                 {
+                    "workspaceRevision": 1,
                     "sources": [
                         {
                             "uri": "inmemory:///customer.mdl",
                             "text": VALID,
                             "version": 1,
                         }
-                    ]
+                    ],
                 }
             ),
         )
@@ -170,6 +199,7 @@ def test_dispatch_opens_workspace_from_json():
 
     assert response["ok"] is True
     assert response["result"]["diagnostics"] == []
+    assert response["result"]["workspace_revision"] == 1
     assert set(response["result"]["source_hashes"]) == {"inmemory:///customer.mdl"}
     assert isinstance(response["result"]["source_hashes"], dict)
 
@@ -181,7 +211,7 @@ def test_dispatch_rejects_unknown_method_without_traceback():
         "ok": False,
         "error": {
             "code": "INVALID_REQUEST",
-            "message": "Unsupported browser compiler method: shell.run",
+            "message": "Payload does not match method schema",
         },
     }
 
@@ -227,6 +257,7 @@ def test_dispatch_propagates_unexpected_compiler_exceptions(
 
     def fail_operation(
         _self: BrowserCompiler,
+        _workspace_revision: int,
         _sources: tuple[BrowserSource, ...],
     ) -> None:
         raise exception_type(secret)
@@ -238,13 +269,14 @@ def test_dispatch_propagates_unexpected_compiler_exceptions(
             "workspace.open",
             json.dumps(
                 {
+                    "workspaceRevision": 1,
                     "sources": [
                         {
                             "uri": "inmemory:///customer.mdl",
                             "text": VALID,
                             "version": 1,
                         }
-                    ]
+                    ],
                 }
             ),
         )
@@ -283,3 +315,299 @@ def test_dispatch_classifies_dto_construction_errors_as_invalid_request(
         "message": "Payload does not match method schema",
     }
     assert secret not in json.dumps(response)
+
+
+def test_dispatch_syncs_revision_then_completes() -> None:
+    opened = dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+    result = dispatch(
+        "language.completion",
+        {"workspaceRevision": 7, "uri": URI, "line": 4, "character": 4},
+    )
+
+    assert opened["result"]["workspace_revision"] == 7
+    assert result["result"]["items"][0]["label"] == "customer_id"
+    assert result["result"]["items"][0]["replacement"] == {
+        "end": {"character": 4, "line": 4},
+        "start": {"character": 4, "line": 4},
+    }
+
+
+def test_dispatch_hovers_from_synchronized_workspace() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    result = dispatch(
+        "language.hover",
+        {"workspaceRevision": 7, "uri": URI, "line": 3, "character": 10},
+    )
+
+    assert result["ok"] is True
+    assert "customer_id" in result["result"]["hover"]["markdown"]
+
+
+def test_language_request_rejects_stale_revision_without_source_echo() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    result = dispatch(
+        "language.hover",
+        {"workspaceRevision": 6, "uri": URI, "line": 1, "character": 2},
+    )
+
+    assert result["error"] == {
+        "code": "STALE_WORKSPACE",
+        "message": "Requested workspace revision is not current",
+    }
+    serialized = json.dumps(result)
+    assert SOURCE_TEXT not in serialized
+    assert "customer" not in serialized
+
+
+def test_workspace_open_rejects_stale_revision_without_replacing_state() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    stale = dispatch("workspace.open", {"workspaceRevision": 6, "sources": SOURCES})
+    current = dispatch(
+        "language.completion",
+        {"workspaceRevision": 7, "uri": URI, "line": 4, "character": 4},
+    )
+
+    assert stale["error"]["code"] == "STALE_WORKSPACE"
+    assert current["result"]["items"][0]["label"] == "customer_id"
+
+
+@pytest.mark.parametrize(
+    "method,payload",
+    [
+        (
+            "workspace.open",
+            {"sources": SOURCES},
+        ),
+        (
+            "workspace.open",
+            {"workspaceRevision": 1, "sources": SOURCES, "extra": "secret"},
+        ),
+        (
+            "workspace.open",
+            {"workspaceRevision": True, "sources": SOURCES},
+        ),
+        (
+            "language.completion",
+            {"workspaceRevision": 1, "uri": URI, "line": 0},
+        ),
+        (
+            "language.completion",
+            {
+                "workspaceRevision": 1,
+                "uri": URI,
+                "line": 0,
+                "character": 0,
+                "extra": "secret",
+            },
+        ),
+        (
+            "language.hover",
+            {"workspaceRevision": 1, "uri": URI, "line": False, "character": 0},
+        ),
+    ],
+)
+def test_protocol_v2_payloads_require_exact_fields_and_non_boolean_integers(
+    method: str,
+    payload: dict,
+) -> None:
+    result = dispatch(method, payload)
+
+    assert result["error"] == {
+        "code": "INVALID_REQUEST",
+        "message": "Payload does not match method schema",
+    }
+    assert "secret" not in json.dumps(result)
+
+
+@pytest.mark.parametrize(
+    ("uri", "line", "character"),
+    [
+        ("file:///missing.mdl", 0, 0),
+        (URI, -1, 0),
+        (URI, 99, 0),
+        (URI, 0, -1),
+        (URI, 0, 99),
+        (URI, 0, 8),
+    ],
+)
+def test_language_request_rejects_invalid_uri_or_utf16_position(
+    uri: str,
+    line: int,
+    character: int,
+) -> None:
+    astral_sources = [
+        {
+            "uri": URI,
+            "text": SOURCE_TEXT.replace("domain customer", "domain 😀customer"),
+            "version": 1,
+        }
+    ]
+    dispatch("workspace.open", {"workspaceRevision": 1, "sources": astral_sources})
+
+    result = dispatch(
+        "language.completion",
+        {
+            "workspaceRevision": 1,
+            "uri": uri,
+            "line": line,
+            "character": character,
+        },
+    )
+
+    assert result["error"] == {
+        "code": "INVALID_POSITION",
+        "message": "Requested language position is invalid",
+    }
+    assert SOURCE_TEXT not in json.dumps(result)
+
+
+@pytest.mark.parametrize("method", ["language.completion", "language.hover"])
+def test_crlf_language_position_accepts_visible_end_of_line(method: str) -> None:
+    sources = [{"uri": URI, "text": CRLF_SOURCE_TEXT, "version": 1}]
+    dispatch("workspace.open", {"workspaceRevision": 1, "sources": sources})
+    visible_end = len("domain customer {")
+
+    result = dispatch(
+        method,
+        {
+            "workspaceRevision": 1,
+            "uri": URI,
+            "line": 0,
+            "character": visible_end,
+        },
+    )
+
+    assert result["ok"] is True
+
+
+@pytest.mark.parametrize("method", ["language.completion", "language.hover"])
+def test_crlf_language_position_rejects_one_code_unit_past_visible_end(
+    method: str,
+) -> None:
+    sources = [{"uri": URI, "text": CRLF_SOURCE_TEXT, "version": 1}]
+    dispatch("workspace.open", {"workspaceRevision": 1, "sources": sources})
+    past_visible_end = len("domain customer {") + 1
+
+    result = dispatch(
+        method,
+        {
+            "workspaceRevision": 1,
+            "uri": URI,
+            "line": 0,
+            "character": past_visible_end,
+        },
+    )
+
+    assert result["error"]["code"] == "INVALID_POSITION"
+
+
+def test_language_requests_accept_trailing_empty_line_after_final_terminator() -> None:
+    sources = [{"uri": URI, "text": CRLF_SOURCE_TEXT, "version": 1}]
+    dispatch("workspace.open", {"workspaceRevision": 1, "sources": sources})
+    trailing_line = len(SOURCE_TEXT.splitlines())
+
+    completion = dispatch(
+        "language.completion",
+        {
+            "workspaceRevision": 1,
+            "uri": URI,
+            "line": trailing_line,
+            "character": 0,
+        },
+    )
+    hover = dispatch(
+        "language.hover",
+        {
+            "workspaceRevision": 1,
+            "uri": URI,
+            "line": trailing_line,
+            "character": 0,
+        },
+    )
+
+    assert completion["ok"] is True
+    assert completion["result"]["items"]
+    assert hover["result"]["hover"] is None
+
+
+def test_language_request_reports_unavailable_only_after_valid_position() -> None:
+    invalid = [{"uri": URI, "text": "domain broken {", "version": 1}]
+    dispatch("workspace.open", {"workspaceRevision": 1, "sources": invalid})
+
+    valid_position = dispatch(
+        "language.hover",
+        {"workspaceRevision": 1, "uri": URI, "line": 0, "character": 0},
+    )
+    invalid_position = dispatch(
+        "language.hover",
+        {"workspaceRevision": 1, "uri": "file:///missing.mdl", "line": 0, "character": 0},
+    )
+
+    assert valid_position["error"]["code"] == "LANGUAGE_UNAVAILABLE"
+    assert invalid_position["error"]["code"] == "INVALID_POSITION"
+    assert "broken" not in json.dumps(valid_position)
+
+
+def test_completion_and_hover_use_current_text_with_last_parseable_semantics() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 1, "sources": SOURCES})
+    invalid_text = SOURCE_TEXT.replace("    customer_name: string", "    customer_na").rstrip("}\n")
+    invalid_sources = [{"uri": URI, "text": invalid_text, "version": 2}]
+    opened = dispatch("workspace.open", {"workspaceRevision": 2, "sources": invalid_sources})
+    line = invalid_text.splitlines().index("    customer_na")
+
+    completion = dispatch(
+        "language.completion",
+        {"workspaceRevision": 2, "uri": URI, "line": line, "character": 15},
+    )
+    hover = dispatch(
+        "language.hover",
+        {"workspaceRevision": 2, "uri": URI, "line": 3, "character": 10},
+    )
+
+    assert opened["result"]["workspace_revision"] == 2
+    assert opened["result"]["diagnostics"][0]["code"] == "PARSE"
+    assert [item["label"] for item in completion["result"]["items"]] == ["customer_name"]
+    assert "customer_id" in hover["result"]["hover"]["markdown"]
+
+
+def test_language_results_serialize_deterministically_and_without_catalog_candidates() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 1, "sources": SOURCES})
+    request = json.dumps({"workspaceRevision": 1, "uri": URI, "line": 0, "character": 0})
+
+    first = dispatch_browser_request("language.completion", request)
+    second = dispatch_browser_request("language.completion", request)
+
+    assert first == second
+    assert '"remote"' not in first
+    assert first == json.dumps(json.loads(first), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def test_language_error_messages_do_not_include_source_symbol_or_result_text() -> None:
+    secret_symbol = "secret_customer_symbol"
+    secret_result = "secret completion result"
+    sources = [
+        {
+            "uri": URI,
+            "text": SOURCE_TEXT.replace("customer_id", secret_symbol),
+            "version": 1,
+        }
+    ]
+    dispatch("workspace.open", {"workspaceRevision": 8, "sources": sources})
+
+    result = dispatch(
+        "language.hover",
+        {
+            "workspaceRevision": 7,
+            "uri": URI,
+            "line": 3,
+            "character": len(secret_result),
+        },
+    )
+
+    serialized = json.dumps(result)
+    assert SOURCE_TEXT not in serialized
+    assert secret_symbol not in serialized
+    assert secret_result not in serialized

@@ -1,4 +1,7 @@
-from modelable.lsp.hover import build_hover
+from lsprotocol import types
+
+from modelable.language.dto import LanguageHover, LanguageRange
+from modelable.lsp.hover import build_hover, to_lsp_hover
 from modelable.lsp.workspace import LspWorkspaceIndex
 
 PROJECTION_SOURCE_TEXT = """
@@ -34,6 +37,24 @@ domain storefront {
 def _line_number(text: str, snippet: str) -> int:
     lines = text.splitlines()
     return next(i for i, line in enumerate(lines) if snippet in line)
+
+
+def test_to_lsp_hover_converts_neutral_markdown_and_range():
+    result = to_lsp_hover(
+        LanguageHover(
+            markdown="```text\nsales.Customer@1\n```",
+            range=LanguageRange.at(2, 3, 2, 19),
+        )
+    )
+
+    assert result.contents == types.MarkupContent(
+        kind=types.MarkupKind.Markdown,
+        value="```text\nsales.Customer@1\n```",
+    )
+    assert result.range == types.Range(
+        start=types.Position(line=2, character=3),
+        end=types.Position(line=2, character=19),
+    )
 
 
 def test_hover_on_model_reference_shows_summary():

@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from modelable.language.dto import LanguageCompletion, LanguageHover
+
 
 @dataclass(frozen=True)
 class BrowserSource:
@@ -33,8 +35,27 @@ class BrowserArtifact:
 
 @dataclass(frozen=True)
 class BrowserWorkspaceResult:
+    workspace_revision: int
     diagnostics: tuple[BrowserDiagnostic, ...]
     source_hashes: Mapping[str, str]
+
+
+@dataclass(frozen=True)
+class BrowserLanguagePosition:
+    workspace_revision: int
+    uri: str
+    line: int
+    character: int
+
+
+@dataclass(frozen=True)
+class BrowserCompletionResult:
+    items: tuple[LanguageCompletion, ...]
+
+
+@dataclass(frozen=True)
+class BrowserHoverResult:
+    hover: LanguageHover | None
 
 
 @dataclass(frozen=True)

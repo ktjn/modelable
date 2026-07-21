@@ -11,7 +11,7 @@ from pygls.lsp.server import LanguageServer
 from pygls.protocol import json_rpc
 
 from modelable.lsp.code_actions import build_code_actions
-from modelable.lsp.completion import build_completion
+from modelable.lsp.completion import complete_for_desktop
 from modelable.lsp.conversation_protocol import (
     APPLY_METHOD,
     CLOSE_METHOD,
@@ -235,10 +235,10 @@ def did_close(ls: ModelableLanguageServer, params: types.DidCloseTextDocumentPar
 @server.feature(types.TEXT_DOCUMENT_HOVER)
 def hover(ls: ModelableLanguageServer, params: types.HoverParams) -> types.Hover | None:
     return build_hover(
-        ls.index_for(params.text_document.uri),
-        params.text_document.uri,
-        params.position.line,
-        params.position.character,
+        index=ls.index_for(params.text_document.uri),
+        uri=params.text_document.uri,
+        line=params.position.line,
+        character=params.position.character,
     )
 
 
@@ -267,7 +267,7 @@ def references(ls: ModelableLanguageServer, params: types.ReferenceParams) -> li
 
 @server.feature(types.TEXT_DOCUMENT_COMPLETION)
 def completion(ls: ModelableLanguageServer, params: types.CompletionParams) -> types.CompletionList:
-    return build_completion(
+    return complete_for_desktop(
         ls.index_for(params.text_document.uri),
         params.text_document.uri,
         params.position.line,

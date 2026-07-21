@@ -5,12 +5,15 @@ from types import MappingProxyType
 from modelable.browser.dto import (
     BrowserArtifact,
     BrowserCompileResult,
+    BrowserCompletionResult,
     BrowserDiagnostic,
     BrowserFormatResult,
+    BrowserHoverResult,
+    BrowserLanguagePosition,
     BrowserSource,
     BrowserWorkspaceResult,
 )
-from modelable.browser.errors import BrowserRequestValidationError
+from modelable.browser.errors import BrowserLanguageError, BrowserRequestValidationError
 from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import (
     Workspace,
@@ -20,6 +23,11 @@ from modelable.compiler.workspace import (
 from modelable.diagnostics.model import Diagnostic
 from modelable.emitters.base import render_artifact_text
 from modelable.emitters.json_schema import emit_json_schema_artifacts
+from modelable.language.completion import complete
+from modelable.language.dto import LanguagePosition
+from modelable.language.hover import hover
+from modelable.language.positions import document_lines, utf16_to_codepoint
+from modelable.language.workspace import LanguageDocument, LanguageWorkspace
 from modelable.parser.ir import ParseError
 from modelable.parser.parse import parse_text_to_ir
 from modelable.validation.semantic import validate_diagnostics
@@ -57,7 +65,7 @@ def _document_sources(sources: tuple[BrowserSource, ...]) -> list[WorkspaceDocum
     return [WorkspaceDocumentSource(path=None, uri=source.uri, text=source.text) for source in sources]
 
 
-def _load_workspace(sources: tuple[BrowserSource, ...]) -> Workspace | BrowserWorkspaceResult:
+def _load_workspace(sources: tuple[BrowserSource, ...]) -> Workspace | tuple[BrowserDiagnostic, ...]:
     documents = _document_sources(sources)
     try:
         return load_workspace_from_sources(documents)
@@ -66,26 +74,78 @@ def _load_workspace(sources: tuple[BrowserSource, ...]) -> Workspace | BrowserWo
             try:
                 load_workspace_from_sources([document])
             except ParseError as error:
-                return BrowserWorkspaceResult(
-                    diagnostics=(_browser_diagnostic(error.diagnostic(source.uri)),),
-                    source_hashes=MappingProxyType({}),
-                )
+                return (_browser_diagnostic(error.diagnostic(source.uri)),)
         raise
 
 
 class BrowserCompiler:
+    def __init__(self) -> None:
+        self.language = LanguageWorkspace()
+
     def open_workspace(
         self,
+        workspace_revision: int,
         sources: tuple[BrowserSource, ...],
     ) -> BrowserWorkspaceResult:
         _validate_sources(sources)
-        workspace = _load_workspace(sources)
-        if isinstance(workspace, BrowserWorkspaceResult):
-            return workspace
-        return BrowserWorkspaceResult(
-            diagnostics=tuple(_browser_diagnostic(error) for error in workspace.errors),
-            source_hashes=MappingProxyType({source.uri: source.content_hash for source in workspace.sources}),
+        if workspace_revision <= self.language.revision:
+            raise BrowserLanguageError("STALE_WORKSPACE")
+        synchronization = self.language.synchronize(
+            workspace_revision,
+            tuple(LanguageDocument.from_text(source.uri, source.text, source.version) for source in sources),
         )
+        return BrowserWorkspaceResult(
+            workspace_revision=synchronization.revision,
+            diagnostics=tuple(_browser_diagnostic(diagnostic) for diagnostic in synchronization.diagnostics),
+            source_hashes=MappingProxyType(dict(synchronization.source_hashes)),
+        )
+
+    def completion(
+        self,
+        request: BrowserLanguagePosition,
+    ) -> BrowserCompletionResult:
+        self._validate_language_request(request)
+        if self.language.semantic_workspace() is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        return BrowserCompletionResult(
+            items=complete(
+                self.language,
+                request.uri,
+                LanguagePosition(request.line, request.character),
+            )
+        )
+
+    def hover(
+        self,
+        request: BrowserLanguagePosition,
+    ) -> BrowserHoverResult:
+        self._validate_language_request(request)
+        if self.language.semantic_workspace() is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        return BrowserHoverResult(
+            hover=hover(
+                self.language,
+                request.uri,
+                LanguagePosition(request.line, request.character),
+            )
+        )
+
+    def _validate_language_request(
+        self,
+        request: BrowserLanguagePosition,
+    ) -> None:
+        if request.workspace_revision != self.language.revision:
+            raise BrowserLanguageError("STALE_WORKSPACE")
+        document = self.language.current_document(request.uri)
+        if document is None or request.line < 0 or request.character < 0:
+            raise BrowserLanguageError("INVALID_POSITION")
+        lines = document_lines(document.text)
+        if request.line >= len(lines):
+            raise BrowserLanguageError("INVALID_POSITION")
+        try:
+            utf16_to_codepoint(lines[request.line], request.character)
+        except ValueError as error:
+            raise BrowserLanguageError("INVALID_POSITION") from error
 
     def format_source(self, source: BrowserSource) -> BrowserFormatResult:
         _validate_sources((source,))
@@ -112,20 +172,25 @@ class BrowserCompiler:
         self,
         sources: tuple[BrowserSource, ...],
     ) -> BrowserCompileResult:
-        opened = self.open_workspace(sources)
-        if any(diagnostic.severity == "error" for diagnostic in opened.diagnostics):
+        _validate_sources(sources)
+        workspace = _load_workspace(sources)
+        if isinstance(workspace, tuple):
             return BrowserCompileResult(
-                diagnostics=opened.diagnostics,
+                diagnostics=workspace,
                 artifacts=(),
             )
-
-        workspace = load_workspace_from_sources(_document_sources(sources))
+        diagnostics = tuple(_browser_diagnostic(error) for error in workspace.errors)
+        if any(diagnostic.severity == "error" for diagnostic in diagnostics):
+            return BrowserCompileResult(
+                diagnostics=diagnostics,
+                artifacts=(),
+            )
         emitted = sorted(
             emit_json_schema_artifacts(workspace),
             key=lambda artifact: artifact.path.as_posix(),
         )
         return BrowserCompileResult(
-            diagnostics=opened.diagnostics,
+            diagnostics=diagnostics,
             artifacts=tuple(
                 BrowserArtifact(
                     path=artifact.path.as_posix(),

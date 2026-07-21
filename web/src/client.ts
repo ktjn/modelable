@@ -1,13 +1,22 @@
 import {
   BROWSER_COMPILER_PROTOCOL_VERSION,
   type BrowserCompileResult,
+  type BrowserCompletionResult,
   type BrowserCompilerErrorCode,
   type BrowserCompilerMethod,
   type BrowserCompilerRequest,
   type BrowserFormatResult,
+  type BrowserHoverResult,
+  type BrowserLanguagePosition,
+  type BrowserResultGuard,
   type BrowserSource,
   type BrowserWorkspaceResult,
+  isBrowserCompileResult,
+  isBrowserCompletionResult,
   isBrowserCompilerResponse,
+  isBrowserFormatResult,
+  isBrowserHoverResult,
+  isBrowserWorkspaceResult,
 } from './protocol';
 
 export interface WorkerLike {
@@ -34,6 +43,7 @@ export interface WorkerLike {
 interface PendingRequest {
   resolve: (result: unknown) => void;
   reject: (error: BrowserCompilerError) => void;
+  guard: BrowserResultGuard<unknown>;
 }
 
 export class BrowserCompilerError extends Error {
@@ -65,10 +75,20 @@ export class BrowserCompilerClient {
     if (pending === undefined) {
       return;
     }
-    this.pending.delete(event.data.id);
     if (event.data.ok) {
+      if (!pending.guard(event.data.result)) {
+        this.transitionToTerminal(
+          new BrowserCompilerError(
+            'COMPILER_FAILED',
+            'Compiler worker returned an invalid result',
+          ),
+        );
+        return;
+      }
+      this.pending.delete(event.data.id);
       pending.resolve(event.data.result);
     } else {
+      this.pending.delete(event.data.id);
       pending.reject(
         new BrowserCompilerError(
           event.data.error.code,
@@ -99,28 +119,57 @@ export class BrowserCompilerClient {
       this.initializationPromise = this.request(
         'runtime.initialize',
         {},
+        (result): result is null => result === null,
       ).then(() => undefined);
     }
     return this.initializationPromise;
   }
 
   async openWorkspace(
+    workspaceRevision: number,
     sources: BrowserSource[],
   ): Promise<BrowserWorkspaceResult> {
-    await this.initialize();
-    return this.request('workspace.open', { sources });
+    return this.initializedRequest(
+      'workspace.open',
+      { workspaceRevision, sources },
+      isBrowserWorkspaceResult,
+    );
   }
 
   async formatSource(source: BrowserSource): Promise<BrowserFormatResult> {
-    await this.initialize();
-    return this.request('source.format', { source });
+    return this.initializedRequest(
+      'source.format',
+      { source },
+      isBrowserFormatResult,
+    );
   }
 
   async compileJsonSchema(
     sources: BrowserSource[],
   ): Promise<BrowserCompileResult> {
-    await this.initialize();
-    return this.request('compile.jsonSchema', { sources });
+    return this.initializedRequest(
+      'compile.jsonSchema',
+      { sources },
+      isBrowserCompileResult,
+    );
+  }
+
+  completion(
+    position: BrowserLanguagePosition,
+  ): Promise<BrowserCompletionResult> {
+    return this.initializedRequest(
+      'language.completion',
+      languagePositionPayload(position),
+      isBrowserCompletionResult,
+    );
+  }
+
+  hover(position: BrowserLanguagePosition): Promise<BrowserHoverResult> {
+    return this.initializedRequest(
+      'language.hover',
+      languagePositionPayload(position),
+      isBrowserHoverResult,
+    );
   }
 
   dispose(): void {
@@ -135,6 +184,7 @@ export class BrowserCompilerClient {
   private request<T>(
     method: BrowserCompilerMethod,
     payload: unknown,
+    guard: BrowserResultGuard<T>,
   ): Promise<T> {
     const unavailable = this.unavailableError();
     if (unavailable !== undefined) {
@@ -151,9 +201,19 @@ export class BrowserCompilerClient {
       this.pending.set(id, {
         resolve: resolve as (result: unknown) => void,
         reject,
+        guard: guard as BrowserResultGuard<unknown>,
       });
       this.worker.postMessage(request);
     });
+  }
+
+  private async initializedRequest<T>(
+    method: BrowserCompilerMethod,
+    payload: unknown,
+    guard: BrowserResultGuard<T>,
+  ): Promise<T> {
+    await this.initialize();
+    return this.request(method, payload, guard);
   }
 
   private unavailableError(): BrowserCompilerError | undefined {
@@ -181,5 +241,18 @@ export type BrowserCompilerClientLike = Pick<
   | 'openWorkspace'
   | 'formatSource'
   | 'compileJsonSchema'
+  | 'completion'
+  | 'hover'
   | 'dispose'
 >;
+
+function languagePositionPayload(
+  position: BrowserLanguagePosition,
+): BrowserLanguagePosition {
+  return {
+    workspaceRevision: position.workspaceRevision,
+    uri: position.uri,
+    line: position.line,
+    character: position.character,
+  };
+}
