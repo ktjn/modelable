@@ -6,7 +6,11 @@ export type BrowserCompilerMethod =
   | 'source.format'
   | 'compile.jsonSchema'
   | 'language.completion'
-  | 'language.hover';
+  | 'language.hover'
+  | 'language.definition'
+  | 'language.references'
+  | 'language.prepareRename'
+  | 'language.rename';
 
 export type BrowserCompilerErrorCode =
   | 'INITIALIZATION_FAILED'
@@ -135,6 +139,39 @@ export interface BrowserFormatResult {
   replacement_text: string | null;
 }
 
+export interface BrowserDefinitionResult {
+  location: BrowserLanguageLocation | null;
+}
+
+export interface BrowserReferencesResult {
+  locations: BrowserLanguageLocation[];
+}
+
+export interface BrowserPreparedRenameResult {
+  prepared: BrowserPreparedRename | null;
+}
+
+export interface BrowserPreparedRename {
+  range: BrowserLanguageRange;
+  placeholder: string;
+}
+
+export interface BrowserTextEdit {
+  uri: string;
+  range: BrowserLanguageRange;
+  new_text: string;
+  expected_version: number;
+  expected_hash: string;
+}
+
+export interface BrowserWorkspaceEdit {
+  edits: BrowserTextEdit[];
+}
+
+export interface BrowserRenameResult {
+  edit: BrowserWorkspaceEdit;
+}
+
 export interface BrowserCompileResult {
   diagnostics: BrowserDiagnostic[];
   artifacts: BrowserArtifact[];
@@ -149,6 +186,10 @@ const methods = new Set<BrowserCompilerMethod>([
   'compile.jsonSchema',
   'language.completion',
   'language.hover',
+  'language.definition',
+  'language.references',
+  'language.prepareRename',
+  'language.rename',
 ]);
 
 const errorCodes = new Set<BrowserCompilerErrorCode>([
@@ -361,6 +402,77 @@ export function isBrowserHoverResult(
       typeof value.hover.markdown === 'string' &&
       (value.hover.range === null ||
         isBrowserLanguageRange(value.hover.range)))
+  );
+}
+
+export function isBrowserDefinitionResult(
+  value: unknown,
+): value is BrowserDefinitionResult {
+  if (!isRecord(value) || !hasExactKeys(value, ['location'])) {
+    return false;
+  }
+  return value.location === null || isBrowserLanguageLocation(value.location);
+}
+
+export function isBrowserReferencesResult(
+  value: unknown,
+): value is BrowserReferencesResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['locations']) &&
+    Array.isArray(value.locations) &&
+    value.locations.every(isBrowserLanguageLocation)
+  );
+}
+
+function isBrowserPreparedRename(
+  value: unknown,
+): value is BrowserPreparedRename {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['range', 'placeholder']) &&
+    isBrowserLanguageRange(value.range) &&
+    typeof value.placeholder === 'string'
+  );
+}
+
+export function isBrowserPreparedRenameResult(
+  value: unknown,
+): value is BrowserPreparedRenameResult {
+  if (!isRecord(value) || !hasExactKeys(value, ['prepared'])) {
+    return false;
+  }
+  return value.prepared === null || isBrowserPreparedRename(value.prepared);
+}
+
+function isBrowserTextEdit(value: unknown): value is BrowserTextEdit {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, [
+      'uri',
+      'range',
+      'new_text',
+      'expected_version',
+      'expected_hash',
+    ]) &&
+    typeof value.uri === 'string' &&
+    isBrowserLanguageRange(value.range) &&
+    typeof value.new_text === 'string' &&
+    isIntegerAtLeast(value.expected_version, 1) &&
+    typeof value.expected_hash === 'string'
+  );
+}
+
+export function isBrowserRenameResult(
+  value: unknown,
+): value is BrowserRenameResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['edit']) &&
+    isRecord(value.edit) &&
+    hasExactKeys(value.edit, ['edits']) &&
+    Array.isArray(value.edit.edits) &&
+    value.edit.edits.every(isBrowserTextEdit)
   );
 }
 

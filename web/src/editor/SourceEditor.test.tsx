@@ -48,6 +48,9 @@ const monaco = vi.hoisted(() => {
     sourceEditor,
     registerCompletionItemProvider: vi.fn(() => ({ dispose: vi.fn() })),
     registerHoverProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerDefinitionProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerReferenceProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerRenameProvider: vi.fn(() => ({ dispose: vi.fn() })),
     registerLanguage: vi.fn(() => ({ dispose: vi.fn() })),
   };
 });
@@ -78,6 +81,9 @@ vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => ({
     },
     registerCompletionItemProvider: monaco.registerCompletionItemProvider,
     registerHoverProvider: monaco.registerHoverProvider,
+    registerDefinitionProvider: monaco.registerDefinitionProvider,
+    registerReferenceProvider: monaco.registerReferenceProvider,
+    registerRenameProvider: monaco.registerRenameProvider,
   },
   editor: {
     create: monaco.create,

@@ -5,17 +5,25 @@ import {
   type BrowserCompilerErrorCode,
   type BrowserCompilerMethod,
   type BrowserCompilerRequest,
+  type BrowserDefinitionResult,
   type BrowserFormatResult,
   type BrowserHoverResult,
   type BrowserLanguagePosition,
+  type BrowserPreparedRenameResult,
+  type BrowserReferencesResult,
+  type BrowserRenameResult,
   type BrowserResultGuard,
   type BrowserSource,
   type BrowserWorkspaceResult,
   isBrowserCompileResult,
   isBrowserCompletionResult,
   isBrowserCompilerResponse,
+  isBrowserDefinitionResult,
   isBrowserFormatResult,
   isBrowserHoverResult,
+  isBrowserPreparedRenameResult,
+  isBrowserReferencesResult,
+  isBrowserRenameResult,
   isBrowserWorkspaceResult,
 } from './protocol';
 
@@ -172,6 +180,48 @@ export class BrowserCompilerClient {
     );
   }
 
+  definition(
+    position: BrowserLanguagePosition,
+  ): Promise<BrowserDefinitionResult> {
+    return this.initializedRequest(
+      'language.definition',
+      languagePositionPayload(position),
+      isBrowserDefinitionResult,
+    );
+  }
+
+  references(
+    position: BrowserLanguagePosition,
+    includeDeclaration: boolean,
+  ): Promise<BrowserReferencesResult> {
+    return this.initializedRequest(
+      'language.references',
+      { ...languagePositionPayload(position), includeDeclaration },
+      isBrowserReferencesResult,
+    );
+  }
+
+  prepareRename(
+    position: BrowserLanguagePosition,
+  ): Promise<BrowserPreparedRenameResult> {
+    return this.initializedRequest(
+      'language.prepareRename',
+      languagePositionPayload(position),
+      isBrowserPreparedRenameResult,
+    );
+  }
+
+  rename(
+    position: BrowserLanguagePosition,
+    newName: string,
+  ): Promise<BrowserRenameResult> {
+    return this.initializedRequest(
+      'language.rename',
+      { ...languagePositionPayload(position), newName },
+      isBrowserRenameResult,
+    );
+  }
+
   dispose(): void {
     this.transitionToTerminal(
       new BrowserCompilerError(
@@ -243,6 +293,10 @@ export type BrowserCompilerClientLike = Pick<
   | 'compileJsonSchema'
   | 'completion'
   | 'hover'
+  | 'definition'
+  | 'references'
+  | 'prepareRename'
+  | 'rename'
   | 'dispose'
 >;
 

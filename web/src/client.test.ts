@@ -349,6 +349,66 @@ describe('BrowserCompilerClient', () => {
     expect(worker.posted[3]?.method).toBe('language.hover');
     worker.respond(success(worker.posted[3]!, { hover: null }));
     await expect(hover).resolves.toEqual({ hover: null });
+
+    const definition = client.definition({
+      workspaceRevision: 4,
+      uri: source.uri,
+      line: 1,
+      character: 2,
+    });
+    await Promise.resolve();
+    expect(worker.posted[4]?.method).toBe('language.definition');
+    expect(worker.posted[4]?.payload).toEqual({
+      workspaceRevision: 4,
+      uri: source.uri,
+      line: 1,
+      character: 2,
+    });
+    worker.respond(success(worker.posted[4]!, { location: null }));
+    await expect(definition).resolves.toEqual({ location: null });
+
+    const references = client.references(
+      { workspaceRevision: 4, uri: source.uri, line: 1, character: 2 },
+      true,
+    );
+    await Promise.resolve();
+    expect(worker.posted[5]?.method).toBe('language.references');
+    expect(worker.posted[5]?.payload).toEqual({
+      workspaceRevision: 4,
+      uri: source.uri,
+      line: 1,
+      character: 2,
+      includeDeclaration: true,
+    });
+    worker.respond(success(worker.posted[5]!, { locations: [] }));
+    await expect(references).resolves.toEqual({ locations: [] });
+
+    const prepareRename = client.prepareRename({
+      workspaceRevision: 4,
+      uri: source.uri,
+      line: 1,
+      character: 2,
+    });
+    await Promise.resolve();
+    expect(worker.posted[6]?.method).toBe('language.prepareRename');
+    worker.respond(success(worker.posted[6]!, { prepared: null }));
+    await expect(prepareRename).resolves.toEqual({ prepared: null });
+
+    const rename = client.rename(
+      { workspaceRevision: 4, uri: source.uri, line: 1, character: 2 },
+      'Client',
+    );
+    await Promise.resolve();
+    expect(worker.posted[7]?.method).toBe('language.rename');
+    expect(worker.posted[7]?.payload).toEqual({
+      workspaceRevision: 4,
+      uri: source.uri,
+      line: 1,
+      character: 2,
+      newName: 'Client',
+    });
+    worker.respond(success(worker.posted[7]!, { edit: { edits: [] } }));
+    await expect(rename).resolves.toEqual({ edit: { edits: [] } });
   });
 
   test('invalid success payloads transition the client to terminal failure', async () => {

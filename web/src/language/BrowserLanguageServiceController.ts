@@ -4,9 +4,13 @@ import {
 } from '../client';
 import type {
   BrowserCompletionResult,
+  BrowserDefinitionResult,
   BrowserDiagnostic,
   BrowserHoverResult,
   BrowserLanguagePositionValue,
+  BrowserPreparedRenameResult,
+  BrowserReferencesResult,
+  BrowserRenameResult,
 } from '../protocol';
 import {
   type PlaygroundWorkspace,
@@ -119,6 +123,110 @@ export class BrowserLanguageServiceController {
         line: position.line,
         character: position.character,
       });
+      return !this.disposed &&
+        this.observed?.revision === captured.revision
+        ? result
+        : undefined;
+    } catch (error: unknown) {
+      return this.handleProviderError(error, captured.revision);
+    }
+  }
+
+  async definition(
+    captured: PlaygroundWorkspace,
+    uri: string,
+    position: BrowserLanguagePositionValue,
+  ): Promise<BrowserDefinitionResult | undefined> {
+    if (!(await this.ensureRevision(captured))) {
+      return undefined;
+    }
+    try {
+      const result = await this.client.definition({
+        workspaceRevision: captured.revision,
+        uri,
+        line: position.line,
+        character: position.character,
+      });
+      return !this.disposed &&
+        this.observed?.revision === captured.revision
+        ? result
+        : undefined;
+    } catch (error: unknown) {
+      return this.handleProviderError(error, captured.revision);
+    }
+  }
+
+  async references(
+    captured: PlaygroundWorkspace,
+    uri: string,
+    position: BrowserLanguagePositionValue,
+    includeDeclaration: boolean,
+  ): Promise<BrowserReferencesResult | undefined> {
+    if (!(await this.ensureRevision(captured))) {
+      return undefined;
+    }
+    try {
+      const result = await this.client.references(
+        {
+          workspaceRevision: captured.revision,
+          uri,
+          line: position.line,
+          character: position.character,
+        },
+        includeDeclaration,
+      );
+      return !this.disposed &&
+        this.observed?.revision === captured.revision
+        ? result
+        : undefined;
+    } catch (error: unknown) {
+      return this.handleProviderError(error, captured.revision);
+    }
+  }
+
+  async prepareRename(
+    captured: PlaygroundWorkspace,
+    uri: string,
+    position: BrowserLanguagePositionValue,
+  ): Promise<BrowserPreparedRenameResult | undefined> {
+    if (!(await this.ensureRevision(captured))) {
+      return undefined;
+    }
+    try {
+      const result = await this.client.prepareRename({
+        workspaceRevision: captured.revision,
+        uri,
+        line: position.line,
+        character: position.character,
+      });
+      return !this.disposed &&
+        this.observed?.revision === captured.revision
+        ? result
+        : undefined;
+    } catch (error: unknown) {
+      return this.handleProviderError(error, captured.revision);
+    }
+  }
+
+  async rename(
+    captured: PlaygroundWorkspace,
+    uri: string,
+    position: BrowserLanguagePositionValue,
+    newName: string,
+  ): Promise<BrowserRenameResult | undefined> {
+    if (!(await this.ensureRevision(captured))) {
+      return undefined;
+    }
+    try {
+      const result = await this.client.rename(
+        {
+          workspaceRevision: captured.revision,
+          uri,
+          line: position.line,
+          character: position.character,
+        },
+        newName,
+      );
       return !this.disposed &&
         this.observed?.revision === captured.revision
         ? result
