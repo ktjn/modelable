@@ -373,12 +373,18 @@ test('browser compiler stays within initialization and operation budgets', async
         await client.references(languagePosition, true);
         references.push(performance.now() - started);
 
+        const renamePosition = {
+          workspaceRevision: languagePosition.workspaceRevision,
+          uri: sources[0]!.uri,
+          line: 8,
+          character: 9,
+        };
         started = performance.now();
-        await client.prepareRename(languagePosition);
+        await client.prepareRename(renamePosition);
         prepareRename.push(performance.now() - started);
 
         started = performance.now();
-        await client.rename(languagePosition, 'Client');
+        await client.rename(renamePosition, `Client${index}`);
         rename.push(performance.now() - started);
       }
       return {
