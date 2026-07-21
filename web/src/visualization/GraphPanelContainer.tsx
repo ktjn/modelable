@@ -32,6 +32,7 @@ export const GraphPanelContainer = memo(function GraphPanelContainer({
   const [mounted, setMounted] = useState(false);
   const graphModeRef = useRef(graphMode);
   graphModeRef.current = graphMode;
+  const initialFetchDone = useRef(false);
 
   useEffect(() => {
     if (!runtimeReady || mounted) return;
@@ -62,6 +63,15 @@ export const GraphPanelContainer = memo(function GraphPanelContainer({
 
   useEffect(() => {
     if (!mounted) return;
+    if (!initialFetchDone.current) {
+      initialFetchDone.current = true;
+      if (typeof requestIdleCallback === 'function') {
+        const id = requestIdleCallback(() => fetchGraph(), { timeout: 5000 });
+        return () => cancelIdleCallback(id);
+      }
+      const id = setTimeout(fetchGraph, 1000);
+      return () => clearTimeout(id);
+    }
     fetchGraph();
   }, [fetchGraph, graphMode, mounted]);
 
