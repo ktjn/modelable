@@ -30,6 +30,7 @@ import {
 import { usePersistentWorkspace } from './usePersistentWorkspace';
 import { WorkspaceRecovery } from './WorkspaceRecovery';
 import { WorkspaceFiles } from './WorkspaceFiles';
+import { BrowserLanguageServiceController } from './language/BrowserLanguageServiceController';
 import {
   createDefaultWorkspace,
   mutateWorkspace,
@@ -83,6 +84,14 @@ function hasErrorDiagnostics(
   return diagnostics.some((diagnostic) => diagnostic.severity === 'error');
 }
 
+function isTerminalLanguageError(error: BrowserCompilerError): boolean {
+  return (
+    error.code === 'COMPILER_FAILED' ||
+    error.code === 'INITIALIZATION_FAILED' ||
+    error.code === 'UNSUPPORTED_PROTOCOL'
+  );
+}
+
 function exposeWorkspaceSourcesForTest(
   sources: ReturnType<typeof workspaceSources>,
 ): void {
@@ -124,13 +133,18 @@ export function App({
   );
   const [clientAttempt, setClientAttempt] = useState(0);
   const [statusIsError, setStatusIsError] = useState(false);
+  const [languageController, setLanguageController] =
+    useState<BrowserLanguageServiceController | null>(null);
+  const [languageStatus, setLanguageStatus] = useState(
+    'Language services starting…',
+  );
+  const [languageCanRetry, setLanguageCanRetry] = useState(false);
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
+  const languageControllerRef =
+    useRef<BrowserLanguageServiceController>(null);
   const operationPendingRef = useRef(false);
   const recoveryPendingRef = useRef(false);
-  const openedClientsRef = useRef(
-    new WeakSet<BrowserCompilerClientLike>(),
-  );
   const workspaceRef = useRef(state.workspace);
   workspaceRef.current = state.workspace;
 
@@ -146,8 +160,46 @@ export function App({
 
   useEffect(() => {
     const client = createClient();
+    const controller = new BrowserLanguageServiceController(client, {
+      onDiagnostics(revision, diagnostics) {
+        if (
+          languageControllerRef.current !== controller ||
+          workspaceRef.current.revision !== revision
+        ) {
+          return;
+        }
+        setLanguageStatus('Language services synchronized');
+        setLanguageCanRetry(false);
+        dispatch({
+          type: 'liveDiagnosticsPublished',
+          revision,
+          diagnostics,
+        });
+      },
+      onError(error) {
+        if (languageControllerRef.current !== controller) {
+          return;
+        }
+        setLanguageStatus(error.message);
+        setStatusIsError(true);
+        if (isTerminalLanguageError(error)) {
+          dispatch({
+            type: 'runtimeFailed',
+            message: error.message,
+            duration: null,
+          });
+          setLanguageCanRetry(false);
+        } else {
+          setLanguageCanRetry(true);
+        }
+      },
+    });
     const startedAt = now();
     clientRef.current = client;
+    languageControllerRef.current = controller;
+    setLanguageController(controller);
+    setLanguageStatus('Language services starting…');
+    setLanguageCanRetry(false);
     operationPendingRef.current = false;
 
     const exposedGlobal = globalThis as typeof globalThis & {
@@ -161,11 +213,13 @@ export function App({
     }
 
     const dispose = (): void => {
-      if (clientRef.current !== client) {
+      if (languageControllerRef.current !== controller) {
         return;
       }
+      languageControllerRef.current = null;
       clientRef.current = null;
-      client.dispose();
+      controller.dispose();
+      setLanguageController(null);
       if (exposedGlobal.__modelableBrowserCompiler === client) {
         delete exposedGlobal.__modelableBrowserCompiler;
       }
@@ -190,6 +244,8 @@ export function App({
         if (clientRef.current === client) {
           setStatusIsError(false);
           dispatch({ type: 'initialized', duration: now() - startedAt });
+          controller.observe(workspaceRef.current);
+          void controller.synchronize();
         }
       },
       (error: unknown) => {
@@ -219,16 +275,14 @@ export function App({
     ) {
       return;
     }
-    const client = clientRef.current;
-    if (client === null || openedClientsRef.current.has(client)) {
+    const controller = languageControllerRef.current;
+    if (controller === null) {
       return;
     }
-    openedClientsRef.current.add(client);
     const sources = workspaceSources(persistentWorkspace.workspace);
     exposeWorkspaceSourcesForTest(sources);
-    void client
-      .openWorkspace(persistentWorkspace.workspace.revision, sources)
-      .catch(() => undefined);
+    setLanguageStatus('Synchronizing language services…');
+    controller.observe(persistentWorkspace.workspace);
   }, [
     persistentWorkspace.phase,
     persistentWorkspace.workspace,
@@ -475,9 +529,10 @@ export function App({
   }, [handleFormat, handleGenerate, handleValidate, state.runtime]);
 
   const retryCompiler = (): void => {
-    const client = clientRef.current;
+    const controller = languageControllerRef.current;
+    languageControllerRef.current = null;
     clientRef.current = null;
-    client?.dispose();
+    controller?.dispose();
     operationPendingRef.current = false;
     setStatusIsError(false);
     dispatch({ type: 'retryRequested' });
@@ -519,6 +574,10 @@ export function App({
   const diagnosticLabel = `${state.diagnostics.length} ${
     state.diagnostics.length === 1 ? 'diagnostic' : 'diagnostics'
   }`;
+  const getWorkspace = useCallback(
+    (): PlaygroundWorkspace => workspaceRef.current,
+    [],
+  );
 
   if (persistentWorkspace.phase === 'restoring') {
     return (
@@ -576,6 +635,9 @@ export function App({
                 ? 'Saving locally…'
                 : 'Storage unavailable · changes remain in this tab'}
           </p>
+          <p className="persistence-status" aria-live="polite">
+            {languageStatus}
+          </p>
         </div>
       </header>
       <nav className="toolbar" aria-label="Playground actions">
@@ -625,6 +687,18 @@ export function App({
         {state.runtime === 'failed' ? (
           <button type="button" onClick={retryCompiler}>
             Retry compiler
+          </button>
+        ) : null}
+        {state.runtime !== 'failed' && languageCanRetry ? (
+          <button
+            type="button"
+            onClick={() => {
+              setLanguageStatus('Retrying language services…');
+              setLanguageCanRetry(false);
+              void languageControllerRef.current?.retry();
+            }}
+          >
+            Retry language services
           </button>
         ) : null}
         {persistentWorkspace.phase === 'memory-only' ? (
@@ -692,6 +766,8 @@ export function App({
               files={state.workspace.files}
               activeFile={state.workspace.activeFile}
               markersByUri={markersByUri}
+              languageController={languageController ?? undefined}
+              getWorkspace={getWorkspace}
               onContentChange={(path, content) => {
                 workspaceRef.current = mutateWorkspace(
                   workspaceRef.current,

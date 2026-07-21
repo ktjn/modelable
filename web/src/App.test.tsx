@@ -21,6 +21,7 @@ import {
 import indexHtml from '../index.html?raw';
 import { App } from './App';
 import { BrowserCompilerError } from './client';
+import type { BrowserLanguageServiceController } from './language/BrowserLanguageServiceController';
 import type {
   BrowserCompileResult,
   BrowserCompletionResult,
@@ -40,6 +41,8 @@ import type {
 const sourceEditorSpies = vi.hoisted(() => ({
   applyFormattedText: vi.fn(),
   focus: vi.fn(),
+  languageController: null as unknown,
+  getWorkspace: null as null | (() => PlaygroundWorkspace),
 }));
 
 vi.mock('./editor/SourceEditor', async () => {
@@ -53,14 +56,20 @@ vi.mock('./editor/SourceEditor', async () => {
       {
         files,
         activeFile,
+        languageController,
+        getWorkspace,
         onContentChange,
       }: {
         files: PlaygroundWorkspace['files'];
         activeFile: string;
+        languageController: unknown;
+        getWorkspace(): PlaygroundWorkspace;
         onContentChange(path: string, content: string): void;
       },
       ref,
     ) {
+      sourceEditorSpies.languageController = languageController;
+      sourceEditorSpies.getWorkspace = getWorkspace;
       const propsRef = useRef({ files, activeFile, onContentChange });
       propsRef.current = { files, activeFile, onContentChange };
       const active = files.find((file) => file.path === activeFile);
@@ -191,6 +200,16 @@ async function initialize(client: FakeCompilerClient): Promise<void> {
   await waitFor(() => {
     expect(client.openWorkspace).toHaveBeenCalledTimes(1);
   });
+  const request = latestRequest(client.workspaceRequests);
+  await act(async () => {
+    request.resolve({
+      workspace_revision:
+        client.openWorkspace.mock.calls.at(-1)?.[0] ?? 1,
+      diagnostics: [],
+      source_hashes: {},
+    });
+    await request.promise;
+  });
 }
 
 function chooseWorkspaceFiles(files: File[]): void {
@@ -215,9 +234,12 @@ async function generateArtifacts(
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   sourceEditorSpies.applyFormattedText.mockReset();
   sourceEditorSpies.focus.mockReset();
+  sourceEditorSpies.languageController = null;
+  sourceEditorSpies.getWorkspace = null;
 });
 
 beforeEach(() => {
@@ -468,6 +490,136 @@ describe('App', () => {
 
     expect(screen.getByText('Customer is invalid')).toBeTruthy();
     expect(screen.getByRole('status').textContent).toMatch(/1 diagnostic/i);
+  });
+
+  test('publishes live diagnostics after 300 ms and never persists them', async () => {
+    const client = new FakeCompilerClient();
+    const repository: WorkspaceRepository = {
+      load: vi.fn(async (): Promise<WorkspaceLoadResult> => ({
+        status: 'missing',
+      })),
+      save: vi.fn(async (): Promise<WorkspaceSaveResult> => 'saved'),
+      remove: vi.fn(async () => undefined),
+    };
+    render(
+      <App
+        createClient={() => client}
+        createRepository={() => repository}
+      />,
+    );
+    await initialize(client);
+    vi.useFakeTimers();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Model source' }), {
+      target: { value: 'domain broken {' },
+    });
+    await act(() => vi.advanceTimersByTimeAsync(299));
+    expect(client.openWorkspace).toHaveBeenCalledTimes(1);
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(client.openWorkspace).toHaveBeenCalledTimes(2);
+
+    const request = latestRequest(client.workspaceRequests);
+    await act(async () => {
+      request.resolve({
+        workspace_revision: 2,
+        diagnostics: [documentDiagnostic],
+        source_hashes: {},
+      });
+      await request.promise;
+    });
+
+    expect(screen.getByText('Customer is invalid')).toBeTruthy();
+    expect(screen.getByText('Language services synchronized')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toMatch(/1 diagnostic/i);
+    expect(repository.save).toHaveBeenCalled();
+    for (const [saved] of vi.mocked(repository.save).mock.calls) {
+      expect(saved).not.toHaveProperty('diagnostics');
+    }
+    vi.useRealTimers();
+  });
+
+  test('a provider synchronizes the captured workspace before the debounce', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Model source' }), {
+      target: { value: 'domain edited {}' },
+    });
+    const controller =
+      sourceEditorSpies.languageController as BrowserLanguageServiceController;
+    const workspace = sourceEditorSpies.getWorkspace?.();
+    expect(workspace?.revision).toBe(2);
+
+    const completion = controller.completion(
+      workspace!,
+      'file:///main.mdl',
+      { line: 0, character: 1 },
+    );
+    await act(async () => Promise.resolve());
+    expect(client.openWorkspace).toHaveBeenCalledTimes(2);
+    const synchronization = latestRequest(client.workspaceRequests);
+    await act(async () => {
+      synchronization.resolve({
+        workspace_revision: 2,
+        diagnostics: [],
+        source_hashes: {},
+      });
+      await synchronization.promise;
+    });
+    await expect(completion).resolves.toEqual({ items: [] });
+    await act(() => vi.advanceTimersByTimeAsync(300));
+    expect(client.openWorkspace).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  test('ignores stale live diagnostics and exposes terminal retry with a fresh pair', async () => {
+    const firstClient = new FakeCompilerClient();
+    const secondClient = new FakeCompilerClient();
+    const createClient = vi
+      .fn()
+      .mockReturnValueOnce(firstClient)
+      .mockReturnValueOnce(secondClient);
+    render(<App createClient={createClient} />);
+    await initialize(firstClient);
+    vi.useFakeTimers();
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Model source' }), {
+      target: { value: 'domain revision2 {' },
+    });
+    await act(() => vi.advanceTimersByTimeAsync(300));
+    const stale = latestRequest(firstClient.workspaceRequests);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Model source' }), {
+      target: { value: 'domain revision3 {' },
+    });
+    await act(async () => {
+      stale.resolve({
+        workspace_revision: 2,
+        diagnostics: [documentDiagnostic],
+        source_hashes: {},
+      });
+      await stale.promise;
+    });
+    expect(screen.queryByText('Customer is invalid')).toBeNull();
+
+    await act(() => vi.advanceTimersByTimeAsync(300));
+    const current = latestRequest(firstClient.workspaceRequests);
+    await act(async () => {
+      current.reject(
+        new BrowserCompilerError(
+          'COMPILER_FAILED',
+          'Language worker failed',
+        ),
+      );
+      await expect(current.promise).rejects.toThrow('Language worker failed');
+    });
+    expect(
+      screen.getByRole('button', { name: 'Retry compiler' }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry compiler' }));
+    expect(firstClient.dispose).toHaveBeenCalledTimes(1);
+    expect(createClient).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 
   test('exports the active source with its mdl filename', async () => {

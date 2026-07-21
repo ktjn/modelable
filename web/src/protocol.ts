@@ -197,7 +197,12 @@ function isNullableString(value: unknown): value is string | null {
 }
 
 function isNullableCoordinate(value: unknown): value is number | null {
-  return value === null || isIntegerAtLeast(value, 0);
+  return (
+    value === null ||
+    (typeof value === 'number' &&
+      Number.isInteger(value) &&
+      value >= -1)
+  );
 }
 
 function isStringArray(value: unknown): value is string[] {

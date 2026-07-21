@@ -141,6 +141,13 @@ describe('browser protocol v2 result guards', () => {
       isBrowserHoverResult({ hover: { markdown: '**x**', range } }),
     ).toBe(true);
     expect(isBrowserHoverResult({ hover: null })).toBe(true);
+    expect(
+      isBrowserWorkspaceResult({
+        workspace_revision: 4,
+        diagnostics: [{ ...diagnostic, line: -1, column: -1 }],
+        source_hashes: { 'file:///a.mdl': 'abc' },
+      }),
+    ).toBe(true);
   });
 
   test('rejects unknown fields at every nested language level', () => {

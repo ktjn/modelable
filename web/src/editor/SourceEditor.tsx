@@ -6,8 +6,13 @@ import {
 } from 'react';
 import type { editor } from 'monaco-editor';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
+import 'monaco-editor/esm/vs/editor/contrib/hover/browser/hoverContribution.js';
+import 'monaco-editor/esm/vs/editor/contrib/suggest/browser/suggestController.js';
 
 import type { PlaygroundFile } from '../workspace';
+import type { BrowserLanguageServiceController } from '../language/BrowserLanguageServiceController';
+import { registerModelableProviders } from '../language/monaco-providers';
+import type { PlaygroundWorkspace } from '../workspace';
 import {
   createSourceModelRegistry,
   type SourceModelRegistry,
@@ -18,6 +23,8 @@ export interface SourceEditorProps {
   files: PlaygroundFile[];
   activeFile: string;
   markersByUri: ReadonlyMap<string, editor.IMarkerData[]>;
+  languageController?: BrowserLanguageServiceController;
+  getWorkspace?: () => PlaygroundWorkspace;
   onContentChange(path: string, content: string): void;
 }
 
@@ -47,6 +54,10 @@ export const SourceEditor = forwardRef<
   const markersByUri: ReadonlyMap<string, editor.IMarkerData[]> = legacy
     ? new Map([[sourceUri(LEGACY_SOURCE_PATH), props.markers]])
     : props.markersByUri;
+  const languageController = legacy
+    ? undefined
+    : props.languageController;
+  const getWorkspace = legacy ? undefined : props.getWorkspace;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<editor.IStandaloneCodeEditor>(null);
@@ -108,6 +119,20 @@ export const SourceEditor = forwardRef<
       registryRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      languageController === undefined ||
+      getWorkspace === undefined
+    ) {
+      return;
+    }
+    return registerModelableProviders(
+      monaco,
+      languageController,
+      getWorkspace,
+    ).dispose;
+  }, [getWorkspace, languageController]);
 
   useEffect(() => {
     const registry = registryRef.current;

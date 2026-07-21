@@ -971,14 +971,35 @@ records remain exportable and are never replaced until the user explicitly
 resets them.
 
 This slice intentionally supports one local workspace, `.mdl` files only, and
-no browser language services. All source processing remains local and the
-static deployment sends no source off-origin.
+no persisted browser language-service results. All source processing remains
+local and the static deployment sends no source off-origin.
 
 **Phase 3b — browser-native language services: Active next slice.**
 
-- Completion and hover.
-- Definition, references, and rename.
-- Cross-file language-service behavior over the shipped durable workspace.
+**Batch A — live diagnostics, completion, and hover: Shipped.** Protocol v2
+observes immutable workspace snapshots, synchronizes edits after a 300 ms
+debounce, and publishes diagnostics only when the worker accepts the exact
+current revision. Explicit Validate remains available and uses the same local
+workspace and compiler client.
+
+Monaco completion and hover are conversion-only adapters over shared
+Modelable-owned language semantics. During a local parse error, current
+documents continue advancing while the previous parseable semantic snapshot
+remains available for resolvable completion and hover requests. Provider
+results captured for older revisions are discarded. Hover Markdown is
+untrusted and HTML-disabled.
+
+Diagnostics, semantic indexes, completion results, and hover content are
+derived memory-only state; IndexedDB continues storing only workspace source,
+file versions, and active selection. Recoverable language failures expose a
+language-service retry, while terminal worker failures recreate the shared
+compiler client and controller together.
+
+**Batch B — definition, references, and rename: Active next slice.**
+
+- Cross-file definition and sorted references.
+- Validated, atomic cross-file rename.
+- Full Phase 3b browser acceptance and closeout.
 
 The accepted scope and delivery boundary are documented in
 [Playground Browser Language Services — Design](superpowers/specs/2026-07-20-playground-browser-language-services-design.md).

@@ -66,6 +66,11 @@ export type AppAction =
       diagnostics?: BrowserDiagnostic[];
       duration: number;
     }
+  | {
+      type: 'liveDiagnosticsPublished';
+      revision: number;
+      diagnostics: BrowserDiagnostic[];
+    }
   | { type: 'artifactSelected'; path: string };
 
 export type WorkspaceAppState = Omit<AppState, 'revision'> & {
@@ -177,6 +182,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
             : state.diagnostics,
         status: action.message,
         lastOperationDuration: action.duration,
+      };
+    case 'liveDiagnosticsPublished':
+      if (action.revision !== state.revision) {
+        return state;
+      }
+      return {
+        ...state,
+        diagnostics: action.diagnostics,
       };
     case 'artifactSelected':
       if (!state.artifacts.some((artifact) => artifact.path === action.path)) {

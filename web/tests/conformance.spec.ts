@@ -9,9 +9,24 @@ import {
 
 type Source = { uri: string; text: string; version: number };
 type TestClient = {
-  openWorkspace(sources: Source[]): Promise<unknown>;
+  openWorkspace(
+    workspaceRevision: number,
+    sources: Source[],
+  ): Promise<unknown>;
   formatSource(source: Source): Promise<unknown>;
   compileJsonSchema(sources: Source[]): Promise<unknown>;
+  completion(position: {
+    workspaceRevision: number;
+    uri: string;
+    line: number;
+    character: number;
+  }): Promise<{ items: { label: string }[] }>;
+  hover(position: {
+    workspaceRevision: number;
+    uri: string;
+    line: number;
+    character: number;
+  }): Promise<{ hover: { markdown: string } | null }>;
 };
 
 const scenarios = {
@@ -67,9 +82,10 @@ test('browser compiler matches native snapshots including cross-file references'
     timeout: 30_000,
   });
 
+  let workspaceRevision = 100;
   for (const [scenario, fixtureNames] of Object.entries(scenarios)) {
     const actual = await page.evaluate(
-      async ({ fixtureNames, scenario }) => {
+      async ({ fixtureNames, scenario, workspaceRevision }) => {
         const client = (
           globalThis as typeof globalThis & {
             __modelableBrowserCompiler?: TestClient;
@@ -86,7 +102,7 @@ test('browser compiler matches native snapshots including cross-file references'
           })),
         );
         const result: Record<string, unknown> = {
-          open: await client.openWorkspace(sources),
+          open: await client.openWorkspace(workspaceRevision, sources),
         };
         if (scenario === 'single-valid') {
           result.format = await client.formatSource(sources[0]!);
@@ -96,14 +112,69 @@ test('browser compiler matches native snapshots including cross-file references'
         }
         return result;
       },
-      { fixtureNames, scenario },
+      { fixtureNames, scenario, workspaceRevision },
     );
+    workspaceRevision += 1;
     const expectedSnapshot = await (
       await page.request.get(`fixtures/${scenario}.json`)
     ).json();
+    expectedSnapshot.open.workspace_revision = workspaceRevision - 1;
 
     expect(sortObject(actual)).toEqual(sortObject(expectedSnapshot));
   }
+});
+
+test('protocol v2 exposes completion and hover over the synchronized workspace', async ({
+  page,
+}) => {
+  await page.goto('?test=1');
+  await waitForCompiler(page);
+  const result = await page.evaluate(async () => {
+    const client = (
+      globalThis as typeof globalThis & {
+        __modelableBrowserCompiler?: TestClient;
+      }
+    ).__modelableBrowserCompiler;
+    if (client === undefined) {
+      throw new Error('Test client was not exposed');
+    }
+    const source: Source = {
+      uri: 'file:///customer.mdl',
+      text: [
+        'domain customer {',
+        '  owner: "team"',
+        '  entity Customer @ 1 (additive) {',
+        '    @key customer_id: uuid',
+        '    customer_name: string',
+        '  }',
+        '}',
+      ].join('\n'),
+      version: 1,
+    };
+    const workspaceRevision = 100;
+    await client.openWorkspace(workspaceRevision, [source]);
+    const completion = await client.completion({
+      workspaceRevision,
+      uri: source.uri,
+      line: 4,
+      character: 4,
+    });
+    const hover = await client.hover({
+      workspaceRevision,
+      uri: source.uri,
+      line: 3,
+      character: 10,
+    });
+    return {
+      labels: completion.items.map((item) => item.label),
+      hover: hover.hover?.markdown ?? null,
+    };
+  });
+
+  expect(result.labels).toEqual(
+    expect.arrayContaining(['customer_id', 'customer_name']),
+  );
+  expect(result.hover).toContain('customer_id');
 });
 
 test('browser compiler stays within initialization and operation budgets', async ({
@@ -150,7 +221,7 @@ test('browser compiler stays within initialization and operation budgets', async
       const compile: number[] = [];
       for (let index = 0; index < 3; index += 1) {
         let started = performance.now();
-        await client.openWorkspace(sources);
+        await client.openWorkspace(index + 100, sources);
         validate.push(performance.now() - started);
         started = performance.now();
         await client.compileJsonSchema(sources);

@@ -5,6 +5,7 @@ import type { editor } from 'monaco-editor';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import type { PlaygroundFile } from '../workspace';
+import type { BrowserLanguageServiceController } from '../language/BrowserLanguageServiceController';
 import { SourceEditor } from './SourceEditor';
 
 const monaco = vi.hoisted(() => {
@@ -45,12 +46,38 @@ const monaco = vi.hoisted(() => {
     models,
     setModelMarkers: vi.fn(),
     sourceEditor,
+    registerCompletionItemProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerHoverProvider: vi.fn(() => ({ dispose: vi.fn() })),
+    registerLanguage: vi.fn(() => ({ dispose: vi.fn() })),
   };
 });
 
 vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => ({
+  Range: class {
+    constructor(
+      readonly startLineNumber: number,
+      readonly startColumn: number,
+      readonly endLineNumber: number,
+      readonly endColumn: number,
+    ) {}
+  },
   Uri: {
     parse: (uri: string) => uri,
+  },
+  languages: {
+    register: monaco.registerLanguage,
+    CompletionItemKind: {
+      Keyword: 1,
+      Snippet: 2,
+      Module: 3,
+      Class: 4,
+      Property: 5,
+      Reference: 6,
+      Value: 7,
+      Text: 8,
+    },
+    registerCompletionItemProvider: monaco.registerCompletionItemProvider,
+    registerHoverProvider: monaco.registerHoverProvider,
   },
   editor: {
     create: monaco.create,
@@ -58,6 +85,15 @@ vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => ({
     setModelMarkers: monaco.setModelMarkers,
   },
 }));
+
+vi.mock(
+  'monaco-editor/esm/vs/editor/contrib/hover/browser/hoverContribution.js',
+  () => ({}),
+);
+vi.mock(
+  'monaco-editor/esm/vs/editor/contrib/suggest/browser/suggestController.js',
+  () => ({}),
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -132,6 +168,49 @@ test('does not overwrite newer Monaco edits with an older React snapshot', () =>
   );
 
   expect(model?.getValue()).toBe('do');
+});
+
+test('registers language providers once and disposes them with the editor', () => {
+  const completionDisposable = { dispose: vi.fn() };
+  const hoverDisposable = { dispose: vi.fn() };
+  monaco.registerCompletionItemProvider.mockReturnValueOnce(
+    completionDisposable,
+  );
+  monaco.registerHoverProvider.mockReturnValueOnce(hoverDisposable);
+  const workspace = {
+    schemaVersion: 1 as const,
+    id: 'local',
+    revision: 1,
+    activeFile: 'main.mdl',
+    files: [
+      {
+        path: 'main.mdl',
+        content: 'domain demo {}',
+        version: 1,
+      },
+    ],
+  };
+  const { unmount } = render(
+    <SourceEditor
+      files={workspace.files}
+      activeFile={workspace.activeFile}
+      markersByUri={new Map()}
+      languageController={
+        {
+          completion: vi.fn(),
+          hover: vi.fn(),
+        } as unknown as BrowserLanguageServiceController
+      }
+      getWorkspace={() => workspace}
+      onContentChange={vi.fn()}
+    />,
+  );
+
+  expect(monaco.registerCompletionItemProvider).toHaveBeenCalledTimes(1);
+  expect(monaco.registerHoverProvider).toHaveBeenCalledTimes(1);
+  unmount();
+  expect(completionDisposable.dispose).toHaveBeenCalledTimes(1);
+  expect(hoverDisposable.dispose).toHaveBeenCalledTimes(1);
 });
 
 function fakeModel(content: string, uri: string): editor.ITextModel {
