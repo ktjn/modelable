@@ -20,7 +20,7 @@ Pyodide worker RPC, TypeScript, React, React Flow (`@xyflow/react`), ELK.js,
 Monaco Editor, Vitest, pytest, and Playwright.
 
 **Design:**
-[Playground Visualization MVP — Design](../specs/2026-07-21-playground-visualization-design.md)
+[Playground Visualization MVP — Design](../../specs/archived/2026-07-21-playground-visualization-design.md)
 
 ## Global Constraints
 
