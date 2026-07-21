@@ -68,6 +68,7 @@ async function focusSourceEditor(page: Page): Promise<void> {
     position: { x: 8, y: 8 },
     force: true,
   });
+  await modelSource(page).focus();
   await expect(modelSource(page)).toBeFocused();
 }
 
