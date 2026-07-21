@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useReducer,
@@ -44,7 +46,9 @@ import {
   type WorkspaceRepository,
 } from './workspace-repository';
 import type { BrowserGraphMode, BrowserGraphResult } from './protocol';
-import { GraphPanel } from './visualization/GraphPanel';
+const GraphPanel = lazy(() =>
+  import('./visualization/GraphPanel').then((m) => ({ default: m.GraphPanel })),
+);
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
 const createWorkspaceRepository = (): WorkspaceRepository => {
@@ -884,11 +888,13 @@ export function App({
             <h2>Model graph</h2>
           </div>
         </div>
-        <GraphPanel
-          graphResult={graphResult}
-          mode={graphMode}
-          onModeChange={setGraphMode}
-        />
+        <Suspense fallback={null}>
+          <GraphPanel
+            graphResult={graphResult}
+            mode={graphMode}
+            onModeChange={setGraphMode}
+          />
+        </Suspense>
       </section>
       <footer
         className="metrics-strip"
