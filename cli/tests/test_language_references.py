@@ -1,4 +1,4 @@
-from modelable.language.dto import LanguageLocation, LanguagePosition, LanguageRange
+from modelable.language.dto import LanguagePosition
 from modelable.language.positions import codepoint_to_utf16
 from modelable.language.references import references
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
@@ -133,7 +133,6 @@ def test_references_exclude_stale_file() -> None:
         position_of(DECL_TEXT, "entity Customer @ 1", "Customer"),
         include_declaration=True,
     )
-    stale_uris = {loc.uri for loc in result if loc.uri == PROJ_URI}
     for loc in result:
         if loc.uri == PROJ_URI:
             assert state.is_location_current(loc)
@@ -153,7 +152,7 @@ def test_references_on_field_includes_projection_usage() -> None:
 def test_references_returns_empty_for_unknown_symbol() -> None:
     state = parsed_workspace()
     lines = WORKSPACE_TEXT.splitlines()
-    line = next(i for i, l in enumerate(lines) if "owner:" in l)
+    line = next(i for i, line in enumerate(lines) if "owner:" in line)
     result = references(state, URI, LanguagePosition(line, 4), include_declaration=True)
     assert result == ()
 

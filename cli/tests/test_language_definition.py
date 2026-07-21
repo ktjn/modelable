@@ -1,5 +1,5 @@
 from modelable.language.definition import definition
-from modelable.language.dto import LanguageLocation, LanguagePosition, LanguageRange
+from modelable.language.dto import LanguagePosition
 from modelable.language.positions import codepoint_to_utf16
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
 
@@ -100,7 +100,7 @@ def test_definition_on_qualified_ref_goes_to_declaration() -> None:
     )
     assert result is not None
     assert result.uri == URI
-    decl_line = next(i for i, l in enumerate(WORKSPACE_TEXT.splitlines()) if "entity Customer @ 1" in l)
+    decl_line = next(i for i, line in enumerate(WORKSPACE_TEXT.splitlines()) if "entity Customer @ 1" in line)
     assert result.range.start.line == decl_line
 
 
@@ -113,7 +113,7 @@ def test_definition_on_field_reference_goes_to_source_field() -> None:
     )
     assert result is not None
     assert result.uri == URI
-    field_line = next(i for i, l in enumerate(WORKSPACE_TEXT.splitlines()) if "email?: string" in l)
+    field_line = next(i for i, line in enumerate(WORKSPACE_TEXT.splitlines()) if "email?: string" in line)
     assert result.range.start.line == field_line
 
 
@@ -127,7 +127,7 @@ def test_definition_on_projection_field_goes_to_its_declaration() -> None:
     assert result is not None
     assert result.uri == URI
     assert result.range.start.line == next(
-        i for i, l in enumerate(WORKSPACE_TEXT.splitlines()) if "displayEmail = c.email" in l
+        i for i, line in enumerate(WORKSPACE_TEXT.splitlines()) if "displayEmail = c.email" in l
     )
 
 
@@ -139,7 +139,7 @@ def test_definition_on_ref_type_goes_to_declaration() -> None:
         position_of(REF_TYPE_TEXT, "ref<commerce.Order>", "commerce"),
     )
     assert result is not None
-    decl_line = next(i for i, l in enumerate(REF_TYPE_TEXT.splitlines()) if "event Order @ 1" in l)
+    decl_line = next(i for i, line in enumerate(REF_TYPE_TEXT.splitlines()) if "event Order @ 1" in line)
     assert result.range.start.line == decl_line
 
 
@@ -168,7 +168,7 @@ domain catalog {
     state = parsed_workspace(text)
     result = definition(state, URI, position_of(text, "ref<commerce.Product>", "Product"))
     assert result is not None
-    decl_line = next(i for i, l in enumerate(text.splitlines()) if "entity Product @ 2" in l)
+    decl_line = next(i for i, line in enumerate(text.splitlines()) if "entity Product @ 2" in line)
     assert result.range.start.line == decl_line
 
 
@@ -181,7 +181,7 @@ def test_definition_cross_file_finds_target_in_other_document() -> None:
     )
     assert result is not None
     assert result.uri == CROSS_FILE_DECL_URI
-    decl_line = next(i for i, l in enumerate(CROSS_FILE_DECL_TEXT.splitlines()) if "entity Customer @ 1" in l)
+    decl_line = next(i for i, line in enumerate(CROSS_FILE_DECL_TEXT.splitlines()) if "entity Customer @ 1" in line)
     assert result.range.start.line == decl_line
 
 
@@ -207,7 +207,7 @@ def test_definition_omits_changed_semantic_target() -> None:
 def test_definition_returns_none_for_unknown_symbol() -> None:
     state = parsed_workspace()
     lines = WORKSPACE_TEXT.splitlines()
-    line = next(i for i, l in enumerate(lines) if "owner:" in l)
+    line = next(i for i, line in enumerate(lines) if "owner:" in line)
     result = definition(state, URI, LanguagePosition(line, 4))
     assert result is None
 
@@ -256,5 +256,5 @@ domain billing {
         position_of(text, "😀 from sales.Customer", "Customer"),
     )
     assert result is not None
-    decl_line = next(i for i, l in enumerate(text.splitlines()) if "entity Customer @ 1" in l)
+    decl_line = next(i for i, line in enumerate(text.splitlines()) if "entity Customer @ 1" in line)
     assert result.range.start.line == decl_line
