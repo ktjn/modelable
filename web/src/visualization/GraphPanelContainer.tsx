@@ -29,8 +29,21 @@ export const GraphPanelContainer = memo(function GraphPanelContainer({
   const [graphResult, setGraphResult] =
     useState<BrowserGraphResult | null>(null);
   const [graphMode, setGraphMode] = useState<BrowserGraphMode>('domain');
+  const [mounted, setMounted] = useState(false);
   const graphModeRef = useRef(graphMode);
   graphModeRef.current = graphMode;
+
+  useEffect(() => {
+    if (!runtimeReady || mounted) return;
+    let cancelled = false;
+    const id = setTimeout(() => {
+      if (!cancelled) setMounted(true);
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, [runtimeReady, mounted]);
 
   const fetchGraph = useCallback(() => {
     const client = clientRef.current;
@@ -48,8 +61,11 @@ export const GraphPanelContainer = memo(function GraphPanelContainer({
   }, [clientRef, runtimeReady, workspaceRevisionRef]);
 
   useEffect(() => {
+    if (!mounted) return;
     fetchGraph();
-  }, [fetchGraph, graphMode]);
+  }, [fetchGraph, graphMode, mounted]);
+
+  if (!mounted) return null;
 
   return (
     <Suspense fallback={null}>

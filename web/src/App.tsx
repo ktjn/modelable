@@ -140,6 +140,8 @@ export function App({
     'Language services starting…',
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
+  const [mobileView, setMobileView] = useState<'source' | 'graph'>('source');
+  const [graphCollapsed, setGraphCollapsed] = useState(false);
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const languageControllerRef =
@@ -713,7 +715,28 @@ export function App({
           </button>
         ) : null}
       </nav>
-      <section className="workspace" aria-label="Modelable workspace">
+      <nav className="view-tabs" aria-label="View">
+        <button
+          type="button"
+          className={`view-tab${mobileView === 'source' ? ' view-tab--active' : ''}`}
+          aria-pressed={mobileView === 'source'}
+          onClick={() => setMobileView('source')}
+        >
+          Source
+        </button>
+        <button
+          type="button"
+          className={`view-tab${mobileView === 'graph' ? ' view-tab--active' : ''}`}
+          aria-pressed={mobileView === 'graph'}
+          onClick={() => setMobileView('graph')}
+        >
+          Graph
+        </button>
+      </nav>
+      <section
+        className={`workspace${mobileView === 'graph' ? ' workspace--mobile-hidden' : ''}`}
+        aria-label="Modelable workspace"
+      >
         <section
           className="source-pane"
           id="source-editor"
@@ -849,7 +872,7 @@ export function App({
         </section>
       </section>
       <section
-        className="graph-pane"
+        className={`graph-pane${mobileView === 'source' ? ' graph-pane--mobile-hidden' : ''}${graphCollapsed ? ' graph-pane--collapsed' : ''}`}
         aria-label="Model graph visualization"
         data-testid="graph"
       >
@@ -858,12 +881,22 @@ export function App({
             <p className="pane-index">Graph 03</p>
             <h2>Model graph</h2>
           </div>
+          <button
+            type="button"
+            className="graph-pane__toggle"
+            aria-expanded={!graphCollapsed}
+            onClick={() => setGraphCollapsed((collapsed) => !collapsed)}
+          >
+            {graphCollapsed ? 'Show graph' : 'Hide graph'}
+          </button>
         </div>
-        <GraphPanelContainer
-          clientRef={clientRef}
-          runtimeReady={state.runtime === 'ready'}
-          workspaceRevisionRef={workspaceRevisionRef}
-        />
+        {mobileView === 'graph' || !graphCollapsed ? (
+          <GraphPanelContainer
+            clientRef={clientRef}
+            runtimeReady={state.runtime === 'ready'}
+            workspaceRevisionRef={workspaceRevisionRef}
+          />
+        ) : null}
       </section>
       <footer
         className="metrics-strip"

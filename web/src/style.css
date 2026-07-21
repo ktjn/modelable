@@ -199,13 +199,29 @@ button:disabled {
   overflow: hidden;
 }
 
+.view-tabs {
+  display: none;
+}
+
 .graph-pane {
   border-top: 1px solid var(--graphite);
   padding: clamp(1rem, 2vw, 1.75rem);
 }
 
+.graph-pane--collapsed .graph-panel {
+  display: none;
+}
+
 .graph-pane .graph-panel {
   min-height: 20rem;
+  resize: vertical;
+  overflow: hidden;
+}
+
+.graph-pane__toggle {
+  min-height: 2rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.72rem;
 }
 
 .source-pane {
@@ -520,9 +536,37 @@ select {
     text-align: left;
   }
 
+  .view-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--graphite);
+  }
+
+  .view-tab {
+    flex: 1;
+    min-height: 2.75rem;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
+    color: var(--muted);
+    background: var(--workbench);
+    font-size: 0.8rem;
+    font-weight: 650;
+  }
+
+  .view-tab--active {
+    color: var(--graphite);
+    background: var(--paper);
+    border-bottom-color: var(--signal);
+  }
+
   .workspace {
     display: flex;
     flex-direction: column;
+  }
+
+  .workspace--mobile-hidden {
+    display: none;
   }
 
   .source-pane {
@@ -556,6 +600,22 @@ select {
 
   .workspace-file-actions label {
     white-space: nowrap;
+  }
+
+  .graph-pane {
+    border-top: 0;
+  }
+
+  .graph-pane--mobile-hidden {
+    display: none;
+  }
+
+  .graph-pane--collapsed .graph-panel {
+    display: block;
+  }
+
+  .graph-pane__toggle {
+    display: none;
   }
 
   .metrics-strip {
@@ -663,19 +723,34 @@ select {
   text-overflow: ellipsis;
 }
 
+.graph-node__kind {
+  display: inline-block;
+  margin-right: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: baseline;
+  opacity: 0.7;
+}
+
 .graph-node--domain {
   background: var(--workbench);
   border-color: var(--muted);
   font-weight: 600;
+  border-left: 4px solid var(--muted);
 }
 
 .graph-node--entity {
   border-color: var(--signal);
   border-width: 2px;
+  border-left: 4px solid var(--signal);
 }
 
 .graph-node--version {
   border-style: dashed;
+  border-left-style: solid;
+  border-left-width: 4px;
   font-size: 0.6875rem;
   color: var(--muted);
 }
@@ -684,11 +759,13 @@ select {
   font-size: 0.6875rem;
   color: var(--graphite);
   border-color: var(--rule);
+  border-left: 4px solid var(--rule);
 }
 
 .graph-node--projection {
   border-color: var(--verified);
   border-width: 2px;
+  border-left: 4px solid var(--verified);
 }
 
 .graph-edge--contains {

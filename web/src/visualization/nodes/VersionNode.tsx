@@ -10,6 +10,7 @@ export function VersionNode({ data }: NodeProps<GraphNode>) {
     <div className="graph-node graph-node--version" role="treeitem" aria-label={`Version ${version}${suffix}`}>
       <Handle type="target" position={Position.Top} />
       <div className="graph-node__label">
+        <span className="graph-node__kind" aria-hidden="true">V</span>
         v{String(version ?? data.label)}{suffix}
       </div>
       <Handle type="source" position={Position.Bottom} />
