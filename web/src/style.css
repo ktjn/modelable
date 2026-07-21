@@ -188,7 +188,7 @@ button:disabled {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) minmax(0, 0.75fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   min-height: calc(100vh - 14rem);
 }
 
@@ -201,14 +201,27 @@ button:disabled {
 }
 
 .graph-pane {
-  border-left: 1px solid var(--graphite);
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--graphite);
   display: flex;
   flex-direction: column;
+  min-height: 20rem;
 }
 
 .graph-pane .graph-panel {
   flex: 1;
-  min-height: 20rem;
+}
+
+@media (min-width: 80rem) {
+  .workspace {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) minmax(0, 0.75fr);
+  }
+
+  .graph-pane {
+    grid-column: auto;
+    border-top: 0;
+    border-left: 1px solid var(--graphite);
+  }
 }
 
 .source-pane {
@@ -595,12 +608,6 @@ select {
   .artifact-pane,
   .graph-pane {
     padding-inline: 0.75rem;
-  }
-
-  .graph-pane {
-    border-left: 0;
-    border-top: 1px solid var(--graphite);
-    min-height: 24rem;
   }
 }
 
