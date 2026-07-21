@@ -57,15 +57,7 @@ def _safe_locations(
     workspace: LanguageWorkspace,
     locations: Iterable[LanguageLocation],
 ) -> tuple[LanguageLocation, ...]:
-    return tuple(
-        sorted(
-            {
-                location
-                for location in locations
-                if workspace.is_location_current(location)
-            }
-        )
-    )
+    return tuple(sorted({location for location in locations if workspace.is_location_current(location)}))
 
 
 def _resolve_references(
@@ -108,10 +100,20 @@ def _resolve_references(
 
     if kind == "model":
         return _references_for_source_field(
-            semantic, domain_name, name, version, word, include_declaration,
+            semantic,
+            domain_name,
+            name,
+            version,
+            word,
+            include_declaration,
         )
     return _references_for_projection_field(
-        semantic, domain_name, name, version, word, include_declaration,
+        semantic,
+        domain_name,
+        name,
+        version,
+        word,
+        include_declaration,
     )
 
 
@@ -155,7 +157,12 @@ def _references_for_field_reference(
     domain_name, kind, name, version = scope
     if kind == "model":
         return _references_for_source_field(
-            workspace, domain_name, name, version, field_name, include_declaration,
+            workspace,
+            domain_name,
+            name,
+            version,
+            field_name,
+            include_declaration,
         )
 
     domain = next((d for d in workspace.mdl.domains if d.name == domain_name), None)
@@ -188,7 +195,12 @@ def _references_for_field_reference(
 
     if include_declaration:
         location = _find_field_location(
-            workspace, domain_name, "projection", name, version, field_name,
+            workspace,
+            domain_name,
+            "projection",
+            name,
+            version,
+            field_name,
         )
         return [location] if location is not None else []
     return []
@@ -285,7 +297,12 @@ def _references_for_projection_field(
     include_declaration: bool,
 ) -> list[LanguageLocation]:
     return _references_for_source_field(
-        workspace, domain_name, projection_name, version, field_name, include_declaration,
+        workspace,
+        domain_name,
+        projection_name,
+        version,
+        field_name,
+        include_declaration,
     )
 
 

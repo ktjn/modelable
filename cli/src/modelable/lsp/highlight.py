@@ -19,11 +19,7 @@ def build_document_highlight(
         return None
 
     usage_refs = language_references(index.language, uri, position, include_declaration=False)
-    usage_keys = {
-        (loc.range.start.line, loc.range.start.character)
-        for loc in usage_refs
-        if loc.uri == uri
-    }
+    usage_keys = {(loc.range.start.line, loc.range.start.character) for loc in usage_refs if loc.uri == uri}
 
     highlights: list[types.DocumentHighlight] = []
     for loc in all_refs:
