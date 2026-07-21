@@ -177,7 +177,7 @@ def test_references_returns_empty_for_out_of_range() -> None:
 
 
 def test_references_with_utf16_position() -> None:
-    text = """
+    base_text = """
 domain sales {
   owner: "test-team"
   entity Customer @ 1 (additive) {
@@ -188,17 +188,22 @@ domain sales {
 domain billing {
   owner: "test-team"
   projection BillingCustomer @ 1
-    😀 from sales.Customer @ 1 as c
+    from sales.Customer @ 1 as c
   {
     billingId <- c.customerId
   }
 }
 """.strip("\n")
-    state = parsed_workspace(text)
+    edited_text = base_text.replace(
+        "    from sales.Customer @ 1 as c",
+        "    😀 from sales.Customer @ 1 as c",
+    )
+    state = parsed_workspace(base_text)
+    state.synchronize(2, (LanguageDocument.from_text(URI, edited_text, 2),))
     result = references(
         state,
         URI,
-        position_of(text, "😀 from sales.Customer", "Customer"),
+        position_of(edited_text, "😀 from sales.Customer", "Customer"),
         include_declaration=True,
     )
     assert len(result) >= 1
