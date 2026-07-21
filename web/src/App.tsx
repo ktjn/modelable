@@ -144,6 +144,7 @@ export function App({
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const [graphResult, setGraphResult] = useState<BrowserGraphResult | null>(null);
   const [graphMode, setGraphMode] = useState<BrowserGraphMode>('domain');
+  const fetchGraphRef = useRef<() => void>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const languageControllerRef =
     useRef<BrowserLanguageServiceController>(null);
@@ -419,6 +420,7 @@ export function App({
         }
       } finally {
         operationPendingRef.current = false;
+        fetchGraphRef.current?.();
       }
     },
     [now, state.runtime],
@@ -450,10 +452,11 @@ export function App({
       () => {},
     );
   }, [state.runtime]);
+  fetchGraphRef.current = fetchGraph;
 
   useEffect(() => {
     fetchGraph();
-  }, [fetchGraph, graphMode, state.workspace.revision]);
+  }, [fetchGraph, graphMode]);
 
   const replaceWorkspace = useCallback(
     (workspace: PlaygroundWorkspace, immediate = false): void => {
@@ -869,23 +872,23 @@ export function App({
           ) : null}
           <ArtifactEditor value={selectedArtifact?.content ?? ''} />
         </section>
-        <section
-          className="graph-pane"
-          aria-label="Model graph visualization"
-          data-testid="graph"
-        >
-          <div className="pane-heading">
-            <div>
-              <p className="pane-index">Graph 03</p>
-              <h2>Model graph</h2>
-            </div>
+      </section>
+      <section
+        className="graph-pane"
+        aria-label="Model graph visualization"
+        data-testid="graph"
+      >
+        <div className="pane-heading">
+          <div>
+            <p className="pane-index">Graph 03</p>
+            <h2>Model graph</h2>
           </div>
-          <GraphPanel
-            graphResult={graphResult}
-            mode={graphMode}
-            onModeChange={setGraphMode}
-          />
-        </section>
+        </div>
+        <GraphPanel
+          graphResult={graphResult}
+          mode={graphMode}
+          onModeChange={setGraphMode}
+        />
       </section>
       <footer
         className="metrics-strip"

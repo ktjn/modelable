@@ -193,35 +193,19 @@ button:disabled {
 }
 
 .source-pane,
-.artifact-pane,
-.graph-pane {
+.artifact-pane {
   min-width: 0;
   padding: clamp(1rem, 2vw, 1.75rem);
   overflow: hidden;
 }
 
 .graph-pane {
-  grid-column: 1 / -1;
   border-top: 1px solid var(--graphite);
-  display: flex;
-  flex-direction: column;
-  min-height: 20rem;
+  padding: clamp(1rem, 2vw, 1.75rem);
 }
 
 .graph-pane .graph-panel {
-  flex: 1;
-}
-
-@media (min-width: 80rem) {
-  .workspace {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) minmax(0, 0.75fr);
-  }
-
-  .graph-pane {
-    grid-column: auto;
-    border-top: 0;
-    border-left: 1px solid var(--graphite);
-  }
+  min-height: 20rem;
 }
 
 .source-pane {
@@ -605,8 +589,7 @@ select {
   }
 
   .source-pane,
-  .artifact-pane,
-  .graph-pane {
+  .artifact-pane {
     padding-inline: 0.75rem;
   }
 }
