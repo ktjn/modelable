@@ -9,6 +9,7 @@ from modelable.browser.dto import (
     BrowserDefinitionResult,
     BrowserDiagnostic,
     BrowserFormatResult,
+    BrowserGraphResult,
     BrowserHoverResult,
     BrowserLanguagePosition,
     BrowserPreparedRenameResult,
@@ -18,6 +19,7 @@ from modelable.browser.dto import (
     BrowserWorkspaceResult,
 )
 from modelable.browser.errors import BrowserLanguageError, BrowserRequestValidationError
+from modelable.browser.graph import build_browser_graph
 from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import (
     Workspace,
@@ -204,6 +206,18 @@ class BrowserCompiler:
         except InvalidRenameError as error:
             raise BrowserLanguageError("INVALID_RENAME") from error
         return BrowserRenameResult(edit=result)
+
+    def graph(
+        self,
+        workspace_revision: int,
+        mode: str,
+    ) -> BrowserGraphResult:
+        if workspace_revision != self.language.revision:
+            raise BrowserLanguageError("STALE_WORKSPACE")
+        semantic = self.language.semantic_workspace()
+        if semantic is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        return build_browser_graph(semantic, mode, workspace_revision)
 
     def _validate_language_request(
         self,

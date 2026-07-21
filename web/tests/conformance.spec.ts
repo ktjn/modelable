@@ -63,6 +63,18 @@ type TestClient = {
       }[];
     };
   }>;
+  graph(
+    workspaceRevision: number,
+    mode: string,
+  ): Promise<{
+    workspace_revision: number;
+    mode: string;
+    graph: {
+      schema_version: number;
+      nodes: { id: string; kind: string; label: string }[];
+      edges: { id: string; source: string; target: string; kind: string }[];
+    };
+  }>;
 };
 
 const scenarios = {
@@ -293,6 +305,64 @@ test('protocol v2 exposes definition, references, prepareRename, and rename', as
   expect(result.rename.edit.edits[0]!.new_text).toBe('Client');
 });
 
+test('workspace.graph returns domain and entity mode graphs', async ({
+  page,
+}) => {
+  await page.goto('?test=1');
+  await waitForCompiler(page);
+  const result = await page.evaluate(async () => {
+    const client = (
+      globalThis as typeof globalThis & {
+        __modelableBrowserCompiler?: TestClient;
+      }
+    ).__modelableBrowserCompiler;
+    if (client === undefined) {
+      throw new Error('Test client was not exposed');
+    }
+    const source: Source = {
+      uri: 'file:///customer.mdl',
+      text: [
+        'domain customer {',
+        '  owner: "team"',
+        '  entity Customer @ 1 (additive) {',
+        '    @key customer_id: uuid',
+        '    customer_name: string',
+        '  }',
+        '}',
+      ].join('\n'),
+      version: 1,
+    };
+    const workspaceRevision = 300;
+    await client.openWorkspace(workspaceRevision, [source]);
+
+    const entity = await client.graph(workspaceRevision, 'entity');
+    const domain = await client.graph(workspaceRevision, 'domain');
+    return { entity, domain };
+  });
+
+  expect(result.entity.workspace_revision).toBe(300);
+  expect(result.entity.mode).toBe('entity');
+  expect(result.entity.graph.schema_version).toBe(1);
+  expect(result.entity.graph.nodes.length).toBeGreaterThan(0);
+  expect(result.entity.graph.edges.length).toBeGreaterThan(0);
+  const entityKinds = new Set(
+    result.entity.graph.nodes.map((n: { kind: string }) => n.kind),
+  );
+  expect(entityKinds).toContain('domain');
+  expect(entityKinds).toContain('entity');
+  expect(entityKinds).toContain('version');
+  expect(entityKinds).toContain('field');
+
+  expect(result.domain.mode).toBe('domain');
+  const domainKinds = new Set(
+    result.domain.graph.nodes.map((n: { kind: string }) => n.kind),
+  );
+  expect(domainKinds).toContain('domain');
+  expect(domainKinds).toContain('entity');
+  expect(domainKinds).not.toContain('version');
+  expect(domainKinds).not.toContain('field');
+});
+
 test('browser compiler stays within initialization and operation budgets', async ({
   browser,
 }, testInfo) => {
@@ -341,6 +411,7 @@ test('browser compiler stays within initialization and operation budgets', async
       const references: number[] = [];
       const prepareRename: number[] = [];
       const rename: number[] = [];
+      const graph: number[] = [];
       const languagePosition = {
         workspaceRevision: 100,
         uri: sources[0]!.uri,
@@ -386,6 +457,10 @@ test('browser compiler stays within initialization and operation budgets', async
         started = performance.now();
         await client.rename(renamePosition, `Client${index}`);
         rename.push(performance.now() - started);
+
+        started = performance.now();
+        await client.graph(languagePosition.workspaceRevision, 'entity');
+        graph.push(performance.now() - started);
       }
       return {
         validate,
@@ -396,6 +471,7 @@ test('browser compiler stays within initialization and operation budgets', async
         references,
         prepareRename,
         rename,
+        graph,
       };
     });
 
@@ -410,6 +486,7 @@ test('browser compiler stays within initialization and operation budgets', async
       referencesMedian: median(operationTimings.references),
       prepareRenameMedian: median(operationTimings.prepareRename),
       renameMedian: median(operationTimings.rename),
+      graphMedian: median(operationTimings.graph),
       coldPageReadyMedian: median(cold.pageReady),
       cachedPageReadyMedian: median(cachedPageReady),
     };
@@ -434,6 +511,7 @@ test('browser compiler stays within initialization and operation budgets', async
     expect(medians.referencesMedian).toBeLessThanOrEqual(150);
     expect(medians.prepareRenameMedian).toBeLessThanOrEqual(250);
     expect(medians.renameMedian).toBeLessThanOrEqual(250);
+    expect(medians.graphMedian).toBeLessThanOrEqual(200);
   } finally {
     try {
       finishCachedRequestAudit();

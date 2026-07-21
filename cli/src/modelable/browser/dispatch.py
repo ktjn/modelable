@@ -10,6 +10,7 @@ from modelable.browser.dto import (
     BrowserCompletionResult,
     BrowserDefinitionResult,
     BrowserFormatResult,
+    BrowserGraphResult,
     BrowserHoverResult,
     BrowserLanguagePosition,
     BrowserPreparedRenameResult,
@@ -30,6 +31,7 @@ _METHODS = {
     "language.references",
     "language.prepareRename",
     "language.rename",
+    "workspace.graph",
 }
 _SOURCE_FIELDS = {"uri", "text", "version"}
 _LANGUAGE_POSITION_FIELDS = {
@@ -38,6 +40,7 @@ _LANGUAGE_POSITION_FIELDS = {
     "line",
     "character",
 }
+_GRAPH_MODES = {"domain", "entity"}
 _ERROR_MESSAGES = {
     "INVALID_REQUEST": "Payload does not match method schema",
     "STALE_WORKSPACE": "Requested workspace revision is not current",
@@ -129,6 +132,7 @@ _DispatchResult = (
     | BrowserReferencesResult
     | BrowserPreparedRenameResult
     | BrowserRenameResult
+    | BrowserGraphResult
 )
 
 
@@ -165,6 +169,12 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
         if not isinstance(new_name, str):
             raise BrowserRequestValidationError("newName must be a string")
         return _compiler.rename(request, new_name)
+    if method == "workspace.graph":
+        _require_exact_fields(payload, {"workspaceRevision", "mode"})
+        mode = payload["mode"]
+        if not isinstance(mode, str) or mode not in _GRAPH_MODES:
+            raise BrowserRequestValidationError("mode must be 'domain' or 'entity'")
+        return _compiler.graph(_integer(payload["workspaceRevision"]), mode)
     raise AssertionError(f"Unsupported validated browser compiler method: {method}")
 
 
