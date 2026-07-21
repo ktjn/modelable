@@ -26,6 +26,7 @@ INCLUDE_TREES = (
     "expressions",
     "governance",
     "grammar",
+    "graph",
     "language",
     "parser",
     "planner",
