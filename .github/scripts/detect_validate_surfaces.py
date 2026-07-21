@@ -14,6 +14,7 @@ _BROWSER_PACKAGE_TREES = (
     "expressions",
     "governance",
     "grammar",
+    "graph",
     "language",
     "parser",
     "planner",
