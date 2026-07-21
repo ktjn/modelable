@@ -3,7 +3,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from modelable.language.dto import LanguageCompletion, LanguageHover
+from modelable.language.dto import (
+    LanguageCompletion,
+    LanguageHover,
+    LanguageLocation,
+    LanguagePreparedRename,
+    LanguageWorkspaceEdit,
+)
 
 
 @dataclass(frozen=True)
@@ -62,6 +68,26 @@ class BrowserHoverResult:
 class BrowserFormatResult:
     diagnostics: tuple[BrowserDiagnostic, ...]
     replacement_text: str | None
+
+
+@dataclass(frozen=True)
+class BrowserDefinitionResult:
+    location: LanguageLocation | None
+
+
+@dataclass(frozen=True)
+class BrowserReferencesResult:
+    locations: tuple[LanguageLocation, ...]
+
+
+@dataclass(frozen=True)
+class BrowserPreparedRenameResult:
+    prepared: LanguagePreparedRename | None
+
+
+@dataclass(frozen=True)
+class BrowserRenameResult:
+    edit: LanguageWorkspaceEdit
 
 
 @dataclass(frozen=True)
