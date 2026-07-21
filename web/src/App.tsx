@@ -43,6 +43,7 @@ import {
   IndexedDbWorkspaceRepository,
   type WorkspaceRepository,
 } from './workspace-repository';
+import { GraphPanelContainer } from './visualization/GraphPanelContainer';
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
 const createWorkspaceRepository = (): WorkspaceRepository => {
@@ -139,6 +140,8 @@ export function App({
     'Language services starting…',
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
+  const [mobileView, setMobileView] = useState<'source' | 'graph'>('source');
+  const [graphCollapsed, setGraphCollapsed] = useState(true);
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const languageControllerRef =
@@ -147,6 +150,8 @@ export function App({
   const recoveryPendingRef = useRef(false);
   const workspaceRef = useRef(state.workspace);
   workspaceRef.current = state.workspace;
+  const workspaceRevisionRef = useRef(state.workspace.revision);
+  workspaceRevisionRef.current = state.workspace.revision;
 
   useEffect(() => {
     if (workspaceRef.current !== persistentWorkspace.workspace) {
@@ -710,7 +715,28 @@ export function App({
           </button>
         ) : null}
       </nav>
-      <section className="workspace" aria-label="Modelable workspace">
+      <nav className="view-tabs" aria-label="View">
+        <button
+          type="button"
+          className={`view-tab${mobileView === 'source' ? ' view-tab--active' : ''}`}
+          aria-pressed={mobileView === 'source'}
+          onClick={() => setMobileView('source')}
+        >
+          Source
+        </button>
+        <button
+          type="button"
+          className={`view-tab${mobileView === 'graph' ? ' view-tab--active' : ''}`}
+          aria-pressed={mobileView === 'graph'}
+          onClick={() => setMobileView('graph')}
+        >
+          Graph
+        </button>
+      </nav>
+      <section
+        className={`workspace${mobileView === 'graph' ? ' workspace--mobile-hidden' : ''}`}
+        aria-label="Modelable workspace"
+      >
         <section
           className="source-pane"
           id="source-editor"
@@ -844,6 +870,33 @@ export function App({
           ) : null}
           <ArtifactEditor value={selectedArtifact?.content ?? ''} />
         </section>
+      </section>
+      <section
+        className={`graph-pane${mobileView === 'source' ? ' graph-pane--mobile-hidden' : ''}${graphCollapsed ? ' graph-pane--collapsed' : ''}`}
+        aria-label="Model graph visualization"
+        data-testid="graph"
+      >
+        <div className="pane-heading">
+          <div>
+            <p className="pane-index">Graph 03</p>
+            <h2>Model graph</h2>
+          </div>
+          <button
+            type="button"
+            className="graph-pane__toggle"
+            aria-expanded={!graphCollapsed}
+            onClick={() => setGraphCollapsed((collapsed) => !collapsed)}
+          >
+            {graphCollapsed ? 'Show graph' : 'Hide graph'}
+          </button>
+        </div>
+        {mobileView === 'graph' || !graphCollapsed ? (
+          <GraphPanelContainer
+            clientRef={clientRef}
+            runtimeReady={state.runtime === 'ready'}
+            workspaceRevisionRef={workspaceRevisionRef}
+          />
+        ) : null}
       </section>
       <footer
         className="metrics-strip"

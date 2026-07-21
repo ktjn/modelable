@@ -43,8 +43,8 @@ import type {
   WorkspaceSaveResult,
 } from './workspace-repository';
 
-vi.mock('./visualization/GraphPanel', () => ({
-  GraphPanel: () => null,
+vi.mock('./visualization/GraphPanelContainer', () => ({
+  GraphPanelContainer: () => null,
 }));
 
 const sourceEditorSpies = vi.hoisted(() => ({

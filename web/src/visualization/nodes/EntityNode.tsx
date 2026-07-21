@@ -6,7 +6,10 @@ export function EntityNode({ data }: NodeProps<GraphNode>) {
   return (
     <div className="graph-node graph-node--entity" role="treeitem" aria-label={`Entity: ${data.label}`}>
       <Handle type="target" position={Position.Top} />
-      <div className="graph-node__label">{data.label}</div>
+      <div className="graph-node__label">
+        <span className="graph-node__kind" aria-hidden="true">E</span>
+        {data.label}
+      </div>
       <Handle type="source" position={Position.Bottom} />
     </div>
   );
