@@ -1,0 +1,63 @@
+import {
+  lazy,
+  memo,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+
+import type { BrowserCompilerClientLike } from '../client';
+import type { BrowserGraphMode, BrowserGraphResult } from '../protocol';
+
+const GraphPanel = lazy(() =>
+  import('./GraphPanel').then((m) => ({ default: m.GraphPanel })),
+);
+
+export interface GraphPanelContainerProps {
+  clientRef: React.RefObject<BrowserCompilerClientLike | null>;
+  runtimeReady: boolean;
+  workspaceRevisionRef: React.RefObject<number>;
+}
+
+export const GraphPanelContainer = memo(function GraphPanelContainer({
+  clientRef,
+  runtimeReady,
+  workspaceRevisionRef,
+}: GraphPanelContainerProps) {
+  const [graphResult, setGraphResult] =
+    useState<BrowserGraphResult | null>(null);
+  const [graphMode, setGraphMode] = useState<BrowserGraphMode>('domain');
+  const graphModeRef = useRef(graphMode);
+  graphModeRef.current = graphMode;
+
+  const fetchGraph = useCallback(() => {
+    const client = clientRef.current;
+    if (client === null || !runtimeReady) return;
+    void client
+      .graph(workspaceRevisionRef.current, graphModeRef.current)
+      .then(
+        (result) => {
+          if (clientRef.current === client) {
+            setGraphResult(result);
+          }
+        },
+        () => {},
+      );
+  }, [clientRef, runtimeReady, workspaceRevisionRef]);
+
+  useEffect(() => {
+    fetchGraph();
+  }, [fetchGraph, graphMode]);
+
+  return (
+    <Suspense fallback={null}>
+      <GraphPanel
+        graphResult={graphResult}
+        mode={graphMode}
+        onModeChange={setGraphMode}
+      />
+    </Suspense>
+  );
+});

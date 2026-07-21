@@ -43,6 +43,7 @@ import {
   IndexedDbWorkspaceRepository,
   type WorkspaceRepository,
 } from './workspace-repository';
+import { GraphPanelContainer } from './visualization/GraphPanelContainer';
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
 const createWorkspaceRepository = (): WorkspaceRepository => {
@@ -147,6 +148,8 @@ export function App({
   const recoveryPendingRef = useRef(false);
   const workspaceRef = useRef(state.workspace);
   workspaceRef.current = state.workspace;
+  const workspaceRevisionRef = useRef(state.workspace.revision);
+  workspaceRevisionRef.current = state.workspace.revision;
 
   useEffect(() => {
     if (workspaceRef.current !== persistentWorkspace.workspace) {
@@ -844,6 +847,23 @@ export function App({
           ) : null}
           <ArtifactEditor value={selectedArtifact?.content ?? ''} />
         </section>
+      </section>
+      <section
+        className="graph-pane"
+        aria-label="Model graph visualization"
+        data-testid="graph"
+      >
+        <div className="pane-heading">
+          <div>
+            <p className="pane-index">Graph 03</p>
+            <h2>Model graph</h2>
+          </div>
+        </div>
+        <GraphPanelContainer
+          clientRef={clientRef}
+          runtimeReady={state.runtime === 'ready'}
+          workspaceRevisionRef={workspaceRevisionRef}
+        />
       </section>
       <footer
         className="metrics-strip"
