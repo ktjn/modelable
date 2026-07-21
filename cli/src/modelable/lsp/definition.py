@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from lsprotocol import types
 
+from modelable.compiler.workspace import Workspace
 from modelable.language.definition import definition as language_definition
 from modelable.language.dto import LanguageLocation, LanguagePosition, LanguageRange
 from modelable.lsp.workspace import LspWorkspaceIndex
@@ -23,7 +24,7 @@ def build_definition(
     return to_lsp_location(result)
 
 
-def definition_location_for_ref(workspace, ref: str) -> types.Location | None:
+def definition_location_for_ref(workspace: Workspace, ref: str) -> types.Location | None:
     from modelable.language.definition import _definition_for_qualified_ref
 
     location = _definition_for_qualified_ref(workspace, ref)

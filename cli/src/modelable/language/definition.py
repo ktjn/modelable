@@ -7,6 +7,7 @@ from modelable.language.dto import LanguageLocation, LanguagePosition, LanguageR
 from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
 from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import parse_model_ref
+from modelable.parser.ir import JoinRef, SourceRef
 from modelable.registry.resolver import resolve_model_ref
 
 _QUALIFIED_REF_PATTERN = re.compile(
@@ -127,11 +128,11 @@ def _definition_for_unversioned_ref(workspace: Workspace, domain_name: str, name
     if domain is None:
         return None
     if name in domain.models:
-        latest = max(domain.models[name], key=lambda v: v.version)
-        return _definition_for_decl(workspace, domain_name, "model", name, latest.version)
+        latest_model = max(domain.models[name], key=lambda v: v.version)
+        return _definition_for_decl(workspace, domain_name, "model", name, latest_model.version)
     if name in domain.projections:
-        latest = max(domain.projections[name], key=lambda v: v.version)
-        return _definition_for_decl(workspace, domain_name, "projection", name, latest.version)
+        latest_proj = max(domain.projections[name], key=lambda v: v.version)
+        return _definition_for_decl(workspace, domain_name, "projection", name, latest_proj.version)
     return None
 
 
@@ -159,7 +160,8 @@ def _definition_for_field_reference(
     if projection_version is None:
         return None
 
-    for source_ref in [projection_version.source, *projection_version.joins]:
+    all_sources: list[SourceRef | JoinRef] = [projection_version.source, *projection_version.joins]
+    for source_ref in all_sources:
         if source_ref.alias != alias:
             continue
         try:

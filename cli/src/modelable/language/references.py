@@ -8,6 +8,7 @@ from modelable.language.dto import LanguageLocation, LanguagePosition, LanguageR
 from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
 from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import parse_model_ref
+from modelable.parser.ir import JoinRef, ModelVersion, ProjectionVersion, SourceRef
 from modelable.registry.resolver import resolve_model_ref
 
 _QUALIFIED_REF_PATTERN = re.compile(
@@ -173,7 +174,8 @@ def _references_for_field_reference(
     if projection_version is None:
         return []
 
-    for source_ref in [projection_version.source, *projection_version.joins]:
+    all_sources: list[SourceRef | JoinRef] = [projection_version.source, *projection_version.joins]
+    for source_ref in all_sources:
         if source_ref.alias != alias:
             continue
         try:
@@ -351,7 +353,8 @@ def _projection_aliases(
         return {}
 
     aliases: dict[str, tuple[str, str, int]] = {}
-    for source_ref in [projection_version.source, *projection_version.joins]:
+    all_sources: list[SourceRef | JoinRef] = [projection_version.source, *projection_version.joins]
+    for source_ref in all_sources:
         try:
             resolved = resolve_model_ref(workspace.mdl, source_ref.model, source_ref.version)
         except LookupError:
@@ -371,16 +374,18 @@ def _field_exists(workspace: Workspace, domain_name: str, model_name: str, versi
     return any(field.name == field_name for field in getattr(source_version, "fields", []))
 
 
-def _source_version(workspace: Workspace, domain_name: str, model_name: str, version: int):
+def _source_version(
+    workspace: Workspace, domain_name: str, model_name: str, version: int
+) -> ModelVersion | ProjectionVersion | None:
     domain = next((item for item in workspace.mdl.domains if item.name == domain_name), None)
     if domain is None:
         return None
-    versions = domain.models.get(model_name, [])
-    source_version = next((item for item in versions if item.version == version), None)
+    model_versions = domain.models.get(model_name, [])
+    source_version = next((item for item in model_versions if item.version == version), None)
     if source_version is not None:
         return source_version
-    versions = domain.projections.get(model_name, [])
-    return next((item for item in versions if item.version == version), None)
+    proj_versions = domain.projections.get(model_name, [])
+    return next((item for item in proj_versions if item.version == version), None)
 
 
 def _find_source_field_location(
