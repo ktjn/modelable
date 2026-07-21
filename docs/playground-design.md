@@ -1,9 +1,10 @@
 # Modelable Playground Architecture
 
-> **Status:** Long-term product vision with Phase 1 shipped. The completed
-> [Browser Compiler WASM Spike — Design](https://github.com/ktjn/modelable/blob/main/docs/superpowers/specs/archived/2026-07-18-browser-compiler-wasm-spike-design.md)
-> is archived. Editor, visualization, persistence, local AI, offline, and
-> plugin phases remain deferred.
+> **Status:** Long-term product vision with Phases 1–4 shipped. The browser
+> compiler, single-file editor, multi-file workspace with persistence, and
+> browser-native language services (completion, hover, definition, references,
+> rename) are all archived. Visualization/analysis is the active next slice;
+> local AI, offline, and plugin phases remain deferred.
 
 ## 1. Purpose
 
@@ -1002,7 +1003,7 @@ compiler client and controller together.
 - Full Phase 3b browser acceptance and closeout.
 
 The accepted scope and delivery boundary are documented in
-[Playground Browser Language Services — Design](superpowers/specs/2026-07-20-playground-browser-language-services-design.md).
+[Playground Browser Language Services — Design](superpowers/specs/archived/2026-07-20-playground-browser-language-services-design.md).
 
 No additional ADR is required for Phase 3b: direct Monaco-to-compiler RPC and
 shared compiler-owned language semantics are already accepted Playground

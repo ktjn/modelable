@@ -5,7 +5,7 @@
 Accepted on 2026-07-20.
 
 Execution is broken into reviewable tasks in the
-[Playground Browser Language Services implementation plan](../plans/2026-07-20-playground-browser-language-services.md).
+[Playground Browser Language Services implementation plan](../../plans/archived/2026-07-20-playground-browser-language-services.md).
 
 This specification defines Phase 3b of the
 [Modelable Playground architecture](../../playground-design.md). It builds on
