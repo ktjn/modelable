@@ -2,6 +2,10 @@ import { describe, expect, test } from 'vitest';
 
 import {
   BROWSER_COMPILER_PROTOCOL_VERSION,
+  isBrowserAiExplainResult,
+  isBrowserAiGenerateResult,
+  isBrowserAiPendingResult,
+  isBrowserAiResult,
   isBrowserCompatibilityResult,
   isBrowserCompletionResult,
   isBrowserCompilerRequest,
@@ -454,5 +458,146 @@ describe('isBrowserGovernanceResult', () => {
 
   test('rejects non-object', () => {
     expect(isBrowserGovernanceResult(null)).toBe(false);
+  });
+});
+
+describe('isBrowserAiPendingResult', () => {
+  const valid = {
+    status: 'pending_llm',
+    llm_request: {
+      system: 'You are a helper.',
+      user: 'Generate an entity.',
+      temperature: 0.2,
+      response_format: 'text',
+    },
+  };
+
+  test('accepts valid pending result', () => {
+    expect(isBrowserAiPendingResult(valid)).toBe(true);
+  });
+
+  test('rejects wrong status', () => {
+    expect(isBrowserAiPendingResult({ ...valid, status: 'ready' })).toBe(false);
+  });
+
+  test('rejects missing llm_request', () => {
+    expect(isBrowserAiPendingResult({ status: 'pending_llm' })).toBe(false);
+  });
+
+  test('rejects non-object', () => {
+    expect(isBrowserAiPendingResult(null)).toBe(false);
+  });
+});
+
+describe('isBrowserAiGenerateResult', () => {
+  const valid = {
+    source: 'domain example\n  entity Foo @1\n    fooId uuid @key',
+    diagnostics: [],
+  };
+
+  test('accepts valid generate result', () => {
+    expect(isBrowserAiGenerateResult(valid)).toBe(true);
+  });
+
+  test('accepts result with diagnostics', () => {
+    expect(
+      isBrowserAiGenerateResult({
+        source: 'invalid',
+        diagnostics: [
+          {
+            code: 'PARSE',
+            severity: 'error',
+            message: 'Unexpected token',
+            uri: 'ai-generated.mdl',
+            line: 1,
+            column: 0,
+            end_line: null,
+            end_column: null,
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  test('rejects missing source', () => {
+    expect(isBrowserAiGenerateResult({ diagnostics: [] })).toBe(false);
+  });
+
+  test('rejects non-object', () => {
+    expect(isBrowserAiGenerateResult(null)).toBe(false);
+  });
+});
+
+describe('isBrowserAiExplainResult', () => {
+  test('accepts valid explain result', () => {
+    expect(
+      isBrowserAiExplainResult({ explanation: 'This model represents...' }),
+    ).toBe(true);
+  });
+
+  test('rejects missing explanation', () => {
+    expect(isBrowserAiExplainResult({})).toBe(false);
+  });
+
+  test('rejects non-string explanation', () => {
+    expect(isBrowserAiExplainResult({ explanation: 42 })).toBe(false);
+  });
+
+  test('rejects non-object', () => {
+    expect(isBrowserAiExplainResult(null)).toBe(false);
+  });
+});
+
+describe('isBrowserAiResult', () => {
+  test('accepts pending result', () => {
+    expect(
+      isBrowserAiResult({
+        status: 'pending_llm',
+        llm_request: {
+          system: 's',
+          user: 'u',
+          temperature: 0.2,
+          response_format: 'text',
+        },
+      }),
+    ).toBe(true);
+  });
+
+  test('accepts generate result', () => {
+    expect(
+      isBrowserAiResult({ source: 'domain d\n  entity E @1', diagnostics: [] }),
+    ).toBe(true);
+  });
+
+  test('accepts explain result', () => {
+    expect(isBrowserAiResult({ explanation: 'text' })).toBe(true);
+  });
+
+  test('rejects unknown shape', () => {
+    expect(isBrowserAiResult({ unknown: true })).toBe(false);
+  });
+});
+
+describe('isBrowserCompilerRequest with AI methods', () => {
+  test('accepts ai.generate method', () => {
+    expect(
+      isBrowserCompilerRequest({
+        protocolVersion: BROWSER_COMPILER_PROTOCOL_VERSION,
+        id: 'req-1',
+        method: 'ai.generate',
+        payload: {},
+      }),
+    ).toBe(true);
+  });
+
+  test('accepts ai.explain method', () => {
+    expect(
+      isBrowserCompilerRequest({
+        protocolVersion: BROWSER_COMPILER_PROTOCOL_VERSION,
+        id: 'req-2',
+        method: 'ai.explain',
+        payload: {},
+      }),
+    ).toBe(true);
   });
 });

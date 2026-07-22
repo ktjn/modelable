@@ -1,5 +1,9 @@
 import {
   BROWSER_COMPILER_PROTOCOL_VERSION,
+  type BrowserAiExplainResult,
+  type BrowserAiGenerateResult,
+  type BrowserAiPendingResult,
+  type BrowserAiResult,
   type BrowserCompileResult,
   type BrowserCompatibilityResult,
   type BrowserCompletionResult,
@@ -20,6 +24,10 @@ import {
   type BrowserResultGuard,
   type BrowserSource,
   type BrowserWorkspaceResult,
+  isBrowserAiExplainResult,
+  isBrowserAiGenerateResult,
+  isBrowserAiPendingResult,
+  isBrowserAiResult,
   isBrowserCompileResult,
   isBrowserCompatibilityResult,
   isBrowserCompletionResult,
@@ -35,6 +43,7 @@ import {
   isBrowserRenameResult,
   isBrowserWorkspaceResult,
 } from './protocol';
+import type { AiExplainParameters, AiGenerateAction, AiGenerateParameters, LlmProvider } from './ai/types';
 
 export interface WorkerLike {
   postMessage(message: BrowserCompilerRequest): void;
@@ -268,6 +277,80 @@ export class BrowserCompilerClient {
     );
   }
 
+  async aiGenerate(
+    workspaceRevision: number,
+    action: AiGenerateAction,
+    parameters: AiGenerateParameters,
+    provider: LlmProvider,
+  ): Promise<BrowserAiGenerateResult> {
+    const pendingResult = await this.initializedRequest<BrowserAiResult>(
+      'ai.generate',
+      { workspaceRevision, action, parameters },
+      isBrowserAiResult,
+    );
+    if (!isBrowserAiPendingResult(pendingResult)) {
+      if (isBrowserAiGenerateResult(pendingResult)) {
+        return pendingResult;
+      }
+      throw new BrowserCompilerError(
+        'COMPILER_FAILED',
+        'Unexpected AI result type',
+      );
+    }
+    const llmResponse = await provider.complete({
+      system: pendingResult.llm_request.system,
+      user: pendingResult.llm_request.user,
+      temperature: pendingResult.llm_request.temperature,
+      responseFormat: pendingResult.llm_request.response_format === 'json' ? 'json' : 'text',
+    });
+    return this.initializedRequest<BrowserAiGenerateResult>(
+      'ai.generate',
+      {
+        workspaceRevision,
+        action,
+        parameters,
+        llmResponseContent: llmResponse.content,
+      },
+      isBrowserAiGenerateResult,
+    );
+  }
+
+  async aiExplain(
+    workspaceRevision: number,
+    parameters: AiExplainParameters,
+    provider: LlmProvider,
+  ): Promise<BrowserAiExplainResult> {
+    const pendingResult = await this.initializedRequest<BrowserAiResult>(
+      'ai.explain',
+      { workspaceRevision, parameters },
+      isBrowserAiResult,
+    );
+    if (!isBrowserAiPendingResult(pendingResult)) {
+      if (isBrowserAiExplainResult(pendingResult)) {
+        return pendingResult;
+      }
+      throw new BrowserCompilerError(
+        'COMPILER_FAILED',
+        'Unexpected AI result type',
+      );
+    }
+    const llmResponse = await provider.complete({
+      system: pendingResult.llm_request.system,
+      user: pendingResult.llm_request.user,
+      temperature: pendingResult.llm_request.temperature,
+      responseFormat: pendingResult.llm_request.response_format === 'json' ? 'json' : 'text',
+    });
+    return this.initializedRequest<BrowserAiExplainResult>(
+      'ai.explain',
+      {
+        workspaceRevision,
+        parameters,
+        llmResponseContent: llmResponse.content,
+      },
+      isBrowserAiExplainResult,
+    );
+  }
+
   dispose(): void {
     this.transitionToTerminal(
       new BrowserCompilerError(
@@ -347,6 +430,8 @@ export type BrowserCompilerClientLike = Pick<
   | 'lineage'
   | 'compatibility'
   | 'governance'
+  | 'aiGenerate'
+  | 'aiExplain'
   | 'dispose'
 >;
 

@@ -211,3 +211,27 @@ class BrowserGovernanceFinding:
 class BrowserGovernanceResult:
     workspace_revision: int
     findings: tuple[BrowserGovernanceFinding, ...]
+
+
+@dataclass(frozen=True)
+class BrowserLlmRequest:
+    system: str
+    user: str
+    temperature: float
+    response_format: str
+
+
+@dataclass(frozen=True)
+class BrowserAiPendingResult:
+    llm_request: BrowserLlmRequest
+
+
+@dataclass(frozen=True)
+class BrowserAiGenerateResult:
+    source: str
+    diagnostics: tuple[BrowserDiagnostic, ...]
+
+
+@dataclass(frozen=True)
+class BrowserAiExplainResult:
+    explanation: str

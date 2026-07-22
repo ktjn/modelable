@@ -2,8 +2,18 @@ from __future__ import annotations
 
 from types import MappingProxyType
 
+from modelable.browser.ai import (
+    build_explain_request,
+    build_generate_entity_request,
+    build_suggest_projection_request,
+    parse_explain_result,
+    parse_generate_result,
+)
 from modelable.browser.compatibility import build_browser_compatibility
 from modelable.browser.dto import (
+    BrowserAiExplainResult,
+    BrowserAiGenerateResult,
+    BrowserAiPendingResult,
     BrowserArtifact,
     BrowserCompatibilityResult,
     BrowserCompileResult,
@@ -257,6 +267,54 @@ class BrowserCompiler:
         if semantic is None:
             raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
         return build_browser_governance(semantic, workspace_revision)
+
+    def ai_generate(
+        self,
+        workspace_revision: int,
+        action: str,
+        parameters: dict[str, object],
+        llm_response_content: str | None,
+    ) -> BrowserAiPendingResult | BrowserAiGenerateResult:
+        if workspace_revision != self.language.revision:
+            raise BrowserLanguageError("STALE_WORKSPACE")
+
+        if llm_response_content is None:
+            if action == "generate_entity":
+                return build_generate_entity_request(
+                    self.language,
+                    description=str(parameters.get("description", "")),
+                    domain_name=parameters.get("domainName"),  # type: ignore[arg-type]
+                    model_name=parameters.get("modelName"),  # type: ignore[arg-type]
+                )
+            if action == "suggest_projection":
+                return build_suggest_projection_request(
+                    self.language,
+                    source_ref=str(parameters.get("sourceRef", "")),
+                    consumer_domain=str(parameters.get("consumerDomain", "")),
+                )
+            raise BrowserRequestValidationError(f"Unknown generate action: {action}")
+
+        return parse_generate_result(llm_response_content)
+
+    def ai_explain(
+        self,
+        workspace_revision: int,
+        parameters: dict[str, object],
+        llm_response_content: str | None,
+    ) -> BrowserAiPendingResult | BrowserAiExplainResult:
+        if workspace_revision != self.language.revision:
+            raise BrowserLanguageError("STALE_WORKSPACE")
+
+        if llm_response_content is None:
+            ref = parameters.get("ref")
+            diagnostic_index = parameters.get("diagnosticIndex")
+            return build_explain_request(
+                self.language,
+                ref=str(ref) if ref is not None else None,
+                diagnostic_index=int(diagnostic_index) if diagnostic_index is not None else None,
+            )
+
+        return parse_explain_result(llm_response_content)
 
     def _validate_language_request(
         self,

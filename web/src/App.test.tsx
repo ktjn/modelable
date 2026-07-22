@@ -239,6 +239,8 @@ class FakeCompilerClient {
       findings: [],
     }),
   );
+  readonly aiGenerate = vi.fn();
+  readonly aiExplain = vi.fn();
   readonly dispose = vi.fn();
 }
 

@@ -6,6 +6,9 @@ from typing import Any
 
 from modelable.browser.api import BrowserCompiler
 from modelable.browser.dto import (
+    BrowserAiExplainResult,
+    BrowserAiGenerateResult,
+    BrowserAiPendingResult,
     BrowserCompatibilityResult,
     BrowserCompileResult,
     BrowserCompletionResult,
@@ -38,6 +41,8 @@ _METHODS = {
     "workspace.lineage",
     "workspace.compatibility",
     "workspace.governance",
+    "ai.generate",
+    "ai.explain",
 }
 _SOURCE_FIELDS = {"uri", "text", "version"}
 _LANGUAGE_POSITION_FIELDS = {
@@ -47,6 +52,7 @@ _LANGUAGE_POSITION_FIELDS = {
     "character",
 }
 _GRAPH_MODES = {"domain", "entity"}
+_AI_GENERATE_ACTIONS = {"generate_entity", "suggest_projection"}
 _ERROR_MESSAGES = {
     "INVALID_REQUEST": "Payload does not match method schema",
     "STALE_WORKSPACE": "Requested workspace revision is not current",
@@ -142,6 +148,9 @@ _DispatchResult = (
     | BrowserLineageResult
     | BrowserCompatibilityResult
     | BrowserGovernanceResult
+    | BrowserAiPendingResult
+    | BrowserAiGenerateResult
+    | BrowserAiExplainResult
 )
 
 
@@ -193,6 +202,40 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
     if method == "workspace.governance":
         _require_exact_fields(payload, {"workspaceRevision"})
         return _compiler.governance(_integer(payload["workspaceRevision"]))
+    if method == "ai.generate":
+        allowed = {"workspaceRevision", "action", "parameters", "llmResponseContent"}
+        if set(payload) - allowed or "workspaceRevision" not in payload or "action" not in payload:
+            raise BrowserRequestValidationError("Payload does not match method schema")
+        action = payload["action"]
+        if not isinstance(action, str) or action not in _AI_GENERATE_ACTIONS:
+            raise BrowserRequestValidationError("action must be a valid generate action")
+        parameters = payload.get("parameters", {})
+        if not isinstance(parameters, dict):
+            raise BrowserRequestValidationError("parameters must be an object")
+        llm_response = payload.get("llmResponseContent")
+        if llm_response is not None and not isinstance(llm_response, str):
+            raise BrowserRequestValidationError("llmResponseContent must be a string or null")
+        return _compiler.ai_generate(
+            _integer(payload["workspaceRevision"]),
+            action,
+            parameters,
+            llm_response,
+        )
+    if method == "ai.explain":
+        allowed = {"workspaceRevision", "parameters", "llmResponseContent"}
+        if set(payload) - allowed or "workspaceRevision" not in payload:
+            raise BrowserRequestValidationError("Payload does not match method schema")
+        parameters = payload.get("parameters", {})
+        if not isinstance(parameters, dict):
+            raise BrowserRequestValidationError("parameters must be an object")
+        llm_response = payload.get("llmResponseContent")
+        if llm_response is not None and not isinstance(llm_response, str):
+            raise BrowserRequestValidationError("llmResponseContent must be a string or null")
+        return _compiler.ai_explain(
+            _integer(payload["workspaceRevision"]),
+            parameters,
+            llm_response,
+        )
     raise AssertionError(f"Unsupported validated browser compiler method: {method}")
 
 
@@ -202,6 +245,11 @@ def _serialize_result(result: _DispatchResult) -> dict[str, Any]:
             "workspace_revision": result.workspace_revision,
             "diagnostics": [asdict(diagnostic) for diagnostic in result.diagnostics],
             "source_hashes": dict(result.source_hashes),
+        }
+    if isinstance(result, BrowserAiPendingResult):
+        return {
+            "status": "pending_llm",
+            "llm_request": asdict(result.llm_request),
         }
     return asdict(result)
 

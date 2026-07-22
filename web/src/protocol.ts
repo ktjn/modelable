@@ -14,7 +14,9 @@ export type BrowserCompilerMethod =
   | 'workspace.graph'
   | 'workspace.lineage'
   | 'workspace.compatibility'
-  | 'workspace.governance';
+  | 'workspace.governance'
+  | 'ai.generate'
+  | 'ai.explain';
 
 export type BrowserCompilerErrorCode =
   | 'INITIALIZATION_FAILED'
@@ -285,6 +287,32 @@ export interface BrowserGovernanceResult {
   findings: BrowserGovernanceFinding[];
 }
 
+export interface BrowserLlmRequest {
+  system: string;
+  user: string;
+  temperature: number;
+  response_format: string;
+}
+
+export interface BrowserAiPendingResult {
+  status: 'pending_llm';
+  llm_request: BrowserLlmRequest;
+}
+
+export interface BrowserAiGenerateResult {
+  source: string;
+  diagnostics: BrowserDiagnostic[];
+}
+
+export interface BrowserAiExplainResult {
+  explanation: string;
+}
+
+export type BrowserAiResult =
+  | BrowserAiPendingResult
+  | BrowserAiGenerateResult
+  | BrowserAiExplainResult;
+
 export type BrowserResultGuard<T> = (value: unknown) => value is T;
 
 const methods = new Set<BrowserCompilerMethod>([
@@ -302,6 +330,8 @@ const methods = new Set<BrowserCompilerMethod>([
   'workspace.lineage',
   'workspace.compatibility',
   'workspace.governance',
+  'ai.generate',
+  'ai.explain',
 ]);
 
 const errorCodes = new Set<BrowserCompilerErrorCode>([
@@ -796,6 +826,62 @@ export function isBrowserGovernanceResult(
     isIntegerAtLeast(value.workspace_revision, 1) &&
     Array.isArray(value.findings) &&
     value.findings.every(isBrowserGovernanceFinding)
+  );
+}
+
+function isBrowserLlmRequest(
+  value: unknown,
+): value is BrowserLlmRequest {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['system', 'user', 'temperature', 'response_format']) &&
+    typeof value.system === 'string' &&
+    typeof value.user === 'string' &&
+    typeof value.temperature === 'number' &&
+    typeof value.response_format === 'string'
+  );
+}
+
+export function isBrowserAiPendingResult(
+  value: unknown,
+): value is BrowserAiPendingResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['status', 'llm_request']) &&
+    value.status === 'pending_llm' &&
+    isBrowserLlmRequest(value.llm_request)
+  );
+}
+
+export function isBrowserAiGenerateResult(
+  value: unknown,
+): value is BrowserAiGenerateResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['source', 'diagnostics']) &&
+    typeof value.source === 'string' &&
+    Array.isArray(value.diagnostics) &&
+    value.diagnostics.every(isBrowserDiagnostic)
+  );
+}
+
+export function isBrowserAiExplainResult(
+  value: unknown,
+): value is BrowserAiExplainResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['explanation']) &&
+    typeof value.explanation === 'string'
+  );
+}
+
+export function isBrowserAiResult(
+  value: unknown,
+): value is BrowserAiResult {
+  return (
+    isBrowserAiPendingResult(value) ||
+    isBrowserAiGenerateResult(value) ||
+    isBrowserAiExplainResult(value)
   );
 }
 
