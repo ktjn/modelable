@@ -10,6 +10,7 @@ import '@xyflow/react/dist/style.css';
 
 import type { BrowserGraphResult, BrowserGraphMode } from '../protocol';
 import type { GraphNode } from './graph-types';
+import { useGraphExport } from './useGraphExport';
 import { useGraphLayout } from './useGraphLayout';
 import { useGraphSync } from './useGraphSync';
 import { edgeTypes, nodeTypes } from './registry';
@@ -31,6 +32,7 @@ function GraphPanelInner({
   cursorLine = null,
   onRevealRange,
 }: GraphPanelProps) {
+  const { containerRef, exportSvg, exportPng } = useGraphExport();
   const { nodes, edges, loading } = useGraphLayout(graphResult);
   const { selectedNodeId, onNodeClick } = useGraphSync(
     nodes,
@@ -63,8 +65,23 @@ function GraphPanelInner({
         >
           Entity
         </button>
+        <span className="graph-panel__toolbar-spacer" />
+        <button
+          className="graph-panel__export-btn"
+          onClick={exportSvg}
+          disabled={nodes.length === 0}
+        >
+          Export SVG
+        </button>
+        <button
+          className="graph-panel__export-btn"
+          onClick={exportPng}
+          disabled={nodes.length === 0}
+        >
+          Export PNG
+        </button>
       </div>
-      <div className="graph-panel__canvas">
+      <div className="graph-panel__canvas" ref={containerRef}>
         {loading && (
           <div className="graph-panel__loading" aria-live="polite">
             Laying out graph...
