@@ -166,7 +166,7 @@ def _strip_code_fences(text: str) -> str:
         lines = lines[1:]
     if lines and lines[-1].strip() == "```":
         lines = lines[:-1]
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n" if lines else ""
 
 
 def _validate_source(source: str) -> tuple[BrowserDiagnostic, ...]:
