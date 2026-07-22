@@ -307,11 +307,12 @@ class BrowserCompiler:
 
         if llm_response_content is None:
             ref = parameters.get("ref")
-            diagnostic_index = parameters.get("diagnosticIndex")
+            raw_index = parameters.get("diagnosticIndex")
+            diag_index: int | None = int(raw_index) if isinstance(raw_index, (int, float, str)) else None
             return build_explain_request(
                 self.language,
                 ref=str(ref) if ref is not None else None,
-                diagnostic_index=int(diagnostic_index) if diagnostic_index is not None else None,  # type: ignore[arg-type]
+                diagnostic_index=diag_index,
             )
 
         return parse_explain_result(llm_response_content)
