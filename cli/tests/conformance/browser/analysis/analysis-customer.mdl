@@ -1,0 +1,19 @@
+domain customer {
+  owner: "customer-platform"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    legalName: string
+    createdAt: timestamp
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    legalName: string
+    @pii
+    email?: string
+    @classification("confidential")
+    riskScore?: decimal(18, 2)
+    createdAt: timestamp
+  }
+}

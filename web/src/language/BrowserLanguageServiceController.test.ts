@@ -121,6 +121,25 @@ class FakeClient implements BrowserCompilerClientLike {
       graph: { schema_version: 1, nodes: [], edges: [] },
     }),
   );
+  readonly lineage = vi.fn(
+    async (_workspaceRevision: number) => ({
+      workspace_revision: _workspaceRevision,
+      projections: [],
+    }),
+  );
+  readonly compatibility = vi.fn(
+    async (_workspaceRevision: number) => ({
+      workspace_revision: _workspaceRevision,
+      reports: [],
+      impacts: [],
+    }),
+  );
+  readonly governance = vi.fn(
+    async (_workspaceRevision: number) => ({
+      workspace_revision: _workspaceRevision,
+      findings: [],
+    }),
+  );
   readonly formatSource = vi.fn();
   readonly compileJsonSchema = vi.fn();
   readonly dispose = vi.fn();

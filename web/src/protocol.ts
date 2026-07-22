@@ -11,7 +11,10 @@ export type BrowserCompilerMethod =
   | 'language.references'
   | 'language.prepareRename'
   | 'language.rename'
-  | 'workspace.graph';
+  | 'workspace.graph'
+  | 'workspace.lineage'
+  | 'workspace.compatibility'
+  | 'workspace.governance';
 
 export type BrowserCompilerErrorCode =
   | 'INITIALIZATION_FAILED'
@@ -217,6 +220,71 @@ export interface BrowserGraphResult {
   graph: BrowserGraph;
 }
 
+export interface BrowserFieldLineage {
+  field_name: string;
+  kind: 'direct' | 'computed';
+  lineage: string[];
+  expression: string | null;
+}
+
+export interface BrowserProjectionLineage {
+  domain: string;
+  projection: string;
+  version: number;
+  fields: BrowserFieldLineage[];
+}
+
+export interface BrowserLineageResult {
+  workspace_revision: number;
+  projections: BrowserProjectionLineage[];
+}
+
+export interface BrowserFieldChange {
+  kind: string;
+  field_name: string;
+  previous_name: string | null;
+  replacement: string | null;
+  from_optional: boolean | null;
+  to_optional: boolean | null;
+  from_type: string | null;
+  to_type: string | null;
+}
+
+export interface BrowserCompatibilityReport {
+  domain_name: string;
+  model_name: string;
+  from_version: number;
+  to_version: number;
+  status: string;
+  findings: string[];
+  changes: BrowserFieldChange[];
+}
+
+export interface BrowserProjectionImpact {
+  domain_name: string;
+  projection_name: string;
+  version: number;
+  status: string;
+  reason: string | null;
+}
+
+export interface BrowserCompatibilityResult {
+  workspace_revision: number;
+  reports: BrowserCompatibilityReport[];
+  impacts: BrowserProjectionImpact[];
+}
+
+export interface BrowserGovernanceFinding {
+  code: string;
+  subject: string;
+  message: string;
+}
+
+export interface BrowserGovernanceResult {
+  workspace_revision: number;
+  findings: BrowserGovernanceFinding[];
+}
+
 export type BrowserResultGuard<T> = (value: unknown) => value is T;
 
 const methods = new Set<BrowserCompilerMethod>([
@@ -231,6 +299,9 @@ const methods = new Set<BrowserCompilerMethod>([
   'language.prepareRename',
   'language.rename',
   'workspace.graph',
+  'workspace.lineage',
+  'workspace.compatibility',
+  'workspace.governance',
 ]);
 
 const errorCodes = new Set<BrowserCompilerErrorCode>([
@@ -605,6 +676,126 @@ export function isBrowserGraphResult(
     value.graph.nodes.every(isBrowserGraphNode) &&
     Array.isArray(value.graph.edges) &&
     value.graph.edges.every(isBrowserGraphEdge)
+  );
+}
+
+function isBrowserFieldLineage(value: unknown): value is BrowserFieldLineage {
+  return (
+    isRecord(value) &&
+    typeof value.field_name === 'string' &&
+    (value.kind === 'direct' || value.kind === 'computed') &&
+    isStringArray(value.lineage) &&
+    isNullableString(value.expression)
+  );
+}
+
+function isBrowserProjectionLineage(
+  value: unknown,
+): value is BrowserProjectionLineage {
+  return (
+    isRecord(value) &&
+    typeof value.domain === 'string' &&
+    typeof value.projection === 'string' &&
+    isIntegerAtLeast(value.version, 1) &&
+    Array.isArray(value.fields) &&
+    value.fields.every(isBrowserFieldLineage)
+  );
+}
+
+export function isBrowserLineageResult(
+  value: unknown,
+): value is BrowserLineageResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['workspace_revision', 'projections']) &&
+    isIntegerAtLeast(value.workspace_revision, 1) &&
+    Array.isArray(value.projections) &&
+    value.projections.every(isBrowserProjectionLineage)
+  );
+}
+
+function isNullableBoolean(value: unknown): value is boolean | null {
+  return value === null || typeof value === 'boolean';
+}
+
+function isBrowserFieldChange(value: unknown): value is BrowserFieldChange {
+  return (
+    isRecord(value) &&
+    typeof value.kind === 'string' &&
+    typeof value.field_name === 'string' &&
+    isNullableString(value.previous_name) &&
+    isNullableString(value.replacement) &&
+    isNullableBoolean(value.from_optional) &&
+    isNullableBoolean(value.to_optional) &&
+    isNullableString(value.from_type) &&
+    isNullableString(value.to_type)
+  );
+}
+
+function isBrowserCompatibilityReport(
+  value: unknown,
+): value is BrowserCompatibilityReport {
+  return (
+    isRecord(value) &&
+    typeof value.domain_name === 'string' &&
+    typeof value.model_name === 'string' &&
+    isIntegerAtLeast(value.from_version, 1) &&
+    isIntegerAtLeast(value.to_version, 1) &&
+    typeof value.status === 'string' &&
+    isStringArray(value.findings) &&
+    Array.isArray(value.changes) &&
+    value.changes.every(isBrowserFieldChange)
+  );
+}
+
+function isBrowserProjectionImpact(
+  value: unknown,
+): value is BrowserProjectionImpact {
+  return (
+    isRecord(value) &&
+    typeof value.domain_name === 'string' &&
+    typeof value.projection_name === 'string' &&
+    isIntegerAtLeast(value.version, 1) &&
+    typeof value.status === 'string' &&
+    isNullableString(value.reason)
+  );
+}
+
+export function isBrowserCompatibilityResult(
+  value: unknown,
+): value is BrowserCompatibilityResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['workspace_revision', 'reports', 'impacts']) &&
+    isIntegerAtLeast(value.workspace_revision, 1) &&
+    Array.isArray(value.reports) &&
+    value.reports.every(isBrowserCompatibilityReport) &&
+    Array.isArray(value.impacts) &&
+    value.impacts.every(isBrowserProjectionImpact)
+  );
+}
+
+function isBrowserGovernanceFinding(
+  value: unknown,
+): value is BrowserGovernanceFinding {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['code', 'subject', 'message']) &&
+    typeof value.code === 'string' &&
+    typeof value.subject === 'string' &&
+    typeof value.message === 'string'
+  );
+}
+
+export function isBrowserGovernanceResult(
+  value: unknown,
+): value is BrowserGovernanceResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['workspace_revision', 'findings']) &&
+    isIntegerAtLeast(value.workspace_revision, 1) &&
+    Array.isArray(value.findings) &&
+    value.findings.every(isBrowserGovernanceFinding)
   );
 }
 

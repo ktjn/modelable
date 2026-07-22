@@ -2,12 +2,15 @@ import { describe, expect, test } from 'vitest';
 
 import {
   BROWSER_COMPILER_PROTOCOL_VERSION,
+  isBrowserCompatibilityResult,
   isBrowserCompletionResult,
   isBrowserCompilerRequest,
   isBrowserCompilerResponse,
   isBrowserDefinitionResult,
+  isBrowserGovernanceResult,
   isBrowserHoverResult,
   isBrowserLanguageLocation,
+  isBrowserLineageResult,
   isBrowserPreparedRenameResult,
   isBrowserReferencesResult,
   isBrowserRenameResult,
@@ -313,5 +316,143 @@ describe('browser protocol v2 result guards', () => {
         },
       }),
     ).toBe(false);
+  });
+});
+
+describe('isBrowserLineageResult', () => {
+  const valid = {
+    workspace_revision: 100,
+    projections: [
+      {
+        domain: 'billing',
+        projection: 'BillingCustomer',
+        version: 1,
+        fields: [
+          {
+            field_name: 'id',
+            kind: 'direct' as const,
+            lineage: ['customer.Customer@2.customerId'],
+            expression: null,
+          },
+        ],
+      },
+    ],
+  };
+
+  test('accepts valid lineage result', () => {
+    expect(isBrowserLineageResult(valid)).toBe(true);
+  });
+
+  test('accepts empty projections', () => {
+    expect(
+      isBrowserLineageResult({ workspace_revision: 1, projections: [] }),
+    ).toBe(true);
+  });
+
+  test('rejects missing workspace_revision', () => {
+    expect(isBrowserLineageResult({ projections: [] })).toBe(false);
+  });
+
+  test('rejects invalid field kind', () => {
+    const projection = valid.projections[0]!;
+    const field = projection.fields[0]!;
+    const invalid = {
+      ...valid,
+      projections: [
+        {
+          ...projection,
+          fields: [{ ...field, kind: 'unknown' }],
+        },
+      ],
+    };
+    expect(isBrowserLineageResult(invalid)).toBe(false);
+  });
+});
+
+describe('isBrowserCompatibilityResult', () => {
+  const valid = {
+    workspace_revision: 100,
+    reports: [
+      {
+        domain_name: 'customer',
+        model_name: 'Customer',
+        from_version: 1,
+        to_version: 2,
+        status: 'compatible',
+        findings: ['added_field email'],
+        changes: [
+          {
+            kind: 'added_field',
+            field_name: 'email',
+            previous_name: null,
+            replacement: null,
+            from_optional: null,
+            to_optional: true,
+            from_type: null,
+            to_type: '"string"',
+          },
+        ],
+      },
+    ],
+    impacts: [],
+  };
+
+  test('accepts valid compatibility result', () => {
+    expect(isBrowserCompatibilityResult(valid)).toBe(true);
+  });
+
+  test('accepts empty reports and impacts', () => {
+    expect(
+      isBrowserCompatibilityResult({
+        workspace_revision: 1,
+        reports: [],
+        impacts: [],
+      }),
+    ).toBe(true);
+  });
+
+  test('rejects missing impacts', () => {
+    expect(
+      isBrowserCompatibilityResult({
+        workspace_revision: 1,
+        reports: [],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('isBrowserGovernanceResult', () => {
+  const valid = {
+    workspace_revision: 100,
+    findings: [
+      {
+        code: 'missing_project_grant',
+        subject: 'billing.BillingCustomer@1',
+        message: 'billing.BillingCustomer@1 has no documented project grant',
+      },
+    ],
+  };
+
+  test('accepts valid governance result', () => {
+    expect(isBrowserGovernanceResult(valid)).toBe(true);
+  });
+
+  test('accepts empty findings', () => {
+    expect(
+      isBrowserGovernanceResult({ workspace_revision: 1, findings: [] }),
+    ).toBe(true);
+  });
+
+  test('rejects finding with extra fields', () => {
+    expect(
+      isBrowserGovernanceResult({
+        workspace_revision: 1,
+        findings: [{ ...valid.findings[0], extra: true }],
+      }),
+    ).toBe(false);
+  });
+
+  test('rejects non-object', () => {
+    expect(isBrowserGovernanceResult(null)).toBe(false);
   });
 });

@@ -1,16 +1,19 @@
 import {
   BROWSER_COMPILER_PROTOCOL_VERSION,
   type BrowserCompileResult,
+  type BrowserCompatibilityResult,
   type BrowserCompletionResult,
   type BrowserCompilerErrorCode,
   type BrowserCompilerMethod,
   type BrowserCompilerRequest,
   type BrowserDefinitionResult,
   type BrowserFormatResult,
+  type BrowserGovernanceResult,
   type BrowserGraphMode,
   type BrowserGraphResult,
   type BrowserHoverResult,
   type BrowserLanguagePosition,
+  type BrowserLineageResult,
   type BrowserPreparedRenameResult,
   type BrowserReferencesResult,
   type BrowserRenameResult,
@@ -18,12 +21,15 @@ import {
   type BrowserSource,
   type BrowserWorkspaceResult,
   isBrowserCompileResult,
+  isBrowserCompatibilityResult,
   isBrowserCompletionResult,
   isBrowserCompilerResponse,
   isBrowserDefinitionResult,
   isBrowserFormatResult,
+  isBrowserGovernanceResult,
   isBrowserGraphResult,
   isBrowserHoverResult,
+  isBrowserLineageResult,
   isBrowserPreparedRenameResult,
   isBrowserReferencesResult,
   isBrowserRenameResult,
@@ -236,6 +242,32 @@ export class BrowserCompilerClient {
     );
   }
 
+  lineage(workspaceRevision: number): Promise<BrowserLineageResult> {
+    return this.initializedRequest(
+      'workspace.lineage',
+      { workspaceRevision },
+      isBrowserLineageResult,
+    );
+  }
+
+  compatibility(
+    workspaceRevision: number,
+  ): Promise<BrowserCompatibilityResult> {
+    return this.initializedRequest(
+      'workspace.compatibility',
+      { workspaceRevision },
+      isBrowserCompatibilityResult,
+    );
+  }
+
+  governance(workspaceRevision: number): Promise<BrowserGovernanceResult> {
+    return this.initializedRequest(
+      'workspace.governance',
+      { workspaceRevision },
+      isBrowserGovernanceResult,
+    );
+  }
+
   dispose(): void {
     this.transitionToTerminal(
       new BrowserCompilerError(
@@ -312,6 +344,9 @@ export type BrowserCompilerClientLike = Pick<
   | 'prepareRename'
   | 'rename'
   | 'graph'
+  | 'lineage'
+  | 'compatibility'
+  | 'governance'
   | 'dispose'
 >;
 
