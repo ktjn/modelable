@@ -142,6 +142,8 @@ class FakeClient implements BrowserCompilerClientLike {
   );
   readonly formatSource = vi.fn();
   readonly compileJsonSchema = vi.fn();
+  readonly aiGenerate = vi.fn();
+  readonly aiExplain = vi.fn();
   readonly dispose = vi.fn();
 }
 
