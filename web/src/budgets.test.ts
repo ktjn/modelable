@@ -35,7 +35,7 @@ afterEach(async () => {
 
 describe('browser asset budgets', () => {
   test('reports named Monaco bundles outside the enforced application budget', () => {
-    expect(REPORT_ONLY).toEqual(['monaco']);
+    expect(REPORT_ONLY).toEqual(['monaco', 'aiWorker']);
     for (const path of [
       'assets/monaco-ABC.js',
       'assets/editor.worker-ABC.js',
@@ -45,6 +45,7 @@ describe('browser asset budgets', () => {
       expect(categorizeAsset(path)).toBe('monaco');
     }
     expect(categorizeAsset('assets/monaco-ABC.css')).toBe('application');
+    expect(categorizeAsset('assets/ai.worker-ABC.js')).toBe('aiWorker');
   });
 
   test.each([
@@ -91,6 +92,7 @@ describe('browser asset budgets', () => {
       application: BUDGETS.application,
       additionalPython: BUDGETS.additionalPython + 42,
       monaco: Number.MAX_SAFE_INTEGER,
+      aiWorker: Number.MAX_SAFE_INTEGER,
     };
 
     expect(findViolations(measured)).toEqual([
@@ -105,6 +107,7 @@ describe('browser asset budgets', () => {
       application: BUDGETS.application + 1,
       additionalPython: BUDGETS.additionalPython,
       monaco: 0,
+      aiWorker: 0,
     };
 
     expect(findViolations(measured)).toEqual(['application']);
@@ -123,6 +126,7 @@ describe('browser asset budgets', () => {
         'self.onmessage = () => "json";',
       ),
       'workers/compiler/nested-worker.js': Buffer.from('self.onmessage = () => {};'),
+      'workers/ai.worker-ABC.js': Buffer.from('self.onmessage = () => "ai";'),
       'styles/themes/index-ABC.css': Buffer.from('main { color: rebeccapurple; }'),
       'python/releases/modelable_browser-1.2.1-py3-none-any.whl':
         Buffer.from('modelable wheel bytes'),
@@ -161,6 +165,9 @@ describe('browser asset budgets', () => {
         assets['workers/editor.worker-ABC.js'],
         assets['workers/json.worker-ABC.js'],
       ].reduce((total, bytes) => total + gzipSync(bytes).byteLength, 0),
+      aiWorker: gzipSync(
+        assets['workers/ai.worker-ABC.js'],
+      ).byteLength,
     });
   });
 
@@ -187,6 +194,7 @@ describe('browser asset budgets', () => {
       application: gzipSync(Buffer.from('inside')).byteLength,
       additionalPython: 0,
       monaco: 0,
+      aiWorker: 0,
     });
   });
 });
