@@ -75,6 +75,56 @@ type TestClient = {
       edges: { id: string; source: string; target: string; kind: string }[];
     };
   }>;
+  lineage(workspaceRevision: number): Promise<{
+    workspace_revision: number;
+    projections: {
+      domain: string;
+      projection: string;
+      version: number;
+      fields: {
+        field_name: string;
+        kind: string;
+        lineage: string[];
+        expression: string | null;
+      }[];
+    }[];
+  }>;
+  compatibility(workspaceRevision: number): Promise<{
+    workspace_revision: number;
+    reports: {
+      domain_name: string;
+      model_name: string;
+      from_version: number;
+      to_version: number;
+      status: string;
+      findings: string[];
+      changes: {
+        kind: string;
+        field_name: string;
+        previous_name: string | null;
+        replacement: string | null;
+        from_optional: boolean | null;
+        to_optional: boolean | null;
+        from_type: string | null;
+        to_type: string | null;
+      }[];
+    }[];
+    impacts: {
+      domain_name: string;
+      projection_name: string;
+      version: number;
+      status: string;
+      reason: string | null;
+    }[];
+  }>;
+  governance(workspaceRevision: number): Promise<{
+    workspace_revision: number;
+    findings: {
+      code: string;
+      subject: string;
+      message: string;
+    }[];
+  }>;
 };
 
 const scenarios = {
@@ -363,6 +413,92 @@ test('workspace.graph returns domain and entity mode graphs', async ({
   expect(domainKinds).not.toContain('field');
 });
 
+test('workspace.lineage, workspace.compatibility, and workspace.governance return analysis results', async ({
+  page,
+}) => {
+  await page.goto('?test=1');
+  await waitForCompiler(page);
+  const result = await page.evaluate(async () => {
+    const client = (
+      globalThis as typeof globalThis & {
+        __modelableBrowserCompiler?: TestClient;
+      }
+    ).__modelableBrowserCompiler;
+    if (client === undefined) {
+      throw new Error('Test client was not exposed');
+    }
+    const customerSource: Source = {
+      uri: 'file:///customer.mdl',
+      text: [
+        'domain customer {',
+        '  owner: "customer-platform"',
+        '  entity Customer @ 1 (additive) {',
+        '    @key customerId: uuid',
+        '    displayName: string',
+        '  }',
+        '  entity Customer @ 2 (additive) {',
+        '    @key customerId: uuid',
+        '    displayName: string',
+        '    email: string',
+        '  }',
+        '}',
+      ].join('\n'),
+      version: 1,
+    };
+    const billingSource: Source = {
+      uri: 'file:///billing.mdl',
+      text: [
+        'domain billing {',
+        '  owner: "billing-platform"',
+        '  projection BillingCustomer @ 1 from customer.Customer @ 2 as c {',
+        '    id = c.customerId',
+        '    name = c.displayName',
+        '  }',
+        '}',
+      ].join('\n'),
+      version: 1,
+    };
+    const workspaceRevision = 400;
+    await client.openWorkspace(workspaceRevision, [
+      customerSource,
+      billingSource,
+    ]);
+
+    const lineage = await client.lineage(workspaceRevision);
+    const compatibility = await client.compatibility(workspaceRevision);
+    const governance = await client.governance(workspaceRevision);
+    return { lineage, compatibility, governance };
+  });
+
+  expect(result.lineage.workspace_revision).toBe(400);
+  expect(result.lineage.projections.length).toBeGreaterThan(0);
+  const billingProjection = result.lineage.projections.find(
+    (p) => p.projection === 'BillingCustomer',
+  );
+  expect(billingProjection).toBeDefined();
+  expect(billingProjection!.domain).toBe('billing');
+  expect(billingProjection!.fields.length).toBeGreaterThan(0);
+  const idField = billingProjection!.fields.find(
+    (f) => f.field_name === 'id',
+  );
+  expect(idField).toBeDefined();
+  expect(idField!.kind).toBe('direct');
+  expect(idField!.lineage.length).toBeGreaterThan(0);
+
+  expect(result.compatibility.workspace_revision).toBe(400);
+  expect(result.compatibility.reports.length).toBeGreaterThan(0);
+  const customerReport = result.compatibility.reports.find(
+    (r) => r.model_name === 'Customer',
+  );
+  expect(customerReport).toBeDefined();
+  expect(customerReport!.from_version).toBe(1);
+  expect(customerReport!.to_version).toBe(2);
+  expect(customerReport!.changes.length).toBeGreaterThan(0);
+
+  expect(result.governance.workspace_revision).toBe(400);
+  expect(Array.isArray(result.governance.findings)).toBe(true);
+});
+
 test('browser compiler stays within initialization and operation budgets', async ({
   browser,
 }, testInfo) => {
@@ -412,6 +548,9 @@ test('browser compiler stays within initialization and operation budgets', async
       const prepareRename: number[] = [];
       const rename: number[] = [];
       const graph: number[] = [];
+      const lineage: number[] = [];
+      const compatibility: number[] = [];
+      const governance: number[] = [];
       const languagePosition = {
         workspaceRevision: 100,
         uri: sources[0]!.uri,
@@ -461,6 +600,18 @@ test('browser compiler stays within initialization and operation budgets', async
         started = performance.now();
         await client.graph(languagePosition.workspaceRevision, 'entity');
         graph.push(performance.now() - started);
+
+        started = performance.now();
+        await client.lineage(languagePosition.workspaceRevision);
+        lineage.push(performance.now() - started);
+
+        started = performance.now();
+        await client.compatibility(languagePosition.workspaceRevision);
+        compatibility.push(performance.now() - started);
+
+        started = performance.now();
+        await client.governance(languagePosition.workspaceRevision);
+        governance.push(performance.now() - started);
       }
       return {
         validate,
@@ -472,6 +623,9 @@ test('browser compiler stays within initialization and operation budgets', async
         prepareRename,
         rename,
         graph,
+        lineage,
+        compatibility,
+        governance,
       };
     });
 
@@ -487,6 +641,9 @@ test('browser compiler stays within initialization and operation budgets', async
       prepareRenameMedian: median(operationTimings.prepareRename),
       renameMedian: median(operationTimings.rename),
       graphMedian: median(operationTimings.graph),
+      lineageMedian: median(operationTimings.lineage),
+      compatibilityMedian: median(operationTimings.compatibility),
+      governanceMedian: median(operationTimings.governance),
       coldPageReadyMedian: median(cold.pageReady),
       cachedPageReadyMedian: median(cachedPageReady),
     };
@@ -512,6 +669,9 @@ test('browser compiler stays within initialization and operation budgets', async
     expect(medians.prepareRenameMedian).toBeLessThanOrEqual(250);
     expect(medians.renameMedian).toBeLessThanOrEqual(250);
     expect(medians.graphMedian).toBeLessThanOrEqual(200);
+    expect(medians.lineageMedian).toBeLessThanOrEqual(500);
+    expect(medians.compatibilityMedian).toBeLessThanOrEqual(500);
+    expect(medians.governanceMedian).toBeLessThanOrEqual(500);
   } finally {
     try {
       finishCachedRequestAudit();
