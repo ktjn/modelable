@@ -8,12 +8,9 @@ from modelable.browser.dto import (
     BrowserLlmRequest,
 )
 from modelable.browser.errors import BrowserLanguageError
-from modelable.compiler.render import render_mdl
-from modelable.compiler.workspace import Workspace, load_workspace_from_sources
 from modelable.diagnostics.model import Diagnostic
 from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import build_workspace_summary
-from modelable.parser.ir import ParseError
 from modelable.validation.semantic import validate_diagnostics
 
 
@@ -175,6 +172,7 @@ def _strip_code_fences(text: str) -> str:
 
 def _validate_source(source: str) -> tuple[BrowserDiagnostic, ...]:
     from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
+    from modelable.parser.ir import ParseError
     from modelable.parser.parse import parse_text_to_ir
 
     uri = "ai-generated.mdl"
