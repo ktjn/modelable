@@ -6,8 +6,8 @@ from typing import Any
 
 from modelable.browser.api import BrowserCompiler
 from modelable.browser.dto import (
-    BrowserCompileResult,
     BrowserCompatibilityResult,
+    BrowserCompileResult,
     BrowserCompletionResult,
     BrowserDefinitionResult,
     BrowserFormatResult,

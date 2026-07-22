@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from types import MappingProxyType
 
+from modelable.browser.compatibility import build_browser_compatibility
 from modelable.browser.dto import (
     BrowserArtifact,
-    BrowserCompileResult,
     BrowserCompatibilityResult,
+    BrowserCompileResult,
     BrowserCompletionResult,
     BrowserDefinitionResult,
     BrowserDiagnostic,
@@ -21,7 +22,6 @@ from modelable.browser.dto import (
     BrowserSource,
     BrowserWorkspaceResult,
 )
-from modelable.browser.compatibility import build_browser_compatibility
 from modelable.browser.errors import BrowserLanguageError, BrowserRequestValidationError
 from modelable.browser.governance import build_browser_governance
 from modelable.browser.graph import build_browser_graph
