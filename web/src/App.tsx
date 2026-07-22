@@ -43,6 +43,7 @@ import {
   IndexedDbWorkspaceRepository,
   type WorkspaceRepository,
 } from './workspace-repository';
+import { AnalysisPanelContainer } from './analysis/AnalysisPanelContainer';
 import { GraphPanelContainer } from './visualization/GraphPanelContainer';
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
@@ -140,8 +141,9 @@ export function App({
     'Language services starting…',
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
-  const [mobileView, setMobileView] = useState<'source' | 'graph'>('source');
+  const [mobileView, setMobileView] = useState<'source' | 'graph' | 'analysis'>('source');
   const [graphCollapsed, setGraphCollapsed] = useState(true);
+  const [analysisCollapsed, setAnalysisCollapsed] = useState(true);
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const languageControllerRef =
@@ -732,6 +734,14 @@ export function App({
         >
           Graph
         </button>
+        <button
+          type="button"
+          className={`view-tab${mobileView === 'analysis' ? ' view-tab--active' : ''}`}
+          aria-pressed={mobileView === 'analysis'}
+          onClick={() => setMobileView('analysis')}
+        >
+          Analysis
+        </button>
       </nav>
       <section
         className={`workspace${mobileView === 'graph' ? ' workspace--mobile-hidden' : ''}`}
@@ -892,6 +902,33 @@ export function App({
         </div>
         {mobileView === 'graph' || !graphCollapsed ? (
           <GraphPanelContainer
+            clientRef={clientRef}
+            runtimeReady={state.runtime === 'ready'}
+            workspaceRevisionRef={workspaceRevisionRef}
+          />
+        ) : null}
+      </section>
+      <section
+        className={`analysis-pane${mobileView !== 'analysis' ? ' analysis-pane--mobile-hidden' : ''}${analysisCollapsed ? ' analysis-pane--collapsed' : ''}`}
+        aria-label="Model analysis"
+        data-testid="analysis"
+      >
+        <div className="pane-heading">
+          <div>
+            <p className="pane-index">Analysis 04</p>
+            <h2>Model analysis</h2>
+          </div>
+          <button
+            type="button"
+            className="analysis-pane__toggle"
+            aria-expanded={!analysisCollapsed}
+            onClick={() => setAnalysisCollapsed((collapsed) => !collapsed)}
+          >
+            {analysisCollapsed ? 'Show analysis' : 'Hide analysis'}
+          </button>
+        </div>
+        {mobileView === 'analysis' || !analysisCollapsed ? (
+          <AnalysisPanelContainer
             clientRef={clientRef}
             runtimeReady={state.runtime === 'ready'}
             workspaceRevisionRef={workspaceRevisionRef}
