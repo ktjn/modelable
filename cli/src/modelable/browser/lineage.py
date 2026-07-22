@@ -18,9 +18,7 @@ def build_browser_lineage(
     for domain in workspace.mdl.domains:
         for projection_name, versions in sorted(domain.projections.items()):
             for pv in sorted(versions, key=lambda v: v.version):
-                lineage = build_projection_lineage(
-                    domain.name, projection_name, pv, workspace.mdl
-                )
+                lineage = build_projection_lineage(domain.name, projection_name, pv, workspace.mdl)
                 fields = tuple(
                     BrowserFieldLineage(
                         field_name=fl.field_name,

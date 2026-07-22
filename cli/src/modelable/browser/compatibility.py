@@ -28,9 +28,7 @@ def build_browser_compatibility(
             for i in range(len(sorted_versions) - 1):
                 from_v = sorted_versions[i].version
                 to_v = sorted_versions[i + 1].version
-                report = check_model_version_compatibility(
-                    workspace.mdl, domain.name, model_name, from_v, to_v
-                )
+                report = check_model_version_compatibility(workspace.mdl, domain.name, model_name, from_v, to_v)
                 reports.append(_convert_report(report))
 
                 if report.status == "breaking":

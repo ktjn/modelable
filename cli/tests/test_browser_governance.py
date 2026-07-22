@@ -26,12 +26,7 @@ URI = "file:///customer.mdl"
 SOURCES = [{"uri": URI, "text": GOVERNANCE_SOURCE, "version": 1}]
 
 NO_PROJECTION_SOURCE = (
-    "domain customer {\n"
-    '  owner: "team"\n'
-    "  entity Customer @ 1 (additive) {\n"
-    "    @key customerId: uuid\n"
-    "  }\n"
-    "}\n"
+    'domain customer {\n  owner: "team"\n  entity Customer @ 1 (additive) {\n    @key customerId: uuid\n  }\n}\n'
 )
 
 

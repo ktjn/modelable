@@ -17,9 +17,7 @@ def build_browser_governance(
     for domain in workspace.mdl.domains:
         for projection_name, versions in sorted(domain.projections.items()):
             for pv in sorted(versions, key=lambda v: v.version):
-                pv_findings = build_projection_governance_findings(
-                    domain.name, projection_name, pv, workspace.mdl
-                )
+                pv_findings = build_projection_governance_findings(domain.name, projection_name, pv, workspace.mdl)
                 for finding in pv_findings:
                     findings.append(
                         BrowserGovernanceFinding(

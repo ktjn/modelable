@@ -24,12 +24,7 @@ URI = "file:///customer.mdl"
 SOURCES = [{"uri": URI, "text": COMPAT_SOURCE, "version": 1}]
 
 SINGLE_VERSION_SOURCE = (
-    "domain customer {\n"
-    '  owner: "team"\n'
-    "  entity Customer @ 1 (additive) {\n"
-    "    @key customerId: uuid\n"
-    "  }\n"
-    "}\n"
+    'domain customer {\n  owner: "team"\n  entity Customer @ 1 (additive) {\n    @key customerId: uuid\n  }\n}\n'
 )
 
 
