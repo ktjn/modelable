@@ -710,3 +710,47 @@ test('retries a failed runtime manifest request without losing editor text', asy
   await waitForReady(page);
   await expect(sourceOutput(page)).toContainText(/domain\s+retained/);
 });
+
+test('graph panel toolbar includes export buttons', async ({
+  page,
+}) => {
+  await page.goto('?test=1');
+  await waitForReady(page);
+
+  await page.getByRole('button', { name: 'Show graph' }).click();
+  const graphSection = page.getByTestId('graph');
+  await expect(
+    graphSection.getByRole('region', { name: 'Model graph' }),
+  ).toBeVisible({ timeout: 10_000 });
+
+  const svgButton = graphSection.getByRole('button', { name: 'Export SVG' });
+  const pngButton = graphSection.getByRole('button', { name: 'Export PNG' });
+  await expect(svgButton).toBeVisible();
+  await expect(pngButton).toBeVisible();
+});
+
+test('renders analysis panel with lineage, compatibility, and governance tabs', async ({
+  page,
+}) => {
+  await page.goto('?test=1');
+  await waitForReady(page);
+
+  const analysisSection = page.getByTestId('analysis');
+  await expect(analysisSection).toBeVisible();
+
+  await page.getByRole('button', { name: 'Show analysis' }).click();
+  await expect(
+    analysisSection.getByRole('region', { name: 'Model analysis' }),
+  ).toBeVisible({ timeout: 10_000 });
+
+  const toolbar = analysisSection.getByRole('toolbar', {
+    name: 'Analysis view',
+  });
+  await expect(toolbar.getByText('Lineage')).toBeVisible();
+  await expect(toolbar.getByText('Compatibility')).toBeVisible();
+  await expect(toolbar.getByText('Governance')).toBeVisible();
+
+  await toolbar.getByText('Compatibility').click();
+  await toolbar.getByText('Governance').click();
+  await toolbar.getByText('Lineage').click();
+});

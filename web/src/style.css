@@ -704,6 +704,32 @@ select {
   border-color: var(--signal);
 }
 
+.graph-panel__toolbar-spacer {
+  flex: 1;
+}
+
+.graph-panel__export-btn {
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-family: "Cascadia Code", Consolas, monospace;
+  min-height: auto;
+}
+
+.graph-panel__export-btn:hover:not(:disabled) {
+  color: var(--graphite);
+  background: var(--workbench);
+}
+
+.graph-panel__export-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
 .graph-panel__canvas {
   flex: 1;
   position: relative;
