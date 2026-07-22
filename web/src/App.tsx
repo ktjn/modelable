@@ -45,6 +45,13 @@ import {
 } from './workspace-repository';
 import { AnalysisPanelContainer } from './analysis/AnalysisPanelContainer';
 import { GraphPanelContainer } from './visualization/GraphPanelContainer';
+import {
+  initialProviderState,
+  providerStateReducer,
+  providerStatusLabel,
+} from './ai/provider-state';
+import { detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
+import { HeuristicProvider } from './ai/heuristic-provider';
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
 const createWorkspaceRepository = (): WorkspaceRepository => {
@@ -144,6 +151,10 @@ export function App({
   const [mobileView, setMobileView] = useState<'source' | 'graph' | 'analysis'>('source');
   const [graphCollapsed, setGraphCollapsed] = useState(true);
   const [analysisCollapsed, setAnalysisCollapsed] = useState(true);
+  const [aiState, aiDispatch] = useReducer(
+    providerStateReducer,
+    initialProviderState,
+  );
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const languageControllerRef =
@@ -535,6 +546,41 @@ export function App({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleFormat, handleGenerate, handleValidate, state.runtime]);
 
+  useEffect(() => {
+    aiDispatch({ type: 'detect_start' });
+    if (detectWebGpu()) {
+      aiDispatch({ type: 'detect_available' });
+    } else {
+      aiDispatch({ type: 'detect_unsupported' });
+    }
+  }, []);
+
+  const handleAiDownload = useCallback((): void => {
+    if (aiState.status !== 'idle') {
+      return;
+    }
+    const provider = new WebGpuProvider();
+    aiDispatch({ type: 'download_start', provider });
+    void provider
+      .initialize((progress, message) => {
+        aiDispatch({ type: 'download_progress', progress, message });
+      })
+      .then(
+        () => aiDispatch({ type: 'ready' }),
+        (error: unknown) =>
+          aiDispatch({
+            type: 'error',
+            message: error instanceof Error ? error.message : 'Download failed',
+          }),
+      );
+  }, [aiState.status]);
+
+  const handleAiFallback = useCallback((): void => {
+    const provider = new HeuristicProvider();
+    aiDispatch({ type: 'download_start', provider });
+    void provider.initialize().then(() => aiDispatch({ type: 'ready' }));
+  }, []);
+
   const retryCompiler = (): void => {
     const controller = languageControllerRef.current;
     languageControllerRef.current = null;
@@ -717,6 +763,31 @@ export function App({
           </button>
         ) : null}
       </nav>
+      <section className="ai-toolbar" aria-label="AI model status">
+        <p className="ai-status">{providerStatusLabel(aiState)}</p>
+        {aiState.status === 'downloading' ? (
+          <div className="ai-progress">
+            <div
+              className="ai-progress__bar"
+              role="progressbar"
+              aria-valuenow={Math.round(aiState.progress * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              style={{ width: `${(aiState.progress * 100).toFixed(1)}%` }}
+            />
+          </div>
+        ) : null}
+        {aiState.status === 'idle' ? (
+          <button type="button" onClick={handleAiDownload}>
+            Download AI model
+          </button>
+        ) : null}
+        {aiState.status === 'unsupported' || aiState.status === 'error' ? (
+          <button type="button" onClick={handleAiFallback}>
+            Use heuristic AI
+          </button>
+        ) : null}
+      </section>
       <nav className="view-tabs" aria-label="View">
         <button
           type="button"
