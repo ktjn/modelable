@@ -311,7 +311,7 @@ class BrowserCompiler:
             return build_explain_request(
                 self.language,
                 ref=str(ref) if ref is not None else None,
-                diagnostic_index=int(diagnostic_index) if diagnostic_index is not None else None,
+                diagnostic_index=int(diagnostic_index) if diagnostic_index is not None else None,  # type: ignore[arg-type]
             )
 
         return parse_explain_result(llm_response_content)
