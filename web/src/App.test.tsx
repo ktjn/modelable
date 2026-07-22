@@ -43,6 +43,10 @@ import type {
   WorkspaceSaveResult,
 } from './workspace-repository';
 
+vi.mock('./analysis/AnalysisPanelContainer', () => ({
+  AnalysisPanelContainer: () => null,
+}));
+
 vi.mock('./visualization/GraphPanelContainer', () => ({
   GraphPanelContainer: () => null,
 }));
