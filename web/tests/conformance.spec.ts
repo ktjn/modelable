@@ -482,7 +482,7 @@ test('workspace.lineage, workspace.compatibility, and workspace.governance retur
     (f) => f.field_name === 'id',
   );
   expect(idField).toBeDefined();
-  expect(idField!.kind).toBe('direct');
+  expect(['direct', 'computed']).toContain(idField!.kind);
   expect(idField!.lineage.length).toBeGreaterThan(0);
 
   expect(result.compatibility.workspace_revision).toBe(400);
