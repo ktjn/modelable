@@ -74,11 +74,14 @@ Work proceeds in phase order, with one active phase at a time:
    responsive layout, accessibility, and performance budgets. The completed
    design is archived in
    [Playground Visualization MVP — Design](docs/superpowers/specs/archived/2026-07-21-playground-visualization-design.md).
-6. **Active next slice: analysis views.**
-   Deliver field lineage, compatibility visualization, governance views, and
-   SVG/PNG export in the phase order defined by
-   [the Playground architecture](docs/playground-design.md).
-7. **Then: local AI.**
+6. **Shipped: analysis views.**
+   The Playground provides field lineage tracing, version compatibility
+   visualization with downstream projection impacts, governance findings,
+   and SVG/PNG diagram export. The completed designs are archived in
+   [Playground Analysis Views — Design](docs/superpowers/specs/archived/2026-07-21-playground-analysis-views-design.md)
+   and
+   [Playground Analysis Views — Plan](docs/superpowers/plans/archived/2026-07-21-playground-analysis-views.md).
+7. **Active next slice: local AI.**
    Add WebLLM model download and provider UX only after workspace editing and
    analysis boundaries are stable. Model output remains untrusted and must use
    typed planning, validation, preview, and explicit acceptance.
@@ -87,9 +90,9 @@ Work proceeds in phase order, with one active phase at a time:
    hardening, extension boundaries, and additional views after the core
    workspace and language-service contracts have shipped.
 
-The next implementation slice is item 6. Completion means the Playground gains
-field lineage, compatibility visualization, governance views, and diagram
-export.
+The next implementation slice is item 7. Completion means the Playground gains
+local AI-assisted generation and explanation through WebLLM, with validated
+preview and explicit user acceptance for all mutating actions.
 
 ## Priority 2 — complete the Scalable and Rust contract path
 
