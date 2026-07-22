@@ -13,7 +13,6 @@ from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import build_workspace_summary
 from modelable.validation.semantic import validate_diagnostics
 
-
 _GENERATE_ENTITY_SYSTEM = """\
 You are a domain modeling assistant. You write valid Modelable .mdl source.
 Given a natural-language description of a business entity, produce a complete
