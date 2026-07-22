@@ -181,13 +181,8 @@ def _validate_source(source: str) -> tuple[BrowserDiagnostic, ...]:
         return (_browser_diagnostic(error.diagnostic(uri)),)
 
     try:
-        workspace = load_workspace_from_sources(
-            [WorkspaceDocumentSource(path=None, uri=uri, text=source)]
-        )
+        workspace = load_workspace_from_sources([WorkspaceDocumentSource(path=None, uri=uri, text=source)])
     except ParseError as error:
         return (_browser_diagnostic(error.diagnostic(uri)),)
 
-    return tuple(
-        _browser_diagnostic(diagnostic)
-        for diagnostic in validate_diagnostics(workspace.mdl, path=uri)
-    )
+    return tuple(_browser_diagnostic(diagnostic) for diagnostic in validate_diagnostics(workspace.mdl, path=uri))

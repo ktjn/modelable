@@ -107,7 +107,7 @@ def test_parse_generate_result_valid_source():
 
 
 def test_parse_generate_result_strips_code_fences():
-    source = "```mdl\ndomain x { owner: \"t\" entity Y @ 1 (additive) { @key y_id: uuid } }\n```"
+    source = '```mdl\ndomain x { owner: "t" entity Y @ 1 (additive) { @key y_id: uuid } }\n```'
     result = parse_generate_result(source)
     assert not result.source.startswith("```")
     assert not result.source.endswith("```")
@@ -125,17 +125,23 @@ def test_parse_explain_result():
 
 
 def test_dispatch_ai_generate_phase_one():
-    result = dispatch("workspace.open", {
-        "workspaceRevision": 1,
-        "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
-    })
+    result = dispatch(
+        "workspace.open",
+        {
+            "workspaceRevision": 1,
+            "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
+        },
+    )
     assert result["ok"]
 
-    result = dispatch("ai.generate", {
-        "workspaceRevision": 1,
-        "action": "generate_entity",
-        "parameters": {"description": "A product", "domainName": "catalog"},
-    })
+    result = dispatch(
+        "ai.generate",
+        {
+            "workspaceRevision": 1,
+            "action": "generate_entity",
+            "parameters": {"description": "A product", "domainName": "catalog"},
+        },
+    )
     assert result["ok"]
     assert result["result"]["status"] == "pending_llm"
     assert "system" in result["result"]["llm_request"]
@@ -143,10 +149,13 @@ def test_dispatch_ai_generate_phase_one():
 
 
 def test_dispatch_ai_generate_phase_two():
-    dispatch("workspace.open", {
-        "workspaceRevision": 1,
-        "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
-    })
+    dispatch(
+        "workspace.open",
+        {
+            "workspaceRevision": 1,
+            "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
+        },
+    )
 
     generated_source = (
         "domain catalog {\n"
@@ -157,71 +166,98 @@ def test_dispatch_ai_generate_phase_two():
         "  }\n"
         "}\n"
     )
-    result = dispatch("ai.generate", {
-        "workspaceRevision": 1,
-        "action": "generate_entity",
-        "parameters": {"description": "A product"},
-        "llmResponseContent": generated_source,
-    })
+    result = dispatch(
+        "ai.generate",
+        {
+            "workspaceRevision": 1,
+            "action": "generate_entity",
+            "parameters": {"description": "A product"},
+            "llmResponseContent": generated_source,
+        },
+    )
     assert result["ok"]
     assert "source" in result["result"]
     assert "diagnostics" in result["result"]
 
 
 def test_dispatch_ai_explain_phase_one():
-    dispatch("workspace.open", {
-        "workspaceRevision": 1,
-        "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
-    })
+    dispatch(
+        "workspace.open",
+        {
+            "workspaceRevision": 1,
+            "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
+        },
+    )
 
-    result = dispatch("ai.explain", {
-        "workspaceRevision": 1,
-        "parameters": {"ref": "customer.Customer@1"},
-    })
+    result = dispatch(
+        "ai.explain",
+        {
+            "workspaceRevision": 1,
+            "parameters": {"ref": "customer.Customer@1"},
+        },
+    )
     assert result["ok"]
     assert result["result"]["status"] == "pending_llm"
 
 
 def test_dispatch_ai_explain_phase_two():
-    dispatch("workspace.open", {
-        "workspaceRevision": 1,
-        "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
-    })
+    dispatch(
+        "workspace.open",
+        {
+            "workspaceRevision": 1,
+            "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
+        },
+    )
 
-    result = dispatch("ai.explain", {
-        "workspaceRevision": 1,
-        "parameters": {},
-        "llmResponseContent": "This workspace defines a customer domain.",
-    })
+    result = dispatch(
+        "ai.explain",
+        {
+            "workspaceRevision": 1,
+            "parameters": {},
+            "llmResponseContent": "This workspace defines a customer domain.",
+        },
+    )
     assert result["ok"]
     assert result["result"]["explanation"] == "This workspace defines a customer domain."
 
 
 def test_dispatch_ai_generate_invalid_action():
-    dispatch("workspace.open", {
-        "workspaceRevision": 1,
-        "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
-    })
+    dispatch(
+        "workspace.open",
+        {
+            "workspaceRevision": 1,
+            "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
+        },
+    )
 
-    result = dispatch("ai.generate", {
-        "workspaceRevision": 1,
-        "action": "invalid_action",
-        "parameters": {},
-    })
+    result = dispatch(
+        "ai.generate",
+        {
+            "workspaceRevision": 1,
+            "action": "invalid_action",
+            "parameters": {},
+        },
+    )
     assert not result["ok"]
     assert result["error"]["code"] == "INVALID_REQUEST"
 
 
 def test_dispatch_ai_generate_stale_workspace():
-    dispatch("workspace.open", {
-        "workspaceRevision": 1,
-        "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
-    })
+    dispatch(
+        "workspace.open",
+        {
+            "workspaceRevision": 1,
+            "sources": [{"uri": URI, "text": SOURCE_TEXT, "version": 1}],
+        },
+    )
 
-    result = dispatch("ai.generate", {
-        "workspaceRevision": 99,
-        "action": "generate_entity",
-        "parameters": {},
-    })
+    result = dispatch(
+        "ai.generate",
+        {
+            "workspaceRevision": 99,
+            "action": "generate_entity",
+            "parameters": {},
+        },
+    )
     assert not result["ok"]
     assert result["error"]["code"] == "STALE_WORKSPACE"
