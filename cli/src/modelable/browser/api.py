@@ -5,21 +5,27 @@ from types import MappingProxyType
 from modelable.browser.dto import (
     BrowserArtifact,
     BrowserCompileResult,
+    BrowserCompatibilityResult,
     BrowserCompletionResult,
     BrowserDefinitionResult,
     BrowserDiagnostic,
     BrowserFormatResult,
+    BrowserGovernanceResult,
     BrowserGraphResult,
     BrowserHoverResult,
     BrowserLanguagePosition,
+    BrowserLineageResult,
     BrowserPreparedRenameResult,
     BrowserReferencesResult,
     BrowserRenameResult,
     BrowserSource,
     BrowserWorkspaceResult,
 )
+from modelable.browser.compatibility import build_browser_compatibility
 from modelable.browser.errors import BrowserLanguageError, BrowserRequestValidationError
+from modelable.browser.governance import build_browser_governance
 from modelable.browser.graph import build_browser_graph
+from modelable.browser.lineage import build_browser_lineage
 from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import (
     Workspace,
@@ -218,6 +224,39 @@ class BrowserCompiler:
         if semantic is None:
             raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
         return build_browser_graph(semantic, mode, workspace_revision)
+
+    def lineage(
+        self,
+        workspace_revision: int,
+    ) -> BrowserLineageResult:
+        if workspace_revision != self.language.revision:
+            raise BrowserLanguageError("STALE_WORKSPACE")
+        semantic = self.language.semantic_workspace()
+        if semantic is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        return build_browser_lineage(semantic, workspace_revision)
+
+    def compatibility(
+        self,
+        workspace_revision: int,
+    ) -> BrowserCompatibilityResult:
+        if workspace_revision != self.language.revision:
+            raise BrowserLanguageError("STALE_WORKSPACE")
+        semantic = self.language.semantic_workspace()
+        if semantic is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        return build_browser_compatibility(semantic, workspace_revision)
+
+    def governance(
+        self,
+        workspace_revision: int,
+    ) -> BrowserGovernanceResult:
+        if workspace_revision != self.language.revision:
+            raise BrowserLanguageError("STALE_WORKSPACE")
+        semantic = self.language.semantic_workspace()
+        if semantic is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        return build_browser_governance(semantic, workspace_revision)
 
     def _validate_language_request(
         self,

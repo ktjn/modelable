@@ -7,12 +7,15 @@ from typing import Any
 from modelable.browser.api import BrowserCompiler
 from modelable.browser.dto import (
     BrowserCompileResult,
+    BrowserCompatibilityResult,
     BrowserCompletionResult,
     BrowserDefinitionResult,
     BrowserFormatResult,
+    BrowserGovernanceResult,
     BrowserGraphResult,
     BrowserHoverResult,
     BrowserLanguagePosition,
+    BrowserLineageResult,
     BrowserPreparedRenameResult,
     BrowserReferencesResult,
     BrowserRenameResult,
@@ -32,6 +35,9 @@ _METHODS = {
     "language.prepareRename",
     "language.rename",
     "workspace.graph",
+    "workspace.lineage",
+    "workspace.compatibility",
+    "workspace.governance",
 }
 _SOURCE_FIELDS = {"uri", "text", "version"}
 _LANGUAGE_POSITION_FIELDS = {
@@ -133,6 +139,9 @@ _DispatchResult = (
     | BrowserPreparedRenameResult
     | BrowserRenameResult
     | BrowserGraphResult
+    | BrowserLineageResult
+    | BrowserCompatibilityResult
+    | BrowserGovernanceResult
 )
 
 
@@ -175,6 +184,15 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
         if not isinstance(mode, str) or mode not in _GRAPH_MODES:
             raise BrowserRequestValidationError("mode must be 'domain' or 'entity'")
         return _compiler.graph(_integer(payload["workspaceRevision"]), mode)
+    if method == "workspace.lineage":
+        _require_exact_fields(payload, {"workspaceRevision"})
+        return _compiler.lineage(_integer(payload["workspaceRevision"]))
+    if method == "workspace.compatibility":
+        _require_exact_fields(payload, {"workspaceRevision"})
+        return _compiler.compatibility(_integer(payload["workspaceRevision"]))
+    if method == "workspace.governance":
+        _require_exact_fields(payload, {"workspaceRevision"})
+        return _compiler.governance(_integer(payload["workspaceRevision"]))
     raise AssertionError(f"Unsupported validated browser compiler method: {method}")
 
 

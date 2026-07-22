@@ -1,0 +1,13 @@
+domain billing {
+  owner: "billing-platform"
+
+  projection BillingCustomer @ 1
+    from customer.Customer @ 2 as c
+  {
+    billingCustomerId <- c.customerId
+    name <- c.legalName
+    @pii
+    contactEmail <- c.email
+    isBillable = c.riskScore > 0
+  }
+}

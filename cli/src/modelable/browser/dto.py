@@ -137,3 +137,77 @@ class BrowserGraphResult:
     workspace_revision: int
     mode: str
     graph: BrowserGraph
+
+
+@dataclass(frozen=True)
+class BrowserFieldLineage:
+    field_name: str
+    kind: str
+    lineage: tuple[str, ...]
+    expression: str | None = None
+
+
+@dataclass(frozen=True)
+class BrowserProjectionLineage:
+    domain: str
+    projection: str
+    version: int
+    fields: tuple[BrowserFieldLineage, ...]
+
+
+@dataclass(frozen=True)
+class BrowserLineageResult:
+    workspace_revision: int
+    projections: tuple[BrowserProjectionLineage, ...]
+
+
+@dataclass(frozen=True)
+class BrowserFieldChange:
+    kind: str
+    field_name: str
+    previous_name: str | None = None
+    replacement: str | None = None
+    from_optional: bool | None = None
+    to_optional: bool | None = None
+    from_type: str | None = None
+    to_type: str | None = None
+
+
+@dataclass(frozen=True)
+class BrowserCompatibilityReport:
+    domain_name: str
+    model_name: str
+    from_version: int
+    to_version: int
+    status: str
+    findings: tuple[str, ...]
+    changes: tuple[BrowserFieldChange, ...]
+
+
+@dataclass(frozen=True)
+class BrowserProjectionImpact:
+    domain_name: str
+    projection_name: str
+    version: int
+    status: str
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class BrowserCompatibilityResult:
+    workspace_revision: int
+    reports: tuple[BrowserCompatibilityReport, ...]
+    impacts: tuple[BrowserProjectionImpact, ...]
+
+
+@dataclass(frozen=True)
+class BrowserGovernanceFinding:
+    code: str
+    subject: str
+    message: str
+
+
+@dataclass(frozen=True)
+class BrowserGovernanceResult:
+    workspace_revision: int
+    findings: tuple[BrowserGovernanceFinding, ...]
