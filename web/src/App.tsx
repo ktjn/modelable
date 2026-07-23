@@ -1222,7 +1222,7 @@ export function App({
       </section>
       <section
         className={`analysis-pane${mobileView !== 'analysis' ? ' analysis-pane--mobile-hidden' : ''}${analysisCollapsed ? ' analysis-pane--collapsed' : ''}`}
-        aria-label="Model analysis"
+        aria-label="Analysis section"
         data-testid="analysis"
       >
         <div className="pane-heading">

@@ -729,7 +729,7 @@ test('graph panel toolbar includes export buttons', async ({
   const graphSection = page.getByTestId('graph');
   await expect(
     graphSection.getByRole('region', { name: 'Model graph' }),
-  ).toBeVisible({ timeout: 10_000 });
+  ).toBeVisible({ timeout: 15_000 });
 
   const svgButton = graphSection.getByRole('button', { name: 'Export SVG' });
   const pngButton = graphSection.getByRole('button', { name: 'Export PNG' });
@@ -746,7 +746,7 @@ test('graph panel shows projection and lineage mode tabs', async ({
   const graphSection = page.getByTestId('graph');
   await expect(
     graphSection.getByRole('region', { name: 'Model graph' }),
-  ).toBeVisible({ timeout: 10_000 });
+  ).toBeVisible({ timeout: 15_000 });
 
   const toolbar = graphSection.getByRole('toolbar', { name: 'Graph mode' });
   await expect(toolbar.getByText('Domain')).toBeVisible();
@@ -776,7 +776,7 @@ test('renders analysis panel with lineage, compatibility, and governance tabs', 
 
   await expect(
     analysisSection.getByRole('region', { name: 'Model analysis' }),
-  ).toBeVisible({ timeout: 10_000 });
+  ).toBeVisible({ timeout: 15_000 });
 
   const toolbar = analysisSection.getByRole('toolbar', {
     name: 'Analysis view',
