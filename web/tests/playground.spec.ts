@@ -229,7 +229,7 @@ test('initializes locally and supports the complete editor workflow', async ({
 test('creates, validates, and restores a multi-file workspace', async ({
   page,
 }) => {
-  test.setTimeout(60_000);
+
   await page.goto('?test=1');
   await waitForReady(page);
   await createWorkspaceFile(
@@ -272,7 +272,7 @@ test('creates, validates, and restores a multi-file workspace', async ({
 test('provides cross-file live diagnostics, completion, and hover accessibly', async ({
   page,
 }) => {
-  test.setTimeout(60_000);
+
   await page.goto('?test=1');
   await waitForReady(page);
   const customerSource = [
@@ -693,7 +693,7 @@ test('disposes the page client on pagehide exactly once', async ({ page }) => {
 test('retries a failed runtime manifest request without losing editor text', async ({
   page,
 }) => {
-  test.setTimeout(60_000);
+
   let failedOnce = false;
   await page.route(runtimeManifest, async (route) => {
     if (!failedOnce) {

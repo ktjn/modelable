@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('registers a service worker on first load', async ({ page }) => {
-  test.setTimeout(60_000);
+
   await page.goto('?test=1');
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
     timeout: 30_000,
@@ -47,7 +47,7 @@ test('serves the application shell from cache when offline', async ({
 });
 
 test('update banner appears and can be dismissed', async ({ page }) => {
-  test.setTimeout(60_000);
+
   await page.goto('?test=1');
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
     timeout: 30_000,

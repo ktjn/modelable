@@ -41,7 +41,6 @@ async function gotoWithHeuristic(page: Page): Promise<void> {
 }
 
 test('activates heuristic AI and shows action buttons', async ({ page }) => {
-  test.setTimeout(60_000);
   await gotoWithHeuristic(page);
 
   await expect(
@@ -56,7 +55,6 @@ test('activates heuristic AI and shows action buttons', async ({ page }) => {
 test('generate entity opens prompt, submits, and shows preview', async ({
   page,
 }) => {
-  test.setTimeout(60_000);
   await gotoWithHeuristic(page);
 
   await page.getByRole('button', { name: 'Generate entity' }).click();
@@ -80,7 +78,6 @@ test('generate entity opens prompt, submits, and shows preview', async ({
 });
 
 test('explain shows AI explanation preview', async ({ page }) => {
-  test.setTimeout(60_000);
   await gotoWithHeuristic(page);
 
   await page.getByRole('button', { name: 'Explain' }).click();
@@ -96,7 +93,6 @@ test('explain shows AI explanation preview', async ({ page }) => {
 });
 
 test('accept applies generated source to the editor', async ({ page }) => {
-  test.setTimeout(60_000);
   await gotoWithHeuristic(page);
 
   await page.getByRole('button', { name: 'Suggest projection' }).click();
@@ -109,7 +105,6 @@ test('accept applies generated source to the editor', async ({ page }) => {
 });
 
 test('discard closes preview without modifying source', async ({ page }) => {
-  test.setTimeout(60_000);
   await gotoWithHeuristic(page);
 
   const source =
@@ -127,7 +122,6 @@ test('discard closes preview without modifying source', async ({ page }) => {
 });
 
 test('prompt dialog cancels with Cancel button', async ({ page }) => {
-  test.setTimeout(60_000);
   await gotoWithHeuristic(page);
 
   await page.getByRole('button', { name: 'Generate entity' }).click();
@@ -140,7 +134,6 @@ test('prompt dialog cancels with Cancel button', async ({ page }) => {
 });
 
 test('prompt dialog cancels with Escape key', async ({ page }) => {
-  test.setTimeout(60_000);
   await gotoWithHeuristic(page);
 
   await page.getByRole('button', { name: 'Generate entity' }).click();
@@ -193,7 +186,6 @@ test('has no accessibility violations across AI toolbar, prompt dialog, and prev
 test('no CSS animations are active with prefers-reduced-motion', async ({
   browser,
 }) => {
-  test.setTimeout(60_000);
   const context = await browser.newContext({
     reducedMotion: 'reduce',
   });
