@@ -1,9 +1,57 @@
 domain customer {
-  owner: "team-customer"
+  owner: "customer-platform"
 
   entity Customer @ 1 (additive) {
     @key customerId: uuid
-    displayName: string
+    legalName: string
+    @pii
     email?: string
+    status: enum(active, suspended, closed)
+    createdAt: timestamp
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    legalName: string
+    @pii
+    email?: string
+    @classification("confidential")
+    creditLimit?: decimal(12, 2)
+    status: enum(active, suspended, closed)
+    createdAt: timestamp
+  }
+}
+
+domain sales {
+  owner: "sales-platform"
+
+  entity Product @ 1 (additive) {
+    @key productId: uuid
+    name: string
+    sku: string
+    category: enum(physical, digital, subscription)
+    unitPrice: decimal(10, 2)
+    createdAt: timestamp
+  }
+
+  entity Purchase @ 1 (additive) {
+    @key purchaseId: uuid
+    customer: ref<customer.Customer>
+    total: decimal(12, 2)
+    placedAt: timestamp
+  }
+}
+
+domain billing {
+  owner: "billing-platform"
+
+  projection BillingCustomer @ 1
+    from customer.Customer @ 2 as c
+  {
+    billingId <- c.customerId
+    name <- c.legalName
+    @pii
+    invoiceEmail <- c.email
+    isActive = c.status == "active"
   }
 }

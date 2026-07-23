@@ -1214,13 +1214,11 @@ export function App({
             {graphCollapsed ? 'Show graph' : 'Hide graph'}
           </button>
         </div>
-        {mobileView === 'graph' || !graphCollapsed ? (
-          <GraphPanelContainer
-            clientRef={clientRef}
-            runtimeReady={state.runtime === 'ready'}
-            workspaceRevisionRef={workspaceRevisionRef}
-          />
-        ) : null}
+        <GraphPanelContainer
+          clientRef={clientRef}
+          runtimeReady={state.runtime === 'ready'}
+          workspaceRevisionRef={workspaceRevisionRef}
+        />
       </section>
       <section
         className={`analysis-pane${mobileView !== 'analysis' ? ' analysis-pane--mobile-hidden' : ''}${analysisCollapsed ? ' analysis-pane--collapsed' : ''}`}
@@ -1241,13 +1239,11 @@ export function App({
             {analysisCollapsed ? 'Show analysis' : 'Hide analysis'}
           </button>
         </div>
-        {mobileView === 'analysis' || !analysisCollapsed ? (
-          <AnalysisPanelContainer
-            clientRef={clientRef}
-            runtimeReady={state.runtime === 'ready'}
-            workspaceRevisionRef={workspaceRevisionRef}
-          />
-        ) : null}
+        <AnalysisPanelContainer
+          clientRef={clientRef}
+          runtimeReady={state.runtime === 'ready'}
+          workspaceRevisionRef={workspaceRevisionRef}
+        />
       </section>
       <footer
         className="metrics-strip"
