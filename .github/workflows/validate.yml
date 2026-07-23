@@ -146,8 +146,8 @@ jobs:
         run: npm ci
         working-directory: web
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox
         working-directory: web
 
       - name: Run browser playground gate

@@ -122,6 +122,7 @@ async function seedStoredWorkspace(page: Page, value: unknown): Promise<void> {
 
 test('initializes locally and supports the complete editor workflow', async ({
   page,
+  browserName,
 }) => {
   test.setTimeout(90_000);
   let releaseManifest!: () => void;
@@ -134,9 +135,11 @@ test('initializes locally and supports the complete editor workflow', async ({
   });
 
   await page.goto('?test=1', { waitUntil: 'domcontentloaded' });
-  expect(
-    await page.evaluate(() => typeof globalThis.EditContext),
-  ).toBe('function');
+  if (browserName === 'chromium') {
+    expect(
+      await page.evaluate(() => typeof globalThis.EditContext),
+    ).toBe('function');
+  }
   const actions = [
     page.getByRole('button', { name: 'Validate' }),
     page.getByRole('button', { name: 'Format' }),
@@ -510,7 +513,9 @@ test('keeps keyboard access clear and treats hostile-looking source as text', as
 
 test('retains the labeled textarea fallback when EditContext is unavailable', async ({
   page,
+  browserName,
 }) => {
+  test.skip(browserName !== 'chromium', 'EditContext is Chromium-only; Firefox always uses the textarea fallback');
   await page.addInitScript(() => {
     Object.defineProperty(globalThis, 'EditContext', {
       configurable: true,
