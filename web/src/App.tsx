@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useReducer,
@@ -52,10 +54,11 @@ import {
 } from './ai/provider-state';
 import { detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
 import { HeuristicProvider } from './ai/heuristic-provider';
-import {
-  AiPreviewPanel,
-  type AiPreviewState,
-} from './ai/AiPreviewPanel';
+import type { AiPreviewState } from './ai/AiPreviewPanel';
+
+const AiPreviewPanel = lazy(() =>
+  import('./ai/AiPreviewPanel').then((m) => ({ default: m.AiPreviewPanel })),
+);
 import type {
   AiGenerateAction,
   AiGenerateParameters,
@@ -1140,11 +1143,13 @@ export function App({
             )}
           </section>
           {aiPreview !== null ? (
-            <AiPreviewPanel
-              preview={aiPreview}
-              onAccept={handleAiAccept}
-              onDiscard={handleAiDiscard}
-            />
+            <Suspense fallback={null}>
+              <AiPreviewPanel
+                preview={aiPreview}
+                onAccept={handleAiAccept}
+                onDiscard={handleAiDiscard}
+              />
+            </Suspense>
           ) : null}
         </section>
         <section

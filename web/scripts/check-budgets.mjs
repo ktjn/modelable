@@ -7,9 +7,11 @@ export const BUDGETS = {
   modelableWheel: 2 * 1024 * 1024,
   application: 750 * 1024,
   additionalPython: 15 * 1024 * 1024,
+  monaco: 1536 * 1024,
+  aiWorker: 512 * 1024,
 };
 
-export const REPORT_ONLY = ['monaco', 'aiWorker'];
+export const REPORT_ONLY = [];
 
 const ENFORCED_CATEGORY_NAMES = Object.keys(BUDGETS);
 const CATEGORY_NAMES = [...ENFORCED_CATEGORY_NAMES, ...REPORT_ONLY];

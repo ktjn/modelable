@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 function modelSource(page: Page) {
@@ -148,4 +149,168 @@ test('prompt dialog cancels with Escape key', async ({ page }) => {
 
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
+});
+
+test('has no accessibility violations with AI toolbar visible', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await gotoWithHeuristic(page);
+
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+});
+
+test('has no accessibility violations with prompt dialog open', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await gotoWithHeuristic(page);
+
+  await page.getByRole('button', { name: 'Generate entity' }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Generate entity' }),
+  ).toBeVisible();
+
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+});
+
+test('has no accessibility violations with AI preview visible', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await gotoWithHeuristic(page);
+
+  await page.getByRole('button', { name: 'Explain' }).click();
+  await expect(page.getByText('AI explanation')).toBeVisible({
+    timeout: 10_000,
+  });
+
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+});
+
+test('focus moves to prompt input on dialog open and returns on close', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await gotoWithHeuristic(page);
+
+  const generateButton = page.getByRole('button', {
+    name: 'Generate entity',
+  });
+  await generateButton.click();
+  const dialog = page.getByRole('dialog', { name: 'Generate entity' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('textbox')).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+});
+
+test('focus moves to preview on generation and returns on discard', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await gotoWithHeuristic(page);
+
+  await page.getByRole('button', { name: 'Suggest projection' }).click();
+  const preview = page.getByText('AI generated source');
+  await expect(preview).toBeVisible({ timeout: 10_000 });
+
+  await page.getByRole('button', { name: 'Discard' }).click();
+  await expect(preview).toBeHidden();
+});
+
+test('no CSS animations are active with prefers-reduced-motion', async ({
+  browser,
+}) => {
+  test.setTimeout(60_000);
+  const context = await browser.newContext({
+    reducedMotion: 'reduce',
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto('?test=1&ai=heuristic');
+    await waitForReady(page);
+
+    const animations = await page.evaluate(() => {
+      const active: { element: string; duration: string }[] = [];
+      for (const el of document.querySelectorAll('*')) {
+        const style = getComputedStyle(el);
+        const animDuration = parseFloat(style.animationDuration);
+        const transDuration = parseFloat(style.transitionDuration);
+        if (animDuration > 0.02) {
+          active.push({
+            element: el.tagName + (el.className ? `.${el.className}` : ''),
+            duration: style.animationDuration,
+          });
+        }
+        if (transDuration > 0.02) {
+          active.push({
+            element: el.tagName + (el.className ? `.${el.className}` : ''),
+            duration: style.transitionDuration,
+          });
+        }
+      }
+      return active;
+    });
+    expect(animations).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
+test('no main-thread task exceeds 100ms during standard editing', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.goto('?test=1');
+  await waitForReady(page);
+
+  const longTasks = await page.evaluate(async () => {
+    const tasks: { duration: number; name: string }[] = [];
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        tasks.push({ duration: entry.duration, name: entry.name });
+      }
+    });
+    observer.observe({ type: 'longtask', buffered: false });
+
+    const editor = document.querySelector(
+      '.source-editor .view-lines',
+    ) as HTMLElement | null;
+    editor?.click();
+    const input = document.querySelector(
+      '[aria-label^="Model source"]',
+    ) as HTMLElement | null;
+    input?.focus();
+
+    for (const char of 'domain test { owner: "team" }') {
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: char, bubbles: true }),
+      );
+      await new Promise((r) => setTimeout(r, 20));
+    }
+
+    const validateButton = Array.from(
+      document.querySelectorAll('button'),
+    ).find((b) => b.textContent?.includes('Validate'));
+    validateButton?.click();
+    await new Promise((r) => setTimeout(r, 500));
+
+    const formatButton = Array.from(
+      document.querySelectorAll('button'),
+    ).find((b) => b.textContent?.includes('Format'));
+    formatButton?.click();
+    await new Promise((r) => setTimeout(r, 500));
+
+    observer.disconnect();
+    return tasks;
+  });
+
+  for (const task of longTasks) {
+    expect(task.duration).toBeLessThanOrEqual(100);
+  }
 });

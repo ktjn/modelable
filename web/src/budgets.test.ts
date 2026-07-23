@@ -35,7 +35,7 @@ afterEach(async () => {
 
 describe('browser asset budgets', () => {
   test('reports named Monaco bundles outside the enforced application budget', () => {
-    expect(REPORT_ONLY).toEqual(['monaco', 'aiWorker']);
+    expect(REPORT_ONLY).toEqual([]);
     for (const path of [
       'assets/monaco-ABC.js',
       'assets/editor.worker-ABC.js',
@@ -91,23 +91,24 @@ describe('browser asset budgets', () => {
       modelableWheel: BUDGETS.modelableWheel + 1,
       application: BUDGETS.application,
       additionalPython: BUDGETS.additionalPython + 42,
-      monaco: Number.MAX_SAFE_INTEGER,
-      aiWorker: Number.MAX_SAFE_INTEGER,
+      monaco: BUDGETS.monaco + 1,
+      aiWorker: BUDGETS.aiWorker,
     };
 
     expect(findViolations(measured)).toEqual([
       'modelableWheel',
       'additionalPython',
+      'monaco',
     ]);
   });
 
-  test('Monaco size can never hide an enforced application violation', () => {
+  test('Monaco within budget does not hide an application violation', () => {
     const measured = {
       modelableWheel: BUDGETS.modelableWheel,
       application: BUDGETS.application + 1,
       additionalPython: BUDGETS.additionalPython,
-      monaco: 0,
-      aiWorker: 0,
+      monaco: BUDGETS.monaco,
+      aiWorker: BUDGETS.aiWorker,
     };
 
     expect(findViolations(measured)).toEqual(['application']);
