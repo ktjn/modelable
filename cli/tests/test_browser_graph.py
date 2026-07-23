@@ -189,6 +189,53 @@ def test_graph_empty_workspace_returns_empty_graph():
     assert len(graph["edges"]) == 0
 
 
+def test_graph_projection_mode_shows_projections_and_source_entities():
+    open_workspace()
+    result = dispatch("workspace.graph", {"workspaceRevision": 100, "mode": "projection"})
+
+    assert result["ok"]
+    graph = result["result"]["graph"]
+    node_kinds = {node["kind"] for node in graph["nodes"]}
+    assert "projection" in node_kinds
+    assert "field" in node_kinds
+    assert "domain" not in node_kinds
+    node_ids = {node["id"] for node in graph["nodes"]}
+    assert any(nid.startswith("projection:") for nid in node_ids)
+    assert any(nid.startswith("field:") for nid in node_ids)
+
+
+def test_graph_projection_mode_includes_maps_to_edges():
+    open_workspace()
+    result = dispatch("workspace.graph", {"workspaceRevision": 100, "mode": "projection"})
+
+    assert result["ok"]
+    graph = result["result"]["graph"]
+    edge_kinds = {edge["kind"] for edge in graph["edges"]}
+    assert "projects" in edge_kinds
+
+
+def test_graph_lineage_mode_shows_only_fields():
+    open_workspace()
+    result = dispatch("workspace.graph", {"workspaceRevision": 100, "mode": "lineage"})
+
+    assert result["ok"]
+    graph = result["result"]["graph"]
+    node_kinds = {node["kind"] for node in graph["nodes"]}
+    assert node_kinds <= {"field"}
+    assert len(graph["nodes"]) > 0
+    edge_kinds = {edge["kind"] for edge in graph["edges"]}
+    assert edge_kinds <= {"projects"}
+
+
+def test_graph_lineage_mode_returns_workspace_revision():
+    open_workspace()
+    result = dispatch("workspace.graph", {"workspaceRevision": 100, "mode": "lineage"})
+
+    assert result["ok"]
+    assert result["result"]["workspace_revision"] == 100
+    assert result["result"]["mode"] == "lineage"
+
+
 def test_build_browser_graph_directly(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(VALID_SOURCE, encoding="utf-8")

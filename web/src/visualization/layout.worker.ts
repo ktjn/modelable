@@ -41,7 +41,7 @@ async function layout(request: LayoutRequest): Promise<LayoutWorkerResponse> {
     id: 'root',
     layoutOptions: {
       'elk.algorithm': 'layered',
-      'elk.direction': request.mode === 'domain' ? 'RIGHT' : 'DOWN',
+      'elk.direction': request.mode === 'entity' ? 'DOWN' : 'RIGHT',
       'elk.spacing.nodeNode': '30',
       'elk.layered.spacing.nodeNodeBetweenLayers': '60',
       'elk.padding': '[top=20,left=20,bottom=20,right=20]',

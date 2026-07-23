@@ -183,7 +183,7 @@ export interface BrowserCompileResult {
   artifacts: BrowserArtifact[];
 }
 
-export type BrowserGraphMode = 'domain' | 'entity';
+export type BrowserGraphMode = 'domain' | 'entity' | 'projection' | 'lineage';
 
 export interface BrowserSourceRange {
   uri: string;
@@ -643,7 +643,7 @@ export function isBrowserCompileResult(
   );
 }
 
-const graphModes = new Set<BrowserGraphMode>(['domain', 'entity']);
+const graphModes = new Set<BrowserGraphMode>(['domain', 'entity', 'projection', 'lineage']);
 
 function isBrowserSourceRange(
   value: unknown,

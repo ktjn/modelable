@@ -738,6 +738,35 @@ test('graph panel toolbar includes export buttons', async ({
   await expect(pngButton).toBeVisible();
 });
 
+test('graph panel shows projection and lineage mode tabs', async ({
+  page,
+}) => {
+  await page.goto('?test=1');
+  await waitForReady(page);
+
+  await page.getByRole('button', { name: 'Show graph' }).click();
+  const graphSection = page.getByTestId('graph');
+  await expect(
+    graphSection.getByRole('region', { name: 'Model graph' }),
+  ).toBeVisible({ timeout: 10_000 });
+
+  const toolbar = graphSection.getByRole('toolbar', { name: 'Graph mode' });
+  await expect(toolbar.getByText('Domain')).toBeVisible();
+  await expect(toolbar.getByText('Entity')).toBeVisible();
+  await expect(toolbar.getByText('Projection')).toBeVisible();
+  await expect(toolbar.getByText('Lineage')).toBeVisible();
+
+  await toolbar.getByText('Projection').click();
+  await expect(
+    toolbar.getByRole('button', { name: 'Projection' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+
+  await toolbar.getByText('Lineage').click();
+  await expect(
+    toolbar.getByRole('button', { name: 'Lineage' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('renders analysis panel with lineage, compatibility, and governance tabs', async ({
   page,
 }) => {

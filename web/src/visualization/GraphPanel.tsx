@@ -65,6 +65,20 @@ function GraphPanelInner({
         >
           Entity
         </button>
+        <button
+          className={`graph-panel__mode-tab${mode === 'projection' ? ' graph-panel__mode-tab--active' : ''}`}
+          onClick={() => onModeChange('projection')}
+          aria-pressed={mode === 'projection'}
+        >
+          Projection
+        </button>
+        <button
+          className={`graph-panel__mode-tab${mode === 'lineage' ? ' graph-panel__mode-tab--active' : ''}`}
+          onClick={() => onModeChange('lineage')}
+          aria-pressed={mode === 'lineage'}
+        >
+          Lineage
+        </button>
         <span className="graph-panel__toolbar-spacer" />
         <button
           className="graph-panel__export-btn"

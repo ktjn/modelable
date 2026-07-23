@@ -413,6 +413,68 @@ test('workspace.graph returns domain and entity mode graphs', async ({
   expect(domainKinds).not.toContain('field');
 });
 
+test('workspace.graph returns projection and lineage mode graphs', async ({
+  page,
+}) => {
+  await page.goto('?test=1');
+  await waitForCompiler(page);
+  const result = await page.evaluate(async () => {
+    const client = (
+      globalThis as typeof globalThis & {
+        __modelableBrowserCompiler?: TestClient;
+      }
+    ).__modelableBrowserCompiler;
+    if (client === undefined) {
+      throw new Error('Test client was not exposed');
+    }
+    const source: Source = {
+      uri: 'file:///customer.mdl',
+      text: [
+        'domain customer {',
+        '  owner: "team"',
+        '  entity Customer @ 1 (additive) {',
+        '    @key customer_id: uuid',
+        '    customer_name: string',
+        '  }',
+        '  projection CustomerView @ 1',
+        '    from customer.Customer @ 1 as c',
+        '  {',
+        '    id <- c.customer_id',
+        '    name = c.customer_name',
+        '  }',
+        '}',
+      ].join('\n'),
+      version: 1,
+    };
+    const workspaceRevision = 350;
+    await client.openWorkspace(workspaceRevision, [source]);
+
+    const projection = await client.graph(workspaceRevision, 'projection');
+    const lineage = await client.graph(workspaceRevision, 'lineage');
+    return { projection, lineage };
+  });
+
+  expect(result.projection.mode).toBe('projection');
+  expect(result.projection.graph.nodes.length).toBeGreaterThan(0);
+  const projKinds = new Set(
+    result.projection.graph.nodes.map((n: { kind: string }) => n.kind),
+  );
+  expect(projKinds).toContain('projection');
+  expect(projKinds).toContain('field');
+  expect(projKinds).not.toContain('domain');
+
+  expect(result.lineage.mode).toBe('lineage');
+  expect(result.lineage.graph.nodes.length).toBeGreaterThan(0);
+  const lineageKinds = new Set(
+    result.lineage.graph.nodes.map((n: { kind: string }) => n.kind),
+  );
+  expect(lineageKinds).toEqual(new Set(['field']));
+  const lineageEdgeKinds = new Set(
+    result.lineage.graph.edges.map((e: { kind: string }) => e.kind),
+  );
+  expect(lineageEdgeKinds).toEqual(new Set(['projects']));
+});
+
 test('workspace.lineage, workspace.compatibility, and workspace.governance return analysis results', async ({
   page,
 }) => {
