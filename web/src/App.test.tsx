@@ -1391,6 +1391,166 @@ describe('App', () => {
     expect(createClient).toHaveBeenCalledTimes(2);
   });
 
+  test('shows AI action buttons after activating heuristic provider', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use heuristic AI' }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Generate entity' }),
+      ).toBeTruthy();
+    });
+    expect(
+      screen.getByRole('button', { name: 'Explain' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Suggest projection' }),
+    ).toBeTruthy();
+  });
+
+  test('generate entity shows prompt dialog and calls aiGenerate', async () => {
+    const client = new FakeCompilerClient();
+    client.aiGenerate.mockResolvedValue({
+      source: 'entity Order {\n  v1 {}\n}\n',
+      diagnostics: [],
+    });
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use heuristic AI' }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Generate entity' }),
+      ).toBeTruthy();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate entity' }),
+    );
+    await waitFor(() => {
+      expect(screen.getByLabelText(/describe the entity/i)).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByLabelText(/describe the entity/i), {
+      target: { value: 'Order for e-commerce' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+    await waitFor(() => {
+      expect(client.aiGenerate).toHaveBeenCalledTimes(1);
+    });
+    expect(client.aiGenerate.mock.calls[0]?.[1]).toBe('generate_entity');
+    expect(client.aiGenerate.mock.calls[0]?.[2]).toEqual({
+      description: 'Order for e-commerce',
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-preview')).toBeTruthy();
+    });
+    expect(screen.getByText(/entity Order/)).toBeTruthy();
+  });
+
+  test('explain calls aiExplain and shows explanation', async () => {
+    const client = new FakeCompilerClient();
+    client.aiExplain.mockResolvedValue({
+      explanation: 'This model defines a Customer entity.',
+    });
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use heuristic AI' }),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Explain' }));
+
+    await waitFor(() => {
+      expect(client.aiExplain).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-preview')).toBeTruthy();
+    });
+    expect(
+      screen.getByText('This model defines a Customer entity.'),
+    ).toBeTruthy();
+  });
+
+  test('accept applies generated source to workspace', async () => {
+    const client = new FakeCompilerClient();
+    client.aiGenerate.mockResolvedValue({
+      source: 'domain commerce {\n  entity Order {\n    v1 {}\n  }\n}\n',
+      diagnostics: [],
+    });
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use heuristic AI' }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Suggest projection' }),
+      ).toBeTruthy();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Suggest projection' }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-preview')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+    await waitFor(() => {
+      expect(screen.queryByTestId('ai-preview')).toBeNull();
+    });
+
+    const editor = screen.getByLabelText<HTMLTextAreaElement>('Model source');
+    expect(editor.value).toContain('entity Order');
+  });
+
+  test('discard closes preview without modifying source', async () => {
+    const client = new FakeCompilerClient();
+    client.aiExplain.mockResolvedValue({
+      explanation: 'Test explanation',
+    });
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Use heuristic AI' }),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy();
+    });
+
+    const editorBefore =
+      screen.getByLabelText<HTMLTextAreaElement>('Model source').value;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Explain' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-preview')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByTestId('ai-preview')).toBeNull();
+    });
+
+    const editorAfter =
+      screen.getByLabelText<HTMLTextAreaElement>('Model source').value;
+    expect(editorAfter).toBe(editorBefore);
+  });
+
   test('routes the skip link target to the source editor focus handle', async () => {
     const client = new FakeCompilerClient();
     const template = document.createElement('template');

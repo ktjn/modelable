@@ -235,6 +235,109 @@ button:disabled {
   transition: width 0.2s ease-out;
 }
 
+.ai-prompt {
+  display: flex;
+  align-items: end;
+  gap: 0.55rem;
+  padding: 0.55rem clamp(1rem, 3vw, 2.75rem);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.ai-prompt__label {
+  flex: 1;
+  max-width: 28rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.ai-prompt__input {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  margin-top: 0.35rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--graphite);
+  border-radius: 0;
+  color: var(--graphite);
+  background: var(--paper);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.ai-prompt button {
+  min-height: 2rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.72rem;
+}
+
+.ai-preview {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--signal);
+  border-left: 0.3rem solid var(--signal);
+  background: var(--paper);
+}
+
+.ai-preview__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.ai-preview__header h3 {
+  margin: 0;
+}
+
+.ai-preview__provider {
+  margin: 0;
+  color: var(--muted);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.65rem;
+}
+
+.ai-preview__source {
+  margin: 0.5rem 0;
+  padding: 0.65rem;
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  background: #f9fbfb;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.ai-preview__explanation {
+  margin: 0.5rem 0;
+  color: var(--graphite);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.ai-preview__diagnostics {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+  color: var(--diagnostic);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.ai-preview__actions {
+  display: flex;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.ai-preview__actions button {
+  min-height: 2rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.72rem;
+}
+
 .view-tabs {
   display: none;
 }

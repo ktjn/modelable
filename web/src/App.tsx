@@ -52,6 +52,14 @@ import {
 } from './ai/provider-state';
 import { detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
 import { HeuristicProvider } from './ai/heuristic-provider';
+import {
+  AiPreviewPanel,
+  type AiPreviewState,
+} from './ai/AiPreviewPanel';
+import type {
+  AiGenerateAction,
+  AiGenerateParameters,
+} from './ai/types';
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
 const createWorkspaceRepository = (): WorkspaceRepository => {
@@ -155,6 +163,10 @@ export function App({
     providerStateReducer,
     initialProviderState,
   );
+  const [aiPreview, setAiPreview] = useState<AiPreviewState | null>(null);
+  const [aiPending, setAiPending] = useState(false);
+  const [aiPromptOpen, setAiPromptOpen] = useState(false);
+  const [aiPromptValue, setAiPromptValue] = useState('');
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const languageControllerRef =
@@ -581,6 +593,163 @@ export function App({
     void provider.initialize().then(() => aiDispatch({ type: 'ready' }));
   }, []);
 
+  const runAiGenerate = useCallback(
+    (action: AiGenerateAction, parameters: AiGenerateParameters): void => {
+      const client = clientRef.current;
+      const provider = aiState.provider;
+      if (
+        client === null ||
+        provider === null ||
+        aiState.status !== 'ready' ||
+        state.runtime !== 'ready' ||
+        aiPending
+      ) {
+        return;
+      }
+      setAiPending(true);
+      void client
+        .aiGenerate(
+          workspaceRef.current.revision,
+          action,
+          parameters,
+          provider,
+        )
+        .then(
+          (result) => {
+            setAiPreview({
+              kind: 'generate',
+              source: result.source,
+              diagnostics: result.diagnostics,
+              providerInfo: { provider: provider.id, model: provider.model },
+            });
+          },
+          (error: unknown) => {
+            setAiPreview({
+              kind: 'generate',
+              diagnostics: [
+                {
+                  code: 'AI_ERROR',
+                  severity: 'error',
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : 'AI generation failed',
+                  uri: '',
+                  line: null,
+                  column: null,
+                  end_line: null,
+                  end_column: null,
+                },
+              ],
+              providerInfo: { provider: provider.id, model: provider.model },
+            });
+          },
+        )
+        .finally(() => setAiPending(false));
+    },
+    [aiState.provider, aiState.status, aiPending, state.runtime],
+  );
+
+  const handleAiExplain = useCallback((): void => {
+    const client = clientRef.current;
+    const provider = aiState.provider;
+    if (
+      client === null ||
+      provider === null ||
+      aiState.status !== 'ready' ||
+      state.runtime !== 'ready' ||
+      aiPending
+    ) {
+      return;
+    }
+    setAiPending(true);
+    void client
+      .aiExplain(workspaceRef.current.revision, {}, provider)
+      .then(
+        (result) => {
+          setAiPreview({
+            kind: 'explain',
+            explanation: result.explanation,
+            diagnostics: [],
+            providerInfo: { provider: provider.id, model: provider.model },
+          });
+        },
+        (error: unknown) => {
+          setAiPreview({
+            kind: 'explain',
+            diagnostics: [
+              {
+                code: 'AI_ERROR',
+                severity: 'error',
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : 'AI explanation failed',
+                uri: '',
+                line: null,
+                column: null,
+                end_line: null,
+                end_column: null,
+              },
+            ],
+            providerInfo: { provider: provider.id, model: provider.model },
+          });
+        },
+      )
+      .finally(() => setAiPending(false));
+  }, [aiState.provider, aiState.status, aiPending, state.runtime]);
+
+  const handleAiGenerateEntity = useCallback((): void => {
+    setAiPromptOpen(true);
+    setAiPromptValue('');
+  }, []);
+
+  const handleAiPromptSubmit = useCallback((): void => {
+    setAiPromptOpen(false);
+    const description = aiPromptValue.trim();
+    if (description === '') {
+      return;
+    }
+    runAiGenerate('generate_entity', { description });
+  }, [aiPromptValue, runAiGenerate]);
+
+  const handleAiSuggestProjection = useCallback((): void => {
+    runAiGenerate('suggest_projection', {});
+  }, [runAiGenerate]);
+
+  const handleAiAccept = useCallback((): void => {
+    if (aiPreview === null || aiPreview.source === undefined) {
+      return;
+    }
+    const workspace = workspaceRef.current;
+    const activePath = workspace.activeFile;
+    const source = aiPreview.source;
+    const providerInfo = aiPreview.providerInfo;
+    setAiPreview(null);
+    const updated = mutateWorkspace(workspace, {
+      type: 'update',
+      path: activePath,
+      content: source,
+    });
+    const withProvenance: PlaygroundWorkspace = {
+      ...updated,
+      metadata: {
+        ...updated.metadata,
+        lastAiAccept: {
+          provider: providerInfo.provider,
+          model: providerInfo.model,
+          timestamp: Date.now(),
+        },
+      },
+    };
+    replaceWorkspace(withProvenance, true);
+    sourceEditorRef.current?.replaceText(source);
+  }, [aiPreview, replaceWorkspace]);
+
+  const handleAiDiscard = useCallback((): void => {
+    setAiPreview(null);
+  }, []);
+
   const retryCompiler = (): void => {
     const controller = languageControllerRef.current;
     languageControllerRef.current = null;
@@ -787,7 +956,59 @@ export function App({
             Use heuristic AI
           </button>
         ) : null}
+        {aiState.status === 'ready' ? (
+          <>
+            <button
+              type="button"
+              disabled={actionsDisabled || aiPending}
+              onClick={handleAiGenerateEntity}
+            >
+              Generate entity
+            </button>
+            <button
+              type="button"
+              disabled={actionsDisabled || aiPending}
+              onClick={handleAiExplain}
+            >
+              Explain
+            </button>
+            <button
+              type="button"
+              disabled={actionsDisabled || aiPending}
+              onClick={handleAiSuggestProjection}
+            >
+              Suggest projection
+            </button>
+          </>
+        ) : null}
       </section>
+      {aiPromptOpen ? (
+        <div className="ai-prompt" role="dialog" aria-label="Generate entity">
+          <label className="ai-prompt__label">
+            Describe the entity to generate
+            <input
+              className="ai-prompt__input"
+              type="text"
+              value={aiPromptValue}
+              autoFocus
+              onChange={(e) => setAiPromptValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleAiPromptSubmit();
+                } else if (e.key === 'Escape') {
+                  setAiPromptOpen(false);
+                }
+              }}
+            />
+          </label>
+          <button type="button" onClick={handleAiPromptSubmit}>
+            Generate
+          </button>
+          <button type="button" onClick={() => setAiPromptOpen(false)}>
+            Cancel
+          </button>
+        </div>
+      ) : null}
       <nav className="view-tabs" aria-label="View">
         <button
           type="button"
@@ -908,6 +1129,13 @@ export function App({
               <p>No diagnostics</p>
             )}
           </section>
+          {aiPreview !== null ? (
+            <AiPreviewPanel
+              preview={aiPreview}
+              onAccept={handleAiAccept}
+              onDiscard={handleAiDiscard}
+            />
+          ) : null}
         </section>
         <section
           className="artifact-pane"

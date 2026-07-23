@@ -8,12 +8,21 @@ export interface PlaygroundFile {
   version: number;
 }
 
+export interface WorkspaceMetadata {
+  lastAiAccept?: {
+    provider: string;
+    model: string;
+    timestamp: number;
+  };
+}
+
 export interface PlaygroundWorkspace {
   schemaVersion: typeof PLAYGROUND_WORKSPACE_SCHEMA_VERSION;
   id: string;
   revision: number;
   files: PlaygroundFile[];
   activeFile: string;
+  metadata?: WorkspaceMetadata;
 }
 
 export type WorkspaceMutation =
