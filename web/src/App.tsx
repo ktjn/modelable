@@ -725,14 +725,17 @@ export function App({
   }, [runAiGenerate]);
 
   const handleAiAccept = useCallback((): void => {
-    if (aiPreview === null || aiPreview.source === undefined) {
+    if (aiPreview === null) {
+      return;
+    }
+    const source = aiPreview.source;
+    const providerInfo = aiPreview.providerInfo;
+    setAiPreview(null);
+    if (source === undefined) {
       return;
     }
     const workspace = workspaceRef.current;
     const activePath = workspace.activeFile;
-    const source = aiPreview.source;
-    const providerInfo = aiPreview.providerInfo;
-    setAiPreview(null);
     const updated = mutateWorkspace(workspace, {
       type: 'update',
       path: activePath,
