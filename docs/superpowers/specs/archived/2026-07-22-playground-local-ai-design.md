@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted on 2026-07-22.
+Shipped on 2026-07-22.
 
-Execution is broken into reviewable tasks in the
+Execution was broken into reviewable tasks in the
 [Playground Local AI implementation plan](../plans/2026-07-22-playground-local-ai.md).
 
 This specification defines Phase 6 of the

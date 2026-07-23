@@ -81,18 +81,31 @@ Work proceeds in phase order, with one active phase at a time:
    [Playground Analysis Views — Design](docs/superpowers/specs/archived/2026-07-21-playground-analysis-views-design.md)
    and
    [Playground Analysis Views — Plan](docs/superpowers/plans/archived/2026-07-21-playground-analysis-views.md).
-7. **Active next slice: local AI.**
-   Add WebLLM model download and provider UX only after workspace editing and
-   analysis boundaries are stable. Model output remains untrusted and must use
-   typed planning, validation, preview, and explicit acceptance.
-8. **Then: offline hardening and extensibility.**
-   Add the service worker, offline workspace support, performance and security
-   hardening, extension boundaries, and additional views after the core
-   workspace and language-service contracts have shipped.
+7. **Shipped: local AI.**
+   The Playground provides WebLLM-powered local AI with model download UX,
+   generate-entity and explain actions, validated preview with provenance
+   tracking, and explicit user acceptance. The completed designs are archived
+   in
+   [Playground Local AI — Design](docs/superpowers/specs/archived/2026-07-22-playground-local-ai-design.md)
+   and
+   [Playground Local AI — Plan](docs/superpowers/plans/archived/2026-07-22-playground-local-ai.md).
+8. **Shipped: offline and hardening.**
+   The Playground registers a service worker for offline operation, validates
+   against both Chromium and Firefox, enforces accessibility with axe-core
+   scans and reduced-motion support, applies performance budgets to all asset
+   categories including Monaco and the AI worker, and lazy-loads AI
+   components. The completed designs are archived in
+   [Playground Offline and Hardening — Design](docs/superpowers/specs/archived/2026-07-23-playground-offline-hardening-design.md)
+   and
+   [Playground Offline and Hardening — Plan](docs/superpowers/plans/archived/2026-07-23-playground-offline-hardening.md).
+9. **Active next phase: extensibility.**
+   Add plugin contracts, additional visualization modes, optional local
+   Ollama provider, and optional GitHub integration using explicit user
+   authorization.
 
-The next implementation slice is item 7. Completion means the Playground gains
-local AI-assisted generation and explanation through WebLLM, with validated
-preview and explicit user acceptance for all mutating actions.
+The next implementation slice is item 9. Completion means the Playground
+supports third-party extensions and additional providers through documented
+plugin contracts.
 
 ## Priority 2 — complete the Scalable and Rust contract path
 

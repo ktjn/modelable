@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed on 2026-07-23. Implements the
+Shipped on 2026-07-23. Implements the
 [Playground Offline and Hardening design](../specs/2026-07-23-playground-offline-hardening-design.md).
 
 ## Batch order

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted on 2026-07-22. Implements the
+Shipped on 2026-07-22. Implements the
 [Playground Local AI design](../specs/2026-07-22-playground-local-ai-design.md).
 
 ## Batch order

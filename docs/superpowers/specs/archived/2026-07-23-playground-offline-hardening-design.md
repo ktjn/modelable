@@ -2,9 +2,9 @@
 
 ## Status
 
-Proposed on 2026-07-23.
+Shipped on 2026-07-23.
 
-Execution will be broken into reviewable tasks in the
+Execution was broken into reviewable tasks in the
 [Playground Offline and Hardening implementation plan](../plans/2026-07-23-playground-offline-hardening.md).
 
 This specification defines Phase 7 of the
