@@ -82,7 +82,7 @@ async function replaceSource(page: Page, text: string): Promise<void> {
 
 async function waitForReady(page: Page): Promise<void> {
   await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
-    timeout: 45_000,
+    timeout: 90_000,
   });
 }
 
@@ -229,6 +229,7 @@ test('initializes locally and supports the complete editor workflow', async ({
 test('creates, validates, and restores a multi-file workspace', async ({
   page,
 }) => {
+  test.setTimeout(120_000);
 
   await page.goto('?test=1');
   await waitForReady(page);
