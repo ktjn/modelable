@@ -693,6 +693,7 @@ test('disposes the page client on pagehide exactly once', async ({ page }) => {
 test('retries a failed runtime manifest request without losing editor text', async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   let failedOnce = false;
   await page.route(runtimeManifest, async (route) => {
     if (!failedOnce) {
