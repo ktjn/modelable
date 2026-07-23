@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('registers a service worker on first load', async ({ page }) => {
 
   await page.goto('?test=1');
-  await expect(page.getByRole('status')).toHaveText(/compiler ready|diagnostics/i, {
+  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
     timeout: 45_000,
   });
 
@@ -24,7 +24,7 @@ test('serves the application shell from cache when offline', async ({
   test.setTimeout(90_000);
 
   await page.goto('?test=1');
-  await expect(page.getByRole('status')).toHaveText(/compiler ready|diagnostics/i, {
+  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
     timeout: 45_000,
   });
 
@@ -49,7 +49,7 @@ test('serves the application shell from cache when offline', async ({
 test('update banner appears and can be dismissed', async ({ page }) => {
 
   await page.goto('?test=1');
-  await expect(page.getByRole('status')).toHaveText(/compiler ready|diagnostics/i, {
+  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
     timeout: 45_000,
   });
 
