@@ -1,11 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 
-test.use({
-  launchOptions: {
-    args: ['--disable-features=WebGPU'],
-  },
-});
-
 function modelSource(page: Page) {
   return page.getByRole('textbox', { name: 'Model source' });
 }
@@ -37,10 +31,9 @@ async function replaceSource(page: Page, text: string): Promise<void> {
   await page.keyboard.type(text);
 }
 
-async function activateHeuristicProvider(page: Page): Promise<void> {
-  await page.goto('?test=1');
+async function gotoWithHeuristic(page: Page): Promise<void> {
+  await page.goto('?test=1&ai=heuristic');
   await waitForReady(page);
-  await page.getByRole('button', { name: 'Use heuristic AI' }).click();
   await expect(
     page.getByRole('button', { name: 'Generate entity' }),
   ).toBeVisible({ timeout: 5_000 });
@@ -48,7 +41,7 @@ async function activateHeuristicProvider(page: Page): Promise<void> {
 
 test('activates heuristic AI and shows action buttons', async ({ page }) => {
   test.setTimeout(60_000);
-  await activateHeuristicProvider(page);
+  await gotoWithHeuristic(page);
 
   await expect(
     page.getByRole('button', { name: 'Generate entity' }),
@@ -63,7 +56,7 @@ test('generate entity opens prompt, submits, and shows preview', async ({
   page,
 }) => {
   test.setTimeout(60_000);
-  await activateHeuristicProvider(page);
+  await gotoWithHeuristic(page);
 
   await page.getByRole('button', { name: 'Generate entity' }).click();
   const dialog = page.getByRole('dialog', { name: 'Generate entity' });
@@ -87,7 +80,7 @@ test('generate entity opens prompt, submits, and shows preview', async ({
 
 test('explain shows AI explanation preview', async ({ page }) => {
   test.setTimeout(60_000);
-  await activateHeuristicProvider(page);
+  await gotoWithHeuristic(page);
 
   await page.getByRole('button', { name: 'Explain' }).click();
   await expect(page.getByText('AI explanation')).toBeVisible({
@@ -103,7 +96,7 @@ test('explain shows AI explanation preview', async ({ page }) => {
 
 test('accept applies generated source to the editor', async ({ page }) => {
   test.setTimeout(60_000);
-  await activateHeuristicProvider(page);
+  await gotoWithHeuristic(page);
 
   await page.getByRole('button', { name: 'Suggest projection' }).click();
   await expect(page.getByText('AI generated source')).toBeVisible({
@@ -116,7 +109,7 @@ test('accept applies generated source to the editor', async ({ page }) => {
 
 test('discard closes preview without modifying source', async ({ page }) => {
   test.setTimeout(60_000);
-  await activateHeuristicProvider(page);
+  await gotoWithHeuristic(page);
 
   const source =
     'domain customer { owner: "team" entity Customer @ 1 (additive) { @key customerId: uuid } }';
@@ -134,7 +127,7 @@ test('discard closes preview without modifying source', async ({ page }) => {
 
 test('prompt dialog cancels with Cancel button', async ({ page }) => {
   test.setTimeout(60_000);
-  await activateHeuristicProvider(page);
+  await gotoWithHeuristic(page);
 
   await page.getByRole('button', { name: 'Generate entity' }).click();
   const dialog = page.getByRole('dialog', { name: 'Generate entity' });
@@ -147,7 +140,7 @@ test('prompt dialog cancels with Cancel button', async ({ page }) => {
 
 test('prompt dialog cancels with Escape key', async ({ page }) => {
   test.setTimeout(60_000);
-  await activateHeuristicProvider(page);
+  await gotoWithHeuristic(page);
 
   await page.getByRole('button', { name: 'Generate entity' }).click();
   const dialog = page.getByRole('dialog', { name: 'Generate entity' });

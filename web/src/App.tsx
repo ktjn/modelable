@@ -559,6 +559,13 @@ export function App({
   }, [handleFormat, handleGenerate, handleValidate, state.runtime]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('ai') === 'heuristic') {
+      const provider = new HeuristicProvider();
+      aiDispatch({ type: 'download_start', provider });
+      void provider.initialize().then(() => aiDispatch({ type: 'ready' }));
+      return;
+    }
     aiDispatch({ type: 'detect_start' });
     if (detectWebGpu()) {
       aiDispatch({ type: 'detect_available' });
