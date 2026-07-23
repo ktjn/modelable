@@ -1,5 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 
+test.use({
+  launchOptions: {
+    args: ['--disable-features=WebGPU'],
+  },
+});
+
 function modelSource(page: Page) {
   return page.getByRole('textbox', { name: 'Model source' });
 }
@@ -32,14 +38,6 @@ async function replaceSource(page: Page, text: string): Promise<void> {
 }
 
 async function activateHeuristicProvider(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    Object.defineProperty(Navigator.prototype, 'gpu', {
-      configurable: true,
-      get() {
-        return undefined;
-      },
-    });
-  });
   await page.goto('?test=1');
   await waitForReady(page);
   await page.getByRole('button', { name: 'Use heuristic AI' }).click();
