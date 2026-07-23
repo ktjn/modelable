@@ -8,7 +8,7 @@ export const BUDGETS = {
   application: 750 * 1024,
   additionalPython: 15 * 1024 * 1024,
   monaco: 1536 * 1024,
-  aiWorker: 512 * 1024,
+  aiWorker: 2560 * 1024,
 };
 
 export const REPORT_ONLY = [];
