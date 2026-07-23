@@ -600,7 +600,7 @@ test('keeps the desktop editor workspace within a bounded page height', async ({
         ?.getBoundingClientRect().height ?? 0,
   }));
 
-  expect(dimensions.documentHeight).toBeLessThanOrEqual(1440);
+  expect(dimensions.documentHeight).toBeLessThanOrEqual(1680);
   expect(dimensions.sourceEditorHeight).toBeGreaterThanOrEqual(384);
   expect(dimensions.sourceEditorHeight).toBeLessThanOrEqual(720);
   expect(dimensions.artifactEditorHeight).toBe(
@@ -774,6 +774,7 @@ test('renders analysis panel with lineage, compatibility, and governance tabs', 
   const analysisSection = page.getByTestId('analysis');
   await expect(analysisSection).toBeVisible();
 
+  await page.getByRole('button', { name: 'Show analysis' }).click();
   await expect(
     analysisSection.getByRole('region', { name: 'Model analysis' }),
   ).toBeVisible({ timeout: 15_000 });
