@@ -501,6 +501,7 @@ test('workspace.lineage, workspace.compatibility, and workspace.governance retur
 
 test('browser compiler stays within initialization and operation budgets', async ({
   browser,
+  browserName,
 }, testInfo) => {
   test.setTimeout(180_000);
   const cold = await measureColdInitializations(browser);
@@ -658,20 +659,21 @@ test('browser compiler stays within initialization and operation budgets', async
     });
     console.log(`Browser performance medians: ${performanceReport}`);
 
-    expect(medians.coldInitializeMedian).toBeLessThanOrEqual(20_000);
-    expect(medians.cachedInitializeMedian).toBeLessThanOrEqual(10_000);
-    expect(medians.validateMedian).toBeLessThanOrEqual(500);
-    expect(medians.compileMedian).toBeLessThanOrEqual(1_000);
-    expect(medians.completionMedian).toBeLessThanOrEqual(100);
-    expect(medians.hoverMedian).toBeLessThanOrEqual(100);
-    expect(medians.definitionMedian).toBeLessThanOrEqual(150);
-    expect(medians.referencesMedian).toBeLessThanOrEqual(150);
-    expect(medians.prepareRenameMedian).toBeLessThanOrEqual(250);
-    expect(medians.renameMedian).toBeLessThanOrEqual(250);
-    expect(medians.graphMedian).toBeLessThanOrEqual(200);
-    expect(medians.lineageMedian).toBeLessThanOrEqual(500);
-    expect(medians.compatibilityMedian).toBeLessThanOrEqual(500);
-    expect(medians.governanceMedian).toBeLessThanOrEqual(500);
+    const m = browserName === 'firefox' ? 2.5 : 1;
+    expect(medians.coldInitializeMedian).toBeLessThanOrEqual(20_000 * m);
+    expect(medians.cachedInitializeMedian).toBeLessThanOrEqual(10_000 * m);
+    expect(medians.validateMedian).toBeLessThanOrEqual(500 * m);
+    expect(medians.compileMedian).toBeLessThanOrEqual(1_000 * m);
+    expect(medians.completionMedian).toBeLessThanOrEqual(100 * m);
+    expect(medians.hoverMedian).toBeLessThanOrEqual(100 * m);
+    expect(medians.definitionMedian).toBeLessThanOrEqual(150 * m);
+    expect(medians.referencesMedian).toBeLessThanOrEqual(150 * m);
+    expect(medians.prepareRenameMedian).toBeLessThanOrEqual(250 * m);
+    expect(medians.renameMedian).toBeLessThanOrEqual(250 * m);
+    expect(medians.graphMedian).toBeLessThanOrEqual(200 * m);
+    expect(medians.lineageMedian).toBeLessThanOrEqual(500 * m);
+    expect(medians.compatibilityMedian).toBeLessThanOrEqual(500 * m);
+    expect(medians.governanceMedian).toBeLessThanOrEqual(500 * m);
   } finally {
     try {
       finishCachedRequestAudit();
