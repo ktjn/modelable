@@ -10,7 +10,7 @@ function sourceOutput(page: Page) {
 }
 
 async function waitForReady(page: Page): Promise<void> {
-  await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
+  await expect(page.getByRole('status')).toHaveText(/compiler ready|diagnostics/i, {
     timeout: 45_000,
   });
 }

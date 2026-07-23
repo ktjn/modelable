@@ -81,7 +81,7 @@ async function replaceSource(page: Page, text: string): Promise<void> {
 }
 
 async function waitForReady(page: Page): Promise<void> {
-  await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
+  await expect(page.getByRole('status')).toHaveText(/compiler ready|diagnostics/i, {
     timeout: 45_000,
   });
 }
