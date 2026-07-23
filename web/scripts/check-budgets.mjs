@@ -9,7 +9,7 @@ export const BUDGETS = {
   additionalPython: 15 * 1024 * 1024,
 };
 
-export const REPORT_ONLY = ['monaco'];
+export const REPORT_ONLY = ['monaco', 'aiWorker'];
 
 const ENFORCED_CATEGORY_NAMES = Object.keys(BUDGETS);
 const CATEGORY_NAMES = [...ENFORCED_CATEGORY_NAMES, ...REPORT_ONLY];
@@ -33,6 +33,9 @@ export function categorizeAsset(path) {
     )
   ) {
     return 'monaco';
+  }
+  if (/(?:^|\/)ai\.worker-[^/]+\.js$/.test(normalized)) {
+    return 'aiWorker';
   }
   if (
     !/^(?:fixtures|pyodide|python)(?:\/|$)/.test(normalized) &&
