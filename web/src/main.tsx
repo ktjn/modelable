@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './App';
 import './editor/monaco-environment';
+import { registerServiceWorker } from './sw-registration';
 import './style.css';
 
 const root = document.getElementById('root');
@@ -15,3 +16,5 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 );
+
+registerServiceWorker();
