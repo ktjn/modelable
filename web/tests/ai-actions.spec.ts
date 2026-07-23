@@ -151,76 +151,43 @@ test('prompt dialog cancels with Escape key', async ({ page }) => {
   await expect(dialog).toBeHidden();
 });
 
-test('has no accessibility violations with AI toolbar visible', async ({
+test('has no accessibility violations across AI toolbar, prompt dialog, and preview', async ({
   page,
 }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   await gotoWithHeuristic(page);
 
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(results.violations).toEqual([]);
-});
-
-test('has no accessibility violations with prompt dialog open', async ({
-  page,
-}) => {
-  test.setTimeout(60_000);
-  await gotoWithHeuristic(page);
+  const toolbarResults = await new AxeBuilder({ page }).analyze();
+  expect(toolbarResults.violations).toEqual([]);
 
   await page.getByRole('button', { name: 'Generate entity' }).click();
-  await expect(
-    page.getByRole('dialog', { name: 'Generate entity' }),
-  ).toBeVisible();
+  const dialog = page.getByRole('dialog', { name: 'Generate entity' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('textbox')).toBeFocused();
 
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(results.violations).toEqual([]);
-});
+  const dialogResults = await new AxeBuilder({ page }).analyze();
+  expect(dialogResults.violations).toEqual([]);
 
-test('has no accessibility violations with AI preview visible', async ({
-  page,
-}) => {
-  test.setTimeout(60_000);
-  await gotoWithHeuristic(page);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
 
   await page.getByRole('button', { name: 'Explain' }).click();
   await expect(page.getByText('AI explanation')).toBeVisible({
     timeout: 10_000,
   });
 
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(results.violations).toEqual([]);
-});
+  const previewResults = await new AxeBuilder({ page }).analyze();
+  expect(previewResults.violations).toEqual([]);
 
-test('focus moves to prompt input on dialog open and returns on close', async ({
-  page,
-}) => {
-  test.setTimeout(60_000);
-  await gotoWithHeuristic(page);
-
-  const generateButton = page.getByRole('button', {
-    name: 'Generate entity',
-  });
-  await generateButton.click();
-  const dialog = page.getByRole('dialog', { name: 'Generate entity' });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('textbox')).toBeFocused();
-
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
-});
-
-test('focus moves to preview on generation and returns on discard', async ({
-  page,
-}) => {
-  test.setTimeout(60_000);
-  await gotoWithHeuristic(page);
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByText('AI explanation')).toBeHidden();
 
   await page.getByRole('button', { name: 'Suggest projection' }).click();
-  const preview = page.getByText('AI generated source');
-  await expect(preview).toBeVisible({ timeout: 10_000 });
-
+  await expect(page.getByText('AI generated source')).toBeVisible({
+    timeout: 10_000,
+  });
   await page.getByRole('button', { name: 'Discard' }).click();
-  await expect(preview).toBeHidden();
+  await expect(page.getByText('AI generated source')).toBeHidden();
 });
 
 test('no CSS animations are active with prefers-reduced-motion', async ({
