@@ -118,7 +118,7 @@ test('discard closes preview without modifying source', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByText('AI explanation')).toBeHidden();
-  await expect(sourceOutput(page)).toContainText(/domain\s+customer/);
+  await expect(modelSource(page)).toContainText(/domain\s+customer/);
 });
 
 test('prompt dialog cancels with Cancel button', async ({ page }) => {

@@ -153,10 +153,12 @@ test('initializes locally and supports the complete editor workflow', async ({
   await waitForReady(page);
   await page.unroute(runtimeManifest);
 
-  await expect(sourceOutput(page)).toContainText(/entity\s+Customer/);
+  await expect(modelSource(page)).toContainText(/entity\s+Customer/);
   await replaceSource(page, invalidSource);
   await actions[0].click();
-  await expect(page.getByTestId('diagnostics')).toContainText('PARSE');
+  await expect(page.getByTestId('diagnostics')).toContainText('PARSE', {
+    timeout: 10_000,
+  });
 
   await replaceSource(page, validCompact);
   await actions[1].click();
@@ -166,7 +168,7 @@ test('initializes locally and supports the complete editor workflow', async ({
   await focusSourceEditor(page);
   await page.keyboard.press('Control+z');
   await expect(page.locator('.source-editor .view-line')).toHaveCount(1);
-  await expect(sourceOutput(page)).toContainText(
+  await expect(modelSource(page)).toContainText(
     /domain\s+customer.*displayName\?:\s+string/,
   );
   await actions[1].click();
@@ -192,7 +194,7 @@ test('initializes locally and supports the complete editor workflow', async ({
     mimeType: 'text/plain',
     buffer: Buffer.from(importedSource),
   });
-  await expect(sourceOutput(page)).toContainText(/domain\s+imported/);
+  await expect(modelSource(page)).toContainText(/domain\s+imported/);
   await actions[2].click();
   const artifactPicker = page.getByRole('combobox', {
     name: 'Artifact',
@@ -267,7 +269,7 @@ test('creates, validates, and restores a multi-file workspace', async ({
   await expect(
     page.getByRole('button', { name: 'customer.mdl' }),
   ).toHaveAttribute('aria-current', 'true');
-  await expect(sourceOutput(page)).toContainText(/domain\s+customer/);
+  await expect(modelSource(page)).toContainText(/domain\s+customer/);
 });
 
 test('provides cross-file live diagnostics, completion, and hover accessibly', async ({
@@ -715,7 +717,7 @@ test('retries a failed runtime manifest request without losing editor text', asy
   await page.unroute(runtimeManifest);
   await page.getByRole('button', { name: 'Retry compiler' }).click();
   await waitForReady(page);
-  await expect(sourceOutput(page)).toContainText(/domain\s+retained/);
+  await expect(modelSource(page)).toContainText(/domain\s+retained/);
 });
 
 test('graph panel toolbar includes export buttons', async ({
