@@ -14,7 +14,7 @@ export default defineConfig({
         ],
         globIgnores: ['fixtures/**'],
         maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
-        navigateFallback: 'index.html',
+        navigateFallback: '/modelable/playground/index.html',
       },
       manifest: {
         name: 'Modelable Playground',

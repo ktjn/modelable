@@ -42,7 +42,7 @@ test('serves the application shell from cache when offline', async ({
   await context.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
 
-  await expect(page.locator('title')).toHaveText('Modelable Playground');
+  await expect(page).toHaveTitle('Modelable Playground');
   await expect(page.locator('#root')).toBeAttached();
 });
 
