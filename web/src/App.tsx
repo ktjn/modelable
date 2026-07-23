@@ -160,8 +160,8 @@ export function App({
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
   const [mobileView, setMobileView] = useState<'source' | 'graph' | 'analysis'>('source');
-  const [graphCollapsed, setGraphCollapsed] = useState(true);
-  const [analysisCollapsed, setAnalysisCollapsed] = useState(true);
+  const [graphCollapsed, setGraphCollapsed] = useState(false);
+  const [analysisCollapsed, setAnalysisCollapsed] = useState(false);
   const [aiState, aiDispatch] = useReducer(
     providerStateReducer,
     initialProviderState,

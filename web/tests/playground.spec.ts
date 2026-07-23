@@ -726,7 +726,6 @@ test('graph panel toolbar includes export buttons', async ({
   await page.goto('?test=1');
   await waitForReady(page);
 
-  await page.getByRole('button', { name: 'Show graph' }).click();
   const graphSection = page.getByTestId('graph');
   await expect(
     graphSection.getByRole('region', { name: 'Model graph' }),
@@ -744,7 +743,6 @@ test('graph panel shows projection and lineage mode tabs', async ({
   await page.goto('?test=1');
   await waitForReady(page);
 
-  await page.getByRole('button', { name: 'Show graph' }).click();
   const graphSection = page.getByTestId('graph');
   await expect(
     graphSection.getByRole('region', { name: 'Model graph' }),
@@ -776,7 +774,6 @@ test('renders analysis panel with lineage, compatibility, and governance tabs', 
   const analysisSection = page.getByTestId('analysis');
   await expect(analysisSection).toBeVisible();
 
-  await page.getByRole('button', { name: 'Show analysis' }).click();
   await expect(
     analysisSection.getByRole('region', { name: 'Model analysis' }),
   ).toBeVisible({ timeout: 10_000 });
