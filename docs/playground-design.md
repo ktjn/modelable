@@ -1,11 +1,11 @@
 # Modelable Playground Architecture
 
-> **Status:** Long-term product vision with Phases 1–5 shipped. The browser
+> **Status:** Long-term product vision with Phases 1–7 shipped. The browser
 > compiler, single-file editor, multi-file workspace with persistence,
-> browser-native language services, visualization MVP, and analysis views
-> (field lineage, compatibility visualization, governance views, and SVG/PNG
-> diagram export) are all archived. Local AI is the active next slice;
-> offline, and plugin phases remain deferred.
+> browser-native language services, visualization MVP, analysis views,
+> local AI, and offline hardening (service worker, cross-browser validation,
+> accessibility and performance hardening) are all archived. Extensibility
+> is the active next phase.
 
 ## 1. Purpose
 
