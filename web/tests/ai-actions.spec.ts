@@ -33,9 +33,11 @@ async function replaceSource(page: Page, text: string): Promise<void> {
 
 async function activateHeuristicProvider(page: Page): Promise<void> {
   await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'gpu', {
+    Object.defineProperty(Navigator.prototype, 'gpu', {
       configurable: true,
-      value: undefined,
+      get() {
+        return undefined;
+      },
     });
   });
   await page.goto('?test=1');
