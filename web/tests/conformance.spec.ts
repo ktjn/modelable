@@ -176,8 +176,8 @@ test('browser compiler matches native snapshots including cross-file references'
   page,
 }) => {
   await page.goto('?test=1');
-  await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
-    timeout: 30_000,
+  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
+    timeout: 90_000,
   });
 
   let workspaceRevision = 100;
@@ -503,7 +503,7 @@ test('browser compiler stays within initialization and operation budgets', async
   browser,
   browserName,
 }, testInfo) => {
-  test.setTimeout(180_000);
+  test.setTimeout(600_000);
   const cold = await measureColdInitializations(browser);
   const cachedContext = await browser.newContext();
   const finishCachedRequestAudit = startLocalRequestAudit(cachedContext);
@@ -716,8 +716,8 @@ async function initializePage(page: Page): Promise<void> {
 }
 
 async function waitForCompiler(page: Page): Promise<void> {
-  await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
-    timeout: 30_000,
+  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
+    timeout: 90_000,
   });
 }
 

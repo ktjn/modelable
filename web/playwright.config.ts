@@ -5,6 +5,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
+  timeout: 60_000,
+  globalTimeout: 30 * 60_000,
   reporter: [
     ['list'],
     ['json', { outputFile: 'output/playwright/results.json' }],

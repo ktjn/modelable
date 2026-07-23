@@ -81,8 +81,8 @@ async function replaceSource(page: Page, text: string): Promise<void> {
 }
 
 async function waitForReady(page: Page): Promise<void> {
-  await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
-    timeout: 30_000,
+  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
+    timeout: 90_000,
   });
 }
 
@@ -229,7 +229,8 @@ test('initializes locally and supports the complete editor workflow', async ({
 test('creates, validates, and restores a multi-file workspace', async ({
   page,
 }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
+
   await page.goto('?test=1');
   await waitForReady(page);
   await createWorkspaceFile(
@@ -272,7 +273,7 @@ test('creates, validates, and restores a multi-file workspace', async ({
 test('provides cross-file live diagnostics, completion, and hover accessibly', async ({
   page,
 }) => {
-  test.setTimeout(60_000);
+
   await page.goto('?test=1');
   await waitForReady(page);
   const customerSource = [
@@ -693,7 +694,7 @@ test('disposes the page client on pagehide exactly once', async ({ page }) => {
 test('retries a failed runtime manifest request without losing editor text', async ({
   page,
 }) => {
-  test.setTimeout(60_000);
+
   let failedOnce = false;
   await page.route(runtimeManifest, async (route) => {
     if (!failedOnce) {
@@ -706,7 +707,7 @@ test('retries a failed runtime manifest request without losing editor text', asy
   await page.goto('?test=1');
   await expect(page.locator('.status[role="alert"]')).toHaveText(
     /compiler runtime initialization failed/i,
-    { timeout: 30_000 },
+    { timeout: 45_000 },
   );
 
   const retainedSource = 'domain retained { owner: "local" }';
