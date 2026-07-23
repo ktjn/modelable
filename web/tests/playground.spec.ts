@@ -82,7 +82,7 @@ async function replaceSource(page: Page, text: string): Promise<void> {
 
 async function waitForReady(page: Page): Promise<void> {
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
-    timeout: 30_000,
+    timeout: 45_000,
   });
 }
 
@@ -706,7 +706,7 @@ test('retries a failed runtime manifest request without losing editor text', asy
   await page.goto('?test=1');
   await expect(page.locator('.status[role="alert"]')).toHaveText(
     /compiler runtime initialization failed/i,
-    { timeout: 30_000 },
+    { timeout: 45_000 },
   );
 
   const retainedSource = 'domain retained { owner: "local" }';

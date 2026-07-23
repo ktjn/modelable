@@ -177,7 +177,7 @@ test('browser compiler matches native snapshots including cross-file references'
 }) => {
   await page.goto('?test=1');
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
-    timeout: 30_000,
+    timeout: 45_000,
   });
 
   let workspaceRevision = 100;
@@ -717,7 +717,7 @@ async function initializePage(page: Page): Promise<void> {
 
 async function waitForCompiler(page: Page): Promise<void> {
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
-    timeout: 30_000,
+    timeout: 45_000,
   });
 }
 

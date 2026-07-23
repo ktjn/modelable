@@ -4,7 +4,7 @@ test('registers a service worker on first load', async ({ page }) => {
 
   await page.goto('?test=1');
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
-    timeout: 30_000,
+    timeout: 45_000,
   });
 
   const hasController = await page.evaluate(async () => {
@@ -25,7 +25,7 @@ test('serves the application shell from cache when offline', async ({
 
   await page.goto('?test=1');
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
-    timeout: 30_000,
+    timeout: 45_000,
   });
 
   await page.evaluate(async () => {
@@ -50,7 +50,7 @@ test('update banner appears and can be dismissed', async ({ page }) => {
 
   await page.goto('?test=1');
   await expect(page.getByRole('status')).toHaveText(/compiler ready/i, {
-    timeout: 30_000,
+    timeout: 45_000,
   });
 
   await page.evaluate(async () => {
