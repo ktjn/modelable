@@ -47,6 +47,58 @@ vi.mock('./analysis/AnalysisPanelContainer', () => ({
   AnalysisPanelContainer: () => null,
 }));
 
+vi.mock('./analysis/useAnalysisData', () => ({
+  useAnalysisData: () => ({
+    lineage: null,
+    compatibility: null,
+    governance: null,
+  }),
+}));
+
+vi.mock('./analysis/AnalysisPanel', () => ({
+  CompatibilityView: () => null,
+  GovernanceView: () => null,
+}));
+
+vi.mock('./layout/ResizableLayout', () => {
+  const { createElement } = require('react');
+  return {
+    ResizableLayout: ({
+      explorer,
+      editor,
+      visualization,
+      bottom,
+    }: {
+      explorer: React.ReactNode;
+      editor: React.ReactNode;
+      visualization: React.ReactNode;
+      bottom: React.ReactNode;
+      mobileView: string;
+    }) =>
+      createElement('div', { 'data-testid': 'resizable-layout' },
+        explorer, editor, visualization, bottom),
+  };
+});
+
+vi.mock('./layout/BottomPanel', () => {
+  const { createElement } = require('react');
+  return {
+    BottomPanel: ({
+      diagnostics,
+      artifacts,
+      compatibility,
+      governance,
+    }: {
+      diagnostics: React.ReactNode;
+      artifacts: React.ReactNode;
+      compatibility: React.ReactNode;
+      governance: React.ReactNode;
+    }) =>
+      createElement('div', { 'data-testid': 'bottom-panel' },
+        diagnostics, artifacts, compatibility, governance),
+  };
+});
+
 vi.mock('./visualization/GraphPanelContainer', () => ({
   GraphPanelContainer: () => null,
 }));
