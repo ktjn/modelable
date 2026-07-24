@@ -55,7 +55,7 @@ select {
   display: flex;
   flex-direction: column;
   width: min(100%, 96rem);
-  height: 100vh;
+  height: 100dvh;
   margin: 0 auto;
   border-inline: 1px solid var(--rule);
   background: var(--paper);
@@ -68,6 +68,8 @@ select {
   justify-content: space-between;
   gap: 2rem;
   padding: 1.35rem clamp(1rem, 3vw, 2.75rem);
+  padding-left: max(clamp(1rem, 3vw, 2.75rem), env(safe-area-inset-left));
+  padding-right: max(clamp(1rem, 3vw, 2.75rem), env(safe-area-inset-right));
   border-bottom: 1px solid var(--graphite);
 }
 
@@ -141,6 +143,8 @@ h3 {
   flex-wrap: wrap;
   gap: 0.55rem;
   padding: 0.8rem clamp(1rem, 3vw, 2.75rem);
+  padding-left: max(clamp(1rem, 3vw, 2.75rem), env(safe-area-inset-left));
+  padding-right: max(clamp(1rem, 3vw, 2.75rem), env(safe-area-inset-right));
   border-bottom: 1px solid var(--graphite);
   background: var(--workbench);
 }
@@ -268,10 +272,12 @@ button:disabled {
   padding: 0.375rem 0.5rem;
   border-bottom: 1px solid var(--rule);
   flex-shrink: 0;
+  overflow-x: auto;
 }
 
 .bottom-panel__tab {
-  padding: 0.25rem 0.75rem;
+  padding: 0.375rem 0.75rem;
+  min-height: 2.25rem;
   border: 1px solid var(--rule);
   border-radius: 0.25rem;
   background: transparent;
@@ -279,6 +285,7 @@ button:disabled {
   cursor: pointer;
   font-size: 0.75rem;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .bottom-panel__tab--active {
@@ -732,6 +739,9 @@ select {
   gap: 1.25rem;
   min-height: 4.5rem;
   padding: 0.8rem clamp(1rem, 3vw, 2.75rem);
+  padding-left: max(clamp(1rem, 3vw, 2.75rem), env(safe-area-inset-left));
+  padding-right: max(clamp(1rem, 3vw, 2.75rem), env(safe-area-inset-right));
+  padding-bottom: max(0.8rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--graphite);
   background: var(--workbench);
 }
@@ -764,6 +774,7 @@ select {
   .workbench-header {
     align-items: stretch;
     flex-direction: column;
+    gap: 0.75rem;
   }
 
   .state-block {
@@ -781,6 +792,8 @@ select {
   .view-tabs {
     display: flex;
     gap: 0;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
     border-bottom: 1px solid var(--graphite);
   }
 
@@ -835,6 +848,12 @@ select {
     display: block;
   }
 
+  .source-editor,
+  .artifact-editor {
+    height: clamp(16rem, 50dvh, 44rem);
+    min-height: 14rem;
+  }
+
   .workspace-files {
     margin-bottom: 0.75rem;
   }
@@ -844,10 +863,13 @@ select {
     flex-direction: row;
     overflow-x: auto;
     overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
   }
 
   .workspace-file-list li {
     flex: 0 0 min(14rem, 72vw);
+    scroll-snap-align: start;
   }
 
   .workspace-file-actions {
@@ -870,6 +892,19 @@ select {
 
   .privacy-note {
     text-align: left;
+  }
+
+  .ai-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .ai-prompt {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ai-prompt__label {
+    max-width: none;
   }
 }
 
@@ -914,10 +949,12 @@ select {
   padding: 0.375rem 0.5rem;
   border-bottom: 1px solid var(--rule);
   flex-shrink: 0;
+  overflow-x: auto;
 }
 
 .graph-panel__mode-tab {
-  padding: 0.25rem 0.75rem;
+  padding: 0.375rem 0.75rem;
+  min-height: 2.25rem;
   border: 1px solid var(--rule);
   border-radius: 0.25rem;
   background: transparent;
@@ -925,6 +962,7 @@ select {
   cursor: pointer;
   font-size: 0.75rem;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .graph-panel__mode-tab--active {
@@ -938,7 +976,8 @@ select {
 }
 
 .graph-panel__export-btn {
-  padding: 0.25rem 0.65rem;
+  padding: 0.375rem 0.65rem;
+  min-height: 2.25rem;
   border: 1px solid var(--rule);
   border-radius: 0.25rem;
   background: transparent;
@@ -946,7 +985,7 @@ select {
   cursor: pointer;
   font-size: 0.68rem;
   font-family: "Cascadia Code", Consolas, monospace;
-  min-height: auto;
+  white-space: nowrap;
 }
 
 .graph-panel__export-btn:hover:not(:disabled) {
@@ -1067,10 +1106,12 @@ select {
   padding: 0.375rem 0.5rem;
   border-bottom: 1px solid var(--rule);
   flex-shrink: 0;
+  overflow-x: auto;
 }
 
 .analysis-panel__tab {
-  padding: 0.25rem 0.75rem;
+  padding: 0.375rem 0.75rem;
+  min-height: 2.25rem;
   border: 1px solid var(--rule);
   border-radius: 0.25rem;
   background: transparent;
@@ -1078,6 +1119,7 @@ select {
   cursor: pointer;
   font-size: 0.75rem;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .analysis-panel__tab--active {
@@ -1218,13 +1260,16 @@ select {
 
 #sw-update-banner {
   position: fixed;
-  bottom: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: 1rem;
+  right: 1rem;
   z-index: 9999;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
+  max-width: 28rem;
+  margin: 0 auto;
   padding: 0.625rem 1rem;
   background: var(--graphite);
   color: #fff;

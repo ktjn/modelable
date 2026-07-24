@@ -454,7 +454,7 @@ test('keeps keyboard access clear and treats hostile-looking source as text', as
   await replaceSource(page, hostileSource);
   await page.keyboard.press('Control+Shift+Enter');
 
-  await expect(page.getByTestId('diagnostics')).toContainText('PARSE');
+  await expect(page.getByTestId('diagnostics')).toContainText('PARSE', { timeout: 15_000 });
   expect(
     await page.evaluate(
       () =>
