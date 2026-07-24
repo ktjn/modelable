@@ -209,8 +209,7 @@ def test_validation_workflow_runs_complete_browser_playground_gate() -> None:
     assert "npm ci" in build_commands
     assert "npm run build" in build_commands
     assert any(
-        step.get("uses") == "actions/upload-artifact@v7.0.1"
-        and step.get("with", {}).get("name") == "browser-dist"
+        step.get("uses") == "actions/upload-artifact@v7.0.1" and step.get("with", {}).get("name") == "browser-dist"
         for step in build_steps
     )
 
@@ -220,8 +219,7 @@ def test_validation_workflow_runs_complete_browser_playground_gate() -> None:
     assert "npx playwright test --project" in e2e_commands
     assert workflow["jobs"]["browser-e2e"]["strategy"]["matrix"]["browser"] == ["chromium", "firefox"]
     assert any(
-        step.get("uses") == "actions/download-artifact@v7.0.1"
-        and step.get("with", {}).get("name") == "browser-dist"
+        step.get("uses") == "actions/download-artifact@v7.0.1" and step.get("with", {}).get("name") == "browser-dist"
         for step in e2e_steps
     )
     assert any(
