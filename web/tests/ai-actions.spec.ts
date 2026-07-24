@@ -1,36 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-
-function modelSource(page: Page) {
-  return page.getByRole('textbox', { name: 'Model source' });
-}
-
-function sourceOutput(page: Page) {
-  return page.locator('.source-editor .view-lines');
-}
-
-async function waitForReady(page: Page): Promise<void> {
-  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
-    timeout: 90_000,
-  });
-}
-
-async function focusSourceEditor(page: Page): Promise<void> {
-  await sourceOutput(page).click({
-    position: { x: 8, y: 8 },
-    force: true,
-  });
-  await modelSource(page).focus();
-  await expect(modelSource(page)).toBeFocused();
-}
-
-async function replaceSource(page: Page, text: string): Promise<void> {
-  await focusSourceEditor(page);
-  await page.keyboard.press('Control+a');
-  await page.keyboard.press('Backspace');
-  await expect(sourceOutput(page)).toHaveText('');
-  await page.keyboard.type(text);
-}
+import { replaceSource, sourceOutput, waitForReady } from './helpers';
 
 async function gotoWithHeuristic(page: Page): Promise<void> {
   await page.goto('?test=1&ai=heuristic');

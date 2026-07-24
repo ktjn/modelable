@@ -1,11 +1,10 @@
 import { expect, test } from '@playwright/test';
+import { waitForReady } from './helpers';
 
 test('registers a service worker on first load', async ({ page }) => {
 
   await page.goto('?test=1');
-  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
-    timeout: 90_000,
-  });
+  await waitForReady(page);
 
   const hasController = await page.evaluate(async () => {
     if (!('serviceWorker' in navigator)) {
@@ -24,9 +23,7 @@ test('serves the application shell from cache when offline', async ({
   test.setTimeout(90_000);
 
   await page.goto('?test=1');
-  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
-    timeout: 90_000,
-  });
+  await waitForReady(page);
 
   await page.evaluate(async () => {
     const registration = await navigator.serviceWorker.ready;
@@ -49,9 +46,7 @@ test('serves the application shell from cache when offline', async ({
 test('update banner appears and can be dismissed', async ({ page }) => {
 
   await page.goto('?test=1');
-  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
-    timeout: 90_000,
-  });
+  await waitForReady(page);
 
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;

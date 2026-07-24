@@ -1,9 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const project = process.env.PLAYWRIGHT_PROJECT;
+
 export default defineConfig({
   testDir: './tests',
-  fullyParallel: false,
-  workers: 1,
+  fullyParallel: true,
+  workers: process.env.CI ? 2 : '50%',
   retries: 0,
   timeout: 60_000,
   globalTimeout: 30 * 60_000,
@@ -17,18 +19,16 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
+    ...(project === undefined || project === 'chromium'
+      ? [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }]
+      : []),
+    ...(project === undefined || project === 'firefox'
+      ? [{ name: 'firefox', use: { ...devices['Desktop Firefox'] } }]
+      : []),
   ],
   webServer: {
     command: 'npm run preview',
     port: 4173,
-    reuseExistingServer: false,
+    reuseExistingServer: !!process.env.CI,
   },
 });

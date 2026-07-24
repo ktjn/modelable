@@ -4,8 +4,8 @@ import {
   type Browser,
   type BrowserContext,
   type Page,
-  type Request,
 } from '@playwright/test';
+import { startLocalRequestAudit, waitForReady } from './helpers';
 
 type Source = { uri: string; text: string; version: number };
 type LanguagePosition = {
@@ -134,34 +134,7 @@ const scenarios = {
   'multi-domain': ['multi-domain-customer.mdl', 'multi-domain-order.mdl'],
   'single-valid': ['single-valid.mdl'],
 } as const;
-const localOrigin = 'http://127.0.0.1:4173';
 const localRequestAudits = new WeakMap<BrowserContext, () => void>();
-
-function startLocalRequestAudit(context: BrowserContext): () => void {
-  const offOriginRequests: string[] = [];
-  const handleRequest = (request: Request): void => {
-    const url = new URL(request.url());
-    if (
-      (url.protocol === 'http:' || url.protocol === 'https:') &&
-      url.origin !== localOrigin
-    ) {
-      offOriginRequests.push(url.href);
-    }
-  };
-  let finished = false;
-  context.on('request', handleRequest);
-  return () => {
-    if (finished) {
-      return;
-    }
-    finished = true;
-    context.off('request', handleRequest);
-    expect(
-      offOriginRequests,
-      'Every HTTP(S) request must stay on the local preview origin',
-    ).toEqual([]);
-  };
-}
 
 test.beforeEach(({ context }) => {
   localRequestAudits.set(context, startLocalRequestAudit(context));
@@ -226,7 +199,7 @@ test('protocol v2 exposes completion and hover over the synchronized workspace',
   page,
 }) => {
   await page.goto('?test=1');
-  await waitForCompiler(page);
+  await waitForReady(page);
   const result = await page.evaluate(async () => {
     const client = (
       globalThis as typeof globalThis & {
@@ -279,7 +252,7 @@ test('protocol v2 exposes definition, references, prepareRename, and rename', as
   page,
 }) => {
   await page.goto('?test=1');
-  await waitForCompiler(page);
+  await waitForReady(page);
   const result = await page.evaluate(async () => {
     const client = (
       globalThis as typeof globalThis & {
@@ -359,7 +332,7 @@ test('workspace.graph returns domain and entity mode graphs', async ({
   page,
 }) => {
   await page.goto('?test=1');
-  await waitForCompiler(page);
+  await waitForReady(page);
   const result = await page.evaluate(async () => {
     const client = (
       globalThis as typeof globalThis & {
@@ -417,7 +390,7 @@ test('workspace.graph returns projection and lineage mode graphs', async ({
   page,
 }) => {
   await page.goto('?test=1');
-  await waitForCompiler(page);
+  await waitForReady(page);
   const result = await page.evaluate(async () => {
     const client = (
       globalThis as typeof globalThis & {
@@ -479,7 +452,7 @@ test('workspace.lineage, workspace.compatibility, and workspace.governance retur
   page,
 }) => {
   await page.goto('?test=1');
-  await waitForCompiler(page);
+  await waitForReady(page);
   const result = await page.evaluate(async () => {
     const client = (
       globalThis as typeof globalThis & {
@@ -577,7 +550,7 @@ test('browser compiler stays within initialization and operation budgets', async
     for (let index = 0; index < 3; index += 1) {
       const started = performance.now();
       await cachedPage.reload();
-      await waitForCompiler(cachedPage);
+      await waitForReady(cachedPage);
       cachedPageReady.push(performance.now() - started);
       cachedInitialize.push(
         await readCompilerInitializationDuration(cachedPage),
@@ -774,13 +747,7 @@ async function measureColdInitializations(
 
 async function initializePage(page: Page): Promise<void> {
   await page.goto('?test=1');
-  await waitForCompiler(page);
-}
-
-async function waitForCompiler(page: Page): Promise<void> {
-  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
-    timeout: 90_000,
-  });
+  await waitForReady(page);
 }
 
 async function readCompilerInitializationDuration(
