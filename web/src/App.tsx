@@ -45,8 +45,11 @@ import {
   IndexedDbWorkspaceRepository,
   type WorkspaceRepository,
 } from './workspace-repository';
-import { AnalysisPanelContainer } from './analysis/AnalysisPanelContainer';
+import { CompatibilityView, GovernanceView } from './analysis/AnalysisPanel';
+import { useAnalysisData } from './analysis/useAnalysisData';
 import { GraphPanelContainer } from './visualization/GraphPanelContainer';
+import { ResizableLayout } from './layout/ResizableLayout';
+import { BottomPanel } from './layout/BottomPanel';
 import {
   initialProviderState,
   providerStateReducer,
@@ -160,8 +163,6 @@ export function App({
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
   const [mobileView, setMobileView] = useState<'source' | 'graph' | 'analysis'>('source');
-  const [graphCollapsed, setGraphCollapsed] = useState(false);
-  const [analysisCollapsed, setAnalysisCollapsed] = useState(true);
   const [aiState, aiDispatch] = useReducer(
     providerStateReducer,
     initialProviderState,
@@ -813,6 +814,11 @@ export function App({
     (): PlaygroundWorkspace => workspaceRef.current,
     [],
   );
+  const analysisData = useAnalysisData({
+    clientRef,
+    runtimeReady: state.runtime === 'ready',
+    workspaceRevisionRef,
+  });
 
   if (persistentWorkspace.phase === 'restoring') {
     return (
@@ -1048,60 +1054,53 @@ export function App({
           Analysis
         </button>
       </nav>
-      <section
-        className={`workspace${mobileView === 'graph' ? ' workspace--mobile-hidden' : ''}`}
-        aria-label="Modelable workspace"
-      >
-        <section
-          className="source-pane"
-          id="source-editor"
-          aria-label="Modelable source"
-          tabIndex={-1}
-          onFocus={(event) => {
-            if (event.target === event.currentTarget) {
-              sourceEditorRef.current?.focus();
+      <ResizableLayout
+        mobileView={mobileView}
+        explorer={
+          <WorkspaceFiles
+            workspace={state.workspace}
+            disabled={actionsDisabled}
+            onCreate={(path) =>
+              applyWorkspaceMutation({ type: 'create', path }, true)
             }
-          }}
-        >
-          <div className="pane-heading">
-            <div>
-              <p className="pane-index">Source 01</p>
-              <h2>Modelable source</h2>
-            </div>
-            <p className="local-note">Runs locally in this browser</p>
-          </div>
-          <div className="source-workspace">
-            <WorkspaceFiles
-              workspace={state.workspace}
-              disabled={actionsDisabled}
-              onCreate={(path) =>
-                applyWorkspaceMutation({ type: 'create', path }, true)
-              }
-              onImport={importWorkspaceFiles}
-              onRename={(path) =>
+            onImport={importWorkspaceFiles}
+            onRename={(path) =>
+              applyWorkspaceMutation({
+                type: 'rename',
+                from: workspaceRef.current.activeFile,
+                to: path,
+              }, true)
+            }
+            onDelete={() => {
+              const activeFile = workspaceRef.current.activeFile;
+              if (
+                confirmReplace(
+                  `Delete workspace file ${activeFile}?`,
+                )
+              ) {
                 applyWorkspaceMutation({
-                  type: 'rename',
-                  from: workspaceRef.current.activeFile,
-                  to: path,
-                }, true)
+                  type: 'delete',
+                  path: activeFile,
+                }, true);
               }
-              onDelete={() => {
-                const activeFile = workspaceRef.current.activeFile;
-                if (
-                  confirmReplace(
-                    `Delete workspace file ${activeFile}?`,
-                  )
-                ) {
-                  applyWorkspaceMutation({
-                    type: 'delete',
-                    path: activeFile,
-                  }, true);
-                }
-              }}
-              onSelect={(path) =>
-                applyWorkspaceMutation({ type: 'select', path })
+            }}
+            onSelect={(path) =>
+              applyWorkspaceMutation({ type: 'select', path })
+            }
+          />
+        }
+        editor={
+          <section
+            className="editor-pane"
+            id="source-editor"
+            aria-label="Modelable source"
+            tabIndex={-1}
+            onFocus={(event) => {
+              if (event.target === event.currentTarget) {
+                sourceEditorRef.current?.focus();
               }
-            />
+            }}
+          >
             <SourceEditor
               ref={sourceEditorRef}
               files={state.workspace.files}
@@ -1122,129 +1121,104 @@ export function App({
                 });
               }}
             />
-          </div>
-          <section
-            className="diagnostics"
-            aria-label="Document diagnostics"
-            data-testid="diagnostics"
-          >
-            <h3>Diagnostics</h3>
-            {state.diagnostics.length > 0 ? (
-              <ul>
-                {state.diagnostics.map((diagnostic, index) => (
-                  <li key={`${diagnostic.code}-${index}`}>
-                    <strong>{diagnostic.code}</strong>{' '}
-                    {diagnostic.message}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No diagnostics</p>
-            )}
+            {aiPreview !== null ? (
+              <Suspense fallback={null}>
+                <AiPreviewPanel
+                  preview={aiPreview}
+                  onAccept={handleAiAccept}
+                  onDiscard={handleAiDiscard}
+                />
+              </Suspense>
+            ) : null}
           </section>
-          {aiPreview !== null ? (
-            <Suspense fallback={null}>
-              <AiPreviewPanel
-                preview={aiPreview}
-                onAccept={handleAiAccept}
-                onDiscard={handleAiDiscard}
-              />
-            </Suspense>
-          ) : null}
-        </section>
-        <section
-          className="artifact-pane"
-          aria-label="Generated JSON Schema"
-          data-testid="artifacts"
-        >
-          <div className="pane-heading">
-            <div>
-              <p className="pane-index">Artifact 02</p>
-              <h2>Generated JSON Schema</h2>
-            </div>
-            {artifactIsStale ? (
-              <p className="stale-label">
-                Stale—source changed after generation
-              </p>
-            ) : (
-              <p className="fresh-label">
-                {selectedArtifact === null ? 'No artifact yet' : 'Current'}
-              </p>
-            )}
-          </div>
-          {state.artifacts.length > 1 ? (
-            <label className="artifact-picker">
-              Artifact
-              <select
-                value={state.selectedArtifactPath ?? ''}
-                onChange={(event) =>
-                  dispatch({
-                    type: 'artifactSelected',
-                    path: event.target.value,
-                  })
-                }
+        }
+        visualization={
+          <section
+            className="graph-pane"
+            aria-label="Model graph visualization"
+            data-testid="graph"
+          >
+            <GraphPanelContainer
+              clientRef={clientRef}
+              runtimeReady={state.runtime === 'ready'}
+              workspaceRevisionRef={workspaceRevisionRef}
+            />
+          </section>
+        }
+        bottom={
+          <BottomPanel
+            diagnostics={
+              <section
+                className="diagnostics"
+                aria-label="Document diagnostics"
+                data-testid="diagnostics"
               >
-                {state.artifacts.map((artifact) => (
-                  <option key={artifact.path} value={artifact.path}>
-                    {artifact.path}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          <ArtifactEditor value={selectedArtifact?.content ?? ''} />
-        </section>
-      </section>
-      <section
-        className={`graph-pane${mobileView === 'source' ? ' graph-pane--mobile-hidden' : ''}${graphCollapsed ? ' graph-pane--collapsed' : ''}`}
-        aria-label="Model graph visualization"
-        data-testid="graph"
-      >
-        <div className="pane-heading">
-          <div>
-            <p className="pane-index">Graph 03</p>
-            <h2>Model graph</h2>
-          </div>
-          <button
-            type="button"
-            className="graph-pane__toggle"
-            aria-expanded={!graphCollapsed}
-            onClick={() => setGraphCollapsed((collapsed) => !collapsed)}
-          >
-            {graphCollapsed ? 'Show graph' : 'Hide graph'}
-          </button>
-        </div>
-        <GraphPanelContainer
-          clientRef={clientRef}
-          runtimeReady={state.runtime === 'ready'}
-          workspaceRevisionRef={workspaceRevisionRef}
-        />
-      </section>
-      <section
-        className={`analysis-pane${mobileView !== 'analysis' ? ' analysis-pane--mobile-hidden' : ''}${analysisCollapsed ? ' analysis-pane--collapsed' : ''}`}
-        aria-label="Analysis section"
-        data-testid="analysis"
-      >
-        <div className="pane-heading">
-          <div>
-            <p className="pane-index">Analysis 04</p>
-            <h2>Model analysis</h2>
-          </div>
-          <button
-            type="button"
-            className="analysis-pane__toggle"
-            aria-expanded={!analysisCollapsed}
-            onClick={() => setAnalysisCollapsed((collapsed) => !collapsed)}
-          >
-            {analysisCollapsed ? 'Show analysis' : 'Hide analysis'}
-          </button>
-        </div>
-        <AnalysisPanelContainer
-          clientRef={clientRef}
-          runtimeReady={state.runtime === 'ready'}
-          workspaceRevisionRef={workspaceRevisionRef}
-        />
-      </section>
+                <h3>Diagnostics</h3>
+                {state.diagnostics.length > 0 ? (
+                  <ul>
+                    {state.diagnostics.map((diagnostic, index) => (
+                      <li key={`${diagnostic.code}-${index}`}>
+                        <strong>{diagnostic.code}</strong>{' '}
+                        {diagnostic.message}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No diagnostics</p>
+                )}
+              </section>
+            }
+            artifacts={
+              <section
+                className="artifact-pane"
+                aria-label="Generated JSON Schema"
+                data-testid="artifacts"
+              >
+                {artifactIsStale ? (
+                  <p className="stale-label">
+                    Stale—source changed after generation
+                  </p>
+                ) : (
+                  <p className="fresh-label">
+                    {selectedArtifact === null ? 'No artifact yet' : 'Current'}
+                  </p>
+                )}
+                {state.artifacts.length > 1 ? (
+                  <label className="artifact-picker">
+                    Artifact
+                    <select
+                      value={state.selectedArtifactPath ?? ''}
+                      onChange={(event) =>
+                        dispatch({
+                          type: 'artifactSelected',
+                          path: event.target.value,
+                        })
+                      }
+                    >
+                      {state.artifacts.map((artifact) => (
+                        <option key={artifact.path} value={artifact.path}>
+                          {artifact.path}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                <ArtifactEditor value={selectedArtifact?.content ?? ''} />
+              </section>
+            }
+            compatibility={
+              <div className="analysis-panel__body" data-testid="analysis">
+                <CompatibilityView result={analysisData.compatibility} />
+              </div>
+            }
+            governance={
+              <div className="analysis-panel__body" data-testid="analysis">
+                <GovernanceView result={analysisData.governance} />
+              </div>
+            }
+          />
+        }
+      />
       <footer
         className="metrics-strip"
         data-testid="metrics"

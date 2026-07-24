@@ -18,7 +18,7 @@ export interface AnalysisPanelProps {
   data: AnalysisData;
 }
 
-function LineageView({ result }: { result: BrowserLineageResult | null }) {
+export function LineageView({ result }: { result: BrowserLineageResult | null }) {
   if (result === null) {
     return <p className="analysis-panel__empty">Loading lineage data…</p>;
   }
@@ -74,7 +74,7 @@ function ProjectionLineageCard({ projection }: { projection: BrowserProjectionLi
   );
 }
 
-function CompatibilityView({ result }: { result: BrowserCompatibilityResult | null }) {
+export function CompatibilityView({ result }: { result: BrowserCompatibilityResult | null }) {
   if (result === null) {
     return <p className="analysis-panel__empty">Loading compatibility data…</p>;
   }
@@ -184,7 +184,7 @@ function ImpactRow({ impact }: { impact: BrowserProjectionImpact }) {
   );
 }
 
-function GovernanceView({ result }: { result: BrowserGovernanceResult | null }) {
+export function GovernanceView({ result }: { result: BrowserGovernanceResult | null }) {
   if (result === null) {
     return <p className="analysis-panel__empty">Loading governance data…</p>;
   }

@@ -18,7 +18,8 @@
     "monaco-editor": "0.55.1",
     "pyodide": "314.0.2",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "react-resizable-panels": "^4.12.2"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
