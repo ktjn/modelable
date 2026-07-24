@@ -219,7 +219,7 @@ def test_validation_workflow_runs_complete_browser_playground_gate() -> None:
     assert "npx playwright test --project" in e2e_commands
     assert workflow["jobs"]["browser-e2e"]["strategy"]["matrix"]["browser"] == ["chromium", "firefox"]
     assert any(
-        step.get("uses") == "actions/download-artifact@v7.0.1" and step.get("with", {}).get("name") == "browser-dist"
+        step.get("uses") == "actions/download-artifact@v8.0.1" and step.get("with", {}).get("name") == "browser-dist"
         for step in e2e_steps
     )
     assert any(
