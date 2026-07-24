@@ -26,11 +26,11 @@ export function AiPreviewPanel({
       data-testid="ai-preview"
     >
       <div className="ai-preview__header">
-        <h3>
+        <h2>
           {preview.kind === 'generate'
             ? 'AI generated source'
             : 'AI explanation'}
-        </h3>
+        </h2>
         <p className="ai-preview__provider">
           {preview.providerInfo.provider} / {preview.providerInfo.model}
         </p>
