@@ -160,7 +160,7 @@ export function App({
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
   const [mobileView, setMobileView] = useState<'source' | 'graph' | 'analysis'>('source');
-  const [graphCollapsed, setGraphCollapsed] = useState(true);
+  const [graphCollapsed, setGraphCollapsed] = useState(false);
   const [analysisCollapsed, setAnalysisCollapsed] = useState(true);
   const [aiState, aiDispatch] = useReducer(
     providerStateReducer,
@@ -1222,7 +1222,7 @@ export function App({
       </section>
       <section
         className={`analysis-pane${mobileView !== 'analysis' ? ' analysis-pane--mobile-hidden' : ''}${analysisCollapsed ? ' analysis-pane--collapsed' : ''}`}
-        aria-label="Model analysis"
+        aria-label="Analysis section"
         data-testid="analysis"
       >
         <div className="pane-heading">

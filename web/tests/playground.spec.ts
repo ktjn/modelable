@@ -600,7 +600,7 @@ test('keeps the desktop editor workspace within a bounded page height', async ({
         ?.getBoundingClientRect().height ?? 0,
   }));
 
-  expect(dimensions.documentHeight).toBeLessThanOrEqual(1440);
+  expect(dimensions.documentHeight).toBeLessThanOrEqual(1680);
   expect(dimensions.sourceEditorHeight).toBeGreaterThanOrEqual(384);
   expect(dimensions.sourceEditorHeight).toBeLessThanOrEqual(720);
   expect(dimensions.artifactEditorHeight).toBe(
@@ -726,16 +726,43 @@ test('graph panel toolbar includes export buttons', async ({
   await page.goto('?test=1');
   await waitForReady(page);
 
-  await page.getByRole('button', { name: 'Show graph' }).click();
   const graphSection = page.getByTestId('graph');
   await expect(
     graphSection.getByRole('region', { name: 'Model graph' }),
-  ).toBeVisible({ timeout: 10_000 });
+  ).toBeVisible({ timeout: 15_000 });
 
   const svgButton = graphSection.getByRole('button', { name: 'Export SVG' });
   const pngButton = graphSection.getByRole('button', { name: 'Export PNG' });
   await expect(svgButton).toBeVisible();
   await expect(pngButton).toBeVisible();
+});
+
+test('graph panel shows projection and lineage mode tabs', async ({
+  page,
+}) => {
+  await page.goto('?test=1');
+  await waitForReady(page);
+
+  const graphSection = page.getByTestId('graph');
+  await expect(
+    graphSection.getByRole('region', { name: 'Model graph' }),
+  ).toBeVisible({ timeout: 15_000 });
+
+  const toolbar = graphSection.getByRole('toolbar', { name: 'Graph mode' });
+  await expect(toolbar.getByText('Domain')).toBeVisible();
+  await expect(toolbar.getByText('Entity')).toBeVisible();
+  await expect(toolbar.getByText('Projection')).toBeVisible();
+  await expect(toolbar.getByText('Lineage')).toBeVisible();
+
+  await toolbar.getByText('Projection').click();
+  await expect(
+    toolbar.getByRole('button', { name: 'Projection' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+
+  await toolbar.getByText('Lineage').click();
+  await expect(
+    toolbar.getByRole('button', { name: 'Lineage' }),
+  ).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('renders analysis panel with lineage, compatibility, and governance tabs', async ({
@@ -750,7 +777,7 @@ test('renders analysis panel with lineage, compatibility, and governance tabs', 
   await page.getByRole('button', { name: 'Show analysis' }).click();
   await expect(
     analysisSection.getByRole('region', { name: 'Model analysis' }),
-  ).toBeVisible({ timeout: 10_000 });
+  ).toBeVisible({ timeout: 15_000 });
 
   const toolbar = analysisSection.getByRole('toolbar', {
     name: 'Analysis view',

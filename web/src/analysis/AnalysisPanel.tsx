@@ -41,7 +41,7 @@ function ProjectionLineageCard({ projection }: { projection: BrowserProjectionLi
   const label = `${projection.domain}.${projection.projection}@${projection.version}`;
   return (
     <section className="analysis-card" aria-label={label}>
-      <h4 className="analysis-card__title">{label}</h4>
+      <h3 className="analysis-card__title">{label}</h3>
       {projection.fields.length === 0 ? (
         <p className="analysis-card__note">No fields</p>
       ) : (
@@ -91,7 +91,7 @@ function CompatibilityView({ result }: { result: BrowserCompatibilityResult | nu
       ))}
       {result.impacts.length > 0 && (
         <section className="analysis-card" aria-label="Projection impacts">
-          <h4 className="analysis-card__title">Projection impacts</h4>
+          <h3 className="analysis-card__title">Projection impacts</h3>
           <table className="analysis-table">
             <thead>
               <tr>
@@ -117,12 +117,12 @@ function CompatibilityReportCard({ report }: { report: BrowserCompatibilityRepor
   const label = `${report.domain_name}.${report.model_name} v${report.from_version} → v${report.to_version}`;
   return (
     <section className="analysis-card" aria-label={label}>
-      <h4 className="analysis-card__title">
+      <h3 className="analysis-card__title">
         {label}
         <span className={`analysis-badge analysis-badge--${report.status}`}>
           {report.status}
         </span>
-      </h4>
+      </h3>
       {report.findings.length > 0 && (
         <ul className="analysis-card__findings">
           {report.findings.map((finding, index) => (

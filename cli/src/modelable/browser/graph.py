@@ -33,6 +33,60 @@ _EDGE_KIND_MAP: dict[str, str] = {
 _DOMAIN_MODE_NODE_KINDS = {"domain", "entity", "projection"}
 
 
+def _filter_to_ids(
+    nodes: tuple[BrowserGraphNode, ...],
+    edges: tuple[BrowserGraphEdge, ...],
+    node_ids: set[str],
+) -> tuple[tuple[BrowserGraphNode, ...], tuple[BrowserGraphEdge, ...]]:
+    filtered_nodes = tuple(n for n in nodes if n.id in node_ids)
+    filtered_edges = tuple(e for e in edges if e.source in node_ids and e.target in node_ids)
+    return filtered_nodes, filtered_edges
+
+
+def _projection_mode_ids(
+    nodes: tuple[BrowserGraphNode, ...],
+    edges: tuple[BrowserGraphEdge, ...],
+) -> set[str]:
+    projection_ids = {n.id for n in nodes if n.kind == "projection"}
+    projection_child_ids: set[str] = set(projection_ids)
+    for edge in edges:
+        if edge.kind == "contains" and edge.source in projection_child_ids:
+            projection_child_ids.add(edge.target)
+    expanded = set(projection_child_ids)
+    for edge in edges:
+        if edge.kind == "contains" and edge.source in expanded:
+            expanded.add(edge.target)
+
+    source_field_ids: set[str] = set()
+    for edge in edges:
+        if edge.kind == "projects" and edge.source in expanded:
+            source_field_ids.add(edge.target)
+
+    source_version_ids: set[str] = set()
+    for edge in edges:
+        if edge.kind == "contains" and edge.target in source_field_ids:
+            source_version_ids.add(edge.source)
+
+    source_entity_ids: set[str] = set()
+    for edge in edges:
+        if edge.kind == "contains" and edge.target in source_version_ids:
+            source_entity_ids.add(edge.source)
+
+    return expanded | source_field_ids | source_version_ids | source_entity_ids
+
+
+def _lineage_mode_ids(
+    nodes: tuple[BrowserGraphNode, ...],
+    edges: tuple[BrowserGraphEdge, ...],
+) -> set[str]:
+    projection_field_ids = {n.id for n in nodes if n.metadata.get("mapping_kind") is not None}
+    source_field_ids: set[str] = set()
+    for edge in edges:
+        if edge.kind == "projects" and edge.source in projection_field_ids:
+            source_field_ids.add(edge.target)
+    return projection_field_ids | source_field_ids
+
+
 def build_browser_graph(
     workspace: Workspace,
     mode: str,
@@ -44,8 +98,13 @@ def build_browser_graph(
 
     if mode == "domain":
         node_ids = {node.id for node in nodes if node.kind in _DOMAIN_MODE_NODE_KINDS}
-        nodes = tuple(node for node in nodes if node.id in node_ids)
-        edges = tuple(edge for edge in edges if edge.source in node_ids and edge.target in node_ids)
+        nodes, edges = _filter_to_ids(nodes, edges, node_ids)
+    elif mode == "projection":
+        node_ids = _projection_mode_ids(nodes, edges)
+        nodes, edges = _filter_to_ids(nodes, edges, node_ids)
+    elif mode == "lineage":
+        node_ids = _lineage_mode_ids(nodes, edges)
+        nodes, edges = _filter_to_ids(nodes, edges, node_ids)
 
     return BrowserGraphResult(
         workspace_revision=workspace_revision,

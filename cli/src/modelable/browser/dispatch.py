@@ -51,7 +51,7 @@ _LANGUAGE_POSITION_FIELDS = {
     "line",
     "character",
 }
-_GRAPH_MODES = {"domain", "entity"}
+_GRAPH_MODES = {"domain", "entity", "projection", "lineage"}
 _AI_GENERATE_ACTIONS = {"generate_entity", "suggest_projection"}
 _ERROR_MESSAGES = {
     "INVALID_REQUEST": "Payload does not match method schema",
@@ -191,7 +191,7 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
         _require_exact_fields(payload, {"workspaceRevision", "mode"})
         mode = payload["mode"]
         if not isinstance(mode, str) or mode not in _GRAPH_MODES:
-            raise BrowserRequestValidationError("mode must be 'domain' or 'entity'")
+            raise BrowserRequestValidationError("mode must be 'domain', 'entity', 'projection', or 'lineage'")
         return _compiler.graph(_integer(payload["workspaceRevision"]), mode)
     if method == "workspace.lineage":
         _require_exact_fields(payload, {"workspaceRevision"})

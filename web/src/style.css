@@ -352,7 +352,7 @@ button:disabled {
 }
 
 .graph-pane .graph-panel {
-  min-height: 20rem;
+  min-height: 14rem;
   resize: vertical;
   overflow: hidden;
 }
@@ -971,7 +971,7 @@ select {
 }
 
 .analysis-pane .analysis-panel {
-  min-height: 16rem;
+  min-height: 12rem;
 }
 
 .analysis-pane__toggle {
