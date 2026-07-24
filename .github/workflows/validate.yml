@@ -222,7 +222,7 @@ jobs:
         working-directory: web
 
       - name: Download dist
-        uses: actions/download-artifact@v7.0.1
+        uses: actions/download-artifact@v8.0.1
         with:
           name: browser-dist
           path: web/dist
