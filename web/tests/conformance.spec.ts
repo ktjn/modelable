@@ -7,6 +7,8 @@ import {
 } from '@playwright/test';
 import { startLocalRequestAudit, waitForReady } from './helpers';
 
+test.describe.configure({ mode: 'default' });
+
 type Source = { uri: string; text: string; version: number };
 type LanguagePosition = {
   workspaceRevision: number;
