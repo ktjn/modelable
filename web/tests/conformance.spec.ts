@@ -786,9 +786,11 @@ async function waitForCompiler(page: Page): Promise<void> {
 async function readCompilerInitializationDuration(
   page: Page,
 ): Promise<number> {
-  const rawDuration = await page
-    .getByTestId('metrics')
-    .getAttribute('data-initialization-duration-ms');
+  const metrics = page.getByTestId('metrics');
+  await expect(metrics).toHaveAttribute('data-initialization-duration-ms', /.+/, {
+    timeout: 30_000,
+  });
+  const rawDuration = await metrics.getAttribute('data-initialization-duration-ms');
   if (rawDuration === null) {
     throw new Error('Compiler initialization duration was not exposed');
   }

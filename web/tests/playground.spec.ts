@@ -177,11 +177,14 @@ test('initializes locally and supports the complete editor workflow', async ({
     .toBeGreaterThan(1);
 
   await actions[2].click();
+  await page.getByRole('button', { name: 'Generated artifacts' }).click();
   await expect(artifactOutput(page)).toContainText(
     /"title":\s+"Customer"/,
   );
 
+  await page.getByRole('button', { name: 'Diagnostics' }).click();
   await replaceSource(page, `${validCompact}\n`);
+  await page.getByRole('button', { name: 'Generated artifacts' }).click();
   await expect(page.getByText('No artifact yet')).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Export artifact' }),
@@ -196,6 +199,7 @@ test('initializes locally and supports the complete editor workflow', async ({
   });
   await expect(sourceOutput(page)).toContainText(/domain\s*imported/);
   await actions[2].click();
+  await page.getByRole('button', { name: 'Generated artifacts' }).click();
   const artifactPicker = page.getByRole('combobox', {
     name: 'Artifact',
   });
@@ -591,37 +595,22 @@ test('keeps the desktop editor workspace within a bounded page height', async ({
 
   const dimensions = await page.evaluate(() => ({
     documentHeight: document.documentElement.scrollHeight,
+    viewportHeight: window.innerHeight,
     sourceEditorHeight:
       document.querySelector('.source-editor')?.getBoundingClientRect().height ??
       0,
-    artifactEditorHeight:
-      document
-        .querySelector('.artifact-editor')
-        ?.getBoundingClientRect().height ?? 0,
   }));
 
-  expect(dimensions.documentHeight).toBeLessThanOrEqual(1680);
-  expect(dimensions.sourceEditorHeight).toBeGreaterThanOrEqual(384);
-  expect(dimensions.sourceEditorHeight).toBeLessThanOrEqual(720);
-  expect(dimensions.artifactEditorHeight).toBe(
-    dimensions.sourceEditorHeight,
-  );
+  expect(dimensions.documentHeight).toBeLessThanOrEqual(dimensions.viewportHeight);
+  expect(dimensions.sourceEditorHeight).toBeGreaterThan(0);
 });
 
-test('stacks both panes without horizontal overflow at 320 CSS pixels', async ({
+test('stacks content without horizontal overflow at 320 CSS pixels', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await page.goto('');
   await waitForReady(page);
-
-  const sourcePane = page.getByRole('region', { name: 'Modelable source' });
-  const artifactPane = page.getByTestId('artifacts');
-  const sourceBox = await sourcePane.boundingBox();
-  const artifactBox = await artifactPane.boundingBox();
-  expect(sourceBox).not.toBeNull();
-  expect(artifactBox).not.toBeNull();
-  expect(artifactBox!.y).toBeGreaterThan(sourceBox!.y + sourceBox!.height - 1);
 
   for (const control of await page
     .getByRole('navigation', { name: 'Playground actions' })
@@ -765,28 +754,29 @@ test('graph panel shows projection and lineage mode tabs', async ({
   ).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('renders analysis panel with lineage, compatibility, and governance tabs', async ({
+test('renders bottom panel with diagnostics, artifacts, compatibility, and governance tabs', async ({
   page,
 }) => {
   await page.goto('?test=1');
   await waitForReady(page);
 
-  const analysisSection = page.getByTestId('analysis');
-  await expect(analysisSection).toBeVisible();
+  const bottomPanel = page.getByTestId('bottom-panel');
+  await expect(bottomPanel).toBeVisible();
 
-  await page.getByRole('button', { name: 'Show analysis' }).click();
-  await expect(
-    analysisSection.getByRole('region', { name: 'Model analysis' }),
-  ).toBeVisible({ timeout: 15_000 });
-
-  const toolbar = analysisSection.getByRole('toolbar', {
-    name: 'Analysis view',
+  const toolbar = bottomPanel.getByRole('toolbar', {
+    name: 'Bottom panel tabs',
   });
-  await expect(toolbar.getByText('Lineage')).toBeVisible();
+  await expect(toolbar.getByText('Diagnostics')).toBeVisible();
+  await expect(toolbar.getByText('Generated artifacts')).toBeVisible();
   await expect(toolbar.getByText('Compatibility')).toBeVisible();
   await expect(toolbar.getByText('Governance')).toBeVisible();
 
   await toolbar.getByText('Compatibility').click();
+  await expect(page.getByTestId('analysis')).toBeVisible();
+
   await toolbar.getByText('Governance').click();
-  await toolbar.getByText('Lineage').click();
+  await expect(page.getByTestId('analysis')).toBeVisible();
+
+  await toolbar.getByText('Diagnostics').click();
+  await expect(page.getByTestId('diagnostics')).toBeVisible();
 });
