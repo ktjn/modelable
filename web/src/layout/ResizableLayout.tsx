@@ -28,6 +28,7 @@ export function ResizableLayout({
               collapsible
               collapsedSize="0%"
               className="resizable-layout__explorer"
+              tabIndex={0}
             >
               {explorer}
             </Panel>
