@@ -49,7 +49,7 @@ export function BottomPanel({
           Governance
         </button>
       </div>
-      <div className="bottom-panel__body">
+      <div className="bottom-panel__body" tabIndex={0}>
         {tab === 'diagnostics' && diagnostics}
         {tab === 'artifacts' && artifacts}
         {tab === 'compatibility' && compatibility}

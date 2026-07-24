@@ -1153,7 +1153,7 @@ export function App({
                 aria-label="Document diagnostics"
                 data-testid="diagnostics"
               >
-                <h3>Diagnostics</h3>
+                <h2>Diagnostics</h2>
                 {state.diagnostics.length > 0 ? (
                   <ul>
                     {state.diagnostics.map((diagnostic, index) => (
