@@ -141,6 +141,7 @@ def test_validation_workflow_uses_current_actions() -> None:
     assert _workflow_action_names("validate.yml") == {
         "actions/cache",
         "actions/checkout",
+        "actions/download-artifact",
         "actions/setup-java",
         "actions/setup-node",
         "actions/upload-artifact",
@@ -163,8 +164,13 @@ def test_validation_workflow_is_split_and_path_gated() -> None:
     assert len(detection_steps) == 1
 
     for surface in expected_surfaces:
-        assert jobs[surface]["needs"] == "changes"
-        assert jobs[surface]["if"] == f"needs.changes.outputs.{surface} == 'true'"
+        if surface == "browser":
+            assert jobs["browser-build"]["needs"] == "changes"
+            assert jobs["browser-build"]["if"] == "needs.changes.outputs.browser == 'true'"
+            assert jobs["browser-e2e"]["needs"] == "browser-build"
+        else:
+            assert jobs[surface]["needs"] == "changes"
+            assert jobs[surface]["if"] == f"needs.changes.outputs.{surface} == 'true'"
 
 
 def test_validation_workflow_uses_distinct_uv_cache_suffixes() -> None:
@@ -177,7 +183,7 @@ def test_validation_workflow_uses_distinct_uv_cache_suffixes() -> None:
         "openlineage": "openlineage",
         "fhir": "fhir",
         "vscode": "vscode",
-        "browser": "browser",
+        "browser-build": "browser",
     }
 
     for job_name, expected_suffix in expected_suffixes.items():
@@ -191,29 +197,38 @@ def test_validation_workflow_uses_distinct_uv_cache_suffixes() -> None:
 
 def test_validation_workflow_runs_complete_browser_playground_gate() -> None:
     workflow = _workflow("validate.yml")
-    steps = workflow["jobs"]["browser"]["steps"]
-    commands = "\n".join(step["run"] for step in steps if "run" in step)
 
+    build_steps = workflow["jobs"]["browser-build"]["steps"]
+    build_commands = "\n".join(step["run"] for step in build_steps if "run" in step)
     assert any(
         step.get("uses") == "actions/setup-node@v7.0.0" and step.get("with", {}).get("node-version") == 26
-        for step in steps
+        for step in build_steps
     )
-    assert "uv python install 3.14" in commands
-    assert "uv sync --extra dev --frozen" in commands
-    assert "npm ci" in commands
-    assert "npx playwright install --with-deps chromium" in commands
-    assert "uv run python .github/scripts/run_browser_playground.py --skip-install" in commands
+    assert "uv python install 3.14" in build_commands
+    assert "uv sync --extra dev --frozen" in build_commands
+    assert "npm ci" in build_commands
+    assert "npm run build" in build_commands
+    assert any(
+        step.get("uses") == "actions/upload-artifact@v7.0.1"
+        and step.get("with", {}).get("name") == "browser-dist"
+        for step in build_steps
+    )
+
+    e2e_steps = workflow["jobs"]["browser-e2e"]["steps"]
+    e2e_commands = "\n".join(step["run"] for step in e2e_steps if "run" in step)
+    assert "npx playwright install --with-deps" in e2e_commands
+    assert "npx playwright test --project" in e2e_commands
+    assert workflow["jobs"]["browser-e2e"]["strategy"]["matrix"]["browser"] == ["chromium", "firefox"]
+    assert any(
+        step.get("uses") == "actions/download-artifact@v7.0.1"
+        and step.get("with", {}).get("name") == "browser-dist"
+        for step in e2e_steps
+    )
     assert any(
         step.get("uses") == "actions/upload-artifact@v7.0.1"
         and step.get("if") == "${{ failure() }}"
         and step.get("with", {}).get("path") == "web/output/playwright"
-        for step in steps
-    )
-    assert any(
-        step.get("uses") == "actions/upload-artifact@v7.0.1"
-        and step.get("if") == "${{ failure() }}"
-        and step.get("with", {}).get("path") == "web/dist"
-        for step in steps
+        for step in e2e_steps
     )
 
 
