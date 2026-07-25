@@ -75,6 +75,27 @@ releases could contain breaking changes when called out explicitly.
   `SCHEMA_VERSION` and the canonical Modelable signature as a dependency-free
   `[u8; 32]` `SCHEMA_CONTENT_SIGNATURE`.
 
+### Fixed
+
+- Playground graph panel: the graph now renders. Layout ran ELK from inside a
+  dedicated web worker, where `elk.bundled.js` cannot construct its in-thread
+  worker, so the worker crashed on load and every mode sat on
+  "Laying out graph…" forever. ELK is now driven from the panel and runs the
+  layout in its own worker.
+- Playground graph panel: the graph follows the source. It was fetched once
+  after startup and never again, so it kept showing the model as it was when
+  the page loaded. It is now refetched whenever the compiler finishes
+  synchronizing a new workspace revision.
+- Playground graph panel: the view now zooms to fit each new layout instead of
+  fitting an empty canvas before the nodes arrive, and node handles sit on the
+  sides the layout flows between rather than always top/bottom.
+- Playground graph panel: failed graph requests and failed layouts now report
+  the failure in the panel instead of leaving a silently blank canvas.
+- Playground graph panel: graph nodes no longer claim `role="treeitem"`
+  outside any tree, and edge labels no longer sit on a bare SVG path where
+  they are not exposed. Node and edge names now go on the wrappers React Flow
+  renders, which carry a valid role.
+
 ## [1.2.1] - 2026-07-12
 
 ### Fixed

@@ -7,11 +7,15 @@ import type {
   BrowserSourceRange,
 } from '../protocol';
 
+/** Direction the ELK layout flows in, which decides which sides handles sit on. */
+export type LayoutDirection = 'DOWN' | 'RIGHT';
+
 export interface GraphNodeData {
   label: string;
   kind: string;
   metadata: Record<string, unknown>;
   sourceRange: BrowserSourceRange | null;
+  direction: LayoutDirection;
   [key: string]: unknown;
 }
 
@@ -36,17 +40,4 @@ export interface LayoutResponse {
   id: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
-}
-
-export interface LayoutError {
-  id: string;
-  error: string;
-}
-
-export type LayoutWorkerResponse = LayoutResponse | LayoutError;
-
-export function isLayoutError(
-  response: LayoutWorkerResponse,
-): response is LayoutError {
-  return 'error' in response;
 }

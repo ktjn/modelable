@@ -15,7 +15,6 @@ export function ProjectsEdge(props: EdgeProps<GraphEdge>) {
       path={edgePath}
       className="graph-edge graph-edge--projects"
       style={{ strokeDasharray: '6 3' }}
-      aria-label="projects"
     />
   );
 }

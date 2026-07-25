@@ -703,6 +703,44 @@ test('graph panel shows projection and lineage mode tabs', async ({
   ).toHaveAttribute('aria-pressed', 'true');
 });
 
+test('graph panel renders laid out nodes for every mode', async ({ page }) => {
+  await page.goto('?test=1');
+  await waitForReady(page);
+
+  const graphSection = page.getByTestId('graph');
+  const toolbar = graphSection.getByRole('toolbar', { name: 'Graph mode' });
+  const nodes = graphSection.locator('.react-flow__node');
+
+  await expect(nodes.first()).toBeVisible({ timeout: 30_000 });
+  await expect(graphSection.getByRole('alert')).toHaveCount(0);
+  await expect(graphSection.getByText('Laying out graph...')).toHaveCount(0);
+
+  for (const mode of ['Entity', 'Projection', 'Lineage'] as const) {
+    await toolbar.getByRole('button', { name: mode }).click();
+    await expect(nodes.first()).toBeVisible({ timeout: 30_000 });
+    await expect(graphSection.getByRole('alert')).toHaveCount(0);
+  }
+});
+
+test('graph panel follows the source as it changes', async ({ page }) => {
+  await page.goto('?test=1');
+  await waitForReady(page);
+
+  const graphSection = page.getByTestId('graph');
+  const nodes = graphSection.locator('.react-flow__node');
+  await expect(nodes.first()).toBeVisible({ timeout: 30_000 });
+
+  await replaceSource(
+    page,
+    'domain warehouse { owner: "ops" entity Pallet @ 1 (additive) { @key palletId: uuid } }',
+  );
+
+  await expect(graphSection.getByText('warehouse')).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(graphSection.getByText('Pallet')).toBeVisible();
+});
+
 test('renders bottom panel with diagnostics, artifacts, compatibility, and governance tabs', async ({
   page,
 }) => {
