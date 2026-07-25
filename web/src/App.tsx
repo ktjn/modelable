@@ -854,7 +854,7 @@ export function App({
   }
 
   return (
-    <main className="workbench" data-state={state.runtime}>
+    <main className="workbench" data-state={state.runtime} data-mobile-view={mobileView}>
       <header className="workbench-header">
         <div>
           <p className="eyebrow">Local schema workbench</p>
