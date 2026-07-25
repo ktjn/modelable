@@ -1,82 +1,77 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { BrowserGraphResult } from '../protocol';
-import type {
-  GraphEdge,
-  GraphNode,
-  LayoutRequest,
-  LayoutWorkerResponse,
-} from './graph-types';
-import { isLayoutError } from './graph-types';
+import { runLayout } from './elk-layout';
+import type { GraphEdge, GraphNode, LayoutRequest } from './graph-types';
 
 export interface GraphLayoutState {
   nodes: GraphNode[];
   edges: GraphEdge[];
   loading: boolean;
+  error: string | null;
 }
+
+const emptyState: GraphLayoutState = {
+  nodes: [],
+  edges: [],
+  loading: false,
+  error: null,
+};
 
 export function useGraphLayout(
   graphResult: BrowserGraphResult | null,
 ): GraphLayoutState {
-  const [state, setState] = useState<GraphLayoutState>({
-    nodes: [],
-    edges: [],
-    loading: false,
-  });
-  const workerRef = useRef<Worker | null>(null);
+  const [state, setState] = useState<GraphLayoutState>(emptyState);
   const pendingIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const worker = new Worker(
-      new URL('./layout.worker.ts', import.meta.url),
-      { type: 'module' },
-    );
-    workerRef.current = worker;
-
-    const handleMessage = (event: MessageEvent<LayoutWorkerResponse>) => {
-      const response = event.data;
-      if (response.id !== pendingIdRef.current) return;
+    if (graphResult === null) {
       pendingIdRef.current = null;
-      if (isLayoutError(response)) {
-        setState({ nodes: [], edges: [], loading: false });
-        return;
-      }
-      setState({ nodes: response.nodes, edges: response.edges, loading: false });
-    };
-
-    worker.addEventListener('message', handleMessage);
-    return () => {
-      worker.removeEventListener('message', handleMessage);
-      worker.terminate();
-      workerRef.current = null;
-    };
-  }, []);
-
-  const requestLayout = useCallback(
-    (result: BrowserGraphResult) => {
-      const worker = workerRef.current;
-      if (worker === null) return;
-      const id = `${result.workspace_revision}-${result.mode}-${Date.now()}`;
-      pendingIdRef.current = id;
-      setState((prev) => ({ ...prev, loading: true }));
-      const request: LayoutRequest = {
-        id,
-        nodes: result.graph.nodes,
-        edges: result.graph.edges,
-        mode: result.mode,
-      };
-      worker.postMessage(request);
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (graphResult !== null) {
-      requestLayout(graphResult);
-    } else {
-      setState({ nodes: [], edges: [], loading: false });
+      setState(emptyState);
+      return;
     }
-  }, [graphResult, requestLayout]);
+
+    const request: LayoutRequest = {
+      id: `${graphResult.workspace_revision}-${graphResult.mode}-${Date.now()}`,
+      nodes: graphResult.graph.nodes,
+      edges: graphResult.graph.edges,
+      mode: graphResult.mode,
+    };
+    pendingIdRef.current = request.id;
+    setState((previous) => ({ ...previous, loading: true, error: null }));
+
+    void runLayout(request).then(
+      (response) => {
+        if (pendingIdRef.current !== request.id) return;
+        pendingIdRef.current = null;
+        setState({
+          nodes: response.nodes,
+          edges: response.edges,
+          loading: false,
+          error: null,
+        });
+      },
+      (error: unknown) => {
+        if (pendingIdRef.current !== request.id) return;
+        pendingIdRef.current = null;
+        setState({
+          nodes: [],
+          edges: [],
+          loading: false,
+          error:
+            error instanceof Error
+              ? `Graph layout failed: ${error.message}`
+              : 'Graph layout failed',
+        });
+      },
+    );
+
+    return () => {
+      if (pendingIdRef.current === request.id) {
+        pendingIdRef.current = null;
+      }
+    };
+  }, [graphResult]);
 
   return state;
 }

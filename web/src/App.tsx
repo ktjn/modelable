@@ -1141,7 +1141,7 @@ export function App({
             <GraphPanelContainer
               clientRef={clientRef}
               runtimeReady={state.runtime === 'ready'}
-              workspaceRevisionRef={workspaceRevisionRef}
+              languageRevision={state.languageRevision}
             />
           </section>
         }

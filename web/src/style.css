@@ -1096,6 +1096,20 @@ select {
   min-height: 0;
 }
 
+.graph-panel__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+  text-align: center;
+  color: var(--diagnostic);
+  font-size: 0.875rem;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .graph-panel__loading,
 .graph-panel__empty {
   position: absolute;

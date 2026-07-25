@@ -12,6 +12,12 @@ export interface AppState {
   runtime: RuntimePhase;
   operation: CompilerOperation | null;
   revision: number;
+  /**
+   * The revision the compiler's language workspace is synchronized to, or null
+   * before the first synchronization. Workspace-wide queries (graph, analysis)
+   * are only answered for this revision.
+   */
+  languageRevision: number | null;
   diagnostics: BrowserDiagnostic[];
   artifacts: BrowserArtifact[];
   selectedArtifactPath: string | null;
@@ -25,6 +31,7 @@ export const initialAppState: AppState = {
   runtime: 'loading',
   operation: null,
   revision: 1,
+  languageRevision: null,
   diagnostics: [],
   artifacts: [],
   selectedArtifactPath: null,
@@ -154,11 +161,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       if (action.revision !== state.revision) {
         return completed;
       }
+      // `validate` opens the workspace, which synchronizes the language
+      // workspace to this revision.
+      const synchronized =
+        action.operation === 'validate'
+          ? { ...completed, languageRevision: action.revision }
+          : completed;
       if (action.artifacts === undefined) {
-        return { ...completed, diagnostics: action.diagnostics };
+        return { ...synchronized, diagnostics: action.diagnostics };
       }
       return {
-        ...completed,
+        ...synchronized,
         diagnostics: action.diagnostics,
         artifacts: action.artifacts,
         selectedArtifactPath: action.artifacts[0]?.path ?? null,
@@ -189,6 +202,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       }
       return {
         ...state,
+        languageRevision: action.revision,
         diagnostics: action.diagnostics,
       };
     case 'artifactSelected':

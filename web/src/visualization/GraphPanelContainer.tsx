@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 
+import { BrowserCompilerError } from '../client';
 import type { BrowserCompilerClientLike } from '../client';
 import type { BrowserGraphMode, BrowserGraphResult } from '../protocol';
 
@@ -18,20 +19,25 @@ const GraphPanel = lazy(() =>
 export interface GraphPanelContainerProps {
   clientRef: React.RefObject<BrowserCompilerClientLike | null>;
   runtimeReady: boolean;
-  workspaceRevisionRef: React.RefObject<number>;
+  /**
+   * The workspace revision the compiler's language workspace is synchronized
+   * to, or null before the first synchronization. Asking for a graph at any
+   * other revision is rejected as stale, so this — not the editor's current
+   * revision — is what drives a refetch.
+   */
+  languageRevision: number | null;
 }
 
 export const GraphPanelContainer = memo(function GraphPanelContainer({
   clientRef,
   runtimeReady,
-  workspaceRevisionRef,
+  languageRevision,
 }: GraphPanelContainerProps) {
   const [graphResult, setGraphResult] =
     useState<BrowserGraphResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [graphMode, setGraphMode] = useState<BrowserGraphMode>('domain');
   const [mounted, setMounted] = useState(false);
-  const graphModeRef = useRef(graphMode);
-  graphModeRef.current = graphMode;
   const initialFetchDone = useRef(false);
 
   useEffect(() => {
@@ -48,18 +54,31 @@ export const GraphPanelContainer = memo(function GraphPanelContainer({
 
   const fetchGraph = useCallback(() => {
     const client = clientRef.current;
-    if (client === null || !runtimeReady) return;
-    void client
-      .graph(workspaceRevisionRef.current, graphModeRef.current)
-      .then(
-        (result) => {
-          if (clientRef.current === client) {
-            setGraphResult(result);
-          }
-        },
-        () => {},
-      );
-  }, [clientRef, runtimeReady, workspaceRevisionRef]);
+    if (client === null || !runtimeReady || languageRevision === null) return;
+    void client.graph(languageRevision, graphMode).then(
+      (result) => {
+        if (clientRef.current !== client) return;
+        setGraphResult(result);
+        setError(null);
+      },
+      (reason: unknown) => {
+        if (clientRef.current !== client) return;
+        // A newer revision was synchronized while this request was in flight;
+        // the fetch for that revision is already on its way.
+        if (
+          reason instanceof BrowserCompilerError &&
+          reason.code === 'STALE_WORKSPACE'
+        ) {
+          return;
+        }
+        setError(
+          reason instanceof Error
+            ? `Graph unavailable: ${reason.message}`
+            : 'Graph unavailable',
+        );
+      },
+    );
+  }, [clientRef, graphMode, languageRevision, runtimeReady]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -73,7 +92,7 @@ export const GraphPanelContainer = memo(function GraphPanelContainer({
       return () => clearTimeout(id);
     }
     fetchGraph();
-  }, [fetchGraph, graphMode, mounted]);
+  }, [fetchGraph, mounted]);
 
   if (!mounted) return null;
 
@@ -83,6 +102,7 @@ export const GraphPanelContainer = memo(function GraphPanelContainer({
         graphResult={graphResult}
         mode={graphMode}
         onModeChange={setGraphMode}
+        error={error}
       />
     </Suspense>
   );
