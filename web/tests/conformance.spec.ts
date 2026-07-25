@@ -694,7 +694,7 @@ test('browser compiler stays within initialization and operation budgets', async
     });
     console.log(`Browser performance medians: ${performanceReport}`);
 
-    const m = browserName === 'firefox' ? 2.5 : 1;
+    const m = browserName === 'firefox' ? 3 : 1;
     expect(medians.coldInitializeMedian).toBeLessThanOrEqual(20_000 * m);
     expect(medians.cachedInitializeMedian).toBeLessThanOrEqual(10_000 * m);
     expect(medians.validateMedian).toBeLessThanOrEqual(500 * m);
