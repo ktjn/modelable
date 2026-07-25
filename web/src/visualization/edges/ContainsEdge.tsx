@@ -14,7 +14,6 @@ export function ContainsEdge(props: EdgeProps<GraphEdge>) {
       id={props.id}
       path={edgePath}
       className="graph-edge graph-edge--contains"
-      aria-label="contains"
     />
   );
 }

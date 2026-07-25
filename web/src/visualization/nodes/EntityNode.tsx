@@ -6,7 +6,7 @@ import { handlePositions } from './handles';
 export function EntityNode({ data }: NodeProps<GraphNode>) {
   const handles = handlePositions(data.direction);
   return (
-    <div className="graph-node graph-node--entity" role="treeitem" aria-label={`Entity: ${data.label}`}>
+    <div className="graph-node graph-node--entity">
       <Handle type="target" position={handles.target} />
       <div className="graph-node__label">
         <span className="graph-node__kind" aria-hidden="true">E</span>

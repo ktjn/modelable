@@ -7,7 +7,7 @@ export function FieldNode({ data }: NodeProps<GraphNode>) {
   const optional = data.metadata.optional === true;
   const handles = handlePositions(data.direction);
   return (
-    <div className="graph-node graph-node--field" role="treeitem" aria-label={`Field: ${data.label}${optional ? ' (optional)' : ''}`}>
+    <div className="graph-node graph-node--field">
       <Handle type="target" position={handles.target} />
       <div className="graph-node__label">
         <span className="graph-node__kind" aria-hidden="true">F</span>

@@ -91,6 +91,10 @@ releases could contain breaking changes when called out explicitly.
   sides the layout flows between rather than always top/bottom.
 - Playground graph panel: failed graph requests and failed layouts now report
   the failure in the panel instead of leaving a silently blank canvas.
+- Playground graph panel: graph nodes no longer claim `role="treeitem"`
+  outside any tree, and edge labels no longer sit on a bare SVG path where
+  they are not exposed. Node and edge names now go on the wrappers React Flow
+  renders, which carry a valid role.
 
 ## [1.2.1] - 2026-07-12
 

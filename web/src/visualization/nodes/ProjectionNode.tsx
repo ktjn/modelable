@@ -6,7 +6,7 @@ import { handlePositions } from './handles';
 export function ProjectionNode({ data }: NodeProps<GraphNode>) {
   const handles = handlePositions(data.direction);
   return (
-    <div className="graph-node graph-node--projection" role="treeitem" aria-label={`Projection: ${data.label}`}>
+    <div className="graph-node graph-node--projection">
       <Handle type="target" position={handles.target} />
       <div className="graph-node__label">
         <span className="graph-node__kind" aria-hidden="true">P</span>

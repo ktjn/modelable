@@ -9,7 +9,7 @@ export function VersionNode({ data }: NodeProps<GraphNode>) {
   const suffix = changeKind ? ` (${changeKind})` : '';
   const handles = handlePositions(data.direction);
   return (
-    <div className="graph-node graph-node--version" role="treeitem" aria-label={`Version ${version}${suffix}`}>
+    <div className="graph-node graph-node--version">
       <Handle type="target" position={handles.target} />
       <div className="graph-node__label">
         <span className="graph-node__kind" aria-hidden="true">V</span>

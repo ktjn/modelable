@@ -5,7 +5,9 @@ import type { LayoutRequest } from './graph-types';
 import {
   applyLayout,
   buildElkGraph,
+  edgeAriaLabel,
   layoutDirection,
+  nodeAriaLabel,
   nodeSize,
 } from './layout-model';
 
@@ -67,6 +69,56 @@ describe('layoutDirection', () => {
   });
 });
 
+describe('nodeAriaLabel', () => {
+  test('names each node by its kind', () => {
+    expect(nodeAriaLabel(graphNode('d', 'domain', { label: 'sales' }))).toBe(
+      'Domain: sales',
+    );
+    expect(nodeAriaLabel(graphNode('e', 'entity', { label: 'Order' }))).toBe(
+      'Entity: Order',
+    );
+    expect(
+      nodeAriaLabel(graphNode('p', 'projection', { label: 'Billing' })),
+    ).toBe('Projection: Billing');
+  });
+
+  test('marks optional fields', () => {
+    const required = graphNode('f', 'field', { label: 'total' });
+    const optional = graphNode('f', 'field', {
+      label: 'note',
+      metadata: { optional: true },
+    });
+    expect(nodeAriaLabel(required)).toBe('Field: total');
+    expect(nodeAriaLabel(optional)).toBe('Field: note (optional)');
+  });
+
+  test('spells out versions with their change kind', () => {
+    const node = graphNode('v', 'version', {
+      label: '2',
+      metadata: { version: 2, change_kind: 'additive' },
+    });
+    expect(nodeAriaLabel(node)).toBe('Version 2 (additive)');
+  });
+
+  test('falls back to the label for versions without metadata', () => {
+    expect(nodeAriaLabel(graphNode('v', 'version', { label: '1' }))).toBe(
+      'Version 1',
+    );
+    expect(nodeAriaLabel(graphNode('x', 'unknown-kind', { label: 'x' }))).toBe(
+      'x',
+    );
+  });
+});
+
+describe('edgeAriaLabel', () => {
+  test('prefers the edge label and falls back to its kind', () => {
+    expect(edgeAriaLabel(graphEdge('a', 'b', 'projects'))).toBe('projects');
+    expect(
+      edgeAriaLabel({ ...graphEdge('a', 'b'), label: 'owns' }),
+    ).toBe('owns');
+  });
+});
+
 describe('buildElkGraph', () => {
   test('sizes every node and forwards each edge', () => {
     const graph = buildElkGraph(request());
@@ -121,6 +173,12 @@ describe('applyLayout', () => {
     );
     expect(edges[0]?.type).toBe('projects');
     expect(edges[0]?.data).toEqual({ kind: 'projects', label: null });
+  });
+
+  test('labels nodes and edges on the wrapper React Flow renders', () => {
+    const { nodes, edges } = applyLayout(request(), new Map());
+    expect(nodes[0]?.ariaLabel).toBe('Domain: domain:sales');
+    expect(edges[0]?.ariaLabel).toBe('contains');
   });
 
   test('carries the request id through so stale layouts can be discarded', () => {

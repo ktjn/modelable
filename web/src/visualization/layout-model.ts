@@ -1,4 +1,8 @@
-import type { BrowserGraphMode } from '../protocol';
+import type {
+  BrowserGraphEdge,
+  BrowserGraphMode,
+  BrowserGraphNode,
+} from '../protocol';
 import type {
   GraphEdge,
   GraphNode,
@@ -47,6 +51,42 @@ export function layoutDirection(mode: BrowserGraphMode): LayoutDirection {
   return mode === 'entity' ? 'DOWN' : 'RIGHT';
 }
 
+/**
+ * Names the node for assistive technology. React Flow puts this on the node
+ * wrapper, which already carries a valid `group` role — the node components
+ * themselves must stay unlabelled, since a bare `aria-label` on a generic
+ * element is not exposed.
+ */
+export function nodeAriaLabel(node: BrowserGraphNode): string {
+  switch (node.kind) {
+    case 'domain':
+      return `Domain: ${node.label}`;
+    case 'entity':
+      return `Entity: ${node.label}`;
+    case 'projection':
+      return `Projection: ${node.label}`;
+    case 'field':
+      return `Field: ${node.label}${node.metadata.optional === true ? ' (optional)' : ''}`;
+    case 'version': {
+      const version = node.metadata.version;
+      const changeKind = node.metadata.change_kind;
+      const suffix = changeKind === undefined ? '' : ` (${String(changeKind)})`;
+      return `Version ${String(version ?? node.label)}${suffix}`;
+    }
+    default:
+      return node.label;
+  }
+}
+
+/**
+ * Names the edge for assistive technology. As with nodes, this belongs on the
+ * React Flow wrapper — the edge components render a bare SVG `path`, which
+ * cannot carry a label.
+ */
+export function edgeAriaLabel(edge: BrowserGraphEdge): string {
+  return edge.label ?? edge.kind;
+}
+
 export function buildElkGraph(request: LayoutRequest): ElkLayoutGraph {
   return {
     id: 'root',
@@ -80,6 +120,7 @@ export function applyLayout(
       id: node.id,
       type: node.kind,
       position: positions.get(node.id) ?? { x: 0, y: 0 },
+      ariaLabel: nodeAriaLabel(node),
       data: {
         label: node.label,
         kind: node.kind,
@@ -97,6 +138,7 @@ export function applyLayout(
     source: edge.source,
     target: edge.target,
     type: edge.kind,
+    ariaLabel: edgeAriaLabel(edge),
     data: {
       kind: edge.kind,
       label: edge.label,
