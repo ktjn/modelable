@@ -217,7 +217,9 @@ def test_validation_workflow_runs_complete_browser_playground_gate() -> None:
     e2e_commands = "\n".join(step["run"] for step in e2e_steps if "run" in step)
     assert "npx playwright install --with-deps" in e2e_commands
     assert "npx playwright test --project" in e2e_commands
-    assert workflow["jobs"]["browser-e2e"]["strategy"]["matrix"]["browser"] == ["chromium", "firefox"]
+    # Firefox is temporarily out of the matrix (see the comment in validate.yml);
+    # restore ["chromium", "firefox"] here when it is re-enabled.
+    assert workflow["jobs"]["browser-e2e"]["strategy"]["matrix"]["browser"] == ["chromium"]
     assert any(
         step.get("uses") == "actions/download-artifact@v8.0.1" and step.get("with", {}).get("name") == "browser-dist"
         for step in e2e_steps
