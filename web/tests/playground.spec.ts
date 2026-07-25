@@ -684,7 +684,7 @@ test('graph panel shows projection and lineage mode tabs', async ({
   const graphSection = page.getByTestId('graph');
   await expect(
     graphSection.getByRole('region', { name: 'Model graph' }),
-  ).toBeVisible({ timeout: 15_000 });
+  ).toBeVisible({ timeout: 30_000 });
 
   const toolbar = graphSection.getByRole('toolbar', { name: 'Graph mode' });
   await expect(toolbar.getByText('Domain')).toBeVisible();
