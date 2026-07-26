@@ -82,6 +82,19 @@ export class BrowserCompilerError extends Error {
   }
 }
 
+export type CompileTarget =
+  | 'jsonSchema'
+  | 'typescript'
+  | 'sql-postgres'
+  | 'sql-clickhouse'
+  | 'protobuf'
+  | 'rust'
+  | 'java'
+  | 'go'
+  | 'csharp'
+  | 'markdown'
+  | 'python';
+
 export class BrowserCompilerClient {
   private readonly pending = new Map<string, PendingRequest>();
   private initializationPromise: Promise<void> | undefined;
@@ -173,9 +186,16 @@ export class BrowserCompilerClient {
   async compileJsonSchema(
     sources: BrowserSource[],
   ): Promise<BrowserCompileResult> {
+    return this.compile(sources, 'jsonSchema');
+  }
+
+  async compile(
+    sources: BrowserSource[],
+    target: CompileTarget,
+  ): Promise<BrowserCompileResult> {
     return this.initializedRequest(
-      'compile.jsonSchema',
-      { sources },
+      'compile',
+      { sources, target },
       isBrowserCompileResult,
     );
   }
@@ -419,6 +439,7 @@ export type BrowserCompilerClientLike = Pick<
   | 'initialize'
   | 'openWorkspace'
   | 'formatSource'
+  | 'compile'
   | 'compileJsonSchema'
   | 'completion'
   | 'hover'

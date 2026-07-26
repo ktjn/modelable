@@ -149,6 +149,24 @@ h3 {
   background: var(--workbench);
 }
 
+.toolbar-group {
+  display: flex;
+  gap: 0;
+}
+
+.compile-target-selector {
+  width: auto;
+  min-width: 9rem;
+  min-height: 2.75rem;
+  border: 1px solid var(--graphite);
+  border-right: none;
+  border-radius: 0;
+  padding-inline: 0.5rem;
+  background: var(--paper);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 button {
   min-height: 2.75rem;
   padding: 0.62rem 1rem;

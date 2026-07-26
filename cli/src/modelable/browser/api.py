@@ -44,7 +44,16 @@ from modelable.compiler.workspace import (
 )
 from modelable.diagnostics.model import Diagnostic
 from modelable.emitters.base import render_artifact_text
+from modelable.emitters.csharp import emit_csharp
+from modelable.emitters.go import emit_go
+from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema_artifacts
+from modelable.emitters.markdown import emit_markdown
+from modelable.emitters.protobuf import emit_protobuf
+from modelable.emitters.python import emit_python
+from modelable.emitters.rust import emit_rust
+from modelable.emitters.sql import emit_sql
+from modelable.emitters.typescript import emit_typescript
 from modelable.language.completion import complete
 from modelable.language.definition import definition
 from modelable.language.dto import LanguagePosition
@@ -359,6 +368,13 @@ class BrowserCompiler:
         self,
         sources: tuple[BrowserSource, ...],
     ) -> BrowserCompileResult:
+        return self.compile(sources, "jsonSchema")
+
+    def compile(
+        self,
+        sources: tuple[BrowserSource, ...],
+        target: str,
+    ) -> BrowserCompileResult:
         _validate_sources(sources)
         workspace = _load_workspace(sources)
         if isinstance(workspace, tuple):
@@ -372,16 +388,59 @@ class BrowserCompiler:
                 diagnostics=diagnostics,
                 artifacts=(),
             )
+
+        from pathlib import Path
+
+        out = Path(".")
+        media_type = "text/plain"
+
+        if target == "jsonSchema":
+            emitted = emit_json_schema_artifacts(workspace)
+            media_type = "application/schema+json"
+        elif target == "typescript":
+            emitted = emit_typescript(workspace, out)
+            media_type = "application/typescript"
+        elif target == "sql-postgres":
+            emitted = emit_sql(workspace, out, "postgres")
+            media_type = "application/sql"
+        elif target == "sql-clickhouse":
+            emitted = emit_sql(workspace, out, "clickhouse")
+            media_type = "application/sql"
+        elif target == "protobuf":
+            emitted = emit_protobuf(workspace, out)
+            media_type = "text/x-protobuf"
+        elif target == "rust":
+            emitted = emit_rust(workspace, out)
+            media_type = "text/x-rust"
+        elif target == "java":
+            emitted = emit_java(workspace, out)
+            media_type = "text/x-java-source"
+        elif target == "go":
+            emitted = emit_go(workspace, out)
+            media_type = "text/x-go"
+        elif target == "csharp":
+            emitted = emit_csharp(workspace, out)
+            media_type = "text/x-csharp"
+        elif target == "markdown":
+            emitted = emit_markdown(workspace, out)
+            media_type = "text/markdown"
+        elif target == "python":
+            emitted = emit_python(workspace, out)
+            media_type = "text/x-python"
+        else:
+            raise BrowserRequestValidationError(f"Unknown compile target: {target}")
+
         emitted = sorted(
-            emit_json_schema_artifacts(workspace),
+            emitted,
             key=lambda artifact: artifact.path.as_posix(),
         )
+
         return BrowserCompileResult(
             diagnostics=diagnostics,
             artifacts=tuple(
                 BrowserArtifact(
                     path=artifact.path.as_posix(),
-                    media_type="application/schema+json",
+                    media_type=media_type,
                     content=render_artifact_text(artifact),
                     source_refs=(artifact.ref,),
                 )

@@ -1,0 +1,19 @@
+domain sales {
+  owner: "sales-platform"
+
+  entity Product @ 1 (additive) {
+    @key productId: uuid
+    name: string
+    sku: string
+    category: enum(physical, digital, subscription)
+    unitPrice: decimal(10, 2)
+    createdAt: timestamp
+  }
+
+  entity Purchase @ 1 (additive) {
+    @key purchaseId: uuid
+    customer: ref<customer.Customer>
+    total: decimal(12, 2)
+    placedAt: timestamp
+  }
+}

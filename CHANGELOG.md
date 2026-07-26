@@ -8,6 +8,12 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added multi-language support to the browser Playground, enabling generation of
+  TypeScript, SQL (Postgres/ClickHouse), Protobuf, Rust, Java, Go, C#, Markdown,
+  and Python artifacts directly in the browser.
+- Updated the default Playground example to a more complex three-file workspace
+  (`customer.mdl`, `sales.mdl`, `billing.mdl`) demonstrating cross-file
+  references and multi-domain organization.
 - Added syntax highlighting for the `modelable` language in both the web Playground
   and the VS Code extension. The Monarch tokenizer (web) and TextMate grammar (vscode)
   now support all keywords, types, operators, and comments from the core grammar,

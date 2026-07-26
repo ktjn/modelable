@@ -30,6 +30,7 @@ from modelable.browser.errors import BrowserLanguageError, BrowserRequestValidat
 _METHODS = {
     "workspace.open",
     "source.format",
+    "compile",
     "compile.jsonSchema",
     "language.completion",
     "language.hover",
@@ -164,6 +165,12 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
     if method == "source.format":
         _require_exact_fields(payload, {"source"})
         return _compiler.format_source(_source(payload["source"]))
+    if method == "compile":
+        _require_exact_fields(payload, {"sources", "target"})
+        target = payload["target"]
+        if not isinstance(target, str):
+            raise BrowserRequestValidationError("target must be a string")
+        return _compiler.compile(_sources(payload["sources"]), target)
     if method == "compile.jsonSchema":
         _require_exact_fields(payload, {"sources"})
         return _compiler.compile_json_schema(_sources(payload["sources"]))
