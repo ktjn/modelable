@@ -71,15 +71,24 @@ export function normalizeWorkspacePath(path: string): string {
 }
 
 export function createDefaultWorkspace(
-  defaultSource: string,
+  sourceOrFiles: string | { path: string; content: string }[],
   id = 'local',
 ): PlaygroundWorkspace {
+  if (typeof sourceOrFiles === 'string') {
+    return {
+      schemaVersion: PLAYGROUND_WORKSPACE_SCHEMA_VERSION,
+      id,
+      revision: 1,
+      files: [{ path: 'main.mdl', content: sourceOrFiles, version: 1 }],
+      activeFile: 'main.mdl',
+    };
+  }
   return {
     schemaVersion: PLAYGROUND_WORKSPACE_SCHEMA_VERSION,
     id,
     revision: 1,
-    files: [{ path: 'main.mdl', content: defaultSource, version: 1 }],
-    activeFile: 'main.mdl',
+    files: sourceOrFiles.map((f) => ({ ...f, version: 1 })),
+    activeFile: sourceOrFiles[0]?.path ?? 'main.mdl',
   };
 }
 

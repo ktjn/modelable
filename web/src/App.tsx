@@ -17,9 +17,12 @@ import {
   BrowserCompilerClient,
   BrowserCompilerError,
   type BrowserCompilerClientLike,
+  type CompileTarget,
 } from './client';
 import { normalizeDiagnosticsByUri } from './diagnostics';
-import initialSource from './example.mdl?raw';
+import customerSource from './example-customer.mdl?raw';
+import salesSource from './example-sales.mdl?raw';
+import billingSource from './example-billing.mdl?raw';
 import { ArtifactEditor } from './editor/ArtifactEditor';
 import { SourceEditor } from './editor/SourceEditor';
 import type { SourceEditorHandle } from './editor/types';
@@ -83,6 +86,20 @@ const createWorkspaceRepository = (): WorkspaceRepository => {
 };
 const performanceNow = (): number => performance.now();
 
+const extensionMap: Record<CompileTarget, string> = {
+  jsonSchema: '.json',
+  typescript: '.ts',
+  'sql-postgres': '.sql',
+  'sql-clickhouse': '.sql',
+  protobuf: '.proto',
+  rust: '.rs',
+  java: '.java',
+  go: '.go',
+  csharp: '.cs',
+  markdown: '.md',
+  python: '.py',
+};
+
 export interface AppProps {
   createClient?: () => BrowserCompilerClientLike;
   createRepository?: () => WorkspaceRepository;
@@ -139,7 +156,11 @@ export function App({
   download = downloadText,
 }: AppProps) {
   const initialWorkspaceRef = useRef(
-    createDefaultWorkspace(initialSource),
+    createDefaultWorkspace([
+      { path: 'customer.mdl', content: customerSource },
+      { path: 'sales.mdl', content: salesSource },
+      { path: 'billing.mdl', content: billingSource },
+    ]),
   );
   const [repository] = useState(() => createRepository());
   const persistentWorkspace = usePersistentWorkspace({
@@ -400,7 +421,7 @@ export function App({
           return;
         }
 
-        const result = await client.compileJsonSchema(sources);
+        const result = await client.compile(sources, state.compileTarget);
         const duration = now() - startedAt;
         if (
           hasErrorDiagnostics(result.diagnostics) ||
@@ -901,14 +922,40 @@ export function App({
         >
           Format
         </button>
-        <button
-          type="button"
-          disabled={actionsDisabled}
-          aria-keyshortcuts="Control+Enter Meta+Enter"
-          onClick={handleGenerate}
-        >
-          Generate JSON Schema
-        </button>
+        <div className="toolbar-group">
+          <select
+            value={state.compileTarget}
+            onChange={(e) =>
+              dispatch({
+                type: 'compileTargetSelected',
+                target: e.target.value as CompileTarget,
+              })
+            }
+            disabled={actionsDisabled}
+            className="compile-target-selector"
+            aria-label="Target language"
+          >
+            <option value="jsonSchema">JSON Schema</option>
+            <option value="typescript">TypeScript</option>
+            <option value="sql-postgres">SQL (Postgres)</option>
+            <option value="sql-clickhouse">SQL (ClickHouse)</option>
+            <option value="protobuf">Protobuf</option>
+            <option value="rust">Rust</option>
+            <option value="java">Java</option>
+            <option value="go">Go</option>
+            <option value="csharp">C#</option>
+            <option value="markdown">Markdown</option>
+            <option value="python">Python</option>
+          </select>
+          <button
+            type="button"
+            disabled={actionsDisabled}
+            aria-keyshortcuts="Control+Enter Meta+Enter"
+            onClick={handleGenerate}
+          >
+            Generate
+          </button>
+        </div>
         <button
           type="button"
           disabled={selectedArtifact === null}
@@ -918,7 +965,10 @@ export function App({
             }
             download(
               selectedArtifact.content,
-              sanitizeDownloadName(selectedArtifact.path, '.json'),
+              sanitizeDownloadName(
+                selectedArtifact.path,
+                extensionMap[state.compileTarget],
+              ),
               selectedArtifact.media_type,
             );
           }}
@@ -1171,7 +1221,7 @@ export function App({
             artifacts={
               <section
                 className="artifact-pane"
-                aria-label="Generated JSON Schema"
+                aria-label={`Generated ${state.compileTarget}`}
                 data-testid="artifacts"
               >
                 {artifactIsStale ? (

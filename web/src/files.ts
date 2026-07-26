@@ -38,7 +38,7 @@ export async function readWorkspaceFiles(
 
 export function sanitizeDownloadName(
   name: string,
-  extension: '.mdl' | '.json',
+  extension: string,
 ) {
   const basename = name.split(/[\\/]/).at(-1) ?? name;
   const sanitizedStem =

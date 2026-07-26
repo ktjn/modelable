@@ -1,4 +1,5 @@
 import type { BrowserArtifact, BrowserDiagnostic } from './protocol';
+import type { CompileTarget } from './client';
 import {
   mutateWorkspace,
   type PlaygroundWorkspace,
@@ -25,6 +26,7 @@ export interface AppState {
   status: string;
   initializationDuration: number | null;
   lastOperationDuration: number | null;
+  compileTarget: CompileTarget;
 }
 
 export const initialAppState: AppState = {
@@ -39,6 +41,7 @@ export const initialAppState: AppState = {
   status: 'Initializing compiler…',
   initializationDuration: null,
   lastOperationDuration: null,
+  compileTarget: 'jsonSchema',
 };
 
 export type AppAction =
@@ -78,7 +81,8 @@ export type AppAction =
       revision: number;
       diagnostics: BrowserDiagnostic[];
     }
-  | { type: 'artifactSelected'; path: string };
+  | { type: 'artifactSelected'; path: string }
+  | { type: 'compileTargetSelected'; target: CompileTarget };
 
 export type WorkspaceAppState = Omit<AppState, 'revision'> & {
   workspace: PlaygroundWorkspace;
@@ -210,6 +214,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         return state;
       }
       return { ...state, selectedArtifactPath: action.path };
+    case 'compileTargetSelected':
+      return { ...state, compileTarget: action.target };
   }
 }
 

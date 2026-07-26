@@ -4,6 +4,7 @@ export type BrowserCompilerMethod =
   | 'runtime.initialize'
   | 'workspace.open'
   | 'source.format'
+  | 'compile'
   | 'compile.jsonSchema'
   | 'language.completion'
   | 'language.hover'
@@ -319,6 +320,7 @@ const methods = new Set<BrowserCompilerMethod>([
   'runtime.initialize',
   'workspace.open',
   'source.format',
+  'compile',
   'compile.jsonSchema',
   'language.completion',
   'language.hover',
