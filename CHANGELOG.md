@@ -8,6 +8,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added syntax highlighting for the `modelable` language in both the web Playground
+  and the VS Code extension. The Monarch tokenizer (web) and TextMate grammar (vscode)
+  now support all keywords, types, operators, and comments from the core grammar,
+  enabling rich code display in the editor and AI previews.
 - Added local conversational compilation to `modelable chat` and the native
   VS Code `@modelable` participant. Deterministic `/compile` and typed
   natural-language plans now stage the real compiler output without workspace

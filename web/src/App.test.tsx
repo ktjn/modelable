@@ -60,6 +60,12 @@ vi.mock('./analysis/AnalysisPanel', () => ({
   GovernanceView: () => null,
 }));
 
+vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => ({
+  editor: {
+    colorize: vi.fn(async (code) => code),
+  },
+}));
+
 vi.mock('./layout/ResizableLayout', () => {
   const { createElement } = require('react');
   return {
@@ -1504,8 +1510,8 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('ai-preview')).toBeTruthy();
+      expect(screen.getByText(/entity Order/)).toBeTruthy();
     });
-    expect(screen.getByText(/entity Order/)).toBeTruthy();
   });
 
   test('explain calls aiExplain and shows explanation', async () => {
