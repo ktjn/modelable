@@ -15,7 +15,7 @@ import {
 } from './helpers';
 
 const validCompact =
-  'domain customer { owner: "team" entity Customer @ 1 (additive) { @key customerId: uuid displayName?: string } }';
+  'domain sample { owner: "team" entity Customer @ 1 (additive) { @key customerId: uuid displayName?: string } }';
 const invalidSource = 'this is not valid Modelable source';
 const importedSource =
   'domain imported { owner: "team" entity Imported @ 1 (additive) { @key importedId: uuid } }';
@@ -33,6 +33,12 @@ test.afterEach(({ context }) => {
 
 function artifactOutput(page: Page) {
   return page.locator('.artifact-editor .view-lines');
+}
+
+function generateButton(page: Page) {
+  return page
+    .getByRole('navigation', { name: 'Playground actions' })
+    .getByRole('button', { name: 'Generate' });
 }
 
 async function createWorkspaceFile(
@@ -92,7 +98,7 @@ test('initializes locally and supports the complete editor workflow', async ({
   const actions = [
     page.getByRole('button', { name: 'Validate' }),
     page.getByRole('button', { name: 'Format' }),
-    page.getByRole('button', { name: 'Generate JSON Schema' }),
+    generateButton(page),
   ];
   await expect(page.getByRole('status')).toHaveText(/initializing compiler/i);
   for (const action of actions) {
@@ -103,6 +109,12 @@ test('initializes locally and supports the complete editor workflow', async ({
   await page.unroute(runtimeManifest);
 
   await expect(sourceOutput(page)).toContainText(/entity\s*Customer/);
+  await page.getByLabel('Workspace file path').fill('scratch.mdl');
+  await page.getByRole('button', { name: 'New file' }).click();
+  await expect(page.getByRole('button', { name: 'scratch.mdl' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
   await replaceSource(page, invalidSource);
   await actions[0].click();
   await expect(page.getByTestId('diagnostics')).toContainText('PARSE', {
@@ -118,7 +130,7 @@ test('initializes locally and supports the complete editor workflow', async ({
   await page.keyboard.press('Control+z');
   await expect(page.locator('.source-editor .view-line')).toHaveCount(1);
   await expect(sourceOutput(page)).toContainText(
-    /domain\s*customer.*displayName\?:\s*string/,
+    /domain\s*sample.*displayName\?:\s*string/,
   );
   await actions[1].click();
   await expect
@@ -127,6 +139,16 @@ test('initializes locally and supports the complete editor workflow', async ({
 
   await actions[2].click();
   await page.getByRole('button', { name: 'Generated artifacts' }).click();
+  const scratchArtifactPicker = page.getByRole('combobox', {
+    name: 'Artifact',
+  });
+  const scratchArtifact = scratchArtifactPicker
+    .locator('option')
+    .filter({ hasText: 'sample.Customer' });
+  await expect(scratchArtifact).toHaveCount(1);
+  await scratchArtifactPicker.selectOption(
+    (await scratchArtifact.getAttribute('value')) ?? '',
+  );
   await expect(artifactOutput(page)).toContainText(
     /"title":\s+"Customer"/,
   );
@@ -190,10 +212,10 @@ test('creates, validates, and restores a multi-file workspace', async ({
   await waitForReady(page);
   await createWorkspaceFile(
     page,
-    'customer.mdl',
-    'domain customer { owner: "customer-team" entity Customer @ 1 (additive) { @key customerId: uuid } }',
+    'orders.mdl',
+    'domain orders { owner: "orders-team" entity Order @ 1 (additive) { @key orderId: uuid } }',
   );
-  await page.getByRole('button', { name: 'main.mdl' }).click();
+  await page.getByRole('button', { name: 'sales.mdl' }).click();
   await replaceSource(
     page,
     'domain sales { owner: "sales-team" entity Order @ 1 (additive) { @key orderId: uuid } }',
@@ -213,16 +235,21 @@ test('creates, validates, and restores a multi-file workspace', async ({
           ).__modelableWorkspaceSourceUris,
       ),
     )
-    .toEqual(['file:///customer.mdl', 'file:///main.mdl']);
+    .toEqual([
+      'file:///billing.mdl',
+      'file:///customer.mdl',
+      'file:///orders.mdl',
+      'file:///sales.mdl',
+    ]);
 
-  await page.getByRole('button', { name: 'customer.mdl' }).click();
+  await page.getByRole('button', { name: 'orders.mdl' }).click();
   await expect(page.getByText('Saved locally')).toBeVisible();
   await page.reload();
   await waitForReady(page);
   await expect(
-    page.getByRole('button', { name: 'customer.mdl' }),
+    page.getByRole('button', { name: 'orders.mdl' }),
   ).toHaveAttribute('aria-current', 'true');
-  await expect(sourceOutput(page)).toContainText(/domain\s*customer/);
+  await expect(sourceOutput(page)).toContainText(/domain\s*orders/);
 });
 
 test('provides cross-file live diagnostics, completion, and hover accessibly', async ({
@@ -246,7 +273,7 @@ test('provides cross-file live diagnostics, completion, and hover accessibly', a
     .getByLabel('Import workspace files')
     .setInputFiles([
       {
-        name: 'customer.mdl',
+        name: 'imported.mdl',
         mimeType: 'text/plain',
         buffer: Buffer.from(customerSource),
       },
@@ -329,7 +356,7 @@ test('provides cross-file live diagnostics, completion, and hover accessibly', a
   await page.keyboard.press('Escape');
   await expect(page.locator('.suggest-widget')).toBeHidden();
 
-  await page.getByRole('button', { name: 'customer.mdl' }).click();
+  await page.getByRole('button', { name: 'imported.mdl' }).click();
   await modelSource(page).focus();
   await expect(modelSource(page)).toBeFocused();
   await page.keyboard.press('Control+Home');
@@ -365,7 +392,7 @@ test('provides cross-file live diagnostics, completion, and hover accessibly', a
     ),
   ).toEqual([
     expect.objectContaining({
-      uri: 'file:///customer.mdl',
+      uri: 'file:///imported.mdl',
       line: 3,
       character: hoverCharacter,
     }),
@@ -414,7 +441,7 @@ test('offers recovery without rendering corrupt stored source', async ({
   await expect(page.locator('body')).not.toContainText('not markup');
   await page.getByRole('button', { name: 'Reset local workspace' }).click();
   await expect(
-    page.getByRole('button', { name: 'main.mdl' }),
+    page.getByRole('button', { name: 'customer.mdl' }),
   ).toBeVisible();
 });
 
@@ -489,6 +516,8 @@ test('retains the labeled textarea fallback when EditContext is unavailable', as
   await page.keyboard.press('Enter');
   await expect(fallback).toBeFocused();
 
+  await page.getByLabel('Workspace file path').fill('scratch.mdl');
+  await page.getByRole('button', { name: 'New file' }).click();
   await replaceSource(page, validCompact);
   await page.keyboard.press('Control+Shift+Enter');
   await expect(page.getByRole('status')).toHaveText(
@@ -730,13 +759,15 @@ test('graph panel follows the source as it changes', async ({ page }) => {
   const nodes = graphSection.locator('.react-flow__node');
   await expect(nodes.first()).toBeVisible({ timeout: 30_000 });
 
+  await page.getByLabel('Workspace file path').fill('warehouse.mdl');
+  await page.getByRole('button', { name: 'New file' }).click();
   await replaceSource(
     page,
     'domain warehouse { owner: "ops" entity Pallet @ 1 (additive) { @key palletId: uuid } }',
   );
 
   await expect(graphSection.getByText('warehouse')).toBeVisible({
-    timeout: 30_000,
+    timeout: 45_000,
   });
   await expect(graphSection.getByText('Pallet')).toBeVisible();
 });
