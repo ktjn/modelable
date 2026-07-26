@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import { IDBFactory } from 'fake-indexeddb';
 import {
@@ -21,6 +22,7 @@ import {
 import indexHtml from '../index.html?raw';
 import { App } from './App';
 import { BrowserCompilerError } from './client';
+import type { CompileTarget } from './client';
 import type { BrowserLanguageServiceController } from './language/BrowserLanguageServiceController';
 import type {
   BrowserCompileResult,
@@ -231,6 +233,13 @@ class FakeCompilerClient {
     this.formatRequests.push(request);
     return request.promise;
   });
+  readonly compile = vi.fn(
+    (_sources: BrowserSource[], _target: CompileTarget) => {
+      const request = deferred<BrowserCompileResult>();
+      this.compileRequests.push(request);
+      return request.promise;
+    },
+  );
   readonly compileJsonSchema = vi.fn((_sources: BrowserSource[]) => {
     const request = deferred<BrowserCompileResult>();
     this.compileRequests.push(request);
@@ -343,13 +352,17 @@ function chooseWorkspaceFiles(files: File[]): void {
   fireEvent.change(input, { target: { files } });
 }
 
+function generateButton(): HTMLElement {
+  return within(
+    screen.getByRole('navigation', { name: 'Playground actions' }),
+  ).getByRole('button', { name: 'Generate' });
+}
+
 async function generateArtifacts(
   client: FakeCompilerClient,
   artifacts: BrowserCompileResult['artifacts'],
 ): Promise<void> {
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Generate JSON Schema' }),
-  );
+  fireEvent.click(generateButton());
   const request = latestRequest(client.compileRequests);
   await act(async () => {
     request.resolve({ diagnostics: [], artifacts });
@@ -422,11 +435,10 @@ describe('App', () => {
       await request.promise;
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Generate JSON Schema' }),
-    );
-    expect(client.compileJsonSchema).toHaveBeenLastCalledWith(
+    fireEvent.click(generateButton());
+    expect(client.compile).toHaveBeenLastCalledWith(
       client.openWorkspace.mock.calls.at(-1)?.[1],
+      'jsonSchema',
     );
   });
 
@@ -442,7 +454,7 @@ describe('App', () => {
 
     await initialize(client);
 
-    for (const name of ['Validate', 'Format', 'Generate JSON Schema']) {
+    for (const name of ['Validate', 'Format', 'Generate']) {
       expect(
         (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
       ).toBe(false);
@@ -464,7 +476,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
 
     expect(client.openWorkspace).toHaveBeenCalledTimes(2);
-    for (const name of ['Validate', 'Format', 'Generate JSON Schema']) {
+    for (const name of ['Validate', 'Format', 'Generate']) {
       expect(
         (screen.getByRole('button', { name }) as HTMLButtonElement).disabled,
       ).toBe(true);
@@ -511,7 +523,7 @@ describe('App', () => {
       code: 'Enter',
       ctrlKey: true,
     });
-    expect(client.compileJsonSchema).toHaveBeenCalledTimes(1);
+    expect(client.compile).toHaveBeenCalledTimes(1);
   });
 
   test('ignores keyboard shortcuts while the compiler is loading or working', async () => {
@@ -542,7 +554,7 @@ describe('App', () => {
       ctrlKey: true,
     });
     expect(client.formatSource).not.toHaveBeenCalled();
-    expect(client.compileJsonSchema).not.toHaveBeenCalled();
+    expect(client.compile).not.toHaveBeenCalled();
   });
 
   test('exposes visible toolbar names and command shortcuts', async () => {
@@ -553,7 +565,7 @@ describe('App', () => {
     const shortcuts = new Map([
       ['Validate', 'Control+Shift+Enter Meta+Shift+Enter'],
       ['Format', 'Shift+Alt+F'],
-      ['Generate JSON Schema', 'Control+Enter Meta+Enter'],
+      ['Generate', 'Control+Enter Meta+Enter'],
     ]);
     for (const button of screen.getAllByRole('button')) {
       expect(button.textContent?.trim()).not.toBe('');
@@ -764,7 +776,7 @@ describe('App', () => {
 
     expect(download).toHaveBeenCalledWith(
       'record Edited {}',
-      'main.mdl',
+      'customer.mdl',
       'text/plain',
     );
   });
@@ -807,7 +819,7 @@ describe('App', () => {
     });
 
     expect(sourceEditorSpies.applyFormattedText).toHaveBeenCalledWith(
-      'main.mdl',
+      'customer.mdl',
       'record Customer {\n}\n',
     );
   });
@@ -825,12 +837,12 @@ describe('App', () => {
 
     fireEvent.change(
       screen.getByRole('textbox', { name: 'Workspace file path' }),
-      { target: { value: 'customer.mdl' } },
+      { target: { value: 'orders.mdl' } },
     );
     fireEvent.click(screen.getByRole('button', { name: 'New file' }));
 
     expect(
-      screen.getByRole('button', { name: 'customer.mdl' }).getAttribute(
+      screen.getByRole('button', { name: 'orders.mdl' }).getAttribute(
         'aria-current',
       ),
     ).toBe('true');
@@ -842,9 +854,9 @@ describe('App', () => {
       ).value,
     ).toBe('');
 
-    fireEvent.click(screen.getByRole('button', { name: 'main.mdl' }));
+    fireEvent.click(screen.getByRole('button', { name: 'sales.mdl' }));
     expect(
-      screen.getByRole('button', { name: 'main.mdl' }).getAttribute(
+      screen.getByRole('button', { name: 'sales.mdl' }).getAttribute(
         'aria-current',
       ),
     ).toBe('true');
@@ -853,23 +865,23 @@ describe('App', () => {
       screen.getByRole('button', { name: 'Delete active' }),
     );
     expect(confirmReplace).toHaveBeenCalledWith(
-      'Delete workspace file main.mdl?',
+      'Delete workspace file sales.mdl?',
     );
-    expect(screen.getByRole('button', { name: 'main.mdl' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'sales.mdl' })).toBeTruthy();
 
     confirmReplace.mockReturnValue(true);
     fireEvent.click(
       screen.getByRole('button', { name: 'Delete active' }),
     );
     expect(
-      screen.queryByRole('button', { name: 'main.mdl' }),
+      screen.queryByRole('button', { name: 'sales.mdl' }),
     ).toBeNull();
   });
 
   test('imports multiple files atomically and confirms each replacement', async () => {
     const client = new FakeCompilerClient();
     const confirmReplace = vi.fn(
-      (message: string) => !message.includes('main.mdl'),
+      (message: string) => !message.includes('customer.mdl'),
     );
     render(
       <App
@@ -885,17 +897,17 @@ describe('App', () => {
     ).value;
 
     chooseWorkspaceFiles([
-      new File(['domain replacement {}'], 'main.mdl'),
-      new File(['domain customer {}'], 'customer.mdl'),
+      new File(['domain replacement {}'], 'customer.mdl'),
+      new File(['domain orders {}'], 'orders.mdl'),
     ]);
 
     expect(
-      await screen.findByRole('button', { name: 'customer.mdl' }),
+      await screen.findByRole('button', { name: 'orders.mdl' }),
     ).toBeTruthy();
     expect(confirmReplace).toHaveBeenCalledWith(
-      'Replace existing workspace file main.mdl?',
+      'Replace existing workspace file customer.mdl?',
     );
-    fireEvent.click(screen.getByRole('button', { name: 'main.mdl' }));
+    fireEvent.click(screen.getByRole('button', { name: 'customer.mdl' }));
     expect(
       (
         screen.getByRole('textbox', {
@@ -974,7 +986,7 @@ describe('App', () => {
       screen.getByRole('button', { name: 'Reset local workspace' }),
     );
     expect(
-      await screen.findByRole('button', { name: 'main.mdl' }),
+      await screen.findByRole('button', { name: 'customer.mdl' }),
     ).toBeTruthy();
     expect(repository.remove).toHaveBeenCalledWith('local');
   });
@@ -1012,9 +1024,7 @@ describe('App', () => {
     render(<App createClient={() => client} />);
     await initialize(client);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Generate JSON Schema' }),
-    );
+    fireEvent.click(generateButton());
     const initialRequest = latestRequest(client.compileRequests);
     await act(async () => {
       initialRequest.resolve({
@@ -1033,9 +1043,7 @@ describe('App', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Model source' }), {
       target: { value: 'record Edited {}' },
     });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Generate JSON Schema' }),
-    );
+    fireEvent.click(generateButton());
     const failedRequest = latestRequest(client.compileRequests);
     await act(async () => {
       failedRequest.resolve({
@@ -1071,9 +1079,7 @@ describe('App', () => {
       target: { value: 'order.schema.json' },
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Generate JSON Schema' }),
-    );
+    fireEvent.click(generateButton());
     const failedRequest = latestRequest(client.compileRequests);
     await act(async () => {
       failedRequest.resolve({
@@ -1130,9 +1136,7 @@ describe('App', () => {
       target: { value: 'order.schema.json' },
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Generate JSON Schema' }),
-    );
+    fireEvent.click(generateButton());
     const failedRequest = latestRequest(client.compileRequests);
     await act(async () => {
       failedRequest.reject(
@@ -1198,9 +1202,7 @@ describe('App', () => {
       target: { value: 'order.schema.json' },
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Generate JSON Schema' }),
-    );
+    fireEvent.click(generateButton());
     const failedRequest = latestRequest(firstClient.compileRequests);
     await act(async () => {
       failedRequest.reject(
@@ -1388,9 +1390,7 @@ describe('App', () => {
     const { unmount } = render(<App createClient={createClient} />);
     await initialize(firstClient);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Generate JSON Schema' }),
-    );
+    fireEvent.click(generateButton());
     const generation = latestRequest(firstClient.compileRequests);
     await act(async () => {
       generation.resolve({
@@ -1498,7 +1498,12 @@ describe('App', () => {
     fireEvent.change(screen.getByLabelText(/describe the entity/i), {
       target: { value: 'Order for e-commerce' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Generate entity' })).getByRole(
+        'button',
+        { name: 'Generate' },
+      ),
+    );
 
     await waitFor(() => {
       expect(client.aiGenerate).toHaveBeenCalledTimes(1);

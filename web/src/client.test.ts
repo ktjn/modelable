@@ -290,7 +290,10 @@ describe('BrowserCompilerClient', () => {
 
     const compiled = client.compileJsonSchema([source]);
     await Promise.resolve();
-    expect(worker.posted[3]?.payload).toEqual({ sources: [source] });
+    expect(worker.posted[3]?.payload).toEqual({
+      sources: [source],
+      target: 'jsonSchema',
+    });
     worker.respond(
       success(worker.posted[3]!, { diagnostics: [], artifacts: [] }),
     );
