@@ -45,9 +45,6 @@ import type {
   WorkspaceSaveResult,
 } from './workspace-repository';
 
-vi.mock('./analysis/AnalysisPanelContainer', () => ({
-  AnalysisPanelContainer: () => null,
-}));
 
 vi.mock('./analysis/useAnalysisData', () => ({
   useAnalysisData: () => ({
@@ -57,7 +54,7 @@ vi.mock('./analysis/useAnalysisData', () => ({
   }),
 }));
 
-vi.mock('./analysis/AnalysisPanel', () => ({
+vi.mock('./analysis/AnalysisViews', () => ({
   CompatibilityView: () => null,
   GovernanceView: () => null,
 }));

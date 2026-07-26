@@ -48,15 +48,20 @@ import {
   IndexedDbWorkspaceRepository,
   type WorkspaceRepository,
 } from './workspace-repository';
-import { CompatibilityView, GovernanceView } from './analysis/AnalysisPanel';
+import { CompatibilityView, GovernanceView } from './analysis/AnalysisViews';
 import { useAnalysisData } from './analysis/useAnalysisData';
 import { GraphPanelContainer } from './visualization/GraphPanelContainer';
 import { ResizableLayout } from './layout/ResizableLayout';
 import { BottomPanel } from './layout/BottomPanel';
+import { WorkbenchHeader } from './layout/WorkbenchHeader';
+import { Toolbar } from './layout/Toolbar';
+import { MetricsFooter } from './layout/MetricsFooter';
+import { ViewTabs, type MobileView } from './layout/ViewTabs';
+import { AiToolbar } from './ai/AiToolbar';
+import { AiPromptDialog } from './ai/AiPromptDialog';
 import {
   initialProviderState,
   providerStateReducer,
-  providerStatusLabel,
 } from './ai/provider-state';
 import { detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
 import { HeuristicProvider } from './ai/heuristic-provider';
@@ -183,7 +188,7 @@ export function App({
     'Language services starting…',
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
-  const [mobileView, setMobileView] = useState<'source' | 'graph' | 'analysis'>('source');
+  const [mobileView, setMobileView] = useState<MobileView>('source');
   const [aiState, aiDispatch] = useReducer(
     providerStateReducer,
     initialProviderState,
@@ -810,6 +815,23 @@ export function App({
     );
   };
 
+  const handleRetryLanguageServices = useCallback((): void => {
+    setLanguageStatus('Retrying language services…');
+    setLanguageCanRetry(false);
+    void languageControllerRef.current?.retry();
+  }, []);
+
+  const handleRetryStorage = useCallback((): void => {
+    void persistentWorkspace.retry();
+  }, [persistentWorkspace.retry]);
+
+  const handleCompileTargetChange = useCallback(
+    (target: CompileTarget): void => {
+      dispatch({ type: 'compileTargetSelected', target });
+    },
+    [],
+  );
+
   const sourceUris = workspaceSources(state.workspace).map(
     (source) => source.uri,
   );
@@ -821,6 +843,19 @@ export function App({
     state.artifacts.find(
       (artifact) => artifact.path === state.selectedArtifactPath,
     ) ?? null;
+  const handleExportArtifact = useCallback((): void => {
+    if (selectedArtifact === null) {
+      return;
+    }
+    download(
+      selectedArtifact.content,
+      sanitizeDownloadName(
+        selectedArtifact.path,
+        extensionMap[state.compileTarget],
+      ),
+      selectedArtifact.media_type,
+    );
+  }, [selectedArtifact, state.compileTarget, download]);
   const artifactIsStale =
     state.artifacts.length > 0 &&
     state.artifactRevision !== state.workspace.revision;
@@ -876,234 +911,48 @@ export function App({
 
   return (
     <main className="workbench" data-state={state.runtime} data-mobile-view={mobileView}>
-      <header className="workbench-header">
-        <div>
-          <p className="eyebrow">Local schema workbench</p>
-          <h1>Modelable playground</h1>
-        </div>
-        <div className="state-block">
-          <span className="state-signal" aria-hidden="true" />
-          <p
-            className="status"
-            role={statusIsError ? 'alert' : 'status'}
-            aria-live={statusIsError ? 'assertive' : 'polite'}
-          >
-            {state.status} · {diagnosticLabel}
-          </p>
-          <p className="persistence-status" aria-live="polite">
-            {persistentWorkspace.phase === 'saved'
-              ? 'Saved locally'
-              : persistentWorkspace.phase === 'saving'
-                ? 'Saving locally…'
-                : 'Storage unavailable · changes remain in this tab'}
-          </p>
-          <p className="persistence-status" aria-live="polite">
-            {languageStatus}
-          </p>
-        </div>
-      </header>
-      <nav className="toolbar" aria-label="Playground actions">
-        <button type="button" onClick={exportSource}>
-          Export source
-        </button>
-        <button
-          type="button"
-          disabled={actionsDisabled}
-          aria-keyshortcuts="Control+Shift+Enter Meta+Shift+Enter"
-          onClick={handleValidate}
-        >
-          Validate
-        </button>
-        <button
-          type="button"
-          disabled={actionsDisabled}
-          aria-keyshortcuts="Shift+Alt+F"
-          onClick={handleFormat}
-        >
-          Format
-        </button>
-        <div className="toolbar-group">
-          <select
-            value={state.compileTarget}
-            onChange={(e) =>
-              dispatch({
-                type: 'compileTargetSelected',
-                target: e.target.value as CompileTarget,
-              })
-            }
-            disabled={actionsDisabled}
-            className="compile-target-selector"
-            aria-label="Target language"
-          >
-            <option value="jsonSchema">JSON Schema</option>
-            <option value="typescript">TypeScript</option>
-            <option value="sql-postgres">SQL (Postgres)</option>
-            <option value="sql-clickhouse">SQL (ClickHouse)</option>
-            <option value="protobuf">Protobuf</option>
-            <option value="rust">Rust</option>
-            <option value="java">Java</option>
-            <option value="go">Go</option>
-            <option value="csharp">C#</option>
-            <option value="markdown">Markdown</option>
-            <option value="python">Python</option>
-          </select>
-          <button
-            type="button"
-            disabled={actionsDisabled}
-            aria-keyshortcuts="Control+Enter Meta+Enter"
-            onClick={handleGenerate}
-          >
-            Generate
-          </button>
-        </div>
-        <button
-          type="button"
-          disabled={selectedArtifact === null}
-          onClick={() => {
-            if (selectedArtifact === null) {
-              return;
-            }
-            download(
-              selectedArtifact.content,
-              sanitizeDownloadName(
-                selectedArtifact.path,
-                extensionMap[state.compileTarget],
-              ),
-              selectedArtifact.media_type,
-            );
-          }}
-        >
-          Export artifact
-        </button>
-        {state.runtime === 'failed' ? (
-          <button type="button" onClick={retryCompiler}>
-            Retry compiler
-          </button>
-        ) : null}
-        {state.runtime !== 'failed' && languageCanRetry ? (
-          <button
-            type="button"
-            onClick={() => {
-              setLanguageStatus('Retrying language services…');
-              setLanguageCanRetry(false);
-              void languageControllerRef.current?.retry();
-            }}
-          >
-            Retry language services
-          </button>
-        ) : null}
-        {persistentWorkspace.phase === 'memory-only' ? (
-          <button
-            type="button"
-            onClick={() => void persistentWorkspace.retry()}
-          >
-            Retry storage
-          </button>
-        ) : null}
-      </nav>
-      <section className="ai-toolbar" aria-label="AI model status">
-        <p className="ai-status">{providerStatusLabel(aiState)}</p>
-        {aiState.status === 'downloading' ? (
-          <div className="ai-progress">
-            <div
-              className="ai-progress__bar"
-              role="progressbar"
-              aria-valuenow={Math.round(aiState.progress * 100)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              style={{ width: `${(aiState.progress * 100).toFixed(1)}%` }}
-            />
-          </div>
-        ) : null}
-        {aiState.status === 'idle' ? (
-          <button type="button" onClick={handleAiDownload}>
-            Download AI model
-          </button>
-        ) : null}
-        {aiState.status === 'unsupported' || aiState.status === 'error' ? (
-          <button type="button" onClick={handleAiFallback}>
-            Use heuristic AI
-          </button>
-        ) : null}
-        {aiState.status === 'ready' ? (
-          <>
-            <button
-              type="button"
-              disabled={actionsDisabled || aiPending}
-              onClick={handleAiGenerateEntity}
-            >
-              Generate entity
-            </button>
-            <button
-              type="button"
-              disabled={actionsDisabled || aiPending}
-              onClick={handleAiExplain}
-            >
-              Explain
-            </button>
-            <button
-              type="button"
-              disabled={actionsDisabled || aiPending}
-              onClick={handleAiSuggestProjection}
-            >
-              Suggest projection
-            </button>
-          </>
-        ) : null}
-      </section>
-      {aiPromptOpen ? (
-        <div className="ai-prompt" role="dialog" aria-label="Generate entity">
-          <label className="ai-prompt__label">
-            Describe the entity to generate
-            <input
-              className="ai-prompt__input"
-              type="text"
-              value={aiPromptValue}
-              autoFocus
-              onChange={(e) => setAiPromptValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleAiPromptSubmit();
-                } else if (e.key === 'Escape') {
-                  setAiPromptOpen(false);
-                }
-              }}
-            />
-          </label>
-          <button type="button" onClick={handleAiPromptSubmit}>
-            Generate
-          </button>
-          <button type="button" onClick={() => setAiPromptOpen(false)}>
-            Cancel
-          </button>
-        </div>
-      ) : null}
-      <nav className="view-tabs" aria-label="View">
-        <button
-          type="button"
-          className={`view-tab${mobileView === 'source' ? ' view-tab--active' : ''}`}
-          aria-pressed={mobileView === 'source'}
-          onClick={() => setMobileView('source')}
-        >
-          Source
-        </button>
-        <button
-          type="button"
-          className={`view-tab${mobileView === 'graph' ? ' view-tab--active' : ''}`}
-          aria-pressed={mobileView === 'graph'}
-          onClick={() => setMobileView('graph')}
-        >
-          Graph
-        </button>
-        <button
-          type="button"
-          className={`view-tab${mobileView === 'analysis' ? ' view-tab--active' : ''}`}
-          aria-pressed={mobileView === 'analysis'}
-          onClick={() => setMobileView('analysis')}
-        >
-          Analysis
-        </button>
-      </nav>
+      <WorkbenchHeader
+        status={state.status}
+        diagnosticLabel={diagnosticLabel}
+        statusIsError={statusIsError}
+        persistencePhase={persistentWorkspace.phase}
+        languageStatus={languageStatus}
+      />
+      <Toolbar
+        runtime={state.runtime}
+        compileTarget={state.compileTarget}
+        actionsDisabled={actionsDisabled}
+        languageCanRetry={languageCanRetry}
+        persistencePhase={persistentWorkspace.phase}
+        selectedArtifact={selectedArtifact}
+        onExportSource={exportSource}
+        onValidate={handleValidate}
+        onFormat={handleFormat}
+        onGenerate={handleGenerate}
+        onRetryCompiler={retryCompiler}
+        onRetryLanguageServices={handleRetryLanguageServices}
+        onRetryStorage={handleRetryStorage}
+        onCompileTargetChange={handleCompileTargetChange}
+        onExportArtifact={handleExportArtifact}
+      />
+      <AiToolbar
+        aiState={aiState}
+        aiPending={aiPending}
+        actionsDisabled={actionsDisabled}
+        onDownload={handleAiDownload}
+        onFallback={handleAiFallback}
+        onGenerateEntity={handleAiGenerateEntity}
+        onExplain={handleAiExplain}
+        onSuggestProjection={handleAiSuggestProjection}
+      />
+      <AiPromptDialog
+        open={aiPromptOpen}
+        value={aiPromptValue}
+        onChange={setAiPromptValue}
+        onSubmit={handleAiPromptSubmit}
+        onCancel={() => setAiPromptOpen(false)}
+      />
+      <ViewTabs mobileView={mobileView} onChange={setMobileView} />
       <ResizableLayout
         mobileView={mobileView}
         explorer={
@@ -1269,26 +1118,10 @@ export function App({
           />
         }
       />
-      <footer
-        className="metrics-strip"
-        data-testid="metrics"
-        data-initialization-duration-ms={
-          state.initializationDuration ?? undefined
-        }
-      >
-        <p className="metrics-label">Browser compiler timing</p>
-        <p className="timings">
-          Initialization{' '}
-          {state.initializationDuration === null
-            ? 'pending'
-            : `${state.initializationDuration.toFixed(1)} ms`}
-          {' · '}Operation{' '}
-          {state.lastOperationDuration === null
-            ? 'not run'
-            : `${state.lastOperationDuration.toFixed(1)} ms`}
-        </p>
-        <p className="privacy-note">No source leaves this page</p>
-      </footer>
+      <MetricsFooter
+        initializationDuration={state.initializationDuration}
+        lastOperationDuration={state.lastOperationDuration}
+      />
     </main>
   );
 }

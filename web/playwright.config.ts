@@ -22,9 +22,6 @@ export default defineConfig({
     ...(project === undefined || project === 'chromium'
       ? [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }]
       : []),
-    ...(project === undefined || project === 'firefox'
-      ? [{ name: 'firefox', use: { ...devices['Desktop Firefox'] } }]
-      : []),
   ],
   webServer: {
     command: 'npm run preview',

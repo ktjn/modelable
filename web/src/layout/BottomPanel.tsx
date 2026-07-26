@@ -19,30 +19,30 @@ export function BottomPanel({
 
   return (
     <div className="bottom-panel" data-testid="bottom-panel">
-      <div className="bottom-panel__toolbar" role="toolbar" aria-label="Bottom panel tabs">
+      <div className="tab-strip" role="toolbar" aria-label="Bottom panel tabs">
         <button
-          className={`bottom-panel__tab${tab === 'diagnostics' ? ' bottom-panel__tab--active' : ''}`}
+          className={`tab${tab === 'diagnostics' ? ' tab--active' : ''}`}
           onClick={() => setTab('diagnostics')}
           aria-pressed={tab === 'diagnostics'}
         >
           Diagnostics
         </button>
         <button
-          className={`bottom-panel__tab${tab === 'artifacts' ? ' bottom-panel__tab--active' : ''}`}
+          className={`tab${tab === 'artifacts' ? ' tab--active' : ''}`}
           onClick={() => setTab('artifacts')}
           aria-pressed={tab === 'artifacts'}
         >
           Generated artifacts
         </button>
         <button
-          className={`bottom-panel__tab${tab === 'compatibility' ? ' bottom-panel__tab--active' : ''}`}
+          className={`tab${tab === 'compatibility' ? ' tab--active' : ''}`}
           onClick={() => setTab('compatibility')}
           aria-pressed={tab === 'compatibility'}
         >
           Compatibility
         </button>
         <button
-          className={`bottom-panel__tab${tab === 'governance' ? ' bottom-panel__tab--active' : ''}`}
+          className={`tab${tab === 'governance' ? ' tab--active' : ''}`}
           onClick={() => setTab('governance')}
           aria-pressed={tab === 'governance'}
         >
