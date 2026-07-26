@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
 import type { BrowserDiagnostic } from '../protocol';
 
 export interface AiPreviewState {
@@ -36,7 +38,7 @@ export function AiPreviewPanel({
         </p>
       </div>
       {preview.kind === 'generate' && preview.source !== undefined ? (
-        <pre className="ai-preview__source">{preview.source}</pre>
+        <AiSourcePreview source={preview.source} />
       ) : null}
       {preview.kind === 'explain' && preview.explanation !== undefined ? (
         <div className="ai-preview__explanation">{preview.explanation}</div>
@@ -61,5 +63,20 @@ export function AiPreviewPanel({
         </button>
       </div>
     </section>
+  );
+}
+
+function AiSourcePreview({ source }: { source: string }) {
+  const [html, setHtml] = useState('');
+
+  useEffect(() => {
+    monaco.editor.colorize(source, 'modelable', {}).then(setHtml);
+  }, [source]);
+
+  return (
+    <pre
+      className="ai-preview__source monaco-editor-background"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
