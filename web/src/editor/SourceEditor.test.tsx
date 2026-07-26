@@ -84,11 +84,13 @@ vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => ({
     registerDefinitionProvider: monaco.registerDefinitionProvider,
     registerReferenceProvider: monaco.registerReferenceProvider,
     registerRenameProvider: monaco.registerRenameProvider,
+    setMonarchTokensProvider: vi.fn(),
   },
   editor: {
     create: monaco.create,
     createModel: monaco.createModel,
     setModelMarkers: monaco.setModelMarkers,
+    colorize: vi.fn(async (code) => code),
   },
 }));
 

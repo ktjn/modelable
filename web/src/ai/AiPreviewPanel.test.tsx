@@ -1,8 +1,15 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import * as React from 'react';
+
+vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => ({
+  editor: {
+    colorize: vi.fn(async (code) => code),
+  },
+}));
 
 import { AiPreviewPanel, type AiPreviewState } from './AiPreviewPanel';
 
@@ -32,10 +39,12 @@ function renderPanel(
 }
 
 describe('AiPreviewPanel', () => {
-  it('shows generated source with accept and discard buttons', () => {
+  it('shows generated source with accept and discard buttons', async () => {
     renderPanel({ source: 'entity Invoice {}' });
     expect(screen.getByText('AI generated source')).toBeTruthy();
-    expect(screen.getByText('entity Invoice {}')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('entity Invoice {}')).toBeTruthy();
+    });
     expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Discard' })).toBeTruthy();
   });

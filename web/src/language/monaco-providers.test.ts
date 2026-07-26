@@ -60,6 +60,7 @@ function providerHarness() {
         Text: 8,
       },
       register: vi.fn(),
+      setMonarchTokensProvider: vi.fn(),
       registerCompletionItemProvider: vi.fn(
         (_language: string, provider: languages.CompletionItemProvider) => {
           completionProvider = provider;
