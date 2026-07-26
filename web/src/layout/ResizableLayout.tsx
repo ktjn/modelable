@@ -37,13 +37,13 @@ export function ResizableLayout({
               {editor}
             </Panel>
             <Separator className="resize-handle resize-handle--horizontal" />
-            <Panel defaultSize="35%" minSize="15%" collapsible collapsedSize="0%" className="resizable-layout__visualization">
+            <Panel defaultSize="35%" minSize="15%" collapsible collapsedSize="0%" className="resizable-layout__visualization" tabIndex={0}>
               {visualization}
             </Panel>
           </Group>
         </Panel>
         <Separator className="resize-handle resize-handle--vertical" />
-        <Panel defaultSize="30%" minSize="10%" collapsible collapsedSize="0%" className="resizable-layout__bottom">
+        <Panel defaultSize="30%" minSize="10%" collapsible collapsedSize="0%" className="resizable-layout__bottom" tabIndex={0}>
           {bottom}
         </Panel>
       </Group>

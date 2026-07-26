@@ -68,30 +68,30 @@ function GraphPanelInner({
 
   return (
     <div className="graph-panel" role="region" aria-label="Model graph">
-      <div className="graph-panel__toolbar" role="toolbar" aria-label="Graph mode">
+      <div className="tab-strip" role="toolbar" aria-label="Graph mode">
         <button
-          className={`graph-panel__mode-tab${mode === 'domain' ? ' graph-panel__mode-tab--active' : ''}`}
+          className={`tab${mode === 'domain' ? ' tab--active' : ''}`}
           onClick={() => onModeChange('domain')}
           aria-pressed={mode === 'domain'}
         >
           Domain
         </button>
         <button
-          className={`graph-panel__mode-tab${mode === 'entity' ? ' graph-panel__mode-tab--active' : ''}`}
+          className={`tab${mode === 'entity' ? ' tab--active' : ''}`}
           onClick={() => onModeChange('entity')}
           aria-pressed={mode === 'entity'}
         >
           Entity
         </button>
         <button
-          className={`graph-panel__mode-tab${mode === 'projection' ? ' graph-panel__mode-tab--active' : ''}`}
+          className={`tab${mode === 'projection' ? ' tab--active' : ''}`}
           onClick={() => onModeChange('projection')}
           aria-pressed={mode === 'projection'}
         >
           Projection
         </button>
         <button
-          className={`graph-panel__mode-tab${mode === 'lineage' ? ' graph-panel__mode-tab--active' : ''}`}
+          className={`tab${mode === 'lineage' ? ' tab--active' : ''}`}
           onClick={() => onModeChange('lineage')}
           aria-pressed={mode === 'lineage'}
         >

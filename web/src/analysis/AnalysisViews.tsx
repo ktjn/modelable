@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import type {
   BrowserCompatibilityReport,
   BrowserCompatibilityResult,
@@ -10,13 +8,6 @@ import type {
   BrowserProjectionImpact,
   BrowserProjectionLineage,
 } from '../protocol';
-import type { AnalysisData } from './AnalysisPanelContainer';
-
-export type AnalysisTab = 'lineage' | 'compatibility' | 'governance';
-
-export interface AnalysisPanelProps {
-  data: AnalysisData;
-}
 
 export function LineageView({ result }: { result: BrowserLineageResult | null }) {
   if (result === null) {
@@ -220,42 +211,5 @@ function GovernanceFindingRow({ finding }: { finding: BrowserGovernanceFinding }
       <td className="analysis-table__mono">{finding.subject}</td>
       <td>{finding.message}</td>
     </tr>
-  );
-}
-
-export function AnalysisPanel({ data }: AnalysisPanelProps) {
-  const [tab, setTab] = useState<AnalysisTab>('lineage');
-
-  return (
-    <div className="analysis-panel" role="region" aria-label="Model analysis">
-      <div className="analysis-panel__toolbar" role="toolbar" aria-label="Analysis view">
-        <button
-          className={`analysis-panel__tab${tab === 'lineage' ? ' analysis-panel__tab--active' : ''}`}
-          onClick={() => setTab('lineage')}
-          aria-pressed={tab === 'lineage'}
-        >
-          Lineage
-        </button>
-        <button
-          className={`analysis-panel__tab${tab === 'compatibility' ? ' analysis-panel__tab--active' : ''}`}
-          onClick={() => setTab('compatibility')}
-          aria-pressed={tab === 'compatibility'}
-        >
-          Compatibility
-        </button>
-        <button
-          className={`analysis-panel__tab${tab === 'governance' ? ' analysis-panel__tab--active' : ''}`}
-          onClick={() => setTab('governance')}
-          aria-pressed={tab === 'governance'}
-        >
-          Governance
-        </button>
-      </div>
-      <div className="analysis-panel__body">
-        {tab === 'lineage' && <LineageView result={data.lineage} />}
-        {tab === 'compatibility' && <CompatibilityView result={data.compatibility} />}
-        {tab === 'governance' && <GovernanceView result={data.governance} />}
-      </div>
-    </div>
   );
 }

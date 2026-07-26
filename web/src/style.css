@@ -284,7 +284,7 @@ button:disabled {
   background: var(--paper);
 }
 
-.bottom-panel__toolbar {
+.tab-strip {
   display: flex;
   gap: 0.25rem;
   padding: 0.375rem 0.5rem;
@@ -293,7 +293,7 @@ button:disabled {
   overflow-x: auto;
 }
 
-.bottom-panel__tab {
+.tab {
   padding: 0.375rem 0.75rem;
   min-height: 2.25rem;
   border: 1px solid var(--rule);
@@ -306,7 +306,7 @@ button:disabled {
   white-space: nowrap;
 }
 
-.bottom-panel__tab--active {
+.tab--active {
   background: var(--signal);
   color: var(--paper);
   border-color: var(--signal);
@@ -1053,33 +1053,6 @@ select {
   background: var(--paper);
 }
 
-.graph-panel__toolbar {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.375rem 0.5rem;
-  border-bottom: 1px solid var(--rule);
-  flex-shrink: 0;
-  overflow-x: auto;
-}
-
-.graph-panel__mode-tab {
-  padding: 0.375rem 0.75rem;
-  min-height: 2.25rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.25rem;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 0.75rem;
-  font-family: inherit;
-  white-space: nowrap;
-}
-
-.graph-panel__mode-tab--active {
-  background: var(--signal);
-  color: var(--paper);
-  border-color: var(--signal);
-}
 
 .graph-panel__toolbar-spacer {
   flex: 1;
@@ -1224,33 +1197,6 @@ select {
   background: var(--paper);
 }
 
-.analysis-panel__toolbar {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.375rem 0.5rem;
-  border-bottom: 1px solid var(--rule);
-  flex-shrink: 0;
-  overflow-x: auto;
-}
-
-.analysis-panel__tab {
-  padding: 0.375rem 0.75rem;
-  min-height: 2.25rem;
-  border: 1px solid var(--rule);
-  border-radius: 0.25rem;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 0.75rem;
-  font-family: inherit;
-  white-space: nowrap;
-}
-
-.analysis-panel__tab--active {
-  background: var(--signal);
-  color: var(--paper);
-  border-color: var(--signal);
-}
 
 .analysis-panel__body {
   padding: 0.75rem;

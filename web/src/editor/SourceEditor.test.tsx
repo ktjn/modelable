@@ -90,6 +90,8 @@ vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => ({
     create: monaco.create,
     createModel: monaco.createModel,
     setModelMarkers: monaco.setModelMarkers,
+    defineTheme: vi.fn(),
+    setTheme: vi.fn(),
     colorize: vi.fn(async (code) => code),
   },
 }));
