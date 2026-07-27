@@ -7,8 +7,8 @@ Approved for implementation on 2026-07-27.
 **Implementation Plan:** [Responsive Graph Viewport Implementation Plan](../../plans/archived/2026-07-27-responsive-graph-viewport.md)
 
 This specification follows the shipped
-[Playground Visualization MVP](archived/2026-07-21-playground-visualization-design.md)
-and [Graph Theme CSS](archived/2026-07-27-graph-theme-css-design.md) designs.
+[Playground Visualization MVP](2026-07-21-playground-visualization-design.md)
+and [Graph Theme CSS](2026-07-27-graph-theme-css-design.md) designs.
 
 ## Problem
 
@@ -174,7 +174,7 @@ dimensions and semantic relationships remain unchanged.
 ## Architecture decision scope
 
 No ADR change is required. The shipped
-[Playground Visualization MVP](archived/2026-07-21-playground-visualization-design.md)
+[Playground Visualization MVP](2026-07-21-playground-visualization-design.md)
 already assigns rendering and viewport interaction to React Flow and layout to
 ELK. This design adjusts presentation and viewport policy within that existing
 boundary.
