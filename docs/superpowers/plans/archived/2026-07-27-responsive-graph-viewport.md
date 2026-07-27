@@ -4,7 +4,7 @@
 
 **Goal:** Keep graph nodes readable on constrained panels while using widened and ultrawide canvases to reveal more graph context without overlay collisions.
 
-**Design:** [Responsive Graph Viewport Design](../specs/2026-07-27-responsive-graph-viewport-design.md)
+**Design:** [Responsive Graph Viewport Design](../../specs/archived/2026-07-27-responsive-graph-viewport-design.md)
 
 **Architecture:** Add a pure viewport policy module and a focused React hook that applies that policy through React Flow's `fitView`, `Controls.fitViewOptions`, and canvas `ResizeObserver`. `GraphPanel` composes the hook with the existing export ref, while CSS handles responsive toolbar and overlay presentation and Playwright verifies real rendered geometry.
 
