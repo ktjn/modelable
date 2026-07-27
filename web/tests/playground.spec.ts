@@ -768,6 +768,39 @@ test('graph panel renders laid out nodes for every mode', async ({ page }) => {
   }
 });
 
+test('graph nodes retain semantic styling in light and dark themes', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('modelable:theme', 'light');
+  });
+  await page.goto('?test=1');
+  await waitForReady(page);
+  await openGraphTab(page);
+
+  const graphSection = page.getByTestId('graph');
+  const flowNode = graphSection.locator('.react-flow__node').first();
+  const domainNode = graphSection.locator('.graph-node--domain').first();
+  const kindBadge = domainNode.locator('.graph-node__kind');
+
+  await expect(domainNode).toBeVisible({ timeout: 30_000 });
+  await expect(flowNode).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(domainNode).toHaveCSS('padding', '6px 10px');
+  await expect(domainNode).toHaveCSS('border-radius', '6px');
+  await expect(kindBadge).toHaveCSS('display', 'inline-flex');
+
+  await flowNode.click();
+  await expect(flowNode).toHaveCSS('outline-color', 'rgb(37, 99, 235)');
+
+  await page.getByRole('button', { name: /Theme:/ }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(domainNode).toHaveCSS(
+    'background-color',
+    'rgb(31, 41, 55)',
+  );
+  await expect(flowNode).toHaveCSS('outline-color', 'rgb(96, 165, 250)');
+});
+
 test('graph panel follows the source as it changes', async ({ page }) => {
   await page.goto('?test=1');
   await waitForReady(page);
