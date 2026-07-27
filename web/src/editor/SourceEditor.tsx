@@ -16,6 +16,11 @@ import {
   createSourceModelRegistry,
   type SourceModelRegistry,
 } from './SourceModelRegistry';
+import {
+  getResolvedTheme,
+  subscribeTheme,
+  type ResolvedTheme,
+} from '../theme';
 import type { SourceEditorHandle } from './types';
 
 export interface SourceEditorProps {
@@ -73,7 +78,19 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
           'editorHoverWidget.border': '#b9c6c7',
         },
       });
-      monaco.editor.setTheme('modelable');
+      monaco.editor.defineTheme('modelable-dark', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [],
+        colors: {
+          'editorHoverWidget.background': '#1f2937',
+          'editorHoverWidget.border': '#4b5563',
+        },
+      });
+      const applyMonacoTheme = (theme: ResolvedTheme): void => {
+        monaco.editor.setTheme(theme === 'dark' ? 'modelable-dark' : 'modelable');
+      };
+      applyMonacoTheme(getResolvedTheme());
       const sourceEditor = monaco.editor.create(container, {
         model: null,
         ariaLabel: 'Model source',
@@ -93,6 +110,14 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
         editorRef.current = null;
         registryRef.current = null;
       };
+    }, []);
+
+    useEffect(() => {
+      return subscribeTheme(() => {
+        monaco.editor.setTheme(
+          getResolvedTheme() === 'dark' ? 'modelable-dark' : 'modelable',
+        );
+      });
     }, []);
 
     useEffect(() => {
