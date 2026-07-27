@@ -4,33 +4,32 @@ import re
 import unicodedata
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, TypeIs
+from typing import TYPE_CHECKING, Literal, cast
 
-from modelable.compiler.workspace import load_workspace
+from modelable.compiler.workspace import Workspace
 from modelable.diagnostics.model import render_diagnostic
-from modelable.llm.context import build_workspace_summary
-from modelable.llm.conversation_backend import ConversationPreviewFile as ConversationPreviewFile
-from modelable.llm.conversation_backend import ConversationReply as ConversationReply
-from modelable.llm.conversation_backend import ReplyKind as ReplyKind
-from modelable.llm.conversation_plan import (
-    ChangeSetPlan,
-    ClarificationPlan,
-    CompilePlan,
-    ConversationPlan,
-    Operation,
-    QueryPlan,
-    UnsupportedPlan,
+from modelable.llm.conversation_backend import (
+    ConversationCleanupError as ConversationCleanupError,
 )
+from modelable.llm.conversation_backend import (
+    ConversationPreviewFile as ConversationPreviewFile,
+)
+from modelable.llm.conversation_backend import (
+    ConversationReply as ConversationReply,
+)
+from modelable.llm.conversation_backend import (
+    ReplyKind as ReplyKind,
+)
+from modelable.llm.conversation_engine import ConversationEngine
+from modelable.llm.conversation_plan import CompilePlan, Operation
 from modelable.llm.conversation_planner import (
-    ConversationPlanner,
-    PlannerContext,
-    parse_compile_command,
+    PendingPlanRequest,
+    ResumableConversationPlanner,
 )
 from modelable.llm.provider_types import LLMProvider
 from modelable.llm.workspace_editor import (
     AppliedChangeSet,
     PendingChangeSet,
-    WorkspaceEditError,
     WorkspaceEditor,
 )
 from modelable.llm.workspace_query import QueryResult, WorkspaceQueryService
@@ -42,14 +41,6 @@ if TYPE_CHECKING:
         PendingCompilation,
     )
     from modelable.operations.file_transaction import FileTransactionCommittedError
-
-type PendingAction = PendingChangeSet | PendingCompilation
-
-
-class ConversationCleanupError(RuntimeError):
-    def __init__(self, errors: tuple[str, ...]) -> None:
-        self.errors = errors
-        super().__init__("Conversation cleanup failed:\n" + "\n".join(f"- {error}" for error in errors))
 
 
 class ConversationSession:
@@ -66,388 +57,112 @@ class ConversationSession:
         model_name: str | None = None,
         confirmation_surface: Literal["cli-chat", "vscode-chat"] = "cli-chat",
     ) -> None:
-        if compilation_service is None:
-            from modelable.operations.compilation import CompilationService
+        from modelable.llm.filesystem_conversation import FilesystemConversationBackend
 
-            compilation_service = CompilationService()
         self.path = path
         self.provider = provider
-        self.focused_ref = focused_ref
-        self.history: list[tuple[str, str]] = []
-        self._pending: PendingAction | None = None
-        self._cleanup_backlog: dict[str, PendingCompilation] = {}
-        self.compilation_service = compilation_service
         self.session_id = session_id or str(uuid.uuid4())
         self.provider_name = provider_name
         self.model_name = model_name
         self.confirmation_surface = confirmation_surface
-        self.workspace = load_workspace(path)
-        self.planner = ConversationPlanner(provider, repair_attempts=repair_attempts)
-        self.editor: WorkspaceEditor | None = None
-        self._reload_services()
+        self.backend = FilesystemConversationBackend(
+            path=path,
+            compilation_service=compilation_service,
+            session_id=self.session_id,
+            provider_name=provider_name,
+            model_name=model_name,
+            confirmation_surface=confirmation_surface,
+        )
+        self.engine = ConversationEngine(
+            backend=self.backend,
+            planner=ResumableConversationPlanner(repair_attempts=repair_attempts),
+            focused_ref=focused_ref,
+            completion_enabled=provider is not None,
+        )
 
     @property
-    def pending(self) -> PendingAction | None:
-        return self._pending
-
-    @pending.setter
-    def pending(self, value: PendingAction | None) -> None:
-        self._pending = value
+    def pending(self) -> PendingChangeSet | PendingCompilation | None:
+        return self.backend.pending
 
     @property
     def pending_action_id(self) -> str | None:
-        return _pending_id(self._pending)
+        return self.engine.pending_action_id
 
     @property
     def pending_operation_kind(self) -> Literal["source_change", "compile"] | None:
-        if _is_pending_compilation(self._pending):
-            return "compile"
-        if isinstance(self._pending, PendingChangeSet):
-            return "source_change"
-        return None
+        return cast(
+            Literal["source_change", "compile"] | None,
+            self.engine.pending_operation_kind,
+        )
 
     @property
     def pending_cleanup_ids(self) -> tuple[str, ...]:
-        return tuple(sorted(self._cleanup_backlog))
+        return self.backend.pending_cleanup_ids
+
+    @property
+    def focused_ref(self) -> str | None:
+        return self.engine.focused_ref
+
+    @focused_ref.setter
+    def focused_ref(self, value: str | None) -> None:
+        self.engine.focused_ref = value
+
+    @property
+    def history(self) -> list[tuple[str, str]]:
+        return self.engine.history
+
+    @property
+    def workspace(self) -> Workspace:
+        return self.backend.workspace
+
+    @property
+    def editor(self) -> WorkspaceEditor | None:
+        return self.backend.editor
+
+    @property
+    def query_service(self) -> WorkspaceQueryService:
+        return self.backend.query_service
+
+    @property
+    def compilation_service(self) -> CompilationService:
+        return self.backend.compilation_service
 
     def turn(self, message: str) -> ConversationReply:
         try:
-            reply = self._turn(message)
+            normalized = message.strip()
+            lowered = normalized.lower()
+            if (
+                self.backend.pending is None
+                and self.backend.cleanup_action_id is not None
+                and (lowered in {"discard", "discard it", "cancel"} or normalized == "/discard")
+            ):
+                reply = self.backend.discard(self.backend.cleanup_action_id)
+                return self.engine.record_completed_reply(message, reply)
+            outcome = self.engine.begin_turn(message)
+            while isinstance(outcome, PendingPlanRequest):
+                if self.provider is None:
+                    outcome = self.engine.fail_turn(
+                        outcome.request_id,
+                        RuntimeError("Pending planning requires a provider"),
+                    )
+                    break
+                try:
+                    response = self.provider.complete(outcome.request)
+                except Exception as error:
+                    outcome = self.engine.fail_turn(outcome.request_id, error)
+                    break
+                outcome = self.engine.resume_turn(outcome.request_id, response.content)
+            self.engine.synchronize_pending_action(
+                self.backend.pending_action_id,
+                self.backend.pending_operation_kind,
+            )
+            return outcome
         except BaseException as error:
-            self._cleanup_after_exception(error)
+            self.backend.cleanup_after_exception(error)
             raise
-        self.history.append(("user", message))
-        self.history.append(("assistant", reply.text))
-        return reply
-
-    def _turn(self, message: str) -> ConversationReply:
-        normalized = message.strip()
-        lowered = normalized.lower()
-        if message == "/apply":
-            reply = self._apply_pending()
-        elif _is_pending_compilation(self.pending) and normalized.lower() == "/apply":
-            reply = ConversationReply(
-                kind="error",
-                text=(
-                    "Compilation requires the exact case-sensitive /apply command with no surrounding whitespace. "
-                    "Use /discard to cancel or another request to replace the preview."
-                ),
-                change_set_id=self.pending.action_id,
-                operation_kind="compile",
-            )
-        elif normalized == "/apply":
-            reply = self._apply_pending()
-        elif lowered in {"apply", "apply it", "confirm"}:
-            if _is_pending_compilation(self.pending):
-                reply = ConversationReply(
-                    kind="error",
-                    text=(
-                        "Compilation requires the exact case-sensitive /apply command. "
-                        "Use /discard to cancel or another request to replace the preview."
-                    ),
-                    change_set_id=self.pending.action_id,
-                    operation_kind="compile",
-                )
-            else:
-                reply = self._apply_pending()
-        elif lowered in {"discard", "discard it", "cancel"} or normalized == "/discard":
-            reply = self._discard_pending()
-        else:
-            reply = self._plan_and_execute(normalized)
-        return reply
-
-    def _plan_and_execute(self, message: str) -> ConversationReply:
-        command = message.split(maxsplit=1)
-        plan: ConversationPlan
-        if command and command[0] == "/compile":
-            plan = parse_compile_command(message)
-        else:
-            plan = self.planner.plan(
-                message,
-                PlannerContext(
-                    workspace_summary=build_workspace_summary(self.workspace),
-                    focused_ref=self.focused_ref,
-                    history=tuple(self.history),
-                    pending_plan=self.pending.plan if isinstance(self.pending, PendingChangeSet) else None,
-                ),
-            )
-        if isinstance(plan, QueryPlan):
-            return ConversationReply(
-                kind="answer",
-                text=render_query_result(self.query_service.execute(plan)),
-            )
-        if isinstance(plan, ClarificationPlan):
-            return ConversationReply(
-                kind="clarification",
-                text=f"{plan.question}\n\nReason: {plan.reason}",
-            )
-        if isinstance(plan, UnsupportedPlan):
-            roadmap = f"\n\nRoadmap area: {plan.roadmap_area}" if plan.roadmap_area else ""
-            return ConversationReply(
-                kind="unsupported",
-                text=f"{plan.reason}{roadmap}",
-            )
-        if isinstance(plan, ChangeSetPlan):
-            return self._preview_source_change(plan)
-        if isinstance(plan, CompilePlan):
-            return self._preview_compilation(plan)
-        return ConversationReply(kind="error", text="The request produced an unknown conversation plan.")
-
-    def _preview_source_change(self, plan: ChangeSetPlan) -> ConversationReply:
-        replaced = self.pending
-        replaced_id = _pending_id(replaced)
-        try:
-            if self.editor is None:
-                self.editor = WorkspaceEditor(self.path, workspace=self.workspace)
-            pending = self.editor.preview(plan)
-        except WorkspaceEditError as error:
-            return ConversationReply(kind="error", text=f"Could not preview workspace changes: {error}")
-        cleanup_errors = self._dispose_actions((replaced,))
-        if cleanup_errors:
-            return ConversationReply(
-                kind="error",
-                text=_render_cleanup_failure("Could not replace the pending action.", cleanup_errors),
-                change_set_id=_pending_id(replaced),
-            )
-        self.pending = pending
-        replacement = (
-            f"Replaced pending change set {replaced_id} with {pending.change_set_id}.\n\n"
-            if replaced_id is not None
-            else ""
-        )
-        current_sources = {source.path: source.text for source in self.workspace.sources if source.path is not None}
-        preview_files = tuple(
-            ConversationPreviewFile(
-                path=path,
-                existed_before=path in current_sources,
-                before_text=current_sources.get(path, ""),
-                after_text=after_text,
-            )
-            for path, after_text in sorted(pending.candidate_sources.items())
-        )
-        return ConversationReply(
-            kind="preview",
-            text=replacement + render_pending_change_set(pending),
-            change_set_id=pending.change_set_id,
-            operation_kind="source_change",
-            focused_ref=pending.focus_ref,
-            changed=tuple(pending.changed),
-            affected=tuple(pending.affected),
-            compatibility=tuple(pending.compatibility),
-            diagnostics=tuple(pending.diagnostics),
-            preview_files=preview_files,
-        )
-
-    def _preview_compilation(self, plan: CompilePlan) -> ConversationReply:
-        from modelable.operations.compilation import (
-            CompilationError,
-            CompilationPolicy,
-            CompilationRequest,
-        )
-
-        replaced = self.pending
-        replaced_id = _pending_id(replaced)
-        try:
-            pending = self.compilation_service.preview(
-                CompilationRequest(
-                    source=self.path,
-                    target=plan.target,
-                    out_dir=Path(plan.output) if plan.output is not None else None,
-                    domains=tuple(plan.domains),
-                    descriptor_set=plan.descriptor_set,
-                ),
-                policy=CompilationPolicy.conversation(),
-            )
-        except CompilationError as error:
-            return ConversationReply(
-                kind="error",
-                text=f"Could not preview compilation: {_escape_inline(error)}",
-            )
-        cleanup_errors = self._dispose_actions((replaced,))
-        if cleanup_errors:
-            cleanup_errors += self._dispose_actions((pending,))
-            self.pending = None
-            return ConversationReply(
-                kind="error",
-                text=_render_cleanup_failure(
-                    "Could not replace the pending action; all staged actions remain tracked for cleanup.",
-                    cleanup_errors,
-                ),
-                operation_kind="compile",
-            )
-        self.pending = pending
-        replacement = (
-            f"Replaced pending action {replaced_id} with compilation {pending.action_id}.\n\n"
-            if replaced_id is not None
-            else ""
-        )
-        return ConversationReply(
-            kind="preview",
-            text=replacement + render_pending_compilation(pending, plan),
-            change_set_id=pending.action_id,
-            operation_kind="compile",
-            affected=pending.affected_definitions,
-            compilation_files=pending.files,
-            registry_id_changes=pending.registry_id_changes,
-            audit_path=pending.audit_path,
-        )
-
-    def _apply_pending(self) -> ConversationReply:
-        if self.pending is None:
-            return ConversationReply(kind="error", text="There is no pending action to apply.")
-        if _is_pending_compilation(self.pending):
-            return self._apply_pending_compilation(self.pending)
-        if self.editor is None:
-            return ConversationReply(
-                kind="error",
-                text=f"Could not apply change set {self.pending.change_set_id}: the preview editor is unavailable.",
-                change_set_id=self.pending.change_set_id,
-            )
-        try:
-            applied = self.editor.apply(self.pending)
-        except WorkspaceEditError as error:
-            return ConversationReply(
-                kind="error",
-                text=f"Could not apply change set {self.pending.change_set_id}: {error}",
-                change_set_id=self.pending.change_set_id,
-            )
-        self.workspace = applied.workspace
-        self.focused_ref = applied.focus_ref
-        self.pending = None
-        self._reload_services()
-        return ConversationReply(
-            kind="applied",
-            text=render_applied_change_set(applied),
-            change_set_id=applied.change_set_id,
-            operation_kind="source_change",
-            focused_ref=applied.focus_ref,
-            changed=tuple(applied.changed),
-            compatibility=tuple(applied.compatibility),
-            written_paths=applied.written_paths,
-        )
-
-    def _apply_pending_compilation(self, pending: PendingCompilation) -> ConversationReply:
-        from modelable.operations.compilation import CompilationConfirmation
-        from modelable.operations.file_transaction import FileTransactionCommittedError
-
-        confirmation = CompilationConfirmation(
-            session_id=self.session_id,
-            action_id=pending.action_id,
-            manifest_fingerprint=pending.manifest_fingerprint,
-            surface=self.confirmation_surface,
-            provider=self.provider_name,
-            model=self.model_name,
-        )
-        try:
-            applied = self.compilation_service.apply(pending, confirmation=confirmation)
-        except FileTransactionCommittedError as error:
-            self._cleanup_backlog.pop(pending.action_id, None)
-            self.pending = None
-            audit_path = pending.audit_path
-            return ConversationReply(
-                kind="applied",
-                text=render_committed_compilation_cleanup_error(pending, error, audit_path),
-                change_set_id=pending.action_id,
-                operation_kind="compile",
-                affected=pending.affected_definitions,
-                written_paths=error.written_paths,
-                compilation_files=pending.files,
-                registry_id_changes=pending.registry_id_changes,
-                audit_path=audit_path,
-            )
-        except Exception as error:
-            if not pending.staging_dir.exists():
-                self._cleanup_backlog.pop(pending.action_id, None)
-                self.pending = None
-            else:
-                self._cleanup_backlog[pending.action_id] = pending
-            return ConversationReply(
-                kind="error",
-                text=(f"Could not apply compilation {_escape_inline(pending.action_id)}: {_escape_inline(error)}"),
-                change_set_id=pending.action_id,
-                operation_kind="compile",
-            )
-        self._cleanup_backlog.pop(pending.action_id, None)
-        self.pending = None
-        return ConversationReply(
-            kind="applied",
-            text=render_applied_compilation(applied),
-            change_set_id=applied.action_id,
-            operation_kind="compile",
-            affected=applied.affected_definitions,
-            written_paths=applied.written_paths,
-            compilation_files=applied.files,
-            registry_id_changes=pending.registry_id_changes,
-            audit_path=applied.audit_path,
-        )
-
-    def _discard_pending(self) -> ConversationReply:
-        if self.pending is None and not self._cleanup_backlog:
-            return ConversationReply(kind="error", text="There is no pending action to discard.")
-        cleanup_only = self.pending is None
-        cleanup_ids = tuple(sorted(self._cleanup_backlog))
-        change_set_id = _pending_id(self.pending) or (cleanup_ids[0] if cleanup_ids else None)
-        operation_kind: Literal["source_change", "compile"] = (
-            "compile" if cleanup_only or _is_pending_compilation(self.pending) else "source_change"
-        )
-        cleanup_errors = self._dispose_actions((self.pending, *self._cleanup_backlog.values()))
-        if cleanup_errors:
-            return ConversationReply(
-                kind="error",
-                text=_render_cleanup_failure(
-                    (
-                        "Could not fully discard staged compilation cleanup; cleanup will be retried."
-                        if cleanup_only
-                        else "Could not fully discard the pending action; cleanup will be retried."
-                    ),
-                    cleanup_errors,
-                ),
-                change_set_id=change_set_id,
-                operation_kind=operation_kind,
-            )
-        self.pending = None
-        return ConversationReply(
-            kind="discarded",
-            text=(
-                f"Discarded staged compilation cleanup {', '.join(cleanup_ids)}."
-                if cleanup_only
-                else f"Discarded pending action {change_set_id}."
-            ),
-            change_set_id=change_set_id,
-            operation_kind=operation_kind,
-        )
 
     def close(self) -> None:
-        cleanup_errors = self._dispose_actions((self.pending, *self._cleanup_backlog.values()))
-        if cleanup_errors:
-            raise ConversationCleanupError(cleanup_errors)
-        self.pending = None
-
-    def _dispose_actions(self, actions: tuple[PendingAction | None, ...]) -> tuple[str, ...]:
-        errors: list[str] = []
-        seen: set[str] = set()
-        for action in actions:
-            if not _is_pending_compilation(action) or action.action_id in seen:
-                continue
-            seen.add(action.action_id)
-            try:
-                self.compilation_service.discard(action)
-            except Exception as error:
-                self._cleanup_backlog[action.action_id] = action
-                errors.append(f"{action.action_id}: {error}")
-            else:
-                self._cleanup_backlog.pop(action.action_id, None)
-        return tuple(errors)
-
-    def _cleanup_after_exception(self, error: BaseException) -> None:
-        try:
-            self.close()
-        except Exception as cleanup_error:
-            error.add_note(str(cleanup_error))
-
-    def _reload_services(self) -> None:
-        self.query_service = WorkspaceQueryService(self.workspace)
-        self.editor = None
+        self.backend.close()
 
 
 def render_query_result(result: QueryResult) -> str:
@@ -661,20 +376,6 @@ def _render_cleanup_failure(summary: str, errors: tuple[str, ...]) -> str:
             "Use /discard to retry cleanup or close the session.",
         ]
     )
-
-
-def _pending_id(pending: PendingAction | None) -> str | None:
-    if _is_pending_compilation(pending):
-        return pending.action_id
-    if isinstance(pending, PendingChangeSet):
-        return pending.change_set_id
-    return None
-
-
-def _is_pending_compilation(pending: object) -> TypeIs[PendingCompilation]:
-    from modelable.operations.compilation import PendingCompilation
-
-    return isinstance(pending, PendingCompilation)
 
 
 def _operation_target(operation: Operation) -> str:

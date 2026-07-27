@@ -25,6 +25,12 @@ type ReplyKind = Literal[
 ]
 
 
+class ConversationCleanupError(RuntimeError):
+    def __init__(self, errors: tuple[str, ...]) -> None:
+        self.errors = errors
+        super().__init__("Conversation cleanup failed:\n" + "\n".join(f"- {error}" for error in errors))
+
+
 @dataclass(frozen=True)
 class ConversationPreviewFile:
     path: Path

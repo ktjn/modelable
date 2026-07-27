@@ -27,10 +27,12 @@ class ConversationEngine:
         backend: ConversationBackend,
         planner: ResumableConversationPlanner,
         focused_ref: str | None = None,
+        completion_enabled: bool = True,
     ) -> None:
         self.backend = backend
         self.planner = planner
         self.focused_ref = focused_ref
+        self.completion_enabled = completion_enabled
         self.history: list[tuple[str, str]] = []
         self.pending_action_id: str | None = None
         self.pending_operation_kind: str | None = None
@@ -46,7 +48,7 @@ class ConversationEngine:
         normalized = message.strip()
         lowered = normalized.lower()
         if message == "/apply":
-            return self._complete_turn(message, self._apply(self._require_pending_action()))
+            return self._complete_turn(message, self._apply_from_turn())
         if self.pending_operation_kind == "compile" and normalized.lower() == "/apply":
             return self._complete_turn(
                 message,
@@ -72,22 +74,24 @@ class ConversationEngine:
                     operation_kind="compile",
                 )
             else:
-                reply = self._apply(self._require_pending_action())
+                reply = self._apply_from_turn()
             return self._complete_turn(message, reply)
         if lowered in {"discard", "discard it", "cancel"} or normalized == "/discard":
-            return self._complete_turn(message, self._discard(self._require_pending_action()))
+            return self._complete_turn(message, self._discard_from_turn())
 
         command = normalized.split(maxsplit=1)
         if command and command[0] == "/compile":
             return self._complete_plan(normalized, parse_compile_command(normalized))
-        outcome = self.planner.begin(
-            normalized,
-            PlannerContext(
-                workspace_summary=self.backend.workspace_summary(),
-                focused_ref=self.focused_ref,
-                history=tuple(self.history),
-                pending_plan=self._pending_change_plan,
-            ),
+        context = PlannerContext(
+            workspace_summary=self.backend.workspace_summary(),
+            focused_ref=self.focused_ref,
+            history=tuple(self.history),
+            pending_plan=self._pending_change_plan,
+        )
+        outcome = (
+            self.planner.begin(normalized, context)
+            if self.completion_enabled
+            else self.planner.offline(normalized, context)
         )
         if isinstance(outcome, PendingPlanRequest):
             self._pending_request_id = outcome.request_id
@@ -106,6 +110,15 @@ class ConversationEngine:
         self._pending_request_id = None
         self._pending_message = None
         return self._complete_plan(message, outcome)
+
+    def fail_turn(self, request_id: str, error: Exception) -> ConversationReply:
+        if request_id != self._pending_request_id or self._pending_message is None:
+            raise PlanningRequestError(f"Unknown or completed planning request: {request_id}")
+        message = self._pending_message
+        plan = self.planner.fail(request_id, error)
+        self._pending_request_id = None
+        self._pending_message = None
+        return self._complete_plan(message, plan)
 
     def apply(self, action_id: str) -> ConversationReply:
         self._assert_pending_action(action_id)
@@ -126,6 +139,19 @@ class ConversationEngine:
         self._pending_change_plan = None
         self._pending_request_id = None
         self._pending_message = None
+
+    def synchronize_pending_action(
+        self,
+        action_id: str | None,
+        operation_kind: str | None,
+    ) -> None:
+        self.pending_action_id = action_id
+        self.pending_operation_kind = operation_kind
+        if action_id is None:
+            self._pending_change_plan = None
+
+    def record_completed_reply(self, message: str, reply: ConversationReply) -> ConversationReply:
+        return self._complete_turn(message, reply)
 
     def _complete_plan(self, message: str, plan: ConversationPlan) -> ConversationReply:
         reply = self._execute_plan(plan)
@@ -170,6 +196,16 @@ class ConversationEngine:
             self._clear_pending_action()
         return reply
 
+    def _apply_from_turn(self) -> ConversationReply:
+        if self.pending_action_id is None:
+            return ConversationReply(kind="error", text="There is no pending action to apply.")
+        return self._apply(self.pending_action_id)
+
+    def _discard_from_turn(self) -> ConversationReply:
+        if self.pending_action_id is None:
+            return ConversationReply(kind="error", text="There is no pending action to discard.")
+        return self._discard(self.pending_action_id)
+
     def _track_preview(self, reply: ConversationReply) -> None:
         self.pending_action_id = reply.change_set_id
         self.pending_operation_kind = reply.operation_kind
@@ -180,11 +216,6 @@ class ConversationEngine:
         self.pending_action_id = None
         self.pending_operation_kind = None
         self._pending_change_plan = None
-
-    def _require_pending_action(self) -> str:
-        if self.pending_action_id is None:
-            raise ValueError("There is no pending action")
-        return self.pending_action_id
 
     def _assert_pending_action(self, action_id: str) -> None:
         if action_id != self.pending_action_id:

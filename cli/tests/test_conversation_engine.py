@@ -184,3 +184,40 @@ def test_reset_invalidates_pending_completion_and_preview() -> None:
     assert backend.reset_calls == 1
     assert engine.pending_action_id is None
     assert engine.history == []
+
+
+def test_engine_converts_completion_failure_into_completed_reply() -> None:
+    engine, _ = engine_with_request_ids("request-1")
+    pending = engine.begin_turn("Create a customer")
+    assert isinstance(pending, PendingPlanRequest)
+
+    reply = engine.fail_turn(pending.request_id, RuntimeError("provider unavailable"))
+
+    assert reply.kind == "unsupported"
+    assert "provider unavailable" in reply.text
+    assert engine.history[-1] == ("assistant", reply.text)
+
+
+def test_engine_returns_error_when_apply_has_no_pending_action() -> None:
+    engine, _ = engine_with_request_ids("unused")
+
+    reply = engine.begin_turn("/apply")
+
+    assert isinstance(reply, ConversationReply)
+    assert reply.kind == "error"
+    assert "no pending action" in reply.text.lower()
+
+
+def test_engine_without_completion_uses_offline_planner() -> None:
+    backend = RecordingBackend()
+    engine = ConversationEngine(
+        backend=backend,
+        planner=ResumableConversationPlanner(id_factory=lambda: "unused"),
+        completion_enabled=False,
+    )
+
+    reply = engine.begin_turn("Create a customer")
+
+    assert isinstance(reply, ConversationReply)
+    assert reply.kind == "unsupported"
+    assert "Configure an LLM provider" in reply.text

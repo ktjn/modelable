@@ -90,8 +90,11 @@ class ResumableConversationPlanner:
         self._pending: dict[str, _PendingPlanningState] = {}
         self._used_request_ids: set[str] = set()
 
+    def offline(self, message: str, context: PlannerContext) -> ConversationPlan:
+        return ConversationPlanner._offline_plan(message, context)
+
     def begin(self, message: str, context: PlannerContext) -> ConversationPlan | PendingPlanRequest:
-        offline = ConversationPlanner._offline_plan(message, context)
+        offline = self.offline(message, context)
         if not _requires_provider(message, offline):
             return offline
         return self._register(
