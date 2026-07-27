@@ -213,7 +213,8 @@ button.view-tab--active:hover:not(:disabled) {
 .workbench {
   display: flex;
   flex-direction: column;
-  width: min(100%, 120rem);
+  width: 100%;
+  max-width: none;
   height: 100dvh;
   margin: 0 auto;
   border-inline: 1px solid var(--border);
@@ -614,12 +615,14 @@ button.view-tab--active:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 .graph-panel__canvas {
   flex: 1;
   min-height: 0;
   position: relative;
+  isolation: isolate;
 }
 
 .graph-panel__error {
@@ -637,12 +640,38 @@ button.view-tab--active:hover:not(:disabled) {
   font-size: 0.85rem;
 }
 
-.graph-panel__toolbar-spacer {
-  flex: 1;
+.graph-panel .tab-strip {
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  padding: 0.3rem 0.4rem;
+}
+
+.graph-panel__modes,
+.graph-panel__exports {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.graph-panel__modes {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.graph-panel__exports {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.graph-panel .tab,
+.graph-panel__export-btn {
+  min-height: 1.75rem;
+  padding: 0.2rem 0.45rem;
+  white-space: nowrap;
 }
 
 .graph-panel__export-btn {
-  padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
 }
 
@@ -781,9 +810,35 @@ button.view-tab--active:hover:not(:disabled) {
   background: var(--hover);
 }
 
+.graph-panel .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--graph-border);
+  border-radius: 0.45rem;
+  box-shadow: 0 0.25rem 0.75rem
+    color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.graph-panel .react-flow__controls-button {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-right: 1px solid var(--border);
+  border-bottom: 0;
+}
+
+.graph-panel .react-flow__controls-button:last-child {
+  border-right: 0;
+}
+
 .graph-panel .react-flow__minimap {
   border: 1px solid var(--graph-border);
   background: var(--graph-surface-muted);
+}
+
+.graph-panel__minimap {
+  overflow: hidden;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.25rem 0.75rem
+    color-mix(in srgb, var(--text) 12%, transparent);
 }
 
 .graph-panel .react-flow__minimap-node {
@@ -792,6 +847,23 @@ button.view-tab--active:hover:not(:disabled) {
 
 .graph-panel .react-flow__minimap-mask {
   fill: var(--graph-minimap-mask);
+}
+
+@container (max-width: 34rem) {
+  .graph-panel .tab-strip,
+  .graph-panel__modes,
+  .graph-panel__exports {
+    gap: 0.125rem;
+  }
+
+  .graph-panel .tab,
+  .graph-panel__export-btn {
+    padding-inline: 0.325rem;
+  }
+
+  .graph-panel__export-prefix {
+    display: none;
+  }
 }
 
 /* Tab strip (shared by graph & bottom panel) */

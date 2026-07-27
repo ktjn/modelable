@@ -86,15 +86,17 @@ function GraphPanelInner({
             className="graph-panel__export-btn"
             onClick={exportSvg}
             disabled={nodes.length === 0}
+            aria-label="Export SVG"
           >
-            Export SVG
+            <span className="graph-panel__export-prefix">Export </span>SVG
           </button>
           <button
             className="graph-panel__export-btn"
             onClick={exportPng}
             disabled={nodes.length === 0}
+            aria-label="Export PNG"
           >
-            Export PNG
+            <span className="graph-panel__export-prefix">Export </span>PNG
           </button>
         </div>
       </div>
@@ -130,7 +132,11 @@ function GraphPanelInner({
           maxZoom={2}
           proOptions={{ hideAttribution: true }}
         >
-          <Controls fitViewOptions={fitViewOptions} onFitView={onFitView} />
+          <Controls
+            orientation="horizontal"
+            fitViewOptions={fitViewOptions}
+            onFitView={onFitView}
+          />
           {showMiniMap ? (
             <MiniMap
               aria-hidden="true"

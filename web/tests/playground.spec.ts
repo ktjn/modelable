@@ -39,6 +39,31 @@ async function openGraphTab(page: Page): Promise<void> {
   await page.getByRole('tab', { name: 'Graph' }).click();
 }
 
+async function graphZoom(page: Page): Promise<number> {
+  return page
+    .locator('.graph-panel .react-flow__viewport')
+    .evaluate((element) => {
+      const transform = (element as HTMLElement).style.transform;
+      const match = transform.match(/scale\(([\d.]+)\)/);
+      if (match?.[1] === undefined) {
+        throw new Error(`Missing graph scale: ${transform}`);
+      }
+      return Number(match[1]);
+    });
+}
+
+function rectanglesOverlap(
+  left: { x: number; y: number; width: number; height: number },
+  right: { x: number; y: number; width: number; height: number },
+): boolean {
+  return (
+    left.x < right.x + right.width &&
+    left.x + left.width > right.x &&
+    left.y < right.y + right.height &&
+    left.y + left.height > right.y
+  );
+}
+
 function generateButton(page: Page) {
   return page
     .getByRole('navigation', { name: 'Playground actions' })
@@ -800,6 +825,88 @@ test('graph nodes retain semantic styling in light and dark themes', async ({
   );
   await flowNode.focus();
   await expect(flowNode).toHaveCSS('outline-color', 'rgb(96, 165, 250)');
+});
+
+test('graph keeps dense modes readable and clear of navigation overlays', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('?test=1');
+  await waitForReady(page);
+  await openGraphTab(page);
+
+  const graphSection = page.getByTestId('graph');
+  const toolbar = graphSection.getByRole('toolbar', { name: 'Graph mode' });
+  const nodes = graphSection.locator('.react-flow__node');
+
+  for (const mode of ['Entity', 'Projection'] as const) {
+    await toolbar.getByRole('button', { name: mode }).click();
+    await expect(nodes.first()).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => graphZoom(page)).toBeGreaterThanOrEqual(0.6);
+
+    const overlays = [
+      await graphSection.locator('.react-flow__controls').boundingBox(),
+    ];
+    const minimap = graphSection.locator('.react-flow__minimap');
+    if ((await minimap.count()) > 0) {
+      overlays.push(await minimap.boundingBox());
+    }
+    const visibleOverlays = overlays.filter((box) => box !== null);
+    const nodeBoxes = await nodes.evaluateAll((elements) =>
+      elements.map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+        };
+      }),
+    );
+
+    for (const overlay of visibleOverlays) {
+      expect(
+        nodeBoxes.some((box) => rectanglesOverlap(box, overlay)),
+      ).toBe(false);
+    }
+  }
+});
+
+test('graph uses ultrawide space with compact responsive navigation', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 2560, height: 1440 });
+  await page.goto('?test=1');
+  await waitForReady(page);
+  await openGraphTab(page);
+
+  const graphSection = page.getByTestId('graph');
+  await graphSection
+    .getByRole('toolbar', { name: 'Graph mode' })
+    .getByRole('button', { name: 'Entity' })
+    .click();
+  await expect(graphSection.locator('.react-flow__node').first()).toBeVisible({
+    timeout: 30_000,
+  });
+
+  const workbenchWidth = await page
+    .locator('.workbench')
+    .evaluate((element) => element.getBoundingClientRect().width);
+  expect(workbenchWidth).toBeGreaterThanOrEqual(2500);
+  await expect.poll(() => graphZoom(page)).toBeGreaterThanOrEqual(0.6);
+
+  const controls = await graphSection
+    .locator('.react-flow__controls')
+    .boundingBox();
+  expect(controls).not.toBeNull();
+  expect(controls!.width).toBeGreaterThan(controls!.height);
+
+  const minimap = graphSection.locator('.react-flow__minimap');
+  await expect(minimap).toBeVisible();
+  const minimapBox = await minimap.boundingBox();
+  expect(minimapBox).not.toBeNull();
+  expect(minimapBox!.width).toBeLessThanOrEqual(146);
+  expect(minimapBox!.height).toBeLessThanOrEqual(106);
 });
 
 test('graph panel follows the source as it changes', async ({ page }) => {
