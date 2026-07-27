@@ -583,6 +583,34 @@ button.view-tab--active:hover:not(:disabled) {
   overflow: hidden;
 }
 
+.graph-panel__canvas {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.graph-panel__error {
+  padding: 0.5rem;
+  color: var(--text-error);
+  font-size: 0.85rem;
+}
+
+.graph-panel__loading,
+.graph-panel__empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.graph-panel__toolbar-spacer {
+  flex: 1;
+}
+
+.graph-panel__export-btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
 /* Graph visualization theming */
 
 .graph-panel .react-flow {
