@@ -72,6 +72,7 @@ import {
   type ChatMessage,
 } from './ai/chat-types';
 import { OutputPanel } from './output/OutputPanel';
+import { useTheme, type ThemePreference } from './theme';
 
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
@@ -187,6 +188,7 @@ export function App({
     'Language services starting…',
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
+  const { preference: themePreference, resolvedTheme, setPreference: setThemePreference } = useTheme();
   const [mobileView, setMobileView] = useState<MobileView>('source');
   const [rightTab, setRightTab] = useState<RightPanelTab>('assistant');
   const [aiState, aiDispatch] = useReducer(
@@ -1029,6 +1031,9 @@ export function App({
         statusIsError={statusIsError}
         persistencePhase={persistentWorkspace.phase}
         languageStatus={languageStatus}
+        themePreference={themePreference}
+        resolvedTheme={resolvedTheme}
+        onThemePreferenceChange={setThemePreference}
       />
       <Toolbar
         runtime={state.runtime}

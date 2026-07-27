@@ -25,6 +25,25 @@ function cloneSvgWithStyles(container: HTMLElement): SVGElement | null {
   clone.setAttribute('height', String(bounds.height));
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
+  // Preserve the active theme so dark-mode CSS variable overrides continue to
+  // apply inside the detached SVG, and paint a background matching the app.
+  const resolvedTheme =
+    document.documentElement.dataset.theme ??
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  clone.setAttribute('data-theme', resolvedTheme);
+
+  const bgColor = getComputedStyle(document.documentElement)
+    .getPropertyValue('--bg')
+    .trim();
+  const background = document.createElementNS(
+    'http://www.w3.org/2000/svg',
+    'rect',
+  );
+  background.setAttribute('width', '100%');
+  background.setAttribute('height', '100%');
+  background.setAttribute('fill', bgColor || '#ffffff');
+  clone.insertBefore(background, clone.firstChild);
+
   const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
   styleEl.textContent = collectStyles();
   clone.insertBefore(styleEl, clone.firstChild);
