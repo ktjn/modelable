@@ -7,13 +7,16 @@ Shipped on 2026-07-21.
 Execution is broken into reviewable tasks in the
 [Playground Visualization implementation plan](../../plans/archived/2026-07-21-playground-visualization.md).
 
+Responsive viewport and overlay follow-up work is defined in the
+[Responsive Graph Viewport design](../2026-07-27-responsive-graph-viewport-design.md).
+
 This specification defines Phase 4 of the
-[Modelable Playground Architecture](../../playground-design.md). It builds on
+[Modelable Playground Architecture](../../../playground-design.md). It builds on
 the shipped workspace persistence and browser-native language services, and
 adds compiler-owned semantic graph export, ELK-based layout, React Flow
 rendering, and bidirectional editor–graph navigation.
 
-The repository [roadmap](../../../ROADMAP.md) makes the remaining Playground
+The repository [roadmap](../../../../ROADMAP.md) makes the remaining Playground
 phases the immediate product priority, records Phases 1–4 as the active
 visualization and analysis work, and names Scalable registration as the next
 non-Playground priority.
@@ -87,7 +90,7 @@ This approach was selected over:
 ## Architecture decision scope
 
 No ADR change is required. The
-[Playground Architecture](../../playground-design.md#10-visualization-architecture)
+[Playground Architecture](../../../playground-design.md#10-visualization-architecture)
 already assigns graph DTOs to the Python compiler, layout to ELK.js, and
 rendering to React. This specification narrows Phase 4 delivery and makes its
 protocol, DTO, layout, and rendering contracts executable.
