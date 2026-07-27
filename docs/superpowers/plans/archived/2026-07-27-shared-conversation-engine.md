@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.14, Pydantic 2, JSON Schema 2020-12, Pyodide, TypeScript 7, React 19, Web Workers, `@mlc-ai/web-llm`, Vitest, Playwright, VS Code LSP/chat APIs, Ollama `/api/chat`.
 
-**Design:** [Shared Conversation Engine Design](../specs/2026-07-27-shared-conversation-engine-design.md)
+**Design:** [Shared Conversation Engine Design](../../specs/archived/2026-07-27-shared-conversation-engine-design.md)
 
 ## Global Constraints
 

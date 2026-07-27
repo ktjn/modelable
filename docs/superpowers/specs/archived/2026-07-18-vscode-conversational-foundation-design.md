@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-18
 
-**Cross-surface alignment:** [Shared Conversation Engine](../2026-07-27-shared-conversation-engine-design.md)
+**Cross-surface alignment:** [Shared Conversation Engine](2026-07-27-shared-conversation-engine-design.md)
 
 ## 1. Summary
 

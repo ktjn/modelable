@@ -5,7 +5,7 @@
 ## Status
 
 Approved in design and written-spec review on 2026-07-27. Implementation is
-tracked in the [Shared Conversation Engine plan](../plans/2026-07-27-shared-conversation-engine.md).
+tracked in the [Shared Conversation Engine plan](../../plans/archived/2026-07-27-shared-conversation-engine.md).
 
 This design supersedes the browser-specific raw-source generation path from the
 shipped [Playground Local AI design](archived/2026-07-22-playground-local-ai-design.md)
