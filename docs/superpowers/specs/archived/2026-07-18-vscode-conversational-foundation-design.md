@@ -2,6 +2,8 @@
 
 **Date:** 2026-07-18
 
+**Cross-surface alignment:** [Shared Conversation Engine](../2026-07-27-shared-conversation-engine-design.md)
+
 ## 1. Summary
 
 This design adds a native `@modelable` chat participant to the existing VS Code
