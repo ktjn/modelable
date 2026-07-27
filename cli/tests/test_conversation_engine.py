@@ -4,12 +4,15 @@ import json
 from dataclasses import dataclass, field
 
 import pytest
+from support.conversation_simulator import ConversationSimulatorProvider
 
 from modelable.llm.conversation_backend import ConversationReply
 from modelable.llm.conversation_engine import ConversationEngine
 from modelable.llm.conversation_plan import ChangeSetPlan, CompilePlan, QueryPlan
 from modelable.llm.conversation_planner import (
+    ConversationPlanner,
     PendingPlanRequest,
+    PlannerContext,
     PlanningRequestError,
     ResumableConversationPlanner,
 )
@@ -221,3 +224,20 @@ def test_engine_without_completion_uses_offline_planner() -> None:
     assert isinstance(reply, ConversationReply)
     assert reply.kind == "unsupported"
     assert "Configure an LLM provider" in reply.text
+
+
+def test_semantic_simulator_drives_typed_conversation_planner() -> None:
+    planner = ConversationPlanner(ConversationSimulatorProvider())
+
+    plan = planner.plan(
+        "Create an invoice with an invoice id",
+        PlannerContext(
+            workspace_summary="domain billing",
+            focused_ref=None,
+            history=(),
+            pending_plan=None,
+        ),
+    )
+
+    assert isinstance(plan, ChangeSetPlan)
+    assert plan.operations[0].kind == "create_model"
