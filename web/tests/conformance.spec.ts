@@ -168,7 +168,7 @@ test('browser compiler matches native snapshots including cross-file references'
         const sources = await Promise.all(
           fixtureNames.map(async (name) => ({
             uri: `fixture:///${name}`,
-            text: await (await fetch(`fixtures/${name}`)).text(),
+            text: (await (await fetch(`fixtures/${name}`)).text()).replace(/\r\n/g, '\n'),
             version: 1,
           })),
         );

@@ -9,7 +9,7 @@ export function MetricsFooter({
 }: MetricsFooterProps) {
   return (
     <footer
-      className="metrics-strip"
+      className="metrics-footer"
       data-testid="metrics"
       data-initialization-duration-ms={initializationDuration ?? undefined}
     >

@@ -1,4 +1,4 @@
-export type MobileView = 'source' | 'graph' | 'analysis';
+export type MobileView = 'source' | 'assistant' | 'analysis';
 
 export interface ViewTabsProps {
   mobileView: MobileView;
@@ -18,11 +18,11 @@ export function ViewTabs({ mobileView, onChange }: ViewTabsProps) {
       </button>
       <button
         type="button"
-        className={`view-tab${mobileView === 'graph' ? ' view-tab--active' : ''}`}
-        aria-pressed={mobileView === 'graph'}
-        onClick={() => onChange('graph')}
+        className={`view-tab${mobileView === 'assistant' ? ' view-tab--active' : ''}`}
+        aria-pressed={mobileView === 'assistant'}
+        onClick={() => onChange('assistant')}
       >
-        Graph
+        Assistant
       </button>
       <button
         type="button"

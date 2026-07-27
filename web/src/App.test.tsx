@@ -90,17 +90,15 @@ vi.mock('./layout/BottomPanel', () => {
   return {
     BottomPanel: ({
       diagnostics,
-      artifacts,
       compatibility,
       governance,
     }: {
       diagnostics: React.ReactNode;
-      artifacts: React.ReactNode;
       compatibility: React.ReactNode;
       governance: React.ReactNode;
     }) =>
       createElement('div', { 'data-testid': 'bottom-panel' },
-        diagnostics, artifacts, compatibility, governance),
+        diagnostics, compatibility, governance),
   };
 });
 
@@ -355,6 +353,22 @@ function generateButton(): HTMLElement {
   ).getByRole('button', { name: 'Generate' });
 }
 
+function artifactList(): HTMLElement {
+  return screen.getByRole('list', { name: 'Generated artifacts' });
+}
+
+function selectArtifact(path: string): void {
+  fireEvent.click(
+    within(artifactList()).getByRole('button', { name: path }),
+  );
+}
+
+function artifactSelectButtons(): HTMLElement[] {
+  return Array.from(
+    artifactList().querySelectorAll('.output-panel__item-select'),
+  );
+}
+
 async function generateArtifacts(
   client: FakeCompilerClient,
   artifacts: BrowserCompileResult['artifacts'],
@@ -374,6 +388,7 @@ afterEach(() => {
   sourceEditorSpies.focus.mockReset();
   sourceEditorSpies.languageController = null;
   sourceEditorSpies.getWorkspace = null;
+  window.history.pushState({}, '', '/');
 });
 
 beforeEach(() => {
@@ -832,11 +847,11 @@ describe('App', () => {
     );
     await initialize(client);
 
-    fireEvent.change(
-      screen.getByRole('textbox', { name: 'Workspace file path' }),
-      { target: { value: 'orders.mdl' } },
-    );
     fireEvent.click(screen.getByRole('button', { name: 'New file' }));
+    fireEvent.change(screen.getByPlaceholderText('file.mdl'), {
+      target: { value: 'orders.mdl' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
     expect(
       screen.getByRole('button', { name: 'orders.mdl' }).getAttribute(
@@ -858,18 +873,14 @@ describe('App', () => {
       ),
     ).toBe('true');
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Delete active' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(confirmReplace).toHaveBeenCalledWith(
       'Delete workspace file sales.mdl?',
     );
     expect(screen.getByRole('button', { name: 'sales.mdl' })).toBeTruthy();
 
     confirmReplace.mockReturnValue(true);
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Delete active' }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     expect(
       screen.queryByRole('button', { name: 'sales.mdl' }),
     ).toBeNull();
@@ -933,7 +944,7 @@ describe('App', () => {
     );
     await initialize(client);
 
-    expect(screen.getByText(/storage unavailable/i)).toBeTruthy();
+    expect(screen.getByText(/memory-only/i)).toBeTruthy();
     expect(
       (screen.getByRole('button', { name: 'Validate' }) as HTMLButtonElement)
         .disabled,
@@ -1050,7 +1061,7 @@ describe('App', () => {
       await failedRequest.promise;
     });
 
-    expect(screen.getByLabelText('Artifact output').textContent).toBe('');
+    expect(screen.queryByLabelText('Artifact output')).toBeNull();
     expect(screen.getByText('No artifact yet')).toBeTruthy();
   });
 
@@ -1072,9 +1083,7 @@ describe('App', () => {
         source_refs: ['file:///main.mdl'],
       },
     ]);
-    fireEvent.change(screen.getByRole('combobox', { name: 'Artifact' }), {
-      target: { value: 'order.schema.json' },
-    });
+    selectArtifact('order.schema.json');
 
     fireEvent.click(generateButton());
     const failedRequest = latestRequest(client.compileRequests);
@@ -1090,12 +1099,11 @@ describe('App', () => {
       '{"title":"Order"}',
     );
     expect(
-      (
-        screen.getByRole('combobox', {
-          name: 'Artifact',
-        }) as HTMLSelectElement
-      ).value,
-    ).toBe('order.schema.json');
+      within(artifactList())
+        .getByRole('button', { name: 'order.schema.json' })
+        .closest('li')
+        ?.getAttribute('aria-current'),
+    ).toBe('true');
     expect(
       screen.getByText('Stale—source changed after generation'),
     ).toBeTruthy();
@@ -1129,9 +1137,7 @@ describe('App', () => {
         source_refs: ['file:///main.mdl'],
       },
     ]);
-    fireEvent.change(screen.getByRole('combobox', { name: 'Artifact' }), {
-      target: { value: 'order.schema.json' },
-    });
+    selectArtifact('order.schema.json');
 
     fireEvent.click(generateButton());
     const failedRequest = latestRequest(client.compileRequests);
@@ -1151,12 +1157,11 @@ describe('App', () => {
       '{"title":"Order"}',
     );
     expect(
-      (
-        screen.getByRole('combobox', {
-          name: 'Artifact',
-        }) as HTMLSelectElement
-      ).value,
-    ).toBe('order.schema.json');
+      within(artifactList())
+        .getByRole('button', { name: 'order.schema.json' })
+        .closest('li')
+        ?.getAttribute('aria-current'),
+    ).toBe('true');
     expect(
       screen.getByText('Stale—source changed after generation'),
     ).toBeTruthy();
@@ -1195,9 +1200,7 @@ describe('App', () => {
         source_refs: ['file:///main.mdl'],
       },
     ]);
-    fireEvent.change(screen.getByRole('combobox', { name: 'Artifact' }), {
-      target: { value: 'order.schema.json' },
-    });
+    selectArtifact('order.schema.json');
 
     fireEvent.click(generateButton());
     const failedRequest = latestRequest(firstClient.compileRequests);
@@ -1217,12 +1220,11 @@ describe('App', () => {
       '{"title":"Order"}',
     );
     expect(
-      (
-        screen.getByRole('combobox', {
-          name: 'Artifact',
-        }) as HTMLSelectElement
-      ).value,
-    ).toBe('order.schema.json');
+      within(artifactList())
+        .getByRole('button', { name: 'order.schema.json' })
+        .closest('li')
+        ?.getAttribute('aria-current'),
+    ).toBe('true');
     expect(
       screen.getByText('Stale—source changed after generation'),
     ).toBeTruthy();
@@ -1260,10 +1262,8 @@ describe('App', () => {
       },
     ]);
 
-    const options = screen
-      .getByRole('combobox', { name: 'Artifact' })
-      .querySelectorAll('option');
-    expect([...options].map((option) => option.textContent)).toEqual([
+    const buttons = artifactSelectButtons();
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
       'z-last.schema.json',
       'a-first.schema.json',
     ]);
@@ -1288,9 +1288,7 @@ describe('App', () => {
         source_refs: ['file:///main.mdl'],
       },
     ]);
-    fireEvent.change(screen.getByRole('combobox', { name: 'Artifact' }), {
-      target: { value: 'order.schema.json' },
-    });
+    selectArtifact('order.schema.json');
 
     expect(screen.getByLabelText('Artifact output').textContent).toBe(
       '{"title":"Order"}',
@@ -1317,11 +1315,9 @@ describe('App', () => {
         source_refs: ['file:///main.mdl'],
       },
     ]);
-    fireEvent.change(screen.getByRole('combobox', { name: 'Artifact' }), {
-      target: { value: '../Order<>.schema.json' },
-    });
+    selectArtifact('../Order<>.schema.json');
     fireEvent.click(
-      screen.getByRole('button', { name: 'Export artifact' }),
+      screen.getByRole('button', { name: 'Download ../Order<>.schema.json' }),
     );
 
     expect(download).toHaveBeenCalledWith(
@@ -1337,12 +1333,8 @@ describe('App', () => {
     await initialize(client);
 
     expect(
-      (
-        screen.getByRole('button', {
-          name: 'Export artifact',
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+      screen.queryByRole('button', { name: 'Download all' }),
+    ).toBeNull();
   });
 
   test('retries initialization with a fresh client', async () => {
@@ -1430,7 +1422,7 @@ describe('App', () => {
         }) as HTMLTextAreaElement
       ).value,
     ).toBe('record Restored {}');
-    expect(screen.getByLabelText('Artifact output').textContent).toBe('');
+    expect(screen.queryByLabelText('Artifact output')).toBeNull();
     expect(screen.getByText('No artifact yet')).toBeTruthy();
 
     await initialize(secondClient);
@@ -1456,18 +1448,18 @@ describe('App', () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: 'Generate entity' }),
+        screen.getByPlaceholderText('e.g. Add a creditScore field to Customer'),
       ).toBeTruthy();
     });
     expect(
-      screen.getByRole('button', { name: 'Explain' }),
+      screen.getByRole('button', { name: 'Explain workspace' }),
     ).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Suggest projection' }),
     ).toBeTruthy();
   });
 
-  test('generate entity shows prompt dialog and calls aiGenerate', async () => {
+  test('generate entity sends a chat message and calls aiGenerate', async () => {
     const client = new FakeCompilerClient();
     client.aiGenerate.mockResolvedValue({
       source: 'entity Order {\n  v1 {}\n}\n',
@@ -1481,26 +1473,15 @@ describe('App', () => {
     );
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: 'Generate entity' }),
+        screen.getByPlaceholderText('e.g. Add a creditScore field to Customer'),
       ).toBeTruthy();
     });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Generate entity' }),
+    fireEvent.change(
+      screen.getByPlaceholderText('e.g. Add a creditScore field to Customer'),
+      { target: { value: 'Order for e-commerce' } },
     );
-    await waitFor(() => {
-      expect(screen.getByLabelText(/describe the entity/i)).toBeTruthy();
-    });
-
-    fireEvent.change(screen.getByLabelText(/describe the entity/i), {
-      target: { value: 'Order for e-commerce' },
-    });
-    fireEvent.click(
-      within(screen.getByRole('dialog', { name: 'Generate entity' })).getByRole(
-        'button',
-        { name: 'Generate' },
-      ),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     await waitFor(() => {
       expect(client.aiGenerate).toHaveBeenCalledTimes(1);
@@ -1511,12 +1492,12 @@ describe('App', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('ai-preview')).toBeTruthy();
+      expect(screen.getByText('Order for e-commerce')).toBeTruthy();
       expect(screen.getByText(/entity Order/)).toBeTruthy();
     });
   });
 
-  test('explain calls aiExplain and shows explanation', async () => {
+  test('explain calls aiExplain and shows explanation in chat', async () => {
     const client = new FakeCompilerClient();
     client.aiExplain.mockResolvedValue({
       explanation: 'This model defines a Customer entity.',
@@ -1528,20 +1509,21 @@ describe('App', () => {
       screen.getByRole('button', { name: 'Use heuristic AI' }),
     );
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Explain workspace' }),
+      ).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Explain' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Explain workspace' }));
 
     await waitFor(() => {
       expect(client.aiExplain).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
-      expect(screen.getByTestId('ai-preview')).toBeTruthy();
+      expect(
+        screen.getByText('This model defines a Customer entity.'),
+      ).toBeTruthy();
     });
-    expect(
-      screen.getByText('This model defines a Customer entity.'),
-    ).toBeTruthy();
   });
 
   test('accept applies generated source to workspace', async () => {
@@ -1566,12 +1548,12 @@ describe('App', () => {
       screen.getByRole('button', { name: 'Suggest projection' }),
     );
     await waitFor(() => {
-      expect(screen.getByTestId('ai-preview')).toBeTruthy();
+      expect(screen.getByText(/entity Order/)).toBeTruthy();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
     await waitFor(() => {
-      expect(screen.queryByTestId('ai-preview')).toBeNull();
+      expect(screen.getByText('Accepted')).toBeTruthy();
     });
 
     const editor = screen.getByLabelText<HTMLTextAreaElement>('Model source');
@@ -1590,20 +1572,22 @@ describe('App', () => {
       screen.getByRole('button', { name: 'Use heuristic AI' }),
     );
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Explain' })).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Explain workspace' }),
+      ).toBeTruthy();
     });
 
     const editorBefore =
       screen.getByLabelText<HTMLTextAreaElement>('Model source').value;
 
-    fireEvent.click(screen.getByRole('button', { name: 'Explain' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Explain workspace' }));
     await waitFor(() => {
-      expect(screen.getByTestId('ai-preview')).toBeTruthy();
+      expect(screen.getByText('Test explanation')).toBeTruthy();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await waitFor(() => {
-      expect(screen.queryByTestId('ai-preview')).toBeNull();
+      expect(screen.getByText('Discarded')).toBeTruthy();
     });
 
     const editorAfter =

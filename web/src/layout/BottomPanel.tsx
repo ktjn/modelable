@@ -1,17 +1,15 @@
 import { type ReactNode, useState } from 'react';
 
-export type BottomTab = 'diagnostics' | 'artifacts' | 'compatibility' | 'governance';
+export type BottomTab = 'diagnostics' | 'compatibility' | 'governance';
 
 export interface BottomPanelProps {
   diagnostics: ReactNode;
-  artifacts: ReactNode;
   compatibility: ReactNode;
   governance: ReactNode;
 }
 
 export function BottomPanel({
   diagnostics,
-  artifacts,
   compatibility,
   governance,
 }: BottomPanelProps) {
@@ -19,39 +17,34 @@ export function BottomPanel({
 
   return (
     <div className="bottom-panel" data-testid="bottom-panel">
-      <div className="tab-strip" role="toolbar" aria-label="Bottom panel tabs">
+      <div className="tab-strip" role="tablist" aria-label="Bottom panel tabs">
         <button
           className={`tab${tab === 'diagnostics' ? ' tab--active' : ''}`}
           onClick={() => setTab('diagnostics')}
-          aria-pressed={tab === 'diagnostics'}
+          aria-selected={tab === 'diagnostics'}
+          role="tab"
         >
-          Diagnostics
-        </button>
-        <button
-          className={`tab${tab === 'artifacts' ? ' tab--active' : ''}`}
-          onClick={() => setTab('artifacts')}
-          aria-pressed={tab === 'artifacts'}
-        >
-          Generated artifacts
+          Problems
         </button>
         <button
           className={`tab${tab === 'compatibility' ? ' tab--active' : ''}`}
           onClick={() => setTab('compatibility')}
-          aria-pressed={tab === 'compatibility'}
+          aria-selected={tab === 'compatibility'}
+          role="tab"
         >
           Compatibility
         </button>
         <button
           className={`tab${tab === 'governance' ? ' tab--active' : ''}`}
           onClick={() => setTab('governance')}
-          aria-pressed={tab === 'governance'}
+          aria-selected={tab === 'governance'}
+          role="tab"
         >
           Governance
         </button>
       </div>
       <div className="bottom-panel__body" tabIndex={0}>
         {tab === 'diagnostics' && diagnostics}
-        {tab === 'artifacts' && artifacts}
         {tab === 'compatibility' && compatibility}
         {tab === 'governance' && governance}
       </div>

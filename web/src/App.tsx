@@ -23,7 +23,6 @@ import { normalizeDiagnosticsByUri } from './diagnostics';
 import customerSource from './example-customer.mdl?raw';
 import salesSource from './example-sales.mdl?raw';
 import billingSource from './example-billing.mdl?raw';
-import { ArtifactEditor } from './editor/ArtifactEditor';
 import { SourceEditor } from './editor/SourceEditor';
 import type { SourceEditorHandle } from './editor/types';
 import {
@@ -57,23 +56,23 @@ import { WorkbenchHeader } from './layout/WorkbenchHeader';
 import { Toolbar } from './layout/Toolbar';
 import { MetricsFooter } from './layout/MetricsFooter';
 import { ViewTabs, type MobileView } from './layout/ViewTabs';
-import { AiToolbar } from './ai/AiToolbar';
-import { AiPromptDialog } from './ai/AiPromptDialog';
+import { RightPanel, type RightPanelTab } from './layout/RightPanel';
+import { ChatPanel } from './ai/ChatPanel';
 import {
   initialProviderState,
   providerStateReducer,
 } from './ai/provider-state';
 import { detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
 import { HeuristicProvider } from './ai/heuristic-provider';
-import type { AiPreviewState } from './ai/AiPreviewPanel';
+import type { AiGenerateAction, AiGenerateParameters } from './ai/types';
+import {
+  generateChatMessageId,
+  isAssistantGenerateMessage,
+  type AssistantChatMessage,
+  type ChatMessage,
+} from './ai/chat-types';
+import { OutputPanel } from './output/OutputPanel';
 
-const AiPreviewPanel = lazy(() =>
-  import('./ai/AiPreviewPanel').then((m) => ({ default: m.AiPreviewPanel })),
-);
-import type {
-  AiGenerateAction,
-  AiGenerateParameters,
-} from './ai/types';
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
 const createWorkspaceRepository = (): WorkspaceRepository => {
@@ -189,14 +188,13 @@ export function App({
   );
   const [languageCanRetry, setLanguageCanRetry] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>('source');
+  const [rightTab, setRightTab] = useState<RightPanelTab>('assistant');
   const [aiState, aiDispatch] = useReducer(
     providerStateReducer,
     initialProviderState,
   );
-  const [aiPreview, setAiPreview] = useState<AiPreviewState | null>(null);
   const [aiPending, setAiPending] = useState(false);
-  const [aiPromptOpen, setAiPromptOpen] = useState(false);
-  const [aiPromptValue, setAiPromptValue] = useState('');
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const languageControllerRef =
@@ -452,6 +450,7 @@ export function App({
           artifacts: result.artifacts,
           duration,
         });
+        setRightTab('output');
       } catch (error: unknown) {
         const compilerError = asCompilerError(error);
         const duration = now() - startedAt;
@@ -477,7 +476,7 @@ export function App({
         operationPendingRef.current = false;
       }
     },
-    [now, state.runtime],
+    [now, state.runtime, state.compileTarget],
   );
 
   const handleValidate = useCallback((): void => {
@@ -630,8 +629,29 @@ export function App({
     void provider.initialize().then(() => aiDispatch({ type: 'ready' }));
   }, []);
 
+  const appendMessage = useCallback((message: ChatMessage): void => {
+    setChatMessages((messages) => [...messages, message]);
+  }, []);
+
+  const updateAssistantMessage = useCallback(
+    (id: string, update: Partial<AssistantChatMessage>): void => {
+      setChatMessages((messages) =>
+        messages.map((message) =>
+          message.role === 'assistant' && message.id === id
+            ? ({ ...message, ...update } as ChatMessage)
+            : message,
+        ),
+      );
+    },
+    [],
+  );
+
   const runAiGenerate = useCallback(
-    (action: AiGenerateAction, parameters: AiGenerateParameters): void => {
+    (
+      action: AiGenerateAction,
+      parameters: AiGenerateParameters,
+      userText: string,
+    ): void => {
       const client = clientRef.current;
       const provider = aiState.provider;
       if (
@@ -643,7 +663,22 @@ export function App({
       ) {
         return;
       }
+      const assistantId = generateChatMessageId();
+      appendMessage({
+        id: generateChatMessageId(),
+        role: 'user',
+        text: userText,
+      });
+      appendMessage({
+        id: assistantId,
+        role: 'assistant',
+        kind: action === 'suggest_projection' ? 'generate' : 'generate',
+        diagnostics: [],
+        providerInfo: { provider: provider.id, model: provider.model },
+        pending: true,
+      });
       setAiPending(true);
+      setRightTab('assistant');
       void client
         .aiGenerate(
           workspaceRef.current.revision,
@@ -653,16 +688,14 @@ export function App({
         )
         .then(
           (result) => {
-            setAiPreview({
-              kind: 'generate',
+            updateAssistantMessage(assistantId, {
               source: result.source,
               diagnostics: result.diagnostics,
-              providerInfo: { provider: provider.id, model: provider.model },
+              pending: false,
             });
           },
           (error: unknown) => {
-            setAiPreview({
-              kind: 'generate',
+            updateAssistantMessage(assistantId, {
               diagnostics: [
                 {
                   code: 'AI_ERROR',
@@ -678,42 +711,53 @@ export function App({
                   end_column: null,
                 },
               ],
-              providerInfo: { provider: provider.id, model: provider.model },
+              pending: false,
             });
           },
         )
         .finally(() => setAiPending(false));
     },
-    [aiState.provider, aiState.status, aiPending, state.runtime],
+    [aiState.provider, aiState.status, aiPending, appendMessage, state.runtime, updateAssistantMessage],
   );
 
-  const handleAiExplain = useCallback((): void => {
-    const client = clientRef.current;
-    const provider = aiState.provider;
-    if (
-      client === null ||
-      provider === null ||
-      aiState.status !== 'ready' ||
-      state.runtime !== 'ready' ||
-      aiPending
-    ) {
-      return;
-    }
-    setAiPending(true);
-    void client
-      .aiExplain(workspaceRef.current.revision, {}, provider)
-      .then(
+  const runAiExplain = useCallback(
+    (userText: string): void => {
+      const client = clientRef.current;
+      const provider = aiState.provider;
+      if (
+        client === null ||
+        provider === null ||
+        aiState.status !== 'ready' ||
+        state.runtime !== 'ready' ||
+        aiPending
+      ) {
+        return;
+      }
+      const assistantId = generateChatMessageId();
+      appendMessage({
+        id: generateChatMessageId(),
+        role: 'user',
+        text: userText,
+      });
+      appendMessage({
+        id: assistantId,
+        role: 'assistant',
+        kind: 'explain',
+        diagnostics: [],
+        providerInfo: { provider: provider.id, model: provider.model },
+        pending: true,
+      });
+      setAiPending(true);
+      setRightTab('assistant');
+      void client.aiExplain(workspaceRef.current.revision, {}, provider).then(
         (result) => {
-          setAiPreview({
-            kind: 'explain',
+          updateAssistantMessage(assistantId, {
             explanation: result.explanation,
-            diagnostics: [],
-            providerInfo: { provider: provider.id, model: provider.model },
+            pending: false,
           });
         },
         (error: unknown) => {
-          setAiPreview({
-            kind: 'explain',
+          updateAssistantMessage(assistantId, {
             diagnostics: [
               {
                 code: 'AI_ERROR',
@@ -729,66 +773,92 @@ export function App({
                 end_column: null,
               },
             ],
-            providerInfo: { provider: provider.id, model: provider.model },
+            pending: false,
           });
         },
-      )
-      .finally(() => setAiPending(false));
-  }, [aiState.provider, aiState.status, aiPending, state.runtime]);
+      ).finally(() => setAiPending(false));
+    },
+    [aiState.provider, aiState.status, aiPending, appendMessage, state.runtime, updateAssistantMessage],
+  );
 
-  const handleAiGenerateEntity = useCallback((): void => {
-    setAiPromptOpen(true);
-    setAiPromptValue('');
-  }, []);
+  const handleChatSend = useCallback(
+    (text: string): void => {
+      runAiGenerate('generate_entity', { description: text }, text);
+    },
+    [runAiGenerate],
+  );
 
-  const handleAiPromptSubmit = useCallback((): void => {
-    setAiPromptOpen(false);
-    const description = aiPromptValue.trim();
-    if (description === '') {
-      return;
-    }
-    runAiGenerate('generate_entity', { description });
-  }, [aiPromptValue, runAiGenerate]);
+  const handleAiExplain = useCallback((): void => {
+    runAiExplain('Explain the workspace');
+  }, [runAiExplain]);
 
   const handleAiSuggestProjection = useCallback((): void => {
-    runAiGenerate('suggest_projection', {});
+    runAiGenerate('suggest_projection', {}, 'Suggest a projection');
   }, [runAiGenerate]);
 
-  const handleAiAccept = useCallback((): void => {
-    if (aiPreview === null) {
-      return;
-    }
-    const source = aiPreview.source;
-    const providerInfo = aiPreview.providerInfo;
-    setAiPreview(null);
-    if (source === undefined) {
-      return;
-    }
-    const workspace = workspaceRef.current;
-    const activePath = workspace.activeFile;
-    const updated = mutateWorkspace(workspace, {
-      type: 'update',
-      path: activePath,
-      content: source,
-    });
-    const withProvenance: PlaygroundWorkspace = {
-      ...updated,
-      metadata: {
-        ...updated.metadata,
-        lastAiAccept: {
-          provider: providerInfo.provider,
-          model: providerInfo.model,
-          timestamp: Date.now(),
-        },
-      },
-    };
-    replaceWorkspace(withProvenance, true);
-    sourceEditorRef.current?.replaceText(source);
-  }, [aiPreview, replaceWorkspace]);
+  const markLatestGenerateOutcome = useCallback(
+    (outcome: 'accepted' | 'discarded'): void => {
+      setChatMessages((messages) => {
+        for (let index = messages.length - 1; index >= 0; index -= 1) {
+          const message = messages[index];
+          if (
+            message !== undefined &&
+            isAssistantGenerateMessage(message) &&
+            message.outcome === undefined
+          ) {
+            const next = [...messages];
+            next[index] = { ...message, outcome };
+            return next;
+          }
+        }
+        return messages;
+      });
+    },
+    [],
+  );
 
-  const handleAiDiscard = useCallback((): void => {
-    setAiPreview(null);
-  }, []);
+  const handleAiAccept = useCallback(
+    (source: string): void => {
+      if (source === '') {
+        return;
+      }
+      const workspace = workspaceRef.current;
+      const activePath = workspace.activeFile;
+      const updated = mutateWorkspace(workspace, {
+        type: 'update',
+        path: activePath,
+        content: source,
+      });
+      const withProvenance: PlaygroundWorkspace = {
+        ...updated,
+        metadata: {
+          ...updated.metadata,
+          lastAiAccept: {
+            provider: aiState.provider?.id ?? 'unknown',
+            model: aiState.provider?.model ?? 'unknown',
+            timestamp: Date.now(),
+          },
+        },
+      };
+      replaceWorkspace(withProvenance, true);
+      sourceEditorRef.current?.replaceText(source);
+      markLatestGenerateOutcome('accepted');
+    },
+    [aiState.provider?.id, aiState.provider?.model, markLatestGenerateOutcome, replaceWorkspace],
+  );
+
+  const handleAiDiscard = useCallback(
+    (messageId: string): void => {
+      setChatMessages((messages) =>
+        messages.map((message) =>
+          message.role === 'assistant' && message.id === messageId
+            ? ({ ...message, outcome: 'discarded' } as ChatMessage)
+            : message,
+        ),
+      );
+    },
+    [],
+  );
 
   const retryCompiler = (): void => {
     const controller = languageControllerRef.current;
@@ -843,19 +913,32 @@ export function App({
     state.artifacts.find(
       (artifact) => artifact.path === state.selectedArtifactPath,
     ) ?? null;
-  const handleExportArtifact = useCallback((): void => {
-    if (selectedArtifact === null) {
-      return;
+
+  const handleExportArtifact = useCallback(
+    (path: string): void => {
+      const artifact = state.artifacts.find((item) => item.path === path);
+      if (artifact === undefined) {
+        return;
+      }
+      download(
+        artifact.content,
+        sanitizeDownloadName(artifact.path, extensionMap[state.compileTarget]),
+        artifact.media_type,
+      );
+    },
+    [download, state.artifacts, state.compileTarget],
+  );
+
+  const handleExportAllArtifacts = useCallback((): void => {
+    for (const artifact of state.artifacts) {
+      download(
+        artifact.content,
+        sanitizeDownloadName(artifact.path, extensionMap[state.compileTarget]),
+        artifact.media_type,
+      );
     }
-    download(
-      selectedArtifact.content,
-      sanitizeDownloadName(
-        selectedArtifact.path,
-        extensionMap[state.compileTarget],
-      ),
-      selectedArtifact.media_type,
-    );
-  }, [selectedArtifact, state.compileTarget, download]);
+  }, [download, state.artifacts, state.compileTarget]);
+
   const artifactIsStale =
     state.artifacts.length > 0 &&
     state.artifactRevision !== state.workspace.revision;
@@ -909,6 +992,10 @@ export function App({
     );
   }
 
+  const activeFileContent =
+    state.workspace.files.find((file) => file.path === state.workspace.activeFile)
+      ?.content ?? '';
+
   return (
     <main className="workbench" data-state={state.runtime} data-mobile-view={mobileView}>
       <WorkbenchHeader
@@ -924,7 +1011,6 @@ export function App({
         actionsDisabled={actionsDisabled}
         languageCanRetry={languageCanRetry}
         persistencePhase={persistentWorkspace.phase}
-        selectedArtifact={selectedArtifact}
         onExportSource={exportSource}
         onValidate={handleValidate}
         onFormat={handleFormat}
@@ -933,24 +1019,6 @@ export function App({
         onRetryLanguageServices={handleRetryLanguageServices}
         onRetryStorage={handleRetryStorage}
         onCompileTargetChange={handleCompileTargetChange}
-        onExportArtifact={handleExportArtifact}
-      />
-      <AiToolbar
-        aiState={aiState}
-        aiPending={aiPending}
-        actionsDisabled={actionsDisabled}
-        onDownload={handleAiDownload}
-        onFallback={handleAiFallback}
-        onGenerateEntity={handleAiGenerateEntity}
-        onExplain={handleAiExplain}
-        onSuggestProjection={handleAiSuggestProjection}
-      />
-      <AiPromptDialog
-        open={aiPromptOpen}
-        value={aiPromptValue}
-        onChange={setAiPromptValue}
-        onSubmit={handleAiPromptSubmit}
-        onCancel={() => setAiPromptOpen(false)}
       />
       <ViewTabs mobileView={mobileView} onChange={setMobileView} />
       <ResizableLayout
@@ -1020,29 +1088,54 @@ export function App({
                 });
               }}
             />
-            {aiPreview !== null ? (
-              <Suspense fallback={null}>
-                <AiPreviewPanel
-                  preview={aiPreview}
-                  onAccept={handleAiAccept}
-                  onDiscard={handleAiDiscard}
-                />
-              </Suspense>
-            ) : null}
           </section>
         }
         visualization={
-          <section
-            className="graph-pane"
-            aria-label="Model graph visualization"
-            data-testid="graph"
-          >
-            <GraphPanelContainer
-              clientRef={clientRef}
-              runtimeReady={state.runtime === 'ready'}
-              languageRevision={state.languageRevision}
-            />
-          </section>
+          <RightPanel
+            activeTab={rightTab}
+            onTabChange={setRightTab}
+            assistant={
+              <ChatPanel
+                messages={chatMessages}
+                activeFileContent={activeFileContent}
+                aiState={aiState}
+                actionsDisabled={actionsDisabled}
+                onSend={handleChatSend}
+                onExplain={handleAiExplain}
+                onSuggestProjection={handleAiSuggestProjection}
+                onAccept={handleAiAccept}
+                onDiscard={handleAiDiscard}
+                onDownloadModel={handleAiDownload}
+                onUseHeuristic={handleAiFallback}
+              />
+            }
+            graph={
+              <section
+                className="graph-pane"
+                aria-label="Model graph visualization"
+                data-testid="graph"
+              >
+                <GraphPanelContainer
+                  clientRef={clientRef}
+                  runtimeReady={state.runtime === 'ready'}
+                  languageRevision={state.languageRevision}
+                />
+              </section>
+            }
+            output={
+              <OutputPanel
+                artifacts={state.artifacts}
+                selectedArtifactPath={state.selectedArtifactPath}
+                isStale={artifactIsStale}
+                disabled={actionsDisabled}
+                onSelect={(path) =>
+                  dispatch({ type: 'artifactSelected', path })
+                }
+                onDownload={handleExportArtifact}
+                onDownloadAll={handleExportAllArtifacts}
+              />
+            }
+          />
         }
         bottom={
           <BottomPanel
@@ -1065,44 +1158,6 @@ export function App({
                 ) : (
                   <p>No diagnostics</p>
                 )}
-              </section>
-            }
-            artifacts={
-              <section
-                className="artifact-pane"
-                aria-label={`Generated ${state.compileTarget}`}
-                data-testid="artifacts"
-              >
-                {artifactIsStale ? (
-                  <p className="stale-label">
-                    Stale—source changed after generation
-                  </p>
-                ) : (
-                  <p className="fresh-label">
-                    {selectedArtifact === null ? 'No artifact yet' : 'Current'}
-                  </p>
-                )}
-                {state.artifacts.length > 1 ? (
-                  <label className="artifact-picker">
-                    Artifact
-                    <select
-                      value={state.selectedArtifactPath ?? ''}
-                      onChange={(event) =>
-                        dispatch({
-                          type: 'artifactSelected',
-                          path: event.target.value,
-                        })
-                      }
-                    >
-                      {state.artifacts.map((artifact) => (
-                        <option key={artifact.path} value={artifact.path}>
-                          {artifact.path}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-                <ArtifactEditor value={selectedArtifact?.content ?? ''} />
               </section>
             }
             compatibility={

@@ -35,6 +35,10 @@ function artifactOutput(page: Page) {
   return page.locator('.artifact-editor .view-lines');
 }
 
+async function openGraphTab(page: Page): Promise<void> {
+  await page.getByRole('tab', { name: 'Graph' }).click();
+}
+
 function generateButton(page: Page) {
   return page
     .getByRole('navigation', { name: 'Playground actions' })
@@ -46,9 +50,20 @@ async function createWorkspaceFile(
   path: string,
   source: string,
 ): Promise<void> {
-  await page.getByLabel('Workspace file path').fill(path);
   await page.getByRole('button', { name: 'New file' }).click();
+  await page.getByPlaceholder('file.mdl').fill(path);
+  await page.getByRole('button', { name: 'Add' }).click();
   await replaceSource(page, source);
+}
+
+function artifactList(page: Page) {
+  return page.getByRole('list', { name: 'Generated artifacts' });
+}
+
+async function selectArtifact(page: Page, name: string): Promise<void> {
+  await artifactList(page)
+    .getByRole('button', { name, exact: true })
+    .click();
 }
 
 async function seedStoredWorkspace(page: Page, value: unknown): Promise<void> {
@@ -109,8 +124,9 @@ test('initializes locally and supports the complete editor workflow', async ({
   await page.unroute(runtimeManifest);
 
   await expect(sourceOutput(page)).toContainText(/entity\s*Customer/);
-  await page.getByLabel('Workspace file path').fill('scratch.mdl');
   await page.getByRole('button', { name: 'New file' }).click();
+  await page.getByPlaceholder('file.mdl').fill('scratch.mdl');
+  await page.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByRole('button', { name: 'scratch.mdl' })).toHaveAttribute(
     'aria-current',
     'true',
@@ -138,28 +154,23 @@ test('initializes locally and supports the complete editor workflow', async ({
     .toBeGreaterThan(1);
 
   await actions[2].click();
-  await page.getByRole('button', { name: 'Generated artifacts' }).click();
-  const scratchArtifactPicker = page.getByRole('combobox', {
-    name: 'Artifact',
-  });
-  const scratchArtifact = scratchArtifactPicker
-    .locator('option')
+  await page.getByRole('tab', { name: 'Output' }).click();
+  const scratchArtifact = artifactList(page)
+    .getByRole('button')
     .filter({ hasText: 'sample.Customer' });
   await expect(scratchArtifact).toHaveCount(1);
-  await scratchArtifactPicker.selectOption(
-    (await scratchArtifact.getAttribute('value')) ?? '',
-  );
+  await selectArtifact(page, (await scratchArtifact.getAttribute('aria-label')) ?? '');
   await expect(artifactOutput(page)).toContainText(
     /"title":\s+"Customer"/,
   );
 
-  await page.getByRole('button', { name: 'Diagnostics' }).click();
+  await page.getByRole('tab', { name: 'Problems' }).click();
   await replaceSource(page, `${validCompact}\n`);
-  await page.getByRole('button', { name: 'Generated artifacts' }).click();
+  await page.getByRole('tab', { name: 'Output' }).click();
   await expect(page.getByText('No artifact yet')).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Export artifact' }),
-  ).toBeDisabled();
+    page.getByRole('button', { name: 'Download all' }),
+  ).toHaveCount(0);
 
   await page
     .getByLabel('Import workspace files')
@@ -170,16 +181,14 @@ test('initializes locally and supports the complete editor workflow', async ({
   });
   await expect(sourceOutput(page)).toContainText(/domain\s*imported/);
   await actions[2].click();
-  await page.getByRole('button', { name: 'Generated artifacts' }).click();
-  const artifactPicker = page.getByRole('combobox', {
-    name: 'Artifact',
-  });
-  const importedArtifact = artifactPicker
-    .locator('option')
+  await page.getByRole('tab', { name: 'Output' }).click();
+  const importedArtifact = artifactList(page)
+    .getByRole('button')
     .filter({ hasText: 'Imported' });
   await expect(importedArtifact).toHaveCount(1);
-  await artifactPicker.selectOption(
-    (await importedArtifact.getAttribute('value')) ?? '',
+  await selectArtifact(
+    page,
+    (await importedArtifact.getAttribute('aria-label')) ?? '',
   );
   await expect(artifactOutput(page)).toContainText(
     /"title":\s+"Imported"/,
@@ -191,7 +200,11 @@ test('initializes locally and supports the complete editor workflow', async ({
   expect(sourceDownload.suggestedFilename()).toBe('imported.mdl');
 
   const artifactDownloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export artifact' }).click();
+  const importedLabel =
+    (await importedArtifact.getAttribute('aria-label')) ?? '';
+  await page
+    .getByRole('button', { name: `Download ${importedLabel}` })
+    .click();
   const artifactDownload = await artifactDownloadPromise;
   expect(artifactDownload.suggestedFilename()).toMatch(/\.json$/);
 
@@ -456,7 +469,7 @@ test('keeps editing available when IndexedDB is unavailable', async ({
   });
   await page.goto('?test=1');
   await waitForReady(page);
-  await expect(page.getByText(/storage unavailable/i)).toBeVisible();
+  await expect(page.getByText(/memory-only/i)).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Retry storage' }),
   ).toBeVisible();
@@ -516,8 +529,9 @@ test('retains the labeled textarea fallback when EditContext is unavailable', as
   await page.keyboard.press('Enter');
   await expect(fallback).toBeFocused();
 
-  await page.getByLabel('Workspace file path').fill('scratch.mdl');
   await page.getByRole('button', { name: 'New file' }).click();
+  await page.getByPlaceholder('file.mdl').fill('scratch.mdl');
+  await page.getByRole('button', { name: 'Add' }).click();
   await replaceSource(page, validCompact);
   await page.keyboard.press('Control+Shift+Enter');
   await expect(page.getByRole('status')).toHaveText(
@@ -674,7 +688,7 @@ test('retries a failed runtime manifest request without losing editor text', asy
     await route.continue();
   });
   await page.goto('?test=1');
-  await expect(page.locator('.status[role="alert"]')).toHaveText(
+  await expect(page.locator('.badge--error[role="alert"]')).toHaveText(
     /compiler runtime initialization failed/i,
     { timeout: 45_000 },
   );
@@ -692,6 +706,7 @@ test('graph panel toolbar includes export buttons', async ({
 }) => {
   await page.goto('?test=1');
   await waitForReady(page);
+  await openGraphTab(page);
 
   const graphSection = page.getByTestId('graph');
   await expect(
@@ -709,6 +724,7 @@ test('graph panel shows projection and lineage mode tabs', async ({
 }) => {
   await page.goto('?test=1');
   await waitForReady(page);
+  await openGraphTab(page);
 
   const graphSection = page.getByTestId('graph');
   await expect(
@@ -735,6 +751,7 @@ test('graph panel shows projection and lineage mode tabs', async ({
 test('graph panel renders laid out nodes for every mode', async ({ page }) => {
   await page.goto('?test=1');
   await waitForReady(page);
+  await openGraphTab(page);
 
   const graphSection = page.getByTestId('graph');
   const toolbar = graphSection.getByRole('toolbar', { name: 'Graph mode' });
@@ -754,13 +771,15 @@ test('graph panel renders laid out nodes for every mode', async ({ page }) => {
 test('graph panel follows the source as it changes', async ({ page }) => {
   await page.goto('?test=1');
   await waitForReady(page);
+  await openGraphTab(page);
 
   const graphSection = page.getByTestId('graph');
   const nodes = graphSection.locator('.react-flow__node');
   await expect(nodes.first()).toBeVisible({ timeout: 30_000 });
 
-  await page.getByLabel('Workspace file path').fill('warehouse.mdl');
   await page.getByRole('button', { name: 'New file' }).click();
+  await page.getByPlaceholder('file.mdl').fill('warehouse.mdl');
+  await page.getByRole('button', { name: 'Add' }).click();
   await replaceSource(
     page,
     'domain warehouse { owner: "ops" entity Pallet @ 1 (additive) { @key palletId: uuid } }',
@@ -781,11 +800,10 @@ test('renders bottom panel with diagnostics, artifacts, compatibility, and gover
   const bottomPanel = page.getByTestId('bottom-panel');
   await expect(bottomPanel).toBeVisible();
 
-  const toolbar = bottomPanel.getByRole('toolbar', {
+  const toolbar = bottomPanel.getByRole('tablist', {
     name: 'Bottom panel tabs',
   });
-  await expect(toolbar.getByText('Diagnostics')).toBeVisible();
-  await expect(toolbar.getByText('Generated artifacts')).toBeVisible();
+  await expect(toolbar.getByText('Problems')).toBeVisible();
   await expect(toolbar.getByText('Compatibility')).toBeVisible();
   await expect(toolbar.getByText('Governance')).toBeVisible();
 
@@ -795,6 +813,6 @@ test('renders bottom panel with diagnostics, artifacts, compatibility, and gover
   await toolbar.getByText('Governance').click();
   await expect(page.getByTestId('analysis')).toBeVisible();
 
-  await toolbar.getByText('Diagnostics').click();
+  await toolbar.getByText('Problems').click();
   await expect(page.getByTestId('diagnostics')).toBeVisible();
 });

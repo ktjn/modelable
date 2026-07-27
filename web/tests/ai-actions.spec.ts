@@ -6,7 +6,7 @@ async function gotoWithHeuristic(page: Page): Promise<void> {
   await page.goto('?test=1&ai=heuristic');
   await waitForReady(page);
   await expect(
-    page.getByRole('button', { name: 'Generate entity' }),
+    page.getByPlaceholder('e.g. Add a creditScore field to Customer'),
   ).toBeVisible({ timeout: 5_000 });
 }
 
@@ -14,26 +14,25 @@ test('activates heuristic AI and shows action buttons', async ({ page }) => {
   await gotoWithHeuristic(page);
 
   await expect(
-    page.getByRole('button', { name: 'Generate entity' }),
+    page.getByRole('button', { name: 'Explain workspace' }),
   ).toBeEnabled();
-  await expect(page.getByRole('button', { name: 'Explain' })).toBeEnabled();
   await expect(
     page.getByRole('button', { name: 'Suggest projection' }),
   ).toBeEnabled();
+  await expect(
+    page.getByPlaceholder('e.g. Add a creditScore field to Customer'),
+  ).toBeEnabled();
 });
 
-test('generate entity opens prompt, submits, and shows preview', async ({
+test('generate entity sends a chat message and shows preview', async ({
   page,
 }) => {
   await gotoWithHeuristic(page);
 
-  await page.getByRole('button', { name: 'Generate entity' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Generate entity' });
-  await expect(dialog).toBeVisible();
-
-  await dialog.getByRole('textbox').fill('an invoice');
-  await dialog.getByRole('button', { name: 'Generate' }).click();
-  await expect(dialog).toBeHidden();
+  await page
+    .getByPlaceholder('e.g. Add a creditScore field to Customer')
+    .fill('an invoice');
+  await page.getByRole('button', { name: 'Send' }).click();
 
   await expect(page.getByText('AI generated source')).toBeVisible({
     timeout: 10_000,
@@ -47,10 +46,10 @@ test('generate entity opens prompt, submits, and shows preview', async ({
   await expect(page.getByText('heuristic / heuristic')).toBeVisible();
 });
 
-test('explain shows AI explanation preview', async ({ page }) => {
+test('explain shows AI explanation in chat', async ({ page }) => {
   await gotoWithHeuristic(page);
 
-  await page.getByRole('button', { name: 'Explain' }).click();
+  await page.getByRole('button', { name: 'Explain workspace' }).click();
   await expect(page.getByText('AI explanation')).toBeVisible({
     timeout: 10_000,
   });
@@ -65,13 +64,16 @@ test('explain shows AI explanation preview', async ({ page }) => {
 test('accept applies generated source to the editor', async ({ page }) => {
   await gotoWithHeuristic(page);
 
-  await page.getByRole('button', { name: 'Suggest projection' }).click();
+  await page
+    .getByPlaceholder('e.g. Add a creditScore field to Customer')
+    .fill('an invoice');
+  await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByText('AI generated source')).toBeVisible({
     timeout: 10_000,
   });
 
   await page.getByRole('button', { name: 'Accept' }).click();
-  await expect(page.getByText('AI generated source')).toBeHidden();
+  await expect(page.getByText('Accepted')).toBeVisible();
 });
 
 test('discard closes preview without modifying source', async ({ page }) => {
@@ -81,76 +83,38 @@ test('discard closes preview without modifying source', async ({ page }) => {
     'domain customer { owner: "team" entity Customer @ 1 (additive) { @key customerId: uuid } }';
   await replaceSource(page, source);
 
-  await page.getByRole('button', { name: 'Explain' }).click();
+  await page.getByRole('button', { name: 'Explain workspace' }).click();
   await expect(page.getByText('AI explanation')).toBeVisible({
     timeout: 10_000,
   });
 
   await page.getByRole('button', { name: 'Close' }).click();
-  await expect(page.getByText('AI explanation')).toBeHidden();
+  await expect(page.getByText('Discarded')).toBeVisible();
   await expect(sourceOutput(page)).toContainText(/domain\s*customer/);
 });
 
-test('prompt dialog cancels with Cancel button', async ({ page }) => {
-  await gotoWithHeuristic(page);
-
-  await page.getByRole('button', { name: 'Generate entity' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Generate entity' });
-  await expect(dialog).toBeVisible();
-
-  await dialog.getByRole('button', { name: 'Cancel' }).click();
-  await expect(dialog).toBeHidden();
-  await expect(page.getByText('AI generated source')).toBeHidden();
-});
-
-test('prompt dialog cancels with Escape key', async ({ page }) => {
-  await gotoWithHeuristic(page);
-
-  await page.getByRole('button', { name: 'Generate entity' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Generate entity' });
-  await expect(dialog).toBeVisible();
-
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
-});
-
-test('has no accessibility violations across AI toolbar, prompt dialog, and preview', async ({
+test('has no accessibility violations across the assistant panel', async ({
   page,
 }) => {
   test.setTimeout(90_000);
   await gotoWithHeuristic(page);
 
-  const toolbarResults = await new AxeBuilder({ page }).analyze();
-  expect(toolbarResults.violations).toEqual([]);
+  const panelResults = await new AxeBuilder({ page }).analyze();
+  expect(panelResults.violations).toEqual([]);
 
-  await page.getByRole('button', { name: 'Generate entity' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Generate entity' });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('textbox')).toBeFocused();
-
-  const dialogResults = await new AxeBuilder({ page }).analyze();
-  expect(dialogResults.violations).toEqual([]);
-
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
-
-  await page.getByRole('button', { name: 'Explain' }).click();
-  await expect(page.getByText('AI explanation')).toBeVisible({
+  await page
+    .getByPlaceholder('e.g. Add a creditScore field to Customer')
+    .fill('an invoice');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByText('AI generated source')).toBeVisible({
     timeout: 10_000,
   });
 
   const previewResults = await new AxeBuilder({ page }).analyze();
   expect(previewResults.violations).toEqual([]);
 
-  await page.getByRole('button', { name: 'Close' }).click();
-  await expect(page.getByText('AI explanation')).toBeHidden();
-
-  await page.getByRole('button', { name: 'Suggest projection' }).click();
-  await expect(page.getByText('AI generated source')).toBeVisible({
-    timeout: 10_000,
-  });
   await page.getByRole('button', { name: 'Discard' }).click();
-  await expect(page.getByText('AI generated source')).toBeHidden();
+  await expect(page.getByText('Discarded')).toBeVisible();
 });
 
 test('no CSS animations are active with prefers-reduced-motion', async ({
