@@ -8,6 +8,13 @@ from .context import (
     build_workspace_summary,
     parse_model_ref,
 )
+from .conversation_backend import (
+    ConversationBackend,
+    ConversationPreviewFile,
+    ConversationReply,
+    ReplyKind,
+)
+from .conversation_engine import ConversationEngine, ConversationOutcome
 from .conversation_planner import (
     PendingPlanRequest,
     PlanningRequestError,
@@ -22,6 +29,11 @@ __all__ = [
     "CHAT_SYSTEM_PROMPT",
     "AnthropicProvider",
     "ChatState",
+    "ConversationBackend",
+    "ConversationEngine",
+    "ConversationOutcome",
+    "ConversationPreviewFile",
+    "ConversationReply",
     "LLMProvider",
     "LLMRequest",
     "LLMResponse",
@@ -29,6 +41,7 @@ __all__ = [
     "OllamaProvider",
     "PendingPlanRequest",
     "PlanningRequestError",
+    "ReplyKind",
     "ResumableConversationPlanner",
     "UpdateChange",
     "UpdatePlan",

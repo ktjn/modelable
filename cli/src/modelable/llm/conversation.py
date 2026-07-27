@@ -3,13 +3,15 @@ from __future__ import annotations
 import re
 import unicodedata
 import uuid
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, TypeIs
 
 from modelable.compiler.workspace import load_workspace
-from modelable.diagnostics.model import Diagnostic, render_diagnostic
+from modelable.diagnostics.model import render_diagnostic
 from modelable.llm.context import build_workspace_summary
+from modelable.llm.conversation_backend import ConversationPreviewFile as ConversationPreviewFile
+from modelable.llm.conversation_backend import ConversationReply as ConversationReply
+from modelable.llm.conversation_backend import ReplyKind as ReplyKind
 from modelable.llm.conversation_plan import (
     ChangeSetPlan,
     ClarificationPlan,
@@ -26,10 +28,7 @@ from modelable.llm.conversation_planner import (
 )
 from modelable.llm.provider_types import LLMProvider
 from modelable.llm.workspace_editor import (
-    AffectedDefinition,
     AppliedChangeSet,
-    ChangedDefinition,
-    CompatibilityFinding,
     PendingChangeSet,
     WorkspaceEditError,
     WorkspaceEditor,
@@ -39,22 +38,11 @@ from modelable.llm.workspace_query import QueryResult, WorkspaceQueryService
 if TYPE_CHECKING:
     from modelable.operations.compilation import (
         AppliedCompilation,
-        CompilationFilePreview,
         CompilationService,
         PendingCompilation,
-        RegistryIdChange,
     )
     from modelable.operations.file_transaction import FileTransactionCommittedError
 
-type ReplyKind = Literal[
-    "answer",
-    "clarification",
-    "preview",
-    "applied",
-    "discarded",
-    "unsupported",
-    "error",
-]
 type PendingAction = PendingChangeSet | PendingCompilation
 
 
@@ -62,32 +50,6 @@ class ConversationCleanupError(RuntimeError):
     def __init__(self, errors: tuple[str, ...]) -> None:
         self.errors = errors
         super().__init__("Conversation cleanup failed:\n" + "\n".join(f"- {error}" for error in errors))
-
-
-@dataclass(frozen=True)
-class ConversationPreviewFile:
-    path: Path
-    existed_before: bool
-    before_text: str
-    after_text: str
-
-
-@dataclass(frozen=True)
-class ConversationReply:
-    kind: ReplyKind
-    text: str
-    change_set_id: str | None = None
-    operation_kind: Literal["source_change", "compile"] | None = None
-    focused_ref: str | None = None
-    changed: tuple[ChangedDefinition, ...] = ()
-    affected: tuple[AffectedDefinition, ...] = ()
-    compatibility: tuple[CompatibilityFinding, ...] = ()
-    diagnostics: tuple[Diagnostic, ...] = ()
-    preview_files: tuple[ConversationPreviewFile, ...] = ()
-    written_paths: tuple[Path, ...] = ()
-    compilation_files: tuple[CompilationFilePreview, ...] = ()
-    registry_id_changes: tuple[RegistryIdChange, ...] = ()
-    audit_path: Path | None = None
 
 
 class ConversationSession:
