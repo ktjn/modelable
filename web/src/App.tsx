@@ -358,6 +358,31 @@ export function App({
         return;
       }
 
+      const currentSource = sourceEditor.getSource();
+      if (currentSource !== undefined) {
+        const currentWorkspace = workspaceRef.current;
+        const activeFile = currentWorkspace.files.find(
+          (file) => file.path === currentWorkspace.activeFile,
+        );
+        if (activeFile !== undefined && activeFile.content !== currentSource.text) {
+          const syncedWorkspace = mutateWorkspace(currentWorkspace, {
+            type: 'update',
+            path: activeFile.path,
+            content: currentSource.text,
+          });
+          workspaceRef.current = syncedWorkspace;
+          persistentWorkspace.replace(syncedWorkspace);
+          dispatch({
+            type: 'workspaceMutated',
+            mutation: {
+              type: 'update',
+              path: activeFile.path,
+              content: currentSource.text,
+            },
+          });
+        }
+      }
+
       const workspace = workspaceRef.current;
       const sources = workspaceSources(workspace);
       exposeWorkspaceSourcesForTest(sources);

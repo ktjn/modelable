@@ -329,6 +329,7 @@ function SourcePreview({ source }: { source: string }) {
   return (
     <pre
       className="chat-message__source monaco-editor-background"
+      tabIndex={0}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
