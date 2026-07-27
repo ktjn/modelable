@@ -64,6 +64,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    execArgv: ['--no-experimental-webstorage'],
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: [resolve(__dirname, 'src/test-setup.ts')],
   },
