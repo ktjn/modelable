@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 19, TypeScript 7, React Flow 12, CSS custom properties, Playwright 1.61
 
-**Design Spec:** [Graph Theme CSS Design](../specs/2026-07-27-graph-theme-css-design.md)
+**Design Spec:** [Graph Theme CSS Design](../../specs/archived/2026-07-27-graph-theme-css-design.md)
 
 ## Global Constraints
 
