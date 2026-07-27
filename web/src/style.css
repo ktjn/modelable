@@ -611,6 +611,8 @@ button.view-tab--active:hover:not(:disabled) {
 .graph-panel__export-btn {
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
+}
+
 /* Graph visualization theming */
 
 .graph-panel .react-flow {
