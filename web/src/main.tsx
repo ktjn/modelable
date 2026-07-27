@@ -5,6 +5,9 @@ import { App } from './App';
 import './editor/monaco-environment';
 import { registerServiceWorker } from './sw-registration';
 import './style.css';
+import { initTheme } from './theme';
+
+initTheme();
 
 const root = document.getElementById('root');
 if (root === null) {
