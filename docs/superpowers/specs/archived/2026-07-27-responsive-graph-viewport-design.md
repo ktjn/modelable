@@ -4,7 +4,7 @@
 
 Approved for implementation on 2026-07-27.
 
-**Implementation Plan:** [Responsive Graph Viewport Implementation Plan](../plans/2026-07-27-responsive-graph-viewport.md)
+**Implementation Plan:** [Responsive Graph Viewport Implementation Plan](../../plans/archived/2026-07-27-responsive-graph-viewport.md)
 
 This specification follows the shipped
 [Playground Visualization MVP](archived/2026-07-21-playground-visualization-design.md)

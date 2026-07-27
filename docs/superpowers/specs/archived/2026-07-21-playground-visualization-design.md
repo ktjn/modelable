@@ -8,7 +8,7 @@ Execution is broken into reviewable tasks in the
 [Playground Visualization implementation plan](../../plans/archived/2026-07-21-playground-visualization.md).
 
 Responsive viewport and overlay follow-up work is defined in the
-[Responsive Graph Viewport design](../2026-07-27-responsive-graph-viewport-design.md).
+[Responsive Graph Viewport design](2026-07-27-responsive-graph-viewport-design.md).
 
 This specification defines Phase 4 of the
 [Modelable Playground Architecture](../../../playground-design.md). It builds on
