@@ -1,5 +1,7 @@
 # 2026-07-27 Graph Theme CSS Design
 
+**Implementation Plan:** [Graph Theme CSS Implementation Plan](../plans/2026-07-27-graph-theme-css.md)
+
 ## Problem
 
 The playground redesign removed the internal graph-node styles while retaining
