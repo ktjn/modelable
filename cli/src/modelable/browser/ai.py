@@ -29,9 +29,10 @@ explanation or markdown fences."""
 
 _EXPLAIN_SYSTEM = """\
 You are a domain modeling assistant. Given a Modelable workspace summary and
-an optional model reference or diagnostic, provide a clear, concise explanation
-in plain English. Focus on what the element does, why it exists, and how it
-relates to other definitions in the workspace."""
+an optional model reference or diagnostic, provide a clear, concise explanation.
+Use markdown formatting: headers for sections, bullet lists for multiple points,
+inline code for field and type names, and bold for emphasis. Focus on what the
+element does, why it exists, and how it relates to other definitions."""
 
 
 def build_generate_entity_request(

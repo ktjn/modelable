@@ -19,7 +19,9 @@
     "pyodide": "314.0.2",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "react-resizable-panels": "^4.12.2"
+    "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4.12.2",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",

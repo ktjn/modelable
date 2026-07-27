@@ -1,4 +1,4 @@
-import { lazy, useEffect, useRef, useState } from 'react';
+import { lazy, useCallback, useEffect, useRef, useState } from 'react';
 
 import { providerStatusLabel, type ProviderState } from './provider-state';
 import type {
@@ -8,6 +8,7 @@ import type {
 } from './chat-types';
 import { isAssistantGenerateMessage, isAssistantExplainMessage } from './chat-types';
 import type { BrowserDiagnostic } from '../protocol';
+import { MarkdownText } from './MarkdownText';
 
 const DiffViewer = lazy(() =>
   import('./DiffViewer').then((m) => ({ default: m.DiffViewer })),
@@ -133,7 +134,7 @@ export function ChatPanel({
           <>
             <textarea
               className="chat-composer__input"
-              rows={3}
+              rows={4}
               placeholder="e.g. Add a creditScore field to Customer"
               value={draft}
               disabled={composerDisabled}
@@ -226,6 +227,16 @@ function AssistantExplainMessageItem({
   message: AssistantExplainChatMessage;
   onDiscard(messageId: string): void;
 }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    if (message.explanation === undefined) return;
+    void navigator.clipboard.writeText(message.explanation).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [message.explanation]);
+
   return (
     <div className="chat-message chat-message--assistant">
       <h2 className="chat-message__title">AI explanation</h2>
@@ -239,11 +250,18 @@ function AssistantExplainMessageItem({
       ) : message.explanation === undefined ? (
         <p className="chat-message__pending">No explanation received</p>
       ) : (
-        <div className="chat-message__explanation">{message.explanation}</div>
+        <div className="chat-message__explanation">
+          <MarkdownText>{message.explanation}</MarkdownText>
+        </div>
       )}
       <DiagnosticsList diagnostics={message.diagnostics} />
       {!message.pending && message.outcome === undefined ? (
         <div className="chat-message__actions">
+          {message.explanation !== undefined ? (
+            <button type="button" className="chip" onClick={handleCopy}>
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          ) : null}
           <button type="button" onClick={() => onDiscard(message.id)}>
             Close
           </button>
