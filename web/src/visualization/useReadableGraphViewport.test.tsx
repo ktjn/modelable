@@ -10,11 +10,24 @@ import { useReadableGraphViewport } from './useReadableGraphViewport';
 
 const mocks = vi.hoisted(() => ({
   fitView: vi.fn(async () => true),
+  getNodesBounds: vi.fn(() => ({
+    x: 20,
+    y: 30,
+    width: 2000,
+    height: 1000,
+  })),
+  getViewport: vi.fn(() => ({ x: 0, y: 0, zoom: 0.8 })),
+  setViewport: vi.fn(async () => true),
 }));
 
 vi.mock('@xyflow/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@xyflow/react')>()),
-  useReactFlow: () => ({ fitView: mocks.fitView }),
+  useReactFlow: () => ({
+    fitView: mocks.fitView,
+    getNodesBounds: mocks.getNodesBounds,
+    getViewport: mocks.getViewport,
+    setViewport: mocks.setViewport,
+  }),
 }));
 
 let animationFrames: FrameRequestCallback[] = [];
@@ -78,6 +91,9 @@ function resizeCanvas(
 beforeEach(() => {
   vi.useFakeTimers();
   mocks.fitView.mockClear();
+  mocks.getNodesBounds.mockClear();
+  mocks.getViewport.mockClear();
+  mocks.setViewport.mockClear();
   animationFrames = [];
   resizeCallback = null;
   vi.stubGlobal(
@@ -113,9 +129,10 @@ test('fits a completed layout and refits a resized untouched canvas', async () =
   const containerRef = createRef<HTMLDivElement>();
   containerRef.current = document.createElement('div');
   setCanvasRect(containerRef.current, 700, 500);
+  const nodes = [graphNode('one')];
 
   const { result } = renderHook(() =>
-    useReadableGraphViewport(containerRef, [graphNode('one')]),
+    useReadableGraphViewport(containerRef, nodes),
   );
   await act(async () => runAnimationFrames());
 
@@ -131,13 +148,33 @@ test('fits a completed layout and refits a resized untouched canvas', async () =
   expect(result.current.showMiniMap).toBe(false);
 });
 
+test('aligns an overflowing graph to the readable leading edge', async () => {
+  const containerRef = createRef<HTMLDivElement>();
+  containerRef.current = document.createElement('div');
+  setCanvasRect(containerRef.current, 500, 400);
+  const nodes = [graphNode('one')];
+
+  renderHook(() => useReadableGraphViewport(containerRef, nodes));
+  await act(async () => {
+    runAnimationFrames();
+    await Promise.resolve();
+  });
+
+  expect(mocks.setViewport).toHaveBeenCalledWith({
+    x: 8,
+    y: 0,
+    zoom: 0.8,
+  });
+});
+
 test('does not refit resize after pointer navigation begins', async () => {
   const containerRef = createRef<HTMLDivElement>();
   containerRef.current = document.createElement('div');
   setCanvasRect(containerRef.current, 700, 500);
+  const nodes = [graphNode('one')];
 
   const { result } = renderHook(() =>
-    useReadableGraphViewport(containerRef, [graphNode('one')]),
+    useReadableGraphViewport(containerRef, nodes),
   );
   await act(async () => runAnimationFrames());
 
@@ -177,9 +214,10 @@ test('fit control restores responsive fitting after manual navigation', async ()
   const containerRef = createRef<HTMLDivElement>();
   containerRef.current = document.createElement('div');
   setCanvasRect(containerRef.current, 700, 500);
+  const nodes = [graphNode('one')];
 
   const { result } = renderHook(() =>
-    useReadableGraphViewport(containerRef, [graphNode('one')]),
+    useReadableGraphViewport(containerRef, nodes),
   );
   await act(async () => runAnimationFrames());
   act(() =>

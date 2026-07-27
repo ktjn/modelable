@@ -842,7 +842,7 @@ test('graph keeps dense modes readable and clear of navigation overlays', async 
   for (const mode of ['Entity', 'Projection'] as const) {
     await toolbar.getByRole('button', { name: mode }).click();
     await expect(nodes.first()).toBeVisible({ timeout: 30_000 });
-    await expect.poll(() => graphZoom(page)).toBeGreaterThanOrEqual(0.6);
+    await expect.poll(() => graphZoom(page)).toBeGreaterThanOrEqual(0.8);
 
     const overlays = [
       await graphSection.locator('.react-flow__controls').boundingBox(),
@@ -893,7 +893,7 @@ test('graph uses ultrawide space with compact responsive navigation', async ({
     .locator('.workbench')
     .evaluate((element) => element.getBoundingClientRect().width);
   expect(workbenchWidth).toBeGreaterThanOrEqual(2500);
-  await expect.poll(() => graphZoom(page)).toBeGreaterThanOrEqual(0.6);
+  await expect.poll(() => graphZoom(page)).toBeGreaterThanOrEqual(0.8);
 
   const controls = await graphSection
     .locator('.react-flow__controls')

@@ -15,6 +15,8 @@ import {
 import type { GraphNode } from './graph-types';
 import {
   RESIZE_FIT_DEBOUNCE_MS,
+  READABLE_FIT_MIN_ZOOM,
+  readableViewportForBounds,
   readableFitOptions,
   shouldShowMiniMap,
   type CanvasSize,
@@ -35,7 +37,7 @@ export function useReadableGraphViewport(
   containerRef: RefObject<HTMLDivElement | null>,
   nodes: GraphNode[],
 ): ReadableGraphViewport {
-  const { fitView } = useReactFlow();
+  const { fitView, getNodesBounds, getViewport, setViewport } = useReactFlow();
   const [canvasSize, setCanvasSize] = useState<CanvasSize>({
     width: 0,
     height: 0,
@@ -61,20 +63,42 @@ export function useReadableGraphViewport(
     [nodes.length],
   );
 
-  const fitReadableView = useCallback(() => {
+  const alignReadableView = useCallback(async () => {
     const bounds = containerRef.current?.getBoundingClientRect();
-    const options =
-      bounds === undefined
-        ? fitViewOptionsRef.current
-        : optionsForSize({ width: bounds.width, height: bounds.height });
+    if (bounds === undefined || nodes.length === 0) return;
+    const viewport = getViewport();
+    if (viewport.zoom > READABLE_FIT_MIN_ZOOM + 0.001) return;
+    const canvas = { width: bounds.width, height: bounds.height };
+    const graphBounds = getNodesBounds(nodes);
+    await setViewport(
+      readableViewportForBounds(
+        graphBounds,
+        canvas,
+        viewport.zoom,
+        shouldShowMiniMap(canvas, nodes.length),
+      ),
+    );
+  }, [
+    containerRef,
+    getNodesBounds,
+    getViewport,
+    nodes,
+    setViewport,
+  ]);
+
+  const fitReadableView = useCallback(async () => {
+    const bounds = containerRef.current?.getBoundingClientRect();
+    let options = fitViewOptionsRef.current;
     if (bounds !== undefined) {
-      previousSizeRef.current = {
-        width: bounds.width,
-        height: bounds.height,
-      };
+      const size = { width: bounds.width, height: bounds.height };
+      options = optionsForSize(size);
+      previousSizeRef.current = size;
     }
-    void fitView(options);
-  }, [containerRef, fitView, optionsForSize]);
+    const fitted = await fitView(options);
+    if (fitted) {
+      await alignReadableView();
+    }
+  }, [alignReadableView, containerRef, fitView, optionsForSize]);
 
   useEffect(() => {
     if (nodes.length === 0) return;
@@ -112,7 +136,7 @@ export function useReadableGraphViewport(
       }
       resizeTimerRef.current = setTimeout(() => {
         resizeTimerRef.current = null;
-        void fitView(fitViewOptionsRef.current);
+        void fitReadableView();
       }, RESIZE_FIT_DEBOUNCE_MS);
     });
     observer.observe(container);
@@ -124,7 +148,7 @@ export function useReadableGraphViewport(
         resizeTimerRef.current = null;
       }
     };
-  }, [containerRef, fitView, nodes.length, optionsForSize]);
+  }, [containerRef, fitReadableView, nodes.length, optionsForSize]);
 
   const onMoveStart = useCallback<OnMoveStart>((event) => {
     if (event !== null) {
@@ -134,7 +158,10 @@ export function useReadableGraphViewport(
 
   const onFitView = useCallback(() => {
     userNavigatedRef.current = false;
-  }, []);
+    requestAnimationFrame(() => {
+      void alignReadableView();
+    });
+  }, [alignReadableView]);
 
   return { fitViewOptions, showMiniMap, onMoveStart, onFitView };
 }

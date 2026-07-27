@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   })),
   viewport: {
     fitViewOptions: {
-      minZoom: 0.6,
+      minZoom: 0.8,
       maxZoom: 1,
       padding: 0.1,
     },
@@ -137,9 +137,9 @@ test('shares readable fit options with React Flow and its fit control', () => {
   );
   expect(
     screen.getByTestId('react-flow').getAttribute('data-fit-min-zoom'),
-  ).toBe('0.6');
+  ).toBe('0.8');
   expect(screen.getByTestId('controls').getAttribute('data-fit-min-zoom')).toBe(
-    '0.6',
+    '0.8',
   );
 });
 

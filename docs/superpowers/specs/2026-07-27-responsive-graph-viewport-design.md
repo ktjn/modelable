@@ -71,9 +71,13 @@ normal nodes beyond their authored size.
 - Entity and Projection modes should stop shrinking at the readability floor.
   Content outside the canvas remains reachable through pan and zoom.
 - The readability floor should be chosen from rendered screenshot evidence,
-  not from the current React Flow component minimum of 0.1. The implementation
-  target is approximately 0.55–0.65, with the exact value finalized during
-  visual verification.
+  not from the current React Flow component minimum of 0.1. Visual verification
+  selects 0.8: at 0.6 the labels remained too small on both constrained and
+  ultrawide canvases.
+- When the readability floor prevents a whole-graph fit, center graph
+  dimensions that fit and align overflowing dimensions to their leading
+  canvas padding. This opens on a coherent subtree instead of an arbitrary
+  centered slice.
 - Fit padding must reserve space for any visible controls and MiniMap so the
   initial composition does not place nodes underneath them.
 

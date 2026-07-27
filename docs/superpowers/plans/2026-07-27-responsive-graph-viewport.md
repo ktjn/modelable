@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Automatic fitting must not reduce graph zoom below `0.6`.
+- Automatic fitting must not reduce graph zoom below `0.8`.
 - Automatic fitting must not enlarge normal graph nodes above `1`.
 - Deliberate user zoom may still reach the existing interactive minimum of `0.1`.
 - Domain and Lineage show the complete graph when it fits at the readable scale; Entity and Projection prefer readable nodes with panning.
@@ -52,11 +52,11 @@ import {
 
 describe('readableFitOptions', () => {
   test('keeps automatic fitting readable without restricting deliberate overview zoom', () => {
-    expect(READABLE_FIT_MIN_ZOOM).toBe(0.6);
+    expect(READABLE_FIT_MIN_ZOOM).toBe(0.8);
     expect(INTERACTIVE_MIN_ZOOM).toBe(0.1);
     expect(AUTO_FIT_MAX_ZOOM).toBe(1);
     expect(readableFitOptions(false)).toMatchObject({
-      minZoom: 0.6,
+      minZoom: 0.8,
       maxZoom: 1,
     });
   });
@@ -89,7 +89,7 @@ Expected: FAIL because `graph-viewport.ts` does not exist.
 ```ts
 import type { FitViewOptions } from '@xyflow/react';
 
-export const READABLE_FIT_MIN_ZOOM = 0.6;
+export const READABLE_FIT_MIN_ZOOM = 0.8;
 export const AUTO_FIT_MAX_ZOOM = 1;
 export const INTERACTIVE_MIN_ZOOM = 0.1;
 export const RESIZE_FIT_DEBOUNCE_MS = 160;
@@ -482,11 +482,11 @@ test('shares readable fit options with React Flow and its fit control', () => {
   expect(screen.getByTestId('react-flow')).toHaveAttribute('data-min-zoom', '0.1');
   expect(screen.getByTestId('react-flow')).toHaveAttribute(
     'data-fit-min-zoom',
-    '0.6',
+    '0.8',
   );
   expect(screen.getByTestId('controls')).toHaveAttribute(
     'data-fit-min-zoom',
-    '0.6',
+    '0.8',
   );
 });
 
@@ -669,7 +669,7 @@ function rectanglesOverlap(
 ```
 
 Add a test that opens Entity and Projection modes at 1280×720, waits for each
-layout, and asserts `await graphZoom(page) >= 0.6`. Collect visible node,
+layout, and asserts `await graphZoom(page) >= 0.8`. Collect visible node,
 controls, and optional MiniMap bounding boxes and assert no initial
 intersection.
 
@@ -686,7 +686,7 @@ expect(workbenchWidth).toBeGreaterThanOrEqual(2500);
 
 Record canvas width and visible node count, widen the visualization panel by
 dragging its left separator, and assert the canvas grows. Verify the graph
-still starts at or above `0.6`.
+still starts at or above `0.8`.
 
 At a graph canvas narrower than `640px`, assert the MiniMap is absent. On a
 roomy dense canvas, assert it is present and no larger than `144px` by `104px`.
@@ -700,7 +700,7 @@ cd web
 npx playwright test tests/playground.spec.ts --project=chromium --grep "graph.*readable|ultrawide|responsive minimap"
 ```
 
-Expected: FAIL because Entity and Projection start below `0.6`, the workbench
+Expected: FAIL because Entity and Projection start below `0.8`, the workbench
 is capped at 1920px, and the default MiniMap is 202px by 152px.
 
 - [ ] **Step 4: Implement the responsive graph CSS**
