@@ -5,15 +5,16 @@ import {
   Background,
   BackgroundVariant,
   ReactFlowProvider,
-  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { useEffect } from 'react';
+import { useRef } from 'react';
 
 import type { BrowserGraphResult, BrowserGraphMode } from '../protocol';
+import { INTERACTIVE_MIN_ZOOM } from './graph-viewport';
 import type { GraphNode } from './graph-types';
 import { useGraphExport } from './useGraphExport';
 import { useGraphLayout } from './useGraphLayout';
+import { useReadableGraphViewport } from './useReadableGraphViewport';
 import { useGraphSync } from './useGraphSync';
 import { edgeTypes, nodeTypes } from './registry';
 
@@ -36,10 +37,13 @@ function GraphPanelInner({
   cursorLine = null,
   onRevealRange,
 }: GraphPanelProps) {
-  const { containerRef, exportSvg, exportPng } = useGraphExport();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { exportSvg, exportPng } = useGraphExport(containerRef);
   const { nodes, edges, loading, error: layoutError } = useGraphLayout(
     graphResult,
   );
+  const { fitViewOptions, showMiniMap, onMoveStart, onFitView } =
+    useReadableGraphViewport(containerRef, nodes);
   const failure = error ?? layoutError;
   const { selectedNodeId, onNodeClick } = useGraphSync(
     nodes,
@@ -55,63 +59,46 @@ function GraphPanelInner({
       }))
     : nodes;
 
-  // Nodes arrive after the first render, so the `fitView` prop alone only ever
-  // fits an empty canvas. Refit once each new layout has been painted.
-  const { fitView } = useReactFlow();
-  useEffect(() => {
-    if (nodes.length === 0) return;
-    const frame = requestAnimationFrame(() => {
-      void fitView();
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [fitView, nodes]);
-
   return (
     <div className="graph-panel" role="region" aria-label="Model graph">
       <div className="tab-strip" role="toolbar" aria-label="Graph mode">
-        <button
-          className={`tab${mode === 'domain' ? ' tab--active' : ''}`}
-          onClick={() => onModeChange('domain')}
-          aria-pressed={mode === 'domain'}
-        >
-          Domain
-        </button>
-        <button
-          className={`tab${mode === 'entity' ? ' tab--active' : ''}`}
-          onClick={() => onModeChange('entity')}
-          aria-pressed={mode === 'entity'}
-        >
-          Entity
-        </button>
-        <button
-          className={`tab${mode === 'projection' ? ' tab--active' : ''}`}
-          onClick={() => onModeChange('projection')}
-          aria-pressed={mode === 'projection'}
-        >
-          Projection
-        </button>
-        <button
-          className={`tab${mode === 'lineage' ? ' tab--active' : ''}`}
-          onClick={() => onModeChange('lineage')}
-          aria-pressed={mode === 'lineage'}
-        >
-          Lineage
-        </button>
-        <span className="graph-panel__toolbar-spacer" />
-        <button
-          className="graph-panel__export-btn"
-          onClick={exportSvg}
-          disabled={nodes.length === 0}
-        >
-          Export SVG
-        </button>
-        <button
-          className="graph-panel__export-btn"
-          onClick={exportPng}
-          disabled={nodes.length === 0}
-        >
-          Export PNG
-        </button>
+        <div className="graph-panel__modes">
+          {(
+            [
+              ['domain', 'Domain'],
+              ['entity', 'Entity'],
+              ['projection', 'Projection'],
+              ['lineage', 'Lineage'],
+            ] as const
+          ).map(([candidate, label]) => (
+            <button
+              key={candidate}
+              className={`tab${mode === candidate ? ' tab--active' : ''}`}
+              onClick={() => onModeChange(candidate)}
+              aria-pressed={mode === candidate}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="graph-panel__exports">
+          <button
+            className="graph-panel__export-btn"
+            onClick={exportSvg}
+            disabled={nodes.length === 0}
+            aria-label="Export SVG"
+          >
+            <span className="graph-panel__export-prefix">Export </span>SVG
+          </button>
+          <button
+            className="graph-panel__export-btn"
+            onClick={exportPng}
+            disabled={nodes.length === 0}
+            aria-label="Export PNG"
+          >
+            <span className="graph-panel__export-prefix">Export </span>PNG
+          </button>
+        </div>
       </div>
       <div className="graph-panel__canvas" ref={containerRef}>
         {failure !== null && (
@@ -138,13 +125,25 @@ function GraphPanelInner({
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodeClick={(_event, node) => onNodeClick(node as GraphNode)}
+          onMoveStart={onMoveStart}
           fitView
-          minZoom={0.1}
+          fitViewOptions={fitViewOptions}
+          minZoom={INTERACTIVE_MIN_ZOOM}
           maxZoom={2}
           proOptions={{ hideAttribution: true }}
         >
-          <Controls />
-          <MiniMap aria-hidden="true" />
+          <Controls
+            orientation="horizontal"
+            fitViewOptions={fitViewOptions}
+            onFitView={onFitView}
+          />
+          {showMiniMap ? (
+            <MiniMap
+              aria-hidden="true"
+              className="graph-panel__minimap"
+              style={{ width: 144, height: 104 }}
+            />
+          ) : null}
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
         </ReactFlow>
       </div>

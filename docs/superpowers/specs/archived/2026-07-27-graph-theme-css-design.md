@@ -2,6 +2,8 @@
 
 **Implementation Plan:** [Graph Theme CSS Implementation Plan](../../plans/archived/2026-07-27-graph-theme-css.md)
 
+**Follow-up:** [Responsive Graph Viewport Design](../2026-07-27-responsive-graph-viewport-design.md)
+
 ## Problem
 
 The playground redesign removed the internal graph-node styles while retaining
