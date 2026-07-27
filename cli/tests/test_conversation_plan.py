@@ -14,6 +14,7 @@ from modelable.llm.conversation_plan import (
     CreateModel,
     ImplementedTarget,
     QueryPlan,
+    conversation_plan_json_schema,
     parse_conversation_plan,
 )
 from modelable.llm.conversation_planner import (
@@ -99,6 +100,37 @@ def test_resumable_planner_requests_one_bounded_repair() -> None:
     assert repair.request_id == "repair"
     assert repair.attempt == 1
     assert "validation error" in repair.request.user.lower()
+
+
+def test_resumable_planner_repairs_compile_plan_for_source_mutation() -> None:
+    planner = ResumableConversationPlanner(id_factory=iter(("initial", "repair")).__next__)
+    pending = planner.begin("Create a billing projection from customer.Customer@1", planner_context())
+    assert isinstance(pending, PendingPlanRequest)
+
+    repair = planner.resume(
+        pending.request_id,
+        json.dumps(
+            {
+                "kind": "compile",
+                "target": "protobuf",
+                "domains": ["customer"],
+                "output": None,
+                "descriptor_set": False,
+                "summary": "Create a projection",
+            }
+        ),
+    )
+
+    assert isinstance(repair, PendingPlanRequest)
+    assert "source mutation" in repair.request.user.lower()
+
+
+def test_offline_planner_clarifies_ungrounded_projection_creation() -> None:
+    planner = ResumableConversationPlanner()
+
+    plan = planner.begin("Create a projection", planner_context())
+
+    assert plan.kind == "clarification"
 
 
 def test_resumable_planner_rejects_unknown_duplicate_and_late_request_ids() -> None:
@@ -674,6 +706,17 @@ def test_conversation_request_exposes_only_closed_typed_plan_schema() -> None:
 
     assert_closed_objects(request.schema)
     assert json.dumps(request.schema, sort_keys=True) in request.system
+
+
+def test_conversation_schema_requires_every_kind_discriminator() -> None:
+    schema = conversation_plan_json_schema()
+    definitions = schema["$defs"]
+
+    for name, definition in definitions.items():
+        properties = definition.get("properties", {})
+        kind = properties.get("kind")
+        if isinstance(kind, dict) and "const" in kind:
+            assert "kind" in definition.get("required", []), name
 
 
 def test_conversation_system_prompt_states_safety_and_ambiguity_rules() -> None:

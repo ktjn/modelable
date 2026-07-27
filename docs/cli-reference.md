@@ -1333,6 +1333,12 @@ Provider resolution is identical to `modelable chat`: workspace and environment
 configuration remain Python-owned. The extension does not parse, validate, or
 write `.mdl` files and does not apply a VS Code `WorkspaceEdit`.
 
+The CLI, VS Code participant, and browser playground share this typed Python
+planner and lifecycle engine. Their interfaces differ, but grounded queries,
+clarification, preview, refinement, Apply, Discard, and reset use the same
+closed plan vocabulary. Provider output contains typed operations rather than
+raw Modelable source; Python renders and validates the canonical source.
+
 **Defined in:** section 12.
 
 ### 10.6 `registry` — Federated registry management

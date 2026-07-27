@@ -580,8 +580,8 @@ Responsibilities:
 - Download model assets after explicit user action.
 - Report download and initialization progress.
 - Execute prompts locally.
-- Stream tokens to the UI where useful.
-- Return normalized responses to the compiler workflow.
+- Return schema-constrained typed plans to the compiler workflow.
+- Keep model inference and chat history local to the current page session.
 
 ## 12.2 Provider abstraction
 
@@ -611,12 +611,14 @@ interface LlmProvider {
 }
 ```
 
-Potential providers:
+Implemented providers:
 
 - `WebGpuProvider` using WebLLM.
-- `OllamaProvider` calling a user-controlled local Ollama endpoint.
-- `RemoteByokProvider` using a user-supplied key where browser CORS policies permit.
-- `HeuristicProvider` for deterministic non-LLM behavior.
+- `SimulatorProvider` for deterministic semantic tests and local fallback.
+
+The playground does not expose Ollama or a remote provider. Maintainers can use
+a developer-controlled Ollama server for opt-in conformance testing of the
+shared Python planner.
 
 ## 12.3 Python integration
 
@@ -628,10 +630,12 @@ Preferred workflow:
 2. Compiler worker returns the request to TypeScript.
 3. TypeScript invokes the selected provider.
 4. TypeScript returns the response to the compiler worker.
-5. Python validates and applies the generated content.
-6. The UI shows a diff before modifying the workspace.
+5. Python validates the typed plan and renders canonical Modelable source.
+6. The UI shows the exact source or artifact preview before explicit Apply.
 
-AI-generated changes must never bypass parser and validator checks.
+WebLLM receives the complete JSON schema through `response_format`. Provider
+responses remain untrusted and must pass independent Python validation. Models
+never return raw `.mdl` source for application.
 
 ## 12.4 AI interaction design
 
@@ -1050,7 +1054,7 @@ median graph operations. The completed design is archived in
 
 - Plugin contracts.
 - Additional visualization modes.
-- Optional local Ollama provider.
+- Additional opt-in provider conformance suites.
 - Optional GitHub integration using explicit user authorization.
 
 ## 25. Architectural decisions

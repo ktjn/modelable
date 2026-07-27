@@ -153,10 +153,23 @@ staging. Also verify that:
   prompt, response, source/artifact content, credentials, tokens, environment
   values, or unrelated paths.
 
-Keep conversational planning local-only. Registry synchronization, publishing,
-external services, WebLLM, and the VS Code native-model adapter require
-separate accepted designs. Preview text over 2 MiB must continue to fail with
-guidance to use direct `modelable compile`.
+Keep conversational planning local-only. CLI, VS Code, and the playground use
+the same typed Python conversation engine with filesystem and in-memory
+adapters. Browser tests use the semantic simulator; real-model checks are
+opt-in:
+
+```text
+cd cli
+$env:MODELABLE_OLLAMA_TESTS='1'
+$env:MODELABLE_OLLAMA_MODEL='qwen2.5-coder:14b'
+uv run pytest tests/test_ollama_conversation_conformance.py -v -n 0
+```
+
+The suite uses `MODELABLE_LLM_BASE_URL` or `http://127.0.0.1:11434`, never
+downloads models, and does not make Ollama a playground provider. Registry
+synchronization, publishing, and external actions remain outside the
+conversation plan vocabulary. Preview text over 2 MiB must continue to fail
+with guidance to use direct `modelable compile`.
 
 For release pipeline or packaging metadata changes, also run:
 

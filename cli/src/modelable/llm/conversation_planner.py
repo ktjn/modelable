@@ -36,6 +36,14 @@ Ask for clarification instead of assuming ambiguous ownership, identity fields,
 whether an address is inline or a reusable address model, or a projection source.
 For changes to an existing contract, default to append-version operations and target
 the appended version; do not rewrite a published version in place.
+Use ChangeSetPlan, never CompilePlan, when the user asks to create or change Modelable
+models, projections, fields, indexes, or annotations. CompilePlan is only for generating
+artifacts from an already-defined workspace.
+Examples:
+{"kind":"change_set","summary":"Create billing.Invoice@1","operations":[{"kind":"create_model","domain":"billing","name":"Invoice","model_kind":"entity","fields":[{"name":"invoiceId","type":{"kind":"uuid"},"annotations":[{"kind":"key"}]}]}]}
+{"kind":"change_set","summary":"Create billing.CustomerProjection@1","operations":[{"kind":"create_projection","domain":"billing","name":"CustomerProjection","source":{"model":"customer.Customer","version":1,"alias":"customer"},"fields":[{"name":"customerId","mapping":{"kind":"direct","source_alias":"customer","source_field":"customerId"}}]}]}
+{"kind":"change_set","summary":"Add email in customer.Customer@2","operations":[{"kind":"append_model_version","source":"customer.Customer@1","version":2},{"kind":"add_field","target":"customer.Customer@2","field":{"name":"email","type":{"kind":"string"},"optional":true}}]}
+{"kind":"clarification","question":"Which source model and consumer domain should I use?","reason":"A projection requires a grounded source and consumer."}
 CompilePlan permits only a target, domain filters, a normalized local relative output,
 the descriptor flag, and a summary. Examples:
 {"kind":"compile","target":"rust","domains":[],"output":null,"descriptor_set":false,"summary":"Compile the workspace to Rust."}
@@ -109,7 +117,9 @@ class ResumableConversationPlanner:
     def resume(self, request_id: str, content: str) -> ConversationPlan | PendingPlanRequest:
         state = self._consume(request_id)
         try:
-            return parse_conversation_plan(content)
+            plan = parse_conversation_plan(content)
+            _validate_plan_intent(state.message, plan)
+            return plan
         except Exception as error:
             if state.attempt >= self.repair_attempts:
                 return UnsupportedPlan(
@@ -211,12 +221,21 @@ class ConversationPlanner:
             )
 
         lower = stripped.lower()
+        if re.search(r"\b(?:create|suggest|propose|draft)\b.*\bprojection\b", lower) and (
+            lower == "create a projection" or "not chosen" in lower or "unspecified" in lower
+        ):
+            return ClarificationPlan(
+                question="Which source model and consumer domain should I use?",
+                reason="A projection requires a grounded source model and consumer domain.",
+            )
         if any(operation in lower for operation in ("compile", "sync", "publish", "deploy", "external")):
             return ConversationPlanner._operational_unsupported(message)
         if re.search(
             r"\b(?:add|create|change|rename|remove|delete|set|update|replace|make)\b",
             lower,
         ):
+            return ConversationPlanner._provider_required(message)
+        if re.search(r"\b(?:suggest|propose|draft)\b.*\bprojection\b", lower):
             return ConversationPlanner._provider_required(message)
 
         refs = _extract_refs(stripped)
@@ -400,3 +419,14 @@ _REF_RE = re.compile(r"\b[A-Za-z_][A-Za-z0-9_-]*\.[A-Za-z_][A-Za-z0-9_-]*@\d+\b"
 
 def _extract_refs(message: str) -> list[str]:
     return _REF_RE.findall(message)
+
+
+def _validate_plan_intent(message: str, plan: ConversationPlan) -> None:
+    if isinstance(plan, CompilePlan) and re.search(
+        r"\b(?:add|create|change|rename|remove|delete|set|update|replace|make|suggest|propose|draft)\b",
+        message,
+        flags=re.IGNORECASE,
+    ):
+        raise ValueError(
+            "A source mutation request requires a change_set or clarification plan; compile only generates artifacts"
+        )

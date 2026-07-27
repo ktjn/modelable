@@ -380,6 +380,7 @@ def parse_conversation_plan(text: str) -> ConversationPlan:
 def conversation_plan_json_schema() -> dict[str, object]:
     schema = _CONVERSATION_PLAN_ADAPTER.json_schema()
     _close_object_schemas(schema)
+    _require_discriminators(schema)
     return schema
 
 
@@ -392,3 +393,19 @@ def _close_object_schemas(node: object) -> None:
     elif isinstance(node, list):
         for value in node:
             _close_object_schemas(value)
+
+
+def _require_discriminators(node: object) -> None:
+    if isinstance(node, dict):
+        properties = node.get("properties")
+        if isinstance(properties, dict):
+            kind = properties.get("kind")
+            if isinstance(kind, dict) and "const" in kind:
+                required = node.setdefault("required", [])
+                if isinstance(required, list) and "kind" not in required:
+                    required.insert(0, "kind")
+        for value in node.values():
+            _require_discriminators(value)
+    elif isinstance(node, list):
+        for value in node:
+            _require_discriminators(value)

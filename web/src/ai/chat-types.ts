@@ -1,4 +1,8 @@
-import type { BrowserDiagnostic } from '../protocol';
+import type {
+  BrowserConversationCompilationFile,
+  BrowserConversationPreviewFile,
+  BrowserDiagnostic,
+} from '../protocol';
 
 export interface ChatProviderInfo {
   provider: string;
@@ -19,6 +23,9 @@ export interface AssistantGenerateChatMessage {
   diagnostics: BrowserDiagnostic[];
   providerInfo: ChatProviderInfo;
   pending: boolean;
+  actionId?: string;
+  previewFiles?: BrowserConversationPreviewFile[];
+  compilationFiles?: BrowserConversationCompilationFile[];
   outcome?: 'accepted' | 'discarded';
 }
 

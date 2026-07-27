@@ -230,6 +230,19 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
             version: file?.version ?? 1,
           };
         },
+        getPosition() {
+          const sourceEditor = editorRef.current;
+          const position = sourceEditor?.getPosition();
+          const model = sourceEditor?.getModel();
+          if (position === null || position === undefined || model === null || model === undefined) {
+            return null;
+          }
+          return {
+            uri: model.uri.toString(),
+            line: position.lineNumber - 1,
+            character: position.column - 1,
+          };
+        },
         applyFormattedText(pathOrText: string, formattedText?: string) {
           const path =
             formattedText === undefined ? activePathRef.current : pathOrText;

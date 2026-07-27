@@ -46,6 +46,11 @@ model, and projection questions work without a model provider. Creating or
 updating definitions requires the provider configured for the workspace or
 CLI environment; the extension adds no separate provider setting.
 
+The participant uses the same Python conversation engine as the CLI and browser
+playground. VS Code remains an interface adapter for workspace selection,
+native rendering, diffs, and follow-up actions; planning, validation, canonical
+source rendering, history, and pending-action identity remain Python-owned.
+
 Modelable selects the workspace containing the active `.mdl` editor. If there
 is no active model editor, exactly one open folder containing `workspace.mdl`
 must be available. Multiple candidates are ambiguous, and the participant asks

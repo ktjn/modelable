@@ -1,4 +1,5 @@
 from modelable.browser.api import BrowserCompiler
+from modelable.browser.conversation import BrowserConversationReply, BrowserConversationService
 from modelable.browser.dispatch import dispatch_browser_request
 from modelable.browser.dto import (
     BrowserArtifact,
@@ -17,6 +18,8 @@ __all__ = [
     "BrowserCompileResult",
     "BrowserCompiler",
     "BrowserCompletionResult",
+    "BrowserConversationReply",
+    "BrowserConversationService",
     "BrowserDiagnostic",
     "BrowserFormatResult",
     "BrowserHoverResult",

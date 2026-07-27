@@ -153,6 +153,13 @@ vi.mock('./editor/SourceEditor', async () => {
             version: file?.version ?? 1,
           };
         },
+        getPosition() {
+          return {
+            uri: `file:///${propsRef.current.activeFile}`,
+            line: 0,
+            character: 0,
+          };
+        },
         applyFormattedText(path: string, text: string) {
           sourceEditorSpies.applyFormattedText(path, text);
           propsRef.current.onContentChange(path, text);
@@ -301,8 +308,10 @@ class FakeCompilerClient {
       findings: [],
     }),
   );
-  readonly aiGenerate = vi.fn();
-  readonly aiExplain = vi.fn();
+  readonly conversationTurn = vi.fn();
+  readonly conversationApply = vi.fn();
+  readonly conversationDiscard = vi.fn();
+  readonly conversationReset = vi.fn();
   readonly dispose = vi.fn();
 }
 
@@ -1444,7 +1453,7 @@ describe('App', () => {
     await initialize(client);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Use heuristic AI' }),
+      screen.getByRole('button', { name: 'Use simulator' }),
     );
     await waitFor(() => {
       expect(
@@ -1459,17 +1468,31 @@ describe('App', () => {
     ).toBeTruthy();
   });
 
-  test('generate entity sends a chat message and calls aiGenerate', async () => {
+  test('free-form chat uses the shared conversation engine', async () => {
     const client = new FakeCompilerClient();
-    client.aiGenerate.mockResolvedValue({
-      source: 'entity Order {\n  v1 {}\n}\n',
-      diagnostics: [],
+    client.conversationTurn.mockResolvedValue({
+      reply: {
+        kind: 'preview',
+        text: 'Previewed Order',
+        change_set_id: 'change-1',
+        operation_kind: 'source_change',
+        focused_ref: null,
+        preview_files: [{
+          path: 'customer.mdl',
+          existed_before: true,
+          before_text: '',
+          after_text: 'entity Order {\n  v1 {}\n}\n',
+        }],
+        compilation_files: [],
+      },
+      workspace_revision: 1,
+      sources: [],
     });
     render(<App createClient={() => client} />);
     await initialize(client);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Use heuristic AI' }),
+      screen.getByRole('button', { name: 'Use simulator' }),
     );
     await waitFor(() => {
       expect(
@@ -1484,12 +1507,11 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
 
     await waitFor(() => {
-      expect(client.aiGenerate).toHaveBeenCalledTimes(1);
+      expect(client.conversationTurn).toHaveBeenCalledTimes(1);
     });
-    expect(client.aiGenerate.mock.calls[0]?.[1]).toBe('generate_entity');
-    expect(client.aiGenerate.mock.calls[0]?.[2]).toEqual({
-      description: 'Order for e-commerce',
-    });
+    expect(client.conversationTurn.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ message: 'Order for e-commerce' }),
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Order for e-commerce')).toBeTruthy();
@@ -1497,16 +1519,26 @@ describe('App', () => {
     });
   });
 
-  test('explain calls aiExplain and shows explanation in chat', async () => {
+  test('explain uses the shared conversation engine', async () => {
     const client = new FakeCompilerClient();
-    client.aiExplain.mockResolvedValue({
-      explanation: 'This model defines a Customer entity.',
+    client.conversationTurn.mockResolvedValue({
+      reply: {
+        kind: 'answer',
+        text: 'This model defines a Customer entity.',
+        change_set_id: null,
+        operation_kind: null,
+        focused_ref: null,
+        preview_files: [],
+        compilation_files: [],
+      },
+      workspace_revision: 1,
+      sources: [],
     });
     render(<App createClient={() => client} />);
     await initialize(client);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Use heuristic AI' }),
+      screen.getByRole('button', { name: 'Use simulator' }),
     );
     await waitFor(() => {
       expect(
@@ -1517,7 +1549,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Explain workspace' }));
 
     await waitFor(() => {
-      expect(client.aiExplain).toHaveBeenCalledTimes(1);
+      expect(client.conversationTurn).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
       expect(
@@ -1528,15 +1560,43 @@ describe('App', () => {
 
   test('accept applies generated source to workspace', async () => {
     const client = new FakeCompilerClient();
-    client.aiGenerate.mockResolvedValue({
-      source: 'domain commerce {\n  entity Order {\n    v1 {}\n  }\n}\n',
-      diagnostics: [],
+    const generated = 'domain commerce {\n  entity Order {\n    v1 {}\n  }\n}\n';
+    client.conversationTurn.mockResolvedValue({
+      reply: {
+        kind: 'preview',
+        text: 'Previewed Order',
+        change_set_id: 'change-1',
+        operation_kind: 'source_change',
+        focused_ref: null,
+        preview_files: [{
+          path: 'customer.mdl',
+          existed_before: true,
+          before_text: '',
+          after_text: generated,
+        }],
+        compilation_files: [],
+      },
+      workspace_revision: 1,
+      sources: [],
+    });
+    client.conversationApply.mockResolvedValue({
+      reply: {
+        kind: 'applied',
+        text: 'Applied',
+        change_set_id: 'change-1',
+        operation_kind: 'source_change',
+        focused_ref: null,
+        preview_files: [],
+        compilation_files: [],
+      },
+      workspace_revision: 2,
+      sources: [{ uri: 'file:///customer.mdl', text: generated, version: 2 }],
     });
     render(<App createClient={() => client} />);
     await initialize(client);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Use heuristic AI' }),
+      screen.getByRole('button', { name: 'Use simulator' }),
     );
     await waitFor(() => {
       expect(
@@ -1560,16 +1620,167 @@ describe('App', () => {
     expect(editor.value).toContain('entity Order');
   });
 
+  test('failed conversation apply preserves the workspace and preview', async () => {
+    const client = new FakeCompilerClient();
+    const generated = 'domain commerce { entity Order @ 1 (additive) {} }';
+    client.conversationTurn.mockResolvedValue({
+      reply: {
+        kind: 'preview',
+        text: 'Previewed Order',
+        change_set_id: 'change-1',
+        operation_kind: 'source_change',
+        focused_ref: null,
+        preview_files: [{
+          path: 'customer.mdl',
+          existed_before: true,
+          before_text: '',
+          after_text: generated,
+        }],
+        compilation_files: [],
+      },
+      workspace_revision: 1,
+      sources: [],
+    });
+    client.conversationApply.mockResolvedValue({
+      reply: {
+        kind: 'error',
+        text: 'The workspace changed after preview.',
+        change_set_id: 'change-1',
+        operation_kind: 'source_change',
+        focused_ref: null,
+        preview_files: [],
+        compilation_files: [],
+      },
+      workspace_revision: 2,
+      sources: [],
+    });
+    render(<App createClient={() => client} />);
+    await initialize(client);
+    const original = screen.getByLabelText<HTMLTextAreaElement>('Model source').value;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use simulator' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Suggest projection' })).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest projection' }));
+    await waitFor(() => {
+      expect(screen.getByText(/entity Order/)).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('The workspace changed after preview.')).toBeTruthy();
+    });
+    expect(screen.getByLabelText<HTMLTextAreaElement>('Model source').value).toBe(original);
+    expect(screen.queryByText('Accepted')).toBeNull();
+  });
+
+  test('accept promotes conversation compilation artifacts to output', async () => {
+    const client = new FakeCompilerClient();
+    const compilationFile = {
+      destination: 'dist/customer.schema.json',
+      media_type: 'application/json',
+      after_text: '{"type":"object"}',
+      after_hash: 'abc123',
+    };
+    client.conversationTurn.mockResolvedValue({
+      reply: {
+        kind: 'preview',
+        text: 'Previewed compilation',
+        change_set_id: 'compile-1',
+        operation_kind: 'compile',
+        focused_ref: null,
+        preview_files: [],
+        compilation_files: [compilationFile],
+      },
+      workspace_revision: 1,
+      sources: [],
+    });
+    client.conversationApply.mockResolvedValue({
+      reply: {
+        kind: 'applied',
+        text: 'Applied compilation',
+        change_set_id: 'compile-1',
+        operation_kind: 'compile',
+        focused_ref: null,
+        preview_files: [],
+        compilation_files: [compilationFile],
+      },
+      workspace_revision: 1,
+      sources: [],
+    });
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use simulator' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Suggest projection' })).toBeTruthy();
+    });
+    fireEvent.change(
+      screen.getByPlaceholderText('e.g. Add a creditScore field to Customer'),
+      { target: { value: 'Compile this workspace to JSON Schema' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('dist/customer.schema.json')).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => {
+      expect(client.conversationApply).toHaveBeenCalledWith(
+        expect.any(String),
+        'compile-1',
+        1,
+      );
+    });
+    expect(
+      screen.getByRole('list', { name: 'Generated artifacts' }).textContent,
+    ).toContain('dist/customer.schema.json');
+  });
+
+  test('/reset clears the shared browser conversation session', async () => {
+    const client = new FakeCompilerClient();
+    client.conversationReset.mockResolvedValue(undefined);
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use simulator' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Suggest projection' })).toBeTruthy();
+    });
+    fireEvent.change(
+      screen.getByPlaceholderText('e.g. Add a creditScore field to Customer'),
+      { target: { value: '/reset' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => {
+      expect(client.conversationReset).toHaveBeenCalledWith(expect.any(String));
+    });
+    expect(client.conversationTurn).not.toHaveBeenCalled();
+  });
+
   test('discard closes preview without modifying source', async () => {
     const client = new FakeCompilerClient();
-    client.aiExplain.mockResolvedValue({
-      explanation: 'Test explanation',
+    client.conversationTurn.mockResolvedValue({
+      reply: {
+        kind: 'answer',
+        text: 'Test explanation',
+        change_set_id: null,
+        operation_kind: null,
+        focused_ref: null,
+        preview_files: [],
+        compilation_files: [],
+      },
+      workspace_revision: 1,
+      sources: [],
     });
     render(<App createClient={() => client} />);
     await initialize(client);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Use heuristic AI' }),
+      screen.getByRole('button', { name: 'Use simulator' }),
     );
     await waitFor(() => {
       expect(
