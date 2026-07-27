@@ -3,31 +3,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from os import environ
-from typing import Any, Protocol, SupportsIndex, cast
+from typing import Any, SupportsIndex, cast
 from urllib import error, request
 
-
-@dataclass(frozen=True)
-class LLMRequest:
-    system: str
-    user: str
-    temperature: float = 0.2
-    response_format: str = "text"
-    schema: dict[str, object] | None = None
-
-
-@dataclass(frozen=True)
-class LLMResponse:
-    content: str
-    provider: str
-    model: str
-    prompt_tokens: int | None = None
-    completion_tokens: int | None = None
-
-
-class LLMProvider(Protocol):
-    def complete(self, request: LLMRequest) -> LLMResponse:
-        raise NotImplementedError
+from modelable.llm.provider_types import LLMProvider as LLMProvider
+from modelable.llm.provider_types import LLMRequest as LLMRequest
+from modelable.llm.provider_types import LLMResponse as LLMResponse
 
 
 @dataclass(frozen=True)
@@ -46,7 +27,9 @@ class OllamaProvider:
             "stream": False,
             "options": {"temperature": request.temperature},
         }
-        if request.response_format == "json" or request.schema is not None:
+        if request.schema is not None:
+            payload["format"] = request.schema
+        elif request.response_format == "json":
             payload["format"] = "json"
 
         response = self._post_json("/api/chat", payload)

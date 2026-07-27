@@ -17,7 +17,7 @@ from modelable.llm.context import (
 )
 from modelable.llm.conversation import ConversationSession
 from modelable.llm.engine import AttachResult, UpdateResult, recommend_cli, update_definition
-from modelable.llm.providers import LLMProvider, LLMRequest
+from modelable.llm.provider_types import LLMProvider, LLMRequest
 from modelable.llm.qa import answer_question
 
 

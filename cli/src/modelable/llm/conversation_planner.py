@@ -20,7 +20,7 @@ from modelable.llm.conversation_plan import (
     conversation_plan_json_schema,
     parse_conversation_plan,
 )
-from modelable.llm.providers import LLMProvider, LLMRequest
+from modelable.llm.provider_types import LLMProvider, LLMRequest
 
 SYSTEM_PROMPT = """You plan grounded requests against a Modelable workspace.
 Return JSON only matching the supplied closed schema. Return exactly one of the five plan kinds:

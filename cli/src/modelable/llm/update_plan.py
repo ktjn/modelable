@@ -6,7 +6,7 @@ from typing import Literal, cast
 
 from pydantic import BaseModel, Field
 
-from modelable.llm.providers import LLMRequest
+from modelable.llm.provider_types import LLMRequest
 
 
 class UpdateChange(BaseModel):

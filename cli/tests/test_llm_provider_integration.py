@@ -182,6 +182,47 @@ def test_ollama_provider_posts_chat_payload(monkeypatch):
     assert captured["timeout"] == 5.0
 
 
+def test_ollama_provider_posts_full_json_schema(monkeypatch):
+    captured: dict[str, object] = {}
+    schema = {
+        "type": "object",
+        "properties": {"kind": {"const": "query"}},
+        "required": ["kind"],
+        "additionalProperties": False,
+    }
+
+    class DummyResponse:
+        def read(self) -> bytes:
+            return b'{"message":{"content":"{\\"kind\\":\\"query\\"}"}}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        captured["payload"] = json.loads(req.data.decode("utf-8") if req.data else "{}")
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    provider = OllamaProvider(
+        base_url="http://localhost:11434",
+        model="qwen2.5-coder:14b",
+    )
+
+    provider.complete(
+        LLMRequest(
+            system="Return a plan.",
+            user="Describe the workspace.",
+            response_format="json",
+            schema=schema,
+        )
+    )
+
+    assert captured["payload"]["format"] == schema
+
+
 def test_update_definition_uses_injected_provider(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """

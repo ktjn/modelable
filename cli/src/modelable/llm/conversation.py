@@ -24,7 +24,7 @@ from modelable.llm.conversation_planner import (
     PlannerContext,
     parse_compile_command,
 )
-from modelable.llm.providers import LLMProvider
+from modelable.llm.provider_types import LLMProvider
 from modelable.llm.workspace_editor import (
     AffectedDefinition,
     AppliedChangeSet,

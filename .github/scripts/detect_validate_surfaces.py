@@ -38,6 +38,7 @@ _BROWSER_PACKAGE_FILES = {
     "emitters/sql.py",
     "emitters/typescript.py",
     "llm/context.py",
+    "llm/provider_types.py",
     "registry/__init__.py",
     "registry/resolver.py",
     "registry/signature.py",

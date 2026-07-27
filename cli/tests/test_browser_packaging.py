@@ -44,6 +44,7 @@ EXPECTED_DEPENDENCIES = [
 def test_browser_module_selection_excludes_desktop_surfaces() -> None:
     selected = {path.as_posix() for path in selected_source_paths()}
     assert "modelable/browser/api.py" in selected
+    assert "modelable/llm/provider_types.py" in selected
     assert "modelable/language/completion.py" in selected
     assert "modelable/language/hover.py" in selected
     assert "modelable/grammar/modelable.lark" in selected
