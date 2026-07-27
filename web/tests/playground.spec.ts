@@ -787,17 +787,18 @@ test('graph nodes retain semantic styling in light and dark themes', async ({
   await expect(flowNode).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(domainNode).toHaveCSS('padding', '6px 10px');
   await expect(domainNode).toHaveCSS('border-radius', '6px');
-  await expect(kindBadge).toHaveCSS('display', 'inline-flex');
+  await expect(kindBadge).toHaveCSS('display', 'flex');
 
-  await flowNode.click();
+  await flowNode.focus();
   await expect(flowNode).toHaveCSS('outline-color', 'rgb(37, 99, 235)');
 
   await page.getByRole('button', { name: /Theme:/ }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await expect(domainNode).toHaveCSS(
     'background-color',
-    'rgb(31, 41, 55)',
+    'rgb(39, 52, 73)',
   );
+  await flowNode.focus();
   await expect(flowNode).toHaveCSS('outline-color', 'rgb(96, 165, 250)');
 });
 

@@ -30,9 +30,20 @@
   --chat-token-color: #006060;
   --ok-bg: #d1fae5;
 
-  --graph-node-bg: #ffffff;
-  --graph-node-border: #9ca3af;
-  --graph-edge: #9ca3af;
+  --graph-canvas: #f8fafc;
+  --graph-dot: #cbd5e1;
+  --graph-surface: #ffffff;
+  --graph-surface-muted: #f1f5f9;
+  --graph-border: #94a3b8;
+  --graph-edge: #64748b;
+  --graph-selection: #2563eb;
+  --graph-minimap-node: #94a3b8;
+  --graph-minimap-mask: rgba(226, 232, 240, 0.7);
+  --graph-domain: #64748b;
+  --graph-entity: #2563eb;
+  --graph-version: #7c3aed;
+  --graph-projection: #047857;
+  --graph-field: #64748b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -64,9 +75,20 @@
     --chat-token-color: #22d3ee;
     --ok-bg: #064e3b;
 
-    --graph-node-bg: #1f2937;
-    --graph-node-border: #6b7280;
-    --graph-edge: #6b7280;
+    --graph-canvas: #111827;
+    --graph-dot: #475569;
+    --graph-surface: #1f2937;
+    --graph-surface-muted: #273449;
+    --graph-border: #64748b;
+    --graph-edge: #94a3b8;
+    --graph-selection: #60a5fa;
+    --graph-minimap-node: #64748b;
+    --graph-minimap-mask: rgba(15, 23, 42, 0.72);
+    --graph-domain: #94a3b8;
+    --graph-entity: #60a5fa;
+    --graph-version: #c4b5fd;
+    --graph-projection: #34d399;
+    --graph-field: #94a3b8;
   }
 }
 
@@ -98,9 +120,20 @@
   --chat-token-color: #22d3ee;
   --ok-bg: #064e3b;
 
-  --graph-node-bg: #1f2937;
-  --graph-node-border: #6b7280;
-  --graph-edge: #6b7280;
+  --graph-canvas: #111827;
+  --graph-dot: #475569;
+  --graph-surface: #1f2937;
+  --graph-surface-muted: #273449;
+  --graph-border: #64748b;
+  --graph-edge: #94a3b8;
+  --graph-selection: #60a5fa;
+  --graph-minimap-node: #64748b;
+  --graph-minimap-mask: rgba(15, 23, 42, 0.72);
+  --graph-domain: #94a3b8;
+  --graph-entity: #60a5fa;
+  --graph-version: #c4b5fd;
+  --graph-projection: #34d399;
+  --graph-field: #94a3b8;
 }
 
 * {
@@ -616,23 +649,126 @@ button.view-tab--active:hover:not(:disabled) {
 /* Graph visualization theming */
 
 .graph-panel .react-flow {
-  background: var(--bg);
+  --xy-background-pattern-dots-color-default: var(--graph-dot);
+  background: var(--graph-canvas);
 }
 
 .graph-panel .react-flow__node {
-  background: var(--graph-node-bg);
-  border-color: var(--graph-node-border);
+  background: transparent;
   color: var(--text);
 }
 
+.graph-panel .react-flow__node.selected,
+.graph-panel .react-flow__node.selectable:focus {
+  border-radius: 0.375rem;
+  outline: 2px solid var(--graph-selection);
+  outline-offset: 2px;
+}
+
+.graph-node {
+  width: 100%;
+  padding: 0.375rem 0.625rem;
+  overflow: hidden;
+  border: 1.5px solid var(--graph-border);
+  border-radius: 0.375rem;
+  background: var(--graph-surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.graph-node__label {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.375rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-node__kind {
+  display: flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  background: var(--graph-surface-muted);
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: 700;
+}
+
+.graph-node--domain {
+  border-color: var(--graph-domain);
+  background: var(--graph-surface-muted);
+  font-weight: 600;
+}
+
+.graph-node--domain .graph-node__kind {
+  color: var(--graph-domain);
+}
+
+.graph-node--entity {
+  border-color: var(--graph-entity);
+  border-width: 2px;
+}
+
+.graph-node--entity .graph-node__kind {
+  color: var(--graph-entity);
+}
+
+.graph-node--version {
+  border-color: var(--graph-version);
+  border-style: dashed;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.graph-node--version .graph-node__kind {
+  color: var(--graph-version);
+}
+
+.graph-node--projection {
+  border-color: var(--graph-projection);
+  border-width: 2px;
+}
+
+.graph-node--projection .graph-node__kind {
+  color: var(--graph-projection);
+}
+
+.graph-node--field {
+  border-color: var(--graph-field);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.graph-node--field .graph-node__kind {
+  color: var(--graph-field);
+}
+
 .graph-panel .react-flow__handle {
-  background: var(--border-strong);
-  border-color: var(--graph-node-bg);
+  background: var(--graph-border);
+  border-color: var(--graph-surface);
 }
 
 .graph-panel .react-flow__edge-path,
 .graph-panel .react-flow__connection-path {
   stroke: var(--graph-edge);
+}
+
+.graph-panel .graph-edge--contains {
+  stroke: var(--graph-border);
+  stroke-width: 1.5;
+}
+
+.graph-panel .graph-edge--projects {
+  stroke: var(--graph-projection);
+  stroke-width: 1.5;
 }
 
 .graph-panel .react-flow__controls-button {
@@ -646,7 +782,16 @@ button.view-tab--active:hover:not(:disabled) {
 }
 
 .graph-panel .react-flow__minimap {
-  background: var(--panel-elevated);
+  border: 1px solid var(--graph-border);
+  background: var(--graph-surface-muted);
+}
+
+.graph-panel .react-flow__minimap-node {
+  fill: var(--graph-minimap-node);
+}
+
+.graph-panel .react-flow__minimap-mask {
+  fill: var(--graph-minimap-mask);
 }
 
 /* Tab strip (shared by graph & bottom panel) */
