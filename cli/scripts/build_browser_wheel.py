@@ -49,6 +49,8 @@ INCLUDE_FILES = (
     "emitters/rust.py",
     "emitters/sql.py",
     "emitters/typescript.py",
+    "llm/conversation_plan.py",
+    "llm/conversation_planner.py",
     "llm/context.py",
     "llm/provider_types.py",
     "registry/__init__.py",

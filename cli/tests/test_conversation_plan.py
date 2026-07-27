@@ -16,6 +16,12 @@ from modelable.llm.conversation_plan import (
     QueryPlan,
     parse_conversation_plan,
 )
+from modelable.llm.conversation_planner import (
+    PendingPlanRequest,
+    PlannerContext,
+    PlanningRequestError,
+    ResumableConversationPlanner,
+)
 from modelable.llm.providers import LLMRequest, LLMResponse
 from modelable.operations.compilation import TARGETS
 
@@ -29,6 +35,122 @@ def valid_compile_payload() -> dict[str, object]:
         "descriptor_set": False,
         "summary": "Compile customer.",
     }
+
+
+def valid_create_customer_plan() -> dict[str, object]:
+    return {
+        "kind": "change_set",
+        "summary": "Create customer.Customer@1",
+        "operations": [
+            {
+                "kind": "create_model",
+                "domain": "customer",
+                "name": "Customer",
+                "model_kind": "entity",
+                "fields": [
+                    {
+                        "name": "customerId",
+                        "type": {"kind": "uuid"},
+                        "annotations": [{"kind": "key"}],
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def planner_context() -> PlannerContext:
+    return PlannerContext(
+        workspace_summary="domain customer\n  owner: customer-team",
+        focused_ref=None,
+        history=(),
+        pending_plan=None,
+    )
+
+
+def test_resumable_planner_returns_request_then_valid_plan() -> None:
+    planner = ResumableConversationPlanner(id_factory=lambda: "request-1")
+    pending = planner.begin("Create customer.Customer", planner_context())
+
+    assert isinstance(pending, PendingPlanRequest)
+    assert pending.request_id == "request-1"
+    assert pending.request.schema is not None
+
+    plan = planner.resume(
+        "request-1",
+        json.dumps(valid_create_customer_plan()),
+    )
+
+    assert isinstance(plan, ChangeSetPlan)
+
+
+def test_resumable_planner_requests_one_bounded_repair() -> None:
+    ids = iter(("initial", "repair"))
+    planner = ResumableConversationPlanner(
+        repair_attempts=1,
+        id_factory=lambda: next(ids),
+    )
+    initial = planner.begin("Create customer.Customer", planner_context())
+    assert isinstance(initial, PendingPlanRequest)
+
+    repair = planner.resume(initial.request_id, "{malformed")
+
+    assert isinstance(repair, PendingPlanRequest)
+    assert repair.request_id == "repair"
+    assert repair.attempt == 1
+    assert "validation error" in repair.request.user.lower()
+
+
+def test_resumable_planner_rejects_unknown_duplicate_and_late_request_ids() -> None:
+    ids = iter(("initial", "repair"))
+    planner = ResumableConversationPlanner(
+        repair_attempts=1,
+        id_factory=lambda: next(ids),
+    )
+
+    with pytest.raises(PlanningRequestError, match="Unknown or completed"):
+        planner.resume("missing", "{}")
+
+    initial = planner.begin("Create customer.Customer", planner_context())
+    assert isinstance(initial, PendingPlanRequest)
+    repair = planner.resume(initial.request_id, "{malformed")
+    assert isinstance(repair, PendingPlanRequest)
+
+    with pytest.raises(PlanningRequestError, match="Unknown or completed"):
+        planner.resume(initial.request_id, "{}")
+
+    plan = planner.resume(repair.request_id, json.dumps(valid_create_customer_plan()))
+    assert isinstance(plan, ChangeSetPlan)
+
+    with pytest.raises(PlanningRequestError, match="Unknown or completed"):
+        planner.resume(repair.request_id, json.dumps(valid_create_customer_plan()))
+
+
+def test_resumable_planner_returns_deterministic_plans_without_completion() -> None:
+    planner = ResumableConversationPlanner(id_factory=lambda: "unused")
+
+    plan = planner.begin("/describe customer.Customer@1", planner_context())
+
+    assert isinstance(plan, QueryPlan)
+    assert plan.refs == ["customer.Customer@1"]
+
+
+def test_resumable_planner_requests_completion_for_free_form_compile() -> None:
+    planner = ResumableConversationPlanner(id_factory=lambda: "compile-request")
+
+    outcome = planner.begin("Compile this workspace to Rust", planner_context())
+
+    assert isinstance(outcome, PendingPlanRequest)
+    assert outcome.request_id == "compile-request"
+
+
+def test_resumable_planner_requests_completion_for_configured_ask() -> None:
+    planner = ResumableConversationPlanner(id_factory=lambda: "ask-request")
+
+    outcome = planner.begin("/ask Explain customer ownership", planner_context())
+
+    assert isinstance(outcome, PendingPlanRequest)
+    assert outcome.request_id == "ask-request"
 
 
 def test_compile_plan_is_closed_and_schema_validated() -> None:

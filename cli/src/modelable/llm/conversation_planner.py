@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import re
 import shlex
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import cast
+from uuid import uuid4
 
 from pydantic import ValidationError
 
@@ -56,6 +58,104 @@ class PlannerContext:
     pending_plan: ChangeSetPlan | None
 
 
+@dataclass(frozen=True)
+class PendingPlanRequest:
+    request_id: str
+    request: LLMRequest
+    attempt: int
+
+
+@dataclass(frozen=True)
+class _PendingPlanningState:
+    message: str
+    context: PlannerContext
+    attempt: int
+
+
+class PlanningRequestError(ValueError):
+    pass
+
+
+class ResumableConversationPlanner:
+    def __init__(
+        self,
+        *,
+        repair_attempts: int = 1,
+        id_factory: Callable[[], str] | None = None,
+    ) -> None:
+        if repair_attempts < 0:
+            raise ValueError("repair_attempts must be >= 0")
+        self.repair_attempts = repair_attempts
+        self.id_factory = id_factory or (lambda: str(uuid4()))
+        self._pending: dict[str, _PendingPlanningState] = {}
+        self._used_request_ids: set[str] = set()
+
+    def begin(self, message: str, context: PlannerContext) -> ConversationPlan | PendingPlanRequest:
+        offline = ConversationPlanner._offline_plan(message, context)
+        if not _requires_provider(message, offline):
+            return offline
+        return self._register(
+            _PendingPlanningState(
+                message=message,
+                context=context,
+                attempt=0,
+            ),
+            validation_error=None,
+        )
+
+    def resume(self, request_id: str, content: str) -> ConversationPlan | PendingPlanRequest:
+        state = self._consume(request_id)
+        try:
+            return parse_conversation_plan(content)
+        except Exception as error:
+            if state.attempt >= self.repair_attempts:
+                return UnsupportedPlan(
+                    request=state.message,
+                    reason=f"The configured provider did not return a valid typed plan: {error}",
+                )
+            repair_state = _PendingPlanningState(
+                message=state.message,
+                context=state.context,
+                attempt=state.attempt + 1,
+            )
+            return self._register(repair_state, validation_error=str(error))
+
+    def fail(self, request_id: str, error: Exception) -> UnsupportedPlan:
+        state = self._consume(request_id)
+        phase = "initial plan request" if state.attempt == 0 else "plan repair request"
+        return ConversationPlanner._provider_failure(state.message, error, phase=phase)
+
+    def cancel(self, request_id: str) -> None:
+        self._consume(request_id)
+
+    def _register(
+        self,
+        state: _PendingPlanningState,
+        *,
+        validation_error: str | None,
+    ) -> PendingPlanRequest:
+        request_id = self.id_factory()
+        if not request_id or request_id in self._used_request_ids:
+            raise PlanningRequestError("Planning request IDs must be non-empty and unique")
+        self._used_request_ids.add(request_id)
+        self._pending[request_id] = state
+        return PendingPlanRequest(
+            request_id=request_id,
+            request=_request(
+                message=state.message,
+                context=state.context,
+                validation_error=validation_error,
+            ),
+            attempt=state.attempt,
+        )
+
+    def _consume(self, request_id: str) -> _PendingPlanningState:
+        try:
+            return self._pending.pop(request_id)
+        except KeyError as error:
+            raise PlanningRequestError(f"Unknown or completed planning request: {request_id}") from error
+
+
 def build_conversation_request(*, message: str, context: PlannerContext) -> LLMRequest:
     return _request(message=message, context=context, validation_error=None)
 
@@ -63,51 +163,22 @@ def build_conversation_request(*, message: str, context: PlannerContext) -> LLMR
 class ConversationPlanner:
     def __init__(self, provider: LLMProvider | None, *, repair_attempts: int = 1) -> None:
         self.provider = provider
-        self.repair_attempts = repair_attempts
+        self.resumable = ResumableConversationPlanner(repair_attempts=repair_attempts)
 
     def plan(self, message: str, context: PlannerContext) -> ConversationPlan:
         if self.provider is None:
             return self._offline_plan(message, context)
-        request = build_conversation_request(message=message, context=context)
-        try:
-            response = self.provider.complete(request)
-        except Exception as error:
-            return self._provider_failure(message, error, phase="initial plan request")
-        try:
-            return parse_conversation_plan(response.content)
-        except Exception as error:
-            return self._repair(message, context, error)
-
-    def _repair(
-        self,
-        message: str,
-        context: PlannerContext,
-        error: Exception,
-    ) -> ConversationPlan:
-        if self.provider is None:
-            raise RuntimeError("Conversation plan repair requires an LLM provider")
-        validation_error = str(error)
-        for _ in range(self.repair_attempts):
+        outcome = self.resumable.begin(message, context)
+        while isinstance(outcome, PendingPlanRequest):
             try:
-                response = self.provider.complete(
-                    _request(
-                        message=message,
-                        context=context,
-                        validation_error=validation_error,
-                    )
-                )
-            except Exception as provider_error:
-                return self._provider_failure(message, provider_error, phase="plan repair request")
-            try:
-                return parse_conversation_plan(response.content)
-            except Exception as repair_error:
-                validation_error = str(repair_error)
-        return UnsupportedPlan(
-            request=message,
-            reason=f"The configured provider did not return a valid typed plan: {validation_error}",
-        )
+                response = self.provider.complete(outcome.request)
+            except Exception as error:
+                return self.resumable.fail(outcome.request_id, error)
+            outcome = self.resumable.resume(outcome.request_id, response.content)
+        return outcome
 
-    def _offline_plan(self, message: str, context: PlannerContext) -> ConversationPlan:
+    @staticmethod
+    def _offline_plan(message: str, context: PlannerContext) -> ConversationPlan:
         stripped = message.strip()
         if stripped.startswith("/"):
             command, _, arguments = stripped.partition(" ")
@@ -124,13 +195,13 @@ class ConversationPlanner:
                         question="What workspace question should I answer?",
                         reason="/ask requires a deterministic workspace question.",
                     )
-                return self._offline_plan(arguments, context)
+                return ConversationPlanner._offline_plan(arguments, context)
             if command in {"/update", "/create", "/change"}:
-                return self._provider_required(message)
+                return ConversationPlanner._provider_required(message)
             if command == "/compile":
                 return parse_compile_command(message)
             if command in {"/sync", "/publish"}:
-                return self._operational_unsupported(message)
+                return ConversationPlanner._operational_unsupported(message)
             return UnsupportedPlan(
                 request=message,
                 reason=f"Slash command {command} is not a conversational planning command.",
@@ -138,12 +209,12 @@ class ConversationPlanner:
 
         lower = stripped.lower()
         if any(operation in lower for operation in ("compile", "sync", "publish", "deploy", "external")):
-            return self._operational_unsupported(message)
+            return ConversationPlanner._operational_unsupported(message)
         if re.search(
             r"\b(?:add|create|change|rename|remove|delete|set|update|replace|make)\b",
             lower,
         ):
-            return self._provider_required(message)
+            return ConversationPlanner._provider_required(message)
 
         refs = _extract_refs(stripped)
         focused_refs = refs or ([context.focused_ref] if context.focused_ref else [])
@@ -184,15 +255,13 @@ class ConversationPlanner:
                 refs=focused_refs,
                 question=message,
             )
-        return self._provider_required(message)
+        return ConversationPlanner._provider_required(message)
 
     @staticmethod
     def _provider_required(message: str) -> UnsupportedPlan:
         return UnsupportedPlan(
             request=message,
-            reason=(
-                "This request requires intent synthesis. Configure an LLM provider for conversational change planning."
-            ),
+            reason=_PROVIDER_REQUIRED_REASON,
         )
 
     @staticmethod
@@ -209,6 +278,26 @@ class ConversationPlanner:
             reason="Operational and external actions are outside conversational workspace planning.",
             roadmap_area="operations",
         )
+
+
+_PROVIDER_REQUIRED_REASON = (
+    "This request requires intent synthesis. Configure an LLM provider for conversational change planning."
+)
+
+
+def _requires_provider(message: str, plan: ConversationPlan) -> bool:
+    if isinstance(plan, UnsupportedPlan) and plan.reason == _PROVIDER_REQUIRED_REASON:
+        return True
+    normalized = message.strip().lower()
+    command, _, arguments = normalized.partition(" ")
+    if command == "/ask" and arguments.strip():
+        return True
+    return (
+        isinstance(plan, UnsupportedPlan)
+        and not normalized.startswith("/")
+        and "compile" in normalized
+        and not any(operation in normalized for operation in ("sync", "publish", "deploy", "external"))
+    )
 
 
 def parse_compile_command(message: str) -> CompilePlan | ClarificationPlan:

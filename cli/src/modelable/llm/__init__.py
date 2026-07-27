@@ -8,6 +8,11 @@ from .context import (
     build_workspace_summary,
     parse_model_ref,
 )
+from .conversation_planner import (
+    PendingPlanRequest,
+    PlanningRequestError,
+    ResumableConversationPlanner,
+)
 from .provider_types import LLMProvider, LLMRequest, LLMResponse
 from .providers import AnthropicProvider, OllamaProvider, build_provider
 from .redaction import redact_sensitive_values
@@ -22,6 +27,9 @@ __all__ = [
     "LLMResponse",
     "LlmConfig",
     "OllamaProvider",
+    "PendingPlanRequest",
+    "PlanningRequestError",
+    "ResumableConversationPlanner",
     "UpdateChange",
     "UpdatePlan",
     "build_model_summary",
