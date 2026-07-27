@@ -19,6 +19,13 @@ export class SimulatorProvider implements LlmProvider {
     if (this.options.failure !== undefined) {
       throw new Error(this.options.failure);
     }
+    if (request.responseFormat === 'text') {
+      return {
+        content: answerFor(request.user),
+        provider: this.id,
+        model: this.model,
+      };
+    }
     const isRepair = request.user.includes(
       'Previous response validation error',
     );
@@ -41,6 +48,17 @@ function userRequest(prompt: string): string {
   const match = /User request:\n([\s\S]*?)(?:\n\nPrevious response validation error:|$)/u
     .exec(prompt);
   return (match?.[1] ?? prompt).trim();
+}
+
+function answerFor(userPrompt: string): string {
+  const match = /Workspace facts:\n([\s\S]*?)\n\nUser question:\n([\s\S]*?)$/u
+    .exec(userPrompt);
+  if (match === null) {
+    return 'Here is what I found in the workspace.';
+  }
+  const facts = (match[1] ?? '').trim();
+  const question = (match[2] ?? '').trim();
+  return `Based on the workspace facts, here is the answer to '${question}':\n\n${facts}`;
 }
 
 function planFor(message: string): Record<string, unknown> {

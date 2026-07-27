@@ -47,11 +47,13 @@ class RecordingBackend:
     discarded_ids: list[str] = field(default_factory=list)
     reset_calls: int = 0
     next_action: int = 1
+    execute_query_called: bool = False
 
     def workspace_summary(self) -> str:
         return "domain customer\n  owner: customer-team"
 
     def execute_query(self, plan: QueryPlan) -> ConversationReply:
+        self.execute_query_called = True
         return ConversationReply(kind="answer", text=f"query:{plan.query_kind}")
 
     def preview_source_change(
@@ -241,3 +243,54 @@ def test_semantic_simulator_drives_typed_conversation_planner() -> None:
 
     assert isinstance(plan, ChangeSetPlan)
     assert plan.operations[0].kind == "create_model"
+
+
+def test_engine_synthesizes_conversational_query_with_provider() -> None:
+    engine, backend = engine_with_request_ids("synthesis-1")
+
+    pending = engine.begin_turn("describe the workspace")
+
+    assert isinstance(pending, PendingPlanRequest)
+    assert pending.request.response_format == "text"
+    assert "Workspace facts:" in pending.request.user
+    reply = engine.resume_turn(pending.request_id, "A concise explanation of the workspace.")
+
+    assert reply.kind == "answer"
+    assert reply.text == "A concise explanation of the workspace."
+    assert engine.history[-1] == ("assistant", reply.text)
+    assert backend.execute_query_called
+
+
+def test_engine_keeps_slash_describe_deterministic() -> None:
+    engine, backend = engine_with_request_ids("unused")
+
+    reply = engine.begin_turn("/describe customer.Customer@1")
+
+    assert isinstance(reply, ConversationReply)
+    assert reply.kind == "answer"
+    assert reply.text == "query:summary"
+    assert backend.execute_query_called
+
+
+def test_engine_synthesis_failure_falls_back_to_facts() -> None:
+    engine, backend = engine_with_request_ids("synthesis-1")
+
+    pending = engine.begin_turn("describe the workspace")
+
+    assert isinstance(pending, PendingPlanRequest)
+    reply = engine.fail_turn(pending.request_id, RuntimeError("provider unavailable"))
+
+    assert reply.kind == "answer"
+    assert reply.text == "query:summary"
+    assert backend.execute_query_called
+
+
+def test_engine_synthesis_empty_content_falls_back_to_facts() -> None:
+    engine, backend = engine_with_request_ids("synthesis-1")
+
+    pending = engine.begin_turn("describe the workspace")
+    reply = engine.resume_turn(pending.request_id, "   ")
+
+    assert reply.kind == "answer"
+    assert reply.text == "query:summary"
+    assert backend.execute_query_called

@@ -21,6 +21,12 @@ class ConversationSimulatorProvider:
         self.requests.append(request)
         if self.failure is not None:
             raise RuntimeError(self.failure)
+        if request.response_format == "text":
+            return LLMResponse(
+                content=_answer_for(request.user),
+                provider="simulator",
+                model="semantic-v1",
+            )
         if (
             self.malformed_first
             and len(self.requests) == 1
@@ -43,6 +49,19 @@ def _user_request(prompt: str) -> str:
         flags=re.DOTALL,
     )
     return match.group("message").strip() if match is not None else prompt.strip()
+
+
+def _answer_for(user_prompt: str) -> str:
+    facts_match = re.search(
+        r"Workspace facts:\n(?P<facts>.*?)\n\nUser question:\n(?P<question>.*?)$",
+        user_prompt,
+        flags=re.DOTALL,
+    )
+    if facts_match is None:
+        return "Here is what I found in the workspace."
+    facts = facts_match.group("facts").strip()
+    question = facts_match.group("question").strip()
+    return f"Based on the workspace facts, here is the answer to '{question}':\n\n{facts}"
 
 
 def _plan_for(message: str) -> dict[str, object]:
