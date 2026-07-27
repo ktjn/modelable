@@ -16,6 +16,7 @@ from modelable.llm.conversation_plan import (
     QueryPlan,
     UnsupportedPlan,
 )
+from modelable.llm.filesystem_conversation import FilesystemConversationBackend
 from modelable.llm.providers import LLMRequest, LLMResponse
 from modelable.llm.workspace_editor import WorkspaceApplyError
 from modelable.operations.compilation import (
@@ -149,6 +150,8 @@ def test_preview_and_apply_complete_entity(tmp_path: Path) -> None:
         path=tmp_path,
         provider=FakeProvider(plan),
     )
+
+    assert isinstance(session.backend, FilesystemConversationBackend)
 
     preview = session.turn("add a customer entity with address")
 

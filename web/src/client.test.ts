@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
 import {
   BrowserCompilerClient,
@@ -126,6 +126,73 @@ describe('BrowserCompilerClient', () => {
       undefined,
       undefined,
     ]);
+  });
+
+  test('fails only the active turn when provider completion fails', async () => {
+    const worker = new FakeWorker();
+    const client = new BrowserCompilerClient(worker);
+    await initialize(client, worker);
+    const providerError = new Error('provider unavailable');
+    const provider = {
+      id: 'failing',
+      model: 'test',
+      initialize: async () => {},
+      complete: async () => {
+        throw providerError;
+      },
+      dispose: async () => {},
+    };
+
+    const turn = client.conversationTurn(
+      {
+        sessionId: 'session-1',
+        workspaceRevision: 1,
+        message: 'Create customer.Customer',
+        activeDocumentUri: null,
+        position: null,
+      },
+      provider,
+    );
+    await Promise.resolve();
+    worker.respond(
+      success(worker.posted[1]!, {
+        status: 'pending_llm',
+        request_id: 'request-1',
+        attempt: 0,
+        llm_request: {
+          system: 'Return a plan.',
+          user: 'Create customer.Customer',
+          temperature: 0.2,
+          response_format: 'json',
+          schema: { type: 'object' },
+        },
+      }),
+    );
+    await vi.waitFor(() => {
+      expect(worker.posted[2]?.method).toBe('conversation.fail');
+    });
+    expect(worker.posted[2]?.payload).toEqual({
+      sessionId: 'session-1',
+      requestId: 'request-1',
+      workspaceRevision: 1,
+      error: 'provider unavailable',
+    });
+    worker.respond(
+      success(worker.posted[2]!, {
+        reply: {
+          kind: 'unsupported',
+          text: 'Provider unavailable',
+          change_set_id: null,
+          operation_kind: null,
+          focused_ref: null,
+          preview_files: [],
+          compilation_files: [],
+        },
+        workspace_revision: 1,
+        sources: [],
+      }),
+    );
+    await expect(turn).rejects.toBe(providerError);
   });
 
   test('response IDs resolve only matching promises', async () => {

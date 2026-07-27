@@ -63,8 +63,7 @@ import {
   providerStateReducer,
 } from './ai/provider-state';
 import { detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
-import { HeuristicProvider } from './ai/heuristic-provider';
-import type { AiGenerateAction, AiGenerateParameters } from './ai/types';
+import { SimulatorProvider } from './ai/simulator-provider';
 import {
   generateChatMessageId,
   isAssistantGenerateMessage,
@@ -197,6 +196,7 @@ export function App({
   );
   const [aiPending, setAiPending] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const conversationSessionIdRef = useRef(crypto.randomUUID());
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
   const clientRef = useRef<BrowserCompilerClientLike>(null);
   const languageControllerRef =
@@ -616,8 +616,8 @@ export function App({
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('ai') === 'heuristic') {
-      const provider = new HeuristicProvider();
+    if (params.get('ai') === 'simulator') {
+      const provider = new SimulatorProvider();
       aiDispatch({ type: 'download_start', provider });
       void provider.initialize().then(() => aiDispatch({ type: 'ready' }));
       return;
@@ -651,7 +651,7 @@ export function App({
   }, [aiState.status]);
 
   const handleAiFallback = useCallback((): void => {
-    const provider = new HeuristicProvider();
+    const provider = new SimulatorProvider();
     aiDispatch({ type: 'download_start', provider });
     void provider.initialize().then(() => aiDispatch({ type: 'ready' }));
   }, []);
@@ -673,86 +673,13 @@ export function App({
     [],
   );
 
-  const runAiGenerate = useCallback(
-    (
-      action: AiGenerateAction,
-      parameters: AiGenerateParameters,
-      userText: string,
-    ): void => {
-      const client = clientRef.current;
-      const provider = aiState.provider;
-      if (
-        client === null ||
-        provider === null ||
-        aiState.status !== 'ready' ||
-        state.runtime !== 'ready' ||
-        aiPending
-      ) {
-        return;
-      }
-      const assistantId = generateChatMessageId();
-      appendMessage({
-        id: generateChatMessageId(),
-        role: 'user',
-        text: userText,
-      });
-      appendMessage({
-        id: assistantId,
-        role: 'assistant',
-        kind: action === 'suggest_projection' ? 'generate' : 'generate',
-        diagnostics: [],
-        providerInfo: { provider: provider.id, model: provider.model },
-        pending: true,
-      });
-      setAiPending(true);
-      setRightTab('assistant');
-      void client
-        .aiGenerate(
-          workspaceRef.current.revision,
-          action,
-          parameters,
-          provider,
-        )
-        .then(
-          (result) => {
-            updateAssistantMessage(assistantId, {
-              source: result.source,
-              diagnostics: result.diagnostics,
-              pending: false,
-            });
-          },
-          (error: unknown) => {
-            updateAssistantMessage(assistantId, {
-              diagnostics: [
-                {
-                  code: 'AI_ERROR',
-                  severity: 'error',
-                  message:
-                    error instanceof Error
-                      ? error.message
-                      : 'AI generation failed',
-                  uri: '',
-                  line: null,
-                  column: null,
-                  end_line: null,
-                  end_column: null,
-                },
-              ],
-              pending: false,
-            });
-          },
-        )
-        .finally(() => setAiPending(false));
-    },
-    [aiState.provider, aiState.status, aiPending, appendMessage, state.runtime, updateAssistantMessage],
-  );
-
-  const runAiExplain = useCallback(
+  const runConversation = useCallback(
     (userText: string): void => {
       const client = clientRef.current;
       const provider = aiState.provider;
       if (
         client === null ||
+        client.conversationTurn === undefined ||
         provider === null ||
         aiState.status !== 'ready' ||
         state.runtime !== 'ready' ||
@@ -776,52 +703,108 @@ export function App({
       });
       setAiPending(true);
       setRightTab('assistant');
-      void client.aiExplain(workspaceRef.current.revision, {}, provider).then(
-        (result) => {
-          updateAssistantMessage(assistantId, {
-            explanation: result.explanation,
-            pending: false,
-          });
+      const position = sourceEditorRef.current?.getPosition() ?? null;
+      void client.conversationTurn(
+        {
+          sessionId: conversationSessionIdRef.current,
+          workspaceRevision: workspaceRef.current.revision,
+          message: userText,
+          activeDocumentUri: position?.uri ?? null,
+          position: position === null
+            ? null
+            : { line: position.line, character: position.character },
         },
-        (error: unknown) => {
-          updateAssistantMessage(assistantId, {
-            diagnostics: [
-              {
-                code: 'AI_ERROR',
-                severity: 'error',
-                message:
-                  error instanceof Error
-                    ? error.message
-                    : 'AI explanation failed',
-                uri: '',
-                line: null,
-                column: null,
-                end_line: null,
-                end_column: null,
-              },
-            ],
-            pending: false,
-          });
-        },
-      ).finally(() => setAiPending(false));
+        provider,
+      )
+        .then(
+          (result) => {
+            const preview = result.reply.preview_files[0];
+            setChatMessages((messages) =>
+              messages.map((message) => {
+                if (message.role !== 'assistant' || message.id !== assistantId) {
+                  return message;
+                }
+                if (
+                  result.reply.kind === 'preview' &&
+                  (preview !== undefined || result.reply.compilation_files.length > 0)
+                ) {
+                  return {
+                    id: assistantId,
+                    role: 'assistant',
+                    kind: 'generate',
+                    actionId: result.reply.change_set_id ?? undefined,
+                    previewFiles: result.reply.preview_files,
+                    compilationFiles: result.reply.compilation_files,
+                    diagnostics: [],
+                    providerInfo: { provider: provider.id, model: provider.model },
+                    pending: false,
+                  };
+                }
+                return {
+                  id: assistantId,
+                  role: 'assistant',
+                  kind: 'explain',
+                  explanation: result.reply.text,
+                  diagnostics: [],
+                  providerInfo: { provider: provider.id, model: provider.model },
+                  pending: false,
+                };
+              }),
+            );
+          },
+          (error: unknown) => {
+            updateAssistantMessage(assistantId, {
+              diagnostics: [
+                {
+                  code: 'AI_ERROR',
+                  severity: 'error',
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : 'Conversation failed',
+                  uri: '',
+                  line: null,
+                  column: null,
+                  end_line: null,
+                  end_column: null,
+                },
+              ],
+              pending: false,
+            });
+          },
+        )
+        .finally(() => setAiPending(false));
     },
     [aiState.provider, aiState.status, aiPending, appendMessage, state.runtime, updateAssistantMessage],
   );
 
   const handleChatSend = useCallback(
     (text: string): void => {
-      runAiGenerate('generate_entity', { description: text }, text);
+      if (text.trim() === '/reset') {
+        const reset = clientRef.current?.conversationReset;
+        if (reset !== undefined) {
+          setAiPending(true);
+          void reset(conversationSessionIdRef.current)
+            .then(() => {
+              conversationSessionIdRef.current = crypto.randomUUID();
+              setChatMessages([]);
+            })
+            .finally(() => setAiPending(false));
+          return;
+        }
+      }
+      runConversation(text);
     },
-    [runAiGenerate],
+    [runConversation],
   );
 
   const handleAiExplain = useCallback((): void => {
-    runAiExplain('Explain the workspace');
-  }, [runAiExplain]);
+    runConversation('Describe the focused definition or workspace');
+  }, [runConversation]);
 
   const handleAiSuggestProjection = useCallback((): void => {
-    runAiGenerate('suggest_projection', {}, 'Suggest a projection');
-  }, [runAiGenerate]);
+    runConversation('Suggest a projection for the focused model');
+  }, [runConversation]);
 
   const markLatestGenerateOutcome = useCallback(
     (outcome: 'accepted' | 'discarded'): void => {
@@ -845,7 +828,119 @@ export function App({
   );
 
   const handleAiAccept = useCallback(
-    (source: string): void => {
+    (source: string, actionId?: string): void => {
+      const client = clientRef.current;
+      if (actionId !== undefined && client?.conversationApply !== undefined) {
+        void client.conversationApply(
+          conversationSessionIdRef.current,
+          actionId,
+          workspaceRef.current.revision,
+        ).then((result) => {
+          if (result.reply.kind !== 'applied') {
+            setChatMessages((messages) =>
+              messages.map((message) =>
+                message.role === 'assistant' &&
+                message.kind === 'generate' &&
+                message.actionId === actionId
+                  ? {
+                      ...message,
+                      diagnostics: [
+                        {
+                          code: 'AI_APPLY_ERROR',
+                          severity: 'error',
+                          message: result.reply.text,
+                          uri: '',
+                          line: null,
+                          column: null,
+                          end_line: null,
+                          end_column: null,
+                        },
+                      ],
+                    }
+                  : message,
+              ),
+            );
+            return;
+          }
+          if (result.reply.operation_kind === 'compile') {
+            const artifacts = result.reply.compilation_files
+              .filter((file) => file.after_text !== null)
+              .map((file) => ({
+                path: file.destination,
+                media_type: file.media_type,
+                content: file.after_text ?? '',
+                source_refs: [],
+              }));
+            dispatch({
+              type: 'operationSucceeded',
+              operation: 'generate',
+              revision: workspaceRef.current.revision,
+              diagnostics: [],
+              artifacts,
+              duration: 0,
+            });
+            setRightTab('output');
+            markLatestGenerateOutcome('accepted');
+            return;
+          }
+          const current = workspaceRef.current;
+          const currentByPath = new Map(
+            current.files.map((file) => [file.path, file]),
+          );
+          const returnedByPath = new Map(
+            result.sources.map((item) => [
+              decodeURIComponent(new URL(item.uri).pathname.slice(1)),
+              item,
+            ]),
+          );
+          for (const item of result.sources) {
+            const path = decodeURIComponent(new URL(item.uri).pathname.slice(1));
+            const existing = currentByPath.get(path);
+            if (existing?.content !== item.text) {
+              sourceEditorRef.current?.applyFormattedText(path, item.text);
+            }
+          }
+          const updated = {
+            ...current,
+            revision: result.workspace_revision,
+            files: [...returnedByPath.entries()].map(([path, item]) => ({
+              path,
+              content: item.text,
+              version: item.version,
+            })),
+          };
+          replaceWorkspace(updated, true);
+          markLatestGenerateOutcome('accepted');
+        }).catch((error: unknown) => {
+          setChatMessages((messages) =>
+            messages.map((message) =>
+              message.role === 'assistant' &&
+              message.kind === 'generate' &&
+              message.actionId === actionId
+                ? {
+                    ...message,
+                    diagnostics: [
+                      {
+                        code: 'AI_APPLY_ERROR',
+                        severity: 'error',
+                        message:
+                          error instanceof Error
+                            ? error.message
+                            : 'Could not apply conversation preview',
+                        uri: '',
+                        line: null,
+                        column: null,
+                        end_line: null,
+                        end_column: null,
+                      },
+                    ],
+                  }
+                : message,
+            ),
+          );
+        });
+        return;
+      }
       if (source === '') {
         return;
       }
@@ -876,6 +971,19 @@ export function App({
 
   const handleAiDiscard = useCallback(
     (messageId: string): void => {
+      const message = chatMessages.find((item) => item.id === messageId);
+      const actionId =
+        message !== undefined && isAssistantGenerateMessage(message)
+          ? message.actionId
+          : undefined;
+      const client = clientRef.current;
+      if (actionId !== undefined && client?.conversationDiscard !== undefined) {
+        void client.conversationDiscard(
+          conversationSessionIdRef.current,
+          actionId,
+          workspaceRef.current.revision,
+        );
+      }
       setChatMessages((messages) =>
         messages.map((message) =>
           message.role === 'assistant' && message.id === messageId
@@ -884,7 +992,7 @@ export function App({
         ),
       );
     },
-    [],
+    [chatMessages],
   );
 
   const retryCompiler = (): void => {

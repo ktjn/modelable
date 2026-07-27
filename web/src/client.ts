@@ -1,10 +1,8 @@
 import {
   BROWSER_COMPILER_PROTOCOL_VERSION,
-  type BrowserAiExplainResult,
-  type BrowserAiGenerateResult,
-  type BrowserAiPendingResult,
-  type BrowserAiResult,
   type BrowserCompileResult,
+  type BrowserConversationReply,
+  type BrowserConversationResult,
   type BrowserCompatibilityResult,
   type BrowserCompletionResult,
   type BrowserCompilerErrorCode,
@@ -24,11 +22,10 @@ import {
   type BrowserResultGuard,
   type BrowserSource,
   type BrowserWorkspaceResult,
-  isBrowserAiExplainResult,
-  isBrowserAiGenerateResult,
-  isBrowserAiPendingResult,
-  isBrowserAiResult,
   isBrowserCompileResult,
+  isBrowserConversationPendingResult,
+  isBrowserConversationReply,
+  isBrowserConversationResult,
   isBrowserCompatibilityResult,
   isBrowserCompletionResult,
   isBrowserCompilerResponse,
@@ -43,7 +40,7 @@ import {
   isBrowserRenameResult,
   isBrowserWorkspaceResult,
 } from './protocol';
-import type { AiExplainParameters, AiGenerateAction, AiGenerateParameters, LlmProvider } from './ai/types';
+import type { LlmProvider } from './ai/types';
 
 export interface WorkerLike {
   postMessage(message: BrowserCompilerRequest): void;
@@ -94,6 +91,14 @@ export type CompileTarget =
   | 'csharp'
   | 'markdown'
   | 'python';
+
+export interface ConversationTurnInput {
+  sessionId: string;
+  workspaceRevision: number;
+  message: string;
+  activeDocumentUri: string | null;
+  position: { line: number; character: number } | null;
+}
 
 export class BrowserCompilerClient {
   private readonly pending = new Map<string, PendingRequest>();
@@ -297,77 +302,96 @@ export class BrowserCompilerClient {
     );
   }
 
-  async aiGenerate(
-    workspaceRevision: number,
-    action: AiGenerateAction,
-    parameters: AiGenerateParameters,
+  async conversationTurn(
+    input: ConversationTurnInput,
     provider: LlmProvider,
-  ): Promise<BrowserAiGenerateResult> {
-    const pendingResult = await this.initializedRequest<BrowserAiResult>(
-      'ai.generate',
-      { workspaceRevision, action, parameters },
-      isBrowserAiResult,
-    );
-    if (!isBrowserAiPendingResult(pendingResult)) {
-      if (isBrowserAiGenerateResult(pendingResult)) {
-        return pendingResult;
-      }
-      throw new BrowserCompilerError(
-        'COMPILER_FAILED',
-        'Unexpected AI result type',
-      );
-    }
-    const llmResponse = await provider.complete({
-      system: pendingResult.llm_request.system,
-      user: pendingResult.llm_request.user,
-      temperature: pendingResult.llm_request.temperature,
-      responseFormat: pendingResult.llm_request.response_format === 'json' ? 'json' : 'text',
-    });
-    return this.initializedRequest<BrowserAiGenerateResult>(
-      'ai.generate',
+    signal?: AbortSignal,
+  ): Promise<BrowserConversationReply> {
+    let result = await this.initializedRequest<BrowserConversationResult>(
+      'conversation.turn',
       {
-        workspaceRevision,
-        action,
-        parameters,
-        llmResponseContent: llmResponse.content,
+        sessionId: input.sessionId,
+        workspaceRevision: input.workspaceRevision,
+        message: input.message,
+        activeDocumentUri: input.activeDocumentUri,
+        line: input.position?.line ?? null,
+        character: input.position?.character ?? null,
       },
-      isBrowserAiGenerateResult,
+      isBrowserConversationResult,
+    );
+    try {
+      while (isBrowserConversationPendingResult(result)) {
+        throwIfConversationAborted(signal);
+        const response = await provider.complete({
+          system: result.llm_request.system,
+          user: result.llm_request.user,
+          temperature: result.llm_request.temperature,
+          responseFormat: result.llm_request.response_format === 'json' ? 'json' : 'text',
+          schema: result.llm_request.schema ?? undefined,
+        });
+        throwIfConversationAborted(signal);
+        result = await this.initializedRequest<BrowserConversationResult>(
+          'conversation.resume',
+          {
+            sessionId: input.sessionId,
+            requestId: result.request_id,
+            workspaceRevision: input.workspaceRevision,
+            llmResponseContent: response.content,
+          },
+          isBrowserConversationResult,
+        );
+      }
+    } catch (error: unknown) {
+      if (isBrowserConversationPendingResult(result)) {
+        try {
+          await this.initializedRequest(
+            'conversation.fail',
+            {
+              sessionId: input.sessionId,
+              requestId: result.request_id,
+              workspaceRevision: input.workspaceRevision,
+              error: error instanceof Error ? error.message : 'Provider completion failed',
+            },
+            isBrowserConversationReply,
+          );
+        } catch {
+          // Preserve the provider/cancellation failure that caused cleanup.
+        }
+      }
+      throw error;
+    }
+    return result;
+  }
+
+  conversationApply(
+    sessionId: string,
+    actionId: string,
+    workspaceRevision: number,
+  ): Promise<BrowserConversationReply> {
+    return this.initializedRequest(
+      'conversation.apply',
+      { sessionId, actionId, workspaceRevision },
+      isBrowserConversationReply,
     );
   }
 
-  async aiExplain(
+  conversationDiscard(
+    sessionId: string,
+    actionId: string,
     workspaceRevision: number,
-    parameters: AiExplainParameters,
-    provider: LlmProvider,
-  ): Promise<BrowserAiExplainResult> {
-    const pendingResult = await this.initializedRequest<BrowserAiResult>(
-      'ai.explain',
-      { workspaceRevision, parameters },
-      isBrowserAiResult,
+  ): Promise<BrowserConversationReply> {
+    return this.initializedRequest(
+      'conversation.discard',
+      { sessionId, actionId, workspaceRevision },
+      isBrowserConversationReply,
     );
-    if (!isBrowserAiPendingResult(pendingResult)) {
-      if (isBrowserAiExplainResult(pendingResult)) {
-        return pendingResult;
-      }
-      throw new BrowserCompilerError(
-        'COMPILER_FAILED',
-        'Unexpected AI result type',
-      );
-    }
-    const llmResponse = await provider.complete({
-      system: pendingResult.llm_request.system,
-      user: pendingResult.llm_request.user,
-      temperature: pendingResult.llm_request.temperature,
-      responseFormat: pendingResult.llm_request.response_format === 'json' ? 'json' : 'text',
-    });
-    return this.initializedRequest<BrowserAiExplainResult>(
-      'ai.explain',
-      {
-        workspaceRevision,
-        parameters,
-        llmResponseContent: llmResponse.content,
-      },
-      isBrowserAiExplainResult,
+  }
+
+  async conversationReset(sessionId: string): Promise<void> {
+    await this.initializedRequest(
+      'conversation.reset',
+      { sessionId },
+      (result): result is null => result === null,
     );
   }
 
@@ -451,10 +475,14 @@ export type BrowserCompilerClientLike = Pick<
   | 'lineage'
   | 'compatibility'
   | 'governance'
-  | 'aiGenerate'
-  | 'aiExplain'
   | 'dispose'
->;
+> & Partial<Pick<
+  BrowserCompilerClient,
+  | 'conversationTurn'
+  | 'conversationApply'
+  | 'conversationDiscard'
+  | 'conversationReset'
+>>;
 
 function languagePositionPayload(
   position: BrowserLanguagePosition,
@@ -465,4 +493,10 @@ function languagePositionPayload(
     line: position.line,
     character: position.character,
   };
+}
+
+function throwIfConversationAborted(signal?: AbortSignal): void {
+  if (signal?.aborted === true) {
+    throw new DOMException('Conversation cancelled', 'AbortError');
+  }
 }

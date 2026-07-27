@@ -16,8 +16,12 @@ export type BrowserCompilerMethod =
   | 'workspace.lineage'
   | 'workspace.compatibility'
   | 'workspace.governance'
-  | 'ai.generate'
-  | 'ai.explain';
+  | 'conversation.turn'
+  | 'conversation.resume'
+  | 'conversation.fail'
+  | 'conversation.apply'
+  | 'conversation.discard'
+  | 'conversation.reset';
 
 export type BrowserCompilerErrorCode =
   | 'INITIALIZATION_FAILED'
@@ -293,26 +297,49 @@ export interface BrowserLlmRequest {
   user: string;
   temperature: number;
   response_format: string;
+  schema: Record<string, unknown> | null;
 }
 
-export interface BrowserAiPendingResult {
+export interface BrowserConversationPendingResult {
   status: 'pending_llm';
+  request_id: string;
+  attempt: number;
   llm_request: BrowserLlmRequest;
 }
 
-export interface BrowserAiGenerateResult {
-  source: string;
-  diagnostics: BrowserDiagnostic[];
+export interface BrowserConversationPreviewFile {
+  path: string;
+  existed_before: boolean;
+  before_text: string;
+  after_text: string;
 }
 
-export interface BrowserAiExplainResult {
-  explanation: string;
+export interface BrowserConversationCompilationFile {
+  destination: string;
+  media_type: string;
+  after_text: string | null;
+  after_hash: string;
 }
 
-export type BrowserAiResult =
-  | BrowserAiPendingResult
-  | BrowserAiGenerateResult
-  | BrowserAiExplainResult;
+export interface BrowserConversationReplyValue {
+  kind: 'answer' | 'clarification' | 'preview' | 'applied' | 'discarded' | 'unsupported' | 'error';
+  text: string;
+  change_set_id: string | null;
+  operation_kind: 'source_change' | 'compile' | null;
+  focused_ref: string | null;
+  preview_files: BrowserConversationPreviewFile[];
+  compilation_files: BrowserConversationCompilationFile[];
+}
+
+export interface BrowserConversationReply {
+  reply: BrowserConversationReplyValue;
+  workspace_revision: number;
+  sources: BrowserSource[];
+}
+
+export type BrowserConversationResult =
+  | BrowserConversationPendingResult
+  | BrowserConversationReply;
 
 export type BrowserResultGuard<T> = (value: unknown) => value is T;
 
@@ -332,8 +359,12 @@ const methods = new Set<BrowserCompilerMethod>([
   'workspace.lineage',
   'workspace.compatibility',
   'workspace.governance',
-  'ai.generate',
-  'ai.explain',
+  'conversation.turn',
+  'conversation.resume',
+  'conversation.fail',
+  'conversation.apply',
+  'conversation.discard',
+  'conversation.reset',
 ]);
 
 const errorCodes = new Set<BrowserCompilerErrorCode>([
@@ -833,58 +864,79 @@ export function isBrowserGovernanceResult(
 
 function isBrowserLlmRequest(
   value: unknown,
+  requireSchema = false,
 ): value is BrowserLlmRequest {
+  const keys = requireSchema
+    ? ['system', 'user', 'temperature', 'response_format', 'schema']
+    : ['system', 'user', 'temperature', 'response_format'];
   return (
     isRecord(value) &&
-    hasExactKeys(value, ['system', 'user', 'temperature', 'response_format']) &&
+    hasExactKeys(value, keys) &&
     typeof value.system === 'string' &&
     typeof value.user === 'string' &&
     typeof value.temperature === 'number' &&
-    typeof value.response_format === 'string'
+    typeof value.response_format === 'string' &&
+    (!requireSchema || value.schema === null || isRecord(value.schema))
   );
 }
 
-export function isBrowserAiPendingResult(
-  value: unknown,
-): value is BrowserAiPendingResult {
+function isBrowserSource(value: unknown): value is BrowserSource {
   return (
     isRecord(value) &&
-    hasExactKeys(value, ['status', 'llm_request']) &&
+    hasExactKeys(value, ['uri', 'text', 'version']) &&
+    typeof value.uri === 'string' &&
+    typeof value.text === 'string' &&
+    isIntegerAtLeast(value.version, 1)
+  );
+}
+
+export function isBrowserConversationPendingResult(
+  value: unknown,
+): value is BrowserConversationPendingResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['status', 'request_id', 'attempt', 'llm_request']) &&
     value.status === 'pending_llm' &&
-    isBrowserLlmRequest(value.llm_request)
+    typeof value.request_id === 'string' &&
+    isIntegerAtLeast(value.attempt, 0) &&
+    isBrowserLlmRequest(value.llm_request, true)
   );
 }
 
-export function isBrowserAiGenerateResult(
+function isBrowserConversationReplyValue(
   value: unknown,
-): value is BrowserAiGenerateResult {
+): value is BrowserConversationReplyValue {
+  if (!isRecord(value) || typeof value.kind !== 'string' || typeof value.text !== 'string') {
+    return false;
+  }
+  const kinds = new Set(['answer', 'clarification', 'preview', 'applied', 'discarded', 'unsupported', 'error']);
+  return (
+    kinds.has(value.kind) &&
+    isNullableString(value.change_set_id) &&
+    (value.operation_kind === null || value.operation_kind === 'source_change' || value.operation_kind === 'compile') &&
+    isNullableString(value.focused_ref) &&
+    Array.isArray(value.preview_files) &&
+    Array.isArray(value.compilation_files)
+  );
+}
+
+export function isBrowserConversationReply(
+  value: unknown,
+): value is BrowserConversationReply {
   return (
     isRecord(value) &&
-    hasExactKeys(value, ['source', 'diagnostics']) &&
-    typeof value.source === 'string' &&
-    Array.isArray(value.diagnostics) &&
-    value.diagnostics.every(isBrowserDiagnostic)
+    hasExactKeys(value, ['reply', 'workspace_revision', 'sources']) &&
+    isBrowserConversationReplyValue(value.reply) &&
+    isIntegerAtLeast(value.workspace_revision, 1) &&
+    Array.isArray(value.sources) &&
+    value.sources.every(isBrowserSource)
   );
 }
 
-export function isBrowserAiExplainResult(
+export function isBrowserConversationResult(
   value: unknown,
-): value is BrowserAiExplainResult {
-  return (
-    isRecord(value) &&
-    hasExactKeys(value, ['explanation']) &&
-    typeof value.explanation === 'string'
-  );
-}
-
-export function isBrowserAiResult(
-  value: unknown,
-): value is BrowserAiResult {
-  return (
-    isBrowserAiPendingResult(value) ||
-    isBrowserAiGenerateResult(value) ||
-    isBrowserAiExplainResult(value)
-  );
+): value is BrowserConversationResult {
+  return isBrowserConversationPendingResult(value) || isBrowserConversationReply(value);
 }
 
 export function isBrowserCompilerRequest(

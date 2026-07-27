@@ -22,7 +22,7 @@ export interface ChatPanelProps {
   onSend(text: string): void;
   onExplain(): void;
   onSuggestProjection(): void;
-  onAccept(source: string): void;
+  onAccept(source: string, actionId?: string): void;
   onDiscard(messageId: string): void;
   onDownloadModel(): void;
   onUseHeuristic(): void;
@@ -125,7 +125,7 @@ export function ChatPanel({
               ) : null}
               {aiState.status === 'unsupported' || aiState.status === 'error' ? (
                 <button type="button" onClick={onUseHeuristic}>
-                  Use heuristic AI
+                  Use simulator
                 </button>
               ) : null}
             </div>
@@ -179,7 +179,7 @@ export function ChatPanel({
 interface ChatMessageItemProps {
   message: ChatMessage;
   activeFileContent: string;
-  onAccept(source: string): void;
+  onAccept(source: string, actionId?: string): void;
   onDiscard(messageId: string): void;
 }
 
@@ -279,14 +279,18 @@ function AssistantGenerateMessageItem({
 }: {
   message: AssistantGenerateChatMessage;
   activeFileContent: string;
-  onAccept(source: string): void;
+  onAccept(source: string, actionId?: string): void;
   onDiscard(messageId: string): void;
 }) {
   const [showDiff, setShowDiff] = useState(false);
+  const hasSourcePreviews = (message.previewFiles?.length ?? 0) > 0;
+  const hasCompilation = (message.compilationFiles?.length ?? 0) > 0;
 
   return (
     <div className="chat-message chat-message--assistant">
-      <h2 className="chat-message__title">AI generated source</h2>
+      <h2 className="chat-message__title">
+        {hasCompilation ? 'Compilation preview' : 'AI generated source'}
+      </h2>
       <p className="chat-message__provider">
         {message.providerInfo.provider} / {message.providerInfo.model}
       </p>
@@ -298,8 +302,26 @@ function AssistantGenerateMessageItem({
         <p className="chat-message__outcome">Discarded</p>
       ) : (
         <>
-          {message.source === undefined ? (
-            <p className="chat-message__pending">No source generated</p>
+          {hasSourcePreviews ? (
+            <div className="ai-source-previews">
+              {message.previewFiles?.map((file) => (
+                <section key={file.path}>
+                  <h3>{file.path}</h3>
+                  {showDiff ? (
+                    <DiffViewer
+                      original={file.before_text}
+                      modified={file.after_text}
+                    />
+                  ) : (
+                    <SourcePreview source={file.after_text} />
+                  )}
+                </section>
+              ))}
+            </div>
+          ) : message.source === undefined ? (
+            !hasCompilation ? (
+              <p className="chat-message__pending">No source generated</p>
+            ) : null
           ) : showDiff ? (
             <div className="chat-message__diff">
               <DiffViewer original={activeFileContent} modified={message.source} />
@@ -307,9 +329,20 @@ function AssistantGenerateMessageItem({
           ) : (
             <SourcePreview source={message.source} />
           )}
+          {hasCompilation ? (
+            <div className="ai-compilation-preview">
+              {message.compilationFiles?.map((file) => (
+                <section key={file.destination}>
+                  <h3>{file.destination}</h3>
+                  <pre>{file.after_text ?? `Binary artifact (${file.after_hash})`}</pre>
+                </section>
+              ))}
+            </div>
+          ) : null}
           <DiagnosticsList diagnostics={message.diagnostics} />
           <div className="chat-message__actions">
-            {message.source !== undefined && activeFileContent !== message.source ? (
+            {hasSourcePreviews ||
+            (message.source !== undefined && activeFileContent !== message.source) ? (
               <button
                 type="button"
                 className="chip"
@@ -320,8 +353,17 @@ function AssistantGenerateMessageItem({
             ) : null}
             <button
               type="button"
-              onClick={() => onAccept(message.source ?? '')}
-              disabled={message.source === undefined}
+              onClick={() =>
+                onAccept(
+                  message.source ?? message.previewFiles?.[0]?.after_text ?? '',
+                  message.actionId,
+                )
+              }
+              disabled={
+                message.source === undefined &&
+                !hasSourcePreviews &&
+                !hasCompilation
+              }
             >
               Accept
             </button>

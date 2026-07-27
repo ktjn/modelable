@@ -79,6 +79,7 @@ asyncio_default_test_loop_scope = "module"
 addopts = "-n auto"
 markers = [
     "docker: requires Docker daemon and internet access (opt-in via MODELABLE_DOCKER_TESTS=1)",
+    "ollama: requires a developer-controlled local Ollama server and model (opt-in via MODELABLE_OLLAMA_TESTS=1)",
 ]
 
 [tool.coverage.run]

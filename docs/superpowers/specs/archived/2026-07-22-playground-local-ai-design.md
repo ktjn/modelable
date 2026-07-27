@@ -4,11 +4,13 @@
 
 Shipped on 2026-07-22.
 
+**Superseded conversation architecture:** [Shared Conversation Engine](../2026-07-27-shared-conversation-engine-design.md)
+
 Execution was broken into reviewable tasks in the
-[Playground Local AI implementation plan](../plans/2026-07-22-playground-local-ai.md).
+[Playground Local AI implementation plan](../../plans/archived/2026-07-22-playground-local-ai.md).
 
 This specification defines Phase 6 of the
-[Modelable Playground Architecture](../../playground-design.md). It builds on
+[Modelable Playground Architecture](../../../playground-design.md). It builds on
 the shipped multi-file workspace, browser language services, visualization, and
 analysis views to add local AI-assisted generation and explanation through
 WebLLM, with validated preview and explicit user acceptance for all mutating

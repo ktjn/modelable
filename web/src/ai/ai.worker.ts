@@ -65,16 +65,7 @@ async function handleComplete(id: string, request: LlmRequest): Promise<void> {
   }
 
   try {
-    const reply = await engine.chat.completions.create({
-      messages: [
-        { role: 'system', content: request.system },
-        { role: 'user', content: request.user },
-      ],
-      temperature: request.temperature,
-      response_format: request.responseFormat === 'json'
-        ? { type: 'json_object' }
-        : undefined,
-    });
+    const reply = await engine.chat.completions.create(createWebLlmCompletionRequest(request));
 
     const content = reply.choices[0]?.message?.content ?? '';
     const usage = reply.usage;
@@ -94,6 +85,21 @@ async function handleComplete(id: string, request: LlmRequest): Promise<void> {
     };
     ctx.postMessage(response);
   }
+}
+
+export function createWebLlmCompletionRequest(request: LlmRequest) {
+  return {
+      messages: [
+        { role: 'system' as const, content: request.system },
+        { role: 'user' as const, content: request.user },
+      ],
+      temperature: request.temperature,
+      response_format: request.responseFormat === 'json'
+        ? request.schema === undefined
+          ? { type: 'json_object' as const }
+          : { type: 'json_object' as const, schema: JSON.stringify(request.schema) }
+        : undefined,
+  };
 }
 
 async function handleDispose(): Promise<void> {

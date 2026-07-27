@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import re
 import shlex
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import cast
+from uuid import uuid4
 
 from pydantic import ValidationError
 
@@ -20,7 +22,7 @@ from modelable.llm.conversation_plan import (
     conversation_plan_json_schema,
     parse_conversation_plan,
 )
-from modelable.llm.providers import LLMProvider, LLMRequest
+from modelable.llm.provider_types import LLMProvider, LLMRequest
 
 SYSTEM_PROMPT = """You plan grounded requests against a Modelable workspace.
 Return JSON only matching the supplied closed schema. Return exactly one of the five plan kinds:
@@ -34,6 +36,14 @@ Ask for clarification instead of assuming ambiguous ownership, identity fields,
 whether an address is inline or a reusable address model, or a projection source.
 For changes to an existing contract, default to append-version operations and target
 the appended version; do not rewrite a published version in place.
+Use ChangeSetPlan, never CompilePlan, when the user asks to create or change Modelable
+models, projections, fields, indexes, or annotations. CompilePlan is only for generating
+artifacts from an already-defined workspace.
+Examples:
+{"kind":"change_set","summary":"Create billing.Invoice@1","operations":[{"kind":"create_model","domain":"billing","name":"Invoice","model_kind":"entity","fields":[{"name":"invoiceId","type":{"kind":"uuid"},"annotations":[{"kind":"key"}]}]}]}
+{"kind":"change_set","summary":"Create billing.CustomerProjection@1","operations":[{"kind":"create_projection","domain":"billing","name":"CustomerProjection","source":{"model":"customer.Customer","version":1,"alias":"customer"},"fields":[{"name":"customerId","mapping":{"kind":"direct","source_alias":"customer","source_field":"customerId"}}]}]}
+{"kind":"change_set","summary":"Add email in customer.Customer@2","operations":[{"kind":"append_model_version","source":"customer.Customer@1","version":2},{"kind":"add_field","target":"customer.Customer@2","field":{"name":"email","type":{"kind":"string"},"optional":true}}]}
+{"kind":"clarification","question":"Which source model and consumer domain should I use?","reason":"A projection requires a grounded source and consumer."}
 CompilePlan permits only a target, domain filters, a normalized local relative output,
 the descriptor flag, and a summary. Examples:
 {"kind":"compile","target":"rust","domains":[],"output":null,"descriptor_set":false,"summary":"Compile the workspace to Rust."}
@@ -56,6 +66,109 @@ class PlannerContext:
     pending_plan: ChangeSetPlan | None
 
 
+@dataclass(frozen=True)
+class PendingPlanRequest:
+    request_id: str
+    request: LLMRequest
+    attempt: int
+
+
+@dataclass(frozen=True)
+class _PendingPlanningState:
+    message: str
+    context: PlannerContext
+    attempt: int
+
+
+class PlanningRequestError(ValueError):
+    pass
+
+
+class ResumableConversationPlanner:
+    def __init__(
+        self,
+        *,
+        repair_attempts: int = 1,
+        id_factory: Callable[[], str] | None = None,
+    ) -> None:
+        if repair_attempts < 0:
+            raise ValueError("repair_attempts must be >= 0")
+        self.repair_attempts = repair_attempts
+        self.id_factory = id_factory or (lambda: str(uuid4()))
+        self._pending: dict[str, _PendingPlanningState] = {}
+        self._used_request_ids: set[str] = set()
+
+    def offline(self, message: str, context: PlannerContext) -> ConversationPlan:
+        return ConversationPlanner._offline_plan(message, context)
+
+    def begin(self, message: str, context: PlannerContext) -> ConversationPlan | PendingPlanRequest:
+        offline = self.offline(message, context)
+        if not _requires_provider(message, offline):
+            return offline
+        return self._register(
+            _PendingPlanningState(
+                message=message,
+                context=context,
+                attempt=0,
+            ),
+            validation_error=None,
+        )
+
+    def resume(self, request_id: str, content: str) -> ConversationPlan | PendingPlanRequest:
+        state = self._consume(request_id)
+        try:
+            plan = parse_conversation_plan(content)
+            _validate_plan_intent(state.message, plan)
+            return plan
+        except Exception as error:
+            if state.attempt >= self.repair_attempts:
+                return UnsupportedPlan(
+                    request=state.message,
+                    reason=f"The configured provider did not return a valid typed plan: {error}",
+                )
+            repair_state = _PendingPlanningState(
+                message=state.message,
+                context=state.context,
+                attempt=state.attempt + 1,
+            )
+            return self._register(repair_state, validation_error=str(error))
+
+    def fail(self, request_id: str, error: Exception) -> UnsupportedPlan:
+        state = self._consume(request_id)
+        phase = "initial plan request" if state.attempt == 0 else "plan repair request"
+        return ConversationPlanner._provider_failure(state.message, error, phase=phase)
+
+    def cancel(self, request_id: str) -> None:
+        self._consume(request_id)
+
+    def _register(
+        self,
+        state: _PendingPlanningState,
+        *,
+        validation_error: str | None,
+    ) -> PendingPlanRequest:
+        request_id = self.id_factory()
+        if not request_id or request_id in self._used_request_ids:
+            raise PlanningRequestError("Planning request IDs must be non-empty and unique")
+        self._used_request_ids.add(request_id)
+        self._pending[request_id] = state
+        return PendingPlanRequest(
+            request_id=request_id,
+            request=_request(
+                message=state.message,
+                context=state.context,
+                validation_error=validation_error,
+            ),
+            attempt=state.attempt,
+        )
+
+    def _consume(self, request_id: str) -> _PendingPlanningState:
+        try:
+            return self._pending.pop(request_id)
+        except KeyError as error:
+            raise PlanningRequestError(f"Unknown or completed planning request: {request_id}") from error
+
+
 def build_conversation_request(*, message: str, context: PlannerContext) -> LLMRequest:
     return _request(message=message, context=context, validation_error=None)
 
@@ -63,51 +176,22 @@ def build_conversation_request(*, message: str, context: PlannerContext) -> LLMR
 class ConversationPlanner:
     def __init__(self, provider: LLMProvider | None, *, repair_attempts: int = 1) -> None:
         self.provider = provider
-        self.repair_attempts = repair_attempts
+        self.resumable = ResumableConversationPlanner(repair_attempts=repair_attempts)
 
     def plan(self, message: str, context: PlannerContext) -> ConversationPlan:
         if self.provider is None:
             return self._offline_plan(message, context)
-        request = build_conversation_request(message=message, context=context)
-        try:
-            response = self.provider.complete(request)
-        except Exception as error:
-            return self._provider_failure(message, error, phase="initial plan request")
-        try:
-            return parse_conversation_plan(response.content)
-        except Exception as error:
-            return self._repair(message, context, error)
-
-    def _repair(
-        self,
-        message: str,
-        context: PlannerContext,
-        error: Exception,
-    ) -> ConversationPlan:
-        if self.provider is None:
-            raise RuntimeError("Conversation plan repair requires an LLM provider")
-        validation_error = str(error)
-        for _ in range(self.repair_attempts):
+        outcome = self.resumable.begin(message, context)
+        while isinstance(outcome, PendingPlanRequest):
             try:
-                response = self.provider.complete(
-                    _request(
-                        message=message,
-                        context=context,
-                        validation_error=validation_error,
-                    )
-                )
-            except Exception as provider_error:
-                return self._provider_failure(message, provider_error, phase="plan repair request")
-            try:
-                return parse_conversation_plan(response.content)
-            except Exception as repair_error:
-                validation_error = str(repair_error)
-        return UnsupportedPlan(
-            request=message,
-            reason=f"The configured provider did not return a valid typed plan: {validation_error}",
-        )
+                response = self.provider.complete(outcome.request)
+            except Exception as error:
+                return self.resumable.fail(outcome.request_id, error)
+            outcome = self.resumable.resume(outcome.request_id, response.content)
+        return outcome
 
-    def _offline_plan(self, message: str, context: PlannerContext) -> ConversationPlan:
+    @staticmethod
+    def _offline_plan(message: str, context: PlannerContext) -> ConversationPlan:
         stripped = message.strip()
         if stripped.startswith("/"):
             command, _, arguments = stripped.partition(" ")
@@ -124,26 +208,35 @@ class ConversationPlanner:
                         question="What workspace question should I answer?",
                         reason="/ask requires a deterministic workspace question.",
                     )
-                return self._offline_plan(arguments, context)
+                return ConversationPlanner._offline_plan(arguments, context)
             if command in {"/update", "/create", "/change"}:
-                return self._provider_required(message)
+                return ConversationPlanner._provider_required(message)
             if command == "/compile":
                 return parse_compile_command(message)
             if command in {"/sync", "/publish"}:
-                return self._operational_unsupported(message)
+                return ConversationPlanner._operational_unsupported(message)
             return UnsupportedPlan(
                 request=message,
                 reason=f"Slash command {command} is not a conversational planning command.",
             )
 
         lower = stripped.lower()
+        if re.search(r"\b(?:create|suggest|propose|draft)\b.*\bprojection\b", lower) and (
+            lower == "create a projection" or "not chosen" in lower or "unspecified" in lower
+        ):
+            return ClarificationPlan(
+                question="Which source model and consumer domain should I use?",
+                reason="A projection requires a grounded source model and consumer domain.",
+            )
         if any(operation in lower for operation in ("compile", "sync", "publish", "deploy", "external")):
-            return self._operational_unsupported(message)
+            return ConversationPlanner._operational_unsupported(message)
         if re.search(
             r"\b(?:add|create|change|rename|remove|delete|set|update|replace|make)\b",
             lower,
         ):
-            return self._provider_required(message)
+            return ConversationPlanner._provider_required(message)
+        if re.search(r"\b(?:suggest|propose|draft)\b.*\bprojection\b", lower):
+            return ConversationPlanner._provider_required(message)
 
         refs = _extract_refs(stripped)
         focused_refs = refs or ([context.focused_ref] if context.focused_ref else [])
@@ -184,15 +277,13 @@ class ConversationPlanner:
                 refs=focused_refs,
                 question=message,
             )
-        return self._provider_required(message)
+        return ConversationPlanner._provider_required(message)
 
     @staticmethod
     def _provider_required(message: str) -> UnsupportedPlan:
         return UnsupportedPlan(
             request=message,
-            reason=(
-                "This request requires intent synthesis. Configure an LLM provider for conversational change planning."
-            ),
+            reason=_PROVIDER_REQUIRED_REASON,
         )
 
     @staticmethod
@@ -209,6 +300,26 @@ class ConversationPlanner:
             reason="Operational and external actions are outside conversational workspace planning.",
             roadmap_area="operations",
         )
+
+
+_PROVIDER_REQUIRED_REASON = (
+    "This request requires intent synthesis. Configure an LLM provider for conversational change planning."
+)
+
+
+def _requires_provider(message: str, plan: ConversationPlan) -> bool:
+    if isinstance(plan, UnsupportedPlan) and plan.reason == _PROVIDER_REQUIRED_REASON:
+        return True
+    normalized = message.strip().lower()
+    command, _, arguments = normalized.partition(" ")
+    if command == "/ask" and arguments.strip():
+        return True
+    return (
+        isinstance(plan, UnsupportedPlan)
+        and not normalized.startswith("/")
+        and "compile" in normalized
+        and not any(operation in normalized for operation in ("sync", "publish", "deploy", "external"))
+    )
 
 
 def parse_compile_command(message: str) -> CompilePlan | ClarificationPlan:
@@ -308,3 +419,14 @@ _REF_RE = re.compile(r"\b[A-Za-z_][A-Za-z0-9_-]*\.[A-Za-z_][A-Za-z0-9_-]*@\d+\b"
 
 def _extract_refs(message: str) -> list[str]:
     return _REF_RE.findall(message)
+
+
+def _validate_plan_intent(message: str, plan: ConversationPlan) -> None:
+    if isinstance(plan, CompilePlan) and re.search(
+        r"\b(?:add|create|change|rename|remove|delete|set|update|replace|make|suggest|propose|draft)\b",
+        message,
+        flags=re.IGNORECASE,
+    ):
+        raise ValueError(
+            "A source mutation request requires a change_set or clarification plan; compile only generates artifacts"
+        )

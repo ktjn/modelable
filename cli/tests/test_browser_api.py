@@ -34,12 +34,16 @@ def dispatch(method: str, payload: object) -> dict:
 
 
 def test_open_workspace_returns_hashes_and_no_diagnostics():
-    result = BrowserCompiler().open_workspace(
+    compiler = BrowserCompiler()
+    sources = (BrowserSource(uri="inmemory:///customer.mdl", text=VALID, version=1),)
+
+    result = compiler.open_workspace(
         1,
-        (BrowserSource(uri="inmemory:///customer.mdl", text=VALID, version=1),),
+        sources,
     )
 
     assert result.workspace_revision == 1
+    assert compiler.sources == sources
     assert result.diagnostics == ()
     assert set(result.source_hashes) == {"inmemory:///customer.mdl"}
     assert len(result.source_hashes["inmemory:///customer.mdl"]) == 64

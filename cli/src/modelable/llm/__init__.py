@@ -8,14 +8,20 @@ from .context import (
     build_workspace_summary,
     parse_model_ref,
 )
-from .providers import (
-    AnthropicProvider,
-    LLMProvider,
-    LLMRequest,
-    LLMResponse,
-    OllamaProvider,
-    build_provider,
+from .conversation_backend import (
+    ConversationBackend,
+    ConversationPreviewFile,
+    ConversationReply,
+    ReplyKind,
 )
+from .conversation_engine import ConversationEngine, ConversationOutcome
+from .conversation_planner import (
+    PendingPlanRequest,
+    PlanningRequestError,
+    ResumableConversationPlanner,
+)
+from .provider_types import LLMProvider, LLMRequest, LLMResponse
+from .providers import AnthropicProvider, OllamaProvider, build_provider
 from .redaction import redact_sensitive_values
 from .update_plan import UpdateChange, UpdatePlan, build_update_request, parse_update_plan
 
@@ -23,11 +29,20 @@ __all__ = [
     "CHAT_SYSTEM_PROMPT",
     "AnthropicProvider",
     "ChatState",
+    "ConversationBackend",
+    "ConversationEngine",
+    "ConversationOutcome",
+    "ConversationPreviewFile",
+    "ConversationReply",
     "LLMProvider",
     "LLMRequest",
     "LLMResponse",
     "LlmConfig",
     "OllamaProvider",
+    "PendingPlanRequest",
+    "PlanningRequestError",
+    "ReplyKind",
+    "ResumableConversationPlanner",
     "UpdateChange",
     "UpdatePlan",
     "build_model_summary",

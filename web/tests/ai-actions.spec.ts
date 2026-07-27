@@ -2,16 +2,16 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { replaceSource, sourceOutput, waitForReady } from './helpers';
 
-async function gotoWithHeuristic(page: Page): Promise<void> {
-  await page.goto('?test=1&ai=heuristic');
+async function gotoWithSimulator(page: Page): Promise<void> {
+  await page.goto('?test=1&ai=simulator');
   await waitForReady(page);
   await expect(
     page.getByPlaceholder('e.g. Add a creditScore field to Customer'),
   ).toBeVisible({ timeout: 5_000 });
 }
 
-test('activates heuristic AI and shows action buttons', async ({ page }) => {
-  await gotoWithHeuristic(page);
+test('activates the semantic simulator and shows action buttons', async ({ page }) => {
+  await gotoWithSimulator(page);
 
   await expect(
     page.getByRole('button', { name: 'Explain workspace' }),
@@ -27,11 +27,11 @@ test('activates heuristic AI and shows action buttons', async ({ page }) => {
 test('generate entity sends a chat message and shows preview', async ({
   page,
 }) => {
-  await gotoWithHeuristic(page);
+  await gotoWithSimulator(page);
 
   await page
     .getByPlaceholder('e.g. Add a creditScore field to Customer')
-    .fill('an invoice');
+    .fill('Create an invoice');
   await page.getByRole('button', { name: 'Send' }).click();
 
   await expect(page.getByText('AI generated source')).toBeVisible({
@@ -43,11 +43,11 @@ test('generate entity sends a chat message and shows preview', async ({
   await expect(
     page.getByRole('button', { name: 'Discard' }),
   ).toBeVisible();
-  await expect(page.getByText('heuristic / heuristic')).toBeVisible();
+  await expect(page.getByText('simulator / semantic-v1')).toBeVisible();
 });
 
 test('explain shows AI explanation in chat', async ({ page }) => {
-  await gotoWithHeuristic(page);
+  await gotoWithSimulator(page);
 
   await page.getByRole('button', { name: 'Explain workspace' }).click();
   await expect(page.getByText('AI explanation')).toBeVisible({
@@ -62,11 +62,11 @@ test('explain shows AI explanation in chat', async ({ page }) => {
 });
 
 test('accept applies generated source to the editor', async ({ page }) => {
-  await gotoWithHeuristic(page);
+  await gotoWithSimulator(page);
 
   await page
     .getByPlaceholder('e.g. Add a creditScore field to Customer')
-    .fill('an invoice');
+    .fill('Create an invoice');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByText('AI generated source')).toBeVisible({
     timeout: 10_000,
@@ -77,7 +77,7 @@ test('accept applies generated source to the editor', async ({ page }) => {
 });
 
 test('discard closes preview without modifying source', async ({ page }) => {
-  await gotoWithHeuristic(page);
+  await gotoWithSimulator(page);
 
   const source =
     'domain customer { owner: "team" entity Customer @ 1 (additive) { @key customerId: uuid } }';
@@ -97,14 +97,14 @@ test('has no accessibility violations across the assistant panel', async ({
   page,
 }) => {
   test.setTimeout(90_000);
-  await gotoWithHeuristic(page);
+  await gotoWithSimulator(page);
 
   const panelResults = await new AxeBuilder({ page }).analyze();
   expect(panelResults.violations).toEqual([]);
 
   await page
     .getByPlaceholder('e.g. Add a creditScore field to Customer')
-    .fill('an invoice');
+    .fill('Create an invoice');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByText('AI generated source')).toBeVisible({
     timeout: 10_000,
@@ -125,7 +125,7 @@ test('no CSS animations are active with prefers-reduced-motion', async ({
   });
   const page = await context.newPage();
   try {
-    await page.goto('?test=1&ai=heuristic');
+    await page.goto('?test=1&ai=simulator');
     await waitForReady(page);
 
     const animations = await page.evaluate(() => {
