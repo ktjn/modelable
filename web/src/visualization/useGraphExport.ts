@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, type RefObject } from 'react';
 
 function collectStyles(): string {
   const sheets = Array.from(document.styleSheets);
@@ -73,9 +73,9 @@ function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function useGraphExport() {
-  const containerRef = useRef<HTMLDivElement>(null);
-
+export function useGraphExport(
+  containerRef: RefObject<HTMLDivElement | null>,
+) {
   const exportSvg = useCallback(() => {
     const container = containerRef.current;
     if (container === null) return;
@@ -122,5 +122,5 @@ export function useGraphExport() {
     img.src = url;
   }, []);
 
-  return { containerRef, exportSvg, exportPng };
+  return { exportSvg, exportPng };
 }
