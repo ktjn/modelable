@@ -1,5 +1,4 @@
 import type { CompileTarget } from '../client';
-import type { BrowserArtifact } from '../protocol';
 import type { RuntimePhase } from '../app-state';
 
 export interface ToolbarProps {
@@ -8,7 +7,6 @@ export interface ToolbarProps {
   actionsDisabled: boolean;
   languageCanRetry: boolean;
   persistencePhase: 'saved' | 'saving' | 'memory-only' | 'recovery-required';
-  selectedArtifact: BrowserArtifact | null;
   onExportSource(): void;
   onValidate(): void;
   onFormat(): void;
@@ -17,7 +15,6 @@ export interface ToolbarProps {
   onRetryLanguageServices(): void;
   onRetryStorage(): void;
   onCompileTargetChange(target: CompileTarget): void;
-  onExportArtifact(): void;
 }
 
 export function Toolbar({
@@ -26,7 +23,6 @@ export function Toolbar({
   actionsDisabled,
   languageCanRetry,
   persistencePhase,
-  selectedArtifact,
   onExportSource,
   onValidate,
   onFormat,
@@ -35,30 +31,35 @@ export function Toolbar({
   onRetryLanguageServices,
   onRetryStorage,
   onCompileTargetChange,
-  onExportArtifact,
 }: ToolbarProps) {
   return (
     <nav className="toolbar" aria-label="Playground actions">
-      <button type="button" onClick={onExportSource}>
-        Export source
-      </button>
-      <button
-        type="button"
-        disabled={actionsDisabled}
-        aria-keyshortcuts="Control+Shift+Enter Meta+Shift+Enter"
-        onClick={onValidate}
-      >
-        Validate
-      </button>
-      <button
-        type="button"
-        disabled={actionsDisabled}
-        aria-keyshortcuts="Shift+Alt+F"
-        onClick={onFormat}
-      >
-        Format
-      </button>
       <div className="toolbar-group">
+        <button
+          type="button"
+          className="toolbar__secondary"
+          onClick={onExportSource}
+        >
+          Export source
+        </button>
+        <button
+          type="button"
+          disabled={actionsDisabled}
+          aria-keyshortcuts="Control+Shift+Enter Meta+Shift+Enter"
+          onClick={onValidate}
+        >
+          Validate
+        </button>
+        <button
+          type="button"
+          disabled={actionsDisabled}
+          aria-keyshortcuts="Shift+Alt+F"
+          onClick={onFormat}
+        >
+          Format
+        </button>
+      </div>
+      <div className="toolbar-group toolbar-group--primary">
         <select
           value={compileTarget}
           onChange={(e) =>
@@ -82,6 +83,7 @@ export function Toolbar({
         </select>
         <button
           type="button"
+          className="toolbar__primary"
           disabled={actionsDisabled}
           aria-keyshortcuts="Control+Enter Meta+Enter"
           onClick={onGenerate}
@@ -89,34 +91,29 @@ export function Toolbar({
           Generate
         </button>
       </div>
-      <button
-        type="button"
-        disabled={selectedArtifact === null}
-        onClick={onExportArtifact}
-      >
-        Export artifact
-      </button>
-      {runtime === 'failed' ? (
-        <button type="button" onClick={onRetryCompiler}>
-          Retry compiler
-        </button>
-      ) : null}
-      {runtime !== 'failed' && languageCanRetry ? (
-        <button
-          type="button"
-          onClick={onRetryLanguageServices}
-        >
-          Retry language services
-        </button>
-      ) : null}
-      {persistencePhase === 'memory-only' ? (
-        <button
-          type="button"
-          onClick={onRetryStorage}
-        >
-          Retry storage
-        </button>
-      ) : null}
+      <div className="toolbar-group toolbar-group--status">
+        {runtime === 'failed' ? (
+          <button type="button" onClick={onRetryCompiler}>
+            Retry compiler
+          </button>
+        ) : null}
+        {runtime !== 'failed' && languageCanRetry ? (
+          <button
+            type="button"
+            onClick={onRetryLanguageServices}
+          >
+            Retry language services
+          </button>
+        ) : null}
+        {persistencePhase === 'memory-only' ? (
+          <button
+            type="button"
+            onClick={onRetryStorage}
+          >
+            Retry storage
+          </button>
+        ) : null}
+      </div>
     </nav>
   );
 }

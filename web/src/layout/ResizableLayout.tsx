@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
+import type { MobileView } from './ViewTabs';
+
 export interface ResizableLayoutProps {
   explorer: ReactNode;
   editor: ReactNode;
   visualization: ReactNode;
   bottom: ReactNode;
-  mobileView: 'source' | 'graph' | 'analysis';
+  mobileView: MobileView;
 }
 
 export function ResizableLayout({

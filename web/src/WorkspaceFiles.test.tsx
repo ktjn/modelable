@@ -40,22 +40,21 @@ test('selects, creates, renames, and deletes workspace files', async () => {
   await user.click(screen.getByRole('button', { name: 'a.mdl' }));
   expect(handlers.onSelect).toHaveBeenCalledWith('a.mdl');
 
-  await user.type(screen.getByLabelText('Workspace file path'), 'new.mdl');
   await user.click(screen.getByRole('button', { name: 'New file' }));
+  await user.type(screen.getByPlaceholderText('file.mdl'), 'new.mdl');
+  await user.click(screen.getByRole('button', { name: 'Add' }));
   expect(handlers.onCreate).toHaveBeenCalledWith('new.mdl');
 
-  await user.clear(screen.getByLabelText('Workspace file path'));
-  await user.type(
-    screen.getByLabelText('Workspace file path'),
-    'renamed.mdl',
-  );
-  await user.click(screen.getByRole('button', { name: 'Rename active' }));
+  await user.click(screen.getByRole('button', { name: 'Rename' }));
+  const renameInput = screen.getByDisplayValue('b.mdl');
+  await user.clear(renameInput);
+  await user.type(renameInput, 'renamed.mdl');
+  await user.keyboard('{Enter}');
   expect(handlers.onRename).toHaveBeenCalledWith('renamed.mdl');
 
-  await user.click(screen.getByRole('button', { name: 'Delete active' }));
+  await user.click(screen.getByRole('button', { name: 'Delete' }));
   expect(handlers.onDelete).toHaveBeenCalledOnce();
   expect(screen.getByRole('list', { name: 'Workspace files' })).toBeTruthy();
-  expect(screen.getByText('Active file')).toBeTruthy();
 });
 
 test('reports invalid paths and does not dispatch disabled controls', async () => {
@@ -73,11 +72,12 @@ test('reports invalid paths and does not dispatch disabled controls', async () =
     />,
   );
 
+  await user.click(screen.getByRole('button', { name: 'New file' }));
   await user.type(
-    screen.getByLabelText('Workspace file path'),
+    screen.getByPlaceholderText('file.mdl'),
     '../escape.mdl',
   );
-  await user.click(screen.getByRole('button', { name: 'New file' }));
+  await user.click(screen.getByRole('button', { name: 'Add' }));
   expect(screen.getByRole('alert').textContent).toContain(
     'Choose a safe relative .mdl path',
   );
@@ -101,7 +101,7 @@ test('reports invalid paths and does not dispatch disabled controls', async () =
   expect(
     (
       screen.getByRole('button', {
-        name: 'Delete active',
+        name: 'Delete',
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(true);
