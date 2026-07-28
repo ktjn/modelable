@@ -70,4 +70,25 @@ describe('SimulatorProvider', () => {
     expect(projection.operations[0].kind).toBe('create_projection');
     expect(clarification.kind).toBe('clarification');
   });
+
+  test('returns a grounded prose answer for text synthesis requests', async () => {
+    const provider = new SimulatorProvider();
+
+    const response = await provider.complete({
+      system: 'Answer using the workspace facts.',
+      user: [
+        'Workspace facts:',
+        'domain customer\n  entity Customer @ 1',
+        '',
+        'User question:',
+        'Describe the focused definition or workspace',
+      ].join('\n'),
+      temperature: 0.2,
+      responseFormat: 'text',
+    });
+
+    expect(response.content).toContain('Based on the workspace facts');
+    expect(response.content).toContain('entity Customer @ 1');
+    expect(response.provider).toBe('simulator');
+  });
 });

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
+from uuid import uuid4
+
 from modelable.llm.conversation_backend import ConversationBackend, ConversationReply
 from modelable.llm.conversation_plan import (
     ChangeSetPlan,
@@ -16,8 +20,23 @@ from modelable.llm.conversation_planner import (
     ResumableConversationPlanner,
     parse_compile_command,
 )
+from modelable.llm.provider_types import LLMRequest
 
 type ConversationOutcome = ConversationReply | PendingPlanRequest
+
+
+_ANSWER_SYSTEM_PROMPT = """You are Modelable's conversational assistant.
+Answer the user's question using only the workspace facts provided below.
+Be concise and factual. Use markdown formatting where it helps readability:
+bullet lists for multiple points, inline code for field and type names, and bold for emphasis.
+If the facts do not contain enough information to answer, say what is missing."""
+
+
+@dataclass(frozen=True)
+class _PendingSynthesis:
+    request_id: str
+    message: str
+    fallback_text: str
 
 
 class ConversationEngine:
@@ -28,22 +47,28 @@ class ConversationEngine:
         planner: ResumableConversationPlanner,
         focused_ref: str | None = None,
         completion_enabled: bool = True,
+        id_factory: Callable[[], str] | None = None,
     ) -> None:
         self.backend = backend
         self.planner = planner
         self.focused_ref = focused_ref
         self.completion_enabled = completion_enabled
+        self.id_factory = id_factory or (lambda: str(uuid4()))
         self.history: list[tuple[str, str]] = []
         self.pending_action_id: str | None = None
         self.pending_operation_kind: str | None = None
         self._pending_change_plan: ChangeSetPlan | None = None
         self._pending_request_id: str | None = None
         self._pending_message: str | None = None
+        self._pending_synthesis: _PendingSynthesis | None = None
 
     def begin_turn(self, message: str) -> ConversationOutcome:
-        if self._pending_request_id is not None:
+        if self._pending_request_id is not None or self._pending_synthesis is not None:
+            pending_id = self._pending_request_id or (
+                self._pending_synthesis.request_id if self._pending_synthesis is not None else None
+            )
             raise PlanningRequestError(
-                f"Planning request {self._pending_request_id} must be resumed or reset before starting another turn"
+                f"Planning request {pending_id} must be resumed or reset before starting another turn"
             )
         normalized = message.strip()
         lowered = normalized.lower()
@@ -100,6 +125,8 @@ class ConversationEngine:
         return self._complete_plan(normalized, outcome)
 
     def resume_turn(self, request_id: str, content: str) -> ConversationOutcome:
+        if self._pending_synthesis is not None and request_id == self._pending_synthesis.request_id:
+            return self._complete_synthesis(content)
         if request_id != self._pending_request_id or self._pending_message is None:
             raise PlanningRequestError(f"Unknown or completed planning request: {request_id}")
         message = self._pending_message
@@ -112,13 +139,17 @@ class ConversationEngine:
         return self._complete_plan(message, outcome)
 
     def fail_turn(self, request_id: str, error: Exception) -> ConversationReply:
+        if self._pending_synthesis is not None and request_id == self._pending_synthesis.request_id:
+            return self._complete_synthesis_error()
         if request_id != self._pending_request_id or self._pending_message is None:
             raise PlanningRequestError(f"Unknown or completed planning request: {request_id}")
         message = self._pending_message
         plan = self.planner.fail(request_id, error)
         self._pending_request_id = None
         self._pending_message = None
-        return self._complete_plan(message, plan)
+        reply = self._complete_plan(message, plan)
+        assert isinstance(reply, ConversationReply)
+        return reply
 
     def apply(self, action_id: str) -> ConversationReply:
         self._assert_pending_action(action_id)
@@ -139,6 +170,7 @@ class ConversationEngine:
         self._pending_change_plan = None
         self._pending_request_id = None
         self._pending_message = None
+        self._pending_synthesis = None
 
     def synchronize_pending_action(
         self,
@@ -153,7 +185,10 @@ class ConversationEngine:
     def record_completed_reply(self, message: str, reply: ConversationReply) -> ConversationReply:
         return self._complete_turn(message, reply)
 
-    def _complete_plan(self, message: str, plan: ConversationPlan) -> ConversationReply:
+    def _complete_plan(self, message: str, plan: ConversationPlan) -> ConversationOutcome:
+        if isinstance(plan, QueryPlan) and self.completion_enabled and _is_conversational(message):
+            reply = self.backend.execute_query(plan)
+            return self._begin_synthesis(message, reply.text)
         reply = self._execute_plan(plan)
         return self._complete_turn(message, reply)
 
@@ -225,3 +260,66 @@ class ConversationEngine:
         self.history.append(("user", message))
         self.history.append(("assistant", reply.text))
         return reply
+
+    def _begin_synthesis(self, message: str, facts: str) -> PendingPlanRequest:
+        request_id = self.id_factory()
+        self._pending_synthesis = _PendingSynthesis(
+            request_id=request_id,
+            message=message,
+            fallback_text=facts,
+        )
+        return PendingPlanRequest(
+            request_id=request_id,
+            request=_synthesis_request(
+                message=message,
+                facts=facts,
+                focused_ref=self.focused_ref,
+                history=self.history,
+            ),
+            attempt=0,
+        )
+
+    def _complete_synthesis(self, content: str) -> ConversationReply:
+        synthesis = self._pending_synthesis
+        if synthesis is None:
+            raise PlanningRequestError("No pending synthesis request")
+        self._pending_synthesis = None
+        text = content.strip() or synthesis.fallback_text
+        return self._complete_turn(synthesis.message, ConversationReply(kind="answer", text=text))
+
+    def _complete_synthesis_error(self) -> ConversationReply:
+        synthesis = self._pending_synthesis
+        if synthesis is None:
+            raise PlanningRequestError("No pending synthesis request")
+        self._pending_synthesis = None
+        return self._complete_turn(
+            synthesis.message,
+            ConversationReply(kind="answer", text=synthesis.fallback_text),
+        )
+
+
+def _is_conversational(message: str) -> bool:
+    normalized = message.strip().lower()
+    return not (normalized.startswith("/context") or normalized.startswith("/describe"))
+
+
+def _synthesis_request(
+    *,
+    message: str,
+    facts: str,
+    focused_ref: str | None,
+    history: list[tuple[str, str]],
+) -> LLMRequest:
+    lines = ["Workspace facts:", facts]
+    if focused_ref is not None:
+        lines.append(f"\nFocused reference: {focused_ref}")
+    lines.append(f"\nUser question:\n{message}")
+    if history:
+        lines.append("\nConversation history:")
+        lines.extend(f"{role}: {text}" for role, text in history[-6:])
+    return LLMRequest(
+        system=_ANSWER_SYSTEM_PROMPT,
+        user="\n".join(lines),
+        temperature=0.2,
+        response_format="text",
+    )

@@ -1,4 +1,5 @@
 import dataclasses
+import re
 from pathlib import Path
 
 import pytest
@@ -47,6 +48,18 @@ class QueueProvider:
 
     def complete(self, request: LLMRequest) -> LLMResponse:
         self.requests.append(request)
+        if request.response_format == "text":
+            facts_match = re.search(
+                r"Workspace facts:\n(?P<facts>.*?)\n\nUser question:\n",
+                request.user,
+                flags=re.DOTALL,
+            )
+            facts = facts_match.group("facts").strip() if facts_match else "workspace facts"
+            return LLMResponse(
+                content=f"Here is the answer:\n\n{facts}",
+                provider="fake",
+                model="test-model",
+            )
         return LLMResponse(
             content=self.plans.pop(0).model_dump_json(),
             provider="fake",
