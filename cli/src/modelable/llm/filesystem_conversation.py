@@ -46,6 +46,7 @@ class FilesystemConversationBackend:
         self._pending: PendingAction | None = None
         self._cleanup_backlog: dict[str, PendingCompilation] = {}
         self.editor: WorkspaceEditor | None = None
+        self._pending_session_editable_refs: frozenset[str] = frozenset()
         self._reload_services()
 
     @property
@@ -88,6 +89,8 @@ class FilesystemConversationBackend:
         self,
         plan: ChangeSetPlan,
         replaced_action_id: str | None,
+        *,
+        session_editable_refs: frozenset[str] = frozenset(),
     ) -> ConversationReply:
         from modelable.llm.conversation import (
             _render_cleanup_failure,
@@ -103,9 +106,10 @@ class FilesystemConversationBackend:
         try:
             if self.editor is None:
                 self.editor = WorkspaceEditor(self.path, workspace=self.workspace)
-            pending = self.editor.preview(plan)
+            pending = self.editor.preview(plan, session_editable_refs=session_editable_refs)
         except WorkspaceEditError as error:
             return ConversationReply(kind="error", text=f"Could not preview workspace changes: {error}")
+        self._pending_session_editable_refs = session_editable_refs
         cleanup_errors = self._dispose_actions((replaced,))
         if cleanup_errors:
             return ConversationReply(
@@ -227,7 +231,7 @@ class FilesystemConversationBackend:
                 change_set_id=self._pending.change_set_id,
             )
         try:
-            applied = self.editor.apply(self._pending)
+            applied = self.editor.apply(self._pending, session_editable_refs=self._pending_session_editable_refs)
         except WorkspaceEditError as error:
             return ConversationReply(
                 kind="error",

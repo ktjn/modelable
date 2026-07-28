@@ -347,7 +347,7 @@ def test_apply_reports_rollback_failure_without_clearing_pending(
     )
     preview = session.turn("add a customer")
 
-    def fail_apply(pending) -> None:
+    def fail_apply(pending, *, session_editable_refs=frozenset()) -> None:
         raise WorkspaceApplyError("replacement failed; rollback restored the original")
 
     monkeypatch.setattr(session.editor, "apply", fail_apply)
@@ -1143,3 +1143,39 @@ def test_cleanup_only_discard_reports_compilation_identity_and_retries(
     assert "staged compilation cleanup compile-old" in discarded.text
     assert session.pending_cleanup_ids == ()
     assert not old.staging_dir.exists()
+
+
+def test_filesystem_backend_preview_accepts_session_editable_refs(tmp_path) -> None:
+    from modelable.llm.conversation_plan import AddField, ChangeSetPlan, FieldSpec
+    from modelable.llm.filesystem_conversation import FilesystemConversationBackend
+    from modelable.parser.ir import PrimitiveType
+
+    (tmp_path / "customer.mdl").write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""".lstrip(),
+        encoding="utf-8",
+    )
+    backend = FilesystemConversationBackend(path=tmp_path, session_id="s1")
+    plan = ChangeSetPlan(
+        summary="Add email",
+        operations=[
+            AddField(
+                target="customer.Customer@1",
+                field=FieldSpec(name="email", type=PrimitiveType(kind="string"), optional=True),
+            )
+        ],
+    )
+
+    reply = backend.preview_source_change(
+        plan,
+        None,
+        session_editable_refs=frozenset({"customer.Customer@1"}),
+    )
+
+    assert reply.kind == "preview"
