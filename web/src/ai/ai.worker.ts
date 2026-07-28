@@ -40,7 +40,9 @@ async function handleInitialize(model: string): Promise<void> {
         ctx.postMessage(response);
       },
     });
-    await engine.reload(model);
+    await engine.reload(model, {
+      context_window_size: 32768,
+    });
     currentModel = model;
     const response: AiWorkerResponse = { type: 'initialized' };
     ctx.postMessage(response);
