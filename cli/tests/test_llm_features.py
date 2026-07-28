@@ -1033,7 +1033,7 @@ domain customer {
     assert not _provenance_path(projection).exists()
 
 
-def test_cli_update_model_field(tmp_path):
+def test_cli_update_model_field(tmp_path, monkeypatch):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
         """
@@ -1048,6 +1048,34 @@ domain customer {
         encoding="utf-8",
     )
 
+    class FakeProvider:
+        def complete(self, request):
+            from modelable.llm.providers import LLMResponse
+
+            payload = json.dumps(
+                {
+                    "kind": "change_set",
+                    "summary": "Update customer.Customer@1",
+                    "edit_mode": "draft",
+                    "operations": [
+                        {
+                            "kind": "set_field_optionality",
+                            "target": "customer.Customer@1",
+                            "field": "email",
+                            "optional": True,
+                        },
+                        {
+                            "kind": "add_field",
+                            "target": "customer.Customer@1",
+                            "field": {"name": "loyaltyTier", "type": {"kind": "string"}},
+                        },
+                    ],
+                }
+            )
+            return LLMResponse(content=payload, provider="fake", model="test-model")
+
+    monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: FakeProvider())
+
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -1061,8 +1089,6 @@ domain customer {
     )
     assert result.exit_code == 0, result.output
     assert "audit:" in result.output
-    assert "provider: local" in result.output
-    assert "model: modelable-local" in result.output
     provenance = _read_provenance(_provenance_path(mdl))
     assert provenance["command"] == "update"
     assert provenance["inputs"]["ref"] == "customer.Customer@1"
@@ -1071,7 +1097,7 @@ domain customer {
     assert "loyaltyTier: string" in updated
 
 
-def test_cli_update_preview_shows_diff_without_writing(tmp_path):
+def test_cli_update_preview_shows_diff_without_writing(tmp_path, monkeypatch):
     mdl = tmp_path / "workspace.mdl"
     original = """
 domain customer {
@@ -1083,6 +1109,29 @@ domain customer {
 }
 """
     mdl.write_text(original, encoding="utf-8")
+
+    class FakeProvider:
+        def complete(self, request):
+            from modelable.llm.providers import LLMResponse
+
+            payload = json.dumps(
+                {
+                    "kind": "change_set",
+                    "summary": "Update customer.Customer@1",
+                    "edit_mode": "draft",
+                    "operations": [
+                        {
+                            "kind": "set_field_optionality",
+                            "target": "customer.Customer@1",
+                            "field": "email",
+                            "optional": True,
+                        }
+                    ],
+                }
+            )
+            return LLMResponse(content=payload, provider="fake", model="test-model")
+
+    monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: FakeProvider())
 
     runner = CliRunner()
     result = runner.invoke(
@@ -1104,7 +1153,7 @@ domain customer {
     assert not _provenance_path(mdl).exists()
 
 
-def test_cli_update_projection_field(tmp_path):
+def test_cli_update_projection_field(tmp_path, monkeypatch):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
         """
@@ -1128,6 +1177,37 @@ domain billing {
 """,
         encoding="utf-8",
     )
+
+    class FakeProvider:
+        def complete(self, request):
+            from modelable.llm.providers import LLMResponse
+
+            payload = json.dumps(
+                {
+                    "kind": "change_set",
+                    "summary": "Update billing.CustomerBrief@1",
+                    "edit_mode": "draft",
+                    "operations": [
+                        {
+                            "kind": "rename_field",
+                            "target": "billing.CustomerBrief@1",
+                            "field": "name",
+                            "new_name": "displayName",
+                        },
+                        {
+                            "kind": "add_projection_field",
+                            "target": "billing.CustomerBrief@1",
+                            "field": {
+                                "name": "status",
+                                "mapping": {"kind": "direct", "source_alias": "c", "source_field": "name"},
+                            },
+                        },
+                    ],
+                }
+            )
+            return LLMResponse(content=payload, provider="fake", model="test-model")
+
+    monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: FakeProvider())
 
     runner = CliRunner()
     result = runner.invoke(

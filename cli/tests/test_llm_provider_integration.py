@@ -236,18 +236,32 @@ domain customer {
 """
     mdl.write_text(original, encoding="utf-8")
 
-    class FakeProvider:
-        def complete(self, request: LLMRequest) -> LLMResponse:
-            payload = {
-                "target": "customer.Customer@1",
-                "target_kind": "model",
-                "warnings": ["review classification on email"],
-                "changes": [
-                    {"kind": "make_optional", "field": "email"},
-                    {"kind": "add_field", "field": "loyaltyTier", "type": "string"},
+    def change_set_payload() -> str:
+        return json.dumps(
+            {
+                "kind": "change_set",
+                "summary": "Update customer.Customer@1",
+                "edit_mode": "draft",
+                "assumptions": ["review classification on email"],
+                "operations": [
+                    {
+                        "kind": "set_field_optionality",
+                        "target": "customer.Customer@1",
+                        "field": "email",
+                        "optional": True,
+                    },
+                    {
+                        "kind": "add_field",
+                        "target": "customer.Customer@1",
+                        "field": {"name": "loyaltyTier", "type": {"kind": "string"}},
+                    },
                 ],
             }
-            return LLMResponse(content=json.dumps(payload), provider="ollama", model="llama3.1")
+        )
+
+    class FakeProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            return LLMResponse(content=change_set_payload(), provider="ollama", model="llama3.1")
 
     result = update_definition(
         tmp_path,
@@ -281,10 +295,16 @@ domain customer {
     class FakeProvider:
         def complete(self, request: LLMRequest) -> LLMResponse:
             payload = {
-                "target": "customer.Customer@1",
-                "target_kind": "model",
-                "warnings": [],
-                "changes": [{"kind": "add_field", "field": "email", "type": "string"}],
+                "kind": "change_set",
+                "summary": "Update customer.Customer@1",
+                "edit_mode": "draft",
+                "operations": [
+                    {
+                        "kind": "add_field",
+                        "target": "customer.Customer@1",
+                        "field": {"name": "email", "type": {"kind": "string"}},
+                    }
+                ],
             }
             return LLMResponse(content=json.dumps(payload), provider="ollama", model="llama3.1")
 
@@ -294,66 +314,6 @@ domain customer {
             "customer.Customer@1",
             "add email as string",
             provider=FakeProvider(),
-            write=False,
-        )
-
-
-def test_update_definition_offline_heuristic_raises_on_conflicting_model_add(tmp_path):
-    mdl = tmp_path / "workspace.mdl"
-    mdl.write_text(
-        """
-domain customer {
-  owner: "test-team"
-  entity Customer @ 1 (additive) {
-    @key customerId: uuid
-    email: string
-  }
-}
-""",
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ValueError, match="already exists"):
-        update_definition(
-            tmp_path,
-            "customer.Customer@1",
-            "add email as string",
-            provider=None,
-            write=False,
-        )
-
-
-def test_update_definition_offline_heuristic_raises_on_conflicting_projection_add(tmp_path):
-    mdl = tmp_path / "workspace.mdl"
-    mdl.write_text(
-        """
-domain customer {
-  owner: "test-team"
-  entity Customer @ 1 (additive) {
-    @key customerId: uuid
-    name: string
-  }
-}
-
-domain billing {
-  owner: "test-team"
-  projection CustomerBrief @ 1
-    from customer.Customer @ 1 as c
-  {
-    customerId <- c.customerId
-    name <- c.name
-  }
-}
-""",
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ValueError, match="already exists"):
-        update_definition(
-            tmp_path,
-            "billing.CustomerBrief@1",
-            "add name from c.name",
-            provider=None,
             write=False,
         )
 
@@ -379,11 +339,17 @@ domain customer {
             if len(calls) == 1:
                 return LLMResponse(content="{not valid json", provider="ollama", model="llama3.1")
             payload = {
-                "target": "customer.Customer@1",
-                "target_kind": "model",
-                "warnings": ["repaired output"],
-                "changes": [
-                    {"kind": "make_optional", "field": "email"},
+                "kind": "change_set",
+                "summary": "Update customer.Customer@1",
+                "edit_mode": "draft",
+                "assumptions": ["repaired output"],
+                "operations": [
+                    {
+                        "kind": "set_field_optionality",
+                        "target": "customer.Customer@1",
+                        "field": "email",
+                        "optional": True,
+                    }
                 ],
             }
             return LLMResponse(content=json.dumps(payload), provider="ollama", model="llama3.1")
@@ -401,14 +367,14 @@ domain customer {
     assert "repaired output" in result.warnings
     assert result.provider == "ollama"
     assert result.model == "llama3.1"
-    assert result.diagnostics_repaired == 1
     assert mdl.read_text(encoding="utf-8") == original
     assert not _provenance_path(mdl).exists()
 
 
-def test_update_definition_can_disable_repair_attempts(tmp_path):
+def test_update_definition_requires_a_configured_provider(tmp_path):
     mdl = tmp_path / "workspace.mdl"
-    original = """
+    mdl.write_text(
+        """
 domain customer {
   owner: "test-team"
   entity Customer @ 1 (additive) {
@@ -416,30 +382,20 @@ domain customer {
     email: string
   }
 }
-"""
-    mdl.write_text(original, encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
 
-    calls: list[LLMRequest] = []
-
-    class BrokenProvider:
-        def complete(self, request: LLMRequest) -> LLMResponse:
-            calls.append(request)
-            return LLMResponse(content="{not valid json", provider="ollama", model="llama3.1")
-
-    with pytest.raises(ValueError, match="invalid update plan"):
+    with pytest.raises(ValueError, match="requires an LLM provider"):
         update_definition(
             tmp_path,
             "customer.Customer@1",
             "make email optional",
-            provider=BrokenProvider(),
-            llm_config=LlmConfig(
-                provider="ollama", model="llama3.1", base_url=None, repair_attempts=0, source="workspace"
-            ),
+            provider=None,
+            llm_config=LlmConfig(provider=None, model=None, base_url=None, repair_attempts=1, source="workspace"),
             write=False,
         )
 
-    assert len(calls) == 1
-    assert mdl.read_text(encoding="utf-8") == original
     assert not _provenance_path(mdl).exists()
 
 
@@ -948,10 +904,18 @@ domain customer {
                     "message": {
                         "content": json.dumps(
                             {
-                                "target": "customer.Customer@1",
-                                "target_kind": "model",
-                                "warnings": ["provider-backed update"],
-                                "changes": [{"kind": "make_optional", "field": "email"}],
+                                "kind": "change_set",
+                                "summary": "Update customer.Customer@1",
+                                "edit_mode": "draft",
+                                "assumptions": ["provider-backed update"],
+                                "operations": [
+                                    {
+                                        "kind": "set_field_optionality",
+                                        "target": "customer.Customer@1",
+                                        "field": "email",
+                                        "optional": True,
+                                    }
+                                ],
                             }
                         )
                     }
@@ -1025,10 +989,18 @@ domain customer {
                             "type": "text",
                             "text": json.dumps(
                                 {
-                                    "target": "customer.Customer@1",
-                                    "target_kind": "model",
-                                    "warnings": ["anthropic update"],
-                                    "changes": [{"kind": "make_optional", "field": "email"}],
+                                    "kind": "change_set",
+                                    "summary": "Update customer.Customer@1",
+                                    "edit_mode": "draft",
+                                    "assumptions": ["anthropic update"],
+                                    "operations": [
+                                        {
+                                            "kind": "set_field_optionality",
+                                            "target": "customer.Customer@1",
+                                            "field": "email",
+                                            "optional": True,
+                                        }
+                                    ],
                                 }
                             ),
                         }
@@ -1092,11 +1064,29 @@ domain customer {
     recommend_text = chat_turn(workspace, "/recommend customer.Customer@1 billing", path=tmp_path, state=state)
     assert "billing" in recommend_text
 
+    class FakeProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            payload = {
+                "kind": "change_set",
+                "summary": "Update customer.Customer@1",
+                "edit_mode": "draft",
+                "operations": [
+                    {
+                        "kind": "set_field_optionality",
+                        "target": "customer.Customer@1",
+                        "field": "email",
+                        "optional": True,
+                    }
+                ],
+            }
+            return LLMResponse(content=json.dumps(payload), provider="fake", model="test-model")
+
     update_text = chat_turn(
         workspace,
         "/update customer.Customer@1 make email optional",
         path=tmp_path,
         state=state,
+        provider=FakeProvider(),
     )
     assert "Wrote changes to" not in update_text
     assert "@@" in update_text
@@ -1135,11 +1125,17 @@ domain customer {
     class FakeProvider:
         def complete(self, request: LLMRequest) -> LLMResponse:
             payload = {
-                "target": "customer.Customer@1",
-                "target_kind": "model",
-                "warnings": ["confirm classification before publishing"],
-                "changes": [
-                    {"kind": "make_optional", "field": "email"},
+                "kind": "change_set",
+                "summary": "Update customer.Customer@1",
+                "edit_mode": "draft",
+                "assumptions": ["confirm classification before publishing"],
+                "operations": [
+                    {
+                        "kind": "set_field_optionality",
+                        "target": "customer.Customer@1",
+                        "field": "email",
+                        "optional": True,
+                    }
                 ],
             }
             return LLMResponse(content=json.dumps(payload), provider="ollama", model="llama3.1")

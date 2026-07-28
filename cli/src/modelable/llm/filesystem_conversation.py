@@ -139,6 +139,7 @@ class FilesystemConversationBackend:
             change_set_id=pending.change_set_id,
             operation_kind="source_change",
             focused_ref=pending.focus_ref,
+            assumptions=tuple(pending.assumptions),
             changed=tuple(pending.changed),
             affected=tuple(pending.affected),
             compatibility=tuple(pending.compatibility),
