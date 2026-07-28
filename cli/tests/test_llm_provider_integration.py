@@ -298,6 +298,66 @@ domain customer {
         )
 
 
+def test_update_definition_offline_heuristic_raises_on_conflicting_model_add(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="already exists"):
+        update_definition(
+            tmp_path,
+            "customer.Customer@1",
+            "add email as string",
+            provider=None,
+            write=False,
+        )
+
+
+def test_update_definition_offline_heuristic_raises_on_conflicting_projection_add(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+
+domain billing {
+  owner: "test-team"
+  projection CustomerBrief @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="already exists"):
+        update_definition(
+            tmp_path,
+            "billing.CustomerBrief@1",
+            "add name from c.name",
+            provider=None,
+            write=False,
+        )
+
+
 def test_update_definition_repairs_invalid_provider_output(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
