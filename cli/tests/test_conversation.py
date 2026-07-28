@@ -17,6 +17,7 @@ from modelable.llm.conversation_plan import (
     QueryPlan,
     UnsupportedPlan,
 )
+from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
 from modelable.llm.filesystem_conversation import FilesystemConversationBackend
 from modelable.llm.providers import LLMRequest, LLMResponse
 from modelable.llm.workspace_editor import WorkspaceApplyError
@@ -199,6 +200,28 @@ def test_preview_and_apply_complete_entity(tmp_path: Path) -> None:
     assert session.pending is None
     assert session.focused_ref == "customer.Customer@1"
     assert "entity Customer @ 1" in source.read_text(encoding="utf-8")
+
+
+def test_turn_forwards_direct_edit_mode_to_planner_context(tmp_path: Path) -> None:
+    _write_empty_customer_domain(tmp_path)
+    captured_contexts: list[PlannerContext] = []
+
+    class CapturingPlanner:
+        def offline(self, message, context):
+            captured_contexts.append(context)
+            return ConversationPlanner._offline_plan(message, context)
+
+        def begin(self, message, context):
+            captured_contexts.append(context)
+            return ConversationPlanner._offline_plan(message, context)
+
+    session = ConversationSession(path=tmp_path, provider=None)
+    session.engine.planner = CapturingPlanner()
+
+    session.turn("make email optional", direct_edit_mode=True)
+
+    assert captured_contexts
+    assert captured_contexts[-1].direct_edit_mode is True
 
 
 def test_refinement_reports_replaced_pending_change_set(tmp_path: Path) -> None:

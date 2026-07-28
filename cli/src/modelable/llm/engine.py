@@ -238,12 +238,19 @@ class _ProviderResponseTracker:
         self._inner = inner
         self.last_provider: str | None = None
         self.last_model: str | None = None
+        self.call_count = 0
 
     def complete(self, request: LLMRequest) -> LLMResponse:
         response = self._inner.complete(request)
         self.last_provider = response.provider
         self.last_model = response.model
+        self.call_count += 1
         return response
+
+    @property
+    def repairs_used(self) -> int:
+        """Number of repair round-trips consumed (total completions minus the initial attempt)."""
+        return max(self.call_count - 1, 0)
 
 
 def update_definition(
@@ -289,6 +296,7 @@ def update_definition(
         reply = session.turn(instruction, direct_edit_mode=True)
         provider_name = tracker.last_provider or provider_name
         model_name = tracker.last_model or model_name
+        diagnostics_repaired = tracker.repairs_used
         if reply.kind != "preview" or reply.operation_kind != "source_change":
             raise ValueError(f"Could not apply the update instruction: {reply.text}")
         preview_file = next((item for item in reply.preview_files if item.path == source_path), None)
@@ -308,7 +316,23 @@ def update_definition(
                 warnings=list(reply.assumptions),
                 provider=provider_name,
                 model=model_name,
-                diagnostics_repaired=0,
+                diagnostics_repaired=diagnostics_repaired,
+            )
+        if output is not None and output != source_path:
+            # Redirect: leave the workspace source untouched, discard the change set instead
+            # of applying it, and write the new content only to the requested output path.
+            session.engine.discard(change_set_id)
+            output.write_text(new_text, encoding="utf-8")
+            return UpdateResult(
+                path=output,
+                source_path=source_path,
+                ref=ref,
+                original_content=original_text,
+                content=new_text,
+                warnings=list(reply.assumptions),
+                provider=provider_name,
+                model=model_name,
+                diagnostics_repaired=diagnostics_repaired,
             )
         applied = session.engine.apply(change_set_id)
         if applied.kind != "applied":
@@ -316,11 +340,8 @@ def update_definition(
     finally:
         session.close()
 
-    out_path = output or source_path
-    if output is not None and output != source_path:
-        output.write_text(new_text, encoding="utf-8")
     return UpdateResult(
-        path=out_path,
+        path=source_path,
         source_path=source_path,
         ref=ref,
         original_content=original_text,
@@ -328,7 +349,7 @@ def update_definition(
         warnings=list(reply.assumptions),
         provider=provider_name,
         model=model_name,
-        diagnostics_repaired=0,
+        diagnostics_repaired=diagnostics_repaired,
     )
 
 

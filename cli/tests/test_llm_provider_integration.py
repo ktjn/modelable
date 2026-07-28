@@ -277,6 +277,108 @@ domain customer {
     assert not _provenance_path(mdl).exists()
 
 
+def test_update_definition_with_output_leaves_workspace_source_untouched(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    original = """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+"""
+    mdl.write_text(original, encoding="utf-8")
+    other = tmp_path / "other.mdl"
+
+    def change_set_payload() -> str:
+        return json.dumps(
+            {
+                "kind": "change_set",
+                "summary": "Update customer.Customer@1",
+                "edit_mode": "draft",
+                "assumptions": ["review classification on email"],
+                "operations": [
+                    {
+                        "kind": "set_field_optionality",
+                        "target": "customer.Customer@1",
+                        "field": "email",
+                        "optional": True,
+                    },
+                ],
+            }
+        )
+
+    class FakeProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            return LLMResponse(content=change_set_payload(), provider="ollama", model="llama3.1")
+
+    result = update_definition(
+        tmp_path,
+        "customer.Customer@1",
+        "make email optional",
+        output=other,
+        write=True,
+        provider=FakeProvider(),
+    )
+
+    assert "email?: string" in result.content
+    assert result.path == other
+    assert other.read_text(encoding="utf-8") == result.content
+    assert mdl.read_text(encoding="utf-8") == original
+    assert not _provenance_path(mdl).exists()
+
+
+def test_update_definition_passes_direct_edit_mode_to_planner_request(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    captured: list[LLMRequest] = []
+
+    class RecordingProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            captured.append(request)
+            payload = {
+                "kind": "change_set",
+                "summary": "Update customer.Customer@1",
+                "edit_mode": "draft",
+                "operations": [
+                    {
+                        "kind": "set_field_optionality",
+                        "target": "customer.Customer@1",
+                        "field": "email",
+                        "optional": True,
+                    }
+                ],
+            }
+            return LLMResponse(content=json.dumps(payload), provider="ollama", model="llama3.1")
+
+    update_definition(
+        tmp_path,
+        "customer.Customer@1",
+        "make email optional",
+        provider=RecordingProvider(),
+        write=False,
+    )
+
+    assert len(captured) == 1
+    assert (
+        'Direct edit mode: rewrite customer.Customer@1 in place using ChangeSetPlan.edit_mode "draft"'
+        in captured[0].user
+    )
+
+
 def test_update_definition_raises_instead_of_silently_skipping_a_conflicting_add(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(
@@ -367,6 +469,7 @@ domain customer {
     assert "repaired output" in result.warnings
     assert result.provider == "ollama"
     assert result.model == "llama3.1"
+    assert result.diagnostics_repaired == 1
     assert mdl.read_text(encoding="utf-8") == original
     assert not _provenance_path(mdl).exists()
 
