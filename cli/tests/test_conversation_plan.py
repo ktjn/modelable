@@ -708,6 +708,24 @@ def test_conversation_request_exposes_only_closed_typed_plan_schema() -> None:
     assert json.dumps(request.schema, sort_keys=True) in request.system
 
 
+def test_request_includes_direct_edit_instruction_when_flagged() -> None:
+    from modelable.llm.conversation_planner import PlannerContext, build_conversation_request
+
+    request = build_conversation_request(
+        message="make email optional",
+        context=PlannerContext(
+            workspace_summary="domain customer\n  entity Customer @ 1",
+            focused_ref="customer.Customer@1",
+            history=(),
+            pending_plan=None,
+            direct_edit_mode=True,
+        ),
+    )
+
+    assert "customer.Customer@1" in request.user
+    assert "draft" in request.user
+
+
 def test_conversation_schema_requires_every_kind_discriminator() -> None:
     schema = conversation_plan_json_schema()
     definitions = schema["$defs"]

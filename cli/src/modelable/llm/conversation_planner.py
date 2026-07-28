@@ -94,6 +94,7 @@ class PlannerContext:
     focused_ref: str | None
     history: tuple[tuple[str, str], ...]
     pending_plan: ChangeSetPlan | None
+    direct_edit_mode: bool = False
 
 
 @dataclass(frozen=True)
@@ -432,6 +433,11 @@ def _request(
     schema = conversation_plan_json_schema(exclude_operation_kinds=frozenset({"retire_definition"}))
     lines = [f"Workspace summary:\n{context.workspace_summary}"]
     lines.append(f"Focused reference: {context.focused_ref or 'none'}")
+    if context.direct_edit_mode and context.focused_ref is not None:
+        lines.append(
+            f'Direct edit mode: rewrite {context.focused_ref} in place using ChangeSetPlan.edit_mode "draft" '
+            "for any change_set operations; do not append a new version."
+        )
     if context.history:
         lines.append("Conversation history:")
         lines.extend(f"{role}: {text}" for role, text in context.history)

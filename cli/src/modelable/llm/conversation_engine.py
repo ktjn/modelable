@@ -63,7 +63,7 @@ class ConversationEngine:
         self._pending_synthesis: _PendingSynthesis | None = None
         self._session_editable_refs: set[str] = set()
 
-    def begin_turn(self, message: str) -> ConversationOutcome:
+    def begin_turn(self, message: str, *, direct_edit_mode: bool = False) -> ConversationOutcome:
         if self._pending_request_id is not None or self._pending_synthesis is not None:
             pending_id = self._pending_request_id or (
                 self._pending_synthesis.request_id if self._pending_synthesis is not None else None
@@ -113,6 +113,7 @@ class ConversationEngine:
             focused_ref=self.focused_ref,
             history=tuple(self.history),
             pending_plan=self._pending_change_plan,
+            direct_edit_mode=direct_edit_mode,
         )
         outcome = (
             self.planner.begin(normalized, context)

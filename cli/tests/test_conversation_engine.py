@@ -137,6 +137,24 @@ def test_engine_resumes_plan_and_tracks_exact_pending_action() -> None:
     ]
 
 
+def test_begin_turn_forwards_direct_edit_mode_to_planner_context() -> None:
+    captured_contexts: list[PlannerContext] = []
+
+    class CapturingPlanner:
+        def offline(self, message, context):
+            captured_contexts.append(context)
+            return ConversationPlanner._offline_plan(message, context)
+
+        def begin(self, message, context):
+            captured_contexts.append(context)
+            return ConversationPlanner._offline_plan(message, context)
+
+    engine = ConversationEngine(backend=RecordingBackend(), planner=CapturingPlanner())
+    engine.begin_turn("make email optional", direct_edit_mode=True)
+
+    assert captured_contexts[-1].direct_edit_mode is True
+
+
 def test_engine_refinement_replaces_pending_action() -> None:
     engine, _ = engine_with_request_ids("request-1", "request-2")
     first = engine.begin_turn("Create a customer")
