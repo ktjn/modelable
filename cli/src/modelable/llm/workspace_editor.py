@@ -150,13 +150,13 @@ class WorkspaceEditor:
             rendered = "; ".join(render_diagnostic(diagnostic) for diagnostic in existing_errors)
             raise WorkspaceEditError(f"Workspace has validation errors: {rendered}")
 
-    def preview(self, plan: ChangeSetPlan) -> PendingChangeSet:
+    def preview(self, plan: ChangeSetPlan, *, session_editable_refs: frozenset[str] = frozenset()) -> PendingChangeSet:
         documents = self._copy_documents()
         changed_paths: set[Path] = set()
         changed: list[ChangedDefinition] = []
         affected: list[AffectedDefinition] = []
         appended_models: dict[str, str] = {}
-        editable_refs: set[str] = set()
+        editable_refs: set[str] = set(session_editable_refs)
         renamed_refs: dict[str, str] = {}
 
         for operation in plan.operations:
@@ -454,11 +454,16 @@ class WorkspaceEditor:
             focus_ref=focus_ref,
         )
 
-    def apply(self, pending: PendingChangeSet) -> AppliedChangeSet:
+    def apply(
+        self,
+        pending: PendingChangeSet,
+        *,
+        session_editable_refs: frozenset[str] = frozenset(),
+    ) -> AppliedChangeSet:
         if self._current_source_fingerprints() != pending.source_fingerprints:
             raise StaleChangeSetError("Workspace sources changed after this change set was previewed")
 
-        restaged = self.preview(pending.plan)
+        restaged = self.preview(pending.plan, session_editable_refs=session_editable_refs)
         if restaged != pending:
             raise StaleChangeSetError("Change set no longer matches its deterministic preview")
 
