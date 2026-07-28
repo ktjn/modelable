@@ -1024,6 +1024,33 @@ button.view-tab--active:hover:not(:disabled) {
   line-height: 1.5;
 }
 
+.chat-message__assumptions,
+.chat-message__affected {
+  margin: 0.5rem 0;
+  padding: 0.55rem 0.65rem;
+  background: var(--warning-bg);
+  border-left: 3px solid var(--warning-text);
+  border-radius: 0.25rem;
+  font-size: 0.78rem;
+}
+
+.chat-message__assumptions ul,
+.chat-message__affected ul {
+  margin: 0.25rem 0 0 1rem;
+  padding: 0;
+}
+
+.chat-message__assumptions-title,
+.chat-message__affected-title {
+  font-weight: 600;
+  color: var(--warning-text);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  margin-bottom: 0.15rem;
+  display: block;
+}
+
 .chat-markdown h1,
 .chat-markdown h2,
 .chat-markdown h3,

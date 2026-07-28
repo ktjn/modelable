@@ -35,15 +35,24 @@ Return JSON only matching the supplied closed schema. Return exactly one of the 
 Ask for clarification instead of assuming ambiguous ownership, identity fields,
 whether an address is inline or a reusable address model, or a projection source.
 For changes to an existing contract, default to append-version operations and target
-the appended version; do not rewrite a published version in place.
-Use ChangeSetPlan, never CompilePlan, when the user asks to create or change Modelable
-models, projections, fields, indexes, or annotations. CompilePlan is only for generating
-artifacts from an already-defined workspace.
+the appended version; do not rewrite a published version in place. Any version
+listed in the "Workspace summary" is considered existing and immutable in
+"append_versions" mode (the default). If the summary shows `Model @ N`, any new
+fields or changes must target `Model @ N+1` via `append_model_version`.
+
+If a model change might affect existing projections, use ClarificationPlan to
+ask if the projections should be updated or mention the impact.
+
+Use ChangeSetPlan, never CompilePlan, when the user asks to create or change
+Modelable models, projections, fields, indexes, or annotations. CompilePlan is
+only for generating artifacts from an already-defined workspace.
+
 Examples:
 {"kind":"change_set","summary":"Create billing.Invoice@1","operations":[{"kind":"create_model","domain":"billing","name":"Invoice","model_kind":"entity","fields":[{"name":"invoiceId","type":{"kind":"uuid"},"annotations":[{"kind":"key"}]}]}]}
 {"kind":"change_set","summary":"Create billing.CustomerProjection@1","operations":[{"kind":"create_projection","domain":"billing","name":"CustomerProjection","source":{"model":"customer.Customer","version":1,"alias":"customer"},"fields":[{"name":"customerId","mapping":{"kind":"direct","source_alias":"customer","source_field":"customerId"}}]}]}
-{"kind":"change_set","summary":"Add email in customer.Customer@2","operations":[{"kind":"append_model_version","source":"customer.Customer@1","version":2},{"kind":"add_field","target":"customer.Customer@2","field":{"name":"email","type":{"kind":"string"},"optional":true}}]}
+{"kind":"change_set","summary":"Add score in customer.Customer@3","operations":[{"kind":"append_model_version","source":"customer.Customer@2","version":3},{"kind":"add_field","target":"customer.Customer@3","field":{"name":"score","type":{"kind":"int"},"optional":true}}]}
 {"kind":"clarification","question":"Which source model and consumer domain should I use?","reason":"A projection requires a grounded source and consumer."}
+{"kind":"clarification","question":"I see customer.CustomerProjection@1 depends on this model. Should I also update it?","reason":"Model changes impact downstream projections."}
 CompilePlan permits only a target, domain filters, a normalized local relative output,
 the descriptor flag, and a summary. Examples:
 {"kind":"compile","target":"rust","domains":[],"output":null,"descriptor_set":false,"summary":"Compile the workspace to Rust."}

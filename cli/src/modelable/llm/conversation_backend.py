@@ -46,6 +46,7 @@ class ConversationReply:
     change_set_id: str | None = None
     operation_kind: Literal["source_change", "compile"] | None = None
     focused_ref: str | None = None
+    assumptions: tuple[str, ...] = ()
     changed: tuple[ChangedDefinition, ...] = ()
     affected: tuple[AffectedDefinition, ...] = ()
     compatibility: tuple[CompatibilityFinding, ...] = ()
