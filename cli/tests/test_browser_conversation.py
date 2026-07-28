@@ -6,9 +6,11 @@ from pathlib import Path
 import pytest
 
 from modelable.browser.api import BrowserCompiler
-from modelable.browser.conversation import BrowserConversationService, _logical_path
+from modelable.browser.conversation import BrowserConversationBackend, BrowserConversationService, _logical_path
 from modelable.browser.dto import BrowserSource
+from modelable.llm.conversation_plan import AddField, ChangeSetPlan, FieldSpec
 from modelable.llm.conversation_planner import PendingPlanRequest
+from modelable.parser.ir import PrimitiveType
 
 CUSTOMER_URI = "inmemory:///customer.mdl"
 BILLING_URI = "inmemory:///billing.mdl"
@@ -272,3 +274,29 @@ def test_browser_conversation_provider_failure_preserves_prior_preview() -> None
 
     assert failed.reply.kind == "unsupported"
     assert applied.reply.kind == "applied"
+
+
+def test_browser_conversation_backend_preview_accepts_session_editable_refs() -> None:
+    compiler = BrowserCompiler()
+    compiler.open_workspace(
+        1,
+        (BrowserSource(uri=CUSTOMER_URI, text=CUSTOMER_SOURCE, version=1),),
+    )
+    backend = BrowserConversationBackend(compiler)
+    plan = ChangeSetPlan(
+        summary="Add email",
+        operations=[
+            AddField(
+                target="customer.Customer@1",
+                field=FieldSpec(name="email", type=PrimitiveType(kind="string"), optional=True),
+            )
+        ],
+    )
+
+    reply = backend.preview_source_change(
+        plan,
+        None,
+        session_editable_refs=frozenset({"customer.Customer@1"}),
+    )
+
+    assert reply.kind == "preview"
