@@ -84,8 +84,8 @@ class BrowserConversationBackend:
             return self._pending_compilation[0]
         return None
 
-    def workspace_summary(self) -> str:
-        return build_workspace_summary(self._workspace)
+    def workspace_summary(self, focused_ref: str | None = None) -> str:
+        return build_workspace_summary(self._workspace, focused_ref=focused_ref)
 
     def execute_query(self, plan: QueryPlan) -> ConversationReply:
         return ConversationReply(

@@ -59,13 +59,20 @@ class WorkspaceQueryService:
     def _summary(self, refs: list[str]) -> str:
         if not refs:
             return build_workspace_summary(self.workspace) or "Workspace is empty."
-        resolved = self._resolve(refs[0])
+
+        ref = refs[0]
+        # If it's a domain name, return a workspace summary focused on this domain
+        domain = next((d for d in self.workspace.mdl.domains if d.name == ref), None)
+        if domain:
+            return build_workspace_summary(self.workspace, focused_ref=ref)
+
+        resolved = self._resolve(ref)
         if isinstance(resolved, str):
             return resolved
         _, _, definition_kind, _ = resolved
         if definition_kind == "model":
-            return build_model_summary(self.workspace, refs[0])
-        return build_projection_summary(self.workspace, refs[0])
+            return build_model_summary(self.workspace, ref)
+        return build_projection_summary(self.workspace, ref)
 
     def _ownership(self, refs: list[str]) -> str:
         resolved = self._resolve(refs[0])

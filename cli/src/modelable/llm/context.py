@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Any
 
 from modelable.compiler.workspace import Workspace
 from modelable.parser.ir import (
@@ -38,29 +39,44 @@ def parse_model_ref_version_spec(ref: str) -> tuple[str, str, VersionSpec | int]
     return domain, name, _parse_version_spec(version_text)
 
 
-def build_workspace_summary(workspace: Workspace) -> str:
+def build_workspace_summary(workspace: Workspace, focused_ref: str | None = None) -> str:
     lines: list[str] = []
+    # If a focused ref is provided, we use a compact summary for everything else to save tokens.
+    is_compact = focused_ref is not None
+
     for domain in workspace.mdl.domains:
         lines.append(f"domain {domain.name}")
         if domain.owner:
             lines.append(f"  owner: {domain.owner}")
         if domain.description:
             lines.append(f"  description: {domain.description}")
-        for model_name, versions in domain.models.items():
-            for version in versions:
+
+        # If focused_ref is a domain name, we show all fields in that domain.
+        is_focused_domain = focused_ref == domain.name
+
+        for model_name, model_versions in domain.models.items():
+            for m_version in model_versions:
+                ref = f"{domain.name}.{model_name}@{m_version.version}"
                 lines.append(
-                    f"  {version.model_kind.value} {model_name} @ {version.version} ({version.change_kind.value})"
+                    f"  {m_version.model_kind.value} {model_name} @ {m_version.version} ({m_version.change_kind.value})"
                 )
-                for field in version.fields:
-                    lines.append(f"    - {field.name}: {_field_type_text(field.type)}")
-        for projection_name, versions in domain.projections.items():
-            for version in versions:
-                lines.append(f"  projection {projection_name} @ {version.version}")
-                lines.append(
-                    f"    from {version.source.model} @ {_version_text(version.source.version)} as {version.source.alias}"
-                )
-                for field in version.fields:
-                    lines.append(f"    - {field.name}")
+                if not is_compact or is_focused_domain or ref == focused_ref:
+                    for m_field in m_version.fields:
+                        lines.append(f"    - {m_field.name}: {_field_type_text(m_field.type)}")
+                else:
+                    lines.append(f"    - ... ({len(m_version.fields)} fields)")
+        for projection_name, projection_versions in domain.projections.items():
+            for p_version in projection_versions:
+                ref = f"{domain.name}.{projection_name}@{p_version.version}"
+                lines.append(f"  projection {projection_name} @ {p_version.version}")
+                if not is_compact or is_focused_domain or ref == focused_ref:
+                    lines.append(
+                        f"    from {p_version.source.model} @ {_version_text(p_version.source.version)} as {p_version.source.alias}"
+                    )
+                    for p_field in p_version.fields:
+                        lines.append(f"    - {p_field.name}")
+                else:
+                    lines.append(f"    - ... ({len(p_version.fields)} fields)")
     return "\n".join(lines)
 
 
@@ -120,7 +136,7 @@ def build_projection_summary(workspace: Workspace, ref: str) -> str:
     return "\n".join(lines)
 
 
-def _field_type_text(field_type) -> str:
+def _field_type_text(field_type: Any) -> str:
     kind = getattr(field_type, "kind", None)
     if kind is None:
         return "unknown"
@@ -137,11 +153,11 @@ def _field_type_text(field_type) -> str:
     if kind == "object":
         return "object"
     if kind == "named":
-        return field_type.name
-    return kind
+        return str(field_type.name)
+    return str(kind)
 
 
-def _version_text(version_spec) -> str:
+def _version_text(version_spec: Any) -> str:
     kind = getattr(version_spec, "kind", None)
     if kind == "exact":
         return str(version_spec.version)

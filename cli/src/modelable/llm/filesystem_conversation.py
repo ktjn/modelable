@@ -73,8 +73,8 @@ class FilesystemConversationBackend:
         cleanup_ids = sorted(self._cleanup_backlog)
         return cleanup_ids[0] if cleanup_ids else None
 
-    def workspace_summary(self) -> str:
-        return build_workspace_summary(self.workspace)
+    def workspace_summary(self, focused_ref: str | None = None) -> str:
+        return build_workspace_summary(self.workspace, focused_ref=focused_ref)
 
     def execute_query(self, plan: QueryPlan) -> ConversationReply:
         from modelable.llm.conversation import render_query_result
