@@ -34,11 +34,30 @@ Return JSON only matching the supplied closed schema. Return exactly one of the 
 
 Ask for clarification instead of assuming ambiguous ownership, identity fields,
 whether an address is inline or a reusable address model, or a projection source.
-For changes to an existing contract, default to append-version operations and target
-the appended version; do not rewrite a published version in place. Any version
-listed in the "Workspace summary" is considered existing and immutable in
-"append_versions" mode (the default). If the summary shows `Model @ N`, any new
-fields or changes must target `Model @ N+1` via `append_model_version`.
+
+Published-version immutability: any version listed in the "Workspace summary" is
+existing and immutable in "append_versions" mode (the default ChangeSetPlan.edit_mode).
+This applies to every mutating operation, not only field additions:
+- create_model / create_projection: no restriction, these create brand-new versions.
+- append_model_version / append_projection_version: always allowed; this is how you
+  target a new version of an existing definition. If the summary shows `Model @ N`,
+  new fields or changes must target `Model @ N+1` via append_model_version.
+- add_field, remove_field, rename_field, change_field_type, set_field_optionality,
+  set_field_annotations, set_primary_index, add_secondary_index,
+  remove_secondary_index, set_projection_source, add_projection_field,
+  set_projection_mapping, add_projection_join, set_projection_filter,
+  set_projection_grouping: these may target a version created earlier in the SAME
+  conversation without a new version bump. Targeting any OTHER existing published
+  version requires either appending a new version first, or setting
+  ChangeSetPlan.edit_mode to "draft" (which rewrites the version in place and is
+  only appropriate when the user explicitly asks to edit a specific version directly).
+- rename_definition: always requires edit_mode "draft"; it is a whole-definition
+  rename, never associated with a version bump.
+
+Projection `on`/`where`/filter and grouping expressions are CEL, not `.mdl` field
+syntax: equality is `==`, not `=`. For example, use
+`c.customerId == c2.customerId`, never `c.customerId = c2.customerId`. A single `=`
+will fail to parse.
 
 If a model change might affect existing projections, use ClarificationPlan to
 ask if the projections should be updated or mention the impact.
@@ -51,6 +70,8 @@ Examples:
 {"kind":"change_set","summary":"Create billing.Invoice@1","operations":[{"kind":"create_model","domain":"billing","name":"Invoice","model_kind":"entity","fields":[{"name":"invoiceId","type":{"kind":"uuid"},"annotations":[{"kind":"key"}]}]}]}
 {"kind":"change_set","summary":"Create billing.CustomerProjection@1","operations":[{"kind":"create_projection","domain":"billing","name":"CustomerProjection","source":{"model":"customer.Customer","version":1,"alias":"customer"},"fields":[{"name":"customerId","mapping":{"kind":"direct","source_alias":"customer","source_field":"customerId"}}]}]}
 {"kind":"change_set","summary":"Add score in customer.Customer@3","operations":[{"kind":"append_model_version","source":"customer.Customer@2","version":3},{"kind":"add_field","target":"customer.Customer@3","field":{"name":"score","type":{"kind":"int"},"optional":true}}]}
+{"kind":"change_set","summary":"Rename Customer to Client","edit_mode":"draft","operations":[{"kind":"rename_definition","target":"customer.Customer","new_name":"Client"}]}
+{"kind":"change_set","summary":"Join CustomerProjection on customerId","operations":[{"kind":"add_projection_join","target":"billing.CustomerProjection@1","join":{"model":"customer.Customer","version":1,"alias":"c2","on":"c.customerId == c2.customerId","join_kind":"inner"}}]}
 {"kind":"clarification","question":"Which source model and consumer domain should I use?","reason":"A projection requires a grounded source and consumer."}
 {"kind":"clarification","question":"I see customer.CustomerProjection@1 depends on this model. Should I also update it?","reason":"Model changes impact downstream projections."}
 CompilePlan permits only a target, domain filters, a normalized local relative output,

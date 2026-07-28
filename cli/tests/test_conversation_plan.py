@@ -933,3 +933,24 @@ def test_offline_plan_classifies_retire_request_as_unsupported() -> None:
 
     assert isinstance(plan, UnsupportedPlan)
     assert plan.roadmap_area == "operations"
+
+
+def test_system_prompt_documents_draft_mode_for_every_mutating_operation() -> None:
+    from modelable.llm.conversation_planner import SYSTEM_PROMPT
+
+    for phrase in (
+        "rename_field",
+        "change_field_type",
+        "set_primary_index",
+        "add_secondary_index",
+        "rename_definition",
+        'edit_mode "draft"',
+    ):
+        assert phrase in SYSTEM_PROMPT, f"system prompt is missing guidance for {phrase!r}"
+
+
+def test_system_prompt_documents_cel_equality_syntax() -> None:
+    from modelable.llm.conversation_planner import SYSTEM_PROMPT
+
+    assert "CEL" in SYSTEM_PROMPT
+    assert "==" in SYSTEM_PROMPT
