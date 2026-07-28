@@ -239,6 +239,15 @@ class ConversationPlanner:
             )
         if any(operation in lower for operation in ("compile", "sync", "publish", "deploy", "external")):
             return ConversationPlanner._operational_unsupported(message)
+        if re.search(r"\b(?:retire|deprecate)\b", lower):
+            return UnsupportedPlan(
+                request=message,
+                reason=(
+                    "Definition retirement isn't supported yet: the .mdl language has no "
+                    "published-contract retirement declaration."
+                ),
+                roadmap_area="operations",
+            )
         if re.search(
             r"\b(?:add|create|change|rename|remove|delete|set|update|replace|make)\b",
             lower,
@@ -399,7 +408,7 @@ def _request(
     context: PlannerContext,
     validation_error: str | None,
 ) -> LLMRequest:
-    schema = conversation_plan_json_schema()
+    schema = conversation_plan_json_schema(exclude_operation_kinds=frozenset({"retire_definition"}))
     lines = [f"Workspace summary:\n{context.workspace_summary}"]
     lines.append(f"Focused reference: {context.focused_ref or 'none'}")
     if context.history:

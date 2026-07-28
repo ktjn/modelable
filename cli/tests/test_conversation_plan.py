@@ -894,3 +894,42 @@ def test_offline_planner_uses_deterministic_compile_parser() -> None:
     assert plan.target == "rust"
     assert plan.domains == ["customer"]
     assert plan.output == "dist/rust"
+
+
+def test_conversation_plan_json_schema_can_exclude_an_operation_kind() -> None:
+    from modelable.llm.conversation_plan import conversation_plan_json_schema
+
+    schema = conversation_plan_json_schema(exclude_operation_kinds=frozenset({"retire_definition"}))
+    operation = schema["$defs"]["Operation"]
+
+    assert "retire_definition" not in operation["discriminator"]["mapping"]
+    assert all(item["$ref"] != "#/$defs/RetireDefinition" for item in operation["oneOf"])
+    # Every other operation kind must still be present.
+    assert "rename_definition" in operation["discriminator"]["mapping"]
+
+
+def test_planner_request_excludes_retire_definition() -> None:
+    from modelable.llm.conversation_planner import PlannerContext, build_conversation_request
+
+    request = build_conversation_request(
+        message="retire the Customer model",
+        context=PlannerContext(
+            workspace_summary="domain customer\n  entity Customer @ 1",
+            focused_ref=None,
+            history=(),
+            pending_plan=None,
+        ),
+    )
+
+    assert '"retire_definition"' not in request.system
+
+
+def test_offline_plan_classifies_retire_request_as_unsupported() -> None:
+    from modelable.llm.conversation_plan import UnsupportedPlan
+    from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
+
+    context = PlannerContext(workspace_summary="", focused_ref=None, history=(), pending_plan=None)
+    plan = ConversationPlanner._offline_plan("retire the Customer model", context)
+
+    assert isinstance(plan, UnsupportedPlan)
+    assert plan.roadmap_area == "operations"

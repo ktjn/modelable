@@ -377,11 +377,58 @@ def parse_conversation_plan(text: str) -> ConversationPlan:
     return plan
 
 
-def conversation_plan_json_schema() -> dict[str, object]:
+def conversation_plan_json_schema(*, exclude_operation_kinds: frozenset[str] = frozenset()) -> dict[str, object]:
     schema = _CONVERSATION_PLAN_ADAPTER.json_schema()
     _close_object_schemas(schema)
     _require_discriminators(schema)
+    if exclude_operation_kinds:
+        _exclude_operation_kinds(schema, exclude_operation_kinds)
     return schema
+
+
+_OPERATION_KIND_TO_DEF_NAME: dict[str, str] = {
+    "create_model": "CreateModel",
+    "create_projection": "CreateProjection",
+    "append_model_version": "AppendModelVersion",
+    "append_projection_version": "AppendProjectionVersion",
+    "add_field": "AddField",
+    "rename_field": "RenameField",
+    "remove_field": "RemoveField",
+    "change_field_type": "ChangeFieldType",
+    "set_field_optionality": "SetFieldOptionality",
+    "set_field_annotations": "SetFieldAnnotations",
+    "set_primary_index": "SetPrimaryIndex",
+    "add_secondary_index": "AddSecondaryIndex",
+    "remove_secondary_index": "RemoveSecondaryIndex",
+    "set_projection_source": "SetProjectionSource",
+    "add_projection_field": "AddProjectionField",
+    "set_projection_mapping": "SetProjectionMapping",
+    "add_projection_join": "AddProjectionJoin",
+    "set_projection_filter": "SetProjectionFilter",
+    "set_projection_grouping": "SetProjectionGrouping",
+    "rename_definition": "RenameDefinition",
+    "retire_definition": "RetireDefinition",
+}
+
+
+def _exclude_operation_kinds(schema: dict[str, object], kinds: frozenset[str]) -> None:
+    operation = schema.get("$defs", {}).get("Operation")
+    if not isinstance(operation, dict):
+        return
+    excluded_def_names = {_OPERATION_KIND_TO_DEF_NAME[kind] for kind in kinds if kind in _OPERATION_KIND_TO_DEF_NAME}
+    mapping = operation.get("discriminator", {}).get("mapping")
+    if isinstance(mapping, dict):
+        for kind in kinds:
+            mapping.pop(kind, None)
+    one_of = operation.get("oneOf")
+    if isinstance(one_of, list):
+        operation["oneOf"] = [
+            item for item in one_of if item.get("$ref", "").rsplit("/", 1)[-1] not in excluded_def_names
+        ]
+    defs = schema.get("$defs")
+    if isinstance(defs, dict):
+        for def_name in excluded_def_names:
+            defs.pop(def_name, None)
 
 
 def _close_object_schemas(node: object) -> None:
