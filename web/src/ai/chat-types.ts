@@ -1,4 +1,6 @@
 import type {
+  BrowserAffectedDefinition,
+  BrowserChangedDefinition,
   BrowserConversationCompilationFile,
   BrowserConversationPreviewFile,
   BrowserDiagnostic,
@@ -24,6 +26,9 @@ export interface AssistantGenerateChatMessage {
   providerInfo: ChatProviderInfo;
   pending: boolean;
   actionId?: string;
+  assumptions: string[];
+  changed: BrowserChangedDefinition[];
+  affected: BrowserAffectedDefinition[];
   previewFiles?: BrowserConversationPreviewFile[];
   compilationFiles?: BrowserConversationCompilationFile[];
   outcome?: 'accepted' | 'discarded';

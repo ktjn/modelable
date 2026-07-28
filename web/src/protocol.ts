@@ -314,6 +314,17 @@ export interface BrowserConversationPreviewFile {
   after_text: string;
 }
 
+export interface BrowserChangedDefinition {
+  ref: string;
+  reason: string;
+}
+
+export interface BrowserAffectedDefinition {
+  ref: string;
+  status: string;
+  reason: string;
+}
+
 export interface BrowserConversationCompilationFile {
   destination: string;
   media_type: string;
@@ -327,6 +338,9 @@ export interface BrowserConversationReplyValue {
   change_set_id: string | null;
   operation_kind: 'source_change' | 'compile' | null;
   focused_ref: string | null;
+  assumptions: string[];
+  changed: BrowserChangedDefinition[];
+  affected: BrowserAffectedDefinition[];
   preview_files: BrowserConversationPreviewFile[];
   compilation_files: BrowserConversationCompilationFile[];
 }
@@ -915,6 +929,9 @@ function isBrowserConversationReplyValue(
     isNullableString(value.change_set_id) &&
     (value.operation_kind === null || value.operation_kind === 'source_change' || value.operation_kind === 'compile') &&
     isNullableString(value.focused_ref) &&
+    isStringArray(value.assumptions) &&
+    Array.isArray(value.changed) &&
+    Array.isArray(value.affected) &&
     Array.isArray(value.preview_files) &&
     Array.isArray(value.compilation_files)
   );

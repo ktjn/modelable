@@ -339,6 +339,8 @@ function AssistantGenerateMessageItem({
               ))}
             </div>
           ) : null}
+          <AssumptionsList assumptions={message.assumptions} />
+          <AffectedDefinitionsList affected={message.affected} />
           <DiagnosticsList diagnostics={message.diagnostics} />
           <div className="chat-message__actions">
             {hasSourcePreviews ||
@@ -407,5 +409,41 @@ function DiagnosticsList({ diagnostics }: { diagnostics: BrowserDiagnostic[] }) 
         </li>
       ))}
     </ul>
+  );
+}
+
+function AssumptionsList({ assumptions }: { assumptions: string[] }) {
+  if (assumptions.length === 0) return null;
+
+  return (
+    <div className="chat-message__assumptions">
+      <span className="chat-message__assumptions-title">Assumptions</span>
+      <ul>
+        {assumptions.map((assumption, index) => (
+          <li key={index}>{assumption}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function AffectedDefinitionsList({
+  affected,
+}: {
+  affected: AssistantGenerateChatMessage['affected'];
+}) {
+  if (affected.length === 0) return null;
+
+  return (
+    <div className="chat-message__affected">
+      <span className="chat-message__affected-title">Impacted Definitions</span>
+      <ul>
+        {affected.map((def, index) => (
+          <li key={index}>
+            <code>{def.ref}</code> ({def.status}): {def.reason}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
