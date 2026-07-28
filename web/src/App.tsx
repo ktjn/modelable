@@ -62,7 +62,7 @@ import {
   initialProviderState,
   providerStateReducer,
 } from './ai/provider-state';
-import { detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
+import { AVAILABLE_MODELS, detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
 import { SimulatorProvider } from './ai/simulator-provider';
 import {
   generateChatMessageId,
@@ -195,6 +195,7 @@ export function App({
     initialProviderState,
   );
   const [aiPending, setAiPending] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0]!.id);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const conversationSessionIdRef = useRef(crypto.randomUUID());
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
@@ -634,7 +635,8 @@ export function App({
     if (aiState.status !== 'idle') {
       return;
     }
-    const provider = new WebGpuProvider();
+    const config = AVAILABLE_MODELS.find((m) => m.id === selectedModel);
+    const provider = new WebGpuProvider(config);
     aiDispatch({ type: 'download_start', provider });
     void provider
       .initialize((progress, message) => {
@@ -648,7 +650,7 @@ export function App({
             message: error instanceof Error ? error.message : 'Download failed',
           }),
       );
-  }, [aiState.status]);
+  }, [aiState.status, selectedModel]);
 
   const handleAiFallback = useCallback((): void => {
     const provider = new SimulatorProvider();
@@ -728,20 +730,20 @@ export function App({
                   result.reply.kind === 'preview' &&
                   (preview !== undefined || result.reply.compilation_files.length > 0)
                 ) {
-                  return {
-                    id: assistantId,
-                    role: 'assistant',
-                    kind: 'generate',
-                    actionId: result.reply.change_set_id ?? undefined,
-                    assumptions: result.reply.assumptions,
-                    changed: result.reply.changed,
-                    affected: result.reply.affected,
-                    previewFiles: result.reply.preview_files,
-                    compilationFiles: result.reply.compilation_files,
-                    diagnostics: [],
-                    providerInfo: { provider: provider.id, model: provider.model },
-                    pending: false,
-                  };
+                    return {
+                      id: assistantId,
+                      role: 'assistant',
+                      kind: 'generate',
+                      actionId: result.reply.change_set_id ?? undefined,
+                      assumptions: result.reply.assumptions ?? [],
+                      changed: result.reply.changed ?? [],
+                      affected: result.reply.affected ?? [],
+                      previewFiles: result.reply.preview_files,
+                      compilationFiles: result.reply.compilation_files,
+                      diagnostics: [],
+                      providerInfo: { provider: provider.id, model: provider.model },
+                      pending: false,
+                    };
                 }
                 return {
                   id: assistantId,
@@ -1248,6 +1250,8 @@ export function App({
                 onDiscard={handleAiDiscard}
                 onDownloadModel={handleAiDownload}
                 onUseHeuristic={handleAiFallback}
+                selectedModel={selectedModel}
+                onModelChange={setSelectedModel}
               />
             }
             graph={

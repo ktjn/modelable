@@ -1230,6 +1230,17 @@ button.view-tab--active:hover:not(:disabled) {
 .chat-onboarding__actions {
   display: flex;
   gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.chat-model-select {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.82rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.35rem;
+  background: var(--bg);
+  color: var(--text);
+  max-width: 20rem;
 }
 
 .ai-progress {

@@ -1,7 +1,31 @@
 import type { AiWorkerRequest, AiWorkerResponse } from './ai.worker';
 import type { LlmProvider, LlmRequest, LlmResponse } from './types';
 
-const DEFAULT_MODEL = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+export interface ModelOption {
+  id: string;
+  label: string;
+  description: string;
+  /** Minimum GPU VRAM required in MB. */
+  vramMb: number;
+  /** Extra params merged into every completion request (e.g. `extra_body`). */
+  completionParams?: Record<string, unknown>;
+}
+
+export const AVAILABLE_MODELS: ModelOption[] = [
+  {
+    id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
+    label: 'Qwen 2.5 0.5B',
+    description: '~945 MB VRAM',
+    vramMb: 945,
+  },
+  {
+    id: 'Qwen3-1.7B-q4f16_1-MLC',
+    label: 'Qwen 3 1.7B',
+    description: '~2 GB VRAM',
+    vramMb: 2037,
+    completionParams: { extra_body: { enable_thinking: false } },
+  },
+];
 
 export function detectWebGpu(): boolean {
   return typeof navigator !== 'undefined' && 'gpu' in navigator;
@@ -10,6 +34,7 @@ export function detectWebGpu(): boolean {
 export class WebGpuProvider implements LlmProvider {
   readonly id = 'webgpu';
   readonly model: string;
+  readonly completionParams: Record<string, unknown> | null;
   private worker: Worker | null = null;
   private pendingCompletions = new Map<
     string,
@@ -17,8 +42,9 @@ export class WebGpuProvider implements LlmProvider {
   >();
   private nextId = 0;
 
-  constructor(model?: string) {
-    this.model = model ?? DEFAULT_MODEL;
+  constructor(modelConfig?: ModelOption) {
+    this.model = modelConfig?.id ?? AVAILABLE_MODELS[0]!.id;
+    this.completionParams = modelConfig?.completionParams ?? null;
   }
 
   async initialize(
@@ -49,7 +75,11 @@ export class WebGpuProvider implements LlmProvider {
         }
       };
       worker.addEventListener('message', handler);
-      const request: AiWorkerRequest = { type: 'initialize', model: this.model };
+      const request: AiWorkerRequest = {
+        type: 'initialize',
+        model: this.model,
+        completionParams: this.completionParams ?? undefined,
+      };
       worker.postMessage(request);
     });
   }

@@ -38,9 +38,12 @@ test('renders onboarding when no provider is ready', () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
+  expect(screen.getByRole('combobox', { name: /model/i })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Download AI model' })).toBeTruthy();
 });
 
@@ -60,6 +63,8 @@ test('sends a message from the composer', async () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
@@ -89,6 +94,8 @@ test('calls quick action chips', async () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
@@ -111,6 +118,9 @@ test('accepts generated source', async () => {
       diagnostics: [],
       providerInfo: { provider: 'heuristic', model: 'rule' },
       pending: false,
+      assumptions: [],
+      changed: [],
+      affected: [],
     },
   ];
   render(
@@ -126,6 +136,8 @@ test('accepts generated source', async () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
@@ -145,6 +157,9 @@ test('previews and accepts compilation artifacts', async () => {
       providerInfo: { provider: 'simulator', model: 'semantic-v1' },
       pending: false,
       actionId: 'compile-1',
+      assumptions: [],
+      changed: [],
+      affected: [],
       compilationFiles: [
         {
           destination: 'dist/customer.schema.json',
@@ -168,6 +183,8 @@ test('previews and accepts compilation artifacts', async () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
@@ -189,6 +206,9 @@ test('renders every source file in a multi-file preview', async () => {
       providerInfo: { provider: 'simulator', model: 'semantic-v1' },
       pending: false,
       actionId: 'change-1',
+      assumptions: [],
+      changed: [],
+      affected: [],
       previewFiles: [
         {
           path: 'a.mdl',
@@ -218,6 +238,8 @@ test('renders every source file in a multi-file preview', async () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
@@ -257,6 +279,8 @@ test('discards a message', async () => {
       onDiscard={onDiscard}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 

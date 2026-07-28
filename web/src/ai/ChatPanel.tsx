@@ -8,6 +8,7 @@ import type {
 } from './chat-types';
 import { isAssistantGenerateMessage, isAssistantExplainMessage } from './chat-types';
 import type { BrowserDiagnostic } from '../protocol';
+import { AVAILABLE_MODELS, type ModelOption } from './webgpu-provider';
 import { MarkdownText } from './MarkdownText';
 
 const DiffViewer = lazy(() =>
@@ -26,6 +27,8 @@ export interface ChatPanelProps {
   onDiscard(messageId: string): void;
   onDownloadModel(): void;
   onUseHeuristic(): void;
+  selectedModel: string;
+  onModelChange: (model: string) => void;
 }
 
 export function ChatPanel({
@@ -40,6 +43,8 @@ export function ChatPanel({
   onDiscard,
   onDownloadModel,
   onUseHeuristic,
+  selectedModel,
+  onModelChange,
 }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
@@ -119,9 +124,23 @@ export function ChatPanel({
             <p>Enable the assistant to generate and explain models.</p>
             <div className="chat-onboarding__actions">
               {aiState.status === 'idle' ? (
-                <button type="button" onClick={onDownloadModel}>
-                  Download AI model
-                </button>
+                <>
+                  <select
+                    className="chat-model-select"
+                    aria-label="AI model"
+                    value={selectedModel}
+                    onChange={(e) => onModelChange(e.target.value)}
+                  >
+                    {AVAILABLE_MODELS.map((m: ModelOption) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label} — {m.description}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={onDownloadModel}>
+                    Download AI model
+                  </button>
+                </>
               ) : null}
               {aiState.status === 'unsupported' || aiState.status === 'error' ? (
                 <button type="button" onClick={onUseHeuristic}>
@@ -412,8 +431,8 @@ function DiagnosticsList({ diagnostics }: { diagnostics: BrowserDiagnostic[] }) 
   );
 }
 
-function AssumptionsList({ assumptions }: { assumptions: string[] }) {
-  if (assumptions.length === 0) return null;
+function AssumptionsList({ assumptions }: { assumptions: string[] | undefined }) {
+  if (assumptions === undefined || assumptions.length === 0) return null;
 
   return (
     <div className="chat-message__assumptions">
@@ -430,9 +449,9 @@ function AssumptionsList({ assumptions }: { assumptions: string[] }) {
 function AffectedDefinitionsList({
   affected,
 }: {
-  affected: AssistantGenerateChatMessage['affected'];
+  affected: AssistantGenerateChatMessage['affected'] | undefined;
 }) {
-  if (affected.length === 0) return null;
+  if (affected === undefined || affected.length === 0) return null;
 
   return (
     <div className="chat-message__affected">
