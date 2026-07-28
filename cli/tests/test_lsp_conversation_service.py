@@ -166,6 +166,18 @@ def test_first_turn_includes_no_provider_notice_when_unconfigured(tmp_path: Path
     assert reply["text"].startswith("No LLM provider is configured")
 
 
+def test_second_turn_on_existing_session_omits_no_provider_notice(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    service = LspConversationService(session_factory=_session_factory)
+
+    first_reply = service.turn(_turn_params(root, create_session=True))
+    second_reply = service.turn(_turn_params(root, create_session=False))
+
+    assert first_reply["text"].startswith("No LLM provider is configured")
+    assert "No LLM provider is configured" not in second_reply["text"]
+
+
 def test_registry_expires_idle_sessions(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     _write_customer_workspace(root)
