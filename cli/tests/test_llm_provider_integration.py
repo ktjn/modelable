@@ -1305,3 +1305,27 @@ domain customer {
     )
     assert "Wrote changes to" not in response
     assert mdl.read_text(encoding="utf-8") == original
+
+
+def test_chat_prints_no_provider_notice_once_at_startup(tmp_path, monkeypatch):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["chat", "--path", str(tmp_path), "--message", "/context"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "provider" in result.output.lower()

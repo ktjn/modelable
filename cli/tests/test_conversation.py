@@ -1202,3 +1202,22 @@ domain customer {
     )
 
     assert reply.kind == "preview"
+
+
+def test_no_provider_notice_is_none_when_a_provider_is_configured(tmp_path) -> None:
+    (tmp_path / "workspace.mdl").write_text('domain d {\n  owner: "team"\n}\n', encoding="utf-8")
+
+    class FakeProvider:
+        def complete(self, request):
+            raise AssertionError("not called")
+
+    session = ConversationSession(path=tmp_path, provider=FakeProvider())
+    assert session.no_provider_notice is None
+
+
+def test_no_provider_notice_explains_the_limitation_when_absent(tmp_path) -> None:
+    (tmp_path / "workspace.mdl").write_text('domain d {\n  owner: "team"\n}\n', encoding="utf-8")
+
+    session = ConversationSession(path=tmp_path, provider=None)
+    assert session.no_provider_notice is not None
+    assert "provider" in session.no_provider_notice.lower()

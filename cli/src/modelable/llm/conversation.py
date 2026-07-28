@@ -108,6 +108,15 @@ class ConversationSession:
         self.engine.focused_ref = value
 
     @property
+    def no_provider_notice(self) -> str | None:
+        if self.provider is not None:
+            return None
+        return (
+            "No LLM provider is configured, so I can answer workspace queries but can't make edits. "
+            "Configure a provider (--provider/--model, or workspace/environment configuration) to enable edits."
+        )
+
+    @property
     def history(self) -> list[tuple[str, str]]:
         return self.engine.history
 

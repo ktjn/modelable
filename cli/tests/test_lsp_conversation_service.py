@@ -156,6 +156,16 @@ def test_registry_requires_create_flag_for_unknown_session(tmp_path: Path) -> No
     assert reply["sessionId"] == "session-1"
 
 
+def test_first_turn_includes_no_provider_notice_when_unconfigured(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    service = LspConversationService(session_factory=_session_factory)
+
+    reply = service.turn(_turn_params(root, create_session=True))
+
+    assert reply["text"].startswith("No LLM provider is configured")
+
+
 def test_registry_expires_idle_sessions(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     _write_customer_workspace(root)
