@@ -263,6 +263,41 @@ domain customer {
     assert not _provenance_path(mdl).exists()
 
 
+def test_update_definition_raises_instead_of_silently_skipping_a_conflicting_add(tmp_path):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    class FakeProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            payload = {
+                "target": "customer.Customer@1",
+                "target_kind": "model",
+                "warnings": [],
+                "changes": [{"kind": "add_field", "field": "email", "type": "string"}],
+            }
+            return LLMResponse(content=json.dumps(payload), provider="ollama", model="llama3.1")
+
+    with pytest.raises(ValueError, match="already exists"):
+        update_definition(
+            tmp_path,
+            "customer.Customer@1",
+            "add email as string",
+            provider=FakeProvider(),
+            write=False,
+        )
+
+
 def test_update_definition_repairs_invalid_provider_output(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """

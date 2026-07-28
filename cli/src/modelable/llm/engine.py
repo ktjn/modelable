@@ -596,8 +596,7 @@ def _apply_model_change(version: ModelVersion, change: UpdateChange) -> tuple[bo
     if change.kind == "add_field":
         field_name = change.new_name or change.field
         if any(item.name == field_name for item in version.fields):
-            warnings.append(f"Field '{field_name}' already exists; skipped add")
-            return False, warnings
+            raise ValueError(f"Field '{field_name}' already exists on {version.version}")
         version.fields.append(
             FieldDef(
                 name=field_name,
@@ -607,8 +606,7 @@ def _apply_model_change(version: ModelVersion, change: UpdateChange) -> tuple[bo
         )
         return True, warnings
     if field is None:
-        warnings.append(f"Field '{change.field}' not found; skipped {change.kind}")
-        return False, warnings
+        raise ValueError(f"Field '{change.field}' not found on {version.version}; cannot {change.kind}")
     if change.kind == "make_optional":
         field.optional = True
         return True, warnings
@@ -635,8 +633,7 @@ def _apply_projection_change(version: ProjectionVersion, change: UpdateChange) -
     if change.kind == "add_field":
         field_name = change.new_name or change.field
         if any(item.name == field_name for item in version.fields):
-            warnings.append(f"Field '{field_name}' already exists; skipped add")
-            return False, warnings
+            raise ValueError(f"Field '{field_name}' already exists on {version.version}")
         version.fields.append(
             ProjectionField(
                 name=field_name,
@@ -648,8 +645,7 @@ def _apply_projection_change(version: ProjectionVersion, change: UpdateChange) -
         )
         return True, warnings
     if field is None:
-        warnings.append(f"Field '{change.field}' not found; skipped {change.kind}")
-        return False, warnings
+        raise ValueError(f"Field '{change.field}' not found on {version.version}; cannot {change.kind}")
     if change.kind == "rename_field":
         if not change.new_name:
             raise ValueError(f"rename_field for '{change.field}' requires new_name")
@@ -753,16 +749,15 @@ def _apply_model_update(version: ModelVersion, instruction: str) -> tuple[bool, 
     if add_match is not None:
         field_name, field_type, optional = add_match
         if any(field.name == field_name for field in version.fields):
-            warnings.append(f"Field '{field_name}' already exists; skipped add")
-        else:
-            version.fields.append(
-                FieldDef(
-                    name=field_name,
-                    type=field_type or _string_field(),
-                    optional=optional,
-                )
+            raise ValueError(f"Field '{field_name}' already exists on {version.version}")
+        version.fields.append(
+            FieldDef(
+                name=field_name,
+                type=field_type or _string_field(),
+                optional=optional,
             )
-            updated = True
+        )
+        updated = True
 
     return updated, warnings
 
@@ -791,18 +786,17 @@ def _apply_projection_update(version: ProjectionVersion, instruction: str) -> tu
     if add_match is not None:
         field_name, source_field = add_match
         if any(field.name == field_name for field in version.fields):
-            warnings.append(f"Field '{field_name}' already exists; skipped add")
-        else:
-            version.fields.append(
-                ProjectionField(
-                    name=field_name,
-                    mapping=DirectMapping(
-                        source_alias=version.source.alias,
-                        source_field=_normalize_source_field(source_field or field_name),
-                    ),
-                )
+            raise ValueError(f"Field '{field_name}' already exists on {version.version}")
+        version.fields.append(
+            ProjectionField(
+                name=field_name,
+                mapping=DirectMapping(
+                    source_alias=version.source.alias,
+                    source_field=_normalize_source_field(source_field or field_name),
+                ),
             )
-            updated = True
+        )
+        updated = True
 
     return updated, warnings
 
