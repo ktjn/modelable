@@ -61,6 +61,7 @@ class ConversationEngine:
         self._pending_request_id: str | None = None
         self._pending_message: str | None = None
         self._pending_synthesis: _PendingSynthesis | None = None
+        self._session_editable_refs: set[str] = set()
 
     def begin_turn(self, message: str) -> ConversationOutcome:
         if self._pending_request_id is not None or self._pending_synthesis is not None:
@@ -171,6 +172,7 @@ class ConversationEngine:
         self._pending_request_id = None
         self._pending_message = None
         self._pending_synthesis = None
+        self._session_editable_refs.clear()
 
     def synchronize_pending_action(
         self,
@@ -204,7 +206,11 @@ class ConversationEngine:
             roadmap = f"\n\nRoadmap area: {plan.roadmap_area}" if plan.roadmap_area else ""
             return ConversationReply(kind="unsupported", text=f"{plan.reason}{roadmap}")
         if isinstance(plan, ChangeSetPlan):
-            reply = self.backend.preview_source_change(plan, self.pending_action_id)
+            reply = self.backend.preview_source_change(
+                plan,
+                self.pending_action_id,
+                session_editable_refs=frozenset(self._session_editable_refs),
+            )
             if reply.kind == "preview" and reply.change_set_id is not None:
                 self._track_preview(reply)
                 self._pending_change_plan = plan
@@ -223,6 +229,7 @@ class ConversationEngine:
             self._clear_pending_action()
             if reply.focused_ref is not None:
                 self.focused_ref = reply.focused_ref
+            self._session_editable_refs.update(item.ref for item in reply.changed)
         return reply
 
     def _discard(self, action_id: str) -> ConversationReply:

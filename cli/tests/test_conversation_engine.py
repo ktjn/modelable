@@ -16,6 +16,7 @@ from modelable.llm.conversation_planner import (
     PlanningRequestError,
     ResumableConversationPlanner,
 )
+from modelable.llm.workspace_editor import ChangedDefinition
 
 
 def valid_create_customer_plan() -> dict[str, object]:
@@ -43,6 +44,7 @@ def valid_create_customer_plan() -> dict[str, object]:
 @dataclass
 class RecordingBackend:
     previewed_plans: list[ChangeSetPlan] = field(default_factory=list)
+    previewed_session_editable_refs: list[frozenset[str]] = field(default_factory=list)
     applied_ids: list[str] = field(default_factory=list)
     discarded_ids: list[str] = field(default_factory=list)
     reset_calls: int = 0
@@ -60,8 +62,11 @@ class RecordingBackend:
         self,
         plan: ChangeSetPlan,
         replaced_action_id: str | None,
+        *,
+        session_editable_refs: frozenset[str] = frozenset(),
     ) -> ConversationReply:
         self.previewed_plans.append(plan)
+        self.previewed_session_editable_refs.append(session_editable_refs)
         action_id = f"change-{self.next_action}"
         self.next_action += 1
         return ConversationReply(
@@ -70,6 +75,7 @@ class RecordingBackend:
             change_set_id=action_id,
             operation_kind="source_change",
             focused_ref="customer.Customer@1",
+            changed=(ChangedDefinition(ref="customer.Customer@1", reason="created"),),
         )
 
     def preview_compilation(
@@ -86,7 +92,12 @@ class RecordingBackend:
 
     def apply(self, action_id: str) -> ConversationReply:
         self.applied_ids.append(action_id)
-        return ConversationReply(kind="applied", text=f"applied:{action_id}", change_set_id=action_id)
+        return ConversationReply(
+            kind="applied",
+            text=f"applied:{action_id}",
+            change_set_id=action_id,
+            changed=(ChangedDefinition(ref="customer.Customer@1", reason="created"),),
+        )
 
     def discard(self, action_id: str) -> ConversationReply:
         self.discarded_ids.append(action_id)
@@ -162,6 +173,23 @@ def test_engine_apply_and_discard_use_exact_pending_id() -> None:
     assert discarded.kind == "discarded"
     assert backend.discarded_ids == ["change-2"]
     assert engine.pending_action_id is None
+
+
+def test_engine_lets_second_turn_edit_a_ref_applied_earlier_in_the_session() -> None:
+    engine, backend = engine_with_request_ids("request-1", "request-2")
+
+    pending = engine.begin_turn("Create a customer")
+    assert isinstance(pending, PendingPlanRequest)
+    preview_reply = engine.resume_turn(pending.request_id, json.dumps(valid_create_customer_plan()))
+    assert preview_reply.kind == "preview"
+    applied_reply = engine.apply(preview_reply.change_set_id)
+    assert applied_reply.kind == "applied"
+
+    pending_2 = engine.begin_turn("Rename customerId to id")
+    assert isinstance(pending_2, PendingPlanRequest)
+    engine.resume_turn(pending_2.request_id, json.dumps(valid_create_customer_plan()))
+
+    assert backend.previewed_session_editable_refs[-1] == frozenset({"customer.Customer@1"})
 
 
 def test_engine_records_deterministic_reply_without_completion() -> None:
