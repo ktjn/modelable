@@ -108,7 +108,7 @@ class ConversationEngine:
         if command and command[0] == "/compile":
             return self._complete_plan(normalized, parse_compile_command(normalized))
         context = PlannerContext(
-            workspace_summary=self.backend.workspace_summary(),
+            workspace_summary=self.backend.workspace_summary(focused_ref=self.focused_ref),
             focused_ref=self.focused_ref,
             history=tuple(self.history),
             pending_plan=self._pending_change_plan,

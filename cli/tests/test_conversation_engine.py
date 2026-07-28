@@ -49,8 +49,8 @@ class RecordingBackend:
     next_action: int = 1
     execute_query_called: bool = False
 
-    def workspace_summary(self) -> str:
-        return "domain customer\n  owner: customer-team"
+    def workspace_summary(self, focused_ref: str | None = None) -> str:
+        return f"domain customer\n  owner: customer-team (focus: {focused_ref})"
 
     def execute_query(self, plan: QueryPlan) -> ConversationReply:
         self.execute_query_called = True
