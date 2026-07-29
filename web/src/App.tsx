@@ -70,6 +70,7 @@ import {
   getWebLlmModels,
   getGpuLimits,
   suggestModel,
+  type ModelOption,
 } from './ai/webgpu-provider';
 import { SimulatorProvider } from './ai/simulator-provider';
 import {
