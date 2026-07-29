@@ -6,6 +6,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 
 import { ChatPanel } from './ChatPanel';
 import { initialProviderState } from './provider-state';
+import { DEFAULT_MODELS } from './webgpu-provider';
 import type { ChatMessage } from './chat-types';
 
 vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => ({
@@ -40,6 +41,10 @@ test('renders onboarding when no provider is ready', () => {
       onUseHeuristic={vi.fn()}
       selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
       onModelChange={vi.fn()}
+      models={DEFAULT_MODELS}
+      onReset={vi.fn()}
+      onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -65,6 +70,10 @@ test('sends a message from the composer', async () => {
       onUseHeuristic={vi.fn()}
       selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
       onModelChange={vi.fn()}
+      models={DEFAULT_MODELS}
+      onReset={vi.fn()}
+      onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -96,6 +105,10 @@ test('calls quick action chips', async () => {
       onUseHeuristic={vi.fn()}
       selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
       onModelChange={vi.fn()}
+      models={DEFAULT_MODELS}
+      onReset={vi.fn()}
+      onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -138,6 +151,10 @@ test('accepts generated source', async () => {
       onUseHeuristic={vi.fn()}
       selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
       onModelChange={vi.fn()}
+      models={DEFAULT_MODELS}
+      onReset={vi.fn()}
+      onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -185,6 +202,10 @@ test('previews and accepts compilation artifacts', async () => {
       onUseHeuristic={vi.fn()}
       selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
       onModelChange={vi.fn()}
+      models={DEFAULT_MODELS}
+      onReset={vi.fn()}
+      onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -240,6 +261,10 @@ test('renders every source file in a multi-file preview', async () => {
       onUseHeuristic={vi.fn()}
       selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
       onModelChange={vi.fn()}
+      models={DEFAULT_MODELS}
+      onReset={vi.fn()}
+      onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -281,6 +306,10 @@ test('discards a message', async () => {
       onUseHeuristic={vi.fn()}
       selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
       onModelChange={vi.fn()}
+      models={DEFAULT_MODELS}
+      onReset={vi.fn()}
+      onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 

@@ -62,7 +62,15 @@ import {
   initialProviderState,
   providerStateReducer,
 } from './ai/provider-state';
-import { AVAILABLE_MODELS, detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
+import {
+  DEFAULT_MODELS,
+  createModelOption,
+  detectWebGpu,
+  WebGpuProvider,
+  getGpuLimits,
+  suggestModel,
+  type ModelOption,
+} from './ai/webgpu-provider';
 import { SimulatorProvider } from './ai/simulator-provider';
 import {
   generateChatMessageId,
@@ -195,7 +203,8 @@ export function App({
     initialProviderState,
   );
   const [aiPending, setAiPending] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0]!.id);
+  const [models, setModels] = useState<ModelOption[]>(DEFAULT_MODELS);
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODELS[0]!.id);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const conversationSessionIdRef = useRef(crypto.randomUUID());
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
@@ -624,18 +633,70 @@ export function App({
       return;
     }
     aiDispatch({ type: 'detect_start' });
+    const modelParam = params.get('model');
+    if (modelParam !== null) {
+      setModels((current) => {
+        if (current.some((m) => m.id === modelParam)) {
+          return current;
+        }
+        return [...current, createModelOption(modelParam)];
+      });
+      setSelectedModel(modelParam);
+    }
+
+    const modelsUrlParam = params.get('models_url');
+    if (modelsUrlParam !== null) {
+      handleAiFetchModels(modelsUrlParam);
+    }
+
     if (detectWebGpu()) {
       aiDispatch({ type: 'detect_available' });
+      void WebGpuProvider.getWebLlmModels().then((webLlmModels) => {
+        setModels((current) => {
+          const merged = [...current];
+          for (const m of webLlmModels) {
+            if (!merged.some((existing) => existing.id === m.id)) {
+              merged.push(m);
+            }
+          }
+          return merged;
+        });
+
+        void getGpuLimits().then((limits) => {
+          const allModels = [...models]; // Use current state or combine? Better use what we just got
+          setModels((current) => {
+            const suggested = suggestModel(current, limits);
+            const updated = current
+              .map((m) => ({
+                ...m,
+                recommended: m.id === suggested,
+              }))
+              .sort((a, b) => {
+                if (a.recommended) return -1;
+                if (b.recommended) return 1;
+                return a.vramMb - b.vramMb;
+              });
+            
+            if (params.get('model') === null) {
+              setSelectedModel(suggested);
+            }
+            return updated;
+          });
+        });
+      });
     } else {
       aiDispatch({ type: 'detect_unsupported' });
     }
   }, []);
 
   const handleAiDownload = useCallback((): void => {
-    if (aiState.status !== 'idle') {
+    if (aiState.status !== 'idle' && aiState.status !== 'error') {
       return;
     }
-    const config = AVAILABLE_MODELS.find((m) => m.id === selectedModel);
+    const config = models.find((m) => m.id === selectedModel);
+    if (config === undefined) {
+      return;
+    }
     const provider = new WebGpuProvider(config);
     aiDispatch({ type: 'download_start', provider });
     void provider
@@ -651,6 +712,59 @@ export function App({
           }),
       );
   }, [aiState.status, selectedModel]);
+
+  const handleAiReset = useCallback((): void => {
+    if (aiState.provider) {
+      void aiState.provider.dispose();
+    }
+    aiDispatch({ type: 'reset' });
+  }, [aiState.provider]);
+
+  const handleAiAddModel = useCallback((id: string): void => {
+    setModels((current) => {
+      if (current.some((m) => m.id === id)) {
+        return current;
+      }
+      return [...current, createModelOption(id)];
+    });
+    setSelectedModel(id);
+  }, []);
+
+  const handleAiFetchModels = useCallback((url: string): void => {
+    aiDispatch({
+      type: 'download_progress',
+      progress: 0,
+      message: `Fetching models from ${url}...`,
+    });
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch models: ${res.statusText}`);
+        }
+        return res.json() as Promise<ModelOption[]>;
+      })
+      .then((newModels) => {
+        setModels((current) => {
+          const merged = [...current];
+          for (const m of newModels) {
+            if (!merged.some((existing) => existing.id === m.id)) {
+              merged.push(m);
+            }
+          }
+          return merged;
+        });
+        if (newModels.length > 0) {
+          setSelectedModel(newModels[0]!.id);
+        }
+        aiDispatch({ type: 'reset' });
+      })
+      .catch((error: unknown) => {
+        aiDispatch({
+          type: 'error',
+          message: error instanceof Error ? error.message : 'Fetch failed',
+        });
+      });
+  }, []);
 
   const handleAiFallback = useCallback((): void => {
     const provider = new SimulatorProvider();
@@ -1252,6 +1366,10 @@ export function App({
                 onUseHeuristic={handleAiFallback}
                 selectedModel={selectedModel}
                 onModelChange={setSelectedModel}
+                models={models}
+                onReset={handleAiReset}
+                onAddModel={handleAiAddModel}
+                onFetchModels={handleAiFetchModels}
               />
             }
             graph={

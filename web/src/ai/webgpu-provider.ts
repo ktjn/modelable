@@ -7,11 +7,15 @@ export interface ModelOption {
   description: string;
   /** Minimum GPU VRAM required in MB. */
   vramMb: number;
+  /** Required storage buffer size in bytes. */
+  bufferSizeRequiredBytes?: number;
   /** Extra params merged into every completion request (e.g. `extra_body`). */
   completionParams?: Record<string, unknown>;
+  /** Whether the model is recommended for the current system. */
+  recommended?: boolean;
 }
 
-export const AVAILABLE_MODELS: ModelOption[] = [
+export const DEFAULT_MODELS: ModelOption[] = [
   {
     id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
     label: 'Qwen 2.5 0.5B',
@@ -27,8 +31,59 @@ export const AVAILABLE_MODELS: ModelOption[] = [
   },
 ];
 
+export function createModelOption(id: string): ModelOption {
+  return {
+    id,
+    label: id,
+    description: 'Dynamic model',
+    vramMb: 0, // Unknown
+  };
+}
+
 export function detectWebGpu(): boolean {
   return typeof navigator !== 'undefined' && 'gpu' in navigator;
+}
+
+/** Fetches GPU adapter limits if available. */
+export async function getGpuLimits(): Promise<GPUSupportedLimits | null> {
+  if (!detectWebGpu()) return null;
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    return adapter?.limits ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Suggests a model based on GPU limits. */
+export function suggestModel(
+  models: ModelOption[],
+  limits: GPUSupportedLimits | null,
+): string {
+  if (limits === null) {
+    // Default to a small model if no limits found
+    return 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+  }
+
+  const maxStorageBuffer = limits.maxStorageBufferBindingSize;
+
+  const filtered = models.filter((m) => {
+    if (m.bufferSizeRequiredBytes !== undefined) {
+      return m.bufferSizeRequiredBytes <= maxStorageBuffer;
+    }
+    // Fallback heuristic if bufferSizeRequiredBytes is missing
+    if (m.vramMb > 0) {
+      const estimatedBufferReq = m.vramMb * 1024 * 1024;
+      return estimatedBufferReq <= maxStorageBuffer;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) return 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+
+  // Prefer models with more VRAM if they fit
+  const sorted = [...filtered].sort((a, b) => b.vramMb - a.vramMb);
+  return sorted[0]!.id;
 }
 
 export class WebGpuProvider implements LlmProvider {
@@ -42,8 +97,32 @@ export class WebGpuProvider implements LlmProvider {
   >();
   private nextId = 0;
 
+  static async getWebLlmModels(): Promise<ModelOption[]> {
+    const worker = new Worker(
+      new URL('./ai.worker.ts', import.meta.url),
+      { type: 'module' },
+    );
+
+    return new Promise<ModelOption[]>((resolve, reject) => {
+      const handler = (event: MessageEvent<AiWorkerResponse>): void => {
+        const msg = event.data;
+        if (msg.type === 'models') {
+          worker.removeEventListener('message', handler);
+          worker.terminate();
+          resolve(msg.models);
+        } else if (msg.type === 'error') {
+          worker.removeEventListener('message', handler);
+          worker.terminate();
+          reject(new Error(msg.message));
+        }
+      };
+      worker.addEventListener('message', handler);
+      worker.postMessage({ type: 'list_models' });
+    });
+  }
+
   constructor(modelConfig?: ModelOption) {
-    this.model = modelConfig?.id ?? AVAILABLE_MODELS[0]!.id;
+    this.model = modelConfig?.id ?? DEFAULT_MODELS[0]!.id;
     this.completionParams = modelConfig?.completionParams ?? null;
   }
 
