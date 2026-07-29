@@ -412,7 +412,10 @@ _OPERATION_KIND_TO_DEF_NAME: dict[str, str] = {
 
 
 def _exclude_operation_kinds(schema: dict[str, object], kinds: frozenset[str]) -> None:
-    operation = schema.get("$defs", {}).get("Operation")
+    defs = schema.get("$defs")
+    if not isinstance(defs, dict):
+        return
+    operation = defs.get("Operation")
     if not isinstance(operation, dict):
         return
     excluded_def_names = {_OPERATION_KIND_TO_DEF_NAME[kind] for kind in kinds if kind in _OPERATION_KIND_TO_DEF_NAME}
@@ -425,10 +428,8 @@ def _exclude_operation_kinds(schema: dict[str, object], kinds: frozenset[str]) -
         operation["oneOf"] = [
             item for item in one_of if item.get("$ref", "").rsplit("/", 1)[-1] not in excluded_def_names
         ]
-    defs = schema.get("$defs")
-    if isinstance(defs, dict):
-        for def_name in excluded_def_names:
-            defs.pop(def_name, None)
+    for def_name in excluded_def_names:
+        defs.pop(def_name, None)
 
 
 def _close_object_schemas(node: object) -> None:

@@ -8,6 +8,7 @@ from modelable.compiler.workspace import load_workspace
 from modelable.llm.chat import ChatState, chat_turn
 from modelable.llm.conversation import ConversationSession
 from modelable.llm.conversation_plan import (
+    AddField,
     ChangeSetPlan,
     ClarificationPlan,
     CompilePlan,
@@ -1221,3 +1222,87 @@ def test_no_provider_notice_explains_the_limitation_when_absent(tmp_path) -> Non
     session = ConversationSession(path=tmp_path, provider=None)
     assert session.no_provider_notice is not None
     assert "provider" in session.no_provider_notice.lower()
+
+
+def test_session_editable_refs_persist_across_real_turns_through_filesystem_backend(
+    tmp_path: Path,
+) -> None:
+    """End-to-end regression test for the headline fix of this plan.
+
+    A ref created and applied in turn 1 must stay editable in turn 2 without a
+    version bump, exercising the real chain ConversationSession ->
+    FilesystemConversationBackend -> WorkspaceEditor across two real turns
+    against a real on-disk workspace -- not fakes at each layer in isolation.
+    """
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Account @ 1 (additive) {
+    @key accountId: uuid
+  }
+}
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    create_customer_plan = ChangeSetPlan(
+        summary="Create customer.Customer@1",
+        operations=[
+            CreateModel(
+                domain="customer",
+                name="Customer",
+                model_kind="entity",
+                fields=[
+                    FieldSpec(name="customerId", type=PrimitiveType(kind="uuid"), annotations=[AnnKey()]),
+                ],
+            )
+        ],
+    )
+    add_email_to_customer_plan = ChangeSetPlan(
+        summary="Add email to customer.Customer@1",
+        operations=[
+            AddField(
+                target="customer.Customer@1",
+                field=FieldSpec(name="email", type=PrimitiveType(kind="string"), optional=True),
+            )
+        ],
+    )
+    add_note_to_untouched_account_plan = ChangeSetPlan(
+        summary="Add note to customer.Account@1",
+        operations=[
+            AddField(
+                target="customer.Account@1",
+                field=FieldSpec(name="note", type=PrimitiveType(kind="string"), optional=True),
+            )
+        ],
+    )
+
+    session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(
+            create_customer_plan,
+            add_email_to_customer_plan,
+            add_note_to_untouched_account_plan,
+        ),
+    )
+
+    # Turn 1: create and apply a brand-new model version.
+    preview_1 = session.turn("create a customer entity")
+    assert preview_1.kind == "preview"
+    applied_1 = session.turn("apply")
+    assert applied_1.kind == "applied"
+    assert "entity Customer @ 1" in source.read_text(encoding="utf-8")
+
+    # Turn 2: edit the SAME ref just applied above, default edit_mode
+    # (append_versions), no version bump -- this must succeed because the
+    # ref stays in the session's accumulated editable-refs set.
+    preview_2 = session.turn("add an email field to customer")
+    assert preview_2.kind == "preview"
+
+    # A ref this session never touched still requires a version bump or
+    # explicit draft mode -- the guard is not bypassed globally.
+    reply_3 = session.turn("add a note field to account")
+    assert reply_3.kind == "error"
+    assert "append a new version or use draft mode" in reply_3.text
