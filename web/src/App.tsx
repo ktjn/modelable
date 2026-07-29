@@ -62,7 +62,15 @@ import {
   initialProviderState,
   providerStateReducer,
 } from './ai/provider-state';
-import { DEFAULT_MODELS, createModelOption, detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
+import {
+  DEFAULT_MODELS,
+  createModelOption,
+  detectWebGpu,
+  WebGpuProvider,
+  getWebLlmModels,
+  getGpuLimits,
+  suggestModel,
+} from './ai/webgpu-provider';
 import { SimulatorProvider } from './ai/simulator-provider';
 import {
   generateChatMessageId,
@@ -195,8 +203,10 @@ export function App({
     initialProviderState,
   );
   const [aiPending, setAiPending] = useState(false);
-  const [models, setModels] = useState(DEFAULT_MODELS);
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODELS[0]!.id);
+  const [models, setModels] = useState(() => getWebLlmModels());
+  const [selectedModel, setSelectedModel] = useState(
+    () => models[0]?.id ?? DEFAULT_MODELS[0]!.id,
+  );
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const conversationSessionIdRef = useRef(crypto.randomUUID());
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
@@ -643,6 +653,26 @@ export function App({
 
     if (detectWebGpu()) {
       aiDispatch({ type: 'detect_available' });
+      void getGpuLimits().then((limits) => {
+        const suggested = suggestModel(models, limits);
+        setModels((current) =>
+          [...current]
+            .map((m) => ({
+              ...m,
+              recommended: m.id === suggested,
+            }))
+            .sort((a, b) => {
+              // Recommended first
+              if (a.recommended) return -1;
+              if (b.recommended) return 1;
+              // Then sort by VRAM requirement
+              return a.vramMb - b.vramMb;
+            }),
+        );
+        if (params.get('model') === null) {
+          setSelectedModel(suggested);
+        }
+      });
     } else {
       aiDispatch({ type: 'detect_unsupported' });
     }

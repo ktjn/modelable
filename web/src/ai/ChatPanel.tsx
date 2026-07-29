@@ -165,6 +165,7 @@ export function ChatPanel({
                           {models.map((m: ModelOption) => (
                             <option key={m.id} value={m.id}>
                               {m.label} — {m.description}
+                              {m.recommended ? ' (Recommended)' : ''}
                             </option>
                           ))}
                           <option value="__add_custom__">+ Add custom model…</option>

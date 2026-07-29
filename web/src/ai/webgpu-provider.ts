@@ -1,5 +1,6 @@
 import type { AiWorkerRequest, AiWorkerResponse } from './ai.worker';
 import type { LlmProvider, LlmRequest, LlmResponse } from './types';
+import { prebuiltAppConfig, type ModelRecord } from '@mlc-ai/web-llm';
 
 export interface ModelOption {
   id: string;
@@ -7,8 +8,12 @@ export interface ModelOption {
   description: string;
   /** Minimum GPU VRAM required in MB. */
   vramMb: number;
+  /** Required storage buffer size in bytes. */
+  bufferSizeRequiredBytes?: number;
   /** Extra params merged into every completion request (e.g. `extra_body`). */
   completionParams?: Record<string, unknown>;
+  /** Whether the model is recommended for the current system. */
+  recommended?: boolean;
 }
 
 export const DEFAULT_MODELS: ModelOption[] = [
@@ -27,6 +32,17 @@ export const DEFAULT_MODELS: ModelOption[] = [
   },
 ];
 
+export function getWebLlmModels(): ModelOption[] {
+  return prebuiltAppConfig.model_list.map((m: ModelRecord) => ({
+    id: m.model_id,
+    label: m.model_id.split('-q')[0] || m.model_id,
+    description: `${m.vram_required_MB ? `~${Math.round(m.vram_required_MB)} MB` : 'Unknown'} VRAM${m.low_resource_required ? ' (Low Resource)' : ''}`,
+    vramMb: m.vram_required_MB ?? 0,
+    bufferSizeRequiredBytes: m.buffer_size_required_bytes,
+    completionParams: m.overrides ? { extra_body: m.overrides } : undefined,
+  }));
+}
+
 export function createModelOption(id: string): ModelOption {
   return {
     id,
@@ -38,6 +54,48 @@ export function createModelOption(id: string): ModelOption {
 
 export function detectWebGpu(): boolean {
   return typeof navigator !== 'undefined' && 'gpu' in navigator;
+}
+
+/** Fetches GPU adapter limits if available. */
+export async function getGpuLimits(): Promise<GPUSupportedLimits | null> {
+  if (!detectWebGpu()) return null;
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    return adapter?.limits ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Suggests a model based on GPU limits. */
+export function suggestModel(
+  models: ModelOption[],
+  limits: GPUSupportedLimits | null,
+): string {
+  if (limits === null) {
+    // Default to a small model if no limits found
+    return 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+  }
+
+  const maxStorageBuffer = limits.maxStorageBufferBindingSize;
+
+  const filtered = models.filter((m) => {
+    if (m.bufferSizeRequiredBytes !== undefined) {
+      return m.bufferSizeRequiredBytes <= maxStorageBuffer;
+    }
+    // Fallback heuristic if bufferSizeRequiredBytes is missing
+    if (m.vramMb > 0) {
+      const estimatedBufferReq = m.vramMb * 1024 * 1024;
+      return estimatedBufferReq <= maxStorageBuffer;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) return 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+
+  // Prefer models with more VRAM if they fit
+  const sorted = [...filtered].sort((a, b) => b.vramMb - a.vramMb);
+  return sorted[0]!.id;
 }
 
 export class WebGpuProvider implements LlmProvider {
