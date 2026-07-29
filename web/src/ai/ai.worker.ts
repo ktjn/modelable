@@ -1,7 +1,7 @@
 import type { LlmRequest } from './types';
 
 export type AiWorkerRequest =
-  | { type: 'initialize'; model: string }
+  | { type: 'initialize'; model: string; completionParams?: Record<string, unknown> }
   | { type: 'complete'; id: string; request: LlmRequest }
   | { type: 'dispose' };
 
@@ -15,11 +15,12 @@ const ctx = globalThis as unknown as Worker;
 
 let engine: import('@mlc-ai/web-llm').MLCEngine | null = null;
 let currentModel: string | null = null;
+let completionParams: Record<string, unknown> | null = null;
 
 ctx.addEventListener('message', (event: MessageEvent<AiWorkerRequest>) => {
   const msg = event.data;
   if (msg.type === 'initialize') {
-    void handleInitialize(msg.model);
+    void handleInitialize(msg.model, msg.completionParams);
   } else if (msg.type === 'complete') {
     void handleComplete(msg.id, msg.request);
   } else if (msg.type === 'dispose') {
@@ -27,7 +28,10 @@ ctx.addEventListener('message', (event: MessageEvent<AiWorkerRequest>) => {
   }
 });
 
-async function handleInitialize(model: string): Promise<void> {
+async function handleInitialize(
+  model: string,
+  extraParams?: Record<string, unknown>,
+): Promise<void> {
   try {
     const { MLCEngine } = await import('@mlc-ai/web-llm');
     engine = new MLCEngine({
@@ -44,6 +48,7 @@ async function handleInitialize(model: string): Promise<void> {
       context_window_size: 32768,
     });
     currentModel = model;
+    completionParams = extraParams ?? null;
     const response: AiWorkerResponse = { type: 'initialized' };
     ctx.postMessage(response);
   } catch (error: unknown) {
@@ -67,7 +72,9 @@ async function handleComplete(id: string, request: LlmRequest): Promise<void> {
   }
 
   try {
-    const reply = await engine.chat.completions.create(createWebLlmCompletionRequest(request));
+    const reply = await engine.chat.completions.create(
+      createWebLlmCompletionRequest(request, completionParams ?? undefined),
+    );
 
     const content = reply.choices[0]?.message?.content ?? '';
     const usage = reply.usage;
@@ -89,18 +96,22 @@ async function handleComplete(id: string, request: LlmRequest): Promise<void> {
   }
 }
 
-export function createWebLlmCompletionRequest(request: LlmRequest) {
+export function createWebLlmCompletionRequest(
+  request: LlmRequest,
+  extraParams?: Record<string, unknown>,
+) {
   return {
-      messages: [
-        { role: 'system' as const, content: request.system },
-        { role: 'user' as const, content: request.user },
-      ],
-      temperature: request.temperature,
-      response_format: request.responseFormat === 'json'
-        ? request.schema === undefined
-          ? { type: 'json_object' as const }
-          : { type: 'json_object' as const, schema: JSON.stringify(request.schema) }
-        : undefined,
+    messages: [
+      { role: 'system' as const, content: request.system },
+      { role: 'user' as const, content: request.user },
+    ],
+    temperature: request.temperature,
+    ...extraParams,
+    response_format: request.responseFormat === 'json'
+      ? request.schema === undefined
+        ? { type: 'json_object' as const }
+        : { type: 'json_object' as const, schema: JSON.stringify(request.schema) }
+      : undefined,
   };
 }
 
@@ -109,5 +120,6 @@ async function handleDispose(): Promise<void> {
     await engine.unload();
     engine = null;
     currentModel = null;
+    completionParams = null;
   }
 }

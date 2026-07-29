@@ -38,9 +38,12 @@ test('renders onboarding when no provider is ready', () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
+  expect(screen.getByRole('combobox', { name: /model/i })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Download AI model' })).toBeTruthy();
 });
 
@@ -60,6 +63,8 @@ test('sends a message from the composer', async () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
@@ -89,6 +94,8 @@ test('calls quick action chips', async () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
@@ -129,6 +136,8 @@ test('accepts generated source', async () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
@@ -174,6 +183,8 @@ test('previews and accepts compilation artifacts', async () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
@@ -227,6 +238,8 @@ test('renders every source file in a multi-file preview', async () => {
       onDiscard={vi.fn()}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 
@@ -266,6 +279,8 @@ test('discards a message', async () => {
       onDiscard={onDiscard}
       onDownloadModel={vi.fn()}
       onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
     />,
   );
 

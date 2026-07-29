@@ -112,7 +112,7 @@ describe('WebGpuProvider', () => {
   });
 
   it('accepts custom model', () => {
-    const provider = new WebGpuProvider('custom-model');
+    const provider = new WebGpuProvider({ id: 'custom-model', label: 'Custom', description: '', vramMb: 0 });
     expect(provider.model).toBe('custom-model');
   });
 
@@ -121,10 +121,12 @@ describe('WebGpuProvider', () => {
     const initPromise = provider.initialize();
 
     expect(mockWorker.listeners.get('message')?.length).toBe(1);
-    expect(mockWorker.postMessage).toHaveBeenCalledWith({
-      type: 'initialize',
-      model: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
-    });
+    expect(mockWorker.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'initialize',
+        model: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
+      }),
+    );
 
     firstHandler(mockWorker, 'message')({ data: { type: 'initialized' } });
     await expect(initPromise).resolves.toBeUndefined();
