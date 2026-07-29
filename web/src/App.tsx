@@ -62,7 +62,7 @@ import {
   initialProviderState,
   providerStateReducer,
 } from './ai/provider-state';
-import { AVAILABLE_MODELS, detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
+import { DEFAULT_MODELS, createModelOption, detectWebGpu, WebGpuProvider } from './ai/webgpu-provider';
 import { SimulatorProvider } from './ai/simulator-provider';
 import {
   generateChatMessageId,
@@ -195,7 +195,8 @@ export function App({
     initialProviderState,
   );
   const [aiPending, setAiPending] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0]!.id);
+  const [models, setModels] = useState(DEFAULT_MODELS);
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODELS[0]!.id);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const conversationSessionIdRef = useRef(crypto.randomUUID());
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
@@ -624,6 +625,17 @@ export function App({
       return;
     }
     aiDispatch({ type: 'detect_start' });
+    const modelParam = params.get('model');
+    if (modelParam !== null) {
+      setModels((current) => {
+        if (current.some((m) => m.id === modelParam)) {
+          return current;
+        }
+        return [...current, createModelOption(modelParam)];
+      });
+      setSelectedModel(modelParam);
+    }
+
     if (detectWebGpu()) {
       aiDispatch({ type: 'detect_available' });
     } else {
@@ -632,10 +644,13 @@ export function App({
   }, []);
 
   const handleAiDownload = useCallback((): void => {
-    if (aiState.status !== 'idle') {
+    if (aiState.status !== 'idle' && aiState.status !== 'error') {
       return;
     }
-    const config = AVAILABLE_MODELS.find((m) => m.id === selectedModel);
+    const config = models.find((m) => m.id === selectedModel);
+    if (config === undefined) {
+      return;
+    }
     const provider = new WebGpuProvider(config);
     aiDispatch({ type: 'download_start', provider });
     void provider
@@ -651,6 +666,23 @@ export function App({
           }),
       );
   }, [aiState.status, selectedModel]);
+
+  const handleAiReset = useCallback((): void => {
+    if (aiState.provider) {
+      void aiState.provider.dispose();
+    }
+    aiDispatch({ type: 'reset' });
+  }, [aiState.provider]);
+
+  const handleAiAddModel = useCallback((id: string): void => {
+    setModels((current) => {
+      if (current.some((m) => m.id === id)) {
+        return current;
+      }
+      return [...current, createModelOption(id)];
+    });
+    setSelectedModel(id);
+  }, []);
 
   const handleAiFallback = useCallback((): void => {
     const provider = new SimulatorProvider();
@@ -1252,6 +1284,9 @@ export function App({
                 onUseHeuristic={handleAiFallback}
                 selectedModel={selectedModel}
                 onModelChange={setSelectedModel}
+                models={models}
+                onReset={handleAiReset}
+                onAddModel={handleAiAddModel}
               />
             }
             graph={

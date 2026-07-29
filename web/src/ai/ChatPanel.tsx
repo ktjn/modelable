@@ -8,7 +8,7 @@ import type {
 } from './chat-types';
 import { isAssistantGenerateMessage, isAssistantExplainMessage } from './chat-types';
 import type { BrowserDiagnostic } from '../protocol';
-import { AVAILABLE_MODELS, type ModelOption } from './webgpu-provider';
+import { type ModelOption } from './webgpu-provider';
 import { MarkdownText } from './MarkdownText';
 
 const DiffViewer = lazy(() =>
@@ -29,6 +29,9 @@ export interface ChatPanelProps {
   onUseHeuristic(): void;
   selectedModel: string;
   onModelChange: (model: string) => void;
+  models: ModelOption[];
+  onReset: () => void;
+  onAddModel: (id: string) => void;
 }
 
 export function ChatPanel({
@@ -45,9 +48,14 @@ export function ChatPanel({
   onUseHeuristic,
   selectedModel,
   onModelChange,
+  models,
+  onReset,
+  onAddModel,
 }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
+  const [showAddCustom, setShowAddCustom] = useState(false);
+  const [customModelId, setCustomModelId] = useState('');
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -72,12 +80,24 @@ export function ChatPanel({
     <section className="chat-panel" aria-label="Assistant">
       <div className="chat-panel__header">
         <span className="chat-panel__title">Assistant</span>
-        <span
-          className={`chat-panel__status chat-panel__status--${aiState.status}`}
-          title={providerLabel}
-        >
-          {providerLabel}
-        </span>
+        <div className="chat-panel__header-actions">
+          {providerReady || aiState.status === 'error' ? (
+            <button
+              type="button"
+              className="chip chip--small"
+              onClick={onReset}
+              title="Reset AI to change model"
+            >
+              Change model
+            </button>
+          ) : null}
+          <span
+            className={`chat-panel__status chat-panel__status--${aiState.status}`}
+            title={providerLabel}
+          >
+            {providerLabel}
+          </span>
+        </div>
       </div>
 
       <div className="chat-panel__messages" ref={scrollRef}>
@@ -125,21 +145,73 @@ export function ChatPanel({
             <div className="chat-onboarding__actions">
               {aiState.status === 'idle' ? (
                 <>
-                  <select
-                    className="chat-model-select"
-                    aria-label="AI model"
-                    value={selectedModel}
-                    onChange={(e) => onModelChange(e.target.value)}
-                  >
-                    {AVAILABLE_MODELS.map((m: ModelOption) => (
-                      <option key={m.id} value={m.id}>
-                        {m.label} — {m.description}
-                      </option>
-                    ))}
-                  </select>
-                  <button type="button" onClick={onDownloadModel}>
-                    Download AI model
-                  </button>
+                  <div className="chat-model-selector">
+                    {!showAddCustom ? (
+                      <div className="chat-model-selector__row">
+                        <select
+                          className="chat-model-select"
+                          aria-label="AI model"
+                          value={selectedModel}
+                          onChange={(e) => {
+                            if (e.target.value === '__add_custom__') {
+                              setShowAddCustom(true);
+                            } else {
+                              onModelChange(e.target.value);
+                            }
+                          }}
+                        >
+                          {models.map((m: ModelOption) => (
+                            <option key={m.id} value={m.id}>
+                              {m.label} — {m.description}
+                            </option>
+                          ))}
+                          <option value="__add_custom__">+ Add custom model…</option>
+                        </select>
+                        <button type="button" onClick={onDownloadModel}>
+                          Download AI model
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="chat-model-selector__row">
+                        <input
+                          type="text"
+                          className="chat-model-input"
+                          placeholder="WebLLM model ID, e.g. Llama-3-8B-Instruct-q4f16_1-MLC"
+                          value={customModelId}
+                          onChange={(e) => setCustomModelId(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              if (customModelId.trim()) {
+                                onAddModel(customModelId.trim());
+                                setShowAddCustom(false);
+                                setCustomModelId('');
+                              }
+                            } else if (e.key === 'Escape') {
+                              setShowAddCustom(false);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          disabled={!customModelId.trim()}
+                          onClick={() => {
+                            onAddModel(customModelId.trim());
+                            setShowAddCustom(false);
+                            setCustomModelId('');
+                          }}
+                        >
+                          Add
+                        </button>
+                        <button
+                          type="button"
+                          className="chip"
+                          onClick={() => setShowAddCustom(false)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : null}
               {aiState.status === 'unsupported' || aiState.status === 'error' ? (

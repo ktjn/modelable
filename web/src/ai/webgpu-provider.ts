@@ -11,7 +11,7 @@ export interface ModelOption {
   completionParams?: Record<string, unknown>;
 }
 
-export const AVAILABLE_MODELS: ModelOption[] = [
+export const DEFAULT_MODELS: ModelOption[] = [
   {
     id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
     label: 'Qwen 2.5 0.5B',
@@ -26,6 +26,15 @@ export const AVAILABLE_MODELS: ModelOption[] = [
     completionParams: { extra_body: { enable_thinking: false } },
   },
 ];
+
+export function createModelOption(id: string): ModelOption {
+  return {
+    id,
+    label: id,
+    description: 'Dynamic model',
+    vramMb: 0, // Unknown
+  };
+}
 
 export function detectWebGpu(): boolean {
   return typeof navigator !== 'undefined' && 'gpu' in navigator;
@@ -43,7 +52,7 @@ export class WebGpuProvider implements LlmProvider {
   private nextId = 0;
 
   constructor(modelConfig?: ModelOption) {
-    this.model = modelConfig?.id ?? AVAILABLE_MODELS[0]!.id;
+    this.model = modelConfig?.id ?? DEFAULT_MODELS[0]!.id;
     this.completionParams = modelConfig?.completionParams ?? null;
   }
 
