@@ -111,6 +111,9 @@ test('accepts generated source', async () => {
       diagnostics: [],
       providerInfo: { provider: 'heuristic', model: 'rule' },
       pending: false,
+      assumptions: [],
+      changed: [],
+      affected: [],
     },
   ];
   render(
@@ -145,6 +148,9 @@ test('previews and accepts compilation artifacts', async () => {
       providerInfo: { provider: 'simulator', model: 'semantic-v1' },
       pending: false,
       actionId: 'compile-1',
+      assumptions: [],
+      changed: [],
+      affected: [],
       compilationFiles: [
         {
           destination: 'dist/customer.schema.json',
@@ -189,6 +195,9 @@ test('renders every source file in a multi-file preview', async () => {
       providerInfo: { provider: 'simulator', model: 'semantic-v1' },
       pending: false,
       actionId: 'change-1',
+      assumptions: [],
+      changed: [],
+      affected: [],
       previewFiles: [
         {
           path: 'a.mdl',
