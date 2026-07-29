@@ -366,8 +366,16 @@ type ConversationPlan = Annotated[
 _CONVERSATION_PLAN_ADAPTER: TypeAdapter[ConversationPlan] = TypeAdapter(ConversationPlan)
 
 
+_THINK_BLOCK_RE = re.compile(r"\A<think>.*?</think>\s*", re.IGNORECASE | re.DOTALL)
+
+
+def strip_thinking(text: str) -> str:
+    """Strip a leading ``<think>...</think>`` reasoning block some local models prepend."""
+    return _THINK_BLOCK_RE.sub("", text.strip(), count=1)
+
+
 def parse_conversation_plan(text: str) -> ConversationPlan:
-    stripped = text.strip()
+    stripped = strip_thinking(text)
     if stripped.startswith("```"):
         stripped = re.sub(r"^```(?:json)?\s*", "", stripped, flags=re.IGNORECASE)
         stripped = re.sub(r"\s*```$", "", stripped)

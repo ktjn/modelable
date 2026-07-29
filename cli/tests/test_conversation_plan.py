@@ -192,6 +192,26 @@ def test_compile_plan_is_closed_and_schema_validated() -> None:
     assert plan.target == "rust"
 
 
+def test_parse_conversation_plan_strips_leading_think_block() -> None:
+    content = "<think>\n\n</think>\n\n" + json.dumps(valid_compile_payload())
+
+    plan = parse_conversation_plan(content)
+
+    assert isinstance(plan, CompilePlan)
+    assert plan.target == "rust"
+
+
+def test_parse_conversation_plan_strips_think_block_with_reasoning_text() -> None:
+    content = "<think>\nThe user wants to compile the workspace to rust.\n</think>\n" + json.dumps(
+        valid_compile_payload()
+    )
+
+    plan = parse_conversation_plan(content)
+
+    assert isinstance(plan, CompilePlan)
+    assert plan.target == "rust"
+
+
 @pytest.mark.parametrize(
     "field",
     ["url", "token", "registry", "command", "environment", "flags", "allow_orphaned_registry_ids"],

@@ -12,6 +12,7 @@ from modelable.llm.conversation_plan import (
     ConversationPlan,
     QueryPlan,
     UnsupportedPlan,
+    strip_thinking,
 )
 from modelable.llm.conversation_planner import (
     PendingPlanRequest,
@@ -292,7 +293,7 @@ class ConversationEngine:
         if synthesis is None:
             raise PlanningRequestError("No pending synthesis request")
         self._pending_synthesis = None
-        text = content.strip() or synthesis.fallback_text
+        text = strip_thinking(content) or synthesis.fallback_text
         return self._complete_turn(synthesis.message, ConversationReply(kind="answer", text=text))
 
     def _complete_synthesis_error(self) -> ConversationReply:
