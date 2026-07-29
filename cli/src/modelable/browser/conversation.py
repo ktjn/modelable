@@ -97,10 +97,14 @@ class BrowserConversationBackend:
         self,
         plan: ChangeSetPlan,
         replaced_action_id: str | None,
+        *,
+        session_editable_refs: frozenset[str] = frozenset(),
     ) -> ConversationReply:
         self._assert_replaced(replaced_action_id)
         try:
-            pending = WorkspaceEditor(Path("."), workspace=self._workspace).preview(plan)
+            pending = WorkspaceEditor(Path("."), workspace=self._workspace).preview(
+                plan, session_editable_refs=session_editable_refs
+            )
         except WorkspaceEditError as error:
             return ConversationReply(kind="error", text=f"Could not preview workspace changes: {error}")
         self._pending_change = pending

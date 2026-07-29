@@ -8,6 +8,7 @@ from modelable.compiler.workspace import load_workspace
 from modelable.llm.chat import ChatState, chat_turn
 from modelable.llm.conversation import ConversationSession
 from modelable.llm.conversation_plan import (
+    AddField,
     ChangeSetPlan,
     ClarificationPlan,
     CompilePlan,
@@ -17,6 +18,7 @@ from modelable.llm.conversation_plan import (
     QueryPlan,
     UnsupportedPlan,
 )
+from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
 from modelable.llm.filesystem_conversation import FilesystemConversationBackend
 from modelable.llm.providers import LLMRequest, LLMResponse
 from modelable.llm.workspace_editor import WorkspaceApplyError
@@ -201,6 +203,28 @@ def test_preview_and_apply_complete_entity(tmp_path: Path) -> None:
     assert "entity Customer @ 1" in source.read_text(encoding="utf-8")
 
 
+def test_turn_forwards_direct_edit_mode_to_planner_context(tmp_path: Path) -> None:
+    _write_empty_customer_domain(tmp_path)
+    captured_contexts: list[PlannerContext] = []
+
+    class CapturingPlanner:
+        def offline(self, message, context):
+            captured_contexts.append(context)
+            return ConversationPlanner._offline_plan(message, context)
+
+        def begin(self, message, context):
+            captured_contexts.append(context)
+            return ConversationPlanner._offline_plan(message, context)
+
+    session = ConversationSession(path=tmp_path, provider=None)
+    session.engine.planner = CapturingPlanner()
+
+    session.turn("make email optional", direct_edit_mode=True)
+
+    assert captured_contexts
+    assert captured_contexts[-1].direct_edit_mode is True
+
+
 def test_refinement_reports_replaced_pending_change_set(tmp_path: Path) -> None:
     _write_empty_customer_domain(tmp_path)
     session = ConversationSession(
@@ -347,7 +371,7 @@ def test_apply_reports_rollback_failure_without_clearing_pending(
     )
     preview = session.turn("add a customer")
 
-    def fail_apply(pending) -> None:
+    def fail_apply(pending, *, session_editable_refs=frozenset()) -> None:
         raise WorkspaceApplyError("replacement failed; rollback restored the original")
 
     monkeypatch.setattr(session.editor, "apply", fail_apply)
@@ -1143,3 +1167,142 @@ def test_cleanup_only_discard_reports_compilation_identity_and_retries(
     assert "staged compilation cleanup compile-old" in discarded.text
     assert session.pending_cleanup_ids == ()
     assert not old.staging_dir.exists()
+
+
+def test_filesystem_backend_preview_accepts_session_editable_refs(tmp_path) -> None:
+    from modelable.llm.conversation_plan import AddField, ChangeSetPlan, FieldSpec
+    from modelable.llm.filesystem_conversation import FilesystemConversationBackend
+    from modelable.parser.ir import PrimitiveType
+
+    (tmp_path / "customer.mdl").write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""".lstrip(),
+        encoding="utf-8",
+    )
+    backend = FilesystemConversationBackend(path=tmp_path, session_id="s1")
+    plan = ChangeSetPlan(
+        summary="Add email",
+        operations=[
+            AddField(
+                target="customer.Customer@1",
+                field=FieldSpec(name="email", type=PrimitiveType(kind="string"), optional=True),
+            )
+        ],
+    )
+
+    reply = backend.preview_source_change(
+        plan,
+        None,
+        session_editable_refs=frozenset({"customer.Customer@1"}),
+    )
+
+    assert reply.kind == "preview"
+
+
+def test_no_provider_notice_is_none_when_a_provider_is_configured(tmp_path) -> None:
+    (tmp_path / "workspace.mdl").write_text('domain d {\n  owner: "team"\n}\n', encoding="utf-8")
+
+    class FakeProvider:
+        def complete(self, request):
+            raise AssertionError("not called")
+
+    session = ConversationSession(path=tmp_path, provider=FakeProvider())
+    assert session.no_provider_notice is None
+
+
+def test_no_provider_notice_explains_the_limitation_when_absent(tmp_path) -> None:
+    (tmp_path / "workspace.mdl").write_text('domain d {\n  owner: "team"\n}\n', encoding="utf-8")
+
+    session = ConversationSession(path=tmp_path, provider=None)
+    assert session.no_provider_notice is not None
+    assert "provider" in session.no_provider_notice.lower()
+
+
+def test_session_editable_refs_persist_across_real_turns_through_filesystem_backend(
+    tmp_path: Path,
+) -> None:
+    """End-to-end regression test for the headline fix of this plan.
+
+    A ref created and applied in turn 1 must stay editable in turn 2 without a
+    version bump, exercising the real chain ConversationSession ->
+    FilesystemConversationBackend -> WorkspaceEditor across two real turns
+    against a real on-disk workspace -- not fakes at each layer in isolation.
+    """
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Account @ 1 (additive) {
+    @key accountId: uuid
+  }
+}
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    create_customer_plan = ChangeSetPlan(
+        summary="Create customer.Customer@1",
+        operations=[
+            CreateModel(
+                domain="customer",
+                name="Customer",
+                model_kind="entity",
+                fields=[
+                    FieldSpec(name="customerId", type=PrimitiveType(kind="uuid"), annotations=[AnnKey()]),
+                ],
+            )
+        ],
+    )
+    add_email_to_customer_plan = ChangeSetPlan(
+        summary="Add email to customer.Customer@1",
+        operations=[
+            AddField(
+                target="customer.Customer@1",
+                field=FieldSpec(name="email", type=PrimitiveType(kind="string"), optional=True),
+            )
+        ],
+    )
+    add_note_to_untouched_account_plan = ChangeSetPlan(
+        summary="Add note to customer.Account@1",
+        operations=[
+            AddField(
+                target="customer.Account@1",
+                field=FieldSpec(name="note", type=PrimitiveType(kind="string"), optional=True),
+            )
+        ],
+    )
+
+    session = ConversationSession(
+        path=tmp_path,
+        provider=QueueProvider(
+            create_customer_plan,
+            add_email_to_customer_plan,
+            add_note_to_untouched_account_plan,
+        ),
+    )
+
+    # Turn 1: create and apply a brand-new model version.
+    preview_1 = session.turn("create a customer entity")
+    assert preview_1.kind == "preview"
+    applied_1 = session.turn("apply")
+    assert applied_1.kind == "applied"
+    assert "entity Customer @ 1" in source.read_text(encoding="utf-8")
+
+    # Turn 2: edit the SAME ref just applied above, default edit_mode
+    # (append_versions), no version bump -- this must succeed because the
+    # ref stays in the session's accumulated editable-refs set.
+    preview_2 = session.turn("add an email field to customer")
+    assert preview_2.kind == "preview"
+
+    # A ref this session never touched still requires a version bump or
+    # explicit draft mode -- the guard is not bypassed globally.
+    reply_3 = session.turn("add a note field to account")
+    assert reply_3.kind == "error"
+    assert "append a new version or use draft mode" in reply_3.text

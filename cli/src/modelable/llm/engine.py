@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import re
 from dataclasses import dataclass
 from os import environ
 from pathlib import Path
@@ -26,17 +25,11 @@ from modelable.llm.context import (
     build_workspace_summary,
     parse_model_ref,
 )
+from modelable.llm.conversation import ConversationSession
 from modelable.llm.importers import import_from_path, import_from_text
-from modelable.llm.providers import LLMProvider, build_provider
+from modelable.llm.providers import LLMProvider, LLMRequest, LLMResponse, build_provider
 from modelable.llm.qa import answer_question
 from modelable.llm.recommendations import recommend_for_model
-from modelable.llm.update_plan import (
-    UpdateChange,
-    UpdatePlan,
-    build_update_repair_request,
-    build_update_request,
-    parse_update_plan,
-)
 from modelable.llm.validation_help import explain_validation_errors
 from modelable.parser.ir import (
     AnnKey,
@@ -73,14 +66,6 @@ class UpdateResult:
     original_content: str
     content: str
     warnings: list[str]
-    provider: str
-    model: str
-    diagnostics_repaired: int
-
-
-@dataclass(frozen=True)
-class UpdatePlanResult:
-    plan: UpdatePlan
     provider: str
     model: str
     diagnostics_repaired: int
@@ -240,60 +225,32 @@ def explain_validation(path: Path) -> str:
     return explain_validation_errors([render_diagnostic(error) for error in workspace.errors])
 
 
-def _build_update_plan(
-    provider: LLMProvider,
-    workspace,
-    current_text: str,
-    ref: str,
-    instruction: str,
-    *,
-    repair_attempts: int = 1,
-) -> UpdatePlanResult:
-    current_summary = _summarize_update_target(workspace, ref)
-    request = build_update_request(
-        ref=ref,
-        current_summary=current_summary,
-        current_text=current_text,
-        instruction=instruction,
-    )
-    response = provider.complete(request)
-    try:
-        plan = _parse_update_plan_response(response.content, ref=ref)
-        return UpdatePlanResult(plan=plan, provider=response.provider, model=response.model, diagnostics_repaired=0)
-    except Exception as exc:
-        if repair_attempts <= 0:
-            raise ValueError(f"LLM returned an invalid update plan: {exc}") from exc
-        repair_request = build_update_repair_request(
-            ref=ref,
-            current_summary=current_summary,
-            current_text=current_text,
-            instruction=instruction,
-            validation_error=str(exc),
-        )
-        last_error = exc
-        for diagnostics_repaired in range(1, repair_attempts + 1):
-            repair_response = provider.complete(repair_request)
-            try:
-                plan = _parse_update_plan_response(repair_response.content, ref=ref)
-                return UpdatePlanResult(
-                    plan=plan,
-                    provider=repair_response.provider,
-                    model=repair_response.model,
-                    diagnostics_repaired=diagnostics_repaired,
-                )
-            except Exception as repair_exc:  # pragma: no cover - provider integration guard
-                last_error = repair_exc
-        raise ValueError(f"LLM returned an invalid update plan after repair: {last_error}") from last_error
+class _ProviderResponseTracker:
+    """Wraps a provider to record the provider/model actually reported by the last completion.
 
+    `UpdateResult.provider`/`.model` historically reflected the identity the LLM response itself
+    reported (e.g. `LLMResponse.provider`), not just the static configuration used to build the
+    provider. Preserve that so audit output still names the provider that actually served the
+    request.
+    """
 
-def _parse_update_plan_response(content: str, *, ref: str) -> UpdatePlan:
-    try:
-        plan = parse_update_plan(content)
-    except Exception as exc:
-        raise ValueError(f"LLM returned an invalid update plan: {exc}") from exc
-    if plan.target != ref:
-        raise ValueError(f"LLM proposed an update for '{plan.target}' instead of '{ref}'")
-    return plan
+    def __init__(self, inner: LLMProvider) -> None:
+        self._inner = inner
+        self.last_provider: str | None = None
+        self.last_model: str | None = None
+        self.call_count = 0
+
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        response = self._inner.complete(request)
+        self.last_provider = response.provider
+        self.last_model = response.model
+        self.call_count += 1
+        return response
+
+    @property
+    def repairs_used(self) -> int:
+        """Number of repair round-trips consumed (total completions minus the initial attempt)."""
+        return max(self.call_count - 1, 0)
 
 
 def update_definition(
@@ -311,80 +268,85 @@ def update_definition(
     source_path = _find_source_path_for_ref(workspace, model_ref.domain, model_ref.name)
     if source_path is None:
         raise ValueError(f"Could not find source file for {ref}")
+    original_text = source_path.read_text(encoding="utf-8")
 
-    source_text = source_path.read_text(encoding="utf-8")
-    mdl = parse_text_to_ir(source_text)
-
-    domain = next((item for item in mdl.domains if item.name == model_ref.domain), None)
-    if domain is None:
-        raise ValueError(f"Unknown domain: {model_ref.domain}")
-
-    warnings: list[str] = []
-    updated = False
-    provider_name = "local"
-    model_name = llm_config.model if llm_config is not None else "modelable-local"
-    diagnostics_repaired = 0
-    repair_attempts = llm_config.repair_attempts if llm_config is not None else 1
-
-    if provider is None and llm_config is None:
+    if llm_config is None:
         llm_config = resolve_llm_config(workspace=workspace.mdl.workspace, env=environ)
+    provider_name = llm_config.provider or "local"
+    model_name = llm_config.model or "modelable-local"
+    if provider is None:
         provider = build_provider(llm_config.provider, model=llm_config.model, base_url=llm_config.base_url)
-        provider_name = llm_config.provider or "local"
-        model_name = llm_config.model or model_name
-    elif llm_config is not None:
-        provider_name = llm_config.provider or "local"
-        model_name = llm_config.model or model_name
+    if provider is None:
+        raise ValueError(
+            "modelable llm update requires an LLM provider; configure one with --provider/--model "
+            "or workspace/environment configuration."
+        )
+    tracker = _ProviderResponseTracker(provider)
 
-    if model_ref.name in domain.models:
-        version = next((item for item in domain.models[model_ref.name] if item.version == model_ref.version), None)
-        if version is None:
-            raise ValueError(f"Unknown model version: {ref}")
-        if provider is not None:
-            plan_result = _build_update_plan(
-                provider, workspace, source_text, ref, instruction, repair_attempts=repair_attempts
+    session = ConversationSession(
+        path=path,
+        provider=tracker,
+        focused_ref=ref,
+        repair_attempts=llm_config.repair_attempts,
+        provider_name=provider_name,
+        model_name=model_name,
+        confirmation_surface="cli-chat",
+    )
+    try:
+        reply = session.turn(instruction, direct_edit_mode=True)
+        provider_name = tracker.last_provider or provider_name
+        model_name = tracker.last_model or model_name
+        diagnostics_repaired = tracker.repairs_used
+        if reply.kind != "preview" or reply.operation_kind != "source_change":
+            raise ValueError(f"Could not apply the update instruction: {reply.text}")
+        preview_file = next((item for item in reply.preview_files if item.path == source_path), None)
+        if preview_file is None:
+            raise ValueError(f"Update instruction did not change {source_path}")
+        new_text = preview_file.after_text
+        change_set_id = reply.change_set_id
+        assert change_set_id is not None
+        if not write:
+            session.engine.discard(change_set_id)
+            return UpdateResult(
+                path=output or source_path,
+                source_path=source_path,
+                ref=ref,
+                original_content=original_text,
+                content=new_text,
+                warnings=list(reply.assumptions),
+                provider=provider_name,
+                model=model_name,
+                diagnostics_repaired=diagnostics_repaired,
             )
-            updated, warnings = _apply_update_plan_to_model(version, plan_result.plan)
-            provider_name = plan_result.provider
-            model_name = plan_result.model
-            diagnostics_repaired = plan_result.diagnostics_repaired
-        else:
-            updated, warnings = _apply_model_update(version, instruction)
-    elif model_ref.name in domain.projections:
-        version = next((item for item in domain.projections[model_ref.name] if item.version == model_ref.version), None)
-        if version is None:
-            raise ValueError(f"Unknown projection version: {ref}")
-        if provider is not None:
-            plan_result = _build_update_plan(
-                provider, workspace, source_text, ref, instruction, repair_attempts=repair_attempts
+        if output is not None and output != source_path:
+            # Redirect: leave the workspace source untouched, discard the change set instead
+            # of applying it, and write the new content only to the requested output path.
+            session.engine.discard(change_set_id)
+            output.write_text(new_text, encoding="utf-8")
+            return UpdateResult(
+                path=output,
+                source_path=source_path,
+                ref=ref,
+                original_content=original_text,
+                content=new_text,
+                warnings=list(reply.assumptions),
+                provider=provider_name,
+                model=model_name,
+                diagnostics_repaired=diagnostics_repaired,
             )
-            updated, warnings = _apply_update_plan_to_projection(version, plan_result.plan)
-            provider_name = plan_result.provider
-            model_name = plan_result.model
-            diagnostics_repaired = plan_result.diagnostics_repaired
-        else:
-            updated, warnings = _apply_projection_update(version, instruction)
-    else:
-        raise ValueError(f"Unknown model or projection: {ref}")
+        applied = session.engine.apply(change_set_id)
+        if applied.kind != "applied":
+            raise ValueError(f"Could not apply the update instruction: {applied.text}")
+    finally:
+        session.close()
 
-    if not updated:
-        raise ValueError("No supported update instructions were recognized")
-
-    original_text = source_text
-    new_text = render_mdl(mdl)
-    _, errors = validate_generated_text(new_text)
-    if errors:
-        raise ValueError("Updated definition failed validation: " + "; ".join(errors))
-
-    out_path = output or source_path
-    if write:
-        out_path.write_text(new_text, encoding="utf-8")
     return UpdateResult(
-        path=out_path,
+        path=source_path,
         source_path=source_path,
         ref=ref,
         original_content=original_text,
         content=new_text,
-        warnings=warnings,
+        warnings=list(reply.assumptions),
         provider=provider_name,
         model=model_name,
         diagnostics_repaired=diagnostics_repaired,
@@ -554,127 +516,6 @@ def render_attach_audit_summary(result: AttachResult) -> str:
     )
 
 
-def _summarize_update_target(workspace, ref: str) -> str:
-    model_ref = parse_model_ref(ref)
-    domain = next((item for item in workspace.mdl.domains if item.name == model_ref.domain), None)
-    if domain is None:
-        return f"Unknown domain: {model_ref.domain}"
-    if model_ref.name in domain.models:
-        return build_model_summary(workspace, ref)
-    if model_ref.name in domain.projections:
-        return build_projection_summary(workspace, ref)
-    return f"Unknown model or projection: {ref}"
-
-
-def _apply_update_plan_to_model(version: ModelVersion, plan: UpdatePlan) -> tuple[bool, list[str]]:
-    if plan.target_kind != "model":
-        raise ValueError(f"Update plan target kind '{plan.target_kind}' does not match model version")
-    warnings = list(plan.warnings)
-    updated = False
-    for change in plan.changes:
-        changed, change_warnings = _apply_model_change(version, change)
-        updated = updated or changed
-        warnings.extend(change_warnings)
-    return updated, warnings
-
-
-def _apply_update_plan_to_projection(version: ProjectionVersion, plan: UpdatePlan) -> tuple[bool, list[str]]:
-    if plan.target_kind != "projection":
-        raise ValueError(f"Update plan target kind '{plan.target_kind}' does not match projection version")
-    warnings = list(plan.warnings)
-    updated = False
-    for change in plan.changes:
-        changed, change_warnings = _apply_projection_change(version, change)
-        updated = updated or changed
-        warnings.extend(change_warnings)
-    return updated, warnings
-
-
-def _apply_model_change(version: ModelVersion, change: UpdateChange) -> tuple[bool, list[str]]:
-    field = next((item for item in version.fields if item.name == change.field), None)
-    warnings: list[str] = []
-    if change.kind == "add_field":
-        field_name = change.new_name or change.field
-        if any(item.name == field_name for item in version.fields):
-            warnings.append(f"Field '{field_name}' already exists; skipped add")
-            return False, warnings
-        version.fields.append(
-            FieldDef(
-                name=field_name,
-                type=_type_from_text(change.type) or _string_field(),
-                optional=False,
-            )
-        )
-        return True, warnings
-    if field is None:
-        warnings.append(f"Field '{change.field}' not found; skipped {change.kind}")
-        return False, warnings
-    if change.kind == "make_optional":
-        field.optional = True
-        return True, warnings
-    if change.kind == "make_required":
-        field.optional = False
-        return True, warnings
-    if change.kind == "rename_field":
-        if not change.new_name:
-            raise ValueError(f"rename_field for '{change.field}' requires new_name")
-        field.name = change.new_name
-        return True, warnings
-    if change.kind == "remove_field":
-        version.fields = [item for item in version.fields if item is not field]
-        return True, warnings
-    if change.kind == "change_type":
-        field.type = _type_from_text(change.type) or _string_field()
-        return True, warnings
-    raise ValueError(f"Unsupported model update change: {change.kind}")
-
-
-def _apply_projection_change(version: ProjectionVersion, change: UpdateChange) -> tuple[bool, list[str]]:
-    field = next((item for item in version.fields if item.name == change.field), None)
-    warnings: list[str] = []
-    if change.kind == "add_field":
-        field_name = change.new_name or change.field
-        if any(item.name == field_name for item in version.fields):
-            warnings.append(f"Field '{field_name}' already exists; skipped add")
-            return False, warnings
-        version.fields.append(
-            ProjectionField(
-                name=field_name,
-                mapping=DirectMapping(
-                    source_alias=version.source.alias,
-                    source_field=_normalize_source_field(change.source or field_name),
-                ),
-            )
-        )
-        return True, warnings
-    if field is None:
-        warnings.append(f"Field '{change.field}' not found; skipped {change.kind}")
-        return False, warnings
-    if change.kind == "rename_field":
-        if not change.new_name:
-            raise ValueError(f"rename_field for '{change.field}' requires new_name")
-        field.name = change.new_name
-        return True, warnings
-    if change.kind == "remove_field":
-        version.fields = [item for item in version.fields if item is not field]
-        return True, warnings
-    if change.kind == "change_source":
-        if not isinstance(field.mapping, DirectMapping):
-            warnings.append(f"Field '{change.field}' is not a direct mapping; skipped source change")
-            return False, warnings
-        if not change.source:
-            raise ValueError(f"change_source for '{change.field}' requires source")
-        field.mapping.source_field = _normalize_source_field(change.source)
-        return True, warnings
-    if change.kind == "change_type":
-        warnings.append(f"Projection field '{change.field}' does not support change_type; skipped")
-        return False, warnings
-    if change.kind in {"make_optional", "make_required"}:
-        warnings.append(f"Projection field '{change.field}' does not support {change.kind}; skipped")
-        return False, warnings
-    raise ValueError(f"Unsupported projection update change: {change.kind}")
-
-
 def validate_generated_text(text: str) -> tuple[MdlFile | None, list[str]]:
     try:
         mdl = parse_text_to_ir(text)
@@ -722,204 +563,6 @@ def _find_source_path_for_ref(workspace, domain_name: str, model_name: str) -> P
         if model_name in domain.models or model_name in domain.projections:
             return source.path
     return None
-
-
-def _apply_model_update(version: ModelVersion, instruction: str) -> tuple[bool, list[str]]:
-    warnings: list[str] = []
-    updated = False
-    lowered = instruction.lower()
-
-    for field in list(version.fields):
-        if _matches_optional(field.name, lowered):
-            field.optional = True
-            updated = True
-        if _matches_required(field.name, lowered):
-            field.optional = False
-            updated = True
-        rename = _extract_rename(field.name, instruction)
-        if rename is not None:
-            field.name = rename
-            updated = True
-        if _matches_remove(field.name, lowered):
-            version.fields = [item for item in version.fields if item is not field]
-            updated = True
-            continue
-        change_type = _extract_type_change(field.name, instruction)
-        if change_type is not None:
-            field.type = change_type
-            updated = True
-
-    add_match = _extract_field_addition(instruction)
-    if add_match is not None:
-        field_name, field_type, optional = add_match
-        if any(field.name == field_name for field in version.fields):
-            warnings.append(f"Field '{field_name}' already exists; skipped add")
-        else:
-            version.fields.append(
-                FieldDef(
-                    name=field_name,
-                    type=field_type or _string_field(),
-                    optional=optional,
-                )
-            )
-            updated = True
-
-    return updated, warnings
-
-
-def _apply_projection_update(version: ProjectionVersion, instruction: str) -> tuple[bool, list[str]]:
-    warnings: list[str] = []
-    updated = False
-    lowered = instruction.lower()
-
-    for field in list(version.fields):
-        rename = _extract_rename(field.name, instruction)
-        if rename is not None:
-            field.name = rename
-            updated = True
-        if _matches_remove(field.name, lowered):
-            version.fields = [item for item in version.fields if item is not field]
-            updated = True
-            continue
-        if _matches_source_field_change(field.name, instruction):
-            new_source = _extract_source_field(field.name, instruction)
-            if new_source is not None and isinstance(field.mapping, DirectMapping):
-                field.mapping.source_field = new_source
-                updated = True
-
-    add_match = _extract_projection_field_addition(instruction)
-    if add_match is not None:
-        field_name, source_field = add_match
-        if any(field.name == field_name for field in version.fields):
-            warnings.append(f"Field '{field_name}' already exists; skipped add")
-        else:
-            version.fields.append(
-                ProjectionField(
-                    name=field_name,
-                    mapping=DirectMapping(
-                        source_alias=version.source.alias,
-                        source_field=_normalize_source_field(source_field or field_name),
-                    ),
-                )
-            )
-            updated = True
-
-    return updated, warnings
-
-
-def _extract_field_addition(instruction: str) -> tuple[str, PrimitiveType | None, bool] | None:
-    patterns = [
-        r"\badd\s+(?:a\s+)?field\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:as|:)?\s*(?P<type>[A-Za-z_][A-Za-z0-9_<>,()]*)?(?P<optional>\s+optional)?\b",
-        r"\badd\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:as|:)?\s*(?P<type>[A-Za-z_][A-Za-z0-9_<>,()]*)?(?P<optional>\s+optional)?\b",
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, instruction, re.IGNORECASE)
-        if match:
-            field_name = match.group("name")
-            field_type = _type_from_text(match.group("type")) if match.group("type") else None
-            optional = bool(match.group("optional"))
-            return field_name, field_type, optional
-    return None
-
-
-def _extract_projection_field_addition(instruction: str) -> tuple[str, str | None] | None:
-    patterns = [
-        r"\badd\s+(?:a\s+)?projection\s+field\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:from|as|=|:)?\s*(?P<source>[A-Za-z_][A-Za-z0-9_\.]*)?",
-        r"\badd\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:from|as|=|:)?\s*(?P<source>[A-Za-z_][A-Za-z0-9_\.]*)?",
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, instruction, re.IGNORECASE)
-        if match:
-            return match.group("name"), match.group("source")
-    return None
-
-
-def _extract_rename(existing_name: str, instruction: str) -> str | None:
-    import re
-
-    match = re.search(
-        rf"\brename\s+{re.escape(existing_name)}\s+to\s+([A-Za-z_][A-Za-z0-9_]*)\b", instruction, re.IGNORECASE
-    )
-    if match:
-        return match.group(1)
-    return None
-
-
-def _extract_type_change(existing_name: str, instruction: str) -> PrimitiveType | None:
-    import re
-
-    match = re.search(
-        rf"\b(?:change|set)\s+{re.escape(existing_name)}\s+(?:to|as)\s+([A-Za-z_][A-Za-z0-9_<>,()]*)\b",
-        instruction,
-        re.IGNORECASE,
-    )
-    if match:
-        return _type_from_text(match.group(1))
-    return None
-
-
-def _matches_source_field_change(field_name: str, instruction: str) -> bool:
-    lowered = instruction.lower()
-    return f"{field_name.lower()} from" in lowered or f"change {field_name.lower()} source" in lowered
-
-
-def _extract_source_field(existing_name: str, instruction: str) -> str | None:
-    match = re.search(
-        rf"\b(?:change|set|update)\s+{re.escape(existing_name)}\s+(?:source\s+)?(?:to|from)\s+([A-Za-z_][A-Za-z0-9_\.]*)",
-        instruction,
-        re.IGNORECASE,
-    )
-    if match:
-        return _normalize_source_field(match.group(1))
-    return None
-
-
-def _normalize_source_field(source_field: str) -> str:
-    return source_field.split(".")[-1]
-
-
-def _matches_optional(field_name: str, instruction_lower: str) -> bool:
-    return (
-        f"{field_name.lower()} optional" in instruction_lower
-        or f"make {field_name.lower()} optional" in instruction_lower
-    )
-
-
-def _matches_required(field_name: str, instruction_lower: str) -> bool:
-    return (
-        f"{field_name.lower()} required" in instruction_lower
-        or f"make {field_name.lower()} required" in instruction_lower
-    )
-
-
-def _matches_remove(field_name: str, instruction_lower: str) -> bool:
-    return f"remove {field_name.lower()}" in instruction_lower or f"delete {field_name.lower()}" in instruction_lower
-
-
-def _type_from_text(type_name: str | None) -> PrimitiveType | None:
-    if type_name is None:
-        return None
-    normalized = type_name.strip().lower()
-    mapping = {
-        "string": "string",
-        "text": "string",
-        "uuid": "uuid",
-        "int": "int",
-        "integer": "int",
-        "float": "float",
-        "number": "float",
-        "bool": "bool",
-        "boolean": "bool",
-        "date": "date",
-        "time": "time",
-        "timestamp": "timestamp",
-        "duration": "duration",
-        "binary": "binary",
-    }
-    kind = mapping.get(normalized)
-    if kind is None:
-        return PrimitiveType(kind="string")
-    return PrimitiveType(kind=kind)
 
 
 def _json_dump(value) -> str:

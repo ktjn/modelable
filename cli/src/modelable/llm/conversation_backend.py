@@ -67,6 +67,8 @@ class ConversationBackend(Protocol):
         self,
         plan: ChangeSetPlan,
         replaced_action_id: str | None,
+        *,
+        session_editable_refs: frozenset[str] = frozenset(),
     ) -> ConversationReply: ...
 
     def preview_compilation(

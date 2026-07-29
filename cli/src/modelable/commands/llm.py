@@ -551,6 +551,8 @@ def chat(
         model_name=config.model,
         confirmation_surface="cli-chat",
     )
+    if session.no_provider_notice is not None:
+        console.print(f"[yellow]{session.no_provider_notice}[/yellow]")
 
     try:
         if message is not None:

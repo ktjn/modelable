@@ -63,6 +63,7 @@ class LspConversationService:
         self._require_saved(root, params.dirty_document_uris)
 
         entry = self._sessions.get(params.session_id)
+        is_new_session = entry is None
         if entry is None:
             if not params.create_session:
                 raise ConversationSessionError(
@@ -90,6 +91,9 @@ class LspConversationService:
 
         reply = entry.session.turn(params.message)
         entry.touched_at = now
+        notice = entry.session.no_provider_notice
+        if is_new_session and notice is not None:
+            reply = replace(reply, text=f"{notice}\n\n{reply.text}")
         return self._serialize(reply, params.session_id, entry)
 
     def close(self, session_id: str) -> None:

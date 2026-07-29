@@ -108,6 +108,15 @@ class ConversationSession:
         self.engine.focused_ref = value
 
     @property
+    def no_provider_notice(self) -> str | None:
+        if self.provider is not None:
+            return None
+        return (
+            "No LLM provider is configured, so I can answer workspace queries but can't make edits. "
+            "Configure a provider (--provider/--model, or workspace/environment configuration) to enable edits."
+        )
+
+    @property
     def history(self) -> list[tuple[str, str]]:
         return self.engine.history
 
@@ -127,7 +136,7 @@ class ConversationSession:
     def compilation_service(self) -> CompilationService:
         return self.backend.compilation_service
 
-    def turn(self, message: str) -> ConversationReply:
+    def turn(self, message: str, *, direct_edit_mode: bool = False) -> ConversationReply:
         try:
             normalized = message.strip()
             lowered = normalized.lower()
@@ -138,7 +147,7 @@ class ConversationSession:
             ):
                 reply = self.backend.discard(self.backend.cleanup_action_id)
                 return self.engine.record_completed_reply(message, reply)
-            outcome = self.engine.begin_turn(message)
+            outcome = self.engine.begin_turn(message, direct_edit_mode=direct_edit_mode)
             while isinstance(outcome, PendingPlanRequest):
                 if self.provider is None:
                     outcome = self.engine.fail_turn(

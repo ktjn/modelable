@@ -23,7 +23,6 @@ from .conversation_planner import (
 from .provider_types import LLMProvider, LLMRequest, LLMResponse
 from .providers import AnthropicProvider, OllamaProvider, build_provider
 from .redaction import redact_sensitive_values
-from .update_plan import UpdateChange, UpdatePlan, build_update_request, parse_update_plan
 
 __all__ = [
     "CHAT_SYSTEM_PROMPT",
@@ -43,16 +42,12 @@ __all__ = [
     "PlanningRequestError",
     "ReplyKind",
     "ResumableConversationPlanner",
-    "UpdateChange",
-    "UpdatePlan",
     "build_model_summary",
     "build_projection_summary",
     "build_provider",
-    "build_update_request",
     "build_workspace_summary",
     "chat_reply",
     "parse_model_ref",
-    "parse_update_plan",
     "redact_sensitive_values",
     "resolve_llm_config",
 ]

@@ -708,6 +708,24 @@ def test_conversation_request_exposes_only_closed_typed_plan_schema() -> None:
     assert json.dumps(request.schema, sort_keys=True) in request.system
 
 
+def test_request_includes_direct_edit_instruction_when_flagged() -> None:
+    from modelable.llm.conversation_planner import PlannerContext, build_conversation_request
+
+    request = build_conversation_request(
+        message="make email optional",
+        context=PlannerContext(
+            workspace_summary="domain customer\n  entity Customer @ 1",
+            focused_ref="customer.Customer@1",
+            history=(),
+            pending_plan=None,
+            direct_edit_mode=True,
+        ),
+    )
+
+    assert "customer.Customer@1" in request.user
+    assert "draft" in request.user
+
+
 def test_conversation_schema_requires_every_kind_discriminator() -> None:
     schema = conversation_plan_json_schema()
     definitions = schema["$defs"]
@@ -894,3 +912,63 @@ def test_offline_planner_uses_deterministic_compile_parser() -> None:
     assert plan.target == "rust"
     assert plan.domains == ["customer"]
     assert plan.output == "dist/rust"
+
+
+def test_conversation_plan_json_schema_can_exclude_an_operation_kind() -> None:
+    from modelable.llm.conversation_plan import conversation_plan_json_schema
+
+    schema = conversation_plan_json_schema(exclude_operation_kinds=frozenset({"retire_definition"}))
+    operation = schema["$defs"]["Operation"]
+
+    assert "retire_definition" not in operation["discriminator"]["mapping"]
+    assert all(item["$ref"] != "#/$defs/RetireDefinition" for item in operation["oneOf"])
+    # Every other operation kind must still be present.
+    assert "rename_definition" in operation["discriminator"]["mapping"]
+
+
+def test_planner_request_excludes_retire_definition() -> None:
+    from modelable.llm.conversation_planner import PlannerContext, build_conversation_request
+
+    request = build_conversation_request(
+        message="retire the Customer model",
+        context=PlannerContext(
+            workspace_summary="domain customer\n  entity Customer @ 1",
+            focused_ref=None,
+            history=(),
+            pending_plan=None,
+        ),
+    )
+
+    assert '"retire_definition"' not in request.system
+
+
+def test_offline_plan_classifies_retire_request_as_unsupported() -> None:
+    from modelable.llm.conversation_plan import UnsupportedPlan
+    from modelable.llm.conversation_planner import ConversationPlanner, PlannerContext
+
+    context = PlannerContext(workspace_summary="", focused_ref=None, history=(), pending_plan=None)
+    plan = ConversationPlanner._offline_plan("retire the Customer model", context)
+
+    assert isinstance(plan, UnsupportedPlan)
+    assert plan.roadmap_area == "operations"
+
+
+def test_system_prompt_documents_draft_mode_for_every_mutating_operation() -> None:
+    from modelable.llm.conversation_planner import SYSTEM_PROMPT
+
+    for phrase in (
+        "rename_field",
+        "change_field_type",
+        "set_primary_index",
+        "add_secondary_index",
+        "rename_definition",
+        'edit_mode "draft"',
+    ):
+        assert phrase in SYSTEM_PROMPT, f"system prompt is missing guidance for {phrase!r}"
+
+
+def test_system_prompt_documents_cel_equality_syntax() -> None:
+    from modelable.llm.conversation_planner import SYSTEM_PROMPT
+
+    assert "CEL" in SYSTEM_PROMPT
+    assert "==" in SYSTEM_PROMPT

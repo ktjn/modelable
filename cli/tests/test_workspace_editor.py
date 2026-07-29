@@ -303,7 +303,7 @@ def test_apply_rolls_back_new_destination_and_cleans_temporary_files(tmp_path, m
             new_destination: 'domain billing {\n  owner: "billing-team"\n}\n',
         },
     )
-    monkeypatch.setattr(editor, "preview", lambda plan: staged)
+    monkeypatch.setattr(editor, "preview", lambda plan, *, session_editable_refs=frozenset(): staged)
     original = customer.read_bytes()
     real_replace = os.replace
     calls = 0
@@ -536,6 +536,62 @@ domain customer {
     assert "email?: string" in pending.candidate_sources[source]
     assert any("local publication state is not known" in assumption for assumption in pending.assumptions)
     assert source.read_text(encoding="utf-8") == original
+
+
+def test_session_editable_refs_allow_field_edit_without_draft_mode_or_new_version(tmp_path) -> None:
+    source = tmp_path / "customer.mdl"
+    original = """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""".lstrip()
+    source.write_text(original, encoding="utf-8")
+    operation = AddField(
+        target="customer.Customer@1",
+        field=FieldSpec(name="email", type=PrimitiveType(kind="string"), optional=True),
+    )
+
+    pending = WorkspaceEditor(tmp_path).preview(
+        ChangeSetPlan(summary="Add email", operations=[operation]),
+        session_editable_refs=frozenset({"customer.Customer@1"}),
+    )
+
+    assert "email?: string" in pending.candidate_sources[source]
+
+    applied = WorkspaceEditor(tmp_path).apply(
+        pending,
+        session_editable_refs=frozenset({"customer.Customer@1"}),
+    )
+    assert "email?: string" in source.read_text(encoding="utf-8")
+    assert applied.change_set_id == pending.change_set_id
+
+
+def test_session_editable_refs_do_not_bypass_the_guard_for_untouched_refs(tmp_path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""".lstrip(),
+        encoding="utf-8",
+    )
+    operation = AddField(
+        target="customer.Customer@1",
+        field=FieldSpec(name="email", type=PrimitiveType(kind="string"), optional=True),
+    )
+
+    with pytest.raises(WorkspaceEditError, match="append a new version or use draft mode"):
+        WorkspaceEditor(tmp_path).preview(
+            ChangeSetPlan(summary="Add email", operations=[operation]),
+            session_editable_refs=frozenset({"customer.Customer@99"}),
+        )
 
 
 @pytest.mark.parametrize(
