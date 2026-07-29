@@ -331,6 +331,20 @@ def test_engine_synthesis_failure_falls_back_to_facts() -> None:
     assert backend.execute_query_called
 
 
+def test_engine_synthesis_strips_leading_think_block() -> None:
+    engine, backend = engine_with_request_ids("synthesis-1")
+
+    pending = engine.begin_turn("describe the workspace")
+    reply = engine.resume_turn(
+        pending.request_id,
+        "<think>\n\n</think>\n\nA concise explanation of the workspace.",
+    )
+
+    assert reply.kind == "answer"
+    assert reply.text == "A concise explanation of the workspace."
+    assert backend.execute_query_called
+
+
 def test_engine_synthesis_empty_content_falls_back_to_facts() -> None:
     engine, backend = engine_with_request_ids("synthesis-1")
 

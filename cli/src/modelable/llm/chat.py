@@ -16,6 +16,7 @@ from modelable.llm.context import (
     parse_model_ref,
 )
 from modelable.llm.conversation import ConversationSession
+from modelable.llm.conversation_plan import strip_thinking
 from modelable.llm.engine import AttachResult, UpdateResult, recommend_cli, update_definition
 from modelable.llm.provider_types import LLMProvider, LLMRequest
 from modelable.llm.qa import answer_question
@@ -54,7 +55,7 @@ def chat_reply(
 
     user = _build_user_prompt(workspace, message, ref=ref, workspace_summary=workspace_summary, history=history)
     response = provider.complete(LLMRequest(system=CHAT_SYSTEM_PROMPT, user=user, temperature=0.2))
-    return response.content.strip() or "No response returned."
+    return strip_thinking(response.content) or "No response returned."
 
 
 def chat_turn(
