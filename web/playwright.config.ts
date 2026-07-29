@@ -5,7 +5,7 @@ const project = process.env.PLAYWRIGHT_PROJECT;
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
-  workers: process.env.CI ? 1 : '50%',
+  workers: '50%',
   retries: 0,
   timeout: 60_000,
   globalTimeout: 30 * 60_000,
