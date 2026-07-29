@@ -107,6 +107,24 @@ class RecordingBackend:
         self.reset_calls += 1
 
 
+@dataclass
+class FailThenSucceedBackend(RecordingBackend):
+    fail_calls_remaining: int = 1
+    failure_text: str = "Model version 2 is not the next version for customer.Customer; expected 3"
+
+    def preview_source_change(
+        self,
+        plan: ChangeSetPlan,
+        replaced_action_id: str | None,
+        *,
+        session_editable_refs: frozenset[str] = frozenset(),
+    ) -> ConversationReply:
+        if self.fail_calls_remaining > 0:
+            self.fail_calls_remaining -= 1
+            return ConversationReply(kind="error", text=self.failure_text)
+        return super().preview_source_change(plan, replaced_action_id, session_editable_refs=session_editable_refs)
+
+
 def engine_with_request_ids(*request_ids: str) -> tuple[ConversationEngine, RecordingBackend]:
     ids = iter(request_ids)
     backend = RecordingBackend()
@@ -247,6 +265,51 @@ def test_engine_converts_completion_failure_into_completed_reply() -> None:
     assert reply.kind == "unsupported"
     assert "provider unavailable" in reply.text
     assert engine.history[-1] == ("assistant", reply.text)
+
+
+def test_engine_repairs_change_set_plan_after_workspace_edit_error() -> None:
+    ids = iter(("request-1", "repair-1"))
+    backend = FailThenSucceedBackend(fail_calls_remaining=1)
+    engine = ConversationEngine(
+        backend=backend,
+        planner=ResumableConversationPlanner(id_factory=lambda: next(ids)),
+    )
+
+    pending = engine.begin_turn("Add a field to Customer")
+    assert isinstance(pending, PendingPlanRequest)
+
+    repair = engine.resume_turn(pending.request_id, json.dumps(valid_create_customer_plan()))
+
+    assert isinstance(repair, PendingPlanRequest)
+    assert "expected 3" in repair.request.user
+
+    reply = engine.resume_turn(repair.request_id, json.dumps(valid_create_customer_plan()))
+
+    assert isinstance(reply, ConversationReply)
+    assert reply.kind == "preview"
+    assert backend.fail_calls_remaining == 0
+
+
+def test_engine_gives_up_after_execution_repair_budget_exhausted() -> None:
+    ids = iter(("request-1", "repair-1"))
+    backend = FailThenSucceedBackend(fail_calls_remaining=2)
+    engine = ConversationEngine(
+        backend=backend,
+        planner=ResumableConversationPlanner(id_factory=lambda: next(ids)),
+        execution_repair_attempts=1,
+    )
+
+    pending = engine.begin_turn("Add a field to Customer")
+    assert isinstance(pending, PendingPlanRequest)
+    repair = engine.resume_turn(pending.request_id, json.dumps(valid_create_customer_plan()))
+    assert isinstance(repair, PendingPlanRequest)
+
+    reply = engine.resume_turn(repair.request_id, json.dumps(valid_create_customer_plan()))
+
+    assert isinstance(reply, ConversationReply)
+    assert reply.kind == "error"
+    assert "expected 3" in reply.text
+    assert backend.fail_calls_remaining == 0
 
 
 def test_engine_returns_error_when_apply_has_no_pending_action() -> None:

@@ -78,6 +78,7 @@ class ConversationSession:
             planner=ResumableConversationPlanner(repair_attempts=repair_attempts),
             focused_ref=focused_ref,
             completion_enabled=provider is not None,
+            execution_repair_attempts=repair_attempts,
         )
 
     @property

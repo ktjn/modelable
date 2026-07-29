@@ -19,6 +19,8 @@ from modelable.llm.conversation_planner import (
     PlannerContext,
     PlanningRequestError,
     ResumableConversationPlanner,
+    build_repair_request,
+    parse_and_validate_plan,
     parse_compile_command,
 )
 from modelable.llm.provider_types import LLMRequest
@@ -40,6 +42,12 @@ class _PendingSynthesis:
     fallback_text: str
 
 
+@dataclass(frozen=True)
+class _PendingExecutionRepair:
+    request_id: str
+    message: str
+
+
 class ConversationEngine:
     def __init__(
         self,
@@ -48,12 +56,14 @@ class ConversationEngine:
         planner: ResumableConversationPlanner,
         focused_ref: str | None = None,
         completion_enabled: bool = True,
+        execution_repair_attempts: int = 1,
         id_factory: Callable[[], str] | None = None,
     ) -> None:
         self.backend = backend
         self.planner = planner
         self.focused_ref = focused_ref
         self.completion_enabled = completion_enabled
+        self.execution_repair_attempts = execution_repair_attempts
         self.id_factory = id_factory or (lambda: str(uuid4()))
         self.history: list[tuple[str, str]] = []
         self.pending_action_id: str | None = None
@@ -61,17 +71,27 @@ class ConversationEngine:
         self._pending_change_plan: ChangeSetPlan | None = None
         self._pending_request_id: str | None = None
         self._pending_message: str | None = None
+        self._pending_context: PlannerContext | None = None
         self._pending_synthesis: _PendingSynthesis | None = None
+        self._pending_execution_repair: _PendingExecutionRepair | None = None
+        self._execution_repairs_remaining = execution_repair_attempts
         self._session_editable_refs: set[str] = set()
 
     def begin_turn(self, message: str, *, direct_edit_mode: bool = False) -> ConversationOutcome:
-        if self._pending_request_id is not None or self._pending_synthesis is not None:
-            pending_id = self._pending_request_id or (
-                self._pending_synthesis.request_id if self._pending_synthesis is not None else None
+        if (
+            self._pending_request_id is not None
+            or self._pending_synthesis is not None
+            or self._pending_execution_repair is not None
+        ):
+            pending_id = (
+                self._pending_request_id
+                or (self._pending_synthesis.request_id if self._pending_synthesis is not None else None)
+                or (self._pending_execution_repair.request_id if self._pending_execution_repair is not None else None)
             )
             raise PlanningRequestError(
                 f"Planning request {pending_id} must be resumed or reset before starting another turn"
             )
+        self._execution_repairs_remaining = self.execution_repair_attempts
         normalized = message.strip()
         lowered = normalized.lower()
         if message == "/apply":
@@ -108,7 +128,7 @@ class ConversationEngine:
 
         command = normalized.split(maxsplit=1)
         if command and command[0] == "/compile":
-            return self._complete_plan(normalized, parse_compile_command(normalized))
+            return self._complete_plan(normalized, parse_compile_command(normalized), None)
         context = PlannerContext(
             workspace_summary=self.backend.workspace_summary(focused_ref=self.focused_ref),
             focused_ref=self.focused_ref,
@@ -124,24 +144,39 @@ class ConversationEngine:
         if isinstance(outcome, PendingPlanRequest):
             self._pending_request_id = outcome.request_id
             self._pending_message = normalized
+            self._pending_context = context
             return outcome
-        return self._complete_plan(normalized, outcome)
+        return self._complete_plan(normalized, outcome, context)
 
     def resume_turn(self, request_id: str, content: str) -> ConversationOutcome:
+        if self._pending_execution_repair is not None and request_id == self._pending_execution_repair.request_id:
+            return self._complete_execution_repair(content)
         if self._pending_synthesis is not None and request_id == self._pending_synthesis.request_id:
             return self._complete_synthesis(content)
         if request_id != self._pending_request_id or self._pending_message is None:
             raise PlanningRequestError(f"Unknown or completed planning request: {request_id}")
         message = self._pending_message
+        context = self._pending_context
         outcome = self.planner.resume(request_id, content)
         if isinstance(outcome, PendingPlanRequest):
             self._pending_request_id = outcome.request_id
             return outcome
         self._pending_request_id = None
         self._pending_message = None
-        return self._complete_plan(message, outcome)
+        self._pending_context = None
+        return self._complete_plan(message, outcome, context)
 
     def fail_turn(self, request_id: str, error: Exception) -> ConversationReply:
+        if self._pending_execution_repair is not None and request_id == self._pending_execution_repair.request_id:
+            repair = self._pending_execution_repair
+            self._pending_execution_repair = None
+            return self._complete_turn(
+                repair.message,
+                ConversationReply(
+                    kind="error",
+                    text=f"The configured provider failed during the plan repair request: {error}",
+                ),
+            )
         if self._pending_synthesis is not None and request_id == self._pending_synthesis.request_id:
             return self._complete_synthesis_error()
         if request_id != self._pending_request_id or self._pending_message is None:
@@ -150,7 +185,8 @@ class ConversationEngine:
         plan = self.planner.fail(request_id, error)
         self._pending_request_id = None
         self._pending_message = None
-        reply = self._complete_plan(message, plan)
+        self._pending_context = None
+        reply = self._complete_plan(message, plan, None)
         assert isinstance(reply, ConversationReply)
         return reply
 
@@ -189,11 +225,24 @@ class ConversationEngine:
     def record_completed_reply(self, message: str, reply: ConversationReply) -> ConversationReply:
         return self._complete_turn(message, reply)
 
-    def _complete_plan(self, message: str, plan: ConversationPlan) -> ConversationOutcome:
+    def _complete_plan(
+        self,
+        message: str,
+        plan: ConversationPlan,
+        context: PlannerContext | None,
+    ) -> ConversationOutcome:
         if isinstance(plan, QueryPlan) and self.completion_enabled and _is_conversational(message):
             reply = self.backend.execute_query(plan)
             return self._begin_synthesis(message, reply.text)
         reply = self._execute_plan(plan)
+        if (
+            isinstance(plan, ChangeSetPlan)
+            and reply.kind == "error"
+            and context is not None
+            and self._execution_repairs_remaining > 0
+        ):
+            self._execution_repairs_remaining -= 1
+            return self._begin_execution_repair(message, context, reply.text)
         return self._complete_turn(message, reply)
 
     def _execute_plan(self, plan: ConversationPlan) -> ConversationReply:
@@ -269,6 +318,36 @@ class ConversationEngine:
         self.history.append(("user", message))
         self.history.append(("assistant", reply.text))
         return reply
+
+    def _begin_execution_repair(
+        self,
+        message: str,
+        context: PlannerContext,
+        error_text: str,
+    ) -> PendingPlanRequest:
+        request_id = self.id_factory()
+        self._pending_execution_repair = _PendingExecutionRepair(request_id=request_id, message=message)
+        return PendingPlanRequest(
+            request_id=request_id,
+            request=build_repair_request(message=message, context=context, error=error_text),
+            attempt=1,
+        )
+
+    def _complete_execution_repair(self, content: str) -> ConversationOutcome:
+        repair = self._pending_execution_repair
+        assert repair is not None
+        self._pending_execution_repair = None
+        try:
+            plan = parse_and_validate_plan(repair.message, content)
+        except Exception as error:
+            return self._complete_turn(
+                repair.message,
+                ConversationReply(
+                    kind="unsupported",
+                    text=f"The configured provider did not return a valid typed plan: {error}",
+                ),
+            )
+        return self._complete_plan(repair.message, plan, None)
 
     def _begin_synthesis(self, message: str, facts: str) -> PendingPlanRequest:
         request_id = self.id_factory()
