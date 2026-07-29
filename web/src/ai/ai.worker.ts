@@ -3,12 +3,14 @@ import type { LlmRequest } from './types';
 export type AiWorkerRequest =
   | { type: 'initialize'; model: string; completionParams?: Record<string, unknown> }
   | { type: 'complete'; id: string; request: LlmRequest }
+  | { type: 'list_models' }
   | { type: 'dispose' };
 
 export type AiWorkerResponse =
   | { type: 'progress'; progress: number; message: string }
   | { type: 'initialized' }
   | { type: 'completed'; id: string; content: string; promptTokens?: number; completionTokens?: number }
+  | { type: 'models'; models: import('./webgpu-provider').ModelOption[] }
   | { type: 'error'; id?: string; message: string };
 
 const ctx = globalThis as unknown as Worker;
@@ -23,6 +25,8 @@ ctx.addEventListener('message', (event: MessageEvent<AiWorkerRequest>) => {
     void handleInitialize(msg.model, msg.completionParams);
   } else if (msg.type === 'complete') {
     void handleComplete(msg.id, msg.request);
+  } else if (msg.type === 'list_models') {
+    void handleListModels();
   } else if (msg.type === 'dispose') {
     void handleDispose();
   }
@@ -121,5 +125,27 @@ async function handleDispose(): Promise<void> {
     engine = null;
     currentModel = null;
     completionParams = null;
+  }
+}
+
+async function handleListModels(): Promise<void> {
+  try {
+    const { prebuiltAppConfig } = await import('@mlc-ai/web-llm');
+    const models = prebuiltAppConfig.model_list.map((m: any) => ({
+      id: m.model_id,
+      label: m.model_id.split('-q')[0] || m.model_id,
+      description: `${m.vram_required_MB ? `~${Math.round(m.vram_required_MB)} MB` : 'Unknown'} VRAM${m.low_resource_required ? ' (Low Resource)' : ''}`,
+      vramMb: m.vram_required_MB ?? 0,
+      bufferSizeRequiredBytes: m.buffer_size_required_bytes,
+      completionParams: m.overrides ? { extra_body: m.overrides } : undefined,
+    }));
+    const response: AiWorkerResponse = { type: 'models', models };
+    ctx.postMessage(response);
+  } catch (error: unknown) {
+    const response: AiWorkerResponse = {
+      type: 'error',
+      message: error instanceof Error ? error.message : 'Failed to list models',
+    };
+    ctx.postMessage(response);
   }
 }

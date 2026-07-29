@@ -1,6 +1,5 @@
 import type { AiWorkerRequest, AiWorkerResponse } from './ai.worker';
 import type { LlmProvider, LlmRequest, LlmResponse } from './types';
-import { prebuiltAppConfig, type ModelRecord } from '@mlc-ai/web-llm';
 
 export interface ModelOption {
   id: string;
@@ -31,17 +30,6 @@ export const DEFAULT_MODELS: ModelOption[] = [
     completionParams: { extra_body: { enable_thinking: false } },
   },
 ];
-
-export function getWebLlmModels(): ModelOption[] {
-  return prebuiltAppConfig.model_list.map((m: ModelRecord) => ({
-    id: m.model_id,
-    label: m.model_id.split('-q')[0] || m.model_id,
-    description: `${m.vram_required_MB ? `~${Math.round(m.vram_required_MB)} MB` : 'Unknown'} VRAM${m.low_resource_required ? ' (Low Resource)' : ''}`,
-    vramMb: m.vram_required_MB ?? 0,
-    bufferSizeRequiredBytes: m.buffer_size_required_bytes,
-    completionParams: m.overrides ? { extra_body: m.overrides } : undefined,
-  }));
-}
 
 export function createModelOption(id: string): ModelOption {
   return {
@@ -108,6 +96,30 @@ export class WebGpuProvider implements LlmProvider {
     { resolve: (response: LlmResponse) => void; reject: (error: Error) => void }
   >();
   private nextId = 0;
+
+  static async getWebLlmModels(): Promise<ModelOption[]> {
+    const worker = new Worker(
+      new URL('./ai.worker.ts', import.meta.url),
+      { type: 'module' },
+    );
+
+    return new Promise<ModelOption[]>((resolve, reject) => {
+      const handler = (event: MessageEvent<AiWorkerResponse>): void => {
+        const msg = event.data;
+        if (msg.type === 'models') {
+          worker.removeEventListener('message', handler);
+          worker.terminate();
+          resolve(msg.models);
+        } else if (msg.type === 'error') {
+          worker.removeEventListener('message', handler);
+          worker.terminate();
+          reject(new Error(msg.message));
+        }
+      };
+      worker.addEventListener('message', handler);
+      worker.postMessage({ type: 'list_models' });
+    });
+  }
 
   constructor(modelConfig?: ModelOption) {
     this.model = modelConfig?.id ?? DEFAULT_MODELS[0]!.id;

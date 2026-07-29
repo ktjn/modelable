@@ -67,7 +67,6 @@ import {
   createModelOption,
   detectWebGpu,
   WebGpuProvider,
-  getWebLlmModels,
   getGpuLimits,
   suggestModel,
   type ModelOption,
@@ -204,10 +203,8 @@ export function App({
     initialProviderState,
   );
   const [aiPending, setAiPending] = useState(false);
-  const [models, setModels] = useState(() => getWebLlmModels());
-  const [selectedModel, setSelectedModel] = useState(
-    () => models[0]?.id ?? DEFAULT_MODELS[0]!.id,
-  );
+  const [models, setModels] = useState<ModelOption[]>(DEFAULT_MODELS);
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODELS[0]!.id);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const conversationSessionIdRef = useRef(crypto.randomUUID());
   const sourceEditorRef = useRef<SourceEditorHandle>(null);
@@ -654,25 +651,38 @@ export function App({
 
     if (detectWebGpu()) {
       aiDispatch({ type: 'detect_available' });
-      void getGpuLimits().then((limits) => {
-        const suggested = suggestModel(models, limits);
-        setModels((current) =>
-          [...current]
-            .map((m) => ({
-              ...m,
-              recommended: m.id === suggested,
-            }))
-            .sort((a, b) => {
-              // Recommended first
-              if (a.recommended) return -1;
-              if (b.recommended) return 1;
-              // Then sort by VRAM requirement
-              return a.vramMb - b.vramMb;
-            }),
-        );
-        if (params.get('model') === null) {
-          setSelectedModel(suggested);
-        }
+      void WebGpuProvider.getWebLlmModels().then((webLlmModels) => {
+        setModels((current) => {
+          const merged = [...current];
+          for (const m of webLlmModels) {
+            if (!merged.some((existing) => existing.id === m.id)) {
+              merged.push(m);
+            }
+          }
+          return merged;
+        });
+
+        void getGpuLimits().then((limits) => {
+          const allModels = [...models]; // Use current state or combine? Better use what we just got
+          setModels((current) => {
+            const suggested = suggestModel(current, limits);
+            const updated = current
+              .map((m) => ({
+                ...m,
+                recommended: m.id === suggested,
+              }))
+              .sort((a, b) => {
+                if (a.recommended) return -1;
+                if (b.recommended) return 1;
+                return a.vramMb - b.vramMb;
+              });
+            
+            if (params.get('model') === null) {
+              setSelectedModel(suggested);
+            }
+            return updated;
+          });
+        });
       });
     } else {
       aiDispatch({ type: 'detect_unsupported' });
