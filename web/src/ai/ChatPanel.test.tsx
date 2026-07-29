@@ -44,6 +44,7 @@ test('renders onboarding when no provider is ready', () => {
       models={DEFAULT_MODELS}
       onReset={vi.fn()}
       onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -72,6 +73,7 @@ test('sends a message from the composer', async () => {
       models={DEFAULT_MODELS}
       onReset={vi.fn()}
       onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -106,6 +108,7 @@ test('calls quick action chips', async () => {
       models={DEFAULT_MODELS}
       onReset={vi.fn()}
       onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -151,6 +154,7 @@ test('accepts generated source', async () => {
       models={DEFAULT_MODELS}
       onReset={vi.fn()}
       onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -201,6 +205,7 @@ test('previews and accepts compilation artifacts', async () => {
       models={DEFAULT_MODELS}
       onReset={vi.fn()}
       onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -259,6 +264,7 @@ test('renders every source file in a multi-file preview', async () => {
       models={DEFAULT_MODELS}
       onReset={vi.fn()}
       onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 
@@ -303,6 +309,7 @@ test('discards a message', async () => {
       models={DEFAULT_MODELS}
       onReset={vi.fn()}
       onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
     />,
   );
 

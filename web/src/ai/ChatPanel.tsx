@@ -32,6 +32,7 @@ export interface ChatPanelProps {
   models: ModelOption[];
   onReset: () => void;
   onAddModel: (id: string) => void;
+  onFetchModels: (url: string) => void;
 }
 
 export function ChatPanel({
@@ -51,6 +52,7 @@ export function ChatPanel({
   models,
   onReset,
   onAddModel,
+  onFetchModels,
 }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
@@ -176,13 +178,18 @@ export function ChatPanel({
                         <input
                           type="text"
                           className="chat-model-input"
-                          placeholder="WebLLM model ID, e.g. Llama-3-8B-Instruct-q4f16_1-MLC"
+                          placeholder="Model ID or URL to models.json"
                           value={customModelId}
                           onChange={(e) => setCustomModelId(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               if (customModelId.trim()) {
-                                onAddModel(customModelId.trim());
+                                const val = customModelId.trim();
+                                if (val.startsWith('http://') || val.startsWith('https://')) {
+                                  onFetchModels(val);
+                                } else {
+                                  onAddModel(val);
+                                }
                                 setShowAddCustom(false);
                                 setCustomModelId('');
                               }
@@ -195,7 +202,12 @@ export function ChatPanel({
                           type="button"
                           disabled={!customModelId.trim()}
                           onClick={() => {
-                            onAddModel(customModelId.trim());
+                            const val = customModelId.trim();
+                            if (val.startsWith('http://') || val.startsWith('https://')) {
+                              onFetchModels(val);
+                            } else {
+                              onAddModel(val);
+                            }
                             setShowAddCustom(false);
                             setCustomModelId('');
                           }}

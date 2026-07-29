@@ -636,6 +636,11 @@ export function App({
       setSelectedModel(modelParam);
     }
 
+    const modelsUrlParam = params.get('models_url');
+    if (modelsUrlParam !== null) {
+      handleAiFetchModels(modelsUrlParam);
+    }
+
     if (detectWebGpu()) {
       aiDispatch({ type: 'detect_available' });
     } else {
@@ -682,6 +687,42 @@ export function App({
       return [...current, createModelOption(id)];
     });
     setSelectedModel(id);
+  }, []);
+
+  const handleAiFetchModels = useCallback((url: string): void => {
+    aiDispatch({
+      type: 'download_progress',
+      progress: 0,
+      message: `Fetching models from ${url}...`,
+    });
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Failed to fetch models: ${res.statusText}`);
+        }
+        return res.json() as Promise<ModelOption[]>;
+      })
+      .then((newModels) => {
+        setModels((current) => {
+          const merged = [...current];
+          for (const m of newModels) {
+            if (!merged.some((existing) => existing.id === m.id)) {
+              merged.push(m);
+            }
+          }
+          return merged;
+        });
+        if (newModels.length > 0) {
+          setSelectedModel(newModels[0]!.id);
+        }
+        aiDispatch({ type: 'reset' });
+      })
+      .catch((error: unknown) => {
+        aiDispatch({
+          type: 'error',
+          message: error instanceof Error ? error.message : 'Fetch failed',
+        });
+      });
   }, []);
 
   const handleAiFallback = useCallback((): void => {
@@ -1287,6 +1328,7 @@ export function App({
                 models={models}
                 onReset={handleAiReset}
                 onAddModel={handleAiAddModel}
+                onFetchModels={handleAiFetchModels}
               />
             }
             graph={
