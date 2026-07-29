@@ -148,8 +148,7 @@ class ResumableConversationPlanner:
     def resume(self, request_id: str, content: str) -> ConversationPlan | PendingPlanRequest:
         state = self._consume(request_id)
         try:
-            plan = parse_conversation_plan(content)
-            _validate_plan_intent(state.message, plan)
+            plan = parse_and_validate_plan(state.message, content)
             return plan
         except Exception as error:
             if state.attempt >= self.repair_attempts:
@@ -202,6 +201,16 @@ class ResumableConversationPlanner:
 
 def build_conversation_request(*, message: str, context: PlannerContext) -> LLMRequest:
     return _request(message=message, context=context, validation_error=None)
+
+
+def build_repair_request(*, message: str, context: PlannerContext, error: str) -> LLMRequest:
+    return _request(message=message, context=context, validation_error=error)
+
+
+def parse_and_validate_plan(message: str, content: str) -> ConversationPlan:
+    plan = parse_conversation_plan(content)
+    _validate_plan_intent(message, plan)
+    return plan
 
 
 class ConversationPlanner:

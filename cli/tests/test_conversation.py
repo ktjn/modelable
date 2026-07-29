@@ -1285,6 +1285,7 @@ domain customer {
             create_customer_plan,
             add_email_to_customer_plan,
             add_note_to_untouched_account_plan,
+            add_note_to_untouched_account_plan,
         ),
     )
 
