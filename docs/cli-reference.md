@@ -328,6 +328,33 @@ Generates Markdown documentation for all definitions in a `.mdl` file or directo
 modelable docs ./models --out ./dist/docs
 ```
 
+### 5.6.1 `docs-index` — Build a lexical documentation index
+
+```text
+modelable docs-index SOURCE [--out DIR] [--base-url URL]
+```
+
+Recursively reads Markdown files from `SOURCE`, creates deterministic
+heading-aware semantic chunks, and writes a JSON Searchable index. The command
+is opt-in and does not call an LLM or change the existing documentation
+emitter.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `SOURCE` | required | Markdown documentation directory |
+| `--out` | `./dist/search-index` | Searchable index output directory |
+| `--base-url` | source-relative path | Base URL for chunk source links |
+
+For example:
+
+```bash
+modelable docs-index ./docs --out ./dist/search-index --base-url https://ktjn.github.io/modelable/
+```
+
+The command reports source document count, chunk count, languages, output path,
+and validation errors. Each stored Searchable document retains the complete
+chunk content, source path, heading hierarchy, and stable external ID.
+
 ---
 
 ### 5.7 `scenario` — Browse and load sample scenarios
