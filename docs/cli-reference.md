@@ -386,6 +386,39 @@ modelable docs-eval ./dist/search-index/manifest.json ./rag-evaluation.yaml
 modelable docs-eval ./dist/search-index/manifest.json ./rag-evaluation.yaml --json
 ```
 
+### 5.6.3 `docs-ask` — Answer from documentation evidence
+
+```text
+modelable docs-ask INDEX QUESTION [--limit N] [--max-context-words N]
+                           [--provider NAME] [--model NAME] [--base-url URL] [--json]
+```
+
+Retrieves lexical documentation chunks from a Searchable `manifest.json` and
+asks the configured LLM provider for an evidence-grounded answer. The prompt
+contains complete chunks only, labels them as `[S1]`, `[S2]`, and so on, and
+the CLI appends a source list using each chunk's stable external ID and URL.
+When retrieval returns no usable evidence, the command reports insufficient
+evidence without calling an LLM.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `INDEX` | required | Searchable `manifest.json` path |
+| `QUESTION` | required | Question to answer |
+| `--limit` | `8` | Maximum number of retrieved chunks |
+| `--max-context-words` | `3000` | Maximum complete evidence words sent to the provider |
+| `--provider` | unset | LLM provider name |
+| `--model` | unset | Provider model name |
+| `--base-url` | unset | Optional provider base URL |
+| `--json` | disabled | Print the answer and structured citations as JSON |
+
+For example:
+
+```bash
+modelable docs-ask ./dist/search-index/manifest.json "How do I install it?" \
+  --provider ollama --model llama3.2
+modelable docs-ask ./dist/search-index/manifest.json "How do I install it?" --json
+```
+
 ---
 
 ### 5.7 `scenario` — Browse and load sample scenarios
