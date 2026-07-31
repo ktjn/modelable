@@ -404,8 +404,8 @@ requires-dist = [
     { name = "referencing", specifier = ">=0.35" },
     { name = "rich", specifier = ">=13.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.18" },
-    { name = "searchable-client", specifier = ">=0.1.0" },
-    { name = "searchable-indexer", specifier = ">=0.1.0" },
+    { name = "searchable-client", specifier = ">=0.2.0" },
+    { name = "searchable-indexer", specifier = ">=0.1.1" },
     { name = "testcontainers", marker = "extra == 'dev'", specifier = "==4.15.0" },
 ]
 provides-extras = ["dev"]
@@ -870,27 +870,27 @@ wheels = [
 
 [[package]]
 name = "searchable-client"
-version = "0.1.0"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "searchable-analysis" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/96/08/1a29d2828711ecbaace7997ee80cfa5da91b972cc32b5e29febf435a3247/searchable_client-0.1.0.tar.gz", hash = "sha256:3361505dfcf8defa139adbbdd2f8f1ccde7d044d6e2f00c847766d07b1692d31", size = 36882, upload-time = "2026-07-31T10:49:58.094Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a7/23/571cb4160cab7bdbb2019656ac4513fc33de955e45136226833fdb6a7dc6/searchable_client-0.2.0.tar.gz", hash = "sha256:cbac9c8819ea645611c658d79b484369da578abf84a6867cb0a0b3fe31521ff0", size = 42225, upload-time = "2026-07-31T17:10:41.358Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a5/b5/2f359022c33b96aa5345343c7bd017960a3d0730f83b5eb4ac34a79b8bb3/searchable_client-0.1.0-py3-none-any.whl", hash = "sha256:41316c506c7dea0482e7f90b4592c2ead5119abc5ddcda4c350171c55ecfc6ae", size = 19547, upload-time = "2026-07-31T10:49:54.678Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/47/f0354b334ed9a97bc3fc4ec16612f84fa948469712ba659fae19757cfabe/searchable_client-0.2.0-py3-none-any.whl", hash = "sha256:a07b4974464d8578dce23c87cde3c099c07aae5915eae556886cbacc48636393", size = 23600, upload-time = "2026-07-31T17:10:38.86Z" },
 ]
 
 [[package]]
 name = "searchable-indexer"
-version = "0.1.0"
+version = "0.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "searchable-analysis" },
     { name = "selectolax" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f5/44/654b0388863c6acc5a3614d63e0df741a9c6e0b5f02015839c5e463ea827/searchable_indexer-0.1.0.tar.gz", hash = "sha256:47b22f2b279eea7179914169f80db95ee606cfa1e4a73e45cddd6ff4cd7f591a", size = 34772, upload-time = "2026-07-31T10:49:58.689Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/68/be/807563f27b7254b2a3dd398972ab27e5f941896de2691a24c94ffa63cc19/searchable_indexer-0.1.1.tar.gz", hash = "sha256:6cd06694f3eac7aebf311b1ab4d554522509f6b5f43d85a147a5ce3c53bc25be", size = 34772, upload-time = "2026-07-31T17:10:41.957Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/83/f1/772b20bad9245f4da4227e984ddbded82170b28d57938b489f3f9ee858a1/searchable_indexer-0.1.0-py3-none-any.whl", hash = "sha256:c969c0c8c97e02b86e48a4c6cc6a0c54caf3a2d0be008ace4e1ab4561834349d", size = 23333, upload-time = "2026-07-31T10:49:55.827Z" },
+    { url = "https://files.pythonhosted.org/packages/24/e4/b2628e0c0ea4841b8873ac220e697c6adb610205c6d1d7f48b77ee800123/searchable_indexer-0.1.1-py3-none-any.whl", hash = "sha256:b78d6c13bdbcb5dcefd381eb71caa34e87ca4adfff140daa6c3c92712fa02fd4", size = 23332, upload-time = "2026-07-31T17:10:39.758Z" },
 ]
 
 [[package]]
