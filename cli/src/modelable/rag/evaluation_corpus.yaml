@@ -1,0 +1,101 @@
+cases:
+  - question: What is Modelable's overall architecture?
+    relevant_chunks: [architecture.md#modelable-architecture-and-system-specification]
+  - question: How does Modelable assign ownership to domains?
+    relevant_chunks: [architecture.md#21-domain-ownership]
+  - question: How are property-level definitions traced?
+    relevant_chunks: [architecture.md#22-property-level-traceability]
+  - question: What makes Modelable contracts immutable?
+    relevant_chunks: [architecture.md#23-immutable-contracts]
+  - question: How are definitions kept platform neutral?
+    relevant_chunks: [architecture.md#24-platform-neutral-definitions]
+  - question: How does explicit derivation work?
+    relevant_chunks: [architecture.md#25-explicit-derivation]
+  - question: What is a Modelable domain?
+    relevant_chunks: [architecture.md#31-domain]
+  - question: What is a model version?
+    relevant_chunks: [architecture.md#33-model-version]
+  - question: What is a projection?
+    relevant_chunks: [architecture.md#34-projection]
+  - question: How do automatic projections work?
+    relevant_chunks: [architecture.md#35-auto-projections]
+  - question: How are fields selected in projections?
+    relevant_chunks: [architecture.md#51-field-selection]
+  - question: How can a projection rename a field?
+    relevant_chunks: [architecture.md#52-field-rename]
+  - question: How are computed fields represented?
+    relevant_chunks: [architecture.md#53-computed-fields]
+  - question: How do projection filters work?
+    relevant_chunks: [architecture.md#54-filters]
+  - question: How are joins defined?
+    relevant_chunks: [architecture.md#55-joins]
+  - question: How are aggregations modeled?
+    relevant_chunks: [architecture.md#56-aggregations]
+  - question: What is the change event envelope?
+    relevant_chunks: [architecture.md#61-change-event-envelope]
+  - question: What delivery modes are supported?
+    relevant_chunks: [architecture.md#62-delivery-modes]
+  - question: How is event ordering handled?
+    relevant_chunks: [architecture.md#63-ordering]
+  - question: How do replay and backfill work?
+    relevant_chunks: [architecture.md#64-replay-and-backfill]
+  - question: What is the model registry responsible for?
+    relevant_chunks: [architecture.md#71-model-registry]
+  - question: What does the compiler and planner do?
+    relevant_chunks: [architecture.md#72-compiler-and-planner]
+  - question: What does the runtime engine do?
+    relevant_chunks: [architecture.md#73-runtime-engine]
+  - question: What is the materializer responsible for?
+    relevant_chunks: [architecture.md#74-materializer]
+  - question: What is the adapter layer?
+    relevant_chunks: [architecture.md#75-adapter-layer]
+  - question: How does model versioning work?
+    relevant_chunks: [architecture.md#81-model-versioning]
+  - question: How are projection versions managed?
+    relevant_chunks: [architecture.md#82-projection-versioning]
+  - question: How are deprecated definitions handled?
+    relevant_chunks: [architecture.md#83-deprecation]
+  - question: What are Modelable's governance and access controls?
+    relevant_chunks: [architecture.md#9-governance-and-access-control]
+  - question: How is lineage represented?
+    relevant_chunks: [architecture.md#10-lineage]
+  - question: What generated artifacts does Modelable produce?
+    relevant_chunks: [architecture.md#11-generated-artifacts]
+  - question: What are the security requirements?
+    relevant_chunks: [architecture.md#16-security-requirements]
+  - question: What is included in the MVP?
+    relevant_chunks: [architecture.md#17-mvp-scope-phase-1]
+  - question: Which CLI commands are part of the MVP?
+    relevant_chunks: [architecture.md#172-cli-commands]
+  - question: What is outside the MVP scope?
+    relevant_chunks: [architecture.md#18-non-goals]
+  - question: How do I install Modelable?
+    relevant_chunks: [cli-reference.md#3-installation-and-runtime]
+  - question: How do I resolve a model by reference?
+    relevant_chunks: [cli-reference.md#52-resolve-look-up-a-model-or-projection-by-reference]
+  - question: How do I show field-level lineage?
+    relevant_chunks: [cli-reference.md#53-lineage-show-field-level-lineage]
+  - question: How do I compare model versions?
+    relevant_chunks: [cli-reference.md#54-diff-compare-two-model-versions]
+  - question: How do I compile definitions to artifacts?
+    relevant_chunks: [cli-reference.md#56-compile-compile-definitions-to-artifact-formats]
+  - question: How do I build the documentation search index?
+    relevant_chunks: [cli-reference.md#561-docs-index-build-a-lexical-documentation-index]
+  - question: How do I use the AI integration?
+    relevant_chunks: [cli-reference.md#6-ai-integration-details]
+  - question: What is the quick start workflow?
+    relevant_chunks: [getting-started.md#quick-start]
+  - question: How should I inventory an existing source system?
+    relevant_chunks: [getting-started.md#step-1-inventory]
+  - question: How do I choose domain boundaries?
+    relevant_chunks: [getting-started.md#step-2-choose-domain-boundaries]
+  - question: How do I validate and diff a migration?
+    relevant_chunks: [getting-started.md#step-6-validate-and-diff]
+  - question: How does the JSON Schema emitter work?
+    relevant_chunks: [compiler-reference.md#6-json-schema-emitter]
+  - question: How does the Markdown documentation emitter work?
+    relevant_chunks: [compiler-reference.md#8-markdown-documentation-emitter]
+  - question: How does Apicurio publishing work?
+    relevant_chunks: [compiler-reference.md#9-apicurio-registry-publishing]
+  - question: What is Modelable's current integration boundary?
+    relevant_chunks: [integrations.md#31-why-fhir-matters]

@@ -355,6 +355,34 @@ The command reports source document count, chunk count, languages, output path,
 and validation errors. Each stored Searchable document retains the complete
 chunk content, source path, heading hierarchy, and stable external ID.
 
+### 5.6.2 `docs-eval` — Evaluate lexical documentation retrieval
+
+```text
+modelable docs-eval INDEX CORPUS [--limit N] [--json]
+```
+
+Runs the deterministic, LLM-free retrieval baseline against a Searchable
+`manifest.json` and a YAML evaluation corpus. Each corpus case contains a
+`question` and one or more relevant chunk external IDs under
+`relevant_chunks`.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `INDEX` | required | Searchable `manifest.json` path |
+| `CORPUS` | required | YAML question/relevance corpus |
+| `--limit` | `10` | Number of ranked results requested per question; minimum `10` |
+| `--json` | disabled | Print a machine-readable JSON report |
+
+The report includes Recall@5, Recall@10, MRR, nDCG@10, zero-result rate, and
+duplicate-source rate. It does not call an LLM or modify the index.
+
+For example:
+
+```bash
+modelable docs-eval ./dist/search-index/manifest.json ./rag-evaluation.yaml
+modelable docs-eval ./dist/search-index/manifest.json ./rag-evaluation.yaml --json
+```
+
 ---
 
 ### 5.7 `scenario` — Browse and load sample scenarios
