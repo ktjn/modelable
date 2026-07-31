@@ -44,5 +44,5 @@
 
 - [x] Add this design and plan documentation.
 - [x] Update CLI documentation with category and diagnostic behavior.
-- [ ] Run the full repository gate, strict docs build, and doc/spec review.
-- [ ] Commit and publish the branch.
+- [x] Run the full repository gate, strict docs build, and doc/spec review.
+- [x] Commit and publish the branch.
