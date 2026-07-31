@@ -379,6 +379,23 @@ lists failed queries with their relevant and returned chunk IDs. The committed
 baseline corpus separates controlled `lexical` queries from `challenge`
 paraphrases. It does not call an LLM or modify the index.
 
+The CLI evaluation remains lexical-only because vector and hybrid retrieval
+require an injected Python `embed_query` callable. Library callers can compare
+all three modes against the same corpus:
+
+```python
+from modelable.rag import DocumentationRetriever, evaluate_retrieval_modes
+from modelable.rag.evaluation import load_evaluation_cases
+
+retriever = DocumentationRetriever(
+    "./dist/search-index/manifest.json",
+    embed_query=embed_query,
+    embedding_provider={"type": "custom", "model": "my-model"},
+)
+reports = evaluate_retrieval_modes(retriever, load_evaluation_cases("./rag-evaluation.yaml"))
+hybrid_report = reports["hybrid"]
+```
+
 For example:
 
 ```bash

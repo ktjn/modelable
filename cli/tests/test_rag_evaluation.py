@@ -6,6 +6,7 @@ from modelable.rag.chunking import load_documentation_chunks
 from modelable.rag.evaluation import (
     EvaluationCase,
     evaluate_retrieval,
+    evaluate_retrieval_modes,
     load_evaluation_cases,
 )
 from modelable.rag.retriever import RetrievedChunk
@@ -27,7 +28,7 @@ def _chunk(external_id: str, source_path: str, score: float) -> RetrievedChunk:
 
 
 class FakeRetriever:
-    def search(self, query: str, *, limit: int) -> list[RetrievedChunk]:
+    def search(self, query: str, *, limit: int, mode: str = "lexical") -> list[RetrievedChunk]:
         assert query == "How do I install?"
         assert limit == 10
         return [
@@ -62,7 +63,7 @@ def test_evaluate_retrieval_reports_zeroes_for_empty_corpus() -> None:
 
 def test_evaluate_retrieval_reports_categories_and_failed_queries() -> None:
     class CategorizedRetriever:
-        def search(self, query: str, *, limit: int) -> list[RetrievedChunk]:
+        def search(self, query: str, *, limit: int, mode: str = "lexical") -> list[RetrievedChunk]:
             if query == "domain ownership":
                 return [_chunk("architecture.md#21-domain-ownership", "architecture.md", 4.0)]
             return []
@@ -80,6 +81,24 @@ def test_evaluate_retrieval_reports_categories_and_failed_queries() -> None:
     assert report.category_reports[0].zero_result_rate == 1.0
     assert report.failures[0].question == "who owns domains?"
     assert report.failures[0].returned_chunk_ids == ()
+
+
+def test_evaluate_retrieval_modes_runs_the_same_cases_in_stable_mode_order() -> None:
+    calls: list[str] = []
+
+    class ModeRetriever:
+        def search(self, query: str, *, limit: int, mode: str = "lexical") -> list[RetrievedChunk]:
+            calls.append(mode)
+            return [_chunk("guide.md#install", "guide.md", 1.0)]
+
+    reports = evaluate_retrieval_modes(
+        ModeRetriever(),
+        [EvaluationCase("How do I install?", ("guide.md#install",))],
+    )
+
+    assert list(reports) == ["lexical", "vector", "hybrid"]
+    assert calls == ["lexical", "vector", "hybrid"]
+    assert all(report.recall_at_10 == 1.0 for report in reports.values())
 
 
 def test_load_evaluation_cases_validates_yaml_shape(tmp_path: Path) -> None:

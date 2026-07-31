@@ -1,10 +1,13 @@
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from searchable_client import SearchClient  # type: ignore[import-untyped]
 from searchable_client.search import SearchOptions  # type: ignore[import-untyped]
+
+SearchMode = Literal["lexical", "vector", "hybrid"]
 
 
 @dataclass(slots=True, frozen=True)
@@ -26,20 +29,40 @@ class _SearchClient(Protocol):
 
 
 class DocumentationRetriever:
-    def __init__(self, index_url: str | Path, *, client: _SearchClient | None = None) -> None:
-        self._client = client if client is not None else SearchClient(str(index_url))
+    def __init__(
+        self,
+        index_url: str | Path,
+        *,
+        client: _SearchClient | None = None,
+        embed_query: Callable[[str], list[float]] | None = None,
+        embedding_provider: dict[str, object] | None = None,
+    ) -> None:
+        if client is not None:
+            self._client = client
+            return
 
-    def search(self, query: str, *, limit: int = 8) -> list[RetrievedChunk]:
+        search_client_kwargs: dict[str, object] = {}
+        if embed_query is not None:
+            search_client_kwargs["embed_query"] = (
+                {"embed": embed_query, "provider": embedding_provider}
+                if embedding_provider is not None
+                else embed_query
+            )
+        self._client = SearchClient(str(index_url), **search_client_kwargs)
+
+    def search(self, query: str, *, limit: int = 8, mode: SearchMode = "lexical") -> list[RetrievedChunk]:
         normalized_query = re.sub(r"[^\w\s-]", " ", query, flags=re.UNICODE)
         normalized_query = " ".join(normalized_query.split())
         if not normalized_query:
             raise ValueError("query must not be blank")
         if limit <= 0:
             raise ValueError("limit must be positive")
+        if mode not in ("lexical", "vector", "hybrid"):
+            raise ValueError(f"unsupported search mode: {mode}")
 
         result = self._client.search(
             normalized_query,
-            SearchOptions(limit=limit),
+            SearchOptions(limit=limit, mode=mode),
         )
         return [self._map_hit(hit) for hit in result.hits]
 

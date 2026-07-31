@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from modelable.rag import retriever as retriever_module
 from modelable.rag.index import build_documentation_index
 from modelable.rag.model import DocumentationChunk
 from modelable.rag.retriever import DocumentationRetriever, RetrievedChunk
@@ -81,6 +82,46 @@ def test_search_normalizes_natural_language_punctuation() -> None:
     DocumentationRetriever("index/manifest.json", client=client).search("domain ownership: how is it handled?")
 
     assert client.query == "domain ownership how is it handled"
+
+
+def test_search_forwards_vector_mode_to_searchable() -> None:
+    client = FakeClient()
+
+    result = DocumentationRetriever("index/manifest.json", client=client).search("semantic", mode="hybrid", limit=5)
+
+    assert result
+    assert client.options.mode == "hybrid"
+    assert client.options.limit == 5
+
+
+def test_retriever_passes_injected_embedder_and_provider_to_searchable(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class CapturingClient:
+        def __init__(self, index_url: str, **kwargs: object) -> None:
+            captured["index_url"] = index_url
+            captured.update(kwargs)
+
+    monkeypatch.setattr(retriever_module, "SearchClient", CapturingClient)
+
+    def embedder(text: str) -> list[float]:
+        return [1.0, 0.0]
+
+    provider = {"type": "custom", "model": "test"}
+
+    DocumentationRetriever("index/manifest.json", embed_query=embedder, embedding_provider=provider)
+
+    assert captured["index_url"] == "index/manifest.json"
+    assert captured["embed_query"] == {"embed": embedder, "provider": provider}
+
+
+def test_search_rejects_unsupported_mode() -> None:
+    client = FakeClient()
+
+    with pytest.raises(ValueError, match="unsupported search mode"):
+        DocumentationRetriever("index/manifest.json", client=client).search("semantic", mode="bogus")  # type: ignore[arg-type]
+
+    assert client.query is None
 
 
 def test_search_rejects_missing_required_stored_field() -> None:

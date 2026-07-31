@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from modelable.rag.index import build_documentation_index, to_index_document
 from modelable.rag.model import DocumentationChunk
 
@@ -95,3 +97,37 @@ def test_build_documentation_index_assigns_ids_deterministically(tmp_path):
         (tmp_path / "second" / second_manifest["shards"]["docs"][0]["file"]).read_text(encoding="utf-8")
     )
     assert first_docs == second_docs
+
+
+def test_build_documentation_index_can_write_vector_shards_with_provider_metadata(tmp_path):
+    chunk = DocumentationChunk(
+        external_id="guide.md#install",
+        source_path="guide.md",
+        url="https://example.test/guide/#install",
+        language="en",
+        title="Guide",
+        heading="Install",
+        heading_path=["Guide", "Install"],
+        content="Install with uv.",
+        chunk_index=0,
+    )
+
+    build_documentation_index(
+        [chunk],
+        tmp_path / "vector-index",
+        embed=lambda texts: [[1.0, 0.0] for _ in texts],
+        embedding_provider={"type": "custom", "model": "test"},
+    )
+
+    manifest = json.loads((tmp_path / "vector-index" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["vectors"]["dims"] == 2
+    assert manifest["vectors"]["embeddingProvider"] == {"type": "custom", "model": "test"}
+
+
+def test_build_documentation_index_rejects_provider_without_embedder(tmp_path):
+    with pytest.raises(ValueError, match="embed is required"):
+        build_documentation_index(
+            [],
+            tmp_path / "vector-index",
+            embedding_provider={"type": "custom", "model": "test"},
+        )

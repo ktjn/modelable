@@ -8,7 +8,7 @@ from typing import Protocol
 
 import yaml
 
-from modelable.rag.retriever import RetrievedChunk
+from modelable.rag.retriever import RetrievedChunk, SearchMode
 
 
 @dataclass(slots=True, frozen=True)
@@ -52,7 +52,7 @@ class EvaluationReport:
 
 
 class _Retriever(Protocol):
-    def search(self, query: str, *, limit: int) -> list[RetrievedChunk]: ...
+    def search(self, query: str, *, limit: int, mode: SearchMode = "lexical") -> list[RetrievedChunk]: ...
 
 
 def evaluate_retrieval(
@@ -60,11 +60,12 @@ def evaluate_retrieval(
     cases: Sequence[EvaluationCase],
     *,
     limit: int = 10,
+    mode: SearchMode = "lexical",
 ) -> EvaluationReport:
     if limit < 10:
         raise ValueError("limit must be at least 10 for the standard metrics")
 
-    results = [(case, retriever.search(case.question, limit=limit)) for case in cases]
+    results = [(case, retriever.search(case.question, limit=limit, mode=mode)) for case in cases]
     overall = _summarize("overall", results, limit=limit)
     category_reports = tuple(
         _summarize(
@@ -95,6 +96,17 @@ def evaluate_retrieval(
         category_reports=category_reports,
         failures=failures,
     )
+
+
+def evaluate_retrieval_modes(
+    retriever: _Retriever,
+    cases: Sequence[EvaluationCase],
+    *,
+    modes: Sequence[SearchMode] = ("lexical", "vector", "hybrid"),
+    limit: int = 10,
+) -> dict[str, EvaluationReport]:
+    """Evaluate identical cases independently for each requested retrieval mode."""
+    return {mode: evaluate_retrieval(retriever, cases, limit=limit, mode=mode) for mode in modes}
 
 
 def _summarize(
