@@ -60,14 +60,36 @@ def test_evaluate_retrieval_reports_zeroes_for_empty_corpus() -> None:
     assert report.mean_reciprocal_rank == 0.0
 
 
+def test_evaluate_retrieval_reports_categories_and_failed_queries() -> None:
+    class CategorizedRetriever:
+        def search(self, query: str, *, limit: int) -> list[RetrievedChunk]:
+            if query == "domain ownership":
+                return [_chunk("architecture.md#21-domain-ownership", "architecture.md", 4.0)]
+            return []
+
+    report = evaluate_retrieval(
+        CategorizedRetriever(),
+        [
+            EvaluationCase("domain ownership", ("architecture.md#21-domain-ownership",), "lexical"),
+            EvaluationCase("who owns domains?", ("architecture.md#21-domain-ownership",), "challenge"),
+        ],
+    )
+
+    assert [summary.category for summary in report.category_reports] == ["challenge", "lexical"]
+    assert report.category_reports[1].recall_at_10 == 1.0
+    assert report.category_reports[0].zero_result_rate == 1.0
+    assert report.failures[0].question == "who owns domains?"
+    assert report.failures[0].returned_chunk_ids == ()
+
+
 def test_load_evaluation_cases_validates_yaml_shape(tmp_path: Path) -> None:
     corpus = tmp_path / "evaluation.yaml"
     corpus.write_text(
-        "cases:\n  - question: How do I install?\n    relevant_chunks:\n      - guide.md#install\n",
+        "cases:\n  - category: lexical\n    question: How do I install?\n    relevant_chunks:\n      - guide.md#install\n",
         encoding="utf-8",
     )
 
-    assert load_evaluation_cases(corpus) == [EvaluationCase("How do I install?", ("guide.md#install",))]
+    assert load_evaluation_cases(corpus) == [EvaluationCase("How do I install?", ("guide.md#install",), "lexical")]
 
 
 def test_load_evaluation_cases_rejects_empty_relevance(tmp_path: Path) -> None:
@@ -88,6 +110,7 @@ def test_committed_evaluation_corpus_has_fifty_source_addressable_cases() -> Non
 
     assert len(cases) == 50
     assert all("#" in chunk_id for case in cases for chunk_id in case.relevant_chunk_ids)
+    assert {case.category for case in cases} == {"challenge", "lexical"}
 
 
 def test_committed_evaluation_corpus_ids_exist_in_documentation() -> None:

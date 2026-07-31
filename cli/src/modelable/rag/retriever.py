@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -29,7 +30,8 @@ class DocumentationRetriever:
         self._client = client if client is not None else SearchClient(str(index_url))
 
     def search(self, query: str, *, limit: int = 8) -> list[RetrievedChunk]:
-        normalized_query = query.strip()
+        normalized_query = re.sub(r"[^\w\s-]", " ", query, flags=re.UNICODE)
+        normalized_query = " ".join(normalized_query.split())
         if not normalized_query:
             raise ValueError("query must not be blank")
         if limit <= 0:

@@ -51,3 +51,15 @@ def docs_eval(index: Path, corpus: Path, limit: int, as_json: bool) -> None:
     console.print(f"nDCG@10: {report.ndcg_at_10:.4f}")
     console.print(f"Zero-result rate: {report.zero_result_rate:.4f}")
     console.print(f"Duplicate-source rate: {report.duplicate_source_rate:.4f}")
+    for summary in report.category_reports:
+        console.print(
+            f"Category {summary.category}: {summary.case_count} cases, "
+            f"Recall@10 {summary.recall_at_10:.4f}, MRR {summary.mean_reciprocal_rank:.4f}, "
+            f"zero-result {summary.zero_result_rate:.4f}"
+        )
+    if report.failures:
+        console.print(f"Failed queries: {len(report.failures)}")
+        for failure in report.failures[:10]:
+            console.print(f"- [{failure.category}] {failure.question}")
+        if len(report.failures) > 10:
+            console.print(f"- ... and {len(report.failures) - 10} more")

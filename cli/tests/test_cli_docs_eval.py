@@ -34,6 +34,7 @@ def test_docs_eval_reports_human_metrics(tmp_path):
     assert "Cases: 1" in result.output
     assert "Recall@5: 1.0000" in result.output
     assert "MRR: 1.0000" in result.output
+    assert "Category challenge: 1 cases" in result.output
 
 
 def test_docs_eval_json_output_is_machine_readable(tmp_path):
@@ -46,6 +47,8 @@ def test_docs_eval_json_output_is_machine_readable(tmp_path):
     report = json.loads(result.output)
     assert report["case_count"] == 1
     assert report["recall_at_10"] == 1.0
+    assert len(report["category_reports"]) == 1
+    assert report["failures"] == []
 
 
 def test_docs_eval_reports_invalid_corpus(tmp_path):
