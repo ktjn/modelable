@@ -414,6 +414,10 @@ Retrieves lexical documentation chunks from a Searchable `manifest.json` and
 asks the configured LLM provider for an evidence-grounded answer. The prompt
 contains complete chunks only, labels them as `[S1]`, `[S2]`, and so on, and
 the CLI appends a source list using each chunk's stable external ID and URL.
+The answer pipeline admits at most two chunks from the same source document by
+default, removing duplicate external IDs and content hashes before budgeting
+the prompt. Python callers can override that source cap through
+`answer_with_retrieval(..., max_chunks_per_source=...)`.
 When retrieval returns no usable evidence, the command reports insufficient
 evidence without calling an LLM.
 
