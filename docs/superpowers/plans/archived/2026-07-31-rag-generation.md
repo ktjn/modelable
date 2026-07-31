@@ -46,4 +46,4 @@
 
 - [x] Run the complete repository gate and strict docs build.
 - [x] Run doc/spec review and inspect scope.
-- [ ] Commit and publish the branch.
+- [x] Commit and publish the branch.
