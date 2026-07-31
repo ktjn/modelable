@@ -44,6 +44,7 @@ dependencies = [
     "pygls>=2.1.1,<3",
     "psycopg[binary]>=3.2",
     "pyyaml>=6.0.3",
+    "searchable-indexer @ git+https://github.com/ktjn/searchable.git#subdirectory=python/searchable-indexer",
 ]
 
 [project.urls]
@@ -70,6 +71,9 @@ modelable = "modelable.cli:cli"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/modelable"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -129,6 +133,7 @@ ignore_missing_imports = true
 init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
+
 
 [dependency-groups]
 dev = [
