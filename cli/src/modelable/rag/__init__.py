@@ -1,5 +1,6 @@
 """Documentation retrieval foundation."""
 
+from modelable.rag.context import select_context
 from modelable.rag.evaluation import (
     EvaluationCase,
     EvaluationFailure,
@@ -8,7 +9,6 @@ from modelable.rag.evaluation import (
     evaluate_retrieval,
     evaluate_retrieval_modes,
 )
-from modelable.rag.context import select_context
 from modelable.rag.generation import RagAnswer, RagCitation, answer_with_retrieval, build_evidence_prompt
 from modelable.rag.model import DocumentationChunk
 from modelable.rag.retriever import DocumentationRetriever, RetrievedChunk, SearchMode
@@ -26,7 +26,7 @@ __all__ = [
     "SearchMode",
     "answer_with_retrieval",
     "build_evidence_prompt",
-    "select_context",
     "evaluate_retrieval",
     "evaluate_retrieval_modes",
+    "select_context",
 ]

@@ -29,11 +29,11 @@
 **Interfaces:**
 - Produces `select_context(chunks: Sequence[RetrievedChunk], *, max_context_words: int, max_chunks_per_source: int | None = None) -> tuple[RetrievedChunk, ...]`.
 
-- [ ] Write failing tests for duplicate external IDs, duplicate content hashes, per-source caps, whole-chunk budgeting, and stable order.
-- [ ] Run `uv run pytest tests/test_rag_context.py -q` and confirm the module is absent.
-- [ ] Implement validation and deterministic selection with no Searchable imports.
-- [ ] Run the focused tests until green.
-- [ ] Commit with `git commit -m "feat: add deterministic RAG context selection"`.
+- [x] Write failing tests for duplicate external IDs, duplicate content hashes, per-source caps, whole-chunk budgeting, and stable order.
+- [x] Run `uv run pytest tests/test_rag_context.py -q` and confirm the module is absent.
+- [x] Implement validation and deterministic selection with no Searchable imports.
+- [x] Run the focused tests until green.
+- [x] Commit with `git commit -m "feat: add deterministic RAG context selection"`.
 
 ### Task 2: Integrate selection into answer generation
 
@@ -45,19 +45,19 @@
 **Interfaces:**
 - `answer_with_retrieval(..., max_chunks_per_source: int | None = 2)` delegates candidate selection to `select_context`.
 
-- [ ] Add failing tests proving duplicate sources are absent from the prompt and citations, and that a source cap is honored.
-- [ ] Run the focused generation tests and confirm the new assertions fail.
-- [ ] Replace local budget selection with `select_context` while retaining the existing prompt and citation formats.
-- [ ] Document the default source cap and Python override path.
-- [ ] Run `uv run pytest tests/test_rag_context.py tests/test_rag_generation.py tests/test_cli_docs_ask.py -q`.
-- [ ] Commit with `git commit -m "feat: apply context selection to RAG answers"`.
+- [x] Add failing tests proving duplicate sources are absent from the prompt and citations, and that a source cap is honored.
+- [x] Run the focused generation tests and confirm the new assertions fail.
+- [x] Replace local budget selection with `select_context` while retaining the existing prompt and citation formats.
+- [x] Document the default source cap and Python override path.
+- [x] Run `uv run pytest tests/test_rag_context.py tests/test_rag_generation.py tests/test_cli_docs_ask.py -q`.
+- [x] Commit with `git commit -m "feat: apply context selection to RAG answers"`.
 
 ### Task 3: Verify and hand off
 
 **Files:**
 - Modify: `docs/superpowers/plans/2026-07-31-rag-context-selection.md` (checklist only)
 
-- [ ] Run:
+- [x] Run:
 
 ```bash
 uv run ruff format .
@@ -66,9 +66,9 @@ uv run python ../.github/scripts/check_mypy_baseline.py --baseline mypy-baseline
 uv run pytest --tb=short
 ```
 
-- [ ] Run `uvx --from mkdocs==1.6.1 --with mkdocs-material==9.7.6 mkdocs build --strict`.
-- [ ] Run doc/spec review and confirm the adjacency limitation is explicit.
-- [ ] Update this checklist and commit the verification.
+- [x] Run `uvx --from mkdocs==1.6.1 --with mkdocs-material==9.7.6 mkdocs build --strict`.
+- [x] Run doc/spec review and confirm the adjacency limitation is explicit.
+- [x] Update this checklist and commit the verification.
 
 ## Follow-up
 
