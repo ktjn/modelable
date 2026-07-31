@@ -142,7 +142,49 @@ git add cli/src/modelable/rag/retriever.py cli/src/modelable/rag/__init__.py cli
 git commit -m "feat: add vector and hybrid documentation retrieval"
 ```
 
-### Task 3: Add mode-aware evaluation
+### Task 3: Add vector-enabled documentation index generation
+
+**Files:**
+- Modify: `cli/src/modelable/rag/index.py`
+- Test: `cli/tests/test_rag_index.py`
+
+**Interfaces:**
+- Consumes: `embed: Callable[[list[str]], list[list[float]]] | None`, provider descriptor `dict[str, object] | None`, and Searchable vector quantization.
+- Produces: `build_documentation_index(..., embed=..., embedding_provider=..., vector_quantization="int8")` with `content` as the vector field.
+
+- [ ] **Step 1: Write failing index-generation tests**
+
+Use a deterministic two-dimensional embedder and assert that the written
+manifest contains vector dimensions and the exact provider descriptor. Assert
+that a provider descriptor without an embedder is rejected.
+
+- [ ] **Step 2: Run the focused tests to verify they fail**
+
+```bash
+uv run pytest tests/test_rag_index.py -q
+```
+
+- [ ] **Step 3: Implement optional vector generation**
+
+Pass `embed`, `embedding_provider`, `vector_field="content"`, and
+`vector_quantization` to Searchable only when an embedder is supplied. Keep
+the existing lexical call path unchanged and reject a provider descriptor
+without an embedder before writing any files.
+
+- [ ] **Step 4: Run focused index and retriever tests**
+
+```bash
+uv run pytest tests/test_rag_index.py tests/test_rag_retriever.py -q
+```
+
+- [ ] **Step 5: Commit vector index generation**
+
+```bash
+git add cli/src/modelable/rag/index.py cli/tests/test_rag_index.py
+git commit -m "feat: add vector documentation index generation"
+```
+
+### Task 4: Add mode-aware evaluation
 
 **Files:**
 - Modify: `cli/src/modelable/rag/evaluation.py`
@@ -192,7 +234,7 @@ git add cli/src/modelable/rag/evaluation.py cli/src/modelable/rag/__init__.py cl
 git commit -m "feat: compare documentation retrieval modes"
 ```
 
-### Task 4: Wire `docs-ask` for embedding-aware callers without CLI model loading
+### Task 5: Wire `docs-ask` for embedding-aware callers without CLI model loading
 
 **Files:**
 - Modify: `cli/src/modelable/commands/docs_ask.py`
@@ -230,7 +272,7 @@ git add cli/src/modelable/commands/docs_ask.py cli/tests/test_cli_docs_ask.py do
 git commit -m "docs: explain embedding-aware documentation queries"
 ```
 
-### Task 5: Verify, review, and hand off
+### Task 6: Verify, review, and hand off
 
 **Files:**
 - Modify: `docs/superpowers/plans/2026-07-31-rag-vector-hybrid.md` (checklist only)

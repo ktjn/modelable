@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -56,7 +56,14 @@ def to_index_document(chunk: DocumentationChunk, numeric_id: int) -> IndexDocume
 def build_documentation_index(
     chunks: Sequence[DocumentationChunk],
     output_directory: Path,
+    *,
+    embed: Callable[[list[str]], list[list[float]]] | None = None,
+    embedding_provider: dict[str, object] | None = None,
+    vector_quantization: str = "int8",
 ) -> IndexBuildReport:
+    if embedding_provider is not None and embed is None:
+        raise ValueError("embed is required when embedding_provider is supplied")
+
     ordered_chunks = sorted(chunks, key=lambda chunk: (chunk.source_path, chunk.chunk_index, chunk.external_id))
     seen_external_ids: set[str] = set()
     seen_positions: set[tuple[str, int]] = set()
@@ -72,7 +79,17 @@ def build_documentation_index(
         seen_positions.add(position)
 
     documents = [to_index_document(chunk, index) for index, chunk in enumerate(ordered_chunks, start=1)]
-    built = build_index_documents(documents, field_definitions=FIELD_DEFINITIONS)
+    if embed is None:
+        built = build_index_documents(documents, field_definitions=FIELD_DEFINITIONS)
+    else:
+        built = build_index_documents(
+            documents,
+            field_definitions=FIELD_DEFINITIONS,
+            embed=embed,
+            embedding_provider=embedding_provider,
+            vector_field="content",
+            vector_quantization=vector_quantization,
+        )
     write_index(built, str(output_directory), doc_store_format="json")
 
     return IndexBuildReport(
