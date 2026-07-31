@@ -7,6 +7,7 @@ from modelable.commands.codegen import register_codegen_commands
 from modelable.commands.compile import register_compile_commands
 from modelable.commands.create import register_create_commands
 from modelable.commands.diff import register_diff_commands
+from modelable.commands.docs_ask import register_docs_ask_commands
 from modelable.commands.docs_eval import register_docs_eval_commands
 from modelable.commands.docs_index import register_docs_index_commands
 from modelable.commands.graph import register_graph_commands
@@ -37,6 +38,7 @@ register_create_commands(cli)
 register_diff_commands(cli)
 register_docs_index_commands(cli)
 register_docs_eval_commands(cli)
+register_docs_ask_commands(cli)
 register_graph_commands(cli)
 register_lsp_commands(cli)
 register_llm_commands(cli)

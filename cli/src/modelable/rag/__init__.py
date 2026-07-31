@@ -7,6 +7,7 @@ from modelable.rag.evaluation import (
     EvaluationReport,
     evaluate_retrieval,
 )
+from modelable.rag.generation import RagAnswer, RagCitation, answer_with_retrieval, build_evidence_prompt
 from modelable.rag.model import DocumentationChunk
 from modelable.rag.retriever import DocumentationRetriever, RetrievedChunk
 
@@ -17,6 +18,10 @@ __all__ = [
     "EvaluationFailure",
     "EvaluationMetrics",
     "EvaluationReport",
+    "RagAnswer",
+    "RagCitation",
     "RetrievedChunk",
+    "answer_with_retrieval",
+    "build_evidence_prompt",
     "evaluate_retrieval",
 ]
