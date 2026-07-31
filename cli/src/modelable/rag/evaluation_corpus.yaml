@@ -1,53 +1,78 @@
 cases:
-  - question: What is Modelable's overall architecture?
+  - category: lexical
+    question: Modelable architecture
     relevant_chunks: [architecture.md#modelable-architecture-and-system-specification]
-  - question: How does Modelable assign ownership to domains?
+  - category: lexical
+    question: domain ownership
     relevant_chunks: [architecture.md#21-domain-ownership]
-  - question: How are property-level definitions traced?
+  - category: lexical
+    question: property-level traceability
     relevant_chunks: [architecture.md#22-property-level-traceability]
-  - question: What makes Modelable contracts immutable?
+  - category: lexical
+    question: immutable contracts
     relevant_chunks: [architecture.md#23-immutable-contracts]
-  - question: How are definitions kept platform neutral?
+  - category: lexical
+    question: platform-neutral definitions
     relevant_chunks: [architecture.md#24-platform-neutral-definitions]
-  - question: How does explicit derivation work?
+  - category: lexical
+    question: explicit derivation
     relevant_chunks: [architecture.md#25-explicit-derivation]
-  - question: What is a Modelable domain?
+  - category: lexical
+    question: Modelable domain
     relevant_chunks: [architecture.md#31-domain]
-  - question: What is a model version?
+  - category: lexical
+    question: model version
     relevant_chunks: [architecture.md#33-model-version]
-  - question: What is a projection?
+  - category: lexical
+    question: projection
     relevant_chunks: [architecture.md#34-projection]
-  - question: How do automatic projections work?
+  - category: lexical
+    question: automatic projections
     relevant_chunks: [architecture.md#35-auto-projections]
-  - question: How are fields selected in projections?
+  - category: lexical
+    question: field selection
     relevant_chunks: [architecture.md#51-field-selection]
-  - question: How can a projection rename a field?
+  - category: lexical
+    question: field rename
     relevant_chunks: [architecture.md#52-field-rename]
-  - question: How are computed fields represented?
+  - category: lexical
+    question: computed fields
     relevant_chunks: [architecture.md#53-computed-fields]
-  - question: How do projection filters work?
+  - category: lexical
+    question: projection filters
     relevant_chunks: [architecture.md#54-filters]
-  - question: How are joins defined?
+  - category: lexical
+    question: joins
     relevant_chunks: [architecture.md#55-joins]
-  - question: How are aggregations modeled?
+  - category: lexical
+    question: aggregations
     relevant_chunks: [architecture.md#56-aggregations]
-  - question: What is the change event envelope?
+  - category: lexical
+    question: change event envelope
     relevant_chunks: [architecture.md#61-change-event-envelope]
-  - question: What delivery modes are supported?
+  - category: lexical
+    question: delivery modes
     relevant_chunks: [architecture.md#62-delivery-modes]
-  - question: How is event ordering handled?
+  - category: lexical
+    question: event ordering
     relevant_chunks: [architecture.md#63-ordering]
-  - question: How do replay and backfill work?
+  - category: lexical
+    question: replay and backfill
     relevant_chunks: [architecture.md#64-replay-and-backfill]
-  - question: What is the model registry responsible for?
+  - category: lexical
+    question: model registry
     relevant_chunks: [architecture.md#71-model-registry]
-  - question: What does the compiler and planner do?
+  - category: lexical
+    question: compiler and planner
     relevant_chunks: [architecture.md#72-compiler-and-planner]
-  - question: What does the runtime engine do?
+  - category: lexical
+    question: runtime engine
     relevant_chunks: [architecture.md#73-runtime-engine]
-  - question: What is the materializer responsible for?
+  - category: lexical
+    question: materializer
     relevant_chunks: [architecture.md#74-materializer]
-  - question: What is the adapter layer?
+  - category: lexical
+    question: adapter layer
     relevant_chunks: [architecture.md#75-adapter-layer]
   - question: How does model versioning work?
     relevant_chunks: [architecture.md#81-model-versioning]

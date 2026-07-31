@@ -374,7 +374,10 @@ Runs the deterministic, LLM-free retrieval baseline against a Searchable
 | `--json` | disabled | Print a machine-readable JSON report |
 
 The report includes Recall@5, Recall@10, MRR, nDCG@10, zero-result rate, and
-duplicate-source rate. It does not call an LLM or modify the index.
+duplicate-source rate. It also reports those metrics by corpus category and
+lists failed queries with their relevant and returned chunk IDs. The committed
+baseline corpus separates controlled `lexical` queries from `challenge`
+paraphrases. It does not call an LLM or modify the index.
 
 For example:
 

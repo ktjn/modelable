@@ -15,6 +15,27 @@ from modelable.rag.retriever import RetrievedChunk
 class EvaluationCase:
     question: str
     relevant_chunk_ids: tuple[str, ...]
+    category: str = "challenge"
+
+
+@dataclass(slots=True, frozen=True)
+class EvaluationFailure:
+    question: str
+    category: str
+    relevant_chunk_ids: tuple[str, ...]
+    returned_chunk_ids: tuple[str, ...]
+
+
+@dataclass(slots=True, frozen=True)
+class EvaluationMetrics:
+    category: str
+    case_count: int
+    recall_at_5: float
+    recall_at_10: float
+    mean_reciprocal_rank: float
+    ndcg_at_10: float
+    zero_result_rate: float
+    duplicate_source_rate: float
 
 
 @dataclass(slots=True, frozen=True)
@@ -26,6 +47,8 @@ class EvaluationReport:
     ndcg_at_10: float
     zero_result_rate: float
     duplicate_source_rate: float
+    category_reports: tuple[EvaluationMetrics, ...] = ()
+    failures: tuple[EvaluationFailure, ...] = ()
 
 
 class _Retriever(Protocol):
@@ -41,8 +64,47 @@ def evaluate_retrieval(
     if limit < 10:
         raise ValueError("limit must be at least 10 for the standard metrics")
 
-    if not cases:
-        return EvaluationReport(0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+    results = [(case, retriever.search(case.question, limit=limit)) for case in cases]
+    overall = _summarize("overall", results, limit=limit)
+    category_reports = tuple(
+        _summarize(
+            category,
+            [(case, hits) for case, hits in results if case.category == category],
+            limit=limit,
+        )
+        for category in sorted({case.category for case in cases})
+    )
+    failures = tuple(
+        EvaluationFailure(
+            question=case.question,
+            category=case.category,
+            relevant_chunk_ids=case.relevant_chunk_ids,
+            returned_chunk_ids=tuple(hit.external_id for hit in hits[:limit]),
+        )
+        for case, hits in results
+        if not any(hit.external_id in set(case.relevant_chunk_ids) for hit in hits[:10])
+    )
+    return EvaluationReport(
+        case_count=overall.case_count,
+        recall_at_5=overall.recall_at_5,
+        recall_at_10=overall.recall_at_10,
+        mean_reciprocal_rank=overall.mean_reciprocal_rank,
+        ndcg_at_10=overall.ndcg_at_10,
+        zero_result_rate=overall.zero_result_rate,
+        duplicate_source_rate=overall.duplicate_source_rate,
+        category_reports=category_reports,
+        failures=failures,
+    )
+
+
+def _summarize(
+    category: str,
+    results: Sequence[tuple[EvaluationCase, list[RetrievedChunk]]],
+    *,
+    limit: int,
+) -> EvaluationMetrics:
+    if not results:
+        return EvaluationMetrics(category, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     recall_at_5 = 0
     recall_at_10 = 0
@@ -50,37 +112,31 @@ def evaluate_retrieval(
     ndcg_scores: list[float] = []
     zero_results = 0
     duplicate_fractions: list[float] = []
-
-    for case in cases:
-        hits = retriever.search(case.question, limit=limit)
+    for case, hits in results:
         relevant_ids = set(case.relevant_chunk_ids)
         hit_ids = [hit.external_id for hit in hits]
-        if any(hit_id in relevant_ids for hit_id in hit_ids[:5]):
-            recall_at_5 += 1
-        if any(hit_id in relevant_ids for hit_id in hit_ids[:10]):
-            recall_at_10 += 1
-
+        recall_at_5 += int(any(hit_id in relevant_ids for hit_id in hit_ids[:5]))
+        recall_at_10 += int(any(hit_id in relevant_ids for hit_id in hit_ids[:10]))
         first_relevant_rank = next(
             (rank for rank, hit_id in enumerate(hit_ids, start=1) if hit_id in relevant_ids),
             None,
         )
         reciprocal_ranks.append(1.0 / first_relevant_rank if first_relevant_rank is not None else 0.0)
         ndcg_scores.append(_ndcg_at_10(hit_ids, relevant_ids))
-
         if not hits:
             zero_results += 1
             duplicate_fractions.append(0.0)
-        else:
-            seen_sources: set[str] = set()
-            duplicate_count = 0
-            for hit in hits[:limit]:
-                if hit.source_path in seen_sources:
-                    duplicate_count += 1
-                seen_sources.add(hit.source_path)
-            duplicate_fractions.append(duplicate_count / len(hits[:limit]))
+            continue
+        seen_sources: set[str] = set()
+        duplicate_count = 0
+        for hit in hits[:limit]:
+            duplicate_count += int(hit.source_path in seen_sources)
+            seen_sources.add(hit.source_path)
+        duplicate_fractions.append(duplicate_count / len(hits[:limit]))
 
-    case_count = len(cases)
-    return EvaluationReport(
+    case_count = len(results)
+    return EvaluationMetrics(
+        category=category,
         case_count=case_count,
         recall_at_5=recall_at_5 / case_count,
         recall_at_10=recall_at_10 / case_count,
@@ -116,13 +172,16 @@ def load_evaluation_cases(path: Path) -> list[EvaluationCase]:
             raise ValueError(f"evaluation case {index} must be an object")
         question = item.get("question")
         relevant_chunks = item.get("relevant_chunks")
+        category = item.get("category", "challenge")
         if not isinstance(question, str) or not question.strip():
             raise ValueError(f"evaluation case {index} question must be non-empty")
+        if not isinstance(category, str) or not category.strip():
+            raise ValueError(f"evaluation case {index} category must be non-empty")
         if (
             not isinstance(relevant_chunks, list)
             or not relevant_chunks
             or not all(isinstance(chunk_id, str) and chunk_id.strip() for chunk_id in relevant_chunks)
         ):
             raise ValueError(f"evaluation case {index} relevant_chunks must be non-empty strings")
-        cases.append(EvaluationCase(question.strip(), tuple(relevant_chunks)))
+        cases.append(EvaluationCase(question.strip(), tuple(relevant_chunks), category.strip()))
     return cases

@@ -75,6 +75,14 @@ def test_search_rejects_non_positive_limit(limit: int) -> None:
         DocumentationRetriever("index/manifest.json", client=FakeClient()).search("install", limit=limit)
 
 
+def test_search_normalizes_natural_language_punctuation() -> None:
+    client = FakeClient()
+
+    DocumentationRetriever("index/manifest.json", client=client).search("domain ownership: how is it handled?")
+
+    assert client.query == "domain ownership how is it handled"
+
+
 def test_search_rejects_missing_required_stored_field() -> None:
     client = FakeClient()
     client_hit = FakeHit()
