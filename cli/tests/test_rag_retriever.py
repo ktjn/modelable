@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
+from modelable.rag import retriever as retriever_module
 from modelable.rag.index import build_documentation_index
 from modelable.rag.model import DocumentationChunk
-from modelable.rag import retriever as retriever_module
 from modelable.rag.retriever import DocumentationRetriever, RetrievedChunk
 
 
@@ -103,7 +103,10 @@ def test_retriever_passes_injected_embedder_and_provider_to_searchable(monkeypat
             captured.update(kwargs)
 
     monkeypatch.setattr(retriever_module, "SearchClient", CapturingClient)
-    embedder = lambda text: [1.0, 0.0]
+
+    def embedder(text: str) -> list[float]:
+        return [1.0, 0.0]
+
     provider = {"type": "custom", "model": "test"}
 
     DocumentationRetriever("index/manifest.json", embed_query=embedder, embedding_provider=provider)

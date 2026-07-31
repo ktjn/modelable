@@ -277,7 +277,7 @@ git commit -m "docs: explain embedding-aware documentation queries"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-07-31-rag-vector-hybrid.md` (checklist only)
 
-- [ ] **Step 1: Run the four required Modelable gates from `cli/`**
+- [x] **Step 1: Run the four required Modelable gates from `cli/`**
 
 ```bash
 uv run ruff format .
@@ -286,18 +286,18 @@ uv run python ../.github/scripts/check_mypy_baseline.py --baseline mypy-baseline
 uv run pytest --tb=short
 ```
 
-- [ ] **Step 2: Build strict documentation**
+- [x] **Step 2: Build strict documentation**
 
 ```bash
 uvx --from mkdocs==1.6.1 --with mkdocs-material==9.7.6 mkdocs build --strict
 ```
 
-- [ ] **Step 3: Run doc/spec review**
+- [x] **Step 3: Run doc/spec review**
 
 Validate the numbered spec heading, cross-references, explicit no-ADR rationale,
 and consistency between the spec, plan, CLI reference, and implementation.
 
-- [ ] **Step 4: Run a real Searchable v1.0.5 smoke**
+- [x] **Step 4: Run a real Searchable v1.0.5 smoke**
 
 Build a vector-enabled fixture with a deterministic two-dimensional embedder,
 construct `DocumentationRetriever` with the same provider descriptor, and
@@ -305,7 +305,7 @@ assert lexical, vector, and hybrid searches return complete `RetrievedChunk`
 objects with stable external IDs. Run this only after the dependency lock has
 resolved the published packages.
 
-- [ ] **Step 5: Update the plan checklist and commit the final verification**
+- [x] **Step 5: Update the plan checklist and commit the final verification**
 
 ```bash
 git add docs/superpowers/plans/2026-07-31-rag-vector-hybrid.md

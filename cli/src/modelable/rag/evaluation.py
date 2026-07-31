@@ -106,10 +106,7 @@ def evaluate_retrieval_modes(
     limit: int = 10,
 ) -> dict[str, EvaluationReport]:
     """Evaluate identical cases independently for each requested retrieval mode."""
-    return {
-        mode: evaluate_retrieval(retriever, cases, limit=limit, mode=mode)
-        for mode in modes
-    }
+    return {mode: evaluate_retrieval(retriever, cases, limit=limit, mode=mode) for mode in modes}
 
 
 def _summarize(
