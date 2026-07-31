@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from modelable.llm.provider_types import LLMProvider, LLMRequest
+from modelable.rag.context import select_context
 from modelable.rag.retriever import RetrievedChunk
 
 RAG_SYSTEM_PROMPT = """You answer questions only from the supplied documentation evidence.
@@ -44,6 +45,7 @@ def build_evidence_prompt(
     chunks: Sequence[RetrievedChunk],
     *,
     max_context_words: int = 3000,
+    max_chunks_per_source: int | None = None,
 ) -> tuple[str, tuple[RetrievedChunk, ...]]:
     """Build an evidence prompt while admitting only complete chunks."""
     if not question.strip():
@@ -51,14 +53,11 @@ def build_evidence_prompt(
     if max_context_words <= 0:
         raise ValueError("max_context_words must be positive")
 
-    selected: list[RetrievedChunk] = []
-    used_words = 0
-    for candidate in chunks:
-        word_count = len(candidate.content.split())
-        if used_words + word_count > max_context_words:
-            continue
-        selected.append(candidate)
-        used_words += word_count
+    selected = select_context(
+        chunks,
+        max_context_words=max_context_words,
+        max_chunks_per_source=max_chunks_per_source,
+    )
 
     evidence_sections: list[str] = []
     for index, candidate in enumerate(selected, start=1):
@@ -83,6 +82,7 @@ def answer_with_retrieval(
     *,
     limit: int = 8,
     max_context_words: int = 3000,
+    max_chunks_per_source: int | None = 2,
 ) -> RagAnswer:
     """Retrieve evidence and generate an answer constrained to that evidence."""
     if not question.strip():
@@ -97,6 +97,7 @@ def answer_with_retrieval(
         question,
         chunks,
         max_context_words=max_context_words,
+        max_chunks_per_source=max_chunks_per_source,
     )
     if not selected:
         return RagAnswer(INSUFFICIENT_EVIDENCE, (), True)
