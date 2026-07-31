@@ -403,7 +403,7 @@ requires-dist = [
     { name = "referencing", specifier = ">=0.35" },
     { name = "rich", specifier = ">=13.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.18" },
-    { name = "searchable-indexer", git = "https://github.com/ktjn/searchable.git?subdirectory=python%2Fsearchable-indexer" },
+    { name = "searchable-indexer", specifier = ">=0.1.0" },
     { name = "testcontainers", marker = "extra == 'dev'", specifier = "==4.15.0" },
 ]
 provides-extras = ["dev"]
@@ -860,15 +860,23 @@ wheels = [
 [[package]]
 name = "searchable-analysis"
 version = "0.1.0"
-source = { git = "https://github.com/ktjn/searchable.git?subdirectory=python%2Fsearchable-analysis#0220d7a5d0f7a179e89a09b69e95a6f6b42cd7fc" }
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8b/ca/4a1050d905dc3ac32d5d78a0be422295812fa99647a0043531c475c22765/searchable_analysis-0.1.0.tar.gz", hash = "sha256:40b8b0e380fe41b4c2a421beec580d8d173d1d5abdac492244a32d60d951a6a3", size = 315791, upload-time = "2026-07-31T10:49:57.017Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/02/f7/dc350fa9c34a5bf5313decfb05411ad3b86a60d8f3a6a4f206da901b6d09/searchable_analysis-0.1.0-py3-none-any.whl", hash = "sha256:a13ff3e6fdcda55e830c1ca831a4e350737905fbb44719740e9df048ea29d009", size = 16384, upload-time = "2026-07-31T10:49:53.66Z" },
+]
 
 [[package]]
 name = "searchable-indexer"
 version = "0.1.0"
-source = { git = "https://github.com/ktjn/searchable.git?subdirectory=python%2Fsearchable-indexer#0220d7a5d0f7a179e89a09b69e95a6f6b42cd7fc" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "searchable-analysis" },
     { name = "selectolax" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f5/44/654b0388863c6acc5a3614d63e0df741a9c6e0b5f02015839c5e463ea827/searchable_indexer-0.1.0.tar.gz", hash = "sha256:47b22f2b279eea7179914169f80db95ee606cfa1e4a73e45cddd6ff4cd7f591a", size = 34772, upload-time = "2026-07-31T10:49:58.689Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/83/f1/772b20bad9245f4da4227e984ddbded82170b28d57938b489f3f9ee858a1/searchable_indexer-0.1.0-py3-none-any.whl", hash = "sha256:c969c0c8c97e02b86e48a4c6cc6a0c54caf3a2d0be008ace4e1ab4561834349d", size = 23333, upload-time = "2026-07-31T10:49:55.827Z" },
 ]
 
 [[package]]
