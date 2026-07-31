@@ -27,6 +27,16 @@ modelable compile ./models --target json-schema --out ./dist/jsonschema
 modelable docs ./models --out ./dist/docs
 ```
 
+To build the optional lexical index used by future documentation retrieval,
+run:
+
+```bash
+modelable docs-index ./docs --out ./dist/search-index --base-url https://ktjn.github.io/modelable/
+```
+
+This creates deterministic, heading-aware Searchable chunks. It does not call
+an LLM; retrieval and answer generation are separate features.
+
 The VS Code extension starts `modelable lsp`. Ensure the command is available
 on `PATH`, or configure the extension's Python path or server command.
 
