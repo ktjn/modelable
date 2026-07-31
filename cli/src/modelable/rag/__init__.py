@@ -1,5 +1,6 @@
 """Documentation retrieval foundation."""
 
+from modelable.rag.context import select_context
 from modelable.rag.evaluation import (
     EvaluationCase,
     EvaluationFailure,
@@ -27,4 +28,5 @@ __all__ = [
     "build_evidence_prompt",
     "evaluate_retrieval",
     "evaluate_retrieval_modes",
+    "select_context",
 ]

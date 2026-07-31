@@ -100,6 +100,21 @@ def test_answer_calls_provider_and_appends_structured_citations() -> None:
     assert "https://example.test/guide/#section-1" in result.answer
 
 
+def test_answer_applies_source_diversity_cap_before_prompt_and_citations() -> None:
+    retriever = FakeRetriever([chunk(1, "first"), chunk(2, "second"), chunk(3, "third")])
+    provider = FakeProvider()
+
+    result = answer_with_retrieval(retriever, provider, "question", max_chunks_per_source=2)
+
+    assert [citation.external_id for citation in result.citations] == [
+        "guide.md#section-1",
+        "guide.md#section-2",
+    ]
+    assert "guide.md#section-3" not in result.answer
+    assert provider.request is not None
+    assert "guide.md#section-3" not in provider.request.user
+
+
 def test_answer_requires_provider_when_evidence_is_available() -> None:
     with pytest.raises(ValueError, match="LLM provider is required"):
         answer_with_retrieval(FakeRetriever([chunk(1, "evidence")]), None, "question")
