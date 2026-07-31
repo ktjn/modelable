@@ -212,8 +212,10 @@ def _parse_sections(content: str) -> tuple[list[_Section], str | None]:
             flush_buffer()
             block_lines = [line]
             index += 1
-            while index < len(lines) and lines[index].strip() and (
-                _BLOCKQUOTE_RE.match(lines[index]) or lines[index].startswith((" ", "\t"))
+            while (
+                index < len(lines)
+                and lines[index].strip()
+                and (_BLOCKQUOTE_RE.match(lines[index]) or lines[index].startswith((" ", "\t")))
             ):
                 block_lines.append(lines[index])
                 index += 1

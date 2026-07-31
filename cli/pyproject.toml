@@ -126,6 +126,7 @@ module = [
     "lsprotocol.*",
     "psycopg.*",
     "yaml.*",
+    "searchable_indexer.*",
 ]
 ignore_missing_imports = true
 
