@@ -156,7 +156,7 @@ git commit -m "feat: add vector and hybrid documentation retrieval"
 - Consumes: `DocumentationRetriever.search(..., mode=...)` and the existing evaluation cases.
 - Produces:
   - `evaluate_retrieval_modes(retriever, cases, modes=("lexical", "vector", "hybrid"), limit=10) -> dict[str, EvaluationReport]`
-  - CLI `docs-eval --mode MODE` repeatable option, defaulting to lexical for compatibility, plus `--compare-modes` for all three modes.
+  - a library-only comparison API; the CLI remains lexical-only because Click cannot serialize an injected Python `embed_query` callable.
 
 - [ ] **Step 1: Write failing pure-evaluation tests**
 
@@ -178,24 +178,17 @@ Add a mode parameter to the private evaluation protocol and thread it through
 `evaluate_retrieval_modes` as a thin deterministic loop that calls the existing
 single-mode evaluator and returns a normal insertion-ordered dictionary.
 
-- [ ] **Step 4: Add CLI tests for single-mode and comparison JSON**
+- [ ] **Step 4: Keep the existing CLI lexical-only contract**
 
-Assert that `--mode vector` emits one report and that `--compare-modes --json`
-emits top-level `lexical`, `vector`, and `hybrid` keys without collapsing their
-metrics into one score.
+Add a regression assertion that `docs-eval` continues to use lexical retrieval
+and document that vector/hybrid comparison is available through the Python API
+where callers can inject `embed_query`.
 
-- [ ] **Step 5: Implement CLI rendering and documentation**
-
-Keep the existing default output unchanged for lexical mode. For comparison
-output, print a compact section per mode and serialize the mapping directly in
-JSON. Convert provider/configuration errors into Click exceptions with the
-original actionable message.
-
-- [ ] **Step 6: Run focused tests and commit**
+- [ ] **Step 5: Run focused tests and commit**
 
 ```bash
 uv run pytest tests/test_rag_evaluation.py tests/test_cli_docs_eval.py -q
-git add cli/src/modelable/rag/evaluation.py cli/src/modelable/commands/docs_eval.py cli/src/modelable/rag/__init__.py cli/tests/test_rag_evaluation.py cli/tests/test_cli_docs_eval.py docs/cli-reference.md
+git add cli/src/modelable/rag/evaluation.py cli/src/modelable/rag/__init__.py cli/tests/test_rag_evaluation.py cli/tests/test_cli_docs_eval.py docs/cli-reference.md
 git commit -m "feat: compare documentation retrieval modes"
 ```
 
