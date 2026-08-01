@@ -99,6 +99,11 @@ class FakeDocsProvider:
         )
 
 
+class FailingDocsProvider:
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        raise RuntimeError("documentation provider unavailable")
+
+
 def _create_model_plan(name: str) -> ChangeSetPlan:
     return ChangeSetPlan(
         summary=f"Create customer.{name}@1",
@@ -1131,6 +1136,36 @@ def test_docs_chat_reply_reports_missing_docs_index_configuration() -> None:
 
     assert reply is not None
     assert "--docs-index" in reply
+
+
+def test_docs_chat_reply_reports_missing_provider_when_evidence_is_available() -> None:
+    from modelable.llm.chat import documentation_chat_reply
+
+    reply = documentation_chat_reply(
+        "/docs How do I install it?",
+        retriever=FakeDocumentationRetriever(_docs_chunk()),
+        provider=None,
+    )
+
+    assert reply is not None
+    assert "Documentation answers with evidence require an LLM provider" in reply
+    assert "--provider/--model" in reply
+    assert "workspace/environment configuration" in reply
+
+
+def test_docs_chat_reply_renders_provider_failure() -> None:
+    from modelable.llm.chat import documentation_chat_reply
+
+    reply = documentation_chat_reply(
+        "/docs How do I install it?",
+        retriever=FakeDocumentationRetriever(_docs_chunk()),
+        provider=FailingDocsProvider(),
+    )
+
+    assert reply is not None
+    assert reply == (
+        "The configured provider failed during the documentation answer request: documentation provider unavailable"
+    )
 
 
 def test_normal_chat_turn_still_uses_conversation_session_with_docs_retriever_configured(

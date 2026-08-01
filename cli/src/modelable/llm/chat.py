@@ -18,7 +18,7 @@ from modelable.llm.context import (
 from modelable.llm.conversation import ConversationSession
 from modelable.llm.conversation_plan import strip_thinking
 from modelable.llm.engine import AttachResult, UpdateResult, recommend_cli, update_definition
-from modelable.llm.provider_types import LLMProvider, LLMRequest
+from modelable.llm.provider_types import LLMProvider, LLMRequest, LLMResponse
 from modelable.llm.qa import answer_question
 from modelable.rag.generation import answer_with_retrieval
 from modelable.rag.retriever import DocumentationRetriever
@@ -42,6 +42,23 @@ If the user asks for a model edit, explain that edit requests are previewed thro
 If the user asks for a summary, be concise and factual.
 If the user asks a question you cannot answer from the context, say what is missing.
 """
+
+_MISSING_DOCUMENTATION_PROVIDER = "LLM provider is required when evidence is available"
+
+
+class _DocumentationProviderError(Exception):
+    pass
+
+
+class _DocumentationChatProvider:
+    def __init__(self, provider: LLMProvider) -> None:
+        self._provider = provider
+
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        try:
+            return self._provider.complete(request)
+        except Exception as error:
+            raise _DocumentationProviderError(str(error)) from error
 
 
 def chat_reply(
@@ -299,7 +316,18 @@ def documentation_chat_reply(
     if retriever is None:
         return "The /docs command requires --docs-index to be configured."
 
-    result = answer_with_retrieval(retriever, provider, question)
+    generation_provider: LLMProvider | None = _DocumentationChatProvider(provider) if provider is not None else None
+    try:
+        result = answer_with_retrieval(retriever, generation_provider, question)
+    except _DocumentationProviderError as error:
+        return f"The configured provider failed during the documentation answer request: {error}"
+    except ValueError as error:
+        if provider is None and str(error) == _MISSING_DOCUMENTATION_PROVIDER:
+            return (
+                "Documentation answers with evidence require an LLM provider. "
+                "Configure a provider (--provider/--model, or workspace/environment configuration)."
+            )
+        raise
     return result.answer
 
 

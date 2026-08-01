@@ -2,7 +2,7 @@
 
 ## Goal
 
-Make documentation RAG available from the existing `modelable llm chat` CLI while preserving the current conversational commands and the shared RAG retrieval/generation core.
+Make documentation RAG available from the existing `modelable chat` CLI while preserving the current conversational commands and the shared RAG retrieval/generation core.
 
 ## Scope
 
@@ -12,7 +12,7 @@ The LSP and web playground are deliberately out of scope for this slice. They wi
 
 ## User interface
 
-`modelable llm chat` gains:
+`modelable chat` gains:
 
 ```text
 --docs-index PATH

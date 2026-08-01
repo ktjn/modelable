@@ -15,6 +15,11 @@ class FakeProvider:
         return LLMResponse(content="Use [S1] to install it.", provider="fake", model="test")
 
 
+class FailingProvider:
+    def complete(self, request: object) -> LLMResponse:
+        raise RuntimeError("documentation provider unavailable")
+
+
 def make_index(tmp_path: Path, *, content: str) -> Path:
     index = tmp_path / "index"
     build_documentation_index(
@@ -125,6 +130,88 @@ def test_llm_chat_docs_requires_docs_index_for_one_shot_docs_question(tmp_path: 
 
     assert result.exit_code == 0, result.output
     assert "--docs-index" in result.output
+
+
+def test_llm_chat_docs_missing_provider_with_evidence_returns_configuration_guidance(
+    tmp_path: Path, monkeypatch
+) -> None:
+    index = make_index(tmp_path, content="Install with uv.")
+    workspace = tmp_path / "workspace.mdl"
+    workspace.write_text('domain customer {\n  owner: "docs-team"\n}\n', encoding="utf-8")
+    monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: None)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--docs-index",
+            str(index),
+            "--message",
+            "/docs install",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Documentation answers with evidence require an LLM provider" in result.output
+    assert "--provider/--model" in result.output
+    assert "workspace/environment configuration" in result.output
+
+
+def test_llm_chat_docs_one_shot_renders_provider_failure(tmp_path: Path, monkeypatch) -> None:
+    index = make_index(tmp_path, content="Install with uv.")
+    workspace = tmp_path / "workspace.mdl"
+    workspace.write_text('domain customer {\n  owner: "docs-team"\n}\n', encoding="utf-8")
+    monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: FailingProvider())
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--docs-index",
+            str(index),
+            "--message",
+            "/docs install",
+            "--provider",
+            "fake",
+            "--model",
+            "test",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "The configured provider failed during the documentation answer request:" in result.output
+    assert "documentation provider unavailable" in result.output
+
+
+def test_llm_chat_docs_interactive_session_continues_after_provider_failure(tmp_path: Path, monkeypatch) -> None:
+    index = make_index(tmp_path, content="Install with uv.")
+    workspace = tmp_path / "workspace.mdl"
+    workspace.write_text('domain customer {\n  owner: "docs-team"\n}\n', encoding="utf-8")
+    monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: FailingProvider())
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--docs-index",
+            str(index),
+            "--provider",
+            "fake",
+            "--model",
+            "test",
+        ],
+        input="/docs install\n/help\n/exit\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "documentation provider unavailable" in result.output
+    assert "assistant> Commands:" in result.output
 
 
 def test_llm_chat_docs_keeps_ordinary_one_shot_messages_on_conversation_session(tmp_path: Path, monkeypatch) -> None:

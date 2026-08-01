@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add opt-in `/docs <question>` support to `modelable llm chat` using the existing binary Searchable index and shared RAG answer pipeline.
+**Goal:** Add opt-in `/docs <question>` support to `modelable chat` using the existing binary Searchable index and shared RAG answer pipeline.
 
 **Architecture:** Add one command adapter in `modelable.llm.chat` that recognizes `/docs` messages and delegates to `answer_with_retrieval`. The CLI command constructs one `DocumentationRetriever` from a new `--docs-index` option and uses the adapter for both single-message and interactive paths; ordinary messages remain on `ConversationSession`.
 
@@ -119,7 +119,7 @@ git commit -m "feat: add documentation RAG chat command"
 
 **Interfaces:**
 - Consumes: `--docs-index PATH`, `DocumentationRetriever`, and `documentation_chat_reply`.
-- Produces: `modelable llm chat --docs-index PATH` support for both `--message "/docs ..."` and interactive input.
+- Produces: `modelable chat --docs-index PATH` support for both `--message "/docs ..."` and interactive input.
 
 - [ ] **Step 1: Write the failing CLI tests**
 
@@ -130,7 +130,7 @@ def test_llm_chat_docs_message_uses_index(tmp_path: Path, monkeypatch) -> None:
     index = make_index(tmp_path, content="Install with uv.")
     monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: FakeProvider())
 
-    result = runner.invoke(cli, ["llm", "chat", "--path", str(tmp_path), "--docs-index", str(index), "--message", "/docs install"])
+    result = runner.invoke(cli, ["chat", "--path", str(tmp_path), "--docs-index", str(index), "--message", "/docs install"])
 
     assert result.exit_code == 0, result.output
     assert "guide.md#install" in result.output
@@ -138,7 +138,7 @@ def test_llm_chat_docs_message_uses_index(tmp_path: Path, monkeypatch) -> None:
 
 def test_llm_chat_docs_without_index_explains_configuration(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: FakeProvider())
-    result = runner.invoke(cli, ["llm", "chat", "--path", str(tmp_path), "--message", "/docs install"])
+    result = runner.invoke(cli, ["chat", "--path", str(tmp_path), "--message", "/docs install"])
     assert result.exit_code == 0, result.output
     assert "--docs-index" in result.output
 ```
@@ -203,7 +203,7 @@ git commit -m "feat: expose documentation RAG in llm chat"
 Document:
 
 ```text
-modelable llm chat --path ./workspace --docs-index ./docs-index/manifest.json
+modelable chat --path ./workspace --docs-index ./docs-index/manifest.json
 you> /docs How do I configure the registry?
 ```
 
