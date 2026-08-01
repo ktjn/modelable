@@ -5,6 +5,7 @@ import type {
   BrowserConversationPreviewFile,
   BrowserDiagnostic,
 } from '../protocol';
+import type { ConversationCitation } from '../client';
 
 export interface ChatProviderInfo {
   provider: string;
@@ -50,7 +51,8 @@ export interface AssistantDocsChatMessage {
   role: 'assistant';
   kind: 'docs';
   answer?: string;
-  citations: Array<{ label: string; url: string }>;
+  citations: ConversationCitation[];
+  routeReason?: string;
   diagnostics: BrowserDiagnostic[];
   providerInfo: ChatProviderInfo;
   pending: boolean;

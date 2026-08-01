@@ -8,6 +8,7 @@ import pytest
 from modelable.browser.api import BrowserCompiler
 from modelable.browser.conversation import BrowserConversationBackend, BrowserConversationService, _logical_path
 from modelable.browser.dto import BrowserSource
+from modelable.browser.rag import BrowserRetrievalError
 from modelable.llm.conversation_plan import AddField, ChangeSetPlan, FieldSpec
 from modelable.llm.conversation_planner import PendingPlanRequest
 from modelable.parser.ir import PrimitiveType
@@ -196,6 +197,238 @@ def test_browser_docs_turn_retrieves_and_resumes_with_sources(monkeypatch: pytes
     )
     assert answer.reply.kind == "answer"
     assert "guide.md#install" in answer.reply.text
+
+
+def test_browser_automatic_documentation_retrieval_is_lazy_and_returns_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compiler = BrowserCompiler()
+    compiler.open_workspace(1, (BrowserSource(uri=CUSTOMER_URI, text=CUSTOMER_SOURCE, version=1),))
+    constructed: list[tuple[str, str]] = []
+
+    class FakeRetriever:
+        def __init__(self, index_url: str, asset_root: str) -> None:
+            constructed.append((index_url, asset_root))
+
+        def search(self, query: str, *, limit: int = 8) -> list[RetrievedChunk]:
+            assert query == "How do I configure the compiler?"
+            assert limit == 8
+            return [
+                RetrievedChunk(
+                    id=1,
+                    external_id="guide.md#configuration",
+                    url="https://example.test/guide/#configuration",
+                    score=0.9,
+                    title="Guide",
+                    heading="Configuration",
+                    content="Set compiler options in modelable.toml.",
+                    source_path="guide.md",
+                    heading_path=["Guide", "Configuration"],
+                    content_hash="hash",
+                )
+            ]
+
+    monkeypatch.setattr("modelable.browser.conversation.BrowserDocumentationRetriever", FakeRetriever)
+    service = BrowserConversationService(compiler, id_factory=lambda: "docs-request")
+
+    pending = service.turn(
+        session_id="session-1",
+        workspace_revision=1,
+        message="How do I configure the compiler?",
+        documentation_index_url="https://example.test/playground/docs-index/manifest.json",
+        documentation_asset_root="https://example.test/playground/",
+    )
+
+    assert isinstance(pending, PendingPlanRequest)
+    assert pending.request.response_format == "text"
+    assert constructed == [
+        (
+            "https://example.test/playground/docs-index/manifest.json",
+            "https://example.test/playground/",
+        )
+    ]
+
+    answer = service.resume(
+        session_id="session-1",
+        request_id=pending.request_id,
+        workspace_revision=1,
+        content="Use `modelable.toml` [S1].",
+    )
+
+    assert answer.reply.retrieval_used is True
+    assert answer.reply.route_reason == "automatic_documentation_signal"
+    assert answer.reply.citations[0].external_id == "guide.md#configuration"
+
+
+def test_browser_mutation_intent_does_not_load_documentation_retriever(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compiler = BrowserCompiler()
+    compiler.open_workspace(1, (BrowserSource(uri=CUSTOMER_URI, text=CUSTOMER_SOURCE, version=1),))
+
+    class UnexpectedRetriever:
+        def __init__(self, _index_url: str, _asset_root: str) -> None:
+            raise AssertionError("mutation intent must not load the documentation index")
+
+    monkeypatch.setattr("modelable.browser.conversation.BrowserDocumentationRetriever", UnexpectedRetriever)
+    service = BrowserConversationService(compiler, id_factory=lambda: "planner-request")
+
+    pending = service.turn(
+        session_id="session-1",
+        workspace_revision=1,
+        message="Compile the workspace using the documented JSON Schema option",
+        documentation_index_url="https://example.test/playground/docs-index/manifest.json",
+        documentation_asset_root="https://example.test/playground/",
+    )
+
+    assert isinstance(pending, PendingPlanRequest)
+    assert pending.request.response_format == "json"
+
+
+def test_browser_automatic_documentation_opt_out_uses_planner_but_explicit_docs_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compiler = BrowserCompiler()
+    compiler.open_workspace(1, (BrowserSource(uri=CUSTOMER_URI, text=CUSTOMER_SOURCE, version=1),))
+    searches: list[str] = []
+
+    class FakeRetriever:
+        def __init__(self, _index_url: str, _asset_root: str) -> None:
+            pass
+
+        def search(self, query: str, *, limit: int = 8) -> list[RetrievedChunk]:
+            del limit
+            searches.append(query)
+            return [
+                RetrievedChunk(
+                    id=1,
+                    external_id="guide.md#configuration",
+                    url="https://example.test/guide/#configuration",
+                    score=0.9,
+                    title="Guide",
+                    heading="Configuration",
+                    content="Configure the compiler.",
+                    source_path="guide.md",
+                    heading_path=["Guide", "Configuration"],
+                    content_hash="hash",
+                )
+            ]
+
+    monkeypatch.setattr("modelable.browser.conversation.BrowserDocumentationRetriever", FakeRetriever)
+    service = BrowserConversationService(compiler, id_factory=lambda: "request")
+    documentation = {
+        "documentation_index_url": "https://example.test/playground/docs-index/manifest.json",
+        "documentation_asset_root": "https://example.test/playground/",
+        "automatic_documentation": False,
+    }
+
+    automatic = service.turn(
+        session_id="automatic-disabled",
+        workspace_revision=1,
+        message="How do I configure the compiler?",
+        **documentation,
+    )
+    explicit = service.turn(
+        session_id="explicit-override",
+        workspace_revision=1,
+        message="/docs How do I configure the compiler?",
+        **documentation,
+    )
+
+    assert isinstance(automatic, PendingPlanRequest)
+    assert automatic.request.response_format == "json"
+    assert isinstance(explicit, PendingPlanRequest)
+    assert explicit.request.response_format == "text"
+    assert searches == ["How do I configure the compiler?"]
+
+
+@pytest.mark.parametrize("configure_index", [False, True])
+def test_browser_automatic_documentation_missing_index_or_retrieval_failure_falls_back_to_planner(
+    monkeypatch: pytest.MonkeyPatch,
+    configure_index: bool,
+) -> None:
+    compiler = BrowserCompiler()
+    compiler.open_workspace(1, (BrowserSource(uri=CUSTOMER_URI, text=CUSTOMER_SOURCE, version=1),))
+
+    class FailingRetriever:
+        def __init__(self, _index_url: str, _asset_root: str) -> None:
+            pass
+
+        def search(self, _query: str, *, limit: int = 8) -> list[RetrievedChunk]:
+            del limit
+            raise BrowserRetrievalError("index unavailable")
+
+    monkeypatch.setattr("modelable.browser.conversation.BrowserDocumentationRetriever", FailingRetriever)
+    service = BrowserConversationService(compiler, id_factory=lambda: "planner-request")
+    documentation = (
+        {
+            "documentation_index_url": "https://example.test/playground/docs-index/manifest.json",
+            "documentation_asset_root": "https://example.test/playground/",
+        }
+        if configure_index
+        else {}
+    )
+
+    pending = service.turn(
+        session_id="session-1",
+        workspace_revision=1,
+        message="How do I configure the compiler?",
+        **documentation,
+    )
+
+    assert isinstance(pending, PendingPlanRequest)
+    assert pending.request.response_format == "json"
+
+
+def test_browser_automatic_documentation_provider_failure_falls_back_to_planner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    compiler = BrowserCompiler()
+    compiler.open_workspace(1, (BrowserSource(uri=CUSTOMER_URI, text=CUSTOMER_SOURCE, version=1),))
+
+    class FakeRetriever:
+        def __init__(self, _index_url: str, _asset_root: str) -> None:
+            pass
+
+        def search(self, _query: str, *, limit: int = 8) -> list[RetrievedChunk]:
+            del limit
+            return [
+                RetrievedChunk(
+                    id=1,
+                    external_id="guide.md#configuration",
+                    url="https://example.test/guide/#configuration",
+                    score=0.9,
+                    title="Guide",
+                    heading="Configuration",
+                    content="Configure the compiler.",
+                    source_path="guide.md",
+                    heading_path=["Guide", "Configuration"],
+                    content_hash="hash",
+                )
+            ]
+
+    request_ids = iter(("docs-request", "planner-request"))
+    monkeypatch.setattr("modelable.browser.conversation.BrowserDocumentationRetriever", FakeRetriever)
+    service = BrowserConversationService(compiler, id_factory=lambda: next(request_ids))
+    documentation = service.turn(
+        session_id="session-1",
+        workspace_revision=1,
+        message="How do I configure the compiler?",
+        documentation_index_url="https://example.test/playground/docs-index/manifest.json",
+        documentation_asset_root="https://example.test/playground/",
+    )
+    assert isinstance(documentation, PendingPlanRequest)
+
+    fallback = service.fail(
+        session_id="session-1",
+        request_id=documentation.request_id,
+        workspace_revision=1,
+        error="provider unavailable",
+    )
+
+    assert isinstance(fallback, PendingPlanRequest)
+    assert fallback.request_id == "planner-request"
+    assert fallback.request.response_format == "json"
 
 
 def test_browser_conversation_invalidates_preview_after_external_workspace_change() -> None:

@@ -13,6 +13,7 @@ from modelable.llm.context import (
     build_projection_summary,
     build_workspace_summary,
 )
+from modelable.llm.conversation_backend import ConversationReply
 from modelable.llm.importers import import_from_text
 from modelable.llm.redaction import redact_sensitive_values
 from modelable.parser.ir import AiConfig
@@ -24,6 +25,15 @@ def _read_provenance(path: Path) -> dict[str, object]:
 
 def _provenance_path(path: Path) -> Path:
     return path.with_name(f"{path.name}.provenance.json")
+
+
+def test_conversation_reply_defaults_keep_minimal_answer_construction_valid() -> None:
+    reply = ConversationReply(kind="answer", text="hello")
+
+    assert reply.retrieval is None
+    assert reply.citations == ()
+    assert reply.retrieval_used is False
+    assert reply.route_reason == ""
 
 
 def test_redaction_masks_secrets():
@@ -1645,6 +1655,166 @@ domain customer {
     state = ChatState()
     response = chat_turn(workspace, "/ask Who owns customer.Customer@1?", path=tmp_path, state=state, provider=None)
     assert "data-team" in response
+
+
+def test_chat_turn_routes_automatic_documentation_with_retrieval(tmp_path):
+    from modelable.llm.chat import ChatState, chat_turn
+    from modelable.llm.providers import LLMRequest, LLMResponse
+    from modelable.rag.retriever import RetrievedChunk
+
+    (tmp_path / "workspace.mdl").write_text('workspace default { name: "example" }\n', encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+
+    class FakeRetriever:
+        def search(self, query: str, *, limit: int = 8) -> list[RetrievedChunk]:
+            assert query == "How do I configure the command?"
+            assert limit == 8
+            return [
+                RetrievedChunk(
+                    id=1,
+                    external_id="guide.md#configure",
+                    url="https://example.test/guide/#configure",
+                    score=9.0,
+                    title="Guide",
+                    heading="Configure",
+                    content="Configure the command with workspace settings.",
+                    source_path="guide.md",
+                    heading_path=["Guide", "Configure"],
+                    content_hash="hash-1",
+                )
+            ]
+
+    class FakeProvider:
+        def complete(self, request: LLMRequest) -> LLMResponse:
+            assert "[S1]" in request.user
+            return LLMResponse(content="Use workspace settings. [S1]", provider="fake", model="test")
+
+    state = ChatState(documentation_retriever=FakeRetriever())
+
+    response = chat_turn(
+        workspace,
+        "How do I configure the command?",
+        path=tmp_path,
+        state=state,
+        provider=FakeProvider(),
+    )
+
+    assert "Use workspace settings. [S1]" in response
+    assert "guide.md#configure" in response
+    assert state.session is None
+
+
+def test_chat_turn_automatic_documentation_without_index_falls_back_to_planner(tmp_path):
+    from modelable.llm.chat import ChatState, chat_turn
+
+    (tmp_path / "workspace.mdl").write_text('workspace default { name: "example" }\n', encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+
+    class RecordingSession:
+        focused_ref = None
+
+        def __init__(self) -> None:
+            self.workspace = workspace
+            self.messages: list[str] = []
+
+        def turn(self, message: str) -> ConversationReply:
+            self.messages.append(message)
+            return ConversationReply(kind="answer", text="planner answer")
+
+        def close(self) -> None:
+            return None
+
+    session = RecordingSession()
+    state = ChatState(session=session)
+
+    response = chat_turn(
+        workspace,
+        "How do I configure the command?",
+        path=tmp_path,
+        state=state,
+        provider=object(),
+    )
+
+    assert response == "planner answer"
+    assert session.messages == ["How do I configure the command?"]
+
+
+def test_chat_turn_automatic_retrieval_failure_falls_back_to_planner(tmp_path):
+    from modelable.llm.chat import ChatState, chat_turn
+
+    (tmp_path / "workspace.mdl").write_text('workspace default { name: "example" }\n', encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+
+    class FailingRetriever:
+        def search(self, query: str, *, limit: int = 8) -> list[object]:
+            raise RuntimeError("retrieval unavailable")
+
+    class RecordingSession:
+        focused_ref = None
+
+        def __init__(self) -> None:
+            self.workspace = workspace
+            self.messages: list[str] = []
+
+        def turn(self, message: str) -> ConversationReply:
+            self.messages.append(message)
+            return ConversationReply(kind="answer", text="planner fallback")
+
+        def close(self) -> None:
+            return None
+
+    session = RecordingSession()
+    state = ChatState(session=session, documentation_retriever=FailingRetriever())
+
+    response = chat_turn(
+        workspace,
+        "How do I configure the command?",
+        path=tmp_path,
+        state=state,
+        provider=object(),
+    )
+
+    assert response == "planner fallback"
+    assert session.messages == ["How do I configure the command?"]
+
+
+def test_chat_turn_mutation_documentation_text_never_calls_retriever(tmp_path):
+    from modelable.llm.chat import ChatState, chat_turn
+
+    (tmp_path / "workspace.mdl").write_text('workspace default { name: "example" }\n', encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+
+    class RejectingRetriever:
+        def search(self, query: str, *, limit: int = 8) -> list[object]:
+            raise AssertionError("mutation text must not retrieve documentation")
+
+    class RecordingSession:
+        focused_ref = None
+
+        def __init__(self) -> None:
+            self.workspace = workspace
+            self.messages: list[str] = []
+
+        def turn(self, message: str) -> ConversationReply:
+            self.messages.append(message)
+            return ConversationReply(kind="answer", text="mutation planner")
+
+        def close(self) -> None:
+            return None
+
+    session = RecordingSession()
+    state = ChatState(session=session, documentation_retriever=RejectingRetriever())
+
+    response = chat_turn(
+        workspace,
+        "Add a documentation model",
+        path=tmp_path,
+        state=state,
+        provider=object(),
+    )
+
+    assert response == "mutation planner"
+    assert session.messages == ["Add a documentation model"]
 
 
 def test_transform_unknown_ref_raises(tmp_path):

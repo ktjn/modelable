@@ -10,7 +10,7 @@ from typing import cast
 from urllib.parse import urljoin
 
 from modelable.compiler.workspace import load_workspace
-from modelable.llm.chat import documentation_chat_reply
+from modelable.llm.chat import documentation_conversation_reply
 from modelable.llm.config import resolve_llm_config
 from modelable.llm.conversation import ConversationReply, ConversationSession
 from modelable.llm.providers import build_provider
@@ -24,6 +24,7 @@ from modelable.lsp.document_symbols import find_focused_ref
 from modelable.lsp.workspace import LspWorkspaceIndex, find_workspace_root, uri_to_path
 from modelable.operations.compilation import PendingCompilation
 from modelable.rag import DocumentationRetriever
+from modelable.rag.intent import classify_retrieval_intent
 
 SessionFactory = Callable[..., ConversationSession]
 
@@ -40,6 +41,7 @@ class _SessionEntry:
     touched_at: float
     documentation_index_uri: str | None = None
     documentation_retriever: DocumentationRetriever | None = None
+    automatic_documentation: bool = False
 
 
 class LspConversationService:
@@ -88,6 +90,11 @@ class LspConversationService:
                 touched_at=now,
                 documentation_index_uri=documentation_index_uri,
                 documentation_retriever=documentation_retriever,
+                automatic_documentation=(
+                    params.automatic_documentation
+                    if params.automatic_documentation is not None
+                    else documentation_retriever is not None
+                ),
             )
             self._sessions[params.session_id] = entry
         else:
@@ -98,24 +105,26 @@ class LspConversationService:
                     f"Conversation session {params.session_id} belongs to a different workspace."
                 )
             self._validate_documentation_index_uri(entry, root, params.documentation_index_uri, params.session_id)
+            self._validate_automatic_documentation(entry, params.automatic_documentation, params.session_id)
             focused_ref = self._focused_ref(params, index)
             if focused_ref is not None:
                 entry.session.focused_ref = focused_ref
 
-        documentation_text = None
-        if params.message.strip().lower().startswith("/docs"):
-            documentation_text = documentation_chat_reply(
-                params.message,
-                retriever=entry.documentation_retriever,
-                provider=entry.session.provider,
-            )
-        if documentation_text is not None:
-            reply = ConversationReply(kind="answer", text=documentation_text)
-        else:
-            reply = entry.session.turn(params.message)
+        retrieval_decision = classify_retrieval_intent(
+            params.message,
+            automatic_enabled=entry.automatic_documentation,
+        )
+        documentation_reply = documentation_conversation_reply(
+            params.message,
+            retriever=entry.documentation_retriever,
+            provider=getattr(entry.session, "provider", None),
+            automatic_enabled=entry.automatic_documentation,
+            decision=retrieval_decision,
+        )
+        reply = documentation_reply if documentation_reply is not None else entry.session.turn(params.message)
         entry.touched_at = now
         notice = entry.session.no_provider_notice
-        if is_new_session and notice is not None and documentation_text is None:
+        if is_new_session and notice is not None and documentation_reply is None:
             reply = replace(reply, text=f"{notice}\n\n{reply.text}")
         return self._serialize(reply, params.session_id, entry)
 
@@ -294,6 +303,19 @@ class LspConversationService:
                 f"Conversation session {session_id} is already bound to documentation index "
                 f"{entry.documentation_index_uri or 'none'} and cannot switch to {resolved_uri}."
             )
+
+    def _validate_automatic_documentation(
+        self,
+        entry: _SessionEntry,
+        automatic_documentation: bool | None,
+        session_id: str,
+    ) -> None:
+        if automatic_documentation is None or automatic_documentation == entry.automatic_documentation:
+            return
+        raise ConversationSessionError(
+            f"Conversation session {session_id} is already bound to automaticDocumentation="
+            f"{str(entry.automatic_documentation).lower()}."
+        )
 
     def _resolve_documentation_index_path(self, root: Path, documentation_index_uri: str) -> Path:
         documentation_index_path = uri_to_path(documentation_index_uri)

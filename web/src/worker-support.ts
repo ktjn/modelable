@@ -9,6 +9,10 @@ import {
 const LARK_WHEEL = 'lark-1.3.1-py3-none-any.whl';
 const MODELABLE_WHEEL =
   /^modelable_browser-[A-Za-z0-9][A-Za-z0-9._!+-]*-py3-none-any\.whl$/;
+const SEARCHABLE_ANALYSIS_WHEEL =
+  /^searchable_analysis-[A-Za-z0-9][A-Za-z0-9._!+-]*-py3-none-any\.whl$/;
+const SEARCHABLE_CLIENT_WHEEL =
+  /^searchable_client-[A-Za-z0-9][A-Za-z0-9._!+-]*-py3-none-any\.whl$/;
 
 interface PyProxyLike {
   destroy(): void;
@@ -88,8 +92,10 @@ export function validateRuntimeManifest(
   if (!isRecord(manifest) || !Array.isArray(manifest.wheelUrls)) {
     throw new Error('Runtime manifest must contain wheel URLs');
   }
-  if (manifest.wheelUrls.length !== 2) {
-    throw new Error('Runtime manifest must contain exactly two wheel URLs');
+  if (manifest.wheelUrls.length !== 2 && manifest.wheelUrls.length !== 4) {
+    throw new Error(
+      'Runtime manifest must contain exactly two wheel URLs or the four-wheel documentation runtime',
+    );
   }
   if (!manifest.wheelUrls.every((value) => typeof value === 'string')) {
     throw new Error('Runtime manifest wheel URLs must be strings');
@@ -127,6 +133,18 @@ export function validateRuntimeManifest(
   }
   if (!wheels.some(({ fileName }) => MODELABLE_WHEEL.test(fileName))) {
     throw new Error('Runtime manifest must contain the generated Modelable wheel');
+  }
+  if (
+    wheels.length === 4 &&
+    !wheels.some(({ fileName }) => SEARCHABLE_ANALYSIS_WHEEL.test(fileName))
+  ) {
+    throw new Error('Documentation runtime must contain the Searchable Analysis wheel');
+  }
+  if (
+    wheels.length === 4 &&
+    !wheels.some(({ fileName }) => SEARCHABLE_CLIENT_WHEEL.test(fileName))
+  ) {
+    throw new Error('Documentation runtime must contain the Searchable Client wheel');
   }
   return wheels.map(({ href }) => href);
 }

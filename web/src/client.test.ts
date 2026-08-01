@@ -10,6 +10,7 @@ import type {
   BrowserCompilerResponse,
   BrowserSource,
 } from './protocol';
+import { validateRuntimeManifest } from './worker-support';
 
 class FakeWorker implements WorkerLike {
   readonly posted: BrowserCompilerRequest[] = [];
@@ -112,6 +113,21 @@ async function initialize(
 }
 
 describe('BrowserCompilerClient', () => {
+  test('accepts the bundled four-wheel documentation runtime manifest', () => {
+    const manifestUrl = new URL(
+      'https://example.test/modelable/playground/python/runtime-manifest.json',
+    );
+
+    expect(validateRuntimeManifest({
+      wheelUrls: [
+        '/modelable/playground/python/lark-1.3.1-py3-none-any.whl',
+        '/modelable/playground/python/modelable_browser-1.2.1-py3-none-any.whl',
+        '/modelable/playground/python/searchable_analysis-0.1.0-py3-none-any.whl',
+        '/modelable/playground/python/searchable_client-0.2.0-py3-none-any.whl',
+      ],
+    }, manifestUrl)).toHaveLength(4);
+  });
+
   test('shares one initialization request between concurrent callers', async () => {
     const worker = new FakeWorker();
     const client = new BrowserCompilerClient(worker);
@@ -193,6 +209,177 @@ describe('BrowserCompilerClient', () => {
       }),
     );
     await expect(turn).rejects.toBe(providerError);
+  });
+
+  test('serializes automatic documentation policy and normalizes retrieval metadata', async () => {
+    const worker = new FakeWorker();
+    const client = new BrowserCompilerClient(worker);
+    await initialize(client, worker);
+    const provider = {
+      id: 'test',
+      model: 'test',
+      initialize: async () => {},
+      complete: async () => ({
+        content: 'unused',
+        provider: 'test',
+        model: 'test',
+      }),
+      dispose: async () => {},
+    };
+
+    const turn = client.conversationTurn(
+      {
+        sessionId: 'session-1',
+        workspaceRevision: 1,
+        message: 'How do I configure the compiler?',
+        activeDocumentUri: null,
+        position: null,
+        documentationIndexUrl: 'https://example.test/docs-index/manifest.json',
+        documentationAssetRoot: 'https://example.test/docs-index/',
+        automaticDocumentation: false,
+      },
+      provider,
+    );
+    await Promise.resolve();
+
+    expect(worker.posted[1]?.payload).toEqual({
+      sessionId: 'session-1',
+      workspaceRevision: 1,
+      message: 'How do I configure the compiler?',
+      activeDocumentUri: null,
+      line: null,
+      character: null,
+      documentationIndexUrl: 'https://example.test/docs-index/manifest.json',
+      documentationAssetRoot: 'https://example.test/docs-index/',
+      automaticDocumentation: false,
+    });
+    worker.respond(
+      success(worker.posted[1]!, {
+        reply: {
+          kind: 'answer',
+          text: 'Use the configuration guide.',
+          change_set_id: null,
+          operation_kind: null,
+          focused_ref: null,
+          assumptions: [],
+          changed: [],
+          affected: [],
+          preview_files: [],
+          compilation_files: [],
+          retrieval_used: true,
+          route_reason: 'automatic_documentation_signal',
+          citations: [{
+            label: 'S1',
+            external_id: 'guide.md#configuration',
+            url: 'https://example.test/guide/#configuration',
+            title: 'Guide',
+            heading: 'Configuration',
+            score: 0.9,
+          }],
+        },
+        workspace_revision: 1,
+        sources: [],
+      }),
+    );
+
+    await expect(turn).resolves.toMatchObject({
+      reply: {
+        retrievalUsed: true,
+        routeReason: 'automatic_documentation_signal',
+        citations: [{
+          label: 'S1',
+          externalId: 'guide.md#configuration',
+          url: 'https://example.test/guide/#configuration',
+        }],
+      },
+    });
+  });
+
+  test('continues with the planner after an automatic documentation provider failure', async () => {
+    const worker = new FakeWorker();
+    const client = new BrowserCompilerClient(worker);
+    await initialize(client, worker);
+    let completions = 0;
+    const provider = {
+      id: 'flaky',
+      model: 'test',
+      initialize: async () => {},
+      complete: async () => {
+        completions += 1;
+        if (completions === 1) {
+          throw new Error('documentation generation failed');
+        }
+        return {
+          content: '{"kind":"query"}',
+          provider: 'flaky',
+          model: 'test',
+        };
+      },
+      dispose: async () => {},
+    };
+
+    const turn = client.conversationTurn(
+      {
+        sessionId: 'session-1',
+        workspaceRevision: 1,
+        message: 'How do I configure the compiler?',
+        activeDocumentUri: null,
+        position: null,
+      },
+      provider,
+    );
+    await Promise.resolve();
+    worker.respond(success(worker.posted[1]!, {
+      status: 'pending_llm',
+      request_id: 'docs-request',
+      attempt: 0,
+      llm_request: {
+        system: 'Answer from documentation.',
+        user: 'Documentation evidence',
+        temperature: 0.2,
+        response_format: 'text',
+        schema: null,
+      },
+    }));
+    await vi.waitFor(() => {
+      expect(worker.posted[2]?.method).toBe('conversation.fail');
+    });
+    worker.respond(success(worker.posted[2]!, {
+      status: 'pending_llm',
+      request_id: 'planner-request',
+      attempt: 0,
+      llm_request: {
+        system: 'Return a plan.',
+        user: 'How do I configure the compiler?',
+        temperature: 0.2,
+        response_format: 'json',
+        schema: { type: 'object' },
+      },
+    }));
+    await vi.waitFor(() => {
+      expect(worker.posted[3]?.method).toBe('conversation.resume');
+    });
+    worker.respond(success(worker.posted[3]!, {
+      reply: {
+        kind: 'answer',
+        text: 'Ordinary planner answer',
+        change_set_id: null,
+        operation_kind: null,
+        focused_ref: null,
+        assumptions: [],
+        changed: [],
+        affected: [],
+        preview_files: [],
+        compilation_files: [],
+      },
+      workspace_revision: 1,
+      sources: [],
+    }));
+
+    await expect(turn).resolves.toMatchObject({
+      reply: { text: 'Ordinary planner answer' },
+    });
+    expect(completions).toBe(2);
   });
 
   test('response IDs resolve only matching promises', async () => {

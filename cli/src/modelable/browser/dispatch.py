@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +25,7 @@ from modelable.browser.dto import (
     BrowserWorkspaceResult,
 )
 from modelable.browser.errors import BrowserLanguageError, BrowserRequestValidationError
+from modelable.llm.conversation_backend import ConversationReply
 from modelable.llm.conversation_planner import PendingPlanRequest, PlanningRequestError
 
 _METHODS = {
@@ -223,8 +224,13 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
             "character",
             "documentationIndexUrl",
             "documentationAssetRoot",
+            "automaticDocumentation",
         }
-        required = allowed - {"documentationIndexUrl", "documentationAssetRoot"}
+        required = allowed - {
+            "documentationIndexUrl",
+            "documentationAssetRoot",
+            "automaticDocumentation",
+        }
         if not required.issubset(payload) or set(payload) - allowed:
             raise BrowserRequestValidationError("Payload does not match method schema")
         if not isinstance(payload["sessionId"], str) or not isinstance(payload["message"], str):
@@ -242,6 +248,9 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
             raise BrowserRequestValidationError("documentationIndexUrl must be a string or null")
         if documentation_asset_root is not None and not isinstance(documentation_asset_root, str):
             raise BrowserRequestValidationError("documentationAssetRoot must be a string or null")
+        automatic_documentation = payload.get("automaticDocumentation")
+        if automatic_documentation is not None and not isinstance(automatic_documentation, bool):
+            raise BrowserRequestValidationError("automaticDocumentation must be a boolean or null")
         return _conversations.turn(
             session_id=payload["sessionId"],
             workspace_revision=_integer(payload["workspaceRevision"]),
@@ -251,6 +260,7 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
             character=None if character is None else _integer(character),
             documentation_index_url=documentation_index_url,
             documentation_asset_root=documentation_asset_root,
+            automatic_documentation=automatic_documentation,
         )
     if method == "conversation.resume":
         _require_exact_fields(
@@ -314,11 +324,46 @@ def _serialize_result(result: _DispatchResult) -> Any:
             "llm_request": asdict(result.request),
         }
     if isinstance(result, BrowserConversationReply):
-        return _jsonable(asdict(result))
+        return _jsonable(_serialize_browser_conversation_reply(result))
     return _jsonable(asdict(result))
 
 
+def _serialize_browser_conversation_reply(result: BrowserConversationReply) -> dict[str, Any]:
+    return {
+        "reply": _serialize_conversation_reply(result.reply),
+        "workspace_revision": result.workspace_revision,
+        "sources": result.sources,
+    }
+
+
+def _serialize_conversation_reply(reply: ConversationReply) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "kind": reply.kind,
+        "text": reply.text,
+        "change_set_id": reply.change_set_id,
+        "operation_kind": reply.operation_kind,
+        "focused_ref": reply.focused_ref,
+        "assumptions": reply.assumptions,
+        "changed": reply.changed,
+        "affected": reply.affected,
+        "compatibility": reply.compatibility,
+        "diagnostics": reply.diagnostics,
+        "preview_files": reply.preview_files,
+        "written_paths": reply.written_paths,
+        "compilation_files": reply.compilation_files,
+        "registry_id_changes": reply.registry_id_changes,
+        "audit_path": reply.audit_path,
+    }
+    if reply.retrieval_used:
+        payload["citations"] = [asdict(citation) for citation in reply.citations]
+        payload["retrieval_used"] = True
+        payload["route_reason"] = reply.route_reason
+    return payload
+
+
 def _jsonable(value: Any) -> Any:
+    if is_dataclass(value) and not isinstance(value, type):
+        return _jsonable(asdict(value))
     if isinstance(value, Path):
         return value.as_posix()
     if isinstance(value, dict):

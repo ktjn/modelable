@@ -1253,11 +1253,12 @@ types cover:
 - workspace validation diagnostics.
 
 `/context`, `/describe [ref]`, and `/ask <question>` provide explicit offline
-forms. `/docs <question>` is separate and opt-in: it only runs when
-`--docs-index` points to a single binary Searchable index `manifest.json`,
-grounds the answer in retrieved evidence, and cites the matching sources.
-Ordinary chat does not automatically use RAG or documentation retrieval.
-Natural-language equivalents such as
+forms. When `--docs-index` points to a Searchable index `manifest.json`,
+high-confidence documentation questions automatically ground their answers in
+retrieved evidence and cite the matching sources. `/docs <question>` remains
+the explicit force-retrieve form. Mutation, compile, apply/discard, and other
+slash-command turns never automatically load documentation retrieval, and
+automatic routing can be disabled by session-aware clients. Natural-language equivalents such as
 `Who owns customer.Customer@1?` and
 `What depends on customer.Customer@1?` work without a provider.
 
@@ -1453,14 +1454,14 @@ also refuses any dirty open generated destination; save or close it first.
 `/reset` closes the session. Expired, restarted, stale, source-diverged, or
 destination-diverged sessions require a fresh preview and write nothing.
 Clients may also supply `documentationIndexUri` when creating a session to
-enable explicit `/docs <question>` turns against a workspace-local binary
-Searchable index. Ordinary chat remains non-RAG unless the client opts into
-that field and sends `/docs`.
+enable automatic documentation routing against a workspace-local Searchable
+index. `automaticDocumentation: false` opts that session out while preserving
+`/docs` as a force-retrieve command. Automatic retrieval failures fall back to
+ordinary chat; explicit `/docs` reports the retrieval error.
 
-The static Playground uses the same explicit `/docs` contract with a bundled
-JSON Searchable index under its same-origin assets. It keeps JSON document
-shards until the Searchable structured-binary document-store follow-up is
-published.
+The static Playground uses the same contract with a bundled JSON Searchable
+index under its same-origin assets. It keeps JSON document shards until the
+Searchable structured-binary document-store follow-up is published.
 
 Provider resolution is identical to `modelable chat`: workspace and environment
 configuration remain Python-owned. The extension does not parse, validate, or

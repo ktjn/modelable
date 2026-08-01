@@ -128,7 +128,7 @@ def _make_documentation_index(root: Path) -> Path:
                 title="Guide",
                 heading="Install",
                 heading_path=["Guide", "Install"],
-                content="Install with uv.",
+                content="How do I configure install? Install with uv.",
                 chunk_index=0,
             )
         ],
@@ -611,7 +611,193 @@ def test_lsp_docs_turn_returns_citations_without_edit_side_effects(tmp_path: Pat
     assert "[S1]" in reply["text"]
     assert "guide.md#install" in reply["text"]
     assert reply["changeSetId"] is None
+    assert reply["retrievalUsed"] is True
+    assert reply["routeReason"] == "explicit_docs_command"
+    assert reply["citations"][0]["label"] == "S1"
+    assert reply["citations"][0]["externalId"] == "guide.md#install"
+    assert reply["citations"][0]["url"] == "https://example.test/guide/#install"
+    assert reply["citations"][0]["title"] == "Guide"
+    assert reply["citations"][0]["heading"] == "Install"
+    assert reply["citations"][0]["score"] > 0
     assert created[0].messages == []
+
+
+def test_lsp_automatic_documentation_defaults_enabled_with_index(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    index_uri = _make_documentation_index(root).as_uri()
+
+    class DocsProvider:
+        def complete(self, request: object) -> LLMResponse:
+            return LLMResponse(content="Use [S1] to configure it.", provider="fake", model="test")
+
+    class RecordingSession:
+        def __init__(self, **kwargs) -> None:
+            self.provider = DocsProvider()
+            self.no_provider_notice = None
+            self.focused_ref = kwargs.get("focused_ref")
+            self.workspace = load_workspace(root)
+            self.messages: list[str] = []
+
+        def turn(self, message: str) -> ConversationReply:
+            self.messages.append(message)
+            return ConversationReply(kind="answer", text="planner answer", focused_ref=self.focused_ref)
+
+        def close(self) -> None:
+            return None
+
+    created: list[RecordingSession] = []
+
+    def session_factory(root: Path, focused_ref: str | None):
+        session = RecordingSession(root=root, focused_ref=focused_ref)
+        created.append(session)
+        return session
+
+    service = LspConversationService(session_factory=session_factory)
+
+    reply = service.turn(
+        _turn_params(root, create_session=True).model_copy(
+            update={
+                "message": "How do I configure install?",
+                "documentation_index_uri": index_uri,
+            }
+        )
+    )
+
+    assert reply["text"].startswith("Use [S1] to configure it.")
+    assert reply["retrievalUsed"] is True
+    assert reply["routeReason"] == "automatic_documentation_signal"
+    assert reply["citations"][0]["externalId"] == "guide.md#install"
+    assert created[0].messages == []
+
+
+def test_lsp_explicit_docs_works_with_automatic_documentation_disabled(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    index_uri = _make_documentation_index(root).as_uri()
+
+    class DocsProvider:
+        def complete(self, request: object) -> LLMResponse:
+            return LLMResponse(content="Explicit answer. [S1]", provider="fake", model="test")
+
+    class RecordingSession:
+        provider = DocsProvider()
+        no_provider_notice = None
+        focused_ref = None
+        workspace = load_workspace(root)
+
+        def turn(self, message: str) -> ConversationReply:
+            return ConversationReply(kind="answer", text="planner answer")
+
+        def close(self) -> None:
+            return None
+
+    params = ConversationTurnParams.model_validate(
+        {
+            "protocolVersion": 2,
+            "sessionId": "session-1",
+            "createSession": True,
+            "workspaceUri": root.as_uri(),
+            "message": "/docs install",
+            "documentationIndexUri": index_uri,
+            "automaticDocumentation": False,
+            "dirtyDocumentUris": [],
+        }
+    )
+
+    reply = LspConversationService(session_factory=lambda *_args: RecordingSession()).turn(params)
+
+    assert reply["text"].startswith("Explicit answer. [S1]")
+    assert reply["routeReason"] == "explicit_docs_command"
+
+
+def test_lsp_automatic_retrieval_failure_falls_back_to_session(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    index_uri = _make_documentation_index(root).as_uri()
+    retrieval_queries: list[str] = []
+
+    def fail_search(self: DocumentationRetriever, query: str, *, limit: int = 8):
+        retrieval_queries.append(query)
+        raise RuntimeError("retrieval unavailable")
+
+    monkeypatch.setattr(DocumentationRetriever, "search", fail_search)
+
+    class RecordingSession:
+        provider = object()
+        no_provider_notice = None
+        focused_ref = None
+        workspace = load_workspace(root)
+
+        def __init__(self) -> None:
+            self.messages: list[str] = []
+
+        def turn(self, message: str) -> ConversationReply:
+            self.messages.append(message)
+            return ConversationReply(kind="answer", text="planner fallback")
+
+        def close(self) -> None:
+            return None
+
+    session = RecordingSession()
+    service = LspConversationService(session_factory=lambda *_args: session)
+
+    reply = service.turn(
+        _turn_params(root, create_session=True).model_copy(
+            update={
+                "message": "How do I configure the command?",
+                "documentation_index_uri": index_uri,
+            }
+        )
+    )
+
+    assert reply["text"] == "planner fallback"
+    assert {"retrievalUsed", "citations", "routeReason"}.isdisjoint(reply)
+    assert retrieval_queries == ["How do I configure the command?"]
+    assert session.messages == ["How do I configure the command?"]
+
+
+def test_lsp_mutation_documentation_text_never_calls_retriever(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    index_uri = _make_documentation_index(root).as_uri()
+
+    def reject_search(self: DocumentationRetriever, query: str, *, limit: int = 8):
+        raise AssertionError("mutation text must not retrieve documentation")
+
+    monkeypatch.setattr(DocumentationRetriever, "search", reject_search)
+
+    class RecordingSession:
+        provider = object()
+        no_provider_notice = None
+        focused_ref = None
+        workspace = load_workspace(root)
+
+        def __init__(self) -> None:
+            self.messages: list[str] = []
+
+        def turn(self, message: str) -> ConversationReply:
+            self.messages.append(message)
+            return ConversationReply(kind="answer", text="mutation planner")
+
+        def close(self) -> None:
+            return None
+
+    session = RecordingSession()
+    service = LspConversationService(session_factory=lambda *_args: session)
+
+    reply = service.turn(
+        _turn_params(root, create_session=True).model_copy(
+            update={
+                "message": "Add a documentation model",
+                "documentation_index_uri": index_uri,
+            }
+        )
+    )
+
+    assert reply["text"] == "mutation planner"
+    assert {"retrievalUsed", "citations", "routeReason"}.isdisjoint(reply)
+    assert session.messages == ["Add a documentation model"]
 
 
 def test_lsp_docs_without_index_returns_missing_index_guidance_without_provider_notice(tmp_path: Path) -> None:

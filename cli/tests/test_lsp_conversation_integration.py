@@ -29,7 +29,7 @@ def _make_documentation_index(root: Path) -> Path:
                 title="Guide",
                 heading="Install",
                 heading_path=["Guide", "Install"],
-                content="Install with uv.",
+                content="How do I configure install? Install with uv.",
                 chunk_index=0,
             )
         ],
@@ -199,7 +199,7 @@ async def test_compilation_preview_and_apply_over_real_json_rpc(tmp_path: Path) 
         await client.shutdown_session()
 
 
-async def test_docs_turn_uses_bound_documentation_index_over_real_json_rpc(tmp_path: Path, monkeypatch) -> None:
+async def test_automatic_documentation_turn_uses_bound_index_over_real_json_rpc(tmp_path: Path, monkeypatch) -> None:
     source = tmp_path / "customer.mdl"
     source.write_text(
         "domain customer {\n"
@@ -234,7 +234,7 @@ async def test_docs_turn_uses_bound_documentation_index_over_real_json_rpc(tmp_p
                     "sessionId": "docs-session",
                     "createSession": True,
                     "workspaceUri": tmp_path.as_uri(),
-                    "message": "/docs install",
+                    "message": "How do I configure install?",
                     "documentationIndexUri": docs_index.as_uri(),
                     "dirtyDocumentUris": [],
                 },
@@ -244,5 +244,8 @@ async def test_docs_turn_uses_bound_documentation_index_over_real_json_rpc(tmp_p
             assert reply.changeSetId is None
             assert "Sources:" in reply.text
             assert "guide.md#install" in reply.text
+            assert reply.retrievalUsed is True
+            assert reply.routeReason == "automatic_documentation_signal"
+            assert reply.citations[0].externalId == "guide.md#install"
         finally:
             await client.shutdown_session()

@@ -16,11 +16,13 @@ from modelable.llm.context import (
     parse_model_ref,
 )
 from modelable.llm.conversation import ConversationSession
+from modelable.llm.conversation_backend import ConversationReply, ConversationRetrievalMetadata
 from modelable.llm.conversation_plan import strip_thinking
 from modelable.llm.engine import AttachResult, UpdateResult, recommend_cli, update_definition
 from modelable.llm.provider_types import LLMProvider, LLMRequest, LLMResponse
 from modelable.llm.qa import answer_question
 from modelable.rag.generation import answer_with_retrieval
+from modelable.rag.intent import RetrievalDecision, RetrievalRoute, classify_retrieval_intent
 from modelable.rag.retriever import DocumentationRetriever
 
 
@@ -31,6 +33,7 @@ class ChatState:
     history: list[tuple[str, str]] = field(default_factory=list)
     session: ConversationSession | None = field(default=None, repr=False)
     documentation_retriever: DocumentationRetriever | None = field(default=None, repr=False)
+    automatic_documentation: bool | None = None
     provider_name: str | None = None
     model_name: str | None = None
     confirmation_surface: Literal["cli-chat", "vscode-chat"] = "cli-chat"
@@ -105,13 +108,22 @@ def _chat_turn(
     provider: LLMProvider | None = None,
 ) -> str:
     stripped = message.strip()
-    docs_response = documentation_chat_reply(
+    automatic_documentation = state.automatic_documentation
+    if automatic_documentation is None:
+        automatic_documentation = state.documentation_retriever is not None
+    retrieval_decision = classify_retrieval_intent(
+        stripped,
+        automatic_enabled=automatic_documentation,
+    )
+    documentation_reply = documentation_conversation_reply(
         stripped,
         retriever=state.documentation_retriever,
         provider=provider,
+        automatic_enabled=automatic_documentation,
+        decision=retrieval_decision,
     )
-    if docs_response is not None:
-        response = docs_response
+    if documentation_reply is not None:
+        response = documentation_reply.text
     else:
         command = stripped.partition(" ")[0].lower()
         if command in {"/exit", "/quit"}:
@@ -303,32 +315,108 @@ def documentation_chat_reply(
     retriever: DocumentationRetriever | None,
     provider: LLMProvider | None,
 ) -> str | None:
+    decision = classify_retrieval_intent(command_text, automatic_enabled=False)
+    reply = documentation_conversation_reply(
+        command_text,
+        retriever=retriever,
+        provider=provider,
+        automatic_enabled=False,
+        decision=decision,
+    )
+    if reply is None:
+        return None
+    return reply.text
+
+
+def documentation_conversation_reply(
+    command_text: str,
+    *,
+    retriever: DocumentationRetriever | None,
+    provider: LLMProvider | None,
+    automatic_enabled: bool,
+    decision: RetrievalDecision | None = None,
+) -> ConversationReply | None:
     stripped = command_text.strip()
     if not stripped:
         return None
-    command, _, remainder = stripped.partition(" ")
-    if command.lower() != "/docs":
+    retrieval_decision = decision or classify_retrieval_intent(stripped, automatic_enabled=automatic_enabled)
+    if retrieval_decision.route is RetrievalRoute.EXPLICIT_DOCUMENTATION:
+        return _explicit_documentation_reply(
+            retrieval_decision,
+            retriever=retriever,
+            provider=provider,
+        )
+    if stripped.casefold() == "/docs":
+        return ConversationReply(kind="answer", text="Provide a question after /docs.")
+    if retrieval_decision.route is not RetrievalRoute.AUTOMATIC_DOCUMENTATION:
+        return None
+    if retriever is None or provider is None:
+        return None
+    try:
+        return _grounded_documentation_reply(
+            retrieval_decision.question,
+            retriever=retriever,
+            provider=provider,
+            route_reason=retrieval_decision.reason,
+        )
+    except Exception:
         return None
 
-    question = remainder.strip()
-    if not question:
-        return "Provide a question after /docs."
-    if retriever is None:
-        return "The /docs command requires --docs-index to be configured."
 
-    generation_provider: LLMProvider | None = _DocumentationChatProvider(provider) if provider is not None else None
+def _explicit_documentation_reply(
+    decision: RetrievalDecision,
+    *,
+    retriever: DocumentationRetriever | None,
+    provider: LLMProvider | None,
+) -> ConversationReply:
+    if retriever is None:
+        return ConversationReply(kind="answer", text="The /docs command requires --docs-index to be configured.")
     try:
-        result = answer_with_retrieval(retriever, generation_provider, question)
+        return _grounded_documentation_reply(
+            decision.question,
+            retriever=retriever,
+            provider=provider,
+            route_reason=decision.reason,
+        )
     except _DocumentationProviderError as error:
-        return f"The configured provider failed during the documentation answer request: {error}"
+        return ConversationReply(
+            kind="answer",
+            text=f"The configured provider failed during the documentation answer request: {error}",
+        )
     except ValueError as error:
         if provider is None and str(error) == _MISSING_DOCUMENTATION_PROVIDER:
-            return (
-                "Documentation answers with evidence require an LLM provider. "
-                "Configure a provider (--provider/--model, or workspace/environment configuration)."
+            return ConversationReply(
+                kind="answer",
+                text=(
+                    "Documentation answers with evidence require an LLM provider. "
+                    "Configure a provider (--provider/--model, or workspace/environment configuration)."
+                ),
             )
         raise
-    return result.answer
+
+
+def _grounded_documentation_reply(
+    question: str,
+    *,
+    retriever: DocumentationRetriever,
+    provider: LLMProvider | None,
+    route_reason: str,
+) -> ConversationReply:
+    generation_provider: LLMProvider | None = _DocumentationChatProvider(provider) if provider is not None else None
+    result = answer_with_retrieval(
+        retriever,
+        generation_provider,
+        question,
+        route_reason=route_reason,
+    )
+    retrieval = None
+    if result.retrieval_used:
+        retrieval = ConversationRetrievalMetadata(
+            citations=result.citations,
+            retrieval_used=True,
+            route_reason=result.route_reason,
+        )
+    return ConversationReply(kind="answer", text=result.answer, retrieval=retrieval)
 
 
 def _render_update_preview(result: UpdateResult | AttachResult) -> str:

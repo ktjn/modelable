@@ -13,6 +13,7 @@ if TYPE_CHECKING:
         CompatibilityFinding,
     )
     from modelable.operations.compilation import CompilationFilePreview, RegistryIdChange
+    from modelable.rag.generation import RagCitation
 
 type ReplyKind = Literal[
     "answer",
@@ -32,6 +33,13 @@ class ConversationCleanupError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class ConversationRetrievalMetadata:
+    citations: tuple[RagCitation, ...] = ()
+    retrieval_used: bool = False
+    route_reason: str = ""
+
+
+@dataclass(frozen=True)
 class ConversationPreviewFile:
     path: Path
     existed_before: bool
@@ -43,6 +51,7 @@ class ConversationPreviewFile:
 class ConversationReply:
     kind: ReplyKind
     text: str
+    retrieval: ConversationRetrievalMetadata | None = None
     change_set_id: str | None = None
     operation_kind: Literal["source_change", "compile"] | None = None
     focused_ref: str | None = None
@@ -56,6 +65,24 @@ class ConversationReply:
     compilation_files: tuple[CompilationFilePreview, ...] = ()
     registry_id_changes: tuple[RegistryIdChange, ...] = ()
     audit_path: Path | None = None
+
+    @property
+    def citations(self) -> tuple[RagCitation, ...]:
+        if self.retrieval is None:
+            return ()
+        return self.retrieval.citations
+
+    @property
+    def retrieval_used(self) -> bool:
+        if self.retrieval is None:
+            return False
+        return self.retrieval.retrieval_used
+
+    @property
+    def route_reason(self) -> str:
+        if self.retrieval is None:
+            return ""
+        return self.retrieval.route_reason
 
 
 class ConversationBackend(Protocol):
