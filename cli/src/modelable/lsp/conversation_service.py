@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import cast
 
 from modelable.compiler.workspace import load_workspace
+from modelable.llm.chat import documentation_chat_reply
 from modelable.llm.config import resolve_llm_config
 from modelable.llm.conversation import ConversationReply, ConversationSession
 from modelable.llm.providers import build_provider
@@ -99,10 +100,20 @@ class LspConversationService:
             if focused_ref is not None:
                 entry.session.focused_ref = focused_ref
 
-        reply = entry.session.turn(params.message)
+        documentation_text = None
+        if params.message.strip().lower().startswith("/docs"):
+            documentation_text = documentation_chat_reply(
+                params.message,
+                retriever=entry.documentation_retriever,
+                provider=entry.session.provider,
+            )
+        if documentation_text is not None:
+            reply = ConversationReply(kind="answer", text=documentation_text)
+        else:
+            reply = entry.session.turn(params.message)
         entry.touched_at = now
         notice = entry.session.no_provider_notice
-        if is_new_session and notice is not None:
+        if is_new_session and notice is not None and documentation_text is None:
             reply = replace(reply, text=f"{notice}\n\n{reply.text}")
         return self._serialize(reply, params.session_id, entry)
 

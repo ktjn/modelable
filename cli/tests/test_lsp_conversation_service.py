@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from modelable.compiler.workspace import load_workspace
-from modelable.llm.conversation import ConversationSession
+from modelable.llm.conversation import ConversationReply, ConversationSession
 from modelable.llm.conversation_plan import ChangeSetPlan, CompilePlan, CreateModel, FieldSpec
 from modelable.llm.providers import LLMRequest, LLMResponse
 from modelable.lsp import definition, document_symbols
@@ -486,6 +486,121 @@ def test_registry_rejects_documentation_index_mutation_for_existing_session(tmp_
     assert created[0].messages == ["is the workspace valid?"]
     assert service._sessions["session-1"].documentation_index_uri == first_index.resolve().as_uri()
     assert service._sessions["session-1"].documentation_retriever is first_retriever
+
+
+def test_lsp_docs_turn_returns_citations_without_edit_side_effects(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    index_uri = _make_documentation_index(root).as_uri()
+
+    class DocsProvider:
+        def complete(self, request: object) -> LLMResponse:
+            return LLMResponse(content="Use [S1] to install it.", provider="fake", model="test")
+
+    class RecordingSession:
+        def __init__(self, **kwargs) -> None:
+            self.provider = DocsProvider()
+            self.no_provider_notice = None
+            self.focused_ref = kwargs.get("focused_ref")
+            self.workspace = load_workspace(root)
+            self.messages: list[str] = []
+
+        def turn(self, message: str) -> ConversationReply:
+            self.messages.append(message)
+            return ConversationReply(kind="answer", text="session reply", focused_ref=self.focused_ref)
+
+        def close(self) -> None:
+            return None
+
+    created: list[RecordingSession] = []
+
+    def session_factory(root: Path, focused_ref: str | None):
+        session = RecordingSession(root=root, focused_ref=focused_ref)
+        created.append(session)
+        return session
+
+    service = LspConversationService(session_factory=session_factory)
+
+    reply = service.turn(
+        _turn_params(root, create_session=True).model_copy(
+            update={
+                "message": "/docs install",
+                "documentation_index_uri": index_uri,
+            }
+        )
+    )
+
+    assert reply["kind"] == "answer"
+    assert "Sources:" in reply["text"]
+    assert "[S1]" in reply["text"]
+    assert "guide.md#install" in reply["text"]
+    assert reply["changeSetId"] is None
+    assert created[0].messages == []
+
+
+def test_lsp_docs_without_index_returns_missing_index_guidance_without_provider_notice(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    service = LspConversationService(session_factory=_session_factory)
+
+    reply = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "/docs install"}))
+
+    assert reply["kind"] == "answer"
+    assert reply["changeSetId"] is None
+    assert reply["text"] == "The /docs command requires --docs-index to be configured."
+    assert "No LLM provider is configured" not in reply["text"]
+
+
+def test_lsp_docs_provider_failure_is_an_answer_and_session_survives(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    index_uri = _make_documentation_index(root).as_uri()
+
+    class FailingDocsProvider:
+        def complete(self, request: object) -> LLMResponse:
+            raise RuntimeError("documentation provider unavailable")
+
+    class RecordingSession:
+        def __init__(self, **kwargs) -> None:
+            self.provider = FailingDocsProvider()
+            self.no_provider_notice = None
+            self.focused_ref = kwargs.get("focused_ref")
+            self.workspace = load_workspace(root)
+            self.messages: list[str] = []
+
+        def turn(self, message: str) -> ConversationReply:
+            self.messages.append(message)
+            return ConversationReply(kind="answer", text="session reply", focused_ref=self.focused_ref)
+
+        def close(self) -> None:
+            return None
+
+    created: list[RecordingSession] = []
+
+    def session_factory(root: Path, focused_ref: str | None):
+        session = RecordingSession(root=root, focused_ref=focused_ref)
+        created.append(session)
+        return session
+
+    service = LspConversationService(session_factory=session_factory)
+
+    failed = service.turn(
+        _turn_params(root, create_session=True).model_copy(
+            update={
+                "message": "/docs install",
+                "documentation_index_uri": index_uri,
+            }
+        )
+    )
+    normal = service.turn(_turn_params(root, create_session=False))
+
+    assert failed["kind"] == "answer"
+    assert failed["changeSetId"] is None
+    assert "configured provider failed during the documentation answer request" in failed["text"]
+    assert "documentation provider unavailable" in failed["text"]
+    assert normal["kind"] == "answer"
+    assert normal["text"] == "session reply"
+    assert created[0].messages == ["is the workspace valid?"]
 
 
 def test_registry_reports_provider_configuration_failure(tmp_path: Path) -> None:
