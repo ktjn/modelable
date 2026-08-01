@@ -18,8 +18,10 @@ from modelable.llm.context import (
 from modelable.llm.conversation import ConversationSession
 from modelable.llm.conversation_plan import strip_thinking
 from modelable.llm.engine import AttachResult, UpdateResult, recommend_cli, update_definition
-from modelable.llm.provider_types import LLMProvider, LLMRequest
+from modelable.llm.provider_types import LLMProvider, LLMRequest, LLMResponse
 from modelable.llm.qa import answer_question
+from modelable.rag.generation import answer_with_retrieval
+from modelable.rag.retriever import DocumentationRetriever
 
 
 @dataclass
@@ -28,6 +30,7 @@ class ChatState:
     workspace_summary: str | None = None
     history: list[tuple[str, str]] = field(default_factory=list)
     session: ConversationSession | None = field(default=None, repr=False)
+    documentation_retriever: DocumentationRetriever | None = field(default=None, repr=False)
     provider_name: str | None = None
     model_name: str | None = None
     confirmation_surface: Literal["cli-chat", "vscode-chat"] = "cli-chat"
@@ -39,6 +42,23 @@ If the user asks for a model edit, explain that edit requests are previewed thro
 If the user asks for a summary, be concise and factual.
 If the user asks a question you cannot answer from the context, say what is missing.
 """
+
+_MISSING_DOCUMENTATION_PROVIDER = "LLM provider is required when evidence is available"
+
+
+class _DocumentationProviderError(Exception):
+    pass
+
+
+class _DocumentationChatProvider:
+    def __init__(self, provider: LLMProvider) -> None:
+        self._provider = provider
+
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        try:
+            return self._provider.complete(request)
+        except Exception as error:
+            raise _DocumentationProviderError(str(error)) from error
 
 
 def chat_reply(
@@ -85,13 +105,40 @@ def _chat_turn(
     provider: LLMProvider | None = None,
 ) -> str:
     stripped = message.strip()
-    command = stripped.partition(" ")[0].lower()
-    if command in {"/exit", "/quit"}:
-        close_chat(state)
-        response = "/exit"
-    elif command in {"/apply", "/discard", "/ask", "/compile"}:
-        if command == "/ask" and not stripped.partition(" ")[2].strip():
-            response = "Provide a question after /ask."
+    docs_response = documentation_chat_reply(
+        stripped,
+        retriever=state.documentation_retriever,
+        provider=provider,
+    )
+    if docs_response is not None:
+        response = docs_response
+    else:
+        command = stripped.partition(" ")[0].lower()
+        if command in {"/exit", "/quit"}:
+            close_chat(state)
+            response = "/exit"
+        elif command in {"/apply", "/discard", "/ask", "/compile"}:
+            if command == "/ask" and not stripped.partition(" ")[2].strip():
+                response = "Provide a question after /ask."
+            else:
+                response = _conversation_turn(
+                    path,
+                    message,
+                    state=state,
+                    provider=provider,
+                    provider_name=state.provider_name,
+                    model_name=state.model_name,
+                    confirmation_surface=state.confirmation_surface,
+                )
+        elif stripped.startswith("/"):
+            active_workspace = state.session.workspace if state.session is not None else workspace
+            response = _handle_chat_command(
+                active_workspace,
+                path,
+                stripped,
+                state=state,
+                provider=provider,
+            )
         else:
             response = _conversation_turn(
                 path,
@@ -102,25 +149,6 @@ def _chat_turn(
                 model_name=state.model_name,
                 confirmation_surface=state.confirmation_surface,
             )
-    elif stripped.startswith("/"):
-        active_workspace = state.session.workspace if state.session is not None else workspace
-        response = _handle_chat_command(
-            active_workspace,
-            path,
-            stripped,
-            state=state,
-            provider=provider,
-        )
-    else:
-        response = _conversation_turn(
-            path,
-            message,
-            state=state,
-            provider=provider,
-            provider_name=state.provider_name,
-            model_name=state.model_name,
-            confirmation_surface=state.confirmation_surface,
-        )
     state.history.append(("user", message))
     state.history.append(("assistant", response))
     return response
@@ -263,10 +291,44 @@ def _handle_chat_command(
 def chat_help() -> str:
     return (
         "Commands: /help, /ref <ref>, /context, /describe [ref], /recommend <ref> [consumer], "
-        "/ask <question>, /update <ref> <instruction> (preview only), "
+        "/ask <question>, /docs <question> (requires --docs-index), /update <ref> <instruction> (preview only), "
         "/compile <target> [--domain <name> ...] [--out <relative-path>] [--descriptor-set], "
         "/apply, /discard, /exit"
     )
+
+
+def documentation_chat_reply(
+    command_text: str,
+    *,
+    retriever: DocumentationRetriever | None,
+    provider: LLMProvider | None,
+) -> str | None:
+    stripped = command_text.strip()
+    if not stripped:
+        return None
+    command, _, remainder = stripped.partition(" ")
+    if command.lower() != "/docs":
+        return None
+
+    question = remainder.strip()
+    if not question:
+        return "Provide a question after /docs."
+    if retriever is None:
+        return "The /docs command requires --docs-index to be configured."
+
+    generation_provider: LLMProvider | None = _DocumentationChatProvider(provider) if provider is not None else None
+    try:
+        result = answer_with_retrieval(retriever, generation_provider, question)
+    except _DocumentationProviderError as error:
+        return f"The configured provider failed during the documentation answer request: {error}"
+    except ValueError as error:
+        if provider is None and str(error) == _MISSING_DOCUMENTATION_PROVIDER:
+            return (
+                "Documentation answers with evidence require an LLM provider. "
+                "Configure a provider (--provider/--model, or workspace/environment configuration)."
+            )
+        raise
+    return result.answer
 
 
 def _render_update_preview(result: UpdateResult | AttachResult) -> str:

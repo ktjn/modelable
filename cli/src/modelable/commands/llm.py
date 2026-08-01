@@ -8,6 +8,7 @@ from rich.console import Console
 
 from modelable.commands.diff import run_diff
 from modelable.compiler.workspace import load_workspace
+from modelable.llm.chat import ChatState, chat_help, chat_turn, close_chat
 from modelable.llm.config import resolve_llm_config
 from modelable.llm.conversation import ConversationSession
 from modelable.llm.engine import (
@@ -33,6 +34,7 @@ from modelable.llm.provenance import (
     write_provenance_sidecar,
 )
 from modelable.llm.providers import build_provider
+from modelable.rag.retriever import DocumentationRetriever
 
 console = Console()
 
@@ -527,11 +529,24 @@ def explain(path: Path) -> None:
 @click.option("--path", "path", type=click.Path(exists=True, path_type=Path), required=True)
 @click.option("--ref", "ref", default=None, help="Optional model or projection ref to focus the chat.")
 @click.option("--message", "message", default=None, help="Send a single message and exit.")
+@click.option(
+    "--docs-index",
+    "docs_index",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Optional documentation search index manifest for /docs questions.",
+)
 @click.option("--provider", "provider", default=None, help="Provider name, for example ollama or anthropic.")
 @click.option("--model", "model", default=None, help="Model identifier.")
 @click.option("--base-url", "base_url", default=None, help="Provider base URL.")
 def chat(
-    path: Path, ref: str | None, message: str | None, provider: str | None, model: str | None, base_url: str | None
+    path: Path,
+    ref: str | None,
+    message: str | None,
+    docs_index: Path | None,
+    provider: str | None,
+    model: str | None,
+    base_url: str | None,
 ) -> None:
     """Chat with a model about the current workspace."""
     workspace = load_workspace(path)
@@ -542,11 +557,20 @@ def chat(
         workspace=workspace.mdl.workspace,
     )
     llm_provider = build_provider(config.provider, model=config.model, base_url=config.base_url)
+    documentation_retriever = DocumentationRetriever(docs_index) if docs_index is not None else None
     session = ConversationSession(
         path=path,
         provider=llm_provider,
         focused_ref=ref,
         repair_attempts=config.repair_attempts,
+        provider_name=config.provider,
+        model_name=config.model,
+        confirmation_surface="cli-chat",
+    )
+    state = ChatState(
+        ref=ref,
+        session=session,
+        documentation_retriever=documentation_retriever,
         provider_name=config.provider,
         model_name=config.model,
         confirmation_surface="cli-chat",
@@ -559,16 +583,20 @@ def chat(
             if message.strip().lower() in {"/exit", "/quit"}:
                 console.print("/exit")
             elif message.strip().lower() in {"/help", "/?"}:
-                from modelable.llm.chat import chat_help
-
                 console.print(chat_help())
             else:
                 console.print(
-                    session.turn(message).text,
+                    chat_turn(
+                        workspace,
+                        message,
+                        path=path,
+                        state=state,
+                        provider=llm_provider,
+                    ),
                     markup=False,
                     highlight=False,
                 )
-            session.close()
+            close_chat(state)
             return
 
         console.print("Modelable chat. Type /help for commands or /exit to quit.")
@@ -582,20 +610,18 @@ def chat(
             if user_message.strip().lower() in {"/exit", "/quit"}:
                 break
             if user_message.strip().lower() in {"/help", "/?"}:
-                from modelable.llm.chat import chat_help
-
                 console.print(f"assistant> {chat_help()}")
                 continue
             console.print(
-                f"assistant> {session.turn(user_message).text}",
+                f"assistant> {chat_turn(workspace, user_message, path=path, state=state, provider=llm_provider)}",
                 markup=False,
                 highlight=False,
             )
     except BaseException as error:
         try:
-            session.close()
+            close_chat(state)
         except Exception as cleanup_error:
             error.add_note(str(cleanup_error))
         raise
     else:
-        session.close()
+        close_chat(state)

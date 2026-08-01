@@ -1231,7 +1231,8 @@ When the command writes a file, it prints a concise audit summary including the 
 ### 10.5 `chat` — Interactive model conversation
 
 ```text
-modelable chat --path PATH [--ref <Domain.Model@version>] [--message TEXT] [--provider NAME] [--model MODEL] [--base-url URL]
+modelable chat --path PATH [--ref <Domain.Model@version>] [--message TEXT]
+               [--docs-index PATH] [--provider NAME] [--model MODEL] [--base-url URL]
 ```
 
 Starts one persistent conversational session against the workspace. Without
@@ -1252,9 +1253,20 @@ types cover:
 - workspace validation diagnostics.
 
 `/context`, `/describe [ref]`, and `/ask <question>` provide explicit offline
-forms. Natural-language equivalents such as
+forms. `/docs <question>` is separate and opt-in: it only runs when
+`--docs-index` points to a single binary Searchable index `manifest.json`,
+grounds the answer in retrieved evidence, and cites the matching sources.
+Ordinary chat does not automatically use RAG or documentation retrieval.
+Natural-language equivalents such as
 `Who owns customer.Customer@1?` and
 `What depends on customer.Customer@1?` work without a provider.
+
+For example:
+
+```text
+modelable chat --path ./workspace --docs-index ./docs-index/manifest.json
+you> /docs How do I configure the registry?
+```
 
 Mutation requests require a configured provider because they require intent
 synthesis. They may create a complete entity or projection, add or revise
