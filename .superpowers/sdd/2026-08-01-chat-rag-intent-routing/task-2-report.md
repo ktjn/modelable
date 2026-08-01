@@ -130,4 +130,4 @@ uv run pytest --tb=short      -> 1686 passed, 22 skipped in 18.75s
 
 ### Commit hash
 
-- Pending fix commit hash; recorded in the follow-up report update commit.
+- `2d3b6d3` — `fix(rag): preserve ordinary browser reply shape`
