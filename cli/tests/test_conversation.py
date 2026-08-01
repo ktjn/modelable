@@ -29,6 +29,7 @@ from modelable.operations.compilation import (
 )
 from modelable.operations.file_transaction import FileTransactionCommittedError, RollbackError
 from modelable.parser.ir import AnnKey, FieldDef, ObjectType, PrimitiveType
+from modelable.rag.retriever import RetrievedChunk
 
 
 class FakeProvider:
@@ -64,6 +65,35 @@ class QueueProvider:
             )
         return LLMResponse(
             content=self.plans.pop(0).model_dump_json(),
+            provider="fake",
+            model="test-model",
+        )
+
+
+class FakeDocumentationRetriever:
+    def __init__(self, *chunks: RetrievedChunk) -> None:
+        self.chunks = list(chunks)
+        self.queries: list[tuple[str, int]] = []
+
+    def search(self, query: str, *, limit: int = 8) -> list[RetrievedChunk]:
+        self.queries.append((query, limit))
+        return list(self.chunks)
+
+
+class RaisingDocumentationRetriever:
+    def search(self, query: str, *, limit: int = 8) -> list[RetrievedChunk]:
+        raise AssertionError("documentation retriever should not be used for normal chat")
+
+
+class FakeDocsProvider:
+    def __init__(self, content: str) -> None:
+        self.content = content
+        self.requests: list[LLMRequest] = []
+
+    def complete(self, request: LLMRequest) -> LLMResponse:
+        self.requests.append(request)
+        return LLMResponse(
+            content=self.content,
             provider="fake",
             model="test-model",
         )
@@ -125,6 +155,21 @@ def _compile_plan(target: str = "rust", *, output: str | None = None) -> Compile
         output=output,
         descriptor_set=False,
         summary=f"Compile the workspace to {target}.",
+    )
+
+
+def _docs_chunk() -> RetrievedChunk:
+    return RetrievedChunk(
+        id=1,
+        external_id="docs/cli-reference.md#docs-index",
+        url="https://example.test/docs/cli-reference.md#docs-index",
+        score=0.98,
+        title="CLI reference",
+        heading="Documentation chat",
+        content="Run modelable docs-index before asking /docs questions.",
+        source_path="docs/cli-reference.md",
+        heading_path=["CLI reference", "Documentation chat"],
+        content_hash=None,
     )
 
 
@@ -1047,6 +1092,63 @@ def test_chat_turn_exception_cleans_pending_compilation(
 
     assert not pending.staging_dir.exists()
     assert state.session is None
+
+
+def test_docs_chat_reply_uses_shared_rag_answer_and_includes_sources() -> None:
+    from modelable.llm.chat import documentation_chat_reply
+
+    retriever = FakeDocumentationRetriever(_docs_chunk())
+    provider = FakeDocsProvider("Use `modelable docs-index` first.")
+
+    reply = documentation_chat_reply(
+        "/docs How do I ask documentation questions?",
+        retriever=retriever,
+        provider=provider,
+    )
+
+    assert reply is not None
+    assert reply.startswith("Use `modelable docs-index` first.")
+    assert "\n\nSources:\n" in reply
+    assert "[S1]" in reply
+    assert "docs/cli-reference.md#docs-index" in reply
+    assert retriever.queries == [("How do I ask documentation questions?", 8)]
+    assert len(provider.requests) == 1
+
+
+def test_docs_chat_reply_requires_a_question_after_docs() -> None:
+    from modelable.llm.chat import documentation_chat_reply
+
+    reply = documentation_chat_reply("/docs   ", retriever=FakeDocumentationRetriever(), provider=None)
+
+    assert reply == "Provide a question after /docs."
+
+
+def test_docs_chat_reply_reports_missing_docs_index_configuration() -> None:
+    from modelable.llm.chat import documentation_chat_reply
+
+    reply = documentation_chat_reply("/docs How do I install it?", retriever=None, provider=None)
+
+    assert reply is not None
+    assert "--docs-index" in reply
+
+
+def test_normal_chat_turn_still_uses_conversation_session_with_docs_retriever_configured(
+    tmp_path: Path,
+) -> None:
+    _write_empty_customer_domain(tmp_path)
+    workspace = load_workspace(tmp_path)
+    state = ChatState(documentation_retriever=RaisingDocumentationRetriever())
+
+    reply = chat_turn(
+        workspace,
+        "add a customer entity",
+        path=tmp_path,
+        state=state,
+        provider=FakeProvider(_create_model_plan("Customer")),
+    )
+
+    assert "customer.Customer@1" in reply
+    assert state.session is not None
 
 
 def test_explicit_compile_with_options_bypasses_configured_provider(tmp_path: Path) -> None:
