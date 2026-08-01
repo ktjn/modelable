@@ -20,6 +20,7 @@ from modelable.lsp.definition import definition_location_for_ref
 from modelable.lsp.document_symbols import find_focused_ref
 from modelable.lsp.workspace import LspWorkspaceIndex, find_workspace_root, uri_to_path
 from modelable.operations.compilation import PendingCompilation
+from modelable.rag import DocumentationRetriever
 
 SessionFactory = Callable[..., ConversationSession]
 
@@ -34,6 +35,8 @@ class _SessionEntry:
     root: Path
     session: ConversationSession
     touched_at: float
+    documentation_index_uri: str | None = None
+    documentation_retriever: DocumentationRetriever | None = None
 
 
 class LspConversationService:
@@ -71,11 +74,17 @@ class LspConversationService:
                 )
             self._evict_if_full()
             focused_ref = self._focused_ref(params, index)
+            documentation_index_uri, documentation_retriever = self._create_documentation_retriever(
+                root,
+                params.documentation_index_uri,
+            )
             entry = _SessionEntry(
                 workspace_uri=params.workspace_uri,
                 root=root,
                 session=self._new_session(root, focused_ref, params.session_id),
                 touched_at=now,
+                documentation_index_uri=documentation_index_uri,
+                documentation_retriever=documentation_retriever,
             )
             self._sessions[params.session_id] = entry
         else:
@@ -85,6 +94,7 @@ class LspConversationService:
                 raise ConversationSessionError(
                     f"Conversation session {params.session_id} belongs to a different workspace."
                 )
+            self._validate_documentation_index_uri(entry, root, params.documentation_index_uri, params.session_id)
             focused_ref = self._focused_ref(params, index)
             if focused_ref is not None:
                 entry.session.focused_ref = focused_ref
@@ -159,6 +169,47 @@ class LspConversationService:
         except TypeError, ValueError:
             return self.session_factory(root, focused_ref)
         return self.session_factory(root, focused_ref, session_id)
+
+    def _create_documentation_retriever(
+        self,
+        root: Path,
+        documentation_index_uri: str | None,
+    ) -> tuple[str | None, DocumentationRetriever | None]:
+        if documentation_index_uri is None:
+            return None, None
+        resolved = self._resolve_documentation_index_path(root, documentation_index_uri)
+        try:
+            retriever = DocumentationRetriever(resolved)
+        except Exception as error:
+            raise ConversationSessionError(
+                f"Could not load the documentation index from {resolved}: {error}"
+            ) from error
+        return resolved.as_uri(), retriever
+
+    def _validate_documentation_index_uri(
+        self,
+        entry: _SessionEntry,
+        root: Path,
+        documentation_index_uri: str | None,
+        session_id: str,
+    ) -> None:
+        if documentation_index_uri is None:
+            return
+        resolved_uri = self._resolve_documentation_index_path(root, documentation_index_uri).as_uri()
+        if entry.documentation_index_uri != resolved_uri:
+            raise ConversationSessionError(
+                f"Conversation session {session_id} is already bound to documentation index "
+                f"{entry.documentation_index_uri or 'none'} and cannot switch to {resolved_uri}."
+            )
+
+    def _resolve_documentation_index_path(self, root: Path, documentation_index_uri: str) -> Path:
+        documentation_index_path = uri_to_path(documentation_index_uri)
+        if documentation_index_path is None:
+            raise ConversationSessionError("The documentation index must use a file URI.")
+        resolved = documentation_index_path.resolve()
+        if not resolved.is_relative_to(root.resolve()):
+            raise ConversationSessionError("The documentation index must stay inside the workspace root.")
+        return resolved
 
     def _resolve_root(self, params: ConversationTurnParams) -> Path:
         workspace_path = uri_to_path(params.workspace_uri)

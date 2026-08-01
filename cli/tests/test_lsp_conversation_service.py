@@ -23,6 +23,9 @@ from modelable.lsp.conversation_service import (
 from modelable.lsp.workspace import LspWorkspaceIndex
 from modelable.operations.compilation import CompilationService, PendingCompilation
 from modelable.parser.ir import AnnKey, PrimitiveType
+from modelable.rag.index import build_documentation_index
+from modelable.rag.model import DocumentationChunk
+from modelable.rag.retriever import DocumentationRetriever
 
 
 def test_find_focused_ref_returns_containing_definition(tmp_path: Path) -> None:
@@ -110,6 +113,27 @@ def _write_customer_workspace(root: Path) -> Path:
         encoding="utf-8",
     )
     return source
+
+
+def _make_documentation_index(root: Path) -> Path:
+    index = root / "docs-index"
+    build_documentation_index(
+        [
+            DocumentationChunk(
+                external_id="guide.md#install",
+                source_path="guide.md",
+                url="https://example.test/guide/#install",
+                language="en",
+                title="Guide",
+                heading="Install",
+                heading_path=["Guide", "Install"],
+                content="Install with uv.",
+                chunk_index=0,
+            )
+        ],
+        index,
+    )
+    return index / "manifest.json"
 
 
 def _session_factory(root: Path, focused_ref: str | None) -> ConversationSession:
@@ -357,6 +381,111 @@ def test_registry_rejects_malformed_workspace_uri(tmp_path: Path) -> None:
 
     with pytest.raises(ConversationSessionError, match="file URI"):
         LspConversationService(session_factory=_session_factory).turn(params)
+
+
+def test_registry_binds_and_reuses_session_documentation_index(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    docs_index = _make_documentation_index(root)
+    service = LspConversationService(session_factory=_session_factory)
+
+    service.turn(
+        _turn_params(root, create_session=True).model_copy(update={"documentation_index_uri": docs_index.as_uri()})
+    )
+
+    entry = service._sessions["session-1"]
+    assert entry.documentation_index_uri == docs_index.resolve().as_uri()
+    assert isinstance(entry.documentation_retriever, DocumentationRetriever)
+    first_retriever = entry.documentation_retriever
+
+    service.turn(_turn_params(root, create_session=False))
+    service.turn(
+        _turn_params(root, create_session=False).model_copy(update={"documentation_index_uri": docs_index.as_uri()})
+    )
+
+    assert service._sessions["session-1"].documentation_index_uri == docs_index.resolve().as_uri()
+    assert service._sessions["session-1"].documentation_retriever is first_retriever
+
+
+def test_registry_rejects_documentation_index_outside_workspace(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    external_index = _make_documentation_index(tmp_path / "outside")
+    service = LspConversationService(session_factory=_session_factory)
+
+    with pytest.raises(ConversationSessionError, match="workspace"):
+        service.turn(
+            _turn_params(root, create_session=True).model_copy(
+                update={"documentation_index_uri": external_index.as_uri()}
+            )
+        )
+
+    assert "session-1" not in service._sessions
+
+
+def test_registry_rejects_documentation_index_mutation_for_existing_session(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    first_index = _make_documentation_index(root / "first")
+    second_index = _make_documentation_index(root / "second")
+
+    class RecordingSession:
+        def __init__(self, **kwargs) -> None:
+            self.no_provider_notice = None
+            self.focused_ref = kwargs.get("focused_ref")
+            self.workspace = load_workspace(root)
+            self.messages: list[str] = []
+
+        def turn(self, message: str):
+            self.messages.append(message)
+            return type(
+                "Reply",
+                (),
+                {
+                    "kind": "answer",
+                    "text": "session reply",
+                    "change_set_id": None,
+                    "operation_kind": None,
+                    "focused_ref": self.focused_ref,
+                    "changed": (),
+                    "affected": (),
+                    "compatibility": (),
+                    "diagnostics": (),
+                    "preview_files": (),
+                    "compilation_files": (),
+                    "registry_id_changes": (),
+                    "audit_path": None,
+                    "written_paths": (),
+                },
+            )()
+
+        def close(self) -> None:
+            return None
+
+    created: list[RecordingSession] = []
+
+    def session_factory(root: Path, focused_ref: str | None):
+        session = RecordingSession(root=root, focused_ref=focused_ref)
+        created.append(session)
+        return session
+
+    service = LspConversationService(session_factory=session_factory)
+    service.turn(
+        _turn_params(root, create_session=True).model_copy(update={"documentation_index_uri": first_index.as_uri()})
+    )
+    entry = service._sessions["session-1"]
+    first_retriever = entry.documentation_retriever
+
+    with pytest.raises(ConversationSessionError, match="documentation index"):
+        service.turn(
+            _turn_params(root, create_session=False).model_copy(
+                update={"documentation_index_uri": second_index.as_uri()}
+            )
+        )
+
+    assert created[0].messages == ["is the workspace valid?"]
+    assert service._sessions["session-1"].documentation_index_uri == first_index.resolve().as_uri()
+    assert service._sessions["session-1"].documentation_retriever is first_retriever
 
 
 def test_registry_reports_provider_configuration_failure(tmp_path: Path) -> None:
