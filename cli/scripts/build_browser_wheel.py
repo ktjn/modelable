@@ -62,6 +62,7 @@ INCLUDE_FILES = (
     "registry/signature.py",
     "rag/context.py",
     "rag/generation.py",
+    "rag/intent.py",
     "rag/model.py",
     "rag/retriever.py",
 )

@@ -51,11 +51,11 @@ def _load_runner() -> ModuleType:
 
 def test_runs_every_command_in_order_with_platform_safe_argv() -> None:
     module = _load_runner()
-    calls: list[tuple[tuple[str, ...], Path, bool]] = []
+    calls: list[tuple[tuple[str, ...], Path, bool, float]] = []
 
-    def fake_run(command: Sequence[str], *, cwd: Path, check: bool) -> None:
+    def fake_run(command: Sequence[str], *, cwd: Path, check: bool, timeout: float) -> None:
         assert isinstance(command, list)
-        calls.append((tuple(command), cwd, check))
+        calls.append((tuple(command), cwd, check, timeout))
 
     module.run_commands(
         repo_root=SCRIPT.parents[2],
@@ -63,7 +63,10 @@ def test_runs_every_command_in_order_with_platform_safe_argv() -> None:
         npm_executable="npm.cmd",
     )
 
-    expected = [(command, SCRIPT.parents[2] / directory, True) for directory, command in EXPECTED_NPM_CMD_CALLS]
+    expected = [
+        (command, SCRIPT.parents[2] / directory, True, module.COMMAND_TIMEOUT_SECONDS)
+        for directory, command in EXPECTED_NPM_CMD_CALLS
+    ]
     assert calls == expected
 
 
@@ -71,7 +74,7 @@ def test_skip_install_omits_only_npm_ci() -> None:
     module = _load_runner()
     calls: list[tuple[str, ...]] = []
 
-    def fake_run(command: Sequence[str], *, cwd: Path, check: bool) -> None:
+    def fake_run(command: Sequence[str], *, cwd: Path, check: bool, timeout: float) -> None:
         calls.append(tuple(command))
 
     module.run_commands(
@@ -88,10 +91,10 @@ def test_skip_install_omits_only_npm_ci() -> None:
 
 def test_stops_immediately_when_a_command_fails() -> None:
     module = _load_runner()
-    calls: list[tuple[tuple[str, ...], Path, bool]] = []
+    calls: list[tuple[tuple[str, ...], Path, bool, float]] = []
 
-    def fake_run(command: Sequence[str], *, cwd: Path, check: bool) -> None:
-        calls.append((tuple(command), cwd, check))
+    def fake_run(command: Sequence[str], *, cwd: Path, check: bool, timeout: float) -> None:
+        calls.append((tuple(command), cwd, check, timeout))
         if len(calls) == 3:
             raise subprocess.CalledProcessError(1, command)
 
@@ -102,9 +105,31 @@ def test_stops_immediately_when_a_command_fails() -> None:
             npm_executable="npm.cmd",
         )
 
-    expected = [(command, SCRIPT.parents[2] / directory, True) for directory, command in EXPECTED_NPM_CMD_CALLS]
+    expected = [
+        (command, SCRIPT.parents[2] / directory, True, module.COMMAND_TIMEOUT_SECONDS)
+        for directory, command in EXPECTED_NPM_CMD_CALLS
+    ]
     assert calls == expected[:3]
     assert not any(call in calls for call in expected[3:])
+
+
+def test_passes_configured_timeout_to_each_command() -> None:
+    module = _load_runner()
+    timeouts: list[float] = []
+
+    def fake_run(command: Sequence[str], *, cwd: Path, check: bool, timeout: float) -> None:
+        del command, cwd, check
+        timeouts.append(timeout)
+
+    module.run_commands(
+        repo_root=SCRIPT.parents[2],
+        runner=fake_run,
+        npm_executable="npm",
+        skip_install=True,
+        command_timeout_seconds=1.5,
+    )
+
+    assert timeouts == [1.5] * (len(module.COMMANDS) - 1)
 
 
 def test_resolves_npm_cmd_with_shutil_which_on_windows(

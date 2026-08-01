@@ -810,27 +810,14 @@ export function App({
         role: 'user',
         text: userText,
       });
-      const isDocsRequest = userText.trim().toLowerCase().startsWith('/docs');
-      if (isDocsRequest) {
-        appendMessage({
-          id: assistantId,
-          role: 'assistant',
-          kind: 'docs',
-          citations: [],
-          diagnostics: [],
-          providerInfo: { provider: provider.id, model: provider.model },
-          pending: true,
-        });
-      } else {
-        appendMessage({
-          id: assistantId,
-          role: 'assistant',
-          kind: 'explain',
-          diagnostics: [],
-          providerInfo: { provider: provider.id, model: provider.model },
-          pending: true,
-        });
-      }
+      appendMessage({
+        id: assistantId,
+        role: 'assistant',
+        kind: 'explain',
+        diagnostics: [],
+        providerInfo: { provider: provider.id, model: provider.model },
+        pending: true,
+      });
       setAiPending(true);
       setRightTab('assistant');
       const position = sourceEditorRef.current?.getPosition() ?? null;
@@ -851,6 +838,7 @@ export function App({
             'docs-index/',
             new URL(import.meta.env.BASE_URL, window.location.href),
           ).href,
+          automaticDocumentation: true,
         },
         provider,
       )
@@ -881,22 +869,15 @@ export function App({
                       pending: false,
                     };
                 }
-                if (isDocsRequest) {
-                  const [answer = '', sources = ''] = result.reply.text.split('\n\nSources:\n', 2);
-                  const citations = sources
-                    .split('\n')
-                    .map((line) => line.match(/^\s*- \[(S\d+)\] (.+) \(([^()]*)\)\s*$/))
-                    .filter((match): match is RegExpMatchArray => match !== null)
-                    .map((match) => ({
-                      label: `${match[1] ?? 'Source'} ${match[2] ?? ''}`.trim(),
-                      url: match[3] ?? '',
-                    }));
+                if (result.reply.retrievalUsed === true) {
+                  const [answer = ''] = result.reply.text.split('\n\nSources:\n', 1);
                   return {
                     id: assistantId,
                     role: 'assistant',
                     kind: 'docs',
                     answer,
-                    citations,
+                    citations: result.reply.citations ?? [],
+                    routeReason: result.reply.routeReason,
                     diagnostics: [],
                     providerInfo: { provider: provider.id, model: provider.model },
                     pending: false,

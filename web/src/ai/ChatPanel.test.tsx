@@ -119,17 +119,31 @@ test('calls quick action chips', async () => {
   expect(onSuggestProjection).toHaveBeenCalled();
 });
 
-test('renders documentation citations as safe links', () => {
+test('renders documentation Markdown and citations as safe links', () => {
   render(
     <ChatPanel
       messages={[{
         id: 'docs-1',
         role: 'assistant',
         kind: 'docs',
-        answer: 'Use the compiler command.',
+        answer: 'Use the **compiler** command.',
         citations: [
-          { label: 'S1 guide.md#compile', url: 'https://example.test/guide' },
-          { label: 'S2 unsafe', url: 'javascript:alert(1)' },
+          {
+            label: 'S1',
+            externalId: 'guide.md#compile',
+            url: 'https://example.test/guide',
+            title: 'Guide',
+            heading: 'Compile',
+            score: 1,
+          },
+          {
+            label: 'S2',
+            externalId: 'unsafe.md',
+            url: 'javascript:alert(1)',
+            title: 'Unsafe',
+            heading: null,
+            score: 0.5,
+          },
         ],
         diagnostics: [],
         providerInfo: { provider: 'heuristic', model: 'rule' },
@@ -154,11 +168,12 @@ test('renders documentation citations as safe links', () => {
     />,
   );
 
+  expect(screen.getByText('compiler').tagName).toBe('STRONG');
   expect(screen.getByRole('link', { name: 'S1 guide.md#compile' }).getAttribute('href')).toBe(
     'https://example.test/guide',
   );
-  expect(screen.getByText('S2 unsafe')).toBeTruthy();
-  expect(screen.queryByRole('link', { name: 'S2 unsafe' })).toBeNull();
+  expect(screen.getByText('S2 unsafe.md')).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'S2 unsafe.md' })).toBeNull();
 });
 
 test('accepts generated source', async () => {

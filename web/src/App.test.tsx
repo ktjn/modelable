@@ -1522,6 +1522,60 @@ describe('App', () => {
     });
   });
 
+  test('automatic retrieval metadata renders an ordinary question as a documentation answer', async () => {
+    const client = new FakeCompilerClient();
+    client.conversationTurn.mockResolvedValue({
+      reply: {
+        kind: 'answer',
+        text: '**Configure** the compiler with `modelable.toml` [S1].',
+        change_set_id: null,
+        operation_kind: null,
+        focused_ref: null,
+        assumptions: [],
+        changed: [],
+        affected: [],
+        preview_files: [],
+        compilation_files: [],
+        retrievalUsed: true,
+        routeReason: 'automatic_documentation_signal',
+        citations: [{
+          label: 'S1',
+          externalId: 'guide.md#configuration',
+          url: 'https://example.test/guide/#configuration',
+          title: 'Guide',
+          heading: 'Configuration',
+          score: 0.9,
+        }],
+      },
+      workspace_revision: 1,
+      sources: [],
+    });
+    render(<App createClient={() => client} />);
+    await initialize(client);
+    fireEvent.click(screen.getByRole('button', { name: 'Use simulator' }));
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('e.g. Add a creditScore field to Customer')).toBeTruthy();
+    });
+
+    fireEvent.change(
+      screen.getByPlaceholderText('e.g. Add a creditScore field to Customer'),
+      { target: { value: 'How do I configure the compiler?' } },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Documentation answer' })).toBeTruthy();
+    });
+    expect(screen.getByText('Configure').tagName).toBe('STRONG');
+    expect(screen.getByRole('link', { name: 'S1 guide.md#configuration' })).toBeTruthy();
+    expect(client.conversationTurn.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        message: 'How do I configure the compiler?',
+        automaticDocumentation: true,
+      }),
+    );
+  });
+
   test('explain uses the shared conversation engine', async () => {
     const client = new FakeCompilerClient();
     client.conversationTurn.mockResolvedValue({

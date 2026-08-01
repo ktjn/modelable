@@ -10,6 +10,7 @@ from modelable.browser import (
 )
 from modelable.browser.conversation import BrowserConversationReply
 from modelable.llm.conversation_backend import ConversationReply, ConversationRetrievalMetadata
+from modelable.llm.workspace_editor import ChangedDefinition
 from modelable.rag.generation import RagCitation
 
 VALID = 'domain customer {\n  owner: "team"\n  entity Customer @ 1 (additive) {\n    @key id: uuid\n  }\n}\n'
@@ -356,6 +357,36 @@ def test_dispatch_conversation_turn_keeps_ordinary_reply_shape_compatible(
     assert "route_reason" not in response["result"]["reply"]
 
 
+def test_dispatch_conversation_turn_serializes_nested_preview_dataclasses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def preview_turn(**_kwargs: object) -> BrowserConversationReply:
+        return BrowserConversationReply(
+            reply=ConversationReply(
+                kind="preview",
+                text="Preview customer.Invoice@1",
+                changed=(ChangedDefinition(ref="customer.Invoice@1", reason="created"),),
+            ),
+            workspace_revision=7,
+        )
+
+    monkeypatch.setattr(browser_dispatch._conversations, "turn", preview_turn)
+
+    response = dispatch(
+        "conversation.turn",
+        {
+            "sessionId": "session-1",
+            "workspaceRevision": 7,
+            "message": "Create an invoice",
+            "activeDocumentUri": None,
+            "line": None,
+            "character": None,
+        },
+    )
+
+    assert response["result"]["reply"]["changed"] == [{"ref": "customer.Invoice@1", "reason": "created"}]
+
+
 def test_dispatch_conversation_turn_includes_retrieval_metadata_only_for_grounded_answers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -409,6 +440,59 @@ def test_dispatch_conversation_turn_includes_retrieval_metadata_only_for_grounde
             "score": 1.0,
         }
     ]
+
+
+def test_dispatch_conversation_turn_forwards_automatic_documentation_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    received: dict[str, object] = {}
+
+    def turn(**kwargs: object) -> BrowserConversationReply:
+        received.update(kwargs)
+        return BrowserConversationReply(
+            reply=ConversationReply(kind="answer", text="ordinary answer"),
+            workspace_revision=7,
+        )
+
+    monkeypatch.setattr(browser_dispatch._conversations, "turn", turn)
+
+    response = dispatch(
+        "conversation.turn",
+        {
+            "sessionId": "session-1",
+            "workspaceRevision": 7,
+            "message": "How do I configure the compiler?",
+            "activeDocumentUri": None,
+            "line": None,
+            "character": None,
+            "documentationIndexUrl": "https://example.test/docs-index/manifest.json",
+            "documentationAssetRoot": "https://example.test/docs-index/",
+            "automaticDocumentation": False,
+        },
+    )
+
+    assert response["ok"] is True
+    assert received["automatic_documentation"] is False
+
+
+def test_dispatch_conversation_turn_rejects_invalid_automatic_documentation_policy() -> None:
+    response = dispatch(
+        "conversation.turn",
+        {
+            "sessionId": "session-1",
+            "workspaceRevision": 7,
+            "message": "How do I configure the compiler?",
+            "activeDocumentUri": None,
+            "line": None,
+            "character": None,
+            "automaticDocumentation": "yes",
+        },
+    )
+
+    assert response["error"] == {
+        "code": "INVALID_REQUEST",
+        "message": "Payload does not match method schema",
+    }
 
 
 def test_dispatch_syncs_revision_then_completes() -> None:

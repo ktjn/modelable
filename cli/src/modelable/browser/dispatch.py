@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
@@ -224,8 +224,13 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
             "character",
             "documentationIndexUrl",
             "documentationAssetRoot",
+            "automaticDocumentation",
         }
-        required = allowed - {"documentationIndexUrl", "documentationAssetRoot"}
+        required = allowed - {
+            "documentationIndexUrl",
+            "documentationAssetRoot",
+            "automaticDocumentation",
+        }
         if not required.issubset(payload) or set(payload) - allowed:
             raise BrowserRequestValidationError("Payload does not match method schema")
         if not isinstance(payload["sessionId"], str) or not isinstance(payload["message"], str):
@@ -243,6 +248,9 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
             raise BrowserRequestValidationError("documentationIndexUrl must be a string or null")
         if documentation_asset_root is not None and not isinstance(documentation_asset_root, str):
             raise BrowserRequestValidationError("documentationAssetRoot must be a string or null")
+        automatic_documentation = payload.get("automaticDocumentation")
+        if automatic_documentation is not None and not isinstance(automatic_documentation, bool):
+            raise BrowserRequestValidationError("automaticDocumentation must be a boolean or null")
         return _conversations.turn(
             session_id=payload["sessionId"],
             workspace_revision=_integer(payload["workspaceRevision"]),
@@ -252,6 +260,7 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
             character=None if character is None else _integer(character),
             documentation_index_url=documentation_index_url,
             documentation_asset_root=documentation_asset_root,
+            automatic_documentation=automatic_documentation,
         )
     if method == "conversation.resume":
         _require_exact_fields(
@@ -353,6 +362,8 @@ def _serialize_conversation_reply(reply: ConversationReply) -> dict[str, Any]:
 
 
 def _jsonable(value: Any) -> Any:
+    if is_dataclass(value) and not isinstance(value, type):
+        return _jsonable(asdict(value))
     if isinstance(value, Path):
         return value.as_posix()
     if isinstance(value, dict):

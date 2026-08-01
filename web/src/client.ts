@@ -2,6 +2,7 @@ import {
   BROWSER_COMPILER_PROTOCOL_VERSION,
   type BrowserCompileResult,
   type BrowserConversationReply,
+  type BrowserConversationReplyValue,
   type BrowserConversationResult,
   type BrowserCompatibilityResult,
   type BrowserCompletionResult,
@@ -100,6 +101,26 @@ export interface ConversationTurnInput {
   position: { line: number; character: number } | null;
   documentationIndexUrl?: string;
   documentationAssetRoot?: string;
+  automaticDocumentation?: boolean;
+}
+
+export interface ConversationCitation {
+  label: string;
+  externalId: string;
+  url: string;
+  title: string;
+  heading: string | null;
+  score: number;
+}
+
+export interface ConversationTurnReplyValue extends BrowserConversationReplyValue {
+  retrievalUsed?: boolean;
+  citations?: ConversationCitation[];
+  routeReason?: string;
+}
+
+export interface ConversationTurnReply extends Omit<BrowserConversationReply, 'reply'> {
+  reply: ConversationTurnReplyValue;
 }
 
 export class BrowserCompilerClient {
@@ -308,7 +329,7 @@ export class BrowserCompilerClient {
     input: ConversationTurnInput,
     provider: LlmProvider,
     signal?: AbortSignal,
-  ): Promise<BrowserConversationReply> {
+  ): Promise<ConversationTurnReply> {
     let result = await this.initializedRequest<BrowserConversationResult>(
       'conversation.turn',
       {
@@ -324,11 +345,15 @@ export class BrowserCompilerClient {
         ...(input.documentationAssetRoot === undefined
           ? {}
           : { documentationAssetRoot: input.documentationAssetRoot }),
+        ...(input.automaticDocumentation === undefined
+          ? {}
+          : { automaticDocumentation: input.automaticDocumentation }),
       },
       isBrowserConversationResult,
     );
-    try {
-      while (isBrowserConversationPendingResult(result)) {
+    while (isBrowserConversationPendingResult(result)) {
+      const requestId = result.request_id;
+      try {
         throwIfConversationAborted(signal);
         const response = await provider.complete({
           system: result.llm_request.system,
@@ -342,33 +367,39 @@ export class BrowserCompilerClient {
           'conversation.resume',
           {
             sessionId: input.sessionId,
-            requestId: result.request_id,
+            requestId,
             workspaceRevision: input.workspaceRevision,
             llmResponseContent: response.content,
           },
           isBrowserConversationResult,
         );
-      }
-    } catch (error: unknown) {
-      if (isBrowserConversationPendingResult(result)) {
+      } catch (error: unknown) {
+        let failureResult: BrowserConversationResult | undefined;
         try {
-          await this.initializedRequest(
+          failureResult = await this.initializedRequest<BrowserConversationResult>(
             'conversation.fail',
             {
               sessionId: input.sessionId,
-              requestId: result.request_id,
+              requestId,
               workspaceRevision: input.workspaceRevision,
               error: error instanceof Error ? error.message : 'Provider completion failed',
             },
-            isBrowserConversationReply,
+            isBrowserConversationResult,
           );
         } catch {
           // Preserve the provider/cancellation failure that caused cleanup.
         }
+        if (
+          failureResult !== undefined &&
+          isBrowserConversationPendingResult(failureResult)
+        ) {
+          result = failureResult;
+          continue;
+        }
+        throw error;
       }
-      throw error;
     }
-    return result;
+    return normalizeConversationTurnReply(result);
   }
 
   conversationApply(
@@ -507,4 +538,44 @@ function throwIfConversationAborted(signal?: AbortSignal): void {
   if (signal?.aborted === true) {
     throw new DOMException('Conversation cancelled', 'AbortError');
   }
+}
+
+interface ConversationCitationWire {
+  label: string;
+  external_id: string;
+  url: string;
+  title: string;
+  heading: string | null;
+  score: number;
+}
+
+type ConversationReplyWire = BrowserConversationReplyValue & {
+  retrieval_used?: boolean;
+  citations?: ConversationCitationWire[];
+  route_reason?: string;
+};
+
+function normalizeConversationTurnReply(
+  result: BrowserConversationReply,
+): ConversationTurnReply {
+  const reply = result.reply as ConversationReplyWire;
+  if (reply.retrieval_used !== true) {
+    return result;
+  }
+  return {
+    ...result,
+    reply: {
+      ...reply,
+      retrievalUsed: true,
+      routeReason: reply.route_reason ?? '',
+      citations: (reply.citations ?? []).map((citation) => ({
+        label: citation.label,
+        externalId: citation.external_id,
+        url: citation.url,
+        title: citation.title,
+        heading: citation.heading,
+        score: citation.score,
+      })),
+    },
+  };
 }

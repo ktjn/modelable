@@ -38,6 +38,7 @@ COMMANDS = (
 )
 
 CommandRunner = Callable[..., object]
+COMMAND_TIMEOUT_SECONDS = 20 * 60
 
 
 def resolve_npm_executable() -> str:
@@ -55,13 +56,19 @@ def run_commands(
     runner: CommandRunner = subprocess.run,
     npm_executable: str | None = None,
     skip_install: bool = False,
+    command_timeout_seconds: float = COMMAND_TIMEOUT_SECONDS,
 ) -> None:
     npm = resolve_npm_executable() if npm_executable is None else npm_executable
     for directory, command in COMMANDS:
         if skip_install and command == ("npm", "ci"):
             continue
         argv = [npm if value == "npm" else value for value in command]
-        runner(argv, cwd=repo_root / directory, check=True)
+        runner(
+            argv,
+            cwd=repo_root / directory,
+            check=True,
+            timeout=command_timeout_seconds,
+        )
 
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:

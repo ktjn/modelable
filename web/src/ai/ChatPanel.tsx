@@ -381,20 +381,25 @@ function AssistantDocsMessageItem({
   );
 }
 
-function SafeCitationLink({ citation }: { citation: { label: string; url: string } }) {
+function SafeCitationLink({
+  citation,
+}: {
+  citation: AssistantDocsChatMessage['citations'][number];
+}) {
+  const label = `${citation.label} ${citation.externalId}`.trim();
   try {
     const url = new URL(citation.url);
     if (url.protocol === 'http:' || url.protocol === 'https:') {
       return (
         <a href={url.href} target="_blank" rel="noreferrer">
-          {citation.label}
+          {label}
         </a>
       );
     }
   } catch {
     // Render untrusted citation URLs as text.
   }
-  return <span>{citation.label}</span>;
+  return <span>{label}</span>;
 }
 
 function AssistantExplainMessageItem({

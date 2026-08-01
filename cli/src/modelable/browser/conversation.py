@@ -19,6 +19,7 @@ from modelable.llm.context import build_workspace_summary
 from modelable.llm.conversation_backend import (
     ConversationPreviewFile,
     ConversationReply,
+    ConversationRetrievalMetadata,
 )
 from modelable.llm.conversation_engine import ConversationEngine
 from modelable.llm.conversation_plan import ChangeSetPlan, CompilePlan, QueryPlan
@@ -30,8 +31,8 @@ from modelable.llm.conversation_planner import (
 from modelable.llm.provider_types import LLMRequest
 from modelable.llm.workspace_editor import PendingChangeSet, WorkspaceEditError, WorkspaceEditor
 from modelable.llm.workspace_query import WorkspaceQueryService
-from modelable.rag.generation import RAG_SYSTEM_PROMPT, build_evidence_prompt
-from modelable.rag.retriever import RetrievedChunk
+from modelable.rag.generation import RAG_SYSTEM_PROMPT, RagCitation, build_evidence_prompt
+from modelable.rag.intent import RetrievalRoute, classify_retrieval_intent
 
 if TYPE_CHECKING:
     from modelable.operations.compilation import CompilationFilePreview
@@ -66,6 +67,15 @@ class _BrowserCompilationFile:
 
 
 @dataclass
+class _PendingDocumentation:
+    request_id: str
+    message: str
+    citations: tuple[RagCitation, ...]
+    route_reason: str
+    automatic: bool
+
+
+@dataclass
 class _Session:
     engine: ConversationEngine
     backend: BrowserConversationBackend
@@ -74,7 +84,8 @@ class _Session:
     documentation_index_url: str | None = None
     documentation_asset_root: str | None = None
     documentation_retriever: BrowserDocumentationRetriever | None = None
-    pending_documentation: tuple[str, tuple[RetrievedChunk, ...]] | None = None
+    automatic_documentation: bool | None = None
+    pending_documentation: _PendingDocumentation | None = None
 
 
 class BrowserConversationBackend:
@@ -311,13 +322,42 @@ class BrowserConversationService:
         character: int | None = None,
         documentation_index_url: str | None = None,
         documentation_asset_root: str | None = None,
+        automatic_documentation: bool | None = None,
     ) -> PendingPlanRequest | BrowserConversationReply:
         session = self._session(session_id, workspace_revision)
         if documentation_index_url is not None or documentation_asset_root is not None:
             self._configure_documentation(session, documentation_index_url, documentation_asset_root)
-        if message.strip().lower().startswith("/docs"):
-            return self._documentation_turn(session, message)
+        if automatic_documentation is not None:
+            session.automatic_documentation = automatic_documentation
         session.engine.focused_ref = self._focused_ref(active_document_uri, line, character)
+        automatic_enabled = session.automatic_documentation
+        if automatic_enabled is None:
+            automatic_enabled = (
+                session.documentation_index_url is not None and session.documentation_asset_root is not None
+            )
+        decision = classify_retrieval_intent(message, automatic_enabled=automatic_enabled)
+        if decision.route is RetrievalRoute.EXPLICIT_DOCUMENTATION:
+            result = self._documentation_turn(
+                session,
+                message=message,
+                question=decision.question,
+                route_reason=decision.reason,
+                automatic=False,
+            )
+            assert result is not None
+            return result
+        if message.strip().casefold() == "/docs":
+            return self._result(ConversationReply(kind="answer", text="Provide a question after /docs."))
+        if decision.route is RetrievalRoute.AUTOMATIC_DOCUMENTATION:
+            result = self._documentation_turn(
+                session,
+                message=message,
+                question=decision.question,
+                route_reason=decision.reason,
+                automatic=True,
+            )
+            if result is not None:
+                return result
         outcome = session.engine.begin_turn(message)
         if isinstance(outcome, PendingPlanRequest):
             return outcome
@@ -333,14 +373,23 @@ class BrowserConversationService:
     ) -> PendingPlanRequest | BrowserConversationReply:
         session = self._session(session_id, workspace_revision, create=False)
         pending_documentation = session.pending_documentation
-        if pending_documentation is not None and pending_documentation[0] == request_id:
+        if pending_documentation is not None and pending_documentation.request_id == request_id:
             session.pending_documentation = None
-            citations = pending_documentation[1]
             source_lines = "\n".join(
-                f"- [S{index}] {citation.external_id} ({citation.url})"
-                for index, citation in enumerate(citations, start=1)
+                f"- [{citation.label}] {citation.external_id} ({citation.url})"
+                for citation in pending_documentation.citations
             )
-            return self._result(ConversationReply(kind="answer", text=f"{content.strip()}\n\nSources:\n{source_lines}"))
+            return self._result(
+                ConversationReply(
+                    kind="answer",
+                    text=f"{content.strip()}\n\nSources:\n{source_lines}",
+                    retrieval=ConversationRetrievalMetadata(
+                        citations=pending_documentation.citations,
+                        retrieval_used=True,
+                        route_reason=pending_documentation.route_reason,
+                    ),
+                )
+            )
         outcome = session.engine.resume_turn(request_id, content)
         if isinstance(outcome, PendingPlanRequest):
             return outcome
@@ -367,10 +416,16 @@ class BrowserConversationService:
         request_id: str,
         workspace_revision: int,
         error: str,
-    ) -> BrowserConversationReply:
+    ) -> PendingPlanRequest | BrowserConversationReply:
         session = self._session(session_id, workspace_revision, create=False)
-        if session.pending_documentation is not None and session.pending_documentation[0] == request_id:
+        pending_documentation = session.pending_documentation
+        if pending_documentation is not None and pending_documentation.request_id == request_id:
             session.pending_documentation = None
+            if pending_documentation.automatic:
+                outcome = session.engine.begin_turn(pending_documentation.message)
+                if isinstance(outcome, PendingPlanRequest):
+                    return outcome
+                return self._result(outcome)
             return self._result(ConversationReply(kind="answer", text=f"The documentation answer failed: {error}"))
         return self._result(session.engine.fail_turn(request_id, RuntimeError(error)))
 
@@ -428,6 +483,8 @@ class BrowserConversationService:
                 backend=backend,
                 workspace_revision=revision,
                 last_used=now,
+                documentation_index_url=self.documentation_index_url,
+                documentation_asset_root=self.documentation_asset_root,
             )
         elif session.workspace_revision != revision:
             session.engine.reset()
@@ -440,6 +497,8 @@ class BrowserConversationService:
                 backend=backend,
                 workspace_revision=revision,
                 last_used=now,
+                documentation_index_url=self.documentation_index_url,
+                documentation_asset_root=self.documentation_asset_root,
             )
         session.last_used = now
         self._sessions[session_id] = session
@@ -463,12 +522,18 @@ class BrowserConversationService:
         if (session.documentation_index_url, session.documentation_asset_root) != (index_url, asset_root):
             raise PlanningRequestError("documentation index configuration cannot change during a session")
 
-    def _documentation_turn(self, session: _Session, message: str) -> PendingPlanRequest | BrowserConversationReply:
-        _, _, question = message.partition(" ")
-        question = question.strip()
-        if not question:
-            return self._result(ConversationReply(kind="answer", text="Provide a question after /docs."))
+    def _documentation_turn(
+        self,
+        session: _Session,
+        *,
+        message: str,
+        question: str,
+        route_reason: str,
+        automatic: bool,
+    ) -> PendingPlanRequest | BrowserConversationReply | None:
         if session.documentation_index_url is None or session.documentation_asset_root is None:
+            if automatic:
+                return None
             return self._result(
                 ConversationReply(kind="answer", text="The /docs command requires a bundled documentation index.")
             )
@@ -481,13 +546,34 @@ class BrowserConversationService:
             chunks = tuple(session.documentation_retriever.search(question))
             prompt, selected = build_evidence_prompt(question, chunks, max_context_words=3000, max_chunks_per_source=2)
         except (BrowserRetrievalError, ValueError) as error:
+            if automatic:
+                return None
             return self._result(ConversationReply(kind="answer", text=f"Documentation retrieval failed: {error}"))
         if not selected:
+            if automatic:
+                return None
             return self._result(
                 ConversationReply(kind="answer", text="I don't have enough documentation evidence to answer that.")
             )
         request_id = self.id_factory() if self.id_factory is not None else str(uuid.uuid4())
-        session.pending_documentation = (request_id, tuple(selected))
+        citations = tuple(
+            RagCitation(
+                label=f"S{index}",
+                external_id=chunk.external_id,
+                url=chunk.url,
+                title=chunk.title,
+                heading=chunk.heading,
+                score=chunk.score,
+            )
+            for index, chunk in enumerate(selected, start=1)
+        )
+        session.pending_documentation = _PendingDocumentation(
+            request_id=request_id,
+            message=message,
+            citations=citations,
+            route_reason=route_reason,
+            automatic=automatic,
+        )
         return PendingPlanRequest(
             request_id=request_id,
             request=LLMRequest(system=RAG_SYSTEM_PROMPT, user=prompt, temperature=0.2),
