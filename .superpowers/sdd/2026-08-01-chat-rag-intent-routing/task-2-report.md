@@ -6,7 +6,8 @@ Completed Task 2 in `C:\git\modelable\.worktrees\chat-rag-intent-plan` without m
 
 ## Commit(s)
 
-- `c6fd5e1` — `feat(rag): expose structured grounded answer metadata`
+- `66d253d` — `feat(rag): expose structured grounded answer metadata`
+- This report is included in the current HEAD on top of that implementation commit.
 
 ## Focused test output
 
