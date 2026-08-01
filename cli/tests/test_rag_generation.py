@@ -7,6 +7,7 @@ from modelable.rag.generation import (
     answer_with_retrieval,
     build_evidence_prompt,
 )
+from modelable.rag.intent import classify_retrieval_intent
 from modelable.rag.retriever import RetrievedChunk
 
 
@@ -79,6 +80,8 @@ def test_answer_returns_insufficient_evidence_without_calling_provider() -> None
 
     assert result.insufficient_evidence is True
     assert result.citations == ()
+    assert result.retrieval_used is False
+    assert result.route_reason == "explicit_docs_command"
     assert "enough documentation evidence" in result.answer
     assert provider.request is None
 
@@ -86,14 +89,23 @@ def test_answer_returns_insufficient_evidence_without_calling_provider() -> None
 def test_answer_calls_provider_and_appends_structured_citations() -> None:
     retriever = FakeRetriever([chunk(1, "Configure the service with a token.")])
     provider = FakeProvider("Configure it with a token. [S1]")
+    decision = classify_retrieval_intent("/docs How do I configure it?")
 
-    result = answer_with_retrieval(retriever, provider, "How do I configure it?", limit=3)
+    result = answer_with_retrieval(
+        retriever,
+        provider,
+        "How do I configure it?",
+        limit=3,
+        route_reason=decision.reason,
+    )
 
     assert retriever.query == "How do I configure it?"
     assert retriever.limit == 3
     assert provider.request is not None
     assert "[S1]" in provider.request.user
     assert result.insufficient_evidence is False
+    assert result.retrieval_used is True
+    assert result.route_reason == "explicit_docs_command"
     assert result.citations[0].label == "S1"
     assert result.citations[0].external_id == "guide.md#section-1"
     assert "Sources:" in result.answer

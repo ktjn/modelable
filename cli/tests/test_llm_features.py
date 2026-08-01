@@ -13,6 +13,7 @@ from modelable.llm.context import (
     build_projection_summary,
     build_workspace_summary,
 )
+from modelable.llm.conversation_backend import ConversationReply
 from modelable.llm.importers import import_from_text
 from modelable.llm.redaction import redact_sensitive_values
 from modelable.parser.ir import AiConfig
@@ -24,6 +25,14 @@ def _read_provenance(path: Path) -> dict[str, object]:
 
 def _provenance_path(path: Path) -> Path:
     return path.with_name(f"{path.name}.provenance.json")
+
+
+def test_conversation_reply_defaults_keep_minimal_answer_construction_valid() -> None:
+    reply = ConversationReply(kind="answer", text="hello")
+
+    assert reply.citations == ()
+    assert reply.retrieval_used is False
+    assert reply.route_reason == ""
 
 
 def test_redaction_masks_secrets():

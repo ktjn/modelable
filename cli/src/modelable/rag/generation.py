@@ -34,6 +34,8 @@ class RagAnswer:
     answer: str
     citations: tuple[RagCitation, ...]
     insufficient_evidence: bool
+    retrieval_used: bool
+    route_reason: str
 
 
 class _Retriever(Protocol):
@@ -83,6 +85,7 @@ def answer_with_retrieval(
     limit: int = 8,
     max_context_words: int = 3000,
     max_chunks_per_source: int | None = 2,
+    route_reason: str = "explicit_docs_command",
 ) -> RagAnswer:
     """Retrieve evidence and generate an answer constrained to that evidence."""
     if not question.strip():
@@ -100,7 +103,7 @@ def answer_with_retrieval(
         max_chunks_per_source=max_chunks_per_source,
     )
     if not selected:
-        return RagAnswer(INSUFFICIENT_EVIDENCE, (), True)
+        return RagAnswer(INSUFFICIENT_EVIDENCE, (), True, False, route_reason)
     if provider is None:
         raise ValueError("LLM provider is required when evidence is available")
 
@@ -118,4 +121,10 @@ def answer_with_retrieval(
         for index, chunk in enumerate(selected, start=1)
     )
     source_lines = [f"- [{citation.label}] {citation.external_id} ({citation.url})" for citation in citations]
-    return RagAnswer(f"{answer}\n\nSources:\n" + "\n".join(source_lines), citations, False)
+    return RagAnswer(
+        f"{answer}\n\nSources:\n" + "\n".join(source_lines),
+        citations,
+        False,
+        True,
+        route_reason,
+    )

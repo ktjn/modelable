@@ -13,6 +13,7 @@ if TYPE_CHECKING:
         CompatibilityFinding,
     )
     from modelable.operations.compilation import CompilationFilePreview, RegistryIdChange
+    from modelable.rag.generation import RagCitation
 
 type ReplyKind = Literal[
     "answer",
@@ -43,6 +44,9 @@ class ConversationPreviewFile:
 class ConversationReply:
     kind: ReplyKind
     text: str
+    citations: tuple[RagCitation, ...] = ()
+    retrieval_used: bool = False
+    route_reason: str = ""
     change_set_id: str | None = None
     operation_kind: Literal["source_change", "compile"] | None = None
     focused_ref: str | None = None
