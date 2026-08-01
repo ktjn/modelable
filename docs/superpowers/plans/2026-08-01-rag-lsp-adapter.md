@@ -4,13 +4,13 @@
 
 **Goal:** Add an optional workspace-bound binary Searchable index to the Modelable conversation protocol and route LSP `/docs` turns through the shared RAG answer pipeline.
 
-**Architecture:** Extend `ConversationTurnParams` with optional `documentationIndexUri`. `LspConversationService` resolves and validates the URI only when creating a session, stores one `DocumentationRetriever` and canonical URI in the session entry, and dispatches `/docs` through `documentation_chat_reply`; all other turns continue through `ConversationSession` unchanged.
+**Architecture:** Extend `ConversationTurnParams` with optional `documentationIndexUri`. `LspConversationService` resolves and validates the URI only when creating a session, parses the manifest and confines every resolved shard target to the workspace before constructing one stored `DocumentationRetriever`, and dispatches `/docs` through `documentation_chat_reply`; all other turns continue through `ConversationSession` unchanged.
 
 **Tech Stack:** Python 3.11+, Pydantic, pygls/lsprotocol, pytest, existing `searchable-client`, Modelable RAG and conversation modules.
 
 ## Global Constraints
 
-- The index is the single binary Searchable `manifest.json` and must resolve inside the conversation workspace.
+- The index is the single binary Searchable `manifest.json`; the manifest and every term, document, facet, pin, synonym, fuzzy, or vector shard it references must resolve inside the conversation workspace after symlink resolution.
 - `documentationIndexUri` is optional; protocol version remains 2 and existing clients without the field remain valid.
 - A session binds its documentation index on creation; a later different URI is rejected and never replaces the retriever.
 - Reuse `documentation_chat_reply` and `answer_with_retrieval`; do not duplicate RAG prompt, citation, or provider-error logic in the LSP layer.
@@ -110,7 +110,7 @@ git commit -m "feat: add LSP documentation index parameter"
 
 - [ ] **Step 1: Write failing session-binding tests**
 
-Add tests using a real temporary documentation index and a fake provider/session factory. Cover creation, reuse without resupplying the field, outside-workspace rejection, and URI mutation rejection:
+Add tests using a real temporary documentation index and a fake provider/session factory. Cover creation, reuse without resupplying the field, outside-workspace rejection, traversal and symlink escapes in manifest shard references, and URI mutation rejection:
 
 ```python
 def test_lsp_docs_index_is_bound_to_new_session_and_reused(tmp_path: Path) -> None:
@@ -161,7 +161,7 @@ def _documentation_retriever(
 ) -> tuple[str | None, DocumentationRetriever | None]:
 ```
 
-Return `(None, None)` when the URI is absent. Otherwise require `uri_to_path(uri)` to return a path, resolve it, require `resolved.is_relative_to(root.resolve())`, and construct `DocumentationRetriever(resolved)`. Wrap `ValueError`, `OSError`, and retriever validation failures in `ConversationSessionError` with the original cause.
+Return `(None, None)` when the URI is absent. Otherwise require `uri_to_path(uri)` to return a path, resolve it, and require `resolved.is_relative_to(root.resolve())`. Before constructing `DocumentationRetriever(resolved)`, read and parse the manifest, enumerate file references from `shards.terms`, `shards.docs`, `shards.facets`, `pins`, `synonyms`, `fuzzy`, and `vectors.shards`, and require every target to remain inside the workspace after symlink resolution. Wrap malformed or unreadable manifests and retriever validation failures in `ConversationSessionError` with the original cause.
 
 At session creation, store the returned canonical URI (`resolved.as_uri()`) and retriever. For an existing session, if the request supplies a URI, resolve it and require its canonical URI to equal the stored value; otherwise leave the stored configuration unchanged. Do this validation before calling `entry.session.turn`.
 

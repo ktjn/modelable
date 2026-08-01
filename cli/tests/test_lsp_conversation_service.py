@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 from pathlib import Path
 
@@ -134,6 +135,28 @@ def _make_documentation_index(root: Path) -> Path:
         index,
     )
     return index / "manifest.json"
+
+
+def _replace_manifest_shard_file(manifest_path: Path, section: str, shard_file: str) -> None:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if section in {"terms", "docs"}:
+        manifest["shards"][section][0]["file"] = shard_file
+    elif section == "facets":
+        manifest["shards"]["facets"] = [{"field": "title", "file": shard_file}]
+    elif section in {"pins", "synonyms"}:
+        manifest[section] = {"en": shard_file}
+    elif section == "fuzzy":
+        manifest["fuzzy"] = {"en": {"file": shard_file}}
+    elif section == "vectors":
+        manifest["vectors"] = {
+            "dims": 1,
+            "quantization": "float32",
+            "embeddingProvider": {"type": "test"},
+            "shards": {"en": shard_file},
+        }
+    else:
+        raise ValueError(f"unsupported manifest section: {section}")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
 
 def _session_factory(root: Path, focused_ref: str | None) -> ConversationSession:
@@ -418,6 +441,59 @@ def test_registry_rejects_documentation_index_outside_workspace(tmp_path: Path) 
             _turn_params(root, create_session=True).model_copy(
                 update={"documentation_index_uri": external_index.as_uri()}
             )
+        )
+
+    assert "session-1" not in service._sessions
+
+
+@pytest.mark.parametrize("section", ["terms", "docs", "facets", "pins", "synonyms", "fuzzy", "vectors"])
+def test_registry_rejects_documentation_shard_traversal_outside_workspace(
+    tmp_path: Path,
+    section: str,
+) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    docs_index = _make_documentation_index(root)
+    outside_shard = tmp_path / "outside-docs.json"
+    outside_shard.write_text('{"outside": "secret"}', encoding="utf-8")
+    _replace_manifest_shard_file(docs_index, section, "../../outside-docs.json")
+    service = LspConversationService(session_factory=_session_factory)
+
+    with pytest.raises(ConversationSessionError, match="workspace"):
+        service.turn(
+            _turn_params(root, create_session=True).model_copy(update={"documentation_index_uri": docs_index.as_uri()})
+        )
+
+    assert "session-1" not in service._sessions
+
+
+def test_registry_rejects_symlinked_documentation_shard_outside_workspace(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    docs_index = _make_documentation_index(root)
+    manifest = json.loads(docs_index.read_text(encoding="utf-8"))
+    original_shard = docs_index.parent / manifest["shards"]["docs"][0]["file"]
+    outside_shard = tmp_path / "outside-docs.json"
+    outside_shard.write_bytes(original_shard.read_bytes())
+    linked_shard = original_shard.with_name("outside-link.json")
+    try:
+        linked_shard.symlink_to(outside_shard)
+    except NotImplementedError as error:
+        pytest.skip(f"platform cannot create symlinks: {error}")
+    except OSError as error:
+        if error.errno not in {errno.EACCES, errno.EPERM, errno.ENOTSUP} and getattr(error, "winerror", None) != 1314:
+            raise
+        pytest.skip(f"platform cannot create symlinks: {error}")
+    _replace_manifest_shard_file(
+        docs_index,
+        "docs",
+        linked_shard.relative_to(docs_index.parent).as_posix(),
+    )
+    service = LspConversationService(session_factory=_session_factory)
+
+    with pytest.raises(ConversationSessionError, match="workspace"):
+        service.turn(
+            _turn_params(root, create_session=True).model_copy(update={"documentation_index_uri": docs_index.as_uri()})
         )
 
     assert "session-1" not in service._sessions

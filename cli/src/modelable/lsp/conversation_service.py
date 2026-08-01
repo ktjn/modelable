@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from inspect import signature
 from pathlib import Path
 from typing import cast
+from urllib.parse import urljoin
 
 from modelable.compiler.workspace import load_workspace
 from modelable.llm.chat import documentation_chat_reply
@@ -190,12 +192,92 @@ class LspConversationService:
             return None, None
         resolved = self._resolve_documentation_index_path(root, documentation_index_uri)
         try:
+            manifest = json.loads(resolved.read_bytes())
+            self._validate_documentation_shard_paths(root, resolved, manifest)
             retriever = DocumentationRetriever(resolved)
+        except ConversationSessionError:
+            raise
         except Exception as error:
             raise ConversationSessionError(
                 f"Could not load the documentation index from {resolved}: {error}"
             ) from error
         return resolved.as_uri(), retriever
+
+    def _validate_documentation_shard_paths(
+        self,
+        root: Path,
+        manifest_path: Path,
+        manifest: object,
+    ) -> None:
+        for context, reference in self._documentation_shard_references(manifest):
+            if not isinstance(reference, str) or not reference:
+                raise ValueError(f"{context} must be a non-empty string")
+            shard_uri = urljoin(manifest_path.as_uri(), reference)
+            shard_path = uri_to_path(shard_uri)
+            if shard_path is None:
+                raise ConversationSessionError(f"Documentation index {context} must resolve to a local file.")
+            if not shard_path.resolve().is_relative_to(root.resolve()):
+                raise ConversationSessionError(f"Documentation index {context} must stay inside the workspace root.")
+
+    @staticmethod
+    def _documentation_shard_references(manifest: object) -> list[tuple[str, object]]:
+        if not isinstance(manifest, dict):
+            raise ValueError("manifest must be a JSON object")
+        shards = manifest.get("shards")
+        if not isinstance(shards, dict):
+            raise ValueError("shards must be a JSON object")
+
+        references: list[tuple[str, object]] = []
+        for section in ("terms", "docs"):
+            entries = shards.get(section)
+            if not isinstance(entries, list):
+                raise ValueError(f"shards.{section} must be a JSON array")
+            references.extend(LspConversationService._shard_array_references(entries, f"shards.{section}"))
+
+        facets = shards.get("facets")
+        if facets is not None:
+            if not isinstance(facets, list):
+                raise ValueError("shards.facets must be a JSON array")
+            references.extend(LspConversationService._shard_array_references(facets, "shards.facets"))
+
+        for section in ("pins", "synonyms"):
+            entries = manifest.get(section)
+            if entries is None:
+                continue
+            if not isinstance(entries, dict):
+                raise ValueError(f"{section} must be a JSON object")
+            references.extend((f"{section}.{language}", reference) for language, reference in entries.items())
+
+        fuzzy = manifest.get("fuzzy")
+        if fuzzy is not None:
+            if not isinstance(fuzzy, dict):
+                raise ValueError("fuzzy must be a JSON object")
+            for language, descriptor in fuzzy.items():
+                if not isinstance(descriptor, dict):
+                    raise ValueError(f"fuzzy.{language} must be a JSON object")
+                references.append((f"fuzzy.{language}.file", descriptor.get("file")))
+
+        vectors = manifest.get("vectors")
+        if vectors is not None:
+            if not isinstance(vectors, dict):
+                raise ValueError("vectors must be a JSON object")
+            vector_shards = vectors.get("shards")
+            if not isinstance(vector_shards, dict):
+                raise ValueError("vectors.shards must be a JSON object")
+            references.extend(
+                (f"vectors.shards.{language}", reference) for language, reference in vector_shards.items()
+            )
+
+        return references
+
+    @staticmethod
+    def _shard_array_references(entries: list[object], context: str) -> list[tuple[str, object]]:
+        references: list[tuple[str, object]] = []
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                raise ValueError(f"{context}[{index}] must be a JSON object")
+            references.append((f"{context}[{index}].file", entry.get("file")))
+        return references
 
     def _validate_documentation_index_uri(
         self,

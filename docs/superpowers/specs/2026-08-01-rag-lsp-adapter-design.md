@@ -26,7 +26,7 @@ The index URI is session configuration: it is accepted when `createSession` is t
 
 ## Architecture and data flow
 
-`LspConversationService` resolves the optional URI to a local path, requires the resolved index path to remain inside the conversation workspace, and constructs `DocumentationRetriever` once when creating the session. The session entry stores the retriever and the canonical index URI.
+`LspConversationService` resolves the optional URI to a local path, requires the resolved manifest path to remain inside the conversation workspace, parses the manifest, and requires every referenced shard to resolve inside that workspace after symlink resolution. Only then does it construct `DocumentationRetriever` once for the new session. The session entry stores the retriever and the canonical index URI.
 
 For each turn:
 
@@ -40,8 +40,8 @@ The shared adapter remains responsible for command parsing, retrieval, evidence 
 ## Error handling and security
 
 - A non-file `documentationIndexUri` is rejected before session creation.
-- An index outside the workspace is rejected to prevent an LSP request from granting arbitrary filesystem access.
-- An invalid or unreadable index uses the existing retriever validation error wrapped as `ConversationSessionError`.
+- A manifest outside the workspace, a shard reference that traverses outside it, or an in-workspace shard symlink whose target is outside it is rejected before retriever construction. This applies to term, document, facet, pin, synonym, fuzzy, and vector shard references.
+- An invalid or unreadable manifest is rejected as `ConversationSessionError`; manifests that pass the confinement check still undergo the Searchable client's existing validation during retriever construction.
 - `/docs` without an index returns an actionable answer-level message and keeps the session usable.
 - Missing providers and provider failures remain answer-level messages through `documentation_chat_reply`; they must not tear down the session.
 - Changing the index URI on an existing session is rejected without changing the stored retriever.
@@ -53,7 +53,7 @@ Add coverage for:
 - protocol alias validation and optional `documentationIndexUri` serialization/model behavior;
 - new-session index construction and session-bound reuse;
 - `/docs` answer text, citations, insufficient evidence, missing provider, and provider failure;
-- rejection of non-file and outside-workspace index URIs;
+- rejection of non-file and outside-workspace index URIs, traversal shard references, and escaping shard symlinks across every file-bearing manifest section;
 - rejection of index changes on an existing session;
 - ordinary turns and existing `/ask`/editing behavior remaining unchanged;
 - LSP integration request/response shape using the existing serialized conversation reply.
