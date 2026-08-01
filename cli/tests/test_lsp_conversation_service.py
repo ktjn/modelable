@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import errno
 import json
 from pathlib import Path
 
 import pytest
 
 from modelable.compiler.workspace import load_workspace
-from modelable.llm.conversation import ConversationSession
+from modelable.llm.conversation import ConversationReply, ConversationSession
 from modelable.llm.conversation_plan import ChangeSetPlan, CompilePlan, CreateModel, FieldSpec
 from modelable.llm.providers import LLMRequest, LLMResponse
 from modelable.lsp import definition, document_symbols
@@ -23,6 +24,9 @@ from modelable.lsp.conversation_service import (
 from modelable.lsp.workspace import LspWorkspaceIndex
 from modelable.operations.compilation import CompilationService, PendingCompilation
 from modelable.parser.ir import AnnKey, PrimitiveType
+from modelable.rag.index import build_documentation_index
+from modelable.rag.model import DocumentationChunk
+from modelable.rag.retriever import DocumentationRetriever
 
 
 def test_find_focused_ref_returns_containing_definition(tmp_path: Path) -> None:
@@ -110,6 +114,49 @@ def _write_customer_workspace(root: Path) -> Path:
         encoding="utf-8",
     )
     return source
+
+
+def _make_documentation_index(root: Path) -> Path:
+    index = root / "docs-index"
+    build_documentation_index(
+        [
+            DocumentationChunk(
+                external_id="guide.md#install",
+                source_path="guide.md",
+                url="https://example.test/guide/#install",
+                language="en",
+                title="Guide",
+                heading="Install",
+                heading_path=["Guide", "Install"],
+                content="Install with uv.",
+                chunk_index=0,
+            )
+        ],
+        index,
+    )
+    return index / "manifest.json"
+
+
+def _replace_manifest_shard_file(manifest_path: Path, section: str, shard_file: str) -> None:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if section in {"terms", "docs"}:
+        manifest["shards"][section][0]["file"] = shard_file
+    elif section == "facets":
+        manifest["shards"]["facets"] = [{"field": "title", "file": shard_file}]
+    elif section in {"pins", "synonyms"}:
+        manifest[section] = {"en": shard_file}
+    elif section == "fuzzy":
+        manifest["fuzzy"] = {"en": {"file": shard_file}}
+    elif section == "vectors":
+        manifest["vectors"] = {
+            "dims": 1,
+            "quantization": "float32",
+            "embeddingProvider": {"type": "test"},
+            "shards": {"en": shard_file},
+        }
+    else:
+        raise ValueError(f"unsupported manifest section: {section}")
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
 
 def _session_factory(root: Path, focused_ref: str | None) -> ConversationSession:
@@ -357,6 +404,279 @@ def test_registry_rejects_malformed_workspace_uri(tmp_path: Path) -> None:
 
     with pytest.raises(ConversationSessionError, match="file URI"):
         LspConversationService(session_factory=_session_factory).turn(params)
+
+
+def test_registry_binds_and_reuses_session_documentation_index(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    docs_index = _make_documentation_index(root)
+    service = LspConversationService(session_factory=_session_factory)
+
+    service.turn(
+        _turn_params(root, create_session=True).model_copy(update={"documentation_index_uri": docs_index.as_uri()})
+    )
+
+    entry = service._sessions["session-1"]
+    assert entry.documentation_index_uri == docs_index.resolve().as_uri()
+    assert isinstance(entry.documentation_retriever, DocumentationRetriever)
+    first_retriever = entry.documentation_retriever
+
+    service.turn(_turn_params(root, create_session=False))
+    service.turn(
+        _turn_params(root, create_session=False).model_copy(update={"documentation_index_uri": docs_index.as_uri()})
+    )
+
+    assert service._sessions["session-1"].documentation_index_uri == docs_index.resolve().as_uri()
+    assert service._sessions["session-1"].documentation_retriever is first_retriever
+
+
+def test_registry_rejects_documentation_index_outside_workspace(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    external_index = _make_documentation_index(tmp_path / "outside")
+    service = LspConversationService(session_factory=_session_factory)
+
+    with pytest.raises(ConversationSessionError, match="workspace"):
+        service.turn(
+            _turn_params(root, create_session=True).model_copy(
+                update={"documentation_index_uri": external_index.as_uri()}
+            )
+        )
+
+    assert "session-1" not in service._sessions
+
+
+@pytest.mark.parametrize("section", ["terms", "docs", "facets", "pins", "synonyms", "fuzzy", "vectors"])
+def test_registry_rejects_documentation_shard_traversal_outside_workspace(
+    tmp_path: Path,
+    section: str,
+) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    docs_index = _make_documentation_index(root)
+    outside_shard = tmp_path / "outside-docs.json"
+    outside_shard.write_text('{"outside": "secret"}', encoding="utf-8")
+    _replace_manifest_shard_file(docs_index, section, "../../outside-docs.json")
+    service = LspConversationService(session_factory=_session_factory)
+
+    with pytest.raises(ConversationSessionError, match="workspace"):
+        service.turn(
+            _turn_params(root, create_session=True).model_copy(update={"documentation_index_uri": docs_index.as_uri()})
+        )
+
+    assert "session-1" not in service._sessions
+
+
+def test_registry_rejects_symlinked_documentation_shard_outside_workspace(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    docs_index = _make_documentation_index(root)
+    manifest = json.loads(docs_index.read_text(encoding="utf-8"))
+    original_shard = docs_index.parent / manifest["shards"]["docs"][0]["file"]
+    outside_shard = tmp_path / "outside-docs.json"
+    outside_shard.write_bytes(original_shard.read_bytes())
+    linked_shard = original_shard.with_name("outside-link.json")
+    try:
+        linked_shard.symlink_to(outside_shard)
+    except NotImplementedError as error:
+        pytest.skip(f"platform cannot create symlinks: {error}")
+    except OSError as error:
+        if error.errno not in {errno.EACCES, errno.EPERM, errno.ENOTSUP} and getattr(error, "winerror", None) != 1314:
+            raise
+        pytest.skip(f"platform cannot create symlinks: {error}")
+    _replace_manifest_shard_file(
+        docs_index,
+        "docs",
+        linked_shard.relative_to(docs_index.parent).as_posix(),
+    )
+    service = LspConversationService(session_factory=_session_factory)
+
+    with pytest.raises(ConversationSessionError, match="workspace"):
+        service.turn(
+            _turn_params(root, create_session=True).model_copy(update={"documentation_index_uri": docs_index.as_uri()})
+        )
+
+    assert "session-1" not in service._sessions
+
+
+def test_registry_rejects_documentation_index_mutation_for_existing_session(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    first_index = _make_documentation_index(root / "first")
+    second_index = _make_documentation_index(root / "second")
+
+    class RecordingSession:
+        def __init__(self, **kwargs) -> None:
+            self.no_provider_notice = None
+            self.focused_ref = kwargs.get("focused_ref")
+            self.workspace = load_workspace(root)
+            self.messages: list[str] = []
+
+        def turn(self, message: str):
+            self.messages.append(message)
+            return type(
+                "Reply",
+                (),
+                {
+                    "kind": "answer",
+                    "text": "session reply",
+                    "change_set_id": None,
+                    "operation_kind": None,
+                    "focused_ref": self.focused_ref,
+                    "changed": (),
+                    "affected": (),
+                    "compatibility": (),
+                    "diagnostics": (),
+                    "preview_files": (),
+                    "compilation_files": (),
+                    "registry_id_changes": (),
+                    "audit_path": None,
+                    "written_paths": (),
+                },
+            )()
+
+        def close(self) -> None:
+            return None
+
+    created: list[RecordingSession] = []
+
+    def session_factory(root: Path, focused_ref: str | None):
+        session = RecordingSession(root=root, focused_ref=focused_ref)
+        created.append(session)
+        return session
+
+    service = LspConversationService(session_factory=session_factory)
+    service.turn(
+        _turn_params(root, create_session=True).model_copy(update={"documentation_index_uri": first_index.as_uri()})
+    )
+    entry = service._sessions["session-1"]
+    first_retriever = entry.documentation_retriever
+
+    with pytest.raises(ConversationSessionError, match="documentation index"):
+        service.turn(
+            _turn_params(root, create_session=False).model_copy(
+                update={"documentation_index_uri": second_index.as_uri()}
+            )
+        )
+
+    assert created[0].messages == ["is the workspace valid?"]
+    assert service._sessions["session-1"].documentation_index_uri == first_index.resolve().as_uri()
+    assert service._sessions["session-1"].documentation_retriever is first_retriever
+
+
+def test_lsp_docs_turn_returns_citations_without_edit_side_effects(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    index_uri = _make_documentation_index(root).as_uri()
+
+    class DocsProvider:
+        def complete(self, request: object) -> LLMResponse:
+            return LLMResponse(content="Use [S1] to install it.", provider="fake", model="test")
+
+    class RecordingSession:
+        def __init__(self, **kwargs) -> None:
+            self.provider = DocsProvider()
+            self.no_provider_notice = None
+            self.focused_ref = kwargs.get("focused_ref")
+            self.workspace = load_workspace(root)
+            self.messages: list[str] = []
+
+        def turn(self, message: str) -> ConversationReply:
+            self.messages.append(message)
+            return ConversationReply(kind="answer", text="session reply", focused_ref=self.focused_ref)
+
+        def close(self) -> None:
+            return None
+
+    created: list[RecordingSession] = []
+
+    def session_factory(root: Path, focused_ref: str | None):
+        session = RecordingSession(root=root, focused_ref=focused_ref)
+        created.append(session)
+        return session
+
+    service = LspConversationService(session_factory=session_factory)
+
+    reply = service.turn(
+        _turn_params(root, create_session=True).model_copy(
+            update={
+                "message": "/docs install",
+                "documentation_index_uri": index_uri,
+            }
+        )
+    )
+
+    assert reply["kind"] == "answer"
+    assert "Sources:" in reply["text"]
+    assert "[S1]" in reply["text"]
+    assert "guide.md#install" in reply["text"]
+    assert reply["changeSetId"] is None
+    assert created[0].messages == []
+
+
+def test_lsp_docs_without_index_returns_missing_index_guidance_without_provider_notice(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    service = LspConversationService(session_factory=_session_factory)
+
+    reply = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "/docs install"}))
+
+    assert reply["kind"] == "answer"
+    assert reply["changeSetId"] is None
+    assert reply["text"] == "The /docs command requires --docs-index to be configured."
+    assert "No LLM provider is configured" not in reply["text"]
+
+
+def test_lsp_docs_provider_failure_is_an_answer_and_session_survives(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    index_uri = _make_documentation_index(root).as_uri()
+
+    class FailingDocsProvider:
+        def complete(self, request: object) -> LLMResponse:
+            raise RuntimeError("documentation provider unavailable")
+
+    class RecordingSession:
+        def __init__(self, **kwargs) -> None:
+            self.provider = FailingDocsProvider()
+            self.no_provider_notice = None
+            self.focused_ref = kwargs.get("focused_ref")
+            self.workspace = load_workspace(root)
+            self.messages: list[str] = []
+
+        def turn(self, message: str) -> ConversationReply:
+            self.messages.append(message)
+            return ConversationReply(kind="answer", text="session reply", focused_ref=self.focused_ref)
+
+        def close(self) -> None:
+            return None
+
+    created: list[RecordingSession] = []
+
+    def session_factory(root: Path, focused_ref: str | None):
+        session = RecordingSession(root=root, focused_ref=focused_ref)
+        created.append(session)
+        return session
+
+    service = LspConversationService(session_factory=session_factory)
+
+    failed = service.turn(
+        _turn_params(root, create_session=True).model_copy(
+            update={
+                "message": "/docs install",
+                "documentation_index_uri": index_uri,
+            }
+        )
+    )
+    normal = service.turn(_turn_params(root, create_session=False))
+
+    assert failed["kind"] == "answer"
+    assert failed["changeSetId"] is None
+    assert "configured provider failed during the documentation answer request" in failed["text"]
+    assert "documentation provider unavailable" in failed["text"]
+    assert normal["kind"] == "answer"
+    assert normal["text"] == "session reply"
+    assert created[0].messages == ["is the workspace valid?"]
 
 
 def test_registry_reports_provider_configuration_failure(tmp_path: Path) -> None:

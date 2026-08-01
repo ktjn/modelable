@@ -1452,6 +1452,10 @@ native follow-ups tied to the exact pending action ID. Applying a compilation
 also refuses any dirty open generated destination; save or close it first.
 `/reset` closes the session. Expired, restarted, stale, source-diverged, or
 destination-diverged sessions require a fresh preview and write nothing.
+Clients may also supply `documentationIndexUri` when creating a session to
+enable explicit `/docs <question>` turns against a workspace-local binary
+Searchable index. Ordinary chat remains non-RAG unless the client opts into
+that field and sends `/docs`.
 
 Provider resolution is identical to `modelable chat`: workspace and environment
 configuration remain Python-owned. The extension does not parse, validate, or

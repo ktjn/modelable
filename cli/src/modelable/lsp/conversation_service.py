@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from inspect import signature
 from pathlib import Path
 from typing import cast
+from urllib.parse import urljoin
 
 from modelable.compiler.workspace import load_workspace
+from modelable.llm.chat import documentation_chat_reply
 from modelable.llm.config import resolve_llm_config
 from modelable.llm.conversation import ConversationReply, ConversationSession
 from modelable.llm.providers import build_provider
@@ -20,6 +23,7 @@ from modelable.lsp.definition import definition_location_for_ref
 from modelable.lsp.document_symbols import find_focused_ref
 from modelable.lsp.workspace import LspWorkspaceIndex, find_workspace_root, uri_to_path
 from modelable.operations.compilation import PendingCompilation
+from modelable.rag import DocumentationRetriever
 
 SessionFactory = Callable[..., ConversationSession]
 
@@ -34,6 +38,8 @@ class _SessionEntry:
     root: Path
     session: ConversationSession
     touched_at: float
+    documentation_index_uri: str | None = None
+    documentation_retriever: DocumentationRetriever | None = None
 
 
 class LspConversationService:
@@ -71,11 +77,17 @@ class LspConversationService:
                 )
             self._evict_if_full()
             focused_ref = self._focused_ref(params, index)
+            documentation_index_uri, documentation_retriever = self._create_documentation_retriever(
+                root,
+                params.documentation_index_uri,
+            )
             entry = _SessionEntry(
                 workspace_uri=params.workspace_uri,
                 root=root,
                 session=self._new_session(root, focused_ref, params.session_id),
                 touched_at=now,
+                documentation_index_uri=documentation_index_uri,
+                documentation_retriever=documentation_retriever,
             )
             self._sessions[params.session_id] = entry
         else:
@@ -85,14 +97,25 @@ class LspConversationService:
                 raise ConversationSessionError(
                     f"Conversation session {params.session_id} belongs to a different workspace."
                 )
+            self._validate_documentation_index_uri(entry, root, params.documentation_index_uri, params.session_id)
             focused_ref = self._focused_ref(params, index)
             if focused_ref is not None:
                 entry.session.focused_ref = focused_ref
 
-        reply = entry.session.turn(params.message)
+        documentation_text = None
+        if params.message.strip().lower().startswith("/docs"):
+            documentation_text = documentation_chat_reply(
+                params.message,
+                retriever=entry.documentation_retriever,
+                provider=entry.session.provider,
+            )
+        if documentation_text is not None:
+            reply = ConversationReply(kind="answer", text=documentation_text)
+        else:
+            reply = entry.session.turn(params.message)
         entry.touched_at = now
         notice = entry.session.no_provider_notice
-        if is_new_session and notice is not None:
+        if is_new_session and notice is not None and documentation_text is None:
             reply = replace(reply, text=f"{notice}\n\n{reply.text}")
         return self._serialize(reply, params.session_id, entry)
 
@@ -159,6 +182,127 @@ class LspConversationService:
         except TypeError, ValueError:
             return self.session_factory(root, focused_ref)
         return self.session_factory(root, focused_ref, session_id)
+
+    def _create_documentation_retriever(
+        self,
+        root: Path,
+        documentation_index_uri: str | None,
+    ) -> tuple[str | None, DocumentationRetriever | None]:
+        if documentation_index_uri is None:
+            return None, None
+        resolved = self._resolve_documentation_index_path(root, documentation_index_uri)
+        try:
+            manifest = json.loads(resolved.read_bytes())
+            self._validate_documentation_shard_paths(root, resolved, manifest)
+            retriever = DocumentationRetriever(resolved)
+        except ConversationSessionError:
+            raise
+        except Exception as error:
+            raise ConversationSessionError(
+                f"Could not load the documentation index from {resolved}: {error}"
+            ) from error
+        return resolved.as_uri(), retriever
+
+    def _validate_documentation_shard_paths(
+        self,
+        root: Path,
+        manifest_path: Path,
+        manifest: object,
+    ) -> None:
+        for context, reference in self._documentation_shard_references(manifest):
+            if not isinstance(reference, str) or not reference:
+                raise ValueError(f"{context} must be a non-empty string")
+            shard_uri = urljoin(manifest_path.as_uri(), reference)
+            shard_path = uri_to_path(shard_uri)
+            if shard_path is None:
+                raise ConversationSessionError(f"Documentation index {context} must resolve to a local file.")
+            if not shard_path.resolve().is_relative_to(root.resolve()):
+                raise ConversationSessionError(f"Documentation index {context} must stay inside the workspace root.")
+
+    @staticmethod
+    def _documentation_shard_references(manifest: object) -> list[tuple[str, object]]:
+        if not isinstance(manifest, dict):
+            raise ValueError("manifest must be a JSON object")
+        shards = manifest.get("shards")
+        if not isinstance(shards, dict):
+            raise ValueError("shards must be a JSON object")
+
+        references: list[tuple[str, object]] = []
+        for section in ("terms", "docs"):
+            entries = shards.get(section)
+            if not isinstance(entries, list):
+                raise ValueError(f"shards.{section} must be a JSON array")
+            references.extend(LspConversationService._shard_array_references(entries, f"shards.{section}"))
+
+        facets = shards.get("facets")
+        if facets is not None:
+            if not isinstance(facets, list):
+                raise ValueError("shards.facets must be a JSON array")
+            references.extend(LspConversationService._shard_array_references(facets, "shards.facets"))
+
+        for section in ("pins", "synonyms"):
+            entries = manifest.get(section)
+            if entries is None:
+                continue
+            if not isinstance(entries, dict):
+                raise ValueError(f"{section} must be a JSON object")
+            references.extend((f"{section}.{language}", reference) for language, reference in entries.items())
+
+        fuzzy = manifest.get("fuzzy")
+        if fuzzy is not None:
+            if not isinstance(fuzzy, dict):
+                raise ValueError("fuzzy must be a JSON object")
+            for language, descriptor in fuzzy.items():
+                if not isinstance(descriptor, dict):
+                    raise ValueError(f"fuzzy.{language} must be a JSON object")
+                references.append((f"fuzzy.{language}.file", descriptor.get("file")))
+
+        vectors = manifest.get("vectors")
+        if vectors is not None:
+            if not isinstance(vectors, dict):
+                raise ValueError("vectors must be a JSON object")
+            vector_shards = vectors.get("shards")
+            if not isinstance(vector_shards, dict):
+                raise ValueError("vectors.shards must be a JSON object")
+            references.extend(
+                (f"vectors.shards.{language}", reference) for language, reference in vector_shards.items()
+            )
+
+        return references
+
+    @staticmethod
+    def _shard_array_references(entries: list[object], context: str) -> list[tuple[str, object]]:
+        references: list[tuple[str, object]] = []
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                raise ValueError(f"{context}[{index}] must be a JSON object")
+            references.append((f"{context}[{index}].file", entry.get("file")))
+        return references
+
+    def _validate_documentation_index_uri(
+        self,
+        entry: _SessionEntry,
+        root: Path,
+        documentation_index_uri: str | None,
+        session_id: str,
+    ) -> None:
+        if documentation_index_uri is None:
+            return
+        resolved_uri = self._resolve_documentation_index_path(root, documentation_index_uri).as_uri()
+        if entry.documentation_index_uri != resolved_uri:
+            raise ConversationSessionError(
+                f"Conversation session {session_id} is already bound to documentation index "
+                f"{entry.documentation_index_uri or 'none'} and cannot switch to {resolved_uri}."
+            )
+
+    def _resolve_documentation_index_path(self, root: Path, documentation_index_uri: str) -> Path:
+        documentation_index_path = uri_to_path(documentation_index_uri)
+        if documentation_index_path is None:
+            raise ConversationSessionError("The documentation index must use a file URI.")
+        resolved = documentation_index_path.resolve()
+        if not resolved.is_relative_to(root.resolve()):
+            raise ConversationSessionError("The documentation index must stay inside the workspace root.")
+        return resolved
 
     def _resolve_root(self, params: ConversationTurnParams) -> Path:
         workspace_path = uri_to_path(params.workspace_uri)

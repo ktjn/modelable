@@ -39,6 +39,37 @@ def test_turn_params_require_explicit_session_creation() -> None:
     assert params.dirty_document_uris == ()
 
 
+def test_turn_params_default_documentation_index_uri_is_none() -> None:
+    params = ConversationTurnParams.model_validate(
+        {
+            "protocolVersion": 2,
+            "sessionId": "session-1",
+            "createSession": True,
+            "workspaceUri": "file:///workspace",
+            "message": "describe the customer model",
+            "dirtyDocumentUris": [],
+        }
+    )
+
+    assert params.documentation_index_uri is None
+
+
+def test_turn_params_accepts_documentation_index_uri_file_uri() -> None:
+    params = ConversationTurnParams.model_validate(
+        {
+            "protocolVersion": 2,
+            "sessionId": "session-1",
+            "createSession": True,
+            "workspaceUri": "file:///workspace",
+            "message": "describe the customer model",
+            "dirtyDocumentUris": [],
+            "documentationIndexUri": "file:///workspace/.modelable/docs/index.json",
+        }
+    )
+
+    assert params.documentation_index_uri == "file:///workspace/.modelable/docs/index.json"
+
+
 @pytest.mark.parametrize(
     "overrides",
     [
