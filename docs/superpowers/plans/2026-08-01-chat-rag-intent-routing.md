@@ -22,7 +22,7 @@
 
 ---
 
-### Task 1: Add the shared deterministic intent router
+### Task 1: Add the shared deterministic intent router — complete
 
 **Files:**
 - Create: `cli/src/modelable/rag/intent.py`
@@ -71,7 +71,7 @@ git add cli/src/modelable/rag/intent.py cli/src/modelable/rag/__init__.py cli/te
 git commit -m "feat(rag): add shared chat intent routing"
 ```
 
-### Task 2: Make retrieval answers and reply metadata reusable
+### Task 2: Make retrieval answers and reply metadata reusable — complete
 
 **Files:**
 - Modify: `cli/src/modelable/rag/generation.py`
@@ -112,7 +112,7 @@ git add cli/src/modelable/rag/generation.py cli/src/modelable/llm/conversation_b
 git commit -m "feat(rag): expose structured grounded answer metadata"
 ```
 
-### Task 3: Integrate automatic routing into CLI and VS Code
+### Task 3: Integrate automatic routing into CLI and VS Code — complete
 
 **Files:**
 - Modify: `cli/src/modelable/llm/chat.py`
@@ -155,7 +155,7 @@ git add cli/src/modelable/llm/chat.py cli/src/modelable/lsp/conversation_protoco
 git commit -m "feat(chat): route documentation questions through RAG"
 ```
 
-### Task 4: Integrate automatic routing into the browser Playground
+### Task 4: Integrate automatic routing into the browser Playground — complete
 
 **Files:**
 - Modify: `cli/src/modelable/browser/conversation.py`
@@ -207,7 +207,7 @@ git add cli/src/modelable/browser/conversation.py cli/src/modelable/browser/disp
 git commit -m "feat(browser): enable automatic documentation RAG"
 ```
 
-### Task 5: Document, roll out, and move extensibility behind the new phase
+### Task 5: Document, roll out, and move extensibility behind the new phase — complete
 
 **Files:**
 - Modify: `ROADMAP.md`

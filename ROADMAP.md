@@ -98,11 +98,15 @@ Work proceeds in phase order, with one active phase at a time:
    [Playground Offline and Hardening — Design](docs/superpowers/specs/archived/2026-07-23-playground-offline-hardening-design.md)
    and
    [Playground Offline and Hardening — Plan](docs/superpowers/plans/archived/2026-07-23-playground-offline-hardening.md).
-9. **Shipped: explicit documentation RAG.**
-   The static Playground can answer explicit `/docs` questions with the shared
-   Python retrieval pipeline, a same-origin JSON Searchable index, and safe
-   source citations. Structured binary document shards remain deferred until
-   the Searchable consumer release is published.
+9. **Shipped: automatic chat documentation RAG.**
+   CLI chat, the VS Code/LSP conversation participant, and the static
+   Playground route high-confidence documentation questions through the shared
+   deterministic intent classifier and retrieval pipeline when an index is
+   configured. Mutation, compile, apply/discard, and slash-command turns stay
+   on the ordinary planner path; explicit `/docs` remains a force-retrieve
+   command, and automatic routing can be disabled per session. Structured
+   binary browser shards, vector/hybrid retrieval, and user-supplied indexes
+   remain deferred.
 10. **Active next phase: extensibility.**
    Add plugin contracts, additional visualization modes, optional local
    Ollama provider, and optional GitHub integration using explicit user

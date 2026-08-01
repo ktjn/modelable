@@ -38,6 +38,15 @@ Live OpenMetadata catalog synchronization, remote tracked-spec polling, addition
 targets, CDC, brokers, materializers, and API gateways remain deferred until
 they have an issue and accepted design.
 
+Chat documentation retrieval is a client integration rather than a new source
+of truth. CLI chat, the VS Code/LSP participant, and the static Playground share
+the deterministic intent classifier and structured citation metadata. A
+configured Searchable index enables automatic retrieval for documentation-like
+informational questions; mutation and command turns remain planner-owned, and
+`/docs` is the explicit force-retrieve form. Vector/hybrid retrieval,
+user-supplied browser indexes, and structured binary browser shards remain
+follow-up work.
+
 Earlier evaluations considered TypeSpec, Smithy, LinkML, CUE, dbt, Malloy,
 GraphQL, JSON Schema, Apicurio, OpenMetadata, ODCS, Avro, Protobuf, OpenAPI,
 AsyncAPI, Debezium, Kafka, Pulsar, NATS, Redis, ClickHouse, and related tools.

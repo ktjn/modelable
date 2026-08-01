@@ -1043,11 +1043,15 @@ median graph operations. The completed design is archived in
 
 ### Phase 6b: documentation RAG
 
-The Playground's explicit `/docs <question>` command uses the shared Python
-retrieval pipeline in Pyodide and a bundled same-origin JSON Searchable index.
-Ordinary chat remains non-RAG, and the index is not persisted with workspace
-state. Structured binary document shards remain deferred until the Searchable
-client/indexer follow-up is published.
+The Playground routes high-confidence documentation questions through the
+shared deterministic intent classifier, Python retrieval pipeline in Pyodide,
+and bundled same-origin JSON Searchable index. The explicit `/docs <question>`
+command remains a force-retrieve override. Mutation, compile, apply/discard,
+and slash-command turns use the ordinary planner and never load the retriever.
+Automatic routing is session-scoped and can be disabled by the client; missing
+or failed indexes fall back to ordinary chat for automatic turns. The index is
+not persisted with workspace state. Structured binary document shards,
+vector/hybrid retrieval, and user-supplied browser indexes remain deferred.
 
 ### Phase 7: offline and hardening
 
