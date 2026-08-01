@@ -8,6 +8,9 @@ from modelable.browser import (
     BrowserSource,
     dispatch_browser_request,
 )
+from modelable.browser.conversation import BrowserConversationReply
+from modelable.llm.conversation_backend import ConversationReply, ConversationRetrievalMetadata
+from modelable.rag.generation import RagCitation
 
 VALID = 'domain customer {\n  owner: "team"\n  entity Customer @ 1 (additive) {\n    @key id: uuid\n  }\n}\n'
 URI = "file:///customer.mdl"
@@ -319,6 +322,93 @@ def test_dispatch_classifies_dto_construction_errors_as_invalid_request(
         "message": "Payload does not match method schema",
     }
     assert secret not in json.dumps(response)
+
+
+def test_dispatch_conversation_turn_keeps_ordinary_reply_shape_compatible(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def ordinary_turn(**_kwargs: object) -> BrowserConversationReply:
+        return BrowserConversationReply(
+            reply=ConversationReply(kind="answer", text="ordinary answer"),
+            workspace_revision=7,
+        )
+
+    monkeypatch.setattr(browser_dispatch._conversations, "turn", ordinary_turn)
+
+    response = dispatch(
+        "conversation.turn",
+        {
+            "sessionId": "session-1",
+            "workspaceRevision": 7,
+            "message": "What is customer.Customer@1?",
+            "activeDocumentUri": None,
+            "line": None,
+            "character": None,
+        },
+    )
+
+    assert response["ok"] is True
+    assert response["result"]["workspace_revision"] == 7
+    assert response["result"]["reply"]["kind"] == "answer"
+    assert response["result"]["reply"]["text"] == "ordinary answer"
+    assert "citations" not in response["result"]["reply"]
+    assert "retrieval_used" not in response["result"]["reply"]
+    assert "route_reason" not in response["result"]["reply"]
+
+
+def test_dispatch_conversation_turn_includes_retrieval_metadata_only_for_grounded_answers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def grounded_turn(**_kwargs: object) -> BrowserConversationReply:
+        return BrowserConversationReply(
+            reply=ConversationReply(
+                kind="answer",
+                text="grounded answer\n\nSources:\n- [S1] guide.md#install (https://example.test/guide/#install)",
+                retrieval=ConversationRetrievalMetadata(
+                    citations=(
+                        RagCitation(
+                            label="S1",
+                            external_id="guide.md#install",
+                            url="https://example.test/guide/#install",
+                            title="Guide",
+                            heading="Install",
+                            score=1.0,
+                        ),
+                    ),
+                    retrieval_used=True,
+                    route_reason="explicit_docs_command",
+                ),
+            ),
+            workspace_revision=9,
+        )
+
+    monkeypatch.setattr(browser_dispatch._conversations, "turn", grounded_turn)
+
+    response = dispatch(
+        "conversation.turn",
+        {
+            "sessionId": "session-1",
+            "workspaceRevision": 9,
+            "message": "/docs How do I install it?",
+            "activeDocumentUri": None,
+            "line": None,
+            "character": None,
+        },
+    )
+
+    assert response["ok"] is True
+    assert response["result"]["reply"]["retrieval_used"] is True
+    assert response["result"]["reply"]["route_reason"] == "explicit_docs_command"
+    assert response["result"]["reply"]["citations"] == [
+        {
+            "label": "S1",
+            "external_id": "guide.md#install",
+            "url": "https://example.test/guide/#install",
+            "title": "Guide",
+            "heading": "Install",
+            "score": 1.0,
+        }
+    ]
 
 
 def test_dispatch_syncs_revision_then_completes() -> None:

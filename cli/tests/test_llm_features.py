@@ -30,6 +30,7 @@ def _provenance_path(path: Path) -> Path:
 def test_conversation_reply_defaults_keep_minimal_answer_construction_valid() -> None:
     reply = ConversationReply(kind="answer", text="hello")
 
+    assert reply.retrieval is None
     assert reply.citations == ()
     assert reply.retrieval_used is False
     assert reply.route_reason == ""

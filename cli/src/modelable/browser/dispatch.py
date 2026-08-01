@@ -25,6 +25,7 @@ from modelable.browser.dto import (
     BrowserWorkspaceResult,
 )
 from modelable.browser.errors import BrowserLanguageError, BrowserRequestValidationError
+from modelable.llm.conversation_backend import ConversationReply
 from modelable.llm.conversation_planner import PendingPlanRequest, PlanningRequestError
 
 _METHODS = {
@@ -314,8 +315,41 @@ def _serialize_result(result: _DispatchResult) -> Any:
             "llm_request": asdict(result.request),
         }
     if isinstance(result, BrowserConversationReply):
-        return _jsonable(asdict(result))
+        return _jsonable(_serialize_browser_conversation_reply(result))
     return _jsonable(asdict(result))
+
+
+def _serialize_browser_conversation_reply(result: BrowserConversationReply) -> dict[str, Any]:
+    return {
+        "reply": _serialize_conversation_reply(result.reply),
+        "workspace_revision": result.workspace_revision,
+        "sources": result.sources,
+    }
+
+
+def _serialize_conversation_reply(reply: ConversationReply) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "kind": reply.kind,
+        "text": reply.text,
+        "change_set_id": reply.change_set_id,
+        "operation_kind": reply.operation_kind,
+        "focused_ref": reply.focused_ref,
+        "assumptions": reply.assumptions,
+        "changed": reply.changed,
+        "affected": reply.affected,
+        "compatibility": reply.compatibility,
+        "diagnostics": reply.diagnostics,
+        "preview_files": reply.preview_files,
+        "written_paths": reply.written_paths,
+        "compilation_files": reply.compilation_files,
+        "registry_id_changes": reply.registry_id_changes,
+        "audit_path": reply.audit_path,
+    }
+    if reply.retrieval_used:
+        payload["citations"] = [asdict(citation) for citation in reply.citations]
+        payload["retrieval_used"] = True
+        payload["route_reason"] = reply.route_reason
+    return payload
 
 
 def _jsonable(value: Any) -> Any:
