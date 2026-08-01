@@ -60,6 +60,9 @@ INCLUDE_FILES = (
     "registry/__init__.py",
     "registry/resolver.py",
     "registry/signature.py",
+    "rag/context.py",
+    "rag/model.py",
+    "rag/retriever.py",
 )
 FORBIDDEN_IMPORTS = {
     "click",

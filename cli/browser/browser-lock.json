@@ -11,6 +11,20 @@
       "fileName": "lark-1.3.1-py3-none-any.whl",
       "url": "https://files.pythonhosted.org/packages/82/3d/14ce75ef66813643812f3093ab17e46d3a206942ce7376d31ec2d36229e7/lark-1.3.1-py3-none-any.whl",
       "sha256": "c629b661023a014c37da873b4ff58a817398d12635d3bbb2c5a03be7fe5d1e12"
+    },
+    {
+      "name": "searchable-analysis",
+      "version": "0.1.0",
+      "fileName": "searchable_analysis-0.1.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/02/f7/dc350fa9c34a5bf5313decfb05411ad3b86a60d8f3a6a4f206da901b6d09/searchable_analysis-0.1.0-py3-none-any.whl",
+      "sha256": "a13ff3e6fdcda55e830c1ca831a4e350737905fbb44719740e9df048ea29d009"
+    },
+    {
+      "name": "searchable-client",
+      "version": "0.2.0",
+      "fileName": "searchable_client-0.2.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/e3/47/f0354b334ed9a97bc3fc4ec16612f84fa948469712ba659fae19757cfabe/searchable_client-0.2.0-py3-none-any.whl",
+      "sha256": "a07b4974464d8578dce23c87cde3c099c07aae5915eae556886cbacc48636393"
     }
   ]
 }

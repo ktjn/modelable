@@ -48,6 +48,9 @@ _BROWSER_PACKAGE_FILES = {
     "registry/__init__.py",
     "registry/resolver.py",
     "registry/signature.py",
+    "rag/context.py",
+    "rag/model.py",
+    "rag/retriever.py",
 }
 WORKFLOW_POLICY_FILES = {
     ".github/scripts/detect_validate_surfaces.py",
