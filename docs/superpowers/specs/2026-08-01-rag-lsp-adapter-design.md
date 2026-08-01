@@ -1,4 +1,4 @@
-# Modelable LSP RAG Adapter Design
+# 2026-08-01 Modelable LSP RAG Adapter Design
 
 ## Goal
 
@@ -64,3 +64,9 @@ Add coverage for:
 - No new runtime dependency or bundled embedding provider.
 - No index copying or per-document files; the configured path remains the single binary Searchable index manifest.
 - No web/playground or Pyodide implementation in this slice.
+
+## ADR impact
+
+No ADR is required for this slice.
+
+This change is an additive optional protocol-v2 field that reuses the existing workspace-bound file-URI security boundary and the existing RAG answer architecture. It does not change the deployment model, storage model, ownership boundaries, or responsibility split between clients, the LSP service, and the shared retrieval pipeline. Because the architectural decision record set already covers those underlying decisions and this slice only extends them in-place without changing their constraints, the spec itself is the right level of documentation for this work.
