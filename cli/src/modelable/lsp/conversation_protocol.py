@@ -42,6 +42,7 @@ class ConversationTurnParams(_ProtocolModel):
     workspace_uri: str = Field(alias="workspaceUri", min_length=1)
     message: str
     documentation_index_uri: str | None = Field(default=None, alias="documentationIndexUri")
+    automatic_documentation: bool | None = Field(default=None, alias="automaticDocumentation")
     active_document_uri: str | None = Field(default=None, alias="activeDocumentUri")
     position: ConversationPosition | None = None
     dirty_document_uris: tuple[str, ...] = Field(default=(), alias="dirtyDocumentUris")
@@ -65,7 +66,7 @@ def serialize_conversation_reply(
     definition_locations: Mapping[str, types.Location] | None = None,
 ) -> dict[str, object]:
     locations = definition_locations or {}
-    return {
+    payload: dict[str, object] = {
         "protocolVersion": PROTOCOL_VERSION,
         "kind": reply.kind,
         "text": reply.text,
@@ -120,6 +121,21 @@ def serialize_conversation_reply(
         "auditUri": reply.audit_path.resolve().as_uri() if reply.audit_path is not None else None,
         "writtenPaths": [path.resolve().as_uri() for path in reply.written_paths],
     }
+    if reply.kind == "answer" and getattr(reply, "retrieval_used", False):
+        payload["retrievalUsed"] = True
+        payload["routeReason"] = reply.route_reason
+        payload["citations"] = [
+            {
+                "label": citation.label,
+                "externalId": citation.external_id,
+                "url": citation.url,
+                "title": citation.title,
+                "heading": citation.heading,
+                "score": citation.score,
+            }
+            for citation in reply.citations
+        ]
+    return payload
 
 
 def _serialize_compilation_file(item: CompilationFilePreview) -> dict[str, object]:
