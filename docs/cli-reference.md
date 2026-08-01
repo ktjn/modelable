@@ -1254,17 +1254,17 @@ types cover:
 
 `/context`, `/describe [ref]`, and `/ask <question>` provide explicit offline
 forms. `/docs <question>` is separate and opt-in: it only runs when
-`--docs-index` points to a single Searchable `manifest.json`, grounds the
-answer in retrieved evidence, and cites the matching sources. Ordinary chat
-does not automatically use RAG or documentation retrieval. Natural-language
-equivalents such as
+`--docs-index` points to a single binary Searchable index `manifest.json`,
+grounds the answer in retrieved evidence, and cites the matching sources.
+Ordinary chat does not automatically use RAG or documentation retrieval.
+Natural-language equivalents such as
 `Who owns customer.Customer@1?` and
 `What depends on customer.Customer@1?` work without a provider.
 
 For example:
 
 ```text
-modelable llm chat --path ./workspace --docs-index ./docs-index/manifest.json
+modelable chat --path ./workspace --docs-index ./docs-index/manifest.json
 you> /docs How do I configure the registry?
 ```
 
