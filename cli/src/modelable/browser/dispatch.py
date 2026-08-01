@@ -221,8 +221,11 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
             "activeDocumentUri",
             "line",
             "character",
+            "documentationIndexUrl",
+            "documentationAssetRoot",
         }
-        if set(payload) != allowed:
+        required = allowed - {"documentationIndexUrl", "documentationAssetRoot"}
+        if not required.issubset(payload) or set(payload) - allowed:
             raise BrowserRequestValidationError("Payload does not match method schema")
         if not isinstance(payload["sessionId"], str) or not isinstance(payload["message"], str):
             raise BrowserRequestValidationError("Conversation fields have invalid types")
@@ -233,6 +236,12 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
         character = payload["character"]
         if (line is None) != (character is None):
             raise BrowserRequestValidationError("line and character must both be present or null")
+        documentation_index_url = payload.get("documentationIndexUrl")
+        documentation_asset_root = payload.get("documentationAssetRoot")
+        if documentation_index_url is not None and not isinstance(documentation_index_url, str):
+            raise BrowserRequestValidationError("documentationIndexUrl must be a string or null")
+        if documentation_asset_root is not None and not isinstance(documentation_asset_root, str):
+            raise BrowserRequestValidationError("documentationAssetRoot must be a string or null")
         return _conversations.turn(
             session_id=payload["sessionId"],
             workspace_revision=_integer(payload["workspaceRevision"]),
@@ -240,6 +249,8 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
             active_document_uri=active_uri,
             line=None if line is None else _integer(line),
             character=None if character is None else _integer(character),
+            documentation_index_url=documentation_index_url,
+            documentation_asset_root=documentation_asset_root,
         )
     if method == "conversation.resume":
         _require_exact_fields(

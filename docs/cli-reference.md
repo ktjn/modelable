@@ -1457,6 +1457,11 @@ enable explicit `/docs <question>` turns against a workspace-local binary
 Searchable index. Ordinary chat remains non-RAG unless the client opts into
 that field and sends `/docs`.
 
+The static Playground uses the same explicit `/docs` contract with a bundled
+JSON Searchable index under its same-origin assets. It keeps JSON document
+shards until the Searchable structured-binary document-store follow-up is
+published.
+
 Provider resolution is identical to `modelable chat`: workspace and environment
 configuration remain Python-owned. The extension does not parse, validate, or
 write `.mdl` files and does not apply a VS Code `WorkspaceEdit`.

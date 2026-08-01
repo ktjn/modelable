@@ -74,6 +74,7 @@ import {
 import { SimulatorProvider } from './ai/simulator-provider';
 import {
   generateChatMessageId,
+  type AssistantDocsChatMessage,
   isAssistantGenerateMessage,
   type AssistantChatMessage,
   type ChatMessage,
@@ -809,14 +810,27 @@ export function App({
         role: 'user',
         text: userText,
       });
-      appendMessage({
-        id: assistantId,
-        role: 'assistant',
-        kind: 'explain',
-        diagnostics: [],
-        providerInfo: { provider: provider.id, model: provider.model },
-        pending: true,
-      });
+      const isDocsRequest = userText.trim().toLowerCase().startsWith('/docs');
+      if (isDocsRequest) {
+        appendMessage({
+          id: assistantId,
+          role: 'assistant',
+          kind: 'docs',
+          citations: [],
+          diagnostics: [],
+          providerInfo: { provider: provider.id, model: provider.model },
+          pending: true,
+        });
+      } else {
+        appendMessage({
+          id: assistantId,
+          role: 'assistant',
+          kind: 'explain',
+          diagnostics: [],
+          providerInfo: { provider: provider.id, model: provider.model },
+          pending: true,
+        });
+      }
       setAiPending(true);
       setRightTab('assistant');
       const position = sourceEditorRef.current?.getPosition() ?? null;
@@ -829,6 +843,14 @@ export function App({
           position: position === null
             ? null
             : { line: position.line, character: position.character },
+          documentationIndexUrl: new URL(
+            'docs-index/manifest.json',
+            new URL(import.meta.env.BASE_URL, window.location.href),
+          ).href,
+          documentationAssetRoot: new URL(
+            'docs-index/',
+            new URL(import.meta.env.BASE_URL, window.location.href),
+          ).href,
         },
         provider,
       )
@@ -858,6 +880,27 @@ export function App({
                       providerInfo: { provider: provider.id, model: provider.model },
                       pending: false,
                     };
+                }
+                if (isDocsRequest) {
+                  const [answer = '', sources = ''] = result.reply.text.split('\n\nSources:\n', 2);
+                  const citations = sources
+                    .split('\n')
+                    .map((line) => line.match(/^\s*- \[(S\d+)\] (.+) \(([^()]*)\)\s*$/))
+                    .filter((match): match is RegExpMatchArray => match !== null)
+                    .map((match) => ({
+                      label: `${match[1] ?? 'Source'} ${match[2] ?? ''}`.trim(),
+                      url: match[3] ?? '',
+                    }));
+                  return {
+                    id: assistantId,
+                    role: 'assistant',
+                    kind: 'docs',
+                    answer,
+                    citations,
+                    diagnostics: [],
+                    providerInfo: { provider: provider.id, model: provider.model },
+                    pending: false,
+                  } satisfies AssistantDocsChatMessage;
                 }
                 return {
                   id: assistantId,

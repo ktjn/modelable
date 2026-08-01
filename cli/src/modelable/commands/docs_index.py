@@ -32,11 +32,22 @@ def register_docs_index_commands(cli_group: click.Group) -> None:
     default=None,
     help="Base URL joined with each source-relative Markdown path.",
 )
-def docs_index(source: Path, out_dir: Path, base_url: str | None) -> None:
+@click.option(
+    "--binary",
+    is_flag=True,
+    help="Write binary Searchable term, document, and fuzzy shards.",
+)
+def docs_index(source: Path, out_dir: Path, base_url: str | None, binary: bool) -> None:
     """Build a lexical Searchable index from Markdown documentation at SOURCE."""
     try:
         chunks = load_documentation_chunks(source, base_url=base_url)
-        report = build_documentation_index(chunks, out_dir)
+        report = build_documentation_index(
+            chunks,
+            out_dir,
+            term_shard_format="binary" if binary else "json",
+            doc_store_format="binary" if binary else "json",
+            fuzzy_shard_format="binary" if binary else "json",
+        )
     except (OSError, ValueError) as error:
         raise click.ClickException(str(error)) from error
 

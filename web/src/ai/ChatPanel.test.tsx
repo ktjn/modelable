@@ -119,6 +119,48 @@ test('calls quick action chips', async () => {
   expect(onSuggestProjection).toHaveBeenCalled();
 });
 
+test('renders documentation citations as safe links', () => {
+  render(
+    <ChatPanel
+      messages={[{
+        id: 'docs-1',
+        role: 'assistant',
+        kind: 'docs',
+        answer: 'Use the compiler command.',
+        citations: [
+          { label: 'S1 guide.md#compile', url: 'https://example.test/guide' },
+          { label: 'S2 unsafe', url: 'javascript:alert(1)' },
+        ],
+        diagnostics: [],
+        providerInfo: { provider: 'heuristic', model: 'rule' },
+        pending: false,
+      }]}
+      activeFileContent=""
+      aiState={readyProviderState}
+      actionsDisabled={false}
+      onSend={vi.fn()}
+      onExplain={vi.fn()}
+      onSuggestProjection={vi.fn()}
+      onAccept={vi.fn()}
+      onDiscard={vi.fn()}
+      onDownloadModel={vi.fn()}
+      onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
+      models={DEFAULT_MODELS}
+      onReset={vi.fn()}
+      onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByRole('link', { name: 'S1 guide.md#compile' }).getAttribute('href')).toBe(
+    'https://example.test/guide',
+  );
+  expect(screen.getByText('S2 unsafe')).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'S2 unsafe' })).toBeNull();
+});
+
 test('accepts generated source', async () => {
   const user = userEvent.setup();
   const onAccept = vi.fn();

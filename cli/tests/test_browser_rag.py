@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from io import BytesIO
 
 import pytest
 
@@ -85,6 +87,13 @@ def test_browser_documentation_retriever_maps_fake_search_client_hit(monkeypatch
             captured["options"] = options
             return FakeResult()
 
+    manifest = {
+        "shards": {
+            "terms": [{"file": "terms-000.json"}],
+            "docs": [{"file": "docs-000.json"}],
+        }
+    }
+    monkeypatch.setattr(browser_rag, "urlopen", lambda url: BytesIO(json.dumps(manifest).encode()))
     monkeypatch.setattr(browser_rag, "SearchClient", FakeSearchClient)
 
     retriever = BrowserDocumentationRetriever(
@@ -114,6 +123,17 @@ def test_browser_documentation_retriever_maps_fake_search_client_hit(monkeypatch
     ]
 
 
+def test_browser_documentation_retriever_rejects_shard_escape(monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest = {"shards": {"terms": [{"file": "../private.json"}], "docs": [{"file": "docs.json"}]}}
+    monkeypatch.setattr(browser_rag, "urlopen", lambda url: BytesIO(json.dumps(manifest).encode()))
+
+    with pytest.raises(BrowserRetrievalError, match="asset root"):
+        BrowserDocumentationRetriever(
+            "https://example.test/modelable/playground/docs-index/manifest.json",
+            "https://example.test/modelable/playground/docs-index/",
+        )
+
+
 def test_browser_documentation_retriever_wraps_searchable_failures(monkeypatch: pytest.MonkeyPatch) -> None:
     class FailingSearchClient:
         def __init__(self, index_url: str, **kwargs: object) -> None:
@@ -123,6 +143,8 @@ def test_browser_documentation_retriever_wraps_searchable_failures(monkeypatch: 
         def search(self, query: str, options: object) -> object:
             raise FileNotFoundError("missing manifest")
 
+    manifest = {"shards": {"terms": [{"file": "terms.json"}], "docs": [{"file": "docs.json"}]}}
+    monkeypatch.setattr(browser_rag, "urlopen", lambda url: BytesIO(json.dumps(manifest).encode()))
     monkeypatch.setattr(browser_rag, "SearchClient", FailingSearchClient)
 
     retriever = BrowserDocumentationRetriever(

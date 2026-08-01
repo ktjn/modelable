@@ -45,9 +45,22 @@ export interface AssistantExplainChatMessage {
   outcome?: 'accepted' | 'discarded';
 }
 
+export interface AssistantDocsChatMessage {
+  id: string;
+  role: 'assistant';
+  kind: 'docs';
+  answer?: string;
+  citations: Array<{ label: string; url: string }>;
+  diagnostics: BrowserDiagnostic[];
+  providerInfo: ChatProviderInfo;
+  pending: boolean;
+  outcome?: 'accepted' | 'discarded';
+}
+
 export type AssistantChatMessage =
   | AssistantGenerateChatMessage
-  | AssistantExplainChatMessage;
+  | AssistantExplainChatMessage
+  | AssistantDocsChatMessage;
 
 export type ChatMessage =
   | UserChatMessage
@@ -63,6 +76,12 @@ export function isAssistantExplainMessage(
   message: ChatMessage,
 ): message is AssistantExplainChatMessage {
   return message.role === 'assistant' && message.kind === 'explain';
+}
+
+export function isAssistantDocsMessage(
+  message: ChatMessage,
+): message is AssistantDocsChatMessage {
+  return message.role === 'assistant' && message.kind === 'docs';
 }
 
 export function generateChatMessageId(): string {

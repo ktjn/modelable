@@ -98,6 +98,8 @@ export interface ConversationTurnInput {
   message: string;
   activeDocumentUri: string | null;
   position: { line: number; character: number } | null;
+  documentationIndexUrl?: string;
+  documentationAssetRoot?: string;
 }
 
 export class BrowserCompilerClient {
@@ -316,6 +318,12 @@ export class BrowserCompilerClient {
         activeDocumentUri: input.activeDocumentUri,
         line: input.position?.line ?? null,
         character: input.position?.character ?? null,
+        ...(input.documentationIndexUrl === undefined
+          ? {}
+          : { documentationIndexUrl: input.documentationIndexUrl }),
+        ...(input.documentationAssetRoot === undefined
+          ? {}
+          : { documentationAssetRoot: input.documentationAssetRoot }),
       },
       isBrowserConversationResult,
     );

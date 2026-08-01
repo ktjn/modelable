@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import time
+import uuid
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ from urllib.parse import quote, unquote, urlparse
 from modelable.browser.api import BrowserCompiler
 from modelable.browser.dto import BrowserSource
 from modelable.browser.errors import BrowserLanguageError
+from modelable.browser.rag import BrowserDocumentationRetriever, BrowserRetrievalError
 from modelable.compiler.workspace import Workspace, WorkspaceDocumentSource, load_workspace_from_sources
 from modelable.llm.context import build_workspace_summary
 from modelable.llm.conversation_backend import (
@@ -25,8 +27,11 @@ from modelable.llm.conversation_planner import (
     PlanningRequestError,
     ResumableConversationPlanner,
 )
+from modelable.llm.provider_types import LLMRequest
 from modelable.llm.workspace_editor import PendingChangeSet, WorkspaceEditError, WorkspaceEditor
 from modelable.llm.workspace_query import WorkspaceQueryService
+from modelable.rag.generation import RAG_SYSTEM_PROMPT, build_evidence_prompt
+from modelable.rag.retriever import RetrievedChunk
 
 if TYPE_CHECKING:
     from modelable.operations.compilation import CompilationFilePreview
@@ -66,6 +71,10 @@ class _Session:
     backend: BrowserConversationBackend
     workspace_revision: int
     last_used: float
+    documentation_index_url: str | None = None
+    documentation_asset_root: str | None = None
+    documentation_retriever: BrowserDocumentationRetriever | None = None
+    pending_documentation: tuple[str, tuple[RetrievedChunk, ...]] | None = None
 
 
 class BrowserConversationBackend:
@@ -75,6 +84,7 @@ class BrowserConversationBackend:
         self._pending_compilation: tuple[str, tuple[CompilationFilePreview, ...]] | None = None
         self._path_to_uri: dict[Path, str] = {}
         self._workspace = self._load_workspace()
+        self.documentation_retriever: BrowserDocumentationRetriever | None = None
 
     @property
     def pending_action_id(self) -> str | None:
@@ -278,12 +288,16 @@ class BrowserConversationService:
         clock: Callable[[], float] = time.monotonic,
         max_sessions: int = _MAX_SESSIONS,
         session_ttl_seconds: float = _SESSION_TTL_SECONDS,
+        documentation_index_url: str | None = None,
+        documentation_asset_root: str | None = None,
     ) -> None:
         self.compiler = compiler
         self.id_factory = id_factory
         self.clock = clock
         self.max_sessions = max_sessions
         self.session_ttl_seconds = session_ttl_seconds
+        self.documentation_index_url = documentation_index_url
+        self.documentation_asset_root = documentation_asset_root
         self._sessions: OrderedDict[str, _Session] = OrderedDict()
 
     def turn(
@@ -295,8 +309,14 @@ class BrowserConversationService:
         active_document_uri: str | None = None,
         line: int | None = None,
         character: int | None = None,
+        documentation_index_url: str | None = None,
+        documentation_asset_root: str | None = None,
     ) -> PendingPlanRequest | BrowserConversationReply:
         session = self._session(session_id, workspace_revision)
+        if documentation_index_url is not None or documentation_asset_root is not None:
+            self._configure_documentation(session, documentation_index_url, documentation_asset_root)
+        if message.strip().lower().startswith("/docs"):
+            return self._documentation_turn(session, message)
         session.engine.focused_ref = self._focused_ref(active_document_uri, line, character)
         outcome = session.engine.begin_turn(message)
         if isinstance(outcome, PendingPlanRequest):
@@ -312,6 +332,15 @@ class BrowserConversationService:
         content: str,
     ) -> PendingPlanRequest | BrowserConversationReply:
         session = self._session(session_id, workspace_revision, create=False)
+        pending_documentation = session.pending_documentation
+        if pending_documentation is not None and pending_documentation[0] == request_id:
+            session.pending_documentation = None
+            citations = pending_documentation[1]
+            source_lines = "\n".join(
+                f"- [S{index}] {citation.external_id} ({citation.url})"
+                for index, citation in enumerate(citations, start=1)
+            )
+            return self._result(ConversationReply(kind="answer", text=f"{content.strip()}\n\nSources:\n{source_lines}"))
         outcome = session.engine.resume_turn(request_id, content)
         if isinstance(outcome, PendingPlanRequest):
             return outcome
@@ -340,6 +369,9 @@ class BrowserConversationService:
         error: str,
     ) -> BrowserConversationReply:
         session = self._session(session_id, workspace_revision, create=False)
+        if session.pending_documentation is not None and session.pending_documentation[0] == request_id:
+            session.pending_documentation = None
+            return self._result(ConversationReply(kind="answer", text=f"The documentation answer failed: {error}"))
         return self._result(session.engine.fail_turn(request_id, RuntimeError(error)))
 
     def discard(
@@ -415,6 +447,52 @@ class BrowserConversationService:
             _, expired = self._sessions.popitem(last=False)
             expired.engine.reset()
         return session
+
+    def _configure_documentation(
+        self,
+        session: _Session,
+        index_url: str | None,
+        asset_root: str | None,
+    ) -> None:
+        if index_url is None or asset_root is None:
+            raise PlanningRequestError("documentation index URL and asset root must be supplied together")
+        if session.documentation_index_url is None:
+            session.documentation_index_url = index_url
+            session.documentation_asset_root = asset_root
+            return
+        if (session.documentation_index_url, session.documentation_asset_root) != (index_url, asset_root):
+            raise PlanningRequestError("documentation index configuration cannot change during a session")
+
+    def _documentation_turn(self, session: _Session, message: str) -> PendingPlanRequest | BrowserConversationReply:
+        _, _, question = message.partition(" ")
+        question = question.strip()
+        if not question:
+            return self._result(ConversationReply(kind="answer", text="Provide a question after /docs."))
+        if session.documentation_index_url is None or session.documentation_asset_root is None:
+            return self._result(
+                ConversationReply(kind="answer", text="The /docs command requires a bundled documentation index.")
+            )
+        try:
+            if session.documentation_retriever is None:
+                session.documentation_retriever = BrowserDocumentationRetriever(
+                    session.documentation_index_url,
+                    session.documentation_asset_root,
+                )
+            chunks = tuple(session.documentation_retriever.search(question))
+            prompt, selected = build_evidence_prompt(question, chunks, max_context_words=3000, max_chunks_per_source=2)
+        except (BrowserRetrievalError, ValueError) as error:
+            return self._result(ConversationReply(kind="answer", text=f"Documentation retrieval failed: {error}"))
+        if not selected:
+            return self._result(
+                ConversationReply(kind="answer", text="I don't have enough documentation evidence to answer that.")
+            )
+        request_id = self.id_factory() if self.id_factory is not None else str(uuid.uuid4())
+        session.pending_documentation = (request_id, tuple(selected))
+        return PendingPlanRequest(
+            request_id=request_id,
+            request=LLMRequest(system=RAG_SYSTEM_PROMPT, user=prompt, temperature=0.2),
+            attempt=0,
+        )
 
     def _focused_ref(self, uri: str | None, line: int | None, character: int | None) -> str | None:
         del character
