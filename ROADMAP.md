@@ -98,12 +98,17 @@ Work proceeds in phase order, with one active phase at a time:
    [Playground Offline and Hardening — Design](docs/superpowers/specs/archived/2026-07-23-playground-offline-hardening-design.md)
    and
    [Playground Offline and Hardening — Plan](docs/superpowers/plans/archived/2026-07-23-playground-offline-hardening.md).
-9. **Active next phase: extensibility.**
+9. **Shipped: explicit documentation RAG.**
+   The static Playground can answer explicit `/docs` questions with the shared
+   Python retrieval pipeline, a same-origin JSON Searchable index, and safe
+   source citations. Structured binary document shards remain deferred until
+   the Searchable consumer release is published.
+10. **Active next phase: extensibility.**
    Add plugin contracts, additional visualization modes, optional local
    Ollama provider, and optional GitHub integration using explicit user
    authorization.
 
-The next implementation slice is item 9. Completion means the Playground
+The next implementation slice is item 10. Completion means the Playground
 supports third-party extensions and additional providers through documented
 plugin contracts.
 

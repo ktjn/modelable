@@ -41,3 +41,5 @@ web/output/
 
 # Subagent-driven-development progress ledger (scratch state, not project output)
 .superpowers/
+web/public/docs-index/
+web/public/python-rag-test/

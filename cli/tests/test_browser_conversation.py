@@ -11,6 +11,7 @@ from modelable.browser.dto import BrowserSource
 from modelable.llm.conversation_plan import AddField, ChangeSetPlan, FieldSpec
 from modelable.llm.conversation_planner import PendingPlanRequest
 from modelable.parser.ir import PrimitiveType
+from modelable.rag.retriever import RetrievedChunk
 
 CUSTOMER_URI = "inmemory:///customer.mdl"
 BILLING_URI = "inmemory:///billing.mdl"
@@ -147,6 +148,54 @@ def test_browser_conversation_previews_and_promotes_compilation() -> None:
     assert preview.reply.compilation_files[0].after_text is not None
     assert applied.reply.kind == "applied"
     assert applied.reply.compilation_files == preview.reply.compilation_files
+
+
+def test_browser_docs_turn_retrieves_and_resumes_with_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+    compiler = BrowserCompiler()
+    compiler.open_workspace(1, (BrowserSource(uri=CUSTOMER_URI, text=CUSTOMER_SOURCE, version=1),))
+
+    class FakeRetriever:
+        def __init__(self, index_url: str, asset_root: str) -> None:
+            assert index_url.endswith("docs-index/manifest.json")
+            assert asset_root.endswith("playground/")
+
+        def search(self, query: str, *, limit: int = 8) -> list[RetrievedChunk]:
+            assert query == "How do I install it?"
+            return [
+                RetrievedChunk(
+                    id=1,
+                    external_id="guide.md#install",
+                    url="https://example.test/guide/#install",
+                    score=1.0,
+                    title="Guide",
+                    heading="Install",
+                    content="Run the installer.",
+                    source_path="guide.md",
+                    heading_path=["Guide", "Install"],
+                    content_hash="hash",
+                )
+            ]
+
+    monkeypatch.setattr("modelable.browser.conversation.BrowserDocumentationRetriever", FakeRetriever)
+    service = BrowserConversationService(compiler, id_factory=lambda: "docs-request")
+    pending = service.turn(
+        session_id="session-1",
+        workspace_revision=1,
+        message="/docs How do I install it?",
+        documentation_index_url="https://example.test/playground/docs-index/manifest.json",
+        documentation_asset_root="https://example.test/playground/",
+    )
+    assert isinstance(pending, PendingPlanRequest)
+    assert "Documentation evidence" in pending.request.user
+
+    answer = service.resume(
+        session_id="session-1",
+        request_id=pending.request_id,
+        workspace_revision=1,
+        content="Use the installer.",
+    )
+    assert answer.reply.kind == "answer"
+    assert "guide.md#install" in answer.reply.text
 
 
 def test_browser_conversation_invalidates_preview_after_external_workspace_change() -> None:

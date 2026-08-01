@@ -60,6 +60,9 @@ def build_documentation_index(
     embed: Callable[[list[str]], list[list[float]]] | None = None,
     embedding_provider: dict[str, object] | None = None,
     vector_quantization: str = "int8",
+    term_shard_format: str = "json",
+    doc_store_format: str = "json",
+    fuzzy_shard_format: str = "json",
 ) -> IndexBuildReport:
     if embedding_provider is not None and embed is None:
         raise ValueError("embed is required when embedding_provider is supplied")
@@ -90,7 +93,13 @@ def build_documentation_index(
             vector_field="content",
             vector_quantization=vector_quantization,
         )
-    write_index(built, str(output_directory), doc_store_format="json")
+    write_index(
+        built,
+        str(output_directory),
+        term_shard_format=term_shard_format,
+        doc_store_format=doc_store_format,
+        fuzzy_shard_format=fuzzy_shard_format,
+    )
 
     return IndexBuildReport(
         source_document_count=len({chunk.source_path for chunk in ordered_chunks}),

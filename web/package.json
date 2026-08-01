@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prepare:python": "uv run --project ../cli python ../cli/scripts/build_browser_wheel.py --output ../web/public/python && node scripts/vendor-python-assets.mjs",
+    "prepare:python": "uv run --project ../cli python ../cli/scripts/build_browser_wheel.py --output ../web/public/python && node scripts/vendor-python-assets.mjs && node scripts/build-docs-index.mjs",
     "check": "tsc --noEmit",
     "test": "vitest run",
     "build": "npm run prepare:python && vite build",

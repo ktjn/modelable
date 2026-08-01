@@ -3,10 +3,15 @@ import { lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { providerStatusLabel, type ProviderState } from './provider-state';
 import type {
   AssistantGenerateChatMessage,
+  AssistantDocsChatMessage,
   AssistantExplainChatMessage,
   ChatMessage,
 } from './chat-types';
-import { isAssistantGenerateMessage, isAssistantExplainMessage } from './chat-types';
+import {
+  isAssistantDocsMessage,
+  isAssistantGenerateMessage,
+  isAssistantExplainMessage,
+} from './chat-types';
 import type { BrowserDiagnostic } from '../protocol';
 import { type ModelOption } from './webgpu-provider';
 import { MarkdownText } from './MarkdownText';
@@ -310,6 +315,10 @@ function ChatMessageItem({
     );
   }
 
+  if (isAssistantDocsMessage(message)) {
+    return <AssistantDocsMessageItem message={message} onDiscard={onDiscard} />;
+  }
+
   if (isAssistantGenerateMessage(message)) {
     return (
       <AssistantGenerateMessageItem
@@ -322,6 +331,70 @@ function ChatMessageItem({
   }
 
   return null;
+}
+
+function AssistantDocsMessageItem({
+  message,
+  onDiscard,
+}: {
+  message: AssistantDocsChatMessage;
+  onDiscard(messageId: string): void;
+}) {
+  return (
+    <div className="chat-message chat-message--assistant">
+      <h2 className="chat-message__title">Documentation answer</h2>
+      <p className="chat-message__provider">
+        {message.providerInfo.provider} / {message.providerInfo.model}
+      </p>
+      {message.pending ? (
+        <p className="chat-message__pending">Searching documentation…</p>
+      ) : message.answer === undefined ? (
+        <p className="chat-message__pending">No documentation answer received</p>
+      ) : (
+        <>
+          <div className="chat-message__explanation">
+            <MarkdownText>{message.answer}</MarkdownText>
+          </div>
+          {message.citations.length > 0 ? (
+            <div className="chat-message__citations">
+              <h3>Sources</h3>
+              <ul>
+                {message.citations.map((citation) => (
+                  <li key={`${citation.label}-${citation.url}`}>
+                    <SafeCitationLink citation={citation} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </>
+      )}
+      <DiagnosticsList diagnostics={message.diagnostics} />
+      {!message.pending && message.outcome === undefined ? (
+        <div className="chat-message__actions">
+          <button type="button" onClick={() => onDiscard(message.id)}>
+            Close
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SafeCitationLink({ citation }: { citation: { label: string; url: string } }) {
+  try {
+    const url = new URL(citation.url);
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return (
+        <a href={url.href} target="_blank" rel="noreferrer">
+          {citation.label}
+        </a>
+      );
+    }
+  } catch {
+    // Render untrusted citation URLs as text.
+  }
+  return <span>{citation.label}</span>;
 }
 
 function AssistantExplainMessageItem({

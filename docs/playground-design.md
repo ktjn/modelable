@@ -1041,6 +1041,14 @@ median graph operations. The completed design is archived in
 - Generate and explain actions.
 - Validated update preview and acceptance flow.
 
+### Phase 6b: documentation RAG
+
+The Playground's explicit `/docs <question>` command uses the shared Python
+retrieval pipeline in Pyodide and a bundled same-origin JSON Searchable index.
+Ordinary chat remains non-RAG, and the index is not persisted with workspace
+state. Structured binary document shards remain deferred until the Searchable
+client/indexer follow-up is published.
+
 ### Phase 7: offline and hardening
 
 - Service worker.

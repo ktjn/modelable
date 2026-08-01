@@ -38,12 +38,15 @@ EXPECTED_DEPENDENCIES = [
     "pydantic==2.12.5",
     "pyyaml==6.0.3",
     "referencing==0.37.0",
+    "searchable-analysis==0.1.0",
+    "searchable-client==0.2.0",
 ]
 
 
 def test_browser_module_selection_excludes_desktop_surfaces() -> None:
     selected = {path.as_posix() for path in selected_source_paths()}
     assert "modelable/browser/api.py" in selected
+    assert "modelable/browser/rag.py" in selected
     assert "modelable/llm/conversation_plan.py" in selected
     assert "modelable/llm/conversation_planner.py" in selected
     assert "modelable/llm/provider_types.py" in selected
