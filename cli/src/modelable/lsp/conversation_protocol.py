@@ -41,6 +41,7 @@ class ConversationTurnParams(_ProtocolModel):
     create_session: bool = Field(alias="createSession")
     workspace_uri: str = Field(alias="workspaceUri", min_length=1)
     message: str
+    documentation_index_uri: str | None = Field(default=None, alias="documentationIndexUri")
     active_document_uri: str | None = Field(default=None, alias="activeDocumentUri")
     position: ConversationPosition | None = None
     dirty_document_uris: tuple[str, ...] = Field(default=(), alias="dirtyDocumentUris")
