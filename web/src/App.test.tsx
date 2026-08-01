@@ -1571,8 +1571,10 @@ describe('App', () => {
     expect(client.conversationTurn.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         message: 'How do I configure the compiler?',
-        automaticDocumentation: true,
       }),
+    );
+    expect(client.conversationTurn.mock.calls[0]?.[0]).not.toHaveProperty(
+      'automaticDocumentation',
     );
   });
 
