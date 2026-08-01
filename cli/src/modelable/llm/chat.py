@@ -274,7 +274,7 @@ def _handle_chat_command(
 def chat_help() -> str:
     return (
         "Commands: /help, /ref <ref>, /context, /describe [ref], /recommend <ref> [consumer], "
-        "/ask <question>, /docs <question>, /update <ref> <instruction> (preview only), "
+        "/ask <question>, /docs <question> (requires --docs-index), /update <ref> <instruction> (preview only), "
         "/compile <target> [--domain <name> ...] [--out <relative-path>] [--descriptor-set], "
         "/apply, /discard, /exit"
     )

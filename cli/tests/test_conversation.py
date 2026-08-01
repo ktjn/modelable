@@ -780,6 +780,7 @@ def test_chat_compile_help_and_quit_cleanup(tmp_path: Path) -> None:
 
     assert "/compile" in help_text
     assert "/compile <target>" in help_text
+    assert "--docs-index" in help_text
     assert "Only the exact case-sensitive /apply" in preview
     assert state.session is not None
     pending = state.session.pending
