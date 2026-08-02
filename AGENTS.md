@@ -21,6 +21,16 @@ CI runs all four checks (`validate.yml`); passing pytest locally is not sufficie
 
 Design docs and implementation plans (created via the `writing-plans`/brainstorming workflow) live in `docs/superpowers/specs/` and `docs/superpowers/plans/`. Once a plan's implementation has merged to `main`, move both the plan and any spec it implements into `docs/superpowers/specs/archived/` and `docs/superpowers/plans/archived/` (same filename, just relocated) in the same PR or a prompt follow-up — don't leave completed plans sitting alongside active ones. Only plans/specs for work still in progress (or not yet started) belong in the top-level `plans/`/`specs/` directories.
 
+## Web AI/chat changes
+
+`web/src/ai/**`, `App.tsx`'s conversation wiring, or the Python conversation
+engine/plan schema (`cli/src/modelable/llm/conversation_*.py`) each affect
+what the playground's real-model chat assistant can do. These aren't covered
+by CI or `npm test` — note in your handoff that
+`docs/maintainers.md` → "Manual real-model WebLLM chat conformance" should be
+run (`npm run test:e2e:manual` from `web/`); it needs real WebGPU hardware,
+so run it yourself if you have that, otherwise flag it for the user.
+
 ## Closing issues
 
 When a commit or PR fixes a GitHub issue, include a `Closes #N` line in the commit message or PR body. GitHub will auto-close the issue when the PR is merged.

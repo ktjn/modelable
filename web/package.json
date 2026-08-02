@@ -9,6 +9,7 @@
     "build": "npm run prepare:python && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "playwright test",
+    "test:e2e:manual": "playwright test --config=playwright.manual.config.ts",
     "check:budgets": "node scripts/check-budgets.mjs"
   },
   "dependencies": {

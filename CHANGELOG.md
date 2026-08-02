@@ -8,6 +8,18 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Fixed
+
+## [1.3.0] - 2026-08-02
+
+### Added
+
+- Bundled a documentation search index directly into the CLI and LSP. Users no longer
+  need to provide an explicit index path for documentation questions in `chat`
+  or IDE contexts; the bundled index is used by default.
+- Enabled automated service worker updates for the browser Playground. The
+  application now detects and applies new versions in the background, ensuring
+  users always run the latest release without manual refresh prompts.
 - Added multi-language support to the browser Playground, enabling generation of
   TypeScript, SQL (Postgres/ClickHouse), Protobuf, Rust, Java, Go, C#, Markdown,
   and Python artifacts directly in the browser.
@@ -105,6 +117,10 @@ releases could contain breaking changes when called out explicitly.
   outside any tree, and edge labels no longer sit on a bare SVG path where
   they are not exposed. Node and edge names now go on the wrappers React Flow
   renders, which carry a valid role.
+- Playground chat: a change request that the AI model gets wrong (e.g.
+  referencing a model/version that doesn't exist) now gets two automatic
+  corrective retries instead of one, and if it still fails, the chat shows
+  a clear explanation instead of the raw internal error text.
 
 ## [1.2.1] - 2026-07-12
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "modelable"
-version = "1.2.1"
+version = "1.3.0"
 description = "Compiler and language server for versioned, domain-owned data models"
 readme = "README.md"
 license = "Apache-2.0"
@@ -69,6 +69,17 @@ dev = [
 
 [project.scripts]
 modelable = "modelable.cli:cli"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/hatch_build.py",
+    "/mypy-baseline.txt",
+    "/README.md",
+    "/LICENSE",
+    "/src/modelable/data/docs-index",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/modelable"]

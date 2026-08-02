@@ -309,6 +309,33 @@ def test_engine_gives_up_after_execution_repair_budget_exhausted() -> None:
     assert isinstance(reply, ConversationReply)
     assert reply.kind == "error"
     assert "expected 3" in reply.text
+    assert "couldn't produce a valid change after 2 attempts" in reply.text
+    assert backend.fail_calls_remaining == 0
+
+
+def test_engine_attempts_second_execution_repair_round_when_budget_allows() -> None:
+    ids = iter(("request-1",))
+    backend = FailThenSucceedBackend(fail_calls_remaining=2)
+    engine = ConversationEngine(
+        backend=backend,
+        planner=ResumableConversationPlanner(id_factory=lambda: next(ids)),
+        execution_repair_attempts=2,
+    )
+
+    pending = engine.begin_turn("Add a field to Customer")
+    assert isinstance(pending, PendingPlanRequest)
+
+    first_repair = engine.resume_turn(pending.request_id, json.dumps(valid_create_customer_plan()))
+    assert isinstance(first_repair, PendingPlanRequest)
+
+    second_repair = engine.resume_turn(first_repair.request_id, json.dumps(valid_create_customer_plan()))
+    assert isinstance(second_repair, PendingPlanRequest)
+    assert "expected 3" in second_repair.request.user
+
+    reply = engine.resume_turn(second_repair.request_id, json.dumps(valid_create_customer_plan()))
+
+    assert isinstance(reply, ConversationReply)
+    assert reply.kind == "preview"
     assert backend.fail_calls_remaining == 0
 
 
@@ -417,3 +444,53 @@ def test_engine_synthesis_empty_content_falls_back_to_facts() -> None:
     assert reply.kind == "answer"
     assert reply.text == "query:summary"
     assert backend.execute_query_called
+
+
+def test_engine_wraps_final_error_after_execution_repairs_exhausted() -> None:
+    ids = iter(("request-1",))
+    backend = FailThenSucceedBackend(
+        fail_calls_remaining=3,
+        failure_text="Unknown model version: billing.Customer@1",
+    )
+    engine = ConversationEngine(
+        backend=backend,
+        planner=ResumableConversationPlanner(id_factory=lambda: next(ids)),
+        execution_repair_attempts=2,
+    )
+
+    pending = engine.begin_turn("Add a field to Customer")
+    assert isinstance(pending, PendingPlanRequest)
+    first_repair = engine.resume_turn(pending.request_id, json.dumps(valid_create_customer_plan()))
+    assert isinstance(first_repair, PendingPlanRequest)
+    second_repair = engine.resume_turn(first_repair.request_id, json.dumps(valid_create_customer_plan()))
+    assert isinstance(second_repair, PendingPlanRequest)
+
+    reply = engine.resume_turn(second_repair.request_id, json.dumps(valid_create_customer_plan()))
+
+    assert isinstance(reply, ConversationReply)
+    assert reply.kind == "error"
+    assert "couldn't produce a valid change after 3 attempts" in reply.text
+    assert "Unknown model version: billing.Customer@1" in reply.text
+    assert backend.fail_calls_remaining == 0
+
+
+def test_engine_keeps_raw_error_when_no_repair_budget_configured() -> None:
+    ids = iter(("request-1",))
+    backend = FailThenSucceedBackend(
+        fail_calls_remaining=1,
+        failure_text="Unknown model version: billing.Customer@1",
+    )
+    engine = ConversationEngine(
+        backend=backend,
+        planner=ResumableConversationPlanner(id_factory=lambda: next(ids)),
+        execution_repair_attempts=0,
+    )
+
+    pending = engine.begin_turn("Add a field to Customer")
+    assert isinstance(pending, PendingPlanRequest)
+
+    reply = engine.resume_turn(pending.request_id, json.dumps(valid_create_customer_plan()))
+
+    assert isinstance(reply, ConversationReply)
+    assert reply.kind == "error"
+    assert reply.text == "Unknown model version: billing.Customer@1"

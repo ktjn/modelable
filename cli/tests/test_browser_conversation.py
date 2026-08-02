@@ -61,6 +61,27 @@ def valid_projection_plan() -> dict[str, object]:
     }
 
 
+def test_browser_conversation_service_configures_two_execution_repair_attempts() -> None:
+    compiler = BrowserCompiler()
+    compiler.open_workspace(
+        1,
+        (BrowserSource(uri=CUSTOMER_URI, text=CUSTOMER_SOURCE, version=1),),
+    )
+    service = BrowserConversationService(compiler, id_factory=lambda: "request-1")
+
+    service.turn(
+        session_id="session-1",
+        workspace_revision=1,
+        message="Suggest a projection for billing",
+        active_document_uri=CUSTOMER_URI,
+        line=3,
+        character=10,
+    )
+
+    session = service._sessions["session-1"]
+    assert session.engine.execution_repair_attempts == 2
+
+
 def test_browser_conversation_previews_and_applies_projection() -> None:
     compiler = BrowserCompiler()
     compiler.open_workspace(
