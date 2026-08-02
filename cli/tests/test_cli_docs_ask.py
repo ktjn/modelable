@@ -47,7 +47,7 @@ def test_docs_ask_prints_answer_and_sources(tmp_path: Path, monkeypatch) -> None
 
     result = CliRunner().invoke(
         cli,
-        ["docs-ask", str(index), "install", "--provider", "fake", "--model", "test"],
+        ["docs-ask", "install", "--docs-index", str(index), "--provider", "fake", "--model", "test"],
     )
 
     assert result.exit_code == 0, result.output
@@ -62,7 +62,7 @@ def test_docs_ask_json_keeps_structured_citations(tmp_path: Path, monkeypatch) -
 
     result = CliRunner().invoke(
         cli,
-        ["docs-ask", str(index), "install", "--provider", "fake", "--model", "test", "--json"],
+        ["docs-ask", "install", "--docs-index", str(index), "--provider", "fake", "--model", "test", "--json"],
     )
 
     assert result.exit_code == 0, result.output
@@ -77,7 +77,7 @@ def test_docs_ask_returns_insufficient_evidence_for_empty_index(tmp_path: Path) 
     build_documentation_index([], index)
 
     result = CliRunner().invoke(
-        cli, ["docs-ask", str(index / "manifest.json"), "Unknown question", "--provider", "local"]
+        cli, ["docs-ask", "Unknown question", "--docs-index", str(index / "manifest.json"), "--provider", "local"]
     )
 
     assert result.exit_code == 0, result.output
@@ -149,6 +149,36 @@ def test_llm_chat_docs_uses_bundled_index_by_default(tmp_path: Path, monkeypatch
             "test",
         ],
     )
+
+    assert result.exit_code == 0, result.output
+    assert "Use [S1] to install it." in result.output
+    assert "guide.md#install" in result.output
+    assert "https://example.test/guide/#install" in result.output
+
+
+def test_docs_ask_uses_bundled_index_by_default(tmp_path: Path, monkeypatch) -> None:
+    bundled = tmp_path / "bundled" / "manifest.json"
+    bundled.parent.mkdir(parents=True)
+    build_documentation_index(
+        [
+            DocumentationChunk(
+                external_id="guide.md#install",
+                source_path="guide.md",
+                url="https://example.test/guide/#install",
+                language="en",
+                title="Guide",
+                heading="Install",
+                heading_path=["Guide", "Install"],
+                content="Install with uv.",
+                chunk_index=0,
+            )
+        ],
+        bundled.parent,
+    )
+    monkeypatch.setattr("modelable.commands.docs_ask.bundled_documentation_index_path", lambda: bundled)
+    monkeypatch.setattr("modelable.commands.docs_ask.build_provider", lambda *args, **kwargs: FakeProvider())
+
+    result = CliRunner().invoke(cli, ["docs-ask", "install", "--provider", "fake", "--model", "test"])
 
     assert result.exit_code == 0, result.output
     assert "Use [S1] to install it." in result.output
