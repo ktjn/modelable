@@ -11,6 +11,12 @@ from modelable.llm.provider_types import LLMRequest as LLMRequest
 from modelable.llm.provider_types import LLMResponse as LLMResponse
 
 
+def _normalize_base_url(base_url: str) -> str:
+    if "://" not in base_url:
+        return f"http://{base_url}"
+    return base_url
+
+
 @dataclass(frozen=True)
 class OllamaProvider:
     base_url: str
@@ -45,13 +51,13 @@ class OllamaProvider:
 
     def _post_json(self, path: str, payload: dict[str, object]) -> dict[str, Any]:
         body = json.dumps(payload).encode("utf-8")
-        req = request.Request(
-            self.base_url.rstrip("/") + path,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
         try:
+            req = request.Request(
+                _normalize_base_url(self.base_url).rstrip("/") + path,
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
             with request.urlopen(req, timeout=self.timeout) as resp:
                 raw = resp.read().decode("utf-8")
         except error.HTTPError as exc:  # pragma: no cover - thin transport wrapper
@@ -59,6 +65,8 @@ class OllamaProvider:
             raise RuntimeError(f"Ollama request failed: {exc.code} {detail}") from exc
         except error.URLError as exc:  # pragma: no cover - thin transport wrapper
             raise RuntimeError(f"Ollama request failed: {exc.reason}") from exc
+        except ValueError as exc:  # pragma: no cover - thin transport wrapper
+            raise RuntimeError(f"Ollama request failed: {exc}") from exc
 
         try:
             return cast(dict[str, object], json.loads(raw))
@@ -67,15 +75,17 @@ class OllamaProvider:
 
 
 def list_ollama_models(base_url: str, timeout: float = 10.0) -> list[str]:
-    req = request.Request(base_url.rstrip("/") + "/api/tags", method="GET")
     try:
+        req = request.Request(_normalize_base_url(base_url).rstrip("/") + "/api/tags", method="GET")
         with request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read().decode("utf-8")
-    except error.HTTPError as exc:  # pragma: no cover - thin transport wrapper
+    except error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"Ollama request failed: {exc.code} {detail}") from exc
-    except error.URLError as exc:  # pragma: no cover - thin transport wrapper
+    except error.URLError as exc:
         raise RuntimeError(f"Ollama request failed: {exc.reason}") from exc
+    except ValueError as exc:
+        raise RuntimeError(f"Ollama request failed: {exc}") from exc
 
     try:
         payload = cast(dict[str, object], json.loads(raw))
