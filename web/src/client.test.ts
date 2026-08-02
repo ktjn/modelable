@@ -113,7 +113,7 @@ async function initialize(
 }
 
 describe('BrowserCompilerClient', () => {
-  test('accepts the bundled four-wheel documentation runtime manifest', () => {
+  test('accepts the bundled documentation runtime manifest with the network patch wheel', () => {
     const manifestUrl = new URL(
       'https://example.test/modelable/playground/python/runtime-manifest.json',
     );
@@ -122,10 +122,11 @@ describe('BrowserCompilerClient', () => {
       wheelUrls: [
         '/modelable/playground/python/lark-1.3.1-py3-none-any.whl',
         '/modelable/playground/python/modelable_browser-1.2.1-py3-none-any.whl',
+        '/modelable/playground/python/pyodide_http-0.2.2-py3-none-any.whl',
         '/modelable/playground/python/searchable_analysis-0.1.0-py3-none-any.whl',
         '/modelable/playground/python/searchable_client-0.2.0-py3-none-any.whl',
       ],
-    }, manifestUrl)).toHaveLength(4);
+    }, manifestUrl)).toHaveLength(5);
   });
 
   test('shares one initialization request between concurrent callers', async () => {

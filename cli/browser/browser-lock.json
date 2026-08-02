@@ -25,6 +25,13 @@
       "fileName": "searchable_client-0.2.0-py3-none-any.whl",
       "url": "https://files.pythonhosted.org/packages/e3/47/f0354b334ed9a97bc3fc4ec16612f84fa948469712ba659fae19757cfabe/searchable_client-0.2.0-py3-none-any.whl",
       "sha256": "a07b4974464d8578dce23c87cde3c099c07aae5915eae556886cbacc48636393"
+    },
+    {
+      "name": "pyodide-http",
+      "version": "0.2.2",
+      "fileName": "pyodide_http-0.2.2-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/43/aa/471c9cb07acd2de48acf70aef07139f08f2f7ea6f85883f19a7296243ffb/pyodide_http-0.2.2-py3-none-any.whl",
+      "sha256": "cf006ea593c1643b5badeb4d42ed24a6eebd830276171fa1f82de0777b3fb608"
     }
   ]
 }

@@ -14,6 +14,12 @@ const larkUrl =
   'https://example.test/modelable/playground/python/lark-1.3.1-py3-none-any.whl';
 const modelableUrl =
   'https://example.test/modelable/playground/python/modelable_browser-1.2.1-py3-none-any.whl';
+const searchableAnalysisUrl =
+  'https://example.test/modelable/playground/python/searchable_analysis-0.1.0-py3-none-any.whl';
+const searchableClientUrl =
+  'https://example.test/modelable/playground/python/searchable_client-0.2.0-py3-none-any.whl';
+const pyodideHttpUrl =
+  'https://example.test/modelable/playground/python/pyodide_http-0.2.2-py3-none-any.whl';
 
 function request(payload: unknown): BrowserCompilerRequest {
   return {
@@ -34,7 +40,7 @@ describe('validateRuntimeManifest', () => {
     ).toEqual([larkUrl, modelableUrl]);
   });
 
-  test('rejects extra wheels', () => {
+  test('rejects documentation runtime missing Searchable wheels', () => {
     expect(() =>
       validateRuntimeManifest(
         {
@@ -46,7 +52,30 @@ describe('validateRuntimeManifest', () => {
         },
         manifestUrl,
       ),
-    ).toThrow('exactly two wheel URLs');
+    ).toThrow('Searchable Analysis');
+  });
+
+  test('accepts the documentation runtime with the network patch wheel', () => {
+    expect(
+      validateRuntimeManifest(
+        {
+          wheelUrls: [
+            larkUrl,
+            modelableUrl,
+            searchableAnalysisUrl,
+            searchableClientUrl,
+            pyodideHttpUrl,
+          ],
+        },
+        manifestUrl,
+      ),
+    ).toEqual([
+      larkUrl,
+      modelableUrl,
+      searchableAnalysisUrl,
+      searchableClientUrl,
+      pyodideHttpUrl,
+    ]);
   });
 
   test('rejects duplicate wheels', () => {
