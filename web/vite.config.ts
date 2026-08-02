@@ -10,7 +10,7 @@ export default defineConfig({
   publicDir: 'public',
   plugins: [
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       scope: '/modelable/playground/',
       workbox: {
         globPatterns: [
