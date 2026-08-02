@@ -413,6 +413,7 @@ afterEach(() => {
   sourceEditorSpies.languageController = null;
   sourceEditorSpies.getWorkspace = null;
   window.history.pushState({}, '', '/');
+  vi.mocked(detectWebGpu).mockReturnValue(false);
 });
 
 beforeEach(() => {
@@ -490,7 +491,6 @@ describe('App', () => {
     expect(await screen.findByText('worker crashed')).toBeTruthy();
 
     getWebLlmModelsSpy.mockRestore();
-    vi.mocked(detectWebGpu).mockReturnValue(false);
   });
 
   test('disables actions during initialization and enables them after success', async () => {

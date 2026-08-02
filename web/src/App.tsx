@@ -676,35 +676,41 @@ function AppInner({
             return merged;
           });
 
-          void getGpuLimits().then((limits) => {
-            setModels((current) => {
-              const suggested = suggestModels(current, limits);
-              const updated = current
-                .map((m) => ({
-                  ...m,
-                  recommendedTier:
-                    m.id === suggested.fast
-                      ? ('fast' as const)
-                      : m.id === suggested.balanced
-                        ? ('balanced' as const)
-                        : m.id === suggested.quality
-                          ? ('quality' as const)
-                          : undefined,
-                }))
-                .sort((a, b) => {
-                  const rank = { fast: 0, balanced: 1, quality: 2 } as const;
-                  const aRank = a.recommendedTier ? rank[a.recommendedTier] : 3;
-                  const bRank = b.recommendedTier ? rank[b.recommendedTier] : 3;
-                  if (aRank !== bRank) return aRank - bRank;
-                  return a.vramMb - b.vramMb;
-                });
+          void getGpuLimits()
+            .then((limits) => {
+              setModels((current) => {
+                const suggested = suggestModels(current, limits);
+                const updated = current
+                  .map((m) => ({
+                    ...m,
+                    recommendedTier:
+                      m.id === suggested.fast
+                        ? ('fast' as const)
+                        : m.id === suggested.balanced
+                          ? ('balanced' as const)
+                          : m.id === suggested.quality
+                            ? ('quality' as const)
+                            : undefined,
+                  }))
+                  .sort((a, b) => {
+                    const rank = { fast: 0, balanced: 1, quality: 2 } as const;
+                    const aRank = a.recommendedTier ? rank[a.recommendedTier] : 3;
+                    const bRank = b.recommendedTier ? rank[b.recommendedTier] : 3;
+                    if (aRank !== bRank) return aRank - bRank;
+                    return a.vramMb - b.vramMb;
+                  });
 
-              if (params.get('model') === null && suggested.fast !== undefined) {
-                setSelectedModel(suggested.fast);
-              }
-              return updated;
+                if (params.get('model') === null && suggested.fast !== undefined) {
+                  setSelectedModel(suggested.fast);
+                }
+                return updated;
+              });
+            })
+            .catch((error: unknown) => {
+              const message = toErrorMessage(error, 'Failed to detect GPU limits');
+              pushToast('error', message);
+              aiDispatch({ type: 'error', message });
             });
-          });
         })
         .catch((error: unknown) => {
           const message = toErrorMessage(error, 'Failed to list WebLLM models');
