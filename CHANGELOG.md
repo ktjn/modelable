@@ -11,6 +11,8 @@ releases could contain breaking changes when called out explicitly.
 - Added `modelable models` to list models installed on a local Ollama server,
   resolving the base URL from `--base-url`, `MODELABLE_LLM_BASE_URL`, or
   `OLLAMA_HOST` the same way other provider-backed commands do.
+- Added an Ollama provider option to the Playground assistant, alongside
+  WebLLM, for users running a local Ollama server.
 
 ### Fixed
 
