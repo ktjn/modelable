@@ -186,7 +186,7 @@ export class WebGpuProvider implements LlmProvider {
 
   async complete(request: LlmRequest): Promise<LlmResponse> {
     if (this.worker === null) {
-      throw new Error('Provider not initialized');
+      throw new AiProviderError('COMPLETION_FAILED', 'Provider not initialized');
     }
 
     const id = String(this.nextId++);

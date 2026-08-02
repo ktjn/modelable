@@ -270,7 +270,11 @@ describe('WebGpuProvider', () => {
         temperature: 0,
         responseFormat: 'text',
       }),
-    ).rejects.toThrow('Provider not initialized');
+    ).rejects.toMatchObject({
+      name: 'AiProviderError',
+      code: 'COMPLETION_FAILED',
+      message: 'Provider not initialized',
+    });
   });
 
   it('dispose terminates worker and rejects pending completions', async () => {
