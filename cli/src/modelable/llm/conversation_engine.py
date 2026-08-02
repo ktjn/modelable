@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from uuid import uuid4
 
 from modelable.llm.conversation_backend import ConversationBackend, ConversationReply
@@ -236,14 +236,20 @@ class ConversationEngine:
             reply = self.backend.execute_query(plan)
             return self._begin_synthesis(message, reply.text)
         reply = self._execute_plan(plan)
-        if (
-            isinstance(plan, ChangeSetPlan)
-            and reply.kind == "error"
-            and context is not None
-            and self._execution_repairs_remaining > 0
-        ):
-            self._execution_repairs_remaining -= 1
-            return self._begin_execution_repair(message, context, reply.text)
+        if isinstance(plan, ChangeSetPlan) and reply.kind == "error":
+            if context is not None and self._execution_repairs_remaining > 0:
+                self._execution_repairs_remaining -= 1
+                return self._begin_execution_repair(message, context, reply.text)
+            repairs_used = self.execution_repair_attempts - self._execution_repairs_remaining
+            if repairs_used > 0:
+                reply = replace(
+                    reply,
+                    text=(
+                        f"The AI assistant couldn't produce a valid change after {repairs_used + 1} attempts "
+                        f"(last error: {reply.text}). Try a larger local model, or be more specific about the "
+                        'domain and model (e.g. "customer.Customer").'
+                    ),
+                )
         return self._complete_turn(message, reply)
 
     def _execute_plan(self, plan: ConversationPlan) -> ConversationReply:
