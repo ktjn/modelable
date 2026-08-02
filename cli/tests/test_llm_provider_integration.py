@@ -1399,3 +1399,80 @@ domain customer {
     )
     assert result.exit_code == 0, result.output
     assert "provider" in result.output.lower()
+
+
+def test_models_command_lists_installed_models(monkeypatch):
+    class DummyResponse:
+        def read(self) -> bytes:
+            return json.dumps({"models": [{"name": "llama3.2"}, {"name": "codellama"}]}).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    result = CliRunner().invoke(cli, ["models"])
+    assert result.exit_code == 0, result.output
+    assert result.output.splitlines() == ["codellama", "llama3.2"]
+
+
+def test_models_command_reports_hint_when_none_installed(monkeypatch):
+    class DummyResponse:
+        def read(self) -> bytes:
+            return json.dumps({"models": []}).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    result = CliRunner().invoke(cli, ["models"])
+    assert result.exit_code == 0, result.output
+    assert "No models installed" in result.output
+    assert "ollama pull" in result.output
+
+
+def test_models_command_reports_connection_failure(monkeypatch):
+    from urllib import error as urllib_error
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        raise urllib_error.URLError("Connection refused")
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    result = CliRunner().invoke(cli, ["models"])
+    assert result.exit_code != 0
+    assert "Ollama request failed" in result.output
+
+
+def test_models_command_uses_base_url_flag(monkeypatch):
+    captured: dict[str, str] = {}
+
+    class DummyResponse:
+        def read(self) -> bytes:
+            return json.dumps({"models": []}).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        captured["url"] = req.full_url
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    result = CliRunner().invoke(cli, ["models", "--base-url", "http://example.internal:11434"])
+    assert result.exit_code == 0, result.output
+    assert captured["url"] == "http://example.internal:11434/api/tags"
+    assert "http://example.internal:11434" in result.output
