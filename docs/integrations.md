@@ -169,7 +169,7 @@ explicit `primary_key` constraint, `unique_key`, or `modelable_key` meta flag.
 identity, and `modelable_*` `meta` keys) and
 compares them to an existing published model version, appending a new version
 with a computed `additive`/`breaking` change kind when they differ. See
-[cli-reference.md](cli-reference.md) §10.9.
+[cli-reference.md](cli-reference.md) §10.10.
 
 `modelable spec add ... --kind dbt` records the same dbt source in
 `.modelable/specs.yml` so `modelable spec status`, `spec diff`, and
@@ -294,7 +294,7 @@ published model version, appending a new version with a computed
 `additive`/`breaking` change kind when they differ. Elements with complex FHIR
 types (e.g.
 `BackboneElement`, `HumanName`, `CodeableConcept`) fall back to a named type
-with a warning, per §3.4. See [cli-reference.md](cli-reference.md) §10.9.
+with a warning, per §3.4. See [cli-reference.md](cli-reference.md) §10.10.
 
 `modelable spec add ... --kind fhir` makes the same static profile file
 trackable for repeatable status/diff/sync workflows. ODCS YAML documents can

@@ -1170,9 +1170,9 @@ modelable docs ./my-models --out ./dist/docs
 
 ## 10. Additional Command Contracts
 
-Sections 10.1 through 10.5 and 10.9 describe shipped local commands. Federated
+Sections 10.1 through 10.6 and 10.10 describe shipped local commands. Federated
 registry management, dependent write-back queries, and signature verification
-in sections 10.6 through 10.8 remain deferred.
+in sections 10.7 through 10.9 remain deferred.
 
 The current `codegen` command reports all implemented formats in this repository,
 including C#, Java, Python, Rust, Go, SQL DDL, dbt YAML, FHIR R4 profiles,
@@ -1476,7 +1476,23 @@ raw Modelable source; Python renders and validates the canonical source.
 
 **Defined in:** section 12.
 
-### 10.6 `registry` — Federated registry management
+### 10.6 `models` — List installed Ollama models
+
+```text
+modelable models [--base-url URL]
+```
+
+Lists the models installed on a local Ollama server, so a model name is
+known before passing `--provider ollama --model <name>` to `chat`, `update`,
+or `docs-ask`. `--base-url` resolves the same way as the other LLM commands:
+flag, then `MODELABLE_LLM_BASE_URL`, then `OLLAMA_HOST`, then
+`http://localhost:11434`.
+
+If no models are installed, prints a hint to run `ollama pull <model>`. If
+the Ollama server is unreachable, exits with an error describing the
+connection failure.
+
+### 10.7 `registry` — Federated registry management
 
 ```text
 modelable registry init --id <registry-id> --owns <domain>[,<domain>...]
@@ -1492,7 +1508,7 @@ modelable registry sync [--peer <peer-id>]
 
 See [compiler-reference.md](compiler-reference.md) §14.
 
-### 10.7 `dependents` — List downstream consumers
+### 10.8 `dependents` — List downstream consumers
 
 ```text
 modelable dependents <Domain.Model@version>
@@ -1502,7 +1518,7 @@ Lists all downstream projections and consumer entries that depend on the given m
 
 See [compiler-reference.md](compiler-reference.md) §14.
 
-### 10.8 `lineage verify` — Verify content signatures
+### 10.9 `lineage verify` — Verify content signatures
 
 ```text
 modelable lineage verify <REF>
@@ -1512,7 +1528,7 @@ Verifies that the content signature (SHA-256) of the given model or projection m
 
 See [compiler-reference.md](compiler-reference.md) §14.
 
-### 10.9 `attach` — Attach a model version to an external dbt, FHIR, or ODCS source
+### 10.10 `attach` — Attach a model version to an external dbt, FHIR, or ODCS source
 
 ```text
 modelable attach <Domain.Model@version> --source <path> --source-format <dbt|fhir|odcs> [--source-name NAME] --path PATH [--output FILE] [--preview]
