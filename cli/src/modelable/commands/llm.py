@@ -33,7 +33,7 @@ from modelable.llm.provenance import (
     write_attachment_record,
     write_provenance_sidecar,
 )
-from modelable.llm.providers import build_provider
+from modelable.llm.providers import build_provider, list_ollama_models
 from modelable.rag.bundled_index import bundled_documentation_index_path
 from modelable.rag.retriever import DocumentationRetriever
 
@@ -53,6 +53,7 @@ def register_llm_commands(cli_group: click.Group) -> None:
     cli_group.add_command(recommend)
     cli_group.add_command(explain)
     cli_group.add_command(chat)
+    cli_group.add_command(models)
 
 
 @click.command()
@@ -63,6 +64,23 @@ def describe(target: str | None, path: Path | None) -> None:
     if target is None and path is None:
         raise click.UsageError("provide a model ref or --path")
     console.print(describe_path_or_ref(path=path, ref=target))
+
+
+@click.command()
+@click.option("--base-url", "base_url", default=None, help="Ollama server base URL.")
+def models(base_url: str | None) -> None:
+    """List models installed on a local Ollama server."""
+    config = resolve_llm_config(flag_base_url=base_url)
+    resolved_base_url = config.base_url or "http://localhost:11434"
+    try:
+        model_names = list_ollama_models(resolved_base_url)
+    except RuntimeError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if not model_names:
+        console.print(f"No models installed on {resolved_base_url}. Run 'ollama pull <model>' to install one.")
+        return
+    for name in model_names:
+        click.echo(name)
 
 
 def _detect_format(path: Path) -> str | None:
