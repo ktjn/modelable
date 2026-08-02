@@ -80,7 +80,7 @@ def models(base_url: str | None) -> None:
         console.print(f"No models installed on {resolved_base_url}. Run 'ollama pull <model>' to install one.")
         return
     for name in model_names:
-        console.print(name)
+        click.echo(name)
 
 
 def _detect_format(path: Path) -> str | None:
