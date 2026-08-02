@@ -1,1 +1,0 @@
-{"dsl":{"df":4,"postings":[{"doc":46,"fields":{"content":{"len":70,"pos":[30],"tf":1}}},{"doc":148,"fields":{"content":{"len":281,"pos":[278],"tf":1}}},{"doc":151,"fields":{"content":{"len":215,"pos":[200],"tf":1}}},{"doc":186,"fields":{"content":{"len":148,"pos":[32],"tf":1}}}]}}
