@@ -9,9 +9,9 @@ import click
 from modelable.commands.common import console
 from modelable.llm.config import resolve_llm_config
 from modelable.llm.providers import build_provider
+from modelable.rag.bundled_index import bundled_documentation_index_path
 from modelable.rag.generation import answer_with_retrieval
 from modelable.rag.retriever import DocumentationRetriever
-from modelable.rag.bundled_index import bundled_documentation_index_path
 
 
 def register_docs_ask_commands(cli_group: click.Group) -> None:

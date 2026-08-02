@@ -867,9 +867,7 @@ def test_lsp_docs_uses_bundled_index_by_default(tmp_path: Path, monkeypatch) -> 
         return RecordingSession(root=root, focused_ref=focused_ref)
 
     service = LspConversationService(session_factory=session_factory)
-    reply = service.turn(
-        _turn_params(root, create_session=True).model_copy(update={"message": "/docs install"})
-    )
+    reply = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "/docs install"}))
 
     assert reply["kind"] == "answer"
     assert reply["retrievalUsed"] is True

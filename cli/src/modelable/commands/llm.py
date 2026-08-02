@@ -34,8 +34,8 @@ from modelable.llm.provenance import (
     write_provenance_sidecar,
 )
 from modelable.llm.providers import build_provider
-from modelable.rag.retriever import DocumentationRetriever
 from modelable.rag.bundled_index import bundled_documentation_index_path
+from modelable.rag.retriever import DocumentationRetriever
 
 console = Console()
 
