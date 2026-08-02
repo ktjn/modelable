@@ -1,4 +1,5 @@
 import { toErrorMessage } from '../errors';
+import { CURATED_MODEL_IDS } from './curated-models';
 import type { LlmRequest } from './types';
 
 export type AiWorkerRequest =
@@ -131,17 +132,21 @@ async function handleDispose(): Promise<void> {
   }
 }
 
+const CURATED_MODEL_ID_SET = new Set(CURATED_MODEL_IDS);
+
 async function handleListModels(): Promise<void> {
   try {
     const { prebuiltAppConfig } = await import('@mlc-ai/web-llm');
-    const models = prebuiltAppConfig.model_list.map((m: any) => ({
-      id: m.model_id,
-      label: m.model_id.split('-q')[0] || m.model_id,
-      description: `${m.vram_required_MB ? `~${Math.round(m.vram_required_MB)} MB` : 'Unknown'} VRAM${m.low_resource_required ? ' (Low Resource)' : ''}`,
-      vramMb: m.vram_required_MB ?? 0,
-      bufferSizeRequiredBytes: m.buffer_size_required_bytes,
-      completionParams: m.overrides ? { extra_body: m.overrides } : undefined,
-    }));
+    const models = prebuiltAppConfig.model_list
+      .filter((m: any) => CURATED_MODEL_ID_SET.has(m.model_id))
+      .map((m: any) => ({
+        id: m.model_id,
+        label: m.model_id.split('-q')[0] || m.model_id,
+        description: `${m.vram_required_MB ? `~${Math.round(m.vram_required_MB)} MB` : 'Unknown'} VRAM${m.low_resource_required ? ' (Low Resource)' : ''}`,
+        vramMb: m.vram_required_MB ?? 0,
+        bufferSizeRequiredBytes: m.buffer_size_required_bytes,
+        completionParams: m.overrides ? { extra_body: m.overrides } : undefined,
+      }));
     const response: AiWorkerResponse = { type: 'models', models };
     ctx.postMessage(response);
   } catch (error: unknown) {
