@@ -246,7 +246,7 @@ class ConversationEngine:
                     reply,
                     text=(
                         f"The AI assistant couldn't produce a valid change after {repairs_used + 1} attempts "
-                        f"(last error: {reply.text}). Try a larger local model, or be more specific about the "
+                        f"(last error: {reply.text}). Try a more capable model, or be more specific about the "
                         'domain and model (e.g. "customer.Customer").'
                     ),
                 )
@@ -333,7 +333,9 @@ class ConversationEngine:
         error_text: str,
     ) -> PendingPlanRequest:
         request_id = self.id_factory()
-        self._pending_execution_repair = _PendingExecutionRepair(request_id=request_id, message=message, context=context)
+        self._pending_execution_repair = _PendingExecutionRepair(
+            request_id=request_id, message=message, context=context
+        )
         return PendingPlanRequest(
             request_id=request_id,
             request=build_repair_request(message=message, context=context, error=error_text),

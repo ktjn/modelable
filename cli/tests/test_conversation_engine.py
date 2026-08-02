@@ -309,6 +309,7 @@ def test_engine_gives_up_after_execution_repair_budget_exhausted() -> None:
     assert isinstance(reply, ConversationReply)
     assert reply.kind == "error"
     assert "expected 3" in reply.text
+    assert "couldn't produce a valid change after 2 attempts" in reply.text
     assert backend.fail_calls_remaining == 0
 
 
@@ -329,6 +330,7 @@ def test_engine_attempts_second_execution_repair_round_when_budget_allows() -> N
 
     second_repair = engine.resume_turn(first_repair.request_id, json.dumps(valid_create_customer_plan()))
     assert isinstance(second_repair, PendingPlanRequest)
+    assert "expected 3" in second_repair.request.user
 
     reply = engine.resume_turn(second_repair.request_id, json.dumps(valid_create_customer_plan()))
 
