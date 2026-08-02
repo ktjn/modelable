@@ -45,11 +45,68 @@ test('renders onboarding when no provider is ready', () => {
       onReset={vi.fn()}
       onAddModel={vi.fn()}
       onFetchModels={vi.fn()}
+      onProviderKindChange={vi.fn()}
     />,
   );
 
   expect(screen.getByRole('combobox', { name: /model/i })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Download AI model' })).toBeTruthy();
+});
+
+test('provider selector calls onProviderKindChange, and Ollama kind relabels the button', async () => {
+  const onProviderKindChange = vi.fn();
+  const { rerender } = render(
+    <ChatPanel
+      messages={emptyMessages}
+      activeFileContent=""
+      aiState={initialProviderState}
+      actionsDisabled={false}
+      onSend={vi.fn()}
+      onExplain={vi.fn()}
+      onSuggestProjection={vi.fn()}
+      onAccept={vi.fn()}
+      onDiscard={vi.fn()}
+      onDownloadModel={vi.fn()}
+      onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
+      models={DEFAULT_MODELS}
+      onReset={vi.fn()}
+      onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
+      onProviderKindChange={onProviderKindChange}
+    />,
+  );
+
+  const user = userEvent.setup();
+  await user.selectOptions(screen.getByRole('combobox', { name: 'AI provider' }), 'ollama');
+  expect(onProviderKindChange).toHaveBeenCalledWith('ollama');
+
+  rerender(
+    <ChatPanel
+      messages={emptyMessages}
+      activeFileContent=""
+      aiState={{ ...initialProviderState, providerKind: 'ollama' }}
+      actionsDisabled={false}
+      onSend={vi.fn()}
+      onExplain={vi.fn()}
+      onSuggestProjection={vi.fn()}
+      onAccept={vi.fn()}
+      onDiscard={vi.fn()}
+      onDownloadModel={vi.fn()}
+      onUseHeuristic={vi.fn()}
+      selectedModel="llama3.2"
+      onModelChange={vi.fn()}
+      models={[{ id: 'llama3.2', label: 'llama3.2', description: 'Installed locally', vramMb: 0 }]}
+      onReset={vi.fn()}
+      onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
+      onProviderKindChange={onProviderKindChange}
+    />,
+  );
+
+  expect(screen.getByRole('button', { name: 'Use Ollama' })).toBeTruthy();
+  expect(screen.queryByText('+ Add custom model…')).toBeNull();
 });
 
 test('sends a message from the composer', async () => {
@@ -74,6 +131,7 @@ test('sends a message from the composer', async () => {
       onReset={vi.fn()}
       onAddModel={vi.fn()}
       onFetchModels={vi.fn()}
+      onProviderKindChange={vi.fn()}
     />,
   );
 
@@ -109,6 +167,7 @@ test('calls quick action chips', async () => {
       onReset={vi.fn()}
       onAddModel={vi.fn()}
       onFetchModels={vi.fn()}
+      onProviderKindChange={vi.fn()}
     />,
   );
 
@@ -165,6 +224,7 @@ test('renders documentation Markdown and citations as safe links', () => {
       onReset={vi.fn()}
       onAddModel={vi.fn()}
       onFetchModels={vi.fn()}
+      onProviderKindChange={vi.fn()}
     />,
   );
 
@@ -212,6 +272,7 @@ test('accepts generated source', async () => {
       onReset={vi.fn()}
       onAddModel={vi.fn()}
       onFetchModels={vi.fn()}
+      onProviderKindChange={vi.fn()}
     />,
   );
 
@@ -263,6 +324,7 @@ test('previews and accepts compilation artifacts', async () => {
       onReset={vi.fn()}
       onAddModel={vi.fn()}
       onFetchModels={vi.fn()}
+      onProviderKindChange={vi.fn()}
     />,
   );
 
@@ -322,6 +384,7 @@ test('renders every source file in a multi-file preview', async () => {
       onReset={vi.fn()}
       onAddModel={vi.fn()}
       onFetchModels={vi.fn()}
+      onProviderKindChange={vi.fn()}
     />,
   );
 
@@ -367,6 +430,7 @@ test('discards a message', async () => {
       onReset={vi.fn()}
       onAddModel={vi.fn()}
       onFetchModels={vi.fn()}
+      onProviderKindChange={vi.fn()}
     />,
   );
 
@@ -397,6 +461,7 @@ test('shows the recommendation tier label for a tiered model', () => {
       onReset={vi.fn()}
       onAddModel={vi.fn()}
       onFetchModels={vi.fn()}
+      onProviderKindChange={vi.fn()}
     />,
   );
 

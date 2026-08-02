@@ -61,7 +61,13 @@ import { ChatPanel } from './ai/ChatPanel';
 import {
   initialProviderState,
   providerStateReducer,
+  type ProviderKind,
 } from './ai/provider-state';
+import {
+  OllamaProvider,
+  listOllamaModels,
+  OLLAMA_DEFAULT_BASE_URL,
+} from './ai/ollama-provider';
 import { ToastProvider, useToasts } from './Toast';
 import { toErrorMessage } from './errors';
 import {
@@ -725,6 +731,19 @@ function AppInner({
     if (aiState.status !== 'idle' && aiState.status !== 'error') {
       return;
     }
+    if (aiState.providerKind === 'ollama') {
+      const provider = new OllamaProvider(selectedModel, OLLAMA_DEFAULT_BASE_URL);
+      aiDispatch({ type: 'download_start', provider, message: 'Connecting to Ollama…' });
+      void provider.initialize().then(
+        () => aiDispatch({ type: 'ready' }),
+        (error: unknown) => {
+          const message = toErrorMessage(error, 'Could not connect to Ollama');
+          pushToast('error', message);
+          aiDispatch({ type: 'error', message });
+        },
+      );
+      return;
+    }
     const config = models.find((m) => m.id === selectedModel);
     if (config === undefined) {
       return;
@@ -743,7 +762,39 @@ function AppInner({
           aiDispatch({ type: 'error', message });
         },
       );
-  }, [aiState.status, selectedModel]);
+  }, [aiState.status, aiState.providerKind, selectedModel, models]);
+
+  const handleAiProviderKindChange = useCallback((kind: ProviderKind): void => {
+    aiDispatch({ type: 'set_provider_kind', kind });
+    if (kind !== 'ollama') {
+      return;
+    }
+    aiDispatch({ type: 'detect_start' });
+    listOllamaModels(OLLAMA_DEFAULT_BASE_URL)
+      .then((names) => {
+        if (names.length === 0) {
+          aiDispatch({
+            type: 'error',
+            message: 'No models installed on Ollama. Run "ollama pull <model>" and try again.',
+          });
+          return;
+        }
+        setModels(
+          names.map((name) => ({
+            id: name,
+            label: name,
+            description: 'Installed locally',
+            vramMb: 0,
+          })),
+        );
+        setSelectedModel(names[0]!);
+        aiDispatch({ type: 'detect_available' });
+      })
+      .catch((error: unknown) => {
+        const message = toErrorMessage(error, 'Could not reach Ollama');
+        aiDispatch({ type: 'error', message });
+      });
+  }, []);
 
   const handleAiReset = useCallback((): void => {
     if (aiState.provider) {
@@ -1424,6 +1475,7 @@ function AppInner({
                 onReset={handleAiReset}
                 onAddModel={handleAiAddModel}
                 onFetchModels={handleAiFetchModels}
+                onProviderKindChange={handleAiProviderKindChange}
               />
             }
             graph={

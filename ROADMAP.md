@@ -107,14 +107,19 @@ Work proceeds in phase order, with one active phase at a time:
    command, and automatic routing can be disabled per session. Structured
    binary browser shards, vector/hybrid retrieval, and user-supplied indexes
    remain deferred.
-10. **Active next phase: extensibility.**
-   Add plugin contracts, additional visualization modes, optional local
-   Ollama provider, and optional GitHub integration using explicit user
-   authorization.
+10. **Shipped: optional local Ollama provider for the Playground.**
+   Users can select a local Ollama server as an alternative to WebLLM from
+   the same provider dropdown, using the shared `LlmProvider` abstraction.
+   Fixed to Ollama's default local address (no user-configurable base URL,
+   to keep the CSP `connect-src` allowlist static and narrow); requires
+   `OLLAMA_ORIGINS` configured on the Ollama server to accept requests from
+   the Playground's origin.
+11. **Active next phase: extensibility.**
+   Add plugin contracts, additional visualization modes, and optional GitHub
+   integration using explicit user authorization.
 
-The next implementation slice is item 10. Completion means the Playground
-supports third-party extensions and additional providers through documented
-plugin contracts.
+The next implementation slice is item 11. Completion means the Playground
+supports third-party extensions through documented plugin contracts.
 
 ## Priority 2 — complete the Scalable and Rust contract path
 

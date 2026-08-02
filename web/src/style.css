@@ -1260,6 +1260,19 @@ button.view-tab--active:hover:not(:disabled) {
   max-width: 20rem;
 }
 
+.chat-provider-selector {
+  flex-basis: 100%;
+}
+
+.chat-provider-select {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.82rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.35rem;
+  background: var(--bg);
+  color: var(--text);
+}
+
 .ai-progress {
   height: 0.35rem;
   background: var(--border);

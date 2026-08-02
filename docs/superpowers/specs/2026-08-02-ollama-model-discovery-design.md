@@ -4,17 +4,19 @@
 
 ## Status
 
-Proposed. First of two planned sub-projects toward "local-LLM model discovery":
+Shipped. Two sub-projects toward "local-LLM model discovery":
 
 - **A (this design):** CLI model discovery for the existing Ollama provider.
-- **B (future):** Playground Ollama provider, per
-  [ROADMAP.md](../../../ROADMAP.md) item 10 ("Active next phase:
-  extensibility ... optional local Ollama provider"). Deferred because it
-  needs a different architecture (async browser fetch to `localhost:11434`
-  with CORS, a provider-selection UI, and integration with the WebLLM-based
-  async LLM bridge from
-  [Playground Local AI — Design](archived/2026-07-22-playground-local-ai-design.md))
-  and is naturally sequenced after A.
+  Shipped 2026-08-02.
+- **B:** Playground Ollama provider, per [ROADMAP.md](../../../ROADMAP.md)
+  item 10. Implemented directly (no separate design doc) as a follow-up in
+  the same work session as A's deferred-items cleanup: `OllamaProvider` in
+  `web/src/ai/ollama-provider.ts` implements the existing `LlmProvider`
+  abstraction and plugs into the WebLLM-based async bridge from
+  [Playground Local AI — Design](archived/2026-07-22-playground-local-ai-design.md)
+  the same way `WebGpuProvider` does. Fixed to Ollama's default local address
+  (no user-configurable base URL) to keep the CSP `connect-src` allowlist
+  static and narrow; see `docs/playground-design.md` §12.2.
 
 ## Context
 

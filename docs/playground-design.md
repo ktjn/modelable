@@ -614,11 +614,21 @@ interface LlmProvider {
 Implemented providers:
 
 - `WebGpuProvider` using WebLLM.
+- `OllamaProvider` for a local Ollama server, selected via the same provider
+  dropdown as WebLLM. Fixed to Ollama's default local address
+  (`http://localhost:11434`) rather than a user-configurable base URL: the
+  CSP `connect-src` directive that permits the browser fetch must allowlist
+  origins statically, and widening it to arbitrary user input would let any
+  visitor's browser probe arbitrary localhost ports from this page. A
+  locally running Ollama server must also have `OLLAMA_ORIGINS` configured
+  to accept requests from the playground's origin, since Ollama enforces its
+  own CORS check independent of the page's CSP.
 - `SimulatorProvider` for deterministic semantic tests and local fallback.
 
-The playground does not expose Ollama or a remote provider. Maintainers can use
-a developer-controlled Ollama server for opt-in conformance testing of the
-shared Python planner.
+The playground does not expose a remote/BYOK provider. Maintainers can also
+use a developer-controlled Ollama server for opt-in conformance testing of
+the shared Python planner (see `docs/maintainers.md`), independent of the
+in-browser `OllamaProvider` above.
 
 ## 12.3 Python integration
 

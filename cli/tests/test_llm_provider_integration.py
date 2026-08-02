@@ -331,6 +331,105 @@ def test_list_ollama_models_raises_runtime_error_instead_of_uncaught_value_error
         list_ollama_models("localhost")
 
 
+def test_list_ollama_models_raises_runtime_error_on_invalid_json(monkeypatch):
+    class DummyResponse:
+        def read(self) -> bytes:
+            return b"not json"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    with pytest.raises(RuntimeError, match="Ollama returned invalid JSON"):
+        list_ollama_models("http://localhost:11434")
+
+
+def test_list_ollama_models_skips_malformed_entries(monkeypatch):
+    class DummyResponse:
+        def read(self) -> bytes:
+            return json.dumps(
+                {
+                    "models": [
+                        {"name": "llama3.2"},
+                        "not-a-dict",
+                        {"no_name_field": True},
+                        {"name": 123},
+                        {"name": None},
+                    ]
+                }
+            ).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    assert list_ollama_models("http://localhost:11434") == ["llama3.2"]
+
+
+def test_list_ollama_models_returns_empty_list_when_models_key_absent(monkeypatch):
+    class DummyResponse:
+        def read(self) -> bytes:
+            return json.dumps({}).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    assert list_ollama_models("http://localhost:11434") == []
+
+
+def test_ollama_provider_post_json_normalizes_scheme_less_base_url(monkeypatch):
+    class DummyResponse:
+        def read(self) -> bytes:
+            return json.dumps({"message": {"content": "ok"}}).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    captured: dict[str, str] = {}
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        captured["url"] = req.full_url
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    provider = OllamaProvider(base_url="localhost:11434", model="llama3.1")
+    response = provider.complete(LLMRequest(system="system", user="user"))
+    assert response.content == "ok"
+    assert captured["url"] == "http://localhost:11434/api/chat"
+
+
+def test_ollama_provider_post_json_raises_runtime_error_instead_of_uncaught_value_error(monkeypatch):
+    def fake_urlopen(req: request.Request, timeout: float):
+        raise ValueError("unknown url type: 'localhost'")
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    provider = OllamaProvider(base_url="localhost", model="llama3.1")
+    with pytest.raises(RuntimeError, match="Ollama request failed: unknown url type"):
+        provider.complete(LLMRequest(system="system", user="user"))
+
+
 def test_update_definition_uses_injected_provider(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
