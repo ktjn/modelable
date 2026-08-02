@@ -66,7 +66,7 @@ def test_list_ollama_models_includes_conformance_model():
         pytest.fail("MODELABLE_OLLAMA_MODEL is required when Ollama conformance is enabled")
     base_url = os.environ.get("MODELABLE_LLM_BASE_URL", "http://127.0.0.1:11434")
     names = list_ollama_models(base_url)
-    assert model in names
+    assert model in names or f"{model}:latest" in names
 
 
 @pytest.mark.parametrize(

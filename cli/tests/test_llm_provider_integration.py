@@ -293,6 +293,44 @@ def test_list_ollama_models_raises_runtime_error_on_http_error(monkeypatch):
         list_ollama_models("http://localhost:11434")
 
 
+def test_list_ollama_models_normalizes_scheme_less_base_url(monkeypatch):
+    class DummyResponse:
+        def read(self) -> bytes:
+            return json.dumps({"models": []}).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    captured: dict[str, str] = {}
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        captured["url"] = req.full_url
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    names = list_ollama_models("localhost:11434")
+    assert names == []
+    assert captured["url"] == "http://localhost:11434/api/tags"
+
+
+def test_list_ollama_models_raises_runtime_error_instead_of_uncaught_value_error(monkeypatch):
+    # A scheme-less base URL with no port (e.g. OLLAMA_HOST=localhost) is normalized to
+    # "http://localhost" by _normalize_base_url, so it no longer reliably triggers urllib's
+    # own "unknown url type" ValueError once normalized -- reproducing that exact organic
+    # failure would depend on urllib parsing internals. Mocking urlopen to raise ValueError
+    # directly exercises the same except-ValueError-as-RuntimeError translation path more
+    # reliably and without coupling the test to urllib's parsing quirks.
+    def fake_urlopen(req: request.Request, timeout: float):
+        raise ValueError("unknown url type: 'localhost'")
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    with pytest.raises(RuntimeError, match="Ollama request failed: unknown url type"):
+        list_ollama_models("localhost")
+
+
 def test_update_definition_uses_injected_provider(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     original = """
@@ -1402,6 +1440,9 @@ domain customer {
 
 
 def test_models_command_lists_installed_models(monkeypatch):
+    monkeypatch.delenv("MODELABLE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)
+
     class DummyResponse:
         def read(self) -> bytes:
             return json.dumps({"models": [{"name": "llama3.2"}, {"name": "codellama"}]}).encode("utf-8")
@@ -1422,6 +1463,9 @@ def test_models_command_lists_installed_models(monkeypatch):
 
 
 def test_models_command_reports_hint_when_none_installed(monkeypatch):
+    monkeypatch.delenv("MODELABLE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)
+
     class DummyResponse:
         def read(self) -> bytes:
             return json.dumps({"models": []}).encode("utf-8")
@@ -1443,6 +1487,8 @@ def test_models_command_reports_hint_when_none_installed(monkeypatch):
 
 
 def test_models_command_reports_connection_failure(monkeypatch):
+    monkeypatch.delenv("MODELABLE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)
     from urllib import error as urllib_error
 
     def fake_urlopen(req: request.Request, timeout: float):
@@ -1455,6 +1501,8 @@ def test_models_command_reports_connection_failure(monkeypatch):
 
 
 def test_models_command_uses_base_url_flag(monkeypatch):
+    monkeypatch.delenv("MODELABLE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)
     captured: dict[str, str] = {}
 
     class DummyResponse:
@@ -1476,3 +1524,29 @@ def test_models_command_uses_base_url_flag(monkeypatch):
     assert result.exit_code == 0, result.output
     assert captured["url"] == "http://example.internal:11434/api/tags"
     assert "http://example.internal:11434" in result.output
+
+
+def test_models_command_does_not_wrap_long_model_names(monkeypatch):
+    monkeypatch.delenv("MODELABLE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)
+    long_name = "hf.co/" + ("a" * 80) + "-GGUF:Q4_K_M"
+
+    class DummyResponse:
+        def read(self) -> bytes:
+            return json.dumps({"models": [{"name": long_name}]}).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    result = CliRunner().invoke(cli, ["models"])
+    assert result.exit_code == 0, result.output
+    lines = result.output.splitlines()
+    assert len(lines) == 1
+    assert lines[0] == long_name
