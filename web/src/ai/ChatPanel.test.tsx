@@ -373,3 +373,35 @@ test('discards a message', async () => {
   await user.click(screen.getByRole('button', { name: 'Close' }));
   expect(onDiscard).toHaveBeenCalledWith('1');
 });
+
+test('shows the recommendation tier label for a tiered model', () => {
+  render(
+    <ChatPanel
+      messages={emptyMessages}
+      activeFileContent=""
+      aiState={initialProviderState}
+      actionsDisabled={false}
+      onSend={vi.fn()}
+      onExplain={vi.fn()}
+      onSuggestProjection={vi.fn()}
+      onAccept={vi.fn()}
+      onDiscard={vi.fn()}
+      onDownloadModel={vi.fn()}
+      onUseHeuristic={vi.fn()}
+      selectedModel="Qwen2.5-0.5B-Instruct-q4f16_1-MLC"
+      onModelChange={vi.fn()}
+      models={[
+        { ...DEFAULT_MODELS[0]!, recommendedTier: 'fast' },
+        { ...DEFAULT_MODELS[1]! },
+      ]}
+      onReset={vi.fn()}
+      onAddModel={vi.fn()}
+      onFetchModels={vi.fn()}
+    />,
+  );
+
+  const option = screen.getByRole('option', {
+    name: /Recommended · Fast/i,
+  });
+  expect(option).toBeTruthy();
+});
