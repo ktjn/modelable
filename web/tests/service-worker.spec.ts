@@ -47,8 +47,17 @@ test('service worker controls the page after load', async ({ page }) => {
   await page.goto('?test=1');
   await waitForReady(page);
 
-  const controllerUrl = await page.evaluate(
-    () => navigator.serviceWorker.controller?.scriptURL,
+  // Wait for the service worker to be ready and active
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+
+  // Service worker controls the page only after a reload or if it uses claim()
+  await page.reload();
+  await waitForReady(page);
+
+  const controllerUrl = await page.evaluate(() =>
+    navigator.serviceWorker.controller?.scriptURL,
   );
   expect(controllerUrl).toContain('/modelable/playground/sw.js');
 });

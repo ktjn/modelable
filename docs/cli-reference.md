@@ -406,12 +406,13 @@ modelable docs-eval ./dist/search-index/manifest.json ./rag-evaluation.yaml --js
 ### 5.6.3 `docs-ask` — Answer from documentation evidence
 
 ```text
-modelable docs-ask INDEX QUESTION [--limit N] [--max-context-words N]
+modelable docs-ask QUESTION [--docs-index PATH] [--limit N] [--max-context-words N]
                            [--provider NAME] [--model NAME] [--base-url URL] [--json]
 ```
 
-Retrieves lexical documentation chunks from a Searchable `manifest.json` and
-asks the configured LLM provider for an evidence-grounded answer. The prompt
+Retrieves lexical documentation chunks from a Searchable documentation index and
+asks the configured LLM provider for an evidence-grounded answer. Defaults to
+the bundled documentation index shipped with Modelable. The prompt
 contains complete chunks only, labels them as `[S1]`, `[S2]`, and so on, and
 the CLI appends a source list using each chunk's stable external ID and URL.
 The answer pipeline admits at most two chunks from the same source document by
@@ -423,8 +424,8 @@ evidence without calling an LLM.
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `INDEX` | required | Searchable `manifest.json` path |
 | `QUESTION` | required | Question to answer |
+| `--docs-index` | bundled index | Optional documentation search index manifest |
 | `--limit` | `8` | Maximum number of retrieved chunks |
 | `--max-context-words` | `3000` | Maximum complete evidence words sent to the provider |
 | `--provider` | unset | LLM provider name |
@@ -435,9 +436,8 @@ evidence without calling an LLM.
 For example:
 
 ```bash
-modelable docs-ask ./dist/search-index/manifest.json "How do I install it?" \
-  --provider ollama --model llama3.2
-modelable docs-ask ./dist/search-index/manifest.json "How do I install it?" --json
+modelable docs-ask "How do I install it?" --provider ollama --model llama3.2
+modelable docs-ask "How do I install it?" --docs-index ./docs-index/manifest.json --json
 ```
 
 ---
@@ -1253,9 +1253,10 @@ types cover:
 - workspace validation diagnostics.
 
 `/context`, `/describe [ref]`, and `/ask <question>` provide explicit offline
-forms. When `--docs-index` points to a Searchable index `manifest.json`,
-high-confidence documentation questions automatically ground their answers in
-retrieved evidence and cite the matching sources. `/docs <question>` remains
+forms. Documentation questionsGround high-confidence answers in retrieved
+evidence from the Searchable documentation index and cite the matching sources.
+Defaults to the bundled documentation index shipped with Modelable;
+`--docs-index` provides an override. `/docs <question>` remains
 the explicit force-retrieve form. Mutation, compile, apply/discard, and other
 slash-command turns never automatically load documentation retrieval, and
 automatic routing can be disabled by session-aware clients. Natural-language equivalents such as
@@ -1265,7 +1266,7 @@ automatic routing can be disabled by session-aware clients. Natural-language equ
 For example:
 
 ```text
-modelable chat --path ./workspace --docs-index ./docs-index/manifest.json
+modelable chat --path ./workspace
 you> /docs How do I configure the registry?
 ```
 

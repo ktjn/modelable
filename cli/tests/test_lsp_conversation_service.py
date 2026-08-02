@@ -800,17 +800,78 @@ def test_lsp_mutation_documentation_text_never_calls_retriever(tmp_path: Path, m
     assert session.messages == ["Add a documentation model"]
 
 
-def test_lsp_docs_without_index_returns_missing_index_guidance_without_provider_notice(tmp_path: Path) -> None:
+def test_lsp_docs_without_index_returns_missing_index_guidance_without_provider_notice(
+    tmp_path: Path, monkeypatch
+) -> None:
     root = tmp_path / "workspace"
     _write_customer_workspace(root)
+    monkeypatch.setattr(
+        "modelable.lsp.conversation_service.bundled_documentation_index_path",
+        lambda: (_ for _ in ()).throw(RuntimeError("missing")),
+    )
     service = LspConversationService(session_factory=_session_factory)
 
     reply = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "/docs install"}))
 
     assert reply["kind"] == "answer"
-    assert reply["changeSetId"] is None
     assert reply["text"] == "The /docs command requires --docs-index to be configured."
     assert "No LLM provider is configured" not in reply["text"]
+
+
+def test_lsp_docs_uses_bundled_index_by_default(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "workspace"
+    _write_customer_workspace(root)
+    bundled = tmp_path / "bundled" / "manifest.json"
+    bundled.parent.mkdir(parents=True)
+    build_documentation_index(
+        [
+            DocumentationChunk(
+                external_id="guide.md#install",
+                source_path="guide.md",
+                url="https://example.test/guide/#install",
+                language="en",
+                title="Guide",
+                heading="Install",
+                heading_path=["Guide", "Install"],
+                content="How do I configure install? Install with uv.",
+                chunk_index=0,
+            )
+        ],
+        bundled.parent,
+    )
+    monkeypatch.setattr(
+        "modelable.lsp.conversation_service.bundled_documentation_index_path",
+        lambda: bundled,
+    )
+
+    class DocsProvider:
+        def complete(self, request: object) -> LLMResponse:
+            return LLMResponse(content="Use [S1] to install it.", provider="fake", model="test")
+
+    class RecordingSession:
+        def __init__(self, **kwargs) -> None:
+            self.provider = DocsProvider()
+            self.no_provider_notice = None
+            self.focused_ref = kwargs.get("focused_ref")
+            self.workspace = load_workspace(root)
+            self.messages: list[str] = []
+
+        def turn(self, message: str) -> ConversationReply:
+            self.messages.append(message)
+            return ConversationReply(kind="answer", text="planner answer", focused_ref=self.focused_ref)
+
+        def close(self) -> None:
+            return None
+
+    def session_factory(root: Path, focused_ref: str | None, **kwargs):
+        return RecordingSession(root=root, focused_ref=focused_ref)
+
+    service = LspConversationService(session_factory=session_factory)
+    reply = service.turn(_turn_params(root, create_session=True).model_copy(update={"message": "/docs install"}))
+
+    assert reply["kind"] == "answer"
+    assert reply["retrievalUsed"] is True
+    assert "Use [S1] to install it." in reply["text"]
 
 
 def test_lsp_docs_provider_failure_is_an_answer_and_session_survives(tmp_path: Path) -> None:

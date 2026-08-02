@@ -9,6 +9,7 @@ import click
 from modelable.commands.common import console
 from modelable.llm.config import resolve_llm_config
 from modelable.llm.providers import build_provider
+from modelable.rag.bundled_index import bundled_documentation_index_path
 from modelable.rag.generation import answer_with_retrieval
 from modelable.rag.retriever import DocumentationRetriever
 
@@ -18,11 +19,14 @@ def register_docs_ask_commands(cli_group: click.Group) -> None:
 
 
 @click.command("docs-ask")
-@click.argument(
-    "index",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
-)
 @click.argument("question")
+@click.option(
+    "--docs-index",
+    "docs_index",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Optional documentation search index manifest; defaults to the bundled index.",
+)
 @click.option("--limit", type=click.IntRange(min=1), default=8, show_default=True)
 @click.option(
     "--max-context-words",
@@ -36,8 +40,8 @@ def register_docs_ask_commands(cli_group: click.Group) -> None:
 @click.option("--base-url", default=None, help="Optional provider base URL.")
 @click.option("--json", "as_json", is_flag=True, help="Print a machine-readable JSON answer.")
 def docs_ask(
-    index: Path,
     question: str,
+    docs_index: Path | None,
     limit: int,
     max_context_words: int,
     provider: str | None,
@@ -45,8 +49,9 @@ def docs_ask(
     base_url: str | None,
     as_json: bool,
 ) -> None:
-    """Answer QUESTION using evidence retrieved from INDEX."""
+    """Answer QUESTION using evidence retrieved from the documentation index."""
     try:
+        index = docs_index if docs_index is not None else bundled_documentation_index_path()
         config = resolve_llm_config(
             flag_provider=provider,
             flag_model=model,

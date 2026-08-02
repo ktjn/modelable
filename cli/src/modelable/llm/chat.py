@@ -353,12 +353,15 @@ def documentation_conversation_reply(
     if retriever is None or provider is None:
         return None
     try:
-        return _grounded_documentation_reply(
+        reply = _grounded_documentation_reply(
             retrieval_decision.question,
             retriever=retriever,
             provider=provider,
             route_reason=retrieval_decision.reason,
         )
+        if reply.retrieval is None or not reply.retrieval.retrieval_used:
+            return None
+        return reply
     except Exception:
         return None
 

@@ -24,6 +24,7 @@ from modelable.lsp.document_symbols import find_focused_ref
 from modelable.lsp.workspace import LspWorkspaceIndex, find_workspace_root, uri_to_path
 from modelable.operations.compilation import PendingCompilation
 from modelable.rag import DocumentationRetriever
+from modelable.rag.bundled_index import bundled_documentation_index_path
 from modelable.rag.intent import classify_retrieval_intent
 
 SessionFactory = Callable[..., ConversationSession]
@@ -198,7 +199,11 @@ class LspConversationService:
         documentation_index_uri: str | None,
     ) -> tuple[str | None, DocumentationRetriever | None]:
         if documentation_index_uri is None:
-            return None, None
+            try:
+                resolved = bundled_documentation_index_path()
+                return resolved.as_uri(), DocumentationRetriever(resolved)
+            except RuntimeError:
+                return None, None
         resolved = self._resolve_documentation_index_path(root, documentation_index_uri)
         try:
             manifest = json.loads(resolved.read_bytes())

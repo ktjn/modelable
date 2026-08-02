@@ -34,6 +34,7 @@ from modelable.llm.provenance import (
     write_provenance_sidecar,
 )
 from modelable.llm.providers import build_provider
+from modelable.rag.bundled_index import bundled_documentation_index_path
 from modelable.rag.retriever import DocumentationRetriever
 
 console = Console()
@@ -557,7 +558,14 @@ def chat(
         workspace=workspace.mdl.workspace,
     )
     llm_provider = build_provider(config.provider, model=config.model, base_url=config.base_url)
-    documentation_retriever = DocumentationRetriever(docs_index) if docs_index is not None else None
+    if docs_index is not None:
+        documentation_retriever = DocumentationRetriever(docs_index)
+    else:
+        try:
+            documentation_retriever = DocumentationRetriever(bundled_documentation_index_path())
+        except RuntimeError:
+            documentation_retriever = None
+
     session = ConversationSession(
         path=path,
         provider=llm_provider,
