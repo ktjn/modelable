@@ -709,7 +709,6 @@ function AppInner({
             .catch((error: unknown) => {
               const message = toErrorMessage(error, 'Failed to detect GPU limits');
               pushToast('error', message);
-              aiDispatch({ type: 'error', message });
             });
         })
         .catch((error: unknown) => {

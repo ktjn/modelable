@@ -26,6 +26,7 @@ import type { CompileTarget } from './client';
 import {
   AiProviderError,
   detectWebGpu,
+  getGpuLimits,
   WebGpuProvider,
 } from './ai/webgpu-provider';
 import type { BrowserLanguageServiceController } from './language/BrowserLanguageServiceController';
@@ -204,6 +205,7 @@ vi.mock('./ai/webgpu-provider', async () => {
   return {
     ...actual,
     detectWebGpu: vi.fn(() => false),
+    getGpuLimits: vi.fn(actual.getGpuLimits),
   };
 });
 
@@ -489,6 +491,29 @@ describe('App', () => {
     render(<App createClient={() => client} />);
 
     expect(await screen.findByText('worker crashed')).toBeTruthy();
+
+    getWebLlmModelsSpy.mockRestore();
+  });
+
+  test('keeps the model download UI usable when GPU limit detection fails', async () => {
+    vi.mocked(detectWebGpu).mockReturnValue(true);
+    const getWebLlmModelsSpy = vi
+      .spyOn(WebGpuProvider, 'getWebLlmModels')
+      .mockResolvedValue([]);
+    vi.mocked(getGpuLimits).mockRejectedValue(
+      new Error('GPU limits unavailable'),
+    );
+
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    expect(
+      await screen.findByText('GPU limits unavailable'),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Download AI model' }),
+    ).toBeTruthy();
 
     getWebLlmModelsSpy.mockRestore();
   });
