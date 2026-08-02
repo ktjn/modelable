@@ -190,6 +190,67 @@ uv run --project cli python .github/scripts/assemble_pages.py --site site --web-
 Pull requests only build and test the browser playground. Only pushes to `main`
 deploy the combined documentation and playground artifact.
 
+### Manual real-model WebLLM chat conformance
+
+`tests/ai-actions.spec.ts` exercises the assistant panel against the
+deterministic `?ai=simulator` provider and always runs in CI. Real-model
+checks against WebLLM/WebGPU are opt-in, like the CLI's Ollama conformance
+suite above, and never run automatically:
+
+```text
+cd web
+npm run build
+npm run test:e2e:manual
+```
+
+This drives every model in the curated allowlist
+(`web/src/ai/curated-models.ts`, the same list `ai.worker.ts` filters the
+WebLLM catalog down to) through every chat use case, per model:
+
+- create an entity from scratch and accept it;
+- apply a natural-language update to an existing entity and confirm prior
+  fields survive alongside the new one (not a wholesale replacement);
+- suggest a projection for an existing entity, accept it, and confirm a real
+  `projection` definition was written, not just an explanation;
+- explain the workspace; and
+- generate an entity and discard it, confirming the source is untouched.
+
+The update and projection steps also assert the workspace has zero
+diagnostics after the AI-applied change, i.e. the generated `.mdl` actually
+validates, not just that the chat turn avoided an `AI_ERROR`. Restrict to a
+subset for a faster loop:
+
+```text
+MODELABLE_WEBLLM_TEST_MODELS=Qwen2.5-0.5B-Instruct-q4f16_1-MLC npm run test:e2e:manual
+```
+
+**Run this suite whenever you touch what it exercises** — it is opt-in
+precisely because it needs real WebGPU hardware and bandwidth, not because
+it is optional to keep passing. That includes changes to:
+
+- `web/src/ai/**` (provider, worker, curated model list, `ChatPanel.tsx`);
+- `App.tsx`'s conversation wiring (`runConversation`, `handleAiAccept`,
+  `handleAiDownload`, `handleAiFetchModels`);
+- the shared Python conversation engine or plan schema
+  (`cli/src/modelable/llm/conversation_engine.py`,
+  `conversation_planner.py`, `conversation_plan.py`,
+  `cli/browser/conversation.py`) — these decide what a chat turn is allowed
+  to change and how updates/projections get validated before preview; or
+- the `@mlc-ai/web-llm` dependency version.
+
+A model-download-only change (e.g. adding a curated model id) only needs
+that one model exercised via `MODELABLE_WEBLLM_TEST_MODELS`; changes to the
+conversation engine or plan schema affect every provider and warrant the
+full default run across all curated models.
+
+It needs a real WebGPU adapter, so it runs headed by default (set
+`PLAYWRIGHT_HEADLESS=1` only on a machine with confirmed working headless
+WebGPU) and skips itself with a clear reason if no adapter is available.
+Downloaded model weights persist in a browser profile under
+`web/output/webllm-profile/` (gitignored) so repeat runs do not
+re-download; delete that directory to force a clean fetch after bumping
+`@mlc-ai/web-llm` or changing the curated model list.
+
 ### Browser playground troubleshooting
 
 - **Checksum or manifest failure during `prepare:python`:** do not patch
