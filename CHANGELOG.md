@@ -8,6 +8,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added `modelable models` to list models installed on a local Ollama server,
+  resolving the base URL from `--base-url`, `MODELABLE_LLM_BASE_URL`, or
+  `OLLAMA_HOST` the same way other provider-backed commands do.
+
 ### Fixed
 
 ## [1.3.0] - 2026-08-02
