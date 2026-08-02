@@ -43,3 +43,9 @@ web/output/
 .superpowers/
 web/public/docs-index/
 web/public/python-rag-test/
+
+# Bundled RAG documentation index: regenerated from docs/ by cli/hatch_build.py
+# on every `uv sync`/`uv build` (hatchling include rule in cli/pyproject.toml
+# packages it independently of git tracking). Committing it produced permanent
+# local diff noise after every sync; a fresh checkout regenerates it for free.
+cli/src/modelable/data/docs-index/
