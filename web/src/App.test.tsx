@@ -518,6 +518,50 @@ describe('App', () => {
     getWebLlmModelsSpy.mockRestore();
   });
 
+  test('switches to Ollama, lists installed models, and becomes ready', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: () => Promise.resolve({ models: [{ name: 'llama3.2' }] }),
+      text: () => Promise.resolve(''),
+    } as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'AI provider' }), {
+      target: { value: 'ollama' },
+    });
+
+    await screen.findByRole('option', { name: /llama3.2/ });
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/api/tags', { method: 'GET' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use Ollama' }));
+
+    expect(await screen.findByRole('button', { name: 'Change model' })).toBeTruthy();
+
+    vi.unstubAllGlobals();
+  });
+
+  test('shows an error when Ollama is unreachable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'AI provider' }), {
+      target: { value: 'ollama' },
+    });
+
+    expect(await screen.findByText(/could not reach ollama/i)).toBeTruthy();
+
+    vi.unstubAllGlobals();
+  });
+
   test('disables actions during initialization and enables them after success', async () => {
     const client = new FakeCompilerClient();
     const now = vi

@@ -127,6 +127,42 @@ describe('providerStateReducer', () => {
     expect(state.error).toBeNull();
     expect(state.status).toBe('downloading');
   });
+
+  it('sets provider kind and resets to idle on set_provider_kind', () => {
+    const ready: ProviderState = {
+      ...initialProviderState,
+      status: 'ready',
+      provider: fakeProvider,
+    };
+    const state = providerStateReducer(ready, {
+      type: 'set_provider_kind',
+      kind: 'ollama',
+    });
+    expect(state.providerKind).toBe('ollama');
+    expect(state.status).toBe('idle');
+    expect(state.provider).toBeNull();
+  });
+
+  it('preserves provider kind across reset', () => {
+    const ollamaErrored: ProviderState = {
+      ...initialProviderState,
+      providerKind: 'ollama',
+      status: 'error',
+      error: 'connection refused',
+    };
+    const state = providerStateReducer(ollamaErrored, { type: 'reset' });
+    expect(state.providerKind).toBe('ollama');
+    expect(state.status).toBe('idle');
+  });
+
+  it('uses a custom message on download_start when provided', () => {
+    const state = providerStateReducer(initialProviderState, {
+      type: 'download_start',
+      provider: fakeProvider,
+      message: 'Connecting to Ollama…',
+    });
+    expect(state.message).toBe('Connecting to Ollama…');
+  });
 });
 
 describe('providerStatusLabel', () => {
@@ -181,5 +217,14 @@ describe('providerStatusLabel', () => {
         status: 'unsupported',
       }),
     ).toBe('WebGPU not available');
+  });
+
+  it('returns Ollama-specific labels when providerKind is ollama', () => {
+    const ollamaState: ProviderState = { ...initialProviderState, providerKind: 'ollama' };
+    expect(providerStatusLabel(ollamaState)).toBe('Ollama ready to connect');
+    expect(providerStatusLabel({ ...ollamaState, status: 'detecting' })).toBe(
+      'Connecting to Ollama…',
+    );
+    expect(providerStatusLabel({ ...ollamaState, status: 'ready' })).toBe('Ollama model ready');
   });
 });

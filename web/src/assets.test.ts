@@ -266,13 +266,18 @@ describe('same-origin Python assets', () => {
     );
   });
 
-  test('restricts the browser runtime with a same-origin CSP', async () => {
+  test('restricts the browser runtime to a same-origin CSP, plus the local Ollama default address', async () => {
     const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
     expect(html).toContain("script-src 'self' 'wasm-unsafe-eval'");
     expect(html).toContain("font-src 'self' data:");
     expect(html).toContain("worker-src 'self'");
-    expect(html).toContain("connect-src 'self'");
+    // connect-src allows exactly 'self' plus Ollama's two canonical local
+    // addresses (needed to fetch() a locally running Ollama server for the
+    // optional Ollama provider) -- not a broader localhost/* allowance,
+    // which would let this page probe arbitrary ports on the visitor's
+    // machine.
+    expect(html).toContain("connect-src 'self' http://localhost:11434 http://127.0.0.1:11434;");
     expect(html).toContain("object-src 'none'");
     expect(html).toContain("base-uri 'none'");
   });

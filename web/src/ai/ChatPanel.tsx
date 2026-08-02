@@ -1,6 +1,6 @@
 import { lazy, useCallback, useEffect, useRef, useState } from 'react';
 
-import { providerStatusLabel, type ProviderState } from './provider-state';
+import { providerStatusLabel, type ProviderKind, type ProviderState } from './provider-state';
 import type {
   AssistantGenerateChatMessage,
   AssistantDocsChatMessage,
@@ -38,6 +38,7 @@ export interface ChatPanelProps {
   onReset: () => void;
   onAddModel: (id: string) => void;
   onFetchModels: (url: string) => void;
+  onProviderKindChange: (kind: ProviderKind) => void;
 }
 
 export function ChatPanel({
@@ -58,6 +59,7 @@ export function ChatPanel({
   onReset,
   onAddModel,
   onFetchModels,
+  onProviderKindChange,
 }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
@@ -150,6 +152,17 @@ export function ChatPanel({
           <div className="chat-onboarding">
             <p>Enable the assistant to generate and explain models.</p>
             <div className="chat-onboarding__actions">
+              <div className="chat-provider-selector">
+                <select
+                  className="chat-provider-select"
+                  aria-label="AI provider"
+                  value={aiState.providerKind}
+                  onChange={(e) => onProviderKindChange(e.target.value as ProviderKind)}
+                >
+                  <option value="webgpu">WebGPU (in-browser)</option>
+                  <option value="ollama">Ollama (local server)</option>
+                </select>
+              </div>
               {aiState.status === 'idle' ? (
                 <>
                   <div className="chat-model-selector">
@@ -183,10 +196,12 @@ export function ChatPanel({
                               </option>
                             );
                           })}
-                          <option value="__add_custom__">+ Add custom model…</option>
+                          {aiState.providerKind === 'webgpu' ? (
+                            <option value="__add_custom__">+ Add custom model…</option>
+                          ) : null}
                         </select>
-                        <button type="button" onClick={onDownloadModel}>
-                          Download AI model
+                        <button type="button" onClick={onDownloadModel} disabled={models.length === 0}>
+                          {aiState.providerKind === 'ollama' ? 'Use Ollama' : 'Download AI model'}
                         </button>
                       </div>
                     ) : (
