@@ -1,0 +1,1 @@
+{"psycopg":{"df":4,"postings":[{"doc":594,"fields":{"content":{"len":279,"pos":[87,88],"tf":2}}},{"doc":600,"fields":{"content":{"len":618,"pos":[107,108,203,217],"tf":4}}},{"doc":1035,"fields":{"content":{"len":109,"pos":[59],"tf":1}}},{"doc":1038,"fields":{"content":{"len":152,"pos":[130,132],"tf":2}}}]}}
