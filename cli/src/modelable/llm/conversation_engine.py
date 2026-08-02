@@ -46,6 +46,7 @@ class _PendingSynthesis:
 class _PendingExecutionRepair:
     request_id: str
     message: str
+    context: PlannerContext
 
 
 class ConversationEngine:
@@ -326,7 +327,7 @@ class ConversationEngine:
         error_text: str,
     ) -> PendingPlanRequest:
         request_id = self.id_factory()
-        self._pending_execution_repair = _PendingExecutionRepair(request_id=request_id, message=message)
+        self._pending_execution_repair = _PendingExecutionRepair(request_id=request_id, message=message, context=context)
         return PendingPlanRequest(
             request_id=request_id,
             request=build_repair_request(message=message, context=context, error=error_text),
@@ -347,7 +348,7 @@ class ConversationEngine:
                     text=f"The configured provider did not return a valid typed plan: {error}",
                 ),
             )
-        return self._complete_plan(repair.message, plan, None)
+        return self._complete_plan(repair.message, plan, repair.context)
 
     def _begin_synthesis(self, message: str, facts: str) -> PendingPlanRequest:
         request_id = self.id_factory()

@@ -312,6 +312,31 @@ def test_engine_gives_up_after_execution_repair_budget_exhausted() -> None:
     assert backend.fail_calls_remaining == 0
 
 
+def test_engine_attempts_second_execution_repair_round_when_budget_allows() -> None:
+    ids = iter(("request-1",))
+    backend = FailThenSucceedBackend(fail_calls_remaining=2)
+    engine = ConversationEngine(
+        backend=backend,
+        planner=ResumableConversationPlanner(id_factory=lambda: next(ids)),
+        execution_repair_attempts=2,
+    )
+
+    pending = engine.begin_turn("Add a field to Customer")
+    assert isinstance(pending, PendingPlanRequest)
+
+    first_repair = engine.resume_turn(pending.request_id, json.dumps(valid_create_customer_plan()))
+    assert isinstance(first_repair, PendingPlanRequest)
+
+    second_repair = engine.resume_turn(first_repair.request_id, json.dumps(valid_create_customer_plan()))
+    assert isinstance(second_repair, PendingPlanRequest)
+
+    reply = engine.resume_turn(second_repair.request_id, json.dumps(valid_create_customer_plan()))
+
+    assert isinstance(reply, ConversationReply)
+    assert reply.kind == "preview"
+    assert backend.fail_calls_remaining == 0
+
+
 def test_engine_returns_error_when_apply_has_no_pending_action() -> None:
     engine, _ = engine_with_request_ids("unused")
 
