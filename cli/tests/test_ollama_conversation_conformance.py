@@ -18,7 +18,7 @@ from modelable.llm.conversation_planner import (
     PlannerContext,
     ResumableConversationPlanner,
 )
-from modelable.llm.providers import OllamaProvider
+from modelable.llm.providers import OllamaProvider, list_ollama_models
 from modelable.llm.workspace_editor import WorkspaceEditError, WorkspaceEditor
 
 pytestmark = pytest.mark.ollama
@@ -56,6 +56,17 @@ def _context() -> PlannerContext:
         history=(),
         pending_plan=None,
     )
+
+
+def test_list_ollama_models_includes_conformance_model():
+    if os.environ.get("MODELABLE_OLLAMA_TESTS") != "1":
+        pytest.skip("set MODELABLE_OLLAMA_TESTS=1 to run local Ollama conformance")
+    model = os.environ.get("MODELABLE_OLLAMA_MODEL")
+    if not model:
+        pytest.fail("MODELABLE_OLLAMA_MODEL is required when Ollama conformance is enabled")
+    base_url = os.environ.get("MODELABLE_LLM_BASE_URL", "http://127.0.0.1:11434")
+    names = list_ollama_models(base_url)
+    assert model in names
 
 
 @pytest.mark.parametrize(
