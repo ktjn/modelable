@@ -29,17 +29,6 @@ provider requires a model`.
 There is no discovery mechanism: no command lists what models a local Ollama
 server has pulled.
 
-Two pre-existing bugs were found in the files this work touches, both
-Python 2-style multi-exception `except` clauses that are `SyntaxError`s under
-Python 3 and currently break `import modelable.llm.providers` and the `chat`
-command's Ctrl+D/interrupt handling:
-
-- `cli/src/modelable/llm/providers.py:164` — `except TypeError, ValueError:`
-- `cli/src/modelable/commands/llm.py:614` — `except EOFError, click.Abort:`
-
-Both are fixed as part of this change since they sit directly in the code
-being modified.
-
 ## Goals
 
 - Let a user list the models installed on their local Ollama server from the
@@ -47,8 +36,6 @@ being modified.
 - Keep the existing `--provider ollama` behavior unchanged: a model is still
   required explicitly (via `--model`, `MODELABLE_LLM_MODEL`, or workspace
   `ai.model`); discovery does not introduce any auto-selection or fallback.
-- Fix the two syntax bugs blocking `modelable.llm.providers` imports and
-  chat's interrupt handling on Python 3.
 
 ## Non-goals
 
@@ -108,13 +95,6 @@ modelable models [--base-url URL]
 - On connection failure: raises `click.ClickException` wrapping the
   `RuntimeError` message (consistent with how `update`/`chat` surface
   provider errors today).
-
-### Bug fixes
-
-- `providers.py:164`: `except TypeError, ValueError:` →
-  `except (TypeError, ValueError):`
-- `commands/llm.py:614`: `except EOFError, click.Abort:` →
-  `except (EOFError, click.Abort):`
 
 ## Testing
 
