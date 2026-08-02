@@ -479,6 +479,7 @@ class BrowserConversationService:
                 engine=ConversationEngine(
                     backend=backend,
                     planner=ResumableConversationPlanner(id_factory=self.id_factory),
+                    execution_repair_attempts=2,
                 ),
                 backend=backend,
                 workspace_revision=revision,
@@ -493,6 +494,7 @@ class BrowserConversationService:
                 engine=ConversationEngine(
                     backend=backend,
                     planner=ResumableConversationPlanner(id_factory=self.id_factory),
+                    execution_repair_attempts=2,
                 ),
                 backend=backend,
                 workspace_revision=revision,

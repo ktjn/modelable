@@ -117,6 +117,10 @@ releases could contain breaking changes when called out explicitly.
   outside any tree, and edge labels no longer sit on a bare SVG path where
   they are not exposed. Node and edge names now go on the wrappers React Flow
   renders, which carry a valid role.
+- Playground chat: a change request that the AI model gets wrong (e.g.
+  referencing a model/version that doesn't exist) now gets two automatic
+  corrective retries instead of one, and if it still fails, the chat shows
+  a clear explanation instead of the raw internal error text.
 
 ## [1.2.1] - 2026-07-12
 
