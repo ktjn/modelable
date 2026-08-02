@@ -7,7 +7,7 @@ GitHub issue and an accepted design.
 
 ## Current baseline
 
-The latest published release is 1.2.1. The stable 1.x surface includes:
+The latest published release is 1.3.0. The stable 1.x surface includes:
 
 - The `.mdl` language, semantic validation, compatibility and lineage reports,
   governance findings, the language server, and the VS Code extension distributed
