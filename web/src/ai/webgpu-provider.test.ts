@@ -157,6 +157,59 @@ describe('WebGpuProvider', () => {
     await expect(initPromise).rejects.toThrow('WebGPU not supported');
   });
 
+  it('initialize rejects with AiProviderError using worker code when provided', async () => {
+    const provider = new WebGpuProvider();
+    const initPromise = provider.initialize();
+
+    firstHandler(mockWorker, 'message')({
+      data: { type: 'error', message: 'Model too large', code: 'INITIALIZATION_FAILED' },
+    });
+
+    await expect(initPromise).rejects.toMatchObject({
+      name: 'AiProviderError',
+      code: 'INITIALIZATION_FAILED',
+      message: 'Model too large',
+    });
+  });
+
+  it('initialize rejects with AiProviderError defaulting to INITIALIZATION_FAILED when worker omits code', async () => {
+    const provider = new WebGpuProvider();
+    const initPromise = provider.initialize();
+
+    firstHandler(mockWorker, 'message')({
+      data: { type: 'error', message: 'WebGPU not supported' },
+    });
+
+    await expect(initPromise).rejects.toMatchObject({
+      name: 'AiProviderError',
+      code: 'INITIALIZATION_FAILED',
+    });
+  });
+
+  it('initialize throws AiProviderError with WEBGPU_UNSUPPORTED when WebGPU is not available', async () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {},
+      configurable: true,
+    });
+    const provider = new WebGpuProvider();
+    await expect(provider.initialize()).rejects.toMatchObject({
+      name: 'AiProviderError',
+      code: 'WEBGPU_UNSUPPORTED',
+    });
+  });
+
+  it('getWebLlmModels rejects with AiProviderError coded MODEL_LIST_FAILED', async () => {
+    const promise = WebGpuProvider.getWebLlmModels();
+    firstHandler(mockWorker, 'message')({
+      data: { type: 'error', message: 'fetch failed' },
+    });
+    await expect(promise).rejects.toMatchObject({
+      name: 'AiProviderError',
+      code: 'MODEL_LIST_FAILED',
+      message: 'fetch failed',
+    });
+  });
+
   it('initialize throws when WebGPU is not available', async () => {
     Object.defineProperty(globalThis, 'navigator', {
       value: {},

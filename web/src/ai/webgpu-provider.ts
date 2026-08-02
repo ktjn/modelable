@@ -15,6 +15,24 @@ export interface ModelOption {
   recommended?: boolean;
 }
 
+export type AiProviderErrorCode =
+  | 'WEBGPU_UNSUPPORTED'
+  | 'MODEL_LIST_FAILED'
+  | 'INITIALIZATION_FAILED'
+  | 'COMPLETION_FAILED'
+  | 'FETCH_MODELS_FAILED'
+  | 'PROVIDER_DISPOSED';
+
+export class AiProviderError extends Error {
+  constructor(
+    readonly code: AiProviderErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'AiProviderError';
+  }
+}
+
 export const DEFAULT_MODELS: ModelOption[] = [
   {
     id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
@@ -113,7 +131,7 @@ export class WebGpuProvider implements LlmProvider {
         } else if (msg.type === 'error') {
           worker.removeEventListener('message', handler);
           worker.terminate();
-          reject(new Error(msg.message));
+          reject(new AiProviderError(msg.code ?? 'MODEL_LIST_FAILED', msg.message));
         }
       };
       worker.addEventListener('message', handler);
@@ -130,7 +148,10 @@ export class WebGpuProvider implements LlmProvider {
     onProgress?: (progress: number, message: string) => void,
   ): Promise<void> {
     if (!detectWebGpu()) {
-      throw new Error('WebGPU is not available in this browser');
+      throw new AiProviderError(
+        'WEBGPU_UNSUPPORTED',
+        'WebGPU is not available in this browser',
+      );
     }
 
     this.worker = new Worker(
@@ -150,7 +171,7 @@ export class WebGpuProvider implements LlmProvider {
           resolve();
         } else if (msg.type === 'error') {
           worker.removeEventListener('message', handler);
-          reject(new Error(msg.message));
+          reject(new AiProviderError(msg.code ?? 'INITIALIZATION_FAILED', msg.message));
         }
       };
       worker.addEventListener('message', handler);
@@ -184,7 +205,7 @@ export class WebGpuProvider implements LlmProvider {
       this.worker = null;
     }
     for (const [, pending] of this.pendingCompletions) {
-      pending.reject(new Error('Provider disposed'));
+      pending.reject(new AiProviderError('PROVIDER_DISPOSED', 'Provider disposed'));
     }
     this.pendingCompletions.clear();
   }
@@ -207,7 +228,7 @@ export class WebGpuProvider implements LlmProvider {
       const pending = this.pendingCompletions.get(msg.id);
       if (pending !== undefined) {
         this.pendingCompletions.delete(msg.id);
-        pending.reject(new Error(msg.message));
+        pending.reject(new AiProviderError(msg.code ?? 'COMPLETION_FAILED', msg.message));
       }
     }
   };
