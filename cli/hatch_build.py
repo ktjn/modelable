@@ -17,6 +17,10 @@ class CustomBuildHook(BuildHookInterface):
 
         docs_root = REPO_ROOT / "docs"
         if not docs_root.is_dir():
+            # When building from an sdist, docs are included at the repository root.
+            docs_root = Path("docs").resolve()
+
+        if not docs_root.is_dir():
             # When building from an sdist where docs were not included,
             # we may need to skip or use the already-bundled index if it exists.
             print(f"Warning: Documentation root not found at {docs_root}, checking for bundled index...")
