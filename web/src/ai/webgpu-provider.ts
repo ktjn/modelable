@@ -11,8 +11,8 @@ export interface ModelOption {
   bufferSizeRequiredBytes?: number;
   /** Extra params merged into every completion request (e.g. `extra_body`). */
   completionParams?: Record<string, unknown>;
-  /** Whether the model is recommended for the current system. */
-  recommended?: boolean;
+  /** Which recommendation tier this model falls into for the detected GPU, if any. */
+  recommendedTier?: 'fast' | 'balanced' | 'quality';
 }
 
 export type AiProviderErrorCode =
@@ -73,14 +73,20 @@ export async function getGpuLimits(): Promise<GPUSupportedLimits | null> {
   }
 }
 
-/** Suggests a model based on GPU limits. */
-export function suggestModel(
+export interface SuggestedModelTiers {
+  fast?: string;
+  balanced?: string;
+  quality?: string;
+}
+
+/** Suggests fast/balanced/quality model tiers based on GPU limits. */
+export function suggestModels(
   models: ModelOption[],
   limits: GPUSupportedLimits | null,
-): string {
+): SuggestedModelTiers {
   if (limits === null) {
     // Default to a small model if no limits found
-    return 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+    return { fast: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC' };
   }
 
   const maxStorageBuffer = limits.maxStorageBufferBindingSize;
@@ -97,11 +103,28 @@ export function suggestModel(
     return true;
   });
 
-  if (filtered.length === 0) return 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+  if (filtered.length === 0) return {};
 
-  // Prefer models with more VRAM if they fit
-  const sorted = [...filtered].sort((a, b) => b.vramMb - a.vramMb);
-  return sorted[0]!.id;
+  const sorted = [...filtered].sort((a, b) => a.vramMb - b.vramMb);
+
+  if (sorted.length === 1) {
+    return { fast: sorted[0]!.id };
+  }
+  if (sorted.length === 2) {
+    return { fast: sorted[0]!.id, quality: sorted[1]!.id };
+  }
+
+  const fast = sorted[0]!;
+  const quality = sorted[sorted.length - 1]!;
+  const midpoint = (fast.vramMb + quality.vramMb) / 2;
+  const middleCandidates = sorted.slice(1, -1);
+  const balanced = middleCandidates.reduce((closest, candidate) =>
+    Math.abs(candidate.vramMb - midpoint) < Math.abs(closest.vramMb - midpoint)
+      ? candidate
+      : closest,
+  );
+
+  return { fast: fast.id, balanced: balanced.id, quality: quality.id };
 }
 
 export class WebGpuProvider implements LlmProvider {
