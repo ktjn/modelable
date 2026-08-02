@@ -109,11 +109,58 @@ def test_llm_chat_docs_uses_docs_index_for_one_shot_docs_question(tmp_path: Path
 
     assert result.exit_code == 0, result.output
     assert "Use [S1] to install it." in result.output
+
+
+def test_llm_chat_docs_uses_bundled_index_by_default(tmp_path: Path, monkeypatch) -> None:
+    bundled = tmp_path / "bundled" / "manifest.json"
+    bundled.parent.mkdir(parents=True)
+    build_documentation_index(
+        [
+            DocumentationChunk(
+                external_id="guide.md#install",
+                source_path="guide.md",
+                url="https://example.test/guide/#install",
+                language="en",
+                title="Guide",
+                heading="Install",
+                heading_path=["Guide", "Install"],
+                content="Install with uv.",
+                chunk_index=0,
+            )
+        ],
+        bundled.parent,
+    )
+    monkeypatch.setattr("modelable.commands.llm.bundled_documentation_index_path", lambda: bundled)
+    monkeypatch.setattr("modelable.commands.llm.build_provider", lambda *args, **kwargs: FakeProvider())
+    workspace = tmp_path / "workspace.mdl"
+    workspace.write_text('domain customer {\n  owner: "docs-team"\n}\n', encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "chat",
+            "--path",
+            str(tmp_path),
+            "--message",
+            "/docs install",
+            "--provider",
+            "fake",
+            "--model",
+            "test",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Use [S1] to install it." in result.output
     assert "guide.md#install" in result.output
     assert "https://example.test/guide/#install" in result.output
 
 
-def test_llm_chat_docs_requires_docs_index_for_one_shot_docs_question(tmp_path: Path) -> None:
+def test_llm_chat_docs_requires_docs_index_for_one_shot_docs_question(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "modelable.commands.llm.bundled_documentation_index_path",
+        lambda: (_ for _ in ()).throw(RuntimeError("missing")),
+    )
     workspace = tmp_path / "workspace.mdl"
     workspace.write_text('domain customer {\n  owner: "docs-team"\n}\n', encoding="utf-8")
 
