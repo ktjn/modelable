@@ -92,9 +92,9 @@ export function validateRuntimeManifest(
   if (!isRecord(manifest) || !Array.isArray(manifest.wheelUrls)) {
     throw new Error('Runtime manifest must contain wheel URLs');
   }
-  if (manifest.wheelUrls.length !== 2 && manifest.wheelUrls.length !== 4) {
+  if (manifest.wheelUrls.length < 2) {
     throw new Error(
-      'Runtime manifest must contain exactly two wheel URLs or the four-wheel documentation runtime',
+      'Runtime manifest must contain at least two wheel URLs',
     );
   }
   if (!manifest.wheelUrls.every((value) => typeof value === 'string')) {
@@ -135,13 +135,13 @@ export function validateRuntimeManifest(
     throw new Error('Runtime manifest must contain the generated Modelable wheel');
   }
   if (
-    wheels.length === 4 &&
+    wheels.length > 2 &&
     !wheels.some(({ fileName }) => SEARCHABLE_ANALYSIS_WHEEL.test(fileName))
   ) {
     throw new Error('Documentation runtime must contain the Searchable Analysis wheel');
   }
   if (
-    wheels.length === 4 &&
+    wheels.length > 2 &&
     !wheels.some(({ fileName }) => SEARCHABLE_CLIENT_WHEEL.test(fileName))
   ) {
     throw new Error('Documentation runtime must contain the Searchable Client wheel');
