@@ -87,13 +87,15 @@ no body), matching the existing dependency-free transport style in this file.
 - Errors: raises `RuntimeError` on connection failure or invalid JSON, same
   pattern as `_post_json`.
 
-### `modelable llm models` command (commands/llm.py)
+### `modelable models` command (commands/llm.py)
 
 New Click command registered in `register_llm_commands`, alongside `chat`,
-`update`, etc.:
+`update`, etc. All commands registered by `register_llm_commands` are
+top-level (`cli_group.add_command(...)` with no subgroup), so this follows
+the same flat naming as `describe`, `ask`, `chat`:
 
 ```text
-modelable llm models [--base-url URL]
+modelable models [--base-url URL]
 ```
 
 - `--base-url` resolves the same way other commands resolve it: flag →
@@ -123,7 +125,7 @@ modelable llm models [--base-url URL]
   - `list_ollama_models` returns `[]` for an empty `models` array.
   - `list_ollama_models` raises `RuntimeError` on connection failure
     (`URLError`) and on HTTP error (`HTTPError`).
-  - `modelable llm models` CLI command (via `CliRunner`) prints model names
+  - `modelable models` CLI command (via `CliRunner`) prints model names
     on success, prints the no-models hint on an empty list, and exits with a
     `ClickException` message on connection failure.
 - One real-server smoke test added to
