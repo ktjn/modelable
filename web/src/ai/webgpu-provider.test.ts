@@ -1,6 +1,78 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { detectWebGpu, WebGpuProvider } from './webgpu-provider';
+import { detectWebGpu, suggestModels, WebGpuProvider, type ModelOption } from './webgpu-provider';
+
+function model(id: string, vramMb: number): ModelOption {
+  return { id, label: id, description: '', vramMb };
+}
+
+describe('suggestModels', () => {
+  it('returns only fast fallback id when limits are null', () => {
+    const models = [model('a', 500), model('b', 2000)];
+    expect(suggestModels(models, null)).toEqual({
+      fast: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
+    });
+  });
+
+  it('returns empty object when no models fit', () => {
+    const models = [model('a', 999999)];
+    const limits = { maxStorageBufferBindingSize: 1 } as GPUSupportedLimits;
+    expect(suggestModels(models, limits)).toEqual({});
+  });
+
+  it('assigns the single fitting model to fast only', () => {
+    const models = [model('a', 500)];
+    const limits = {
+      maxStorageBufferBindingSize: 500 * 1024 * 1024,
+    } as GPUSupportedLimits;
+    expect(suggestModels(models, limits)).toEqual({ fast: 'a' });
+  });
+
+  it('assigns two fitting models to fast and quality', () => {
+    const models = [model('small', 500), model('large', 2000)];
+    const limits = {
+      maxStorageBufferBindingSize: 2000 * 1024 * 1024,
+    } as GPUSupportedLimits;
+    expect(suggestModels(models, limits)).toEqual({
+      fast: 'small',
+      quality: 'large',
+    });
+  });
+
+  it('assigns three or more fitting models to fast, balanced, and quality by VRAM position', () => {
+    const models = [
+      model('tiny', 500),
+      model('mid', 2000),
+      model('big', 8000),
+    ];
+    const limits = {
+      maxStorageBufferBindingSize: 8000 * 1024 * 1024,
+    } as GPUSupportedLimits;
+    expect(suggestModels(models, limits)).toEqual({
+      fast: 'tiny',
+      balanced: 'mid',
+      quality: 'big',
+    });
+  });
+
+  it('picks the fitting model closest to the VRAM midpoint as balanced among many candidates', () => {
+    const models = [
+      model('tiny', 500),
+      model('close-to-mid', 4200),
+      model('far-from-mid', 6000),
+      model('big', 8000),
+    ];
+    const limits = {
+      maxStorageBufferBindingSize: 8000 * 1024 * 1024,
+    } as GPUSupportedLimits;
+    // midpoint of [500, 8000] is 4250; 4200 is closer to 4250 than 6000 is.
+    expect(suggestModels(models, limits)).toEqual({
+      fast: 'tiny',
+      balanced: 'close-to-mid',
+      quality: 'big',
+    });
+  });
+});
 
 describe('detectWebGpu', () => {
   const originalNavigator = globalThis.navigator;
@@ -157,6 +229,59 @@ describe('WebGpuProvider', () => {
     await expect(initPromise).rejects.toThrow('WebGPU not supported');
   });
 
+  it('initialize rejects with AiProviderError using worker code when provided', async () => {
+    const provider = new WebGpuProvider();
+    const initPromise = provider.initialize();
+
+    firstHandler(mockWorker, 'message')({
+      data: { type: 'error', message: 'Model too large', code: 'INITIALIZATION_FAILED' },
+    });
+
+    await expect(initPromise).rejects.toMatchObject({
+      name: 'AiProviderError',
+      code: 'INITIALIZATION_FAILED',
+      message: 'Model too large',
+    });
+  });
+
+  it('initialize rejects with AiProviderError defaulting to INITIALIZATION_FAILED when worker omits code', async () => {
+    const provider = new WebGpuProvider();
+    const initPromise = provider.initialize();
+
+    firstHandler(mockWorker, 'message')({
+      data: { type: 'error', message: 'WebGPU not supported' },
+    });
+
+    await expect(initPromise).rejects.toMatchObject({
+      name: 'AiProviderError',
+      code: 'INITIALIZATION_FAILED',
+    });
+  });
+
+  it('initialize throws AiProviderError with WEBGPU_UNSUPPORTED when WebGPU is not available', async () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {},
+      configurable: true,
+    });
+    const provider = new WebGpuProvider();
+    await expect(provider.initialize()).rejects.toMatchObject({
+      name: 'AiProviderError',
+      code: 'WEBGPU_UNSUPPORTED',
+    });
+  });
+
+  it('getWebLlmModels rejects with AiProviderError coded MODEL_LIST_FAILED', async () => {
+    const promise = WebGpuProvider.getWebLlmModels();
+    firstHandler(mockWorker, 'message')({
+      data: { type: 'error', message: 'fetch failed' },
+    });
+    await expect(promise).rejects.toMatchObject({
+      name: 'AiProviderError',
+      code: 'MODEL_LIST_FAILED',
+      message: 'fetch failed',
+    });
+  });
+
   it('initialize throws when WebGPU is not available', async () => {
     Object.defineProperty(globalThis, 'navigator', {
       value: {},
@@ -217,7 +342,11 @@ describe('WebGpuProvider', () => {
         temperature: 0,
         responseFormat: 'text',
       }),
-    ).rejects.toThrow('Provider not initialized');
+    ).rejects.toMatchObject({
+      name: 'AiProviderError',
+      code: 'COMPLETION_FAILED',
+      message: 'Provider not initialized',
+    });
   });
 
   it('dispose terminates worker and rejects pending completions', async () => {

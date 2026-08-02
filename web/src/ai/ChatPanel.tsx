@@ -167,12 +167,22 @@ export function ChatPanel({
                             }
                           }}
                         >
-                          {models.map((m: ModelOption) => (
-                            <option key={m.id} value={m.id}>
-                              {m.label} — {m.description}
-                              {m.recommended ? ' (Recommended)' : ''}
-                            </option>
-                          ))}
+                          {models.map((m: ModelOption) => {
+                            const tierLabel =
+                              m.recommendedTier === 'fast'
+                                ? ' (Recommended · Fast)'
+                                : m.recommendedTier === 'balanced'
+                                  ? ' (Recommended · Balanced)'
+                                  : m.recommendedTier === 'quality'
+                                    ? ' (Recommended · Quality)'
+                                    : '';
+                            return (
+                              <option key={m.id} value={m.id}>
+                                {m.label} — {m.description}
+                                {tierLabel}
+                              </option>
+                            );
+                          })}
                           <option value="__add_custom__">+ Add custom model…</option>
                         </select>
                         <button type="button" onClick={onDownloadModel}>
