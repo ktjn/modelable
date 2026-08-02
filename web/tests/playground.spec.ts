@@ -701,7 +701,18 @@ test('disposes the page client on pagehide exactly once', async ({ page }) => {
 
 test('retries a failed runtime manifest request without losing editor text', async ({
   page,
+  context,
 }) => {
+
+  // Service workers cache the runtime manifest, so a network abort would be
+  // bypassed. Disable SW registration for this test so the retry path is
+  // exercised deterministically.
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: undefined,
+    });
+  });
 
   let failedOnce = false;
   await page.route(runtimeManifest, async (route) => {
@@ -712,6 +723,7 @@ test('retries a failed runtime manifest request without losing editor text', asy
     }
     await route.continue();
   });
+
   await page.goto('?test=1');
   await expect(page.locator('.badge--error[role="alert"]')).toHaveText(
     /compiler runtime initialization failed/i,
