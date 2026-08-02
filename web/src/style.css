@@ -1678,3 +1678,54 @@ button.view-tab--active:hover:not(:disabled) {
     transition-duration: 0.01ms !important;
   }
 }
+
+.toast-container {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 1000;
+  max-width: 24rem;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
+  font-size: 0.82rem;
+}
+
+.toast--error {
+  color: var(--text-error);
+  background: var(--danger-bg);
+  border-color: var(--text-error);
+}
+
+.toast--warning {
+  color: var(--accent);
+}
+
+.toast--info {
+  color: var(--text-muted);
+}
+
+.toast__message {
+  flex: 1;
+}
+
+.toast__dismiss {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.2rem;
+}
