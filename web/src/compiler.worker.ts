@@ -100,6 +100,7 @@ async function initializeRuntime(): Promise<void> {
     const wheelUrls = await readWheelUrls();
     install = pyodide.pyimport('micropip.install') as KeywordCallablePyProxy;
     await install.callKwargs(wheelUrls, { deps: false });
+    pyodide.runPython('import pyodide_http; pyodide_http.patch_all()');
     importedDispatch = pyodide.pyimport(
       'modelable.browser.dispatch_browser_request',
     ) as CallablePyProxy;
