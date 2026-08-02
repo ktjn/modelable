@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from './App';
+import { ErrorBoundary } from './ErrorBoundary';
 import './editor/monaco-environment';
 import { registerServiceWorker } from './sw-registration';
 import './style.css';
@@ -16,7 +17,9 @@ if (root === null) {
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );
 

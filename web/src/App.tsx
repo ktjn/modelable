@@ -62,13 +62,16 @@ import {
   initialProviderState,
   providerStateReducer,
 } from './ai/provider-state';
+import { ToastProvider, useToasts } from './Toast';
+import { toErrorMessage } from './errors';
 import {
   DEFAULT_MODELS,
   createModelOption,
   detectWebGpu,
   WebGpuProvider,
   getGpuLimits,
-  suggestModel,
+  suggestModels,
+  AiProviderError,
   type ModelOption,
 } from './ai/webgpu-provider';
 import { SimulatorProvider } from './ai/simulator-provider';
@@ -161,7 +164,15 @@ function exposeWorkspaceSourcesForTest(
   ).__modelableWorkspaceSourceUris = sources.map((source) => source.uri);
 }
 
-export function App({
+export function App(props: AppProps) {
+  return (
+    <ToastProvider>
+      <AppInner {...props} />
+    </ToastProvider>
+  );
+}
+
+function AppInner({
   createClient = createBrowserCompilerClient,
   createRepository = createWorkspaceRepository,
   now = performanceNow,
@@ -203,6 +214,7 @@ export function App({
     providerStateReducer,
     initialProviderState,
   );
+  const { push: pushToast } = useToasts();
   const [aiPending, setAiPending] = useState(false);
   const [models, setModels] = useState<ModelOption[]>(DEFAULT_MODELS);
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODELS[0]!.id);
@@ -652,39 +664,58 @@ export function App({
 
     if (detectWebGpu()) {
       aiDispatch({ type: 'detect_available' });
-      void WebGpuProvider.getWebLlmModels().then((webLlmModels) => {
-        setModels((current) => {
-          const merged = [...current];
-          for (const m of webLlmModels) {
-            if (!merged.some((existing) => existing.id === m.id)) {
-              merged.push(m);
-            }
-          }
-          return merged;
-        });
-
-        void getGpuLimits().then((limits) => {
-          const allModels = [...models]; // Use current state or combine? Better use what we just got
+      void WebGpuProvider.getWebLlmModels()
+        .then((webLlmModels) => {
           setModels((current) => {
-            const suggested = suggestModel(current, limits);
-            const updated = current
-              .map((m) => ({
-                ...m,
-                recommended: m.id === suggested,
-              }))
-              .sort((a, b) => {
-                if (a.recommended) return -1;
-                if (b.recommended) return 1;
-                return a.vramMb - b.vramMb;
-              });
-            
-            if (params.get('model') === null) {
-              setSelectedModel(suggested);
+            const merged = [...current];
+            for (const m of webLlmModels) {
+              if (!merged.some((existing) => existing.id === m.id)) {
+                merged.push(m);
+              }
             }
-            return updated;
+            return merged;
           });
+
+          void getGpuLimits()
+            .then((limits) => {
+              setModels((current) => {
+                const suggested = suggestModels(current, limits);
+                const updated = current
+                  .map((m) => ({
+                    ...m,
+                    recommendedTier:
+                      m.id === suggested.fast
+                        ? ('fast' as const)
+                        : m.id === suggested.balanced
+                          ? ('balanced' as const)
+                          : m.id === suggested.quality
+                            ? ('quality' as const)
+                            : undefined,
+                  }))
+                  .sort((a, b) => {
+                    const rank = { fast: 0, balanced: 1, quality: 2 } as const;
+                    const aRank = a.recommendedTier ? rank[a.recommendedTier] : 3;
+                    const bRank = b.recommendedTier ? rank[b.recommendedTier] : 3;
+                    if (aRank !== bRank) return aRank - bRank;
+                    return a.vramMb - b.vramMb;
+                  });
+
+                if (params.get('model') === null && suggested.fast !== undefined) {
+                  setSelectedModel(suggested.fast);
+                }
+                return updated;
+              });
+            })
+            .catch((error: unknown) => {
+              const message = toErrorMessage(error, 'Failed to detect GPU limits');
+              pushToast('error', message);
+            });
+        })
+        .catch((error: unknown) => {
+          const message = toErrorMessage(error, 'Failed to list WebLLM models');
+          pushToast('error', message);
+          aiDispatch({ type: 'error', message });
         });
-      });
     } else {
       aiDispatch({ type: 'detect_unsupported' });
     }
@@ -706,11 +737,11 @@ export function App({
       })
       .then(
         () => aiDispatch({ type: 'ready' }),
-        (error: unknown) =>
-          aiDispatch({
-            type: 'error',
-            message: error instanceof Error ? error.message : 'Download failed',
-          }),
+        (error: unknown) => {
+          const message = toErrorMessage(error, 'Download failed');
+          pushToast('error', message);
+          aiDispatch({ type: 'error', message });
+        },
       );
   }, [aiState.status, selectedModel]);
 
@@ -760,10 +791,9 @@ export function App({
         aiDispatch({ type: 'reset' });
       })
       .catch((error: unknown) => {
-        aiDispatch({
-          type: 'error',
-          message: error instanceof Error ? error.message : 'Fetch failed',
-        });
+        const message = toErrorMessage(error, 'Fetch failed');
+        pushToast('error', message);
+        aiDispatch({ type: 'error', message });
       });
   }, []);
 

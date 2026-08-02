@@ -1,3 +1,4 @@
+import { toErrorMessage } from '../errors';
 import type { LlmRequest } from './types';
 
 export type AiWorkerRequest =
@@ -11,7 +12,7 @@ export type AiWorkerResponse =
   | { type: 'initialized' }
   | { type: 'completed'; id: string; content: string; promptTokens?: number; completionTokens?: number }
   | { type: 'models'; models: import('./webgpu-provider').ModelOption[] }
-  | { type: 'error'; id?: string; message: string };
+  | { type: 'error'; id?: string; message: string; code?: import('./webgpu-provider').AiProviderErrorCode };
 
 const ctx = globalThis as unknown as Worker;
 
@@ -58,7 +59,8 @@ async function handleInitialize(
   } catch (error: unknown) {
     const response: AiWorkerResponse = {
       type: 'error',
-      message: error instanceof Error ? error.message : 'Failed to initialize model',
+      message: toErrorMessage(error, 'Failed to initialize model'),
+      code: 'INITIALIZATION_FAILED',
     };
     ctx.postMessage(response);
   }
@@ -94,7 +96,8 @@ async function handleComplete(id: string, request: LlmRequest): Promise<void> {
     const response: AiWorkerResponse = {
       type: 'error',
       id,
-      message: error instanceof Error ? error.message : 'Completion failed',
+      message: toErrorMessage(error, 'Completion failed'),
+      code: 'COMPLETION_FAILED',
     };
     ctx.postMessage(response);
   }
@@ -144,7 +147,8 @@ async function handleListModels(): Promise<void> {
   } catch (error: unknown) {
     const response: AiWorkerResponse = {
       type: 'error',
-      message: error instanceof Error ? error.message : 'Failed to list models',
+      message: toErrorMessage(error, 'Failed to list models'),
+      code: 'MODEL_LIST_FAILED',
     };
     ctx.postMessage(response);
   }
