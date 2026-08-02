@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 from urllib import request
@@ -12,7 +13,7 @@ from modelable.compiler.workspace import load_workspace
 from modelable.llm.chat import ChatState, chat_reply, chat_turn
 from modelable.llm.config import LlmConfig, resolve_llm_config
 from modelable.llm.engine import update_definition
-from modelable.llm.providers import LLMRequest, LLMResponse, OllamaProvider, build_provider
+from modelable.llm.providers import LLMRequest, LLMResponse, OllamaProvider, build_provider, list_ollama_models
 from modelable.operations.compilation import CompilationService
 
 
@@ -221,6 +222,75 @@ def test_ollama_provider_posts_full_json_schema(monkeypatch):
     )
 
     assert captured["payload"]["format"] == schema
+
+
+def test_list_ollama_models_parses_multi_model_response(monkeypatch):
+    class DummyResponse:
+        def read(self) -> bytes:
+            return json.dumps({"models": [{"name": "qwen2.5-coder:14b"}, {"name": "llama3.2"}]}).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        captured["url"] = req.full_url
+        captured["method"] = req.get_method()
+        captured["timeout"] = timeout
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    names = list_ollama_models("http://localhost:11434")
+    assert names == ["llama3.2", "qwen2.5-coder:14b"]
+    assert captured["url"] == "http://localhost:11434/api/tags"
+    assert captured["method"] == "GET"
+    assert captured["timeout"] == 10.0
+
+
+def test_list_ollama_models_returns_empty_list_when_none_installed(monkeypatch):
+    class DummyResponse:
+        def read(self) -> bytes:
+            return json.dumps({"models": []}).encode("utf-8")
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        return DummyResponse()
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    assert list_ollama_models("http://localhost:11434") == []
+
+
+def test_list_ollama_models_raises_runtime_error_on_connection_failure(monkeypatch):
+    from urllib import error as urllib_error
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        raise urllib_error.URLError("Connection refused")
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    with pytest.raises(RuntimeError, match="Ollama request failed: Connection refused"):
+        list_ollama_models("http://localhost:11434")
+
+
+def test_list_ollama_models_raises_runtime_error_on_http_error(monkeypatch):
+    from urllib import error as urllib_error
+
+    def fake_urlopen(req: request.Request, timeout: float):
+        raise urllib_error.HTTPError(
+            "http://localhost:11434/api/tags", 500, "Internal Server Error", {}, io.BytesIO(b"boom")
+        )
+
+    monkeypatch.setattr("modelable.llm.providers.request.urlopen", fake_urlopen)
+    with pytest.raises(RuntimeError, match="Ollama request failed: 500 boom"):
+        list_ollama_models("http://localhost:11434")
 
 
 def test_update_definition_uses_injected_provider(tmp_path):

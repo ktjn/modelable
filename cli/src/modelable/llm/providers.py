@@ -66,6 +66,34 @@ class OllamaProvider:
             raise RuntimeError(f"Ollama returned invalid JSON: {exc}") from exc
 
 
+def list_ollama_models(base_url: str, timeout: float = 10.0) -> list[str]:
+    req = request.Request(base_url.rstrip("/") + "/api/tags", method="GET")
+    try:
+        with request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8")
+    except error.HTTPError as exc:  # pragma: no cover - thin transport wrapper
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Ollama request failed: {exc.code} {detail}") from exc
+    except error.URLError as exc:  # pragma: no cover - thin transport wrapper
+        raise RuntimeError(f"Ollama request failed: {exc.reason}") from exc
+
+    try:
+        payload = cast(dict[str, object], json.loads(raw))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Ollama returned invalid JSON: {exc}") from exc
+
+    models = payload.get("models")
+    if not isinstance(models, list):
+        return []
+    names: list[str] = []
+    for entry in models:
+        if isinstance(entry, dict):
+            name = entry.get("name")
+            if isinstance(name, str):
+                names.append(name)
+    return sorted(names)
+
+
 def build_provider(provider: str | None, *, model: str | None, base_url: str | None) -> LLMProvider | None:
     if provider is None:
         return None
