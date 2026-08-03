@@ -38,6 +38,51 @@ and
 [Protobuf/gRPC design](docs/superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md)
 record the decisions behind the recent contract work.
 
+### Known correctness and documentation gaps
+
+Two verified gaps affect how much this baseline can be trusted at face value,
+tracked in full in the
+[compiler correction and capability plan](docs/correction-and-capability-plan.md):
+
+- `docs/architecture.md` describes composite keys as supported, but
+  `cli/src/modelable/validation/semantic.py` requires exactly one `@key`
+  field per entity/aggregate, and `docs/language-reference.md` already says
+  composite keys are not representable. Undecided until
+  [Slice D5](docs/correction-and-capability-plan.md#slice-d5--resolve-composite-key-support).
+- The model diff can emit `nullability_changed`, but compatibility reporting
+  does not consistently classify `optional -> required` as breaking, so
+  semantic validation and compatibility reports can disagree. Fix tracked as
+  [Slice A1](docs/correction-and-capability-plan.md#slice-a1--correct-optionality-compatibility-under-the-current-model).
+
+## Delivery lanes
+
+Four lanes run in parallel rather than one strict priority queue:
+
+| Lane | Covers | Priorities below |
+|---|---|---|
+| P1 | Playground | Priority 1 |
+| P2 | Scalable/Rust integration | Priority 2 |
+| C | Compiler correctness, compatibility, capability/doc consistency | Priority 3 |
+| L | Language evolution, extensibility, gated target work | Priority 6 |
+
+Priorities 4 and 5 (authoring/adoption, external integrations) draw from
+whichever lane a given item belongs to as it becomes concrete.
+
+Interleaving rules:
+
+1. A confirmed false compatibility result is a release blocker.
+2. Silent loss or ignored parsed content is a release blocker for the
+   affected construct.
+3. Incomplete diagnostics that do not change compiler output may proceed
+   beside active roadmap work.
+4. New broad language features do not preempt Priorities 1 and 2 without a
+   concrete consumer and accepted design.
+5. Every slice is rechecked against `main` immediately before design
+   acceptance.
+
+Full slice-level detail for lanes C and L lives in the
+[compiler correction and capability plan](docs/correction-and-capability-plan.md).
+
 ## Priority 1 — advance the Playground
 
 The Playground is now the immediate product priority. The shipped browser
@@ -168,7 +213,75 @@ Completion means a Scalable consumer can compile generated Rust and Protobuf
 artifacts, register them using generated identity metadata, and detect an
 incompatible transport change in CI.
 
-## Priority 3 — improve authoring, adoption, and cross-target consistency
+## Priority 3 — compiler correctness, compatibility, and capability integrity
+
+Lane C. This priority does not wait behind Priorities 1 and 2 — A1–A4 and G1
+below start immediately, in parallel with active Playground and Scalable
+work, per interleaving rule 1: a confirmed false compatibility result is a
+release blocker. Full slice detail, tests, and acceptance criteria are in the
+[compiler correction and capability plan](docs/correction-and-capability-plan.md).
+
+Work proceeds in three tranches:
+
+1. **Correctness tranche (start immediately):**
+   - **A1** — fix the optionality compatibility bug: `optional -> required`
+     must be classified as breaking, and semantic validation and
+     compatibility reporting must agree. Ships as an explicit stopgap for the
+     current single-`optional`-flag model, superseded by presence/nullability
+     work (Priority 6, D1) later.
+   - **A2** — introduce one compiler-owned property-dependency graph covering
+     direct mappings, computed expressions, join predicates, filters, and
+     grouping, so compatibility, governance, lineage, and editor tooling stop
+     duplicating source-property analysis.
+   - **A3** — validate every expression-bearing position (computed fields,
+     joins, `where`, `group by`) through the same CEL pipeline, so no parsed
+     expression can bypass semantic validation.
+   - **A4** — make semantic-type name resolution domain-aware and
+     deterministic; add qualified references and reject cross-domain
+     ambiguity as a compile error.
+   - **G1** — add critical-path regression coverage for compatibility,
+     dependency resolution, expression validation, lineage, governance,
+     signatures, and target compatibility.
+2. **Capability and documentation tranche (next):**
+   - **B1** — add a `modelable capabilities` manifest so target/dialect/
+     annotation/import support is compiler-owned, not hand-maintained across
+     docs.
+   - **B2** — reconcile verified documentation contradictions (composite
+     keys, model lifecycle claims, deferred targets, classification
+     vocabulary, browser language-service parity), resolving the composite-key
+     status via an executable conformance test rather than assumption.
+   - **B3** — audit every silently-parsed-but-ignored construct (registry
+     peers/consumers/subscriptions, materialisation, opaque nested bindings)
+     and give each one an explicit outcome: implemented, experimental IR with
+     diagnostics, rejected as deferred, or removed from stable grammar.
+   - **G3** — share conformance fixtures across the native compiler, browser
+     compiler, LSP, Playground, compatibility, signatures, and manifests,
+     with explicit coverage for every capability documentation disputes.
+3. **Compatibility architecture tranche (after A2/A3 land):**
+   - **C1** — treat versioned projections as first-class contracts: compare
+     shape, lineage, governance, wire, storage, and materialisation impact
+     between projection versions directly.
+   - **C2** — extend the existing projection-source version-resolution rules
+     (exact/range/minimum/pin) to `ref<>` type-reference positions.
+   - **C3** — generalize the shipped Protobuf/gRPC compatibility guards into
+     one target-agnostic compatibility result IR, extended to JSON, SQL/
+     storage migration, projection rebuild, and governance review — without
+     duplicating the existing Protobuf/gRPC rule logic.
+   - **C4** — add a configurable compatibility/lint policy so teams can set
+     enforcement severity per target axis without changing the underlying
+     compiler-determined facts.
+
+The first six pull requests implementing the correctness and capability
+tranches are sequenced in the
+[compiler correction and capability plan](docs/correction-and-capability-plan.md#first-pull-request-sequence).
+
+Completion means compatibility reports can never contradict semantic
+validation, every property dependency (including filters and joins) is
+captured in one graph, all expressions are type-checked and traced, semantic
+types resolve deterministically, documented capabilities match compiler
+behavior, and no parsed syntax is silently discarded.
+
+## Priority 4 — improve authoring, adoption, and cross-target consistency
 
 After the active Playground foundation and Scalable/Rust path:
 
@@ -198,7 +311,9 @@ After the active Playground foundation and Scalable/Rust path:
 4. Extend nominal semantic-type generation beyond Rust, prioritizing
    TypeScript, Go, Java, C#, Python, JSON Schema, and SQL according to concrete
    consumer demand. Targets that intentionally erase nominal identity must say
-   so explicitly.
+   so explicitly. Tracked as
+   [Slice F1](docs/correction-and-capability-plan.md#slice-f1--nominal-semantic-types-beyond-rust)
+   in the correction and capability plan.
 5. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
    generated constants and registry state are easy to diagnose.
 6. Publish the VS Code extension through the Marketplace once the release and
@@ -210,7 +325,7 @@ Completion means a new team can install the CLI and editor tooling, understand
 generated identity and compatibility behavior, and adopt a supported target
 without relying on internal repository knowledge.
 
-## Priority 4 — deepen external integrations
+## Priority 5 — deepen external integrations
 
 Integration work follows adoption work unless a concrete deployment provides a
 stronger near-term requirement:
@@ -228,6 +343,70 @@ stronger near-term requirement:
 Completion means at least one real deployment can pull or synchronize external
 contracts reproducibly without making an external service the source of truth
 for Modelable models.
+
+## Priority 6 — language evolution and extensibility
+
+Lane L. Full slice detail lives in the
+[compiler correction and capability plan](docs/correction-and-capability-plan.md).
+These items require accepted designs and, for the syntax-changing ones,
+concrete consumer demand; they do not automatically outrank Priorities 1–5.
+
+Most items here are gated behind one decision:
+
+- **D0 — define historical language interpretation.** Choose how already-
+  published `.mdl` text is protected before any syntax that *changes the
+  meaning* of existing text can land (additive-syntax policy, language-
+  version policy, or compiler-version snapshot policy — additive-syntax is
+  the preferred default). D1 and D6 below require D0 first.
+
+Gated on D0, in dependency order:
+
+1. **D1** — separate presence from nullability (`field?` keeps its current
+   meaning or is interpreted under an explicit language version; never
+   silently reinterpreted).
+2. **D2** — first-class value constraints (min/max, length, pattern, format,
+   uniqueness) with explicit lineage and no silent widening.
+3. **D3** — named, version-aware enums.
+4. **D4** — discriminated unions, depending on D3 and D1.
+5. **D5** — resolve the composite-key contradiction: add a conformance test,
+   then either implement composite entity identity or correct
+   `docs/architecture.md` to match the compiler.
+6. **D6** — model lifecycle status (draft/published/deprecated/retired),
+   depending on D0.
+
+Also in this lane, **not** gated behind D0 because it is purely additive
+grammar that never reinterprets existing text:
+
+- **H1 — projection `pick(...)`/`omit(...)` clauses.** Lets a `projection`
+  select or exclude a field subset from its source (including qualified
+  `alias.field` selection across `join`s, and annotation filters like
+  `@pii` reusing `auto projections ... exclude`'s existing matcher) without
+  hand-writing a `<-` line per field. Expands to the same explicit IR a
+  hand-written projection produces before compatibility/lineage analysis
+  runs, so no downstream subsystem needs special-casing. Full design:
+  [Projection Pick/Omit Clauses](docs/superpowers/specs/2026-08-03-projection-pick-omit-design.md).
+
+Also extensibility work (Track E) that is additive but not yet prioritized
+against a concrete consumer:
+
+- **E1** — typed namespaced annotations (`@acme.retention("7y")`), a grammar
+  prerequisite for any annotation-plugin system.
+- **E2** — data-quality contract metadata (non-null, uniqueness, accepted
+  values, ranges, referential integrity), surfaced through ODCS, dbt tests,
+  and OpenMetadata.
+- **E3** — freshness, SLA, and retention metadata for supported contract and
+  catalog emitters.
+
+Target work gated on the above language work (Track F, items 2-4):
+
+- **F2** — OpenAPI emission, after D1-D4, C1, and C3.
+- **F3** — AsyncAPI emission, after named enums, unions, reference-version
+  semantics, and the event-envelope contract.
+- **F4** — Avro emission, after defaults, nullability, named enums, unions,
+  and target-specific reader/writer compatibility.
+
+(Slice F1 — nominal types beyond Rust — is not gated; it is tracked under
+Priority 4 above since it is already a concrete, unblocked roadmap item.)
 
 ## Candidate pool
 
@@ -254,8 +433,12 @@ compiler-contract, adoption, or integration work without an explicit product
 decision and accepted architecture.
 
 Repository-health work is tracked separately in the
-[engineering improvement roadmap](docs/engineering-roadmap.md). See
-[architecture](docs/architecture.md) for the product boundary,
+[engineering improvement roadmap](docs/engineering-roadmap.md). Compiler
+correctness, capability-consistency, compatibility-architecture, and gated
+language-evolution slice detail (Priorities 3 and 6 above) is tracked
+separately in the
+[compiler correction and capability plan](docs/correction-and-capability-plan.md).
+See [architecture](docs/architecture.md) for the product boundary,
 [integrations](docs/integrations.md) for external-tool research, and
 [GitHub issues](https://github.com/ktjn/modelable/issues) for work that is ready
 for discussion or implementation.
