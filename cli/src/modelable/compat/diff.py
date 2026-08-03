@@ -169,6 +169,11 @@ def _type_signature(field: FieldDef) -> str:
     return json.dumps(field.type.model_dump(mode="json"), sort_keys=True)
 
 
+def is_optionality_breaking(change: FieldChange) -> bool:
+    """True when a `nullability_changed` change narrows a field from optional to required."""
+    return change.kind == "nullability_changed" and change.from_optional is True and change.to_optional is False
+
+
 def compare_index_decls(old_index: IndexDecl | None, new_index: IndexDecl | None) -> list[FieldChange]:
     """Surface index structure changes between two model versions.
 
