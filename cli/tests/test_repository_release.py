@@ -67,6 +67,37 @@ def test_searchable_vector_dependencies_have_published_api_floor() -> None:
     assert 'name = "searchable-indexer"\nversion = "0.2.1"' in lock_text
 
 
+def test_browser_lock_matches_uv_lock_searchable_versions() -> None:
+    """cli/browser/browser-lock.json pins its own copies of searchable-analysis
+    and searchable-client for the Pyodide/browser wheel, entirely independent
+    of cli/uv.lock. A dependency bump that updates uv.lock without also
+    updating browser-lock.json ships a fix to the CLI/LSP while the deployed
+    Playground silently keeps running the old, unfixed version -- no error,
+    no test failure, nothing to notice until a user reports it. See
+    docs/maintainers.md's "Browser playground troubleshooting" section.
+    """
+    uv_lock = tomllib.loads((REPOSITORY_ROOT / "cli" / "uv.lock").read_text(encoding="utf-8"))
+    tracked_names = {"searchable-analysis", "searchable-client"}
+    uv_lock_versions = {
+        package["name"]: package["version"] for package in uv_lock["package"] if package["name"] in tracked_names
+    }
+    assert uv_lock_versions.keys() == tracked_names, "expected both packages in cli/uv.lock"
+
+    browser_lock = json.loads((REPOSITORY_ROOT / "cli" / "browser" / "browser-lock.json").read_text(encoding="utf-8"))
+    browser_lock_versions = {
+        wheel["name"]: wheel["version"] for wheel in browser_lock["externalWheels"] if wheel["name"] in tracked_names
+    }
+    assert browser_lock_versions.keys() == tracked_names, "expected both packages in browser-lock.json externalWheels"
+
+    assert browser_lock_versions == uv_lock_versions, (
+        "cli/browser/browser-lock.json's pinned searchable-* versions must match cli/uv.lock "
+        f"(uv.lock has {uv_lock_versions}, browser-lock.json has {browser_lock_versions}). "
+        "After bumping a searchable-* dependency and running `cd cli && uv lock`, also update "
+        "browser-lock.json's version/fileName/url/sha256 to the matching published wheel, then "
+        "rerun `npm run prepare:python` from web/ to verify the checksum."
+    )
+
+
 def test_extension_metadata_matches_release() -> None:
     package = json.loads((REPOSITORY_ROOT / "vscode" / "package.json").read_text(encoding="utf-8"))
 
