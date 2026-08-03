@@ -23,6 +23,7 @@ _BROWSER_PACKAGE_TREES = (
 _BROWSER_PACKAGE_FILES = {
     "__init__.py",
     "_pydantic_py314_compat.py",
+    "dependency_graph.py",
     "emitters/__init__.py",
     "emitters/base.py",
     "emitters/diagnostics.py",

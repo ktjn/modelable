@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from modelable.compat.diff import FieldChange, compare_index_decls, compare_model_versions, is_optionality_breaking
-from modelable.parser.ir import DirectMapping, IndexDecl, MdlFile, ModelVersion
+from modelable.dependency_graph import build_projection_dependencies
+from modelable.parser.ir import IndexDecl, MdlFile, ModelVersion
+from modelable.registry.resolver import find_dependents
 
 
 @dataclass(frozen=True)
@@ -74,16 +76,16 @@ def analyze_impact(
     if pv is None:
         return ProjectionImpact(dep_domain_name, dep_proj_name, dep_version, "affected", "unresolved projection")
 
-    # Determine the alias(es) used for this source model
-    source_ref = f"{report.domain_name}.{report.model_name}"
-    aliases = []
-    if pv.source.model == source_ref:
-        aliases.append(pv.source.alias)
-    for join in pv.joins:
-        if join.model == source_ref:
-            aliases.append(join.alias)
+    source_model_ref = f"{report.domain_name}.{report.model_name}"
+    dependencies = build_projection_dependencies(mdl, dep_domain_name, dep_proj_name, pv)
+    dependency_source_fields = {
+        dependency.source_property
+        for dependency in dependencies
+        if dependency.source_ref.rsplit("@", 1)[0] == source_model_ref
+    }
 
-    # Check if any breaking field change affects this projection's direct mappings
+    # Check if any breaking field change affects a property this projection depends on,
+    # through any mapping kind (direct, computed, join predicate, filter, or group key).
     impacted_fields = []
     for change in report.changes:
         is_breaking_field = change.kind in {
@@ -99,14 +101,8 @@ def analyze_impact(
         if not is_breaking_field:
             continue
 
-        for proj_field in pv.fields:
-            if (
-                isinstance(proj_field.mapping, DirectMapping)
-                and proj_field.mapping.source_alias in aliases
-                and proj_field.mapping.source_field == change.field_name
-            ):
-                impacted_fields.append(f"field '{change.field_name}' ({change.kind})")
-                break
+        if change.field_name in dependency_source_fields:
+            impacted_fields.append(f"field '{change.field_name}' ({change.kind})")
 
     if impacted_fields:
         return ProjectionImpact(
@@ -123,7 +119,7 @@ def analyze_impact(
             dep_proj_name,
             dep_version,
             "affected",
-            f"source {source_ref} is marked breaking",
+            f"source {source_model_ref} is marked breaking",
         )
 
     return ProjectionImpact(dep_domain_name, dep_proj_name, dep_version, "compatible")
@@ -132,19 +128,9 @@ def analyze_impact(
 def find_projection_dependents(mdl: MdlFile, ref: str) -> list[tuple[str, str, int]]:
     """Return projections that resolve to the exact model version in ``ref``."""
     model_ref, version_text = ref.rsplit("@", 1)
+    domain_name, model_name = model_ref.split(".", 1)
     version = int(version_text)
-    dependents: list[tuple[str, str, int]] = []
-    for domain in mdl.domains:
-        for projection_name, versions in domain.projections.items():
-            for projection in versions:
-                sources = [(projection.source.model, projection.source.version)]
-                sources.extend((join.model, join.version) for join in projection.joins)
-                if any(
-                    source_model == model_ref and getattr(source_version, "version", None) == version
-                    for source_model, source_version in sources
-                ):
-                    dependents.append((domain.name, projection_name, projection.version))
-    return sorted(dependents)
+    return sorted(find_dependents(mdl, domain_name, model_name, version))
 
 
 def _find_version(

@@ -192,7 +192,7 @@ src/modelable/emitters/typescript.py:39: error: Incompatible types in assignment
 src/modelable/emitters/typescript.py:41: error: Argument 3 to "_emit_projection" has incompatible type "ModelVersion"; expected "ProjectionVersion"  [arg-type]
 src/modelable/emitters/typescript.py:74: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
 src/modelable/emitters/typescript.py:96: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
-src/modelable/governance/checker.py:267: error: Incompatible types in assignment (expression has type "tuple[str, ModelVersion | ProjectionVersion]", target has type "tuple[str, ModelVersion]")  [assignment]
+src/modelable/governance/checker.py:262: error: Incompatible types in assignment (expression has type "tuple[str, ModelVersion | ProjectionVersion]", target has type "tuple[str, ModelVersion]")  [assignment]
 src/modelable/graph/export.py:122: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
 src/modelable/graph/export.py:331: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
 src/modelable/graph/export.py:357: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]

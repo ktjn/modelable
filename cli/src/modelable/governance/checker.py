@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+from modelable.dependency_graph import resolve_projection_aliases
 from modelable.expressions.cel import extract_field_refs, parse_cel
 from modelable.parser.ir import (
     AccessBlock,
@@ -14,7 +15,6 @@ from modelable.parser.ir import (
     ProjectionField,
     ProjectionVersion,
 )
-from modelable.registry.resolver import resolve_model_ref
 
 
 @dataclass(frozen=True)
@@ -257,15 +257,7 @@ def _find_field(version: ModelVersion, field_name: str) -> FieldDef | None:
 
 def _build_resolved_sources(pv: ProjectionVersion, mdl: MdlFile) -> dict[str, tuple[str, ModelVersion]]:
     resolved_sources: dict[str, tuple[str, ModelVersion]] = {}
-    all_sources = [(pv.source.model, pv.source.version, pv.source.alias)]
-    for join in pv.joins:
-        all_sources.append((join.model, join.version, join.alias))
-
-    for model_ref, version_spec, alias in all_sources:
-        try:
-            resolved = resolve_model_ref(mdl, model_ref, version_spec)
-            resolved_sources[alias] = (f"{model_ref}@{resolved.version.version}", resolved.version)
-        except LookupError:
-            pass
-
+    for alias, resolved in resolve_projection_aliases(pv, mdl).items():
+        ref = f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}"
+        resolved_sources[alias] = (ref, resolved.version)
     return resolved_sources
