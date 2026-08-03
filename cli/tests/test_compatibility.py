@@ -357,6 +357,150 @@ def test_find_projection_dependents_is_public_and_includes_joined_sources():
     ]
 
 
+def _dependent_impact(mdl_text, from_version, to_version, dependent):
+    mdl = parse_text_to_ir(mdl_text)
+
+    from modelable.compat.checker import analyze_impact, check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "customer", "Customer", from_version, to_version)
+    return analyze_impact(mdl, report, dependent)
+
+
+def test_analyze_impact_detects_computed_expression_dependency():
+    impact = _dependent_impact(
+        """
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+          entity Customer @ 2 (breaking) {
+            @key customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BillingCustomer @ 1
+            from customer.Customer @ 1 as c
+          {
+            id <- c.customerId
+            isBillable = c.status == "active"
+          }
+        }
+        """,
+        1,
+        2,
+        ("billing", "BillingCustomer", 1),
+    )
+
+    assert impact.status == "broken"
+    assert "field 'status' (removed_field)" in impact.reason
+
+
+def test_analyze_impact_detects_join_predicate_dependency():
+    impact = _dependent_impact(
+        """
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            legacyId: string
+          }
+          entity Customer @ 2 (breaking) {
+            @key customerId: uuid
+          }
+        }
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            legacyCustomerId: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection OrderWithCustomer @ 1
+            from orders.Order @ 1 as o
+            join customer.Customer @ 1 as c on o.legacyCustomerId == c.legacyId
+          {
+            orderId <- o.orderId
+          }
+        }
+        """,
+        1,
+        2,
+        ("billing", "OrderWithCustomer", 1),
+    )
+
+    assert impact.status == "broken"
+    assert "field 'legacyId' (removed_field)" in impact.reason
+
+
+def test_analyze_impact_detects_where_filter_dependency():
+    impact = _dependent_impact(
+        """
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+          entity Customer @ 2 (breaking) {
+            @key customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BillingCustomer @ 1
+            from customer.Customer @ 1 as c
+            where c.status == "active"
+          {
+            id <- c.customerId
+          }
+        }
+        """,
+        1,
+        2,
+        ("billing", "BillingCustomer", 1),
+    )
+
+    assert impact.status == "broken"
+    assert "field 'status' (removed_field)" in impact.reason
+
+
+def test_analyze_impact_detects_group_by_dependency():
+    impact = _dependent_impact(
+        """
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            region: string
+          }
+          entity Customer @ 2 (breaking) {
+            @key customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection CustomersByRegion @ 1
+            from customer.Customer @ 1 as c
+            group by c.region
+          {
+            customerCount = count(c.customerId)
+          }
+        }
+        """,
+        1,
+        2,
+        ("billing", "CustomersByRegion", 1),
+    )
+
+    assert impact.status == "broken"
+    assert "field 'region' (removed_field)" in impact.reason
+
+
 def test_find_projection_dependents_includes_range_versioned_source():
     mdl = parse_text_to_ir(
         """
