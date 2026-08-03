@@ -14,17 +14,17 @@
     },
     {
       "name": "searchable-analysis",
-      "version": "0.1.0",
-      "fileName": "searchable_analysis-0.1.0-py3-none-any.whl",
-      "url": "https://files.pythonhosted.org/packages/02/f7/dc350fa9c34a5bf5313decfb05411ad3b86a60d8f3a6a4f206da901b6d09/searchable_analysis-0.1.0-py3-none-any.whl",
-      "sha256": "a13ff3e6fdcda55e830c1ca831a4e350737905fbb44719740e9df048ea29d009"
+      "version": "0.2.1",
+      "fileName": "searchable_analysis-0.2.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/11/18/34974e3c301b097b88ef368929bd10d31644ea9c7cf2e77e01584225b0da/searchable_analysis-0.2.1-py3-none-any.whl",
+      "sha256": "06d76dfee06653058c047fc314f8e0134d0161808dc23270775fd1c8e5af74dd"
     },
     {
       "name": "searchable-client",
-      "version": "0.2.0",
-      "fileName": "searchable_client-0.2.0-py3-none-any.whl",
-      "url": "https://files.pythonhosted.org/packages/e3/47/f0354b334ed9a97bc3fc4ec16612f84fa948469712ba659fae19757cfabe/searchable_client-0.2.0-py3-none-any.whl",
-      "sha256": "a07b4974464d8578dce23c87cde3c099c07aae5915eae556886cbacc48636393"
+      "version": "0.4.0",
+      "fileName": "searchable_client-0.4.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/9f/fa/28d8e424902c1ad8c537bc76d6491d63b4da720fd0b43cd81ddad5b661a4/searchable_client-0.4.0-py3-none-any.whl",
+      "sha256": "505231a5de2bbaac46dd2557bbd7ba4a44389183da5f894b6eed66d5746b4747"
     },
     {
       "name": "pyodide-http",
