@@ -12,6 +12,12 @@ from modelable.rag.intent import RetrievalRoute, classify_retrieval_intent
         ("/compile --target json-schema", "none"),
         ("/docs How do I configure the registry?", "explicit_documentation"),
         (" /docs   explain the registry", "explicit_documentation"),
+        ("What does additive mean?", "automatic_documentation"),
+        ("What is additive?", "automatic_documentation"),
+        ("What are the supported targets?", "automatic_documentation"),
+        ("What's the meaning of breaking in a version annotation?", "automatic_documentation"),
+        ("Can you define confidential?", "automatic_documentation"),
+        ("How do I make email optional?", "none"),
     ],
 )
 def test_classify_retrieval_intent_routes_table(message: str, expected_route: str) -> None:
@@ -52,8 +58,8 @@ def test_classify_retrieval_intent_handles_unicode_whitespace_in_automatic_quest
     assert decision.question == "How do I configure the registry?"
 
 
-def test_classify_retrieval_intent_leaves_ordinary_questions_alone() -> None:
-    decision = classify_retrieval_intent("What are the supported targets?")
+def test_classify_retrieval_intent_leaves_ordinary_chat_alone() -> None:
+    decision = classify_retrieval_intent("Can you help me out?")
 
     assert decision.route is RetrievalRoute.NONE
     assert decision.reason == "no_documentation_signal"

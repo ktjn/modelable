@@ -7,10 +7,14 @@ import unicodedata
 from dataclasses import dataclass
 from enum import StrEnum
 
-_MUTATION_VERBS = re.compile(r"\b(add|change|create|delete|remove|rename|update|generate|compile|apply)\b")
+_MUTATION_VERBS = re.compile(r"\b(add|change|create|delete|remove|rename|update|generate|compile|apply|make)\b")
 _AUTOMATIC_DOCUMENTATION_SIGNALS = re.compile(
     r"\b(documentation|docs|guide|reference|syntax|configure|configuration|command|option)\b"
 )
+# Definitional questions ("what is X", "what does X mean") ask for a term's
+# meaning rather than an action on the user's own workspace, so they're safe
+# to route the same as the keyword-signal questions above.
+_DEFINITIONAL_QUESTION_SIGNALS = re.compile(r"\bwhat\s+(is|are|does|do)\b|\bmeaning of\b|\bdefine\b")
 
 _EXPLICIT_DOCS_COMMAND = "/docs"
 _SLASH_COMMAND_REASON = "slash_command"
@@ -60,7 +64,11 @@ def classify_retrieval_intent(message: str, *, automatic_enabled: bool = True) -
     if not automatic_enabled:
         return RetrievalDecision(route=RetrievalRoute.NONE, reason=_AUTOMATIC_DISABLED_REASON, question="")
 
-    if _AUTOMATIC_DOCUMENTATION_SIGNALS.search(lowered) or "how do i" in lowered:
+    if (
+        _AUTOMATIC_DOCUMENTATION_SIGNALS.search(lowered)
+        or _DEFINITIONAL_QUESTION_SIGNALS.search(lowered)
+        or "how do i" in lowered
+    ):
         return RetrievalDecision(
             route=RetrievalRoute.AUTOMATIC_DOCUMENTATION,
             reason=_AUTOMATIC_DOCUMENTATION_REASON,
