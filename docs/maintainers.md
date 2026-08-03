@@ -253,6 +253,23 @@ re-download; delete that directory to force a clean fetch after bumping
 
 ### Browser playground troubleshooting
 
+- **Bumping `searchable-analysis`/`searchable-client` (or any package listed
+  in `cli/browser/browser-lock.json`'s `externalWheels`):** `cli/uv.lock` and
+  `cli/browser/browser-lock.json` are two *separate* lockfiles. `uv lock`
+  only updates the former, which the CLI and LSP read; the Playground builds
+  its own browser wheel from the latter and ignores `uv.lock` entirely. A
+  dependency fix that only updates `uv.lock` ships correctly to the CLI/LSP
+  while the deployed Playground silently keeps running the old, unfixed
+  version — no error, no failing test, nothing to notice until a user
+  reports the old behavior (this exact thing happened once already; see
+  `git log --oneline -- cli/browser/browser-lock.json`). After `uv lock`,
+  update `browser-lock.json`'s `version`/`fileName`/`url`/`sha256` for that
+  package to the matching published wheel (`https://pypi.org/pypi/<name>/<version>/json`
+  lists the wheel's exact URL and `digests.sha256`), then run `npm run
+  prepare:python` from `web/` to checksum-verify it. `cli/tests/test_repository_release.py::test_browser_lock_matches_uv_lock_searchable_versions`
+  enforces that `searchable-analysis`/`searchable-client` stay in sync
+  between the two lockfiles specifically; it does not cover other
+  `externalWheels` entries (currently `lark`, `pyodide-http`).
 - **Checksum or manifest failure during `prepare:python`:** do not patch
   generated files under `web/public/python`. Confirm
   `cli/browser/browser-lock.json` contains the intended pinned identities, then
