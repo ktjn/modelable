@@ -59,12 +59,12 @@ def test_searchable_vector_dependencies_have_published_api_floor() -> None:
     pyproject = tomllib.loads((REPOSITORY_ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8"))
     dependencies = pyproject["project"]["dependencies"]
 
-    assert "searchable-client>=0.2.0" in dependencies
-    assert "searchable-indexer>=0.1.1" in dependencies
+    assert "searchable-client>=0.4.0" in dependencies
+    assert "searchable-indexer>=0.2.1" in dependencies
 
     lock_text = (REPOSITORY_ROOT / "cli" / "uv.lock").read_text(encoding="utf-8")
-    assert 'name = "searchable-client"\nversion = "0.2.0"' in lock_text
-    assert 'name = "searchable-indexer"\nversion = "0.1.1"' in lock_text
+    assert 'name = "searchable-client"\nversion = "0.4.0"' in lock_text
+    assert 'name = "searchable-indexer"\nversion = "0.2.1"' in lock_text
 
 
 def test_extension_metadata_matches_release() -> None:

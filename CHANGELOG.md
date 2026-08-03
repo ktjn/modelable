@@ -16,6 +16,19 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Fixed automatic documentation routing failing to ground natural-language
+  questions like "what does additive mean" in chat, causing the assistant to
+  answer from the ordinary conversational path instead of the documentation
+  index (the explicit `/docs` command already worked correctly). The
+  deterministic intent classifier's automatic-routing signals now recognize
+  definitional phrasing ("what is X", "what does X mean", "define X"), and
+  "make" was added to the mutation-verb list so workspace-editing requests
+  like "how do I make email optional" still route to the update planner
+  instead of documentation retrieval. Also bumped `searchable-client` to
+  `0.4.0` and `searchable-indexer` to `0.2.1`, which pull in a
+  `searchable-analysis` fix for English stopword filtering — the underlying
+  cause of the routed query still returning no relevant results.
+
 ## [1.3.0] - 2026-08-02
 
 ### Added
