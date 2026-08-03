@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from modelable.compat.diff import compare_model_versions
+from modelable.compat.diff import compare_model_versions, is_optionality_breaking
 from modelable.diagnostics.model import Diagnostic
 from modelable.parser.ir import (
     AnnWire,
@@ -266,7 +266,7 @@ def _validate_change_kind(
             continue
 
         if change.kind == "nullability_changed":
-            if change.from_optional is False and change.to_optional is True:
+            if not is_optionality_breaking(change):
                 continue
             incompatible_changes.append(f"nullability change {change.field_name}")
             continue

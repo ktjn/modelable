@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from modelable.compat.diff import FieldChange, compare_index_decls, compare_model_versions
+from modelable.compat.diff import FieldChange, compare_index_decls, compare_model_versions, is_optionality_breaking
 from modelable.parser.ir import DirectMapping, IndexDecl, MdlFile, ModelVersion
 
 
@@ -214,5 +214,7 @@ def _has_breaking_change(changes: list[FieldChange]) -> bool:
         if change.kind in {"removed_field", "renamed_field", "type_changed", "enum_changed", "identity_changed"}:
             return True
         if change.kind == "added_field" and change.to_optional is False:
+            return True
+        if is_optionality_breaking(change):
             return True
     return False

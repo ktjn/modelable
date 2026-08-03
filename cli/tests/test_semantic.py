@@ -87,6 +87,26 @@ def test_additive_version_rejects_breaking_changes():
     assert any("additive declaration includes incompatible changes" in error for error in errors)
 
 
+def test_additive_version_rejects_optional_to_required_change():
+    mdl = parse_text_to_ir("""
+    domain customer {
+      owner: "test-team"
+      entity Customer @ 1 (additive) {
+        @key customerId: uuid
+        email?: string
+      }
+      entity Customer @ 2 (additive) {
+        @key customerId: uuid
+        email: string
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("nullability change email" in error for error in errors)
+
+
 def test_additive_version_allows_optional_additions():
     mdl = parse_text_to_ir("""
     domain customer {

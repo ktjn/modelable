@@ -195,6 +195,54 @@ def test_compare_model_versions_reports_required_field_addition_as_breaking():
     assert any("added_field email" in finding for finding in report.findings)
 
 
+def test_optional_to_required_is_breaking():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            email?: string
+          }
+          entity Customer @ 2 (breaking) {
+            @key customerId: uuid
+            email: string
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
+    assert report.status == "breaking"
+    assert any("nullability_changed email" in finding for finding in report.findings)
+
+
+def test_required_to_optional_is_compatible():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            email: string
+          }
+          entity Customer @ 2 (additive) {
+            @key customerId: uuid
+            email?: string
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
+    assert report.status == "compatible"
+    assert any("nullability_changed email" in finding for finding in report.findings)
+
+
 def test_compare_model_versions_reports_enum_and_identity_changes():
     mdl = parse_text_to_ir(
         """
