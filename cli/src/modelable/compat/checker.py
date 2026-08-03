@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 
 from modelable.compat.diff import FieldChange, compare_index_decls, compare_model_versions, is_optionality_breaking
 from modelable.parser.ir import DirectMapping, IndexDecl, MdlFile, ModelVersion
+from modelable.registry.resolver import find_dependents
 
 
 @dataclass(frozen=True)
@@ -132,19 +133,9 @@ def analyze_impact(
 def find_projection_dependents(mdl: MdlFile, ref: str) -> list[tuple[str, str, int]]:
     """Return projections that resolve to the exact model version in ``ref``."""
     model_ref, version_text = ref.rsplit("@", 1)
+    domain_name, model_name = model_ref.split(".", 1)
     version = int(version_text)
-    dependents: list[tuple[str, str, int]] = []
-    for domain in mdl.domains:
-        for projection_name, versions in domain.projections.items():
-            for projection in versions:
-                sources = [(projection.source.model, projection.source.version)]
-                sources.extend((join.model, join.version) for join in projection.joins)
-                if any(
-                    source_model == model_ref and getattr(source_version, "version", None) == version
-                    for source_model, source_version in sources
-                ):
-                    dependents.append((domain.name, projection_name, projection.version))
-    return sorted(dependents)
+    return sorted(find_dependents(mdl, domain_name, model_name, version))
 
 
 def _find_version(

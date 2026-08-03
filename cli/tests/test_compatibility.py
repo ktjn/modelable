@@ -357,6 +357,37 @@ def test_find_projection_dependents_is_public_and_includes_joined_sources():
     ]
 
 
+def test_find_projection_dependents_includes_range_versioned_source():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          owner: "customer-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+          entity Customer @ 2 (additive) {
+            @key customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "billing-team"
+          projection BillingCustomer @ 1
+            from customer.Customer @ >=1 <3 as c
+          {
+            id <- c.customerId
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import find_projection_dependents
+
+    # The range >=1 <3 resolves to version 2 today, so BillingCustomer depends
+    # on customer.Customer@2, not @1.
+    assert find_projection_dependents(mdl, "customer.Customer@2") == [("billing", "BillingCustomer", 1)]
+    assert find_projection_dependents(mdl, "customer.Customer@1") == []
+
+
 def test_index_changed_is_visible_when_secondary_index_added():
     mdl = parse_text_to_ir(
         """
