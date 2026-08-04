@@ -32,22 +32,35 @@ delete `cli/mypy-baseline.txt`.
 
 ## Test and coverage visibility
 
-### 2. CI publishes CLI coverage visibility without enforcing a threshold
+### 2. CI enforces a per-critical-path coverage ratchet, not a repository-wide threshold
 
 **Evidence:** `cli/pyproject.toml` declares `pytest-cov` as a dev dependency
 and configures `[tool.coverage.run] source = ["src/modelable"]`.
-`validate.yml`'s `cli` job now runs `uv run pytest --tb=short
---cov=modelable --cov-report=term-missing --cov-report=xml` and uploads
-`cli/coverage.xml` as the `cli-coverage-xml` artifact.
+`validate.yml`'s `cli` job runs `uv run pytest --tb=short --cov=modelable
+--cov-report=term-missing --cov-report=xml`, uploads `cli/coverage.xml` as
+the `cli-coverage-xml` artifact, and then runs
+`.github/scripts/check_coverage_ratchet.py` against
+`cli/coverage-baseline.txt` — the same checked-in-baseline pattern the mypy
+strict ratchet (finding 1, above) already uses. The baseline lists the 12
+files covering Slice G1's eight protection categories from
+[docs/correction-and-capability-plan.md](correction-and-capability-plan.md#slice-g1-critical-compatibility-coverage):
+model/projection compatibility (`compat/checker.py`, `compat/diff.py`),
+dependency resolution (`dependency_graph.py`, `registry/resolver.py`),
+expression validation (`expressions/cel.py`, `compiler/workspace.py`),
+lineage (`planner/lineage.py`), governance (`governance/checker.py`),
+signatures (`registry/signature.py`), and target compatibility
+(`emitters/protobuf.py`, `emitters/grpc.py`, `commands/validate_compat.py`).
 
-**Impact:** PRs now have a concrete coverage artifact and terminal coverage
-summary for the Python package, which makes under-tested compatibility,
-lineage, and governance paths easier to spot. This intentionally stops short
-of a hard percentage gate while the suite is still being broadened.
+**Impact:** A PR that drops coverage on any of these specific files fails
+CI, closing the gap the previous "remaining work" note here flagged —
+critical-path coverage is now a ratcheted signal, tied to the paths that
+actually determine compiler correctness rather than an arbitrary
+repository-wide percentage. The rest of the codebase keeps the same
+visibility-only artifact/terminal-summary behavior as before.
 
-**Remaining work:** Decide whether coverage should become a ratcheted signal
-after the artifact has enough history. A future threshold should be tied to
-critical-path coverage rather than an arbitrary repository-wide percentage.
+**Remaining work:** Raise individual baseline numbers as their tests improve
+(never lower one to make a change pass); add more files to
+`coverage-baseline.txt` if a future slice identifies another critical path.
 
 ## Dependency management
 

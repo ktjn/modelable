@@ -1,0 +1,34 @@
+# Critical-path coverage ratchet baseline (Slice G1).
+# Each line is "path/from/repo/root.py: minimum-line-coverage-percent".
+# CI fails if a listed file's coverage drops below its baseline (with a
+# small floating-point tolerance). Improve a number here as coverage grows;
+# do not lower a number to make a change pass.
+#
+# Files are grouped by the correction-plan protection category they cover
+# (docs/correction-and-capability-plan.md, Slice G1):
+
+# Model and projection compatibility
+src/modelable/compat/checker.py: 93.64
+src/modelable/compat/diff.py: 94.32
+
+# Dependency resolution
+src/modelable/dependency_graph.py: 92.86
+src/modelable/registry/resolver.py: 94.89
+
+# Expression validation
+src/modelable/expressions/cel.py: 98.34
+src/modelable/compiler/workspace.py: 96.32
+
+# Lineage
+src/modelable/planner/lineage.py: 95.74
+
+# Governance
+src/modelable/governance/checker.py: 94.17
+
+# Signatures
+src/modelable/registry/signature.py: 93.33
+
+# Target compatibility
+src/modelable/emitters/protobuf.py: 92.90
+src/modelable/emitters/grpc.py: 96.59
+src/modelable/commands/validate_compat.py: 96.77

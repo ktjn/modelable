@@ -23,6 +23,8 @@ scripts/__pycache__/
 .pytest_cache/
 .pytest_tmp/
 .venv/
+.coverage
+cli/coverage.xml
 
 # VS Code test harness — downloaded VS Code binary for extension smoke tests
 vscode/.vscode-test/
