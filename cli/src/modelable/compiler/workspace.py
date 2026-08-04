@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from modelable.diagnostics.model import Diagnostic
-from modelable.expressions.cel import CelContext, looks_boolean, parse_cel, validate_cel_expr
+from modelable.expressions.cel import CelContext, FieldRef, looks_boolean, parse_cel, validate_cel_expr
 from modelable.parser.ir import ComputedMapping, MdlFile
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.planner import expand_auto_projections
@@ -312,6 +312,7 @@ def _validate_cel(merged: MdlFile) -> list[Diagnostic]:
                             )
 
                 if pv.group_by:
+                    own_field_names = {field.name for field in pv.fields}
                     group_ctx = CelContext(source_fields=source_fields, has_group_by=False, fqn=fqn)
                     for group_expr in pv.group_by:
                         ast, parse_errors = parse_cel(group_expr)
@@ -324,17 +325,23 @@ def _validate_cel(merged: MdlFile) -> list[Diagnostic]:
                                     path="<workspace>",
                                 )
                             )
-                        if ast is not None:
-                            result = validate_cel_expr(ast, group_ctx)
-                            for err in result.errors:
-                                errors.append(
-                                    Diagnostic(
-                                        code="CEL",
-                                        message=f"{fqn} group by: {err}",
-                                        severity="error",
-                                        path="<workspace>",
-                                    )
+                        if ast is None:
+                            continue
+                        # SQL-style GROUP BY on a SELECT-list alias: a bare name matching
+                        # one of this projection's own fields refers to that field, not a
+                        # source alias.field reference — skip source-field validation for it.
+                        if isinstance(ast, FieldRef) and ast.alias == "" and ast.field in own_field_names:
+                            continue
+                        result = validate_cel_expr(ast, group_ctx)
+                        for err in result.errors:
+                            errors.append(
+                                Diagnostic(
+                                    code="CEL",
+                                    message=f"{fqn} group by: {err}",
+                                    severity="error",
+                                    path="<workspace>",
                                 )
+                            )
 
                 for proj_field in pv.fields:
                     if not isinstance(proj_field.mapping, ComputedMapping):

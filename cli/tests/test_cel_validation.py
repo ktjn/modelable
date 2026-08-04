@@ -675,6 +675,154 @@ def test_workspace_accepts_valid_join_predicate():
     assert cel_errors == []
 
 
+def test_workspace_accepts_group_by_referencing_own_computed_field():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    # SQL-style GROUP BY on a SELECT-list alias: cohortMonth is this projection's
+    # own computed field, not a source alias.field reference. Real sample scenarios
+    # (samples/scenarios/01-ecommerce-data-warehouse/analytics.mdl) use this form.
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            acquisitionDate: timestamp
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection GoodProj @ 1
+            from customer.Customer @ 1 as c
+            group by cohortMonth
+          {
+            cohortMonth <- c.customerId
+            customerCount = count(c.customerId)
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    cel_errors = [d.message for d in ws.errors if "CEL" in d.code]
+    assert cel_errors == []
+
+
+def test_workspace_rejects_group_by_referencing_unknown_bare_name():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from customer.Customer @ 1 as c
+            group by notAFieldAnywhere
+          {
+            customerCount = count(c.customerId)
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL002" in diagnostic.message and "bare identifier" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_rejects_computed_field_referencing_unknown_field():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from customer.Customer @ 1 as c
+          {
+            isActive = c.nonExistentField == "active"
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL002" in diagnostic.message and "nonExistentField" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_valid_projection_with_every_expression_position_passes_validation_and_extracts_all_dependencies():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+    from modelable.dependency_graph import build_projection_dependencies
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+            region: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection FullCoverage @ 1
+            from orders.Order @ 1 as o
+            join customer.Customer @ 1 as c on o.customerId == c.customerId
+            where c.status == "active"
+            group by o.region
+          {
+            region <- o.region
+            orderCount = count(o.orderId)
+            isActive = c.status == "active"
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+
+    cel_errors = [d.message for d in ws.errors if "CEL" in d.code]
+    assert cel_errors == []
+
+    domain = next(d for d in ws.mdl.domains if d.name == "billing")
+    pv = domain.projections["FullCoverage"][0]
+    deps = build_projection_dependencies(ws.mdl, "billing", "FullCoverage", pv)
+
+    assert {dep.usage_kind for dep in deps} == {"direct", "computed", "join", "filter", "group"}
+
+
 def test_workspace_accepts_valid_cel():
     import tempfile
     import textwrap
