@@ -250,6 +250,26 @@ def test_validation_workflow_runs_mypy_baseline_ratchet() -> None:
     assert "uv run mypy src/modelable --no-error-summary --show-error-codes" in cli_commands
 
 
+def test_validation_workflow_runs_coverage_ratchet() -> None:
+    workflow = _workflow("validate.yml")
+    cli_steps = workflow["jobs"]["cli"]["steps"]
+    cli_commands = "\n".join(step["run"] for step in cli_steps if "run" in step)
+
+    assert "check_coverage_ratchet.py" in cli_commands
+    assert "--coverage-xml coverage.xml" in cli_commands
+    assert "--baseline coverage-baseline.txt" in cli_commands
+
+    test_step_index = next(
+        index
+        for index, step in enumerate(cli_steps)
+        if "run" in step and "pytest --tb=short --cov=modelable" in step["run"]
+    )
+    ratchet_step_index = next(
+        index for index, step in enumerate(cli_steps) if "run" in step and "check_coverage_ratchet.py" in step["run"]
+    )
+    assert ratchet_step_index > test_step_index
+
+
 def test_validation_workflow_publishes_cli_coverage_report() -> None:
     workflow = _workflow("validate.yml")
     cli_steps = workflow["jobs"]["cli"]["steps"]

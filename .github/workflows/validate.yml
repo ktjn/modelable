@@ -103,6 +103,12 @@ jobs:
       - name: Run tests
         run: uv run pytest --tb=short --cov=modelable --cov-report=term-missing --cov-report=xml
 
+      - name: Run critical-path coverage ratchet
+        run: >
+          uv run python ../.github/scripts/check_coverage_ratchet.py
+          --coverage-xml coverage.xml
+          --baseline coverage-baseline.txt
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v7.0.1
         with:
