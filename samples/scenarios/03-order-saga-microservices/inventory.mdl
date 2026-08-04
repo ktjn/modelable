@@ -27,9 +27,11 @@ domain inventory {
     quantityAvailable: int
   }
 
+  // Previously filtered `where oc.items.size() > 0` ("only orders with items");
+  // removed because the compiler's CEL subset has no array-length/method-call
+  // syntax, so this was never actually validated or enforced.
   projection OrderReservationTriggers @ 1
     from commerce.OrderCreated @ 2 as oc
-    where oc.items.size() > 0
   {
     @key orderId         <- oc.orderId
     items                <- oc.items
