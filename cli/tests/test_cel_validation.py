@@ -343,6 +343,131 @@ def test_workspace_rejects_invalid_cel():
     assert any("CEL005" in diagnostic.message for diagnostic in ws.errors)
 
 
+def test_workspace_rejects_unknown_alias_in_where():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from customer.Customer @ 1 as c
+            where x.status == "active"
+          {
+            id <- c.customerId
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL002" in diagnostic.message and "unknown alias 'x'" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_rejects_unknown_field_in_where():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from customer.Customer @ 1 as c
+            where c.nonExistentField == "active"
+          {
+            id <- c.customerId
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL002" in diagnostic.message and "nonExistentField" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_rejects_non_boolean_where():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from customer.Customer @ 1 as c
+            where lower(c.status)
+          {
+            id <- c.customerId
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL008" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_accepts_valid_where():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection GoodProj @ 1
+            from customer.Customer @ 1 as c
+            where c.status == "active"
+          {
+            id <- c.customerId
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    cel_errors = [d.message for d in ws.errors if "CEL" in d.code]
+    assert cel_errors == []
+
+
 def test_workspace_accepts_valid_cel():
     import tempfile
     import textwrap

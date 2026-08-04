@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from modelable.diagnostics.model import Diagnostic
-from modelable.expressions.cel import CelContext, parse_cel, validate_cel_expr
+from modelable.expressions.cel import CelContext, looks_boolean, parse_cel, validate_cel_expr
 from modelable.parser.ir import ComputedMapping, MdlFile
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.planner import expand_auto_projections
@@ -278,6 +278,38 @@ def _validate_cel(merged: MdlFile) -> list[Diagnostic]:
                     has_group_by=bool(pv.group_by),
                     fqn=fqn,
                 )
+
+                if pv.where:
+                    ast, parse_errors = parse_cel(pv.where)
+                    for err in parse_errors:
+                        errors.append(
+                            Diagnostic(
+                                code="CEL",
+                                message=f"{fqn} where: {err}",
+                                severity="error",
+                                path="<workspace>",
+                            )
+                        )
+                    if ast is not None:
+                        result = validate_cel_expr(ast, ctx)
+                        for err in result.errors:
+                            errors.append(
+                                Diagnostic(
+                                    code="CEL",
+                                    message=f"{fqn} where: {err}",
+                                    severity="error",
+                                    path="<workspace>",
+                                )
+                            )
+                        if not looks_boolean(ast):
+                            errors.append(
+                                Diagnostic(
+                                    code="CEL",
+                                    message=f"{fqn} where: CEL008: expression must be a boolean predicate",
+                                    severity="error",
+                                    path="<workspace>",
+                                )
+                            )
 
                 for proj_field in pv.fields:
                     if not isinstance(proj_field.mapping, ComputedMapping):
