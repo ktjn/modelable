@@ -113,6 +113,16 @@ def find_dependents(
     return dependents
 
 
+class AmbiguousSemanticTypeError(LookupError):
+    """Raised when a bare semantic-type name matches more than one domain's declaration.
+
+    A subclass of ``LookupError`` so existing ``except LookupError`` callers that
+    treat "couldn't resolve" uniformly (e.g. skip and move on) keep working
+    unchanged; callers that need to react differently to a genuine ambiguity
+    (as opposed to a name that simply doesn't exist) can catch this specifically.
+    """
+
+
 def resolve_semantic_type_ref(
     mdl: MdlFile,
     current_domain: str,
@@ -145,7 +155,7 @@ def resolve_semantic_type_ref(
         raise LookupError(f"unknown semantic type '{name}'")
     if len(matches) > 1:
         candidates = ", ".join(f"{domain_name}.{decl.name}" for domain_name, decl in matches)
-        raise LookupError(f"ambiguous semantic type '{name}'; candidates: {candidates}")
+        raise AmbiguousSemanticTypeError(f"ambiguous semantic type '{name}'; candidates: {candidates}")
     return matches[0]
 
 

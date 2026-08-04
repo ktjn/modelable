@@ -24,7 +24,7 @@ from modelable.parser.ir import (
     ProjectionVersion,
     SemanticTypeDecl,
 )
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import AmbiguousSemanticTypeError, resolve_model_ref, resolve_semantic_type_ref
 from modelable.registry.signature import compute_version_signature
 
 
@@ -235,13 +235,15 @@ def _resolve_named_type_map(named_refs: set, mdl: MdlFile | None) -> tuple[dict[
                     break
         if resolved:
             continue
-        for domain in mdl.domains:
-            semantic_decl = next((decl for decl in domain.semantic_types if decl.name == name), None)
-            if semantic_decl is not None:
-                module = _snake_case(semantic_decl.name)
-                resolved_map[name] = semantic_decl.name
-                use_statements.append(f"use super::{module}::{semantic_decl.name};")
-                break
+        try:
+            _domain_name, semantic_decl = resolve_semantic_type_ref(mdl, "", name)
+        except AmbiguousSemanticTypeError:
+            raise
+        except LookupError:
+            continue
+        module = _snake_case(semantic_decl.name)
+        resolved_map[name] = semantic_decl.name
+        use_statements.append(f"use super::{module}::{semantic_decl.name};")
     return resolved_map, use_statements
 
 
