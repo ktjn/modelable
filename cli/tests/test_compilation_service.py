@@ -695,7 +695,7 @@ domain unrelated {
     assert not any(ref.startswith("unrelated") for ref in affected)
 
 
-def test_duplicate_semantic_names_report_only_compiler_selected_declaration(tmp_path: Path) -> None:
+def test_duplicate_semantic_names_are_omitted_from_affected_definitions_when_ambiguous(tmp_path: Path) -> None:
     source = write_workspace(
         tmp_path,
         """
@@ -714,6 +714,44 @@ domain consumer {
   entity Event @ 1 (additive) {
     @key eventId: uuid
     sharedId: SharedId
+  }
+}
+""",
+    )
+
+    pending = preview_for(
+        tmp_path,
+        source,
+        target="openmetadata",
+        domains=("alpha", "consumer"),
+    )
+    affected = {item.ref for item in pending.affected_definitions}
+
+    # sharedId's bare reference is ambiguous between alpha.SharedId and
+    # beta.SharedId — neither is reported as a confident pick.
+    assert "alpha.SharedId" not in affected
+    assert "beta.SharedId" not in affected
+
+
+def test_qualified_semantic_reference_is_reported_as_affected(tmp_path: Path) -> None:
+    source = write_workspace(
+        tmp_path,
+        """
+domain alpha {
+  owner: "alpha-team"
+  semantic SharedId : string
+}
+
+domain beta {
+  owner: "beta-team"
+  semantic SharedId : u64
+}
+
+domain consumer {
+  owner: "consumer-team"
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    sharedId: alpha.SharedId
   }
 }
 """,
