@@ -85,7 +85,7 @@ type_expr: primitive_type
          | map_type
          | ref_type
          | object_type
-         | IDENT
+         | dotted_ref
 
 primitive_type: "string"    -> pt_string
               | "int"       -> pt_int

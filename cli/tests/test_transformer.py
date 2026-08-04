@@ -282,6 +282,27 @@ def test_transform_workspace_metadata():
     assert [target.name for target in mdl.workspace.generate_targets] == ["docs", "sql"]
 
 
+def test_qualified_semantic_type_reference_parses_as_named_type():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      semantic Id: uuid
+    }
+    domain billing {
+      owner: "test-team"
+      entity Invoice @ 1 (additive) {
+        @key invoiceId: uuid
+        customerId: orders.Id
+      }
+    }
+    """)
+
+    billing = next(d for d in mdl.domains if d.name == "billing")
+    field = next(f for f in billing.models["Invoice"][0].fields if f.name == "customerId")
+    assert field.type.kind == "named"
+    assert field.type.name == "orders.Id"
+
+
 def test_transform_fixture_files(fixture_path):
     from modelable.parser.parse import parse_file_to_ir
 
