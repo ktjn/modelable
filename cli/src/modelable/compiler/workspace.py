@@ -386,6 +386,15 @@ def _validate_cel(merged: MdlFile) -> list[Diagnostic]:
                                     path="<workspace>",
                                 )
                             )
+                        if not looks_boolean(ast):
+                            errors.append(
+                                Diagnostic(
+                                    code="CEL",
+                                    message=f"{fqn} join on: CEL008: expression must be a boolean predicate",
+                                    severity="error",
+                                    path="<workspace>",
+                                )
+                            )
 
     return errors
 
