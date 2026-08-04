@@ -6,6 +6,7 @@ from modelable.expressions.cel import (
     Literal,
     TernaryOp,
     extract_field_refs,
+    looks_boolean,
     parse_cel,
     validate_cel_expr,
 )
@@ -213,6 +214,99 @@ def test_no_refs_from_literal():
     ast, _ = parse_cel('"hello"')
     refs = extract_field_refs(ast)
     assert refs == []
+
+
+# ── Boolean-shape tests ─────────────────────────────────────────────────────
+
+
+def test_looks_boolean_comparison_is_boolean():
+    ast, _ = parse_cel('c.status == "active"')
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_logical_and_is_boolean():
+    ast, _ = parse_cel('c.a == "x" && c.b == "y"')
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_in_operator_is_boolean():
+    ast, _ = parse_cel('c.status in ["active", "pending"]')
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_arithmetic_is_not_boolean():
+    ast, _ = parse_cel("c.amount + 1")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_negation_is_boolean():
+    ast, _ = parse_cel("!c.flag")
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_numeric_negation_is_not_boolean():
+    ast, _ = parse_cel("-c.amount")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_ternary_with_boolean_branches_is_boolean():
+    ast, _ = parse_cel("c.a == 1 ? c.b == 2 : c.c == 3")
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_ternary_with_non_boolean_branch_is_not_boolean():
+    ast, _ = parse_cel('c.flag ? "yes" : "no"')
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_true_literal_is_boolean():
+    ast, _ = parse_cel("true")
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_string_literal_is_not_boolean():
+    ast, _ = parse_cel('"active"')
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_int_literal_is_not_boolean():
+    ast, _ = parse_cel("5")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_null_literal_is_not_boolean():
+    ast, _ = parse_cel("null")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_contains_function_is_boolean():
+    ast, _ = parse_cel('contains(c.name, "smith")')
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_scalar_function_is_not_boolean():
+    ast, _ = parse_cel("lower(c.name)")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_aggregate_function_is_not_boolean():
+    ast, _ = parse_cel("count(c.id)")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_unrecognized_function_is_permissive():
+    ast, _ = parse_cel("someCustomFn(c.id)")
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_bare_field_ref_is_permissive():
+    ast, _ = parse_cel("c.isActive")
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_list_literal_is_not_boolean():
+    ast, _ = parse_cel("[1, 2, 3]")
+    assert looks_boolean(ast) is False
 
 
 # ── End-to-end via workspace ──────────────────────────────────────────────────

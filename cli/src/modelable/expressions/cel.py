@@ -545,3 +545,34 @@ def _collect_refs(expr: CelExpr, refs: list[tuple[str, str]]) -> None:
     elif isinstance(expr, ObjectLiteral):
         for _, value in expr.pairs:
             _collect_refs(value, refs)
+
+
+# ── Boolean-shape check ─────────────────────────────────────────────────────
+
+_BOOLEAN_BINARY_OPS = frozenset({"==", "!=", "<", "<=", ">", ">=", "in", "&&", "||"})
+_BOOLEAN_FUNCTIONS = frozenset({"contains", "startsWith", "endsWith"})
+
+
+def looks_boolean(expr: CelExpr) -> bool:
+    """Structural check for whether a CEL expression could be a boolean predicate.
+
+    There is no field-type-aware CEL type checker in this compiler, so this only
+    rejects expressions provably not boolean (arithmetic, a non-boolean literal, a
+    list/object literal, a wildcard, or a function known to return something other
+    than a boolean). A bare field reference or an unrecognized function name is
+    treated as "cannot tell" rather than flagged, so a real boolean-typed source
+    field like `c.isActive` is never wrongly rejected.
+    """
+    if isinstance(expr, BinaryOp):
+        return expr.op in _BOOLEAN_BINARY_OPS
+    if isinstance(expr, UnaryOp):
+        return expr.op == "!"
+    if isinstance(expr, TernaryOp):
+        return looks_boolean(expr.then_) and looks_boolean(expr.else_)
+    if isinstance(expr, Literal):
+        return isinstance(expr.value, bool)
+    if isinstance(expr, FunctionCall):
+        if expr.name in _BOOLEAN_FUNCTIONS:
+            return True
+        return expr.name not in _SCALAR_FUNCTIONS and expr.name not in _AGGREGATE_FUNCTIONS
+    return not isinstance(expr, (ListLiteral, ObjectLiteral, WildcardRef))
