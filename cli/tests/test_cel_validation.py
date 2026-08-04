@@ -6,6 +6,7 @@ from modelable.expressions.cel import (
     Literal,
     TernaryOp,
     extract_field_refs,
+    looks_boolean,
     parse_cel,
     validate_cel_expr,
 )
@@ -215,6 +216,99 @@ def test_no_refs_from_literal():
     assert refs == []
 
 
+# ── Boolean-shape tests ─────────────────────────────────────────────────────
+
+
+def test_looks_boolean_comparison_is_boolean():
+    ast, _ = parse_cel('c.status == "active"')
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_logical_and_is_boolean():
+    ast, _ = parse_cel('c.a == "x" && c.b == "y"')
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_in_operator_is_boolean():
+    ast, _ = parse_cel('c.status in ["active", "pending"]')
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_arithmetic_is_not_boolean():
+    ast, _ = parse_cel("c.amount + 1")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_negation_is_boolean():
+    ast, _ = parse_cel("!c.flag")
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_numeric_negation_is_not_boolean():
+    ast, _ = parse_cel("-c.amount")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_ternary_with_boolean_branches_is_boolean():
+    ast, _ = parse_cel("c.a == 1 ? c.b == 2 : c.c == 3")
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_ternary_with_non_boolean_branch_is_not_boolean():
+    ast, _ = parse_cel('c.flag ? "yes" : "no"')
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_true_literal_is_boolean():
+    ast, _ = parse_cel("true")
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_string_literal_is_not_boolean():
+    ast, _ = parse_cel('"active"')
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_int_literal_is_not_boolean():
+    ast, _ = parse_cel("5")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_null_literal_is_not_boolean():
+    ast, _ = parse_cel("null")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_contains_function_is_boolean():
+    ast, _ = parse_cel('contains(c.name, "smith")')
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_scalar_function_is_not_boolean():
+    ast, _ = parse_cel("lower(c.name)")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_aggregate_function_is_not_boolean():
+    ast, _ = parse_cel("count(c.id)")
+    assert looks_boolean(ast) is False
+
+
+def test_looks_boolean_unrecognized_function_is_permissive():
+    ast, _ = parse_cel("someCustomFn(c.id)")
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_bare_field_ref_is_permissive():
+    ast, _ = parse_cel("c.isActive")
+    assert looks_boolean(ast) is True
+
+
+def test_looks_boolean_list_literal_is_not_boolean():
+    ast, _ = parse_cel("[1, 2, 3]")
+    assert looks_boolean(ast) is False
+
+
 # ── End-to-end via workspace ──────────────────────────────────────────────────
 
 
@@ -247,6 +341,486 @@ def test_workspace_rejects_invalid_cel():
         mdl_path.write_text(mdl_text, encoding="utf-8")
         ws = load_workspace(tmp)
     assert any("CEL005" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_rejects_unknown_alias_in_where():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from customer.Customer @ 1 as c
+            where x.status == "active"
+          {
+            id <- c.customerId
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL002" in diagnostic.message and "unknown alias 'x'" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_rejects_unknown_field_in_where():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from customer.Customer @ 1 as c
+            where c.nonExistentField == "active"
+          {
+            id <- c.customerId
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL002" in diagnostic.message and "nonExistentField" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_rejects_non_boolean_where():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from customer.Customer @ 1 as c
+            where lower(c.status)
+          {
+            id <- c.customerId
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL008" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_accepts_valid_where():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection GoodProj @ 1
+            from customer.Customer @ 1 as c
+            where c.status == "active"
+          {
+            id <- c.customerId
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    cel_errors = [d.message for d in ws.errors if "CEL" in d.code]
+    assert cel_errors == []
+
+
+def test_workspace_rejects_unknown_field_in_group_by():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from orders.Order @ 1 as o
+            group by o.nonExistentField
+          {
+            orderCount = count(o.orderId)
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL002" in diagnostic.message and "nonExistentField" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_rejects_aggregate_inside_group_by():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from orders.Order @ 1 as o
+            group by count(o.orderId)
+          {
+            orderCount = count(o.orderId)
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL006" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_accepts_valid_group_by():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection GoodProj @ 1
+            from orders.Order @ 1 as o
+            group by o.customerId
+          {
+            customerId <- o.customerId
+            orderCount = count(o.orderId)
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    cel_errors = [d.message for d in ws.errors if "CEL" in d.code]
+    assert cel_errors == []
+
+
+def test_workspace_rejects_unknown_field_in_join_predicate():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+        }
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from orders.Order @ 1 as o
+            join customer.Customer @ 1 as c on o.customerId == c.nonExistentField
+          {
+            orderId <- o.orderId
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL002" in diagnostic.message and "nonExistentField" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_rejects_non_boolean_join_predicate():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+        }
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from orders.Order @ 1 as o
+            join customer.Customer @ 1 as c on lower(c.customerId)
+          {
+            orderId <- o.orderId
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL008" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_accepts_valid_join_predicate():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+        }
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection GoodProj @ 1
+            from orders.Order @ 1 as o
+            join customer.Customer @ 1 as c on o.customerId == c.customerId
+          {
+            orderId <- o.orderId
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    cel_errors = [d.message for d in ws.errors if "CEL" in d.code]
+    assert cel_errors == []
+
+
+def test_workspace_accepts_group_by_referencing_own_computed_field():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    # SQL-style GROUP BY on a SELECT-list alias: cohortMonth is this projection's
+    # own computed field, not a source alias.field reference. Real sample scenarios
+    # (samples/scenarios/01-ecommerce-data-warehouse/analytics.mdl) use this form.
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            acquisitionDate: timestamp
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection GoodProj @ 1
+            from customer.Customer @ 1 as c
+            group by cohortMonth
+          {
+            cohortMonth <- c.customerId
+            customerCount = count(c.customerId)
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    cel_errors = [d.message for d in ws.errors if "CEL" in d.code]
+    assert cel_errors == []
+
+
+def test_workspace_rejects_group_by_referencing_unknown_bare_name():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from customer.Customer @ 1 as c
+            group by notAFieldAnywhere
+          {
+            customerCount = count(c.customerId)
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL002" in diagnostic.message and "bare identifier" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_workspace_rejects_computed_field_referencing_unknown_field():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection BadProj @ 1
+            from customer.Customer @ 1 as c
+          {
+            isActive = c.nonExistentField == "active"
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+    assert any("CEL002" in diagnostic.message and "nonExistentField" in diagnostic.message for diagnostic in ws.errors)
+
+
+def test_valid_projection_with_every_expression_position_passes_validation_and_extracts_all_dependencies():
+    import tempfile
+    import textwrap
+    from pathlib import Path
+
+    from modelable.compiler.workspace import load_workspace
+    from modelable.dependency_graph import build_projection_dependencies
+
+    mdl_text = textwrap.dedent("""\
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            status: string
+          }
+        }
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+            region: string
+          }
+        }
+        domain billing {
+          owner: "test-team"
+          projection FullCoverage @ 1
+            from orders.Order @ 1 as o
+            join customer.Customer @ 1 as c on o.customerId == c.customerId
+            where c.status == "active"
+            group by o.region
+          {
+            region <- o.region
+            orderCount = count(o.orderId)
+            isActive = c.status == "active"
+          }
+        }
+    """)
+    with tempfile.TemporaryDirectory() as tmp:
+        Path(tmp, "test.mdl").write_text(mdl_text, encoding="utf-8")
+        ws = load_workspace(tmp)
+
+    cel_errors = [d.message for d in ws.errors if "CEL" in d.code]
+    assert cel_errors == []
+
+    domain = next(d for d in ws.mdl.domains if d.name == "billing")
+    pv = domain.projections["FullCoverage"][0]
+    deps = build_projection_dependencies(ws.mdl, "billing", "FullCoverage", pv)
+
+    assert {dep.usage_kind for dep in deps} == {"direct", "computed", "join", "filter", "group"}
 
 
 def test_workspace_accepts_valid_cel():

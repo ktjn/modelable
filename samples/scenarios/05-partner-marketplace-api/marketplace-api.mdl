@@ -83,9 +83,12 @@ domain "marketplace-api" {
     }
   }
 
+  // Previously filtered `where inv.quantityAvailable != inv.quantityAvailable_prev`
+  // ("only fire on an actual change"); removed because the compiler has no
+  // previous-value/delta comparison construct, so `_prev` was never a real field
+  // and this was never actually validated or enforced.
   projection InventoryChangeWebhook @ 1 {
     from inventory.SellerInventoryLevel @ 2 as inv
-    where inv.quantityAvailable != inv.quantityAvailable_prev
   }
   {
     event_type          = "inventory.level_changed"
