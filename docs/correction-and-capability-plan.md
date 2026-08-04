@@ -4,14 +4,14 @@
 
 This plan was originally validated against `ktjn/modelable` `main` at commit
 `38fa89dcc22c0ed5f58458f36aa31f8d316290be` and folded into
-[ROADMAP.md](../ROADMAP.md) as Priority 3 and part of Priority 6 on
+[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) as Priority 3 and part of Priority 6 on
 2026-08-03, at commit `540b9f6526db82f92ab4386a2ec17ea501161d70`. The one
 commit between those two points (`fix(playground): bump pinned searchable-*
 wheels for the browser`, #277) does not touch the compiler paths this plan
 covers, so the findings below still hold.
 
 It is a **compiler-correctness and contract-consistency track**. It does not
-replace the product roadmap. See [ROADMAP.md](../ROADMAP.md) for priority
+replace the product roadmap. See [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) for priority
 ordering; this document holds the full slice-level detail that ROADMAP.md
 links to.
 
