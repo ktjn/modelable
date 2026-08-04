@@ -428,7 +428,7 @@ src/modelable/registry/index.py:228: error: "FieldDef" has no attribute "mapping
 src/modelable/registry/index.py:368: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
 src/modelable/registry/index.py:399: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
 src/modelable/registry/index.py:435: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
-src/modelable/registry/resolver.py:169: error: Argument 1 to "extend" of "list" has incompatible type "list[ProjectionVersion]"; expected "Iterable[ModelVersion]"  [arg-type]
+src/modelable/registry/resolver.py:206: error: Argument 1 to "extend" of "list" has incompatible type "list[ProjectionVersion]"; expected "Iterable[ModelVersion]"  [arg-type]
 src/modelable/validation/semantic.py:129: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
 src/modelable/validation/semantic.py:211: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
 src/modelable/validation/semantic.py:240: error: Call to untyped function "_resolve_projection_field_type" in typed context  [no-untyped-call]
