@@ -1740,3 +1740,65 @@ binding span-binding {
     assert 'TelemetrySpanV1SpanKind::Internal => "INTERNAL".to_string(),' in proj.content
     # Must NOT use .into() for the enum field
     assert "span_kind: src.span_kind.into()," not in proj.content
+
+
+def test_emit_rust_rejects_ambiguous_unqualified_semantic_reference(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain alpha {
+  owner: "alpha-team"
+  semantic SharedId : u32
+}
+
+domain beta {
+  owner: "beta-team"
+  semantic SharedId : u64
+}
+
+domain consumer {
+  owner: "consumer-team"
+  entity UsesShared @ 1 (additive) {
+    @key id: SharedId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    with pytest.raises(
+        LookupError,
+        match=r"ambiguous semantic type 'SharedId'; candidates: alpha\.SharedId, beta\.SharedId",
+    ):
+        emit_rust(workspace, tmp_path / "dist")
+
+
+def test_emit_rust_resolves_qualified_semantic_reference(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain alpha {
+  owner: "alpha-team"
+  semantic SharedId : u32
+}
+
+domain beta {
+  owner: "beta-team"
+  semantic SharedId : u64
+}
+
+domain consumer {
+  owner: "consumer-team"
+  entity UsesShared @ 1 (additive) {
+    @key id: uuid
+    sharedRef: alpha.SharedId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    artifacts = emit_rust(workspace, tmp_path / "dist")
+
+    consumer_artifact = next(a for a in artifacts if "uses_shared" in str(a.path).lower())
+    assert "SharedId" in consumer_artifact.content

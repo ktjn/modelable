@@ -637,6 +637,57 @@ def test_semantic_type_cycle_is_error():
     assert any("cycle" in e.lower() for e in errors)
 
 
+def test_semantic_type_chain_resolves_qualified_cross_domain_reference():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      semantic Id: uuid
+    }
+    domain billing {
+      owner: "test-team"
+      semantic InvoiceId: orders.Id
+    }
+    """)
+
+    assert validate(mdl) == []
+
+
+def test_semantic_type_chain_rejects_ambiguous_bare_reference():
+    mdl = parse_text_to_ir("""
+    domain alpha {
+      owner: "test-team"
+      semantic SharedId: uuid
+    }
+    domain beta {
+      owner: "test-team"
+      semantic SharedId: string
+    }
+    domain consumer {
+      owner: "test-team"
+      semantic Wrapped: SharedId
+    }
+    """)
+
+    errors = validate(mdl)
+    assert any("ambiguous" in e.lower() and "SharedId" in e for e in errors)
+
+
+def test_semantic_type_cycle_across_domains_is_error():
+    mdl = parse_text_to_ir("""
+    domain alpha {
+      owner: "test-team"
+      semantic A: beta.B
+    }
+    domain beta {
+      owner: "test-team"
+      semantic B: alpha.A
+    }
+    """)
+
+    errors = validate(mdl)
+    assert any("cycle" in e.lower() for e in errors)
+
+
 def test_semantic_type_duplicate_name_in_domain_is_error():
     mdl = parse_text_to_ir("""
     domain platform {

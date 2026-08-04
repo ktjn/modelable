@@ -431,7 +431,7 @@ and `REGISTRY_ID`; Protobuf and gRPC expose it in schema-manifest
 
 #### Referencing a semantic type
 
-Semantic types are referenced the same way models are: by their bare name. Resolution is workspace-wide (not scoped to the declaring domain), matching how `ref<Domain.Model>` and other cross-domain lookups already work.
+Semantic types are referenced by name. A bare name resolves against the current domain's own declarations first; if the current domain has no matching declaration, resolution falls back to a workspace-wide search, but only succeeds if exactly one domain declares that name. If more than one domain declares a semantic type with the same name, a bare reference is ambiguous and is a compile error. Use a domain-qualified reference (`orders.Id`) — the same dotted syntax `ref<Domain.Model>` already uses — to name a specific domain's declaration explicitly.
 
 ```mdl
 domain catalog {

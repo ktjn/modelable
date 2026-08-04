@@ -6,6 +6,7 @@ from modelable.parser.ir import (
     MdlFile,
     ModelVersion,
     ProjectionVersion,
+    SemanticTypeDecl,
     VersionExact,
     VersionMin,
     VersionPinned,
@@ -110,6 +111,52 @@ def find_dependents(
                     dependents.append((domain.name, proj_name, pv.version))
 
     return dependents
+
+
+class AmbiguousSemanticTypeError(LookupError):
+    """Raised when a bare semantic-type name matches more than one domain's declaration.
+
+    A subclass of ``LookupError`` so existing ``except LookupError`` callers that
+    treat "couldn't resolve" uniformly (e.g. skip and move on) keep working
+    unchanged; callers that need to react differently to a genuine ambiguity
+    (as opposed to a name that simply doesn't exist) can catch this specifically.
+    """
+
+
+def resolve_semantic_type_ref(
+    mdl: MdlFile,
+    current_domain: str,
+    name: str,
+) -> tuple[str, SemanticTypeDecl]:
+    """Resolve a semantic-type reference to (declaring_domain_name, SemanticTypeDecl).
+
+    ``name`` may be a bare name (resolved in ``current_domain`` first, falling back to
+    a workspace-wide search only when exactly one declaration matches) or a
+    domain-qualified reference (``"orders.Id"``).
+    """
+    if "." in name:
+        domain_name, type_name = name.split(".", 1)
+        domain = next((item for item in mdl.domains if item.name == domain_name), None)
+        if domain is None:
+            raise LookupError(f"unknown domain '{domain_name}' in semantic type reference '{name}'")
+        decl = next((item for item in domain.semantic_types if item.name == type_name), None)
+        if decl is None:
+            raise LookupError(f"unknown semantic type '{name}'")
+        return domain_name, decl
+
+    current = next((item for item in mdl.domains if item.name == current_domain), None)
+    if current is not None:
+        local = next((item for item in current.semantic_types if item.name == name), None)
+        if local is not None:
+            return current_domain, local
+
+    matches = [(domain.name, decl) for domain in mdl.domains for decl in domain.semantic_types if decl.name == name]
+    if not matches:
+        raise LookupError(f"unknown semantic type '{name}'")
+    if len(matches) > 1:
+        candidates = ", ".join(f"{domain_name}.{decl.name}" for domain_name, decl in matches)
+        raise AmbiguousSemanticTypeError(f"ambiguous semantic type '{name}'; candidates: {candidates}")
+    return matches[0]
 
 
 def validate_references(mdl: MdlFile) -> list[str]:

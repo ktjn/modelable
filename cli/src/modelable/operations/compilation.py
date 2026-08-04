@@ -52,7 +52,7 @@ from modelable.registry.factory import get_registry
 from modelable.registry.ids import allocate_registry_ids, read_lock_file, write_lock_file
 from modelable.registry.index import build_registry
 from modelable.registry.oci import OCIRegistryError
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
 
 TARGETS = (
     "json-schema",
@@ -942,7 +942,7 @@ def _definition_dependencies(mdl: MdlFile, ref: str) -> tuple[str, ...]:
         for field in model.fields:
             names: set[str] = set()
             _collect_named_type_names(field.type, names)
-            dependencies.update(_semantic_refs(mdl, names))
+            dependencies.update(_semantic_refs(mdl, domain_name, names))
     if projection is not None:
         references = [
             (projection.source.model, projection.source.version),
@@ -960,20 +960,19 @@ def _definition_dependencies(mdl: MdlFile, ref: str) -> tuple[str, ...]:
                     continue
                 names = set()
                 _collect_named_type_names(source_field.type, names)
-                dependencies.update(_semantic_refs(mdl, names))
+                dependencies.update(_semantic_refs(mdl, resolved.domain_name, names))
     dependencies.discard(ref)
     return tuple(sorted(dependencies))
 
 
-def _semantic_refs(mdl: MdlFile, names: set[str]) -> set[str]:
+def _semantic_refs(mdl: MdlFile, current_domain: str, names: set[str]) -> set[str]:
     refs: set[str] = set()
     for name in sorted(names):
-        domain_name = _domain_defining(mdl, name)
-        if domain_name is None:
+        try:
+            domain_name, decl = resolve_semantic_type_ref(mdl, current_domain, name)
+        except LookupError:
             continue
-        domain = next(domain for domain in mdl.domains if domain.name == domain_name)
-        if any(declaration.name == name for declaration in domain.semantic_types):
-            refs.add(f"{domain.name}.{name}")
+        refs.add(f"{domain_name}.{decl.name}")
     return refs
 
 
