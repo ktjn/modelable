@@ -22,9 +22,8 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     PrimitiveType,
-    SemanticTypeDecl,
 )
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
 
 _VALID_CLASSIFICATION_LEVELS = {level.value for level in ClassificationLevel}
 _CLASSIFICATION_LEVELS_DISPLAY = ", ".join(sorted(_VALID_CLASSIFICATION_LEVELS))
@@ -438,32 +437,32 @@ def _validate_semantic_types(
                 )
             )
 
-    all_semantic_types: dict[str, SemanticTypeDecl] = {
-        other_decl.name: other_decl for other_domain in mdl.domains for other_decl in other_domain.semantic_types
-    }
-
     for decl in domain.semantic_types:
         if not isinstance(decl.underlying, NamedType):
             continue
-        visited: list[str] = [decl.name]
+        visited: list[str] = [f"{domain.name}.{decl.name}"]
         current: FieldType = decl.underlying
+        current_domain_name = domain.name
         while isinstance(current, NamedType):
             next_name = current.name
-            if next_name in visited:
+            try:
+                next_domain_name, next_decl = resolve_semantic_type_ref(mdl, current_domain_name, next_name)
+            except LookupError as exc:
                 diagnostics.append(
                     _diag(
                         "SEM",
-                        f"{domain.name}: semantic type '{decl.name}' has a cycle in its underlying chain: "
-                        f"{' -> '.join([*visited, next_name])}",
+                        f"{domain.name}: semantic type '{decl.name}' references {exc}",
                         path,
                     )
                 )
                 break
-            if next_name not in all_semantic_types:
+            qualified = f"{next_domain_name}.{next_decl.name}"
+            if qualified in visited:
                 diagnostics.append(
                     _diag(
                         "SEM",
-                        f"{domain.name}: semantic type '{decl.name}' references undeclared semantic type '{next_name}'",
+                        f"{domain.name}: semantic type '{decl.name}' has a cycle in its underlying chain: "
+                        f"{' -> '.join([*visited, qualified])}",
                         path,
                     )
                 )
@@ -478,8 +477,9 @@ def _validate_semantic_types(
                     )
                 )
                 break
-            visited.append(next_name)
-            current = all_semantic_types[next_name].underlying
+            visited.append(qualified)
+            current = next_decl.underlying
+            current_domain_name = next_domain_name
 
 
 def _validate_field_annotations(
