@@ -311,6 +311,31 @@ def _validate_cel(merged: MdlFile) -> list[Diagnostic]:
                                 )
                             )
 
+                if pv.group_by:
+                    group_ctx = CelContext(source_fields=source_fields, has_group_by=False, fqn=fqn)
+                    for group_expr in pv.group_by:
+                        ast, parse_errors = parse_cel(group_expr)
+                        for err in parse_errors:
+                            errors.append(
+                                Diagnostic(
+                                    code="CEL",
+                                    message=f"{fqn} group by: {err}",
+                                    severity="error",
+                                    path="<workspace>",
+                                )
+                            )
+                        if ast is not None:
+                            result = validate_cel_expr(ast, group_ctx)
+                            for err in result.errors:
+                                errors.append(
+                                    Diagnostic(
+                                        code="CEL",
+                                        message=f"{fqn} group by: {err}",
+                                        severity="error",
+                                        path="<workspace>",
+                                    )
+                                )
+
                 for proj_field in pv.fields:
                     if not isinstance(proj_field.mapping, ComputedMapping):
                         continue
