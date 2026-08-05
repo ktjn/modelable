@@ -672,3 +672,261 @@ def test_wire_hint_removed_is_not_breaking():
     assert any(
         c.kind == "wire_hint_removed" and not c.breaking and c.field_name == "createdAt" for c in changes
     )
+
+
+from modelable.compat.diff import _compare_storage
+
+
+def test_where_clause_changed_is_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            status: string
+          }
+          projection OrderView @ 1
+            from orders.Order @ 1 as o
+            where o.status == "open"
+          {
+            orderId <- o.orderId
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            status: string
+          }
+          projection OrderView @ 1
+            from orders.Order @ 1 as o
+            where o.status == "closed"
+          {
+            orderId <- o.orderId
+          }
+        }
+        """,
+    )
+
+    changes = _compare_storage(old, new)
+
+    assert any(c.kind == "where_changed" and c.breaking for c in changes)
+
+
+def test_group_by_changed_is_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            status: string
+            customerId: uuid
+          }
+          projection OrderCounts @ 1
+            from orders.Order @ 1 as o
+            group by o.status
+          {
+            status <- o.status
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            status: string
+            customerId: uuid
+          }
+          projection OrderCounts @ 1
+            from orders.Order @ 1 as o
+            group by o.customerId
+          {
+            status <- o.status
+          }
+        }
+        """,
+        name="OrderCounts",
+    )
+
+    changes = _compare_storage(old, new)
+
+    assert any(c.kind == "group_by_changed" and c.breaking for c in changes)
+
+
+def test_join_added_is_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+          }
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            name: string
+          }
+          projection OrderView @ 1
+            from orders.Order @ 1 as o
+          {
+            orderId <- o.orderId
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+          }
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            name: string
+          }
+          projection OrderView @ 1
+            from orders.Order @ 1 as o
+            join orders.Customer @ 1 as c on o.customerId == c.customerId
+          {
+            orderId <- o.orderId
+          }
+        }
+        """,
+    )
+
+    changes = _compare_storage(old, new)
+
+    assert any(c.kind == "join_added" and c.breaking and c.field_name == "c" for c in changes)
+
+
+def test_join_removed_is_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+          }
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            name: string
+          }
+          projection OrderView @ 1
+            from orders.Order @ 1 as o
+            join orders.Customer @ 1 as c on o.customerId == c.customerId
+          {
+            orderId <- o.orderId
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+          }
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            name: string
+          }
+          projection OrderView @ 1
+            from orders.Order @ 1 as o
+          {
+            orderId <- o.orderId
+          }
+        }
+        """,
+    )
+
+    changes = _compare_storage(old, new)
+
+    assert any(c.kind == "join_removed" and c.breaking and c.field_name == "c" for c in changes)
+
+
+def test_join_predicate_changed_is_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+            altCustomerId: uuid
+          }
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            name: string
+          }
+          projection OrderView @ 1
+            from orders.Order @ 1 as o
+            join orders.Customer @ 1 as c on o.customerId == c.customerId
+          {
+            orderId <- o.orderId
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerId: uuid
+            altCustomerId: uuid
+          }
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            name: string
+          }
+          projection OrderView @ 1
+            from orders.Order @ 1 as o
+            join orders.Customer @ 1 as c on o.altCustomerId == c.customerId
+          {
+            orderId <- o.orderId
+          }
+        }
+        """,
+    )
+
+    changes = _compare_storage(old, new)
+
+    assert any(c.kind == "join_changed" and c.breaking and c.field_name == "c" for c in changes)
+
+
+def test_unchanged_storage_produces_no_changes():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+          }
+          projection OrderView @ 1
+            from orders.Order @ 1 as o
+          {
+            orderId <- o.orderId
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+          }
+          projection OrderView @ 1
+            from orders.Order @ 1 as o
+          {
+            orderId <- o.orderId
+          }
+        }
+        """,
+    )
+
+    assert _compare_storage(old, new) == []

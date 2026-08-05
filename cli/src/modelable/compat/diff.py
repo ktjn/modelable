@@ -478,3 +478,70 @@ def _compare_wire(old: ProjectionVersion, new: ProjectionVersion) -> list[Projec
             )
 
     return changes
+
+
+def _compare_storage(old: ProjectionVersion, new: ProjectionVersion) -> list[ProjectionChange]:
+    changes: list[ProjectionChange] = []
+
+    if old.where != new.where:
+        changes.append(
+            ProjectionChange(
+                dimension="storage",
+                kind="where_changed",
+                breaking=True,
+                message=f"where clause changed: {old.where!r} -> {new.where!r}",
+            )
+        )
+
+    if old.group_by != new.group_by:
+        changes.append(
+            ProjectionChange(
+                dimension="storage",
+                kind="group_by_changed",
+                breaking=True,
+                message=f"group by changed: {old.group_by!r} -> {new.group_by!r}",
+            )
+        )
+
+    old_joins = {join.alias: join for join in old.joins}
+    new_joins = {join.alias: join for join in new.joins}
+
+    for alias in sorted(set(old_joins) - set(new_joins)):
+        changes.append(
+            ProjectionChange(
+                dimension="storage",
+                kind="join_removed",
+                breaking=True,
+                field_name=alias,
+                message=f"join '{alias}' was removed",
+            )
+        )
+    for alias in sorted(set(new_joins) - set(old_joins)):
+        changes.append(
+            ProjectionChange(
+                dimension="storage",
+                kind="join_added",
+                breaking=True,
+                field_name=alias,
+                message=f"join '{alias}' was added",
+            )
+        )
+    for alias in sorted(set(old_joins) & set(new_joins)):
+        old_join = old_joins[alias]
+        new_join = new_joins[alias]
+        if (old_join.cardinality, old_join.join_kind, old_join.on) != (
+            new_join.cardinality,
+            new_join.join_kind,
+            new_join.on,
+        ):
+            changes.append(
+                ProjectionChange(
+                    dimension="storage",
+                    kind="join_changed",
+                    breaking=True,
+                    field_name=alias,
+                    message=f"join '{alias}' cardinality/kind/predicate changed",
+                )
+            )
+
+    return changes
