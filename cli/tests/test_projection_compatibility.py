@@ -333,3 +333,224 @@ def test_unchanged_lineage_produces_no_changes():
     )
 
     assert _compare_lineage(old, new) == []
+
+
+from modelable.compat.diff import _compare_governance
+
+
+def test_access_grant_removed_is_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            access {
+              entity billing-team [read]
+            }
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+          }
+        }
+        """,
+    )
+
+    changes = _compare_governance(old, new)
+
+    assert any(c.kind == "access_grant_removed" and c.breaking for c in changes)
+
+
+def test_access_grant_added_is_not_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            access {
+              entity billing-team [read]
+            }
+          }
+        }
+        """,
+    )
+
+    changes = _compare_governance(old, new)
+
+    assert any(c.kind == "access_grant_added" and not c.breaking for c in changes)
+
+
+def test_classification_tightened_is_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            note: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            @classification("open")
+            note <- o.note
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            note: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            @classification("confidential")
+            note <- o.note
+          }
+        }
+        """,
+    )
+
+    changes = _compare_governance(old, new)
+
+    assert any(
+        c.kind == "classification_changed" and c.breaking and c.field_name == "note" for c in changes
+    )
+
+
+def test_classification_loosened_is_not_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            note: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            @classification("confidential")
+            note <- o.note
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            note: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            @classification("open")
+            note <- o.note
+          }
+        }
+        """,
+    )
+
+    changes = _compare_governance(old, new)
+
+    assert any(
+        c.kind == "classification_changed" and not c.breaking and c.field_name == "note" for c in changes
+    )
+
+
+def test_pii_added_is_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            note: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            note <- o.note
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            note: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            @pii
+            note <- o.note
+          }
+        }
+        """,
+    )
+
+    changes = _compare_governance(old, new)
+
+    assert any(c.kind == "pii_changed" and c.breaking and c.field_name == "note" for c in changes)
+
+
+def test_pii_removed_is_not_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            note: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            @pii
+            note <- o.note
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            note: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            note <- o.note
+          }
+        }
+        """,
+    )
+
+    changes = _compare_governance(old, new)
+
+    assert any(c.kind == "pii_changed" and not c.breaking and c.field_name == "note" for c in changes)

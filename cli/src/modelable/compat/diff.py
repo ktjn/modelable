@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from modelable.parser.ir import (
     AnnDeprecated,
+    ClassificationLevel,
     ComputedMapping,
     DirectMapping,
     EnumType,
@@ -338,6 +339,95 @@ def _compare_lineage(old: ProjectionVersion, new: ProjectionVersion) -> list[Pro
                     breaking=False,
                     field_name=name,
                     message=f"field '{name}' mapping changed from {old_mapping.kind} to {new_mapping.kind}",
+                )
+            )
+
+    return changes
+
+
+_CLASSIFICATION_ORDER = {level: index for index, level in enumerate(ClassificationLevel)}
+
+
+def _classification_index(level: ClassificationLevel | None) -> int:
+    if level is None:
+        return -1
+    return _CLASSIFICATION_ORDER[level]
+
+
+def _access_grant_triples(access) -> set[tuple[str, str, str]]:
+    """Flatten a projection's AccessBlock into (scope, principal, permission) triples.
+
+    scope is "entity" for entity-level grants, or the property name for
+    per-property grants.
+    """
+    if access is None:
+        return set()
+    triples: set[tuple[str, str, str]] = set()
+    for grant in access.entity:
+        for permission in grant.permissions:
+            triples.add(("entity", grant.principal, permission))
+    for property_name, grants in access.properties.items():
+        for grant in grants:
+            for permission in grant.permissions:
+                triples.add((property_name, grant.principal, permission))
+    return triples
+
+
+def _compare_governance(old: ProjectionVersion, new: ProjectionVersion) -> list[ProjectionChange]:
+    changes: list[ProjectionChange] = []
+
+    old_grants = _access_grant_triples(old.access)
+    new_grants = _access_grant_triples(new.access)
+
+    for scope, principal, permission in sorted(old_grants - new_grants):
+        changes.append(
+            ProjectionChange(
+                dimension="governance",
+                kind="access_grant_removed",
+                breaking=True,
+                field_name=None if scope == "entity" else scope,
+                message=f"access grant removed: {scope} principal '{principal}' permission '{permission}'",
+            )
+        )
+    for scope, principal, permission in sorted(new_grants - old_grants):
+        changes.append(
+            ProjectionChange(
+                dimension="governance",
+                kind="access_grant_added",
+                breaking=False,
+                field_name=None if scope == "entity" else scope,
+                message=f"access grant added: {scope} principal '{principal}' permission '{permission}'",
+            )
+        )
+
+    old_fields = {f.name: f for f in old.fields}
+    new_fields = {f.name: f for f in new.fields}
+    for name in sorted(set(old_fields) & set(new_fields)):
+        old_field = old_fields[name]
+        new_field = new_fields[name]
+
+        if old_field.is_pii != new_field.is_pii:
+            changes.append(
+                ProjectionChange(
+                    dimension="governance",
+                    kind="pii_changed",
+                    breaking=new_field.is_pii,
+                    field_name=name,
+                    message=f"field '{name}' @pii changed: {old_field.is_pii} -> {new_field.is_pii}",
+                )
+            )
+
+        old_level = old_field.classification
+        new_level = new_field.classification
+        if old_level != new_level:
+            tightened = _classification_index(new_level) > _classification_index(old_level)
+            changes.append(
+                ProjectionChange(
+                    dimension="governance",
+                    kind="classification_changed",
+                    breaking=tightened,
+                    field_name=name,
+                    message=f"field '{name}' classification changed: {old_level} -> {new_level}",
                 )
             )
 
