@@ -10,6 +10,8 @@ from typing import Any
 from modelable.browser import BrowserCompiler, BrowserSource
 
 SCENARIOS: dict[str, tuple[str, ...]] = {
+    "composite-key": ("composite-key.mdl",),
+    "deferred-constructs": ("deferred-constructs.mdl",),
     "invalid-parse": ("invalid-parse.mdl",),
     "invalid-reference": ("invalid-reference.mdl",),
     "invalid-semantic": ("invalid-semantic.mdl",),

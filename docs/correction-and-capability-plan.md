@@ -1097,6 +1097,23 @@ Share fixtures across:
 Include explicit fixtures for every capability disputed by documentation,
 especially composite keys and deferred constructs.
 
+### First tranche shipped (2026-08-05)
+
+Of the 7 named areas, only native compiler + browser compiler + Playground
+had a working shared-fixture pipeline (`cli/tests/conformance/browser/` →
+`vendor-python-assets.mjs` → `conformance.spec.ts`). This tranche extended
+that pipeline with the two cases the plan calls out by name: `composite-key`
+(SEM error) and `deferred-constructs` (the Slice B3 `DEFERRED` warning),
+verified against the real Pyodide browser compiler, not just the native
+snapshot generator. Along the way, found and fixed a real gap this fixture
+work exposed: `language/workspace.py`'s `synchronize()` — which backs the
+browser's diagnostics surface — only read `workspace.errors`, so B3's
+warnings were invisible in the browser/Playground despite working in the
+CLI. LSP fixture sharing (30 unshared test files, no generator today),
+compatibility fixtures, signature fixtures, and capability-manifest-to-test
+linkage remain for a later tranche — each is its own scoping exercise, not
+a natural extension of the browser pipeline this tranche used.
+
 ---
 
 # Track H — authoring ergonomics

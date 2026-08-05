@@ -1,0 +1,20 @@
+{
+  "open": {
+    "diagnostics": [
+      {
+        "code": "SEM",
+        "column": null,
+        "end_column": null,
+        "end_line": null,
+        "line": null,
+        "message": "orders.OrderLineItem@1: entity must have exactly one @key field",
+        "severity": "error",
+        "uri": "fixture:///composite-key.mdl"
+      }
+    ],
+    "source_hashes": {
+      "fixture:///composite-key.mdl": "5e7e5a498c02079bbcd94f577d7fad6b0ac25cbd1eaac6f8b09e44de83a3c8b6"
+    },
+    "workspace_revision": 1
+  }
+}
