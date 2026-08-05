@@ -2,9 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from modelable.compat.diff import FieldChange, compare_index_decls, compare_model_versions, is_optionality_breaking
-from modelable.dependency_graph import build_projection_dependencies
-from modelable.parser.ir import IndexDecl, MdlFile, ModelVersion
+from modelable.compat.diff import (
+    FieldChange,
+    ProjectionChange,
+    compare_index_decls,
+    compare_model_versions,
+    compare_projection_versions,
+    is_optionality_breaking,
+)
+from modelable.dependency_graph import build_projection_dependencies, resolve_projection_aliases
+from modelable.parser.ir import IndexDecl, MdlFile, ModelVersion, ProjectionVersion
 from modelable.registry.resolver import find_dependents
 
 
@@ -26,6 +33,17 @@ class ProjectionImpact:
     version: int
     status: str  # "broken", "affected", "compatible"
     reason: str | None = None
+
+
+@dataclass(frozen=True)
+class ProjectionCompatibilityReport:
+    domain_name: str
+    projection_name: str
+    from_version: int
+    to_version: int
+    status: str
+    findings: list[str] = field(default_factory=list)
+    changes: list[ProjectionChange] = field(default_factory=list)
 
 
 def check_model_version_compatibility(
@@ -53,6 +71,95 @@ def check_model_version_compatibility(
         findings=findings,
         changes=changes,
     )
+
+
+def check_projection_version_compatibility(
+    mdl: MdlFile,
+    domain_name: str,
+    projection_name: str,
+    from_version: int,
+    to_version: int,
+) -> ProjectionCompatibilityReport:
+    """Compare two published versions of the same projection and classify the change set."""
+    old_version = _find_projection_version(mdl, domain_name, projection_name, from_version)
+    new_version = _find_projection_version(mdl, domain_name, projection_name, to_version)
+
+    changes = compare_projection_versions(mdl, old_version, new_version)
+    changes.extend(_compare_source_version(mdl, old_version, new_version))
+
+    findings = [_format_projection_finding(change) for change in changes]
+    status = "breaking" if any(change.breaking for change in changes) else "compatible"
+    return ProjectionCompatibilityReport(
+        domain_name=domain_name,
+        projection_name=projection_name,
+        from_version=from_version,
+        to_version=to_version,
+        status=status,
+        findings=findings,
+        changes=changes,
+    )
+
+
+def _compare_source_version(
+    mdl: MdlFile,
+    old: ProjectionVersion,
+    new: ProjectionVersion,
+) -> list[ProjectionChange]:
+    changes: list[ProjectionChange] = []
+    old_aliases = resolve_projection_aliases(old, mdl)
+    new_aliases = resolve_projection_aliases(new, mdl)
+
+    for alias in sorted(set(old_aliases) & set(new_aliases)):
+        old_resolved = old_aliases[alias]
+        new_resolved = new_aliases[alias]
+        if old_resolved.model_name != new_resolved.model_name:
+            continue  # different source entirely; the shape/lineage dimensions already cover this
+        if old_resolved.version.version == new_resolved.version.version:
+            continue
+
+        model_report = check_model_version_compatibility(
+            mdl,
+            old_resolved.domain_name,
+            old_resolved.model_name,
+            old_resolved.version.version,
+            new_resolved.version.version,
+        )
+        changes.append(
+            ProjectionChange(
+                dimension="source_version",
+                kind="source_version_changed",
+                breaking=model_report.status == "breaking",
+                field_name=alias,
+                message=(
+                    f"source '{alias}' moved from {old_resolved.model_name}@{old_resolved.version.version} "
+                    f"to {new_resolved.version.version} ({model_report.status})"
+                ),
+            )
+        )
+
+    return changes
+
+
+def _find_projection_version(
+    mdl: MdlFile,
+    domain_name: str,
+    projection_name: str,
+    version: int,
+) -> ProjectionVersion:
+    for domain in mdl.domains:
+        if domain.name != domain_name:
+            continue
+        versions = domain.projections.get(projection_name, [])
+        for candidate in versions:
+            if candidate.version == version:
+                return candidate
+        break
+    raise LookupError(f"unknown projection version {domain_name}.{projection_name}@{version}")
+
+
+def _format_projection_finding(change: ProjectionChange) -> str:
+    subject = change.field_name or "-"
+    return f"{change.kind} {subject} ({change.dimension}): {change.message}"
 
 
 def analyze_impact(

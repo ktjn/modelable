@@ -984,3 +984,103 @@ def test_compare_projection_versions_combines_all_dimensions():
     assert "where_changed" in kinds
     assert any(c.dimension == "shape" for c in changes)
     assert any(c.dimension == "storage" for c in changes)
+
+
+from modelable.compat.checker import ProjectionCompatibilityReport, check_projection_version_compatibility
+
+
+def test_check_projection_version_compatibility_reports_breaking_status():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        status: string
+      }
+      projection OrderView @ 1 from orders.Order @ 1 as o {
+        orderId <- o.orderId
+        status <- o.status
+      }
+      projection OrderView @ 2 from orders.Order @ 1 as o {
+        orderId <- o.orderId
+      }
+    }
+    """)
+
+    report = check_projection_version_compatibility(mdl, "orders", "OrderView", 1, 2)
+
+    assert isinstance(report, ProjectionCompatibilityReport)
+    assert report.status == "breaking"
+    assert any("field_removed" in finding for finding in report.findings)
+
+
+def test_check_projection_version_compatibility_reports_compatible_status():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        status: string
+      }
+      projection OrderView @ 1 from orders.Order @ 1 as o {
+        orderId <- o.orderId
+      }
+      projection OrderView @ 2 from orders.Order @ 1 as o {
+        orderId <- o.orderId
+        status <- o.status
+      }
+    }
+    """)
+
+    report = check_projection_version_compatibility(mdl, "orders", "OrderView", 1, 2)
+
+    assert report.status == "compatible"
+
+
+def test_check_projection_version_compatibility_raises_for_unknown_version():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+      }
+      projection OrderView @ 1 from orders.Order @ 1 as o {
+        orderId <- o.orderId
+      }
+    }
+    """)
+
+    import pytest
+
+    with pytest.raises(LookupError):
+        check_projection_version_compatibility(mdl, "orders", "OrderView", 1, 2)
+
+
+def test_source_version_dimension_mirrors_model_compat_status():
+    from modelable.compat.checker import check_model_version_compatibility
+
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        status: string
+      }
+      entity Order @ 2 (additive) {
+        @key orderId: uuid
+      }
+      projection OrderView @ 1 from orders.Order @ 1 as o {
+        orderId <- o.orderId
+      }
+      projection OrderView @ 2 from orders.Order @ 2 as o {
+        orderId <- o.orderId
+      }
+    }
+    """)
+
+    model_report = check_model_version_compatibility(mdl, "orders", "Order", 1, 2)
+    projection_report = check_projection_version_compatibility(mdl, "orders", "OrderView", 1, 2)
+
+    source_version_changes = [c for c in projection_report.changes if c.dimension == "source_version"]
+    assert len(source_version_changes) == 1
+    assert source_version_changes[0].breaking == (model_report.status == "breaking")
