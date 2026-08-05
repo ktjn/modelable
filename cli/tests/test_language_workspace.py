@@ -37,6 +37,31 @@ def test_invalid_sync_advances_documents_but_keeps_last_parseable_workspace() ->
     assert not state.is_semantically_current()
 
 
+def test_synchronize_includes_deferred_syntax_warnings_in_diagnostics() -> None:
+    state = LanguageWorkspace()
+    deferred_model = """
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+      }
+      projection OrderView @ 1 from orders.Order @ 1 as o {
+        orderId <- o.orderId
+        materialisation {
+          strategy: incremental
+        }
+      }
+    }
+    """.strip()
+    document = LanguageDocument.from_text("file:///orders.mdl", deferred_model, 1)
+
+    result = state.synchronize(1, (document,))
+
+    assert len(result.diagnostics) == 1
+    assert result.diagnostics[0].code == "DEFERRED"
+    assert result.diagnostics[0].severity == "warning"
+
+
 def test_synchronize_orders_documents_by_uri() -> None:
     state = LanguageWorkspace()
     second = LanguageDocument.from_text("file:///b.mdl", VALID_MODEL, 1)

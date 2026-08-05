@@ -76,7 +76,7 @@ class LanguageWorkspace:
         self.semantic_hashes = self.current_hashes()
         return LanguageSynchronization(
             revision=revision,
-            diagnostics=tuple(workspace.errors),
+            diagnostics=(*workspace.errors, *workspace.warnings),
             source_hashes=self.current_hashes(),
         )
 
