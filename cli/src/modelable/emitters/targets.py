@@ -15,6 +15,7 @@ class CodegenTarget:
     status: TargetStatus
     kind: TargetKind
     default_out_dir: Path | None = None
+    supports_compat_check: bool = False
 
 
 CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
@@ -129,6 +130,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="artifact",
         default_out_dir=Path("./dist/protobuf"),
+        supports_compat_check=True,
     ),
     CodegenTarget(
         name="grpc",
@@ -136,6 +138,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="artifact",
         default_out_dir=Path("./dist/grpc"),
+        supports_compat_check=True,
     ),
 )
 
@@ -153,3 +156,7 @@ def get_codegen_target(name: str) -> CodegenTarget:
         if target.name == name:
             return target
     raise KeyError(name)
+
+
+def list_compat_checkable_targets() -> list[CodegenTarget]:
+    return [target for target in CODEGEN_TARGETS if target.supports_compat_check]

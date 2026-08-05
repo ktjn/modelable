@@ -13,6 +13,7 @@ from modelable.compat.targets import (
 )
 from modelable.emitters.grpc import emit_grpc
 from modelable.emitters.protobuf import emit_protobuf
+from modelable.emitters.targets import list_compat_checkable_targets
 
 
 def register_validate_compat_commands(cli_group: click.Group) -> None:
@@ -22,7 +23,11 @@ def register_validate_compat_commands(cli_group: click.Group) -> None:
 @click.command("validate-compat")
 @click.option("--from", "from_path", type=click.Path(exists=True, path_type=Path), required=True)
 @click.option("--to", "to_path", type=click.Path(exists=True, path_type=Path), required=True)
-@click.option("--target", type=click.Choice(["protobuf", "grpc"]), required=True)
+@click.option(
+    "--target",
+    type=click.Choice([target.name for target in list_compat_checkable_targets()]),
+    required=True,
+)
 def validate_compat(from_path: Path, to_path: Path, target: str) -> None:
     """Validate target-specific compatibility between two Modelable workspaces."""
     old_workspace = load_workspace_or_exit(from_path)

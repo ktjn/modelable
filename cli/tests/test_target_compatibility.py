@@ -332,3 +332,10 @@ domain billing {
     assert result.exit_code == 1
     assert "status: breaking" in result.output
     assert "removed_field_not_reserved" in result.output
+
+
+def test_validate_compat_target_choices_match_the_registry():
+    result = CliRunner().invoke(cli, ["validate-compat", "--help"])
+
+    assert "protobuf" in result.output
+    assert "grpc" in result.output
