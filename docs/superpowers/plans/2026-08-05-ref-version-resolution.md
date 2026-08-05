@@ -379,6 +379,8 @@ place all of them will be repointed at in later tasks."
 
 - [ ] **Step 1: Write the failing tests**
 
+**IMPORTANT — corrected from an earlier version of this plan:** `ref<>` can legitimately point at a model declared in a *different* source file within the same workspace (e.g. `commerce.mdl` referencing `customer.Customer` declared in a sibling `customer.mdl` — this is the normal pattern used throughout `samples/scenarios/`). Resolving a `ref<>` therefore must happen against the fully **merged** multi-file workspace, never against one source file's own `MdlFile` in isolation — exactly like the existing `validate_references`/`_validate_merged_workspace` machinery already does for projection source/join references. This means `ref<>` validation does **not** go through `validate(mdl)`/`validate_diagnostics(mdl)` (which are inherently single-file) at all — it is a workspace-merge-level concern only, wired into `compiler/workspace.py`, same as `_validate_merged_workspace`.
+
 Append to `cli/tests/test_semantic.py`:
 
 ```python
@@ -387,57 +389,104 @@ from pathlib import Path
 
 
 def test_unresolvable_ref_target_is_a_sem_error():
-    mdl = parse_text_to_ir("""
-    domain orders {
-      owner: "test-team"
-      entity Order @ 1 (additive) {
-        @key orderId: uuid
-        customerRef: ref<customer.MissingEntity>
-      }
-    }
-    """)
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerRef: ref<customer.MissingEntity>
+          }
+        }
+        """,
+    )
 
-    errors = validate(mdl)
+    workspace = load_workspace_from_sources([source])
 
-    assert any("customerRef" in error and "ref<" in error for error in errors)
+    assert any("customerRef" in e.message and "ref<" in e.message for e in workspace.errors)
 
 
 def test_unresolvable_ref_version_is_a_sem_error():
-    mdl = parse_text_to_ir("""
-    domain orders {
-      owner: "test-team"
-      entity Customer @ 1 (additive) {
-        @key customerId: uuid
-      }
-      entity Order @ 1 (additive) {
-        @key orderId: uuid
-        customerRef: ref<orders.Customer @ 99>
-      }
-    }
-    """)
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerRef: ref<orders.Customer @ 99>
+          }
+        }
+        """,
+    )
 
-    errors = validate(mdl)
+    workspace = load_workspace_from_sources([source])
 
-    assert any("customerRef" in error for error in errors)
+    assert any("customerRef" in e.message for e in workspace.errors)
 
 
 def test_resolvable_ref_produces_no_sem_error():
-    mdl = parse_text_to_ir("""
-    domain orders {
-      owner: "test-team"
-      entity Customer @ 1 (additive) {
-        @key customerId: uuid
-      }
-      entity Order @ 1 (additive) {
-        @key orderId: uuid
-        customerRef: ref<orders.Customer @ 1>
-      }
-    }
-    """)
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerRef: ref<orders.Customer @ 1>
+          }
+        }
+        """,
+    )
 
-    errors = validate(mdl)
+    workspace = load_workspace_from_sources([source])
 
-    assert errors == []
+    assert workspace.errors == []
+
+
+def test_ref_across_source_files_resolves_correctly():
+    """The scenario that broke an earlier version of this plan: a ref<> in
+    one file pointing at a model declared in a sibling file. This must
+    resolve cleanly — it is the normal pattern in samples/scenarios/."""
+    customer_source = WorkspaceDocumentSource(
+        path=Path("customer.mdl"),
+        uri="file:///customer.mdl",
+        text="""
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+        }
+        """,
+    )
+    orders_source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerRef: ref<customer.Customer @ 1>
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([customer_source, orders_source])
+
+    assert workspace.errors == []
 
 
 def test_unversioned_ref_produces_a_non_blocking_warning_naming_resolved_version():
@@ -472,27 +521,31 @@ def test_unversioned_ref_produces_a_non_blocking_warning_naming_resolved_version
 
 
 def test_ref_nested_in_array_is_validated():
-    mdl = parse_text_to_ir("""
-    domain orders {
-      owner: "test-team"
-      entity Order @ 1 (additive) {
-        @key orderId: uuid
-        items: array<ref<catalog.MissingItem>>
-      }
-    }
-    """)
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            items: array<ref<catalog.MissingItem>>
+          }
+        }
+        """,
+    )
 
-    errors = validate(mdl)
+    workspace = load_workspace_from_sources([source])
 
-    assert any("items" in error for error in errors)
+    assert any("items" in e.message for e in workspace.errors)
 ```
 
-Note: `validate_diagnostics` is what produces the errors `validate()` collapses into strings — the new `REF` warning must NOT appear in `validate()`'s error list (it's a warning, not an error), which is why the last test above checks `workspace.warnings`, not `validate(mdl)`, for the warning case. Verify `parse_text_to_ir` and `validate` are already imported at the top of `test_semantic.py` (they should be, from existing tests in that file) before adding the new imports shown above.
+Verify `WorkspaceDocumentSource` and `load_workspace_from_sources` are correctly imported (as shown above) — check `cli/tests/test_semantic.py`'s existing imports first in case some are already present, and don't duplicate an import line.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd cli && uv run pytest tests/test_semantic.py -k "ref_target or ref_version or resolvable_ref or unversioned_ref or ref_nested" -v`
-Expected: FAIL — the 4 error-expecting tests fail with `assert False` (no errors are currently produced for bad `ref<>` targets); the warning test fails with `AttributeError` or similar (no `REF`-coded warnings are produced today, since Slice C1's `.warnings` mechanism currently only carries `DEFERRED`-coded diagnostics from `validation/deferred_syntax.py`, not anything from `validation/semantic.py`).
+Run: `cd cli && uv run pytest tests/test_semantic.py -k "ref_target or ref_version or resolvable_ref or ref_across_source_files or unversioned_ref or ref_nested" -v`
+Expected: FAIL — every test fails, since none of the underlying validation exists yet (`workspace.errors`/`workspace.warnings` won't contain anything ref<>-related).
 
 - [ ] **Step 3: Write the implementation**
 
@@ -548,7 +601,7 @@ def _iter_ref_types(field_type: FieldType) -> list[RefType]:
     return []
 
 
-def _validate_ref_types(
+def validate_ref_type_field(
     fqn: str,
     field: FieldDef,
     mdl: MdlFile,
@@ -556,6 +609,20 @@ def _validate_ref_types(
     warnings: list[Diagnostic],
     path: str | Path | None,
 ) -> None:
+    """Validate every ref<> nested anywhere in one field's type.
+
+    `mdl` must be the fully MERGED multi-file workspace, never a single
+    source file's own MdlFile — a ref<> can legitimately point at a model
+    declared in a different source file (the normal pattern throughout
+    samples/scenarios/), so resolution has to happen after all sources are
+    merged. This function is intentionally NOT wired into
+    validate_diagnostics/_validate_models (which only ever see one source
+    file at a time) — it is called from compiler/workspace.py instead,
+    exactly like the existing validate_references/_validate_merged_workspace
+    machinery already does for projection source/join references. It is
+    public (no leading underscore) because it is called across the
+    validation/semantic.py -> compiler/workspace.py module boundary.
+    """
     for ref_type in _iter_ref_types(field.type):
         try:
             resolved = resolve_ref_type(ref_type, mdl)
@@ -585,98 +652,72 @@ def _validate_ref_types(
             )
 ```
 
-Now wire this into `validate_diagnostics` and `_validate_models`. `validate_diagnostics` (currently returning `list[Diagnostic]` only, at line 92) needs to also return warnings — but check the existing signature and callers first: `validate_diagnostics` is called from `compiler/workspace.py::load_workspace_from_sources` as `source_errors = validate_diagnostics(mdl, path=source_location)`, and workspace.py separately calls `find_deferred_syntax_diagnostics` for `.warnings`. The cleanest fix without changing `validate_diagnostics`'s return type (which many callers depend on) is a **new** function `validate_ref_warnings(mdl: MdlFile, path: str | Path | None = None) -> list[Diagnostic]`, structured exactly like `validate_diagnostics` but only collecting the `REF` warnings, called separately by `compiler/workspace.py` (Task 3b below) alongside the existing `find_deferred_syntax_diagnostics` call.
+Do **not** modify `validate_diagnostics` or `_validate_models` — leave both exactly as they are today. `ref<>` validation is entirely a workspace-merge-level concern, wired in Step 3b below, not a per-source-file one.
 
-Add this new top-level function (near `validate_diagnostics`, after line 107):
+- [ ] **Step 3b: Wire `validate_ref_type_field` into the merged workspace loader**
 
-```python
-def validate_ref_warnings(mdl: MdlFile, path: str | Path | None = None) -> list[Diagnostic]:
-    warnings: list[Diagnostic] = []
-    for domain in mdl.domains:
-        for model_name, versions in domain.models.items():
-            fqn = f"{domain.name}.{model_name}"
-            for version in versions:
-                for field in version.fields:
-                    _validate_ref_types(f"{fqn}@{version.version}", field, mdl, [], warnings, path)
-    return warnings
-```
+This is where the actual iteration + call to `validate_ref_type_field` happens — mirroring the existing `_validate_merged_workspace` function's shape exactly (iterate per-source for correct path attribution, but resolve against the merged `mdl`).
 
-Note this second function does its own lightweight walk (it doesn't reuse `_validate_models`'s loop, to avoid threading `mdl`/`warnings` through the entire existing `_validate_models` call chain, which is called from `validate_diagnostics` and takes different parameters). This does mean `_validate_ref_types` runs twice per field (once for SEM errors inside `_validate_models`, once for `REF` warnings inside `validate_ref_warnings`) — accepted duplication of the *walk*, not the *logic*, to avoid a larger signature change across `validate_diagnostics`/`_validate_models`'s existing call chain. `_validate_ref_types` itself stays the single implementation both call into.
-
-Now update `_validate_models` (starts at line 128) to also emit the SEM errors. Change its signature to accept `mdl`:
-
-```python
-def _validate_models(
-    domain_name,
-    models,
-    diagnostics: list[Diagnostic],
-    path: str | Path | None,
-    mdl: MdlFile,
-) -> None:
-```
-
-And inside the existing `for field in version.fields:` loop (currently lines 192-202), add a call to `_validate_ref_types` (discarding the warnings list here since this call site only cares about the SEM errors — `validate_ref_warnings` handles warnings separately):
-
-```python
-            for field in version.fields:
-                _validate_field_annotations(
-                    f"{fqn}@{version.version}",
-                    field,
-                    diagnostics,
-                    path,
-                    field_path=[field.name],
-                    field_type=field.type,
-                )
-                _validate_default_value_range(f"{fqn}@{version.version}", field, diagnostics, path)
-                _validate_fixed_binary_length(f"{fqn}@{version.version}", field, diagnostics, path)
-                _validate_ref_types(f"{fqn}@{version.version}", field, mdl, diagnostics, [], path)
-```
-
-Finally, update `_validate_models`'s one call site inside `validate_diagnostics` (line 103) to pass `mdl`:
-
-```python
-        _validate_models(domain.name, domain.models, diagnostics, path, mdl)
-```
-
-- [ ] **Step 4: Run tests to verify they pass**
-
-Run: `cd cli && uv run pytest tests/test_semantic.py -k "ref_target or ref_version or resolvable_ref or unversioned_ref or ref_nested" -v`
-Expected: FAIL for the warning test still — `validate_ref_warnings` exists but nothing calls it from `load_workspace_from_sources` yet, so `workspace.warnings` won't contain the `REF` diagnostic. This is expected; Task 3b (next) wires that in. The 4 SEM-error tests should PASS now.
-
-Run: `cd cli && uv run pytest tests/test_semantic.py -k "ref_target or ref_version or resolvable_ref or ref_nested" -v`
-Expected: PASS (4 tests, excluding the warning one)
-
-- [ ] **Step 5: Wire `validate_ref_warnings` into the workspace loader**
-
-Read `cli/src/modelable/compiler/workspace.py`'s `load_workspace_from_sources` function — it currently calls `find_deferred_syntax_diagnostics(tree, path=source_location)` to build `source_warnings` (from Slice B3). Add `validate_ref_warnings` alongside it:
-
-Modify the import line that currently reads:
+In `cli/src/modelable/compiler/workspace.py`, update the import line that currently reads:
 ```python
 from modelable.validation.semantic import validate_diagnostics
 ```
 to:
 ```python
-from modelable.validation.semantic import validate_diagnostics, validate_ref_warnings
+from modelable.validation.semantic import validate_diagnostics, validate_ref_type_field
 ```
 
-In `load_workspace_from_sources`, find the line `source_warnings = find_deferred_syntax_diagnostics(tree, path=source_location)` and change it to:
+Add this new function right after `_validate_merged_workspace` (find that function in the file — it returns `list[Diagnostic]` and takes `(sources: list[WorkspaceSource], merged: MdlFile)`; add the new function immediately after it, before whatever function comes next):
 
 ```python
-        source_warnings = find_deferred_syntax_diagnostics(tree, path=source_location)
-        source_warnings.extend(validate_ref_warnings(mdl, path=source_location))
+def _validate_ref_types_in_merged_workspace(
+    sources: list[WorkspaceSource],
+    merged: MdlFile,
+) -> tuple[list[Diagnostic], list[Diagnostic]]:
+    """Validate every ref<> field across all sources against the fully
+    merged workspace — see validate_ref_type_field's docstring for why this
+    can't happen per-source-file."""
+    errors: list[Diagnostic] = []
+    warnings: list[Diagnostic] = []
+    for source in sources:
+        source_location = str(source.path) if source.path is not None else source.uri
+        for domain in source.mdl.domains:
+            for model_name, versions in domain.models.items():
+                fqn = f"{domain.name}.{model_name}"
+                for version in versions:
+                    for field in version.fields:
+                        validate_ref_type_field(
+                            f"{fqn}@{version.version}", field, merged, errors, warnings, source_location
+                        )
+    return errors, warnings
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+In `load_workspace_from_sources`, find this existing line:
+```python
+    errors.extend(_validate_merged_workspace(workspace_sources, merged))
+```
+and add immediately after it (before the existing `errors.extend(_validate_cel(merged))` line):
+```python
+    errors.extend(_validate_merged_workspace(workspace_sources, merged))
+    ref_errors, ref_warnings = _validate_ref_types_in_merged_workspace(workspace_sources, merged)
+    errors.extend(ref_errors)
+    warnings.extend(ref_warnings)
+    errors.extend(_validate_cel(merged))
+```
 
-Run: `cd cli && uv run pytest tests/test_semantic.py -k "ref_target or ref_version or resolvable_ref or unversioned_ref or ref_nested" -v`
-Expected: PASS (all 5 tests)
+(`warnings` is already an existing local variable in this function, populated earlier in the per-source loop from `find_deferred_syntax_diagnostics` — just extend it, don't redeclare it.)
 
-- [ ] **Step 7: Run the full suite to check for regressions**
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `cd cli && uv run pytest tests/test_semantic.py -k "ref_target or ref_version or resolvable_ref or ref_across_source_files or unversioned_ref or ref_nested" -v`
+Expected: PASS (all 6 tests)
+
+- [ ] **Step 5: Run the full suite to check for regressions**
 
 Run: `cd cli && uv run pytest -q`
 Expected: all previously-passing tests still pass. If any existing test's `.mdl` fixture happens to use `ref<>` without a version (unlikely but check `samples/` and `cli/tests/fixtures/`), a new `REF` warning would appear in that scenario's `workspace.warnings` — this is additive and should not break any assertion that doesn't specifically check `workspace.warnings == []`; if something does, that's a legitimate new warning, not a bug — update the assertion rather than suppressing the warning.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add cli/src/modelable/validation/semantic.py cli/src/modelable/compiler/workspace.py cli/tests/test_semantic.py
@@ -686,7 +727,13 @@ A ref<> pointing at a nonexistent domain/model/version is now a SEM
 error instead of silently passing validation. An unversioned ref<>
 gets a non-blocking REF warning naming the concrete version it
 resolved to, making 'compilation records the concrete resolved
-identity' an observable effect rather than a slogan."
+identity' an observable effect rather than a slogan.
+
+Validation happens at the merged-workspace level (compiler/workspace.py),
+not per-source-file, since a ref<> can legitimately point at a model
+declared in a different source file within the same workspace — the
+same reason validate_references/_validate_merged_workspace already
+work this way for projection source/join references."
 ```
 
 ---
