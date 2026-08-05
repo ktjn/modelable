@@ -36,15 +36,21 @@ def parse_file(path: str | Path) -> Tree:
     return parse_text(Path(path).read_text(encoding="utf-8"))
 
 
-def parse_text_to_ir(text: str, path: str | Path | None = None) -> MdlFile:
+def parse_text_to_ir_with_tree(text: str, path: str | Path | None = None) -> tuple[MdlFile, Tree]:
+    tree = parse_text(text)
     try:
-        return MdlTransformer().transform(parse_text(text))
+        return MdlTransformer().transform(tree), tree
     except ValueError as exc:
         raise ParseError(str(exc)) from exc
     except VisitError as exc:
         if isinstance(exc.orig_exc, ValueError):
             raise ParseError(str(exc.orig_exc)) from exc.orig_exc
         raise
+
+
+def parse_text_to_ir(text: str, path: str | Path | None = None) -> MdlFile:
+    mdl, _tree = parse_text_to_ir_with_tree(text, path=path)
+    return mdl
 
 
 def parse_file_to_ir(path: str | Path) -> MdlFile:
