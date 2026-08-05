@@ -11,7 +11,7 @@ from modelable.parser.parse import parse_text_to_ir_with_tree
 from modelable.planner.planner import expand_auto_projections
 from modelable.registry.resolver import resolve_model_ref, validate_references
 from modelable.validation.deferred_syntax import find_deferred_syntax_diagnostics
-from modelable.validation.semantic import validate_diagnostics
+from modelable.validation.semantic import validate_diagnostics, validate_ref_type_field
 
 
 @dataclass(frozen=True)
@@ -102,6 +102,9 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
     )
 
     errors.extend(_validate_merged_workspace(workspace_sources, merged))
+    ref_errors, ref_warnings = _validate_ref_types_in_merged_workspace(workspace_sources, merged)
+    errors.extend(ref_errors)
+    warnings.extend(ref_warnings)
     errors.extend(_validate_cel(merged))
     return Workspace(sources=workspace_sources, mdl=merged, errors=errors, warnings=warnings)
 
@@ -218,6 +221,28 @@ def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) 
     )
     errors.extend(_validate_bindings(merged))
     return errors
+
+
+def _validate_ref_types_in_merged_workspace(
+    sources: list[WorkspaceSource],
+    merged: MdlFile,
+) -> tuple[list[Diagnostic], list[Diagnostic]]:
+    """Validate every ref<> field across all sources against the fully
+    merged workspace — see validate_ref_type_field's docstring for why this
+    can't happen per-source-file."""
+    errors: list[Diagnostic] = []
+    warnings: list[Diagnostic] = []
+    for source in sources:
+        source_location = str(source.path) if source.path is not None else source.uri
+        for domain in source.mdl.domains:
+            for model_name, versions in domain.models.items():
+                fqn = f"{domain.name}.{model_name}"
+                for version in versions:
+                    for model_field in version.fields:
+                        validate_ref_type_field(
+                            f"{fqn}@{version.version}", model_field, merged, errors, warnings, source_location
+                        )
+    return errors, warnings
 
 
 def _merge_bindings(existing: list, incoming: list) -> None:

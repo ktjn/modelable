@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
 from modelable.parser.parse import parse_text_to_ir
 from modelable.validation.semantic import validate
 
@@ -850,3 +853,155 @@ def test_index_decl_on_value_model_is_error():
     """)
     errors = validate(mdl)
     assert any("Money" in e for e in errors)
+
+
+def test_unresolvable_ref_target_is_a_sem_error():
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerRef: ref<customer.MissingEntity>
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([source])
+
+    assert any("customerRef" in e.message and "ref<" in e.message for e in workspace.errors)
+
+
+def test_unresolvable_ref_version_is_a_sem_error():
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerRef: ref<orders.Customer @ 99>
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([source])
+
+    assert any("customerRef" in e.message for e in workspace.errors)
+
+
+def test_resolvable_ref_produces_no_sem_error():
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerRef: ref<orders.Customer @ 1>
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([source])
+
+    assert workspace.errors == []
+
+
+def test_ref_across_source_files_resolves_correctly():
+    """The scenario that broke an earlier version of this plan: a ref<> in
+    one file pointing at a model declared in a sibling file. This must
+    resolve cleanly — it is the normal pattern in samples/scenarios/."""
+    customer_source = WorkspaceDocumentSource(
+        path=Path("customer.mdl"),
+        uri="file:///customer.mdl",
+        text="""
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+        }
+        """,
+    )
+    orders_source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerRef: ref<customer.Customer @ 1>
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([customer_source, orders_source])
+
+    assert workspace.errors == []
+
+
+def test_unversioned_ref_produces_a_non_blocking_warning_naming_resolved_version():
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+          }
+          entity Customer @ 2 (additive) {
+            @key customerId: uuid
+            name?: string
+          }
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            customerRef: ref<orders.Customer>
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([source])
+
+    assert workspace.errors == []
+    ref_warnings = [w for w in workspace.warnings if w.code == "REF"]
+    assert len(ref_warnings) == 1
+    assert "customerRef" in ref_warnings[0].message
+    assert "version 2" in ref_warnings[0].message
+
+
+def test_ref_nested_in_array_is_validated():
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            items: array<ref<catalog.MissingItem>>
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([source])
+
+    assert any("items" in e.message for e in workspace.errors)
