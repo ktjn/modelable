@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from modelable.parser.ir import AnnDeprecated, EnumType, FieldDef, IndexDecl, ModelVersion
+from modelable.parser.ir import AnnDeprecated, EnumType, FieldDef, FieldType, IndexDecl, MdlFile, ModelVersion, ProjectionVersion
+
+from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
 
 
 @dataclass(frozen=True)
@@ -16,6 +18,15 @@ class FieldChange:
     to_optional: bool | None = None
     from_type: str | None = None
     to_type: str | None = None
+
+
+@dataclass(frozen=True)
+class ProjectionChange:
+    dimension: str  # "shape" | "lineage" | "governance" | "wire" | "storage" | "source_version" | "materialisation"
+    kind: str
+    breaking: bool
+    field_name: str | None = None
+    message: str = ""
 
 
 def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion) -> list[FieldChange]:
@@ -197,5 +208,74 @@ def compare_index_decls(old_index: IndexDecl | None, new_index: IndexDecl | None
     for name in sorted(set(old_secondary) | set(new_secondary)):
         if old_secondary.get(name) != new_secondary.get(name):
             changes.append(FieldChange(kind="index_changed", field_name=name))
+
+    return changes
+
+
+def _shape_type_signature(field_type: FieldType | None) -> str | None:
+    if field_type is None:
+        return None
+    return json.dumps(field_type.model_dump(mode="json"), sort_keys=True)
+
+
+def _compare_shape(
+    mdl: MdlFile,
+    old: ProjectionVersion,
+    new: ProjectionVersion,
+) -> list[ProjectionChange]:
+    changes: list[ProjectionChange] = []
+    old_fields = {f.name: f for f in old.fields}
+    new_fields = {f.name: f for f in new.fields}
+
+    for name in sorted(set(old_fields) - set(new_fields)):
+        changes.append(
+            ProjectionChange(
+                dimension="shape",
+                kind="field_removed",
+                breaking=True,
+                field_name=name,
+                message=f"field '{name}' was removed",
+            )
+        )
+
+    for name in sorted(set(new_fields) - set(old_fields)):
+        changes.append(
+            ProjectionChange(
+                dimension="shape",
+                kind="field_added",
+                breaking=False,
+                field_name=name,
+                message=f"field '{name}' was added",
+            )
+        )
+
+    for name in sorted(set(old_fields) & set(new_fields)):
+        old_field = old_fields[name]
+        new_field = new_fields[name]
+        old_type, old_optional = resolve_projection_field_type_and_optionality(old_field, old, mdl)
+        new_type, new_optional = resolve_projection_field_type_and_optionality(new_field, new, mdl)
+
+        if _shape_type_signature(old_type) != _shape_type_signature(new_type):
+            changes.append(
+                ProjectionChange(
+                    dimension="shape",
+                    kind="type_changed",
+                    breaking=True,
+                    field_name=name,
+                    message=f"field '{name}' changed type",
+                )
+            )
+
+        if old_optional != new_optional:
+            breaking = old_optional is True and new_optional is False
+            changes.append(
+                ProjectionChange(
+                    dimension="shape",
+                    kind="optionality_changed",
+                    breaking=breaking,
+                    field_name=name,
+                    message=f"field '{name}' optionality changed: {old_optional} -> {new_optional}",
+                )
+            )
 
     return changes
