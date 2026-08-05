@@ -50,7 +50,7 @@ parallel type):
 # compat/diff.py
 @dataclass(frozen=True)
 class ProjectionChange:
-    dimension: str  # "shape" | "lineage" | "governance" | "wire" | "storage" | "source_version"
+    dimension: str  # "shape" | "lineage" | "governance" | "wire" | "storage" | "source_version" | "materialisation"
     kind: str        # e.g. "field_removed", "expression_changed", "where_changed"
     breaking: bool
     field_name: str | None = None
@@ -99,15 +99,22 @@ already expect.
 | shape | field optionality: required → optional | no |
 | lineage | remapped source field/alias, or computed-field expression text changed, while output name+type+optionality are unchanged | no — always reported (never silently dropped), per the plan's "same-shape lineage changes remain visible" acceptance criterion |
 | governance | access grant removed | yes |
-| governance | classification level tightened (e.g. `open` → `confidential`) | yes |
+| governance | classification level tightened (moves to a higher index in `ClassificationLevel`'s declared order: `open, internal, confidential, restricted, secret` — this enum's declaration order *is* its severity order, already relied on elsewhere in the codebase) | yes |
 | governance | `@pii` annotation added to a field that didn't have it | yes |
 | governance | access grant added, classification loosened, `@pii` removed | no |
 | wire | an existing field's `@wire` hint *value* changes for a target already hinted in both versions | yes |
 | wire | a `@wire` hint added or removed where the field had no prior hint for that target | no (can't prove a format change without a prior value to compare against) |
 | storage | `where` clause text changed (added, removed, or modified) | yes |
 | storage | `group_by` changed | yes |
-| storage | a join added, removed, or an existing join's `cardinality`/`join_kind` changed | yes |
+| storage | a join added, removed, or an existing join's `cardinality`, `join_kind`, or `on` predicate changed | yes |
 | source_version | the projection's own source (or a join's source) resolves to a different model version between old and new | delegates entirely to `check_model_version_compatibility()` for that model pair; this dimension's `breaking` mirrors that report's status — no independent logic, so there is exactly one implementation of "is this model version bump breaking" in the codebase |
+
+**Stated limitation:** `where`, `on`, and computed-field expression comparisons
+are text-based (string inequality), not semantic. A CEL expression rewritten
+to the same effect (reordered clauses, added whitespace) will be reported as
+"changed" even though behavior is identical. This is a conservative default,
+consistent with how the rest of the compiler treats CEL expressions as opaque
+text outside of the validator — not a gap to close in this PR.
 
 ## Dimensions this PR does not populate
 
