@@ -554,3 +554,121 @@ def test_pii_removed_is_not_breaking():
     changes = _compare_governance(old, new)
 
     assert any(c.kind == "pii_changed" and not c.breaking and c.field_name == "note" for c in changes)
+
+
+from modelable.compat.diff import _compare_wire
+
+
+def test_wire_hint_value_changed_is_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            createdAt: timestamp
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            @wire(json.fieldCase: "camelCase")
+            createdAt <- o.createdAt
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            createdAt: timestamp
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            @wire(json.fieldCase: "snake_case")
+            createdAt <- o.createdAt
+          }
+        }
+        """,
+    )
+
+    changes = _compare_wire(old, new)
+
+    assert any(
+        c.kind == "wire_hint_changed" and c.breaking and c.field_name == "createdAt" for c in changes
+    )
+
+
+def test_wire_hint_added_where_none_existed_is_not_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            createdAt: timestamp
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            createdAt <- o.createdAt
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            createdAt: timestamp
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            @wire(json.fieldCase: "snake_case")
+            createdAt <- o.createdAt
+          }
+        }
+        """,
+    )
+
+    changes = _compare_wire(old, new)
+
+    assert any(
+        c.kind == "wire_hint_added" and not c.breaking and c.field_name == "createdAt" for c in changes
+    )
+
+
+def test_wire_hint_removed_is_not_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            createdAt: timestamp
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            @wire(json.fieldCase: "snake_case")
+            createdAt <- o.createdAt
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            createdAt: timestamp
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            createdAt <- o.createdAt
+          }
+        }
+        """,
+    )
+
+    changes = _compare_wire(old, new)
+
+    assert any(
+        c.kind == "wire_hint_removed" and not c.breaking and c.field_name == "createdAt" for c in changes
+    )

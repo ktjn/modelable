@@ -432,3 +432,49 @@ def _compare_governance(old: ProjectionVersion, new: ProjectionVersion) -> list[
             )
 
     return changes
+
+
+def _compare_wire(old: ProjectionVersion, new: ProjectionVersion) -> list[ProjectionChange]:
+    changes: list[ProjectionChange] = []
+    old_fields = {f.name: f for f in old.fields}
+    new_fields = {f.name: f for f in new.fields}
+
+    for name in sorted(set(old_fields) & set(new_fields)):
+        old_targets = old_fields[name].wire_targets()
+        new_targets = new_fields[name].wire_targets()
+
+        for target in sorted(set(old_targets) & set(new_targets)):
+            if old_targets[target] != new_targets[target]:
+                changes.append(
+                    ProjectionChange(
+                        dimension="wire",
+                        kind="wire_hint_changed",
+                        breaking=True,
+                        field_name=name,
+                        message=f"field '{name}' @wire hint for '{target}' changed",
+                    )
+                )
+
+        for target in sorted(set(new_targets) - set(old_targets)):
+            changes.append(
+                ProjectionChange(
+                    dimension="wire",
+                    kind="wire_hint_added",
+                    breaking=False,
+                    field_name=name,
+                    message=f"field '{name}' @wire hint added for '{target}'",
+                )
+            )
+
+        for target in sorted(set(old_targets) - set(new_targets)):
+            changes.append(
+                ProjectionChange(
+                    dimension="wire",
+                    kind="wire_hint_removed",
+                    breaking=False,
+                    field_name=name,
+                    message=f"field '{name}' @wire hint removed for '{target}'",
+                )
+            )
+
+    return changes
