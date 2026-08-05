@@ -6,6 +6,7 @@ from modelable.parser.ir import (
     MdlFile,
     ModelVersion,
     ProjectionVersion,
+    RefType,
     SemanticTypeDecl,
     VersionExact,
     VersionMin,
@@ -60,6 +61,18 @@ def resolve_model_ref(
         model_name=model_name,
         version=selected,
     )
+
+
+def resolve_ref_type(field_type: RefType, mdl: MdlFile) -> ResolvedModelRef:
+    """Resolve a ref<> field's target to a concrete model version.
+
+    Unversioned ref<Domain.Model> resolves via VersionMin(1) ("latest
+    matching") — the documented interpretation for existing files, and the
+    same rule already implicit in emitters/typescript.py's codegen and the
+    LSP's definition/hover "unversioned ref" handling.
+    """
+    version_spec = field_type.version if field_type.version is not None else VersionMin(min_inclusive=1)
+    return resolve_model_ref(mdl, field_type.target, version_spec)
 
 
 def resolved_version_spec(
