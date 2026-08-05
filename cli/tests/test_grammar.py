@@ -531,3 +531,98 @@ def test_index_decl_ir_shape():
     assert by_status.key == ["status", "createdAt"]
     assert by_status.sort == []
     assert by_status.unique is True
+
+
+def test_ref_type_without_version_has_none_version():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        customerRef: ref<customer.Customer>
+      }
+    }
+    """)
+    field = mdl.domains[0].models["Order"][0].fields[1]
+    assert field.type.kind == "ref"
+    assert field.type.target == "customer.Customer"
+    assert field.type.version is None
+
+
+def test_ref_type_with_exact_version():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        customerRef: ref<customer.Customer @ 2>
+      }
+    }
+    """)
+    field = mdl.domains[0].models["Order"][0].fields[1]
+    assert field.type.version.kind == "exact"
+    assert field.type.version.version == 2
+
+
+def test_ref_type_with_pinned_version():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        customerRef: ref<customer.Customer @ 2#deadbeef>
+      }
+    }
+    """)
+    field = mdl.domains[0].models["Order"][0].fields[1]
+    assert field.type.version.kind == "pinned"
+    assert field.type.version.version == 2
+    assert field.type.version.content_hash == "deadbeef"
+
+
+def test_ref_type_with_version_range():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        customerRef: ref<customer.Customer @ >=2 <3>
+      }
+    }
+    """)
+    field = mdl.domains[0].models["Order"][0].fields[1]
+    assert field.type.version.kind == "range"
+    assert field.type.version.min_inclusive == 2
+    assert field.type.version.max_exclusive == 3
+
+
+def test_ref_type_with_version_min():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        customerRef: ref<customer.Customer @ >=2>
+      }
+    }
+    """)
+    field = mdl.domains[0].models["Order"][0].fields[1]
+    assert field.type.version.kind == "min"
+    assert field.type.version.min_inclusive == 2
+
+
+def test_ref_type_with_version_nested_in_array():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        items: array<ref<catalog.Item @ >=1>>
+      }
+    }
+    """)
+    field = mdl.domains[0].models["Order"][0].fields[1]
+    assert field.type.kind == "array"
+    assert field.type.item.kind == "ref"
+    assert field.type.item.version.kind == "min"
+    assert field.type.item.version.min_inclusive == 1

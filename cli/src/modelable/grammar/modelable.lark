@@ -118,7 +118,7 @@ enum_member: IDENT
 NUMERIC_IDENT: /[0-9][A-Za-z0-9_-]*/
 array_type: "array" "<" type_expr ">"
 map_type: "map" "<" type_expr "," type_expr ">"
-ref_type: "ref" "<" dotted_ref ">"
+ref_type: "ref" "<" dotted_ref ("@" version_spec)? ">"
 object_type: "object" "{" field_decl* "}"
 
 
