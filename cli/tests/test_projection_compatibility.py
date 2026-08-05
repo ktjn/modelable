@@ -1084,3 +1084,28 @@ def test_source_version_dimension_mirrors_model_compat_status():
     source_version_changes = [c for c in projection_report.changes if c.dimension == "source_version"]
     assert len(source_version_changes) == 1
     assert source_version_changes[0].breaking == (model_report.status == "breaking")
+
+
+def test_source_version_skips_when_alias_resolves_to_different_model_name():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+      }
+      entity Shipment @ 1 (additive) {
+        @key orderId: uuid
+      }
+      projection OrderView @ 1 from orders.Order @ 1 as o {
+        orderId <- o.orderId
+      }
+      projection OrderView @ 2 from orders.Shipment @ 1 as o {
+        orderId <- o.orderId
+      }
+    }
+    """)
+
+    report = check_projection_version_compatibility(mdl, "orders", "OrderView", 1, 2)
+
+    source_version_changes = [c for c in report.changes if c.dimension == "source_version"]
+    assert source_version_changes == []
