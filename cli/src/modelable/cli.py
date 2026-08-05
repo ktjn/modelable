@@ -3,6 +3,7 @@ from __future__ import annotations
 import click
 
 from modelable.commands.apicurio import register_apicurio_commands
+from modelable.commands.capabilities import register_capabilities_commands
 from modelable.commands.codegen import register_codegen_commands
 from modelable.commands.compile import register_compile_commands
 from modelable.commands.create import register_create_commands
@@ -49,3 +50,4 @@ register_apicurio_commands(cli)
 register_spec_commands(cli)
 register_sync_commands(cli)
 register_validate_compat_commands(cli)
+register_capabilities_commands(cli)
