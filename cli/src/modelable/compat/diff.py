@@ -545,3 +545,23 @@ def _compare_storage(old: ProjectionVersion, new: ProjectionVersion) -> list[Pro
             )
 
     return changes
+
+
+def compare_projection_versions(
+    mdl: MdlFile, old: ProjectionVersion, new: ProjectionVersion
+) -> list[ProjectionChange]:
+    """Compare two published projection versions across the shape, lineage,
+    governance, wire, and storage dimensions.
+
+    Source-version comparison lives in compat/checker.py instead of here,
+    since it delegates to check_model_version_compatibility() and this
+    module must not import from checker.py (checker.py already imports
+    from this module; the reverse would be circular).
+    """
+    changes: list[ProjectionChange] = []
+    changes.extend(_compare_shape(mdl, old, new))
+    changes.extend(_compare_lineage(old, new))
+    changes.extend(_compare_governance(old, new))
+    changes.extend(_compare_wire(old, new))
+    changes.extend(_compare_storage(old, new))
+    return changes

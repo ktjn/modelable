@@ -930,3 +930,57 @@ def test_unchanged_storage_produces_no_changes():
     )
 
     assert _compare_storage(old, new) == []
+
+
+from modelable.compat.diff import compare_projection_versions
+
+
+def test_compare_projection_versions_combines_all_dimensions():
+    # note's optionality differs between old and new, so — same reasoning as
+    # Task 2's shape tests — this needs two explicit model versions in one
+    # shared .mdl text, not two independently-parsed snippets.
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        status: string
+        note?: string
+      }
+      entity Order @ 2 (additive) {
+        @key orderId: uuid
+        status: string
+        note: string
+        extra: string
+      }
+      projection OrderView @ 1
+        from orders.Order @ 1 as o
+        where o.status == "open"
+      {
+        orderId <- o.orderId
+        status <- o.status
+        note <- o.note
+      }
+      projection OrderView @ 2
+        from orders.Order @ 2 as o
+        where o.status == "closed"
+      {
+        orderId <- o.orderId
+        status <- o.status
+        note <- o.note
+        extra <- o.extra
+      }
+    }
+    """)
+    domain = mdl.domains[0]
+    old = domain.projections["OrderView"][0]
+    new = domain.projections["OrderView"][1]
+
+    changes = compare_projection_versions(mdl, old, new)
+    kinds = {c.kind for c in changes}
+
+    assert "field_added" in kinds  # extra
+    assert "optionality_changed" in kinds  # note optional -> required
+    assert "where_changed" in kinds
+    assert any(c.dimension == "shape" for c in changes)
+    assert any(c.dimension == "storage" for c in changes)
