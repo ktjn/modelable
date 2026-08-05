@@ -990,7 +990,9 @@ This slice intentionally supports one local workspace, `.mdl` files only, and
 no persisted browser language-service results. All source processing remains
 local and the static deployment sends no source off-origin.
 
-**Phase 3b — browser-native language services: Active next slice.**
+**Phase 3b — browser-native language services: Shipped.** Both batches below
+are complete; the Playground provides completion, hover, definition,
+references, and rename entirely from the local browser workspace.
 
 **Batch A — live diagnostics, completion, and hover: Shipped.** Protocol v2
 observes immutable workspace snapshots, synchronizes edits after a 300 ms
