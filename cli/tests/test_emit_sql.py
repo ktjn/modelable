@@ -625,3 +625,32 @@ binding order-binding {
     artifacts = emit_sql(workspace, tmp_path / "out", "clickhouse")
     art = next(a for a in artifacts if a.ref == "platform.OrderDb@1")
     assert "INDEX" not in art.content
+
+
+def test_sql_dialect_registry_lists_postgres_and_clickhouse():
+    from modelable.emitters.sql import list_sql_dialects
+
+    dialects = {dialect.name: dialect.description for dialect in list_sql_dialects()}
+
+    assert set(dialects) == {"postgres", "clickhouse"}
+    assert all(description for description in dialects.values())
+
+
+def test_emit_sql_still_rejects_unknown_dialect(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain billing {
+  owner: "test-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    import pytest
+
+    with pytest.raises(ValueError, match="unsupported SQL dialect: 'mysql'"):
+        emit_sql(workspace, tmp_path / "dist", "mysql")

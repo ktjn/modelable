@@ -54,25 +54,7 @@ from modelable.registry.index import build_registry
 from modelable.registry.oci import OCIRegistryError
 from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
 
-TARGETS = (
-    "json-schema",
-    "markdown",
-    "typescript",
-    "csharp",
-    "java",
-    "python",
-    "rust",
-    "go",
-    "dbt-yaml",
-    "fhir-profile",
-    "openmetadata",
-    "openlineage",
-    "odcs",
-    "protobuf",
-    "grpc",
-    "sql-postgres",
-    "sql-clickhouse",
-)
+TARGETS = tuple(target.name for target in list_implemented_codegen_targets())
 
 _DEFAULT_OUT_DIRS: dict[str, Path] = {
     target.name: target.default_out_dir

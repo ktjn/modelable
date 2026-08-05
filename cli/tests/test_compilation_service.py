@@ -98,6 +98,13 @@ def preview_for(
     )
 
 
+def test_preview_rejects_a_target_not_in_the_codegen_registry(tmp_path: Path) -> None:
+    source = write_workspace(tmp_path)
+
+    with pytest.raises(CompilationError, match="cobol"):
+        preview_for(tmp_path, source, target="cobol")
+
+
 def confirmation_for(pending) -> CompilationConfirmation:
     return CompilationConfirmation(
         session_id="session-1",

@@ -105,7 +105,7 @@ Modelable 1.0 stabilizes the local compiler and language-server toolchain.
   language server.
 - Generated artifacts: JSON Schema, TypeScript, C#, Java, Python, Rust, Go,
   SQL DDL, dbt `schema.yml`, Markdown, FHIR R4 profile, OpenMetadata JSON,
-  OpenLineage event, and ODCS formats.
+  OpenLineage event, ODCS, Protobuf, and Scalable-oriented gRPC formats.
 - Compatibility, lineage, and governance report output.
 - Apicurio JSON Schema registry artifact push/pull.
 - Marquez-compatible OpenLineage event sync via `modelable sync --lineage`.
