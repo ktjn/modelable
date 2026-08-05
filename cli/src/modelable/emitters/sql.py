@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
@@ -23,7 +24,30 @@ from modelable.parser.ir import (
 )
 from modelable.registry.resolver import resolve_model_ref
 
-_DIALECTS = {"postgres", "clickhouse"}
+
+@dataclass(frozen=True)
+class SqlDialect:
+    name: str
+    description: str
+
+
+SQL_DIALECTS: tuple[SqlDialect, ...] = (
+    SqlDialect(
+        name="postgres",
+        description="PostgreSQL CREATE TABLE DDL, including primary and secondary index declarations",
+    ),
+    SqlDialect(
+        name="clickhouse",
+        description="ClickHouse CREATE TABLE DDL (MergeTree engine); secondary index declarations are not yet emitted",
+    ),
+)
+
+
+def list_sql_dialects() -> list[SqlDialect]:
+    return list(SQL_DIALECTS)
+
+
+_DIALECT_NAMES = {dialect.name for dialect in SQL_DIALECTS}
 
 
 def emit_sql(workspace: Workspace, out_dir: Path, dialect: str) -> list[EmittedArtifact]:
@@ -31,7 +55,7 @@ def emit_sql(workspace: Workspace, out_dir: Path, dialect: str) -> list[EmittedA
 
     dialect must be "postgres" or "clickhouse".
     """
-    if dialect not in _DIALECTS:
+    if dialect not in _DIALECT_NAMES:
         raise ValueError(f"unsupported SQL dialect: {dialect!r}")
 
     artifacts: list[EmittedArtifact] = []
