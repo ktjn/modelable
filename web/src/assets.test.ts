@@ -294,6 +294,8 @@ describe('same-origin Python assets', () => {
       'invalid-parse.mdl',
       'invalid-reference.mdl',
       'invalid-semantic.mdl',
+      'composite-key.mdl',
+      'deferred-constructs.mdl',
     ];
     const snapshotNames = [
       'single-valid.json',
@@ -301,6 +303,8 @@ describe('same-origin Python assets', () => {
       'invalid-parse.json',
       'invalid-reference.json',
       'invalid-semantic.json',
+      'composite-key.json',
+      'deferred-constructs.json',
     ];
     await Promise.all([
       ...fixtureNames.map((name) => writeFile(join(fixtures, name), `fixture ${name}`)),
@@ -312,6 +316,10 @@ describe('same-origin Python assets', () => {
     const plan = await prepareBrowserConformanceAssetPlan(fixtures, join(root, 'public'));
 
     expect(plan.map((entry: { relativeName: string }) => entry.relativeName)).toEqual([
+      'composite-key.json',
+      'composite-key.mdl',
+      'deferred-constructs.json',
+      'deferred-constructs.mdl',
       'invalid-parse.json',
       'invalid-parse.mdl',
       'invalid-reference.json',

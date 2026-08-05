@@ -128,6 +128,8 @@ type TestClient = {
 };
 
 const scenarios = {
+  'composite-key': ['composite-key.mdl'],
+  'deferred-constructs': ['deferred-constructs.mdl'],
   'invalid-parse': ['invalid-parse.mdl'],
   'invalid-reference': ['invalid-reference.mdl'],
   'invalid-semantic': ['invalid-semantic.mdl'],
