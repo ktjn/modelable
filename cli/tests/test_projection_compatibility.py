@@ -909,6 +909,78 @@ def test_unchanged_storage_produces_no_changes():
     assert _compare_storage(old, new) == []
 
 
+def test_mapping_becoming_unresolvable_reports_type_unresolvable_not_bogus_changes():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            status: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            status <- o.status
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            status: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            status = o.status
+          }
+        }
+        """,
+    )
+
+    changes = _compare_shape(mdl, old, new)
+    shape_kinds = {c.kind for c in changes if c.field_name == "status"}
+
+    assert shape_kinds == {"type_unresolvable"}
+    assert any(c.kind == "type_unresolvable" and c.breaking for c in changes)
+
+
+def test_mapping_kind_changed_direct_to_computed_is_visible_but_not_breaking():
+    _mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            status: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            note <- o.status
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            status: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            note = o.status
+          }
+        }
+        """,
+    )
+
+    changes = _compare_lineage(old, new)
+
+    assert any(c.kind == "mapping_kind_changed" and not c.breaking and c.field_name == "note" for c in changes)
+
+
 def test_compare_projection_versions_combines_all_dimensions():
     # note's optionality differs between old and new, so — same reasoning as
     # Task 2's shape tests — this needs two explicit model versions in one
@@ -1055,6 +1127,60 @@ def test_source_version_dimension_mirrors_model_compat_status():
     source_version_changes = [c for c in projection_report.changes if c.dimension == "source_version"]
     assert len(source_version_changes) == 1
     assert source_version_changes[0].breaking == (model_report.status == "breaking")
+
+
+def test_source_version_dimension_is_not_breaking_for_a_compatible_model_bump():
+    from modelable.compat.checker import check_model_version_compatibility
+
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+      }
+      entity Order @ 2 (additive) {
+        @key orderId: uuid
+        note?: string
+      }
+      projection OrderView @ 1 from orders.Order @ 1 as o {
+        orderId <- o.orderId
+      }
+      projection OrderView @ 2 from orders.Order @ 2 as o {
+        orderId <- o.orderId
+      }
+    }
+    """)
+
+    model_report = check_model_version_compatibility(mdl, "orders", "Order", 1, 2)
+    assert model_report.status == "compatible"
+
+    projection_report = check_projection_version_compatibility(mdl, "orders", "OrderView", 1, 2)
+
+    source_version_changes = [c for c in projection_report.changes if c.dimension == "source_version"]
+    assert len(source_version_changes) == 1
+    assert source_version_changes[0].breaking is False
+
+
+def test_check_projection_version_compatibility_raises_for_dangling_source_reference():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+      }
+      projection OrderView @ 1 from orders.MissingEntity @ 1 as o {
+        orderId <- o.orderId
+      }
+      projection OrderView @ 2 from orders.MissingEntity @ 1 as o {
+        orderId <- o.orderId
+      }
+    }
+    """)
+
+    import pytest
+
+    with pytest.raises(LookupError):
+        check_projection_version_compatibility(mdl, "orders", "OrderView", 1, 2)
 
 
 def test_source_version_skips_when_alias_resolves_to_different_model_name():

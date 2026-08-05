@@ -84,6 +84,9 @@ def check_projection_version_compatibility(
     old_version = _find_projection_version(mdl, domain_name, projection_name, from_version)
     new_version = _find_projection_version(mdl, domain_name, projection_name, to_version)
 
+    _require_all_aliases_resolve(mdl, old_version)
+    _require_all_aliases_resolve(mdl, new_version)
+
     changes = compare_projection_versions(mdl, old_version, new_version)
     changes.extend(_compare_source_version(mdl, old_version, new_version))
 
@@ -98,6 +101,15 @@ def check_projection_version_compatibility(
         findings=findings,
         changes=changes,
     )
+
+
+def _require_all_aliases_resolve(mdl: MdlFile, projection: ProjectionVersion) -> None:
+    resolved = resolve_projection_aliases(projection, mdl)
+    declared_aliases = {projection.source.alias, *(join.alias for join in projection.joins)}
+    missing = declared_aliases - set(resolved)
+    if missing:
+        alias = sorted(missing)[0]
+        raise LookupError(f"unresolved source reference for alias '{alias}'")
 
 
 def _compare_source_version(

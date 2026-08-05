@@ -97,7 +97,9 @@ already expect.
 | shape | field optionality: optional → required | yes (matches the existing A1 rule in `is_optionality_breaking`) |
 | shape | field added | no |
 | shape | field optionality: required → optional | no |
+| shape | field's resolved type becomes unresolvable (e.g. mapping changes from a resolvable direct mapping to computed) | yes |
 | lineage | remapped source field/alias, or computed-field expression text changed, while output name+type+optionality are unchanged | no — always reported (never silently dropped), per the plan's "same-shape lineage changes remain visible" acceptance criterion |
+| lineage | mapping kind changed (direct ↔ computed), output name unchanged | no — same treatment as other lineage changes, always visible |
 | governance | access grant removed | yes |
 | governance | classification level tightened (moves to a higher index in `ClassificationLevel`'s declared order: `open, internal, confidential, restricted, secret` — this enum's declaration order *is* its severity order, already relied on elsewhere in the codebase) | yes |
 | governance | `@pii` annotation added to a field that didn't have it | yes |

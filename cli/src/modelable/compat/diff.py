@@ -267,28 +267,40 @@ def _compare_shape(
         old_type, old_optional = resolve_projection_field_type_and_optionality(old_field, old, mdl)
         new_type, new_optional = resolve_projection_field_type_and_optionality(new_field, new, mdl)
 
-        if _shape_type_signature(old_type) != _shape_type_signature(new_type):
-            changes.append(
-                ProjectionChange(
-                    dimension="shape",
-                    kind="type_changed",
-                    breaking=True,
-                    field_name=name,
-                    message=f"field '{name}' changed type",
+        if old_type is None or new_type is None:
+            if old_type is not None or new_type is not None:
+                changes.append(
+                    ProjectionChange(
+                        dimension="shape",
+                        kind="type_unresolvable",
+                        breaking=True,
+                        field_name=name,
+                        message=f"field '{name}' type can no longer be resolved (mapping became unresolvable)",
+                    )
                 )
-            )
+        else:
+            if _shape_type_signature(old_type) != _shape_type_signature(new_type):
+                changes.append(
+                    ProjectionChange(
+                        dimension="shape",
+                        kind="type_changed",
+                        breaking=True,
+                        field_name=name,
+                        message=f"field '{name}' changed type",
+                    )
+                )
 
-        if old_optional != new_optional:
-            breaking = old_optional is True and new_optional is False
-            changes.append(
-                ProjectionChange(
-                    dimension="shape",
-                    kind="optionality_changed",
-                    breaking=breaking,
-                    field_name=name,
-                    message=f"field '{name}' optionality changed: {old_optional} -> {new_optional}",
+            if old_optional != new_optional:
+                breaking = old_optional is True and new_optional is False
+                changes.append(
+                    ProjectionChange(
+                        dimension="shape",
+                        kind="optionality_changed",
+                        breaking=breaking,
+                        field_name=name,
+                        message=f"field '{name}' optionality changed: {old_optional} -> {new_optional}",
+                    )
                 )
-            )
 
     return changes
 
