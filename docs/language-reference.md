@@ -111,7 +111,7 @@ The type system is platform-neutral. Target emitters map each type to the closes
 |---|---|
 | `@key` | Identity field (required for `entity` and `aggregate`) |
 | `@pii` | Contains personally identifiable information |
-| `@classification("level")` | Governance classification (open, internal, confidential, secret) |
+| `@classification("level")` | Governance classification (open, internal, confidential, restricted, secret) |
 | `@deprecated(replacedBy: "field")` | Field is deprecated |
 | `@owner("team")` | Field-level ownership override |
 | `@server` | Field is assigned by the server at write time (e.g. auto-generated IDs, timestamps). Excluded from `request` auto projections by default. |
@@ -531,6 +531,13 @@ The Postgres SQL emitter consumes `index` declarations, generating `CREATE INDEX
 
 ## 4. Output Targets
 
+> **The `generate { }` block below (§4.1–4.2) does not itself trigger code
+> generation.** It parses, validates, and round-trips through canonical
+> formatting, but nothing in the compiler currently reads it to run an
+> emitter — see §4.3. To actually generate artifacts today, use
+> `modelable compile --target <name>`; run `modelable capabilities` for the
+> authoritative, up-to-date list of implemented targets.
+
 ### 4.1 Workspace-level generate block
 
 ```mdl
@@ -575,18 +582,26 @@ domain customer {
 }
 ```
 
-### 4.3 Target catalog
+### 4.3 Declared target vocabulary vs. implemented targets
 
-| Target | Output |
-|---|---|
-| `openapi` | OpenAPI 3.1 schema objects per model and projection |
-| `typescript` | TypeScript interfaces with `x-modelable` JSDoc lineage tags |
-| `avro` | Avro Schema JSON, one file per model version |
-| `protobuf` | `.proto` file per domain |
-| `sql(postgres / mysql / sqlite)` | `CREATE TABLE` DDL |
-| `jsonschema` | JSON Schema 2020-12 with `x-modelable` vendor extensions |
-| `asyncapi` | AsyncAPI 3.0 message schemas for event models |
-| `docs` | Markdown documentation with lineage tables |
+The `generate { }` block accepts a closed grammar vocabulary of target
+names: `openapi`, `typescript`, `avro`, `protobuf`,
+`sql(postgres | mysql | clickhouse | sqlite)`, `jsonschema`, `asyncapi`,
+`docs`. As noted above, declaring these does not run an emitter. Several of
+these names also have no implemented emitter behind them at all yet
+(`openapi`, `avro`, `asyncapi`, and the `mysql`/`sqlite` SQL dialects — only
+`postgres` and `clickhouse` are implemented). See Slice B3 in
+[Compiler correction and capability plan](correction-and-capability-plan.md#slice-b3-eliminate-silently-ignored-syntax).
+
+`modelable compile --target <name>` is the actual code-generation path, and
+its target names and descriptions are compiler-owned data, not this table —
+run `modelable compile --help` for the current `--target` choices, or
+`modelable capabilities` / `modelable capabilities --format json` for the
+full list with status and description:
+
+```bash
+modelable capabilities
+```
 
 ### 4.4 Adapter bindings
 
@@ -819,7 +834,7 @@ Ownership and governance metadata are definition-time contract metadata:
 - Published versions are immutable, including their governance metadata.
 - `@pii` identifies personally identifiable information.
 - `@classification` uses the ordered levels `open`, `internal`, `confidential`,
-  and `secret`.
+  `restricted`, and `secret`.
 - Projection fields inherit source restrictions through lineage. A projection
   may narrow access but must not silently broaden it or lower classification.
 - Access declarations document `read`, `project`, and related grants. The local

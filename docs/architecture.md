@@ -3,7 +3,17 @@
 > **Authority:** This is the product source of truth for Modelable concepts and
 > contract semantics. Sections describing runtime adapters, materialization, or
 > external services are deferred unless the root roadmap and an accepted issue
-> say otherwise.
+> say otherwise. Concretely, as of this revision: §3.6 Subscription, §3.7
+> Adapter Binding, and §7.3–§7.5 (Runtime Engine, Materializer, Adapter Layer)
+> describe a system that is **not implemented** — only its grammar parses
+> without error today (see [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md)
+> "Outside the near-term compiler roadmap"). What ships today is `cli/src/modelable/runtime/adapter/postgres.py`,
+> a minimal single-target Postgres bootstrap/materialize stub with no read
+> path, retry, batching, or health/lag reporting — not the multi-adapter,
+> delivery-semantics-guaranteed runtime these sections describe. §7.1 Model
+> Registry's "create draft / publish / deprecate" API framing is also aspirational: the
+> real registry is a read-only, compile-time-derived SQLite index over
+> git-tracked `.mdl` source, not a live mutation API.
 
 ## 1. Purpose
 
@@ -110,7 +120,7 @@ Required properties:
 - `domain`: Owning domain.
 - `name`: Unique model name within the domain.
 - `kind`: `entity`, `event`, `value`, or `aggregate`.
-- `identity`: Key definition for addressable records when applicable. The `key` field accepts either a single field name (string) or an ordered list of field names for composite keys.
+- `identity`: Key definition for addressable records when applicable. Every entity and aggregate currently declares exactly one `@key` field; composite keys (multiple `@key` fields) are not yet supported by the compiler. See [Compiler correction and capability plan](correction-and-capability-plan.md#slice-d5-resolve-composite-key-support).
 - `versions`: Published model versions.
 
 Example:
@@ -130,12 +140,17 @@ A model version is an immutable schema and semantic contract for a model.
 Required properties:
 
 - `version`: Integer version number. Must be greater than the previous published version for the same model.
-- `changeKind`: `additive` or `breaking`. Required when `status` is `published`. Omit for `draft`. See section 8.1 for enforcement rules.
-- `status`: `draft`, `published`, `deprecated`, or `retired`.
+- `changeKind`: `additive` or `breaking`, required on every entity, aggregate, and event version. See section 8.1 for enforcement rules.
 - `fields`: Field definitions.
 - `identity`: Identity fields for entities and aggregates.
 - `constraints`: Optional validation constraints.
 - `metadata`: Optional classification, documentation, and ownership metadata.
+
+Model lifecycle status (`draft`, `published`, `deprecated`, `retired`) is not
+yet represented in the grammar or IR — there is no `status` field today, and
+every published version is treated as immutable with no separate
+draft/deprecated/retired state. See
+[Compiler correction and capability plan](correction-and-capability-plan.md#slice-d6-model-lifecycle-status).
 
 Example:
 
@@ -151,18 +166,12 @@ domain customer {
 }
 ```
 
-Composite key example:
-
-```mdl
-domain orders {
-  entity OrderLineItem @ 1 (additive) {
-    @key orderId:    uuid
-    @key lineItemId: uuid
-    sku:             string
-    quantity:        int
-  }
-}
-```
+Composite keys (multiple `@key` fields on one entity or aggregate) are not
+yet supported — the example above shows the current single-key form.
+Declaring two `@key` fields is a compile error today (see
+`cli/tests/test_semantic.py::test_composite_key_is_not_yet_supported` for
+the executable conformance record). See
+[Compiler correction and capability plan](correction-and-capability-plan.md#slice-d5-resolve-composite-key-support).
 
 ### 3.4 Projection
 
@@ -261,6 +270,9 @@ Auto projections may only target `entity` or `aggregate` models. The four genera
 
 ### 3.6 Subscription
 
+> **Status: deferred.** `subscription` blocks parse and are validated
+> structurally, but nothing executes them — there is no subscription runtime.
+
 A subscription declares how a projection is kept up to date from one or more source streams or change sources.
 
 Required properties:
@@ -298,6 +310,12 @@ subscription billing-customer-replica {
 ```
 
 ### 3.7 Adapter Binding
+
+> **Status: partially implemented.** `binding` declarations parse and are used
+> narrowly today (for example, SQL DDL table-name resolution in
+> `sql-postgres`/`sql-clickhouse` output). The broader runtime
+> materialization/adapter-execution model this section describes is deferred
+> — see §7.3–§7.5.
 
 An adapter binding connects a logical model, projection, subscription, or materialization to a concrete backend.
 
@@ -346,7 +364,7 @@ Field modifiers:
 - `?` suffix — optional field (nullable / not required)
 - `@key` — identity field (required for `entity` and `aggregate` models)
 - `@pii` — marks field as personally identifiable information
-- `@classification("level")` — governance classification level (`open`, `internal`, `confidential`, `secret`), ordered from least to most restricted
+- `@classification("level")` — governance classification level (`open`, `internal`, `confidential`, `restricted`, `secret`), ordered from least to most restricted
 - `@deprecated(replacedBy: "field")` — marks field as deprecated
 - `@owner("team")` — field-level ownership override
 - `@server` — field is assigned by the server at write time (e.g. auto-generated identifiers, audit timestamps). Excluded from `request` auto projections by default.
@@ -588,6 +606,9 @@ Plan documents are written to `.modelable/plans/<domain>.<Projection>.v<version>
 
 ### 7.3 Runtime Engine
 
+> **Status: deferred.** No runtime engine exists. Plan documents (§7.2) are
+> written to disk but nothing interprets or executes them.
+
 The runtime engine executes plans produced by the planner.
 
 Execution modes:
@@ -598,6 +619,12 @@ Execution modes:
 - `materialized`: Maintain projected replica in target storage.
 
 ### 7.4 Materializer
+
+> **Status: deferred.** `cli/src/modelable/runtime/adapter/postgres.py` has a
+> `materialize()` method that issues a single `INSERT ... ON CONFLICT`
+> statement — none of the idempotent-write tracking, retry, dead-letter,
+> rebuild, snapshot-catch-up, or health/lag reporting this section describes
+> exists.
 
 The materializer keeps a target projection synchronized with source data.
 
@@ -612,6 +639,11 @@ It must support:
 - Health and lag reporting.
 
 ### 7.5 Adapter Layer
+
+> **Status: deferred.** One minimal, single-target adapter exists
+> (`cli/src/modelable/runtime/adapter/postgres.py`: schema bootstrap and a
+> naive upsert, no read path). The multi-category adapter system (storage,
+> stream, schema, CDC) this section describes is not implemented.
 
 Adapters isolate backend-specific behavior.
 
@@ -731,6 +763,7 @@ Classification levels form an ordered hierarchy from least to most restricted:
 | `open` | No access restriction. Safe to expose to any consumer. |
 | `internal` | Restricted to internal consumers within the organisation. |
 | `confidential` | Restricted to explicitly authorised consumers. |
+| `restricted` | Restricted to a narrow, explicitly authorised set of consumers, stricter than `confidential`. |
 | `secret` | Highest restriction. Requires explicit governance approval to project. |
 
 `@pii` is an orthogonal annotation that marks personally identifiable information. A field may carry both `@pii` and a classification level — they govern different aspects (data sensitivity versus access tier).
@@ -833,7 +866,7 @@ Generated JSON Schema documents use `x-modelable-*` vendor extensions to carry M
 | :--- | :--- |
 | `x-modelable` | Model kind, domain, name, and version block |
 | `x-modelable-field` | Fully qualified field reference for lineage |
-| `x-modelable-classification` | Field classification level: `open`, `internal`, `confidential`, or `secret`. Set only when `@classification` is declared; `@pii` is carried separately in `x-modelable-field`. |
+| `x-modelable-classification` | Field classification level: `open`, `internal`, `confidential`, `restricted`, or `secret`. Set only when `@classification` is declared; `@pii` is carried separately in `x-modelable-field`. |
 | `x-modelable-lineage` | Source field reference for derived fields |
 | `x-modelable-ref` | Cross-model reference |
 | `x-modelable-por` | Portable ownership record reference |
@@ -1209,10 +1242,10 @@ System-level design decisions have been resolved. Phase-specific documents may s
 - **Expression language for computed fields:** CEL (Common Expression Language). Deterministic, non-Turing-complete, sandboxable.
 - **Internal parser models:** `pydantic`. Not exposed as the external contract format.
 - **First generated artifact:** JSON Schema 2020-12.
-- **Codegen architecture:** Codegen is a first-class extensible boundary. TypeScript generation is delegated to `json-schema-to-typescript` in Phase 1; C#, Java, Python, Rust, and Go are implemented locally as native generated-language backends, and additional future framework targets remain open.
-- **Future generated-language targets:** Additional generated-language targets beyond the implemented C#, Java, Python, Rust, and Go backends remain deferred.
+- **Codegen architecture:** Codegen is a first-class extensible boundary. TypeScript, C#, Java, Python, Rust, and Go are implemented locally as native generated-language backends, and additional future framework targets remain open.
+- **Future generated-language targets:** Additional generated-language targets beyond the implemented TypeScript, C#, Java, Python, Rust, and Go backends remain deferred.
 - **Version scheme:** Integer versions with a required `changeKind: additive | breaking` declaration on publish. See section 8.1.
-- **Composite keys:** Supported in MVP. `identity.key` accepts a string (single field) or a list (composite). See section 3.3.
+- **Composite keys:** Not yet supported. Every entity and aggregate requires exactly one `@key` field today. See section 3.3 and [Compiler correction and capability plan](correction-and-capability-plan.md#slice-d5-resolve-composite-key-support).
 - **Version ranges in projections:** Allowed in MVP. The planner resolves to the highest satisfying published version at plan time. See section 8.2.
 - **Registry storage:** File-first (`.mdl` source of truth) with a single `registry.db` SQLite derived index written by `compile`. In distributed mode peers are git remotes; `mirror/` holds sparse checkouts of foreign `.mdl` files; `consumers/` holds incoming write-backs from downstream registries. All derived data is in `registry.db`; all source of truth is in git. See section 12 and [compiler-reference.md](compiler-reference.md).
 - **Runtime plan execution:** Interpreted plan documents (structured JSON artifacts). Not generated code. See section 7.2.
