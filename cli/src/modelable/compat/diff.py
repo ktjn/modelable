@@ -3,7 +3,18 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from modelable.parser.ir import AnnDeprecated, EnumType, FieldDef, FieldType, IndexDecl, MdlFile, ModelVersion, ProjectionVersion
+from modelable.parser.ir import (
+    AnnDeprecated,
+    ComputedMapping,
+    DirectMapping,
+    EnumType,
+    FieldDef,
+    FieldType,
+    IndexDecl,
+    MdlFile,
+    ModelVersion,
+    ProjectionVersion,
+)
 
 from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
 
@@ -275,6 +286,58 @@ def _compare_shape(
                     breaking=breaking,
                     field_name=name,
                     message=f"field '{name}' optionality changed: {old_optional} -> {new_optional}",
+                )
+            )
+
+    return changes
+
+
+def _compare_lineage(old: ProjectionVersion, new: ProjectionVersion) -> list[ProjectionChange]:
+    changes: list[ProjectionChange] = []
+    old_fields = {f.name: f for f in old.fields}
+    new_fields = {f.name: f for f in new.fields}
+
+    for name in sorted(set(old_fields) & set(new_fields)):
+        old_mapping = old_fields[name].mapping
+        new_mapping = new_fields[name].mapping
+
+        if isinstance(old_mapping, DirectMapping) and isinstance(new_mapping, DirectMapping):
+            if (old_mapping.source_alias, old_mapping.source_field) != (
+                new_mapping.source_alias,
+                new_mapping.source_field,
+            ):
+                changes.append(
+                    ProjectionChange(
+                        dimension="lineage",
+                        kind="source_remapped",
+                        breaking=False,
+                        field_name=name,
+                        message=(
+                            f"field '{name}' source remapped: "
+                            f"{old_mapping.source_alias}.{old_mapping.source_field} -> "
+                            f"{new_mapping.source_alias}.{new_mapping.source_field}"
+                        ),
+                    )
+                )
+        elif isinstance(old_mapping, ComputedMapping) and isinstance(new_mapping, ComputedMapping):
+            if old_mapping.expression != new_mapping.expression:
+                changes.append(
+                    ProjectionChange(
+                        dimension="lineage",
+                        kind="expression_changed",
+                        breaking=False,
+                        field_name=name,
+                        message=f"field '{name}' computed expression changed",
+                    )
+                )
+        elif old_mapping.kind != new_mapping.kind:
+            changes.append(
+                ProjectionChange(
+                    dimension="lineage",
+                    kind="mapping_kind_changed",
+                    breaking=False,
+                    field_name=name,
+                    message=f"field '{name}' mapping changed from {old_mapping.kind} to {new_mapping.kind}",
                 )
             )
 

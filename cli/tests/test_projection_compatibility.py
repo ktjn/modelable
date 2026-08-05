@@ -226,3 +226,110 @@ def test_unchanged_fields_produce_no_shape_changes():
     )
 
     assert _compare_shape(mdl, old, new) == []
+
+
+from modelable.compat.diff import _compare_lineage
+
+
+def test_remapped_source_field_is_visible_but_not_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            legacyStatus: string
+            status: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            status <- o.legacyStatus
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            legacyStatus: string
+            status: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            status <- o.status
+          }
+        }
+        """,
+    )
+
+    changes = _compare_lineage(old, new)
+
+    assert any(c.kind == "source_remapped" and not c.breaking and c.field_name == "status" for c in changes)
+
+
+def test_expression_text_changed_is_visible_but_not_breaking():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            status: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            isShipped = o.status == "shipped"
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            status: string
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+            isShipped = o.status == "delivered"
+          }
+        }
+        """,
+    )
+
+    changes = _compare_lineage(old, new)
+
+    assert any(
+        c.kind == "expression_changed" and not c.breaking and c.field_name == "isShipped"
+        for c in changes
+    )
+
+
+def test_unchanged_lineage_produces_no_changes():
+    mdl, old, new = _two_versions(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+          }
+        }
+        """,
+        """
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+          }
+          projection OrderView @ 1 from orders.Order @ 1 as o {
+            orderId <- o.orderId
+          }
+        }
+        """,
+    )
+
+    assert _compare_lineage(old, new) == []
