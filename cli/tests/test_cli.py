@@ -658,6 +658,69 @@ domain billing {
     assert "same domain and model" in result.output.lower()
 
 
+def test_diff_supports_projection_refs(tmp_path):
+    mdl = tmp_path / "orders.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: string
+  }
+  projection OrderView @ 1 from orders.Order @ 1 as o {
+    orderId <- o.orderId
+    status <- o.status
+  }
+  projection OrderView @ 2 from orders.Order @ 1 as o {
+    orderId <- o.orderId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["diff", "orders.OrderView@1", "orders.OrderView@2", "--path", str(tmp_path)],
+    )
+
+    assert result.exit_code == 1, result.output
+    assert "breaking" in result.output.lower()
+    assert "field_removed" in result.output.lower()
+
+
+def test_diff_reports_compatible_projection_change(tmp_path):
+    mdl = tmp_path / "orders.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: string
+  }
+  projection OrderView @ 1 from orders.Order @ 1 as o {
+    orderId <- o.orderId
+  }
+  projection OrderView @ 2 from orders.Order @ 1 as o {
+    orderId <- o.orderId
+    status <- o.status
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["diff", "orders.OrderView@1", "orders.OrderView@2", "--path", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "status: compatible" in result.output.lower()
+
+
 def test_resolve_prints_normalized_model_and_projection(tmp_path):
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(

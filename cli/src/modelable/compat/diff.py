@@ -3,7 +3,21 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from modelable.parser.ir import AnnDeprecated, EnumType, FieldDef, IndexDecl, ModelVersion
+from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
+from modelable.parser.ir import (
+    AccessBlock,
+    AnnDeprecated,
+    ClassificationLevel,
+    ComputedMapping,
+    DirectMapping,
+    EnumType,
+    FieldDef,
+    FieldType,
+    IndexDecl,
+    MdlFile,
+    ModelVersion,
+    ProjectionVersion,
+)
 
 
 @dataclass(frozen=True)
@@ -16,6 +30,15 @@ class FieldChange:
     to_optional: bool | None = None
     from_type: str | None = None
     to_type: str | None = None
+
+
+@dataclass(frozen=True)
+class ProjectionChange:
+    dimension: str  # "shape" | "lineage" | "governance" | "wire" | "storage" | "source_version" | "materialisation"
+    kind: str
+    breaking: bool
+    field_name: str | None = None
+    message: str = ""
 
 
 def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion) -> list[FieldChange]:
@@ -198,4 +221,357 @@ def compare_index_decls(old_index: IndexDecl | None, new_index: IndexDecl | None
         if old_secondary.get(name) != new_secondary.get(name):
             changes.append(FieldChange(kind="index_changed", field_name=name))
 
+    return changes
+
+
+def _shape_type_signature(field_type: FieldType | None) -> str | None:
+    if field_type is None:
+        return None
+    return json.dumps(field_type.model_dump(mode="json"), sort_keys=True)
+
+
+def _compare_shape(
+    mdl: MdlFile,
+    old: ProjectionVersion,
+    new: ProjectionVersion,
+) -> list[ProjectionChange]:
+    changes: list[ProjectionChange] = []
+    old_fields = {f.name: f for f in old.fields}
+    new_fields = {f.name: f for f in new.fields}
+
+    for name in sorted(set(old_fields) - set(new_fields)):
+        changes.append(
+            ProjectionChange(
+                dimension="shape",
+                kind="field_removed",
+                breaking=True,
+                field_name=name,
+                message=f"field '{name}' was removed",
+            )
+        )
+
+    for name in sorted(set(new_fields) - set(old_fields)):
+        changes.append(
+            ProjectionChange(
+                dimension="shape",
+                kind="field_added",
+                breaking=False,
+                field_name=name,
+                message=f"field '{name}' was added",
+            )
+        )
+
+    for name in sorted(set(old_fields) & set(new_fields)):
+        old_field = old_fields[name]
+        new_field = new_fields[name]
+        old_type, old_optional = resolve_projection_field_type_and_optionality(old_field, old, mdl)
+        new_type, new_optional = resolve_projection_field_type_and_optionality(new_field, new, mdl)
+
+        if old_type is None or new_type is None:
+            if old_type is not None or new_type is not None:
+                changes.append(
+                    ProjectionChange(
+                        dimension="shape",
+                        kind="type_unresolvable",
+                        breaking=True,
+                        field_name=name,
+                        message=f"field '{name}' type can no longer be resolved (mapping became unresolvable)",
+                    )
+                )
+        else:
+            if _shape_type_signature(old_type) != _shape_type_signature(new_type):
+                changes.append(
+                    ProjectionChange(
+                        dimension="shape",
+                        kind="type_changed",
+                        breaking=True,
+                        field_name=name,
+                        message=f"field '{name}' changed type",
+                    )
+                )
+
+            if old_optional != new_optional:
+                breaking = old_optional is True and new_optional is False
+                changes.append(
+                    ProjectionChange(
+                        dimension="shape",
+                        kind="optionality_changed",
+                        breaking=breaking,
+                        field_name=name,
+                        message=f"field '{name}' optionality changed: {old_optional} -> {new_optional}",
+                    )
+                )
+
+    return changes
+
+
+def _compare_lineage(old: ProjectionVersion, new: ProjectionVersion) -> list[ProjectionChange]:
+    changes: list[ProjectionChange] = []
+    old_fields = {f.name: f for f in old.fields}
+    new_fields = {f.name: f for f in new.fields}
+
+    for name in sorted(set(old_fields) & set(new_fields)):
+        old_mapping = old_fields[name].mapping
+        new_mapping = new_fields[name].mapping
+
+        if isinstance(old_mapping, DirectMapping) and isinstance(new_mapping, DirectMapping):
+            if (old_mapping.source_alias, old_mapping.source_field) != (
+                new_mapping.source_alias,
+                new_mapping.source_field,
+            ):
+                changes.append(
+                    ProjectionChange(
+                        dimension="lineage",
+                        kind="source_remapped",
+                        breaking=False,
+                        field_name=name,
+                        message=(
+                            f"field '{name}' source remapped: "
+                            f"{old_mapping.source_alias}.{old_mapping.source_field} -> "
+                            f"{new_mapping.source_alias}.{new_mapping.source_field}"
+                        ),
+                    )
+                )
+        elif isinstance(old_mapping, ComputedMapping) and isinstance(new_mapping, ComputedMapping):
+            if old_mapping.expression != new_mapping.expression:
+                changes.append(
+                    ProjectionChange(
+                        dimension="lineage",
+                        kind="expression_changed",
+                        breaking=False,
+                        field_name=name,
+                        message=f"field '{name}' computed expression changed",
+                    )
+                )
+        elif old_mapping.kind != new_mapping.kind:
+            changes.append(
+                ProjectionChange(
+                    dimension="lineage",
+                    kind="mapping_kind_changed",
+                    breaking=False,
+                    field_name=name,
+                    message=f"field '{name}' mapping changed from {old_mapping.kind} to {new_mapping.kind}",
+                )
+            )
+
+    return changes
+
+
+_CLASSIFICATION_ORDER = {level: index for index, level in enumerate(ClassificationLevel)}
+
+
+def _classification_index(level: ClassificationLevel | None) -> int:
+    if level is None:
+        return -1
+    return _CLASSIFICATION_ORDER[level]
+
+
+def _access_grant_triples(access: AccessBlock | None) -> set[tuple[str, str, str]]:
+    """Flatten a projection's AccessBlock into (scope, principal, permission) triples.
+
+    scope is "entity" for entity-level grants, or the property name for
+    per-property grants.
+    """
+    if access is None:
+        return set()
+    triples: set[tuple[str, str, str]] = set()
+    for grant in access.entity:
+        for permission in grant.permissions:
+            triples.add(("entity", grant.principal, permission))
+    for property_name, grants in access.properties.items():
+        for grant in grants:
+            for permission in grant.permissions:
+                triples.add((property_name, grant.principal, permission))
+    return triples
+
+
+def _compare_governance(old: ProjectionVersion, new: ProjectionVersion) -> list[ProjectionChange]:
+    changes: list[ProjectionChange] = []
+
+    old_grants = _access_grant_triples(old.access)
+    new_grants = _access_grant_triples(new.access)
+
+    for scope, principal, permission in sorted(old_grants - new_grants):
+        changes.append(
+            ProjectionChange(
+                dimension="governance",
+                kind="access_grant_removed",
+                breaking=True,
+                field_name=None if scope == "entity" else scope,
+                message=f"access grant removed: {scope} principal '{principal}' permission '{permission}'",
+            )
+        )
+    for scope, principal, permission in sorted(new_grants - old_grants):
+        changes.append(
+            ProjectionChange(
+                dimension="governance",
+                kind="access_grant_added",
+                breaking=False,
+                field_name=None if scope == "entity" else scope,
+                message=f"access grant added: {scope} principal '{principal}' permission '{permission}'",
+            )
+        )
+
+    old_fields = {f.name: f for f in old.fields}
+    new_fields = {f.name: f for f in new.fields}
+    for name in sorted(set(old_fields) & set(new_fields)):
+        old_field = old_fields[name]
+        new_field = new_fields[name]
+
+        if old_field.is_pii != new_field.is_pii:
+            changes.append(
+                ProjectionChange(
+                    dimension="governance",
+                    kind="pii_changed",
+                    breaking=new_field.is_pii,
+                    field_name=name,
+                    message=f"field '{name}' @pii changed: {old_field.is_pii} -> {new_field.is_pii}",
+                )
+            )
+
+        old_level = old_field.classification
+        new_level = new_field.classification
+        if old_level != new_level:
+            tightened = _classification_index(new_level) > _classification_index(old_level)
+            changes.append(
+                ProjectionChange(
+                    dimension="governance",
+                    kind="classification_changed",
+                    breaking=tightened,
+                    field_name=name,
+                    message=f"field '{name}' classification changed: {old_level} -> {new_level}",
+                )
+            )
+
+    return changes
+
+
+def _compare_wire(old: ProjectionVersion, new: ProjectionVersion) -> list[ProjectionChange]:
+    changes: list[ProjectionChange] = []
+    old_fields = {f.name: f for f in old.fields}
+    new_fields = {f.name: f for f in new.fields}
+
+    for name in sorted(set(old_fields) & set(new_fields)):
+        old_targets = old_fields[name].wire_targets()
+        new_targets = new_fields[name].wire_targets()
+
+        for target in sorted(set(old_targets) & set(new_targets)):
+            if old_targets[target] != new_targets[target]:
+                changes.append(
+                    ProjectionChange(
+                        dimension="wire",
+                        kind="wire_hint_changed",
+                        breaking=True,
+                        field_name=name,
+                        message=f"field '{name}' @wire hint for '{target}' changed",
+                    )
+                )
+
+        for target in sorted(set(new_targets) - set(old_targets)):
+            changes.append(
+                ProjectionChange(
+                    dimension="wire",
+                    kind="wire_hint_added",
+                    breaking=False,
+                    field_name=name,
+                    message=f"field '{name}' @wire hint added for '{target}'",
+                )
+            )
+
+        for target in sorted(set(old_targets) - set(new_targets)):
+            changes.append(
+                ProjectionChange(
+                    dimension="wire",
+                    kind="wire_hint_removed",
+                    breaking=False,
+                    field_name=name,
+                    message=f"field '{name}' @wire hint removed for '{target}'",
+                )
+            )
+
+    return changes
+
+
+def _compare_storage(old: ProjectionVersion, new: ProjectionVersion) -> list[ProjectionChange]:
+    changes: list[ProjectionChange] = []
+
+    if old.where != new.where:
+        changes.append(
+            ProjectionChange(
+                dimension="storage",
+                kind="where_changed",
+                breaking=True,
+                message=f"where clause changed: {old.where!r} -> {new.where!r}",
+            )
+        )
+
+    if old.group_by != new.group_by:
+        changes.append(
+            ProjectionChange(
+                dimension="storage",
+                kind="group_by_changed",
+                breaking=True,
+                message=f"group by changed: {old.group_by!r} -> {new.group_by!r}",
+            )
+        )
+
+    old_joins = {join.alias: join for join in old.joins}
+    new_joins = {join.alias: join for join in new.joins}
+
+    for alias in sorted(set(old_joins) - set(new_joins)):
+        changes.append(
+            ProjectionChange(
+                dimension="storage",
+                kind="join_removed",
+                breaking=True,
+                field_name=alias,
+                message=f"join '{alias}' was removed",
+            )
+        )
+    for alias in sorted(set(new_joins) - set(old_joins)):
+        changes.append(
+            ProjectionChange(
+                dimension="storage",
+                kind="join_added",
+                breaking=True,
+                field_name=alias,
+                message=f"join '{alias}' was added",
+            )
+        )
+    for alias in sorted(set(old_joins) & set(new_joins)):
+        old_join = old_joins[alias]
+        new_join = new_joins[alias]
+        if (old_join.cardinality, old_join.join_kind, old_join.on) != (
+            new_join.cardinality,
+            new_join.join_kind,
+            new_join.on,
+        ):
+            changes.append(
+                ProjectionChange(
+                    dimension="storage",
+                    kind="join_changed",
+                    breaking=True,
+                    field_name=alias,
+                    message=f"join '{alias}' cardinality/kind/predicate changed",
+                )
+            )
+
+    return changes
+
+
+def compare_projection_versions(mdl: MdlFile, old: ProjectionVersion, new: ProjectionVersion) -> list[ProjectionChange]:
+    """Compare two published projection versions across the shape, lineage,
+    governance, wire, and storage dimensions.
+
+    Source-version comparison lives in compat/checker.py instead of here,
+    since it delegates to check_model_version_compatibility() and this
+    module must not import from checker.py (checker.py already imports
+    from this module; the reverse would be circular).
+    """
+    changes: list[ProjectionChange] = []
+    changes.extend(_compare_shape(mdl, old, new))
+    changes.extend(_compare_lineage(old, new))
+    changes.extend(_compare_governance(old, new))
+    changes.extend(_compare_wire(old, new))
+    changes.extend(_compare_storage(old, new))
     return changes

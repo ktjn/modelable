@@ -523,6 +523,22 @@ Requires A2 and A3.
 - Same-shape lineage changes remain visible.
 - Findings identify affected dimensions and source properties.
 
+### Outcome (2026-08-05)
+
+Implemented as designed in
+[the C1 design spec](superpowers/specs/2026-08-05-projection-compatibility-design.md):
+`compare_projection_versions()`/`check_projection_version_compatibility()`
+in `compat/diff.py`/`compat/checker.py`, wired into the existing
+`modelable diff` command (`ResolvedModelRef.version` already resolved both
+models and projections uniformly — `run_diff` just never branched on it).
+Per-dimension tagging with a single overall rollup status. Source-version
+comparison delegates entirely to `check_model_version_compatibility()` —
+no independent "is this breaking" logic for model version bumps.
+`materialisation` and `event operation coverage` are not populated (both
+genuine IR gaps, not oversights — see the design doc and the
+`projection-event-operation-coverage-compatibility` capability manifest
+entry).
+
 ---
 
 ## Slice C2 — extend existing version resolution to `ref<>` types

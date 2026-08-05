@@ -101,7 +101,7 @@ cases:
   - question: How do I show field-level lineage?
     relevant_chunks: [cli-reference.md#53-lineage-show-field-level-lineage]
   - question: How do I compare model versions?
-    relevant_chunks: [cli-reference.md#54-diff-compare-two-model-versions]
+    relevant_chunks: [cli-reference.md#54-diff-compare-two-model-or-projection-versions]
   - question: How do I compile definitions to artifacts?
     relevant_chunks: [cli-reference.md#56-compile-compile-definitions-to-artifact-formats]
   - question: How do I build the documentation search index?

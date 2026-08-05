@@ -175,21 +175,21 @@ modelable lineage customer.Customer@2
 
 ---
 
-### 5.4 `diff` — Compare two model versions
+### 5.4 `diff` — Compare two model or projection versions
 
 ```text
 modelable diff REF_A REF_B --path PATH
 ```
 
-Compares two published model versions field by field and reports additions, removals, renames, nullability changes, identity changes, enum changes, and type changes. Intended to support compatibility review before publishing a new version.
+Compares two published versions of the same model or the same projection and reports a compatibility finding per change. For models: field additions, removals, renames, nullability changes, identity changes, enum changes, and type changes. For projections: field shape changes (as for models), lineage changes (remapped source fields, changed computed expressions — always reported, never breaking on their own), access/classification/`@pii` changes, `@wire` hint changes, `where`/`group by`/join changes, and source-version changes (delegated to the same model-compatibility check). Intended to support compatibility review before publishing a new version.
 If the comparison is breaking, the command prints the report and exits with code `1`.
 
 **Arguments:**
 
 | Argument | Description |
 |:---------|:------------|
-| `REF_A` | First model reference (`domain.ModelName@version`) |
-| `REF_B` | Second model reference (`domain.ModelName@version`) |
+| `REF_A` | First model or projection reference (`domain.Name@version`) |
+| `REF_B` | Second model or projection reference (`domain.Name@version`) |
 
 **Options:**
 

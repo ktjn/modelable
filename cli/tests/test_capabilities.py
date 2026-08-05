@@ -115,3 +115,10 @@ def test_compile_command_target_choices_match_the_manifest():
 
     for name in implemented_target_names:
         assert name in result.output, f"{name} is implemented but missing from `compile --help`"
+
+
+def test_manifest_deferred_features_include_projection_event_operation_coverage():
+    manifest = build_capability_manifest()
+
+    manifest_names = {capability.name for capability in manifest.deferred_features}
+    assert "projection-event-operation-coverage-compatibility" in manifest_names
