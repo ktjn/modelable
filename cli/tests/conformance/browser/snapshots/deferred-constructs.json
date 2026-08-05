@@ -1,0 +1,20 @@
+{
+  "open": {
+    "diagnostics": [
+      {
+        "code": "DEFERRED",
+        "column": null,
+        "end_column": null,
+        "end_line": null,
+        "line": null,
+        "message": "`materialisation {}` is parsed but the compiler implements no runtime materialization; declared settings have no effect. Deferred — see `modelable capabilities`.",
+        "severity": "warning",
+        "uri": "fixture:///deferred-constructs.mdl"
+      }
+    ],
+    "source_hashes": {
+      "fixture:///deferred-constructs.mdl": "f92918d52e0ee94c96250272b5a3e472e213f2b5a9dca40af020564e7eece6e7"
+    },
+    "workspace_revision": 1
+  }
+}

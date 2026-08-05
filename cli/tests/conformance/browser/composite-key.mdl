@@ -1,0 +1,10 @@
+domain orders {
+  owner: "orders-platform"
+
+  entity OrderLineItem @ 1 (additive) {
+    @key orderId: uuid
+    @key lineItemId: uuid
+    sku: string
+    quantity: int
+  }
+}

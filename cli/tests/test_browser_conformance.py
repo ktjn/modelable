@@ -13,6 +13,8 @@ LANGUAGE_FIXTURE_ROOT = Path(__file__).parent / "conformance" / "language"
 SNAPSHOT_ROOT = FIXTURE_ROOT / "snapshots"
 GENERATOR = Path(__file__).parents[1] / "scripts" / "write_browser_conformance.py"
 SNAPSHOT_NAMES = (
+    "composite-key.json",
+    "deferred-constructs.json",
     "invalid-parse.json",
     "invalid-reference.json",
     "invalid-semantic.json",
