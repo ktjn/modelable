@@ -18,6 +18,37 @@ def test_valid_entity_passes():
     assert errors == []
 
 
+def test_composite_key_is_not_yet_supported():
+    """Conformance record for Slice D5 / B2 (docs/correction-and-capability-plan.md).
+
+    docs/architecture.md previously described composite keys (multiple @key
+    fields on one entity) as "Supported in MVP", contradicting both
+    docs/language-reference.md (which already said composite keys aren't
+    representable) and this validator, which requires exactly one @key
+    field per entity/aggregate. This test records that current, real
+    behavior so the documentation status is backed by an executable
+    fixture rather than an assumption. If this test ever starts failing
+    because composite keys became supported, update it alongside
+    docs/architecture.md and the "composite-keys" entry in
+    cli/src/modelable/capabilities.py, not by weakening the assertion.
+    """
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity OrderLineItem @ 1 (additive) {
+        @key orderId: uuid
+        @key lineItemId: uuid
+        sku: string
+        quantity: int
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert any("must have exactly one @key field" in error for error in errors)
+
+
 def test_entity_missing_key_fails():
     mdl = parse_text_to_ir("""
     domain customer {
