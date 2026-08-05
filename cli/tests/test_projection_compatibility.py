@@ -1,4 +1,12 @@
-from modelable.compat.diff import ProjectionChange, _compare_shape
+from modelable.compat.checker import ProjectionCompatibilityReport, check_projection_version_compatibility
+from modelable.compat.diff import (
+    _compare_governance,
+    _compare_lineage,
+    _compare_shape,
+    _compare_storage,
+    _compare_wire,
+    compare_projection_versions,
+)
 from modelable.parser.parse import parse_text_to_ir
 
 
@@ -159,10 +167,7 @@ def test_optional_to_required_is_breaking():
 
     changes = _compare_shape(mdl, old, new)
 
-    assert any(
-        c.kind == "optionality_changed" and c.breaking and c.field_name == "note"
-        for c in changes
-    )
+    assert any(c.kind == "optionality_changed" and c.breaking and c.field_name == "note" for c in changes)
 
 
 def test_required_to_optional_is_not_breaking():
@@ -193,10 +198,7 @@ def test_required_to_optional_is_not_breaking():
 
     changes = _compare_shape(mdl, old, new)
 
-    assert any(
-        c.kind == "optionality_changed" and not c.breaking and c.field_name == "note"
-        for c in changes
-    )
+    assert any(c.kind == "optionality_changed" and not c.breaking and c.field_name == "note" for c in changes)
 
 
 def test_unchanged_fields_produce_no_shape_changes():
@@ -228,11 +230,8 @@ def test_unchanged_fields_produce_no_shape_changes():
     assert _compare_shape(mdl, old, new) == []
 
 
-from modelable.compat.diff import _compare_lineage
-
-
 def test_remapped_source_field_is_visible_but_not_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -269,7 +268,7 @@ def test_remapped_source_field_is_visible_but_not_breaking():
 
 
 def test_expression_text_changed_is_visible_but_not_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -300,14 +299,11 @@ def test_expression_text_changed_is_visible_but_not_breaking():
 
     changes = _compare_lineage(old, new)
 
-    assert any(
-        c.kind == "expression_changed" and not c.breaking and c.field_name == "isShipped"
-        for c in changes
-    )
+    assert any(c.kind == "expression_changed" and not c.breaking and c.field_name == "isShipped" for c in changes)
 
 
 def test_unchanged_lineage_produces_no_changes():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -335,11 +331,8 @@ def test_unchanged_lineage_produces_no_changes():
     assert _compare_lineage(old, new) == []
 
 
-from modelable.compat.diff import _compare_governance
-
-
 def test_access_grant_removed_is_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -373,7 +366,7 @@ def test_access_grant_removed_is_breaking():
 
 
 def test_access_grant_added_is_not_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -407,7 +400,7 @@ def test_access_grant_added_is_not_breaking():
 
 
 def test_classification_tightened_is_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -440,13 +433,11 @@ def test_classification_tightened_is_breaking():
 
     changes = _compare_governance(old, new)
 
-    assert any(
-        c.kind == "classification_changed" and c.breaking and c.field_name == "note" for c in changes
-    )
+    assert any(c.kind == "classification_changed" and c.breaking and c.field_name == "note" for c in changes)
 
 
 def test_classification_loosened_is_not_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -479,13 +470,11 @@ def test_classification_loosened_is_not_breaking():
 
     changes = _compare_governance(old, new)
 
-    assert any(
-        c.kind == "classification_changed" and not c.breaking and c.field_name == "note" for c in changes
-    )
+    assert any(c.kind == "classification_changed" and not c.breaking and c.field_name == "note" for c in changes)
 
 
 def test_pii_added_is_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -521,7 +510,7 @@ def test_pii_added_is_breaking():
 
 
 def test_pii_removed_is_not_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -556,11 +545,8 @@ def test_pii_removed_is_not_breaking():
     assert any(c.kind == "pii_changed" and not c.breaking and c.field_name == "note" for c in changes)
 
 
-from modelable.compat.diff import _compare_wire
-
-
 def test_wire_hint_value_changed_is_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -593,13 +579,11 @@ def test_wire_hint_value_changed_is_breaking():
 
     changes = _compare_wire(old, new)
 
-    assert any(
-        c.kind == "wire_hint_changed" and c.breaking and c.field_name == "createdAt" for c in changes
-    )
+    assert any(c.kind == "wire_hint_changed" and c.breaking and c.field_name == "createdAt" for c in changes)
 
 
 def test_wire_hint_added_where_none_existed_is_not_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -631,13 +615,11 @@ def test_wire_hint_added_where_none_existed_is_not_breaking():
 
     changes = _compare_wire(old, new)
 
-    assert any(
-        c.kind == "wire_hint_added" and not c.breaking and c.field_name == "createdAt" for c in changes
-    )
+    assert any(c.kind == "wire_hint_added" and not c.breaking and c.field_name == "createdAt" for c in changes)
 
 
 def test_wire_hint_removed_is_not_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -669,16 +651,11 @@ def test_wire_hint_removed_is_not_breaking():
 
     changes = _compare_wire(old, new)
 
-    assert any(
-        c.kind == "wire_hint_removed" and not c.breaking and c.field_name == "createdAt" for c in changes
-    )
-
-
-from modelable.compat.diff import _compare_storage
+    assert any(c.kind == "wire_hint_removed" and not c.breaking and c.field_name == "createdAt" for c in changes)
 
 
 def test_where_clause_changed_is_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -717,7 +694,7 @@ def test_where_clause_changed_is_breaking():
 
 
 def test_group_by_changed_is_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -759,7 +736,7 @@ def test_group_by_changed_is_breaking():
 
 
 def test_join_added_is_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -805,7 +782,7 @@ def test_join_added_is_breaking():
 
 
 def test_join_removed_is_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -851,7 +828,7 @@ def test_join_removed_is_breaking():
 
 
 def test_join_predicate_changed_is_breaking():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -900,7 +877,7 @@ def test_join_predicate_changed_is_breaking():
 
 
 def test_unchanged_storage_produces_no_changes():
-    mdl, old, new = _two_versions(
+    _mdl, old, new = _two_versions(
         """
         domain orders {
           owner: "test-team"
@@ -930,9 +907,6 @@ def test_unchanged_storage_produces_no_changes():
     )
 
     assert _compare_storage(old, new) == []
-
-
-from modelable.compat.diff import compare_projection_versions
 
 
 def test_compare_projection_versions_combines_all_dimensions():
@@ -984,9 +958,6 @@ def test_compare_projection_versions_combines_all_dimensions():
     assert "where_changed" in kinds
     assert any(c.dimension == "shape" for c in changes)
     assert any(c.dimension == "storage" for c in changes)
-
-
-from modelable.compat.checker import ProjectionCompatibilityReport, check_projection_version_compatibility
 
 
 def test_check_projection_version_compatibility_reports_breaking_status():

@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
 from modelable.parser.ir import (
+    AccessBlock,
     AnnDeprecated,
     ClassificationLevel,
     ComputedMapping,
@@ -16,8 +18,6 @@ from modelable.parser.ir import (
     ModelVersion,
     ProjectionVersion,
 )
-
-from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
 
 
 @dataclass(frozen=True)
@@ -354,7 +354,7 @@ def _classification_index(level: ClassificationLevel | None) -> int:
     return _CLASSIFICATION_ORDER[level]
 
 
-def _access_grant_triples(access) -> set[tuple[str, str, str]]:
+def _access_grant_triples(access: AccessBlock | None) -> set[tuple[str, str, str]]:
     """Flatten a projection's AccessBlock into (scope, principal, permission) triples.
 
     scope is "entity" for entity-level grants, or the property name for
@@ -547,9 +547,7 @@ def _compare_storage(old: ProjectionVersion, new: ProjectionVersion) -> list[Pro
     return changes
 
 
-def compare_projection_versions(
-    mdl: MdlFile, old: ProjectionVersion, new: ProjectionVersion
-) -> list[ProjectionChange]:
+def compare_projection_versions(mdl: MdlFile, old: ProjectionVersion, new: ProjectionVersion) -> list[ProjectionChange]:
     """Compare two published projection versions across the shape, lineage,
     governance, wire, and storage dimensions.
 
