@@ -432,6 +432,33 @@ registry services are separate product concerns. They should not displace
 compiler-contract, adoption, or integration work without an explicit product
 decision and accepted architecture.
 
+Slice B3 made the specific grammar constructs behind this boundary visible
+instead of silently discarded: `registry {}`, `peers: [...]`, `consumer {}`,
+`subscription {}` (both forms), `materialisation {}`, and unrecognized
+`binding {}` content now each emit a non-blocking `DEFERRED` diagnostic (see
+`modelable capabilities`) citing this section. That diagnostic is the
+correctness fix; it is not a design for the underlying features. Each
+construct still needs its own product decision and a
+`superpowers:brainstorming`-driven design pass before it can move out of
+`deferred` status:
+
+- **Registry and peers** — needs a federation model: how a registry is
+  addressed, what a peer relationship means for resolution and compatibility
+  checking, and how it relates to the existing `import domain ... from
+  registry` syntax (already implemented) and the ad hoc peer-ID text scan in
+  `lsp/federation.py` (editor-only today, not compiler-enforced).
+- **Consumers** — needs a decision on what tracking a declared consumer
+  should drive (impact analysis? notification? nothing beyond documentation?)
+  before an IR shape makes sense.
+- **Subscriptions and materialisation** — both presuppose a runtime execution
+  model that does not exist yet (see "Outside the near-term compiler roadmap"
+  above); design work here should follow, not precede, an explicit product
+  decision to build that runtime.
+
+Until each gets its own accepted design, `modelable capabilities` and the
+`DEFERRED` diagnostic are the authoritative source on their status — not
+docs prose, which is exactly the drift Slice B2 corrected.
+
 Repository-health work is tracked separately in the
 [engineering improvement roadmap](docs/engineering-roadmap.md). Compiler
 correctness, capability-consistency, compatibility-architecture, and gated

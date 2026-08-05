@@ -450,6 +450,35 @@ For each construct:
 - Unsupported content produces an explicit diagnostic.
 - Canonical rendering cannot erase unhandled user declarations.
 
+### Outcome chosen (2026-08-05)
+
+Registry, peers, consumers, subscriptions (both forms), materialisation, and
+opaque `binding {}` content are outcome 3, "reject as deferred," implemented
+as a non-blocking warning-severity `DEFERRED` diagnostic
+(`cli/src/modelable/validation/deferred_syntax.py`) rather than outcome 2
+("explicit experimental IR"). Full IR representation is federation/runtime
+design work — a registry/peer model, a consumer-tracking model, a
+subscription/materialisation runtime model — that does not exist and is
+disproportionate to a syntax-correctness slice; it needs its own
+`superpowers:brainstorming` pass per construct once there is a product
+decision to build it (see ROADMAP.md "Outside the near-term compiler
+roadmap"). The diagnostic is non-blocking specifically because these
+constructs are used in curated sample scenarios (03, 06, 07, 08) that
+`test_samples.py` asserts validate cleanly; a blocking diagnostic would
+require rewriting those scenarios in the same slice, which is out of
+proportion to a diagnostics-only fix.
+
+`generate_targets` (bucket b — round-tripped by `compiler/render.py` but
+never emitted) and the recognized `binding {}` attributes (`adapter`,
+`model`, `table` — bucket a, genuinely consumed by `emitters/sql.py` and
+`emitters/rust.py`) were confirmed via Slice B2 research and are unaffected
+by this change.
+
+New `deferred_features` entries in `cli/src/modelable/capabilities.py`
+(`workspace-registry`, `workspace-peers`, `consumer-declarations`,
+`subscriptions`, `materialisation`, `binding-opaque-content`) give
+`modelable capabilities` the authoritative status each diagnostic points to.
+
 ---
 
 # Track C — compatibility architecture
