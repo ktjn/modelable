@@ -58,6 +58,20 @@ def test_manifest_deferred_features_are_all_status_deferred():
     assert all(capability.notes for capability in manifest.deferred_features)
 
 
+def test_manifest_deferred_features_include_deferred_syntax_constructs():
+    manifest = build_capability_manifest()
+
+    manifest_names = {capability.name for capability in manifest.deferred_features}
+    assert manifest_names >= {
+        "workspace-registry",
+        "workspace-peers",
+        "consumer-declarations",
+        "subscriptions",
+        "materialisation",
+        "binding-opaque-content",
+    }
+
+
 def test_manifest_all_returns_every_capability_across_categories():
     manifest = build_capability_manifest()
 
