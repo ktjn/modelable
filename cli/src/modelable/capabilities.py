@@ -163,6 +163,18 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
             "`table` are honored today. See Slice B3 in docs/correction-and-capability-plan.md."
         ),
     ),
+    Capability(
+        name="projection-event-operation-coverage-compatibility",
+        category="deferred_feature",
+        status=CapabilityStatus.deferred,
+        description="Comparing event operation coverage between two projection versions",
+        notes=(
+            "AutoProjectionTarget.operations only exists on the pre-expansion "
+            "`auto projections {}` declaration and is discarded during "
+            "expansion; it is not present on the resulting ProjectionVersion "
+            "to diff. See Slice C1 in docs/correction-and-capability-plan.md."
+        ),
+    ),
 )
 
 
