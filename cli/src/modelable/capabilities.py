@@ -102,6 +102,67 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
             "See Slice F1 in docs/correction-and-capability-plan.md and ROADMAP.md Priority 4 item 4."
         ),
     ),
+    Capability(
+        name="workspace-registry",
+        category="deferred_feature",
+        status=CapabilityStatus.deferred,
+        description="Workspace-level `registry {}` configuration",
+        notes=(
+            "Parses but is discarded before IR construction; has no effect on compilation. "
+            "See Slice B3 in docs/correction-and-capability-plan.md."
+        ),
+    ),
+    Capability(
+        name="workspace-peers",
+        category="deferred_feature",
+        status=CapabilityStatus.deferred,
+        description="Workspace-level `peers: [...]` federation declarations",
+        notes=(
+            "Parses but is discarded before IR construction; has no effect on compilation. "
+            "Peer identifiers referenced elsewhere are checked by a separate editor-only "
+            "text scan, not this declaration. See Slice B3 in docs/correction-and-capability-plan.md."
+        ),
+    ),
+    Capability(
+        name="consumer-declarations",
+        category="deferred_feature",
+        status=CapabilityStatus.deferred,
+        description="Top-level `consumer {}` declarations",
+        notes=(
+            "Parses but is discarded before IR construction; consumer registration and "
+            "impact analysis have no effect. See Slice B3 in docs/correction-and-capability-plan.md."
+        ),
+    ),
+    Capability(
+        name="subscriptions",
+        category="deferred_feature",
+        status=CapabilityStatus.deferred,
+        description="Per-projection and top-level `subscription {}` declarations",
+        notes=(
+            "Parses but is discarded before IR construction; no runtime subscription "
+            "behavior is implemented. See Slice B3 in docs/correction-and-capability-plan.md."
+        ),
+    ),
+    Capability(
+        name="materialisation",
+        category="deferred_feature",
+        status=CapabilityStatus.deferred,
+        description="Per-projection `materialisation {}` declarations",
+        notes=(
+            "Parses but is discarded before IR construction; no runtime materialization "
+            "is implemented. See Slice B3 in docs/correction-and-capability-plan.md."
+        ),
+    ),
+    Capability(
+        name="binding-opaque-content",
+        category="deferred_feature",
+        status=CapabilityStatus.deferred,
+        description="Unrecognized keys inside `binding {}` beyond `adapter`, `model`, and `table`",
+        notes=(
+            "Parses but is discarded before IR construction; only `adapter`, `model`, and "
+            "`table` are honored today. See Slice B3 in docs/correction-and-capability-plan.md."
+        ),
+    ),
 )
 
 

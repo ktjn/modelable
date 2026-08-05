@@ -1,11 +1,28 @@
 import pytest
+from lark import Tree
 
-from modelable.parser.ir import SortField
-from modelable.parser.parse import ParseError, parse_file, parse_text, parse_text_to_ir
+from modelable.parser.ir import MdlFile, SortField
+from modelable.parser.parse import ParseError, parse_file, parse_text, parse_text_to_ir, parse_text_to_ir_with_tree
 
 
 def test_import():
     assert parse_text is not None
+
+
+def test_parse_text_to_ir_with_tree_returns_ir_and_raw_tree():
+    mdl, tree = parse_text_to_ir_with_tree("""
+    domain customer {
+      owner: "customer-platform"
+      entity Customer @ 1 (additive) {
+        @key customerId: uuid
+      }
+    }
+    """)
+
+    assert isinstance(mdl, MdlFile)
+    assert mdl.domains[0].name == "customer"
+    assert isinstance(tree, Tree)
+    assert tree.data == "start"
 
 
 SIMPLE_MODEL = """

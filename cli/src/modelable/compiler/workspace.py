@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from modelable.diagnostics.model import Diagnostic
 from modelable.expressions.cel import CelContext, FieldRef, looks_boolean, parse_cel, validate_cel_expr
 from modelable.parser.ir import ComputedMapping, MdlFile
-from modelable.parser.parse import parse_text_to_ir
+from modelable.parser.parse import parse_text_to_ir_with_tree
 from modelable.planner.planner import expand_auto_projections
 from modelable.registry.resolver import resolve_model_ref, validate_references
+from modelable.validation.deferred_syntax import find_deferred_syntax_diagnostics
 from modelable.validation.semantic import validate_diagnostics
 
 
@@ -21,6 +22,7 @@ class WorkspaceSource:
     mdl: MdlFile
     errors: list[Diagnostic]
     content_hash: str
+    warnings: list[Diagnostic] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -28,6 +30,7 @@ class Workspace:
     sources: list[WorkspaceSource]
     mdl: MdlFile
     errors: list[Diagnostic]
+    warnings: list[Diagnostic] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -67,12 +70,14 @@ def load_workspace(path: str | Path) -> Workspace:
 def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Workspace:
     workspace_sources: list[WorkspaceSource] = []
     errors: list[Diagnostic] = []
+    warnings: list[Diagnostic] = []
     merged = MdlFile()
 
     for source in sources:
         source_location = str(source.path) if source.path is not None else source.uri
-        mdl = parse_text_to_ir(source.text, path=source_location)
+        mdl, tree = parse_text_to_ir_with_tree(source.text, path=source_location)
         source_errors = validate_diagnostics(mdl, path=source_location)
+        source_warnings = find_deferred_syntax_diagnostics(tree, path=source_location)
         workspace_sources.append(
             WorkspaceSource(
                 path=source.path,
@@ -81,9 +86,11 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
                 mdl=mdl,
                 errors=source_errors,
                 content_hash=_content_hash(source.text),
+                warnings=source_warnings,
             )
         )
         errors.extend(source_errors)
+        warnings.extend(source_warnings)
         merged.domains.extend(mdl.domains)
         _merge_bindings(merged.bindings, mdl.bindings)
         if mdl.workspace is not None:
@@ -96,7 +103,7 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
 
     errors.extend(_validate_merged_workspace(workspace_sources, merged))
     errors.extend(_validate_cel(merged))
-    return Workspace(sources=workspace_sources, mdl=merged, errors=errors)
+    return Workspace(sources=workspace_sources, mdl=merged, errors=errors, warnings=warnings)
 
 
 def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) -> list[Diagnostic]:

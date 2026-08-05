@@ -107,6 +107,33 @@ domain customer {
     assert "key" in result.output.lower()
 
 
+def test_validate_prints_deferred_syntax_warning_without_failing(tmp_path):
+    mdl = tmp_path / "orders.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+  projection OrderView @ 1 from orders.Order @ 1 as o {
+    orderId <- o.orderId
+    materialisation {
+      strategy: incremental
+    }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(cli, ["validate", str(mdl)])
+
+    assert result.exit_code == 0
+    assert "DEFERRED" in result.output
+    assert "materialisation" in result.output
+
+
 def test_validate_directory(tmp_path):
     first = tmp_path / "first.mdl"
     second = tmp_path / "nested" / "second.mdl"

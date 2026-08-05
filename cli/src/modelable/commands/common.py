@@ -27,6 +27,9 @@ def load_workspace_or_exit(path: Path):
             console.print(f"[red]ERROR[/red] {render_diagnostic(diagnostic)}", soft_wrap=True)
         sys.exit(1)
 
+    for diagnostic in workspace.warnings:
+        console.print(f"[yellow]WARNING[/yellow] {render_diagnostic(diagnostic)}", soft_wrap=True)
+
     return workspace
 
 
