@@ -86,3 +86,18 @@ def test_capability_status_has_the_plans_five_values():
 def test_capability_is_a_plain_frozen_record():
     capability = Capability(name="x", category="target", status=CapabilityStatus.implemented, description="d")
     assert capability.notes is None
+
+
+def test_compile_command_target_choices_match_the_manifest():
+    from click.testing import CliRunner
+
+    from modelable.cli import cli
+
+    result = CliRunner().invoke(cli, ["compile", "--help"])
+    manifest = build_capability_manifest()
+    implemented_target_names = {
+        capability.name for capability in manifest.targets if capability.status.value == "implemented"
+    }
+
+    for name in implemented_target_names:
+        assert name in result.output, f"{name} is implemented but missing from `compile --help`"
