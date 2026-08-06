@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from lark import Transformer
 
@@ -14,6 +14,7 @@ from modelable.parser.ir import (
     AnnKey,
     AnnLatestBefore,
     AnnLatestOnly,
+    Annotation,
     AnnOwner,
     AnnPii,
     AnnPitCutoff,
@@ -48,6 +49,7 @@ from modelable.parser.ir import (
     ProtobufReservations,
     RefType,
     SecondaryIndexDecl,
+    SelectionClause,
     SemanticTypeDecl,
     SortField,
     SourceRef,
@@ -79,6 +81,26 @@ def _str(value: object) -> str:
     if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
         return text[1:-1]
     return text
+
+
+def _build_selection_clause(mode: Literal["pick", "omit"], items: list[object]) -> SelectionClause:
+    field_names: list[str] = []
+    qualified_fields: list[tuple[str, str]] = []
+    annotations: list[Annotation] = []
+    for item in items:
+        if isinstance(item, ANNOTATION_TYPES):
+            annotations.append(item)
+        elif isinstance(item, str) and "." in item:
+            alias, field_name = item.split(".", 1)
+            qualified_fields.append((alias, field_name))
+        else:
+            field_names.append(str(item))
+    return SelectionClause(
+        mode=mode,
+        field_names=field_names,
+        qualified_fields=qualified_fields,
+        annotations=annotations,
+    )
 
 
 class MdlTransformer(Transformer[list[object], Any]):
@@ -592,6 +614,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             body_start = source_index + 1
         access = next((item for item in items[body_start:] if isinstance(item, AccessBlock)), None)
         reservation = next((item for item in items[body_start:] if isinstance(item, ProtobufReservations)), None)
+        selection = next((item for item in items[body_start:] if isinstance(item, SelectionClause)), None)
         projection_version = ProjectionVersion(
             version=int(items[1]),
             source=source,
@@ -602,8 +625,21 @@ class MdlTransformer(Transformer[list[object], Any]):
             access=access,
             annotations=annotations,
             protobuf_reservations=reservation,
+            selection=selection,
         )
         return ("projection", (str(items[0]), projection_version))
+
+    def selection_clause(self, items):
+        return items[0]
+
+    def pick_clause(self, items):
+        return _build_selection_clause("pick", items)
+
+    def omit_clause(self, items):
+        return _build_selection_clause("omit", items)
+
+    def selector(self, items):
+        return items[0]
 
     def join_prefix(self, items):
         if len(items) == 5:

@@ -124,7 +124,12 @@ object_type: "object" "{" field_decl* "}"
 
 // -- Projections --------------------------------------------------------------
 
-projection_decl: wire_annotation* "projection" IDENT "@" INT projection_source_block? source_clause? "{" projection_body_item* "}"
+projection_decl: wire_annotation* "projection" IDENT "@" INT projection_source_block? source_clause? selection_clause? "{" projection_body_item* "}"
+
+selection_clause: pick_clause | omit_clause
+pick_clause: "pick" "(" selector ("," selector)* ")"
+omit_clause: "omit" "(" selector ("," selector)* ")"
+selector: qualified_field | auto_projection_exclusion
 projection_source_block: "{" source_clause "}"
 
 projection_body_item: proj_field
