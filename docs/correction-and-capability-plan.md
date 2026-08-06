@@ -1284,6 +1284,49 @@ first tranche built for codegen) — untested changes to that pipeline
 weren't shipped this tranche since they couldn't be verified end to end
 with the tools this tranche had available.
 
+### Third tranche shipped (2026-08-06)
+
+**LSP fixture sharing** is now closed, minus the full 31-file migration
+(explicitly out of scope — see below). The blocker the second tranche
+described ("needs an entirely new generator plus a real-`pygls`-subprocess
+verification leg") turned out to be smaller than expected on inspection:
+`cli/tests/conformance/language/workspace-valid.json` already *is* the
+shared fixture (it's what `test_browser_conformance.py`'s `language.*`
+dispatch tests already consume); no new generator was needed, only a second
+consumer. `test_lsp_conformance_fixture.py` materializes that fixture's
+source text into a real file once at import time (a static path, the same
+pattern `test_lsp_features.py` already uses for its `samples/scenarios/`
+fixtures via indirect `lsp` parametrization) and drives all six operations
+the fixture encodes — completion, hover, definition, references,
+prepareRename, rename — through the real `pygls` subprocess server via
+`lsprotocol` requests, asserting the exact same expectations the browser
+dispatch tests already assert. One case surfaced a real cross-surface
+shape difference worth recording: the real server's `textDocument/prepareRename`
+returns only a `Range` (`lsp/rename.py::build_prepare_rename`), not a
+placeholder string the way the browser dispatch layer's `language.prepareRename`
+does — the test reconciles this by slicing the fixture source at the
+returned range and asserting it equals the browser fixture's
+`expectPlaceholder`, proving both surfaces agree on *which* identifier is
+being renamed despite exposing that fact through different response shapes.
+Unlike the browser pipeline, this needed no network access (`pygls` is a
+local subprocess), so it was fully verifiable end to end. Migrating the
+other 30 already-passing test files' independent inline `.mdl` fixtures
+onto this shared one remains a separate, larger, and separately-risky
+follow-up (each asserts on line/column offsets tied to its own inline
+text) — not attempted here.
+
+**Compatibility fixtures** remains the one area still open. Unlike LSP, it
+is genuinely blocked on the browser/Playwright leg: this session's outbound
+network access is proxied and `cdn.jsdelivr.net` (where Pyodide's wheel
+dependencies are hosted) is not on the egress allowlist, so
+`vendor-python-assets.mjs` cannot run and the real-Pyodide Playwright leg
+cannot be exercised or verified here. Extending `write_browser_conformance.py`
+with a `compatibility` scenario is otherwise the smallest lift of the four
+original areas (`BrowserCompiler.compatibility()` and the `workspace.compatibility`
+dispatch method already exist, per `test_browser_compatibility.py`) — a
+future session with that network access, or a change verified through CI
+directly, can close it without new design work.
+
 ---
 
 # Track H — authoring ergonomics
