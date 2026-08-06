@@ -4,14 +4,40 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from modelable.compat.diff import FieldChange, ProjectionChange, describe_field_change, is_field_change_breaking
 from modelable.emitters.base import EmittedArtifact
 
 PASSING_STATUSES = {"wire_compatible", "read_compatible"}
-STATUS_RANK = {
-    "wire_compatible": 0,
-    "read_compatible": 0,
-    "requires_read_rebuild": 1,
-    "breaking": 2,
+
+# The common target-compatibility axis/severity IR (Slice C3). Every
+# comparator in this module — the pre-existing protobuf/gRPC wire guards and
+# the source/storage/projection-rebuild/governance additions below — returns
+# TargetCompatibilityReport/TargetCompatibilityFinding through this one
+# vocabulary, so a consumer (CLI, LSP, a future policy layer) never has to
+# special-case which target produced a report.
+AXES = (
+    "source_compatibility",
+    "wire_compatibility",
+    "storage_migration",
+    "projection_rebuild",
+    "governance_review",
+)
+
+SEVERITIES = ("compatible", "review_required", "migration_required", "breaking")
+_SEVERITY_RANK = {name: rank for rank, name in enumerate(SEVERITIES)}
+
+# Legacy protobuf/gRPC status vocabulary preserved for CLI/output backward
+# compatibility (see docs/correction-and-capability-plan.md Slice C3 "Preserve
+# existing CLI behaviour during migration"), mapped onto the four generic
+# severities so reports from every axis can be ranked and merged uniformly.
+_STATUS_TO_SEVERITY = {
+    "wire_compatible": "compatible",
+    "read_compatible": "compatible",
+    "requires_read_rebuild": "migration_required",
+    "breaking": "breaking",
+    "compatible": "compatible",
+    "review_required": "review_required",
+    "migration_required": "migration_required",
 }
 
 
@@ -21,6 +47,8 @@ class TargetCompatibilityFinding:
     status: str
     ref: str
     message: str
+    axis: str = "wire_compatibility"
+    severity: str = "breaking"
     field: str | None = None
     index: str | None = None
 
@@ -29,6 +57,7 @@ class TargetCompatibilityFinding:
 class TargetCompatibilityReport:
     target: str
     status: str
+    severity: str
     findings: list[TargetCompatibilityFinding]
 
 
@@ -58,11 +87,8 @@ def compare_protobuf_manifests(
             continue
         findings.extend(_compare_schema(ref, old_schema, new_schema))
 
-    return TargetCompatibilityReport(
-        target="protobuf",
-        status=_worst_status(findings, default="wire_compatible"),
-        findings=findings,
-    )
+    status, severity = _worst(findings, default_status="wire_compatible")
+    return TargetCompatibilityReport(target="protobuf", status=status, severity=severity, findings=findings)
 
 
 def compare_grpc_artifacts(
@@ -91,11 +117,128 @@ def compare_grpc_artifacts(
             continue
         findings.extend(_compare_service(ref, old_service, new_service))
 
-    return TargetCompatibilityReport(
-        target="grpc",
-        status=_worst_status(findings, default="read_compatible"),
-        findings=findings,
-    )
+    status, severity = _worst(findings, default_status="read_compatible")
+    return TargetCompatibilityReport(target="grpc", status=status, severity=severity, findings=findings)
+
+
+def compare_source_representation(
+    domain_name: str,
+    model_name: str,
+    changes: list[FieldChange],
+    *,
+    target: str = "source",
+) -> TargetCompatibilityReport:
+    """Fold general model-version field changes into the common IR.
+
+    This is also the JSON Schema representation-compatibility axis: JSON
+    Schema emission adds no wire-format constraints (field numbers, enum
+    ordinals) beyond the shared model contract, so a JSON-representation
+    check is exactly a source_compatibility check — there is no separate
+    JSON-specific diff to write.
+    """
+    findings = [
+        _finding(
+            change.kind,
+            "breaking" if is_field_change_breaking(change) else "compatible",
+            f"{domain_name}.{model_name}",
+            describe_field_change(change),
+            axis="source_compatibility",
+            field=change.field_name,
+        )
+        for change in changes
+    ]
+    status, severity = _worst(findings, default_status="compatible")
+    return TargetCompatibilityReport(target=target, status=status, severity=severity, findings=findings)
+
+
+def compare_storage_migration(
+    domain_name: str,
+    model_name: str,
+    index_changes: list[FieldChange],
+) -> TargetCompatibilityReport:
+    """Fold index-declaration changes (compat/diff.py::compare_index_decls) into
+    the common IR. A changed index always needs a storage migration (rebuilding
+    the index), independent of whether the surrounding model version is
+    otherwise source-compatible.
+    """
+    findings = [
+        _finding(
+            "index_changed",
+            "migration_required",
+            f"{domain_name}.{model_name}",
+            f"index '{change.field_name}' changed and requires a storage migration",
+            axis="storage_migration",
+            field=change.field_name,
+        )
+        for change in index_changes
+    ]
+    status, severity = _worst(findings, default_status="compatible")
+    return TargetCompatibilityReport(target="sql", status=status, severity=severity, findings=findings)
+
+
+def compare_projection_rebuild(
+    domain_name: str,
+    projection_name: str,
+    changes: list[ProjectionChange],
+) -> TargetCompatibilityReport:
+    """Surface projection changes that require rebuilding a materialized or
+    stored copy, independent of whether they break the projection's contract.
+
+    Draws from compare_projection_versions()'s storage dimension (where/
+    group_by/join changes, already breaking) and lineage dimension (remapped
+    sources, changed computed expressions, currently non-breaking) — reused
+    rather than re-derived. An expression-only change is exactly the case
+    that is compatible today (breaking=False on the lineage dimension) but
+    still needs a rebuild, which is what this axis makes visible.
+    """
+    findings = []
+    for change in changes:
+        if change.dimension not in {"storage", "lineage"}:
+            continue
+        status = "breaking" if change.breaking else "migration_required"
+        findings.append(
+            _finding(
+                change.kind,
+                status,
+                f"{domain_name}.{projection_name}",
+                change.message,
+                axis="projection_rebuild",
+                field=change.field_name,
+            )
+        )
+    status, severity = _worst(findings, default_status="compatible")
+    return TargetCompatibilityReport(target="projection-rebuild", status=status, severity=severity, findings=findings)
+
+
+def compare_governance_review(
+    domain_name: str,
+    projection_name: str,
+    changes: list[ProjectionChange],
+) -> TargetCompatibilityReport:
+    """Surface projection governance changes (access grants, PII, classification)
+    as review-worthy findings, reusing compare_projection_versions()'s governance
+    dimension rather than re-deriving access/classification diffs. A governance
+    change that isn't outright breaking (e.g. a grant added, classification
+    loosened) still warrants human review, which is what `review_required`
+    (as opposed to `compatible`) makes visible.
+    """
+    findings = []
+    for change in changes:
+        if change.dimension != "governance":
+            continue
+        status = "breaking" if change.breaking else "review_required"
+        findings.append(
+            _finding(
+                change.kind,
+                status,
+                f"{domain_name}.{projection_name}",
+                change.message,
+                axis="governance_review",
+                field=change.field_name,
+            )
+        )
+    status, severity = _worst(findings, default_status="compatible")
+    return TargetCompatibilityReport(target="governance-review", status=status, severity=severity, findings=findings)
 
 
 def _schema_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str, Any]]:
@@ -291,6 +434,7 @@ def _finding(
     ref: str,
     message: str,
     *,
+    axis: str = "wire_compatibility",
     field: str | None = None,
     index: str | None = None,
 ) -> TargetCompatibilityFinding:
@@ -299,17 +443,22 @@ def _finding(
         status=status,
         ref=ref,
         message=message,
+        axis=axis,
+        severity=_STATUS_TO_SEVERITY[status],
         field=field,
         index=index,
     )
 
 
-def _worst_status(findings: list[TargetCompatibilityFinding], *, default: str) -> str:
-    status = default
+def _worst(findings: list[TargetCompatibilityFinding], *, default_status: str) -> tuple[str, str]:
+    """Return the (status, severity) of the worst finding, by severity rank."""
+    status = default_status
+    severity = _STATUS_TO_SEVERITY[default_status]
     for finding in findings:
-        if STATUS_RANK[finding.status] > STATUS_RANK[status]:
+        if _SEVERITY_RANK[finding.severity] > _SEVERITY_RANK[severity]:
             status = finding.status
-    return status
+            severity = finding.severity
+    return status, severity
 
 
 def _int_value(value: object) -> int | None:

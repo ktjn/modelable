@@ -210,14 +210,64 @@ def is_optionality_breaking(change: FieldChange) -> bool:
     return change.kind == "nullability_changed" and change.from_optional is True and change.to_optional is False
 
 
+def is_field_change_breaking(change: FieldChange) -> bool:
+    """True when a single FieldChange, on its own, breaks source compatibility.
+
+    The one classifier for "is this model-version field change breaking";
+    compat/checker.py's report-level rollup and compat/targets.py's
+    source-compatibility axis both call this instead of re-deriving it.
+    """
+    if change.kind in {"removed_field", "renamed_field", "type_changed", "enum_changed", "identity_changed"}:
+        return True
+    if change.kind == "added_field" and change.to_optional is False:
+        return True
+    return is_optionality_breaking(change)
+
+
+def describe_bool_word(value: bool | None) -> str:
+    if value is None:
+        return "unknown"
+    return "optional" if value else "required"
+
+
+def describe_field_change(change: FieldChange) -> str:
+    """Render a FieldChange as the one human-readable finding string.
+
+    Shared by `modelable diff` (compat/checker.py) and the target-agnostic
+    source-compatibility axis (compat/targets.py) so there is one wording,
+    not two.
+    """
+    if change.kind == "index_changed":
+        return f"index_changed {change.field_name}"
+    if change.kind == "renamed_field":
+        return f"renamed_field {change.field_name} -> {change.replacement}"
+    if change.kind == "nullability_changed":
+        return (
+            f"nullability_changed {change.field_name}: "
+            f"{describe_bool_word(change.from_optional)} -> {describe_bool_word(change.to_optional)}"
+        )
+    if change.kind == "identity_changed":
+        return f"identity_changed {change.field_name}"
+    if change.kind == "enum_changed":
+        return f"enum_changed {change.field_name}"
+    if change.kind == "type_changed":
+        return f"type_changed {change.field_name}"
+    if change.kind == "removed_field":
+        return f"removed_field {change.field_name}"
+    if change.kind == "added_field":
+        return f"added_field {change.field_name}"
+    return f"{change.kind} {change.field_name}"
+
+
 def compare_index_decls(old_index: IndexDecl | None, new_index: IndexDecl | None) -> list[FieldChange]:
     """Surface index structure changes between two model versions.
 
-    Does not classify whether a given change is wire-breaking — no
-    `validate-compat` classification tiers exist in this codebase yet.
-    This only makes index changes visible in a compatibility report's
-    findings, per the source requirement that index changes be "visible
-    as a schema and rebuild event."
+    Callers classify breakingness themselves: compat/checker.py's model
+    status treats any index change as informational (index changes alone
+    don't flip a version to "breaking"), while compat/targets.py's
+    storage_migration axis (Slice C3) classifies every index change as
+    `migration_required`, since a changed index always needs a rebuild
+    regardless of whether the model contract itself broke.
     """
     if old_index is None and new_index is None:
         return []

@@ -8,8 +8,8 @@
 # (docs/correction-and-capability-plan.md, Slice G1):
 
 # Model and projection compatibility
-src/modelable/compat/checker.py: 93.64
-src/modelable/compat/diff.py: 94.32
+src/modelable/compat/checker.py: 96.27
+src/modelable/compat/diff.py: 94.78
 
 # Dependency resolution
 src/modelable/dependency_graph.py: 92.86
@@ -29,6 +29,7 @@ src/modelable/governance/checker.py: 94.17
 src/modelable/registry/signature.py: 93.33
 
 # Target compatibility
+src/modelable/compat/targets.py: 94.29
 src/modelable/emitters/protobuf.py: 92.90
 src/modelable/emitters/grpc.py: 96.59
-src/modelable/commands/validate_compat.py: 96.77
+src/modelable/commands/validate_compat.py: 96.88

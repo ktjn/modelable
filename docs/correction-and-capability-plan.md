@@ -658,6 +658,62 @@ breaking
 - SQL/index changes can report migration requirements.
 - Expression-only projection changes can report rebuild requirements.
 
+### Outcome (2026-08-06)
+
+Implemented directly on top of the shipped guards rather than a rewrite:
+`compat/targets.py` now defines one shared IR — `AXES`
+(`source_compatibility`, `wire_compatibility`, `storage_migration`,
+`projection_rebuild`, `governance_review`) and `SEVERITIES` (`compatible`,
+`review_required`, `migration_required`, `breaking`) — and every comparator
+in the module, old and new, returns `TargetCompatibilityReport`/
+`TargetCompatibilityFinding` through it. `compare_protobuf_manifests()` and
+`compare_grpc_artifacts()` are unchanged in behavior (same status text, same
+`validate-compat` output, same exit codes — the existing CLI tests pass
+unmodified) but now also tag every finding with `axis="wire_compatibility"`
+and a mapped `severity`, via one `_STATUS_TO_SEVERITY` table rather than a
+second classification path.
+
+Four new comparators extend the IR to the axes the slice called for, each
+reusing an existing diff primitive instead of re-deriving one:
+
+- `compare_source_representation()` — wraps `compat/diff.py`'s
+  `FieldChange` list (via the new shared `is_field_change_breaking()`
+  classifier, extracted from `checker.py::_has_breaking_change` so there is
+  one breaking-change predicate, not two) as `source_compatibility`. This is
+  also the JSON-representation axis: JSON Schema emission adds no
+  wire-format constraints beyond the shared model contract, so a
+  `target="json-schema"` call is the same function, not a parallel one.
+- `compare_storage_migration()` — wraps `compare_index_decls()`'s index
+  changes as `storage_migration`/`migration_required`. Scoped to declared
+  index changes only, matching the acceptance criterion ("SQL/index changes
+  can report migration requirements"); column-level DDL migration necessity
+  (e.g. a type change requiring a backfill) is not covered and would need
+  its own design.
+- `compare_projection_rebuild()` — wraps `compare_projection_versions()`'s
+  `storage` and `lineage` dimensions as `projection_rebuild`. A
+  `lineage`-dimension change (remapped source, changed computed expression)
+  is compatible today but always needs a materialized/stored rebuild — this
+  is the concrete "expression-only projection changes can report rebuild
+  requirements" case.
+- `compare_governance_review()` — wraps the `governance` dimension as
+  `governance_review`, mapping a non-breaking governance change (grant
+  added, classification loosened) to `review_required` rather than folding
+  it into a flat `compatible`.
+
+`checker.py`'s `_format_finding`/`_bool_word` moved to `diff.py` as public
+`describe_field_change`/`describe_bool_word`, reused by both the model-diff
+finding text and the new source-compatibility axis.
+
+Deliberately out of scope, left as library-level API rather than wired into
+`validate-compat`/`modelable diff` CLI output: the acceptance criteria are
+about the IR ("the model can report"), and the plan explicitly requires
+preserving existing CLI behavior during this migration. New `--target`
+CLI wiring for `json-schema`/`sql-postgres` is a separate, larger increment
+(those targets diff whole workspaces via emitted artifacts, a different
+granularity than `checker.py`'s single-model-version-pair functions this
+slice reuses) and is left for whoever picks up C4's policy layer or a
+follow-on CLI slice.
+
 ---
 
 ## Slice C4 — configurable compatibility and lint policy
