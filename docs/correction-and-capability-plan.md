@@ -1238,6 +1238,52 @@ compatibility fixtures, signature fixtures, and capability-manifest-to-test
 linkage remain for a later tranche — each is its own scoping exercise, not
 a natural extension of the browser pipeline this tranche used.
 
+### Second tranche shipped (2026-08-06)
+
+Of the four areas the first tranche left open, this tranche closed two —
+the two that don't depend on the browser/Playwright pipeline and were
+verifiable end to end with the tools available:
+
+- **Signature fixtures.** `cli/tests/conformance/signature/scenarios.py`
+  adds one canonical source of `ModelVersion` fixtures — every scenario is
+  derived by parsing `.mdl` text, never hand-built IR — for the two real
+  consumers of `compute_version_signature`: the registry resolver's
+  version-pin matching (`test_render_ref_types.py`) and the LSP's
+  federation-reference validation (`test_lsp_federation_diagnostics.py`).
+  The latter's `_customer_signature()` previously hand-constructed a
+  `ModelVersion` by calling the IR dataclasses directly, matching parsed
+  output only by manual upkeep with nothing to catch drift; it now derives
+  the same signature from parsing the shared fixture text instead.
+- **Capability-manifest-to-test linkage.** `Capability` gained a
+  `test_refs: tuple[str, ...]` field naming the `"file.py::test_function"`
+  entries that prove a capability's status. `test_capability_manifest_linkage.py`
+  resolves every `test_refs` entry via `importlib` and requires every
+  `deferred_feature` capability to either carry one or be named in an
+  explicit `_KNOWN_UNLINKED_DEFERRED_FEATURES` allowlist — turning a
+  previously-silent gap (a `notes` string nothing checked against the test
+  suite) into something CI enforces. 9 of 11 deferred features are now
+  linked to an existing or newly-added proving test (`clickhouse-secondary-indexes`
+  → `test_emit_sql.py::test_clickhouse_ddl_does_not_include_secondary_index`,
+  which already existed; `model-lifecycle-status` → a new
+  `test_model_version_has_no_lifecycle_status_field`, added this tranche;
+  the six Slice B3 constructs → their existing `test_deferred_syntax.py`
+  tests; `composite-keys` → its existing `test_semantic.py` test).
+  `nominal-semantic-types-beyond-rust` and
+  `projection-event-operation-coverage-compatibility` remain explicitly
+  unlinked and acknowledged in the allowlist: each needs its own small
+  scoping pass (what should the non-Rust targets' structural-erasure output
+  look like, precisely, to assert against?) rather than a fixture to point
+  at.
+
+**Compatibility fixtures** and **LSP fixture sharing** remain open. Both
+need the browser/Playwright leg (compatibility already has a matching
+`workspace.compatibility` browser dispatch method to extend the existing
+pipeline into; LSP needs an entirely new generator plus a real-`pygls`-subprocess
+verification leg, the LSP equivalent of the Playwright/Pyodide leg the
+first tranche built for codegen) — untested changes to that pipeline
+weren't shipped this tranche since they couldn't be verified end to end
+with the tools this tranche had available.
+
 ---
 
 # Track H — authoring ergonomics

@@ -122,3 +122,17 @@ def test_manifest_deferred_features_include_projection_event_operation_coverage(
 
     manifest_names = {capability.name for capability in manifest.deferred_features}
     assert "projection-event-operation-coverage-compatibility" in manifest_names
+
+
+def test_model_version_has_no_lifecycle_status_field():
+    """Proves the "model-lifecycle-status" capability's deferred status:
+    ModelVersion carries no draft/published/deprecated/retired state, only
+    `change_kind` (additive/breaking) -- the version-bump classification,
+    a different concept from lifecycle status.
+    """
+    from modelable.parser.ir import ModelVersion
+
+    fields = set(ModelVersion.model_fields)
+    assert "status" not in fields
+    assert "lifecycle" not in fields
+    assert "change_kind" in fields
