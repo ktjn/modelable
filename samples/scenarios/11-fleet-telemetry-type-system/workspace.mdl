@@ -1,0 +1,12 @@
+workspace {
+  name: "fleet-telemetry-type-system"
+  description: "Demonstrates the extended type system: semantic types (incl. registry IDs and chaining), index declarations, uuid(7), fixed-width integers, binary(N), and Protobuf field reservations."
+
+  generate {
+    docs          -> "./generated/docs/"
+    typescript    -> "./generated/types/"
+    jsonschema    -> "./generated/jsonschema/"
+    sql(postgres) -> "./generated/sql/"
+    protobuf      -> "./generated/protobuf/"
+  }
+}

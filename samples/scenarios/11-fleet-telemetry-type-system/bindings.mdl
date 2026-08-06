@@ -1,0 +1,77 @@
+// Adapter bindings for the fleet-telemetry-type-system scenario.
+// The device catalog lives in Postgres; telemetry streams through Kafka and
+// lands in the same Postgres instance for the health-snapshot projection.
+
+binding fleet-postgres {
+  adapter: postgres
+  role: sink
+  config: {
+    host:     "postgres.fleet.internal"
+    port:     5432
+    database: "fleet_db"
+  }
+}
+
+binding fleet-kafka {
+  adapter: kafka
+  role: stream
+  config: {
+    brokers:        ["kafka-1.internal:9092", "kafka-2.internal:9092"]
+    tls:            true
+    saslMechanism:  "SCRAM-SHA-512"
+    credentialSecret: "kafka-fleet-producer-creds"
+  }
+}
+
+// Bind DeviceDb (the auto-projected persistence model) to a Postgres table.
+// Column order follows the entity's own field order; the `index` declaration
+// on fleet.Device @ 1 drives the CREATE INDEX statements for this table.
+binding device-db-table {
+  model:   fleet.DeviceDb @ 1
+  adapter: fleet-postgres
+  table:   "devices"
+  fields: {
+    deviceId         -> device_id
+    tenantId         -> tenant_id
+    serialNumber     -> serial_number
+    macAddress       -> mac_address
+    firmwareVersion  -> firmware_version
+    hardwareRevision -> hardware_revision
+    status           -> status
+    provisionedAt    -> provisioned_at
+    lastSeenAt       -> last_seen_at
+  }
+}
+
+// Bind DeviceEvent to a Kafka topic for downstream fleet-management consumers.
+binding device-events-topic {
+  model:   fleet.DeviceEvent @ 1
+  adapter: fleet-kafka
+  topic:   "fleet.device-events.v1"
+}
+
+// Raw telemetry readings stream through Kafka as they arrive from the field.
+binding telemetry-readings-topic {
+  model:   telemetry.TelemetryReading @ 1
+  adapter: fleet-kafka
+  topic:   "fleet.telemetry-readings.v1"
+}
+
+// The derived per-device health snapshot is continuously upserted into
+// Postgres, keyed by deviceId, for the fleet-operations dashboard.
+binding device-health-snapshot-table {
+  model:   telemetry.DeviceHealthSnapshot @ 1
+  adapter: fleet-postgres
+  table:   "device_health_snapshot"
+  fields: {
+    deviceId          -> device_id
+    serialNumber      -> serial_number
+    tenantId          -> tenant_id
+    status             -> status
+    readingCount       -> reading_count
+    lastReadingAt      -> last_reading_at
+    minBatteryPercent  -> min_battery_percent
+    avgSignalStrength  -> avg_signal_strength
+    isLowBattery       -> is_low_battery
+  }
+}

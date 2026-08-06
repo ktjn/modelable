@@ -4,24 +4,34 @@ domain "credit-bureau" {
   description: "Third-party credit bureau report snapshots ingested via secure file transfer."
 
   entity BureauReport @ 1 (additive) {
-    @key       reportId:           uuid
+    @key       reportId:           uuid(7)   // timestamp-ordered: matches file-transfer ingestion order
                customerId:         uuid // Could be ref
                bureauName:         enum(experian, equifax, transunion, creditsafe)
     @classification("confidential")
-               creditScore:        int
+               creditScore:        u16   // bureau scores range roughly 300-850; never negative
                creditScoreModel:   string
-               numberOfOpenAccounts?: int
-               numberOfDerogAccounts?: int
+               numberOfOpenAccounts?: u8
+               numberOfDerogAccounts?: u8
     @classification("confidential")
                totalDebtCents?:    int
     @classification("confidential")
                totalCreditLimitCents?: int
                utilizationRate?:   decimal(10,4)
-               missedPaymentsLast12m?: int
-               publicRecordCount?: int
-               hardInquiriesLast6m?: int
-               oldestAccountAgeDays?: int
+               missedPaymentsLast12m?: u8
+               publicRecordCount?: u8
+               hardInquiriesLast6m?: u8
+               oldestAccountAgeDays?: u16
                reportDate:         date
                ingestedAt:         timestamp
+  }
+
+  index BureauReport @ 1 {
+    primary reportId
+
+    // Feature-store joins look up a customer's most recent report.
+    secondary byCustomer {
+      key:  [customerId]
+      sort: [reportDate desc]
+    }
   }
 }

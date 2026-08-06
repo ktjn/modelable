@@ -1254,6 +1254,17 @@ function AppInner({
     void persistentWorkspace.retry();
   }, [persistentWorkspace.retry]);
 
+  const handleResetToDemo = useCallback((): void => {
+    if (
+      !confirmReplace(
+        'Discard local changes and reload the built-in demo workspace?',
+      )
+    ) {
+      return;
+    }
+    void persistentWorkspace.reset();
+  }, [confirmReplace, persistentWorkspace.reset]);
+
   const handleCompileTargetChange = useCallback(
     (target: CompileTarget): void => {
       dispatch({ type: 'compileTargetSelected', target });
@@ -1374,6 +1385,7 @@ function AppInner({
         languageCanRetry={languageCanRetry}
         persistencePhase={persistentWorkspace.phase}
         onExportSource={exportSource}
+        onResetToDemo={handleResetToDemo}
         onValidate={handleValidate}
         onFormat={handleFormat}
         onGenerate={handleGenerate}

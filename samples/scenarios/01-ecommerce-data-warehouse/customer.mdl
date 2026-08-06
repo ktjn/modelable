@@ -3,12 +3,16 @@ domain customer {
   contact: "customer-platform@example.com"
   description: "Customer identity, lifecycle, loyalty tier, and acquisition attribution."
 
+  // Shared across this domain's own fields and referenced from other domains
+  // (e.g. payments.PaymentTransaction.cardIssuerCountry) as `customer.CountryCode`.
+  semantic CountryCode: string
+
   entity Customer @ 3 (additive) {
     @key       customerId:         uuid
     @pii       email:              string
     @pii       phoneNumber?:       string
     @pii       fullName:           string
-               countryCode:        string // format: iso3166_alpha2
+               countryCode:        CountryCode
                acquisitionChannel?: enum(organic, email, paid_search, social, referral, direct, affiliate)
                acquisitionDate?:   date
                firstCampaignId?:   string
@@ -16,5 +20,21 @@ domain customer {
                status:             enum(active, suspended, deleted)
                createdAt:          timestamp
                updatedAt:          timestamp
+  }
+
+  index Customer @ 3 {
+    primary customerId
+
+    // Login and support lookups resolve by email; one active account per address.
+    secondary byEmail {
+      key:    [email]
+      unique: true
+    }
+
+    // Lifecycle dashboards filter by status and sort within tier.
+    secondary byStatus {
+      key:  [status]
+      sort: [loyaltyTier]
+    }
   }
 }

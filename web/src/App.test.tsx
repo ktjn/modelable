@@ -994,6 +994,48 @@ describe('App', () => {
     ).toBeNull();
   });
 
+  test('reloads the built-in demo workspace after confirmation', async () => {
+    const client = new FakeCompilerClient();
+    const confirmReplace = vi.fn(() => false);
+    render(
+      <App createClient={() => client} confirmReplace={confirmReplace} />,
+    );
+    await initialize(client);
+
+    const sourceEditor = () =>
+      screen.getByRole('textbox', {
+        name: 'Model source',
+      }) as HTMLTextAreaElement;
+
+    fireEvent.change(sourceEditor(), {
+      target: { value: 'domain edited {}' },
+    });
+    expect(sourceEditor().value).toBe('domain edited {}');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Reload demo data' }),
+    );
+    expect(confirmReplace).toHaveBeenCalledWith(
+      'Discard local changes and reload the built-in demo workspace?',
+    );
+    // Declined: the edit is untouched.
+    expect(sourceEditor().value).toBe('domain edited {}');
+
+    confirmReplace.mockReturnValue(true);
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Reload demo data' }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Confirmed: the demo workspace's original content is back.
+    await waitFor(() => {
+      expect(sourceEditor().value).not.toBe('domain edited {}');
+    });
+  });
+
   test('imports multiple files atomically and confirms each replacement', async () => {
     const client = new FakeCompilerClient();
     const confirmReplace = vi.fn(
