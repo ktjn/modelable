@@ -780,6 +780,231 @@ def test_governance_review_reports_breaking_change_as_breaking():
     assert finding.severity == "breaking"
 
 
+# --- Slice C4: configurable compatibility policy, wired into the CLI -------
+
+
+def test_validate_compat_cli_grpc_migration_required_fails_by_default(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+    createdAt: timestamp
+  }
+  index Order @ 1 {
+    primary orderId
+    secondary by_customer {
+      key: [customerId]
+    }
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+    createdAt: timestamp
+  }
+  index Order @ 1 {
+    primary orderId
+    secondary by_customer {
+      key: [customerId]
+      sort: [createdAt desc]
+    }
+  }
+}
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["validate-compat", "--from", str(old), "--to", str(new), "--target", "grpc"],
+    )
+
+    assert result.exit_code == 1
+    assert "status: requires_read_rebuild" in result.output
+
+
+def test_validate_compat_cli_policy_loosens_grpc_migration_required_to_pass(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+    createdAt: timestamp
+  }
+  index Order @ 1 {
+    primary orderId
+    secondary by_customer {
+      key: [customerId]
+    }
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+    createdAt: timestamp
+  }
+  index Order @ 1 {
+    primary orderId
+    secondary by_customer {
+      key: [customerId]
+      sort: [createdAt desc]
+    }
+  }
+}
+""",
+    )
+    policy = _write(
+        tmp_path / "policy.yml",
+        """
+compatibility:
+  grpc: breaking
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(old),
+            "--to",
+            str(new),
+            "--target",
+            "grpc",
+            "--policy",
+            str(policy),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "policy: threshold=breaking -> pass" in result.output
+
+
+def test_validate_compat_cli_policy_still_blocks_a_breaking_change(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    legacyStatus: string
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    # Deliberately as loose as the policy vocabulary allows -- still can't
+    # let a breaking change through, since "breaking" is the maximum
+    # severity rank and every valid threshold is <= it.
+    policy = _write(
+        tmp_path / "policy.yml",
+        """
+compatibility:
+  protobuf: migration_required
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(old),
+            "--to",
+            str(new),
+            "--target",
+            "protobuf",
+            "--policy",
+            str(policy),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "policy: threshold=migration_required -> fail" in result.output
+    assert "removed_field_not_reserved" in result.output
+
+
+def test_validate_compat_cli_rejects_an_invalid_policy_file(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    policy = _write(
+        tmp_path / "policy.yml",
+        """
+compatibility:
+  protobuf: super-strict
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(old),
+            "--to",
+            str(new),
+            "--target",
+            "protobuf",
+            "--policy",
+            str(policy),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "unknown severity" in result.output
+
+
 def test_governance_review_is_compatible_when_no_governance_change():
     mdl, old, new = _projection_versions(
         """

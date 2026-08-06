@@ -30,6 +30,7 @@ src/modelable/registry/signature.py: 93.33
 
 # Target compatibility
 src/modelable/compat/targets.py: 94.29
+src/modelable/compat/policy.py: 100.0
 src/modelable/emitters/protobuf.py: 92.90
 src/modelable/emitters/grpc.py: 96.59
-src/modelable/commands/validate_compat.py: 96.88
+src/modelable/commands/validate_compat.py: 100.0

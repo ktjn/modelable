@@ -743,6 +743,45 @@ lint:
 - Policy controls severity, not compiler facts.
 - Target axes can be enforced independently.
 
+### Outcome (2026-08-06)
+
+Implemented the `compatibility:` half; the `lint:` half in the example above
+(`require_descriptions`/`require_classification`) has no existing linter to
+attach severity to and remains undesigned — a policy file that includes a
+`lint:` section is rejected with a clear error rather than silently
+discarded, per the same "no silent loss of parsed content" standard Slice B3
+set.
+
+`compat/policy.py` adds `CompatibilityPolicy`: a per-`TargetCompatibilityReport.target`
+mapping to one of Slice C3's four `SEVERITIES`, the minimum finding severity
+that fails that target. `load_policy()` parses it from a YAML file (the
+`.github/scripts` baseline-file / `specs/tracking.py` precedent: plain
+`ValueError` on a malformed file, caught and re-raised as
+`click.ClickException` at the CLI boundary). `validate-compat` gained an
+optional `--policy <path>` option; omitting it preserves the exact
+pre-Slice-C4 behavior (only a fully `compatible` report passes) through the
+original, untouched `PASSING_STATUSES` code path — the policy path is
+additive, not a replacement.
+
+The three acceptance criteria are satisfied structurally, not just by
+convention: `SEVERITIES` is a fixed, ordered tuple with `breaking` as its
+maximum, and a policy threshold must be a member of that tuple — so a
+`breaking` finding's rank is always >= any valid threshold's rank, and no
+policy value exists that could suppress one (**structural errors remain
+unsuppressible**). `CompatibilityPolicy.enforce()` reads
+`TargetCompatibilityFinding.severity`, computed once by `compat/targets.py`
+and never written by the policy layer (**policy controls severity
+enforcement, not the compiler-determined facts**). Thresholds are keyed by
+target and looked up independently per report (**target axes enforced
+independently** — e.g. a stricter gate on `protobuf` than on
+`governance-review` in the same policy file).
+
+Deliberately out of scope: `modelable diff`'s `CompatibilityReport`/
+`ProjectionCompatibilityReport` (`compat/checker.py`) carry plain
+`findings: list[str]`, not the axis/severity IR this policy is defined over
+— wiring `--policy` into `diff` would mean threading the Slice C3 IR through
+`checker.py` first, a separate, larger change the plan doesn't ask for here.
+
 ---
 
 # Track D — language evolution safeguards and features
