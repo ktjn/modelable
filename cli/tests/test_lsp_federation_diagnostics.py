@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from conformance.signature.scenarios import CUSTOMER_V1_TEXT, customer_v1
+
 from modelable.compiler.workspace import WorkspaceDocumentSource
 from modelable.lsp.federation import build_import_diagnostics
 from modelable.lsp.workspace import LspWorkspaceIndex
-from modelable.parser.ir import AnnKey, FieldDef, ModelKind, ModelVersion, PrimitiveType
-from modelable.registry.signature import compute_version_signature
 
 IMPORT_TEXT = """
 import domain customer from registry "customer-platform-registry"
@@ -64,30 +64,15 @@ workspace "analytics-platform" {
 }
 """.strip("\n")
 
-MIRROR_CUSTOMER_TEXT = """
-domain customer {
-  owner: "test-team"
-  entity Customer @ 1 (additive) {
-    @key customerId: uuid
-  }
-}
-""".strip("\n")
+# The same customer.Customer@1 text the resolver's signature tests use
+# (conformance/signature/scenarios.py) -- one parsed source of truth for
+# what this test mirrors to disk and what it computes a signature from,
+# instead of a second hand-authored copy that could silently diverge.
+MIRROR_CUSTOMER_TEXT = CUSTOMER_V1_TEXT
 
 
 def _customer_signature() -> str:
-    version = ModelVersion(
-        model_kind=ModelKind.entity,
-        version=1,
-        change_kind="additive",
-        fields=[
-            FieldDef(
-                name="customerId",
-                type=PrimitiveType(kind="uuid"),
-                annotations=[AnnKey()],
-            )
-        ],
-    )
-    return compute_version_signature("customer", "Customer", version)
+    return customer_v1().signature
 
 
 def _index(

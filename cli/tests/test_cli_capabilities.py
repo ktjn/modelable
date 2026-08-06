@@ -31,7 +31,7 @@ def test_capabilities_json_output_is_valid_and_complete():
     assert "key" in names
     assert "composite-keys" in names
     for entry in payload:
-        assert set(entry) == {"name", "category", "status", "description", "notes"}
+        assert set(entry) == {"name", "category", "status", "description", "notes", "test_refs"}
 
 
 def test_capabilities_json_output_marks_deferred_features():

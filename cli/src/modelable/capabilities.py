@@ -25,6 +25,10 @@ class Capability:
     status: CapabilityStatus
     description: str
     notes: str | None = None
+    # "test_file.py::test_function_name" references (Slice G3) that prove this
+    # capability's status is accurate. Checked by test_capability_manifest_linkage.py,
+    # so a status claim can't silently drift from what the test suite actually verifies.
+    test_refs: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -71,6 +75,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
             "cli/src/modelable/validation/semantic.py requires exactly one @key field "
             "per entity/aggregate today. See Slice D5 in docs/correction-and-capability-plan.md."
         ),
+        test_refs=("test_semantic.py::test_composite_key_is_not_yet_supported",),
     ),
     Capability(
         name="clickhouse-secondary-indexes",
@@ -81,6 +86,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
             "Only the sql-postgres target emits index declarations today; "
             "sql-clickhouse emits a bare MergeTree table with no secondary indexes."
         ),
+        test_refs=("test_emit_sql.py::test_clickhouse_ddl_does_not_include_secondary_index",),
     ),
     Capability(
         name="model-lifecycle-status",
@@ -91,6 +97,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
             "docs/architecture.md describes this lifecycle; it is not represented in the "
             "current stable grammar or IR. See Slice D6 in docs/correction-and-capability-plan.md."
         ),
+        test_refs=("test_capabilities.py::test_model_version_has_no_lifecycle_status_field",),
     ),
     Capability(
         name="nominal-semantic-types-beyond-rust",
@@ -99,7 +106,9 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         description="Preserving semantic-type nominal identity in targets other than Rust, Protobuf, and gRPC",
         notes=(
             "Other targets resolve a semantic type reference structurally today. "
-            "See Slice F1 in docs/correction-and-capability-plan.md and ROADMAP.md Priority 4 item 4."
+            "See Slice F1 in docs/correction-and-capability-plan.md and ROADMAP.md Priority 4 item 4. "
+            "Not yet linked to a proving test (see Slice G3 outcome note) -- what the other targets' "
+            "output should look like structurally needs its own small scoping pass first."
         ),
     ),
     Capability(
@@ -111,6 +120,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
             "Parses but is discarded before IR construction; has no effect on compilation. "
             "See Slice B3 in docs/correction-and-capability-plan.md."
         ),
+        test_refs=("test_deferred_syntax.py::test_workspace_registry_block_produces_deferred_warning",),
     ),
     Capability(
         name="workspace-peers",
@@ -122,6 +132,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
             "Peer identifiers referenced elsewhere are checked by a separate editor-only "
             "text scan, not this declaration. See Slice B3 in docs/correction-and-capability-plan.md."
         ),
+        test_refs=("test_deferred_syntax.py::test_workspace_peers_block_produces_deferred_warning",),
     ),
     Capability(
         name="consumer-declarations",
@@ -132,6 +143,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
             "Parses but is discarded before IR construction; consumer registration and "
             "impact analysis have no effect. See Slice B3 in docs/correction-and-capability-plan.md."
         ),
+        test_refs=("test_deferred_syntax.py::test_top_level_consumer_declaration_produces_deferred_warning",),
     ),
     Capability(
         name="subscriptions",
@@ -141,6 +153,10 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         notes=(
             "Parses but is discarded before IR construction; no runtime subscription "
             "behavior is implemented. See Slice B3 in docs/correction-and-capability-plan.md."
+        ),
+        test_refs=(
+            "test_deferred_syntax.py::test_top_level_subscription_declaration_produces_deferred_warning",
+            "test_deferred_syntax.py::test_projection_subscription_block_produces_deferred_warning",
         ),
     ),
     Capability(
@@ -152,6 +168,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
             "Parses but is discarded before IR construction; no runtime materialization "
             "is implemented. See Slice B3 in docs/correction-and-capability-plan.md."
         ),
+        test_refs=("test_deferred_syntax.py::test_projection_materialisation_block_produces_deferred_warning",),
     ),
     Capability(
         name="binding-opaque-content",
@@ -161,6 +178,9 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         notes=(
             "Parses but is discarded before IR construction; only `adapter`, `model`, and "
             "`table` are honored today. See Slice B3 in docs/correction-and-capability-plan.md."
+        ),
+        test_refs=(
+            "test_deferred_syntax.py::test_binding_opaque_content_produces_one_deferred_warning_per_unrecognized_key",
         ),
     ),
     Capability(
@@ -172,7 +192,8 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
             "AutoProjectionTarget.operations only exists on the pre-expansion "
             "`auto projections {}` declaration and is discarded during "
             "expansion; it is not present on the resulting ProjectionVersion "
-            "to diff. See Slice C1 in docs/correction-and-capability-plan.md."
+            "to diff. See Slice C1 in docs/correction-and-capability-plan.md. "
+            "Not yet linked to a proving test (see Slice G3 outcome note)."
         ),
     ),
 )
