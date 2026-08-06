@@ -5,6 +5,7 @@ import re
 from modelable.compiler.workspace import Workspace
 from modelable.language.dto import LanguageLocation, LanguagePosition, LanguageRange
 from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
+from modelable.language.ref_lookup import REF_TYPE_PATTERN, resolve_ref_match_version
 from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import parse_model_ref
 from modelable.parser.ir import JoinRef, SourceRef
@@ -13,7 +14,6 @@ from modelable.registry.resolver import resolve_model_ref
 _QUALIFIED_REF_PATTERN = re.compile(
     r"(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
-_REF_TYPE_PATTERN = re.compile(r"ref\s*<\s*(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*>")
 _FIELD_REF_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
@@ -76,9 +76,11 @@ def _resolve_definition(
             if location is not None:
                 return location
 
-    for match in _REF_TYPE_PATTERN.finditer(text_line):
+    for match in REF_TYPE_PATTERN.finditer(text_line):
         if _contains(match.start(), match.end(), character):
-            location = _definition_for_unversioned_ref(semantic, match.group("domain"), match.group("name"))
+            location = _definition_for_ref_type_match(
+                semantic, match.group("domain"), match.group("name"), match.group("version")
+            )
             if location is not None:
                 return location
 
@@ -123,16 +125,19 @@ def _definition_for_qualified_ref(workspace: Workspace, ref: str) -> LanguageLoc
     return None
 
 
-def _definition_for_unversioned_ref(workspace: Workspace, domain_name: str, name: str) -> LanguageLocation | None:
+def _definition_for_ref_type_match(
+    workspace: Workspace, domain_name: str, name: str, version_text: str | None
+) -> LanguageLocation | None:
     domain = next((d for d in workspace.mdl.domains if d.name == domain_name), None)
     if domain is None:
         return None
+    resolved_version = resolve_ref_match_version(workspace, domain_name, name, version_text)
+    if resolved_version is None:
+        return None
     if name in domain.models:
-        latest_model = max(domain.models[name], key=lambda v: v.version)
-        return _definition_for_decl(workspace, domain_name, "model", name, latest_model.version)
+        return _definition_for_decl(workspace, domain_name, "model", name, resolved_version)
     if name in domain.projections:
-        latest_proj = max(domain.projections[name], key=lambda v: v.version)
-        return _definition_for_decl(workspace, domain_name, "projection", name, latest_proj.version)
+        return _definition_for_decl(workspace, domain_name, "projection", name, resolved_version)
     return None
 
 

@@ -172,6 +172,40 @@ domain catalog {
     assert result.range.start.line == decl_line
 
 
+def test_definition_on_versioned_ref_type_jumps_to_that_version() -> None:
+    # Uses a range constraint (not a bare "@ N") so the match can only be
+    # satisfied by the new REF_TYPE_PATTERN/resolve_ref_match_version path —
+    # the pre-existing _QUALIFIED_REF_PATTERN's "@ \d+" only matches a bare
+    # exact version and would otherwise accidentally intercept this click
+    # before reaching the code this test is meant to exercise.
+    text = """
+domain commerce {
+  owner: "test-team"
+  entity Product @ 1 (additive) {
+    @key productId: uuid
+  }
+
+  entity Product @ 2 (additive) {
+    @key productId: uuid
+    name: string
+  }
+}
+
+domain catalog {
+  owner: "test-team"
+  entity Listing @ 1 (additive) {
+    @key listingId: uuid
+    productId: ref<commerce.Product @ >=1 <2>
+  }
+}
+""".strip("\n")
+    state = parsed_workspace(text)
+    result = definition(state, URI, position_of(text, "ref<commerce.Product @ >=1 <2>", "Product"))
+    assert result is not None
+    decl_line = next(i for i, line in enumerate(text.splitlines()) if "entity Product @ 1" in line)
+    assert result.range.start.line == decl_line
+
+
 def test_definition_cross_file_finds_target_in_other_document() -> None:
     state = cross_file_workspace()
     result = definition(
