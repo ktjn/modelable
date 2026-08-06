@@ -821,6 +821,76 @@ expressed safely.
 - Historical signatures remain reproducible.
 - New syntax has an explicit compatibility story.
 
+### Outcome (2026-08-06)
+
+**Decided: additive-syntax policy**, the doc's own stated default. Chosen
+over language-version and compiler-version-snapshot: those two exist to
+protect a large body of already-published `.mdl` text against a syntax
+that reinterprets it; with only two running Modelable deployments today,
+that body of text doesn't exist yet, and the machinery to protect it
+(version-tagged source files, per-version interpretation branches in the
+parser and every downstream consumer) is exactly the kind of anticipatory
+complexity this codebase's stated engineering principles reject. The
+policy is still real and binding going forward, independent of how much
+history exists right now: **old syntax never changes meaning; new
+semantics require new syntax.** Once more workspaces exist, upgrading the
+compiler stays safe by construction rather than by discipline.
+
+Required outputs, made concrete:
+
+- **Interpretation rules for historical published files.** Any `.mdl`
+  text that parses and validates under one compiler version parses and
+  means exactly the same thing under every later version, for as long as
+  that syntax remains in the grammar. A new feature is a new, optional
+  grammar production (a new clause, a new annotation, a new block) — never
+  a changed meaning for an existing one. Slice H1 (`pick`/`omit`) is the
+  first slice built under this rule, and was already designed this way
+  before D0 formalized it: an entirely new optional clause, zero change to
+  what any existing projection means.
+- **Canonical signature behaviour.** `registry/signature.py::compute_version_signature`
+  is deterministic over the parsed IR; since additive syntax guarantees a
+  historical construct's IR shape never changes, its signature never
+  changes either. No new code needed here — this is a consequence of the
+  policy holding, not a separate mechanism, and is exactly what Slice C2's
+  ref-version-stability tests and this slice's own stability suite (below)
+  verify continues to hold.
+- **Registry rebuild behaviour.** Re-resolving `registry-ids.lock` or any
+  other derived registry state from historical text must reproduce the
+  same result it produced originally. Follows from the same IR-shape
+  stability guarantee; no separate rebuild-specific rule is needed.
+- **Formatter behaviour.** `compiler/render.py` must keep emitting
+  existing constructs in their existing form — never silently rewriting a
+  historical construct into a newer equivalent syntax on reformat, even
+  when one now exists (e.g. reformatting never turns a hand-written `<-`
+  field list into an equivalent `pick(...)`). A formatter-driven migration
+  is legitimate future tooling, but must be an explicit, opt-in action a
+  user requests, never a side effect of routine formatting.
+- **Upgrade and migration diagnostics.** Because nothing is deprecated or
+  reinterpreted by this policy, there is no forced-migration diagnostic to
+  design. An informational (non-blocking) suggestion diagnostic — "this
+  could be written with `pick(...)`" — is legitimate future authoring-
+  ergonomics work, not a D0 requirement.
+- **Browser/native parity requirements.** The browser-compiled compiler
+  must apply identical interpretation rules to identical source text as
+  the native compiler — a real requirement since the Playground is where
+  users author and edit workspaces before they're ever compiled natively.
+  This is exactly what Slice G3's shared conformance-fixture pipeline
+  (`cli/tests/conformance/browser/`) already exists to catch; no new
+  mechanism required, only continued fixture coverage as new syntax lands.
+
+`tests/test_language_stability.py` adds the one concrete guardrail this
+outcome introduces: canonical signatures and formatted output for a small,
+representative set of already-shipped constructs (a plain entity, a
+deprecated-field rename, a `ref<>` type reference, an index declaration, a
+hand-written projection, and a `pick(...)` projection) are pinned to fixed
+expected values. A future change that alters what any of these mean would
+fail this test first, rather than being discovered later as a silent
+compatibility break.
+
+This decision unblocks Slice D1 (separate presence and nullability) and
+Slice D6 (model lifecycle status) to be scoped and designed next — it does
+not implement either; both remain their own, separately-sized slices.
+
 ---
 
 ## Slice D1 — separate presence and nullability

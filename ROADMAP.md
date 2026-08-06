@@ -351,15 +351,19 @@ Lane L. Full slice detail lives in the
 These items require accepted designs and, for the syntax-changing ones,
 concrete consumer demand; they do not automatically outrank Priorities 1–5.
 
-Most items here are gated behind one decision:
+Most items here were gated behind one decision, now made:
 
-- **D0 — define historical language interpretation.** Choose how already-
-  published `.mdl` text is protected before any syntax that *changes the
-  meaning* of existing text can land (additive-syntax policy, language-
-  version policy, or compiler-version snapshot policy — additive-syntax is
-  the preferred default). D1 and D6 below require D0 first.
+- **Decided: D0 — historical language interpretation.** Additive-syntax
+  policy: old syntax never changes meaning; new semantics require new
+  syntax. Chosen over language-version and compiler-version-snapshot
+  policies since those exist to protect a large body of already-published
+  `.mdl` text against reinterpretation, and that body doesn't exist yet.
+  Outcome recorded in
+  [the correction and capability plan](docs/correction-and-capability-plan.md#slice-d0--define-historical-language-interpretation).
+  D1 and D6 below are now unblocked to scope and design (not yet
+  implemented).
 
-Gated on D0, in dependency order:
+Gated on D0 (now decided), in dependency order:
 
 1. **D1** — separate presence from nullability (`field?` keeps its current
    meaning or is interpreted under an explicit language version; never
