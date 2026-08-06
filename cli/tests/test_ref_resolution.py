@@ -1,6 +1,5 @@
 import pytest
 
-from modelable.parser.ir import VersionExact
 from modelable.parser.parse import parse_text_to_ir
 from modelable.registry.resolver import resolve_ref_type
 

@@ -98,6 +98,21 @@ models/
 
 The type system is platform-neutral. Target emitters map each type to the closest equivalent in the output format (e.g., `uuid` → `string` format `uuid` in JSON Schema, `UUID` in Avro, `uuid` in Postgres DDL).
 
+#### 2.1.1 `ref<>` version constraints
+
+`ref<Domain.Model>` accepts the same `@ version_spec` forms as a projection `from`/`join` clause:
+
+| Form | Example | Meaning |
+|---|---|---|
+| Exact | `ref<Domain.Model @ 2>` | Resolves to that published version only |
+| Range | `ref<Domain.Model @ >=2 <3>` | Resolved to the highest published version satisfying the constraint |
+| Min | `ref<Domain.Model @ >=2>` | Resolved to the highest published version at or above the floor |
+| Pinned | `ref<Domain.Model @ 2#hash>` | Exact version, rejected unless it also matches the declared content hash |
+
+`ref<Domain.Model>` with no `@ version_spec` still parses. It resolves to the latest matching version, but produces a non-blocking `REF`-coded diagnostic recommending a version constraint be added. A `ref<>` whose target or version cannot be resolved at all is a `SEM` validation error.
+
+A `ref<>`'s version constraint is independent of its target for compatibility purposes: changing the target model is a breaking change, but tightening, loosening, or removing the version constraint alone is not.
+
 ### 2.2 Field declaration syntax
 
 ```mdl

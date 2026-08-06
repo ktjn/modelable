@@ -587,6 +587,19 @@ Recommended compatibility path:
 - Resolved reference identity participates in signatures and compatibility.
 - Existing files have a documented interpretation.
 
+### Outcome (2026-08-05)
+
+Implemented as designed in
+[the C2 design spec](superpowers/specs/2026-08-05-ref-version-resolution-design.md):
+grammar/IR support for `ref<Domain.Model @ version_spec>`, one canonical
+`resolve_ref_type()` resolver, new SEM validation for unresolvable refs and
+a non-blocking `REF` advisory for unversioned ones, compat/signature rules
+that separate a ref's target (breaking if changed) from its version
+(never breaking alone), TypeScript codegen using the ref's own version
+instead of always-latest, and consolidation of the LSP's two independently
+duplicated "unversioned ref → latest" implementations onto one shared
+helper.
+
 ---
 
 ## Slice C3 — generalize existing target compatibility

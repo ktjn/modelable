@@ -1,7 +1,7 @@
 """Test signature rendering for versioned ref<> type references (Slice C2)."""
 
-from modelable.parser.parse import parse_text_to_ir
 from modelable.compiler.render import render_model_version
+from modelable.parser.parse import parse_text_to_ir
 from modelable.registry.signature import compute_version_signature
 
 
