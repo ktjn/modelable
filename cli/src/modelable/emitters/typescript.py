@@ -27,7 +27,7 @@ from modelable.parser.ir import (
     VersionPinned,
     VersionRange,
 )
-from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref
+from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_ref_type
 
 
 def emit_typescript(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
@@ -71,17 +71,30 @@ def _iface_to_artifact_id(iface_name: str) -> str:
     return f"{body.lower()}.v{ver}"
 
 
-def _collect_ref_imports(field_type, mdl, resolved_refs: dict[str, str]) -> None:
-    """Recursively collect resolved RefType targets into resolved_refs."""
-    if isinstance(field_type, RefType):
-        target = field_type.target
-        if target not in resolved_refs:
-            try:
-                from modelable.parser.ir import VersionMin
+def _ref_cache_key(field_type: RefType) -> tuple[object, ...]:
+    version = field_type.version
+    if version is None:
+        return (field_type.target, None)
+    if isinstance(version, VersionExact):
+        return (field_type.target, "exact", version.version)
+    if isinstance(version, VersionRange):
+        return (field_type.target, "range", version.min_inclusive, version.max_exclusive)
+    if isinstance(version, VersionMin):
+        return (field_type.target, "min", version.min_inclusive)
+    if isinstance(version, VersionPinned):
+        return (field_type.target, "pinned", version.version, version.content_hash)
+    return (field_type.target, None)
 
-                resolved: ResolvedModelRef = resolve_model_ref(mdl, target, VersionMin(min_inclusive=1))
+
+def _collect_ref_imports(field_type, mdl, resolved_refs: dict[tuple[object, ...], str]) -> None:
+    """Recursively collect resolved RefType targets into resolved_refs, keyed by (target, version)."""
+    if isinstance(field_type, RefType):
+        key = _ref_cache_key(field_type)
+        if key not in resolved_refs:
+            try:
+                resolved: ResolvedModelRef = resolve_ref_type(field_type, mdl)
                 iface = _stable_interface_name(resolved.domain_name, resolved.model_name, resolved.version.version)
-                resolved_refs[target] = iface
+                resolved_refs[key] = iface
             except LookupError, ValueError:
                 pass
     elif isinstance(field_type, ArrayType):
@@ -120,7 +133,7 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     interface_name = _stable_interface_name(domain.name, model_name, version.version)
 
     # Resolve ref<X> fields to stable interface names; collect imports.
-    resolved_refs: dict[str, str] = {}  # ref target → stable interface name
+    resolved_refs: dict[tuple[object, ...], str] = {}  # (target, version-key) → stable interface name
     named_imports: dict[str, tuple[str, str]] = {}  # bare name → (stable iface name, artifact_id)
     if mdl is not None:
         for field in version.fields:
@@ -313,7 +326,7 @@ def _type_to_ts(
     field_type,
     *,
     wire_targets: dict[str, object] | None = None,
-    resolved_refs: dict[str, str] | None = None,
+    resolved_refs: dict[tuple[object, ...], str] | None = None,
     named_imports: dict[str, tuple[str, str]] | None = None,
 ) -> str:
     json_wire = None
@@ -364,8 +377,10 @@ def _type_to_ts(
             f"Record<string, {_type_to_ts(field_type.value, resolved_refs=resolved_refs, named_imports=named_imports)}>"
         )
     if isinstance(field_type, RefType):
-        if resolved_refs and field_type.target in resolved_refs:
-            return resolved_refs[field_type.target]
+        if resolved_refs is not None:
+            key = _ref_cache_key(field_type)
+            if key in resolved_refs:
+                return resolved_refs[key]
         return "string"
     if isinstance(field_type, EnumType):
         case = getattr(json_wire, "case", None) if json_wire is not None else None
