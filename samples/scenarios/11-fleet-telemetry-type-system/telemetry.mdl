@@ -1,0 +1,39 @@
+domain telemetry {
+  owner: "fleet-platform-team"
+  contact: "fleet-platform@example.com"
+  description: "Time-series telemetry events streamed from field devices, and derived device health signals."
+
+  // A local semantic type over a fixed-width primitive: signal strength is
+  // always a small negative dBm value, never a general-purpose int.
+  semantic SignalDbm: i16
+
+  event TelemetryReading @ 1 (additive) {
+               readingId:          uuid(7)               // ingestion-ordered id; sorts with arrival time
+               deviceId:           ref<fleet.Device @ 1>
+               tenantId:           fleet.TenantId         // domain-qualified reference to another domain's semantic type
+               firmwareVersion:    fleet.FirmwareVersion
+               batteryPercent:     u8                     // 0-255 range comfortably covers 0-100%
+               signalStrength:     SignalDbm
+               temperatureTenthsC: i16                    // tenths of a degree C, avoids float drift
+               uptimeSeconds:      u32
+    @classification("internal")
+               payloadDigest:      binary(32)             // SHA-256 digest of the raw device payload, for tamper detection
+               recordedAt:         timestamp
+  }
+
+  projection DeviceHealthSnapshot @ 1
+    from telemetry.TelemetryReading @ 1 as r
+    join fleet.Device @ 1 as d on r.deviceId == d.deviceId
+    group by r.deviceId, d.serialNumber, d.tenantId, d.status
+  {
+    @key deviceId    <- r.deviceId
+    serialNumber      <- d.serialNumber
+    tenantId          <- d.tenantId
+    status            <- d.status
+    readingCount      = count(r.readingId)
+    lastReadingAt     = max(r.recordedAt)
+    minBatteryPercent = min(r.batteryPercent)
+    avgSignalStrength = avg(r.signalStrength)
+    isLowBattery      = min(r.batteryPercent) < 15
+  }
+}

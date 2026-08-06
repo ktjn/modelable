@@ -8,6 +8,7 @@ export interface ToolbarProps {
   languageCanRetry: boolean;
   persistencePhase: 'saved' | 'saving' | 'memory-only' | 'recovery-required';
   onExportSource(): void;
+  onResetToDemo(): void;
   onValidate(): void;
   onFormat(): void;
   onGenerate(): void;
@@ -24,6 +25,7 @@ export function Toolbar({
   languageCanRetry,
   persistencePhase,
   onExportSource,
+  onResetToDemo,
   onValidate,
   onFormat,
   onGenerate,
@@ -41,6 +43,14 @@ export function Toolbar({
           onClick={onExportSource}
         >
           Export source
+        </button>
+        <button
+          type="button"
+          className="toolbar__secondary"
+          title="Discard local changes and reload the built-in demo workspace"
+          onClick={onResetToDemo}
+        >
+          Reload demo data
         </button>
         <button
           type="button"

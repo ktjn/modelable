@@ -13,6 +13,11 @@ releases could contain breaking changes when called out explicitly.
   `OLLAMA_HOST` the same way other provider-backed commands do.
 - Added an Ollama provider option to the Playground assistant, alongside
   WebLLM, for users running a local Ollama server.
+- Added a "Reload demo data" button to the Playground toolbar. Previously the
+  built-in example workspace could only be restored by way of the recovery
+  screen shown for corrupted local storage; the new button discards local
+  changes and reloads it on demand, behind the same confirmation prompt used
+  for other destructive workspace actions.
 
 ### Fixed
 

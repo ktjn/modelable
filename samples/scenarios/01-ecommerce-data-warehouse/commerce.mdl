@@ -3,8 +3,12 @@ domain commerce {
   contact: "commerce@example.com"
   description: "Order lifecycle, checkout funnel, line items, and campaign attribution."
 
+  // Referenced from this domain and, domain-qualified as `commerce.CurrencyCode`,
+  // from payments.PaymentTransaction.
+  semantic CurrencyCode: string
+
   event Order @ 4 (additive) {
-               orderId:            uuid
+               orderId:            uuid(7)   // timestamp-ordered: keeps warehouse ingestion and clustering keys naturally sorted
                customerId:         ref<customer.Customer>
                status:             enum(pending, confirmed, shipped, delivered, cancelled, refunded)
                checkoutFunnelStep: enum(cart, address, payment_entry, payment_confirm, confirmed)
@@ -13,7 +17,7 @@ domain commerce {
                shippingCents:      int = 0
                taxCents:           int = 0
                totalAmountCents:   int
-               currencyCode:       string // format: iso4217
+               currencyCode:       CurrencyCode
                channelCode:        enum(web, mobile_ios, mobile_android, api, in_store)
                campaignId?:        string
                couponCode?:        string
@@ -26,7 +30,7 @@ domain commerce {
   }
 
   entity OrderLineItem @ 2 (additive) {
-    @key       lineItemId:         uuid
+    @key       lineItemId:         uuid(7)
                orderId:            ref<commerce.Order>
                productId:          string
                productCategory?:   string
@@ -35,5 +39,14 @@ domain commerce {
                quantity:           int
                discountCents:      int = 0
                lineTotalCents:     int
+  }
+
+  index OrderLineItem @ 2 {
+    primary lineItemId
+
+    // Rehydrating an order's line items is the dominant read pattern.
+    secondary byOrder {
+      key: [orderId]
+    }
   }
 }

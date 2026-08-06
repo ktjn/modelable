@@ -1,0 +1,81 @@
+domain fleet {
+  owner: "fleet-platform-team"
+  contact: "fleet-platform@example.com"
+  description: "Device identity, provisioning, and fleet inventory for a field-deployed IoT device fleet."
+
+  // ── Semantic types ─────────────────────────────────────────────────────────
+  //
+  // `semantic` gives a domain-meaningful name to a primitive (or decimal/binary/
+  // another semantic type), so field declarations read as `TenantId` instead of
+  // a bare `uuid` everywhere the concept is used. `registry: true` opts a
+  // declaration into deterministic registry ID allocation (`registry-ids.lock`),
+  // which the Rust, Protobuf, and gRPC emitters expose as a stable wire id.
+
+  semantic TenantId: uuid {
+    registry: true
+  }
+
+  // A semantic type's underlying type may itself be another semantic type
+  // (chains are validated for cycles up to 32 levels deep).
+  semantic RawVersionString: string
+  semantic FirmwareVersion: RawVersionString
+
+  // ── Device entity ──────────────────────────────────────────────────────────
+
+  entity Device @ 1 (additive) {
+    @key            deviceId:         uuid(7)   // timestamp-ordered: newest-provisioned devices sort last
+                    tenantId:         TenantId
+                    serialNumber:     string
+    @classification("internal")
+                    macAddress:       binary(6)  // fixed-length: 802 MAC address, 6 raw bytes
+                    firmwareVersion:  FirmwareVersion
+                    hardwareRevision: u8
+                    status:           enum(provisioning, active, maintenance, decommissioned)
+    @server         provisionedAt:    timestamp
+    @server         lastSeenAt?:      timestamp
+
+    // `regionCode` was dropped when tenancy replaced region-based partitioning;
+    // reserving its field number/name keeps Protobuf wire compatibility for any
+    // consumer still holding an old descriptor.
+    reserved protobuf {
+      numbers: [10]
+      names: ["legacy_region_code"]
+    }
+  }
+
+  // ── Index declaration ────────────────────────────────────────────────────
+  //
+  // `primary` records the model's `@key` column; `secondary` blocks declare
+  // additional lookup indexes the Postgres SQL emitter turns into
+  // CREATE INDEX / CREATE UNIQUE INDEX statements.
+
+  index Device @ 1 {
+    primary deviceId
+
+    secondary byTenant {
+      key:  [tenantId]
+      sort: [lastSeenAt desc]
+    }
+
+    secondary bySerialNumber {
+      key:    [serialNumber]
+      unique: true
+    }
+
+    secondary byStatus {
+      key: [status]
+    }
+  }
+
+  auto projections Device @ 1 {
+    db
+
+    request
+      exclude [status]         // status transitions go through the maintenance workflow, not direct writes
+
+    reply
+
+    event
+      on [created, updated]    // decommissioning is recorded by a separate compliance record, not this event
+  }
+}

@@ -28,6 +28,7 @@ contributors can run without access to private downstream projects. See
 | 7 | `07-multi-system-master-data` | Enterprise Multi-System Master Data Architecture | Master Data / Data Platform | Very High | [Compiler reference](../docs/compiler-reference.md) |
 | 8 | `08-distributed-multi-registry` | Federated Registry Network | Federation / Peer Sync | High | [Compiler reference](../docs/compiler-reference.md) |
 | 9 | `09-auto-projections` | Compiler-Generated Projection Contracts | Core Language | Medium | [Language reference](../docs/language-reference.md) §3.7 |
+| 11 | `11-fleet-telemetry-type-system` | IoT Fleet Telemetry | Core Language | Medium | [Language reference](../docs/language-reference.md) §2.1, §3.8, §3.9 |
 
 ---
 
@@ -43,6 +44,9 @@ Key techniques demonstrated:
 - Append-only funnel facts preserving historical trajectory
 - Pre-aggregated nightly cohort summaries (`overwrite_partition` strategy)
 - `SummingMergeTree` and `ReplacingMergeTree` engine bindings for ClickHouse
+- Shared `semantic` type aliases (`CountryCode`, `CurrencyCode`) referenced across domains as `customer.CountryCode` / `commerce.CurrencyCode`
+- `uuid(7)` timestamp-ordered ids for high-volume order, line-item, and payment-transaction streams
+- `index` declarations on `Customer` (unique email lookup) and `OrderLineItem` (order rehydration lookup)
 
 Domains: `customer`, `commerce`, `payments`, `analytics`
 
@@ -90,6 +94,9 @@ Key techniques demonstrated:
 - Offline `snapshot` materialisation with `snapshotAt` template parameter
 - Online `upsert` materialisation with Kafka subscription and lag alerting
 - Feature staleness indicator (`bureau_report_age_days`)
+- `uuid(7)` timestamp-ordered ids for bureau-report ingestion order
+- Fixed-width integers (`u16` credit score, `u8` account/inquiry counts) sized to their real value ranges
+- `index BureauReport @ 1` with a `sort`-ordered secondary index for "most recent report per customer" lookups
 
 Domains: `ml-credit-risk`, `customer`, `lending`, `credit-bureau`
 
@@ -174,6 +181,25 @@ Key techniques demonstrated:
 
 See the [language reference](../docs/language-reference.md) §3.7 and
 [architecture](../docs/architecture.md) §3.5 for the full auto-projection rules.
+
+---
+
+### 11. Fleet Telemetry Type System (`scenarios/11-fleet-telemetry-type-system/`)
+
+A device-fleet domain (`fleet`) and its telemetry stream (`telemetry`) exist purely to exercise the newer additions to the type system: semantic type aliases, index declarations, timestamp-ordered UUIDs, fixed-width integers, fixed-length binary, and Protobuf field reservations, all in one small, realistic pair of domains.
+
+Key techniques demonstrated:
+- `semantic TenantId: uuid { registry: true }` — a registry-backed semantic type, allocated a stable id in `registry-ids.lock`
+- `semantic FirmwareVersion: RawVersionString` — a semantic type chained onto another semantic type
+- A domain-qualified semantic type reference (`fleet.TenantId`, `fleet.FirmwareVersion`) used from a different domain (`telemetry`)
+- `uuid(7)` timestamp-ordered identifiers for both the `Device` entity key and the high-volume `TelemetryReading` event stream
+- `binary(6)` (a MAC address) and `binary(32)` (a SHA-256 payload digest) fixed-length fields
+- Fixed-width integers (`u8`, `u16`/`i16` via a semantic alias, `u32`) sized to their actual value ranges
+- `index Device @ 1 { primary …; secondary … }` with a `unique` lookup index and a `sort`-ordered secondary index, compiled to real `CREATE INDEX`/`CREATE UNIQUE INDEX` statements by the Postgres SQL emitter
+- `reserved protobuf { numbers: […]; names: […] }` reserving a retired field for wire compatibility
+- `auto projections` combined with the above on the same entity
+
+See the [language reference](../docs/language-reference.md) §2.1 (built-in types), §3.8 (semantic types), and §3.9 (index declarations).
 
 ---
 
