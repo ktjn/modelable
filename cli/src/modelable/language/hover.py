@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from modelable.compiler.workspace import Workspace
 from modelable.language.dto import LanguageHover, LanguagePosition, LanguageRange
 from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
+from modelable.language.ref_lookup import REF_TYPE_PATTERN, resolve_ref_match_version
 from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import (
     build_model_summary,
@@ -25,7 +26,6 @@ from modelable.registry.resolver import resolve_model_ref
 _QUALIFIED_REF_PATTERN = re.compile(
     r"(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
-_REF_TYPE_PATTERN = re.compile(r"ref\s*<\s*(?P<domain>[A-Za-z_][A-Za-z0-9_]*)\.(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*>")
 _FIELD_REF_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
 _SOURCE_ALIAS_PATTERN = re.compile(
     r"(?<![A-Za-z0-9_-])(?:from|(?:left\s+)?join)\s+"
@@ -81,12 +81,13 @@ def hover(
                 match.end(),
             )
 
-    for match in _REF_TYPE_PATTERN.finditer(text_line):
+    for match in REF_TYPE_PATTERN.finditer(text_line):
         if _contains(match.start(), match.end(), character):
-            result = _make_unversioned_ref_hover(
+            result = _make_ref_type_hover(
                 semantic,
                 match.group("domain"),
                 match.group("name"),
+                match.group("version"),
                 text_line,
                 position.line,
                 match.start(),
@@ -167,10 +168,11 @@ def _make_ref_hover(
     )
 
 
-def _make_unversioned_ref_hover(
+def _make_ref_type_hover(
     workspace: Workspace,
     domain_name: str,
     name: str,
+    version_text: str | None,
     text_line: str,
     line: int,
     start: int,
@@ -182,13 +184,11 @@ def _make_unversioned_ref_hover(
     )
     if domain is None:
         return None
-    if name in domain.models:
-        latest = max(domain.models[name], key=lambda version: version.version)
-        ref = f"{domain_name}.{name}@{latest.version}"
-        return _make_ref_hover(workspace, ref, text_line, line, start, end)
-    if name in domain.projections:
-        latest_projection = max(domain.projections[name], key=lambda version: version.version)
-        ref = f"{domain_name}.{name}@{latest_projection.version}"
+    resolved_version = resolve_ref_match_version(workspace, domain_name, name, version_text)
+    if resolved_version is None:
+        return None
+    if name in domain.models or name in domain.projections:
+        ref = f"{domain_name}.{name}@{resolved_version}"
         return _make_ref_hover(workspace, ref, text_line, line, start, end)
     return None
 

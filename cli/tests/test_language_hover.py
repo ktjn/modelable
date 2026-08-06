@@ -419,3 +419,39 @@ def test_hover_returns_none_for_unknown_uri_or_position(
     position: LanguagePosition,
 ) -> None:
     assert hover(parsed_language_workspace(), uri, position) is None
+
+
+def test_hover_for_versioned_ref_type_shows_that_version() -> None:
+    # Uses a range constraint (not a bare "@ N") so the match can only be
+    # satisfied by the new REF_TYPE_PATTERN/resolve_ref_match_version path —
+    # the pre-existing _QUALIFIED_REF_PATTERN's "@ \d+" only matches a bare
+    # exact version and would otherwise accidentally intercept this hover
+    # before reaching the code this test is meant to exercise.
+    text = """
+domain commerce {
+  owner: "test-team"
+  entity Product @ 1 (additive) {
+    @key productId: uuid
+  }
+
+  entity Product @ 2 (additive) {
+    @key productId: uuid
+    name: string
+  }
+}
+
+domain catalog {
+  owner: "test-team"
+  entity Listing @ 1 (additive) {
+    @key listingId: uuid
+    productId: ref<commerce.Product @ >=1 <2>
+  }
+}
+""".strip("\n")
+    state = LanguageWorkspace()
+    state.synchronize(1, (LanguageDocument.from_text(URI, text, 1),))
+
+    result = hover(state, URI, position_of(text, "ref<commerce.Product @ >=1 <2>", "Product"))
+
+    assert result is not None
+    assert "commerce.Product@1" in result.markdown
