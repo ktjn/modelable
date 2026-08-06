@@ -5,6 +5,7 @@ from pathlib import Path
 import click
 
 from modelable.commands.common import console, load_workspace_or_exit
+from modelable.compat.policy import EnforcementResult, load_policy
 from modelable.compat.targets import (
     PASSING_STATUSES,
     TargetCompatibilityReport,
@@ -28,7 +29,15 @@ def register_validate_compat_commands(cli_group: click.Group) -> None:
     type=click.Choice([target.name for target in list_compat_checkable_targets()]),
     required=True,
 )
-def validate_compat(from_path: Path, to_path: Path, target: str) -> None:
+@click.option(
+    "--policy",
+    "policy_path",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Path to a compatibility policy YAML file (Slice C4). Without it, "
+    "every non-compatible finding fails, matching the default behavior.",
+)
+def validate_compat(from_path: Path, to_path: Path, target: str, policy_path: Path | None) -> None:
     """Validate target-specific compatibility between two Modelable workspaces."""
     old_workspace = load_workspace_or_exit(from_path)
     new_workspace = load_workspace_or_exit(to_path)
@@ -45,6 +54,18 @@ def validate_compat(from_path: Path, to_path: Path, target: str) -> None:
         )
 
     _render_report(report)
+
+    if policy_path is not None:
+        try:
+            policy = load_policy(policy_path)
+            result = policy.enforce(report)
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
+        _render_policy_result(result)
+        if not result.passed:
+            raise click.exceptions.Exit(1)
+        return
+
     if report.status not in PASSING_STATUSES:
         raise click.exceptions.Exit(1)
 
@@ -60,5 +81,16 @@ def _render_report(report: TargetCompatibilityReport) -> None:
         subject = finding.field or finding.index or finding.ref
         console.print(
             f"- [{finding.status}] {finding.code}: {subject}: {finding.message}",
+            markup=False,
+        )
+
+
+def _render_policy_result(result: EnforcementResult) -> None:
+    outcome = "pass" if result.passed else "fail"
+    console.print(f"policy: threshold={result.threshold} -> {outcome}", markup=False)
+    for finding in result.blocking_findings:
+        subject = finding.field or finding.index or finding.ref
+        console.print(
+            f"- [blocking:{finding.severity}] {finding.code}: {subject}: {finding.message}",
             markup=False,
         )
