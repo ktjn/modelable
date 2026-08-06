@@ -201,6 +201,7 @@ class MapType(BaseModel):
 class RefType(BaseModel):
     kind: Literal["ref"] = "ref"
     target: str
+    version: VersionSpec | None = None
 
 
 class EnumType(BaseModel):

@@ -7,6 +7,7 @@ from modelable.compat.diff import compare_model_versions, is_optionality_breakin
 from modelable.diagnostics.model import Diagnostic
 from modelable.parser.ir import (
     AnnWire,
+    ArrayType,
     ChangeKind,
     ClassificationLevel,
     ComputedMapping,
@@ -16,14 +17,16 @@ from modelable.parser.ir import (
     FieldDef,
     FieldType,
     FixedBinaryType,
+    MapType,
     MdlFile,
     ModelKind,
     ModelVersion,
     NamedType,
     ObjectType,
     PrimitiveType,
+    RefType,
 )
-from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
+from modelable.registry.resolver import resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
 
 _VALID_CLASSIFICATION_LEVELS = {level.value for level in ClassificationLevel}
 _CLASSIFICATION_LEVELS_DISPLAY = ", ".join(sorted(_VALID_CLASSIFICATION_LEVELS))
@@ -885,6 +888,83 @@ def _validate_index_decls(
                             path,
                         )
                     )
+
+
+def _iter_ref_types(field_type: FieldType) -> list[RefType]:
+    if isinstance(field_type, RefType):
+        return [field_type]
+    if isinstance(field_type, ArrayType):
+        return _iter_ref_types(field_type.item)
+    if isinstance(field_type, MapType):
+        return _iter_ref_types(field_type.value)
+    if isinstance(field_type, ObjectType):
+        found: list[RefType] = []
+        for nested_field in field_type.fields:
+            found.extend(_iter_ref_types(nested_field.type))
+        return found
+    return []
+
+
+def validate_ref_type_field(
+    fqn: str,
+    field: FieldDef,
+    mdl: MdlFile,
+    diagnostics: list[Diagnostic],
+    warnings: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    """Validate every ref<> nested anywhere in one field's type.
+
+    `mdl` must be the fully MERGED multi-file workspace, never a single
+    source file's own MdlFile — a ref<> can legitimately point at a model
+    declared in a different source file (the normal pattern throughout
+    samples/scenarios/), so resolution has to happen after all sources are
+    merged. This function is intentionally NOT wired into
+    validate_diagnostics/_validate_models (which only ever see one source
+    file at a time) — it is called from compiler/workspace.py instead,
+    exactly like the existing validate_references/_validate_merged_workspace
+    machinery already does for projection source/join references. It is
+    public (no leading underscore) because it is called across the
+    validation/semantic.py -> compiler/workspace.py module boundary.
+    """
+    for ref_type in _iter_ref_types(field.type):
+        if "." not in ref_type.target:
+            # An unqualified (no-dot) ref<> target is not a Modelable
+            # domain.model reference at all — it's the established pattern
+            # for pointing at an external, unmodeled resource type (e.g.
+            # ref<Organization> in FHIR profiles, consumed as a bare
+            # targetProfile name by emitters/fhir.py). resolve_model_ref's
+            # _split_model_ref already categorically rejects non-dotted
+            # names, and that was true before this task — nothing ever
+            # asked it to resolve one before. Skip validation rather than
+            # flag every external reference as a SEM error.
+            continue
+        try:
+            resolved = resolve_ref_type(ref_type, mdl)
+        except LookupError as exc:
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{fqn}: field '{field.name}' has an unresolvable ref<{ref_type.target}>: {exc}",
+                    path,
+                )
+            )
+            continue
+
+        if ref_type.version is None:
+            warnings.append(
+                Diagnostic(
+                    code="REF",
+                    message=(
+                        f"{fqn}: field '{field.name}' has ref<{ref_type.target}> with no version "
+                        f"constraint; resolved to version {resolved.version.version} at compile time. "
+                        f"Add '@ {resolved.version.version}' (or a version range) where durable "
+                        f"identity matters."
+                    ),
+                    severity="warning",
+                    path=str(path or "<workspace>"),
+                )
+            )
 
 
 def _diag(code: str, message: str, path: str | Path | None) -> Diagnostic:

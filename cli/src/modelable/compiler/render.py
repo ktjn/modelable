@@ -385,6 +385,8 @@ def _render_type(field_type: FieldType) -> str:
     if isinstance(field_type, MapType):
         return f"map<{_render_type(field_type.key)}, {_render_type(field_type.value)}>"
     if isinstance(field_type, RefType):
+        if field_type.version is not None:
+            return f"ref<{field_type.target} @ {_render_version_spec(field_type.version)}>"
         return f"ref<{field_type.target}>"
     if isinstance(field_type, EnumType):
         return f"enum({', '.join(field_type.values)})"

@@ -558,7 +558,8 @@ class MdlTransformer(Transformer[list[object], Any]):
         return MapType(key=items[0], value=items[1])
 
     def ref_type(self, items: list[object]) -> RefType:
-        return RefType(target=str(items[0]))
+        version = items[1] if len(items) > 1 else None
+        return RefType(target=str(items[0]), version=version)
 
     def object_type(self, items: list[object]) -> ObjectType:
         return ObjectType(fields=[item for item in items if isinstance(item, FieldDef)])

@@ -581,3 +581,61 @@ def test_index_changed_is_not_flagged_when_neither_version_has_one():
 
     report = check_model_version_compatibility(mdl, "platform", "Order", 1, 2)
     assert not any(change.kind == "index_changed" for change in report.changes)
+
+
+def test_ref_target_change_is_breaking():
+    mdl = parse_text_to_ir(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Customer @ 1 (additive) { @key customerId: uuid }
+          entity Shipment @ 1 (additive) { @key shipmentId: uuid }
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            targetRef: ref<orders.Customer>
+          }
+          entity Order @ 2 (additive) {
+            @key orderId: uuid
+            targetRef: ref<orders.Shipment>
+          }
+        }
+        """
+    )
+    domain = mdl.domains[0]
+    old_version = domain.models["Order"][0]
+    new_version = domain.models["Order"][1]
+
+    from modelable.compat.diff import compare_model_versions
+
+    changes = compare_model_versions(old_version, new_version)
+
+    assert any(c.kind == "type_changed" and c.field_name == "targetRef" for c in changes)
+
+
+def test_ref_version_only_change_is_not_a_type_change():
+    mdl = parse_text_to_ir(
+        """
+        domain orders {
+          owner: "test-team"
+          entity Customer @ 1 (additive) { @key customerId: uuid }
+          entity Customer @ 2 (additive) { @key customerId: uuid }
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            targetRef: ref<orders.Customer @ 1>
+          }
+          entity Order @ 2 (additive) {
+            @key orderId: uuid
+            targetRef: ref<orders.Customer @ 2>
+          }
+        }
+        """
+    )
+    domain = mdl.domains[0]
+    old_version = domain.models["Order"][0]
+    new_version = domain.models["Order"][1]
+
+    from modelable.compat.diff import compare_model_versions
+
+    changes = compare_model_versions(old_version, new_version)
+
+    assert not any(c.field_name == "targetRef" for c in changes)

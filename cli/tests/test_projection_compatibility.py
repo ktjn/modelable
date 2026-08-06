@@ -139,6 +139,72 @@ def test_type_changed_is_breaking():
     assert any(c.kind == "type_changed" and c.breaking and c.field_name == "quantity" for c in changes)
 
 
+def test_ref_target_change_is_breaking_for_projection_shape():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Customer @ 1 (additive) { @key customerId: uuid }
+      entity Shipment @ 1 (additive) { @key shipmentId: uuid }
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        targetRef: ref<orders.Customer>
+      }
+      entity Order @ 2 (additive) {
+        @key orderId: uuid
+        targetRef: ref<orders.Shipment>
+      }
+      projection OrderView @ 1 from orders.Order @ 1 as o {
+        orderId <- o.orderId
+        targetRef <- o.targetRef
+      }
+      projection OrderView @ 2 from orders.Order @ 2 as o {
+        orderId <- o.orderId
+        targetRef <- o.targetRef
+      }
+    }
+    """)
+    domain = mdl.domains[0]
+    old = domain.projections["OrderView"][0]
+    new = domain.projections["OrderView"][1]
+
+    changes = _compare_shape(mdl, old, new)
+
+    assert any(c.kind == "type_changed" and c.breaking and c.field_name == "targetRef" for c in changes)
+
+
+def test_ref_version_only_change_is_not_breaking_for_projection_shape():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      entity Customer @ 1 (additive) { @key customerId: uuid }
+      entity Customer @ 2 (additive) { @key customerId: uuid }
+      entity Order @ 1 (additive) {
+        @key orderId: uuid
+        targetRef: ref<orders.Customer @ 1>
+      }
+      entity Order @ 2 (additive) {
+        @key orderId: uuid
+        targetRef: ref<orders.Customer @ 2>
+      }
+      projection OrderView @ 1 from orders.Order @ 1 as o {
+        orderId <- o.orderId
+        targetRef <- o.targetRef
+      }
+      projection OrderView @ 2 from orders.Order @ 2 as o {
+        orderId <- o.orderId
+        targetRef <- o.targetRef
+      }
+    }
+    """)
+    domain = mdl.domains[0]
+    old = domain.projections["OrderView"][0]
+    new = domain.projections["OrderView"][1]
+
+    changes = _compare_shape(mdl, old, new)
+
+    assert not any(c.field_name == "targetRef" for c in changes)
+
+
 def test_optional_to_required_is_breaking():
     mdl = parse_text_to_ir("""
     domain orders {

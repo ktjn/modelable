@@ -777,6 +777,101 @@ domain nlq {
     assert "NlqNlqFilterV" not in ir_art.content
 
 
+def test_emit_typescript_versioned_ref_imports_the_pinned_version_not_latest(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerRef: ref<customer.Customer @ 1>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    order_art = next(a for a in artifacts if a.ref == "orders.Order@1")
+    assert "CustomerCustomerV1" in order_art.content
+    assert "CustomerCustomerV2" not in order_art.content
+
+
+def test_emit_typescript_unversioned_ref_still_imports_latest(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerRef: ref<customer.Customer>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    order_art = next(a for a in artifacts if a.ref == "orders.Order@1")
+    assert "CustomerCustomerV2" in order_art.content
+
+
+def test_emit_typescript_two_ref_fields_to_different_versions_of_same_target_both_resolve_correctly(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+}
+
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    oldCustomerRef: ref<customer.Customer @ 1>
+    newCustomerRef: ref<customer.Customer @ 2>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    order_art = next(a for a in artifacts if a.ref == "orders.Order@1")
+    assert "oldCustomerRef" in order_art.content
+    assert "newCustomerRef" in order_art.content
+    assert "CustomerCustomerV1" in order_art.content
+    assert "CustomerCustomerV2" in order_art.content
+
+
 def test_emit_typescript_named_type_unresolvable_still_warns(tmp_path):
     """NamedType not found in workspace still emits EMIT003 (issue #118)."""
     (tmp_path / "test.mdl").write_text(

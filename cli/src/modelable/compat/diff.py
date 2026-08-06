@@ -17,6 +17,7 @@ from modelable.parser.ir import (
     MdlFile,
     ModelVersion,
     ProjectionVersion,
+    RefType,
 )
 
 
@@ -188,8 +189,20 @@ def _deprecated_replacement(field: FieldDef) -> str | None:
     return None
 
 
+def _ref_aware_type_dump(field_type: FieldType) -> object:
+    """Serialize a field type for breaking-change detection.
+
+    For ref<> specifically, only .target participates — pointing a ref at a
+    different model is a real type change, but bumping the version it
+    points at (target unchanged) is not breaking on its own.
+    """
+    if isinstance(field_type, RefType):
+        return {"kind": "ref", "target": field_type.target}
+    return field_type.model_dump(mode="json")
+
+
 def _type_signature(field: FieldDef) -> str:
-    return json.dumps(field.type.model_dump(mode="json"), sort_keys=True)
+    return json.dumps(_ref_aware_type_dump(field.type), sort_keys=True)
 
 
 def is_optionality_breaking(change: FieldChange) -> bool:
@@ -227,7 +240,7 @@ def compare_index_decls(old_index: IndexDecl | None, new_index: IndexDecl | None
 def _shape_type_signature(field_type: FieldType | None) -> str | None:
     if field_type is None:
         return None
-    return json.dumps(field_type.model_dump(mode="json"), sort_keys=True)
+    return json.dumps(_ref_aware_type_dump(field_type), sort_keys=True)
 
 
 def _compare_shape(
