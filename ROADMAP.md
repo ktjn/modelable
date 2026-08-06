@@ -377,14 +377,16 @@ Gated on D0, in dependency order:
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
 
-- **H1 — projection `pick(...)`/`omit(...)` clauses.** Lets a `projection`
-  select or exclude a field subset from its source (including qualified
-  `alias.field` selection across `join`s, and annotation filters like
-  `@pii` reusing `auto projections ... exclude`'s existing matcher) without
-  hand-writing a `<-` line per field. Expands to the same explicit IR a
-  hand-written projection produces before compatibility/lineage analysis
-  runs, so no downstream subsystem needs special-casing. Full design:
-  [Projection Pick/Omit Clauses](docs/superpowers/specs/2026-08-03-projection-pick-omit-design.md).
+- **Shipped: H1 — projection `pick(...)`/`omit(...)` clauses.** Lets a
+  `projection` select or exclude a field subset from its source (including
+  qualified `alias.field` selection across `join`s, and annotation filters
+  like `@pii` reusing `auto projections ... exclude`'s existing matcher)
+  without hand-writing a `<-` line per field. Expands to the same explicit
+  IR a hand-written projection produces before compatibility/lineage
+  analysis runs, so no downstream subsystem needs special-casing. Full
+  design: [Projection Pick/Omit Clauses](docs/superpowers/specs/2026-08-03-projection-pick-omit-design.md);
+  outcome recorded in
+  [the correction and capability plan](docs/correction-and-capability-plan.md#slice-h1--projection-pickomit-clauses).
 
 Also extensibility work (Track E) that is additive but not yet prioritized
 against a concrete consumer:

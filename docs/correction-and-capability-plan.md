@@ -1408,6 +1408,57 @@ against, but this slice does not block on A2.
 
 See the design doc's acceptance criteria section.
 
+### Outcome (2026-08-06)
+
+Implemented as designed. Grammar: `projection_decl` gains an optional
+`selection_clause?` between `source_clause?` and the field body
+(`pick(...)` / `omit(...)`, mutually exclusive and non-empty by grammar
+construction — writing both, or an empty `pick()`, is a parse error, not a
+semantic one). IR: `SelectionClause` (mode, `field_names`, `qualified_fields`,
+`annotations`) is stored on `ProjectionVersion.selection`, mirroring
+`AutoProjectionTarget`'s existing `excluded_fields`/`excluded_annotations`
+split rather than inventing a new shape.
+
+Expansion (`planner/planner.py::expand_projection_selections`) runs
+alongside `expand_auto_projections` in `compiler/workspace.py`, on the same
+merged, post-auto-projection-expansion workspace — necessary since pick/omit
+join sources can reference models in other files. It reuses
+`dependency_graph.py::resolve_projection_aliases` for alias resolution and
+the auto-projection annotation matcher (promoted from `_annotation_matches`
+to public `annotation_matches`, now shared rather than duplicated) for
+`@pii`/`@classification(...)` selectors. Unqualified selectors follow the
+design's resolution rule uniformly for both `pick` and `omit`: valid only
+if unambiguous across all declared sources, otherwise a diagnostic naming
+the ambiguous field and its candidate aliases. A same-output-name collision
+across two different aliases (e.g. two joined entities both having a
+`customerId` field, both selected by `omit`) is caught as its own error
+rather than silently keeping one and dropping the other.
+
+One design requirement surfaced a real gap while implementing it: "canonical
+signature is computed from the expanded field set" only holds if the
+*formatter* (`compiler/render.py`) also knows how to round-trip the
+`pick`/`omit` clause literally. `render_mdl` operates on the pre-expansion,
+single-file IR everywhere it's called (browser `format_source`, the LLM
+workspace editor, `commands/format.py`) — never on the merged,
+post-expansion workspace — so without a `_render_selection_clause`, a
+pick/omit projection would have formatted as `pick(...) { }` collapsing to
+just `{ }`, silently losing the clause on every reformat. Fixed as part of
+this slice, not left as a follow-up.
+
+Every acceptance criterion is covered by `tests/test_projection_selection.py`
+directly, including the two "identical to hand-written" claims: picked
+fields produce the same `build_projection_dependencies` shape as a
+hand-written `<-` projection (Slice A2), and the same
+`check_projection_version_compatibility` result treating a pick-expanded
+version as `compatible` with field-level `added_field` changes exactly like
+a hand-written one (Slice C1) — plus a canonical-signature equivalence test
+(annotations inherited from the source field, e.g. `@key`, must be written
+explicitly on a hand-written `<-` line to match, which is expected: pick/omit
+inherits automatically, hand-written mappings do not).
+
+Not gated behind D0 (per the design's own reasoning): purely additive
+grammar, reinterprets no existing syntax.
+
 ---
 
 # Roadmap interleaving

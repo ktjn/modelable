@@ -8,7 +8,7 @@ from modelable.diagnostics.model import Diagnostic
 from modelable.expressions.cel import CelContext, FieldRef, looks_boolean, parse_cel, validate_cel_expr
 from modelable.parser.ir import ComputedMapping, MdlFile
 from modelable.parser.parse import parse_text_to_ir_with_tree
-from modelable.planner.planner import expand_auto_projections
+from modelable.planner.planner import expand_auto_projections, expand_projection_selections
 from modelable.registry.resolver import resolve_model_ref, validate_references
 from modelable.validation.deferred_syntax import find_deferred_syntax_diagnostics
 from modelable.validation.semantic import validate_diagnostics, validate_ref_type_field
@@ -99,6 +99,11 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
     auto_projection_errors = expand_auto_projections(merged)
     errors.extend(
         Diagnostic(code="SEM", message=error, severity="error", path="<workspace>") for error in auto_projection_errors
+    )
+
+    selection_errors = expand_projection_selections(merged)
+    errors.extend(
+        Diagnostic(code="SEM", message=error, severity="error", path="<workspace>") for error in selection_errors
     )
 
     errors.extend(_validate_merged_workspace(workspace_sources, merged))

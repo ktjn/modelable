@@ -40,6 +40,7 @@ from modelable.parser.ir import (
     ProjectionVersion,
     ProtobufReservations,
     RefType,
+    SelectionClause,
     SemanticTypeDecl,
     VersionExact,
     VersionMin,
@@ -210,6 +211,8 @@ def _render_projection(projection_name: str, version: ProjectionVersion) -> list
         lines.append(f"  where {version.where}")
     if version.group_by:
         lines.append(f"  group by {', '.join(version.group_by)}")
+    if version.selection is not None:
+        lines.append(f"  {_render_selection_clause(version.selection)}")
     lines.append("{")
     if version.protobuf_reservations is not None:
         lines.extend(_indent(_render_protobuf_reservations(version.protobuf_reservations), 2))
@@ -219,6 +222,13 @@ def _render_projection(projection_name: str, version: ProjectionVersion) -> list
         lines.append(_render_projection_field(field, 2))
     lines.append("}")
     return lines
+
+
+def _render_selection_clause(selection: SelectionClause) -> str:
+    parts = list(selection.field_names)
+    parts.extend(f"{alias}.{field_name}" for alias, field_name in selection.qualified_fields)
+    parts.extend(_render_annotations(selection.annotations))
+    return f"{selection.mode}({', '.join(parts)})"
 
 
 def _render_signature_projection(projection_name: str, version: ProjectionVersion) -> list[str]:

@@ -4,8 +4,8 @@
 
 ## Status
 
-Proposed. Not yet implemented. This design is folded into `ROADMAP.md` as a
-new slice; no code changes have landed yet.
+Implemented (2026-08-06). Outcome recorded in
+[docs/correction-and-capability-plan.md](../../correction-and-capability-plan.md#slice-h1--projection-pickomit-clauses).
 
 ## Context
 

@@ -405,6 +405,25 @@ class ProjectionField(BaseModel):
         return wire_targets_from_annotations(self.annotations)
 
 
+class SelectionClause(BaseModel):
+    """A projection's `pick(...)`/`omit(...)` clause (Slice H1), before expansion.
+
+    Mirrors AutoProjectionTarget's excluded_fields/excluded_annotations split,
+    generalized with qualified_fields for join-alias selectors and a `mode`
+    since pick/omit read as opposite of AutoProjectionTarget's always-exclude
+    semantics. Expansion (planner/planner.py::expand_projection_selections)
+    resolves this against the projection's source/joins and appends ordinary
+    ProjectionField/DirectMapping entries to ProjectionVersion.fields -- this
+    clause itself is retained afterward only so the formatter can round-trip
+    the shorthand rather than re-expand it into explicit `<-` lines.
+    """
+
+    mode: Literal["pick", "omit"]
+    field_names: list[str] = Field(default_factory=list)
+    qualified_fields: list[tuple[str, str]] = Field(default_factory=list)
+    annotations: list[Annotation] = Field(default_factory=list)
+
+
 class ProjectionVersion(BaseModel):
     version: int
     source: SourceRef
@@ -416,6 +435,7 @@ class ProjectionVersion(BaseModel):
     access: AccessBlock | None = None
     annotations: list[Annotation] = Field(default_factory=list)
     protobuf_reservations: ProtobufReservations | None = None
+    selection: SelectionClause | None = None
 
     def wire_targets(self) -> dict[str, WireTargetHint]:
         from modelable.parser.wire import wire_targets_from_annotations
