@@ -12,7 +12,7 @@ domain sales {
 
   entity Purchase @ 1 (additive) {
     @key purchaseId: uuid
-    customer: ref<customer.Customer>
+    customer: ref<customer.Customer @ 2>
     total: decimal(12, 2)
     placedAt: timestamp
   }
