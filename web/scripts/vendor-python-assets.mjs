@@ -43,6 +43,7 @@ const BROWSER_MANIFEST_FIELDS = [
   'wheel',
 ];
 export const BROWSER_CONFORMANCE_SCENARIOS = {
+  'compatibility': ['compatibility.mdl'],
   'composite-key': ['composite-key.mdl'],
   'deferred-constructs': ['deferred-constructs.mdl'],
   'invalid-parse': ['invalid-parse.mdl'],

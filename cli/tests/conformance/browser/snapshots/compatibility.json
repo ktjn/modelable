@@ -1,0 +1,48 @@
+{
+  "compatibility": {
+    "impacts": [],
+    "reports": [
+      {
+        "changes": [
+          {
+            "field_name": "legacyStatus",
+            "from_optional": false,
+            "from_type": "{\"kind\": \"string\", \"version\": 4}",
+            "kind": "removed_field",
+            "previous_name": null,
+            "replacement": null,
+            "to_optional": null,
+            "to_type": null
+          },
+          {
+            "field_name": "description",
+            "from_optional": null,
+            "from_type": null,
+            "kind": "added_field",
+            "previous_name": null,
+            "replacement": null,
+            "to_optional": true,
+            "to_type": "{\"kind\": \"string\", \"version\": 4}"
+          }
+        ],
+        "domain_name": "platform",
+        "findings": [
+          "removed_field legacyStatus",
+          "added_field description"
+        ],
+        "from_version": 1,
+        "model_name": "Widget",
+        "status": "breaking",
+        "to_version": 2
+      }
+    ],
+    "workspace_revision": 1
+  },
+  "open": {
+    "diagnostics": [],
+    "source_hashes": {
+      "fixture:///compatibility.mdl": "95f6e95977f42b20737173727ac462379b98314e7cf2b1afaf5e17fd487bdcdc"
+    },
+    "workspace_revision": 1
+  }
+}

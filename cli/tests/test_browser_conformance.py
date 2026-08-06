@@ -13,6 +13,7 @@ LANGUAGE_FIXTURE_ROOT = Path(__file__).parent / "conformance" / "language"
 SNAPSHOT_ROOT = FIXTURE_ROOT / "snapshots"
 GENERATOR = Path(__file__).parents[1] / "scripts" / "write_browser_conformance.py"
 SNAPSHOT_NAMES = (
+    "compatibility.json",
     "composite-key.json",
     "deferred-constructs.json",
     "invalid-parse.json",
@@ -96,6 +97,16 @@ def test_reference_scenario_records_a_reference_diagnostic() -> None:
 
     assert snapshot["open"]["diagnostics"]
     assert any("reference" in diagnostic["message"] for diagnostic in snapshot["open"]["diagnostics"])
+
+
+def test_compatibility_scenario_records_a_breaking_report() -> None:
+    snapshot = json.loads((SNAPSHOT_ROOT / "compatibility.json").read_text(encoding="utf-8"))
+
+    assert snapshot["open"]["diagnostics"] == []
+    reports = snapshot["compatibility"]["reports"]
+    assert len(reports) == 1
+    assert reports[0]["status"] == "breaking"
+    assert any(change["kind"] == "removed_field" for change in reports[0]["changes"])
 
 
 def _dispatch(method: str, payload: object) -> dict:

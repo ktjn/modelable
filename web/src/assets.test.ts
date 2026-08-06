@@ -295,6 +295,7 @@ describe('same-origin Python assets', () => {
       'invalid-reference.mdl',
       'invalid-semantic.mdl',
       'composite-key.mdl',
+      'compatibility.mdl',
       'deferred-constructs.mdl',
     ];
     const snapshotNames = [
@@ -304,6 +305,7 @@ describe('same-origin Python assets', () => {
       'invalid-reference.json',
       'invalid-semantic.json',
       'composite-key.json',
+      'compatibility.json',
       'deferred-constructs.json',
     ];
     await Promise.all([
@@ -316,6 +318,8 @@ describe('same-origin Python assets', () => {
     const plan = await prepareBrowserConformanceAssetPlan(fixtures, join(root, 'public'));
 
     expect(plan.map((entry: { relativeName: string }) => entry.relativeName)).toEqual([
+      'compatibility.json',
+      'compatibility.mdl',
       'composite-key.json',
       'composite-key.mdl',
       'deferred-constructs.json',

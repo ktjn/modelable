@@ -11,6 +11,7 @@ from modelable.browser import BrowserCompiler, BrowserSource
 
 SCENARIOS: dict[str, tuple[str, ...]] = {
     "composite-key": ("composite-key.mdl",),
+    "compatibility": ("compatibility.mdl",),
     "deferred-constructs": ("deferred-constructs.mdl",),
     "invalid-parse": ("invalid-parse.mdl",),
     "invalid-reference": ("invalid-reference.mdl",),
@@ -55,6 +56,8 @@ def write_snapshots(fixture_root: Path, output: Path) -> None:
             snapshot["format"] = _json_value(compiler.format_source(sources[0]))
         if scenario in VALID_SCENARIOS:
             snapshot["compile"] = _json_value(compiler.compile_json_schema(sources))
+        if scenario == "compatibility":
+            snapshot["compatibility"] = _json_value(compiler.compatibility(1))
         (output / f"{scenario}.json").write_text(
             json.dumps(
                 snapshot,
