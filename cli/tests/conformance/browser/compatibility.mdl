@@ -1,0 +1,18 @@
+workspace {
+  name: "browser-conformance"
+  description: "Small browser compiler conformance workspace."
+}
+
+domain platform {
+  owner: "platform-team"
+
+  entity Widget @ 1 (additive) {
+    @key widgetId: uuid
+    legacyStatus: string
+  }
+
+  entity Widget @ 2 (breaking) {
+    @key widgetId: uuid
+    description?: string
+  }
+}

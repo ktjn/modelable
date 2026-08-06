@@ -128,6 +128,7 @@ type TestClient = {
 };
 
 const scenarios = {
+  'compatibility': ['compatibility.mdl'],
   'composite-key': ['composite-key.mdl'],
   'deferred-constructs': ['deferred-constructs.mdl'],
   'invalid-parse': ['invalid-parse.mdl'],
@@ -183,6 +184,9 @@ test('browser compiler matches native snapshots including cross-file references'
         if (scenario === 'single-valid' || scenario === 'multi-domain') {
           result.compile = await client.compileJsonSchema(sources);
         }
+        if (scenario === 'compatibility') {
+          result.compatibility = await client.compatibility(workspaceRevision);
+        }
         return result;
       },
       { fixtureNames, scenario, workspaceRevision },
@@ -192,6 +196,9 @@ test('browser compiler matches native snapshots including cross-file references'
       await page.request.get(`fixtures/${scenario}.json`)
     ).json();
     expectedSnapshot.open.workspace_revision = workspaceRevision - 1;
+    if (scenario === 'compatibility') {
+      expectedSnapshot.compatibility.workspace_revision = workspaceRevision - 1;
+    }
 
     expect(sortObject(actual)).toEqual(sortObject(expectedSnapshot));
   }

@@ -1327,6 +1327,38 @@ dispatch method already exist, per `test_browser_compatibility.py`) — a
 future session with that network access, or a change verified through CI
 directly, can close it without new design work.
 
+### Fourth tranche shipped (2026-08-06)
+
+**Compatibility fixtures** is now closed, as that "smallest lift" turned
+out to be: a new `compatibility` scenario end to end through the existing
+pipeline. `cli/tests/conformance/browser/compatibility.mdl` declares two
+versions of one entity with a removed field and an added optional field
+(`status: breaking`, one of each `FieldChange` kind, exercising the same
+report shape Slice C3's `TargetCompatibilityReport` consumers rely on).
+`write_browser_conformance.py` gained a `compatibility` scenario entry and
+calls the already-existing `BrowserCompiler.compatibility(1)` (no new
+production code — Slice C3/browser work had already built this method and
+its `workspace.compatibility` dispatch, just never wired a snapshot
+scenario to it), with a matching `compatibility.json` snapshot committed.
+`web/scripts/vendor-python-assets.mjs`'s scenario registry and
+`web/tests/conformance.spec.ts`'s snapshot-comparison loop were extended
+the same way — including patching the compatibility report's own
+`workspace_revision` field before comparison, the same per-scenario
+revision-renumbering the loop already did for `open.workspace_revision`,
+which the first pass at this missed until traced through by hand.
+
+The parts verifiable without `cdn.jsdelivr.net` access were fully run
+locally and pass: the native generator (`write_browser_conformance.py`,
+byte-identical regeneration), `test_browser_conformance.py`'s determinism/
+portability/content tests, `tsc --noEmit`, and the full `vitest` suite
+(407 tests, including `assets.test.ts`'s manifest-validation test, updated
+for the new scenario). The one leg that could not be run here —
+`vendor-python-assets.mjs`'s wheel download and the real-Pyodide
+`conformance.spec.ts` Playwright test — was written by exact pattern-match
+against the already-proven `composite-key`/`deferred-constructs` scenarios
+from the first tranche, and is left for CI (which has the network access
+this session's egress policy denies) to verify.
+
 ---
 
 # Track H — authoring ergonomics
