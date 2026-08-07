@@ -97,6 +97,61 @@
           },
           "default": [],
           "markdownDescription": "Full command and arguments used to launch the Modelable language server, e.g. `[\"modelable\", \"lsp\"]`. Overrides `modelable.pythonPath` and auto-detection when set."
+        },
+        "modelable.llm.provider": {
+          "type": "string",
+          "enum": [
+            "",
+            "ollama",
+            "anthropic"
+          ],
+          "enumDescriptions": [
+            "Use the provider selected elsewhere (the workspace `ai:` block, or the `MODELABLE_LLM_PROVIDER` environment variable).",
+            "A local Ollama server (default base URL `http://localhost:11434`).",
+            "Anthropic's API; the `ANTHROPIC_API_KEY` environment variable must be set and `modelable.llm.model` must be provided."
+          ],
+          "default": "",
+          "markdownDescription": "LLM provider used by the `@modelable` chat participant. Passed to the language server as `MODELABLE_LLM_PROVIDER`."
+        },
+        "modelable.llm.model": {
+          "type": "string",
+          "enum": [
+            "",
+            "llama3.2",
+            "llama3.1",
+            "qwen2.5-coder:14b",
+            "qwen2.5-coder:7b",
+            "codellama",
+            "deepseek-coder-v2",
+            "mistral",
+            "gemma2",
+            "phi4",
+            "claude-sonnet-4-5",
+            "claude-opus-4-5",
+            "claude-haiku-4-5"
+          ],
+          "enumDescriptions": [
+            "Do not set a specific model; inherit the workspace `ai:` block or the `MODELABLE_LLM_MODEL` environment variable.",
+            "Ollama",
+            "Ollama",
+            "Ollama",
+            "Ollama",
+            "Ollama",
+            "Ollama",
+            "Ollama",
+            "Ollama",
+            "Ollama",
+            "Anthropic (requires an `ANTHROPIC_API_KEY`)",
+            "Anthropic (requires an `ANTHROPIC_API_KEY`)",
+            "Anthropic (requires an `ANTHROPIC_API_KEY`)"
+          ],
+          "default": "",
+          "markdownDescription": "Model used for `@modelable` turns. Passed to the language server as `MODELABLE_LLM_MODEL`. The list shows common models; to use any other model currently installed on your Ollama server (see `modelable models`), type its name directly in `settings.json`."
+        },
+        "modelable.llm.baseUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Base URL of the LLM server (e.g. `http://127.0.0.1:11434` for Ollama). Leave empty to use the provider default. Passed to the language server as `MODELABLE_LLM_BASE_URL`."
         }
       }
     },

@@ -28,12 +28,16 @@ function resolveServerOptions(context) {
   const serverCommand = config.get('serverCommand');
   if (Array.isArray(serverCommand) && serverCommand.length > 0) {
     const [command, ...args] = serverCommand;
-    return { command, args, source: '"modelable.serverCommand" setting' };
+    return server(command, args, { source: '"modelable.serverCommand" setting' });
   }
 
   const pythonPath = config.get('pythonPath');
   if (typeof pythonPath === 'string' && pythonPath.trim().length > 0) {
-    return { command: pythonPath, args: ['-m', 'modelable.lsp'], source: '"modelable.pythonPath" setting' };
+    return server(
+      pythonPath,
+      ['-m', 'modelable.lsp'],
+      { source: '"modelable.pythonPath" setting' },
+    );
   }
 
   const repoRoot = path.resolve(context.extensionPath, '..');
@@ -42,26 +46,64 @@ function resolveServerOptions(context) {
     ? path.join(cliRoot, '.venv', 'Scripts', 'python.exe')
     : path.join(cliRoot, '.venv', 'bin', 'python');
   if (fs.existsSync(repoLocalPython)) {
-    return {
-      command: repoLocalPython,
-      args: ['-m', 'modelable.lsp'],
-      cwd: cliRoot,
-      source: 'repo-local cli/.venv (development checkout)',
-    };
+    return server(
+      repoLocalPython,
+      ['-m', 'modelable.lsp'],
+      { cwd: cliRoot, source: 'repo-local cli/.venv (development checkout)' },
+    );
   }
 
-  return { command: 'modelable', args: ['lsp'], source: '"modelable" resolved from PATH' };
+  return server('modelable', ['lsp'], {
+    source: '"modelable" resolved from PATH',
+  });
+}
+
+/**
+ * Build a server launch descriptor, attaching any `modelable.llm.*` settings
+ * to the child process environment so the language server's own LLM config
+ * resolution picks them up (as MODELABLE_LLM_PROVIDER / _MODEL / _BASE_URL).
+ */
+function server(command, args, { cwd, source }) {
+  const options = cwd ? { cwd } : {};
+  const env = llmEnvironment();
+  if (Object.keys(env).length > 0) {
+    options.env = { ...process.env, ...env };
+  }
+  return { command, args, cwd, env, source, options };
+}
+
+const LLM_ENV_VARIABLES = {
+  'llm.provider': 'MODELABLE_LLM_PROVIDER',
+  'llm.model': 'MODELABLE_LLM_MODEL',
+  'llm.baseUrl': 'MODELABLE_LLM_BASE_URL',
+};
+
+/**
+ * Read the `modelable.llm.*` settings and return the environment variables to
+ * forward to the language server. Empty/unset settings are omitted so the
+ * server can fall back to its own resolution (workspace `ai:` block or the
+ * ambient process environment).
+ */
+function llmEnvironment(config = vscode.workspace.getConfiguration('modelable')) {
+  const env = {};
+  for (const [setting, variable] of Object.entries(LLM_ENV_VARIABLES)) {
+    const value = config.get(setting);
+    if (typeof value === 'string' && value.trim().length > 0) {
+      env[variable] = value.trim();
+    }
+  }
+  return env;
 }
 
 async function activate(context) {
   const outputChannel = vscode.window.createOutputChannel('Modelable LSP', { log: true });
-  const { command, args, cwd, source } = resolveServerOptions(context);
+  const { command, args, source, options } = resolveServerOptions(context);
   outputChannel.appendLine(`Starting Modelable language server via ${source}: ${command} ${args.join(' ')}`);
 
   const serverOptions = {
     command,
     args,
-    options: cwd ? { cwd } : {},
+    options,
   };
 
   const clientOptions = {
