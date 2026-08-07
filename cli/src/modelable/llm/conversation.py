@@ -114,7 +114,11 @@ class ConversationSession:
             return None
         return (
             "No LLM provider is configured, so I can answer workspace queries but can't make edits. "
-            "Configure a provider (--provider/--model, or workspace/environment configuration) to enable edits."
+            "Configure a provider to enable edits. "
+            "For a local Ollama server, set MODELABLE_LLM_PROVIDER=ollama, "
+            "MODELABLE_LLM_MODEL=<model>, and MODELABLE_LLM_BASE_URL=http://127.0.0.1:11434 "
+            "(or --provider/--model/--base-url, or the workspace `ai:` block); "
+            "see docs/cli-reference.md and docs/getting-started.md for full provider configuration."
         )
 
     @property

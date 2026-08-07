@@ -38,7 +38,9 @@ This creates deterministic, heading-aware Searchable chunks. It does not call
 an LLM; retrieval and answer generation are separate features.
 
 The VS Code extension starts `modelable lsp`. Ensure the command is available
-on `PATH`, or configure the extension's Python path or server command.
+on `PATH`, or configure the extension's Python path or server command. See
+[Local chat testing with Ollama](#local-chat-testing-with-ollama) for testing
+the conversational features without a hosted model.
 
 Generated artifacts are consumer contracts, not the source of truth. Commit
 `.mdl` definitions; regenerate schemas, language bindings, and Markdown in CI
@@ -57,6 +59,83 @@ language or artifact compatibility notes.
 > **Status:** Approved guidance for adopting Modelable from existing schema and contract formats.
 >
 > **Scope:** Practical migration paths from OpenAPI, JSON Schema, Protobuf, SQL DDL, Avro, and existing internal DSLs into `.mdl`.
+
+## Local Chat Testing with Ollama
+
+Modelable's conversational features (`modelable chat`, the VS Code `@modelable`
+participant, and the Playground) generate content by calling an LLM provider. No
+provider is required to run `modelable validate`/`compile`; a provider is only
+needed for LLM-assisted edits and natural-language answers. To test locally, point
+the LLM configuration at a running [Ollama](https://ollama.com) server.
+
+### 1. Point the Modelable LLM at Ollama
+
+Configure one of the following (they resolve in this order):
+
+- Environment variables:
+  `MODELABLE_LLM_PROVIDER=ollama`, `MODELABLE_LLM_MODEL=<model>`,
+  `MODELABLE_LLM_BASE_URL=http://127.0.0.1:11434`.
+- CLI flags: `--provider ollama --model <model> --base-url http://127.0.0.1:11434`.
+- The workspace `ai:` block.
+
+Ollama's default local address is `http://127.0.0.1:11434`. List the installed models
+with `modelable models` before choosing one. If a session starts without a provider,
+Modelable prints a notice explaining the limitation and how to configure one.
+
+### 2. Make VS Code Chat able to run `@modelable`
+
+`@modelable` is a native VS Code chat participant. VS Code Chat will not dispatch
+*any* request (including `@modelable`) unless at least one language model is
+available. With none registered, VS Code reports **"Language model unavailable"** —
+this is a VS Code Chat prerequisite, not a Modelable error. (The `@modelable`
+turn itself is generated server-side by the Modelable LSP using the Ollama
+configuration above, independent of VS Code's model picker.)
+
+Modern VS Code (1.121+) supports bring-your-own-key local models without a Copilot
+login. Add a `.vscode/chatLanguageModels.json` in your project:
+
+```json
+{
+  "customendpoint": [
+    {
+      "name": "Local Ollama",
+      "vendor": "customendpoint",
+      "apiType": "chat-completions",
+      "models": [
+        {
+          "id": "llama3.2",
+          "name": "Llama 3.2 (Ollama)",
+          "url": "http://127.0.0.1:11434/v1/chat/completions",
+          "toolCalling": false,
+          "vision": false,
+          "maxInputTokens": 8192,
+          "maxOutputTokens": 4096
+        }
+      ]
+    }
+  ]
+}
+```
+
+Then set this in VS Code user settings (chat without signing in):
+
+```json
+{
+  "chat.allowAnonymousAccess": true,
+  "chat.utilityModel": "Default",
+  "chat.utilitySmallModel": "Default"
+}
+```
+
+Pick the Ollama model in Chat's model picker, then use `@modelable`. Troubleshooting:
+
+- Use `127.0.0.1`, not `localhost`, to avoid IPv4/IPv6 binding mismatches.
+- Keep `toolCalling` and `vision` `false` unless the model genuinely supports them;
+  a capability mismatch is a common cause of "Language model unavailable" even when
+  the endpoint answers `curl`.
+- Prefer the `customendpoint` (OpenAI-compatible) path above; it needs no Copilot
+  login. Alternatively install an extension that registers Ollama as a VS Code
+  `vscode.lm` provider (for example the Ollama extension or Continue).
 
 ## 1. Migration Purpose
 
