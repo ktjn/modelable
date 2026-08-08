@@ -122,7 +122,32 @@ test('keeps invalid storage recoverable until reset', async () => {
 
   await act(() => result.current.reset());
   expect(repository.remove).toHaveBeenCalledWith('local');
-  expect(result.current.workspace).toEqual(defaultWorkspace);
+  expect(result.current.workspace).toEqual({
+    ...defaultWorkspace,
+    revision: 2,
+  });
+});
+
+test('reset bumps revision forward instead of reverting', async () => {
+  const repository: WorkspaceRepository = {
+    load: vi.fn(async (): Promise<WorkspaceLoadResult> => ({
+      status: 'ready',
+      workspace: restoredWorkspace,
+    })),
+    save: vi.fn(async (): Promise<WorkspaceSaveResult> => 'saved'),
+    remove: vi.fn(async () => undefined),
+  };
+  const { result } = renderHook(() =>
+    usePersistentWorkspace({ repository, defaultWorkspace }),
+  );
+  await waitFor(() => expect(result.current.phase).toBe('saved'));
+  const revisionBefore = result.current.workspace.revision;
+
+  await act(() => result.current.reset());
+
+  expect(result.current.workspace.revision).toBe(revisionBefore + 1);
+  expect(result.current.workspace.files).toEqual(defaultWorkspace.files);
+  expect(result.current.workspace.activeFile).toBe(defaultWorkspace.activeFile);
 });
 
 test('retry saves newer in-memory work instead of loading older storage', async () => {
