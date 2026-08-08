@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.4.0] - 2026-08-08
+
+### Added
+
 - Added `modelable.llm.provider`, `modelable.llm.model`, and
   `modelable.llm.baseUrl` settings to the VS Code extension so the `@modelable`
   chat participant's LLM can be picked from the extension Settings UI (provider
