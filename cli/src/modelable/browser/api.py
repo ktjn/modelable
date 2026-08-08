@@ -108,6 +108,7 @@ class BrowserCompiler:
     def __init__(self) -> None:
         self.language = LanguageWorkspace()
         self._sources: tuple[BrowserSource, ...] = ()
+        self._last_workspace_result: BrowserWorkspaceResult | None = None
 
     @property
     def sources(self) -> tuple[BrowserSource, ...]:
@@ -119,18 +120,37 @@ class BrowserCompiler:
         sources: tuple[BrowserSource, ...],
     ) -> BrowserWorkspaceResult:
         _validate_sources(sources)
-        if workspace_revision <= self.language.revision:
+        if workspace_revision < self.language.revision:
             raise BrowserLanguageError("STALE_WORKSPACE")
+        if workspace_revision == self.language.revision:
+            return self._reopen_current_workspace(sources)
         synchronization = self.language.synchronize(
             workspace_revision,
             tuple(LanguageDocument.from_text(source.uri, source.text, source.version) for source in sources),
         )
         self._sources = sources
-        return BrowserWorkspaceResult(
+        result = BrowserWorkspaceResult(
             workspace_revision=synchronization.revision,
             diagnostics=tuple(_browser_diagnostic(diagnostic) for diagnostic in synchronization.diagnostics),
             source_hashes=MappingProxyType(dict(synchronization.source_hashes)),
         )
+        self._last_workspace_result = result
+        return result
+
+    def _reopen_current_workspace(
+        self,
+        sources: tuple[BrowserSource, ...],
+    ) -> BrowserWorkspaceResult:
+        incoming_hashes = {
+            source.uri: LanguageDocument.from_text(source.uri, source.text, source.version).content_hash
+            for source in sources
+        }
+        if incoming_hashes != dict(self.language.current_hashes()):
+            raise BrowserLanguageError("STALE_WORKSPACE")
+        result = self._last_workspace_result
+        if result is None:
+            raise BrowserLanguageError("STALE_WORKSPACE")
+        return result
 
     def completion(
         self,
