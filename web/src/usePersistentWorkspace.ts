@@ -171,11 +171,15 @@ export function usePersistentWorkspace({
 
   const reset = useCallback(async (): Promise<void> => {
     await repository.remove(defaultWorkspace.id);
-    workspaceRef.current = defaultWorkspace;
+    const resetWorkspace: PlaygroundWorkspace = {
+      ...defaultWorkspace,
+      revision: workspaceRef.current.revision + 1,
+    };
+    workspaceRef.current = resetWorkspace;
     dirtyRef.current = true;
-    setWorkspace(defaultWorkspace);
+    setWorkspace(resetWorkspace);
     setRecovery(null);
-    scheduleSave(defaultWorkspace, true);
+    scheduleSave(resetWorkspace, true);
   }, [defaultWorkspace, repository, scheduleSave]);
 
   return { workspace, phase, recovery, replace, retry, reset };
