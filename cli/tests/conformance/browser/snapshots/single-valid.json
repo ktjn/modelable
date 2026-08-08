@@ -14,7 +14,7 @@
   },
   "format": {
     "diagnostics": [],
-    "replacement_text": "domain customer {\n  owner: \"customer-platform\"\n  entity Customer @ 1 (additive) {\n    @key customerId: uuid\n    displayName?: string\n    address: object { line1: string postalCode?: string }\n    creditLimit: decimal(12, 2)\n  }\n}\n\nworkspace {\n  name: \"browser-conformance\"\n  description: \"Small browser compiler conformance workspace.\"\n}\n"
+    "replacement_text": "domain customer {\n  owner: \"customer-platform\"\n\n  entity Customer @ 1 (additive) {\n    @key customerId: uuid\n    displayName?: string\n    address: object { line1: string postalCode?: string }\n    creditLimit: decimal(12, 2)\n  }\n}\n\nworkspace {\n  name: \"browser-conformance\"\n  description: \"Small browser compiler conformance workspace.\"\n}\n"
   },
   "open": {
     "diagnostics": [],

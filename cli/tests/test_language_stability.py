@@ -22,6 +22,7 @@ from modelable.registry.signature import compute_version_signature
 
 PLAIN_ENTITY = """domain platform {
   owner: "platform-team"
+
   entity Widget @ 1 (additive) {
     @key widgetId: uuid
     name: string
@@ -32,6 +33,7 @@ PLAIN_ENTITY = """domain platform {
 
 DEPRECATED_RENAME = """domain platform {
   owner: "platform-team"
+
   entity Widget @ 1 (additive) {
     @key widgetId: uuid
     @deprecated(replacedBy: "fullName") name: string
@@ -45,6 +47,7 @@ DEPRECATED_RENAME = """domain platform {
 
 REF_TYPE_FIELD = """domain platform {
   owner: "platform-team"
+
   entity Category @ 1 (additive) {
     @key categoryId: uuid
   }
@@ -57,10 +60,12 @@ REF_TYPE_FIELD = """domain platform {
 
 INDEX_DECLARATION = """domain platform {
   owner: "platform-team"
+
   entity Widget @ 1 (additive) {
     @key widgetId: uuid
     categoryId: uuid
   }
+
   index Widget @ 1 {
     primary widgetId
     secondary byCategory {
@@ -73,10 +78,12 @@ INDEX_DECLARATION = """domain platform {
 
 HAND_WRITTEN_PROJECTION = """domain platform {
   owner: "platform-team"
+
   entity Widget @ 1 (additive) {
     @key widgetId: uuid
     name: string
   }
+
   projection WidgetSummary @ 1
     from platform.Widget @ 1 as w
   {
@@ -88,10 +95,12 @@ HAND_WRITTEN_PROJECTION = """domain platform {
 
 PICK_PROJECTION = """domain platform {
   owner: "platform-team"
+
   entity Widget @ 1 (additive) {
     @key widgetId: uuid
     name: string
   }
+
   projection WidgetSummary @ 1
     from platform.Widget @ 1 as w
     pick(widgetId, name)
