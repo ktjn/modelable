@@ -1,0 +1,476 @@
+# Modelable Grammar
+
+> Generated from `cli/src/modelable/grammar/modelable.lark` by
+> `cli/scripts/render_language_grammar.py` — do not edit by hand. Whenever the
+> grammar changes, regenerate this page and commit it alongside the parser.
+
+This page is the published form of the canonical grammar. The Lark EBNF
+in `cli/src/modelable/grammar/modelable.lark` is loaded by
+`cli/src/modelable/parser/parse.py` via `Lark(parser="earley",
+ambiguity="resolve")` and remains the single source of truth. If any
+example in [language-reference.md](language-reference.md) conflicts with
+this grammar, the documentation identifies a defect; it does not redefine
+the language.
+
+## Grammar
+
+```lark
+// Modelable IDL Grammar
+// Parser: Earley
+
+start: statement+
+
+statement: domain_decl
+         | binding_decl
+         | workspace_decl
+         | import_domain_stmt
+         | projection_decl
+         | subscription_decl
+         | consumer_decl
+
+
+// -- Domain ------------------------------------------------------------------
+
+domain_decl: "domain" domain_name "{" domain_item* "}"
+domain_name: IDENT | ESCAPED_STRING
+
+domain_item: owner_attr
+           | contact_attr
+           | desc_attr
+           | model_decl
+           | projection_decl
+           | auto_projections_decl
+           | generate_block
+           | semantic_decl
+           | index_decl
+
+owner_attr: "owner" ":" ESCAPED_STRING
+contact_attr: "contact" ":" ESCAPED_STRING
+desc_attr: "description" ":" ESCAPED_STRING
+
+
+// -- Model -------------------------------------------------------------------
+
+model_decl: wire_annotation* model_kind IDENT model_header? "{" model_body_item* "}"
+model_header: "@" INT model_change?
+            | model_change
+model_change: "(" change_kind ")"
+
+model_body_item: field_decl
+               | access_block
+               | reservation_block
+
+model_kind: "entity"    -> mk_entity
+          | "aggregate" -> mk_aggregate
+          | "event"     -> mk_event
+          | "value"     -> mk_value
+
+change_kind: "additive" -> ck_additive
+           | "breaking" -> ck_breaking
+
+field_decl: annotation* IDENT optional_marker? ":" type_expr field_default?
+optional_marker: "?"
+field_default: "=" EXPRESSION
+
+annotation: "@key"                                                -> ann_key
+          | "@pii"                                                -> ann_pii
+          | "@classification" "(" ESCAPED_STRING ")"             -> ann_classification
+          | "@deprecated" "(" "replacedBy" ":" ESCAPED_STRING ")" -> ann_deprecated
+          | "@owner" "(" ESCAPED_STRING ")"                      -> ann_owner
+          | "@server"                                             -> ann_server
+          | wire_annotation
+          | "@pitCutoff" "(" ANNOTATION_EXPR ")"                  -> ann_pit_cutoff
+          | "@latestBefore" "(" ANNOTATION_EXPR ")"               -> ann_latest_before
+          | "@latestOnly"                                         -> ann_latest_only
+
+wire_annotation: "@wire" "(" wire_option ("," wire_option)* ")" -> ann_wire
+wire_option: wire_key ":" wire_value
+wire_key: IDENT ("." IDENT)?
+wire_value: ESCAPED_STRING        -> wire_string
+          | wire_map
+wire_map: "{" wire_map_item ("," wire_map_item)* "}"
+wire_map_item: IDENT ":" ESCAPED_STRING
+
+
+// -- Types -------------------------------------------------------------------
+
+type_expr: primitive_type
+         | decimal_type
+         | fixed_binary_type
+         | enum_type
+         | array_type
+         | map_type
+         | ref_type
+         | object_type
+         | dotted_ref
+
+primitive_type: "string"    -> pt_string
+              | "int"       -> pt_int
+              | "float"     -> pt_float
+              | "bool"      -> pt_bool
+              | "date"      -> pt_date
+              | "time"      -> pt_time
+              | "timestamp" -> pt_timestamp
+              | "uuid" ("(" INT ")")?  -> pt_uuid
+              | "duration"  -> pt_duration
+              | "binary"    -> pt_binary
+              | "json"      -> pt_json
+              | "u8"        -> pt_u8
+              | "u16"       -> pt_u16
+              | "u32"       -> pt_u32
+              | "u64"       -> pt_u64
+              | "u128"      -> pt_u128
+              | "i8"        -> pt_i8
+              | "i16"       -> pt_i16
+              | "i32"       -> pt_i32
+              | "i64"       -> pt_i64
+              | "i128"      -> pt_i128
+
+decimal_type: "decimal" "(" INT "," INT ")"
+fixed_binary_type: "binary" "(" INT ")"
+enum_type: "enum" "(" enum_member ("," enum_member)* ")"
+enum_member: IDENT
+           | NUMERIC_IDENT
+
+NUMERIC_IDENT: /[0-9][A-Za-z0-9_-]*/
+array_type: "array" "<" type_expr ">"
+map_type: "map" "<" type_expr "," type_expr ">"
+ref_type: "ref" "<" dotted_ref ("@" version_spec)? ">"
+object_type: "object" "{" field_decl* "}"
+
+
+// -- Projections --------------------------------------------------------------
+
+projection_decl: wire_annotation* "projection" IDENT "@" INT projection_source_block? source_clause? selection_clause? "{" projection_body_item* "}"
+
+selection_clause: pick_clause | omit_clause
+pick_clause: "pick" "(" selector ("," selector)* ")"
+omit_clause: "omit" "(" selector ("," selector)* ")"
+selector: qualified_field | auto_projection_exclusion
+projection_source_block: "{" source_clause "}"
+
+projection_body_item: proj_field
+                    | access_block
+                    | subscription_block
+                    | generate_block
+                    | materialisation_block
+                    | reservation_block
+
+source_clause: "from" dotted_ref "@" version_spec "as" IDENT join_clause* where_clause? group_clause?
+
+where_clause: "where" FIELD_EXPRESSION
+
+join_modifier: "left"
+
+join_clause: join_prefix annotation*
+          | join_prefix join_option*
+join_option: annotation
+           | cardinality_attr
+cardinality_attr: "cardinality" ":" IDENT
+join_prefix: "join" dotted_ref "@" version_spec "as" IDENT "on" EXPRESSION
+           | join_modifier "join" dotted_ref "@" version_spec "as" IDENT "on" EXPRESSION
+
+group_clause: "group" "by" group_item ("," group_item)*
+
+group_item: /[^,\n\r{}]+/
+
+version_spec: INT                  -> version_exact
+            | INT "#" IDENT       -> version_pinned
+            | ">=" INT "<" INT     -> version_range
+            | ">=" INT             -> version_min
+
+proj_field: annotation* IDENT "<-" qualified_field -> direct_field
+          | annotation* IDENT "=" FIELD_EXPRESSION  -> computed_field
+
+subscription_block: "subscription" "{" subscription_item* "}"
+subscription_item: IDENT ":" EXPRESSION
+materialisation_block: "materialisation" "{" materialisation_item* "}"
+materialisation_item: IDENT ":" EXPRESSION
+
+qualified_field: IDENT "." IDENT
+
+reservation_block: "reserved" "protobuf" "{" reservation_item* "}"
+reservation_item: reserved_numbers | reserved_names
+reserved_numbers: "numbers" ":" "[" INT ("," INT)* "]"
+reserved_names: "names" ":" "[" ESCAPED_STRING ("," ESCAPED_STRING)* "]"
+
+
+// -- Generate ----------------------------------------------------------------
+
+generate_block: "generate" "{" generate_target* "}"
+
+generate_target: target_name ("->" ESCAPED_STRING)?
+
+target_name: "openapi"                 -> tn_openapi
+           | "typescript"              -> tn_typescript
+           | "avro"                    -> tn_avro
+           | "protobuf"                -> tn_protobuf
+           | "sql" "(" db_dialect ")"  -> tn_sql
+           | "jsonschema"              -> tn_jsonschema
+           | "asyncapi"                -> tn_asyncapi
+           | "docs"                    -> tn_docs
+
+db_dialect: "postgres" -> dd_postgres
+          | "mysql"    -> dd_mysql
+          | "clickhouse" -> dd_clickhouse
+          | "sqlite"   -> dd_sqlite
+
+
+// -- Deferred top-level forms ------------------------------------------------
+// These are parsed more fully in later parser-plan tasks.
+
+binding_decl: "binding" IDENT "{" binding_item* "}"
+binding_item: binding_adapter_attr
+            | binding_model_attr
+            | binding_table_attr
+            | ignored_block_item
+binding_adapter_attr: "adapter" ":" IDENT
+binding_model_attr: "model" ":" dotted_ref "@" INT
+binding_table_attr: "table" ":" ESCAPED_STRING
+subscription_decl: "subscription" IDENT "{" subscription_decl_item* "}"
+subscription_decl_item: IDENT ":" EXPRESSION
+workspace_decl: "workspace" workspace_label? "{" workspace_item* "}"
+workspace_label: IDENT | ESCAPED_STRING
+workspace_item: workspace_name_attr
+              | workspace_description_attr
+              | registry_block
+              | peers_block
+              | generate_block
+              | ai_block
+workspace_name_attr: "name" ":" ESCAPED_STRING
+workspace_description_attr: "description" ":" ESCAPED_STRING
+registry_block: "registry" "{" ignored_block_item* "}"
+peers_block: "peers" ":" "[" PEERS_CONTENT "]"
+ai_block: "ai" "{" ai_item* "}"
+ai_item: ai_provider | ai_model | ai_repair_attempts
+ai_provider: "provider" ":" ESCAPED_STRING
+ai_model: "model" ":" ESCAPED_STRING
+ai_repair_attempts: "repair_attempts" ":" INT
+import_domain_stmt: "import" "domain" dotted_ref import_source? pinned_import? version_selector?
+import_source: "from" "registry" ESCAPED_STRING
+pinned_import: "at" dotted_ref "@" INT "#" IDENT
+consumer_decl: "consumer" IDENT? "{" ignored_block_item* "}"
+auto_projections_decl: "auto" "projections" IDENT "@" INT "{" auto_projection_item* "}"
+
+semantic_decl: "semantic" IDENT ":" type_expr semantic_body?
+semantic_body: "{" semantic_item* "}"
+semantic_item: "registry" ":" bool_literal
+bool_literal: "true"  -> bl_true
+            | "false" -> bl_false
+
+index_decl: "index" IDENT "@" INT "{" index_item* "}"
+index_item: primary_index | secondary_index
+primary_index: "primary" IDENT ("," IDENT)*
+secondary_index: "secondary" IDENT "{" secondary_index_item* "}"
+secondary_index_item: key_item | sort_item | unique_item
+key_item: "key" ":" "[" IDENT ("," IDENT)* "]"
+sort_item: "sort" ":" "[" sort_field ("," sort_field)* "]"
+unique_item: "unique" ":" bool_literal
+sort_field: IDENT sort_dir?
+sort_dir: "asc"  -> sd_asc
+        | "desc" -> sd_desc
+
+auto_projection_item: auto_projection_kind auto_projection_option*
+auto_projection_kind: "db"      -> apk_db
+                    | "request" -> apk_request
+                    | "reply"   -> apk_reply
+                    | "event"   -> apk_event
+
+auto_projection_option: exclude_option | on_option
+exclude_option: "exclude" "[" auto_projection_exclusion ("," auto_projection_exclusion)* "]"
+on_option: "on" "[" IDENT ("," IDENT)* "]"
+auto_projection_exclusion: annotation | IDENT
+
+access_block: "access" "{" access_item* "}"
+access_item: entity_grant
+           | property_grant
+entity_grant: "entity" principal permission_list
+property_grant: "property" IDENT principal permission_list
+principal: PRINCIPAL
+permission_list: "[" permission ("," permission)* "]"
+permission: "read" -> p_read
+          | "project" -> p_project
+          | "subscribe" -> p_subscribe
+          | "write" -> p_write
+          | "transfer" -> p_transfer
+          | "manage_access" -> p_manage_access
+          | "derive" -> p_derive
+          | "redact" -> p_redact
+
+version_selector: "@" version_expr
+version_expr: INT | VERSION_RANGE
+dotted_ref: IDENT ("." IDENT)*
+
+ignored_block_item: /[^{}]+/ | "{" ignored_block_item* "}"
+
+
+// -- Lexing ------------------------------------------------------------------
+
+VERSION_RANGE: /[<>~=^0-9.,\s]+/
+EXPRESSION: /[^\n\r{}]+/
+FIELD_EXPRESSION: /[^\n\r]+(?:\n(?!\s*(?:@|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-|=)|generate\s*\{|materialisation\s*\{|subscription\s*\{|access\s*\{|from\s|group\s+by|\{|\}))[^\n\r]+)*/
+ANNOTATION_EXPR: /[^)\n\r{}]+/
+IDENT: /[A-Za-z_][A-Za-z0-9_-]*/
+PEERS_CONTENT: /[^\]]+/
+PRINCIPAL: /\*|[A-Za-z_][A-Za-z0-9_.-]*/
+
+COMMENT: /\/\/[^\n]*/
+%import common.ESCAPED_STRING
+%import common.INT
+%import common.WS
+%ignore WS
+%ignore COMMENT
+```
+
+## Rule index
+
+Alphabetical listing of every named rule and its production.
+
+| Rule | Production |
+|---|---|
+| `access_block` | `"access" "{" access_item* "}"` |
+| `access_item` | `entity_grant \| property_grant` |
+| `ai_block` | `"ai" "{" ai_item* "}"` |
+| `ai_item` | `ai_provider \| ai_model \| ai_repair_attempts` |
+| `ai_model` | `"model" ":" ESCAPED_STRING` |
+| `ai_provider` | `"provider" ":" ESCAPED_STRING` |
+| `ai_repair_attempts` | `"repair_attempts" ":" INT` |
+| `annotation` | `"@key"                                                -> ann_key \| "@pii"                                                -> ann_pii \| "@classification" "(" ESCAPED_STRING ")"             -> ann_classification \| "@deprecated" "(" "replacedBy" ":" ESCAPED_STRING ")" -> ann_deprecated \| "@owner" "(" ESCAPED_STRING ")"                      -> ann_owner \| "@server"                                             -> ann_server \| wire_annotation \| "@pitCutoff" "(" ANNOTATION_EXPR ")"                  -> ann_pit_cutoff \| "@latestBefore" "(" ANNOTATION_EXPR ")"               -> ann_latest_before \| "@latestOnly"                                         -> ann_latest_only` |
+| `array_type` | `"array" "<" type_expr ">"` |
+| `auto_projection_exclusion` | `annotation \| IDENT` |
+| `auto_projection_item` | `auto_projection_kind auto_projection_option*` |
+| `auto_projection_kind` | `"db"      -> apk_db \| "request" -> apk_request \| "reply"   -> apk_reply \| "event"   -> apk_event` |
+| `auto_projection_option` | `exclude_option \| on_option` |
+| `auto_projections_decl` | `"auto" "projections" IDENT "@" INT "{" auto_projection_item* "}"` |
+| `binding_adapter_attr` | `"adapter" ":" IDENT` |
+| `binding_decl` | `"binding" IDENT "{" binding_item* "}"` |
+| `binding_item` | `binding_adapter_attr \| binding_model_attr \| binding_table_attr \| ignored_block_item` |
+| `binding_model_attr` | `"model" ":" dotted_ref "@" INT` |
+| `binding_table_attr` | `"table" ":" ESCAPED_STRING` |
+| `bool_literal` | `"true"  -> bl_true \| "false" -> bl_false` |
+| `cardinality_attr` | `"cardinality" ":" IDENT` |
+| `change_kind` | `"additive" -> ck_additive \| "breaking" -> ck_breaking` |
+| `consumer_decl` | `"consumer" IDENT? "{" ignored_block_item* "}"` |
+| `contact_attr` | `"contact" ":" ESCAPED_STRING` |
+| `db_dialect` | `"postgres" -> dd_postgres \| "mysql"    -> dd_mysql \| "clickhouse" -> dd_clickhouse \| "sqlite"   -> dd_sqlite` |
+| `decimal_type` | `"decimal" "(" INT "," INT ")"` |
+| `desc_attr` | `"description" ":" ESCAPED_STRING` |
+| `domain_decl` | `"domain" domain_name "{" domain_item* "}"` |
+| `domain_item` | `owner_attr \| contact_attr \| desc_attr \| model_decl \| projection_decl \| auto_projections_decl \| generate_block \| semantic_decl \| index_decl` |
+| `domain_name` | `IDENT \| ESCAPED_STRING` |
+| `dotted_ref` | `IDENT ("." IDENT)*` |
+| `entity_grant` | `"entity" principal permission_list` |
+| `enum_member` | `IDENT \| NUMERIC_IDENT` |
+| `enum_type` | `"enum" "(" enum_member ("," enum_member)* ")"` |
+| `exclude_option` | `"exclude" "[" auto_projection_exclusion ("," auto_projection_exclusion)* "]"` |
+| `field_decl` | `annotation* IDENT optional_marker? ":" type_expr field_default?` |
+| `field_default` | `"=" EXPRESSION` |
+| `fixed_binary_type` | `"binary" "(" INT ")"` |
+| `generate_block` | `"generate" "{" generate_target* "}"` |
+| `generate_target` | `target_name ("->" ESCAPED_STRING)?` |
+| `group_clause` | `"group" "by" group_item ("," group_item)*` |
+| `ignored_block_item` | `/[^{}]+/ \| "{" ignored_block_item* "}"` |
+| `import_domain_stmt` | `"import" "domain" dotted_ref import_source? pinned_import? version_selector?` |
+| `import_source` | `"from" "registry" ESCAPED_STRING` |
+| `index_decl` | `"index" IDENT "@" INT "{" index_item* "}"` |
+| `index_item` | `primary_index \| secondary_index` |
+| `join_clause` | `join_prefix annotation* \| join_prefix join_option*` |
+| `join_modifier` | `"left"` |
+| `join_option` | `annotation \| cardinality_attr` |
+| `join_prefix` | `"join" dotted_ref "@" version_spec "as" IDENT "on" EXPRESSION \| join_modifier "join" dotted_ref "@" version_spec "as" IDENT "on" EXPRESSION` |
+| `key_item` | `"key" ":" "[" IDENT ("," IDENT)* "]"` |
+| `map_type` | `"map" "<" type_expr "," type_expr ">"` |
+| `materialisation_block` | `"materialisation" "{" materialisation_item* "}"` |
+| `materialisation_item` | `IDENT ":" EXPRESSION` |
+| `model_body_item` | `field_decl \| access_block \| reservation_block` |
+| `model_change` | `"(" change_kind ")"` |
+| `model_decl` | `wire_annotation* model_kind IDENT model_header? "{" model_body_item* "}"` |
+| `model_header` | `"@" INT model_change? \| model_change` |
+| `model_kind` | `"entity"    -> mk_entity \| "aggregate" -> mk_aggregate \| "event"     -> mk_event \| "value"     -> mk_value` |
+| `object_type` | `"object" "{" field_decl* "}"` |
+| `omit_clause` | `"omit" "(" selector ("," selector)* ")"` |
+| `on_option` | `"on" "[" IDENT ("," IDENT)* "]"` |
+| `optional_marker` | `"?"` |
+| `owner_attr` | `"owner" ":" ESCAPED_STRING` |
+| `peers_block` | `"peers" ":" "[" PEERS_CONTENT "]"` |
+| `permission` | `"read" -> p_read \| "project" -> p_project \| "subscribe" -> p_subscribe \| "write" -> p_write \| "transfer" -> p_transfer \| "manage_access" -> p_manage_access \| "derive" -> p_derive \| "redact" -> p_redact` |
+| `permission_list` | `"[" permission ("," permission)* "]"` |
+| `pick_clause` | `"pick" "(" selector ("," selector)* ")"` |
+| `pinned_import` | `"at" dotted_ref "@" INT "#" IDENT` |
+| `primary_index` | `"primary" IDENT ("," IDENT)*` |
+| `primitive_type` | `"string"    -> pt_string \| "int"       -> pt_int \| "float"     -> pt_float \| "bool"      -> pt_bool \| "date"      -> pt_date \| "time"      -> pt_time \| "timestamp" -> pt_timestamp \| "uuid" ("(" INT ")")?  -> pt_uuid \| "duration"  -> pt_duration \| "binary"    -> pt_binary \| "json"      -> pt_json \| "u8"        -> pt_u8 \| "u16"       -> pt_u16 \| "u32"       -> pt_u32 \| "u64"       -> pt_u64 \| "u128"      -> pt_u128 \| "i8"        -> pt_i8 \| "i16"       -> pt_i16 \| "i32"       -> pt_i32 \| "i64"       -> pt_i64 \| "i128"      -> pt_i128` |
+| `principal` | `PRINCIPAL` |
+| `proj_field` | `annotation* IDENT "<-" qualified_field -> direct_field \| annotation* IDENT "=" FIELD_EXPRESSION  -> computed_field` |
+| `projection_body_item` | `proj_field \| access_block \| subscription_block \| generate_block \| materialisation_block \| reservation_block` |
+| `projection_decl` | `wire_annotation* "projection" IDENT "@" INT projection_source_block? source_clause? selection_clause? "{" projection_body_item* "}"` |
+| `projection_source_block` | `"{" source_clause "}"` |
+| `property_grant` | `"property" IDENT principal permission_list` |
+| `qualified_field` | `IDENT "." IDENT` |
+| `ref_type` | `"ref" "<" dotted_ref ("@" version_spec)? ">"` |
+| `registry_block` | `"registry" "{" ignored_block_item* "}"` |
+| `reservation_block` | `"reserved" "protobuf" "{" reservation_item* "}"` |
+| `reservation_item` | `reserved_numbers \| reserved_names` |
+| `reserved_names` | `"names" ":" "[" ESCAPED_STRING ("," ESCAPED_STRING)* "]"` |
+| `reserved_numbers` | `"numbers" ":" "[" INT ("," INT)* "]"` |
+| `secondary_index` | `"secondary" IDENT "{" secondary_index_item* "}"` |
+| `secondary_index_item` | `key_item \| sort_item \| unique_item` |
+| `selection_clause` | `pick_clause \| omit_clause` |
+| `selector` | `qualified_field \| auto_projection_exclusion` |
+| `semantic_body` | `"{" semantic_item* "}"` |
+| `semantic_decl` | `"semantic" IDENT ":" type_expr semantic_body?` |
+| `semantic_item` | `"registry" ":" bool_literal` |
+| `sort_dir` | `"asc"  -> sd_asc \| "desc" -> sd_desc` |
+| `sort_field` | `IDENT sort_dir?` |
+| `sort_item` | `"sort" ":" "[" sort_field ("," sort_field)* "]"` |
+| `source_clause` | `"from" dotted_ref "@" version_spec "as" IDENT join_clause* where_clause? group_clause?` |
+| `start` | `statement+` |
+| `statement` | `domain_decl \| binding_decl \| workspace_decl \| import_domain_stmt \| projection_decl \| subscription_decl \| consumer_decl` |
+| `subscription_block` | `"subscription" "{" subscription_item* "}"` |
+| `subscription_decl` | `"subscription" IDENT "{" subscription_decl_item* "}"` |
+| `subscription_decl_item` | `IDENT ":" EXPRESSION` |
+| `subscription_item` | `IDENT ":" EXPRESSION` |
+| `target_name` | `"openapi"                 -> tn_openapi \| "typescript"              -> tn_typescript \| "avro"                    -> tn_avro \| "protobuf"                -> tn_protobuf \| "sql" "(" db_dialect ")"  -> tn_sql \| "jsonschema"              -> tn_jsonschema \| "asyncapi"                -> tn_asyncapi \| "docs"                    -> tn_docs` |
+| `type_expr` | `primitive_type \| decimal_type \| fixed_binary_type \| enum_type \| array_type \| map_type \| ref_type \| object_type \| dotted_ref` |
+| `unique_item` | `"unique" ":" bool_literal` |
+| `version_expr` | `INT \| VERSION_RANGE` |
+| `version_selector` | `"@" version_expr` |
+| `version_spec` | `INT                  -> version_exact \| INT "#" IDENT       -> version_pinned \| ">=" INT "<" INT     -> version_range \| ">=" INT             -> version_min` |
+| `where_clause` | `"where" FIELD_EXPRESSION` |
+| `wire_annotation` | `"@wire" "(" wire_option ("," wire_option)* ")" -> ann_wire` |
+| `wire_key` | `IDENT ("." IDENT)?` |
+| `wire_map` | `"{" wire_map_item ("," wire_map_item)* "}"` |
+| `wire_map_item` | `IDENT ":" ESCAPED_STRING` |
+| `wire_option` | `wire_key ":" wire_value` |
+| `wire_value` | `ESCAPED_STRING        -> wire_string \| wire_map` |
+| `workspace_decl` | `"workspace" workspace_label? "{" workspace_item* "}"` |
+| `workspace_description_attr` | `"description" ":" ESCAPED_STRING` |
+| `workspace_item` | `workspace_name_attr \| workspace_description_attr \| registry_block \| peers_block \| generate_block \| ai_block` |
+| `workspace_label` | `IDENT \| ESCAPED_STRING` |
+| `workspace_name_attr` | `"name" ":" ESCAPED_STRING` |
+
+## Lexical rules
+
+Regular-expression terminals used by the lexer.
+
+| Token | Pattern |
+|---|---|
+| `ANNOTATION_EXPR` | `/[^)\n\r{}]+/` |
+| `COMMENT` | `/\/\/[^\n]*/` |
+| `EXPRESSION` | `/[^\n\r{}]+/` |
+| `FIELD_EXPRESSION` | `/[^\n\r]+(?:\n(?!\s*(?:@\|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-\|=)\|generate\s*\{\|materialisation\s*\{\|subscription\s*\{\|access\s*\{\|from\s\|group\s+by\|\{\|\}))[^\n\r]+)*/` |
+| `IDENT` | `/[A-Za-z_][A-Za-z0-9_-]*/` |
+| `NUMERIC_IDENT` | `/[0-9][A-Za-z0-9_-]*/` |
+| `PEERS_CONTENT` | `/[^\]]+/` |
+| `PRINCIPAL` | `/\*\|[A-Za-z_][A-Za-z0-9_.-]*/` |
+| `VERSION_RANGE` | `/[<>~=^0-9.,\s]+/` |
+| `group_item` | `/[^,\n\r{}]+/` |
+
+## Directives
+
+Lark import and ignore directives.
+
+- `%import common.ESCAPED_STRING`
+- `%import common.INT`
+- `%import common.WS`
+- `%ignore WS`
+- `%ignore COMMENT`

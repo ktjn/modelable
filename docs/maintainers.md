@@ -130,6 +130,31 @@ npm run build
 npm test
 ```
 
+For changes to the `.mdl` grammar or language documentation, regenerate the
+derived artifacts and confirm their drift tests pass. The Lark grammar at
+`cli/src/modelable/grammar/modelable.lark` is the single source of truth for
+the language:
+
+- `docs/grammar.md` is rendered by `cli/scripts/render_language_grammar.py`
+  (`cli/tests/test_grammar_doc_sync.py` enforces it is up to date).
+- The TextMate keyword/type lists in
+  `vscode/syntaxes/modelable.tmLanguage.json` and the Monarch lists in
+  `web/src/language/monaco-providers.ts` are rendered by
+  `cli/scripts/render_editor_grammars.py`
+  (`cli/tests/test_editor_grammar_sync.py` enforces they are up to date).
+
+Regenerate after grammar edits with:
+
+```text
+cd cli
+uv run python scripts/render_language_grammar.py
+uv run python scripts/render_editor_grammars.py
+```
+
+A grammar change that adds a keyword or type word shows up in the editor
+grammars automatically; a parser change that only rewrites existing rules
+should leave the editor lists unchanged.
+
 On Windows, close any running desktop VS Code windows before `npm test`; the smoke runner fails fast if the desktop app is still holding the update mutex.
 
 For conversational compilation changes, exercise both application-service

@@ -31,6 +31,7 @@ nav:
   - Home: README.md
   - Getting Started: getting-started.md
   - Language Reference: language-reference.md
+  - Grammar: grammar.md
   - Tooling Reference: cli-reference.md
   - Compiler Reference: compiler-reference.md
   - Conformance Fixture: conformance.md

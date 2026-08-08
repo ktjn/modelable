@@ -39,6 +39,12 @@ releases could contain breaking changes when called out explicitly.
   `0.4.0` and `searchable-indexer` to `0.2.1`, which pull in a
   `searchable-analysis` fix for English stopword filtering — the underlying
   cause of the routed query still returning no relevant results.
+- Fixed the VS Code extension and web Playground syntax highlighting dropping
+  the `pick`/`omit` projection keywords (added with the Slice H1 feature) and
+  the `replacedBy` keyword used inside `@deprecated`. The TextMate and Monarch
+  keyword lists are now generated from the canonical `modelable.lark` grammar
+  (`cli/scripts/render_editor_grammars.py`) so editor highlighting can no
+  longer drift from the parser, and a drift test enforces that in CI.
 
 ## [1.3.0] - 2026-08-02
 
