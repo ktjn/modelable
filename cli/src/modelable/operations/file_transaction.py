@@ -233,6 +233,8 @@ class FileTransaction:
                 )
                 break
             except FileExistsError as exc:
+                if self._try_reclaim_stale_lock(lock_path):
+                    continue
                 if time.monotonic() >= deadline:
                     self._remove_waiter()
                     self._cleanup_lock_directories()
@@ -247,10 +249,31 @@ class FileTransaction:
         self._lock_path = lock_path
         self._remove_waiter()
         try:
-            self._lock_write(descriptor, b"locked\n")
+            self._lock_write(descriptor, f"{os.getpid()}\n".encode())
             self._fsync(descriptor)
         finally:
             os.close(descriptor)
+
+    def _try_reclaim_stale_lock(self, lock_path: Path) -> bool:
+        """Reclaim a lock whose recorded owner process is provably dead.
+
+        Returns True when the stale lock was removed and the caller should
+        retry creation. Returns False when the holder is alive, the lock is
+        malformed, or any IO error prevents a safe decision — in all such
+        cases the caller falls back to polling until the deadline.
+        """
+        try:
+            data = lock_path.read_bytes()
+        except OSError:
+            return False
+        pid = _parse_lock_pid(data)
+        if pid is None or _process_alive(pid):
+            return False
+        try:
+            self._unlink(lock_path, missing_ok=True)
+        except OSError:
+            return False
+        return True
 
     def _rollback(
         self,
@@ -444,6 +467,33 @@ def _ensure_directory(
 def _common_root(destinations: Sequence[Path]) -> Path:
     resolved_parents = [str(path.resolve(strict=False).parent) for path in destinations]
     return Path(os.path.commonpath(resolved_parents))
+
+
+def _process_alive(pid: int) -> bool:
+    """Return True if `pid` is running, conservatively defaulting to True.
+
+    A dead holder (ProcessLookupError) reports False, which lets the lock be
+    reclaimed. PermissionError means the process exists under another user, so
+    it is treated as alive. Any other OSError is treated as alive so we never
+    reclaim a lock when liveness cannot be confirmed.
+    """
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return True
+    return True
+
+
+def _parse_lock_pid(data: bytes) -> int | None:
+    """Parse the leading integer PID from lock file bytes, or None if malformed."""
+    try:
+        return int(data.split(b"\n", 1)[0].strip())
+    except ValueError:
+        return None
 
 
 def _file_hash(path: Path) -> str:

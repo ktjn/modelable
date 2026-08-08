@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import stat
+import subprocess
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -147,12 +149,80 @@ def test_transaction_rejects_workspace_lock_contention(tmp_path: Path) -> None:
     destination = workspace / "result.txt"
     lock = workspace / ".modelable" / "locks" / "compilation.lock"
     lock.parent.mkdir(parents=True)
+    lock.write_text(f"{os.getpid()}\n", encoding="utf-8")
+
+    with pytest.raises(LockContentionError, match="already in progress"):
+        FileTransaction(workspace_root=workspace).promote(_staged_files(stage, [destination]))
+
+    assert lock.read_text(encoding="utf-8") == f"{os.getpid()}\n"
+
+
+def _dead_pid() -> int:
+    """Return a PID guaranteed not to correspond to a live process.
+
+    Spawns a child that exits immediately, then reaps it. The returned PID is
+    not recycled within the test process's lifetime in practice.
+    """
+    child = subprocess.Popen(
+        [sys.executable, "-c", "raise SystemExit"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    child.wait()
+    return child.pid
+
+
+def test_acquire_lock_reclaims_stale_lock_from_dead_process(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "result.txt"
+    lock = workspace / ".modelable" / "locks" / "compilation.lock"
+    lock.parent.mkdir(parents=True)
+    lock.write_text(f"{_dead_pid()}\n", encoding="utf-8")
+
+    written = FileTransaction(workspace_root=workspace).promote(_staged_files(stage, [destination]))
+
+    assert written == (destination,)
+    assert destination.read_bytes() == b"after-0"
+    assert not lock.exists()
+
+
+def test_acquire_lock_treats_unparseable_lock_as_live(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "result.txt"
+    lock = workspace / ".modelable" / "locks" / "compilation.lock"
+    lock.parent.mkdir(parents=True)
     lock.write_text("held\n", encoding="utf-8")
 
     with pytest.raises(LockContentionError, match="already in progress"):
         FileTransaction(workspace_root=workspace).promote(_staged_files(stage, [destination]))
 
     assert lock.read_text(encoding="utf-8") == "held\n"
+
+
+def test_lock_file_records_current_pid(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    stage = tmp_path / "stage"
+    workspace.mkdir()
+    stage.mkdir()
+    destination = workspace / "result.txt"
+    lock = workspace / ".modelable" / "locks" / "compilation.lock"
+    captured: dict[str, str] = {}
+
+    def read_lock() -> None:
+        captured["content"] = lock.read_text(encoding="utf-8")
+
+    FileTransaction(workspace_root=workspace).promote(
+        _staged_files(stage, [destination]),
+        validate=read_lock,
+    )
+
+    assert captured["content"] == f"{os.getpid()}\n"
 
 
 def test_transaction_verifies_promoted_hash_and_rolls_back(tmp_path: Path) -> None:
