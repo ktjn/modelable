@@ -94,7 +94,23 @@ models/
 | `map<K,V>` | Key-value map |
 | `ref<Domain.Model>` | Cross-domain reference |
 | `enum(a, b, c)` | Inline enumeration |
+| `object { ... }` | Inline structured object; contains field declarations, exactly like a model body |
 | `json` | Arbitrary JSON value, opaque to Modelable; maps to `serde_json::Value` (Rust), `unknown` (TypeScript), `{}` (JSON Schema) |
+
+An `object` type is an inline record of named fields:
+
+```mdl
+entity Invoice @ 1 (additive) {
+  @key  invoiceId: uuid
+        billingAddress: object {
+          street:  string
+          city:    string
+          country: string
+        }
+}
+```
+
+Nested fields of an `object` are addressable from projections through CEL field selection (see [section 3](#3-projections-lineage-and-derivation)).
 
 The type system is platform-neutral. Target emitters map each type to the closest equivalent in the output format (e.g., `uuid` → `string` format `uuid` in JSON Schema, `UUID` in Avro, `uuid` in Postgres DDL).
 
@@ -118,7 +134,13 @@ A `ref<>`'s version constraint is independent of its target for compatibility pu
 ```mdl
 @annotation  fieldName:  Type
 @annotation  optional?:  Type
+@annotation  fieldName:  Type = default-expression
 ```
+
+A field may carry a default value, written as `= EXPRESSION`. The expression
+uses the same CEL subset as computed projection fields (see
+[section 9](#9-cel-expression-rules)); it is validated when the model is
+compiled.
 
 ### 2.3 Available annotations
 
@@ -130,6 +152,15 @@ A `ref<>`'s version constraint is independent of its target for compatibility pu
 | `@deprecated(replacedBy: "field")` | Field is deprecated |
 | `@owner("team")` | Field-level ownership override |
 | `@server` | Field is assigned by the server at write time (e.g. auto-generated IDs, timestamps). Excluded from `request` auto projections by default. |
+| `@wire(key: value, ...)` | Wire-format hint passed through to emitters; values are strings or `{ key: "value" }` maps (e.g. `@wire(avro: "logicalType", json: { name: "x" })`) |
+| `@pitCutoff(EXPRESSION)` | Point-in-time cutoff bound for the field, used by event-sourcing / time-travel resolution |
+| `@latestBefore(EXPRESSION)` | Resolve the latest value at or before the given point in time |
+| `@latestOnly` | Keep only the latest value; older values are not retained |
+
+`@pitCutoff`, `@latestBefore`, and `@latestOnly` control how history is
+resolved for mutable fields. `@wire` attaches arbitrary per-target metadata
+that emitters can interpret; unknown wire targets are tolerated and surfaced
+as non-blocking diagnostics.
 
 ### 2.4 Model kinds
 
@@ -145,13 +176,13 @@ A `ref<>`'s version constraint is independent of its target for compatibility pu
 Each version is a full independent declaration. The compiler diffs consecutive versions and enforces `changeKind`.
 
 ```mdl
-model Customer @ 1 (additive) {
+entity Customer @ 1 (additive) {
   @key  customerId: uuid
         legalName:  string
         createdAt:  timestamp
 }
 
-model Customer @ 2 (additive) {
+entity Customer @ 2 (additive) {
   @key  customerId: uuid
         legalName:  string
   @pii  email?:     string
@@ -225,6 +256,42 @@ projection OrderWithCustomer @ 1
 }
 ```
 
+A join is written `join <Model> @ <version> as <alias> on <CEL predicate>`. The
+predicate must be a boolean CEL expression (see [section 9](#9-cel-expression-rules)).
+
+Optional join options:
+
+- `left` — `left join` keeps all rows from the primary source even when there is
+  no matching join row. Join fields from a `left` source become optional.
+- `cardinality: one | many` — declares whether the join is guaranteed to produce
+  at most one match (`one`) or may produce many (`many`). The declared value is
+  used for target type-shaping and validation.
+- annotations — any field annotation may be attached to a join prefix to mark
+  the join itself (for example `@pii` on a join that introduces sensitive data).
+
+```mdl
+projection OrderWithOptionalCustomer @ 1
+  from orders.Order @ 3 as o
+  left join customer.Customer @ 2 as c on o.customerId == c.customerId
+{
+  orderId      <- o.orderId
+  customerName <- c.legalName
+}
+```
+
+A `where` clause filters the primary source before grouping and projection:
+
+```mdl
+projection ActiveOrders @ 1
+  from orders.Order @ 3 as o
+  where o.status == "open"
+{
+  orderId <- o.orderId
+}
+```
+
+The `where` predicate is a CEL expression over the primary source alias only.
+
 ### 3.4 Aggregation
 
 ```mdl
@@ -252,6 +319,40 @@ projection BillingCustomer @ 1
 ```
 
 Resolved to the highest published version satisfying the constraint at compile time. If that version carries `changeKind: breaking`, the compiler raises an error until the projection is updated.
+
+### 3.5.1 Field selection: `pick` and `omit`
+
+Instead of listing every field in the projection body, a projection may select
+its field set with a `pick(...)` or `omit(...)` clause written after the
+`from`/`join` source block:
+
+- `pick(alias.field, ...)` — the projection body then only contains the listed
+  source fields, mapped under their own names (a `pick` requires no body).
+- `omit(alias.field, ...)` — the projection body contains every source field
+  except the ones listed.
+
+```mdl
+projection BillingContact @ 1
+  from customer.Customer @ 2 as c
+  pick(c.customerId, c.legalName, c.email)
+{
+}
+```
+
+```mdl
+projection CustomerWithoutSecrets @ 1
+  from customer.Customer @ 2 as c
+  omit(c.password, c.apiKey)
+{
+  customerId <- c.customerId
+  legalName  <- c.legalName
+}
+```
+
+A `pick`/`omit` clause may reference model fields or annotation filters
+(`@pii`). Mixing a `pick` with a projection body, or combining `pick` with
+`omit`, is a semantic error. The clauses are also available inside
+[`auto projections`](#37-auto-projections) via `exclude [...]`.
 
 ### 3.6 Lineage record (compiler output per field)
 
@@ -346,7 +447,6 @@ projection CustomerReply @ 1
 // CustomerEvent — change-event projection, all fields
 projection CustomerEvent @ 1
   from customer.Customer @ 1 as c
-  on [created, updated, deleted]
 {
   customerId   <- c.customerId
   legalName    <- c.legalName
@@ -358,7 +458,7 @@ projection CustomerEvent @ 1
 }
 ```
 
-The event projection maps to the standard change event envelope defined in the system spec (section 6.1). The `on` list controls which operations emit events. When omitted, all operations (`created`, `updated`, `deleted`) are included.
+The event projection maps to the standard change event envelope defined in the system spec (section 6.1). The `on` list is an option of the `auto projections` declaration, not of the expanded projection: it controls which operations emit events. When omitted, all operations (`created`, `updated`, `deleted`) are included.
 
 #### Customisation
 
@@ -558,12 +658,12 @@ The Postgres SQL emitter consumes `index` declarations, generating `CREATE INDEX
 ```mdl
 workspace {
   generate {
-    openapi       -> ./generated/api/
-    typescript    -> ./generated/types/
-    avro          -> ./generated/avro/
-    sql(postgres) -> ./generated/sql/
-    jsonschema    -> ./generated/jsonschema/
-    docs          -> ./generated/docs/
+    openapi       -> "./generated/api/"
+    typescript    -> "./generated/types/"
+    avro          -> "./generated/avro/"
+    sql(postgres) -> "./generated/sql/"
+    jsonschema    -> "./generated/jsonschema/"
+    docs          -> "./generated/docs/"
   }
 }
 ```
@@ -643,7 +743,7 @@ binding customer-postgres {
 
 **Library:** Lark (Python EBNF parser)
 
-The grammar lives in `modelable.lark` alongside the CLI source. This file is the canonical language definition and is versioned with the CLI.
+The grammar lives in `modelable.lark` alongside the CLI source. This file is the canonical language definition and is versioned with the CLI. The published form of the grammar — generated from that file — is [grammar.md](grammar.md); the generated page is kept in sync by a CI test.
 
 ```
 .mdl file
@@ -805,7 +905,8 @@ consumer {
 | File | Purpose |
 |---|---|
 | `language-reference.md` | Full IDL language reference (grammar, all constructs, type system) — this document |
-| `cli/src/modelable/grammar/modelable.lark` | Lark EBNF grammar |
+| `grammar.md` | Published grammar, generated from `modelable.lark` |
+| `cli/src/modelable/grammar/modelable.lark` | Lark EBNF grammar (canonical source) |
 | `cli/src/modelable/parser/` | Parse tree to Pydantic IR |
 | `cli/src/modelable/emitters/` | Generated artifact backends |
 | `cli/src/modelable/lsp/` | pygls language server |
@@ -827,19 +928,83 @@ consumer {
 ## 9. CEL Expression Rules
 
 CEL is the expression language for computed projection fields, join predicates,
-filters, aggregation guards, and future runtime parameter expressions. The
-compiler parses and type-checks CEL and extracts field-level lineage before an
-expression can reach a runtime adapter.
+filters, aggregation guards, field defaults, and future runtime parameter
+expressions. The compiler parses and type-checks CEL and extracts field-level
+lineage before an expression can reach a runtime adapter.
 
-The supported compiler subset includes literals, field selection, boolean and
-arithmetic operators, comparisons, conditional expressions, list membership,
-and the deterministic helper functions implemented by the validator. Expression
-types must be assignable to the declared destination field. Unknown aliases,
-unknown fields, unsafe functions, and type mismatches are validation errors.
+### 9.1 Grammar
 
-Runtime namespaces such as `request`, `auth`, and `params` are reserved for
-deferred runtime contexts. Their presence in the grammar does not imply that a
-runtime feature is currently available.
+The compiler implements a deterministic subset of CEL. Its grammar, in EBNF:
+
+```text
+expression    := ternary
+ternary       := or ("?" expression ":" expression)?
+or            := and (("||") and)*
+and           := not (("&&") not)*
+not           := "!" not | comparison
+comparison    := additive (("==" | "!=" | "<" | "<=" | ">" | ">=") additive)*
+additive      := multiplicative (("+" | "-") multiplicative)*
+multiplicative:= unary (("*" | "/" | "%") unary)*
+unary         := "-" unary | primary
+primary       := literal | list | object | function | "(" expression ")"
+literal       := STRING | FLOAT | INT | "true" | "false"
+list          := "[" expression ("," expression)* "]"
+object        := "{" IDENT ":" expression ("," IDENT ":" expression)* "}"
+function      := IDENT "(" arg ("," arg)* ")" postfix*
+arg           := expression | IDENT ":" expression
+postfix       := "." IDENT | "[" expression "]"
+```
+
+Precedence, from loosest to tightest:
+
+1. conditional `?:`
+2. logical `||`, then `&&`, then unary `!`
+3. comparison `== != < <= > >=`
+4. additive `+ -`
+5. multiplicative `* / %`
+6. unary `-`
+7. primary (parentheses, literals, calls, field access)
+
+Field references are written `alias.field`; a bare identifier is rejected by
+the validator. `alias.*` matches every field of an alias. Runtime namespaces
+(`request`, `auth`, `params`) are reserved identifiers.
+
+### 9.2 Token set
+
+| Token | Form |
+|---|---|
+| `STRING` | `"..."` or `'...'`, with backslash escapes |
+| `FLOAT` | `\d+\.\d+` |
+| `INT` | `\d+` |
+| operators | `&& \|\| ! == != <= >= < > + - * / % ? : .` |
+| punctuation | `( ) { } [ ] ,` |
+| `IDENT` | `[A-Za-z_][A-Za-z0-9_]*` |
+
+### 9.3 Functions
+
+The scalar function vocabulary is a closed set (deterministic helpers):
+
+`lower`, `upper`, `trim`, `contains`, `startsWith`, `endsWith`, `slice`,
+`date`, `daysBetween`, `date_diff`, `truncate`, `coalesce`, `toString`,
+`toDecimal`, `hashHmacSha256`, `hmac_sha256`, `now`, `today`, `decimal`,
+`round`, `collect`
+
+Aggregate functions, valid only in projections with a `group by` clause:
+
+`count`, `sum`, `min`, `max`, `avg`, `countif`, `count_distinct`, `mode`
+
+`min`/`max` with two or more arguments act as scalar `greatest`/`least`,
+not row aggregates. Functions not in these sets are validation errors. The
+following are recognized but rejected as non-deterministic: `random`, `uuid`,
+`currentUser`.
+
+### 9.4 Validation
+
+Expression types must be assignable to the declared destination field. Unknown
+aliases, unknown fields, unsafe functions, and type mismatches are validation
+errors. Runtime namespaces such as `request`, `auth`, and `params` are reserved
+for deferred runtime contexts. Their presence in the grammar does not imply
+that a runtime feature is currently available.
 
 ## 10. Ownership, Classification, and Access
 
@@ -856,6 +1021,38 @@ Ownership and governance metadata are definition-time contract metadata:
   compiler reports deterministic governance findings; it does not claim to be
   an organizational authorization service.
 
+### 10.1 Access blocks
+
+Models and projections may carry an `access { }` block declaring explicit
+grants. A grant names a principal (a literal `*` for everyone, or a
+principal string) and a comma-separated permission list:
+
+```mdl
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+            ssn:     string
+
+    access {
+      entity * [read]
+      property ssn * [read, redact]
+    }
+  }
+}
+```
+
+The `access` block may appear in a model body and in a projection body. Two
+grant forms are available:
+
+- `entity <principal> [<permission>, ...]` — applies to the whole model.
+- `property <fieldName> <principal> [<permission>, ...]` — scopes a grant to
+  one field.
+
+The permission vocabulary is: `read`, `project`, `subscribe`, `write`,
+`transfer`, `manage_access`, `derive`, `redact`. Projection fields inherit
+source restrictions through lineage; a projection may narrow access but must
+not silently broaden it or lower classification.
+
 Generated artifacts must preserve ownership, classification, lineage, and
 point-of-record metadata where the target supports extensions. Otherwise the
 compiler must emit companion metadata or an explicit loss diagnostic.
@@ -864,6 +1061,10 @@ compiler must emit companion metadata or an explicit loss diagnostic.
 
 This file is the detailed syntax and language-semantics reference. The
 [architecture](architecture.md) remains authoritative for product concepts and
-published-contract guarantees. If an example here conflicts with the grammar
-or validator, the implementation and its tests identify a documentation defect;
-they do not silently redefine the product model.
+published-contract guarantees. The authoritative grammar is
+[`modelable.lark`](grammar.md) — published in generated form in
+[grammar.md](grammar.md). If an example in this file conflicts with the
+grammar or validator, the implementation and its tests identify a
+documentation defect; they do not silently redefine the product model. Every
+`mdl` example in this file is parsed by a CI test (docs-as-tests), so drift
+between prose and grammar is caught automatically.
