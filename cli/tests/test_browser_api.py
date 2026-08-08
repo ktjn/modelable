@@ -552,6 +552,29 @@ def test_workspace_open_rejects_stale_revision_without_replacing_state() -> None
     assert current["result"]["items"][0]["label"] == "customer_id"
 
 
+def test_workspace_open_is_idempotent_at_current_revision() -> None:
+    first = dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    second = dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    assert second["ok"] is True
+    assert second["result"]["workspace_revision"] == 7
+    assert second["result"]["diagnostics"] == first["result"]["diagnostics"]
+    assert second["result"]["source_hashes"] == first["result"]["source_hashes"]
+
+
+def test_workspace_open_rejects_same_revision_with_changed_sources() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+
+    changed_sources = [{"uri": URI, "text": SOURCE_TEXT + "\n", "version": 2}]
+    stale = dispatch(
+        "workspace.open",
+        {"workspaceRevision": 7, "sources": changed_sources},
+    )
+
+    assert stale["error"]["code"] == "STALE_WORKSPACE"
+
+
 @pytest.mark.parametrize(
     "method,payload",
     [
