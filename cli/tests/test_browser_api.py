@@ -563,6 +563,20 @@ def test_workspace_open_is_idempotent_at_current_revision() -> None:
     assert second["result"]["source_hashes"] == first["result"]["source_hashes"]
 
 
+def test_workspace_open_idempotent_after_format_bumps_revision() -> None:
+    dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
+    formatted_sources = [{"uri": URI, "text": VALID, "version": 2}]
+    dispatch("workspace.open", {"workspaceRevision": 8, "sources": formatted_sources})
+
+    validate = dispatch(
+        "workspace.open",
+        {"workspaceRevision": 8, "sources": formatted_sources},
+    )
+
+    assert validate["ok"] is True
+    assert validate["result"]["workspace_revision"] == 8
+
+
 def test_workspace_open_rejects_same_revision_with_changed_sources() -> None:
     dispatch("workspace.open", {"workspaceRevision": 7, "sources": SOURCES})
 
