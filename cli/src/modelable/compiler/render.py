@@ -128,26 +128,50 @@ def render_signature_projection_version(
 
 def _render_domain(domain: DomainDef) -> list[str]:
     lines = [f"domain {domain.name} {{"]
+    has_body = False
     if domain.owner:
         lines.append(f'  owner: "{domain.owner}"')
+        has_body = True
     if domain.contact:
         lines.append(f'  contact: "{domain.contact}"')
+        has_body = True
     if domain.description:
         lines.append(f'  description: "{domain.description}"')
+        has_body = True
     for semantic_decl in domain.semantic_types:
         lines.extend(_indent(_render_semantic_type(semantic_decl), 2))
-    for model_name in sorted(domain.models):
-        for mv in domain.models[model_name]:
-            lines.extend(_indent(_render_model(model_name, mv), 2))
-    for projection_name in sorted(domain.projections):
-        for pv in domain.projections[projection_name]:
-            if not pv.auto_generated:
-                lines.extend(_indent(_render_projection(projection_name, pv), 2))
-    for index_decl in domain.index_decls:
-        lines.extend(_indent(_render_index(index_decl), 2))
-    for decl in domain.auto_projections:
-        lines.extend(_indent(_render_auto_projection(decl), 2))
+        has_body = True
+    if domain.models:
+        if has_body:
+            lines.append("")
+        for model_name in sorted(domain.models):
+            for mv in domain.models[model_name]:
+                lines.extend(_indent(_render_model(model_name, mv), 2))
+        has_body = True
+    visible_projections = [
+        (name, pv) for name, pvs in domain.projections.items() for pv in pvs if not pv.auto_generated
+    ]
+    if visible_projections:
+        if has_body:
+            lines.append("")
+        for projection_name, pv in visible_projections:
+            lines.extend(_indent(_render_projection(projection_name, pv), 2))
+        has_body = True
+    if domain.index_decls:
+        if has_body:
+            lines.append("")
+        for index_decl in domain.index_decls:
+            lines.extend(_indent(_render_index(index_decl), 2))
+        has_body = True
+    if domain.auto_projections:
+        if has_body:
+            lines.append("")
+        for decl in domain.auto_projections:
+            lines.extend(_indent(_render_auto_projection(decl), 2))
+        has_body = True
     if domain.generate_targets:
+        if has_body:
+            lines.append("")
         lines.extend(_indent(_render_generate_block(domain.generate_targets), 2))
     lines.append("}")
     return lines
