@@ -10,7 +10,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PINNED_ACTION_REF = re.compile(r"^(?:v\d+(?:\.\d+){0,2}|release/v\d+)$")
 
 
-def _workflow(workflow_name: str) -> dict[str, Any]:
+def _workflow(workflow_name: str) -> Any:
     workflow = REPOSITORY_ROOT / ".github" / "workflows" / workflow_name
     return yaml.safe_load(workflow.read_text(encoding="utf-8"))
 
@@ -282,6 +282,66 @@ def test_validation_workflow_publishes_cli_coverage_report() -> None:
         and step.get("with", {}).get("path") == "cli/coverage.xml"
         for step in cli_steps
     )
+
+
+def test_release_prep_workflow_uses_current_actions() -> None:
+    assert _workflow_action_names("release-prep.yml") == {
+        "actions/checkout",
+        "astral-sh/setup-uv",
+    }
+    _assert_workflow_actions_are_pinned("release-prep.yml")
+
+
+def test_release_prep_is_manual_dispatch_with_version_input() -> None:
+    workflow = _workflow("release-prep.yml")
+    assert workflow[True]["workflow_dispatch"]["inputs"]["version"]["required"] is True
+    assert workflow["permissions"]["contents"] == "write"
+    assert workflow["permissions"]["pull-requests"] == "write"
+
+    steps = workflow["jobs"]["prepare"]["steps"]
+    assert any(
+        step.get("uses") == "astral-sh/setup-uv@v9.0.0"
+        and step.get("with", {}).get("cache-dependency-glob") == "cli/uv.lock"
+        for step in steps
+    )
+    assert any(
+        step.get("uses") == "actions/checkout@v7.0.1" and step.get("with", {}).get("ref") == "main" for step in steps
+    )
+
+
+def test_release_prep_drives_scripts_and_release_notes() -> None:
+    workflow = _workflow("release-prep.yml")
+    steps = workflow["jobs"]["prepare"]["steps"]
+    commands = "\n".join(step["run"] for step in steps if "run" in step)
+
+    assert ".github/scripts/prepare_release.py" in commands
+    assert "--pyproject cli/pyproject.toml" in commands
+    assert "--package-json vscode/package.json" in commands
+    assert "--package-lock vscode/package-lock.json" in commands
+    assert "--changelog CHANGELOG.md" in commands
+    assert "uv lock" in commands
+    assert "gh pr create" in commands
+    assert '--title "Release' in commands
+    assert "git push -u origin" in commands
+
+    assert any(
+        step.get("if") == "github.event.inputs.auto_merge == 'true'" and "gh pr merge --auto" in (step.get("run") or "")
+        for step in steps
+    )
+
+
+def test_release_tag_workflow_tags_merged_release_prs() -> None:
+    workflow = _workflow("release-tag.yml")
+    assert workflow[True]["pull_request"]["types"] == ["closed"]
+    assert workflow["jobs"]["tag"]["if"] == "${{ github.event.pull_request.merged == true }}"
+    assert workflow["permissions"]["contents"] == "write"
+
+    steps = workflow["jobs"]["tag"]["steps"]
+    commands = "\n".join(step["run"] for step in steps if "run" in step)
+    assert "s/^Release " in commands
+    assert "git tag -a" in commands
+    assert "git push origin" in commands
+    _assert_workflow_actions_are_pinned("release-tag.yml")
 
 
 def test_codeql_workflow_has_required_permissions() -> None:

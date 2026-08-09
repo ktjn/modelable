@@ -8,6 +8,13 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added a one-click manual release workflow (`Prepare release` GitHub Actions
+  dispatch) that bumps the CLI/extension versions, moves the `Unreleased`
+  changelog entries into a dated section, regenerates the CLI lockfile, and
+  opens a `Release <version>` PR; a companion workflow tags the release once
+  that PR merges, so the normal publish pipeline runs without hand-editing
+  version files or the changelog.
+
 ### Changed
 
 - Bumped the pinned `searchable-*` dependencies to their current releases:
