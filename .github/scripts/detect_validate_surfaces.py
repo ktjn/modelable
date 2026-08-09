@@ -28,6 +28,7 @@ _BROWSER_PACKAGE_FILES = {
     "emitters/base.py",
     "emitters/diagnostics.py",
     "emitters/json_schema.py",
+    "emitters/naming.py",
     "emitters/shapes.py",
     "emitters/csharp.py",
     "emitters/go.py",

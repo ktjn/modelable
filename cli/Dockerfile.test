@@ -4,6 +4,7 @@ WORKDIR /workspace
 
 COPY cli/pyproject.toml cli/uv.lock cli/README.md cli/LICENSE cli/
 COPY cli/hatch_build.py cli/
+COPY cli/browser cli/browser/
 COPY cli/src cli/src/
 COPY cli/tests cli/tests/
 COPY cli/mypy-baseline.txt cli/
