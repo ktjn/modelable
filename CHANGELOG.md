@@ -10,6 +10,13 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Bumped the pinned `searchable-*` dependencies to their current releases:
+  `searchable-analysis` to `0.2.3`, `searchable-binary` to `0.1.1` (new),
+  `searchable-client` to `0.4.2`, and `searchable-indexer` to `0.2.3`. The
+  CLI/LSP (`cli/uv.lock`) and the Playground browser wheel
+  (`cli/browser/browser-lock.json`) were both updated, keeping the two
+  lockfiles in sync.
+
 ### Fixed
 
 ## [1.4.0] - 2026-08-08

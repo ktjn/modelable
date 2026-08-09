@@ -38,8 +38,9 @@ EXPECTED_DEPENDENCIES = [
     "pydantic==2.12.5",
     "pyyaml==6.0.3",
     "referencing==0.37.0",
-    "searchable-analysis==0.1.0",
-    "searchable-client==0.2.0",
+    "searchable-analysis==0.2.3",
+    "searchable-binary==0.1.1",
+    "searchable-client==0.4.2",
 ]
 
 
