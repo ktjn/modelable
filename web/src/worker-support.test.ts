@@ -15,9 +15,11 @@ const larkUrl =
 const modelableUrl =
   'https://example.test/modelable/playground/python/modelable_browser-1.2.1-py3-none-any.whl';
 const searchableAnalysisUrl =
-  'https://example.test/modelable/playground/python/searchable_analysis-0.1.0-py3-none-any.whl';
+  'https://example.test/modelable/playground/python/searchable_analysis-0.2.3-py3-none-any.whl';
+const searchableBinaryUrl =
+  'https://example.test/modelable/playground/python/searchable_binary-0.1.1-py3-none-any.whl';
 const searchableClientUrl =
-  'https://example.test/modelable/playground/python/searchable_client-0.2.0-py3-none-any.whl';
+  'https://example.test/modelable/playground/python/searchable_client-0.4.2-py3-none-any.whl';
 const pyodideHttpUrl =
   'https://example.test/modelable/playground/python/pyodide_http-0.2.2-py3-none-any.whl';
 
@@ -63,6 +65,7 @@ describe('validateRuntimeManifest', () => {
             larkUrl,
             modelableUrl,
             searchableAnalysisUrl,
+            searchableBinaryUrl,
             searchableClientUrl,
             pyodideHttpUrl,
           ],
@@ -73,6 +76,7 @@ describe('validateRuntimeManifest', () => {
       larkUrl,
       modelableUrl,
       searchableAnalysisUrl,
+      searchableBinaryUrl,
       searchableClientUrl,
       pyodideHttpUrl,
     ]);

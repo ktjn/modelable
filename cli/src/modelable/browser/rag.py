@@ -6,8 +6,8 @@ from typing import Any, Literal, Protocol
 from urllib.parse import ParseResult, urljoin, urlparse, urlunparse
 from urllib.request import urlopen
 
-from searchable_client import SearchClient  # type: ignore[import-untyped]
-from searchable_client.search import SearchOptions  # type: ignore[import-untyped]
+from searchable_client import SearchClient
+from searchable_client.search import SearchOptions
 
 from modelable.rag.retriever import RetrievedChunk
 

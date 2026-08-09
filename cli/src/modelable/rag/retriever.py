@@ -1,11 +1,11 @@
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from searchable_client import SearchClient  # type: ignore[import-untyped]
-from searchable_client.search import SearchOptions  # type: ignore[import-untyped]
+from searchable_client import SearchClient
+from searchable_client.search import SearchOptions
 
 SearchMode = Literal["lexical", "vector", "hybrid"]
 
@@ -41,14 +41,10 @@ class DocumentationRetriever:
             self._client = client
             return
 
-        search_client_kwargs: dict[str, object] = {}
-        if embed_query is not None:
-            search_client_kwargs["embed_query"] = (
-                {"embed": embed_query, "provider": embedding_provider}
-                if embedding_provider is not None
-                else embed_query
-            )
-        self._client = SearchClient(str(index_url), **search_client_kwargs)
+        embed_query_argument: Callable[[str], list[float]] | Mapping[str, Any] | None = embed_query
+        if embed_query is not None and embedding_provider is not None:
+            embed_query_argument = {"embed": embed_query, "provider": embedding_provider}
+        self._client = SearchClient(str(index_url), embed_query=embed_query_argument)
 
     def search(self, query: str, *, limit: int = 8, mode: SearchMode = "lexical") -> list[RetrievedChunk]:
         normalized_query = re.sub(r"[^\w\s-]", " ", query, flags=re.UNICODE)
