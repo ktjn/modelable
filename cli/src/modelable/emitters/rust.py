@@ -8,6 +8,8 @@ from pathlib import Path
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import missing_metadata, type_loss
+from modelable.emitters.naming import pascalize_titlecase as _pascalize
+from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.shapes import TypeShape
 from modelable.parser.ir import (
     ArrayType,
@@ -166,24 +168,6 @@ def _adapter_bound_sources(mdl: MdlFile, adapter_type: str) -> set[str]:
 
 def _artifact_id(domain: str, name: str, version: int) -> str:
     return f"{domain}.{name}.v{version}"
-
-
-def _pascalize(value: str) -> str:
-    parts = [part for part in re.split(r"[^A-Za-z0-9]+", value) if part]
-
-    def _title(part: str) -> str:
-        if part.isupper():
-            return part[:1] + part[1:].lower()
-        return part[:1].upper() + part[1:]
-
-    return "".join(_title(part) for part in parts) or "Generated"
-
-
-def _snake_case(value: str) -> str:
-    text = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
-    text = re.sub(r"[^A-Za-z0-9]+", "_", text)
-    text = text.strip("_").lower()
-    return text or "generated"
 
 
 def _stable_type_name(domain: str, name: str, version: int) -> str:

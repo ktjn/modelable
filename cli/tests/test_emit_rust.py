@@ -1425,15 +1425,6 @@ domain telecom {
     assert "    3gpp," not in art.content
 
 
-def test_pascalize_titlecases_all_uppercase_tokens():
-    from modelable.emitters.rust import _pascalize
-
-    assert _pascalize("INTERNAL") == "Internal"
-    assert _pascalize("SERVER_CLIENT") == "ServerClient"
-    assert _pascalize("AlreadyPascalCase") == "AlreadyPascalCase"
-    assert _pascalize("camelCase") == "CamelCase"
-
-
 def test_emit_rust_screaming_snake_case_enum_value_becomes_pascal_case(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """

@@ -6,6 +6,7 @@ from pathlib import Path
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss
+from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.shapes import TypeShape
 from modelable.parser.ir import DirectMapping, DomainDef, ModelVersion, ProjectionVersion
 from modelable.registry.resolver import resolve_model_ref
@@ -31,11 +32,6 @@ def _artifact_id(domain: str, name: str, version: int) -> str:
 def _package_name(domain: str) -> str:
     parts = [part.lower() for part in re.split(r"[^A-Za-z0-9]+", domain) if part]
     return ".".join(parts) or "modelable"
-
-
-def _pascalize(value: str) -> str:
-    parts = [part for part in re.split(r"[^A-Za-z0-9]+", value) if part]
-    return "".join(part[:1].upper() + part[1:] for part in parts) or "Generated"
 
 
 def _type_name(name: str, version: int) -> str:
