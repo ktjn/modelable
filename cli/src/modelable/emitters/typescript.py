@@ -6,6 +6,7 @@ from pathlib import Path
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import missing_metadata, type_loss
+from modelable.emitters.naming import pascalize_plain as pascalize
 from modelable.parser.ir import (
     ArrayType,
     ComputedMapping,
@@ -46,13 +47,8 @@ def _artifact_id(domain: str, name: str, version: int) -> str:
     return f"{domain}.{name}.v{version}"
 
 
-def _pascalize(value: str) -> str:
-    parts = [part for part in re.split(r"[^A-Za-z0-9]+", value) if part]
-    return "".join(part[:1].upper() + part[1:] for part in parts)
-
-
 def _stable_interface_name(domain: str, name: str, version: int) -> str:
-    return f"{_pascalize(domain)}{_pascalize(name)}V{version}"
+    return f"{pascalize(domain, fallback='')}{pascalize(name, fallback='')}V{version}"
 
 
 def _iface_to_artifact_id(iface_name: str) -> str:

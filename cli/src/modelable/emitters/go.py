@@ -6,6 +6,8 @@ from pathlib import Path
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss
+from modelable.emitters.naming import pascalize_plain as _pascalize
+from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.shapes import TypeShape
 from modelable.parser.ir import DirectMapping, DomainDef, ModelVersion, ProjectionVersion
 from modelable.registry.resolver import resolve_model_ref
@@ -26,18 +28,6 @@ def emit_go(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
 
 def _artifact_id(domain: str, name: str, version: int) -> str:
     return f"{domain}.{name}.v{version}"
-
-
-def _pascalize(value: str) -> str:
-    parts = [part for part in re.split(r"[^A-Za-z0-9]+", value) if part]
-    return "".join(part[:1].upper() + part[1:] for part in parts) or "Generated"
-
-
-def _snake_case(value: str) -> str:
-    text = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
-    text = re.sub(r"[^A-Za-z0-9]+", "_", text)
-    text = text.strip("_").lower()
-    return text or "generated"
 
 
 def _stable_type_name(domain: str, name: str, version: int) -> str:

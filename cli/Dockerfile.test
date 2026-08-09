@@ -1,0 +1,23 @@
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+
+WORKDIR /workspace
+
+COPY cli/pyproject.toml cli/uv.lock cli/README.md cli/LICENSE cli/
+COPY cli/hatch_build.py cli/
+COPY cli/browser cli/browser/
+COPY cli/src cli/src/
+COPY cli/tests cli/tests/
+COPY cli/mypy-baseline.txt cli/
+COPY cli/coverage-baseline.txt cli/
+COPY cli/scripts cli/scripts/
+COPY bin bin/
+COPY samples samples/
+COPY docs docs/
+COPY CHANGELOG.md LICENSE README.md ./
+COPY .github/scripts .github/scripts/
+
+WORKDIR /workspace/cli
+
+RUN uv sync --extra dev --frozen
+
+CMD ["uv", "run", "pytest", "-q", "--tb=short"]

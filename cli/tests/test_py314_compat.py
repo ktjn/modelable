@@ -9,13 +9,9 @@ to accept both names so pydantic model definitions succeed without modification.
 
 from __future__ import annotations
 
-import sys
 import typing
 
-import pytest
 
-
-@pytest.mark.skipif(sys.version_info < (3, 14), reason="Python 3.14+ only")
 def test_shim_is_installed_before_pydantic_models():
     assert typing._eval_type.__name__ == "_compat_eval_type", (
         "_pydantic_py314_compat shim must be applied before any pydantic model imports; "
@@ -23,13 +19,11 @@ def test_shim_is_installed_before_pydantic_models():
     )
 
 
-@pytest.mark.skipif(sys.version_info < (3, 14), reason="Python 3.14+ only")
 def test_shim_accepts_prefer_fwd_module_kwarg():
     result = typing._eval_type(str | None, {}, {}, (), prefer_fwd_module=None)
     assert result is not None
 
 
-@pytest.mark.skipif(sys.version_info < (3, 14), reason="Python 3.14+ only")
 def test_shim_translates_prefer_fwd_module_to_parent_fwdref():
     result = typing._eval_type(int | None, {}, {}, (), prefer_fwd_module=True)
     assert result is not None
