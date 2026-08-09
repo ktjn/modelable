@@ -23,8 +23,17 @@ releases could contain breaking changes when called out explicitly.
   CLI/LSP (`cli/uv.lock`) and the Playground browser wheel
   (`cli/browser/browser-lock.json`) were both updated, keeping the two
   lockfiles in sync.
+- The language reference now documents that a projection `pick(...)`/`omit(...)`
+  clause may be combined with additional body fields, and its `omit(...)`
+  example no longer redeclares retained source fields.
 
 ### Fixed
+
+- `@classification("level")` annotation selectors (in `pick(...)`, `omit(...)`,
+  and `auto projections ... exclude [...]`) now match only fields carrying the
+  exact requested classification level instead of any classification annotation,
+  so e.g. `omit(@classification("secret"))` no longer drops fields classified
+  `internal`/`confidential`/`restricted`/`open`.
 
 ## [1.4.0] - 2026-08-08
 

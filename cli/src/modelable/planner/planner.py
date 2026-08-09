@@ -124,11 +124,13 @@ def _has_annotation(field: FieldDef, annotation_type: type) -> bool:
 
 
 def annotation_matches(field: FieldDef | ProjectionField, candidate: Annotation) -> bool:
-    """True when `field` carries an annotation of the same kind as `candidate`.
+    """True when `field`'s annotation matches `candidate`.
 
     Shared by auto-projection `exclude [@pii]`-style filters and Slice H1's
     `pick`/`omit` annotation selectors -- one annotation-filter matcher, not
-    two independently-maintained ones.
+    two independently-maintained ones. `@pii` and `@server` match by kind;
+    `@classification` matches by exact level so selectors such as
+    `@classification("secret")` never match a differently-classified field.
     """
     for ann in field.annotations:
         if type(ann) is not type(candidate):
@@ -138,7 +140,7 @@ def annotation_matches(field: FieldDef | ProjectionField, candidate: Annotation)
         if isinstance(ann, AnnServer) and isinstance(candidate, AnnServer):
             return True
         if isinstance(ann, AnnClassification) and isinstance(candidate, AnnClassification):
-            return True
+            return ann.level == candidate.level
     return False
 
 
