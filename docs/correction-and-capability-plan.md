@@ -1444,7 +1444,7 @@ per-field lineage guarantee (`docs/language-reference.md:180`).
 ### Status
 
 Full design accepted:
-[Projection Pick/Omit Clauses — Design](superpowers/specs/2026-08-03-projection-pick-omit-design.md).
+[Projection Pick/Omit Clauses — Design](superpowers/specs/archived/2026-08-03-projection-pick-omit-design.md).
 
 ### Scope (summary — see design for full detail)
 

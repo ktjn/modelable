@@ -1,6 +1,6 @@
 """Tests for projection `pick(...)`/`omit(...)` clauses (Slice H1).
 
-Design: docs/superpowers/specs/2026-08-03-projection-pick-omit-design.md
+Design: docs/superpowers/specs/archived/2026-08-03-projection-pick-omit-design.md
 """
 
 from __future__ import annotations
@@ -174,6 +174,102 @@ def test_annotation_filter_omit():
     )
     names = {f.name for f in fields}
     assert names == {"customerId", "legalName"}
+
+
+def test_classification_pick_matches_only_the_requested_level():
+    fields = _expanded_fields(
+        """
+        domain billing {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            @classification("internal") internalNote?: string
+            @classification("confidential") billingDetail: string
+            @classification("secret") ssn: string
+          }
+          projection BillingCustomer @ 1
+            from billing.Customer @ 1 as c
+            pick(@classification("secret"))
+          { }
+        }
+        """
+    )
+    names = {f.name for f in fields}
+    assert names == {"ssn"}
+    fields_by_name = {f.name: f for f in fields}
+    assert all(a.level == "secret" for f in fields for a in fields_by_name[f.name].annotations)
+
+
+def test_classification_omit_matches_only_the_requested_level():
+    fields = _expanded_fields(
+        """
+        domain billing {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            @classification("internal") internalNote?: string
+            @classification("confidential") billingDetail: string
+            @classification("secret") ssn: string
+            legalName: string
+          }
+          projection BillingCustomer @ 1
+            from billing.Customer @ 1 as c
+            omit(@classification("secret"))
+          { }
+        }
+        """
+    )
+    names = {f.name for f in fields}
+    assert names == {"customerId", "internalNote", "billingDetail", "legalName"}
+
+
+def test_classification_unmatched_annotation_selector_reports_error(tmp_path: Path):
+    _write(
+        tmp_path / "test.mdl",
+        """
+        domain billing {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            @classification("internal") internalNote?: string
+          }
+          projection BillingCustomer @ 1
+            from billing.Customer @ 1 as c
+            pick(@classification("secret"))
+          { }
+        }
+        """,
+    )
+    workspace = load_workspace(tmp_path)
+    messages = [d.message for d in workspace.errors]
+    assert any("@classification" in m and "matched no field" in m for m in messages)
+
+
+def test_classification_exclude_is_level_sensitive_in_auto_projection(tmp_path: Path):
+    _write(
+        tmp_path / "test.mdl",
+        """
+        domain billing {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key customerId: uuid
+            @classification("internal") internalNote?: string
+            @classification("confidential") billingDetail: string
+            @classification("secret") ssn: string
+            legalName: string
+          }
+          auto projections Customer @ 1 {
+            reply exclude [@classification("secret")]
+          }
+        }
+        """,
+    )
+    workspace = load_workspace(tmp_path)
+    assert workspace.errors == []
+    reply = workspace.mdl.domains[0].projections["CustomerReply"][0]
+    names = {f.name for f in reply.fields}
+    assert "ssn" not in names
+    assert names == {"customerId", "internalNote", "billingDetail", "legalName"}
 
 
 def test_combined_field_name_and_annotation_selectors():

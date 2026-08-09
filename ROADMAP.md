@@ -388,7 +388,7 @@ grammar that never reinterprets existing text:
   without hand-writing a `<-` line per field. Expands to the same explicit
   IR a hand-written projection produces before compatibility/lineage
   analysis runs, so no downstream subsystem needs special-casing. Full
-  design: [Projection Pick/Omit Clauses](docs/superpowers/specs/2026-08-03-projection-pick-omit-design.md);
+  design: [Projection Pick/Omit Clauses](docs/superpowers/specs/archived/2026-08-03-projection-pick-omit-design.md);
   outcome recorded in
   [the correction and capability plan](docs/correction-and-capability-plan.md#slice-h1--projection-pickomit-clauses).
 
