@@ -31,6 +31,14 @@ by CI or `npm test` — note in your handoff that
 run (`npm run test:e2e:manual` from `web/`); it needs real WebGPU hardware,
 so run it yourself if you have that, otherwise flag it for the user.
 
+## Changelog updates
+
+Every user-facing change must add a `CHANGELOG.md` entry under the current
+`## [Unreleased]` section (use its existing `### Added` / `### Changed` /
+`### Fixed` sub-headings) in the same PR as the change. Internal-only changes
+(formatting, test-only churn, no-user-impact doc edits) may omit it. Keeping the
+changelog current avoids retrofitting entries during a release.
+
 ## Closing issues
 
 When a commit or PR fixes a GitHub issue, include a `Closes #N` line in the commit message or PR body. GitHub will auto-close the issue when the PR is merged.

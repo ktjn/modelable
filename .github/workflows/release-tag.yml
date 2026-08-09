@@ -1,0 +1,61 @@
+name: Tag release
+
+# Pushes the annotated version tag for a merged release PR created by
+# `.github/workflows/release-prep.yml`. Pushing `v<version>` triggers
+# `.github/workflows/release.yml`, which re-verifies the artifacts and
+# publishes to PyPI / the marketplace.
+#
+# Fires only when a PR titled `Release X.Y.Z` is merged (closed with
+# `merged == true`), so unrelated merges on main are never tagged.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Tag release
+    if: ${{ github.event.pull_request.merged == true }}
+    runs-on: ubuntu-latest
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Derive version from pull request title
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          TITLE="${{ github.event.pull_request.title }}"
+          if ! VERSION=$(echo "$TITLE" | sed -n 's/^Release \([0-9]*\.[0-9]*\.[0-9]*\)$/\1/p'); then
+            :
+          fi
+          if [ -z "${VERSION:-}" ]; then
+            echo "title '$TITLE' is not a 'Release X.Y.Z' PR; skipping"
+            exit 0
+          fi
+          if git tag --list "v${VERSION}" | grep -q .; then
+            echo "tag v${VERSION} already exists; skipping"
+            exit 0
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Push annotated version tag
+        if: steps.version.outputs.version != ''
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git tag -a "v${VERSION}" -m "Release ${VERSION}"
+          git push origin "v${VERSION}"

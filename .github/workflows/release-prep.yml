@@ -1,0 +1,132 @@
+name: Prepare release
+
+# One-click manual release preparation. Given a version, this workflow:
+#
+#   1. bumps cli/pyproject.toml, vscode/package.json and
+#      vscode/package-lock.json,
+#   2. moves `## [Unreleased]` changelog entries into a dated release section,
+#   3. regenerates cli/uv.lock for the new version,
+#   4. opens (and, if requested, auto-merges) a `Release <version>` PR.
+#
+# Pushing the version tag still runs `.github/workflows/release.yml`, which
+# re-verifies and publishes to PyPI / the marketplace. Tagging is performed by
+# `.github/workflows/release-tag.yml` once the release PR merges, so a
+# maintainer only has to click Run workflow and review/approve the PR.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New version (X.Y.Z) matching the changelog-bump intent"
+        required: true
+        type: string
+      auto_merge:
+        description: "Open the release PR with auto-merge enabled"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    name: Prepare release PR
+    runs-on: ubuntu-latest
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate and normalize version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          case "$VERSION" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "error: version must be X.Y.Z, got '$VERSION'" >&2; exit 1 ;;
+          esac
+          if git tag --list "v${VERSION}" | grep -q .; then
+            echo "error: tag v${VERSION} already exists" >&2
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: cli/uv.lock
+
+      - name: Install Python
+        working-directory: cli
+        run: uv python install 3.14
+
+      - name: Create release branch
+        id: branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH="release-${{ steps.version.outputs.version }}"
+          git checkout -b "$BRANCH"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Bump versions and changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/scripts/prepare_release.py "${{ steps.version.outputs.version }}" \
+            --pyproject cli/pyproject.toml \
+            --package-json vscode/package.json \
+            --package-lock vscode/package-lock.json \
+            --changelog CHANGELOG.md
+
+      - name: Regenerate CLI lockfile
+        working-directory: cli
+        run: uv lock
+
+      - name: Show intended diff
+        shell: bash
+        run: git --no-pager diff --stat && git --no-pager diff -- CHANGELOG.md
+
+      - name: Commit release bump
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md cli/pyproject.toml cli/uv.lock vscode/package.json vscode/package-lock.json
+          git commit -m "Release ${{ steps.version.outputs.version }}"
+          git push -u origin "${{ steps.branch.outputs.branch }}"
+
+      - name: Open release pull request
+        id: pr
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+        run: |
+          set -euo pipefail
+          URL=$(gh pr create \
+            --title "Release ${VERSION}" \
+            --body "Version bump and changelog freeze for ${VERSION}."
+          )
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Enable auto-merge when requested
+        if: github.event.inputs.auto_merge == 'true'
+        shell: bash
+        env:
+          PR: ${{ steps.pr.outputs.url }}
+        run: |
+          set -euo pipefail
+          gh pr merge --auto --squash "$PR"

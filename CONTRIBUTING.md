@@ -69,11 +69,19 @@ following gates:
 4. **Compatibility**: Maintain backward compatibility within major versions.
    Breaking changes to the `.mdl` language, IR, or CLI behavior require an
    explicit design decision and a major version bump for the tools.
-5. **Testing**: Add or update tests for any change. Prefer tests that assert
-   user-visible behavior, generated artifacts, workflow policy, or public
-   contracts instead of private implementation shape. If your change affects the
-   IDL or CLI behavior, you must add compatibility tests to verify that
-   existing models and workflows remain functional.
+ 5. **Testing**: Add or update tests for any change. Prefer tests that assert
+    user-visible behavior, generated artifacts, workflow policy, or public
+    contracts instead of private implementation shape. If your change affects the
+    IDL or CLI behavior, you must add compatibility tests to verify that
+    existing models and workflows remain functional.
+ 6. **Changelog**: Add a user-facing `CHANGELOG.md` entry under `## [Unreleased]`
+    for any change that affects users (new features, changed behavior, fixed
+    bugs, dependency bumps, or removed capability). Use the sub-headings
+    already present in the `Unreleased` section; internal-only or purely
+    mechanical changes (formatting, test-only churn, docs-only fixes with no
+    user impact) may omit it, but when in doubt add the entry. This keeps the
+    changelog current so a release never requires retrofitting entries at tag
+    time.
 
 ## Pull requests
 

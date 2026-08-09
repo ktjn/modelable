@@ -458,6 +458,40 @@ Releases are built from version tags. The tag, Python package, VS Code extension
 changelog, wheel, sdist, VSIX, checksums, and release manifest must agree on the
 version.
 
+There are two ways to prepare a release: the automated one-click flow (preferred,
+below) or the manual command sequence (further down). Both converge on the same
+things — a focused release PR that bumps the version and freezes the changelog,
+then pushing the `v<version>` tag, which triggers the publish workflow.
+
+### Automated one-click release
+
+`.github/workflows/release-prep.yml` and `.github/workflows/release-tag.yml`
+automate the mechanical part of a release. From the GitHub Actions UI, run the
+**Prepare release** workflow manually with a `version` input (e.g. `1.5.0`);
+
+1. Visit **Actions → Prepare release → Run workflow**, set the `version`
+   (e.g. `1.5.0`) and, if desired, enable `auto_merge`.
+2. The workflow bumps `cli/pyproject.toml`, `vscode/package.json`, and the two
+   top-level `version` fields of `vscode/package-lock.json`, moves the
+   `## [Unreleased]` changelog entries into a dated `## [<version>] - <date>`
+   section (leaving a fresh empty `Unreleased` section), and regenerates
+   `cli/uv.lock`. It then opens a `Release <version>` PR.
+3. Review the PR diff (especially `CHANGELOG.md` and the English of the entries)
+   and merge it. If `auto_merge` was enabled, the PR merges itself once CI is
+   green.
+4. Once the release PR merges, `release-tag.yml` detects the merge, derives the
+   version from the `Release <version>` title, and pushes the annotated
+   `v<version>` tag. That tag triggers `.github/workflows/release.yml`, which
+   re-verifies and publishes (see the tag behavior below).
+
+Because the bump is scripted, the version input must be a clean `X.Y.Z` that is
+not already tagged, and it should match the changelog's substance (minor = new
+backward-compatible feature/flag, patch = fixes only — see
+[§9](#9-1x-compatibility-policy)). Always inspect the generated PR: the script
+is mechanical and does not judge the changelog content.
+
+### Manual command sequence
+
 1. Move user-facing changelog entries from `Unreleased` into a dated release.
 2. Set the same version in `cli/pyproject.toml` and `vscode/package.json`.
 3. Run the complete local gates in this document and `CONTRIBUTING.md`.
@@ -468,12 +502,14 @@ version.
 8. Install the published wheel in a clean environment and run
    `modelable --version` plus strict sample validation.
 
+The concrete commands for the manual path are given [below](#concrete-command-sequence).
+
 PyPI publishing uses trusted publishing through the protected `pypi`
 environment. Do not add long-lived package-index credentials. Do not blindly
 rerun a failed publication; inspect the first failure and publish a new version
 if an immutable artifact already reached the index.
 
-### Concrete command sequence
+### Concrete command sequence (manual path)
 
 Determine the version bump from the changelog-worthy commits since the last
 tag (`git log v<last>..HEAD --oneline`): a new backward-compatible feature or
@@ -511,7 +547,7 @@ docs/archival change on `main` can silently break the release pipeline
 between releases. Fix any such break in its own PR before the version-bump
 PR, so the release commit stays focused on the version bump.
 
-After the release PR merges:
+After the release PR merges (manual path only — the automated flow tags for you):
 
 ```text
 git checkout main && git pull --ff-only
