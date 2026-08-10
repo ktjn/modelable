@@ -1601,12 +1601,14 @@ describe('App', () => {
         screen.getByPlaceholderText('e.g. Add a creditScore field to Customer'),
       ).toBeTruthy();
     });
-    expect(
-      screen.getByRole('button', { name: 'Explain workspace' }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Suggest projection' }),
-    ).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Explain workspace' }),
+      ).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Suggest projection' }),
+      ).toBeTruthy();
+    });
   });
 
   test('free-form chat uses the shared conversation engine', async () => {
