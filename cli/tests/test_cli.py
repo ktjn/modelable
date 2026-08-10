@@ -1163,3 +1163,105 @@ domain customer {
 
     assert result.exit_code == 1
     assert "ERROR" in result.output
+
+
+_PACKAGE_CLI_MDL = """
+domain dom_b {
+  owner: "team-b"
+  entity Other @ 1 (additive) {
+    @key id: uuid
+  }
+}
+
+domain dom_a {
+  owner: "team-a"
+  entity Thing @ 1 (additive) {
+    @key id: uuid
+  }
+}
+
+workspace "ws" {
+  package "pkg-a" {
+    include: ["dom_a"]
+  }
+  package "pkg-b" {
+    include: ["dom_b"]
+  }
+}
+"""
+
+
+def test_compile_package_flag_filters_output(tmp_path):
+    mdl = tmp_path / "model.mdl"
+    mdl.write_text(_PACKAGE_CLI_MDL, encoding="utf-8")
+    out = tmp_path / "dist"
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            cli,
+            ["compile", str(mdl), "--target", "rust", "--out", str(out), "--package", "pkg-a"],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert (out / "pkg-a" / "Cargo.toml").exists()
+    assert not (out / "pkg-b").exists()
+
+
+def test_compile_without_package_flag_emits_all_packages(tmp_path):
+    mdl = tmp_path / "model.mdl"
+    mdl.write_text(_PACKAGE_CLI_MDL, encoding="utf-8")
+    out = tmp_path / "dist"
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            cli,
+            ["compile", str(mdl), "--target", "rust", "--out", str(out)],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert (out / "pkg-a" / "Cargo.toml").exists()
+    assert (out / "pkg-b" / "Cargo.toml").exists()
+
+
+def test_compile_package_flag_errors_on_missing_package(tmp_path):
+    mdl = tmp_path / "model.mdl"
+    mdl.write_text(_PACKAGE_CLI_MDL, encoding="utf-8")
+    out = tmp_path / "dist"
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            cli,
+            ["compile", str(mdl), "--target", "rust", "--out", str(out), "--package", "no-such-package"],
+        )
+
+    assert result.exit_code != 0
+    assert "no-such-package" in result.output
+
+
+def test_compile_package_flag_errors_when_no_packages_configured(tmp_path):
+    mdl = tmp_path / "customer.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    out = tmp_path / "dist"
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            cli,
+            ["compile", str(mdl), "--target", "rust", "--out", str(out), "--package", "anything"],
+        )
+
+    assert result.exit_code != 0
+    assert "anything" in result.output

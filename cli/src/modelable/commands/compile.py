@@ -72,6 +72,13 @@ def register_compile_commands(cli_group: click.Group) -> None:
     is_flag=True,
     help="For protobuf and grpc targets, compile generated .proto files into descriptor .pb artifacts.",
 )
+@click.option(
+    "--package",
+    "package",
+    type=str,
+    default=None,
+    help="Restrict output to the named package (from workspace package {} blocks). Omit to emit every package.",
+)
 def compile(
     source: Path,
     target: str,
@@ -81,6 +88,7 @@ def compile(
     allow_orphaned_registry_ids: bool,
     domains: tuple[str, ...],
     descriptor_set: bool,
+    package: str | None,
 ) -> None:
     """Compile Modelable definitions and write the local registry index."""
     try:
@@ -94,6 +102,7 @@ def compile(
                 allow_orphaned_registry_ids=allow_orphaned_registry_ids,
                 domains=domains,
                 descriptor_set=descriptor_set,
+                package=package,
             )
         )
     except CompilationDiagnosticsError as error:
