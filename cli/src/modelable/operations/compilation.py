@@ -109,6 +109,7 @@ class CompilationRequest:
     allow_orphaned_registry_ids: bool = False
     domains: tuple[str, ...] = ()
     descriptor_set: bool = False
+    package: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1216,6 +1217,7 @@ def _run_compilation(
         )
 
     emit_workspace = _scope_workspace(workspace, request)
+    _validate_package_request(workspace, request)
 
     existing_registry_ids = read_lock_file(request.registry_ids_path)
     try:
@@ -1265,6 +1267,8 @@ def _run_compilation(
         registry_ids,
         descriptor_set=request.descriptor_set,
     )
+    if request.package is not None:
+        artifacts = [a for a in artifacts if _artifact_belongs_to_package(a, output, request.package)]
     for artifact in artifacts:
         _write_artifact(artifact)
         path = Path(artifact.path)
@@ -1288,6 +1292,30 @@ def _run_compilation(
         ),
         artifacts=tuple(artifacts),
     )
+
+
+def _validate_package_request(workspace: Workspace, request: CompilationRequest) -> None:
+    if request.package is None:
+        return
+    if request.target != "rust":
+        raise CompilationError(
+            f"--package is only supported for --target rust (got '{request.target}'); "
+            "other targets don't yet emit a package-scoped output layout."
+        )
+    known_packages = {
+        pkg.name for pkg in (workspace.mdl.workspace.packages if workspace.mdl.workspace is not None else [])
+    }
+    if request.package not in known_packages:
+        available = ", ".join(sorted(known_packages)) if known_packages else "(no package {} blocks configured)"
+        raise CompilationError(f"Unknown --package value '{request.package}'. Available packages: {available}")
+
+
+def _artifact_belongs_to_package(artifact: EmittedArtifact, output: Path, package: str) -> bool:
+    try:
+        relative = Path(artifact.path).relative_to(output)
+    except ValueError:
+        return False
+    return relative.parts[:1] == (package,)
 
 
 def _scope_workspace(workspace: Workspace, request: CompilationRequest) -> Workspace:

@@ -237,9 +237,15 @@ workspace_item: workspace_name_attr
               | peers_block
               | generate_block
               | ai_block
+              | package_block
 workspace_name_attr: "name" ":" ESCAPED_STRING
 workspace_description_attr: "description" ":" ESCAPED_STRING
 registry_block: "registry" "{" ignored_block_item* "}"
+package_block: "package" ESCAPED_STRING "{" package_item* "}"
+package_item: package_include_attr
+            | package_description_attr
+package_include_attr: "include" ":" "[" [ESCAPED_STRING ("," ESCAPED_STRING)*] "]"
+package_description_attr: "description" ":" ESCAPED_STRING
 peers_block: "peers" ":" "[" PEERS_CONTENT "]"
 ai_block: "ai" "{" ai_item* "}"
 ai_item: ai_provider | ai_model | ai_repair_attempts
@@ -392,6 +398,10 @@ Alphabetical listing of every named rule and its production.
 | `on_option` | `"on" "[" IDENT ("," IDENT)* "]"` |
 | `optional_marker` | `"?"` |
 | `owner_attr` | `"owner" ":" ESCAPED_STRING` |
+| `package_block` | `"package" ESCAPED_STRING "{" package_item* "}"` |
+| `package_description_attr` | `"description" ":" ESCAPED_STRING` |
+| `package_include_attr` | `"include" ":" "[" [ESCAPED_STRING ("," ESCAPED_STRING)*] "]"` |
+| `package_item` | `package_include_attr \| package_description_attr` |
 | `peers_block` | `"peers" ":" "[" PEERS_CONTENT "]"` |
 | `permission` | `"read" -> p_read \| "project" -> p_project \| "subscribe" -> p_subscribe \| "write" -> p_write \| "transfer" -> p_transfer \| "manage_access" -> p_manage_access \| "derive" -> p_derive \| "redact" -> p_redact` |
 | `permission_list` | `"[" permission ("," permission)* "]"` |
@@ -444,7 +454,7 @@ Alphabetical listing of every named rule and its production.
 | `wire_value` | `ESCAPED_STRING        -> wire_string \| wire_map` |
 | `workspace_decl` | `"workspace" workspace_label? "{" workspace_item* "}"` |
 | `workspace_description_attr` | `"description" ":" ESCAPED_STRING` |
-| `workspace_item` | `workspace_name_attr \| workspace_description_attr \| registry_block \| peers_block \| generate_block \| ai_block` |
+| `workspace_item` | `workspace_name_attr \| workspace_description_attr \| registry_block \| peers_block \| generate_block \| ai_block \| package_block` |
 | `workspace_label` | `IDENT \| ESCAPED_STRING` |
 | `workspace_name_attr` | `"name" ":" ESCAPED_STRING` |
 

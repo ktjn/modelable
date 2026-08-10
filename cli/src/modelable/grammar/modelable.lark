@@ -220,9 +220,15 @@ workspace_item: workspace_name_attr
               | peers_block
               | generate_block
               | ai_block
+              | package_block
 workspace_name_attr: "name" ":" ESCAPED_STRING
 workspace_description_attr: "description" ":" ESCAPED_STRING
 registry_block: "registry" "{" ignored_block_item* "}"
+package_block: "package" ESCAPED_STRING "{" package_item* "}"
+package_item: package_include_attr
+            | package_description_attr
+package_include_attr: "include" ":" "[" [ESCAPED_STRING ("," ESCAPED_STRING)*] "]"
+package_description_attr: "description" ":" ESCAPED_STRING
 peers_block: "peers" ":" "[" PEERS_CONTENT "]"
 ai_block: "ai" "{" ai_item* "}"
 ai_item: ai_provider | ai_model | ai_repair_attempts

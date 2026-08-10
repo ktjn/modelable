@@ -520,12 +520,19 @@ class DomainDef(BaseModel):
     index_decls: list[IndexDecl] = Field(default_factory=list)
 
 
+class PackageConfig(BaseModel):
+    name: str
+    include: list[str] = Field(default_factory=list)
+    description: str | None = None
+
+
 class WorkspaceDef(BaseModel):
     label: str | None = None
     name: str | None = None
     description: str | None = None
     generate_targets: list[GenerateTarget] = Field(default_factory=list)
     ai: AiConfig | None = None
+    packages: list[PackageConfig] = Field(default_factory=list)
 
 
 class MdlFile(BaseModel):

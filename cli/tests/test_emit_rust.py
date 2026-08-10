@@ -1793,3 +1793,222 @@ domain consumer {
 
     consumer_artifact = next(a for a in artifacts if "uses_shared" in str(a.path).lower())
     assert "SharedId" in consumer_artifact.content
+
+
+_MULTI_PACKAGE_MDL = """
+domain dom_b {
+  owner: "team-b"
+  semantic Money: decimal(10, 2)
+
+  entity Other @ 1 (additive) {
+    @key id: uuid
+  }
+}
+
+domain dom_a {
+  owner: "team-a"
+  entity Thing @ 1 (additive) {
+    @key id: uuid
+    price: dom_b.Money
+  }
+}
+
+workspace "ws" {
+  package "pkg-a" {
+    include: ["dom_a"]
+  }
+  package "pkg-b" {
+    include: ["dom_b"]
+  }
+}
+"""
+
+
+def _load_multi_package_workspace(tmp_path, text=_MULTI_PACKAGE_MDL):
+    (tmp_path / "model.mdl").write_text(text, encoding="utf-8")
+    return load_workspace(tmp_path)
+
+
+def _relpath(artifact, tmp_path):
+    return artifact.path.relative_to(tmp_path).as_posix()
+
+
+def test_multi_package_output_layout(tmp_path):
+    workspace = _load_multi_package_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    thing_art = next(a for a in artifacts if a.ref == "dom_a.Thing@1")
+    assert _relpath(thing_art, tmp_path) == "out/pkg-a/src/dom_a/dom_athing_v1.rs"
+
+    other_art = next(a for a in artifacts if a.ref == "dom_b.Other@1")
+    assert _relpath(other_art, tmp_path) == "out/pkg-b/src/dom_b/dom_bother_v1.rs"
+
+
+def test_multi_package_generates_cargo_toml(tmp_path):
+    workspace = _load_multi_package_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    cargo_a = next(a for a in artifacts if _relpath(a, tmp_path) == "out/pkg-a/Cargo.toml")
+    assert 'name = "pkg-a"' in cargo_a.content
+    assert 'pkg-b = { path = "../pkg-b" }' in cargo_a.content
+
+    cargo_b = next(a for a in artifacts if _relpath(a, tmp_path) == "out/pkg-b/Cargo.toml")
+    assert 'name = "pkg-b"' in cargo_b.content
+    assert "path = " not in cargo_b.content.split("[dependencies]")[1] or "pkg_a" not in cargo_b.content
+
+
+def test_multi_package_generates_lib_rs(tmp_path):
+    workspace = _load_multi_package_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    lib_a = next(a for a in artifacts if _relpath(a, tmp_path) == "out/pkg-a/src/lib.rs")
+    assert "pub mod dom_a;" in lib_a.content
+
+    lib_b = next(a for a in artifacts if _relpath(a, tmp_path) == "out/pkg-b/src/lib.rs")
+    assert "pub mod dom_b;" in lib_b.content
+
+
+def test_multi_package_generates_domain_mod_rs(tmp_path):
+    workspace = _load_multi_package_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    mod_a = next(a for a in artifacts if _relpath(a, tmp_path) == "out/pkg-a/src/dom_a/mod.rs")
+    assert "pub mod dom_athing_v1;" in mod_a.content
+
+
+def test_cross_package_imports_use_other_crate_path(tmp_path):
+    workspace = _load_multi_package_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    thing_art = next(a for a in artifacts if a.ref == "dom_a.Thing@1")
+    assert "use pkg_b::dom_b::money::Money;" in thing_art.content
+    assert "use super::money::Money;" not in thing_art.content
+
+
+def test_same_package_cross_domain_imports_use_crate_path(tmp_path):
+    text = """
+domain dom_b {
+  owner: "team-b"
+  semantic Money: decimal(10, 2)
+}
+
+domain dom_a {
+  owner: "team-a"
+  entity Thing @ 1 (additive) {
+    @key id: uuid
+    price: dom_b.Money
+  }
+}
+
+workspace "ws" {
+  package "pkg-a" {
+    include: ["dom_a", "dom_b"]
+  }
+}
+"""
+    workspace = _load_multi_package_workspace(tmp_path, text)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    thing_art = next(a for a in artifacts if a.ref == "dom_a.Thing@1")
+    assert "use crate::dom_b::money::Money;" in thing_art.content
+
+
+def test_no_package_blocks_keeps_single_crate_layout(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    model_art = next(a for a in artifacts if a.ref == "customer.Customer@1")
+    assert model_art.path.as_posix().endswith("customer/customer_customer_v1.rs")
+    assert not any(a.path.name == "Cargo.toml" for a in artifacts)
+    assert not any(a.path.name == "lib.rs" for a in artifacts)
+
+
+def test_multi_package_cargo_toml_dependency_key_matches_hyphenated_package_name(tmp_path):
+    workspace = _load_multi_package_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    cargo_a = next(a for a in artifacts if _relpath(a, tmp_path) == "out/pkg-a/Cargo.toml")
+    # The dependency table KEY is the package name cargo resolves against
+    # `../pkg-b`'s own `name = "pkg-b"` -- an underscored key would look for a
+    # package literally named "pkg_b" and fail to build.
+    assert 'pkg-b = { path = "../pkg-b" }' in cargo_a.content
+    assert "pkg_b = " not in cargo_a.content
+
+
+def test_cross_domain_projection_from_impl_generated_in_package_mode(tmp_path):
+    text = """
+domain dom_b {
+  owner: "team-b"
+  entity Other @ 1 (additive) {
+    @key id: uuid
+    label: string
+  }
+}
+
+domain dom_a {
+  owner: "team-a"
+
+  projection OtherView @ 1
+    from dom_b.Other @ 1 as o
+  {
+    id <- o.id
+    label <- o.label
+  }
+}
+
+workspace "ws" {
+  package "pkg-a" {
+    include: ["dom_a"]
+  }
+  package "pkg-b" {
+    include: ["dom_b"]
+  }
+}
+"""
+    workspace = _load_multi_package_workspace(tmp_path, text)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    view_art = next(a for a in artifacts if a.ref == "dom_a.OtherView@1")
+    assert "use pkg_b::dom_b::dom_bother_v1::DomBOtherV1;" in view_art.content
+    assert "impl From<DomBOtherV1> for" in view_art.content
+
+
+def test_semantic_underlying_named_type_cross_package_import(tmp_path):
+    # A bare (unqualified) semantic-type reference in another domain's
+    # underlying type: resolve_semantic_type_ref falls back to a
+    # workspace-wide search since "Base" isn't declared locally in dom_a.
+    text = """
+domain dom_b {
+  owner: "team-b"
+  semantic Base: u32
+}
+
+domain dom_a {
+  owner: "team-a"
+  semantic Wrapped: Base
+}
+
+workspace "ws" {
+  package "pkg-a" {
+    include: ["dom_a"]
+  }
+  package "pkg-b" {
+    include: ["dom_b"]
+  }
+}
+"""
+    workspace = _load_multi_package_workspace(tmp_path, text)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    wrapped_art = next(a for a in artifacts if a.ref == "dom_a.Wrapped")
+    assert "use pkg_b::dom_b::base::Base;" in wrapped_art.content
