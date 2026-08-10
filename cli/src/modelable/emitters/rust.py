@@ -316,7 +316,10 @@ def _emit_cargo_toml(
     if needs_clickhouse:
         lines.append('clickhouse = "0.13"')
     for dep in deps:
-        lines.append(f'{_crate_ident(dep)} = {{ path = "../{dep}" }}')
+        # Cargo dependency table keys can contain hyphens directly; the key IS
+        # the package name unless a `package = "..."` override is given, and
+        # cargo maps it to the underscored `use` identifier automatically.
+        lines.append(f'{dep} = {{ path = "../{dep}" }}')
 
     text = "\n".join(lines) + "\n"
     artifact_id = f"{pkg.name}.Cargo.toml"
@@ -415,16 +418,18 @@ def _import_prefix(
     return f"{_crate_ident(target_pkg)}::{domain_mod}"
 
 
-def _domain_for_named_type(name: str, mdl: MdlFile) -> str | None:
-    """Which domain a bare model-name match for `name` resolves to.
-
-    Mirrors the model-match branch of _resolve_named_type_map: the first
-    domain (in workspace order) declaring a model with this exact name wins.
-    """
+def _domain_for_named_type(name: str, current_domain: str | None, mdl: MdlFile) -> str | None:
+    """Which domain `name` resolves to: a same-named model in any domain wins
+    first (matching _resolve_named_type_map's model-match branch), then a
+    semantic type declaration (matching its semantic-match branch)."""
     for domain in mdl.domains:
         if name in domain.models:
             return domain.name
-    return None
+    try:
+        resolved_domain, _decl = resolve_semantic_type_ref(mdl, current_domain or "", name)
+    except AmbiguousSemanticTypeError, LookupError:
+        return None
+    return resolved_domain
 
 
 def _resolve_named_type_map(
@@ -501,7 +506,7 @@ def _rust_type_for_semantic_underlying(
         module = _snake_case(underlying.name)
         prefix = "super"
         if mdl is not None:
-            target_domain = _domain_for_named_type(underlying.name, mdl)
+            target_domain = _domain_for_named_type(underlying.name, current_domain, mdl)
             if target_domain is not None:
                 prefix = _import_prefix(target_domain, current_domain, current_pkg, package_for_domain)
         return underlying.name, ["Debug", "Clone", "PartialEq"], f"use {prefix}::{module}::{underlying.name};"
@@ -809,7 +814,14 @@ def _emit_projection(
     lines.extend(_render_nested_definitions(nested_definitions))
     lines.extend(
         _emit_from_impl(
-            type_name, domain.name, version, mdl, storage_gated=storage_gated, clickhouse_row=clickhouse_row
+            type_name,
+            domain.name,
+            version,
+            mdl,
+            storage_gated=storage_gated,
+            clickhouse_row=clickhouse_row,
+            current_pkg=current_pkg,
+            package_for_domain=package_for_domain,
         )
     )
 
@@ -871,12 +883,18 @@ def _emit_from_impl(
     *,
     storage_gated: bool = False,
     clickhouse_row: bool = False,
+    current_pkg: str | None = None,
+    package_for_domain: dict[str, str] | None = None,
 ) -> list[str]:
     """Emit impl From<SourceModel> for Projection.
 
-    Only generated for single-source projections (no joins) where the source model
-    is in the same domain as the projection. The caller is responsible for placing
-    both modules under a common parent so that super:: paths resolve.
+    Only generated for single-source projections (no joins). In single-crate
+    mode (package_for_domain is None) this is still restricted to a source
+    model in the same domain as the projection, preserving prior behavior
+    exactly. In package mode, a cross-domain source is allowed as long as both
+    domains are assigned to a package, and the `use` path is computed via
+    _import_prefix so it resolves whether the source lives in the same
+    package (crate::domain::) or a different one (other_pkg::domain::).
     """
     if version.joins:
         return []
@@ -886,8 +904,11 @@ def _emit_from_impl(
     except ValueError:
         return []
 
-    # Only generate when source and projection share the same domain (super:: path is valid)
-    if src_domain_str != proj_domain:
+    if package_for_domain is None:
+        # Only generate when source and projection share the same domain (super:: path is valid)
+        if src_domain_str != proj_domain:
+            return []
+    elif src_domain_str not in package_for_domain or proj_domain not in package_for_domain:
         return []
 
     try:
@@ -898,11 +919,12 @@ def _emit_from_impl(
     src_version = resolved.version
     src_type_name = _stable_type_name(src_domain_str, src_model_name, src_version.version)
     src_module = _snake_case(src_type_name)
+    prefix = _import_prefix(src_domain_str, proj_domain, current_pkg, package_for_domain)
 
     lines: list[str] = [""]
     if storage_gated:
         lines.append('#[cfg(feature = "storage")]')
-    lines.append(f"use super::{src_module}::{src_type_name};")
+    lines.append(f"use {prefix}::{src_module}::{src_type_name};")
     if clickhouse_row:
         for proj_field in version.fields:
             if not isinstance(proj_field.mapping, DirectMapping):
@@ -912,7 +934,7 @@ def _emit_from_impl(
                 enum_type = _nested_type_name(src_type_name, [proj_field.mapping.source_field])
                 if storage_gated:
                     lines.append('#[cfg(feature = "storage")]')
-                lines.append(f"use super::{src_module}::{enum_type};")
+                lines.append(f"use {prefix}::{src_module}::{enum_type};")
     if storage_gated:
         lines.append('#[cfg(feature = "storage")]')
     # Direct-mapped fields always go through `.into()` below, which is a no-op

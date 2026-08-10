@@ -1297,6 +1297,11 @@ def _run_compilation(
 def _validate_package_request(workspace: Workspace, request: CompilationRequest) -> None:
     if request.package is None:
         return
+    if request.target != "rust":
+        raise CompilationError(
+            f"--package is only supported for --target rust (got '{request.target}'); "
+            "other targets don't yet emit a package-scoped output layout."
+        )
     known_packages = {
         pkg.name for pkg in (workspace.mdl.workspace.packages if workspace.mdl.workspace is not None else [])
     }

@@ -1265,3 +1265,19 @@ domain customer {
 
     assert result.exit_code != 0
     assert "anything" in result.output
+
+
+def test_compile_package_flag_rejected_for_non_rust_target(tmp_path):
+    mdl = tmp_path / "model.mdl"
+    mdl.write_text(_PACKAGE_CLI_MDL, encoding="utf-8")
+    out = tmp_path / "dist"
+
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        result = runner.invoke(
+            cli,
+            ["compile", str(mdl), "--target", "markdown", "--out", str(out), "--package", "pkg-a"],
+        )
+
+    assert result.exit_code != 0
+    assert "--target rust" in result.output

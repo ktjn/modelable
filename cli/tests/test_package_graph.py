@@ -218,3 +218,57 @@ workspace "ws" {
     )
     with pytest.raises(ValueError, match="cycle"):
         build_package_graph(mdl)
+
+
+def test_semantic_type_underlying_named_type_creates_cross_package_dependency():
+    mdl = parse_text_to_ir(
+        """
+domain dom_b {
+  owner: "team"
+  semantic Base: u32
+}
+
+domain dom_a {
+  owner: "team"
+  semantic Wrapped: dom_b.Base
+}
+
+workspace "ws" {
+  package "pkg-a" {
+    include: ["dom_a"]
+  }
+  package "pkg-b" {
+    include: ["dom_b"]
+  }
+}
+"""
+    )
+    graph = build_package_graph(mdl)
+    assert graph.edges["pkg-a"] == {"pkg-b"}
+
+
+def test_semantic_type_cycle_detected():
+    mdl = parse_text_to_ir(
+        """
+domain dom_b {
+  owner: "team"
+  semantic Other: dom_a.Thing
+}
+
+domain dom_a {
+  owner: "team"
+  semantic Thing: dom_b.Other
+}
+
+workspace "ws" {
+  package "pkg-a" {
+    include: ["dom_a"]
+  }
+  package "pkg-b" {
+    include: ["dom_b"]
+  }
+}
+"""
+    )
+    with pytest.raises(ValueError, match="cycle"):
+        build_package_graph(mdl)

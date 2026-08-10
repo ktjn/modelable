@@ -1850,7 +1850,7 @@ def test_multi_package_generates_cargo_toml(tmp_path):
 
     cargo_a = next(a for a in artifacts if _relpath(a, tmp_path) == "out/pkg-a/Cargo.toml")
     assert 'name = "pkg-a"' in cargo_a.content
-    assert 'pkg_b = { path = "../pkg-b" }' in cargo_a.content
+    assert 'pkg-b = { path = "../pkg-b" }' in cargo_a.content
 
     cargo_b = next(a for a in artifacts if _relpath(a, tmp_path) == "out/pkg-b/Cargo.toml")
     assert 'name = "pkg-b"' in cargo_b.content
@@ -1932,3 +1932,83 @@ domain customer {
     assert model_art.path.as_posix().endswith("customer/customer_customer_v1.rs")
     assert not any(a.path.name == "Cargo.toml" for a in artifacts)
     assert not any(a.path.name == "lib.rs" for a in artifacts)
+
+
+def test_multi_package_cargo_toml_dependency_key_matches_hyphenated_package_name(tmp_path):
+    workspace = _load_multi_package_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    cargo_a = next(a for a in artifacts if _relpath(a, tmp_path) == "out/pkg-a/Cargo.toml")
+    # The dependency table KEY is the package name cargo resolves against
+    # `../pkg-b`'s own `name = "pkg-b"` -- an underscored key would look for a
+    # package literally named "pkg_b" and fail to build.
+    assert 'pkg-b = { path = "../pkg-b" }' in cargo_a.content
+    assert "pkg_b = " not in cargo_a.content
+
+
+def test_cross_domain_projection_from_impl_generated_in_package_mode(tmp_path):
+    text = """
+domain dom_b {
+  owner: "team-b"
+  entity Other @ 1 (additive) {
+    @key id: uuid
+    label: string
+  }
+}
+
+domain dom_a {
+  owner: "team-a"
+
+  projection OtherView @ 1
+    from dom_b.Other @ 1 as o
+  {
+    id <- o.id
+    label <- o.label
+  }
+}
+
+workspace "ws" {
+  package "pkg-a" {
+    include: ["dom_a"]
+  }
+  package "pkg-b" {
+    include: ["dom_b"]
+  }
+}
+"""
+    workspace = _load_multi_package_workspace(tmp_path, text)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    view_art = next(a for a in artifacts if a.ref == "dom_a.OtherView@1")
+    assert "use pkg_b::dom_b::dom_bother_v1::DomBOtherV1;" in view_art.content
+    assert "impl From<DomBOtherV1> for" in view_art.content
+
+
+def test_semantic_underlying_named_type_cross_package_import(tmp_path):
+    # A bare (unqualified) semantic-type reference in another domain's
+    # underlying type: resolve_semantic_type_ref falls back to a
+    # workspace-wide search since "Base" isn't declared locally in dom_a.
+    text = """
+domain dom_b {
+  owner: "team-b"
+  semantic Base: u32
+}
+
+domain dom_a {
+  owner: "team-a"
+  semantic Wrapped: Base
+}
+
+workspace "ws" {
+  package "pkg-a" {
+    include: ["dom_a"]
+  }
+  package "pkg-b" {
+    include: ["dom_b"]
+  }
+}
+"""
+    workspace = _load_multi_package_workspace(tmp_path, text)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    wrapped_art = next(a for a in artifacts if a.ref == "dom_a.Wrapped")
+    assert "use pkg_b::dom_b::base::Base;" in wrapped_art.content

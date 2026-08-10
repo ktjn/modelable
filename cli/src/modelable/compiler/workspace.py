@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -115,8 +116,12 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
     return Workspace(sources=workspace_sources, mdl=merged, errors=errors, warnings=warnings)
 
 
+_PACKAGE_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
+
+
 def _validate_package_config(merged: MdlFile) -> list[Diagnostic]:
-    """Validate that no domain is assigned to more than one package.
+    """Validate package {} blocks: safe names, no duplicates, and every domain
+    assigned to exactly one package (a full partition, not just "at most one").
 
     Dependency cycle detection happens separately in package_graph.py, since it
     needs inter-package edges computed from NamedType refs, not just includes.
@@ -124,9 +129,47 @@ def _validate_package_config(merged: MdlFile) -> list[Diagnostic]:
     if merged.workspace is None or not merged.workspace.packages:
         return []
     errors: list[Diagnostic] = []
+    known_domains = {domain.name for domain in merged.domains}
+
+    seen_package_names: dict[str, bool] = {}
+    for pkg in merged.workspace.packages:
+        if not _PACKAGE_NAME_RE.fullmatch(pkg.name):
+            errors.append(
+                Diagnostic(
+                    code="SEM",
+                    message=(
+                        f"invalid package name '{pkg.name}': must start with a letter and contain only "
+                        "letters, digits, '-', or '_' (this becomes a directory name under --out)"
+                    ),
+                    severity="error",
+                    path="<workspace>",
+                )
+            )
+        elif pkg.name in seen_package_names:
+            errors.append(
+                Diagnostic(
+                    code="SEM",
+                    message=f"duplicate package name '{pkg.name}'",
+                    severity="error",
+                    path="<workspace>",
+                )
+            )
+        else:
+            seen_package_names[pkg.name] = True
+
     domain_package: dict[str, str] = {}
     for pkg in merged.workspace.packages:
         for domain_name in pkg.include:
+            if domain_name not in known_domains:
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=f"package '{pkg.name}' includes unknown domain '{domain_name}'",
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                continue
             previous_package = domain_package.get(domain_name)
             if previous_package is not None:
                 errors.append(
@@ -142,6 +185,21 @@ def _validate_package_config(merged: MdlFile) -> list[Diagnostic]:
                 )
             else:
                 domain_package[domain_name] = pkg.name
+
+    unassigned = sorted(known_domains - domain_package.keys())
+    if unassigned:
+        errors.append(
+            Diagnostic(
+                code="SEM",
+                message=(
+                    "domain(s) not assigned to any package: "
+                    f"{', '.join(unassigned)} (every domain must belong to exactly one package "
+                    "once any package {} block is declared)"
+                ),
+                severity="error",
+                path="<workspace>",
+            )
+        )
     return errors
 
 

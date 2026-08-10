@@ -50,6 +50,9 @@ def build_package_graph(mdl: MdlFile) -> PackageGraph:
                 for model_field in version.fields:
                     _collect_field_deps(model_field.type, domain, mdl, package_for_domain, current_pkg, into)
 
+        for semantic_decl in domain.semantic_types:
+            _collect_field_deps(semantic_decl.underlying, domain, mdl, package_for_domain, current_pkg, into)
+
         for projection_versions in domain.projections.values():
             for pv in projection_versions:
                 _add_dep_from_model_ref(pv.source.model, package_for_domain, current_pkg, into)

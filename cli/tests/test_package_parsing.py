@@ -125,3 +125,69 @@ def test_package_config_allows_domains_in_distinct_packages(tmp_path):
     source = WorkspaceDocumentSource(path=None, uri="mem://test.mdl", text=text)
     workspace = load_workspace_from_sources([source])
     assert workspace.errors == []
+
+
+def test_package_config_rejects_unassigned_domain(tmp_path):
+    text = _mdl_text(
+        "@key id: uuid",
+        "@key id: uuid",
+        """
+  package "pkg-a" {
+    include: ["dom1"]
+  }
+""",
+    )
+    source = WorkspaceDocumentSource(path=None, uri="mem://test.mdl", text=text)
+    workspace = load_workspace_from_sources([source])
+    assert any("dom2" in error.message and "not assigned to any package" in error.message for error in workspace.errors)
+
+
+def test_package_config_rejects_unknown_domain_in_include(tmp_path):
+    text = _mdl_text(
+        "@key id: uuid",
+        "@key id: uuid",
+        """
+  package "pkg-a" {
+    include: ["dom1", "no-such-domain"]
+  }
+  package "pkg-b" {
+    include: ["dom2"]
+  }
+""",
+    )
+    source = WorkspaceDocumentSource(path=None, uri="mem://test.mdl", text=text)
+    workspace = load_workspace_from_sources([source])
+    assert any("no-such-domain" in error.message and "unknown domain" in error.message for error in workspace.errors)
+
+
+def test_package_config_rejects_duplicate_package_names(tmp_path):
+    text = _mdl_text(
+        "@key id: uuid",
+        "@key id: uuid",
+        """
+  package "pkg-a" {
+    include: ["dom1"]
+  }
+  package "pkg-a" {
+    include: ["dom2"]
+  }
+""",
+    )
+    source = WorkspaceDocumentSource(path=None, uri="mem://test.mdl", text=text)
+    workspace = load_workspace_from_sources([source])
+    assert any("duplicate package name" in error.message for error in workspace.errors)
+
+
+def test_package_config_rejects_path_traversal_in_package_name(tmp_path):
+    text = _mdl_text(
+        "@key id: uuid",
+        "@key id: uuid",
+        """
+  package "../escape" {
+    include: ["dom1", "dom2"]
+  }
+""",
+    )
+    source = WorkspaceDocumentSource(path=None, uri="mem://test.mdl", text=text)
+    workspace = load_workspace_from_sources([source])
+    assert any("invalid package name" in error.message for error in workspace.errors)
