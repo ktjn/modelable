@@ -7,6 +7,15 @@ name: Tag release
 #
 # Fires only when a PR titled `Release X.Y.Z` is merged (closed with
 # `merged == true`), so unrelated merges on main are never tagged.
+#
+# The tag push below must NOT use the default GITHUB_TOKEN: GitHub does not
+# let events triggered by the default token (including a tag push) start
+# other workflow runs, as an anti-recursion safeguard. With GITHUB_TOKEN this
+# job succeeds and the tag appears in the repo, but release.yml's
+# `push: tags: v*` trigger silently never fires and nothing gets published.
+# RELEASE_TAG_TOKEN must be a PAT (fine-grained, `contents: write` on this
+# repo only) or GitHub App installation token added as a repository secret;
+# see docs/maintainers.md section 8 for setup.
 
 on:
   pull_request:
@@ -50,14 +59,32 @@ jobs:
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
+      - name: Require RELEASE_TAG_TOKEN
+        if: steps.version.outputs.version != ''
+        shell: bash
+        env:
+          RELEASE_TAG_TOKEN: ${{ secrets.RELEASE_TAG_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_TAG_TOKEN}" ]; then
+            echo "::error::RELEASE_TAG_TOKEN repository secret is not set." >&2
+            echo "A tag pushed with the default GITHUB_TOKEN cannot trigger release.yml" >&2
+            echo "(GitHub blocks workflow runs cascading from the default token, to" >&2
+            echo "prevent recursive runs). Add a PAT or GitHub App installation token" >&2
+            echo "with 'contents: write' on this repo as the RELEASE_TAG_TOKEN secret" >&2
+            echo "before merging another Release PR. See docs/maintainers.md section 8." >&2
+            exit 1
+          fi
+
       - name: Push annotated version tag
         if: steps.version.outputs.version != ''
         shell: bash
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_TAG_TOKEN: ${{ secrets.RELEASE_TAG_TOKEN }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "v${VERSION}" -m "Release ${VERSION}"
-          git push origin "v${VERSION}"
+          git push "https://x-access-token:${RELEASE_TAG_TOKEN}@github.com/${{ github.repository }}.git" "v${VERSION}"

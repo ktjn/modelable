@@ -344,9 +344,20 @@ def test_release_tag_workflow_tags_merged_release_prs() -> None:
     assert 'git config user.name "github-actions[bot]"' in commands
     assert "git config user.email" in commands
     assert "git tag -a" in commands
-    assert "git push origin" in commands
+    assert "RELEASE_TAG_TOKEN" in commands
     tag_step_index = next(index for index, step in enumerate(steps) if "run" in step and "git tag -a" in step["run"])
     assert 'git config user.name "github-actions[bot]"' in steps[tag_step_index]["run"]
+    # The tag push must use a PAT, not the default GITHUB_TOKEN: pushes made
+    # with the default token don't trigger other workflows (release.yml's
+    # `push: tags: v*`), so a tag pushed with it would never get published.
+    assert "git push origin" not in steps[tag_step_index]["run"]
+    assert "x-access-token:${RELEASE_TAG_TOKEN}@github.com" in steps[tag_step_index]["run"]
+    guard_step_index = next(
+        index
+        for index, step in enumerate(steps)
+        if "run" in step and "RELEASE_TAG_TOKEN repository secret" in step["run"]
+    )
+    assert guard_step_index < tag_step_index
     _assert_workflow_actions_are_pinned("release-tag.yml")
 
 
