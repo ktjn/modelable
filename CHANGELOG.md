@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.5.0] - 2026-08-10
+
+### Added
+
 - Added multi-package code generation for the Rust emitter: a `package {}`
   block inside `workspace {}` maps domains to named output packages, and the
   Rust emitter auto-switches to a multi-crate layout
