@@ -12,6 +12,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+## [1.6.0] - 2026-08-10
+
+### Added
+
+### Changed
+
+### Fixed
+
 - Fixed `modelable compile` emitting Rust semantic types with `uuid(N)` or
   `json` underlying types without the required `// requires:` comment, so the
   multi-package code generator now includes the `uuid`/`serde_json`
