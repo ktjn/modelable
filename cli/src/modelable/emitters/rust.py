@@ -10,6 +10,7 @@ from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import missing_metadata, type_loss
 from modelable.emitters.naming import pascalize_titlecase as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
+from modelable.emitters.package_graph import PackageGraph, build_package_graph
 from modelable.emitters.shapes import TypeShape
 from modelable.parser.ir import (
     ArrayType,
@@ -22,6 +23,7 @@ from modelable.parser.ir import (
     MdlFile,
     ModelVersion,
     NamedType,
+    PackageConfig,
     PrimitiveType,
     ProjectionVersion,
     SemanticTypeDecl,
@@ -115,7 +117,22 @@ def _append_cross_enum_from_impls(
 def emit_rust(
     workspace: Workspace, out_dir: Path, *, registry_ids: dict[str, int] | None = None
 ) -> list[EmittedArtifact]:
-    """Emit Rust source files for every model and projection version."""
+    """Emit Rust source files for every model and projection version.
+
+    When the workspace has no ``package {}`` blocks, this emits the flat
+    single-crate layout unchanged. When packages are configured, each
+    package's domains are emitted under their own ``src/`` tree with a
+    generated Cargo.toml, lib.rs, and per-domain mod.rs.
+    """
+    package_graph = build_package_graph(workspace.mdl)
+    if package_graph.package_for_domain:
+        return _emit_rust_packages(workspace, out_dir, package_graph, registry_ids=registry_ids)
+    return _emit_rust_single_crate(workspace, out_dir, registry_ids=registry_ids)
+
+
+def _emit_rust_single_crate(
+    workspace: Workspace, out_dir: Path, *, registry_ids: dict[str, int] | None = None
+) -> list[EmittedArtifact]:
     postgres_sources = _adapter_bound_sources(workspace.mdl, "postgres")
     clickhouse_sources = _adapter_bound_sources(workspace.mdl, "clickhouse")
     enum_registry: dict[str, dict] = {}
@@ -146,6 +163,176 @@ def emit_rust(
                     )
                 )
     return _append_cross_enum_from_impls(artifacts, enum_registry)
+
+
+def _emit_rust_packages(
+    workspace: Workspace,
+    out_dir: Path,
+    package_graph: PackageGraph,
+    *,
+    registry_ids: dict[str, int] | None = None,
+) -> list[EmittedArtifact]:
+    mdl = workspace.mdl
+    assert mdl.workspace is not None
+    postgres_sources = _adapter_bound_sources(mdl, "postgres")
+    clickhouse_sources = _adapter_bound_sources(mdl, "clickhouse")
+    package_for_domain = package_graph.package_for_domain
+    domains_by_name = {domain.name: domain for domain in mdl.domains}
+
+    enum_registry: dict[str, dict] = {}
+    artifacts: list[EmittedArtifact] = []
+    domain_modules: dict[str, dict[str, list[str]]] = {}  # pkg -> domain -> [module names]
+
+    for pkg in mdl.workspace.packages:
+        pkg_dir = out_dir / pkg.name / "src"
+        for domain_name in pkg.include:
+            domain = domains_by_name.get(domain_name)
+            if domain is None:
+                continue
+            modules: list[str] = []
+            for decl in domain.semantic_types:
+                qualified_name = f"{domain.name}.{decl.name}"
+                allocated_id = (registry_ids or {}).get(qualified_name) if decl.registry else None
+                artifact = _emit_semantic_type(
+                    domain,
+                    decl,
+                    pkg_dir,
+                    allocated_id=allocated_id,
+                    mdl=mdl,
+                    current_pkg=pkg.name,
+                    package_for_domain=package_for_domain,
+                )
+                artifacts.append(artifact)
+                modules.append(artifact.path.stem)
+            for model_name, versions in domain.models.items():
+                for version in versions:
+                    artifact = _emit_model(
+                        domain,
+                        model_name,
+                        version,
+                        pkg_dir,
+                        enum_registry=enum_registry,
+                        mdl=mdl,
+                        current_pkg=pkg.name,
+                        package_for_domain=package_for_domain,
+                    )
+                    artifacts.append(artifact)
+                    modules.append(artifact.path.stem)
+            for projection_name, versions in domain.projections.items():
+                for version in versions:
+                    source = version.source.model
+                    artifact = _emit_projection(
+                        domain,
+                        projection_name,
+                        version,
+                        pkg_dir,
+                        mdl,
+                        sqlx_fromrow=source in postgres_sources,
+                        clickhouse_row=source in clickhouse_sources,
+                        enum_registry=enum_registry,
+                        current_pkg=pkg.name,
+                        package_for_domain=package_for_domain,
+                    )
+                    artifacts.append(artifact)
+                    modules.append(artifact.path.stem)
+            domain_modules.setdefault(pkg.name, {})[domain.name] = sorted(modules)
+
+    artifacts = _append_cross_enum_from_impls(artifacts, enum_registry)
+
+    for pkg in mdl.workspace.packages:
+        pkg_dir = out_dir / pkg.name
+        pkg_domains = domain_modules.get(pkg.name, {})
+        if not pkg_domains:
+            continue
+        for domain_name, modules in pkg_domains.items():
+            artifacts.append(_emit_domain_mod_rs(pkg.name, domain_name, modules, pkg_dir / "src"))
+        artifacts.append(_emit_lib_rs(pkg.name, sorted(pkg_domains), pkg_dir / "src"))
+        deps = sorted(package_graph.edges.get(pkg.name, set()))
+        pkg_artifacts = [a for a in artifacts if a.path.is_relative_to(pkg_dir)]
+        artifacts.append(_emit_cargo_toml(pkg, deps, pkg_artifacts, pkg_dir))
+
+    return artifacts
+
+
+def _emit_domain_mod_rs(pkg_name: str, domain_name: str, modules: list[str], src_dir: Path) -> EmittedArtifact:
+    domain_mod = _domain_mod_name(domain_name)
+    lines = ["// @generated by Modelable"]
+    lines.extend(f"pub mod {module};" for module in modules)
+    text = "\n".join(lines) + "\n"
+    artifact_id = f"{pkg_name}.{domain_name}.mod"
+    return EmittedArtifact(
+        target="rust",
+        ref=f"package:{pkg_name}#{domain_name}",
+        artifact_id=artifact_id,
+        path=src_dir / domain_mod / "mod.rs",
+        content=text,
+        content_hash=compute_content_hash(text),
+        warnings=[],
+    )
+
+
+def _emit_lib_rs(pkg_name: str, domains: list[str], src_dir: Path) -> EmittedArtifact:
+    lines = ["// @generated by Modelable"]
+    lines.extend(f"pub mod {_domain_mod_name(domain)};" for domain in domains)
+    text = "\n".join(lines) + "\n"
+    artifact_id = f"{pkg_name}.lib"
+    return EmittedArtifact(
+        target="rust",
+        ref=f"package:{pkg_name}#lib",
+        artifact_id=artifact_id,
+        path=src_dir / "lib.rs",
+        content=text,
+        content_hash=compute_content_hash(text),
+        warnings=[],
+    )
+
+
+def _emit_cargo_toml(
+    pkg: PackageConfig, deps: list[str], pkg_artifacts: list[EmittedArtifact], pkg_dir: Path
+) -> EmittedArtifact:
+    needs_uuid = any("requires: uuid" in _artifact_text(a) for a in pkg_artifacts)
+    needs_serde_json = any("requires: serde_json" in _artifact_text(a) for a in pkg_artifacts)
+    needs_serde_with = any("requires: serde_with" in _artifact_text(a) for a in pkg_artifacts)
+    needs_sqlx = any("requires: sqlx" in _artifact_text(a) for a in pkg_artifacts)
+    needs_clickhouse = any("requires: clickhouse" in _artifact_text(a) for a in pkg_artifacts)
+
+    lines = [
+        "[package]",
+        f'name = "{pkg.name}"',
+        'version = "0.1.0"',
+        'edition = "2021"',
+        "",
+        "[dependencies]",
+        'serde = { version = "1", features = ["derive"] }',
+    ]
+    if needs_uuid:
+        lines.append('uuid = { version = "1", features = ["v4", "serde"] }')
+    if needs_serde_json:
+        lines.append('serde_json = "1"')
+    if needs_serde_with:
+        lines.append('serde_with = "3"')
+    if needs_sqlx:
+        lines.append('sqlx = "0.8"')
+    if needs_clickhouse:
+        lines.append('clickhouse = "0.13"')
+    for dep in deps:
+        lines.append(f'{_crate_ident(dep)} = {{ path = "../{dep}" }}')
+
+    text = "\n".join(lines) + "\n"
+    artifact_id = f"{pkg.name}.Cargo.toml"
+    return EmittedArtifact(
+        target="rust",
+        ref=f"package:{pkg.name}#manifest",
+        artifact_id=artifact_id,
+        path=pkg_dir / "Cargo.toml",
+        content=text,
+        content_hash=compute_content_hash(text),
+        warnings=[],
+    )
+
+
+def _artifact_text(artifact: EmittedArtifact) -> str:
+    return artifact.content if isinstance(artifact.content, str) else ""
 
 
 def _adapter_bound_sources(mdl: MdlFile, adapter_type: str) -> set[str]:
@@ -195,7 +382,59 @@ def _collect_named_type_refs_from_shape(shape: TypeShape, result: set[str]) -> N
         _collect_named_type_refs_from_shape(shape.value, result)
 
 
-def _resolve_named_type_map(named_refs: set, mdl: MdlFile | None) -> tuple[dict[str, str], list[str]]:
+def _crate_ident(package_name: str) -> str:
+    """Rust `use` paths can't contain hyphens; Cargo maps a hyphenated package
+    name to this identifier automatically."""
+    return package_name.replace("-", "_")
+
+
+def _domain_mod_name(domain: str) -> str:
+    return _snake_case(domain)
+
+
+def _import_prefix(
+    target_domain: str,
+    current_domain: str | None,
+    current_pkg: str | None,
+    package_for_domain: dict[str, str] | None,
+) -> str:
+    """Choose the `use` path prefix for a reference to `target_domain`'s module.
+
+    Single-crate mode (package_for_domain is None) always uses `super::`,
+    preserving existing behavior exactly. In package mode: same domain still
+    uses `super::` (sibling file within the same domain directory); same
+    package but a different domain uses `crate::{domain}::`; a different
+    package uses `{other_pkg}::{domain}::`.
+    """
+    if package_for_domain is None or target_domain == current_domain:
+        return "super"
+    domain_mod = _domain_mod_name(target_domain)
+    target_pkg = package_for_domain.get(target_domain)
+    if target_pkg is None or target_pkg == current_pkg:
+        return f"crate::{domain_mod}"
+    return f"{_crate_ident(target_pkg)}::{domain_mod}"
+
+
+def _domain_for_named_type(name: str, mdl: MdlFile) -> str | None:
+    """Which domain a bare model-name match for `name` resolves to.
+
+    Mirrors the model-match branch of _resolve_named_type_map: the first
+    domain (in workspace order) declaring a model with this exact name wins.
+    """
+    for domain in mdl.domains:
+        if name in domain.models:
+            return domain.name
+    return None
+
+
+def _resolve_named_type_map(
+    named_refs: set,
+    mdl: MdlFile | None,
+    *,
+    current_domain: str | None = None,
+    current_pkg: str | None = None,
+    package_for_domain: dict[str, str] | None = None,
+) -> tuple[dict[str, str], list[str]]:
     """Resolve NamedType references to Rust type names from the workspace.
 
     Returns (name -> rust_type_name, list of use statements).
@@ -213,25 +452,34 @@ def _resolve_named_type_map(named_refs: set, mdl: MdlFile | None) -> tuple[dict[
                     latest = versions[-1]
                     rust_name = _stable_type_name(domain.name, name, latest.version)
                     module = _snake_case(rust_name)
+                    prefix = _import_prefix(domain.name, current_domain, current_pkg, package_for_domain)
                     resolved_map[name] = rust_name
-                    use_statements.append(f"use super::{module}::{rust_name};")
+                    use_statements.append(f"use {prefix}::{module}::{rust_name};")
                     resolved = True
                     break
         if resolved:
             continue
         try:
-            _domain_name, semantic_decl = resolve_semantic_type_ref(mdl, "", name)
+            domain_name, semantic_decl = resolve_semantic_type_ref(mdl, current_domain or "", name)
         except AmbiguousSemanticTypeError:
             raise
         except LookupError:
             continue
         module = _snake_case(semantic_decl.name)
+        prefix = _import_prefix(domain_name, current_domain, current_pkg, package_for_domain)
         resolved_map[name] = semantic_decl.name
-        use_statements.append(f"use super::{module}::{semantic_decl.name};")
+        use_statements.append(f"use {prefix}::{module}::{semantic_decl.name};")
     return resolved_map, use_statements
 
 
-def _rust_type_for_semantic_underlying(underlying: FieldType) -> tuple[str, list[str], str | None]:
+def _rust_type_for_semantic_underlying(
+    underlying: FieldType,
+    *,
+    mdl: MdlFile | None = None,
+    current_domain: str | None = None,
+    current_pkg: str | None = None,
+    package_for_domain: dict[str, str] | None = None,
+) -> tuple[str, list[str], str | None]:
     """Resolve a semantic type's underlying FieldType to (rust_type, derive_traits, use_statement).
 
     derive_traits excludes Copy/Eq/Hash for underlying Rust types that don't
@@ -251,7 +499,12 @@ def _rust_type_for_semantic_underlying(underlying: FieldType) -> tuple[str, list
         return rust_type, ["Debug", "Clone", "Copy", "PartialEq", "Eq", "Hash"], None
     if isinstance(underlying, NamedType):
         module = _snake_case(underlying.name)
-        return underlying.name, ["Debug", "Clone", "PartialEq"], f"use super::{module}::{underlying.name};"
+        prefix = "super"
+        if mdl is not None:
+            target_domain = _domain_for_named_type(underlying.name, mdl)
+            if target_domain is not None:
+                prefix = _import_prefix(target_domain, current_domain, current_pkg, package_for_domain)
+        return underlying.name, ["Debug", "Clone", "PartialEq"], f"use {prefix}::{module}::{underlying.name};"
     # Not reachable once validation has run; keep a safe, non-crashing fallback.
     return "String", ["Debug", "Clone", "PartialEq"], None
 
@@ -305,11 +558,24 @@ def _render_schema_identity_impl(
 
 
 def _emit_semantic_type(
-    domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path, *, allocated_id: int | None = None
+    domain: DomainDef,
+    decl: SemanticTypeDecl,
+    out_dir: Path,
+    *,
+    allocated_id: int | None = None,
+    mdl: MdlFile | None = None,
+    current_pkg: str | None = None,
+    package_for_domain: dict[str, str] | None = None,
 ) -> EmittedArtifact:
     artifact_id = f"{domain.name}.{decl.name}"
     struct_name = decl.name
-    rust_type, base_derives, use_statement = _rust_type_for_semantic_underlying(decl.underlying)
+    rust_type, base_derives, use_statement = _rust_type_for_semantic_underlying(
+        decl.underlying,
+        mdl=mdl,
+        current_domain=domain.name,
+        current_pkg=current_pkg,
+        package_for_domain=package_for_domain,
+    )
     derives = [*base_derives, "serde::Serialize", "serde::Deserialize"]
 
     lines = ["// @generated by Modelable"]
@@ -364,6 +630,8 @@ def _emit_model(
     *,
     enum_registry: dict[str, dict] | None = None,
     mdl: MdlFile | None = None,
+    current_pkg: str | None = None,
+    package_for_domain: dict[str, str] | None = None,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
@@ -374,7 +642,13 @@ def _emit_model(
     named_refs: set[str] = set()
     for field in version.fields:
         _collect_named_type_refs(field.type, named_refs)
-    named_type_map, use_statements = _resolve_named_type_map(named_refs, mdl)
+    named_type_map, use_statements = _resolve_named_type_map(
+        named_refs,
+        mdl,
+        current_domain=domain.name,
+        current_pkg=current_pkg,
+        package_for_domain=package_for_domain,
+    )
 
     field_specs = _field_specs_from_model_fields(
         version.fields,
@@ -419,11 +693,16 @@ def _emit_model(
     lines.extend(_render_nested_definitions(nested_definitions))
 
     text = "\n".join(lines) + "\n"
+    module_path = (
+        Path(_domain_mod_name(domain.name)) / _module_filename(type_name)
+        if package_for_domain is not None
+        else _module_path(domain.name, type_name)
+    )
     return EmittedArtifact(
         target="rust",
         ref=f"{domain.name}.{model_name}@{version.version}",
         artifact_id=artifact_id,
-        path=out_dir / _module_path(domain.name, type_name),
+        path=out_dir / module_path,
         content=text,
         content_hash=compute_content_hash(text),
         warnings=warnings,
@@ -440,6 +719,8 @@ def _emit_projection(
     sqlx_fromrow: bool = False,
     clickhouse_row: bool = False,
     enum_registry: dict[str, dict] | None = None,
+    current_pkg: str | None = None,
+    package_for_domain: dict[str, str] | None = None,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     type_name = _stable_type_name(domain.name, projection_name, version.version)
@@ -453,7 +734,13 @@ def _emit_projection(
     for field_shape in field_shapes.values():
         if field_shape is not None:
             _collect_named_type_refs_from_shape(field_shape, named_refs)
-    named_type_map, use_statements = _resolve_named_type_map(named_refs, mdl)
+    named_type_map, use_statements = _resolve_named_type_map(
+        named_refs,
+        mdl,
+        current_domain=domain.name,
+        current_pkg=current_pkg,
+        package_for_domain=package_for_domain,
+    )
 
     field_specs: list[_FieldSpec] = []
     warnings: list[str] = []
@@ -535,11 +822,16 @@ def _emit_projection(
         }
 
     text = "\n".join(lines) + "\n"
+    module_path = (
+        Path(_domain_mod_name(domain.name)) / _module_filename(type_name)
+        if package_for_domain is not None
+        else _module_path(domain.name, type_name)
+    )
     return EmittedArtifact(
         target="rust",
         ref=f"{domain.name}.{projection_name}@{version.version}",
         artifact_id=artifact_id,
-        path=out_dir / _module_path(domain.name, type_name),
+        path=out_dir / module_path,
         content=text,
         content_hash=compute_content_hash(text),
         warnings=warnings,
