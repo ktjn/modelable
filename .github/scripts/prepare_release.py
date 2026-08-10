@@ -90,11 +90,15 @@ def _rewrite_changelog_text(text: str, version: str, release_date: str) -> str:
         len(body),
     )
     released_body = body[:body_end]
+    remainder = body[body_end:]
 
-    # Keep the file header (everything above the Unreleased heading); the
-    # fresh empty Unreleased section replaces the old one and the released
-    # body becomes the dated section, matching maintainers.md step 1.
+    # Keep the file header (everything above the Unreleased heading) and
+    # everything from the next released section onward (older entries and
+    # the compare-link footer); the fresh empty Unreleased section replaces
+    # the old one and the released body becomes the dated section, matching
+    # maintainers.md step 1.
     prefix = "\n".join(lines[:unreleased_index]).rstrip("\n")
+    suffix = "\n".join(remainder).strip("\n")
 
     fresh_unreleased = "\n".join(
         ["## [Unreleased]", "", "### Added", "", "### Changed", "", "### Fixed"]
@@ -103,8 +107,13 @@ def _rewrite_changelog_text(text: str, version: str, release_date: str) -> str:
 
     if released_body:
         saved = "\n".join(released_body).rstrip("\n")
-        return f"{prefix}\n\n{fresh_unreleased}\n\n{release_heading}\n{saved}\n"
-    return f"{prefix}\n\n{fresh_unreleased}\n"
+        new_section = f"{release_heading}\n{saved}"
+    else:
+        new_section = release_heading
+
+    if suffix:
+        return f"{prefix}\n\n{fresh_unreleased}\n\n{new_section}\n\n{suffix}\n"
+    return f"{prefix}\n\n{fresh_unreleased}\n\n{new_section}\n"
 
 
 def rewrite_changelog(path: Path, version: str, release_date: str) -> None:
