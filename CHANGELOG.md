@@ -12,6 +12,11 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Fixed `modelable compile` emitting Rust semantic types with `uuid(N)` or
+  `json` underlying types without the required `// requires:` comment, so the
+  multi-package code generator now includes the `uuid`/`serde_json`
+  dependencies in the generated package's `Cargo.toml`.
+
 ## [1.5.1] - 2026-08-10
 
 ### Added
