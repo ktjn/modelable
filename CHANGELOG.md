@@ -12,6 +12,16 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Fixed the one-click release workflow (added in 1.5.0) failing to complete
+  a release end-to-end: `prepare_release.py` now also bumps
+  `cli/browser/pyproject.toml` in lockstep with `cli/pyproject.toml` (the
+  browser wheel build previously refused to proceed on a mismatch), the
+  tag-release job configures a git identity before creating the annotated
+  tag, and the tag push now authenticates with a dedicated `RELEASE_TAG_TOKEN`
+  so `release.yml`'s publish trigger actually fires instead of silently
+  never running under the default `GITHUB_TOKEN` (GitHub does not let
+  workflow runs cascade from events triggered by that token).
+
 ## [1.5.0] - 2026-08-10
 
 ### Added
