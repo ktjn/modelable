@@ -590,9 +590,16 @@ function SourcePreview({ source }: { source: string }) {
   const [html, setHtml] = useState('');
 
   useEffect(() => {
-    void import('monaco-editor/esm/vs/editor/editor.api.js').then((monaco) => {
-      void monaco.editor.colorize(source, 'modelable', {}).then(setHtml);
-    });
+    let cancelled = false;
+    void import('monaco-editor/esm/vs/editor/editor.api.js')
+      .then((monaco) => monaco.editor.colorize(source, 'modelable', {}))
+      .then((colored) => {
+        if (!cancelled) setHtml(colored);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [source]);
 
   return (
