@@ -16,6 +16,13 @@ name: Tag release
 # RELEASE_TAG_TOKEN must be a PAT (fine-grained, `contents: write` on this
 # repo only) or GitHub App installation token added as a repository secret;
 # see docs/maintainers.md section 8 for setup.
+#
+# checkout must run with persist-credentials: false: otherwise actions/checkout
+# leaves a GITHUB_TOKEN credential in http.https://github.com/.extraheader for
+# the whole github.com host, which git sends even when the push URL below
+# embeds the PAT — so the push silently authenticates as GITHUB_TOKEN again
+# and the anti-recursion safeguard swallows it (tag appears, release.yml never
+# fires), defeating the very fix this comment block describes above.
 
 on:
   pull_request:
@@ -39,6 +46,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Derive version from pull request title
         id: version
