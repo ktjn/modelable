@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added multi-package code generation for the Rust emitter: a `package {}`
+  block inside `workspace {}` maps domains to named output packages, and the
+  Rust emitter auto-switches to a multi-crate layout
+  (`out/{pkg}/src/{domain}/`, generated `Cargo.toml`, `lib.rs`, per-domain
+  `mod.rs`) with correct cross-package import paths and cycle detection on
+  inter-package dependencies. `modelable compile --package NAME` scopes
+  generation to a single package. Single-crate output is unchanged when no
+  packages are defined.
 - Added a one-click manual release workflow (`Prepare release` GitHub Actions
   dispatch) that bumps the CLI/extension versions, moves the `Unreleased`
   changelog entries into a dated section, regenerates the CLI lockfile, and
