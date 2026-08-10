@@ -43,6 +43,7 @@ from modelable.parser.ir import (
     ModelVersion,
     NamedType,
     ObjectType,
+    PackageConfig,
     PrimitiveType,
     ProjectionField,
     ProjectionVersion,
@@ -946,10 +947,13 @@ class MdlTransformer(Transformer[list[object], Any]):
         description = None
         generate_targets: list[GenerateTarget] = []
         ai = None
+        packages: list[PackageConfig] = []
 
         for item in _items:
             if isinstance(item, str):
                 label = _str(item)
+            elif isinstance(item, PackageConfig):
+                packages.append(item)
             elif isinstance(item, tuple):
                 tag, value = item
                 if tag == "name":
@@ -967,7 +971,31 @@ class MdlTransformer(Transformer[list[object], Any]):
             description=description,
             generate_targets=generate_targets,
             ai=ai,
+            packages=packages,
         )
+
+    def package_block(self, items):
+        name = _str(items[0])
+        include: list[str] = []
+        description = None
+        for item in items[1:]:
+            if not isinstance(item, tuple):
+                continue
+            tag, value = item
+            if tag == "include":
+                include = value
+            elif tag == "description":
+                description = value
+        return PackageConfig(name=name, include=include, description=description)
+
+    def package_item(self, items):
+        return items[0]
+
+    def package_include_attr(self, items):
+        return ("include", [_str(item) for item in items if item is not None])
+
+    def package_description_attr(self, items):
+        return ("description", _str(items[0]))
 
     def workspace_item(self, items):
         return items[0]

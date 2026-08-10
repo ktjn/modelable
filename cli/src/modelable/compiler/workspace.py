@@ -106,12 +106,43 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
         Diagnostic(code="SEM", message=error, severity="error", path="<workspace>") for error in selection_errors
     )
 
+    errors.extend(_validate_package_config(merged))
     errors.extend(_validate_merged_workspace(workspace_sources, merged))
     ref_errors, ref_warnings = _validate_ref_types_in_merged_workspace(workspace_sources, merged)
     errors.extend(ref_errors)
     warnings.extend(ref_warnings)
     errors.extend(_validate_cel(merged))
     return Workspace(sources=workspace_sources, mdl=merged, errors=errors, warnings=warnings)
+
+
+def _validate_package_config(merged: MdlFile) -> list[Diagnostic]:
+    """Validate that no domain is assigned to more than one package.
+
+    Dependency cycle detection happens separately in package_graph.py, since it
+    needs inter-package edges computed from NamedType refs, not just includes.
+    """
+    if merged.workspace is None or not merged.workspace.packages:
+        return []
+    errors: list[Diagnostic] = []
+    domain_package: dict[str, str] = {}
+    for pkg in merged.workspace.packages:
+        for domain_name in pkg.include:
+            previous_package = domain_package.get(domain_name)
+            if previous_package is not None:
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=(
+                            f"domain '{domain_name}' assigned to multiple packages "
+                            f"('{previous_package}' and '{pkg.name}')"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+            else:
+                domain_package[domain_name] = pkg.name
+    return errors
 
 
 def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) -> list[Diagnostic]:

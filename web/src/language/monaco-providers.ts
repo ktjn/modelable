@@ -71,6 +71,8 @@ export function registerModelableProviders(
       'workspace',
       'name',
       'registry',
+      'package',
+      'include',
       'peers',
       'ai',
       'provider',
