@@ -72,6 +72,47 @@ def test_rewrite_changelog_preserves_older_releases_and_footer() -> None:
     assert unreleased_pos < new_release_pos < old_release_pos
 
 
+def test_main_bumps_both_pyprojects_in_lockstep(tmp_path: Path) -> None:
+    script = _load_script()
+
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[project]\nname = "modelable"\nversion = "1.4.0"\n', encoding="utf-8")
+    browser_pyproject = tmp_path / "browser-pyproject.toml"
+    browser_pyproject.write_text('[project]\nname = "modelable-browser"\nversion = "1.4.0"\n', encoding="utf-8")
+    package_json = tmp_path / "package.json"
+    package_json.write_text('{\n  "name": "modelable-vscode",\n  "version": "1.4.0"\n}\n', encoding="utf-8")
+    package_lock = tmp_path / "package-lock.json"
+    package_lock.write_text(
+        '{\n  "name": "modelable-vscode",\n  "version": "1.4.0",\n'
+        '  "packages": {\n    "": {\n      "name": "modelable-vscode",\n      "version": "1.4.0"\n    }\n  }\n}\n',
+        encoding="utf-8",
+    )
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(CHANGELOG, encoding="utf-8")
+
+    exit_code = script.main(
+        [
+            "1.5.0",
+            "--pyproject",
+            str(pyproject),
+            "--browser-pyproject",
+            str(browser_pyproject),
+            "--package-json",
+            str(package_json),
+            "--package-lock",
+            str(package_lock),
+            "--changelog",
+            str(changelog),
+            "--release-date",
+            "2026-08-10",
+        ]
+    )
+
+    assert exit_code == 0
+    assert 'version = "1.5.0"' in pyproject.read_text(encoding="utf-8")
+    assert 'version = "1.5.0"' in browser_pyproject.read_text(encoding="utf-8")
+
+
 def test_rewrite_changelog_with_empty_unreleased_body_still_keeps_history() -> None:
     script = _load_script()
     changelog = """\

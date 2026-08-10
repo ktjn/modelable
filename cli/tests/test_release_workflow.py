@@ -316,10 +316,12 @@ def test_release_prep_drives_scripts_and_release_notes() -> None:
 
     assert ".github/scripts/prepare_release.py" in commands
     assert "--pyproject cli/pyproject.toml" in commands
+    assert "--browser-pyproject cli/browser/pyproject.toml" in commands
     assert "--package-json vscode/package.json" in commands
     assert "--package-lock vscode/package-lock.json" in commands
     assert "--changelog CHANGELOG.md" in commands
     assert "uv lock" in commands
+    assert "git add CHANGELOG.md cli/pyproject.toml cli/browser/pyproject.toml cli/uv.lock" in commands
     assert "gh pr create" in commands
     assert '--title "Release' in commands
     assert "git push -u origin" in commands
