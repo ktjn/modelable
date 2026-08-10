@@ -469,6 +469,17 @@ then pushing the `v<version>` tag, which triggers the publish workflow.
 automate the mechanical part of a release. From the GitHub Actions UI, run the
 **Prepare release** workflow manually with a `version` input (e.g. `1.5.0`);
 
+**One-time setup:** `release-tag.yml` pushes the `v<version>` tag using a
+`RELEASE_TAG_TOKEN` repository secret, not the default `GITHUB_TOKEN`. This is
+required, not optional: GitHub blocks workflow runs from cascading off events
+triggered by the default token (an anti-recursion safeguard), so a tag pushed
+with `GITHUB_TOKEN` would succeed and appear in the repo, but
+`release.yml`'s `push: tags: v*` trigger would silently never fire and
+nothing would publish. Add a fine-grained PAT scoped to `contents: write` on
+this repo only (or a GitHub App installation token) as the `RELEASE_TAG_TOKEN`
+secret under **Settings → Secrets and variables → Actions** before running
+this flow; `release-tag.yml` fails with an explicit error if it's missing.
+
 1. Visit **Actions → Prepare release → Run workflow**, set the `version`
    (e.g. `1.5.0`) and, if desired, enable `auto_merge`.
 2. The workflow bumps `cli/pyproject.toml`, `cli/browser/pyproject.toml`,
