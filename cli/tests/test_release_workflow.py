@@ -341,8 +341,12 @@ def test_release_tag_workflow_tags_merged_release_prs() -> None:
     steps = workflow["jobs"]["tag"]["steps"]
     commands = "\n".join(step["run"] for step in steps if "run" in step)
     assert "s/^Release " in commands
+    assert 'git config user.name "github-actions[bot]"' in commands
+    assert "git config user.email" in commands
     assert "git tag -a" in commands
     assert "git push origin" in commands
+    tag_step_index = next(index for index, step in enumerate(steps) if "run" in step and "git tag -a" in step["run"])
+    assert 'git config user.name "github-actions[bot]"' in steps[tag_step_index]["run"]
     _assert_workflow_actions_are_pinned("release-tag.yml")
 
 
