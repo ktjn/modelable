@@ -12,6 +12,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+## [1.5.1] - 2026-08-10
+
+### Added
+
+### Changed
+
+### Fixed
+
 - Fixed the one-click release workflow (added in 1.5.0) failing to complete
   a release end-to-end: `prepare_release.py` now also bumps
   `cli/browser/pyproject.toml` in lockstep with `cli/pyproject.toml` (the
