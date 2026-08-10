@@ -471,11 +471,12 @@ automate the mechanical part of a release. From the GitHub Actions UI, run the
 
 1. Visit **Actions → Prepare release → Run workflow**, set the `version`
    (e.g. `1.5.0`) and, if desired, enable `auto_merge`.
-2. The workflow bumps `cli/pyproject.toml`, `vscode/package.json`, and the two
-   top-level `version` fields of `vscode/package-lock.json`, moves the
-   `## [Unreleased]` changelog entries into a dated `## [<version>] - <date>`
-   section (leaving a fresh empty `Unreleased` section), and regenerates
-   `cli/uv.lock`. It then opens a `Release <version>` PR.
+2. The workflow bumps `cli/pyproject.toml`, `cli/browser/pyproject.toml`,
+   `vscode/package.json`, and the two top-level `version` fields of
+   `vscode/package-lock.json`, moves the `## [Unreleased]` changelog entries
+   into a dated `## [<version>] - <date>` section (leaving a fresh empty
+   `Unreleased` section), and regenerates `cli/uv.lock`. It then opens a
+   `Release <version>` PR.
 3. Review the PR diff (especially `CHANGELOG.md` and the English of the entries)
    and merge it. If `auto_merge` was enabled, the PR merges itself once CI is
    green.
@@ -493,7 +494,10 @@ is mechanical and does not judge the changelog content.
 ### Manual command sequence
 
 1. Move user-facing changelog entries from `Unreleased` into a dated release.
-2. Set the same version in `cli/pyproject.toml` and `vscode/package.json`.
+2. Set the same version in `cli/pyproject.toml`, `cli/browser/pyproject.toml`,
+   and `vscode/package.json`. `cli/browser/pyproject.toml` must match
+   `cli/pyproject.toml` exactly — `build_browser_wheel.py` refuses to build a
+   browser wheel when the two disagree.
 3. Run the complete local gates in this document and `CONTRIBUTING.md`.
 4. Run the release workflow manually; this validates artifacts without publishing.
 5. Merge the focused release pull request.
@@ -522,7 +526,8 @@ git checkout -b release-<version>
 
 # Edit CHANGELOG.md: rename `## [Unreleased]` content into a new
 # `## [<version>] - <date>` section (keep an empty `## [Unreleased]` above it).
-# Bump the version in cli/pyproject.toml and vscode/package.json to match.
+# Bump the version in cli/pyproject.toml, cli/browser/pyproject.toml, and
+# vscode/package.json to match.
 cd cli && uv lock                       # regenerates cli/uv.lock's modelable entry
 # vscode/package-lock.json needs the same version at its top two "version"
 # fields only (root package + the "" entry) — do not touch dependency
@@ -533,7 +538,7 @@ uv run ruff check .
 uv run python ../.github/scripts/check_mypy_baseline.py --baseline mypy-baseline.txt -- uv run mypy src/modelable --no-error-summary --show-error-codes
 uv run pytest tests/ -q --deselect tests/test_llm_provider_integration.py --deselect tests/test_codegen_docker_smoke.py
 
-cd .. && git add CHANGELOG.md cli/pyproject.toml cli/uv.lock vscode/package.json vscode/package-lock.json
+cd .. && git add CHANGELOG.md cli/pyproject.toml cli/browser/pyproject.toml cli/uv.lock vscode/package.json vscode/package-lock.json
 git commit -m "Release <version>"
 git push -u origin release-<version>
 gh pr create --title "Release <version>" --body "..."

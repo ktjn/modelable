@@ -124,6 +124,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("version", metavar="VERSION", help="new version, e.g. 1.5.0")
     parser.add_argument("--pyproject", required=True)
+    parser.add_argument("--browser-pyproject", required=True)
     parser.add_argument("--package-json", required=True)
     parser.add_argument("--package-lock", required=True)
     parser.add_argument("--changelog", required=True)
@@ -136,17 +137,19 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     pyproject = Path(args.pyproject)
+    browser_pyproject = Path(args.browser_pyproject)
     package_json = Path(args.package_json)
     package_lock = Path(args.package_lock)
     changelog = Path(args.changelog)
 
-    for path in (pyproject, package_json, package_lock, changelog):
+    for path in (pyproject, browser_pyproject, package_json, package_lock, changelog):
         if not path.exists():
             print(f"error: {path} does not exist", file=sys.stderr)
             return 2
 
     try:
         bump_pyproject(pyproject, version)
+        bump_pyproject(browser_pyproject, version)
         bump_package_json(package_json, version)
         bump_package_lock(package_lock, version)
         rewrite_changelog(changelog, version, args.release_date)
