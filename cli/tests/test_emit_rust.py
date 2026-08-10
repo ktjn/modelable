@@ -306,6 +306,40 @@ domain platform {
     assert "Copy" not in art.content
 
 
+def test_semantic_type_requires_uuid_comment(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "test-team"
+  semantic AccountId : uuid(7)
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    sem_art = next(a for a in artifacts if "AccountId" in a.ref)
+    assert "// requires: uuid (https://docs.rs/uuid)" in sem_art.content
+
+
+def test_semantic_type_requires_serde_json_comment(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "test-team"
+  semantic StoreConfig : json
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    sem_art = next(a for a in artifacts if "StoreConfig" in a.ref)
+    assert "// requires: serde_json (https://docs.rs/serde_json)" in sem_art.content
+
+
 def test_emit_rust_field_referencing_semantic_type_uses_newtype(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
