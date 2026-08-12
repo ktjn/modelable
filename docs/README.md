@@ -26,12 +26,12 @@ small; each document has one role.
   workflows, local export targets, and non-committed integration research.
 - [Maintainer and agent guide](maintainers.md): local gates, review policy,
   release process, and automation rules.
-- [Engineering roadmap](engineering-roadmap.md): repository-health and
-  tooling gaps found by code/CI inspection, distinct from product features.
 
-The [roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) is
-directional. A deferred item is not committed until it has an issue and
-accepted design. Project-level policy remains in
+The [roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) covers
+product priorities, compiler correctness/capability slice detail, and
+repository-health/tooling gaps found by code/CI inspection, all in one
+document. It is directional — a deferred item is not committed until it has
+an issue and accepted design. Project-level policy remains in
 [GOVERNANCE.md](https://github.com/ktjn/modelable/blob/main/GOVERNANCE.md),
 [CONTRIBUTING.md](https://github.com/ktjn/modelable/blob/main/CONTRIBUTING.md),
 and [SECURITY.md](https://github.com/ktjn/modelable/blob/main/SECURITY.md).

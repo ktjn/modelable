@@ -1,7 +1,7 @@
 """Guardrail for Slice D0's additive-syntax policy.
 
 Slice D0 decided: old syntax never changes meaning; new semantics require
-new syntax (docs/correction-and-capability-plan.md, Slice D0 Outcome). This
+new syntax (ROADMAP.md, Slice D0 Outcome). This
 file pins the canonical signature and formatted output of a small,
 representative set of already-shipped constructs to fixed expected values.
 A future change that alters what any of these mean -- not just a bug, but

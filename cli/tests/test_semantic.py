@@ -22,7 +22,7 @@ def test_valid_entity_passes():
 
 
 def test_composite_key_is_not_yet_supported():
-    """Conformance record for Slice D5 / B2 (docs/correction-and-capability-plan.md).
+    """Conformance record for Slice D5 / B2 (ROADMAP.md).
 
     docs/architecture.md previously described composite keys (multiple @key
     fields on one entity) as "Supported in MVP", contradicting both

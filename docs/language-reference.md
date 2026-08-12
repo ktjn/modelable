@@ -710,7 +710,7 @@ names: `openapi`, `typescript`, `avro`, `protobuf`,
 these names also have no implemented emitter behind them at all yet
 (`openapi`, `avro`, `asyncapi`, and the `mysql`/`sqlite` SQL dialects — only
 `postgres` and `clickhouse` are implemented). See Slice B3 in
-[Compiler correction and capability plan](correction-and-capability-plan.md#slice-b3-eliminate-silently-ignored-syntax).
+[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-b3--eliminate-silently-ignored-syntax).
 
 `modelable compile --target <name>` is the actual code-generation path, and
 its target names and descriptions are compiler-owned data, not this table —
