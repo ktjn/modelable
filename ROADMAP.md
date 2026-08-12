@@ -5,9 +5,20 @@ domain-owned model contracts. This roadmap orders outcomes rather than assigning
 unconfirmed release numbers. An item becomes committed work only when it has a
 GitHub issue and an accepted design.
 
+This single document now holds everything that used to be split across three
+files: this product roadmap, the compiler correctness/capability slice detail
+(formerly `docs/correction-and-capability-plan.md`), and the repository-health
+findings (formerly `docs/engineering-roadmap.md`). They were merged on
+2026-08-12 because the split was mostly historical — the correction plan's own
+header already said it had been "folded into ROADMAP.md as Priority 3 and part
+of Priority 6," and the engineering roadmap explicitly complemented this one.
+One document, reordered so shipped work is compact and open work is prominent,
+replaces the indirection of jumping between three files to answer "what's
+next."
+
 ## Current baseline
 
-The latest published release is 1.4.0. The stable 1.x surface includes:
+The latest published release is 1.6.0. The stable 1.x surface includes:
 
 - The `.mdl` language, semantic validation, compatibility and lineage reports,
   governance findings, the language server, and the VS Code extension distributed
@@ -22,6 +33,8 @@ The latest published release is 1.4.0. The stable 1.x surface includes:
 - Apicurio JSON Schema publish/pull and Marquez-compatible OpenLineage sync.
 - Public conformance fixtures, hosted documentation, and external-validator
   smoke coverage for supported integration surfaces.
+- Multi-package Rust code generation (`package {}` blocks in `workspace {}`,
+  `modelable compile --package NAME`) and a one-click manual release workflow.
 
 Recent compiler-contract additions are shipped but not yet complete across every
 target:
@@ -41,21 +54,26 @@ and
 [Protobuf/gRPC design](docs/superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md)
 record the decisions behind the recent contract work.
 
-### Known correctness and documentation gaps
+### Documentation status
 
-Two verified gaps affect how much this baseline can be trusted at face value,
-tracked in full in the
-[compiler correction and capability plan](docs/correction-and-capability-plan.md):
+The verified documentation contradictions this roadmap used to track as open
+gaps are now resolved:
 
-- `docs/architecture.md` describes composite keys as supported, but
-  `cli/src/modelable/validation/semantic.py` requires exactly one `@key`
-  field per entity/aggregate, and `docs/language-reference.md` already says
-  composite keys are not representable. Undecided until
-  [Slice D5](docs/correction-and-capability-plan.md#slice-d5--resolve-composite-key-support).
-- The model diff can emit `nullability_changed`, but compatibility reporting
-  does not consistently classify `optional -> required` as breaking, so
-  semantic validation and compatibility reports can disagree. Fix tracked as
-  [Slice A1](docs/correction-and-capability-plan.md#slice-a1--correct-optionality-compatibility-under-the-current-model).
+- **Composite keys.** `docs/architecture.md` now correctly states that every
+  entity/aggregate requires exactly one `@key` field, matching
+  `cli/src/modelable/validation/semantic.py` and `docs/language-reference.md`.
+  The claim is backed by an executable conformance fixture
+  (`cli/tests/test_semantic.py::test_composite_key_is_not_yet_supported`), not
+  just prose. Implementing composite entity identity itself remains undecided
+  future work — see [Slice D5](#slice-d5--resolve-composite-key-support).
+- **Optionality compatibility.** `optional -> required` is now classified as
+  breaking, and semantic validation and compatibility reporting agree
+  (`cli/src/modelable/compat/diff.py`, PR #279). See
+  [Slice A1](#slice-a1--correct-optionality-compatibility-under-the-current-model).
+
+`modelable capabilities` (Slice B1, shipped) is the authoritative live source
+for target/format/annotation support status going forward — prefer it over
+docs prose for anything not covered here.
 
 ## Delivery lanes
 
@@ -69,7 +87,10 @@ Four lanes run in parallel rather than one strict priority queue:
 | L | Language evolution, extensibility, gated target work | Priority 6 |
 
 Priorities 4 and 5 (authoring/adoption, external integrations) draw from
-whichever lane a given item belongs to as it becomes concrete.
+whichever lane a given item belongs to as it becomes concrete. Priority 7
+(repository health) is engineering-quality work found by direct code/CI
+inspection rather than product feature requests, and runs beside all four
+lanes without displacing them.
 
 Interleaving rules:
 
@@ -84,9 +105,6 @@ Interleaving rules:
    acceptance.
 6. A new importer or emitter does not become stable until representative
    real-world fixture data is covered by deterministic regression tests.
-
-Full slice-level detail for lanes C and L lives in the
-[compiler correction and capability plan](docs/correction-and-capability-plan.md).
 
 ## Priority 1 — advance the Playground
 
@@ -156,7 +174,10 @@ Work proceeds in phase order, with one active phase at a time:
    on the ordinary planner path; explicit `/docs` remains a force-retrieve
    command, and automatic routing can be disabled per session. Structured
    binary browser shards, vector/hybrid retrieval, and user-supplied indexes
-   remain deferred.
+   remain deferred. Design docs:
+   [chat/RAG intent routing](docs/superpowers/specs/archived/2026-08-01-chat-rag-intent-routing-design.md),
+   [LSP adapter](docs/superpowers/specs/archived/2026-08-01-rag-lsp-adapter-design.md),
+   [Playground adapter](docs/superpowers/specs/archived/2026-08-01-rag-playground-adapter-design.md).
 10. **Shipped: optional local Ollama provider for the Playground.**
    Users can select a local Ollama server as an alternative to WebLLM from
    the same provider dropdown, using the shared `LlmProvider` abstraction.
@@ -220,76 +241,217 @@ incompatible transport change in CI.
 
 ## Priority 3 — compiler correctness, compatibility, and capability integrity
 
-Lane C. This priority does not wait behind Priorities 1 and 2 — A1–A4 and G1
-below start immediately, in parallel with active Playground and Scalable
-work, per interleaving rule 1: a confirmed false compatibility result is a
-release blocker. Full slice detail, tests, and acceptance criteria are in the
-[compiler correction and capability plan](docs/correction-and-capability-plan.md).
+Lane C. This priority does not wait behind Priorities 1 and 2 — per
+interleaving rule 1, a confirmed false compatibility result is a release
+blocker, so this lane runs in parallel with active Playground and Scalable
+work.
 
-Work proceeds in three tranches:
+Almost the entire correctness and capability programme below has shipped.
+What's genuinely still open is the non-composite-key half of
+[Slice B2](#slice-b2--reconcile-current-documentation-claims) and the ongoing,
+never-"done" ratchets in [Slice G1](#slice-g1--critical-compatibility-coverage)
+and [Slice G2](#slice-g2--strict-typing-baseline-reduction).
 
-1. **Correctness tranche (start immediately):**
-   - **A1** — fix the optionality compatibility bug: `optional -> required`
-     must be classified as breaking, and semantic validation and
-     compatibility reporting must agree. Ships as an explicit stopgap for the
-     current single-`optional`-flag model, superseded by presence/nullability
-     work (Priority 6, D1) later.
-   - **A2** — introduce one compiler-owned property-dependency graph covering
-     direct mappings, computed expressions, join predicates, filters, and
-     grouping, so compatibility, governance, lineage, and editor tooling stop
-     duplicating source-property analysis.
-   - **A3** — validate every expression-bearing position (computed fields,
-     joins, `where`, `group by`) through the same CEL pipeline, so no parsed
-     expression can bypass semantic validation.
-   - **A4** — make semantic-type name resolution domain-aware and
-     deterministic; add qualified references and reject cross-domain
-     ambiguity as a compile error.
-   - **G1** — add critical-path regression coverage for compatibility,
-     dependency resolution, expression validation, lineage, governance,
-     signatures, target compatibility, and import/export adapters. Format
-     adapters must include representative real-world fixture data in addition
-     to minimal synthetic unit fixtures.
-2. **Capability and documentation tranche (next):**
-   - **B1** — add a `modelable capabilities` manifest so target/dialect/
-     annotation/import support is compiler-owned, not hand-maintained across
-     docs.
-   - **B2** — reconcile verified documentation contradictions (composite
-     keys, model lifecycle claims, deferred targets, classification
-     vocabulary, browser language-service parity), resolving the composite-key
-     status via an executable conformance test rather than assumption.
-   - **B3** — audit every silently-parsed-but-ignored construct (registry
-     peers/consumers/subscriptions, materialisation, opaque nested bindings)
-     and give each one an explicit outcome: implemented, experimental IR with
-     diagnostics, rejected as deferred, or removed from stable grammar.
-   - **G3** — share conformance fixtures across the native compiler, browser
-     compiler, LSP, Playground, compatibility, signatures, manifests, and
-     import/export adapters, with explicit coverage for every capability
-     documentation disputes. External-format fixtures must record source and
-     license/provenance, be pinned locally for offline CI, and include stable
-     expected output or semantic-equivalence assertions.
-3. **Compatibility architecture tranche (after A2/A3 land):**
-   - **C1** — treat versioned projections as first-class contracts: compare
-     shape, lineage, governance, wire, storage, and materialisation impact
-     between projection versions directly.
-   - **C2** — extend the existing projection-source version-resolution rules
-     (exact/range/minimum/pin) to `ref<>` type-reference positions.
-   - **C3** — generalize the shipped Protobuf/gRPC compatibility guards into
-     one target-agnostic compatibility result IR, extended to JSON, SQL/
-     storage migration, projection rebuild, and governance review — without
-     duplicating the existing Protobuf/gRPC rule logic.
-   - **C4** — add a configurable compatibility/lint policy so teams can set
-     enforcement severity per target axis without changing the underlying
-     compiler-determined facts.
+### Track A — correctness fixes (all shipped)
 
-The first six pull requests implementing the correctness and capability
-tranches are sequenced in the
-[compiler correction and capability plan](docs/correction-and-capability-plan.md#first-pull-request-sequence).
+#### Slice A1 — correct optionality compatibility under the current model
+
+Fixed the bug where the model diff could emit `nullability_changed` but the
+compatibility summary didn't consistently classify `optional -> required` as
+breaking. **Shipped:** PR #279, "classify optional-to-required field changes
+as breaking." `required -> optional` is compatible, `optional -> required` is
+breaking, and semantic version validation and compatibility reporting call the
+same rule (`cli/src/modelable/compat/diff.py`). This is an explicit **stopgap
+for the current single-`optional`-flag model** — [Slice D1](#slice-d1--separate-presence-and-nullability)
+must preserve these results for equivalent transitions when presence and
+nullability separate.
+
+#### Slice A2 — create one property-dependency graph
+
+Replaced duplicated, incomplete source-property analysis (direct mappings,
+computed expressions, join predicates, filters, grouping, projection-as-source
+chains, and all source-version-reference forms) with one compiler-owned graph
+used by compatibility, governance, lineage, graph export, and editor tooling.
+**Shipped:** `cli/src/modelable/dependency_graph.py` (Slice A2 plan, archived).
+
+#### Slice A3 — validate all expression positions
+
+Runs the same CEL pipeline for computed fields, join predicates, `where`
+clauses, `group by` expressions, and supported expression-bearing annotations,
+validating result shape (booleans for filters/joins, resolved scalar types for
+grouping) so no parsed expression can bypass semantic validation. **Shipped**
+(Slice A3 plan, archived).
+
+#### Slice A4 — fix semantic-type resolution ambiguity
+
+Made semantic-type identity domain-aware and deterministic: a bare name
+resolves in the current domain first, a qualified name (`orders.Id`) resolves
+across domains, a bare name falls back to a workspace-wide match only when
+exactly one declaration exists, and ambiguity is a compile error. **Shipped:**
+`resolve_semantic_type_ref()` in `cli/src/modelable/registry/resolver.py`
+(Slice A4 plan, archived).
+
+### Track B — capability and documentation consistency
+
+#### Slice B1 — add a canonical capability manifest
+
+`modelable capabilities` (and `--format json`) exposes compiler-owned data —
+output targets and status, SQL dialects, model kinds, annotations, wire hints,
+projection features, import formats, integrations, and experimental/deferred
+grammar constructs — so CLI, Playground, and documentation-consistency checks
+stop hand-maintaining what Modelable supports. **Shipped:**
+`cli/src/modelable/capabilities.py` and `cli/src/modelable/commands/capabilities.py`.
+
+#### Slice B2 — reconcile current documentation claims
+
+**Done:** the composite-key subtask. A conformance fixture with two `@key`
+fields (`cli/tests/test_semantic.py::test_composite_key_is_not_yet_supported`)
+recorded the real validator behavior, and `docs/architecture.md` was corrected
+to match it and `docs/language-reference.md` instead of assuming the
+architecture doc was right — see
+[Slice D5](#slice-d5--resolve-composite-key-support). The optionality
+contradiction closed the same way via Slice A1.
+
+**Still open:** the remaining reconciliation topics — model lifecycle claims
+beyond what [Slice D6](#slice-d6--model-lifecycle-status) already documents as
+not implemented, target listings drifting from `modelable capabilities`,
+federation/runtime-adjacent description strength, and classification
+vocabulary consistency across all docs. Each capability should end up with
+exactly one status (implemented, experimental, deferred, candidate, removed);
+unsupported examples should be clearly labelled. `modelable capabilities` and
+the `DEFERRED` diagnostic (Slice B3) are the authoritative source on status
+today — treat any docs prose that disagrees with them as the bug.
+
+#### Slice B3 — eliminate silently ignored syntax
+
+Reviewed registry/peers, consumers, subscriptions (both forms),
+materialisation, and opaque `binding {}` content. **Outcome chosen
+(2026-08-05):** all of the above are "reject as deferred" — a non-blocking
+warning-severity `DEFERRED` diagnostic
+(`cli/src/modelable/validation/deferred_syntax.py`) rather than full
+implementation, since none has an accepted runtime design yet (see
+["Outside the near-term compiler roadmap"](#outside-the-near-term-compiler-roadmap)
+below). Stable syntax is never silently discarded as ignored text anymore.
+
+### Track C — compatibility architecture (all shipped)
+
+#### Slice C1 — projection-to-projection compatibility
+
+Treats versioned projections as first-class contracts: compares shape,
+lineage, governance, wire, storage, and materialisation impact between
+projection versions directly, wired into `modelable diff`. **Shipped:** PR
+#291, `cli/src/modelable/compat/projection_fields.py`,
+`compare_projection_versions()`/`check_projection_version_compatibility()` in
+`compat/diff.py`/`compat/checker.py`. Source-version comparison delegates to
+`check_model_version_compatibility()`; a projection change is compatible only
+when both the shape delta and the source-version delta are compatible.
+
+#### Slice C2 — extend existing version resolution to `ref<>` types
+
+Extended the projection-source version-resolution rules (exact/range/minimum/
+pin) to `ref<Domain.Model @ version_spec>` type-reference positions, so type
+references use the same canonical resolver as projection sources instead of a
+separate mechanism. **Shipped:** PR #292 (Slice C2), `RefType` in
+`cli/src/modelable/parser/ir.py`.
+
+#### Slice C3 — generalize existing target compatibility
+
+Generalized the Protobuf/gRPC-specific compatibility guards into one
+target-agnostic `TargetCompatibilityReport` axis/severity IR, extended to
+JSON, SQL/storage migration, projection rebuild, and governance review,
+without duplicating the existing Protobuf/gRPC rule logic. **Shipped:** PR
+#294, `cli/src/modelable/compat/targets.py`.
+
+#### Slice C4 — configurable compatibility and lint policy
+
+Added a configurable compatibility/lint policy so teams can set enforcement
+severity per target axis without changing the underlying compiler-determined
+facts. **Shipped:** `cli/src/modelable/compat/policy.py`.
+
+### Track G — engineering safeguards (compiler-specific)
+
+#### Slice G1 — critical compatibility coverage
+
+**Shipped, ongoing ratchet.**
+
+Protects model compatibility, projection compatibility, dependency
+resolution, expression validation, lineage, governance, signatures, and
+target compatibility via a per-critical-path coverage ratchet rather than a
+repository-wide percentage. **Shipped:** `cli/coverage-baseline.txt` lists 12
+files covering all eight categories — `compat/checker.py`, `compat/diff.py`
+(compatibility); `dependency_graph.py`, `registry/resolver.py` (dependency
+resolution); `expressions/cel.py`, `compiler/workspace.py` (expression
+validation); `planner/lineage.py` (lineage); `governance/checker.py`
+(governance); `registry/signature.py` (signatures); `emitters/protobuf.py`,
+`emitters/grpc.py`, `commands/validate_compat.py` (target compatibility) — and
+`.github/scripts/check_coverage_ratchet.py` fails CI if any of them regresses.
+This is a ratchet, not a one-time deliverable: raise individual baseline
+numbers as their tests improve (never lower one to make a change pass), and
+add files if a future slice identifies another critical path. See also
+[Priority 7, finding 2](#2-ci-enforces-a-per-critical-path-coverage-ratchet-not-a-repository-wide-threshold).
+
+#### Slice G2 — strict typing baseline reduction
+
+**Ongoing ratchet, not one-shot.**
+
+`mypy --strict` is enforced as a baseline ratchet
+(`cli/mypy-baseline.txt`, `.github/scripts/check_mypy_baseline.py`) — see
+[Priority 7, finding 1](#1-mypy---strict-is-enforced-as-a-baseline-ratchet)
+for the full evidence. **Remaining work**, in critical-path priority order:
+compatibility and dependency graph, resolver and signatures, semantic
+validation, parser/IR, emitters, importers, conversational surfaces. Burn the
+baseline down by module; when it reaches zero, replace the ratchet wrapper
+with a direct `uv run mypy src/modelable` step and delete
+`cli/mypy-baseline.txt`.
+
+#### Slice G3 — conformance fixtures
+
+**Shipped across four tranches, 2026-08-05–06.**
+
+Goal: share fixtures across the native compiler, browser compiler, LSP,
+Playground, compatibility, signatures, and manifests, with explicit coverage
+for every capability documentation disputes (especially composite keys and
+deferred constructs).
+
+- **Tranche 1 (2026-08-05):** extended the existing native/browser/Playground
+  shared-fixture pipeline (`cli/tests/conformance/browser/` →
+  `vendor-python-assets.mjs` → `conformance.spec.ts`) with `composite-key` and
+  `deferred-constructs` scenarios verified against the real Pyodide browser
+  compiler. Found and fixed a real gap along the way:
+  `language/workspace.py`'s `synchronize()` only read `workspace.errors`, so
+  Slice B3's `DEFERRED` warnings were invisible in the browser/Playground
+  despite working in the CLI.
+- **Tranche 2 (2026-08-06):** closed signature fixtures
+  (`cli/tests/conformance/signature/scenarios.py`, one canonical
+  `ModelVersion`-fixture source for the registry resolver and LSP federation
+  diagnostics) and capability-manifest-to-test linkage (`Capability.test_refs`
+  + `test_capability_manifest_linkage.py`, enforced in CI; 9 of 11 deferred
+  features linked, 2 explicitly acknowledged as unlinked pending their own
+  scoping pass).
+- **Tranche 3 (2026-08-06):** closed LSP fixture sharing (minus the full
+  31-file migration of already-passing independent fixtures, explicitly out
+  of scope). `test_lsp_conformance_fixture.py` drives the same shared fixture
+  through a real `pygls` subprocess server, exercising completion, hover,
+  definition, references, prepareRename, and rename against the same
+  expectations the browser dispatch tests assert.
+- **Tranche 4 (2026-08-06):** closed compatibility fixtures — the one area
+  that had been blocked on Playwright/Pyodide network access.
+  `cli/tests/conformance/browser/compatibility.mdl` plus a `compatibility`
+  scenario in `write_browser_conformance.py` exercises
+  `BrowserCompiler.compatibility()` end to end with a matching snapshot on
+  both the native generator and `web/tests/conformance.spec.ts`.
+
+External-format fixtures (Priority 5's forthcoming format-adapter work) must
+record source and license/provenance, be pinned locally for offline CI, and
+include stable expected output or semantic-equivalence assertions — the same
+standard this track set.
 
 Completion means compatibility reports can never contradict semantic
 validation, every property dependency (including filters and joins) is
 captured in one graph, all expressions are type-checked and traced, semantic
 types resolve deterministically, documented capabilities match compiler
-behavior, and no parsed syntax is silently discarded.
+behavior, and no parsed syntax is silently discarded. Every point in that list
+is satisfied today except the remaining half of Slice B2.
 
 ## Priority 4 — improve authoring, adoption, and cross-target consistency
 
@@ -318,12 +480,11 @@ After the active Playground foundation and Scalable/Rust path:
    Registry synchronization, publishing, and external-service operations remain
    separate follow-ups with their own authorization, credential, preview,
    confirmation, and audit policies.
-4. Extend nominal semantic-type generation beyond Rust, prioritizing
+4. Extend nominal semantic-type generation beyond Rust (Slice F1), prioritizing
    TypeScript, Go, Java, C#, Python, JSON Schema, and SQL according to concrete
    consumer demand. Targets that intentionally erase nominal identity must say
-   so explicitly. Tracked as
-   [Slice F1](docs/correction-and-capability-plan.md#slice-f1--nominal-semantic-types-beyond-rust)
-   in the correction and capability plan.
+   so explicitly. See [Slice F1](#slice-f1--nominal-semantic-types-beyond-rust)
+   below.
 5. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
    generated constants and registry state are easy to diagnose.
 6. Publish the VS Code extension through the Marketplace once the release and
@@ -439,78 +600,259 @@ fixtures.
 
 ## Priority 6 — language evolution and extensibility
 
-Lane L. Full slice detail lives in the
-[compiler correction and capability plan](docs/correction-and-capability-plan.md).
-These items require accepted designs and, for the syntax-changing ones,
-concrete consumer demand; they do not automatically outrank Priorities 1–5.
+Lane L. These items require accepted designs and, for the syntax-changing
+ones, concrete consumer demand; they do not automatically outrank
+Priorities 1–5.
 
 Most items here were gated behind one decision, now made:
 
-- **Decided: D0 — historical language interpretation.** Additive-syntax
-  policy: old syntax never changes meaning; new semantics require new
-  syntax. Chosen over language-version and compiler-version-snapshot
-  policies since those exist to protect a large body of already-published
-  `.mdl` text against reinterpretation, and that body doesn't exist yet.
-  Outcome recorded in
-  [the correction and capability plan](docs/correction-and-capability-plan.md#slice-d0--define-historical-language-interpretation).
-  D1 and D6 below are now unblocked to scope and design (not yet
-  implemented).
+#### Slice D0 — define historical language interpretation
+
+**Shipped/decided, 2026-08-06.**
+
+**Decided:** additive-syntax policy — old syntax never changes meaning; new
+semantics require new syntax. Chosen over language-version and
+compiler-version-snapshot policies since those exist to protect a large body
+of already-published `.mdl` text against reinterpretation, and that body
+doesn't exist yet. A guardrail test pins this:
+`cli/tests/test_language_stability.py` exact-matches the canonical signature
+and formatted output of a small, representative set of already-shipped
+constructs, so any accidental reinterpretation of historical syntax fails
+there first. D1 and D6 below are unblocked to scope and design (not yet
+implemented).
 
 Gated on D0 (now decided), in dependency order:
 
-1. **D1** — separate presence from nullability (`field?` keeps its current
-   meaning or is interpreted under an explicit language version; never
-   silently reinterpreted).
-2. **D2** — first-class value constraints (min/max, length, pattern, format,
-   uniqueness) with explicit lineage and no silent widening.
-3. **D3** — named, version-aware enums.
-4. **D4** — discriminated unions, depending on D3 and D1.
-5. **D5** — resolve the composite-key contradiction: add a conformance test,
-   then either implement composite entity identity or correct
-   `docs/architecture.md` to match the compiler.
-6. **D6** — model lifecycle status (draft/published/deprecated/retired),
-   depending on D0.
+#### Slice D1 — separate presence and nullability
+
+**Purpose:** represent absence and explicit null independently — required
+non-null, optional non-null, required nullable, optional nullable. **Not yet
+started.** Requires D0 (done). Must not silently change the meaning of
+existing `field?`: the design must either preserve `?` as legacy optionality
+and add separate nullable syntax, or interpret `?` under an explicit language
+version. Acceptance: existing published text keeps a deterministic meaning;
+compatibility reports distinguish presence from nullability; every emitter
+declares exact or lossy representation. [Slice A1](#slice-a1--correct-optionality-compatibility-under-the-current-model)'s
+stopgap results must still hold for equivalent transitions once this lands.
+
+#### Slice D2 — first-class value constraints
+
+**Purpose:** track valid property values (numeric min/max, length limits,
+pattern, format, item-count limits, uniqueness) in addition to structural
+shape, with explicit lineage and no silent widening. **Not yet started.**
+Each constraint must define valid source types, propagation through direct
+projections, narrowing/widening rules, compatibility impact, and target
+support/loss diagnostics.
+
+#### Slice D3 — named, version-aware enums
+
+**Purpose:** reusable vocabularies with domain-qualified identity, value
+evolution, wire values, Protobuf numbering/reservations, and compatibility
+across targets. **Not yet started.** Depended on by D4.
+
+#### Slice D4 — discriminated unions
+
+**Purpose:** represent variant-based contracts, especially event families,
+with stable variant identity and discriminator values; adding/removing
+variants is compatibility-classified; every emitter preserves semantics or
+emits an explicit loss diagnostic. **Not yet started.** Depends on D3, D1,
+and stable target-compatibility semantics.
+
+#### Slice D5 — resolve composite-key support
+
+**Phase 1 (decision and conformance) — shipped.** Added the executable
+`test_composite_key_is_not_yet_supported` fixture, verified the current
+validation failure, and corrected `docs/architecture.md` to match the
+compiler and `docs/language-reference.md` instead of implementing composite
+identity speculatively. See [Documentation status](#documentation-status)
+above.
+
+**Phase 2 (implementation) — not decided.** If composite entity identity is
+ever accepted: allow one or more key fields for entities/aggregates, require
+deterministic ordering, reuse `index { primary ... }` where present, define
+fallback ordering otherwise, and update canonical signatures, compatibility,
+SQL, Protobuf/gRPC manifests, generated languages, event envelopes, `ref<>`
+identity, and join/relation validation. Multi-column join predicates and
+composite entity identity are separate features — supporting a join over
+several properties does not imply multiple `@key` fields are supported.
+
+#### Slice D6 — model lifecycle status
+
+**Purpose:** either implement or remove architecture claims for draft,
+published, deprecated, and retired model-version statuses. **Not yet
+started** as a language feature — `docs/architecture.md` currently documents
+accurately that no `status` field exists in the grammar/IR today (the
+documentation-accuracy half of this slice's concern is already satisfied the
+same way Slice D5's was; the language-feature decision itself remains open).
+Depends on D0 (done). Existing versioned declarations would need an explicit
+default status (most likely `published`) if implemented; semantics to define
+include draft mutability, published immutability, deprecated resolution
+warnings, retired range resolution, legal transitions, interaction with
+required `changeKind`, and signature/registry records.
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
 
-- **Shipped: H1 — projection `pick(...)`/`omit(...)` clauses.** Lets a
-  `projection` select or exclude a field subset from its source (including
-  qualified `alias.field` selection across `join`s, and annotation filters
-  like `@pii` reusing `auto projections ... exclude`'s existing matcher)
-  without hand-writing a `<-` line per field. Expands to the same explicit
-  IR a hand-written projection produces before compatibility/lineage
-  analysis runs, so no downstream subsystem needs special-casing. Full
-  design: [Projection Pick/Omit Clauses](docs/superpowers/specs/archived/2026-08-03-projection-pick-omit-design.md);
-  outcome recorded in
-  [the correction and capability plan](docs/correction-and-capability-plan.md#slice-h1--projection-pickomit-clauses).
+#### Slice H1 — projection Pick/Omit clauses
+
+**Shipped, 2026-08-06.**
+
+Lets a `projection` select or exclude a field subset from its source
+(including qualified `alias.field` selection across `join`s, and annotation
+filters like `@pii` reusing `auto projections ... exclude`'s existing
+matcher) without hand-writing a `<-` line per field. Full design:
+[Projection Pick/Omit Clauses](docs/superpowers/specs/archived/2026-08-03-projection-pick-omit-design.md).
+
+**Outcome:** grammar adds an optional `selection_clause?` on `projection_decl`
+(`pick(...)`/`omit(...)`, mutually exclusive, non-empty by grammar
+construction). `SelectionClause` IR mirrors `AutoProjectionTarget`'s existing
+`excluded_fields`/`excluded_annotations` split. Expansion
+(`planner/planner.py::expand_projection_selections`) runs alongside
+`expand_auto_projections`, reuses `dependency_graph.py`'s alias resolution and
+the (now-public) auto-projection annotation matcher, and produces the same
+explicit `<-` IR a hand-written projection would — so compatibility (Slice
+C1), the dependency graph (Slice A2), lineage, and governance need no
+special-casing. Unqualified selectors are valid only if unambiguous across
+all declared sources; same-output-name collisions across two aliases are a
+distinct error rather than silently dropping one. The formatter
+(`compiler/render.py`) gained `_render_selection_clause` so `pick`/`omit`
+clauses round-trip on reformat instead of silently collapsing to `{ }` — a
+gap this slice found and fixed rather than leaving as a follow-up. Covered by
+`cli/tests/test_projection_selection.py`, including canonical-signature and
+compatibility equivalence with hand-written projections.
 
 Also extensibility work (Track E) that is additive but not yet prioritized
 against a concrete consumer:
 
-- **E1** — typed namespaced annotations (`@acme.retention("7y")`), a grammar
-  prerequisite for any annotation-plugin system.
-- **E2** — data-quality contract metadata (non-null, uniqueness, accepted
-  values, ranges, referential integrity), surfaced through ODCS, dbt tests,
-  and OpenMetadata.
-- **E3** — freshness, SLA, and retention metadata for supported contract and
-  catalog emitters.
+#### Slice E1 — typed namespaced annotations
 
-Target work gated on the above language work (Track F, items 2-4). Priority 5
+`@acme.retention("7y")`-style annotations, a grammar prerequisite for any
+annotation-plugin system. The current grammar has a closed set of
+single-token built-in annotations. First sub-slice: namespaced annotation
+identifiers, typed argument syntax, lossless preservation of unknown
+annotation text, rejection of unsupported annotations under strict policy,
+deterministic canonical rendering. A plugin contract would need each
+extension to declare its namespace/version, annotation schema, valid
+targets, compatibility significance, propagation rules, validation hooks,
+and emitter behavior.
+
+#### Slice E2 — data-quality contract metadata
+
+Non-null, uniqueness, accepted values, ranges, row-count thresholds,
+referential integrity, and external test references, surfaced through ODCS,
+dbt tests, OpenMetadata contract metadata, and the machine-readable Modelable
+graph — validated by Modelable but executed by external tools, not turning
+Modelable into a scheduler.
+
+#### Slice E3 — freshness, SLA, and retention metadata
+
+Model/projection ownership, inheritance, compatibility significance,
+duration syntax, timezone handling, and target mappings for freshness/SLA/
+retention metadata, preserved by supported contract/catalog emitters and
+visible as review or compatibility findings.
+
+Target work gated on the above language work (Track F, items 2-5). Priority 5
 owns sequencing and product scope; these slices describe language/compiler
 prerequisites:
 
-- **F2** — OpenAPI emission, after D1-D4, C1, and C3.
-- **F3** — AsyncAPI emission, after named enums, unions, reference-version
-  semantics, and the event-envelope contract.
-- **F4** — Avro emission, after defaults, nullability, named enums, unions,
-  and target-specific reader/writer compatibility.
-- **F5** — GraphQL/Federation emission, after identity/reference semantics and
-  projection contract compatibility are sufficiently explicit for stable
-  subgraph generation.
+#### Slice F1 — nominal semantic types beyond Rust
 
-(Slice F1 — nominal types beyond Rust — is not gated; it is tracked under
-Priority 4 above since it is already a concrete, unblocked roadmap item.)
+Directly aligns with [Priority 4 item 4](#priority-4--improve-authoring-adoption-and-cross-target-consistency)
+and remains valid; not gated on D0. Priority order (follow concrete consumer
+demand, roadmap ordering as the starting point): TypeScript, Go, Java, C#,
+Python, JSON Schema, SQL. Each target must state whether it preserves or
+intentionally erases nominal identity.
+
+#### Slice F2 — OpenAPI emission
+
+After D1-D4, C1 (shipped), and C3 (shipped). Do not treat grammar acceptance
+of `openapi` as implemented emitter support.
+
+#### Slice F3 — AsyncAPI emission
+
+After named enums (D3), unions (D4), reference-version semantics, and the
+event-envelope contract.
+
+#### Slice F4 — Avro emission
+
+After defaults, nullability (D1), named enums (D3), unions (D4), and
+target-specific reader/writer compatibility.
+
+#### Slice F5 — GraphQL/Federation emission
+
+After identity/reference semantics and projection contract compatibility are
+sufficiently explicit for stable subgraph generation.
+
+## Priority 7 — repository health and engineering quality
+
+Gaps found by direct code and CI inspection rather than product feature
+requests. Nothing here is committed until it has an issue and an accepted
+design, per the same policy as the rest of this roadmap. Findings are ranked
+by impact within each section; "Evidence" cites the exact file so a claim can
+be verified without re-deriving it. Unlike the priorities above, these are
+continuous ratchets — "shipped" means the mechanism is in place and enforced,
+not that the work is finished.
+
+### Correctness and reliability
+
+#### 1. `mypy --strict` is enforced as a baseline ratchet
+
+**Evidence:** `cli/pyproject.toml` sets `[tool.mypy] strict = true`, and the
+Validate workflow runs
+`.github/scripts/check_mypy_baseline.py --baseline mypy-baseline.txt -- uv run
+mypy src/modelable --no-error-summary --show-error-codes` from the `cli/`
+directory. `cli/mypy-baseline.txt` captures the current strict baseline so new
+error lines fail CI while existing debt remains visible.
+
+**Impact:** Type regressions can no longer land silently on changed CLI
+surfaces. The gate also reports resolved baseline lines, so typing cleanup can
+shrink the baseline incrementally without requiring the repository to become
+fully strict-clean in one large change.
+
+**Remaining work:** see [Slice G2](#slice-g2--strict-typing-baseline-reduction)
+above for the module burn-down order.
+
+#### 2. CI enforces a per-critical-path coverage ratchet, not a repository-wide threshold
+
+**Evidence:** `cli/pyproject.toml` declares `pytest-cov` as a dev dependency
+and configures `[tool.coverage.run] source = ["src/modelable"]`.
+`validate.yml`'s `cli` job runs `uv run pytest --tb=short --cov=modelable
+--cov-report=term-missing --cov-report=xml`, uploads `cli/coverage.xml` as
+the `cli-coverage-xml` artifact, and then runs
+`.github/scripts/check_coverage_ratchet.py` against
+`cli/coverage-baseline.txt` — the same checked-in-baseline pattern the mypy
+strict ratchet (finding 1, above) already uses. The baseline lists the 12
+files covering [Slice G1](#slice-g1--critical-compatibility-coverage)'s
+eight protection categories.
+
+**Impact:** A PR that drops coverage on any of these specific files fails
+CI — critical-path coverage is a ratcheted signal, tied to the paths that
+actually determine compiler correctness rather than an arbitrary
+repository-wide percentage. The rest of the codebase keeps the same
+visibility-only artifact/terminal-summary behavior as before.
+
+**Remaining work:** Raise individual baseline numbers as their tests improve
+(never lower one to make a change pass); add more files to
+`coverage-baseline.txt` if a future slice identifies another critical path.
+
+### Dependency management
+
+#### 3. Dependabot routine groups are explicit version-update groups
+
+**Evidence:** `.github/dependabot.yml` keeps one routine group per ecosystem
+for Python, VS Code, and GitHub Actions updates, and each group declares
+`applies-to: version-updates` before `patterns: ["*"]`.
+
+**Impact:** Routine dependency churn remains grouped for review efficiency,
+while the file documents that those groups are for version updates rather
+than vulnerability remediation. Security updates can be handled as their own
+Dependabot security-update PRs instead of being mixed into unrelated weekly
+version bumps.
+
+**Remaining work:** If security-update volume grows, add an explicit
+security-update policy with narrower package patterns or labels. The current
+configuration is deliberately simple until there is real update volume to
+tune against.
 
 ## Candidate pool
 
@@ -556,20 +898,13 @@ construct still needs its own product decision and a
   should drive (impact analysis? notification? nothing beyond documentation?)
   before an IR shape makes sense.
 - **Subscriptions and materialisation** — both presuppose a runtime execution
-  model that does not exist yet (see "Outside the near-term compiler roadmap"
-  above); design work here should follow, not precede, an explicit product
-  decision to build that runtime.
+  model that does not exist yet (see above); design work here should follow,
+  not precede, an explicit product decision to build that runtime.
 
 Until each gets its own accepted design, `modelable capabilities` and the
 `DEFERRED` diagnostic are the authoritative source on their status — not
 docs prose, which is exactly the drift Slice B2 corrected.
 
-Repository-health work is tracked separately in the
-[engineering improvement roadmap](docs/engineering-roadmap.md). Compiler
-correctness, capability-consistency, compatibility-architecture, and gated
-language-evolution slice detail (Priorities 3 and 6 above) is tracked
-separately in the
-[compiler correction and capability plan](docs/correction-and-capability-plan.md).
 See [architecture](docs/architecture.md) for the product boundary,
 [integrations](docs/integrations.md) for external-tool research, and
 [GitHub issues](https://github.com/ktjn/modelable/issues) for work that is ready

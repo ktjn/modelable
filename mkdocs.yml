@@ -38,4 +38,4 @@ nav:
   - Integrations: integrations.md
   - Architecture: architecture.md
   - Maintainer Guide: maintainers.md
-  - Engineering Roadmap: engineering-roadmap.md
+  - Roadmap: https://github.com/ktjn/modelable/blob/main/ROADMAP.md

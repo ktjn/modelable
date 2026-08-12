@@ -120,7 +120,7 @@ Required properties:
 - `domain`: Owning domain.
 - `name`: Unique model name within the domain.
 - `kind`: `entity`, `event`, `value`, or `aggregate`.
-- `identity`: Key definition for addressable records when applicable. Every entity and aggregate currently declares exactly one `@key` field; composite keys (multiple `@key` fields) are not yet supported by the compiler. See [Compiler correction and capability plan](correction-and-capability-plan.md#slice-d5-resolve-composite-key-support).
+- `identity`: Key definition for addressable records when applicable. Every entity and aggregate currently declares exactly one `@key` field; composite keys (multiple `@key` fields) are not yet supported by the compiler. See [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-d5--resolve-composite-key-support).
 - `versions`: Published model versions.
 
 Example:
@@ -150,7 +150,7 @@ Model lifecycle status (`draft`, `published`, `deprecated`, `retired`) is not
 yet represented in the grammar or IR — there is no `status` field today, and
 every published version is treated as immutable with no separate
 draft/deprecated/retired state. See
-[Compiler correction and capability plan](correction-and-capability-plan.md#slice-d6-model-lifecycle-status).
+[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-d6--model-lifecycle-status).
 
 Example:
 
@@ -171,7 +171,7 @@ yet supported — the example above shows the current single-key form.
 Declaring two `@key` fields is a compile error today (see
 `cli/tests/test_semantic.py::test_composite_key_is_not_yet_supported` for
 the executable conformance record). See
-[Compiler correction and capability plan](correction-and-capability-plan.md#slice-d5-resolve-composite-key-support).
+[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-d5--resolve-composite-key-support).
 
 ### 3.4 Projection
 
@@ -1245,7 +1245,7 @@ System-level design decisions have been resolved. Phase-specific documents may s
 - **Codegen architecture:** Codegen is a first-class extensible boundary. TypeScript, C#, Java, Python, Rust, and Go are implemented locally as native generated-language backends, and additional future framework targets remain open.
 - **Future generated-language targets:** Additional generated-language targets beyond the implemented TypeScript, C#, Java, Python, Rust, and Go backends remain deferred.
 - **Version scheme:** Integer versions with a required `changeKind: additive | breaking` declaration on publish. See section 8.1.
-- **Composite keys:** Not yet supported. Every entity and aggregate requires exactly one `@key` field today. See section 3.3 and [Compiler correction and capability plan](correction-and-capability-plan.md#slice-d5-resolve-composite-key-support).
+- **Composite keys:** Not yet supported. Every entity and aggregate requires exactly one `@key` field today. See section 3.3 and [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-d5--resolve-composite-key-support).
 - **Version ranges in projections:** Allowed in MVP. The planner resolves to the highest satisfying published version at plan time. See section 8.2.
 - **Registry storage:** File-first (`.mdl` source of truth) with a single `registry.db` SQLite derived index written by `compile`. In distributed mode peers are git remotes; `mirror/` holds sparse checkouts of foreign `.mdl` files; `consumers/` holds incoming write-backs from downstream registries. All derived data is in `registry.db`; all source of truth is in git. See section 12 and [compiler-reference.md](compiler-reference.md).
 - **Runtime plan execution:** Interpreted plan documents (structured JSON artifacts). Not generated code. See section 7.2.

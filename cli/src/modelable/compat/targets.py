@@ -27,7 +27,7 @@ SEVERITIES = ("compatible", "review_required", "migration_required", "breaking")
 _SEVERITY_RANK = {name: rank for rank, name in enumerate(SEVERITIES)}
 
 # Legacy protobuf/gRPC status vocabulary preserved for CLI/output backward
-# compatibility (see docs/correction-and-capability-plan.md Slice C3 "Preserve
+# compatibility (see ROADMAP.md Slice C3 "Preserve
 # existing CLI behaviour during migration"), mapped onto the four generic
 # severities so reports from every axis can be ranked and merged uniformly.
 _STATUS_TO_SEVERITY = {
