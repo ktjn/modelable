@@ -15,6 +15,9 @@ The latest published release is 1.4.0. The stable 1.x surface includes:
 - Deterministic generation for JSON Schema, TypeScript, C#, Java, Python, Rust,
   Go, SQL DDL, dbt `schema.yml`, Markdown, FHIR R4 profiles, OpenMetadata,
   OpenLineage, ODCS, Protobuf, and Scalable-oriented gRPC services.
+- Import/migration support for JSON Schema, OpenAPI, Avro, Protobuf, SQL DDL,
+  dbt, FHIR, and ODCS. Import fidelity varies by format and is explicitly part
+  of the external-integration hardening roadmap below.
 - Local dbt, FHIR, and ODCS import and tracked-spec drift workflows.
 - Apicurio JSON Schema publish/pull and Marquez-compatible OpenLineage sync.
 - Public conformance fixtures, hosted documentation, and external-validator
@@ -79,6 +82,8 @@ Interleaving rules:
    concrete consumer and accepted design.
 5. Every slice is rechecked against `main` immediately before design
    acceptance.
+6. A new importer or emitter does not become stable until representative
+   real-world fixture data is covered by deterministic regression tests.
 
 Full slice-level detail for lanes C and L lives in the
 [compiler correction and capability plan](docs/correction-and-capability-plan.md).
@@ -241,7 +246,9 @@ Work proceeds in three tranches:
      ambiguity as a compile error.
    - **G1** — add critical-path regression coverage for compatibility,
      dependency resolution, expression validation, lineage, governance,
-     signatures, and target compatibility.
+     signatures, target compatibility, and import/export adapters. Format
+     adapters must include representative real-world fixture data in addition
+     to minimal synthetic unit fixtures.
 2. **Capability and documentation tranche (next):**
    - **B1** — add a `modelable capabilities` manifest so target/dialect/
      annotation/import support is compiler-owned, not hand-maintained across
@@ -255,8 +262,11 @@ Work proceeds in three tranches:
      and give each one an explicit outcome: implemented, experimental IR with
      diagnostics, rejected as deferred, or removed from stable grammar.
    - **G3** — share conformance fixtures across the native compiler, browser
-     compiler, LSP, Playground, compatibility, signatures, and manifests,
-     with explicit coverage for every capability documentation disputes.
+     compiler, LSP, Playground, compatibility, signatures, manifests, and
+     import/export adapters, with explicit coverage for every capability
+     documentation disputes. External-format fixtures must record source and
+     license/provenance, be pinned locally for offline CI, and include stable
+     expected output or semantic-equivalence assertions.
 3. **Compatibility architecture tranche (after A2/A3 land):**
    - **C1** — treat versioned projections as first-class contracts: compare
      shape, lineage, governance, wire, storage, and materialisation impact
@@ -325,24 +335,107 @@ Completion means a new team can install the CLI and editor tooling, understand
 generated identity and compatibility behavior, and adopt a supported target
 without relying on internal repository knowledge.
 
-## Priority 5 — deepen external integrations
+## Priority 5 — deepen external integrations and format interoperability
 
 Integration work follows adoption work unless a concrete deployment provides a
-stronger near-term requirement:
+stronger near-term requirement. Format work should make Modelable a strong
+migration and contract-interop boundary without turning generated formats into
+alternate sources of truth.
 
-1. Add live OpenMetadata catalog synchronization for one explicitly supported
-   deployment shape. Local export and container-backed validation remain the
-   prerequisite evidence.
-2. Add remote, authenticated tracked-spec sources for dbt, FHIR, and ODCS while
-   preserving deterministic local snapshots and reviewable drift.
-3. Harden complex FHIR structures, dbt semantic-layer constructs and model
-   version selection, and ODCS field-level mappings as real inputs expose gaps.
-4. Add lineage stitching for external dbt exposures and similar consumers when
-   the external identity contract is concrete.
+### Format adapter and regression-test foundation
+
+Before adding several more formats, normalize the importer/exporter boundary:
+
+1. Move deterministic format import out of `modelable.llm` ownership and define
+   a compiler/application-level format-adapter registry parallel to codegen
+   targets. Each adapter declares its name, extensions/media types, import and
+   export capabilities, semantic limitations, and round-trip metadata.
+2. Make `modelable capabilities` the authoritative list of supported import and
+   export formats and their maturity.
+3. Create a checked-in real-world regression corpus, organized by format, for
+   all supported importers and interoperability emitters. Prefer representative
+   public examples from standards bodies, vendors, or established open-source
+   projects; retain only data whose redistribution/license permits it and keep
+   a provenance manifest with source URL, upstream version/commit, license, and
+   any sanitization performed.
+4. Keep regression test data local and pinned so CI never depends on network
+   availability or mutable upstream files. Synthetic minimal fixtures remain
+   useful for unit tests but do not substitute for the real-world corpus.
+5. For every stable format adapter, require the relevant subset of:
+   - parse/import -> normalized graph -> semantic validation;
+   - deterministic golden output;
+   - import -> emit -> re-import semantic-equivalence tests when both
+     directions are supported;
+   - upstream or reference-validator smoke tests when practical;
+   - malformed, unsupported-feature, and edge-case fixtures that verify clear
+     diagnostics instead of silent information loss;
+   - compatibility regression fixtures across representative schema versions.
+
+### Format delivery sequence
+
+Work should then proceed in this order, subject to the language prerequisites in
+Priority 6:
+
+1. **P0 — harden OpenAPI import and add OpenAPI export.**
+   - Accept both YAML and JSON OpenAPI documents.
+   - Stop treating the first `components.schemas` entry as the whole API.
+   - Map reusable component schemas deliberately to value/entity candidates,
+     request bodies and parameters to request projections, responses to reply
+     projections, `$ref` to named references, and operation/security metadata
+     where Modelable has a corresponding concept.
+   - Add deterministic OpenAPI generation from API-facing projections.
+   - Preserve Modelable-specific round-trip metadata through namespaced
+     extensions where doing so does not change OpenAPI semantics.
+2. **P0 — add Avro export and harden Avro import.**
+   Treat records as model/event contracts, map arrays/enums/logical types and
+   optional unions, preserve Modelable identity/governance metadata through
+   legal custom attributes, and add reader/writer compatibility regression
+   fixtures before declaring the target stable.
+3. **P1 — add AsyncAPI import/export.**
+   Map Modelable events/projections to messages, bindings/topics to channels,
+   producer/consumer intent to operations, and JSON Schema/Avro/Protobuf payload
+   schemas without duplicating those schema emitters. Kafka is the first
+   binding to harden; other protocol bindings follow concrete demand.
+4. **P1 — add XSD import.**
+   XSD is primarily an enterprise migration source. Map complex/simple types,
+   enumerations, cardinality, restrictions, namespaces, and obvious identities;
+   issue explicit lossy-import diagnostics for substitution groups, wildcards,
+   mixed content, inheritance shapes, and XML-specific constructs that have no
+   faithful Modelable representation. XSD export remains optional and should
+   require a concrete consumer.
+5. **P1/P2 — add GraphQL SDL/Federation interoperability.**
+   Start with GraphQL/Federation export because Modelable domain ownership,
+   entities, references, and API projections map naturally to subgraphs,
+   `@key` identities, relationships, and operation shapes. Add SDL import after
+   export semantics are stable and backed by representative federated schemas.
+6. **P2 — add migration-only importers for TypeSpec and Smithy.**
+   Consider LinkML and CUE in the same class if real migration demand appears.
+   These are source migration paths into canonical `.mdl`, not reasons to emit
+   another source-language artifact by default.
+7. **P2 — add lakehouse schema targets.**
+   Start with Iceberg schema emission and evaluate Delta schema interoperability
+   after the type/field-identity mapping is proven. Emit schema/contract
+   artifacts only; table lifecycle and runtime materialization stay outside the
+   compiler boundary.
+8. Continue existing integration work: live OpenMetadata synchronization,
+   remote authenticated tracked-spec sources for dbt/FHIR/ODCS, complex FHIR
+   and dbt/ODCS hardening, and lineage stitching for external dbt exposures and
+   similar consumers.
+
+The intended interoperability surface is asymmetric by design:
+
+- Bidirectional where semantic round-tripping is useful and defensible: JSON
+  Schema, Protobuf, Avro, ODCS, FHIR, OpenAPI, AsyncAPI, and eventually GraphQL.
+- Primarily import/migration: SQL DDL, XSD, TypeSpec, Smithy, and potentially
+  LinkML/CUE.
+- Primarily output/platform integration: dbt, OpenMetadata, OpenLineage,
+  PostgreSQL/ClickHouse, Iceberg/Delta, and generated programming languages.
 
 Completion means at least one real deployment can pull or synchronize external
 contracts reproducibly without making an external service the source of truth
-for Modelable models.
+for Modelable models, and every stable format adapter is exercised against
+representative real-world regression data rather than only hand-written toy
+fixtures.
 
 ## Priority 6 — language evolution and extensibility
 
@@ -403,13 +496,18 @@ against a concrete consumer:
 - **E3** — freshness, SLA, and retention metadata for supported contract and
   catalog emitters.
 
-Target work gated on the above language work (Track F, items 2-4):
+Target work gated on the above language work (Track F, items 2-4). Priority 5
+owns sequencing and product scope; these slices describe language/compiler
+prerequisites:
 
 - **F2** — OpenAPI emission, after D1-D4, C1, and C3.
 - **F3** — AsyncAPI emission, after named enums, unions, reference-version
   semantics, and the event-envelope contract.
 - **F4** — Avro emission, after defaults, nullability, named enums, unions,
   and target-specific reader/writer compatibility.
+- **F5** — GraphQL/Federation emission, after identity/reference semantics and
+  projection contract compatibility are sufficiently explicit for stable
+  subgraph generation.
 
 (Slice F1 — nominal types beyond Rust — is not gated; it is tracked under
 Priority 4 above since it is already a concrete, unblocked roadmap item.)
@@ -423,7 +521,8 @@ accepted design establish their value:
   subset into canonical `.mdl` without importing or executing user code.
 - Distributed registry synchronization beyond the current file-first ledger
   and local registry cache.
-- Additional artifact formats requested by a real consumer.
+- Additional artifact formats requested by a real consumer beyond the explicit
+  interoperability sequence in Priority 5.
 - A third compatibility signal for state-migration necessity.
 - An optional provider adapter for the VS Code Language Model API so users can
   select a model available in their editor. Native model output must still
