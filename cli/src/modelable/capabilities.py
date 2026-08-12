@@ -117,8 +117,7 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         status=CapabilityStatus.deferred,
         description="Workspace-level `registry {}` configuration",
         notes=(
-            "Parses but is discarded before IR construction; has no effect on compilation. "
-            "See Slice B3 in ROADMAP.md."
+            "Parses but is discarded before IR construction; has no effect on compilation. See Slice B3 in ROADMAP.md."
         ),
         test_refs=("test_deferred_syntax.py::test_workspace_registry_block_produces_deferred_warning",),
     ),
