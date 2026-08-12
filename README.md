@@ -16,6 +16,77 @@ without losing ownership, classification, lineage, or compatibility context.
 .mdl sources -> validate and resolve -> plan and govern -> generate artifacts
 ```
 
+## How it fits together
+
+A canonical entity, its compiler-expanded `db`/`request`/`reply`/`event`
+projections, a hand-authored cross-domain projection, and the artifacts and
+(deferred) streaming path they can drive:
+
+```mermaid
+flowchart TB
+    subgraph CUSTOMER["Domain: customer (owner: customer-platform)"]
+        V1["entity Customer @1<br/>additive"] --> V2["entity Customer @2<br/>additive"]
+    end
+
+    subgraph AUTO["Auto projections — compiler-expanded from Customer @2"]
+        direction LR
+        DB["CustomerDb @2<br/>persistence contract"]
+        REQ["CustomerRequest @2<br/>write model"]
+        REP["CustomerReply @2<br/>read model"]
+        EVT["CustomerEvent @2<br/>created / updated / deleted"]
+    end
+
+    V2 --> DB
+    V2 --> REQ
+    V2 --> REP
+    V2 --> EVT
+
+    subgraph BILLING["Domain: billing (owner: billing-platform)"]
+        JOIN["projection BillingCustomer @1<br/>from customer.Customer @2 as c<br/>join orders.Order @3 as o"]
+    end
+
+    V2 -. "field-level lineage" .-> JOIN
+
+    subgraph PIPE["Compiler pipeline"]
+        direction LR
+        PARSE["Parse .mdl"] --> VALIDATE["Validate, resolve versions,<br/>check compatibility"] --> PLAN["Plan document (JSON)"]
+    end
+
+    DB --> PARSE
+    REQ --> PARSE
+    REP --> PARSE
+    EVT --> PARSE
+    JOIN --> PARSE
+
+    subgraph ARTIFACTS["Generated artifacts"]
+        direction LR
+        JSONSCHEMA["JSON Schema"]
+        TYPES["TypeScript, C#, Java,<br/>Python, Rust, Go"]
+        SQLDDL["SQL DDL,<br/>dbt schema.yml"]
+        PROTO["Protobuf / gRPC"]
+        GOV["OpenLineage, OpenMetadata,<br/>ODCS, FHIR R4"]
+    end
+
+    PLAN --> JSONSCHEMA
+    PLAN --> TYPES
+    PLAN --> SQLDDL
+    PLAN --> PROTO
+    PLAN --> GOV
+
+    subgraph FUTURE["Streaming runtime — Phase 5, deferred, not implemented"]
+        direction LR
+        ENVELOPE["Change event envelope"] --> SUBSCRIPTION["Subscription"] --> MATERIALIZED["Materialized replica<br/>Postgres / Kafka"]
+    end
+
+    EVT -.-> ENVELOPE
+```
+
+Everything above the "Streaming runtime" box is implemented by the local
+compiler today. `subscription`, adapter-driven materialization, and the
+runtime engine parse and validate but do not execute yet — see
+[Architecture and system specification](docs/architecture.md) for the exact
+implemented/deferred boundary of every concept in the diagram.
+
 ## Install
 
 Modelable requires Python 3.14.

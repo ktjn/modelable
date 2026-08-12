@@ -278,6 +278,7 @@ test('creates, validates, and restores a multi-file workspace', async ({
       'file:///customer.mdl',
       'file:///orders.mdl',
       'file:///sales.mdl',
+      'file:///workspace.mdl',
     ]);
 
   await page.getByRole('button', { name: 'orders.mdl' }).click();

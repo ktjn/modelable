@@ -20,4 +20,13 @@ domain customer {
     status: enum(active, suspended, closed)
     createdAt: timestamp
   }
+
+  // Compiler-expanded models: CustomerDb, CustomerRequest, CustomerReply,
+  // and CustomerEvent (fired on created / updated / deleted).
+  auto projections Customer @ 2 {
+    db
+    request
+    reply
+    event
+  }
 }

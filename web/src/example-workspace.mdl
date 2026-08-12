@@ -1,0 +1,13 @@
+workspace {
+  name: "playground-example"
+  description: "Customer identity, its compiler-expanded db/request/reply/event projections, a cross-domain billing projection, and a sales domain referencing customer by id."
+
+  generate {
+    docs          -> "./generated/docs/"
+    typescript    -> "./generated/types/"
+    jsonschema    -> "./generated/jsonschema/"
+    sql(postgres) -> "./generated/sql/"
+    openapi       -> "./generated/api/"
+    asyncapi      -> "./generated/events/"
+  }
+}
