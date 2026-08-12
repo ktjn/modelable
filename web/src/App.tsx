@@ -23,6 +23,7 @@ import { normalizeDiagnosticsByUri } from './diagnostics';
 import customerSource from './example-customer.mdl?raw';
 import salesSource from './example-sales.mdl?raw';
 import billingSource from './example-billing.mdl?raw';
+import workspaceSource from './example-workspace.mdl?raw';
 import { SourceEditor } from './editor/SourceEditor';
 import type { SourceEditorHandle } from './editor/types';
 import {
@@ -190,6 +191,7 @@ function AppInner({
       { path: 'customer.mdl', content: customerSource },
       { path: 'sales.mdl', content: salesSource },
       { path: 'billing.mdl', content: billingSource },
+      { path: 'workspace.mdl', content: workspaceSource },
     ]),
   );
   const [repository] = useState(() => createRepository());
