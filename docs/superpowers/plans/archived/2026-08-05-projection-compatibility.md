@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.14, Pydantic v2 IR models, pytest + pytest-xdist.
 
-**Spec:** [docs/superpowers/specs/2026-08-05-projection-compatibility-design.md](../specs/2026-08-05-projection-compatibility-design.md)
+**Spec:** [docs/superpowers/specs/2026-08-05-projection-compatibility-design.md](../../specs/archived/2026-08-05-projection-compatibility-design.md)
 
 ## Global Constraints
 

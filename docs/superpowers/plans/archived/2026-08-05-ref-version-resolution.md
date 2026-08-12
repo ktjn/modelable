@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.14, Lark (Earley), Pydantic v2 IR models, pytest.
 
-**Spec:** [docs/superpowers/specs/2026-08-05-ref-version-resolution-design.md](../specs/2026-08-05-ref-version-resolution-design.md)
+**Spec:** [docs/superpowers/specs/2026-08-05-ref-version-resolution-design.md](../../specs/archived/2026-08-05-ref-version-resolution-design.md)
 
 ## Global Constraints
 

@@ -526,7 +526,7 @@ Requires A2 and A3.
 ### Outcome (2026-08-05)
 
 Implemented as designed in
-[the C1 design spec](superpowers/specs/2026-08-05-projection-compatibility-design.md):
+[the C1 design spec](superpowers/specs/archived/2026-08-05-projection-compatibility-design.md):
 `compare_projection_versions()`/`check_projection_version_compatibility()`
 in `compat/diff.py`/`compat/checker.py`, wired into the existing
 `modelable diff` command (`ResolvedModelRef.version` already resolved both
@@ -590,7 +590,7 @@ Recommended compatibility path:
 ### Outcome (2026-08-05)
 
 Implemented as designed in
-[the C2 design spec](superpowers/specs/2026-08-05-ref-version-resolution-design.md):
+[the C2 design spec](superpowers/specs/archived/2026-08-05-ref-version-resolution-design.md):
 grammar/IR support for `ref<Domain.Model @ version_spec>`, one canonical
 `resolve_ref_type()` resolver, new SEM validation for unresolvable refs and
 a non-blocking `REF` advisory for unversioned ones, compat/signature rules
