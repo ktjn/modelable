@@ -584,28 +584,11 @@ function AppInner({
       const existingPaths = new Set(
         current.files.map((file) => file.path),
       );
-      const mutations: WorkspaceMutation[] = [];
-      for (const file of files) {
-        if (existingPaths.has(file.path)) {
-          if (
-            confirmReplace(
-              `Replace existing workspace file ${file.path}?`,
-            )
-          ) {
-            mutations.push({
-              type: 'update',
-              path: file.path,
-              content: file.content,
-            });
-          }
-        } else {
-          mutations.push({
-            type: 'create',
-            path: file.path,
-            content: file.content,
-          });
-        }
-      }
+      const mutations: WorkspaceMutation[] = files.map((file) =>
+        existingPaths.has(file.path)
+          ? { type: 'update', path: file.path, content: file.content }
+          : { type: 'create', path: file.path, content: file.content },
+      );
       if (mutations.length > 0) {
         replaceWorkspace(
           mutateWorkspaceBatch(current, mutations),
@@ -613,7 +596,7 @@ function AppInner({
         );
       }
     },
-    [confirmReplace, replaceWorkspace],
+    [replaceWorkspace],
   );
 
   useEffect(() => {

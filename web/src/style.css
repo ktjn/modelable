@@ -645,6 +645,74 @@ button.view-tab--active:hover:not(:disabled) {
   border-top: 1px solid var(--danger-bg);
 }
 
+.workspace-import-review {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.workspace-import-review__item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--panel);
+}
+
+.workspace-import-review__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+
+.workspace-import-review__badge {
+  flex-shrink: 0;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--ok-bg);
+  color: var(--text-ok);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.workspace-import-review__badge--replace {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.workspace-import-review__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  padding: 0.6rem 0.65rem;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.workspace-import-review__confirm {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+.workspace-import-review__confirm:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
 /* Editor pane */
 
 .editor-pane {

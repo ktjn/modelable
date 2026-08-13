@@ -34,6 +34,12 @@ export function WorkspaceFiles({
   const [renameValue, setRenameValue] = useState('');
   const [menuPath, setMenuPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingImport, setPendingImport] = useState<
+    ImportedWorkspaceFile[] | null
+  >(null);
+  const [importSelection, setImportSelection] = useState<Set<string>>(
+    new Set(),
+  );
   const importInputRef = useRef<HTMLInputElement>(null);
   const menuContainerRef = useRef<HTMLDivElement>(null);
 
@@ -57,7 +63,15 @@ export function WorkspaceFiles({
     try {
       const files = await readWorkspaceFiles(input.files ?? []);
       if (files.length > 0) {
-        onImport(files);
+        const existingPaths = new Set(
+          workspace.files.map((file) => file.path),
+        );
+        if (files.some((file) => existingPaths.has(file.path))) {
+          setPendingImport(files);
+          setImportSelection(new Set(files.map((file) => file.path)));
+        } else {
+          onImport(files);
+        }
       }
       setError(null);
     } catch (importError: unknown) {
@@ -69,6 +83,35 @@ export function WorkspaceFiles({
     } finally {
       input.value = '';
     }
+  };
+
+  const toggleImportSelection = (path: string): void => {
+    setImportSelection((previous) => {
+      const next = new Set(previous);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  };
+
+  const confirmImport = (): void => {
+    if (pendingImport === null) return;
+    const selected = pendingImport.filter((file) =>
+      importSelection.has(file.path),
+    );
+    if (selected.length > 0) {
+      onImport(selected);
+    }
+    setPendingImport(null);
+    setImportSelection(new Set());
+  };
+
+  const cancelImport = (): void => {
+    setPendingImport(null);
+    setImportSelection(new Set());
   };
 
   const submitCreate = (): void => {
@@ -105,6 +148,74 @@ export function WorkspaceFiles({
       );
     }
   };
+
+  if (pendingImport !== null) {
+    const existingPaths = new Set(workspace.files.map((file) => file.path));
+    const count = importSelection.size;
+
+    return (
+      <aside className="workspace-files" aria-label="Workspace files">
+        <div className="workspace-files__header">
+          <div>
+            <span className="workspace-files__eyebrow">Workspace</span>
+            <span className="workspace-files__title">Review import</span>
+          </div>
+        </div>
+        <ul
+          className="workspace-import-review"
+          aria-label="Files to import"
+        >
+          {pendingImport.map((file) => {
+            const replaces = existingPaths.has(file.path);
+            const checked = importSelection.has(file.path);
+            return (
+              <li key={file.path} className="workspace-import-review__item">
+                <input
+                  type="checkbox"
+                  id={`import-${file.path}`}
+                  aria-label={file.path}
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={() => toggleImportSelection(file.path)}
+                />
+                <label
+                  className="workspace-import-review__path"
+                  htmlFor={`import-${file.path}`}
+                >
+                  {file.path}
+                </label>
+                <span
+                  className={`workspace-import-review__badge${
+                    replaces ? ' workspace-import-review__badge--replace' : ''
+                  }`}
+                >
+                  {replaces ? 'Replaces existing' : 'New'}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="workspace-import-review__actions">
+          <button type="button" disabled={disabled} onClick={cancelImport}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="workspace-import-review__confirm"
+            disabled={disabled || count === 0}
+            onClick={confirmImport}
+          >
+            Import {count} file{count === 1 ? '' : 's'}
+          </button>
+        </div>
+        {error === null ? null : (
+          <p className="workspace-file-error" role="alert">
+            {error}
+          </p>
+        )}
+      </aside>
+    );
+  }
 
   return (
     <aside className="workspace-files" aria-label="Workspace files">
