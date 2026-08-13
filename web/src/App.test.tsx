@@ -79,6 +79,7 @@ vi.mock('./layout/ResizableLayout', () => {
       editor,
       visualization,
       bottom,
+      mobileView,
     }: {
       explorer: React.ReactNode;
       editor: React.ReactNode;
@@ -86,8 +87,11 @@ vi.mock('./layout/ResizableLayout', () => {
       bottom: React.ReactNode;
       mobileView: string;
     }) =>
-      createElement('div', { 'data-testid': 'resizable-layout' },
-        explorer, editor, visualization, bottom),
+      createElement(
+        'div',
+        { 'data-testid': 'resizable-layout', 'data-mobile-view': mobileView },
+        explorer, editor, visualization, bottom,
+      ),
   };
 });
 
@@ -1041,6 +1045,31 @@ describe('App', () => {
     expect(
       screen.queryByRole('button', { name: 'sales.mdl' }),
     ).toBeNull();
+  });
+
+  test('switches to the source view after creating or selecting a file from the mobile Files view', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    const resizableLayout = () => screen.getByTestId('resizable-layout');
+    expect(resizableLayout().getAttribute('data-mobile-view')).toBe('source');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Files' }));
+    expect(resizableLayout().getAttribute('data-mobile-view')).toBe('files');
+
+    fireEvent.click(screen.getByRole('button', { name: 'sales.mdl' }));
+    expect(resizableLayout().getAttribute('data-mobile-view')).toBe('source');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Files' }));
+    expect(resizableLayout().getAttribute('data-mobile-view')).toBe('files');
+
+    fireEvent.click(screen.getByRole('button', { name: 'New file' }));
+    fireEvent.change(screen.getByPlaceholderText('file.mdl'), {
+      target: { value: 'orders.mdl' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(resizableLayout().getAttribute('data-mobile-view')).toBe('source');
   });
 
   test('reloads the built-in demo workspace after confirmation', async () => {
