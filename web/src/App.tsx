@@ -1395,6 +1395,7 @@ function AppInner({
         status={state.status}
         diagnosticLabel={diagnosticLabel}
         statusIsError={statusIsError}
+        isWorking={state.runtime === 'working'}
         persistencePhase={persistentWorkspace.phase}
         languageStatus={languageStatus}
         themePreference={themePreference}

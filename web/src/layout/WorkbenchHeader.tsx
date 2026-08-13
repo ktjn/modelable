@@ -4,12 +4,15 @@ export interface WorkbenchHeaderProps {
   status: string;
   diagnosticLabel: string;
   statusIsError: boolean;
+  isWorking?: boolean;
   persistencePhase: 'saved' | 'saving' | 'memory-only' | 'recovery-required';
   languageStatus: string;
   themePreference: ThemePreference;
   resolvedTheme: 'light' | 'dark';
   onThemePreferenceChange: (preference: ThemePreference) => void;
 }
+
+const persistenceWarningPhases = new Set(['memory-only', 'recovery-required']);
 
 const nextPreference: Record<ThemePreference, ThemePreference> = {
   system: 'light',
@@ -31,6 +34,7 @@ export function WorkbenchHeader({
   status,
   diagnosticLabel,
   statusIsError,
+  isWorking = false,
   persistencePhase,
   languageStatus,
   themePreference,
@@ -53,16 +57,28 @@ export function WorkbenchHeader({
           role={statusIsError ? 'alert' : 'status'}
           aria-live={statusIsError ? 'assertive' : 'polite'}
         >
+          {isWorking ? (
+            <span className="workbench-header__pulse" aria-hidden="true" />
+          ) : null}
           {status}
           <span className="badge__separator">·</span>
           {diagnosticLabel}
         </span>
-        <span className="badge" aria-live="polite">
+        <span
+          className={`badge${
+            persistenceWarningPhases.has(persistencePhase)
+              ? ' badge--warning'
+              : ''
+          }`}
+          aria-live="polite"
+        >
           {persistencePhase === 'saved'
             ? 'Saved locally'
             : persistencePhase === 'saving'
               ? 'Saving…'
-              : 'Memory-only'}
+              : persistencePhase === 'memory-only'
+                ? 'Memory-only'
+                : 'Recovery needed'}
         </span>
         <span className="badge badge--muted" aria-live="polite">
           {languageStatus}
