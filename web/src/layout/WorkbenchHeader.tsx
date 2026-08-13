@@ -11,6 +11,7 @@ export interface WorkbenchHeaderProps {
   resolvedTheme: 'light' | 'dark';
   onThemePreferenceChange: (preference: ThemePreference) => void;
   onOpenCommandPalette?: () => void;
+  onOpenShortcutsHelp?: () => void;
 }
 
 const persistenceWarningPhases = new Set(['memory-only', 'recovery-required']);
@@ -42,6 +43,7 @@ export function WorkbenchHeader({
   resolvedTheme,
   onThemePreferenceChange,
   onOpenCommandPalette = () => {},
+  onOpenShortcutsHelp = () => {},
 }: WorkbenchHeaderProps) {
   const handleThemeClick = (): void => {
     onThemePreferenceChange(nextPreference[themePreference]);
@@ -94,6 +96,16 @@ export function WorkbenchHeader({
           onClick={onOpenCommandPalette}
         >
           Commands
+        </button>
+        <button
+          type="button"
+          className="workbench-header__shortcuts-trigger"
+          aria-label="Keyboard shortcuts"
+          aria-keyshortcuts="?"
+          title="Keyboard shortcuts (?)"
+          onClick={onOpenShortcutsHelp}
+        >
+          ?
         </button>
         <button
           type="button"

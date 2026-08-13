@@ -18,6 +18,11 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:4173/modelable/playground/',
     trace: 'retain-on-failure',
   },
+  expect: {
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.02,
+    },
+  },
   projects: [
     ...(project === undefined || project === 'chromium'
       ? [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }]

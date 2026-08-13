@@ -766,6 +766,51 @@ describe('App', () => {
     expect(resizableLayout().getAttribute('data-mobile-view')).toBe('assistant');
   });
 
+  test('opens keyboard shortcuts via the header button, the ? key, and the command palette, but not while typing', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    expect(
+      screen.queryByRole('dialog', { name: 'Keyboard shortcuts' }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }));
+    expect(
+      screen.getByRole('dialog', { name: 'Keyboard shortcuts' }),
+    ).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(
+      screen.queryByRole('dialog', { name: 'Keyboard shortcuts' }),
+    ).toBeNull();
+
+    fireEvent.keyDown(window, { key: '?' });
+    expect(
+      screen.getByRole('dialog', { name: 'Keyboard shortcuts' }),
+    ).toBeTruthy();
+    fireEvent.keyDown(window, { key: '?' });
+    expect(
+      screen.queryByRole('dialog', { name: 'Keyboard shortcuts' }),
+    ).toBeNull();
+
+    const sourceEditor = screen.getByRole('textbox', { name: 'Model source' });
+    fireEvent.keyDown(sourceEditor, { key: '?' });
+    expect(
+      screen.queryByRole('dialog', { name: 'Keyboard shortcuts' }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Commands' }));
+    fireEvent.change(screen.getByPlaceholderText('Type a command…'), {
+      target: { value: 'shortcuts' },
+    });
+    fireEvent.click(
+      screen.getByRole('option', { name: /Show keyboard shortcuts/ }),
+    );
+    expect(
+      screen.getByRole('dialog', { name: 'Keyboard shortcuts' }),
+    ).toBeTruthy();
+  });
+
   test('announces operation failures as alerts', async () => {
     const client = new FakeCompilerClient();
     render(<App createClient={() => client} />);
