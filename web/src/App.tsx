@@ -1418,23 +1418,18 @@ function AppInner({
               applyWorkspaceMutation({ type: 'create', path }, true)
             }
             onImport={importWorkspaceFiles}
-            onRename={(path) =>
+            onRename={(from, to) =>
               applyWorkspaceMutation({
                 type: 'rename',
-                from: workspaceRef.current.activeFile,
-                to: path,
+                from,
+                to,
               }, true)
             }
-            onDelete={() => {
-              const activeFile = workspaceRef.current.activeFile;
-              if (
-                confirmReplace(
-                  `Delete workspace file ${activeFile}?`,
-                )
-              ) {
+            onDelete={(path) => {
+              if (confirmReplace(`Delete workspace file ${path}?`)) {
                 applyWorkspaceMutation({
                   type: 'delete',
-                  path: activeFile,
+                  path,
                 }, true);
               }
             }}

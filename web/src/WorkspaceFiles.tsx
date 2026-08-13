@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   readWorkspaceFiles,
@@ -14,8 +14,8 @@ export interface WorkspaceFilesProps {
   disabled: boolean;
   onCreate(path: string): void;
   onImport(files: ImportedWorkspaceFile[]): void;
-  onRename(path: string): void;
-  onDelete(): void;
+  onRename(from: string, to: string): void;
+  onDelete(path: string): void;
   onSelect(path: string): void;
 }
 
@@ -32,8 +32,26 @@ export function WorkspaceFiles({
   const [createName, setCreateName] = useState('');
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [menuPath, setMenuPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const menuContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (menuPath === null) return;
+    const closeOnOutsideClick = (event: MouseEvent): void => {
+      if (
+        menuContainerRef.current !== null &&
+        event.target instanceof Node &&
+        !menuContainerRef.current.contains(event.target)
+      ) {
+        setMenuPath(null);
+      }
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () =>
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [menuPath]);
 
   const importFiles = async (input: HTMLInputElement): Promise<void> => {
     try {
@@ -74,7 +92,7 @@ export function WorkspaceFiles({
     try {
       const path = normalizeWorkspacePath(renameValue);
       if (path !== renamingPath) {
-        onRename(path);
+        onRename(renamingPath, path);
       }
       setRenamingPath(null);
       setRenameValue('');
@@ -171,6 +189,8 @@ export function WorkspaceFiles({
               );
             }
 
+            const menuOpen = menuPath === file.path;
+
             return (
               <li
                 key={file.path}
@@ -187,33 +207,67 @@ export function WorkspaceFiles({
                 >
                   {file.path}
                 </button>
-                {active ? (
-                  <span className="workspace-file-item__actions">
-                    <button
-                      type="button"
-                      className="workspace-files__icon"
-                      title="Rename"
-                      aria-label="Rename"
-                      disabled={disabled}
-                      onClick={() => {
-                        setRenamingPath(file.path);
-                        setRenameValue(file.path);
-                      }}
+                <span
+                  className="workspace-file-item__actions"
+                  ref={menuOpen ? menuContainerRef : undefined}
+                >
+                  <button
+                    type="button"
+                    className="workspace-files__icon workspace-file-item__menu-trigger"
+                    title={`${file.path} actions`}
+                    aria-label={`${file.path} actions`}
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
+                    disabled={disabled}
+                    onClick={() => setMenuPath(menuOpen ? null : file.path)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape' && menuOpen) {
+                        setMenuPath(null);
+                      }
+                    }}
+                  >
+                    ⋯
+                  </button>
+                  {menuOpen ? (
+                    <div
+                      className="workspace-file-item__menu"
+                      role="menu"
+                      aria-label={`${file.path} actions`}
                     >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      className="workspace-files__icon workspace-files__icon--danger"
-                      title="Delete"
-                      aria-label="Delete"
-                      disabled={disabled || workspace.files.length === 1}
-                      onClick={onDelete}
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ) : null}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="workspace-file-item__menu-item"
+                        disabled={disabled}
+                        onClick={() => {
+                          setMenuPath(null);
+                          setRenamingPath(file.path);
+                          setRenameValue(file.path);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape') setMenuPath(null);
+                        }}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="workspace-file-item__menu-item workspace-file-item__menu-item--danger"
+                        disabled={disabled || workspace.files.length === 1}
+                        onClick={() => {
+                          setMenuPath(null);
+                          onDelete(file.path);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Escape') setMenuPath(null);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </span>
               </li>
             );
           })}
