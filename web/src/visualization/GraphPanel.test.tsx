@@ -7,6 +7,19 @@ import type { BrowserGraphResult } from '../protocol';
 import type { GraphNode } from './graph-types';
 import { GraphPanel, type GraphPanelProps } from './GraphPanel';
 
+const node: GraphNode = {
+  id: 'version:sales.Customer@2',
+  type: 'version',
+  position: { x: 0, y: 0 },
+  data: {
+    label: 'Customer@2',
+    kind: 'version',
+    metadata: { version: 2, change_kind: 'additive' },
+    sourceRange: null,
+    direction: 'RIGHT',
+  },
+};
+
 const mocks = vi.hoisted(() => ({
   useGraphExport: vi.fn(() => ({
     exportSvg: vi.fn(),
@@ -22,20 +35,11 @@ const mocks = vi.hoisted(() => ({
     onMoveStart: vi.fn(),
     onFitView: vi.fn(),
   },
-}));
-
-const node: GraphNode = {
-  id: 'domain:sales',
-  type: 'domain',
-  position: { x: 0, y: 0 },
-  data: {
-    label: 'sales',
-    kind: 'domain',
-    metadata: {},
-    sourceRange: null,
-    direction: 'RIGHT',
+  graphSync: {
+    selectedNodeId: null as string | null,
+    onNodeClick: vi.fn(),
   },
-};
+}));
 
 vi.mock('@xyflow/react', () => ({
   Background: () => <div data-testid="background" />,
@@ -96,10 +100,7 @@ vi.mock('./useGraphLayout', () => ({
 }));
 
 vi.mock('./useGraphSync', () => ({
-  useGraphSync: () => ({
-    selectedNodeId: null,
-    onNodeClick: vi.fn(),
-  }),
+  useGraphSync: () => mocks.graphSync,
 }));
 
 vi.mock('./useReadableGraphViewport', () => ({
@@ -125,6 +126,7 @@ const props: GraphPanelProps = {
 beforeEach(() => {
   mocks.useGraphExport.mockClear();
   mocks.viewport.showMiniMap = false;
+  mocks.graphSync.selectedNodeId = null;
 });
 
 afterEach(cleanup);
@@ -159,4 +161,25 @@ test('shares the graph canvas ref with export behavior', () => {
   expect(mocks.useGraphExport).toHaveBeenCalledWith(
     expect.objectContaining({ current: expect.any(HTMLDivElement) }),
   );
+});
+
+test('shows no details region when nothing is selected', () => {
+  render(<GraphPanel {...props} />);
+
+  expect(
+    screen.queryByRole('region', { name: 'Selected node details' }),
+  ).toBeNull();
+});
+
+test('shows selected node kind, label, and metadata in the details region', () => {
+  mocks.graphSync.selectedNodeId = node.id;
+  render(<GraphPanel {...props} />);
+
+  const details = screen.getByRole('region', {
+    name: 'Selected node details',
+  });
+  expect(details.textContent).toContain('version');
+  expect(details.textContent).toContain('Customer@2');
+  expect(details.textContent).toContain('version: 2');
+  expect(details.textContent).toContain('change_kind: additive');
 });

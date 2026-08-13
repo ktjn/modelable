@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+
 import { ArtifactEditor } from '../editor/ArtifactEditor';
 import type { BrowserArtifact } from '../protocol';
 import type { PlaygroundPluginRegistry } from '../plugins/registry';
@@ -94,11 +96,19 @@ export function OutputPanel({
         {selectedArtifact === null ? (
           <p className="output-panel__empty">Select an artifact to preview</p>
         ) : (
-          <ArtifactPreview
-            artifact={selectedArtifact}
-            isStale={isStale}
-            pluginRegistry={pluginRegistry}
-          />
+          <>
+            <div className="output-panel__editor-header">
+              <span className="output-panel__editor-path">
+                {selectedArtifact.path}
+              </span>
+              <CopyButton content={selectedArtifact.content} />
+            </div>
+            <ArtifactPreview
+              artifact={selectedArtifact}
+              isStale={isStale}
+              pluginRegistry={pluginRegistry}
+            />
+          </>
         )}
       </div>
     </section>
@@ -120,4 +130,38 @@ function ArtifactPreview({
   }
   const Viewer = viewer.component;
   return <Viewer artifact={artifact} isStale={isStale} />;
+}
+
+function CopyButton({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+    },
+    [],
+  );
+
+  const copy = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard access can be denied by the browser; the button simply
+      // stays in its normal state rather than claiming a false success.
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className="output-panel__copy"
+      onClick={() => void copy()}
+    >
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  );
 }
