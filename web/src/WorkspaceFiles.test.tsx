@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 
@@ -19,6 +19,13 @@ const workspace: PlaygroundWorkspace = {
 };
 
 afterEach(cleanup);
+
+function chooseFiles(files: File[]): void {
+  const input = screen.getByLabelText<HTMLInputElement>(
+    'Import workspace files',
+  );
+  fireEvent.change(input, { target: { files } });
+}
 
 test('selects, creates, renames, and deletes workspace files', async () => {
   const user = userEvent.setup();
@@ -139,4 +146,85 @@ test('reports invalid paths and does not dispatch disabled controls', async () =
     (screen.getByRole('button', { name: 'a.mdl' }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
+});
+
+test('imports non-conflicting files immediately, without a review step', async () => {
+  const onImport = vi.fn();
+  render(
+    <WorkspaceFiles
+      workspace={workspace}
+      disabled={false}
+      onCreate={vi.fn()}
+      onImport={onImport}
+      onRename={vi.fn()}
+      onDelete={vi.fn()}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  chooseFiles([new File(['domain c {}'], 'c.mdl')]);
+
+  await vi.waitFor(() => expect(onImport).toHaveBeenCalled());
+  expect(onImport).toHaveBeenCalledWith([
+    { path: 'c.mdl', content: 'domain c {}' },
+  ]);
+  expect(screen.queryByText('Review import')).toBeNull();
+});
+
+test('reviews a conflicting import, letting the caller exclude a file before confirming', async () => {
+  const onImport = vi.fn();
+  render(
+    <WorkspaceFiles
+      workspace={workspace}
+      disabled={false}
+      onCreate={vi.fn()}
+      onImport={onImport}
+      onRename={vi.fn()}
+      onDelete={vi.fn()}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  chooseFiles([
+    new File(['domain b replaced {}'], 'b.mdl'),
+    new File(['domain c {}'], 'c.mdl'),
+  ]);
+
+  await screen.findByText('Review import');
+  expect(onImport).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole('checkbox', { name: 'b.mdl' }) as HTMLInputElement,
+  ).toHaveProperty('checked', true);
+
+  fireEvent.click(screen.getByRole('checkbox', { name: 'b.mdl' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Import 1 file' }));
+
+  expect(onImport).toHaveBeenCalledWith([
+    { path: 'c.mdl', content: 'domain c {}' },
+  ]);
+  expect(screen.queryByText('Review import')).toBeNull();
+});
+
+test('cancels a reviewed import without calling onImport', async () => {
+  const onImport = vi.fn();
+  render(
+    <WorkspaceFiles
+      workspace={workspace}
+      disabled={false}
+      onCreate={vi.fn()}
+      onImport={onImport}
+      onRename={vi.fn()}
+      onDelete={vi.fn()}
+      onSelect={vi.fn()}
+    />,
+  );
+
+  chooseFiles([new File(['domain b replaced {}'], 'b.mdl')]);
+
+  await screen.findByText('Review import');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+  expect(onImport).not.toHaveBeenCalled();
+  expect(screen.queryByText('Review import')).toBeNull();
+  expect(screen.getByRole('button', { name: 'New file' })).toBeTruthy();
 });

@@ -1042,17 +1042,22 @@ describe('App', () => {
     });
   });
 
-  test('imports multiple files atomically and confirms each replacement', async () => {
+  test('imports non-conflicting files immediately, without a review step', async () => {
     const client = new FakeCompilerClient();
-    const confirmReplace = vi.fn(
-      (message: string) => !message.includes('customer.mdl'),
-    );
-    render(
-      <App
-        createClient={() => client}
-        confirmReplace={confirmReplace}
-      />,
-    );
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    chooseWorkspaceFiles([new File(['domain orders {}'], 'orders.mdl')]);
+
+    expect(
+      await screen.findByRole('button', { name: 'orders.mdl' }),
+    ).toBeTruthy();
+    expect(screen.queryByText('Review import')).toBeNull();
+  });
+
+  test('reviews a conflicting import and lets the user exclude a replacement', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
     await initialize(client);
     const originalSource = (
       screen.getByRole('textbox', {
@@ -1065,12 +1070,18 @@ describe('App', () => {
       new File(['domain orders {}'], 'orders.mdl'),
     ]);
 
+    expect(await screen.findByText('Review import')).toBeTruthy();
+    expect(screen.getByText('Replaces existing')).toBeTruthy();
+    expect(screen.getByText('New')).toBeTruthy();
+    // Nothing is applied yet -- still one file per its original state.
+    expect(screen.queryByRole('button', { name: 'orders.mdl' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'customer.mdl' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Import 1 file' }));
+
     expect(
       await screen.findByRole('button', { name: 'orders.mdl' }),
     ).toBeTruthy();
-    expect(confirmReplace).toHaveBeenCalledWith(
-      'Replace existing workspace file customer.mdl?',
-    );
     fireEvent.click(screen.getByRole('button', { name: 'customer.mdl' }));
     expect(
       (
@@ -1079,6 +1090,23 @@ describe('App', () => {
         }) as HTMLTextAreaElement
       ).value,
     ).toBe(originalSource);
+  });
+
+  test('cancels a reviewed import without applying any of the files', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    chooseWorkspaceFiles([
+      new File(['domain replacement {}'], 'customer.mdl'),
+      new File(['domain orders {}'], 'orders.mdl'),
+    ]);
+
+    expect(await screen.findByText('Review import')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByText('Review import')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'orders.mdl' })).toBeNull();
   });
 
   test('keeps the playground usable when local storage is unavailable', async () => {
