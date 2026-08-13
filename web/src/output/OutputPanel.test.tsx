@@ -18,12 +18,33 @@ vi.mock('../editor/ArtifactEditor', () => ({
   ),
 }));
 
+vi.mock('./ArtifactDiffViewer', () => ({
+  ArtifactDiffViewer: ({
+    original,
+    modified,
+  }: {
+    original: string;
+    modified: string;
+  }) => (
+    <div aria-label="Artifact diff">
+      <pre aria-label="Diff original">{original}</pre>
+      <pre aria-label="Diff modified">{modified}</pre>
+    </div>
+  ),
+}));
+
 const artifacts: BrowserArtifact[] = [
   {
     path: 'customer.schema.json',
     media_type: 'application/schema+json',
     content: '{"title":"Customer"}',
     source_refs: ['file:///customer.mdl'],
+  },
+  {
+    path: 'order.schema.json',
+    media_type: 'application/schema+json',
+    content: '{"title":"Order"}',
+    source_refs: ['file:///order.mdl'],
   },
 ];
 
@@ -67,6 +88,75 @@ test('copies the selected artifact content and shows transient confirmation', as
   });
   expect(screen.getByRole('button', { name: 'Copy' })).toBeTruthy();
   vi.useRealTimers();
+});
+
+test('compares two artifacts side by side and can close the comparison', () => {
+  render(
+    <OutputPanel
+      artifacts={artifacts}
+      selectedArtifactPath="customer.schema.json"
+      isStale={false}
+      disabled={false}
+      onSelect={vi.fn()}
+      onDownload={vi.fn()}
+      onDownloadAll={vi.fn()}
+    />,
+  );
+
+  expect(
+    screen.queryByRole('button', { name: 'Compare with customer.schema.json' }),
+  ).toBeNull();
+  expect(screen.queryByLabelText('Artifact diff')).toBeNull();
+
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Compare with order.schema.json' }),
+  );
+
+  expect(screen.getByLabelText('Diff original').textContent).toBe(
+    '{"title":"Customer"}',
+  );
+  expect(screen.getByLabelText('Diff modified').textContent).toBe(
+    '{"title":"Order"}',
+  );
+  expect(screen.queryByRole('button', { name: 'Copy' })).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Close comparison' }));
+
+  expect(screen.queryByLabelText('Artifact diff')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Copy' })).toBeTruthy();
+});
+
+test('resets an active comparison when the base selection changes', () => {
+  const { rerender } = render(
+    <OutputPanel
+      artifacts={artifacts}
+      selectedArtifactPath="customer.schema.json"
+      isStale={false}
+      disabled={false}
+      onSelect={vi.fn()}
+      onDownload={vi.fn()}
+      onDownloadAll={vi.fn()}
+    />,
+  );
+
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Compare with order.schema.json' }),
+  );
+  expect(screen.getByLabelText('Artifact diff')).toBeTruthy();
+
+  rerender(
+    <OutputPanel
+      artifacts={artifacts}
+      selectedArtifactPath="order.schema.json"
+      isStale={false}
+      disabled={false}
+      onSelect={vi.fn()}
+      onDownload={vi.fn()}
+      onDownloadAll={vi.fn()}
+    />,
+  );
+
+  expect(screen.queryByLabelText('Artifact diff')).toBeNull();
 });
 
 test('does not render a copy control when no artifact is selected', () => {
