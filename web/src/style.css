@@ -1098,6 +1098,17 @@ button.view-tab--active:hover:not(:disabled) {
   background: var(--hover);
 }
 
+.tab__count {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.02rem 0.4rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
 /* Chat panel */
 
 .chat-panel {
@@ -1758,10 +1769,37 @@ button.view-tab--active:hover:not(:disabled) {
 }
 
 .diagnostics li {
+  margin: 0;
+}
+
+.diagnostics__item {
+  display: block;
+  width: 100%;
   padding: 0.35rem 0.5rem;
   border-radius: 0.3rem;
   background: var(--bg);
   border: 1px solid var(--border);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+button.diagnostics__item {
+  cursor: pointer;
+}
+
+button.diagnostics__item:hover,
+button.diagnostics__item:focus-visible {
+  background: var(--hover);
+  border-color: var(--accent);
+}
+
+.diagnostics__location {
+  display: block;
+  font-size: 0.72rem;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  color: var(--text-muted);
+  margin-bottom: 0.15rem;
 }
 
 /* Metrics footer */

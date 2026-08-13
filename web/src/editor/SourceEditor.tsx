@@ -280,6 +280,22 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
         focus() {
           editorRef.current?.focus();
         },
+        revealPosition(path, line, column) {
+          const sourceEditor = editorRef.current;
+          const registry = registryRef.current;
+          if (sourceEditor === null || registry === null) {
+            return;
+          }
+          switchModel(sourceEditor, registry, path, viewStatesRef.current);
+          activePathRef.current = path;
+          const position = {
+            lineNumber: Math.max(1, line),
+            column: Math.max(1, column),
+          };
+          sourceEditor.setPosition(position);
+          sourceEditor.revealPositionInCenter(position);
+          sourceEditor.focus();
+        },
       }),
       [],
     );

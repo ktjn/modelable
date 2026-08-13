@@ -21,6 +21,7 @@ import {
   type CompileTarget,
 } from './client';
 import { normalizeDiagnosticsByUri } from './diagnostics';
+import type { BrowserDiagnostic } from './protocol';
 import customerSource from './example-customer.mdl?raw';
 import salesSource from './example-sales.mdl?raw';
 import billingSource from './example-billing.mdl?raw';
@@ -41,6 +42,7 @@ import {
   createDefaultWorkspace,
   mutateWorkspace,
   mutateWorkspaceBatch,
+  pathFromSourceUri,
   workspaceSources,
   type PlaygroundWorkspace,
   type WorkspaceMutation,
@@ -576,6 +578,26 @@ function AppInner({
       );
     },
     [replaceWorkspace],
+  );
+
+  const revealDiagnostic = useCallback(
+    (diagnostic: BrowserDiagnostic): void => {
+      if (diagnostic.line === null || diagnostic.column === null) {
+        return;
+      }
+      const path = pathFromSourceUri(diagnostic.uri);
+      if (!workspaceRef.current.files.some((file) => file.path === path)) {
+        return;
+      }
+      applyWorkspaceMutation({ type: 'select', path }, true);
+      setMobileView('source');
+      sourceEditorRef.current?.revealPosition(
+        path,
+        diagnostic.line,
+        diagnostic.column,
+      );
+    },
+    [applyWorkspaceMutation],
   );
 
   const importWorkspaceFiles = useCallback(
@@ -1324,6 +1346,11 @@ function AppInner({
     runtimeReady: state.runtime === 'ready',
     workspaceRevisionRef,
   });
+  const compatibilityIssueCount =
+    analysisData.compatibility?.reports.filter(
+      (report) => report.status === 'breaking',
+    ).length ?? 0;
+  const governanceFindingCount = analysisData.governance?.findings.length ?? 0;
 
   if (persistentWorkspace.phase === 'restoring') {
     return (
@@ -1512,6 +1539,9 @@ function AppInner({
         }
         bottom={
           <BottomPanel
+            diagnosticsCount={state.diagnostics.length}
+            compatibilityCount={compatibilityIssueCount}
+            governanceCount={governanceFindingCount}
             diagnostics={
               <section
                 className="diagnostics"
@@ -1521,12 +1551,39 @@ function AppInner({
                 <h2>Diagnostics</h2>
                 {state.diagnostics.length > 0 ? (
                   <ul>
-                    {state.diagnostics.map((diagnostic, index) => (
-                      <li key={`${diagnostic.code}-${index}`}>
-                        <strong>{diagnostic.code}</strong>{' '}
-                        {diagnostic.message}
-                      </li>
-                    ))}
+                    {state.diagnostics.map((diagnostic, index) => {
+                      const path = pathFromSourceUri(diagnostic.uri);
+                      const positioned =
+                        diagnostic.line !== null && diagnostic.column !== null;
+                      const location = positioned
+                        ? `${path}:${diagnostic.line}:${diagnostic.column}`
+                        : path;
+                      return (
+                        <li key={`${diagnostic.code}-${index}`}>
+                          {positioned ? (
+                            <button
+                              type="button"
+                              className="diagnostics__item"
+                              onClick={() => revealDiagnostic(diagnostic)}
+                            >
+                              <span className="diagnostics__location">
+                                {location}
+                              </span>
+                              <strong>{diagnostic.code}</strong>{' '}
+                              {diagnostic.message}
+                            </button>
+                          ) : (
+                            <span className="diagnostics__item">
+                              <span className="diagnostics__location">
+                                {location}
+                              </span>
+                              <strong>{diagnostic.code}</strong>{' '}
+                              {diagnostic.message}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <p>No diagnostics</p>
