@@ -319,8 +319,38 @@ button.view-tab--active:hover:not(:disabled) {
   color: var(--shell-muted);
 }
 
+.badge--warning {
+  color: var(--warning-text);
+  background: var(--warning-bg);
+}
+
 .badge__separator {
   color: var(--border-strong);
+}
+
+.workbench-header__pulse {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
+  animation: workbench-header-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes workbench-header-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workbench-header__pulse {
+    animation: none;
+    opacity: 0.8;
+  }
 }
 
 /* Toolbar */
