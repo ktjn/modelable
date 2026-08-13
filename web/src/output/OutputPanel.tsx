@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArtifactEditor } from '../editor/ArtifactEditor';
 import type { BrowserArtifact } from '../protocol';
 import type { PlaygroundPluginRegistry } from '../plugins/registry';
+import { ArtifactDiffViewer } from './ArtifactDiffViewer';
 
 export interface OutputPanelProps {
   artifacts: BrowserArtifact[];
@@ -29,6 +30,13 @@ export function OutputPanel({
     artifacts.find((artifact) => artifact.path === selectedArtifactPath) ??
     artifacts[0] ??
     null;
+  const [comparePath, setComparePath] = useState<string | null>(null);
+  const compareArtifact =
+    artifacts.find((artifact) => artifact.path === comparePath) ?? null;
+
+  useEffect(() => {
+    setComparePath(null);
+  }, [selectedArtifact?.path]);
 
   if (artifacts.length === 0) {
     return (
@@ -79,6 +87,26 @@ export function OutputPanel({
               >
                 <span className="output-panel__item-name">{artifact.path}</span>
               </button>
+              {artifact.path === selectedArtifactPath ? null : (
+                <button
+                  type="button"
+                  className={`output-panel__item-compare${
+                    artifact.path === comparePath
+                      ? ' output-panel__item-compare--active'
+                      : ''
+                  }`}
+                  aria-label={`Compare with ${artifact.path}`}
+                  aria-pressed={artifact.path === comparePath}
+                  title={`Compare with ${artifact.path}`}
+                  onClick={() =>
+                    setComparePath(
+                      artifact.path === comparePath ? null : artifact.path,
+                    )
+                  }
+                >
+                  ⇄
+                </button>
+              )}
               <button
                 type="button"
                 className="output-panel__item-download"
@@ -95,6 +123,27 @@ export function OutputPanel({
       <div className="output-panel__editor">
         {selectedArtifact === null ? (
           <p className="output-panel__empty">Select an artifact to preview</p>
+        ) : compareArtifact !== null ? (
+          <>
+            <div className="output-panel__editor-header">
+              <span className="output-panel__editor-path">
+                Comparing {selectedArtifact.path} with {compareArtifact.path}
+              </span>
+              <button
+                type="button"
+                className="output-panel__close-compare"
+                aria-label="Close comparison"
+                title="Close comparison"
+                onClick={() => setComparePath(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <ArtifactDiffViewer
+              original={selectedArtifact.content}
+              modified={compareArtifact.content}
+            />
+          </>
         ) : (
           <>
             <div className="output-panel__editor-header">
