@@ -981,14 +981,20 @@ describe('App', () => {
       ),
     ).toBe('true');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'sales.mdl actions' }),
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     expect(confirmReplace).toHaveBeenCalledWith(
       'Delete workspace file sales.mdl?',
     );
     expect(screen.getByRole('button', { name: 'sales.mdl' })).toBeTruthy();
 
     confirmReplace.mockReturnValue(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'sales.mdl actions' }),
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     expect(
       screen.queryByRole('button', { name: 'sales.mdl' }),
     ).toBeNull();

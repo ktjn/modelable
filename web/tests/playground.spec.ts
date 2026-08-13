@@ -152,7 +152,9 @@ test('initializes locally and supports the complete editor workflow', async ({
   await page.getByRole('button', { name: 'New file' }).click();
   await page.getByPlaceholder('file.mdl').fill('scratch.mdl');
   await page.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByRole('button', { name: 'scratch.mdl' })).toHaveAttribute(
+  await expect(
+    page.getByRole('button', { name: 'scratch.mdl', exact: true }),
+  ).toHaveAttribute(
     'aria-current',
     'true',
   );
@@ -253,7 +255,7 @@ test('creates, validates, and restores a multi-file workspace', async ({
     'orders.mdl',
     'domain orders { owner: "orders-team" entity Order @ 1 (additive) { @key orderId: uuid } }',
   );
-  await page.getByRole('button', { name: 'sales.mdl' }).click();
+  await page.getByRole('button', { name: 'sales.mdl', exact: true }).click();
   await replaceSource(
     page,
     'domain sales { owner: "sales-team" entity Order @ 1 (additive) { @key orderId: uuid } }',
@@ -281,12 +283,12 @@ test('creates, validates, and restores a multi-file workspace', async ({
       'file:///workspace.mdl',
     ]);
 
-  await page.getByRole('button', { name: 'orders.mdl' }).click();
+  await page.getByRole('button', { name: 'orders.mdl', exact: true }).click();
   await expect(page.getByText('Saved locally')).toBeVisible();
   await page.reload();
   await waitForReady(page);
   await expect(
-    page.getByRole('button', { name: 'orders.mdl' }),
+    page.getByRole('button', { name: 'orders.mdl', exact: true }),
   ).toHaveAttribute('aria-current', 'true');
   await expect(sourceOutput(page)).toContainText(/domain\s*orders/);
 });
@@ -322,7 +324,7 @@ test('provides cross-file live diagnostics, completion, and hover accessibly', a
         buffer: Buffer.from(orderSource),
       },
     ]);
-  await page.getByRole('button', { name: 'order.mdl' }).click();
+  await page.getByRole('button', { name: 'order.mdl', exact: true }).click();
   await replaceSource(page, `${orderSource} {`);
   await expect(page.getByTestId('diagnostics')).toContainText('PARSE', {
     timeout: 10_000,
@@ -395,7 +397,7 @@ test('provides cross-file live diagnostics, completion, and hover accessibly', a
   await page.keyboard.press('Escape');
   await expect(page.locator('.suggest-widget')).toBeHidden();
 
-  await page.getByRole('button', { name: 'imported.mdl' }).click();
+  await page.getByRole('button', { name: 'imported.mdl', exact: true }).click();
   await modelSource(page).focus();
   await expect(modelSource(page)).toBeFocused();
   await page.keyboard.press('Control+Home');
@@ -480,7 +482,7 @@ test('offers recovery without rendering corrupt stored source', async ({
   await expect(page.locator('body')).not.toContainText('not markup');
   await page.getByRole('button', { name: 'Reset local workspace' }).click();
   await expect(
-    page.getByRole('button', { name: 'customer.mdl' }),
+    page.getByRole('button', { name: 'customer.mdl', exact: true }),
   ).toBeVisible();
 });
 

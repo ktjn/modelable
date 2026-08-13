@@ -45,16 +45,46 @@ test('selects, creates, renames, and deletes workspace files', async () => {
   await user.click(screen.getByRole('button', { name: 'Add' }));
   expect(handlers.onCreate).toHaveBeenCalledWith('new.mdl');
 
-  await user.click(screen.getByRole('button', { name: 'Rename' }));
+  await user.click(screen.getByRole('button', { name: 'b.mdl actions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Rename' }));
   const renameInput = screen.getByDisplayValue('b.mdl');
   await user.clear(renameInput);
   await user.type(renameInput, 'renamed.mdl');
   await user.keyboard('{Enter}');
-  expect(handlers.onRename).toHaveBeenCalledWith('renamed.mdl');
+  expect(handlers.onRename).toHaveBeenCalledWith('b.mdl', 'renamed.mdl');
 
-  await user.click(screen.getByRole('button', { name: 'Delete' }));
-  expect(handlers.onDelete).toHaveBeenCalledOnce();
+  await user.click(screen.getByRole('button', { name: 'a.mdl actions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
+  expect(handlers.onDelete).toHaveBeenCalledWith('a.mdl');
   expect(screen.getByRole('list', { name: 'Workspace files' })).toBeTruthy();
+});
+
+test('opens a non-active row menu without changing selection, and closes on outside click', async () => {
+  const user = userEvent.setup();
+  const handlers = {
+    onCreate: vi.fn(),
+    onImport: vi.fn(),
+    onRename: vi.fn(),
+    onDelete: vi.fn(),
+    onSelect: vi.fn(),
+  };
+  render(
+    <div>
+      <button type="button">Outside</button>
+      <WorkspaceFiles workspace={workspace} disabled={false} {...handlers} />
+    </div>,
+  );
+
+  const trigger = screen.getByRole('button', { name: 'a.mdl actions' });
+  expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+  await user.click(trigger);
+  expect(trigger.getAttribute('aria-expanded')).toBe('true');
+  expect(screen.getByRole('menu', { name: 'a.mdl actions' })).toBeTruthy();
+  expect(handlers.onSelect).not.toHaveBeenCalled();
+
+  await user.click(screen.getByRole('button', { name: 'Outside' }));
+  expect(screen.queryByRole('menu', { name: 'a.mdl actions' })).toBeNull();
 });
 
 test('reports invalid paths and does not dispatch disabled controls', async () => {
@@ -101,7 +131,7 @@ test('reports invalid paths and does not dispatch disabled controls', async () =
   expect(
     (
       screen.getByRole('button', {
-        name: 'Delete',
+        name: 'a.mdl actions',
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(true);

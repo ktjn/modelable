@@ -510,12 +510,6 @@ button.view-tab--active:hover:not(:disabled) {
   line-height: 1;
 }
 
-.workspace-files__icon--danger:hover:not(:disabled) {
-  background: var(--danger-bg);
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
 .workspace-files__create {
   display: flex;
   gap: 0.25rem;
@@ -545,15 +539,21 @@ button.view-tab--active:hover:not(:disabled) {
   align-items: center;
   justify-content: space-between;
   gap: 0.25rem;
-  padding: 0.15rem 0.5rem;
+  padding: 0.15rem 0.4rem 0.15rem 0.5rem;
+  border-left: 2px solid transparent;
 }
 
 .workspace-file-item--active {
   background: var(--active-bg);
+  border-left-color: var(--accent);
 }
 
 .workspace-file-item__name {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: left;
   padding: 0.35rem 0.45rem;
   border: 1px solid transparent;
@@ -562,14 +562,70 @@ button.view-tab--active:hover:not(:disabled) {
   font-size: 0.84rem;
 }
 
+.workspace-file-item--active .workspace-file-item__name {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .workspace-file-item__name:hover:not(:disabled) {
   background: var(--hover);
   border-color: var(--border);
 }
 
 .workspace-file-item__actions {
+  position: relative;
   display: flex;
   gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.workspace-file-item__menu-trigger {
+  opacity: 0;
+}
+
+.workspace-file-item:hover .workspace-file-item__menu-trigger,
+.workspace-file-item:focus-within .workspace-file-item__menu-trigger,
+.workspace-file-item__menu-trigger:focus,
+.workspace-file-item__menu-trigger[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.workspace-file-item__menu {
+  position: absolute;
+  top: calc(100% + 0.2rem);
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 8rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--panel-elevated);
+  box-shadow: var(--shadow);
+}
+
+.workspace-file-item__menu-item {
+  padding: 0.4rem 0.55rem;
+  border: none;
+  border-radius: 0.3rem;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.workspace-file-item__menu-item:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.workspace-file-item__menu-item--danger {
+  color: var(--danger);
+}
+
+.workspace-file-item__menu-item--danger:hover:not(:disabled) {
+  background: var(--danger-bg);
 }
 
 .workspace-file-item__rename {
