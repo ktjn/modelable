@@ -91,11 +91,14 @@ export function WorkspaceFiles({
   return (
     <aside className="workspace-files" aria-label="Workspace files">
       <div className="workspace-files__header">
-        <span className="workspace-files__title">Files</span>
+        <div>
+          <span className="workspace-files__eyebrow">Workspace</span>
+          <span className="workspace-files__title">Model files</span>
+        </div>
         <div className="workspace-files__actions">
           <button
             type="button"
-            className="workspace-files__icon"
+            className="workspace-files__action"
             title="New file"
             aria-label="New file"
             disabled={disabled || creating}
@@ -104,17 +107,19 @@ export function WorkspaceFiles({
               setCreateName('');
             }}
           >
-            +
+            <span aria-hidden="true">+</span>
+            <span>New</span>
           </button>
           <button
             type="button"
-            className="workspace-files__icon"
+            className="workspace-files__action"
             title="Import files"
             aria-label="Import files"
             disabled={disabled}
             onClick={() => importInputRef.current?.click()}
           >
-            ↑
+            <span aria-hidden="true">↑</span>
+            <span>Import</span>
           </button>
         </div>
       </div>

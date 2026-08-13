@@ -451,22 +451,50 @@ button.view-tab--active:hover:not(:disabled) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem 0.65rem;
+  padding: 0.75rem 0.7rem 0.65rem;
   border-bottom: 1px solid var(--border);
   background: var(--panel);
 }
 
-.workspace-files__title {
-  font-weight: 600;
-  font-size: 0.78rem;
-  color: var(--text-muted);
+.workspace-files__eyebrow {
+  display: block;
+  margin-bottom: 0.15rem;
+  color: var(--accent);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+}
+
+.workspace-files__title {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .workspace-files__actions {
   display: flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.workspace-files__action {
+  display: inline-flex;
+  align-items: center;
   gap: 0.25rem;
+  min-height: 1.7rem;
+  padding: 0.25rem 0.45rem;
+  border-color: var(--border);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.workspace-files__action span:first-child {
+  color: var(--accent);
+  font-size: 0.95rem;
+  line-height: 0.8;
 }
 
 .workspace-files__icon {
