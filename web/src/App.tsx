@@ -183,11 +183,17 @@ function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
     return false;
   }
-  return (
+  if (
     target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
     target.isContentEditable
-  );
+  ) {
+    return true;
+  }
+  // Monaco's native EditContext input surface is a plain
+  // `<div role="textbox">` -- not a textarea and not contentEditable --
+  // so it would otherwise slip past the checks above.
+  return target.closest('[role="textbox"], .monaco-editor') !== null;
 }
 
 function exposeWorkspaceSourcesForTest(
