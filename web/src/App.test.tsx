@@ -115,6 +115,7 @@ vi.mock('./visualization/GraphPanelContainer', () => ({
 const sourceEditorSpies = vi.hoisted(() => ({
   applyFormattedText: vi.fn(),
   focus: vi.fn(),
+  revealPosition: vi.fn(),
   languageController: null as unknown,
   getWorkspace: null as null | (() => PlaygroundWorkspace),
 }));
@@ -176,6 +177,9 @@ vi.mock('./editor/SourceEditor', async () => {
         },
         focus() {
           sourceEditorSpies.focus();
+        },
+        revealPosition(path: string, line: number, column: number) {
+          sourceEditorSpies.revealPosition(path, line, column);
         },
       }));
 
@@ -343,6 +347,17 @@ const documentDiagnostic = {
   end_column: null,
 };
 
+const positionedDiagnostic = {
+  code: 'MODELABLE_POSITIONED',
+  severity: 'error',
+  message: 'Field type mismatch',
+  uri: 'file:///customer.mdl',
+  line: 3,
+  column: 5,
+  end_line: 3,
+  end_column: 10,
+};
+
 async function initialize(client: FakeCompilerClient): Promise<void> {
   await act(async () => {
     client.initialization.resolve();
@@ -412,6 +427,7 @@ afterEach(() => {
   cleanup();
   sourceEditorSpies.applyFormattedText.mockReset();
   sourceEditorSpies.focus.mockReset();
+  sourceEditorSpies.revealPosition.mockReset();
   sourceEditorSpies.languageController = null;
   sourceEditorSpies.getWorkspace = null;
   window.history.pushState({}, '', '/');
@@ -746,6 +762,33 @@ describe('App', () => {
 
     expect(screen.getByText('Customer is invalid')).toBeTruthy();
     expect(screen.getByRole('status').textContent).toMatch(/1 diagnostic/i);
+  });
+
+  test('clicking a positioned diagnostic reveals it in the source editor', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} now={() => 20} />);
+    await initialize(client);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Validate' }));
+    const request = latestRequest(client.workspaceRequests);
+    await act(async () => {
+      request.resolve({
+        workspace_revision: 1,
+        diagnostics: [positionedDiagnostic],
+        source_hashes: {},
+      });
+      await request.promise;
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Field type mismatch/ }),
+    );
+
+    expect(sourceEditorSpies.revealPosition).toHaveBeenCalledWith(
+      'customer.mdl',
+      3,
+      5,
+    );
   });
 
   test('publishes live diagnostics after 300 ms and never persists them', async () => {

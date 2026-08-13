@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { createRef } from 'react';
 import { render } from '@testing-library/react';
 import type { editor } from 'monaco-editor';
 import { beforeEach, expect, test, vi } from 'vitest';
@@ -7,6 +8,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import type { PlaygroundFile } from '../workspace';
 import type { BrowserLanguageServiceController } from '../language/BrowserLanguageServiceController';
 import { SourceEditor } from './SourceEditor';
+import type { SourceEditorHandle } from './types';
 
 const monaco = vi.hoisted(() => {
   const models = new Map<string, editor.ITextModel>();
@@ -18,12 +20,14 @@ const monaco = vi.hoisted(() => {
     getModel: vi.fn(() => sourceEditor.currentModel),
     pushUndoStop: vi.fn(),
     restoreViewState: vi.fn(),
+    revealPositionInCenter: vi.fn(),
     saveViewState: vi.fn<() => editor.ICodeEditorViewState | null>(
       () => null,
     ),
     setModel: vi.fn((model: editor.ITextModel | null) => {
       sourceEditor.currentModel = model;
     }),
+    setPosition: vi.fn(),
   };
 
   return {
@@ -145,6 +149,35 @@ test('switches active models and restores in-session view state', () => {
   expect(monaco.sourceEditor.restoreViewState).toHaveBeenCalledWith(
     aViewState,
   );
+});
+
+test('revealPosition switches to the target file and moves the cursor there', () => {
+  const files: PlaygroundFile[] = [
+    { path: 'a.mdl', content: 'domain a {}', version: 1 },
+    { path: 'b.mdl', content: 'domain b {}', version: 1 },
+  ];
+  const props = {
+    files,
+    markersByUri: new Map(),
+    onContentChange: vi.fn(),
+  };
+  const ref = createRef<SourceEditorHandle>();
+  render(<SourceEditor {...props} activeFile="a.mdl" ref={ref} />);
+
+  ref.current?.revealPosition('b.mdl', 3, 5);
+
+  expect(monaco.sourceEditor.setModel).toHaveBeenLastCalledWith(
+    monaco.models.get('file:///b.mdl'),
+  );
+  expect(monaco.sourceEditor.setPosition).toHaveBeenCalledWith({
+    lineNumber: 3,
+    column: 5,
+  });
+  expect(monaco.sourceEditor.revealPositionInCenter).toHaveBeenCalledWith({
+    lineNumber: 3,
+    column: 5,
+  });
+  expect(monaco.sourceEditor.focus).toHaveBeenCalled();
 });
 
 test('does not overwrite newer Monaco edits with an older React snapshot', () => {

@@ -6,12 +6,18 @@ export interface BottomPanelProps {
   diagnostics: ReactNode;
   compatibility: ReactNode;
   governance: ReactNode;
+  diagnosticsCount?: number;
+  compatibilityCount?: number;
+  governanceCount?: number;
 }
 
 export function BottomPanel({
   diagnostics,
   compatibility,
   governance,
+  diagnosticsCount,
+  compatibilityCount,
+  governanceCount,
 }: BottomPanelProps) {
   const [tab, setTab] = useState<BottomTab>('diagnostics');
 
@@ -25,6 +31,7 @@ export function BottomPanel({
           role="tab"
         >
           Problems
+          <TabCount count={diagnosticsCount} />
         </button>
         <button
           className={`tab${tab === 'compatibility' ? ' tab--active' : ''}`}
@@ -33,6 +40,7 @@ export function BottomPanel({
           role="tab"
         >
           Compatibility
+          <TabCount count={compatibilityCount} />
         </button>
         <button
           className={`tab${tab === 'governance' ? ' tab--active' : ''}`}
@@ -41,6 +49,7 @@ export function BottomPanel({
           role="tab"
         >
           Governance
+          <TabCount count={governanceCount} />
         </button>
       </div>
       <div className="bottom-panel__body" tabIndex={0}>
@@ -50,4 +59,11 @@ export function BottomPanel({
       </div>
     </div>
   );
+}
+
+function TabCount({ count }: { count?: number }) {
+  if (count === undefined || count === 0) {
+    return null;
+  }
+  return <span className="tab__count">{count}</span>;
 }

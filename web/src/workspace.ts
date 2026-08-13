@@ -286,6 +286,14 @@ function sourceUri(path: string): string {
   return `file:///${path.split('/').map(encodeURIComponent).join('/')}`;
 }
 
+export function pathFromSourceUri(uri: string): string {
+  return uri
+    .replace(/^file:\/\/\//, '')
+    .split('/')
+    .map((segment) => decodeURIComponent(segment))
+    .join('/');
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

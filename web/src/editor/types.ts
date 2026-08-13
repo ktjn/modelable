@@ -7,4 +7,11 @@ export interface SourceEditorHandle {
   applyFormattedText(text: string): void;
   replaceText(text: string): void;
   focus(): void;
+  /**
+   * Switches to `path` and moves the cursor to `line`/`column`, both
+   * 1-based (Monaco-native), matching how BrowserDiagnostic reports
+   * position -- NOT the 0-based line/character convention getPosition()
+   * and LSP-derived source ranges use elsewhere in this file.
+   */
+  revealPosition(path: string, line: number, column: number): void;
 }
