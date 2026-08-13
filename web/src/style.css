@@ -736,6 +736,40 @@ button.view-tab--active:hover:not(:disabled) {
   font-size: 0.85rem;
 }
 
+.graph-panel__details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 0.78rem;
+}
+
+.graph-panel__details-kind {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--active-bg);
+  color: var(--accent);
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.graph-panel__details-label {
+  font-weight: 700;
+}
+
+.graph-panel__details-field {
+  color: var(--text-muted);
+}
+
+.graph-panel__details-field-key {
+  font-weight: 600;
+}
+
 .graph-panel__loading,
 .graph-panel__empty {
   flex: 1;
@@ -1542,6 +1576,34 @@ button.view-tab--active:hover:not(:disabled) {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.output-panel__editor-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.output-panel__editor-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.output-panel__copy {
+  flex-shrink: 0;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .artifact-editor {

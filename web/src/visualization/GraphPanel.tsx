@@ -59,6 +59,11 @@ function GraphPanelInner({
       }))
     : nodes;
 
+  const selectedNode =
+    selectedNodeId === null
+      ? null
+      : (nodes.find((node) => node.id === selectedNodeId) ?? null);
+
   return (
     <div className="graph-panel" role="region" aria-label="Model graph">
       <div className="tab-strip" role="toolbar" aria-label="Graph mode">
@@ -100,6 +105,30 @@ function GraphPanelInner({
           </button>
         </div>
       </div>
+      {selectedNode !== null ? (
+        <div
+          className="graph-panel__details"
+          role="region"
+          aria-label="Selected node details"
+        >
+          <span className="graph-panel__details-kind">
+            {selectedNode.data.kind}
+          </span>
+          <span className="graph-panel__details-label">
+            {selectedNode.data.label}
+          </span>
+          {Object.entries(selectedNode.data.metadata)
+            .filter(([, value]) => value !== null && value !== undefined)
+            .map(([key, value]) => (
+              <span key={key} className="graph-panel__details-field">
+                <span className="graph-panel__details-field-key">
+                  {key}:
+                </span>{' '}
+                {String(value)}
+              </span>
+            ))}
+        </div>
+      ) : null}
       <div className="graph-panel__canvas" ref={containerRef}>
         {failure !== null && (
           <div className="graph-panel__error" role="alert">
