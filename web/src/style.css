@@ -279,6 +279,7 @@ button.view-tab--active:hover:not(:disabled) {
 }
 
 .workbench-header__command-trigger,
+.workbench-header__shortcuts-trigger,
 .workbench-header__theme-toggle {
   padding: 0.25rem 0.55rem;
   border-radius: 9999px;
@@ -290,7 +291,12 @@ button.view-tab--active:hover:not(:disabled) {
   white-space: nowrap;
 }
 
+.workbench-header__shortcuts-trigger {
+  padding: 0.25rem 0.6rem;
+}
+
 .workbench-header__command-trigger:hover:not(:disabled),
+.workbench-header__shortcuts-trigger:hover:not(:disabled),
 .workbench-header__theme-toggle:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.16);
   color: #ffffff;
@@ -2177,6 +2183,85 @@ button.diagnostics__item:focus-visible {
 .command-palette__item--active .command-palette__item-hint {
   color: inherit;
   opacity: 0.85;
+}
+
+/* Shortcuts help */
+
+.shortcuts-help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  justify-content: center;
+  padding-top: 12vh;
+  background: rgba(15, 23, 22, 0.45);
+}
+
+.shortcuts-help {
+  display: flex;
+  flex-direction: column;
+  width: min(28rem, 90vw);
+  max-height: 70vh;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border-strong);
+  background: var(--panel);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.shortcuts-help__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcuts-help__header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.shortcuts-help__close {
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.35rem;
+}
+
+.shortcuts-help__list {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  overflow-y: auto;
+}
+
+.shortcuts-help__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcuts-help__row:last-child {
+  border-bottom: none;
+}
+
+.shortcuts-help__keys {
+  flex-shrink: 0;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.35rem;
+  background: var(--hover);
+  color: var(--text);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.shortcuts-help__description {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: right;
 }
 
 .toast {

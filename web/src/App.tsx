@@ -62,6 +62,7 @@ import { MetricsFooter } from './layout/MetricsFooter';
 import { ViewTabs, type MobileView } from './layout/ViewTabs';
 import { RightPanel, type RightPanelTab } from './layout/RightPanel';
 import { CommandPalette, type CommandPaletteCommand } from './layout/CommandPalette';
+import { ShortcutsHelp, type ShortcutEntry } from './layout/ShortcutsHelp';
 import { ChatPanel } from './ai/ChatPanel';
 import {
   initialProviderState,
@@ -178,6 +179,17 @@ function isTerminalLanguageError(error: BrowserCompilerError): boolean {
   );
 }
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target.isContentEditable
+  );
+}
+
 function exposeWorkspaceSourcesForTest(
   sources: ReturnType<typeof workspaceSources>,
 ): void {
@@ -247,6 +259,7 @@ function AppInner({
   const [mobileView, setMobileView] = useState<MobileView>('source');
   const [rightTab, setRightTab] = useState<RightPanelTab>('assistant');
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [aiState, aiDispatch] = useReducer(
     providerStateReducer,
     initialProviderState,
@@ -648,6 +661,17 @@ function AppInner({
       ) {
         event.preventDefault();
         setCommandPaletteOpen((isOpen) => !isOpen);
+        return;
+      }
+      if (
+        !commandModifier &&
+        !event.shiftKey &&
+        !event.altKey &&
+        event.key === '?' &&
+        !isEditableTarget(event.target)
+      ) {
+        event.preventDefault();
+        setShortcutsHelpOpen((isOpen) => !isOpen);
         return;
       }
       if (
@@ -1553,6 +1577,22 @@ function AppInner({
       });
     }
   }
+  commands.push({
+    id: 'help-shortcuts',
+    group: 'Help',
+    label: 'Show keyboard shortcuts',
+    hint: '?',
+    onRun: () => setShortcutsHelpOpen(true),
+  });
+
+  const shortcuts: ShortcutEntry[] = [
+    { keys: 'Ctrl/Cmd + K', description: 'Open the command palette' },
+    { keys: 'Ctrl/Cmd + Shift + Enter', description: 'Validate' },
+    { keys: 'Shift + Alt + F', description: 'Format' },
+    { keys: 'Ctrl/Cmd + Enter', description: 'Generate' },
+    { keys: '?', description: 'Show this keyboard shortcuts panel' },
+    { keys: 'Esc', description: 'Close the command palette or this panel' },
+  ];
 
   return (
     <main className="workbench" data-state={state.runtime} data-mobile-view={mobileView}>
@@ -1567,6 +1607,12 @@ function AppInner({
         resolvedTheme={resolvedTheme}
         onThemePreferenceChange={setThemePreference}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+        onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
+      />
+      <ShortcutsHelp
+        open={shortcutsHelpOpen}
+        shortcuts={shortcuts}
+        onClose={() => setShortcutsHelpOpen(false)}
       />
       <CommandPalette
         open={commandPaletteOpen}
