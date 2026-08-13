@@ -799,6 +799,18 @@ describe('App', () => {
       screen.queryByRole('dialog', { name: 'Keyboard shortcuts' }),
     ).toBeNull();
 
+    // Regression: Monaco's native EditContext input surface is a plain
+    // `<div role="textbox">`, not a textarea or contentEditable element,
+    // so it must also be recognized as an editable target.
+    const editContextSurface = document.createElement('div');
+    editContextSurface.setAttribute('role', 'textbox');
+    document.body.appendChild(editContextSurface);
+    fireEvent.keyDown(editContextSurface, { key: '?' });
+    expect(
+      screen.queryByRole('dialog', { name: 'Keyboard shortcuts' }),
+    ).toBeNull();
+    document.body.removeChild(editContextSurface);
+
     fireEvent.click(screen.getByRole('button', { name: 'Commands' }));
     fireEvent.change(screen.getByPlaceholderText('Type a command…'), {
       target: { value: 'shortcuts' },
