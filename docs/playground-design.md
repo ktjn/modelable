@@ -896,12 +896,44 @@ Large LLM models should normally remain separately cached provider assets rather
 
 ## 22. Plugin architecture
 
-A later plugin API may support:
+The Playground's first plugin contract is intentionally host-registered and
+browser-local. A host embeds a plugin in the application bundle (or supplies
+one through an explicitly authorized integration) and passes it to the
+Playground at startup; the Playground does not discover or execute arbitrary
+remote JavaScript. This preserves the static-hosting and local-first security
+goals.
 
-- Artifact viewers.
-- Visualization projections.
-- Generator targets.
-- Importers.
+Version 1 supports artifact viewers:
+
+```ts
+interface PlaygroundPlugin {
+  apiVersion: 1;
+  id: string;
+  name: string;
+  version: string;
+  artifactViewers?: readonly ArtifactViewerDefinition[];
+}
+
+interface ArtifactViewerDefinition {
+  id: string;
+  label: string;
+  extensions: readonly string[];
+  component: React.ComponentType<{
+    artifact: BrowserArtifact;
+    isStale: boolean;
+  }>;
+}
+```
+
+The registry rejects unsupported API versions, duplicate plugin/viewer IDs,
+and invalid extensions before the application renders. Viewer matching is
+deterministic in registration order and is based on the generated artifact's
+lowercase file extension. The built-in text editor remains the fallback.
+
+Visualization projections, generator targets, importers, and GitHub actions
+are separate future contracts. They must define their data boundary,
+authorization model, failure behavior, and compatibility guarantees before
+being added to this API.
 - Deterministic transformations.
 - LLM providers.
 

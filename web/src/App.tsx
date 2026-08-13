@@ -6,6 +6,7 @@ import {
   useReducer,
   useRef,
   useState,
+  useMemo,
 } from 'react';
 
 import {
@@ -91,6 +92,10 @@ import {
 } from './ai/chat-types';
 import { OutputPanel } from './output/OutputPanel';
 import { useTheme, type ThemePreference } from './theme';
+import {
+  createPlaygroundPluginRegistry,
+  type PlaygroundPlugin,
+} from './plugins/registry';
 
 const createBrowserCompilerClient = (): BrowserCompilerClientLike =>
   new BrowserCompilerClient();
@@ -129,6 +134,7 @@ export interface AppProps {
   now?: () => number;
   confirmReplace?: (message: string) => boolean;
   download?: typeof downloadText;
+  plugins?: readonly PlaygroundPlugin[];
 }
 
 function asCompilerError(error: unknown): BrowserCompilerError {
@@ -185,7 +191,12 @@ function AppInner({
   now = performanceNow,
   confirmReplace = globalThis.confirm,
   download = downloadText,
+  plugins = [],
 }: AppProps) {
+  const pluginRegistry = useMemo(
+    () => createPlaygroundPluginRegistry(plugins),
+    [plugins],
+  );
   const initialWorkspaceRef = useRef(
     createDefaultWorkspace([
       { path: 'customer.mdl', content: customerSource },
@@ -1516,6 +1527,7 @@ function AppInner({
                 }
                 onDownload={handleExportArtifact}
                 onDownloadAll={handleExportAllArtifacts}
+                pluginRegistry={pluginRegistry}
               />
             }
           />
