@@ -2000,6 +2000,24 @@ button.diagnostics__item:focus-visible {
     width: 100% !important;
   }
 
+  .resizable-layout[data-mobile-view="files"] .resizable-layout__outer > div:has(.resizable-layout__bottom) {
+    display: none !important;
+  }
+
+  .resizable-layout[data-mobile-view="files"] .resizable-layout__columns > div:has(.resizable-layout__editor),
+  .resizable-layout[data-mobile-view="files"] .resizable-layout__columns > div:has(.resizable-layout__visualization) {
+    display: none !important;
+  }
+
+  .resizable-layout[data-mobile-view="files"] .resizable-layout__columns > div:has(.resizable-layout__explorer) {
+    flex: 1 !important;
+  }
+
+  .resizable-layout[data-mobile-view="files"] .resizable-layout__explorer {
+    border-right: 0;
+    flex: 1 !important;
+  }
+
   .resizable-layout[data-mobile-view="source"] .resizable-layout__outer > div:has(.resizable-layout__bottom) {
     display: none !important;
   }

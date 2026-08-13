@@ -1,4 +1,4 @@
-export type MobileView = 'source' | 'assistant' | 'analysis';
+export type MobileView = 'files' | 'source' | 'assistant' | 'analysis';
 
 export interface ViewTabsProps {
   mobileView: MobileView;
@@ -8,6 +8,14 @@ export interface ViewTabsProps {
 export function ViewTabs({ mobileView, onChange }: ViewTabsProps) {
   return (
     <nav className="view-tabs" aria-label="View">
+      <button
+        type="button"
+        className={`view-tab${mobileView === 'files' ? ' view-tab--active' : ''}`}
+        aria-pressed={mobileView === 'files'}
+        onClick={() => onChange('files')}
+      >
+        Files
+      </button>
       <button
         type="button"
         className={`view-tab${mobileView === 'source' ? ' view-tab--active' : ''}`}

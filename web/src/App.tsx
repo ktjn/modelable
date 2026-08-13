@@ -1425,9 +1425,10 @@ function AppInner({
           <WorkspaceFiles
             workspace={state.workspace}
             disabled={actionsDisabled}
-            onCreate={(path) =>
-              applyWorkspaceMutation({ type: 'create', path }, true)
-            }
+            onCreate={(path) => {
+              applyWorkspaceMutation({ type: 'create', path }, true);
+              setMobileView('source');
+            }}
             onImport={importWorkspaceFiles}
             onRename={(from, to) =>
               applyWorkspaceMutation({
@@ -1444,9 +1445,10 @@ function AppInner({
                 }, true);
               }
             }}
-            onSelect={(path) =>
-              applyWorkspaceMutation({ type: 'select', path })
-            }
+            onSelect={(path) => {
+              applyWorkspaceMutation({ type: 'select', path });
+              setMobileView('source');
+            }}
           />
         }
         editor={
