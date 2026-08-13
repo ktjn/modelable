@@ -1,5 +1,6 @@
 import { ArtifactEditor } from '../editor/ArtifactEditor';
 import type { BrowserArtifact } from '../protocol';
+import type { PlaygroundPluginRegistry } from '../plugins/registry';
 
 export interface OutputPanelProps {
   artifacts: BrowserArtifact[];
@@ -9,6 +10,7 @@ export interface OutputPanelProps {
   onSelect(path: string): void;
   onDownload(path: string): void;
   onDownloadAll(): void;
+  pluginRegistry?: PlaygroundPluginRegistry;
 }
 
 export function OutputPanel({
@@ -19,6 +21,7 @@ export function OutputPanel({
   onSelect,
   onDownload,
   onDownloadAll,
+  pluginRegistry,
 }: OutputPanelProps) {
   const selectedArtifact =
     artifacts.find((artifact) => artifact.path === selectedArtifactPath) ??
@@ -91,9 +94,30 @@ export function OutputPanel({
         {selectedArtifact === null ? (
           <p className="output-panel__empty">Select an artifact to preview</p>
         ) : (
-          <ArtifactEditor value={selectedArtifact.content} />
+          <ArtifactPreview
+            artifact={selectedArtifact}
+            isStale={isStale}
+            pluginRegistry={pluginRegistry}
+          />
         )}
       </div>
     </section>
   );
+}
+
+function ArtifactPreview({
+  artifact,
+  isStale,
+  pluginRegistry,
+}: {
+  artifact: BrowserArtifact;
+  isStale: boolean;
+  pluginRegistry?: PlaygroundPluginRegistry;
+}) {
+  const viewer = pluginRegistry?.findArtifactViewer(artifact) ?? null;
+  if (viewer === null) {
+    return <ArtifactEditor value={artifact.content} />;
+  }
+  const Viewer = viewer.component;
+  return <Viewer artifact={artifact} isStale={isStale} />;
 }

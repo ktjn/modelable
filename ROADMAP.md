@@ -186,11 +186,14 @@ Work proceeds in phase order, with one active phase at a time:
    `OLLAMA_ORIGINS` configured on the Ollama server to accept requests from
    the Playground's origin.
 11. **Active next phase: extensibility.**
-   Add plugin contracts, additional visualization modes, and optional GitHub
-   integration using explicit user authorization.
+   The first slice adds host-registered artifact-viewer plugin contracts with
+   deterministic validation and a safe built-in fallback. Additional
+   visualization modes and optional GitHub integration still require separate
+   contracts with explicit user authorization.
 
-The next implementation slice is item 11. Completion means the Playground
-supports third-party extensions through documented plugin contracts.
+The artifact-viewer contract is the first implementation slice of item 11.
+The remaining extensibility work is not complete until visualization and
+GitHub boundaries have their own accepted designs and tests.
 
 ## Priority 2 — complete the Scalable and Rust contract path
 
