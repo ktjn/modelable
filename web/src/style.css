@@ -39,7 +39,7 @@
   --graph-surface-muted: #f1f5f9;
   --graph-border: #94a3b8;
   --graph-edge: #64748b;
-  --graph-selection: #0f766e;
+  --graph-selection: #2563eb;
   --graph-minimap-node: #94a3b8;
   --graph-minimap-mask: rgba(226, 232, 240, 0.7);
   --graph-domain: #64748b;
@@ -85,7 +85,7 @@
     --graph-surface-muted: #273449;
     --graph-border: #64748b;
     --graph-edge: #94a3b8;
-    --graph-selection: #5eead4;
+    --graph-selection: #60a5fa;
     --graph-minimap-node: #64748b;
     --graph-minimap-mask: rgba(15, 23, 42, 0.72);
     --graph-domain: #94a3b8;
@@ -131,7 +131,7 @@
   --graph-surface-muted: #273449;
   --graph-border: #64748b;
   --graph-edge: #94a3b8;
-  --graph-selection: #5eead4;
+  --graph-selection: #60a5fa;
   --graph-minimap-node: #64748b;
   --graph-minimap-mask: rgba(15, 23, 42, 0.72);
   --graph-domain: #94a3b8;
