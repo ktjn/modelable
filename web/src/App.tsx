@@ -61,6 +61,7 @@ import { Toolbar } from './layout/Toolbar';
 import { MetricsFooter } from './layout/MetricsFooter';
 import { ViewTabs, type MobileView } from './layout/ViewTabs';
 import { RightPanel, type RightPanelTab } from './layout/RightPanel';
+import { CommandPalette, type CommandPaletteCommand } from './layout/CommandPalette';
 import { ChatPanel } from './ai/ChatPanel';
 import {
   initialProviderState,
@@ -128,6 +129,20 @@ const extensionMap: Record<CompileTarget, string> = {
   csharp: '.cs',
   markdown: '.md',
   python: '.py',
+};
+
+const compileTargetLabels: Record<CompileTarget, string> = {
+  jsonSchema: 'JSON Schema',
+  typescript: 'TypeScript',
+  'sql-postgres': 'SQL (Postgres)',
+  'sql-clickhouse': 'SQL (ClickHouse)',
+  protobuf: 'Protobuf',
+  rust: 'Rust',
+  java: 'Java',
+  go: 'Go',
+  csharp: 'C#',
+  markdown: 'Markdown',
+  python: 'Python',
 };
 
 export interface AppProps {
@@ -231,6 +246,7 @@ function AppInner({
   const { preference: themePreference, resolvedTheme, setPreference: setThemePreference } = useTheme();
   const [mobileView, setMobileView] = useState<MobileView>('source');
   const [rightTab, setRightTab] = useState<RightPanelTab>('assistant');
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [aiState, aiDispatch] = useReducer(
     providerStateReducer,
     initialProviderState,
@@ -623,13 +639,23 @@ function AppInner({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
+      const commandModifier = event.ctrlKey || event.metaKey;
+      if (
+        commandModifier &&
+        !event.shiftKey &&
+        !event.altKey &&
+        event.key.toLowerCase() === 'k'
+      ) {
+        event.preventDefault();
+        setCommandPaletteOpen((isOpen) => !isOpen);
+        return;
+      }
       if (
         state.runtime !== 'ready' ||
         operationPendingRef.current
       ) {
         return;
       }
-      const commandModifier = event.ctrlKey || event.metaKey;
       if (
         commandModifier &&
         event.shiftKey &&
@@ -1389,6 +1415,145 @@ function AppInner({
     state.workspace.files.find((file) => file.path === state.workspace.activeFile)
       ?.content ?? '';
 
+  const commands: CommandPaletteCommand[] = [];
+  if (!actionsDisabled) {
+    commands.push(
+      {
+        id: 'action-validate',
+        group: 'Actions',
+        label: 'Validate',
+        hint: 'Ctrl+Shift+Enter',
+        onRun: handleValidate,
+      },
+      {
+        id: 'action-format',
+        group: 'Actions',
+        label: 'Format',
+        hint: 'Shift+Alt+F',
+        onRun: handleFormat,
+      },
+      {
+        id: 'action-generate',
+        group: 'Actions',
+        label: 'Generate',
+        hint: 'Ctrl+Enter',
+        onRun: handleGenerate,
+      },
+    );
+  }
+  commands.push(
+    {
+      id: 'action-export-source',
+      group: 'Actions',
+      label: 'Export source',
+      onRun: exportSource,
+    },
+    {
+      id: 'action-reload-demo',
+      group: 'Actions',
+      label: 'Reload demo data',
+      onRun: handleResetToDemo,
+    },
+  );
+  if (state.runtime === 'failed') {
+    commands.push({
+      id: 'action-retry-compiler',
+      group: 'Actions',
+      label: 'Retry compiler',
+      onRun: retryCompiler,
+    });
+  }
+  if (state.runtime !== 'failed' && languageCanRetry) {
+    commands.push({
+      id: 'action-retry-language-services',
+      group: 'Actions',
+      label: 'Retry language services',
+      onRun: handleRetryLanguageServices,
+    });
+  }
+  if (persistentWorkspace.phase === 'memory-only') {
+    commands.push({
+      id: 'action-retry-storage',
+      group: 'Actions',
+      label: 'Retry storage',
+      onRun: handleRetryStorage,
+    });
+  }
+  if (!actionsDisabled) {
+    for (const target of Object.keys(compileTargetLabels) as CompileTarget[]) {
+      commands.push({
+        id: `target-${target}`,
+        group: 'Target language',
+        label: `Set target: ${compileTargetLabels[target]}`,
+        hint: target === state.compileTarget ? 'Current' : undefined,
+        onRun: () => handleCompileTargetChange(target),
+      });
+    }
+  }
+  commands.push(
+    {
+      id: 'panel-files',
+      group: 'Panels',
+      label: 'View: Files',
+      onRun: () => setMobileView('files'),
+    },
+    {
+      id: 'panel-source',
+      group: 'Panels',
+      label: 'View: Source',
+      onRun: () => setMobileView('source'),
+    },
+    {
+      id: 'panel-assistant',
+      group: 'Panels',
+      label: 'Inspect: Assistant',
+      onRun: () => {
+        setRightTab('assistant');
+        setMobileView('assistant');
+      },
+    },
+    {
+      id: 'panel-graph',
+      group: 'Panels',
+      label: 'Inspect: Graph',
+      onRun: () => {
+        setRightTab('graph');
+        setMobileView('assistant');
+      },
+    },
+    {
+      id: 'panel-output',
+      group: 'Panels',
+      label: 'Inspect: Output',
+      onRun: () => {
+        setRightTab('output');
+        setMobileView('assistant');
+      },
+    },
+    {
+      id: 'panel-diagnostics',
+      group: 'Panels',
+      label: 'View: Diagnostics',
+      onRun: () => setMobileView('analysis'),
+    },
+  );
+  if (!actionsDisabled) {
+    for (const file of state.workspace.files) {
+      if (file.path === state.workspace.activeFile) {
+        continue;
+      }
+      commands.push({
+        id: `open-file-${file.path}`,
+        group: 'Open file',
+        label: file.path,
+        onRun: () => {
+          applyWorkspaceMutation({ type: 'select', path: file.path });
+          setMobileView('source');
+        },
+      });
+    }
+  }
+
   return (
     <main className="workbench" data-state={state.runtime} data-mobile-view={mobileView}>
       <WorkbenchHeader
@@ -1401,6 +1566,12 @@ function AppInner({
         themePreference={themePreference}
         resolvedTheme={resolvedTheme}
         onThemePreferenceChange={setThemePreference}
+        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+      />
+      <CommandPalette
+        open={commandPaletteOpen}
+        commands={commands}
+        onClose={() => setCommandPaletteOpen(false)}
       />
       <Toolbar
         runtime={state.runtime}

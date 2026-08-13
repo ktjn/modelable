@@ -717,6 +717,55 @@ describe('App', () => {
     expect(shortcuts.size).toBe(3);
   });
 
+  test('opens the command palette with the header button or Ctrl+K and runs a command', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    expect(screen.queryByRole('dialog', { name: 'Command palette' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Commands' }));
+    expect(
+      screen.getByRole('dialog', { name: 'Command palette' }),
+    ).toBeTruthy();
+
+    fireEvent.change(screen.getByPlaceholderText('Type a command…'), {
+      target: { value: 'validate' },
+    });
+    fireEvent.click(screen.getByRole('option', { name: /Validate/ }));
+
+    expect(
+      screen.queryByRole('dialog', { name: 'Command palette' }),
+    ).toBeNull();
+    expect(client.openWorkspace).toHaveBeenCalled();
+
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    expect(
+      screen.getByRole('dialog', { name: 'Command palette' }),
+    ).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    expect(
+      screen.queryByRole('dialog', { name: 'Command palette' }),
+    ).toBeNull();
+  });
+
+  test('switches panels via the command palette', async () => {
+    const client = new FakeCompilerClient();
+    render(<App createClient={() => client} />);
+    await initialize(client);
+
+    const resizableLayout = () => screen.getByTestId('resizable-layout');
+    expect(resizableLayout().getAttribute('data-mobile-view')).toBe('source');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Commands' }));
+    fireEvent.change(screen.getByPlaceholderText('Type a command…'), {
+      target: { value: 'inspect: graph' },
+    });
+    fireEvent.click(screen.getByRole('option', { name: /Inspect: Graph/ }));
+
+    expect(resizableLayout().getAttribute('data-mobile-view')).toBe('assistant');
+  });
+
   test('announces operation failures as alerts', async () => {
     const client = new FakeCompilerClient();
     render(<App createClient={() => client} />);

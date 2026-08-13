@@ -278,6 +278,7 @@ button.view-tab--active:hover:not(:disabled) {
   justify-content: flex-end;
 }
 
+.workbench-header__command-trigger,
 .workbench-header__theme-toggle {
   padding: 0.25rem 0.55rem;
   border-radius: 9999px;
@@ -289,6 +290,7 @@ button.view-tab--active:hover:not(:disabled) {
   white-space: nowrap;
 }
 
+.workbench-header__command-trigger:hover:not(:disabled),
 .workbench-header__theme-toggle:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.16);
   color: #ffffff;
@@ -2078,6 +2080,103 @@ button.diagnostics__item:focus-visible {
   gap: 0.5rem;
   z-index: 1000;
   max-width: 24rem;
+}
+
+/* Command palette */
+
+.command-palette-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  justify-content: center;
+  padding-top: 12vh;
+  background: rgba(15, 23, 22, 0.45);
+}
+
+.command-palette {
+  display: flex;
+  flex-direction: column;
+  width: min(32rem, 90vw);
+  max-height: 60vh;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border-strong);
+  background: var(--panel);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.command-palette__input {
+  padding: 0.8rem 1rem;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.command-palette__input:focus {
+  outline: none;
+}
+
+.command-palette__list {
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.command-palette__empty {
+  padding: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.command-palette__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.command-palette__item--active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.command-palette__item-group {
+  flex-shrink: 0;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.command-palette__item--active .command-palette__item-group {
+  background: rgba(255, 255, 255, 0.2);
+  color: inherit;
+}
+
+.command-palette__item-label {
+  flex: 1;
+}
+
+.command-palette__item-hint {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.command-palette__item--active .command-palette__item-hint {
+  color: inherit;
+  opacity: 0.85;
 }
 
 .toast {

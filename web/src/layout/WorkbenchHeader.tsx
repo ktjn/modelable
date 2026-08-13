@@ -10,6 +10,7 @@ export interface WorkbenchHeaderProps {
   themePreference: ThemePreference;
   resolvedTheme: 'light' | 'dark';
   onThemePreferenceChange: (preference: ThemePreference) => void;
+  onOpenCommandPalette?: () => void;
 }
 
 const persistenceWarningPhases = new Set(['memory-only', 'recovery-required']);
@@ -40,6 +41,7 @@ export function WorkbenchHeader({
   themePreference,
   resolvedTheme,
   onThemePreferenceChange,
+  onOpenCommandPalette = () => {},
 }: WorkbenchHeaderProps) {
   const handleThemeClick = (): void => {
     onThemePreferenceChange(nextPreference[themePreference]);
@@ -83,6 +85,16 @@ export function WorkbenchHeader({
         <span className="badge badge--muted" aria-live="polite">
           {languageStatus}
         </span>
+        <button
+          type="button"
+          className="workbench-header__command-trigger"
+          aria-label="Commands"
+          aria-keyshortcuts="Control+k Meta+k"
+          title="Commands (Ctrl+K)"
+          onClick={onOpenCommandPalette}
+        >
+          Commands
+        </button>
         <button
           type="button"
           className="workbench-header__theme-toggle"
