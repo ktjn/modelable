@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.7.0] - 2026-08-14
+
+### Added
+
 - Added a host-registered Playground plugin contract for deterministic custom
   artifact viewers, with API-version, identity, and file-extension validation.
 
