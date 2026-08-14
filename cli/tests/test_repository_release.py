@@ -55,21 +55,19 @@ def test_python_package_has_stable_release_metadata() -> None:
     assert "Programming Language :: Python :: 3.14" in project["classifiers"]
 
 
-def test_searchable_vector_dependencies_have_published_api_floor() -> None:
+def test_searchable_dependency_has_published_api_floor() -> None:
     pyproject = tomllib.loads((REPOSITORY_ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8"))
     dependencies = pyproject["project"]["dependencies"]
 
-    assert "searchable-client>=0.4.2" in dependencies
-    assert "searchable-indexer>=0.2.3" in dependencies
+    assert "searchable>=2.0.1" in dependencies
 
     lock_text = (REPOSITORY_ROOT / "cli" / "uv.lock").read_text(encoding="utf-8")
-    assert 'name = "searchable-client"\nversion = "0.4.2"' in lock_text
-    assert 'name = "searchable-indexer"\nversion = "0.2.3"' in lock_text
+    assert 'name = "searchable"\nversion = "2.0.1"' in lock_text
 
 
 def test_browser_lock_matches_uv_lock_searchable_versions() -> None:
-    """cli/browser/browser-lock.json pins its own copies of searchable-analysis
-    and searchable-client for the Pyodide/browser wheel, entirely independent
+    """cli/browser/browser-lock.json pins its own copy of searchable for the
+    Pyodide/browser wheel, entirely independent
     of cli/uv.lock. A dependency bump that updates uv.lock without also
     updating browser-lock.json ships a fix to the CLI/LSP while the deployed
     Playground silently keeps running the old, unfixed version -- no error,
@@ -77,11 +75,11 @@ def test_browser_lock_matches_uv_lock_searchable_versions() -> None:
     docs/maintainers.md's "Browser playground troubleshooting" section.
     """
     uv_lock = tomllib.loads((REPOSITORY_ROOT / "cli" / "uv.lock").read_text(encoding="utf-8"))
-    tracked_names = {"searchable-analysis", "searchable-client"}
+    tracked_names = {"searchable"}
     uv_lock_versions = {
         package["name"]: package["version"] for package in uv_lock["package"] if package["name"] in tracked_names
     }
-    assert uv_lock_versions.keys() == tracked_names, "expected both packages in cli/uv.lock"
+    assert uv_lock_versions.keys() == tracked_names, "expected searchable in cli/uv.lock"
 
     browser_lock = json.loads((REPOSITORY_ROOT / "cli" / "browser" / "browser-lock.json").read_text(encoding="utf-8"))
     browser_lock_versions = {

@@ -106,7 +106,6 @@ def test_browser_documentation_retriever_maps_fake_search_client_hit(monkeypatch
     assert captured["kwargs"] == {"strict": True, "allow_cross_origin_shards": False}
     assert captured["query"] == "install docs"
     assert captured["options"].limit == 5
-    assert captured["options"].mode == "lexical"
     assert result == [
         RetrievedChunk(
             id=17,

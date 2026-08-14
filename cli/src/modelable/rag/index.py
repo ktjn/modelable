@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from searchable_indexer.build_index import build_index_documents
-from searchable_indexer.document import FieldDefinition, IndexDocument
-from searchable_indexer.write_index import write_index
+from searchable.indexer import FieldDefinition, IndexDocument, build_index_documents, write_index
 
 from modelable.rag.model import DocumentationChunk
 
@@ -56,17 +54,7 @@ def to_index_document(chunk: DocumentationChunk, numeric_id: int) -> IndexDocume
 def build_documentation_index(
     chunks: Sequence[DocumentationChunk],
     output_directory: Path,
-    *,
-    embed: Callable[[list[str]], list[list[float]]] | None = None,
-    embedding_provider: dict[str, object] | None = None,
-    vector_quantization: str = "int8",
-    term_shard_format: str = "json",
-    doc_store_format: str = "json",
-    fuzzy_shard_format: str = "json",
 ) -> IndexBuildReport:
-    if embedding_provider is not None and embed is None:
-        raise ValueError("embed is required when embedding_provider is supplied")
-
     ordered_chunks = sorted(chunks, key=lambda chunk: (chunk.source_path, chunk.chunk_index, chunk.external_id))
     seen_external_ids: set[str] = set()
     seen_positions: set[tuple[str, int]] = set()
@@ -82,24 +70,8 @@ def build_documentation_index(
         seen_positions.add(position)
 
     documents = [to_index_document(chunk, index) for index, chunk in enumerate(ordered_chunks, start=1)]
-    if embed is None:
-        built = build_index_documents(documents, field_definitions=FIELD_DEFINITIONS)
-    else:
-        built = build_index_documents(
-            documents,
-            field_definitions=FIELD_DEFINITIONS,
-            embed=embed,
-            embedding_provider=embedding_provider,
-            vector_field="content",
-            vector_quantization=vector_quantization,
-        )
-    write_index(
-        built,
-        str(output_directory),
-        term_shard_format=term_shard_format,
-        doc_store_format=doc_store_format,
-        fuzzy_shard_format=fuzzy_shard_format,
-    )
+    built = build_index_documents(documents, field_definitions=FIELD_DEFINITIONS)
+    write_index(built, str(output_directory))
 
     return IndexBuildReport(
         source_document_count=len({chunk.source_path for chunk in ordered_chunks}),

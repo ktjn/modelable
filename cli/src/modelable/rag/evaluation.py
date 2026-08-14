@@ -102,7 +102,7 @@ def evaluate_retrieval_modes(
     retriever: _Retriever,
     cases: Sequence[EvaluationCase],
     *,
-    modes: Sequence[SearchMode] = ("lexical", "vector", "hybrid"),
+    modes: Sequence[SearchMode] = ("lexical",),
     limit: int = 10,
 ) -> dict[str, EvaluationReport]:
     """Evaluate identical cases independently for each requested retrieval mode."""

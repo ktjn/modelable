@@ -96,8 +96,8 @@ def test_evaluate_retrieval_modes_runs_the_same_cases_in_stable_mode_order() -> 
         [EvaluationCase("How do I install?", ("guide.md#install",))],
     )
 
-    assert list(reports) == ["lexical", "vector", "hybrid"]
-    assert calls == ["lexical", "vector", "hybrid"]
+    assert list(reports) == ["lexical"]
+    assert calls == ["lexical"]
     assert all(report.recall_at_10 == 1.0 for report in reports.values())
 
 
