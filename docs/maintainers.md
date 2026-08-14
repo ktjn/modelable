@@ -278,7 +278,7 @@ re-download; delete that directory to force a clean fetch after bumping
 
 ### Browser playground troubleshooting
 
-- **Bumping `searchable-analysis`/`searchable-client` (or any package listed
+- **Bumping `searchable` (or any package listed
   in `cli/browser/browser-lock.json`'s `externalWheels`):** `cli/uv.lock` and
   `cli/browser/browser-lock.json` are two *separate* lockfiles. `uv lock`
   only updates the former, which the CLI and LSP read; the Playground builds
@@ -292,7 +292,7 @@ re-download; delete that directory to force a clean fetch after bumping
   package to the matching published wheel (`https://pypi.org/pypi/<name>/<version>/json`
   lists the wheel's exact URL and `digests.sha256`), then run `npm run
   prepare:python` from `web/` to checksum-verify it. `cli/tests/test_repository_release.py::test_browser_lock_matches_uv_lock_searchable_versions`
-  enforces that `searchable-analysis`/`searchable-client` stay in sync
+  enforces that `searchable` stays in sync
   between the two lockfiles specifically; it does not cover other
   `externalWheels` entries (currently `lark`, `pyodide-http`).
 - **Checksum or manifest failure during `prepare:python`:** do not patch

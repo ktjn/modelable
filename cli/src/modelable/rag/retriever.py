@@ -1,13 +1,11 @@
 import re
-from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from searchable_client import SearchClient
-from searchable_client.search import SearchOptions
+from searchable import SearchClient, SearchOptions
 
-SearchMode = Literal["lexical", "vector", "hybrid"]
+SearchMode = Literal["lexical"]
 
 
 @dataclass(slots=True, frozen=True)
@@ -34,17 +32,12 @@ class DocumentationRetriever:
         index_url: str | Path,
         *,
         client: _SearchClient | None = None,
-        embed_query: Callable[[str], list[float]] | None = None,
-        embedding_provider: dict[str, object] | None = None,
     ) -> None:
         if client is not None:
             self._client = client
             return
 
-        embed_query_argument: Callable[[str], list[float]] | Mapping[str, Any] | None = embed_query
-        if embed_query is not None and embedding_provider is not None:
-            embed_query_argument = {"embed": embed_query, "provider": embedding_provider}
-        self._client = SearchClient(str(index_url), embed_query=embed_query_argument)
+        self._client = SearchClient(str(index_url))
 
     def search(self, query: str, *, limit: int = 8, mode: SearchMode = "lexical") -> list[RetrievedChunk]:
         normalized_query = re.sub(r"[^\w\s-]", " ", query, flags=re.UNICODE)
@@ -53,12 +46,12 @@ class DocumentationRetriever:
             raise ValueError("query must not be blank")
         if limit <= 0:
             raise ValueError("limit must be positive")
-        if mode not in ("lexical", "vector", "hybrid"):
+        if mode != "lexical":
             raise ValueError(f"unsupported search mode: {mode}")
 
         result = self._client.search(
             normalized_query,
-            SearchOptions(limit=limit, mode=mode),
+            SearchOptions(limit=limit),
         )
         return [self._map_hit(hit) for hit in result.hits]
 

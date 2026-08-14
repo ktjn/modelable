@@ -6,8 +6,7 @@ from typing import Any, Literal, Protocol
 from urllib.parse import ParseResult, urljoin, urlparse, urlunparse
 from urllib.request import urlopen
 
-from searchable_client import SearchClient
-from searchable_client.search import SearchOptions
+from searchable import SearchClient, SearchOptions
 
 from modelable.rag.retriever import RetrievedChunk
 
@@ -70,7 +69,7 @@ class BrowserDocumentationRetriever:
         try:
             result = self._client.search(
                 normalized_query,
-                SearchOptions(limit=limit, mode="lexical"),
+                SearchOptions(limit=limit),
             )
             return [self._map_hit(hit) for hit in result.hits]
         except Exception as error:

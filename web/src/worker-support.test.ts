@@ -14,12 +14,8 @@ const larkUrl =
   'https://example.test/modelable/playground/python/lark-1.3.1-py3-none-any.whl';
 const modelableUrl =
   'https://example.test/modelable/playground/python/modelable_browser-1.2.1-py3-none-any.whl';
-const searchableAnalysisUrl =
-  'https://example.test/modelable/playground/python/searchable_analysis-0.2.3-py3-none-any.whl';
-const searchableBinaryUrl =
-  'https://example.test/modelable/playground/python/searchable_binary-0.1.1-py3-none-any.whl';
-const searchableClientUrl =
-  'https://example.test/modelable/playground/python/searchable_client-0.4.2-py3-none-any.whl';
+const searchableUrl =
+  'https://example.test/modelable/playground/python/searchable-2.0.1-py3-none-any.whl';
 const pyodideHttpUrl =
   'https://example.test/modelable/playground/python/pyodide_http-0.2.2-py3-none-any.whl';
 
@@ -42,7 +38,7 @@ describe('validateRuntimeManifest', () => {
     ).toEqual([larkUrl, modelableUrl]);
   });
 
-  test('rejects documentation runtime missing Searchable wheels', () => {
+  test('rejects documentation runtime missing Searchable wheel', () => {
     expect(() =>
       validateRuntimeManifest(
         {
@@ -54,7 +50,7 @@ describe('validateRuntimeManifest', () => {
         },
         manifestUrl,
       ),
-    ).toThrow('Searchable Analysis');
+    ).toThrow('Searchable wheel');
   });
 
   test('accepts the documentation runtime with the network patch wheel', () => {
@@ -64,9 +60,7 @@ describe('validateRuntimeManifest', () => {
           wheelUrls: [
             larkUrl,
             modelableUrl,
-            searchableAnalysisUrl,
-            searchableBinaryUrl,
-            searchableClientUrl,
+            searchableUrl,
             pyodideHttpUrl,
           ],
         },
@@ -75,9 +69,7 @@ describe('validateRuntimeManifest', () => {
     ).toEqual([
       larkUrl,
       modelableUrl,
-      searchableAnalysisUrl,
-      searchableBinaryUrl,
-      searchableClientUrl,
+            searchableUrl,
       pyodideHttpUrl,
     ]);
   });

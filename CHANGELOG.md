@@ -13,6 +13,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Upgraded the documentation index and retrieval integration to Searchable
+  2.0.1, the consolidated lexical-only Python package. The browser runtime now
+  ships one `searchable` wheel instead of the retired split packages.
+
 ### Fixed
 
 ## [1.6.0] - 2026-08-10
