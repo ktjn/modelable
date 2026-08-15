@@ -285,7 +285,8 @@ def _compare_schema(
         if number in new_fields:
             continue
         old_proto_name = _string_value(old_field.get("proto_name"))
-        if number in reserved_numbers and old_proto_name in reserved_names:
+        old_source_name = _string_value(old_field.get("name"))
+        if number in reserved_numbers and (old_proto_name in reserved_names or old_source_name in reserved_names):
             continue
         findings.append(
             _finding(

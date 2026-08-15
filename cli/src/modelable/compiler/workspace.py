@@ -7,10 +7,10 @@ from pathlib import Path
 
 from modelable.diagnostics.model import Diagnostic
 from modelable.expressions.cel import CelContext, FieldRef, looks_boolean, parse_cel, validate_cel_expr
-from modelable.parser.ir import ComputedMapping, MdlFile
+from modelable.parser.ir import ArrayType, ComputedMapping, MapType, MdlFile, NamedType, ObjectType
 from modelable.parser.parse import parse_text_to_ir_with_tree
 from modelable.planner.planner import expand_auto_projections, expand_projection_selections
-from modelable.registry.resolver import resolve_model_ref, validate_references
+from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref, validate_references
 from modelable.validation.deferred_syntax import find_deferred_syntax_diagnostics
 from modelable.validation.semantic import validate_diagnostics, validate_ref_type_field
 
@@ -109,6 +109,7 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
 
     errors.extend(_validate_package_config(merged))
     errors.extend(_validate_merged_workspace(workspace_sources, merged))
+    errors.extend(_validate_named_field_types(merged))
     ref_errors, ref_warnings = _validate_ref_types_in_merged_workspace(workspace_sources, merged)
     errors.extend(ref_errors)
     warnings.extend(ref_warnings)
@@ -339,6 +340,43 @@ def _validate_ref_types_in_merged_workspace(
     return errors, warnings
 
 
+def _validate_named_field_types(merged: MdlFile) -> list[Diagnostic]:
+    """Reject bare semantic field types that cannot be resolved unambiguously."""
+    model_names = {model_name for domain in merged.domains for model_name in domain.models}
+    opaque_names = {"bytes"}
+    errors: list[Diagnostic] = []
+
+    def visit(field_type, domain_name: str, context: str) -> None:
+        if isinstance(field_type, NamedType):
+            if field_type.name in model_names or field_type.name in opaque_names:
+                return
+            try:
+                resolve_semantic_type_ref(merged, domain_name, field_type.name)
+            except LookupError as exc:
+                message = str(exc).replace("ambiguous semantic type", "ambiguous type", 1)
+                errors.append(
+                    Diagnostic(code="SEM", message=f"{context}: {message}", severity="error", path="<workspace>")
+                )
+        elif isinstance(field_type, ArrayType):
+            visit(field_type.item, domain_name, context)
+        elif isinstance(field_type, MapType):
+            visit(field_type.value, domain_name, context)
+        elif isinstance(field_type, ObjectType):
+            for nested in field_type.fields:
+                visit(nested.type, domain_name, f"{context}.{nested.name}")
+
+    for domain in merged.domains:
+        for model_name, versions in domain.models.items():
+            for version in versions:
+                for model_field in version.fields:
+                    visit(
+                        model_field.type,
+                        domain.name,
+                        f"{domain.name}.{model_name}@{version.version}.{model_field.name}",
+                    )
+    return errors
+
+
 def _merge_bindings(existing: list, incoming: list) -> None:
     """Merge incoming bindings into existing, deduplicating identical definitions.
 
@@ -389,6 +427,7 @@ def _validate_cel(merged: MdlFile) -> list[Diagnostic]:
 
                 # Build alias -> set[field_name] from source and all joins
                 source_fields: dict[str, set[str]] = {}
+                source_types: dict[str, dict[str, str]] = {}
                 all_sources = [(pv.source.model, pv.source.version, pv.source.alias)]
                 for join in pv.joins:
                     all_sources.append((join.model, join.version, join.alias))
@@ -396,6 +435,10 @@ def _validate_cel(merged: MdlFile) -> list[Diagnostic]:
                     try:
                         resolved = resolve_model_ref(merged, model_ref, version_spec)
                         source_fields[alias] = {f.name for f in resolved.version.fields}
+                        source_types[alias] = {
+                            f.name: getattr(getattr(f, "type", None), "kind", "unknown")
+                            for f in resolved.version.fields
+                        }
                     except LookupError:
                         pass
 
@@ -403,6 +446,7 @@ def _validate_cel(merged: MdlFile) -> list[Diagnostic]:
                     source_fields=source_fields,
                     has_group_by=bool(pv.group_by),
                     fqn=fqn,
+                    source_types=source_types,
                 )
 
                 if pv.where:

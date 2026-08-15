@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from modelable.compat.diff import compare_model_versions, is_optionality_breaking
+from modelable.compat.diff import compare_model_versions, is_field_change_breaking, is_optionality_breaking
 from modelable.diagnostics.model import Diagnostic
 from modelable.parser.ir import (
     AnnWire,
@@ -261,6 +261,9 @@ def _validate_change_kind(
     incompatible_changes: list[str] = []
 
     for change in changes:
+        if not is_field_change_breaking(change):
+            continue
+
         if change.kind == "added_field":
             field = _find_field(current, change.field_name)
             if field is None or not field.optional:
@@ -621,7 +624,7 @@ def _validate_json_wire_hint(
             )
         )
         return
-    if hint.encoding not in _VALID_JSON_ENCODINGS:
+    if not isinstance(hint.encoding, str) or hint.encoding not in _VALID_JSON_ENCODINGS:
         diagnostics.append(
             _diag(
                 "SEM",

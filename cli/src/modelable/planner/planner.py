@@ -50,7 +50,7 @@ def _expand_domain_auto_projections(domain: DomainDef) -> list[str]:
         for target in decl.targets:
             projection_name = _generated_projection_name(decl.model, target.kind)
             existing = domain.projections.get(projection_name)
-            if existing is not None:
+            if existing is not None and any(projection.version == decl.version for projection in existing):
                 # Skip if an explicit projection with the same name already exists.
                 # The workspace validator already checks for conflicts; this is
                 # just a safety guard.

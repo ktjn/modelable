@@ -162,6 +162,29 @@ def test_additive_version_allows_optional_additions():
     assert errors == []
 
 
+def test_additive_version_allows_new_access_block():
+    mdl = parse_text_to_ir("""
+    domain patient {
+      owner: "test-team"
+      entity Patient @ 1 (additive) {
+        @key patientId: uuid
+        name: string
+      }
+      entity Patient @ 2 (additive) {
+        @key patientId: uuid
+        name: string
+        access {
+          entity care-team [read]
+        }
+      }
+    }
+    """)
+
+    errors = validate(mdl)
+
+    assert errors == []
+
+
 def test_breaking_version_requires_incompatible_change():
     mdl = parse_text_to_ir("""
     domain customer {

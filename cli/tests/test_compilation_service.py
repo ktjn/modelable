@@ -17,6 +17,7 @@ from modelable.compiler.workspace import load_workspace
 from modelable.lsp.definition import definition_location_for_ref
 from modelable.operations.compilation import (
     CompilationConfirmation,
+    CompilationDiagnosticsError,
     CompilationError,
     CompilationPolicy,
     CompilationRequest,
@@ -726,18 +727,13 @@ domain consumer {
 """,
     )
 
-    pending = preview_for(
-        tmp_path,
-        source,
-        target="openmetadata",
-        domains=("alpha", "consumer"),
-    )
-    affected = {item.ref for item in pending.affected_definitions}
-
-    # sharedId's bare reference is ambiguous between alpha.SharedId and
-    # beta.SharedId — neither is reported as a confident pick.
-    assert "alpha.SharedId" not in affected
-    assert "beta.SharedId" not in affected
+    with pytest.raises(CompilationDiagnosticsError, match="ambiguous type 'SharedId'"):
+        preview_for(
+            tmp_path,
+            source,
+            target="openmetadata",
+            domains=("alpha", "consumer"),
+        )
 
 
 def test_qualified_semantic_reference_is_reported_as_affected(tmp_path: Path) -> None:

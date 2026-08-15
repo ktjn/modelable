@@ -19,6 +19,11 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Fixed validation and compilation gaps across parser diagnostics, semantic-type
+  resolution, CEL operand checks, versioned auto-projections, governance diffs,
+  protobuf reservations, and TypeScript imports for semantic and projection
+  fields.
+
 ## [1.7.0] - 2026-08-14
 
 ### Added
