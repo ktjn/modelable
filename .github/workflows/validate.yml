@@ -42,9 +42,21 @@ jobs:
 
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-            range="FETCH_HEAD...HEAD"
+            if git merge-base FETCH_HEAD HEAD >/dev/null 2>&1; then
+              range="FETCH_HEAD...HEAD"
+            else
+              echo "Base branch has no merge base with the checkout; validating all surfaces."
+              git ls-tree -r --name-only HEAD > changed-files.txt
+              range=""
+            fi
           elif git rev-parse --verify "${{ github.event.before }}" >/dev/null 2>&1; then
-            range="${{ github.event.before }}..HEAD"
+            if git merge-base "${{ github.event.before }}" HEAD >/dev/null 2>&1; then
+              range="${{ github.event.before }}..HEAD"
+            else
+              echo "Previous revision has no merge base with the checkout; validating all surfaces."
+              git ls-tree -r --name-only HEAD > changed-files.txt
+              range=""
+            fi
           elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
             range="HEAD^..HEAD"
           else
