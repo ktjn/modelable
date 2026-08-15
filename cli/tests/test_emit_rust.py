@@ -1672,6 +1672,31 @@ domain nlq {
     assert not any("EMIT003" in w for w in query_art.warnings)
 
 
+def test_emit_rust_optional_named_type_array_preserves_resolution(tmp_path):
+    """Optional arrays must retain named-type resolution when unwrapped to Vec."""
+    (tmp_path / "test.mdl").write_text(
+        """
+domain nlq {
+  owner: "test-team"
+  value NlqFilter {
+    field: string
+  }
+  value NlqQuery {
+    filters?: array<NlqFilter>
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    query_art = next(a for a in artifacts if a.ref == "nlq.NlqQuery@0")
+
+    assert "pub filters: Vec<NlqNlqFilterV0>," in query_art.content
+    assert "use super::nlq_nlq_filter_v0::NlqNlqFilterV0;" in query_art.content
+    assert not any("EMIT003" in w for w in query_art.warnings)
+
+
 def test_emit_rust_clickhouse_row_enum_field_uses_string(tmp_path):
     """ClickHouse-bound projection enum fields must be String, not typed enum (issue #119)."""
     (tmp_path / "model.mdl").write_text(

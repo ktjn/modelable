@@ -1178,6 +1178,7 @@ def _field_specs_from_model_fields(
                 path=[*path, field.name],
                 definitions=definitions,
                 rust_hint=wire.get("rust"),
+                named_type_map=named_type_map,
             )
         elif shape.optional:
             # Omittable field: skip during serialization when None.
