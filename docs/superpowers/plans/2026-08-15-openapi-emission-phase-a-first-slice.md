@@ -989,7 +989,7 @@ Expected: pass, all tests from Tasks 2-6.
   `docs/superpowers/specs/archived/2026-08-14-openapi-emission-design.md`
 - Move: this plan file → `docs/superpowers/plans/archived/`
 
-- [ ] **Step 1: Update `docs/compiler-reference.md`**
+- [x] **Step 1: Update `docs/compiler-reference.md`**
 
 Line 37, replace:
 
@@ -1003,7 +1003,7 @@ with:
 | OpenAPI | 5 | Implemented local artifact (schema-only; paths/operations deferred to a future phase) |
 ```
 
-- [ ] **Step 2: Update `docs/architecture.md`**
+- [x] **Step 2: Update `docs/architecture.md`**
 
 Line 1207-1208, replace:
 
@@ -1022,7 +1022,7 @@ with:
   OpenAPI import remains LLM-assisted only.
 ```
 
-- [ ] **Step 3: Update `docs/language-reference.md` §4.3**
+- [x] **Step 3: Update `docs/language-reference.md` §4.3**
 
 Line 711, remove `openapi` from the "no implemented emitter" list — current
 text:
@@ -1043,7 +1043,7 @@ these names also have no implemented emitter behind them at all yet
 only, not paths/operations). See Slice B3 in
 ```
 
-- [ ] **Step 4: Update `ROADMAP.md` Slice F2**
+- [x] **Step 4: Update `ROADMAP.md` Slice F2**
 
 Lines 769-772, replace:
 
@@ -1067,7 +1067,7 @@ operations) needs its own accepted grammar design (§7 of the linked design
 document) before implementation.
 ```
 
-- [ ] **Step 5: Add the CHANGELOG entry**
+- [x] **Step 5: Add the CHANGELOG entry**
 
 Read the current `## [Unreleased]` section of `CHANGELOG.md` first to match
 its exact bullet style, then add under `### Added`:
@@ -1081,7 +1081,7 @@ its exact bullet style, then add under `### Added`:
   generation is out of scope for this slice.
 ```
 
-- [ ] **Step 6: Verify doc references**
+- [x] **Step 6: Verify doc references**
 
 Run from repo root:
 
@@ -1092,7 +1092,7 @@ rg -n "compile --target openapi|openapi target|2026-08-14-openapi-emission-desig
 Expected: matches in compiler reference, architecture, language reference,
 roadmap, and changelog.
 
-- [ ] **Step 7: Archive the design doc and this plan**
+- [x] **Step 7: Archive the design doc and this plan**
 
 Move `docs/superpowers/specs/2026-08-14-openapi-emission-design.md` to
 `docs/superpowers/specs/archived/2026-08-14-openapi-emission-design.md`
@@ -1105,7 +1105,7 @@ commit.
 
 **Files:** all touched files
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run from `cli/`:
 
@@ -1115,7 +1115,7 @@ uv run pytest tests/test_emit_openapi.py tests/test_emit_json_schema.py tests/te
 
 Expected: pass.
 
-- [ ] **Step 2: Run the required four-command pre-commit gate**
+- [x] **Step 2: Run the required four-command pre-commit gate**
 
 Run from `cli/`:
 
@@ -1132,7 +1132,7 @@ new `mdl`/`ref_base` keyword params on `_schema_mapping.py` functions, or
 `openapi.py`'s `_projection_to_schema` needing concrete parameter types
 instead of implicit `Any`) before assuming a baseline regeneration is safe.
 
-- [ ] **Step 3: Inspect the final diff**
+- [x] **Step 3: Inspect the final diff**
 
 Run from repo root:
 
@@ -1146,7 +1146,7 @@ Expected: diff contains only the OpenAPI Phase A target, the
 documentation. Confirm `git status` shows the design spec and this plan
 moved into their respective `archived/` directories.
 
-- [ ] **Step 4: Confirm json_schema.py's behavior is provably unchanged**
+- [x] **Step 4: Confirm json_schema.py's behavior is provably unchanged**
 
 Run from `cli/`:
 
