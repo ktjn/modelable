@@ -173,6 +173,20 @@ def test_validation_workflow_is_split_and_path_gated() -> None:
             assert jobs[surface]["if"] == f"needs.changes.outputs.{surface} == 'true'"
 
 
+def test_validation_workflow_handles_history_without_a_merge_base() -> None:
+    workflow = _workflow("validate.yml")
+    detection_step = next(
+        step
+        for step in workflow["jobs"]["changes"]["steps"]
+        if "run" in step and ".github/scripts/detect_validate_surfaces.py" in step["run"]
+    )
+    script = detection_step["run"]
+
+    assert "git merge-base FETCH_HEAD HEAD" in script
+    assert 'git merge-base "${{ github.event.before }}" HEAD' in script
+    assert "git ls-tree -r --name-only HEAD > changed-files.txt" in script
+
+
 def test_validation_workflow_uses_distinct_uv_cache_suffixes() -> None:
     workflow = _workflow("validate.yml")
     jobs = workflow["jobs"]
