@@ -289,6 +289,7 @@ type ImplementedTarget = Literal[
     "odcs",
     "protobuf",
     "grpc",
+    "openapi",
 ]
 
 
