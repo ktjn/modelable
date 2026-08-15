@@ -155,10 +155,10 @@ join_prefix: "join" dotted_ref "@" version_spec "as" IDENT "on" EXPRESSION
 
 group_clause: "group" "by" group_item ("," group_item)*
 
-group_item: /[^,\n\r{}]+/
+group_item: /(?:[^,\n\r{}()]|\([^()\n\r{}]*\))+/
 
 version_spec: INT                  -> version_exact
-            | INT "#" IDENT       -> version_pinned
+            | INT "#" HASH        -> version_pinned
             | ">=" INT "<" INT     -> version_range
             | ">=" INT             -> version_min
 
@@ -297,9 +297,10 @@ ignored_block_item: /[^{}]+/ | "{" ignored_block_item* "}"
 
 VERSION_RANGE: /[<>~=^0-9.,\s]+/
 EXPRESSION: /[^\n\r{}]+/
-FIELD_EXPRESSION: /[^\n\r]+(?:\n(?!\s*(?:@|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-|=)|generate\s*\{|materialisation\s*\{|subscription\s*\{|access\s*\{|from\s|group\s+by|\{|\}))[^\n\r]+)*/
+FIELD_EXPRESSION: /[^\n\r]+(?:\n(?!\s*(?:@|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-|=)|generate\s*\{|materialisation\s*\{|subscription\s*\{|access\s*\{|from\s|group\s+by|pick\s*\(|omit\s*\(|\{|\}))[^\n\r]+)*/
 ANNOTATION_EXPR: /[^)\n\r{}]+/
 IDENT: /[A-Za-z_][A-Za-z0-9_-]*/
+HASH: /[0-9A-Fa-f][0-9A-Fa-f_-]*/
 PEERS_CONTENT: /[^\]]+/
 PRINCIPAL: /\*|[A-Za-z_][A-Za-z0-9_.-]*/
 

@@ -621,7 +621,7 @@ def _validate_json_wire_hint(
             )
         )
         return
-    if hint.encoding not in _VALID_JSON_ENCODINGS:
+    if not isinstance(hint.encoding, str) or hint.encoding not in _VALID_JSON_ENCODINGS:
         diagnostics.append(
             _diag(
                 "SEM",

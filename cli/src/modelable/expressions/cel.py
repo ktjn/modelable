@@ -421,6 +421,7 @@ class CelContext:
     source_fields: dict[str, set[str]]
     has_group_by: bool
     fqn: str
+    source_types: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -472,6 +473,19 @@ def _walk(
     if isinstance(expr, BinaryOp):
         _walk(expr.left, ctx, errors, refs)
         _walk(expr.right, ctx, errors, refs)
+        left_type = _infer_type(expr.left, ctx)
+        right_type = _infer_type(expr.right, ctx)
+        if left_type is not None and right_type is not None:
+            numeric = {
+                "int",
+                "float",
+                "decimal",
+                *(f"{prefix}{width}" for prefix in ("u", "i") for width in (8, 16, 32, 64, 128)),
+            }
+            if not _operand_types_compatible(expr.op, left_type, right_type, numeric):
+                errors.append(
+                    f"CEL003: {ctx.fqn}: incompatible operand types '{left_type}' and '{right_type}' for operator '{expr.op}'"
+                )
         return
 
     if isinstance(expr, TernaryOp):
@@ -510,6 +524,53 @@ def _walk(
         for _, value in expr.pairs:
             _walk(value, ctx, errors, refs)
         return
+
+
+def _infer_type(expr: CelExpr, ctx: CelContext) -> str | None:
+    if isinstance(expr, Literal):
+        if isinstance(expr.value, bool):
+            return "bool"
+        if isinstance(expr.value, int):
+            return "int"
+        if isinstance(expr.value, float):
+            return "float"
+        if isinstance(expr.value, str):
+            return "string"
+        return "null"
+    if isinstance(expr, FieldRef):
+        return ctx.source_types.get(expr.alias, {}).get(expr.field)
+    if isinstance(expr, UnaryOp):
+        return _infer_type(expr.expr, ctx)
+    if isinstance(expr, BinaryOp):
+        if expr.op in _BOOLEAN_BINARY_OPS:
+            return "bool"
+        return _infer_type(expr.left, ctx)
+    if isinstance(expr, TernaryOp):
+        left = _infer_type(expr.then_, ctx)
+        right = _infer_type(expr.else_, ctx)
+        return left if left == right else None
+    if isinstance(expr, FunctionCall):
+        if expr.name in _BOOLEAN_FUNCTIONS:
+            return "bool"
+        if expr.name in {"toString", "lower", "upper", "trim", "date", "today", "now"}:
+            return "string"
+        return None
+    return None
+
+
+def _operand_types_compatible(op: str, left: str, right: str, numeric: set[str]) -> bool:
+    if left == right or "null" in {left, right}:
+        return True
+    if left in numeric and right in numeric:
+        return True
+    if op in {"==", "!="}:
+        if "enum" in {left, right} and (left == "string" or right == "string"):
+            return True
+        return "ref" in {left, right}
+    if op in {"<", "<=", ">", ">="}:
+        temporal = {"date", "time", "timestamp"}
+        return (left in temporal and right == "string") or (right in temporal and left == "string")
+    return False
 
 
 # ── Lineage extraction ────────────────────────────────────────────────────────

@@ -1260,13 +1260,16 @@ def _run_compilation(
 
     output = request.out_dir or _DEFAULT_OUT_DIRS[request.target]
     output.mkdir(parents=True, exist_ok=True)
-    artifacts = _emit_target(
-        emit_workspace,
-        request.target,
-        output,
-        registry_ids,
-        descriptor_set=request.descriptor_set,
-    )
+    try:
+        artifacts = _emit_target(
+            emit_workspace,
+            request.target,
+            output,
+            registry_ids,
+            descriptor_set=request.descriptor_set,
+        )
+    except ValueError as exc:
+        raise CompilationError(str(exc)) from exc
     if request.package is not None:
         artifacts = [a for a in artifacts if _artifact_belongs_to_package(a, output, request.package)]
     for artifact in artifacts:

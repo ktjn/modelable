@@ -172,10 +172,10 @@ join_prefix: "join" dotted_ref "@" version_spec "as" IDENT "on" EXPRESSION
 
 group_clause: "group" "by" group_item ("," group_item)*
 
-group_item: /[^,\n\r{}]+/
+group_item: /(?:[^,\n\r{}()]|\([^()\n\r{}]*\))+/
 
 version_spec: INT                  -> version_exact
-            | INT "#" IDENT       -> version_pinned
+            | INT "#" HASH        -> version_pinned
             | ">=" INT "<" INT     -> version_range
             | ">=" INT             -> version_min
 
@@ -314,9 +314,10 @@ ignored_block_item: /[^{}]+/ | "{" ignored_block_item* "}"
 
 VERSION_RANGE: /[<>~=^0-9.,\s]+/
 EXPRESSION: /[^\n\r{}]+/
-FIELD_EXPRESSION: /[^\n\r]+(?:\n(?!\s*(?:@|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-|=)|generate\s*\{|materialisation\s*\{|subscription\s*\{|access\s*\{|from\s|group\s+by|\{|\}))[^\n\r]+)*/
+FIELD_EXPRESSION: /[^\n\r]+(?:\n(?!\s*(?:@|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-|=)|generate\s*\{|materialisation\s*\{|subscription\s*\{|access\s*\{|from\s|group\s+by|pick\s*\(|omit\s*\(|\{|\}))[^\n\r]+)*/
 ANNOTATION_EXPR: /[^)\n\r{}]+/
 IDENT: /[A-Za-z_][A-Za-z0-9_-]*/
+HASH: /[0-9A-Fa-f][0-9A-Fa-f_-]*/
 PEERS_CONTENT: /[^\]]+/
 PRINCIPAL: /\*|[A-Za-z_][A-Za-z0-9_.-]*/
 
@@ -444,7 +445,7 @@ Alphabetical listing of every named rule and its production.
 | `unique_item` | `"unique" ":" bool_literal` |
 | `version_expr` | `INT \| VERSION_RANGE` |
 | `version_selector` | `"@" version_expr` |
-| `version_spec` | `INT                  -> version_exact \| INT "#" IDENT       -> version_pinned \| ">=" INT "<" INT     -> version_range \| ">=" INT             -> version_min` |
+| `version_spec` | `INT                  -> version_exact \| INT "#" HASH        -> version_pinned \| ">=" INT "<" INT     -> version_range \| ">=" INT             -> version_min` |
 | `where_clause` | `"where" FIELD_EXPRESSION` |
 | `wire_annotation` | `"@wire" "(" wire_option ("," wire_option)* ")" -> ann_wire` |
 | `wire_key` | `IDENT ("." IDENT)?` |
@@ -467,13 +468,14 @@ Regular-expression terminals used by the lexer.
 | `ANNOTATION_EXPR` | `/[^)\n\r{}]+/` |
 | `COMMENT` | `/\/\/[^\n]*/` |
 | `EXPRESSION` | `/[^\n\r{}]+/` |
-| `FIELD_EXPRESSION` | `/[^\n\r]+(?:\n(?!\s*(?:@\|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-\|=)\|generate\s*\{\|materialisation\s*\{\|subscription\s*\{\|access\s*\{\|from\s\|group\s+by\|\{\|\}))[^\n\r]+)*/` |
+| `FIELD_EXPRESSION` | `/[^\n\r]+(?:\n(?!\s*(?:@\|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-\|=)\|generate\s*\{\|materialisation\s*\{\|subscription\s*\{\|access\s*\{\|from\s\|group\s+by\|pick\s*\(\|omit\s*\(\|\{\|\}))[^\n\r]+)*/` |
+| `HASH` | `/[0-9A-Fa-f][0-9A-Fa-f_-]*/` |
 | `IDENT` | `/[A-Za-z_][A-Za-z0-9_-]*/` |
 | `NUMERIC_IDENT` | `/[0-9][A-Za-z0-9_-]*/` |
 | `PEERS_CONTENT` | `/[^\]]+/` |
 | `PRINCIPAL` | `/\*\|[A-Za-z_][A-Za-z0-9_.-]*/` |
 | `VERSION_RANGE` | `/[<>~=^0-9.,\s]+/` |
-| `group_item` | `/[^,\n\r{}]+/` |
+| `group_item` | `/(?:[^,\n\r{}()]\|\([^()\n\r{}]*\))+/` |
 
 ## Directives
 

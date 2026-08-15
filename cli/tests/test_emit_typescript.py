@@ -892,3 +892,23 @@ domain customer {
     assert any("EMIT003" in w for w in art.warnings)
     # Falls back to emitting the bare name
     assert "ExternalAddress" in art.content
+
+
+def test_emit_typescript_projection_imports_named_and_semantic_types(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text("""
+domain probe {
+  owner: "test"
+  semantic ThingId: uuid
+  value Note { text: string }
+  entity Thing @ 1 (additive) {
+    @key thingId: ThingId
+    note: Note
+  }
+  auto projections Thing @ 1 { db }
+}
+""")
+    artifacts = emit_typescript(load_workspace(mdl), tmp_path / "out")
+    projection = next(artifact for artifact in artifacts if artifact.ref == "probe.ThingDb@1")
+    assert 'import type { Note } from "./probe.Note.v0";' in projection.content
+    assert "thingId: string;" in projection.content

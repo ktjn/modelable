@@ -927,3 +927,16 @@ def test_countif_without_group_by_raises_cel006():
     ast, _ = parse_cel('countif(c.status == "active")')
     result = validate_cel_expr(ast, _ctx({"c": {"status"}}, has_group_by=False))
     assert any("CEL006" in e for e in result.errors)
+
+
+def test_validate_cel_rejects_known_operand_type_mismatch():
+    result = validate_cel_expr(
+        BinaryOp(op=">", left=FieldRef(alias="t", field="name"), right=Literal(value=5)),
+        CelContext(
+            source_fields={"t": {"name"}},
+            source_types={"t": {"name": "string"}},
+            has_group_by=False,
+            fqn="probe.Broken@1",
+        ),
+    )
+    assert any("CEL003" in error for error in result.errors)

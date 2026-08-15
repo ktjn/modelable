@@ -141,3 +141,18 @@ def test_expanded_projections_resolve_as_sources():
 
     ref_errors = validate_references(mdl)
     assert ref_errors == []
+
+
+def test_expand_auto_projections_keeps_each_model_version():
+    mdl = parse_text_to_ir("""
+    domain catalog {
+      owner: "test-team"
+      entity Product @ 1 (additive) { @key productId: uuid }
+      entity Product @ 2 (additive) { @key productId: uuid label?: string }
+      auto projections Product @ 1 { db }
+      auto projections Product @ 2 { db }
+    }
+    """)
+    expand_auto_projections(mdl)
+    versions = mdl.domains[0].projections["ProductDb"]
+    assert {version.version for version in versions} == {1, 2}

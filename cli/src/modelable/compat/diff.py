@@ -171,6 +171,55 @@ def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion)
                 )
             )
 
+    changes.extend(_compare_model_governance(old_version, new_version))
+    return changes
+
+
+def _compare_model_governance(old: ModelVersion, new: ModelVersion) -> list[FieldChange]:
+    changes: list[FieldChange] = []
+    old_grants = _access_grant_triples(old.access)
+    new_grants = _access_grant_triples(new.access)
+    for scope, principal, permission in sorted(old_grants - new_grants):
+        changes.append(
+            FieldChange(
+                kind="access_grant_removed",
+                field_name="entity" if scope == "entity" else scope,
+                from_type=f"{principal} {permission}",
+            )
+        )
+    for scope, principal, permission in sorted(new_grants - old_grants):
+        changes.append(
+            FieldChange(
+                kind="access_grant_added",
+                field_name="entity" if scope == "entity" else scope,
+                to_type=f"{principal} {permission}",
+            )
+        )
+    old_fields = {field.name: field for field in old.fields}
+    new_fields = {field.name: field for field in new.fields}
+    for name in sorted(set(old_fields) & set(new_fields)):
+        old_field = old_fields[name]
+        new_field = new_fields[name]
+        if old_field.is_pii != new_field.is_pii:
+            changes.append(
+                FieldChange(
+                    kind="pii_changed",
+                    field_name=name,
+                    from_type=str(old_field.is_pii).lower(),
+                    to_type=str(new_field.is_pii).lower(),
+                )
+            )
+        old_classification = old_field.classification.value if old_field.classification else None
+        new_classification = new_field.classification.value if new_field.classification else None
+        if old_classification != new_classification:
+            changes.append(
+                FieldChange(
+                    kind="classification_changed",
+                    field_name=name,
+                    from_type=str(old_classification),
+                    to_type=str(new_classification),
+                )
+            )
     return changes
 
 
@@ -217,7 +266,16 @@ def is_field_change_breaking(change: FieldChange) -> bool:
     compat/checker.py's report-level rollup and compat/targets.py's
     source-compatibility axis both call this instead of re-deriving it.
     """
-    if change.kind in {"removed_field", "renamed_field", "type_changed", "enum_changed", "identity_changed"}:
+    if change.kind in {
+        "removed_field",
+        "renamed_field",
+        "type_changed",
+        "enum_changed",
+        "identity_changed",
+        "access_grant_removed",
+        "pii_changed",
+        "classification_changed",
+    }:
         return True
     if change.kind == "added_field" and change.to_optional is False:
         return True
@@ -256,6 +314,14 @@ def describe_field_change(change: FieldChange) -> str:
         return f"removed_field {change.field_name}"
     if change.kind == "added_field":
         return f"added_field {change.field_name}"
+    if change.kind == "access_grant_removed":
+        return f"access_grant_removed {change.field_name or 'entity'} (governance): access grant removed: {change.from_type}"
+    if change.kind == "access_grant_added":
+        return f"access_grant_added {change.field_name or 'entity'} (governance): access grant added: {change.to_type}"
+    if change.kind == "pii_changed":
+        return f"pii_changed {change.field_name} (governance): {change.from_type} -> {change.to_type}"
+    if change.kind == "classification_changed":
+        return f"classification_changed {change.field_name} (governance): {change.from_type} -> {change.to_type}"
     return f"{change.kind} {change.field_name}"
 
 

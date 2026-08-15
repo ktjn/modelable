@@ -639,3 +639,40 @@ def test_ref_version_only_change_is_not_a_type_change():
     changes = compare_model_versions(old_version, new_version)
 
     assert not any(c.field_name == "targetRef" for c in changes)
+
+
+def test_compare_model_versions_reports_governance_changes():
+    old = _model_version("""
+    domain customer {
+      owner: "test-team"
+      entity Customer @ 1 (additive) {
+        @key customerId: uuid
+        ssn: string
+        access {
+          entity * [read]
+          property ssn admin-team [read, write]
+        }
+      }
+    }
+    """)
+    new = _model_version(
+        """
+    domain customer {
+      owner: "test-team"
+      entity Customer @ 2 (additive) {
+        @key customerId: uuid
+        @classification("restricted")
+        ssn: string
+        access {
+          entity * [read]
+          property ssn admin-team [read]
+        }
+      }
+    }
+    """,
+        version=2,
+    )
+    from modelable.compat.diff import compare_model_versions
+
+    changes = compare_model_versions(old, new)
+    assert {change.kind for change in changes} >= {"access_grant_removed", "classification_changed"}
