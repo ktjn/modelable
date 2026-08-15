@@ -647,6 +647,7 @@ def test_compare_model_versions_reports_governance_changes():
       owner: "test-team"
       entity Customer @ 1 (additive) {
         @key customerId: uuid
+        @pii
         ssn: string
         access {
           entity * [read]
@@ -666,6 +667,7 @@ def test_compare_model_versions_reports_governance_changes():
         access {
           entity * [read]
           property ssn admin-team [read]
+          property ssn audit-team [read]
         }
       }
     }
@@ -675,4 +677,9 @@ def test_compare_model_versions_reports_governance_changes():
     from modelable.compat.diff import compare_model_versions
 
     changes = compare_model_versions(old, new)
-    assert {change.kind for change in changes} >= {"access_grant_removed", "classification_changed"}
+    assert {change.kind for change in changes} >= {
+        "access_grant_removed",
+        "access_grant_added",
+        "pii_changed",
+        "classification_changed",
+    }
