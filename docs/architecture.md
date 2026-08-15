@@ -1204,8 +1204,11 @@ preview, confirmation, and audit policy.
 - Materialized projection into PostgreSQL (Phase 5).
 - Live OpenMetadata catalog synchronization (local export only is shipped; see [integrations.md](integrations.md)).
 - Runtime OpenLineage event collection beyond design-time Modelable events.
-- Avro, OpenAPI, and AsyncAPI generation (Phase 5) — import-only support exists
-  via LLM-assisted generators.
+- Avro and AsyncAPI generation (Phase 5) — import-only support exists via
+  LLM-assisted generators. OpenAPI export is implemented (schema-only;
+  paths/operations are a deferred follow-up — see
+  docs/superpowers/specs/archived/2026-08-14-openapi-emission-design.md).
+  OpenAPI import remains LLM-assisted only.
 - Stateful aggregations.
 - Windowed aggregations.
 - Multiple stream backends.

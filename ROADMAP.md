@@ -768,8 +768,12 @@ intentionally erases nominal identity.
 
 #### Slice F2 — OpenAPI emission
 
-After D1-D4, C1 (shipped), and C3 (shipped). Do not treat grammar acceptance
-of `openapi` as implemented emitter support.
+Phase A (schema-only `components.schemas` emission) is implemented; see
+`docs/superpowers/specs/archived/2026-08-14-openapi-emission-design.md`.
+Only Phase D (fidelity follow-ups: constraints, presence/nullability, named
+enum reuse, discriminated unions) remains gated on D1-D4. Phase B (paths and
+operations) needs its own accepted grammar design (§7 of the linked design
+document) before implementation.
 
 #### Slice F3 — AsyncAPI emission
 

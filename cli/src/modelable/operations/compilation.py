@@ -27,6 +27,7 @@ from modelable.emitters.java import emit_java
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.markdown import emit_markdown
 from modelable.emitters.odcs import emit_odcs
+from modelable.emitters.openapi import emit_openapi
 from modelable.emitters.openlineage import emit_openlineage
 from modelable.emitters.openmetadata import emit_openmetadata
 from modelable.emitters.protobuf import emit_protobuf
@@ -1386,6 +1387,8 @@ def _emit_target(
         return emit_openlineage(workspace, output)
     if target == "odcs":
         return emit_odcs(workspace, output)
+    if target == "openapi":
+        return emit_openapi(workspace, output)
     if target == "protobuf":
         artifacts = emit_protobuf(workspace, output, registry_ids=registry_ids)
         if descriptor_set:

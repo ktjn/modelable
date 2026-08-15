@@ -18,6 +18,7 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     PrimitiveType,
+    ProjectionField,
     ProjectionVersion,
     RefType,
 )
@@ -66,7 +67,7 @@ def _pascalize_part(value: str) -> str:
 
 
 def _resolve_projection_field_type(
-    field: FieldDef,
+    field: ProjectionField,
     projection: ProjectionVersion,
     mdl,
 ):
@@ -95,7 +96,7 @@ def _resolve_projection_field_type(
 
 
 def _field_to_json_schema(
-    field: FieldDef,
+    field: FieldDef | ProjectionField,
     field_type=None,
     defs: dict[str, dict] | None = None,
     path: list[str] | None = None,
