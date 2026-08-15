@@ -324,14 +324,14 @@ the extraction changed no observable output.
 - Create: `cli/src/modelable/emitters/openapi.py`
 - Create: `cli/tests/test_emit_openapi.py`
 
-- [ ] **Step 1: Write the failing target-inventory test**
+- [x] **Step 1: Write the failing target-inventory test**
 
 Update the target-list assertion in `cli/tests/test_codegen_targets.py`
 (e.g. `test_codegen_formats_list_supported_and_deferred_targets`) so the
 expected list includes `"openapi"` appended after `"grpc"` (read the file
 first to get the exact current list and assertion name before editing).
 
-- [ ] **Step 2: Verify the test fails**
+- [x] **Step 2: Verify the test fails**
 
 Run from `cli/`:
 
@@ -341,7 +341,7 @@ uv run pytest tests/test_codegen_targets.py -k "list_supported_and_deferred" -q
 
 Expected: failure — actual target list does not include `"openapi"`.
 
-- [ ] **Step 3: Register the target**
+- [x] **Step 3: Register the target**
 
 Append to `CODEGEN_TARGETS` in `cli/src/modelable/emitters/targets.py`:
 
@@ -357,7 +357,7 @@ Append to `CODEGEN_TARGETS` in `cli/src/modelable/emitters/targets.py`:
 
 `supports_compat_check` is omitted (defaults to `False`) per design §6.5.
 
-- [ ] **Step 4: Verify the target-inventory test passes**
+- [x] **Step 4: Verify the target-inventory test passes**
 
 Run from `cli/`:
 
@@ -367,7 +367,7 @@ uv run pytest tests/test_codegen_targets.py -k "list_supported_and_deferred" -q
 
 Expected: pass.
 
-- [ ] **Step 5: Write the failing request/reply emission test**
+- [x] **Step 5: Write the failing request/reply emission test**
 
 Create `cli/tests/test_emit_openapi.py`:
 
@@ -457,7 +457,7 @@ Before writing this fixture for real, read
 block grammar (the `exclude [...]`/`on [...]` syntax above is a
 best-effort reconstruction and must be checked against real fixtures).
 
-- [ ] **Step 6: Verify the test fails**
+- [x] **Step 6: Verify the test fails**
 
 Run from `cli/`:
 
@@ -467,7 +467,7 @@ uv run pytest tests/test_emit_openapi.py::test_emit_openapi_emits_one_document_w
 
 Expected: failure with `ModuleNotFoundError: No module named 'modelable.emitters.openapi'`.
 
-- [ ] **Step 7: Implement `openapi.py`**
+- [x] **Step 7: Implement `openapi.py`**
 
 Create `cli/src/modelable/emitters/openapi.py`:
 
@@ -625,7 +625,7 @@ research summary, not from re-reading the function at implementation time,
 and must be reconciled against the real source before being treated as
 final.
 
-- [ ] **Step 8: Verify the request/reply emission test passes**
+- [x] **Step 8: Verify the request/reply emission test passes**
 
 Run from `cli/`:
 
