@@ -641,7 +641,7 @@ Expected: pass.
 - Modify: `cli/tests/test_emit_openapi.py`
 - Modify: `cli/src/modelable/emitters/openapi.py` (only if gaps found)
 
-- [ ] **Step 1: Write the failing hand-authored + event + db test**
+- [x] **Step 1: Write the failing hand-authored + event + db test**
 
 Append to `cli/tests/test_emit_openapi.py`:
 
@@ -701,7 +701,7 @@ first to match the exact `CliRunner` invocation pattern this project uses
 dispatch wiring and will fail with `Unknown compilation target: openapi`
 until that lands — that's expected; it's re-verified at the end of Task 6.
 
-- [ ] **Step 2: Verify the hand-authored/event/db test fails**
+- [x] **Step 2: Verify the hand-authored/event/db test fails**
 
 Run from `cli/`:
 
@@ -714,13 +714,13 @@ Expected: failure if Task 2's `_projection_to_schema` has any gap in
 this may already pass by construction, since `_should_emit` and
 `_projection_kind_lookup` already implement the correct rule.
 
-- [ ] **Step 3: Fix any gap found**
+- [x] **Step 3: Fix any gap found**
 
 Fix `x-modelable.kind` in `_projection_to_schema` if needed; classification
 logic itself (`_should_emit`/`_projection_kind_lookup`) should not need
 changes.
 
-- [ ] **Step 4: Verify the test passes**
+- [x] **Step 4: Verify the test passes**
 
 Run from `cli/`:
 
@@ -736,7 +736,7 @@ Expected: pass.
 - Modify: `cli/tests/test_emit_openapi.py`
 - Modify: `cli/src/modelable/emitters/openapi.py` (only if gaps found)
 
-- [ ] **Step 1: Write the failing type-mapping tests**
+- [x] **Step 1: Write the failing type-mapping tests**
 
 Append to `cli/tests/test_emit_openapi.py`:
 
@@ -826,7 +826,7 @@ The `ref<catalog.Brand @ 1>` syntax is confirmed against
 `cli/tests/test_emit_typescript.py:798` (`customerRef: ref<customer.Customer
 @ 1>`) — no further grammar verification needed.
 
-- [ ] **Step 2: Verify tests fail or pass depending on what's already implemented**
+- [x] **Step 2: Verify tests fail or pass depending on what's already implemented**
 
 Run from `cli/`:
 
@@ -840,12 +840,12 @@ The `$ref` test is the one most likely to fail if `mdl=mdl,
 ref_base=_REF_BASE` isn't threaded correctly from `_projection_to_schema`
 through to the `_field_to_json_schema` call.
 
-- [ ] **Step 3: Fix any gap found**
+- [x] **Step 3: Fix any gap found**
 
 Most likely fix: a missing `mdl=mdl, ref_base=_REF_BASE` keyword pair on the
 `_field_to_json_schema` call site inside `_projection_to_schema`.
 
-- [ ] **Step 4: Verify all type-mapping tests pass**
+- [x] **Step 4: Verify all type-mapping tests pass**
 
 Run from `cli/`:
 
@@ -861,7 +861,7 @@ Expected: pass.
 - Modify: `cli/tests/test_emit_openapi.py`
 - Modify: `cli/src/modelable/emitters/openapi.py` (only if gaps found)
 
-- [ ] **Step 1: Write the failing determinism + envelope-shape tests**
+- [x] **Step 1: Write the failing determinism + envelope-shape tests**
 
 Append to `cli/tests/test_emit_openapi.py`:
 
@@ -903,7 +903,7 @@ def test_emit_openapi_components_schemas_validate_as_json_schema_2020_12(tmp_pat
     Draft202012Validator.check_schema(fragment)  # raises on failure
 ```
 
-- [ ] **Step 2: Verify the tests pass**
+- [x] **Step 2: Verify the tests pass**
 
 Run from `cli/`:
 
@@ -918,7 +918,7 @@ already wired). If `warnings == []` fails, treat it as a signal that an
 earlier task's implementation isn't fully correct, not new work — debug
 back into Task 2/3/4 rather than patching around it here.
 
-- [ ] **Step 3: Fix any gap found, then re-verify**
+- [x] **Step 3: Fix any gap found, then re-verify**
 
 Run from `cli/`:
 
@@ -933,7 +933,7 @@ Expected: pass.
 **Files:**
 - Modify: `cli/src/modelable/operations/compilation.py`
 
-- [ ] **Step 1: Verify the CLI test still fails**
+- [x] **Step 1: Verify the CLI test still fails**
 
 Run from `cli/`:
 
@@ -945,7 +945,7 @@ Expected: failure — `Unknown compilation target: openapi` (or equivalent;
 confirm exact error text in `compilation.py`'s `_emit_target` before relying
 on it in review).
 
-- [ ] **Step 2: Import and dispatch the emitter**
+- [x] **Step 2: Import and dispatch the emitter**
 
 In `cli/src/modelable/operations/compilation.py`, add near the other
 emitter imports:
@@ -967,7 +967,7 @@ Confirm `_DEFAULT_OUT_DIRS` (derived from `list_implemented_codegen_targets()`,
 `compilation.py` ~line 59-63) picks up `Path("./dist/openapi")`
 automatically from Task 2's registration — no separate edit needed.
 
-- [ ] **Step 3: Verify the CLI test passes, then the full openapi test file**
+- [x] **Step 3: Verify the CLI test passes, then the full openapi test file**
 
 Run from `cli/`:
 
