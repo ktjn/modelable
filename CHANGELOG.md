@@ -16,6 +16,8 @@ releases could contain breaking changes when called out explicitly.
   resolution, CEL operand checks, versioned auto-projections, governance diffs,
   protobuf reservations, and TypeScript imports for semantic and projection
   fields.
+- Fixed Rust compilation output for optional arrays whose elements are named
+  types, preserving the generated type name and import.
 
 ## [1.7.0] - 2026-08-14
 
