@@ -27,6 +27,7 @@ _BROWSER_PACKAGE_FILES = {
     "emitters/__init__.py",
     "emitters/base.py",
     "emitters/diagnostics.py",
+    "emitters/_schema_mapping.py",
     "emitters/json_schema.py",
     "emitters/naming.py",
     "emitters/package_graph.py",
