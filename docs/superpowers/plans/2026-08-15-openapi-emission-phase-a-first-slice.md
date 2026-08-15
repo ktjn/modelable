@@ -324,14 +324,14 @@ the extraction changed no observable output.
 - Create: `cli/src/modelable/emitters/openapi.py`
 - Create: `cli/tests/test_emit_openapi.py`
 
-- [ ] **Step 1: Write the failing target-inventory test**
+- [x] **Step 1: Write the failing target-inventory test**
 
 Update the target-list assertion in `cli/tests/test_codegen_targets.py`
 (e.g. `test_codegen_formats_list_supported_and_deferred_targets`) so the
 expected list includes `"openapi"` appended after `"grpc"` (read the file
 first to get the exact current list and assertion name before editing).
 
-- [ ] **Step 2: Verify the test fails**
+- [x] **Step 2: Verify the test fails**
 
 Run from `cli/`:
 
@@ -341,7 +341,7 @@ uv run pytest tests/test_codegen_targets.py -k "list_supported_and_deferred" -q
 
 Expected: failure — actual target list does not include `"openapi"`.
 
-- [ ] **Step 3: Register the target**
+- [x] **Step 3: Register the target**
 
 Append to `CODEGEN_TARGETS` in `cli/src/modelable/emitters/targets.py`:
 
@@ -357,7 +357,7 @@ Append to `CODEGEN_TARGETS` in `cli/src/modelable/emitters/targets.py`:
 
 `supports_compat_check` is omitted (defaults to `False`) per design §6.5.
 
-- [ ] **Step 4: Verify the target-inventory test passes**
+- [x] **Step 4: Verify the target-inventory test passes**
 
 Run from `cli/`:
 
@@ -367,7 +367,7 @@ uv run pytest tests/test_codegen_targets.py -k "list_supported_and_deferred" -q
 
 Expected: pass.
 
-- [ ] **Step 5: Write the failing request/reply emission test**
+- [x] **Step 5: Write the failing request/reply emission test**
 
 Create `cli/tests/test_emit_openapi.py`:
 
@@ -457,7 +457,7 @@ Before writing this fixture for real, read
 block grammar (the `exclude [...]`/`on [...]` syntax above is a
 best-effort reconstruction and must be checked against real fixtures).
 
-- [ ] **Step 6: Verify the test fails**
+- [x] **Step 6: Verify the test fails**
 
 Run from `cli/`:
 
@@ -467,7 +467,7 @@ uv run pytest tests/test_emit_openapi.py::test_emit_openapi_emits_one_document_w
 
 Expected: failure with `ModuleNotFoundError: No module named 'modelable.emitters.openapi'`.
 
-- [ ] **Step 7: Implement `openapi.py`**
+- [x] **Step 7: Implement `openapi.py`**
 
 Create `cli/src/modelable/emitters/openapi.py`:
 
@@ -625,7 +625,7 @@ research summary, not from re-reading the function at implementation time,
 and must be reconciled against the real source before being treated as
 final.
 
-- [ ] **Step 8: Verify the request/reply emission test passes**
+- [x] **Step 8: Verify the request/reply emission test passes**
 
 Run from `cli/`:
 
@@ -641,7 +641,7 @@ Expected: pass.
 - Modify: `cli/tests/test_emit_openapi.py`
 - Modify: `cli/src/modelable/emitters/openapi.py` (only if gaps found)
 
-- [ ] **Step 1: Write the failing hand-authored + event + db test**
+- [x] **Step 1: Write the failing hand-authored + event + db test**
 
 Append to `cli/tests/test_emit_openapi.py`:
 
@@ -701,7 +701,7 @@ first to match the exact `CliRunner` invocation pattern this project uses
 dispatch wiring and will fail with `Unknown compilation target: openapi`
 until that lands — that's expected; it's re-verified at the end of Task 6.
 
-- [ ] **Step 2: Verify the hand-authored/event/db test fails**
+- [x] **Step 2: Verify the hand-authored/event/db test fails**
 
 Run from `cli/`:
 
@@ -714,13 +714,13 @@ Expected: failure if Task 2's `_projection_to_schema` has any gap in
 this may already pass by construction, since `_should_emit` and
 `_projection_kind_lookup` already implement the correct rule.
 
-- [ ] **Step 3: Fix any gap found**
+- [x] **Step 3: Fix any gap found**
 
 Fix `x-modelable.kind` in `_projection_to_schema` if needed; classification
 logic itself (`_should_emit`/`_projection_kind_lookup`) should not need
 changes.
 
-- [ ] **Step 4: Verify the test passes**
+- [x] **Step 4: Verify the test passes**
 
 Run from `cli/`:
 
@@ -736,7 +736,7 @@ Expected: pass.
 - Modify: `cli/tests/test_emit_openapi.py`
 - Modify: `cli/src/modelable/emitters/openapi.py` (only if gaps found)
 
-- [ ] **Step 1: Write the failing type-mapping tests**
+- [x] **Step 1: Write the failing type-mapping tests**
 
 Append to `cli/tests/test_emit_openapi.py`:
 
@@ -826,7 +826,7 @@ The `ref<catalog.Brand @ 1>` syntax is confirmed against
 `cli/tests/test_emit_typescript.py:798` (`customerRef: ref<customer.Customer
 @ 1>`) — no further grammar verification needed.
 
-- [ ] **Step 2: Verify tests fail or pass depending on what's already implemented**
+- [x] **Step 2: Verify tests fail or pass depending on what's already implemented**
 
 Run from `cli/`:
 
@@ -840,12 +840,12 @@ The `$ref` test is the one most likely to fail if `mdl=mdl,
 ref_base=_REF_BASE` isn't threaded correctly from `_projection_to_schema`
 through to the `_field_to_json_schema` call.
 
-- [ ] **Step 3: Fix any gap found**
+- [x] **Step 3: Fix any gap found**
 
 Most likely fix: a missing `mdl=mdl, ref_base=_REF_BASE` keyword pair on the
 `_field_to_json_schema` call site inside `_projection_to_schema`.
 
-- [ ] **Step 4: Verify all type-mapping tests pass**
+- [x] **Step 4: Verify all type-mapping tests pass**
 
 Run from `cli/`:
 
@@ -861,7 +861,7 @@ Expected: pass.
 - Modify: `cli/tests/test_emit_openapi.py`
 - Modify: `cli/src/modelable/emitters/openapi.py` (only if gaps found)
 
-- [ ] **Step 1: Write the failing determinism + envelope-shape tests**
+- [x] **Step 1: Write the failing determinism + envelope-shape tests**
 
 Append to `cli/tests/test_emit_openapi.py`:
 
@@ -903,7 +903,7 @@ def test_emit_openapi_components_schemas_validate_as_json_schema_2020_12(tmp_pat
     Draft202012Validator.check_schema(fragment)  # raises on failure
 ```
 
-- [ ] **Step 2: Verify the tests pass**
+- [x] **Step 2: Verify the tests pass**
 
 Run from `cli/`:
 
@@ -918,7 +918,7 @@ already wired). If `warnings == []` fails, treat it as a signal that an
 earlier task's implementation isn't fully correct, not new work — debug
 back into Task 2/3/4 rather than patching around it here.
 
-- [ ] **Step 3: Fix any gap found, then re-verify**
+- [x] **Step 3: Fix any gap found, then re-verify**
 
 Run from `cli/`:
 
@@ -933,7 +933,7 @@ Expected: pass.
 **Files:**
 - Modify: `cli/src/modelable/operations/compilation.py`
 
-- [ ] **Step 1: Verify the CLI test still fails**
+- [x] **Step 1: Verify the CLI test still fails**
 
 Run from `cli/`:
 
@@ -945,7 +945,7 @@ Expected: failure — `Unknown compilation target: openapi` (or equivalent;
 confirm exact error text in `compilation.py`'s `_emit_target` before relying
 on it in review).
 
-- [ ] **Step 2: Import and dispatch the emitter**
+- [x] **Step 2: Import and dispatch the emitter**
 
 In `cli/src/modelable/operations/compilation.py`, add near the other
 emitter imports:
@@ -967,7 +967,7 @@ Confirm `_DEFAULT_OUT_DIRS` (derived from `list_implemented_codegen_targets()`,
 `compilation.py` ~line 59-63) picks up `Path("./dist/openapi")`
 automatically from Task 2's registration — no separate edit needed.
 
-- [ ] **Step 3: Verify the CLI test passes, then the full openapi test file**
+- [x] **Step 3: Verify the CLI test passes, then the full openapi test file**
 
 Run from `cli/`:
 
@@ -989,7 +989,7 @@ Expected: pass, all tests from Tasks 2-6.
   `docs/superpowers/specs/archived/2026-08-14-openapi-emission-design.md`
 - Move: this plan file → `docs/superpowers/plans/archived/`
 
-- [ ] **Step 1: Update `docs/compiler-reference.md`**
+- [x] **Step 1: Update `docs/compiler-reference.md`**
 
 Line 37, replace:
 
@@ -1003,7 +1003,7 @@ with:
 | OpenAPI | 5 | Implemented local artifact (schema-only; paths/operations deferred to a future phase) |
 ```
 
-- [ ] **Step 2: Update `docs/architecture.md`**
+- [x] **Step 2: Update `docs/architecture.md`**
 
 Line 1207-1208, replace:
 
@@ -1022,7 +1022,7 @@ with:
   OpenAPI import remains LLM-assisted only.
 ```
 
-- [ ] **Step 3: Update `docs/language-reference.md` §4.3**
+- [x] **Step 3: Update `docs/language-reference.md` §4.3**
 
 Line 711, remove `openapi` from the "no implemented emitter" list — current
 text:
@@ -1043,7 +1043,7 @@ these names also have no implemented emitter behind them at all yet
 only, not paths/operations). See Slice B3 in
 ```
 
-- [ ] **Step 4: Update `ROADMAP.md` Slice F2**
+- [x] **Step 4: Update `ROADMAP.md` Slice F2**
 
 Lines 769-772, replace:
 
@@ -1067,7 +1067,7 @@ operations) needs its own accepted grammar design (§7 of the linked design
 document) before implementation.
 ```
 
-- [ ] **Step 5: Add the CHANGELOG entry**
+- [x] **Step 5: Add the CHANGELOG entry**
 
 Read the current `## [Unreleased]` section of `CHANGELOG.md` first to match
 its exact bullet style, then add under `### Added`:
@@ -1081,7 +1081,7 @@ its exact bullet style, then add under `### Added`:
   generation is out of scope for this slice.
 ```
 
-- [ ] **Step 6: Verify doc references**
+- [x] **Step 6: Verify doc references**
 
 Run from repo root:
 
@@ -1092,7 +1092,7 @@ rg -n "compile --target openapi|openapi target|2026-08-14-openapi-emission-desig
 Expected: matches in compiler reference, architecture, language reference,
 roadmap, and changelog.
 
-- [ ] **Step 7: Archive the design doc and this plan**
+- [x] **Step 7: Archive the design doc and this plan**
 
 Move `docs/superpowers/specs/2026-08-14-openapi-emission-design.md` to
 `docs/superpowers/specs/archived/2026-08-14-openapi-emission-design.md`
@@ -1105,7 +1105,7 @@ commit.
 
 **Files:** all touched files
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run from `cli/`:
 
@@ -1115,7 +1115,7 @@ uv run pytest tests/test_emit_openapi.py tests/test_emit_json_schema.py tests/te
 
 Expected: pass.
 
-- [ ] **Step 2: Run the required four-command pre-commit gate**
+- [x] **Step 2: Run the required four-command pre-commit gate**
 
 Run from `cli/`:
 
@@ -1132,7 +1132,7 @@ new `mdl`/`ref_base` keyword params on `_schema_mapping.py` functions, or
 `openapi.py`'s `_projection_to_schema` needing concrete parameter types
 instead of implicit `Any`) before assuming a baseline regeneration is safe.
 
-- [ ] **Step 3: Inspect the final diff**
+- [x] **Step 3: Inspect the final diff**
 
 Run from repo root:
 
@@ -1146,7 +1146,7 @@ Expected: diff contains only the OpenAPI Phase A target, the
 documentation. Confirm `git status` shows the design spec and this plan
 moved into their respective `archived/` directories.
 
-- [ ] **Step 4: Confirm json_schema.py's behavior is provably unchanged**
+- [x] **Step 4: Confirm json_schema.py's behavior is provably unchanged**
 
 Run from `cli/`:
 

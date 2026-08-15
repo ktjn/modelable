@@ -140,6 +140,13 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         default_out_dir=Path("./dist/grpc"),
         supports_compat_check=True,
     ),
+    CodegenTarget(
+        name="openapi",
+        description="OpenAPI 3.1 component schemas generated from API-facing projections",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/openapi"),
+    ),
 )
 
 
