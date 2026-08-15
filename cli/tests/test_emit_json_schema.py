@@ -405,6 +405,69 @@ domain customer {
         Draft202012Validator.check_schema(art.content)
 
 
+def test_emit_json_schema_output_unchanged_after_schema_mapping_extraction(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  contact: "customer-team@example.com"
+  description: "Customer identity and lifecycle."
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+    age?: int
+    marketingConsent: bool = false
+    address: object {
+      line1: string
+      line2?: string
+    }
+    active: bool
+    balance: decimal(12, 2)
+    tags: array<string>
+    meta: map<string, int>
+    status: enum(active, blocked)
+    createdAt: timestamp
+    birthDate: date
+    wakeTime: time
+    ttl: duration
+    avatar: binary
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_json_schema(workspace, tmp_path / "out")
+    assert len(artifacts) == 1
+    rendered = render_artifact_text(artifacts[0])
+    Draft202012Validator.check_schema(artifacts[0].content)
+    # Pin the exact serialized shape so the extraction refactor in this task
+    # cannot silently change json_schema.py's output.
+    assert artifacts[0].content["properties"]["balance"] == {
+        "type": "string",
+        "pattern": r"^-?\d+(\.\d+)?$",
+        "x-modelable-field": {"decimalPrecision": 12, "decimalScale": 2},
+    }
+    assert artifacts[0].content["properties"]["avatar"] == {
+        "type": "string",
+        "contentEncoding": "base64",
+    }
+    assert artifacts[0].content["properties"]["tags"] == {
+        "type": "array",
+        "items": {"type": "string"},
+    }
+    assert artifacts[0].content["properties"]["meta"] == {
+        "type": "object",
+        "additionalProperties": {"type": "integer", "format": "int64"},
+    }
+    assert artifacts[0].content["properties"]["status"] == {
+        "type": "string",
+        "enum": ["active", "blocked"],
+    }
+    assert rendered.endswith("\n")
+
+
 def test_cli_compile_json_schema_writes_files(tmp_path):
     mdl = tmp_path / "customer.mdl"
     mdl.write_text(
