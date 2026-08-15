@@ -60,6 +60,7 @@ dev = [
     "pytest-cov>=4.0",
     "pytest-lsp>=1.0.1",
     "pytest-xdist>=3.0",
+    "pytest-timeout>=2.3",
     "ruff>=0.15.18",
     "mypy>=2.1.0",
     "build>=1.2",
@@ -88,7 +89,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "module"
 asyncio_default_test_loop_scope = "module"
-addopts = "-n auto"
+addopts = "-n auto --timeout=120"
 markers = [
     "docker: requires Docker daemon and internet access (opt-in via MODELABLE_DOCKER_TESTS=1)",
     "ollama: requires a developer-controlled local Ollama server and model (opt-in via MODELABLE_OLLAMA_TESTS=1)",
@@ -150,6 +151,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-lsp>=1.0.1",
     "pytest-xdist>=3.0",
+    "pytest-timeout>=2.3",
     "ruff>=0.15.18",
     "testcontainers==4.15.0",
 ]
