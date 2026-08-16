@@ -206,7 +206,7 @@ def _render_model(model_name: str, version: ModelVersion) -> list[str]:
 
 def _render_field(field: FieldDef, indent: int = 0) -> str:
     prefix = " ".join(_render_annotations(field.annotations))
-    suffix = f"{field.name}{'?' if field.optional else ''}: {_render_type(field.type)}"
+    suffix = f"{field.name}{'?' if field.optional else ''}: {_render_type(field.type)}{'?' if field.nullable else ''}"
     if field.default is not None:
         suffix += f" = {field.default}"
     return _with_prefix(prefix, suffix, indent)
@@ -222,7 +222,7 @@ def _render_signature_model(model_name: str, version: ModelVersion) -> list[str]
 
 def _render_signature_field(field: FieldDef, indent: int = 0) -> str:
     prefix = " ".join(_render_annotations(field.annotations))
-    suffix = f"{field.name}{'?' if field.optional else ''}: {_render_signature_type(field.type)}"
+    suffix = f"{field.name}{'?' if field.optional else ''}: {_render_signature_type(field.type)}{'?' if field.nullable else ''}"
     return _with_prefix(prefix, suffix, indent)
 
 

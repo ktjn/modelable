@@ -6,21 +6,25 @@
         "changes": [
           {
             "field_name": "legacyStatus",
+            "from_nullable": null,
             "from_optional": false,
             "from_type": "{\"kind\": \"string\", \"version\": 4}",
             "kind": "removed_field",
             "previous_name": null,
             "replacement": null,
+            "to_nullable": null,
             "to_optional": null,
             "to_type": null
           },
           {
             "field_name": "description",
+            "from_nullable": null,
             "from_optional": null,
             "from_type": null,
             "kind": "added_field",
             "previous_name": null,
             "replacement": null,
+            "to_nullable": null,
             "to_optional": true,
             "to_type": "{\"kind\": \"string\", \"version\": 4}"
           }

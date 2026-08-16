@@ -69,8 +69,9 @@ model_kind: "entity"    -> mk_entity
 change_kind: "additive" -> ck_additive
            | "breaking" -> ck_breaking
 
-field_decl: annotation* IDENT optional_marker? ":" type_expr field_default?
+field_decl: annotation* IDENT optional_marker? ":" type_expr nullable_marker? field_default?
 optional_marker: "?"
+nullable_marker: "?"
 field_default: "=" EXPRESSION
 
 annotation: "@key"                                                -> ann_key
@@ -391,7 +392,7 @@ Alphabetical listing of every named rule and its production.
 | `enum_member` | `IDENT \| NUMERIC_IDENT` |
 | `enum_type` | `"enum" "(" enum_member ("," enum_member)* ")"` |
 | `exclude_option` | `"exclude" "[" auto_projection_exclusion ("," auto_projection_exclusion)* "]"` |
-| `field_decl` | `annotation* IDENT optional_marker? ":" type_expr field_default?` |
+| `field_decl` | `annotation* IDENT optional_marker? ":" type_expr nullable_marker? field_default?` |
 | `field_default` | `"=" EXPRESSION` |
 | `fixed_binary_type` | `"binary" "(" INT ")"` |
 | `generate_block` | `"generate" "{" generate_target* "}"` |
@@ -417,6 +418,7 @@ Alphabetical listing of every named rule and its production.
 | `model_decl` | `wire_annotation* model_kind IDENT model_header? "{" model_body_item* "}"` |
 | `model_header` | `"@" INT model_change? \| model_change` |
 | `model_kind` | `"entity"    -> mk_entity \| "aggregate" -> mk_aggregate \| "event"     -> mk_event \| "value"     -> mk_value` |
+| `nullable_marker` | `"?"` |
 | `object_type` | `"object" "{" field_decl* "}"` |
 | `omit_clause` | `"omit" "(" selector ("," selector)* ")"` |
 | `on_option` | `"on" "[" IDENT ("," IDENT)* "]"` |

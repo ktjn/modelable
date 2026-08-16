@@ -336,10 +336,10 @@ def _validate_change_kind(
                 incompatible_changes.append(f"added required field {change.field_name}")
             continue
 
-        if change.kind == "nullability_changed":
+        if change.kind == "presence_changed":
             if not is_optionality_breaking(change):
                 continue
-            incompatible_changes.append(f"nullability change {change.field_name}")
+            incompatible_changes.append(f"presence change {change.field_name}")
             continue
 
         incompatible_changes.append(f"{change.kind} {change.field_name}")

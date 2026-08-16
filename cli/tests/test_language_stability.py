@@ -187,3 +187,20 @@ def test_formatted_output_round_trips():
         once = render_mdl(parse_text_to_ir(text))
         twice = render_mdl(parse_text_to_ir(once))
         assert once == twice
+
+
+def test_nullable_field_formatting_round_trips():
+    text = """domain commerce {
+  owner: "commerce-team"
+
+  entity Order @ 1 (additive) {
+    requiredNullable: string?
+    optionalNullable?: string?
+  }
+}
+"""
+
+    rendered = render_mdl(parse_text_to_ir(text))
+
+    assert rendered == text
+    assert render_mdl(parse_text_to_ir(rendered)) == rendered

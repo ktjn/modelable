@@ -210,6 +210,7 @@ def _add_model_field(
             "version": version,
             "field": field.name,
             "optional": field.optional,
+            "nullable": field.nullable,
             "target_ref": f"{domain_name}.{model_name}@{version}.{field.name}",
         },
         parents=(version_id,),

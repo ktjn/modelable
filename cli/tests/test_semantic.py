@@ -138,7 +138,7 @@ def test_additive_version_rejects_optional_to_required_change():
 
     errors = validate(mdl)
 
-    assert any("nullability change email" in error for error in errors)
+    assert any("presence change email" in error for error in errors)
 
 
 def test_additive_version_allows_optional_additions():

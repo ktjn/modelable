@@ -532,7 +532,7 @@ def test_source_representation_is_the_json_representation_axis_by_reuse():
     # required -> optional widens the contract; not breaking.
     assert report.target == "json-schema"
     assert report.severity == "compatible"
-    finding = next(f for f in report.findings if f.code == "nullability_changed")
+    finding = next(f for f in report.findings if f.code == "presence_changed")
     assert finding.axis == "source_compatibility"
     assert finding.severity == "compatible"
 

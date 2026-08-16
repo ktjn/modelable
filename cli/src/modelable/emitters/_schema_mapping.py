@@ -12,6 +12,7 @@ from modelable.parser.ir import (
     DirectMapping,
     EnumType,
     FieldDef,
+    FieldType,
     FixedBinaryType,
     MapType,
     MdlFile,
@@ -69,8 +70,17 @@ def _pascalize_part(value: str) -> str:
 def _resolve_projection_field_type(
     field: ProjectionField,
     projection: ProjectionVersion,
-    mdl,
-):
+    mdl: MdlFile,
+) -> FieldType | None:
+    source_field = _resolve_projection_source_field(field, projection, mdl)
+    return source_field.type if source_field is not None else None
+
+
+def _resolve_projection_source_field(
+    field: ProjectionField,
+    projection: ProjectionVersion,
+    mdl: MdlFile,
+) -> FieldDef | None:
     """Resolve the JSON Schema type for a projection field from its source model."""
     if not isinstance(field.mapping, DirectMapping):
         return None
@@ -89,8 +99,8 @@ def _resolve_projection_field_type(
     source_mv = resolved.version
 
     for src_field in source_mv.fields:
-        if src_field.name == field.mapping.source_field:
-            return src_field.type
+        if isinstance(src_field, FieldDef) and src_field.name == field.mapping.source_field:
+            return src_field
 
     return None
 
@@ -109,6 +119,12 @@ def _field_to_json_schema(
         if field_type is not None
         else {}
     )
+
+    if getattr(field, "nullable", False):
+        if isinstance(prop.get("type"), str):
+            prop["type"] = [prop["type"], "null"]
+        else:
+            prop = {"anyOf": [prop, {"type": "null"}]}
 
     wire_targets = field.wire_targets()
     if wire_targets:

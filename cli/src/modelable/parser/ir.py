@@ -229,6 +229,7 @@ class FieldDef(BaseModel):
     name: str
     type: FieldType
     optional: bool = False
+    nullable: bool = False
     default: str | None = None
     annotations: list[Annotation] = Field(default_factory=list)
 

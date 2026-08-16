@@ -29,6 +29,8 @@ class FieldChange:
     replacement: str | None = None
     from_optional: bool | None = None
     to_optional: bool | None = None
+    from_nullable: bool | None = None
+    to_nullable: bool | None = None
     from_type: str | None = None
     to_type: str | None = None
 
@@ -65,6 +67,8 @@ def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion)
                 replacement=replacement,
                 from_optional=old_field.optional,
                 to_optional=new_field.optional,
+                from_nullable=old_field.nullable,
+                to_nullable=new_field.nullable,
                 from_type=_type_signature(old_field),
                 to_type=_type_signature(new_field),
             )
@@ -72,10 +76,23 @@ def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion)
         if old_field.optional != new_field.optional:
             changes.append(
                 FieldChange(
-                    kind="nullability_changed",
+                    kind="presence_changed",
                     field_name=replacement,
                     from_optional=old_field.optional,
                     to_optional=new_field.optional,
+                    from_nullable=old_field.nullable,
+                    to_nullable=new_field.nullable,
+                    from_type=_type_signature(old_field),
+                    to_type=_type_signature(new_field),
+                )
+            )
+        if old_field.nullable != new_field.nullable:
+            changes.append(
+                FieldChange(
+                    kind="nullability_changed",
+                    field_name=replacement,
+                    from_nullable=old_field.nullable,
+                    to_nullable=new_field.nullable,
                     from_type=_type_signature(old_field),
                     to_type=_type_signature(new_field),
                 )
@@ -116,10 +133,22 @@ def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion)
         if old_field.optional != new_field.optional:
             changes.append(
                 FieldChange(
-                    kind="nullability_changed",
+                    kind="presence_changed",
                     field_name=name,
                     from_optional=old_field.optional,
                     to_optional=new_field.optional,
+                    from_type=_type_signature(old_field),
+                    to_type=_type_signature(new_field),
+                )
+            )
+
+        if old_field.nullable != new_field.nullable:
+            changes.append(
+                FieldChange(
+                    kind="nullability_changed",
+                    field_name=name,
+                    from_nullable=old_field.nullable,
+                    to_nullable=new_field.nullable,
                     from_type=_type_signature(old_field),
                     to_type=_type_signature(new_field),
                 )
@@ -255,8 +284,13 @@ def _type_signature(field: FieldDef) -> str:
 
 
 def is_optionality_breaking(change: FieldChange) -> bool:
-    """True when a `nullability_changed` change narrows a field from optional to required."""
-    return change.kind == "nullability_changed" and change.from_optional is True and change.to_optional is False
+    """True when a presence change narrows a field from optional to required."""
+    return change.kind == "presence_changed" and change.from_optional is True and change.to_optional is False
+
+
+def is_nullability_breaking(change: FieldChange) -> bool:
+    """True when a nullability change narrows a field from nullable to non-null."""
+    return change.kind == "nullability_changed" and change.from_nullable is True and change.to_nullable is False
 
 
 def is_field_change_breaking(change: FieldChange) -> bool:
@@ -279,13 +313,19 @@ def is_field_change_breaking(change: FieldChange) -> bool:
         return True
     if change.kind == "added_field" and change.to_optional is False:
         return True
-    return is_optionality_breaking(change)
+    return is_optionality_breaking(change) or is_nullability_breaking(change)
 
 
 def describe_bool_word(value: bool | None) -> str:
     if value is None:
         return "unknown"
     return "optional" if value else "required"
+
+
+def describe_nullable_word(value: bool | None) -> str:
+    if value is None:
+        return "unknown"
+    return "nullable" if value else "non-null"
 
 
 def describe_field_change(change: FieldChange) -> str:
@@ -299,10 +339,15 @@ def describe_field_change(change: FieldChange) -> str:
         return f"index_changed {change.field_name}"
     if change.kind == "renamed_field":
         return f"renamed_field {change.field_name} -> {change.replacement}"
+    if change.kind == "presence_changed":
+        return (
+            f"presence_changed {change.field_name}: "
+            f"{describe_bool_word(change.from_optional)} -> {describe_bool_word(change.to_optional)}"
+        )
     if change.kind == "nullability_changed":
         return (
             f"nullability_changed {change.field_name}: "
-            f"{describe_bool_word(change.from_optional)} -> {describe_bool_word(change.to_optional)}"
+            f"{describe_nullable_word(change.from_nullable)} -> {describe_nullable_word(change.to_nullable)}"
         )
     if change.kind == "identity_changed":
         return f"identity_changed {change.field_name}"
