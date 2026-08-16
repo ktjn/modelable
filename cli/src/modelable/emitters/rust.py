@@ -49,45 +49,45 @@ def _append_cross_enum_from_impls(
     """For each pair of enum types with identical variants in the same domain,
     append From impl blocks into projection files without manual match arms.
     """
-    # Group by domain: domain -> [(artifact_id, module_name, enums_dict, kind)]
-    by_domain: dict[str, list[tuple[str, str, dict[str, list[str]], str]]] = {}
+    # A projection may convert from a model owned by another domain in the flat crate.
+    entries: list[tuple[str, str, str, dict[str, list[str]], str]] = []
     for art_id, info in enum_registry.items():
-        domain = info["domain"]
-        by_domain.setdefault(domain, []).append((art_id, info["module_name"], info["enums"], info["kind"]))
+        entries.append((art_id, info["domain"], info["module_name"], info["enums"], info["kind"]))
 
-    # Build: frozenset(raw_variants) -> [(artifact_id, module_name, enum_type_name)]
-    # Per domain — From impls only work within the same Rust module tree (super:: path).
+    # Build: frozenset(raw_variants) -> [(artifact_id, domain, module_name, enum_type_name, kind)]
     extra: dict[str, list[str]] = {}  # artifact_id -> lines to append
-    for _domain, entries in by_domain.items():
-        variant_map: dict[frozenset, list[tuple[str, str, str, str]]] = {}
-        for art_id, module_name, enums, kind in entries:
-            for enum_type_name, raw_variants in enums.items():
-                key = frozenset(raw_variants)
-                variant_map.setdefault(key, []).append((art_id, module_name, enum_type_name, kind))
+    variant_map: dict[frozenset[str], list[tuple[str, str, str, str, str]]] = {}
+    for art_id, domain, module_name, enums, kind in entries:
+        for enum_type_name, raw_variants in enums.items():
+            variant_map.setdefault(frozenset(raw_variants), []).append(
+                (art_id, domain, module_name, enum_type_name, kind)
+            )
 
-        for variant_set, enum_list in variant_map.items():
-            if len(enum_list) < 2:
-                continue
-            sorted_variants = sorted(variant_set)
-            # For each ordered pair (src → tgt): put From<src> for tgt in tgt's file.
-            for src_art_id, src_module, src_enum, _src_kind in enum_list:
-                for tgt_art_id, _tgt_module, tgt_enum, tgt_kind in enum_list:
-                    if src_art_id == tgt_art_id and src_enum == tgt_enum:
-                        continue
-                    if tgt_kind == "model":
-                        continue
-                    lines: list[str] = [
-                        "",
-                        f"use super::{src_module}::{src_enum};",
-                        f"impl From<{src_enum}> for {tgt_enum} {{",
-                        f"    fn from(src: {src_enum}) -> Self {{",
-                        "        match src {",
-                    ]
-                    for raw_v in sorted_variants:
-                        member = _enum_member_name(raw_v)
-                        lines.append(f"            {src_enum}::{member} => {tgt_enum}::{member},")
-                    lines += ["        }", "    }", "}"]
-                    extra.setdefault(tgt_art_id, []).extend(lines)
+    for variant_set, enum_list in variant_map.items():
+        if len(enum_list) < 2:
+            continue
+        sorted_variants = sorted(variant_set)
+        for src_art_id, src_domain, src_module, src_enum, _src_kind in enum_list:
+            for tgt_art_id, tgt_domain, _tgt_module, tgt_enum, tgt_kind in enum_list:
+                if (src_art_id == tgt_art_id and src_enum == tgt_enum) or tgt_kind == "model":
+                    continue
+                source_path = (
+                    f"super::{_domain_mod_name(src_domain)}::{src_module}"
+                    if src_domain != tgt_domain
+                    else f"super::{src_module}"
+                )
+                lines: list[str] = [
+                    "",
+                    f"use {source_path}::{src_enum};",
+                    f"impl From<{src_enum}> for {tgt_enum} {{",
+                    f"    fn from(src: {src_enum}) -> Self {{",
+                    "        match src {",
+                ]
+                for raw_v in sorted_variants:
+                    member = _enum_member_name(raw_v)
+                    lines.append(f"            {src_enum}::{member} => {tgt_enum}::{member},")
+                lines += ["        }", "    }", "}"]
+                extra.setdefault(tgt_art_id, []).extend(lines)
 
     if not extra:
         return artifacts
@@ -787,7 +787,7 @@ def _emit_projection(
         optional = field_shape.optional or field_shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field_shape, clickhouse=clickhouse_row)
         if field_shape.optional and not clickhouse_row:
-            serde_attrs = ['#[serde(skip_serializing_if = "Option::is_none")]', *serde_attrs]
+            serde_attrs = ["#[serde(default)]", '#[serde(skip_serializing_if = "Option::is_none")]', *serde_attrs]
         field_specs.append(
             _FieldSpec(index=index, name=field.name, annotation=annotation, optional=optional, serde_attrs=serde_attrs)
         )
@@ -1303,7 +1303,7 @@ def _field_specs_from_model_fields(
         if shape.optional and shape.kind != "array":
             # Omittable field: skip during serialization when None.
             # Nullable-only fields must always be serialized (as null), so no skip attr.
-            serde_attrs = ['#[serde(skip_serializing_if = "Option::is_none")]', *serde_attrs]
+            serde_attrs = ["#[serde(default)]", '#[serde(skip_serializing_if = "Option::is_none")]', *serde_attrs]
         specs.append(
             _FieldSpec(
                 index=index, name=field.name, annotation=annotation, optional=is_optional, serde_attrs=serde_attrs

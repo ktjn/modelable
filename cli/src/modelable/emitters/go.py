@@ -7,7 +7,7 @@ from typing import Any
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss
-from modelable.emitters.named_types import resolve_named_types
+from modelable.emitters.named_types import resolve_named_type_domains, resolve_named_types
 from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.shapes import TypeShape
@@ -24,7 +24,9 @@ def emit_go(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
         )
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
-                artifacts.append(_emit_model(domain, model_name, model_version, out_dir, named_names, named_shapes))
+                artifacts.append(
+                    _emit_model(domain, model_name, model_version, out_dir, named_names, named_shapes, workspace.mdl)
+                )
         for projection_name, projection_versions in domain.projections.items():
             for projection_version in projection_versions:
                 artifacts.append(
@@ -50,11 +52,13 @@ def _emit_model(
     out_dir: Path,
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
     imports: set[str] = set()
+    _qualify_cross_domain_names(named_names, imports, mdl, domain.name)
     warnings: list[str] = []
     field_specs = _field_specs_from_model_fields(
         version.fields,
@@ -96,6 +100,7 @@ def _emit_projection(
     type_name = _stable_type_name(domain.name, projection_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
     imports: set[str] = set()
+    _qualify_cross_domain_names(named_names, imports, mdl, domain.name)
 
     field_specs: list[tuple[int, str, str, bool]] = []
     warnings: list[str] = []
@@ -147,6 +152,14 @@ def _header_lines(package_name: str, imports: set[str]) -> list[str]:
         lines.append(")")
     lines.append("")
     return lines
+
+
+def _qualify_cross_domain_names(names: dict[str, str], imports: set[str], mdl: MdlFile, current_domain: str) -> None:
+    domains = resolve_named_type_domains(mdl, current_domain=current_domain)
+    for name, declaring_domain in domains.items():
+        if declaring_domain != current_domain and name in names:
+            names[name] = f"{_package_name(declaring_domain)}.{names[name]}"
+            imports.add(f"generated/{_package_name(declaring_domain)}")
 
 
 def _render_nested_definitions(definitions: dict[str, list[str]]) -> list[str]:

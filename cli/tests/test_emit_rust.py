@@ -2068,6 +2068,34 @@ workspace "ws" {
     assert "impl From<DomBOtherV1> for" in view_art.content
 
 
+def test_cross_domain_projection_enum_from_impl_generated_in_flat_mode(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    status: enum(draft, paid)
+  }
+}
+
+domain reporting {
+  owner: "reporting-team"
+  projection InvoiceReport @ 1
+    from billing.Invoice @ 1 as i
+  {
+    invoiceId <- i.invoiceId
+    status <- i.status
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_rust(workspace, tmp_path / "out") if item.ref == "reporting.InvoiceReport@1")
+    assert "impl From<BillingInvoiceV1Status> for ReportingInvoiceReportV1Status" in artifact.content
+
+
 def test_semantic_underlying_named_type_cross_package_import(tmp_path):
     # A bare (unqualified) semantic-type reference in another domain's
     # underlying type: resolve_semantic_type_ref falls back to a

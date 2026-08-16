@@ -25,7 +25,9 @@ def emit_java(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
         )
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
-                artifacts.append(_emit_model(domain, model_name, model_version, out_dir, named_names, named_shapes))
+                artifacts.append(
+                    _emit_model(domain, model_name, model_version, out_dir, named_names, named_shapes, workspace.mdl)
+                )
         for projection_name, projection_versions in domain.projections.items():
             for projection_version in projection_versions:
                 artifacts.append(
@@ -56,10 +58,11 @@ def _emit_model(
     out_dir: Path,
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _type_name(model_name, version.version)
-    lines = _header_lines(_package_name(domain.name))
+    lines = _header_lines(_package_name(domain.name), mdl)
     nested_definitions: dict[str, list[str]] = {}
     warnings: list[str] = []
 
@@ -105,7 +108,7 @@ def _emit_projection(
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     type_name = _type_name(projection_name, version.version)
-    lines = _header_lines(_package_name(domain.name))
+    lines = _header_lines(_package_name(domain.name), mdl)
     nested_definitions: dict[str, list[str]] = {}
     warnings: list[str] = []
 
@@ -144,7 +147,7 @@ def _emit_projection(
     )
 
 
-def _header_lines(package_name: str) -> list[str]:
+def _header_lines(package_name: str, mdl: MdlFile) -> list[str]:
     return [
         f"package {package_name};",
         "",
@@ -158,6 +161,13 @@ def _header_lines(package_name: str) -> list[str]:
         "import java.util.Map;",
         "import java.util.Optional;",
         "import java.util.UUID;",
+        *[
+            f"import {_package_name(domain.name)}.{_type_name(model_name, version.version)};"
+            for domain in mdl.domains
+            if _package_name(domain.name) != package_name
+            for model_name, versions in domain.models.items()
+            for version in versions
+        ],
         "",
     ]
 

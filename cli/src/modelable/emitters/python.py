@@ -24,7 +24,9 @@ def emit_python(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
         )
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
-                artifacts.append(_emit_model(domain, model_name, model_version, out_dir, named_names, named_shapes))
+                artifacts.append(
+                    _emit_model(domain, model_name, model_version, out_dir, named_names, named_shapes, workspace.mdl)
+                )
         for projection_name, projection_versions in domain.projections.items():
             for projection_version in projection_versions:
                 artifacts.append(
@@ -54,6 +56,7 @@ def _emit_model(
     out_dir: Path,
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
@@ -67,7 +70,7 @@ def _emit_model(
         named_shapes=named_shapes,
     )
 
-    lines = _header_lines()
+    lines = _header_lines(mdl, domain.name)
     lines.extend(_render_dataclass_definition(type_name, field_specs))
     lines.extend(_render_nested_definitions(nested_definitions))
 
@@ -115,7 +118,7 @@ def _emit_projection(
         optional = field_shape.optional or field_shape.nullable
         field_specs.append((index, field.name, annotation, optional))
 
-    lines = _header_lines()
+    lines = _header_lines(mdl, domain.name)
     lines.extend(_render_dataclass_definition(type_name, field_specs))
     lines.extend(_render_nested_definitions(nested_definitions))
 
@@ -131,7 +134,14 @@ def _emit_projection(
     )
 
 
-def _header_lines() -> list[str]:
+def _header_lines(mdl: MdlFile, current_domain: str) -> list[str]:
+    imports = [
+        f"from {_package_name(domain.name)}.{_module_filename(_stable_type_name(domain.name, model_name, version.version))[:-3]} import {_stable_type_name(domain.name, model_name, version.version)}"
+        for domain in mdl.domains
+        if domain.name != current_domain
+        for model_name, versions in domain.models.items()
+        for version in versions
+    ]
     return [
         "from __future__ import annotations",
         "",
@@ -140,6 +150,7 @@ def _header_lines() -> list[str]:
         "from decimal import Decimal",
         "from typing import Optional",
         "from uuid import UUID",
+        *imports,
         "",
     ]
 
