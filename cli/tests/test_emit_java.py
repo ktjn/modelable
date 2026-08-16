@@ -287,3 +287,78 @@ domain customer {
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@2")
     # name comes from Customer@1 (String), not Customer@2 (Long)
     assert "String name" in proj_art.content
+
+
+def test_emit_java_pure_value_type_does_not_import_other_domains(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain patient {
+  owner: "patient-team"
+  value PatientId @ 1 (additive) {
+    value: uuid
+  }
+}
+
+domain pure {
+  owner: "pure-team"
+  entity Tag @ 1 (additive) {
+    @key tagId: uuid
+    label: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_java(workspace, tmp_path / "out") if item.ref == "pure.Tag@1")
+    assert "import patient." not in artifact.content
+
+
+def test_emit_java_cross_domain_semantic_ref_emits_inline_primitive(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain patient {
+  owner: "patient-team"
+  semantic PatientId : uuid
+}
+
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    patientId: patient.PatientId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_java(workspace, tmp_path / "out") if item.ref == "billing.Invoice@1")
+    assert "UUID patientId" in artifact.content
+    assert "PatientPatientId" not in artifact.content
+
+
+def test_emit_java_cross_domain_value_ref_adds_one_import(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain patient {
+  owner: "patient-team"
+  value PatientId @ 1 (additive) {
+    value: uuid
+  }
+}
+
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    patientId: PatientId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_java(workspace, tmp_path / "out") if item.ref == "billing.Invoice@1")
+    assert artifact.content.count("import patient.PatientIdV1;") == 1
+    assert "PatientIdV1 patientId" in artifact.content

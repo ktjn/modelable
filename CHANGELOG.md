@@ -12,6 +12,19 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- The Go, Java, Python, and C# emitters no longer blanket-import every other
+  domain's types into every generated file; cross-domain imports are now
+  reference-scoped to only the domains a file actually references, so a pure
+  value type compiles standalone.
+- Cross-domain semantic-type references (e.g. `patient.PatientId`) are now
+  emitted inline as their underlying primitive (UUID/string/Guid/etc.) instead
+  of a bogus pascalized type name that never exists, across all four emitters.
+- The Go emitter now emits a `go.mod` (module derived from the workspace name,
+  e.g. `modelable/modelable_clinic`) so cross-domain imports resolve, and the
+  shared `named_types` dict is no longer mutated in place across artifacts
+  (which previously produced double-qualified names like
+  `scheduling.scheduling.SchedulingTimeRangeV0`).
+
 ## [1.9.2] - 2026-08-16
 
 ### Added

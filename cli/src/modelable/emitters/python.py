@@ -7,7 +7,7 @@ from typing import Any
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss
-from modelable.emitters.named_types import resolve_named_types
+from modelable.emitters.named_types import resolve_named_ref, resolve_named_types
 from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.shapes import TypeShape
@@ -61,16 +61,20 @@ def _emit_model(
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
+    imports: set[str] = set()
     field_specs = _field_specs_from_model_fields(
         version.fields,
         owner_type=type_name,
         path=[],
         definitions=nested_definitions,
+        imports=imports,
         named_names=named_names,
         named_shapes=named_shapes,
+        mdl=mdl,
+        current_domain=domain.name,
     )
 
-    lines = _header_lines(mdl, domain.name)
+    lines = _header_lines(imports)
     lines.extend(_render_dataclass_definition(type_name, field_specs))
     lines.extend(_render_nested_definitions(nested_definitions))
 
@@ -98,6 +102,7 @@ def _emit_projection(
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     type_name = _stable_type_name(domain.name, projection_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
+    imports: set[str] = set()
     warnings: list[str] = []
 
     field_specs: list[tuple[int, str, str, bool]] = []
@@ -112,13 +117,16 @@ def _emit_projection(
             owner_type=type_name,
             path=[field.name],
             definitions=nested_definitions,
+            imports=imports,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=domain.name,
         )
         optional = field_shape.optional or field_shape.nullable
         field_specs.append((index, field.name, annotation, optional))
 
-    lines = _header_lines(mdl, domain.name)
+    lines = _header_lines(imports)
     lines.extend(_render_dataclass_definition(type_name, field_specs))
     lines.extend(_render_nested_definitions(nested_definitions))
 
@@ -134,14 +142,7 @@ def _emit_projection(
     )
 
 
-def _header_lines(mdl: MdlFile, current_domain: str) -> list[str]:
-    imports = [
-        f"from {_package_name(domain.name)}.{_module_filename(_stable_type_name(domain.name, model_name, version.version))[:-3]} import {_stable_type_name(domain.name, model_name, version.version)}"
-        for domain in mdl.domains
-        if domain.name != current_domain
-        for model_name, versions in domain.models.items()
-        for version in versions
-    ]
+def _header_lines(imports: set[str]) -> list[str]:
     return [
         "from __future__ import annotations",
         "",
@@ -150,7 +151,7 @@ def _header_lines(mdl: MdlFile, current_domain: str) -> list[str]:
         "from decimal import Decimal",
         "from typing import Optional",
         "from uuid import UUID",
-        *imports,
+        *sorted(imports),
         "",
     ]
 
@@ -191,8 +192,11 @@ def _field_specs_from_model_fields(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    imports: set[str],
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
+    current_domain: str,
 ) -> list[tuple[int, str, str, bool]]:
     specs: list[tuple[int, str, str, bool]] = []
     for index, field in enumerate(fields):
@@ -202,8 +206,11 @@ def _field_specs_from_model_fields(
             owner_type=owner_type,
             path=[*path, field.name],
             definitions=definitions,
+            imports=imports,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=current_domain,
         )
         default_none = shape.optional or shape.nullable
         specs.append((index, field.name, annotation, default_none))
@@ -216,8 +223,11 @@ def _field_specs_from_object_fields(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    imports: set[str],
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
+    current_domain: str,
 ) -> list[tuple[int, str, str, bool]]:
     specs: list[tuple[int, str, str, bool]] = []
     for index, field in enumerate(fields):
@@ -226,8 +236,11 @@ def _field_specs_from_object_fields(
             owner_type=owner_type,
             path=[*path, field.name],
             definitions=definitions,
+            imports=imports,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=current_domain,
         )
         default_none = field.optional or field.shape.optional or field.shape.nullable
         specs.append((index, field.name, annotation, default_none))
@@ -240,16 +253,22 @@ def _shape_annotation(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    imports: set[str],
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
+    current_domain: str,
 ) -> str:
     base = _shape_base_annotation(
         shape,
         owner_type=owner_type,
         path=path,
         definitions=definitions,
+        imports=imports,
         named_names=named_names,
         named_shapes=named_shapes,
+        mdl=mdl,
+        current_domain=current_domain,
     )
     if shape.optional or shape.nullable:
         return f"Optional[{base}]"
@@ -262,8 +281,11 @@ def _shape_base_annotation(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    imports: set[str],
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
+    current_domain: str,
 ) -> str:
     if shape.kind == "primitive":
         return _primitive_to_python(shape.ref or "string")
@@ -278,8 +300,11 @@ def _shape_base_annotation(
             owner_type=owner_type,
             path=[*path, "Item"],
             definitions=definitions,
+            imports=imports,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=current_domain,
         )
         return f"list[{element_type}]"
     if shape.kind == "map":
@@ -289,8 +314,11 @@ def _shape_base_annotation(
             owner_type=owner_type,
             path=[*path, "Value"],
             definitions=definitions,
+            imports=imports,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=current_domain,
         )
         return f"dict[str, {value_type}]"
     if shape.kind == "ref":
@@ -298,16 +326,26 @@ def _shape_base_annotation(
     if shape.kind == "enum":
         return "str"
     if shape.kind == "named":
-        if shape.ref in named_names:
-            return named_names[shape.ref]
-        if shape.ref in named_shapes:
+        declaring_domain, named_name, inline_shape = resolve_named_ref(
+            mdl, current_domain=current_domain, ref=shape.ref or "", names=named_names, shapes=named_shapes
+        )
+        if named_name is not None:
+            if declaring_domain is not None and declaring_domain != current_domain:
+                imports.add(
+                    f"from {_package_name(declaring_domain)}.{_module_filename(named_name)[:-3]} import {named_name}"
+                )
+            return named_name
+        if inline_shape is not None:
             return _shape_base_annotation(
-                named_shapes[shape.ref],
+                inline_shape,
                 owner_type=owner_type,
                 path=path,
                 definitions=definitions,
+                imports=imports,
                 named_names=named_names,
                 named_shapes=named_shapes,
+                mdl=mdl,
+                current_domain=current_domain,
             )
         return _pascalize(shape.ref or "Named")
     if shape.kind == "object":
@@ -320,8 +358,11 @@ def _shape_base_annotation(
                     owner_type=owner_type,
                     path=path,
                     definitions=definitions,
+                    imports=imports,
                     named_names=named_names,
                     named_shapes=named_shapes,
+                    mdl=mdl,
+                    current_domain=current_domain,
                 ),
             )
         return type_name
