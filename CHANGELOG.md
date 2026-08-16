@@ -14,6 +14,8 @@ releases could contain breaking changes when called out explicitly.
   contract manifests.
 - Added offline `modelable registry diff` and staged `registry update` commands
   with candidate validation and atomic lock replacement.
+- Added `modelable impact` consequence reports with machine-readable actions
+  and causal paths for model changes.
 
 ### Changed
 

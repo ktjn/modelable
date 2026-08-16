@@ -76,6 +76,18 @@ Definition files use the Modelable IDL with the `.mdl` extension. The grammar is
 
 ## 5. Commands
 
+### 5.0 `impact` — Report change consequences
+
+```text
+modelable impact --from OLD --to NEW --path SOURCE [--format text|json]
+```
+
+`impact` compares two model versions, reports compatibility findings, and
+classifies direct and projection consequences as actions such as
+`no_action`, `recompile`, `regenerate`, or `breaking`. JSON output includes a
+causal path for each consequence. The command is entirely local and does not
+refresh registry snapshots.
+
 ### 5.1 `validate` — Validate definition files
 
 ```text
