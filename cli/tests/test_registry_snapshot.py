@@ -8,8 +8,10 @@ from click.testing import CliRunner
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.registry.snapshot import (
+    diff_workspace_snapshot,
     prune_snapshot,
     resolve_workspace_snapshot,
+    update_workspace_snapshot,
     verify_snapshot,
 )
 
@@ -64,3 +66,26 @@ def test_registry_cli_resolve_and_verify_json(tmp_path: Path) -> None:
     assert resolved.exit_code == 0, resolved.output
     assert verified.exit_code == 0, verified.output
     assert json.loads(verified.output) == {"valid": True, "errors": []}
+
+
+def test_update_stages_candidate_and_preserves_old_lock_on_diff(tmp_path: Path) -> None:
+    workspace = load_workspace(FIXTURE)
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(workspace, output_dir)
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        FIXTURE.read_text(encoding="utf-8").replace("legalName: string", "legalName: string\n    region: string"),
+        encoding="utf-8",
+    )
+    changed_workspace = load_workspace(source)
+
+    snapshot_diff = diff_workspace_snapshot(changed_workspace, output_dir)
+    original_lock = (output_dir / "registry.lock").read_bytes()
+
+    assert snapshot_diff.changed
+    assert (output_dir / "registry.lock").read_bytes() == original_lock
+
+    _, applied_diff = update_workspace_snapshot(changed_workspace, output_dir)
+
+    assert applied_diff.changed == snapshot_diff.changed
+    assert verify_snapshot(output_dir) == []

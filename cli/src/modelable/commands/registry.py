@@ -8,9 +8,11 @@ import click
 
 from modelable.commands.common import console, load_workspace_or_exit
 from modelable.registry.snapshot import (
+    diff_workspace_snapshot,
     prune_snapshot,
     resolve_workspace_snapshot,
     snapshot_status,
+    update_workspace_snapshot,
     verify_snapshot,
 )
 from modelable.registry.usage import build_usage_graph, build_usage_manifest
@@ -37,6 +39,53 @@ def resolve(source: Path, output_dir: Path) -> None:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
     console.print(f"[green]OK[/green] wrote {result.object_count} object(s) to {result.lock_path}")
+
+
+@registry.command("diff")
+@click.argument("source", type=click.Path(exists=True, path_type=Path))
+@click.option("--out", "output_dir", type=click.Path(path_type=Path), default=Path(".modelable"), show_default=True)
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text")
+def diff(source: Path, output_dir: Path, output_format: str) -> None:
+    """Compare SOURCE with the current local snapshot without changing it."""
+    workspace = load_workspace_or_exit(source)
+    try:
+        snapshot_diff = diff_workspace_snapshot(workspace, output_dir)
+    except ValueError as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
+    payload = snapshot_diff.as_dict()
+    if output_format == "json":
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    if snapshot_diff.empty:
+        console.print("[green]OK[/green] snapshot is unchanged")
+        return
+    for category in ("added", "removed", "changed"):
+        for identity in payload[category]:
+            console.print(f"{category}: {identity}")
+
+
+@registry.command("update")
+@click.argument("source", type=click.Path(exists=True, path_type=Path))
+@click.option("--out", "output_dir", type=click.Path(path_type=Path), default=Path(".modelable"), show_default=True)
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text")
+def update(source: Path, output_dir: Path, output_format: str) -> None:
+    """Stage and atomically install SOURCE as the local exact snapshot."""
+    workspace = load_workspace_or_exit(source)
+    try:
+        result, snapshot_diff = update_workspace_snapshot(workspace, output_dir)
+    except ValueError as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
+    payload = {"lock": str(result.lock_path), "objects": result.object_count, **snapshot_diff.as_dict()}
+    if output_format == "json":
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    console.print(
+        f"[green]OK[/green] updated {result.lock_path} "
+        f"({len(snapshot_diff.added)} added, {len(snapshot_diff.changed)} changed, "
+        f"{len(snapshot_diff.removed)} removed from the lock)"
+    )
 
 
 @registry.command("verify")

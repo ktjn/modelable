@@ -1508,6 +1508,8 @@ registry during ordinary compilation or analysis:
 
 ```text
 modelable registry resolve SOURCE [--out DIR]
+modelable registry diff SOURCE [--out DIR] [--format text|json]
+modelable registry update SOURCE [--out DIR] [--format text|json]
 modelable registry verify [--out DIR] [--format text|json]
 modelable registry status [--out DIR] [--format text|json]
 modelable registry prune [--out DIR]
@@ -1516,6 +1518,10 @@ modelable registry usage SOURCE [--format text|json|manifest]
 
 - `registry resolve` writes `.modelable/registry.lock` and deterministic,
   content-addressed contract objects under `.modelable/registry/objects/`.
+- `registry diff` stages a candidate in a temporary directory and reports exact
+  added, removed, and changed contract identities without changing local state.
+- `registry update` validates that candidate and atomically replaces the lock;
+  it never contacts a network source and retains reusable objects.
 - `registry verify` checks lock/object presence, hashes, signatures, and
   identities entirely offline.
 - `registry status` reports the local snapshot without refreshing it.
