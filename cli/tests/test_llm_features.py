@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from modelable.cli import cli
@@ -168,6 +169,71 @@ def test_json_schema_importer_round_trips_to_mdl():
     assert "entity Customer @ 1 (additive)" in text
     assert "@key customerId: uuid" in text
     assert "age?: int" in text
+
+
+def test_openapi_importer_accepts_yaml_and_requires_selection_for_multiple_schemas():
+    from modelable.llm.importers import import_openapi_models
+
+    source = """
+openapi: 3.1.0
+info:
+  title: Billing
+  version: 1.0.0
+components:
+  schemas:
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+    Customer:
+      type: object
+      x-modelable:
+        domain: crm
+        name: Customer
+        version: 3
+      required: [id]
+      properties:
+        id:
+          type: string
+          format: uuid
+"""
+
+    models = import_openapi_models(source)
+    assert [model.source_name for model in models] == ["Customer", "Invoice"]
+    assert models[0].domain_name == "crm"
+    assert models[0].model_version.version == 3
+
+    with pytest.raises(ValueError, match="multiple component schemas"):
+        import_from_text(source, "openapi")
+    imported = import_from_text(source, "openapi", source_name="Invoice")
+    assert imported.model_name == "Invoice"
+
+
+def test_openapi_importer_resolves_versioned_component_refs():
+    imported = import_from_text(
+        json.dumps(
+            {
+                "openapi": "3.1.0",
+                "info": {"title": "Catalog", "version": "1"},
+                "components": {
+                    "schemas": {
+                        "Brand.v1": {"type": "object", "properties": {"name": {"type": "string"}}},
+                        "Product.v1": {
+                            "type": "object",
+                            "properties": {"brand": {"$ref": "#/components/schemas/Brand.v1"}},
+                        },
+                    }
+                },
+            }
+        ),
+        "openapi",
+        source_name="Product.v1",
+    )
+    assert imported.model_version.fields[0].type.kind == "ref"
+    assert imported.model_version.fields[0].type.target == "Brand"
+    assert imported.model_version.fields[0].type.version.version == 1
 
 
 def test_json_schema_importer_preserves_modelable_extensions():

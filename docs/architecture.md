@@ -1206,7 +1206,9 @@ preview, confirmation, and audit policy.
 - Runtime OpenLineage event collection beyond design-time Modelable events.
 - Avro and AsyncAPI generation (Phase 5) — import-only support exists via
   LLM-assisted generators. OpenAPI export is implemented for schemas and
-  explicit paths/operations; OpenAPI import remains LLM-assisted only.
+  explicit paths/operations; deterministic OpenAPI JSON/YAML import is
+  implemented for component schemas, with LLM assistance still available for
+  unsupported fidelity and API constructs.
 - Stateful aggregations.
 - Windowed aggregations.
 - Multiple stream backends.

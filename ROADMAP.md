@@ -772,10 +772,12 @@ Phase A (schema-only `components.schemas` emission) is implemented; see
 `docs/superpowers/specs/archived/2026-08-14-openapi-emission-design.md`.
 Phase B (versioned paths and operations, including operation-aware
 compatibility facts) is implemented; see the archived Phase B design and
-implementation plan. Phase C (deterministic OpenAPI import hardening) and
+implementation plan. Phase C (deterministic OpenAPI import hardening) is
+implemented in the format adapter used by the local import flow: JSON/YAML,
+stable traversal of all component schemas, explicit multi-schema selection,
+`x-modelable` metadata, and versioned component references are supported.
 Phase D (fidelity follow-ups: constraints, presence/nullability, named enum
-reuse, discriminated unions) remain future slices, with Phase D gated on
-D1-D4.
+reuse, discriminated unions) remains a future slice, gated on D1-D4.
 
 #### Slice F3 — AsyncAPI emission
 
