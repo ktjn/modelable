@@ -37,6 +37,7 @@ export function registerModelableProviders(
       'true',
       'false',
       'replacedBy',
+      'union',
       'projection',
       'pick',
       'omit',

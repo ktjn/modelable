@@ -18,6 +18,7 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     ProjectionVersion,
+    UnionType,
 )
 from modelable.parser.parse import parse_text_to_ir_with_tree
 from modelable.planner.planner import expand_auto_projections, expand_projection_selections
@@ -450,6 +451,9 @@ def _validate_named_field_types(merged: MdlFile) -> list[Diagnostic]:
         elif isinstance(field_type, ObjectType):
             for nested in field_type.fields:
                 visit(nested.type, domain_name, f"{context}.{nested.name}")
+        elif isinstance(field_type, UnionType):
+            for variant in field_type.variants:
+                visit(variant.type, domain_name, f"{context}.{variant.tag}")
 
     for domain in merged.domains:
         for model_name, versions in domain.models.items():

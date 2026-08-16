@@ -189,6 +189,42 @@ def test_json_schema_importer_resolves_defs_references():
     assert "semantic PatientId: string" in text
 
 
+def test_json_schema_importer_round_trips_discriminated_unions():
+    imported = import_from_text(
+        json.dumps(
+            {
+                "title": "Payment",
+                "type": "object",
+                "properties": {
+                    "method": {
+                        "oneOf": [
+                            {
+                                "allOf": [
+                                    {"$ref": "#/$defs/Card"},
+                                    {"type": "object", "properties": {"kind": {"const": "card"}}},
+                                ]
+                            },
+                            {
+                                "allOf": [
+                                    {"$ref": "#/$defs/Bank"},
+                                    {"type": "object", "properties": {"kind": {"const": "bank"}}},
+                                ]
+                            },
+                        ],
+                        "discriminator": {"propertyName": "kind"},
+                    }
+                },
+                "$defs": {},
+            }
+        ),
+        "json-schema",
+        domain_name="payments",
+    )
+
+    assert "method?: union<kind>" in imported.to_mdl()
+    assert not any("union" in warning and "method" in warning for warning in imported.warnings)
+
+
 def test_openapi_importer_accepts_yaml_and_requires_selection_for_multiple_schemas():
     from modelable.llm.importers import import_openapi_models
 

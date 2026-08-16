@@ -57,6 +57,8 @@ from modelable.parser.ir import (
     SemanticTypeDecl,
     SortField,
     SourceRef,
+    UnionType,
+    UnionVariant,
     ValueConstraint,
     VersionExact,
     VersionMin,
@@ -400,6 +402,7 @@ class MdlTransformer(Transformer[list[object], Any]):
                     EnumType,
                     ObjectType,
                     NamedType,
+                    UnionType,
                 ),
             )
             else PrimitiveType(kind="string"),
@@ -651,6 +654,14 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def object_type(self, items: list[object]) -> ObjectType:
         return ObjectType(fields=[item for item in items if isinstance(item, FieldDef)])
+
+    def union_variant(self, items: list[object]) -> UnionVariant:
+        return UnionVariant(tag=str(items[0]), type=items[1])
+
+    def union_type(self, items: list[object]) -> UnionType:
+        return UnionType(
+            discriminator=str(items[0]), variants=[item for item in items[1:] if isinstance(item, UnionVariant)]
+        )
 
     def dotted_ref(self, items: list[object]) -> str:
         return ".".join(str(item) for item in items)
