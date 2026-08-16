@@ -9,7 +9,7 @@ from typing import Any
 import yaml
 
 from modelable.compiler.render import render_model_version
-from modelable.formats.openapi import iter_component_schemas, parse_openapi_document
+from modelable.formats.openapi import iter_component_schemas, openapi_loss_warnings, parse_openapi_document
 from modelable.parser.ir import (
     AnnClassification,
     AnnKey,
@@ -122,6 +122,7 @@ def import_openapi_models(source_text: str, *, domain_name: str | None = None) -
     callers that need the complete document.
     """
     document = parse_openapi_document(source_text)
+    document_warnings = openapi_loss_warnings(document)
     models: list[ImportedModel] = []
     for component_name, payload in iter_component_schemas(document):
         metadata = payload.get("x-modelable") or {}
@@ -130,7 +131,7 @@ def import_openapi_models(source_text: str, *, domain_name: str | None = None) -
         name = str(metadata.get("name") or payload.get("title") or component_name)
         metadata_domain = metadata.get("domain")
         domain = domain_name or (str(metadata_domain) if metadata_domain else None) or _guess_domain_name(name)
-        warnings: list[str] = []
+        warnings = list(document_warnings)
         fields, field_warnings = _fields_from_json_schema(payload, warn_unsupported=True)
         warnings.extend(field_warnings)
         kind_text = str(metadata.get("kind") or "entity")
