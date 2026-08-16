@@ -154,6 +154,21 @@ def _field_to_json_schema(
                 "server": True,
             }
 
+    constraint_keys = {
+        "min_length": "minLength",
+        "max_length": "maxLength",
+        "min_items": "minItems",
+        "max_items": "maxItems",
+        "unique_items": "uniqueItems",
+    }
+    for constraint in getattr(field, "constraints", []):
+        if constraint.kind in {"min", "max"} and isinstance(constraint.value, (int, float)):
+            prop["minimum" if constraint.kind == "min" else "maximum"] = constraint.value
+        elif constraint.kind in constraint_keys:
+            prop[constraint_keys[constraint.kind]] = constraint.value
+        elif constraint.kind in {"pattern", "format"}:
+            prop[constraint.kind] = constraint.value
+
     json_hint = wire_targets.get("json")
     if (
         json_hint is not None

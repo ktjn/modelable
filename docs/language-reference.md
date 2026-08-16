@@ -137,6 +137,19 @@ A `ref<>`'s version constraint is independent of its target for compatibility pu
 @annotation  fieldName:  Type = default-expression
 ```
 
+Fields may declare value constraints after their type:
+
+```mdl
+age: int constraint { min: 0, max: 150 }
+code: string constraint { min_length: 2, pattern: "^[A-Z]+$" }
+tags: array<string> constraint { min_items: 1, unique_items: true }
+```
+
+Supported constraints are `min`, `max`, `min_length`, `max_length`, `pattern`,
+`format`, `min_items`, `max_items`, and `unique_items`. Constraints are part of
+the canonical field shape and are emitted as JSON Schema keywords where the
+target supports them.
+
 A field may carry a default value, written as `= EXPRESSION`. The expression
 uses the same CEL subset as computed projection fields (see
 [section 9](#9-cel-expression-rules)); it is validated when the model is

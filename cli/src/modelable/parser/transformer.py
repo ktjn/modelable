@@ -57,6 +57,7 @@ from modelable.parser.ir import (
     SemanticTypeDecl,
     SortField,
     SourceRef,
+    ValueConstraint,
     VersionExact,
     VersionMin,
     VersionPinned,
@@ -342,6 +343,12 @@ class MdlTransformer(Transformer[list[object], Any]):
         annotations = [item for item in items if isinstance(item, ANNOTATION_TYPES)]
         rest = [item for item in items if not isinstance(item, ANNOTATION_TYPES)]
         default = next((item[1] for item in rest if isinstance(item, tuple) and item[0] == "default"), None)
+        constraints = [
+            ValueConstraint(kind=key, value=value)
+            for item in rest
+            if isinstance(item, tuple) and item[0] == "constraints"
+            for key, value in item[1].items()
+        ]
         type_item = next(
             (
                 item
@@ -373,7 +380,28 @@ class MdlTransformer(Transformer[list[object], Any]):
             else PrimitiveType(kind="string"),
             default=default,
             annotations=annotations,
+            constraints=constraints,
         )
+
+    def constraint_clause(self, items: list[object]) -> tuple[str, dict[str, object]]:
+        values = {str(item[0]): item[1] for item in items if isinstance(item, tuple) and len(item) == 2}
+        return ("constraints", values)
+
+    def constraint_item(self, items: list[object]) -> tuple[str, object]:
+        return str(items[0]), items[1]
+
+    def constraint_string(self, items: list[object]) -> str:
+        return _str(items[0])
+
+    def constraint_number(self, items: list[object]) -> int | float:
+        value = str(items[0])
+        return float(value) if "." in value else int(value)
+
+    def constraint_true(self, _items: list[object]) -> bool:
+        return True
+
+    def constraint_false(self, _items: list[object]) -> bool:
+        return False
 
     def optional_marker(self, _items: list[object]) -> str:
         return "?"

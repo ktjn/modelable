@@ -269,6 +269,7 @@ def _validate_models(
                 )
                 _validate_default_value_range(f"{fqn}@{version.version}", field, diagnostics, path)
                 _validate_fixed_binary_length(f"{fqn}@{version.version}", field, diagnostics, path)
+                _validate_value_constraints(f"{fqn}@{version.version}", field, diagnostics, path)
 
         for index in range(1, len(versions)):
             previous = versions[index - 1]
@@ -313,6 +314,9 @@ def _validate_projections(
                     path,
                     field_path=[field.name],
                     field_type=source_type,
+                )
+                _validate_value_constraints(
+                    f"{fqn}@{version.version}", field, diagnostics, path, field_type=source_type
                 )
 
 
@@ -415,6 +419,63 @@ def _validate_declaration_wire_annotations(
                         path,
                     )
                 )
+
+
+def _validate_value_constraints(
+    fqn: str,
+    field: FieldDef,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+    *,
+    field_type: FieldType | None = None,
+) -> None:
+    constraints = getattr(field, "constraints", [])
+    if not constraints:
+        return
+    field_type = field_type or field.type
+    is_numeric = isinstance(field_type, DecimalType) or (
+        isinstance(field_type, PrimitiveType)
+        and field_type.kind in {"int", "float", "u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128"}
+    )
+    is_string = isinstance(field_type, PrimitiveType) and field_type.kind == "string"
+    is_array = isinstance(field_type, ArrayType)
+    for constraint in constraints:
+        kind = constraint.kind
+        if kind not in {
+            "min",
+            "max",
+            "min_length",
+            "max_length",
+            "pattern",
+            "format",
+            "min_items",
+            "max_items",
+            "unique_items",
+        }:
+            diagnostics.append(_diag("SEM", f"{fqn}: field '{field.name}' uses unknown constraint '{kind}'", path))
+            continue
+        if kind in {"min", "max"} and not is_numeric:
+            diagnostics.append(
+                _diag("SEM", f"{fqn}: field '{field.name}' constraint '{kind}' requires a numeric type", path)
+            )
+        elif kind in {"min_length", "max_length", "pattern"} and not is_string:
+            diagnostics.append(_diag("SEM", f"{fqn}: field '{field.name}' constraint '{kind}' requires string", path))
+        elif kind in {"min_items", "max_items", "unique_items"} and not is_array:
+            diagnostics.append(_diag("SEM", f"{fqn}: field '{field.name}' constraint '{kind}' requires an array", path))
+        if kind in {"min_length", "max_length", "min_items", "max_items"} and (
+            not isinstance(constraint.value, int) or constraint.value < 0
+        ):
+            diagnostics.append(
+                _diag("SEM", f"{fqn}: field '{field.name}' constraint '{kind}' must be a non-negative integer", path)
+            )
+        if kind in {"min", "max"} and not isinstance(constraint.value, (int, float)):
+            diagnostics.append(_diag("SEM", f"{fqn}: field '{field.name}' constraint '{kind}' must be numeric", path))
+        if kind in {"pattern", "format"} and not isinstance(constraint.value, str):
+            diagnostics.append(_diag("SEM", f"{fqn}: field '{field.name}' constraint '{kind}' must be a string", path))
+        if kind == "unique_items" and not isinstance(constraint.value, bool):
+            diagnostics.append(
+                _diag("SEM", f"{fqn}: field '{field.name}' constraint 'unique_items' must be boolean", path)
+            )
 
 
 def _find_field(version: ModelVersion, field_name: str):

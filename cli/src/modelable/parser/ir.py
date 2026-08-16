@@ -225,6 +225,11 @@ FieldType = Annotated[
 ]
 
 
+class ValueConstraint(BaseModel):
+    kind: str
+    value: bool | float | int | str
+
+
 class FieldDef(BaseModel):
     name: str
     type: FieldType
@@ -232,6 +237,7 @@ class FieldDef(BaseModel):
     nullable: bool = False
     default: str | None = None
     annotations: list[Annotation] = Field(default_factory=list)
+    constraints: list[ValueConstraint] = Field(default_factory=list)
 
     @property
     def is_key(self) -> bool:

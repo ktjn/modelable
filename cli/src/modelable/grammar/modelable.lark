@@ -52,9 +52,15 @@ model_kind: "entity"    -> mk_entity
 change_kind: "additive" -> ck_additive
            | "breaking" -> ck_breaking
 
-field_decl: annotation* IDENT optional_marker? ":" type_expr nullable_marker? field_default?
+field_decl: annotation* IDENT optional_marker? ":" type_expr nullable_marker? constraint_clause* field_default?
 optional_marker: "?"
 nullable_marker: "?"
+constraint_clause: "constraint" "{" constraint_item ("," constraint_item)* "}" -> constraint_clause
+constraint_item: IDENT ":" constraint_value
+constraint_value: ESCAPED_STRING -> constraint_string
+                | CONSTRAINT_NUMBER -> constraint_number
+                | "true"             -> constraint_true
+                | "false"            -> constraint_false
 field_default: "=" EXPRESSION
 
 annotation: "@key"                                                -> ann_key
@@ -318,6 +324,7 @@ VERSION_RANGE: /[<>~=^0-9.,\s]+/
 EXPRESSION: /[^\n\r{}]+/
 FIELD_EXPRESSION: /[^\n\r]+(?:\n(?!\s*(?:@|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-|=)|generate\s*\{|materialisation\s*\{|subscription\s*\{|access\s*\{|from\s|group\s+by|pick\s*\(|omit\s*\(|\{|\}))[^\n\r]+)*/
 ANNOTATION_EXPR: /[^)\n\r{}]+/
+CONSTRAINT_NUMBER: /-?[0-9]+(\.[0-9]+)?/
 IDENT: /[A-Za-z_][A-Za-z0-9_-]*/
 HASH: /[0-9A-Fa-f][0-9A-Fa-f_-]*/
 PEERS_CONTENT: /[^\]]+/
