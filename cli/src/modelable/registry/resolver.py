@@ -13,6 +13,7 @@ from modelable.parser.ir import (
     VersionPinned,
     VersionRange,
     VersionSpec,
+    latest_semantic_types,
 )
 from modelable.registry.signature import compute_version_signature
 
@@ -152,18 +153,20 @@ def resolve_semantic_type_ref(
         domain = next((item for item in mdl.domains if item.name == domain_name), None)
         if domain is None:
             raise LookupError(f"unknown domain '{domain_name}' in semantic type reference '{name}'")
-        decl = next((item for item in domain.semantic_types if item.name == type_name), None)
+        decl = next((item for item in latest_semantic_types(domain) if item.name == type_name), None)
         if decl is None:
             raise LookupError(f"unknown semantic type '{name}'")
         return domain_name, decl
 
     current = next((item for item in mdl.domains if item.name == current_domain), None)
     if current is not None:
-        local = next((item for item in current.semantic_types if item.name == name), None)
+        local = next((item for item in latest_semantic_types(current) if item.name == name), None)
         if local is not None:
             return current_domain, local
 
-    matches = [(domain.name, decl) for domain in mdl.domains for decl in domain.semantic_types if decl.name == name]
+    matches = [
+        (domain.name, decl) for domain in mdl.domains for decl in latest_semantic_types(domain) if decl.name == name
+    ]
     if not matches:
         raise LookupError(f"unknown semantic type '{name}'")
     if len(matches) > 1:

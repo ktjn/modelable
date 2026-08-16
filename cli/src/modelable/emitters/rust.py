@@ -27,6 +27,7 @@ from modelable.parser.ir import (
     PrimitiveType,
     ProjectionVersion,
     SemanticTypeDecl,
+    latest_semantic_types,
 )
 from modelable.registry.resolver import AmbiguousSemanticTypeError, resolve_model_ref, resolve_semantic_type_ref
 from modelable.registry.signature import compute_version_signature
@@ -138,7 +139,7 @@ def _emit_rust_single_crate(
     enum_registry: dict[str, dict] = {}
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
-        for decl in domain.semantic_types:
+        for decl in latest_semantic_types(domain):
             qualified_name = f"{domain.name}.{decl.name}"
             allocated_id = (registry_ids or {}).get(qualified_name) if decl.registry else None
             artifacts.append(_emit_semantic_type(domain, decl, out_dir, allocated_id=allocated_id))
@@ -190,7 +191,7 @@ def _emit_rust_packages(
             if domain is None:
                 continue
             modules: list[str] = []
-            for decl in domain.semantic_types:
+            for decl in latest_semantic_types(domain):
                 qualified_name = f"{domain.name}.{decl.name}"
                 allocated_id = (registry_ids or {}).get(qualified_name) if decl.registry else None
                 artifact = _emit_semantic_type(

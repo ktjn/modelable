@@ -28,6 +28,7 @@ from modelable.parser.ir import (
     ProjectionVersion,
     ProtobufReservations,
     SemanticTypeDecl,
+    latest_semantic_types,
 )
 from modelable.registry.resolver import resolve_model_ref
 from modelable.registry.signature import compute_version_signature
@@ -477,7 +478,7 @@ def _semantic_declarations(
 ) -> dict[str, tuple[tuple[str, SemanticTypeDecl], ...]]:
     grouped: dict[str, list[tuple[str, SemanticTypeDecl]]] = {}
     for domain in mdl.domains:
-        for decl in domain.semantic_types:
+        for decl in latest_semantic_types(domain):
             grouped.setdefault(decl.name, []).append((domain.name, decl))
     return {name: tuple(sorted(candidates, key=lambda candidate: candidate[0])) for name, candidates in grouped.items()}
 
@@ -533,7 +534,7 @@ def _build_semantic_index(
     by_name: dict[str, list[_SemanticProtoType]] = {}
     by_domain: dict[str, list[_SemanticProtoType]] = {}
     for domain in sorted(mdl.domains, key=lambda item: item.name):
-        for decl in sorted(domain.semantic_types, key=lambda item: item.name):
+        for decl in sorted(latest_semantic_types(domain), key=lambda item: item.name):
             ref = f"{domain.name}.{decl.name}"
             terminal, fixed_length = _semantic_terminal_proto(_semantic_terminal_type(decl, declarations))
             allocated = (registry_ids or {}).get(ref) if decl.registry else None

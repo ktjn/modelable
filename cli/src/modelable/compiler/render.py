@@ -333,7 +333,12 @@ def _render_auto_target(target: AutoProjectionTarget, indent: int = 0) -> str:
 
 
 def _render_semantic_type(declaration: SemanticTypeDecl) -> list[str]:
-    header = f"semantic {declaration.name}: {_render_type(declaration.underlying)}"
+    version = ""
+    if declaration.has_version_header:
+        version = f" @ {declaration.version}"
+        if declaration.has_change_kind:
+            version += f" ({declaration.change_kind})"
+    header = f"semantic {declaration.name}{version}: {_render_type(declaration.underlying)}"
     if not declaration.registry:
         return [header]
     return [f"{header} {{", "  registry: true", "}"]

@@ -488,7 +488,21 @@ class ApiDecl(BaseModel):
 class SemanticTypeDecl(BaseModel):
     name: str
     underlying: FieldType
+    version: int = 0
+    change_kind: Literal["additive", "breaking"] = "additive"
+    has_version_header: bool = False
+    has_change_kind: bool = False
     registry: bool = False
+
+
+def latest_semantic_types(domain: DomainDef) -> list[SemanticTypeDecl]:
+    """Return the latest declaration for each semantic type name."""
+    latest: dict[str, SemanticTypeDecl] = {}
+    for declaration in domain.semantic_types:
+        current = latest.get(declaration.name)
+        if current is None or declaration.version > current.version:
+            latest[declaration.name] = declaration
+    return list(latest.values())
 
 
 class SortField(BaseModel):

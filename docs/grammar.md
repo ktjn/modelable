@@ -283,7 +283,9 @@ pinned_import: "at" dotted_ref "@" INT "#" IDENT
 consumer_decl: "consumer" IDENT? "{" ignored_block_item* "}"
 auto_projections_decl: "auto" "projections" IDENT "@" INT "{" auto_projection_item* "}"
 
-semantic_decl: "semantic" IDENT ":" type_expr semantic_body?
+semantic_decl: "semantic" IDENT semantic_header? ":" type_expr semantic_body?
+semantic_header: "@" INT semantic_change?
+semantic_change: "(" change_kind ")"
 semantic_body: "{" semantic_item* "}"
 semantic_item: "registry" ":" bool_literal
 bool_literal: "true"  -> bl_true
@@ -467,7 +469,9 @@ Alphabetical listing of every named rule and its production.
 | `selection_clause` | `pick_clause \| omit_clause` |
 | `selector` | `qualified_field \| auto_projection_exclusion` |
 | `semantic_body` | `"{" semantic_item* "}"` |
-| `semantic_decl` | `"semantic" IDENT ":" type_expr semantic_body?` |
+| `semantic_change` | `"(" change_kind ")"` |
+| `semantic_decl` | `"semantic" IDENT semantic_header? ":" type_expr semantic_body?` |
+| `semantic_header` | `"@" INT semantic_change?` |
 | `semantic_item` | `"registry" ":" bool_literal` |
 | `sort_dir` | `"asc"  -> sd_asc \| "desc" -> sd_desc` |
 | `sort_field` | `IDENT sort_dir?` |

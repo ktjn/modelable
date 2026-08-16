@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from itertools import pairwise
 from pathlib import Path
 
 from modelable.compat.diff import compare_model_versions, is_field_change_breaking, is_optionality_breaking
@@ -541,15 +542,26 @@ def _validate_semantic_types(
 ) -> None:
     seen_names: set[str] = set()
     for decl in domain.semantic_types:
-        if decl.name in seen_names:
+        same_name = [item for item in domain.semantic_types if item.name == decl.name]
+        same_version = [item for item in same_name if item.version == decl.version]
+        if len(same_version) > 1:
             diagnostics.append(
                 _diag(
                     "SEM",
-                    f"{domain.name}: semantic type '{decl.name}' is declared more than once",
+                    f"{domain.name}: semantic type '{decl.name}@{decl.version}' is declared more than once",
                     path,
                 )
             )
         seen_names.add(decl.name)
+
+        if decl.has_version_header and decl.version < 1:
+            diagnostics.append(
+                _diag("SEM", f"{domain.name}: semantic type '{decl.name}' must have a positive version", path)
+            )
+        if decl.has_change_kind and not decl.has_version_header:
+            diagnostics.append(
+                _diag("SEM", f"{domain.name}: semantic type '{decl.name}' change kind requires a version header", path)
+            )
 
         if decl.name in domain.models:
             diagnostics.append(
@@ -569,6 +581,27 @@ def _validate_semantic_types(
                     path,
                 )
             )
+
+    for name in sorted(seen_names):
+        versions = sorted((item for item in domain.semantic_types if item.name == name), key=lambda item: item.version)
+        for previous, current_version in pairwise(versions):
+            fqn = f"{domain.name}.{name}@{current_version.version}"
+            if (
+                current_version.change_kind == "additive"
+                and isinstance(previous.underlying, EnumType)
+                and isinstance(current_version.underlying, EnumType)
+            ):
+                removed = sorted(set(previous.underlying.values) - set(current_version.underlying.values))
+                if removed:
+                    diagnostics.append(
+                        _diag("SEM", f"{fqn}: additive enum evolution removes values: {', '.join(removed)}", path)
+                    )
+            if (
+                current_version.change_kind == "additive"
+                and not isinstance(previous.underlying, EnumType)
+                and previous.underlying.model_dump() != current_version.underlying.model_dump()
+            ):
+                diagnostics.append(_diag("SEM", f"{fqn}: additive evolution cannot change the underlying type", path))
 
     for decl in domain.semantic_types:
         if not isinstance(decl.underlying, NamedType):
