@@ -27,6 +27,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Extended `modelable doctor` to verify the derived registry index and detect
+  stale or tampered generated artifacts from their manifests.
+
 ### Fixed
 
 ## [1.8.0] - 2026-08-16
