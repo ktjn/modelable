@@ -630,13 +630,14 @@ Gated on D0 (now decided), in dependency order:
 #### Slice D1 — separate presence and nullability
 
 **Purpose:** represent absence and explicit null independently — required
-non-null, optional non-null, required nullable, optional nullable. **Not yet
-started.** Requires D0 (done). Must not silently change the meaning of
-existing `field?`: the design must either preserve `?` as legacy optionality
-and add separate nullable syntax, or interpret `?` under an explicit language
-version. Acceptance: existing published text keeps a deterministic meaning;
-compatibility reports distinguish presence from nullability; every emitter
-declares exact or lossy representation. [Slice A1](#slice-a1--correct-optionality-compatibility-under-the-current-model)'s
+non-null, optional non-null, required nullable, optional nullable. **Design
+proposed:** `field?` remains the legacy presence marker and a post-type `?`
+marks nullability, as specified in
+[`docs/superpowers/specs/2026-08-16-presence-nullability-design.md`](docs/superpowers/specs/2026-08-16-presence-nullability-design.md).
+Implementation remains pending. Requires D0 (done). Acceptance: existing
+published text keeps a deterministic meaning; compatibility reports
+distinguish presence from nullability; every emitter declares exact or lossy
+representation. [Slice A1](#slice-a1--correct-optionality-compatibility-under-the-current-model)'s
 stopgap results must still hold for equivalent transitions once this lands.
 
 #### Slice D2 — first-class value constraints
