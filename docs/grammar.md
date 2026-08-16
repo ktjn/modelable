@@ -69,9 +69,15 @@ model_kind: "entity"    -> mk_entity
 change_kind: "additive" -> ck_additive
            | "breaking" -> ck_breaking
 
-field_decl: annotation* IDENT optional_marker? ":" type_expr nullable_marker? field_default?
+field_decl: annotation* IDENT optional_marker? ":" type_expr nullable_marker? constraint_clause* field_default?
 optional_marker: "?"
 nullable_marker: "?"
+constraint_clause: "constraint" "{" constraint_item ("," constraint_item)* "}" -> constraint_clause
+constraint_item: IDENT ":" constraint_value
+constraint_value: ESCAPED_STRING -> constraint_string
+                | CONSTRAINT_NUMBER -> constraint_number
+                | "true"             -> constraint_true
+                | "false"            -> constraint_false
 field_default: "=" EXPRESSION
 
 annotation: "@key"                                                -> ann_key
@@ -335,6 +341,7 @@ VERSION_RANGE: /[<>~=^0-9.,\s]+/
 EXPRESSION: /[^\n\r{}]+/
 FIELD_EXPRESSION: /[^\n\r]+(?:\n(?!\s*(?:@|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-|=)|generate\s*\{|materialisation\s*\{|subscription\s*\{|access\s*\{|from\s|group\s+by|pick\s*\(|omit\s*\(|\{|\}))[^\n\r]+)*/
 ANNOTATION_EXPR: /[^)\n\r{}]+/
+CONSTRAINT_NUMBER: /-?[0-9]+(\.[0-9]+)?/
 IDENT: /[A-Za-z_][A-Za-z0-9_-]*/
 HASH: /[0-9A-Fa-f][0-9A-Fa-f_-]*/
 PEERS_CONTENT: /[^\]]+/
@@ -379,6 +386,9 @@ Alphabetical listing of every named rule and its production.
 | `bool_literal` | `"true"  -> bl_true \| "false" -> bl_false` |
 | `cardinality_attr` | `"cardinality" ":" IDENT` |
 | `change_kind` | `"additive" -> ck_additive \| "breaking" -> ck_breaking` |
+| `constraint_clause` | `"constraint" "{" constraint_item ("," constraint_item)* "}" -> constraint_clause` |
+| `constraint_item` | `IDENT ":" constraint_value` |
+| `constraint_value` | `ESCAPED_STRING -> constraint_string \| CONSTRAINT_NUMBER -> constraint_number \| "true"             -> constraint_true \| "false"            -> constraint_false` |
 | `consumer_decl` | `"consumer" IDENT? "{" ignored_block_item* "}"` |
 | `contact_attr` | `"contact" ":" ESCAPED_STRING` |
 | `db_dialect` | `"postgres" -> dd_postgres \| "mysql"    -> dd_mysql \| "clickhouse" -> dd_clickhouse \| "sqlite"   -> dd_sqlite` |
@@ -392,7 +402,7 @@ Alphabetical listing of every named rule and its production.
 | `enum_member` | `IDENT \| NUMERIC_IDENT` |
 | `enum_type` | `"enum" "(" enum_member ("," enum_member)* ")"` |
 | `exclude_option` | `"exclude" "[" auto_projection_exclusion ("," auto_projection_exclusion)* "]"` |
-| `field_decl` | `annotation* IDENT optional_marker? ":" type_expr nullable_marker? field_default?` |
+| `field_decl` | `annotation* IDENT optional_marker? ":" type_expr nullable_marker? constraint_clause* field_default?` |
 | `field_default` | `"=" EXPRESSION` |
 | `fixed_binary_type` | `"binary" "(" INT ")"` |
 | `generate_block` | `"generate" "{" generate_target* "}"` |
@@ -496,6 +506,7 @@ Regular-expression terminals used by the lexer.
 |---|---|
 | `ANNOTATION_EXPR` | `/[^)\n\r{}]+/` |
 | `COMMENT` | `/\/\/[^\n]*/` |
+| `CONSTRAINT_NUMBER` | `/-?[0-9]+(\.[0-9]+)?/` |
 | `EXPRESSION` | `/[^\n\r{}]+/` |
 | `FIELD_EXPRESSION` | `/[^\n\r]+(?:\n(?!\s*(?:@\|[A-Za-z_][A-Za-z0-9_-]*\s*(?:<-\|=)\|generate\s*\{\|materialisation\s*\{\|subscription\s*\{\|access\s*\{\|from\s\|group\s+by\|pick\s*\(\|omit\s*\(\|\{\|\}))[^\n\r]+)*/` |
 | `HASH` | `/[0-9A-Fa-f][0-9A-Fa-f_-]*/` |

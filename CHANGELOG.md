@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added first-class field value constraints for numeric bounds, string lengths,
+  patterns, formats, array item counts, and uniqueness, with JSON Schema output.
+
 - Added explicit offline registry snapshots with deterministic content-addressed
   objects and `modelable registry resolve`, `verify`, `status`, and `prune`.
 - Added `modelable registry usage` for application-facing usage graphs and compact exact

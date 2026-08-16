@@ -207,6 +207,7 @@ def _render_model(model_name: str, version: ModelVersion) -> list[str]:
 def _render_field(field: FieldDef, indent: int = 0) -> str:
     prefix = " ".join(_render_annotations(field.annotations))
     suffix = f"{field.name}{'?' if field.optional else ''}: {_render_type(field.type)}{'?' if field.nullable else ''}"
+    suffix += _render_constraints(field)
     if field.default is not None:
         suffix += f" = {field.default}"
     return _with_prefix(prefix, suffix, indent)
@@ -223,7 +224,23 @@ def _render_signature_model(model_name: str, version: ModelVersion) -> list[str]
 def _render_signature_field(field: FieldDef, indent: int = 0) -> str:
     prefix = " ".join(_render_annotations(field.annotations))
     suffix = f"{field.name}{'?' if field.optional else ''}: {_render_signature_type(field.type)}{'?' if field.nullable else ''}"
+    suffix += _render_constraints(field)
     return _with_prefix(prefix, suffix, indent)
+
+
+def _render_constraints(field: FieldDef) -> str:
+    if not field.constraints:
+        return ""
+    values = ", ".join(
+        f"{constraint.kind}: {_render_constraint_value(constraint.value)}" for constraint in field.constraints
+    )
+    return f" constraint {{ {values} }}"
+
+
+def _render_constraint_value(value: bool | float | int | str) -> str:
+    if isinstance(value, str):
+        return json.dumps(value)
+    return str(value).lower()
 
 
 def _render_projection(projection_name: str, version: ProjectionVersion) -> list[str]:
