@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
+from modelable.artifact_manifest import MANIFEST_NAME, build_artifact_manifest, write_artifact_manifest
 from modelable.compiler.workspace import Workspace, load_workspace
 from modelable.diagnostics.model import Diagnostic
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
@@ -135,7 +136,7 @@ class FileFingerprint:
 
 @dataclass(frozen=True)
 class CompilationFilePreview:
-    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor"]
+    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor", "manifest"]
     destination: Path
     staged_path: Path
     status: Literal["created", "changed", "unchanged"]
@@ -710,7 +711,7 @@ def _build_file_previews(
 def _file_category(
     destination: Path,
     layout: _PreviewLayout,
-) -> Literal["registry_ids", "registry", "plan", "artifact", "descriptor"]:
+) -> Literal["registry_ids", "registry", "plan", "artifact", "descriptor", "manifest"]:
     if destination == layout.registry_ids:
         return "registry_ids"
     if destination == layout.registry:
@@ -719,12 +720,14 @@ def _file_category(
         return "descriptor"
     if destination.name.endswith(".plan.json"):
         return "plan"
+    if destination.name == MANIFEST_NAME:
+        return "manifest"
     return "artifact"
 
 
 def _file_preview(
     *,
-    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor"],
+    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor", "manifest"],
     destination: Path,
     staged_path: Path,
     before_bytes: bytes | None,
@@ -1114,7 +1117,7 @@ def _verify_apply_freshness(
 
 
 def _category_label(
-    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor"],
+    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor", "manifest"],
 ) -> str:
     return category.replace("_", " ")
 
@@ -1288,6 +1291,18 @@ def _run_compilation(
                 content_hash=artifact.content_hash,
             )
         )
+    manifest_path = output / MANIFEST_NAME
+    manifest = build_artifact_manifest(
+        workspace,
+        tuple(artifacts),
+        target=request.target,
+        workspace_root=_workspace_root(request.source),
+        registry_lock=_workspace_root(request.source) / ".modelable" / "registry.lock",
+        output_root=output,
+    )
+    write_artifact_manifest(manifest_path, manifest)
+    written_paths.append(manifest_path)
+    events.append(CompilationEvent("ok", str(manifest_path), path=manifest_path))
     if not artifacts:
         events.append(CompilationEvent("warning", "No artifacts generated."))
 

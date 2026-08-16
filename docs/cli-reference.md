@@ -153,6 +153,12 @@ modelable validate ./my-project/
 modelable validate ./my-project/ --strict
 ```
 
+Every `compile` invocation also writes `modelable-artifact-manifest.json` in
+the selected output directory. The manifest records the compiler version,
+input signatures, registry-lock identity, target profile, generated artifact
+hashes, plugin identities, warnings, and semantic loss facts so CI can verify
+the generated boundary without parsing human-readable output.
+
 ---
 
 ### 5.2 `resolve` — Look up a model or projection by reference
