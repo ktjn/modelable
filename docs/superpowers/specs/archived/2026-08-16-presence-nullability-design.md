@@ -1,6 +1,6 @@
 # D1 Presence and Nullability Design
 
-**Status:** Proposed
+**Status:** Implemented — PR #364
 
 ## Context
 

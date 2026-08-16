@@ -18,6 +18,7 @@ from modelable.parser.ir import (
     ModelVersion,
     ProjectionVersion,
     RefType,
+    UnionType,
 )
 
 
@@ -97,19 +98,7 @@ def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion)
                     to_type=_type_signature(new_field),
                 )
             )
-        if _type_signature(old_field) != _type_signature(new_field):
-            if isinstance(old_field.type, EnumType) and isinstance(new_field.type, EnumType):
-                kind = "enum_changed"
-            else:
-                kind = "type_changed"
-            changes.append(
-                FieldChange(
-                    kind=kind,
-                    field_name=replacement,
-                    from_type=_type_signature(old_field),
-                    to_type=_type_signature(new_field),
-                )
-            )
+        changes.extend(_compare_field_types(old_field, new_field, replacement))
         matched_old.add(old_field.name)
         matched_new.add(replacement)
 
@@ -168,24 +157,7 @@ def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion)
         new_sig = _type_signature(new_field)
         if old_sig == new_sig:
             continue
-        if isinstance(old_field.type, EnumType) and isinstance(new_field.type, EnumType):
-            changes.append(
-                FieldChange(
-                    kind="enum_changed",
-                    field_name=name,
-                    from_type=old_sig,
-                    to_type=new_sig,
-                )
-            )
-        else:
-            changes.append(
-                FieldChange(
-                    kind="type_changed",
-                    field_name=name,
-                    from_type=old_sig,
-                    to_type=new_sig,
-                )
-            )
+        changes.extend(_compare_field_types(old_field, new_field, name))
 
     for new_field in new_version.fields:
         if new_field.name in matched_new:
@@ -202,6 +174,63 @@ def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion)
 
     changes.extend(_compare_model_governance(old_version, new_version))
     return changes
+
+
+def _compare_field_types(old_field: FieldDef, new_field: FieldDef, field_name: str) -> list[FieldChange]:
+    old_type = old_field.type
+    new_type = new_field.type
+    old_sig = _type_signature(old_field)
+    new_sig = _type_signature(new_field)
+    if old_sig == new_sig:
+        return []
+    if isinstance(old_type, UnionType) and isinstance(new_type, UnionType):
+        changes: list[FieldChange] = []
+        if old_type.discriminator != new_type.discriminator:
+            changes.append(
+                FieldChange(
+                    kind="union_discriminator_changed",
+                    field_name=field_name,
+                    from_type=old_type.discriminator,
+                    to_type=new_type.discriminator,
+                )
+            )
+        old_variants = {variant.tag: variant for variant in old_type.variants}
+        new_variants = {variant.tag: variant for variant in new_type.variants}
+        for tag in sorted(old_variants.keys() - new_variants.keys()):
+            changes.append(
+                FieldChange(
+                    kind="union_variant_removed",
+                    field_name=f"{field_name}.{tag}",
+                    from_type=_field_type_signature(old_variants[tag].type),
+                )
+            )
+        for tag in sorted(new_variants.keys() - old_variants.keys()):
+            changes.append(
+                FieldChange(
+                    kind="union_variant_added",
+                    field_name=f"{field_name}.{tag}",
+                    to_type=_field_type_signature(new_variants[tag].type),
+                )
+            )
+        for tag in sorted(old_variants.keys() & new_variants.keys()):
+            old_variant_sig = _field_type_signature(old_variants[tag].type)
+            new_variant_sig = _field_type_signature(new_variants[tag].type)
+            if old_variant_sig != new_variant_sig:
+                changes.append(
+                    FieldChange(
+                        kind="union_variant_changed",
+                        field_name=f"{field_name}.{tag}",
+                        from_type=old_variant_sig,
+                        to_type=new_variant_sig,
+                    )
+                )
+        return changes
+    kind = "enum_changed" if isinstance(old_type, EnumType) and isinstance(new_type, EnumType) else "type_changed"
+    return [FieldChange(kind=kind, field_name=field_name, from_type=old_sig, to_type=new_sig)]
+
+
+def _field_type_signature(field_type: FieldType) -> str:
+    return json.dumps(field_type.model_dump(mode="json"), sort_keys=True)
 
 
 def _compare_model_governance(old: ModelVersion, new: ModelVersion) -> list[FieldChange]:
@@ -305,6 +334,10 @@ def is_field_change_breaking(change: FieldChange) -> bool:
         "renamed_field",
         "type_changed",
         "enum_changed",
+        "union_discriminator_changed",
+        "union_variant_added",
+        "union_variant_removed",
+        "union_variant_changed",
         "identity_changed",
         "access_grant_removed",
         "pii_changed",
@@ -355,6 +388,10 @@ def describe_field_change(change: FieldChange) -> str:
         return f"enum_changed {change.field_name}"
     if change.kind == "type_changed":
         return f"type_changed {change.field_name}"
+    if change.kind == "union_discriminator_changed":
+        return f"union_discriminator_changed {change.field_name}: {change.from_type} -> {change.to_type}"
+    if change.kind in {"union_variant_added", "union_variant_removed", "union_variant_changed"}:
+        return f"{change.kind} {change.field_name}"
     if change.kind == "removed_field":
         return f"removed_field {change.field_name}"
     if change.kind == "added_field":

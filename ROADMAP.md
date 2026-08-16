@@ -633,10 +633,11 @@ Gated on D0 (now decided), in dependency order:
 non-null, optional non-null, required nullable, optional nullable. **Design
 and implementation:** `field?` remains the legacy presence marker and a post-type `?`
 marks nullability, as specified in
-[`docs/superpowers/specs/2026-08-16-presence-nullability-design.md`](docs/superpowers/specs/2026-08-16-presence-nullability-design.md).
-The parser, canonical renderer, compatibility model, and JSON Schema/OpenAPI
-emitters now preserve both dimensions. Remaining target-specific emitter
-coverage follows the implementation plan. Requires D0 (done). Acceptance:
+[`docs/superpowers/specs/archived/2026-08-16-presence-nullability-design.md`](docs/superpowers/specs/archived/2026-08-16-presence-nullability-design.md).
+**Shipped:** PR #364. The parser, canonical renderer, compatibility model,
+and JSON Schema/OpenAPI emitters preserve both dimensions. Remaining
+target-specific emitter coverage is tracked as target work. Requires D0 (done).
+Acceptance:
 existing
 published text keeps a deterministic meaning; compatibility reports
 distinguish presence from nullability; every emitter declares exact or lossy
@@ -647,7 +648,10 @@ stopgap results must still hold for equivalent transitions once this lands.
 
 **Purpose:** track valid property values (numeric min/max, length limits,
 pattern, format, item-count limits, uniqueness) in addition to structural
-shape, with explicit lineage and no silent widening. **Not yet started.**
+shape, with explicit lineage and no silent widening. **Shipped:** PRs #379
+and #380 added the constraint IR, compatibility semantics, JSON Schema/OpenAPI
+mapping, projection propagation, and target support/loss coverage. Remaining
+target-specific refinements are tracked with the relevant emitter work.
 Each constraint must define valid source types, propagation through direct
 projections, narrowing/widening rules, compatibility impact, and target
 support/loss diagnostics.
@@ -656,15 +660,21 @@ support/loss diagnostics.
 
 **Purpose:** reusable vocabularies with domain-qualified identity, value
 evolution, wire values, Protobuf numbering/reservations, and compatibility
-across targets. **Not yet started.** Depended on by D4.
+across targets. **Shipped:** PRs #381 and #382 added reusable semantic enum
+identity, schema reuse, version evolution, conversion behavior, and
+compatibility checks. Depended on by D4.
 
 #### Slice D4 — discriminated unions
 
 **Purpose:** represent variant-based contracts, especially event families,
 with stable variant identity and discriminator values; adding/removing
 variants is compatibility-classified; every emitter preserves semantics or
-emits an explicit loss diagnostic. **Not yet started.** Depends on D3, D1,
-and stable target-compatibility semantics.
+emits an explicit loss diagnostic. **Core schema slice shipped:** PR #384
+added the grammar/IR, canonical rendering, JSON Schema/OpenAPI `oneOf` plus
+discriminator output, and JSON Schema round-trip import. **Next:** classify
+union compatibility changes, add explicit target-loss diagnostics, and extend
+preservation beyond schema-oriented targets. Depends on D3, D1, and stable
+target-compatibility semantics.
 
 #### Slice D5 — resolve composite-key support
 
@@ -784,8 +794,9 @@ stable traversal of all component schemas, explicit multi-schema selection,
 Unsupported unions, composition, nullability, and value constraints also emit
 explicit lossy-import warnings instead of being silently discarded; dropped
 operation, request/response, and security metadata is reported the same way.
-Phase D (fidelity follow-ups: constraints, presence/nullability, named enum
-reuse, discriminated unions) remains a future slice, gated on D1-D4.
+Phase D (fidelity follow-ups) is in progress: the core D1-D4 schema slices have
+shipped, while remaining target parity, compatibility reporting, and explicit
+loss diagnostics continue as follow-up work.
 
 #### Slice F3 — AsyncAPI emission
 
