@@ -9,7 +9,7 @@ compiler.
 ## 1. Purpose
 
 Phase A emits deterministic OpenAPI 3.1 `components.schemas` from API-facing
-projections ([Phase A design](archived/2026-08-14-openapi-emission-design.md)).
+projections ([Phase A design](2026-08-14-openapi-emission-design.md)).
 Phase B adds the missing REST contract surface: paths, HTTP
 methods, request bindings, response status codes, and operation metadata.
 

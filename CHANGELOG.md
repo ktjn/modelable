@@ -16,6 +16,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- OpenAPI API-version compatibility now reports operation additions/removals,
+  renames, method/path and path-key changes, request-contract changes, and
+  response status/projection changes from normalized Modelable IR.
+
 ### Fixed
 
 - Fixed validation and compilation gaps across parser diagnostics, semantic-type

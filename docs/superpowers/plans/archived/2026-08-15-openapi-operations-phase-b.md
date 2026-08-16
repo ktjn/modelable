@@ -1,7 +1,7 @@
 # OpenAPI Phase B: Paths and Operations Implementation Plan
 
 > Implements the accepted design in
-> `docs/superpowers/specs/2026-08-15-openapi-operations-design.md`.
+> `docs/superpowers/specs/archived/2026-08-15-openapi-operations-design.md`.
 
 ## Goal
 

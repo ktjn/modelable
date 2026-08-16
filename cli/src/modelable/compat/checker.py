@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from modelable.compat.diff import (
@@ -12,7 +13,14 @@ from modelable.compat.diff import (
     is_field_change_breaking,
 )
 from modelable.dependency_graph import build_projection_dependencies, resolve_projection_aliases
-from modelable.parser.ir import IndexDecl, MdlFile, ModelVersion, ProjectionVersion
+from modelable.parser.ir import (
+    ApiDecl,
+    ApiOperation,
+    IndexDecl,
+    MdlFile,
+    ModelVersion,
+    ProjectionVersion,
+)
 from modelable.registry.resolver import find_dependents
 
 
@@ -45,6 +53,25 @@ class ProjectionCompatibilityReport:
     status: str
     findings: list[str] = field(default_factory=list)
     changes: list[ProjectionChange] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ApiChange:
+    kind: str
+    subject: str
+    breaking: bool
+    message: str
+
+
+@dataclass(frozen=True)
+class ApiCompatibilityReport:
+    domain_name: str
+    model_name: str
+    from_version: int
+    to_version: int
+    status: str
+    findings: list[str] = field(default_factory=list)
+    changes: list[ApiChange] = field(default_factory=list)
 
 
 def check_model_version_compatibility(
@@ -102,6 +129,242 @@ def check_projection_version_compatibility(
         findings=findings,
         changes=changes,
     )
+
+
+def check_api_version_compatibility(
+    mdl: MdlFile,
+    domain_name: str,
+    model_name: str,
+    from_version: int,
+    to_version: int,
+) -> ApiCompatibilityReport:
+    """Compare versioned API operations without serializing them to OpenAPI."""
+    old_api = _find_api(mdl, domain_name, model_name, from_version)
+    new_api = _find_api(mdl, domain_name, model_name, to_version)
+    changes = _compare_api_operations(mdl, domain_name, old_api, new_api)
+    findings = [change.message for change in changes]
+    return ApiCompatibilityReport(
+        domain_name=domain_name,
+        model_name=model_name,
+        from_version=from_version,
+        to_version=to_version,
+        status="breaking" if any(change.breaking for change in changes) else "compatible",
+        findings=findings,
+        changes=changes,
+    )
+
+
+def _compare_api_operations(
+    mdl: MdlFile,
+    domain_name: str,
+    old_api: ApiDecl,
+    new_api: ApiDecl,
+) -> list[ApiChange]:
+    changes: list[ApiChange] = []
+    old_operations = {operation.name: operation for operation in old_api.operations}
+    new_operations = {operation.name: operation for operation in new_api.operations}
+
+    removed = {name: operation for name, operation in old_operations.items() if name not in new_operations}
+    added = {name: operation for name, operation in new_operations.items() if name not in old_operations}
+    for old_name, old_operation in sorted(removed.items()):
+        renamed = next(
+            (
+                (new_name, new_operation)
+                for new_name, new_operation in added.items()
+                if _operation_signature(new_operation) == _operation_signature(old_operation)
+            ),
+            None,
+        )
+        if renamed is not None:
+            new_name, _ = renamed
+            del added[new_name]
+            changes.append(
+                ApiChange(
+                    "operation_renamed",
+                    old_name,
+                    True,
+                    f"operation '{old_name}' renamed to '{new_name}'",
+                )
+            )
+        else:
+            changes.append(ApiChange("operation_removed", old_name, True, f"operation '{old_name}' removed"))
+
+    for name in sorted(added):
+        changes.append(ApiChange("operation_added", name, False, f"operation '{name}' added"))
+
+    for name in sorted(set(old_operations) & set(new_operations)):
+        changes.extend(
+            _compare_operation(
+                mdl,
+                domain_name,
+                old_api.model,
+                old_api.version,
+                new_api.version,
+                old_operations[name],
+                new_operations[name],
+            )
+        )
+    return changes
+
+
+def _compare_operation(
+    mdl: MdlFile,
+    domain_name: str,
+    model_name: str,
+    old_api_version: int,
+    new_api_version: int,
+    old: ApiOperation,
+    new: ApiOperation,
+) -> list[ApiChange]:
+    changes: list[ApiChange] = []
+    if old.method != new.method:
+        changes.append(ApiChange("method_changed", old.name, True, f"operation '{old.name}' method changed"))
+    if old.path != new.path:
+        changes.append(ApiChange("path_changed", old.name, True, f"operation '{old.name}' path changed"))
+        if set(_path_parameters(old.path)) != set(_path_parameters(new.path)):
+            changes.append(
+                ApiChange(
+                    "path_key_renamed",
+                    old.name,
+                    True,
+                    f"operation '{old.name}' path key changed",
+                )
+            )
+    changes.extend(
+        _compare_path_key_types(
+            mdl,
+            domain_name,
+            model_name,
+            old_api_version,
+            new_api_version,
+            old,
+            new,
+        )
+    )
+    changes.extend(_compare_request(mdl, domain_name, old, new))
+    changes.extend(_compare_responses(mdl, domain_name, old, new))
+    return changes
+
+
+def _compare_path_key_types(
+    mdl: MdlFile,
+    domain_name: str,
+    model_name: str,
+    old_api_version: int,
+    new_api_version: int,
+    old_operation: ApiOperation,
+    new_operation: ApiOperation,
+) -> list[ApiChange]:
+    if old_operation.path != new_operation.path:
+        return []
+    try:
+        old_model = _find_version(mdl, domain_name, model_name, old_api_version)
+        new_model = _find_version(mdl, domain_name, model_name, new_api_version)
+    except LookupError:
+        return []
+    old_fields = {field.name: field for field in old_model.fields if field.is_key}
+    new_fields = {field.name: field for field in new_model.fields if field.is_key}
+    changes = []
+    for name in sorted(set(_path_parameters(old_operation.path)) & set(_path_parameters(new_operation.path))):
+        old_field = old_fields.get(name)
+        new_field = new_fields.get(name)
+        if old_field is not None and new_field is not None and old_field.type != new_field.type:
+            changes.append(
+                ApiChange(
+                    "path_key_type_changed",
+                    old_operation.name,
+                    True,
+                    f"operation '{old_operation.name}' path key '{name}' type changed",
+                )
+            )
+    return changes
+
+
+def _compare_request(
+    mdl: MdlFile,
+    domain_name: str,
+    old: ApiOperation,
+    new: ApiOperation,
+) -> list[ApiChange]:
+    if old.request == new.request:
+        return []
+    if old.request is None or new.request is None:
+        return [ApiChange("request_changed", old.name, True, f"operation '{old.name}' request projection changed")]
+    old_name, old_version = old.request
+    new_name, new_version = new.request
+    if old_name != new_name:
+        return [ApiChange("request_changed", old.name, True, f"operation '{old.name}' request projection changed")]
+    report = check_projection_version_compatibility(mdl, domain_name, old_name, old_version, new_version)
+    return [
+        ApiChange(
+            "request_changed",
+            old.name,
+            report.status == "breaking",
+            f"operation '{old.name}' request projection changed ({report.status})",
+        )
+    ]
+
+
+def _compare_responses(
+    mdl: MdlFile,
+    domain_name: str,
+    old: ApiOperation,
+    new: ApiOperation,
+) -> list[ApiChange]:
+    old_responses = {response.status_code: response for response in old.responses}
+    new_responses = {response.status_code: response for response in new.responses}
+    changes: list[ApiChange] = []
+    for status_code in sorted(set(old_responses) - set(new_responses)):
+        changes.append(
+            ApiChange(
+                "response_removed",
+                old.name,
+                True,
+                f"operation '{old.name}' response {status_code} removed",
+            )
+        )
+    for status_code in sorted(set(new_responses) - set(old_responses)):
+        changes.append(
+            ApiChange(
+                "response_added",
+                old.name,
+                False,
+                f"operation '{old.name}' response {status_code} added",
+            )
+        )
+    for status_code in sorted(set(old_responses) & set(new_responses)):
+        old_response = old_responses[status_code]
+        new_response = new_responses[status_code]
+        if (old_response.projection, old_response.version) == (new_response.projection, new_response.version):
+            continue
+        if old_response.projection != new_response.projection:
+            status = "breaking"
+        else:
+            report = check_projection_version_compatibility(
+                mdl,
+                domain_name,
+                old_response.projection,
+                old_response.version,
+                new_response.version,
+            )
+            status = report.status
+        changes.append(
+            ApiChange(
+                "response_changed",
+                old.name,
+                status == "breaking",
+                f"operation '{old.name}' response {status_code} changed ({status})",
+            )
+        )
+    return changes
+
+
+def _operation_signature(operation: ApiOperation) -> tuple[str, str]:
+    return operation.method, operation.path
+
+
+def _path_parameters(path: str) -> tuple[str, ...]:
+    return tuple(re.findall(r"\{([^{}]+)\}", path))
 
 
 def _require_all_aliases_resolve(mdl: MdlFile, projection: ProjectionVersion) -> None:
@@ -168,6 +431,17 @@ def _find_projection_version(
                 return candidate
         break
     raise LookupError(f"unknown projection version {domain_name}.{projection_name}@{version}")
+
+
+def _find_api(mdl: MdlFile, domain_name: str, model_name: str, version: int) -> ApiDecl:
+    for domain in mdl.domains:
+        if domain.name != domain_name:
+            continue
+        for api in domain.apis:
+            if api.model == model_name and api.version == version:
+                return api
+        break
+    raise LookupError(f"unknown API version {domain_name}.{model_name}@{version}")
 
 
 def _format_projection_finding(change: ProjectionChange) -> str:
