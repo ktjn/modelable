@@ -30,3 +30,23 @@ def test_constraints_round_trip_and_emit_json_schema(tmp_path: Path) -> None:
     customer = next(artifact for artifact in artifacts if artifact.ref == "customer.Customer@1")
     assert customer.content["properties"]["age"]["minimum"] == 0
     assert customer.content["properties"]["tags"]["uniqueItems"] is True
+
+
+def test_named_enum_semantic_type_emits_as_reusable_enum(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        """domain customer {
+  owner: "customer-team"
+  semantic CustomerStatus: enum(active, blocked)
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    status: CustomerStatus
+  }
+}""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    assert not workspace.errors
+    artifact = next(item for item in emit_json_schema(workspace, tmp_path / "out") if item.ref == "customer.Customer@1")
+    assert artifact.content["properties"]["status"] == {"type": "string", "enum": ["active", "blocked"]}

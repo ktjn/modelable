@@ -22,8 +22,9 @@ from modelable.parser.ir import (
     ProjectionField,
     ProjectionVersion,
     RefType,
+    ValueConstraint,
 )
-from modelable.registry.resolver import resolve_model_ref, resolve_ref_type
+from modelable.registry.resolver import resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
 
 _INTEGER_BOUNDS: dict[str, tuple[int, int]] = {
     "u8": (0, 2**8 - 1),
@@ -113,7 +114,7 @@ def _field_to_json_schema(
     *,
     mdl: MdlFile | None = None,
     ref_base: str = "#/$defs/",
-    inherited_constraints=(),
+    inherited_constraints: tuple[ValueConstraint, ...] = (),
 ) -> dict:
     prop = (
         _type_to_json_schema(field_type, defs=defs, path=path, mdl=mdl, ref_base=ref_base)
@@ -224,8 +225,12 @@ def _type_to_json_schema(
         }
     if isinstance(field_type, RefType):
         if mdl is not None:
-            resolved = resolve_ref_type(field_type, mdl)
-            return {"$ref": f"{ref_base}{resolved.domain_name}.{resolved.model_name}.v{resolved.version.version}"}
+            try:
+                resolved = resolve_ref_type(field_type, mdl)
+            except LookupError:
+                resolved = None
+            if resolved is not None:
+                return {"$ref": f"{ref_base}{resolved.domain_name}.{resolved.model_name}.v{resolved.version.version}"}
         return {
             "type": "string",
             "x-modelable-ref": field_type.target,
@@ -236,6 +241,13 @@ def _type_to_json_schema(
             "enum": field_type.values,
         }
     if isinstance(field_type, NamedType):
+        if mdl is not None:
+            try:
+                semantic = resolve_semantic_type_ref(mdl, "", field_type.name)[1]
+            except LookupError, TypeError:
+                semantic = None
+            if semantic is not None and isinstance(semantic.underlying, EnumType):
+                return {"type": "string", "enum": semantic.underlying.values}
         def_name = _definition_name([field_type.name])
         if defs is not None:
             defs.setdefault(

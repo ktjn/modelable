@@ -18,6 +18,7 @@ from modelable.parser.ir import (
     DirectMapping,
     DomainDef,
     FieldDef,
+    MdlFile,
     ModelVersion,
     NamedType,
     PrimitiveType,
@@ -36,7 +37,7 @@ def emit_json_schema(workspace: Workspace, out_dir: PurePath) -> list[EmittedArt
     for domain in workspace.mdl.domains:
         for model_name, versions in domain.models.items():
             for version in versions:
-                artifact = _emit_model_version(domain, model_name, version, out_dir)
+                artifact = _emit_model_version(domain, model_name, version, out_dir, workspace.mdl)
                 artifacts.append(artifact)
 
         for projection_name, versions in domain.projections.items():
@@ -56,7 +57,7 @@ def _artifact_id(domain: str, name: str, version: int) -> str:
 
 
 def _emit_model_version(
-    domain: DomainDef, model_name: str, version: ModelVersion, out_dir: PurePath
+    domain: DomainDef, model_name: str, version: ModelVersion, out_dir: PurePath, mdl: MdlFile
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     schema: dict = {
@@ -81,7 +82,7 @@ def _emit_model_version(
     defs: dict[str, dict] = {}
 
     for field in version.fields:
-        prop = _field_to_json_schema(field, field.type, defs=defs, path=[field.name])
+        prop = _field_to_json_schema(field, field.type, defs=defs, path=[field.name], mdl=mdl)
         default_value = _field_default(field)
         if default_value is not None:
             prop["default"] = default_value
@@ -171,7 +172,8 @@ def _emit_projection_version(
             field_type,
             defs=defs,
             path=[field.name],
-            inherited_constraints=source_field.constraints if source_field is not None else (),
+            mdl=mdl,
+            inherited_constraints=tuple(source_field.constraints) if source_field is not None else (),
         )
         if isinstance(field_type, NamedType):
             warnings.append(type_loss(field_type.name))

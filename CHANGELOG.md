@@ -32,6 +32,8 @@ releases could contain breaking changes when called out explicitly.
 
 - Propagated field constraints through generated and direct projection views so
   JSON Schema output preserves source validation semantics.
+- Added reusable semantic enum types that resolve to enum-valued JSON Schema
+  properties while retaining their domain-qualified identity in the IR.
 
 - Extended `modelable doctor` to verify the derived registry index and detect
   stale or tampered generated artifacts from their manifests.

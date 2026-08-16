@@ -529,7 +529,7 @@ def _validate_fixed_binary_length(
         )
 
 
-_SEMANTIC_UNDERLYING_TYPES = (PrimitiveType, DecimalType, FixedBinaryType, NamedType)
+_SEMANTIC_UNDERLYING_TYPES = (PrimitiveType, DecimalType, FixedBinaryType, EnumType, NamedType)
 _SEMANTIC_CHAIN_DEPTH_LIMIT = 32
 
 
@@ -565,7 +565,7 @@ def _validate_semantic_types(
                 _diag(
                     "SEM",
                     f"{domain.name}: semantic type '{decl.name}' has unsupported underlying type "
-                    f"'{decl.underlying.kind}' (must be a primitive, decimal, binary(N), or another semantic type)",
+                    f"'{decl.underlying.kind}' (must be a primitive, decimal, enum, binary(N), or another semantic type)",
                     path,
                 )
             )
