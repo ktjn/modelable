@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added discriminated-union compatibility findings for discriminator, variant,
+  and variant-shape changes.
+
 ### Changed
 
 ### Fixed

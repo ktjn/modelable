@@ -50,6 +50,80 @@ def test_compare_model_versions_reports_field_add_remove_and_type_changes():
     assert {changes[2].field_name, changes[3].field_name} == {"fullName", "email"}
 
 
+def test_compare_model_versions_reports_discriminated_union_variant_changes():
+    old_version = _model_version(
+        """
+        domain payments {
+          entity Payment @ 1 (additive) {
+            method: union<kind> {
+              card: object { number: string },
+              bank: object { iban: string }
+            }
+          }
+        }
+        """
+    )
+    new_version = _model_version(
+        """
+        domain payments {
+          entity Payment @ 2 (additive) {
+            method: union<kind> {
+              card: object { number: int },
+              cash: object { currency: string }
+            }
+          }
+        }
+        """,
+        version=2,
+    )
+
+    from modelable.compat.diff import compare_model_versions, describe_field_change, is_field_change_breaking
+
+    changes = compare_model_versions(old_version, new_version)
+    assert [(change.kind, change.field_name) for change in changes] == [
+        ("union_variant_removed", "method.bank"),
+        ("union_variant_added", "method.cash"),
+        ("union_variant_changed", "method.card"),
+    ]
+    assert all(is_field_change_breaking(change) for change in changes)
+    assert describe_field_change(changes[0]) == "union_variant_removed method.bank"
+
+
+def test_compare_model_versions_reports_union_discriminator_changes():
+    old_version = _model_version(
+        """
+        domain payments {
+          entity Payment @ 1 (additive) {
+            method: union<kind> {
+              card: object { number: string },
+              bank: object { iban: string }
+            }
+          }
+        }
+        """
+    )
+    new_version = _model_version(
+        """
+        domain payments {
+          entity Payment @ 2 (additive) {
+            method: union<type> {
+              card: object { number: string },
+              bank: object { iban: string }
+            }
+          }
+        }
+        """,
+        version=2,
+    )
+
+    from modelable.compat.diff import compare_model_versions
+
+    changes = compare_model_versions(old_version, new_version)
+    assert [(change.kind, change.field_name) for change in changes] == [("union_discriminator_changed", "method")]
+    assert changes[0].from_type == "kind"
+    assert changes[0].to_type == "type"
+
+
 def test_compare_model_versions_reports_stable_change_order():
     old_version = _model_version(
         """
