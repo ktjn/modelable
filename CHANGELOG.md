@@ -9,11 +9,10 @@ releases could contain breaking changes when called out explicitly.
 ### Added
 
 - `modelable compile --target openapi` emits a deterministic OpenAPI 3.1
-  document (`components.schemas` plus a minimal valid `paths: {}` envelope)
+  document with `components.schemas` and explicit `paths`/operations
   from `request`/`reply`/`event` auto-projections and hand-authored
-  projections. `{Entity}Db` projections are excluded by default; there is no
-  opt-in/opt-out syntax yet (deferred follow-up). Paths/operations
-  generation is out of scope for this slice.
+  projections. API declarations support versioned operations, key-based path
+  parameters, JSON request bodies, and projection-backed responses.
 
 ### Changed
 

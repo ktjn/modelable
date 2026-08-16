@@ -16,6 +16,9 @@ from modelable.parser.ir import (
     AnnPitCutoff,
     AnnServer,
     AnnWire,
+    ApiDecl,
+    ApiOperation,
+    ApiResponse,
     ArrayType,
     AutoProjectionDecl,
     AutoProjectionTarget,
@@ -168,6 +171,12 @@ def _render_domain(domain: DomainDef) -> list[str]:
             lines.append("")
         for decl in domain.auto_projections:
             lines.extend(_indent(_render_auto_projection(decl), 2))
+        has_body = True
+    if domain.apis:
+        if has_body:
+            lines.append("")
+        for api in domain.apis:
+            lines.extend(_indent(_render_api(api), 2))
         has_body = True
     if domain.generate_targets:
         if has_body:
@@ -356,6 +365,33 @@ def _render_generate_block(targets: list[GenerateTarget]) -> list[str]:
     lines.extend(f"  {_render_generate_target(target)}" for target in targets)
     lines.append("}")
     return lines
+
+
+def _render_api(api: ApiDecl) -> list[str]:
+    lines = [f"api {api.model} @ {api.version} {{"]
+    for operation in api.operations:
+        lines.extend(_indent(_render_api_operation(operation), 2))
+    lines.append("}")
+    return lines
+
+
+def _render_api_operation(operation: ApiOperation) -> list[str]:
+    lines = [f"operation {json.dumps(operation.name)} {{"]
+    lines.append(f"  method: {operation.method}")
+    lines.append(f"  path: {json.dumps(operation.path)}")
+    if operation.request is not None:
+        projection, version = operation.request
+        lines.append(f"  request: {projection} @ {version}")
+    lines.append("  responses {")
+    for response in operation.responses:
+        lines.append(_render_api_response(response))
+    lines.append("  }")
+    lines.append("}")
+    return lines
+
+
+def _render_api_response(response: ApiResponse) -> str:
+    return f"    {response.status_code}: {response.projection} @ {response.version}"
 
 
 def _render_generate_target(target: GenerateTarget) -> str:

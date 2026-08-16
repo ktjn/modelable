@@ -107,7 +107,73 @@ def validate_diagnostics(mdl: MdlFile, path: str | Path | None = None) -> list[D
         _validate_projections(domain.name, domain.projections, diagnostics, path, mdl)
         _validate_semantic_types(domain, mdl, diagnostics, path)
         _validate_index_decls(domain, diagnostics, path)
+        _validate_api_declarations(domain, diagnostics, path)
     return diagnostics
+
+
+_API_PATH_RE = re.compile(r"^/(?:[^{}]|\{[A-Za-z_][A-Za-z0-9_]*\})*$")
+_API_PATH_PARAMETER_RE = re.compile(r"\{([^{}]+)\}")
+
+
+def _validate_api_declarations(
+    domain: DomainDef,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    """Validate API declarations that can be checked before projection expansion."""
+    seen_api_versions: set[tuple[str, int]] = set()
+    for api in domain.apis:
+        api_fqn = f"{domain.name}.{api.model}@{api.version}"
+        api_key = (api.model, api.version)
+        if api_key in seen_api_versions:
+            diagnostics.append(_diag("SEM", f"{api_fqn}: duplicate API declaration", path))
+        seen_api_versions.add(api_key)
+
+        model_versions = domain.models.get(api.model, [])
+        model = next((item for item in model_versions if item.version == api.version), None)
+        if model is None:
+            diagnostics.append(_diag("SEM", f"{api_fqn}: bound model version does not exist", path))
+            key_names: set[str] = set()
+        else:
+            if model.model_kind not in (ModelKind.entity, ModelKind.aggregate):
+                diagnostics.append(_diag("SEM", f"{api_fqn}: API must bind to an entity or aggregate", path))
+            key_names = {field.name for field in model.fields if field.is_key}
+
+        operation_names: set[str] = set()
+        route_keys: set[tuple[str, str]] = set()
+        for operation in api.operations:
+            operation_fqn = f"{api_fqn} operation '{operation.name}'"
+            if operation.name in operation_names:
+                diagnostics.append(_diag("SEM", f"{operation_fqn}: duplicate operation name", path))
+            operation_names.add(operation.name)
+            route_key = (operation.method, operation.path)
+            if route_key in route_keys:
+                diagnostics.append(_diag("SEM", f"{operation_fqn}: duplicate method/path", path))
+            route_keys.add(route_key)
+            if not _API_PATH_RE.fullmatch(operation.path):
+                diagnostics.append(_diag("SEM", f"{operation_fqn}: invalid path template", path))
+            parameters = _API_PATH_PARAMETER_RE.findall(operation.path)
+            if len(parameters) != len(set(parameters)):
+                diagnostics.append(_diag("SEM", f"{operation_fqn}: duplicate path parameter", path))
+            unknown = sorted(set(parameters) - key_names)
+            if unknown:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{operation_fqn}: path parameter(s) not found among model keys: {', '.join(unknown)}",
+                        path,
+                    )
+                )
+            response_codes = [response.status_code for response in operation.responses]
+            if not response_codes:
+                diagnostics.append(_diag("SEM", f"{operation_fqn}: requires at least one response", path))
+            if len(response_codes) != len(set(response_codes)):
+                diagnostics.append(_diag("SEM", f"{operation_fqn}: duplicate response status code", path))
+            for status_code in response_codes:
+                if not 100 <= status_code <= 599:
+                    diagnostics.append(
+                        _diag("SEM", f"{operation_fqn}: invalid response status code {status_code}", path)
+                    )
 
 
 def _validate_classification_level(

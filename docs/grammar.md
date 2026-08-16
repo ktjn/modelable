@@ -40,6 +40,7 @@ domain_item: owner_attr
            | model_decl
            | projection_decl
            | auto_projections_decl
+           | api_decl
            | generate_block
            | semantic_decl
            | index_decl
@@ -197,6 +198,23 @@ reserved_names: "names" ":" "[" ESCAPED_STRING ("," ESCAPED_STRING)* "]"
 
 // -- Generate ----------------------------------------------------------------
 
+api_decl: "api" IDENT "@" INT "{" api_operation* "}"
+api_operation: "operation" ESCAPED_STRING "{" api_operation_item* "}"
+api_operation_item: method_clause
+                   | path_clause
+                   | request_clause
+                   | responses_block
+method_clause: "method" ":" http_method
+path_clause: "path" ":" ESCAPED_STRING
+request_clause: "request" ":" dotted_ref "@" INT
+responses_block: "responses" "{" response_decl* "}"
+response_decl: INT ":" dotted_ref "@" INT
+http_method: "GET"    -> http_get
+           | "POST"   -> http_post
+           | "PUT"    -> http_put
+           | "PATCH"  -> http_patch
+           | "DELETE" -> http_delete
+
 generate_block: "generate" "{" generate_target* "}"
 
 generate_target: target_name ("->" ESCAPED_STRING)?
@@ -343,6 +361,9 @@ Alphabetical listing of every named rule and its production.
 | `ai_provider` | `"provider" ":" ESCAPED_STRING` |
 | `ai_repair_attempts` | `"repair_attempts" ":" INT` |
 | `annotation` | `"@key"                                                -> ann_key \| "@pii"                                                -> ann_pii \| "@classification" "(" ESCAPED_STRING ")"             -> ann_classification \| "@deprecated" "(" "replacedBy" ":" ESCAPED_STRING ")" -> ann_deprecated \| "@owner" "(" ESCAPED_STRING ")"                      -> ann_owner \| "@server"                                             -> ann_server \| wire_annotation \| "@pitCutoff" "(" ANNOTATION_EXPR ")"                  -> ann_pit_cutoff \| "@latestBefore" "(" ANNOTATION_EXPR ")"               -> ann_latest_before \| "@latestOnly"                                         -> ann_latest_only` |
+| `api_decl` | `"api" IDENT "@" INT "{" api_operation* "}"` |
+| `api_operation` | `"operation" ESCAPED_STRING "{" api_operation_item* "}"` |
+| `api_operation_item` | `method_clause \| path_clause \| request_clause \| responses_block` |
 | `array_type` | `"array" "<" type_expr ">"` |
 | `auto_projection_exclusion` | `annotation \| IDENT` |
 | `auto_projection_item` | `auto_projection_kind auto_projection_option*` |
@@ -363,7 +384,7 @@ Alphabetical listing of every named rule and its production.
 | `decimal_type` | `"decimal" "(" INT "," INT ")"` |
 | `desc_attr` | `"description" ":" ESCAPED_STRING` |
 | `domain_decl` | `"domain" domain_name "{" domain_item* "}"` |
-| `domain_item` | `owner_attr \| contact_attr \| desc_attr \| model_decl \| projection_decl \| auto_projections_decl \| generate_block \| semantic_decl \| index_decl` |
+| `domain_item` | `owner_attr \| contact_attr \| desc_attr \| model_decl \| projection_decl \| auto_projections_decl \| api_decl \| generate_block \| semantic_decl \| index_decl` |
 | `domain_name` | `IDENT \| ESCAPED_STRING` |
 | `dotted_ref` | `IDENT ("." IDENT)*` |
 | `entity_grant` | `"entity" principal permission_list` |
@@ -376,6 +397,7 @@ Alphabetical listing of every named rule and its production.
 | `generate_block` | `"generate" "{" generate_target* "}"` |
 | `generate_target` | `target_name ("->" ESCAPED_STRING)?` |
 | `group_clause` | `"group" "by" group_item ("," group_item)*` |
+| `http_method` | `"GET"    -> http_get \| "POST"   -> http_post \| "PUT"    -> http_put \| "PATCH"  -> http_patch \| "DELETE" -> http_delete` |
 | `ignored_block_item` | `/[^{}]+/ \| "{" ignored_block_item* "}"` |
 | `import_domain_stmt` | `"import" "domain" dotted_ref import_source? pinned_import? version_selector?` |
 | `import_source` | `"from" "registry" ESCAPED_STRING` |
@@ -389,6 +411,7 @@ Alphabetical listing of every named rule and its production.
 | `map_type` | `"map" "<" type_expr "," type_expr ">"` |
 | `materialisation_block` | `"materialisation" "{" materialisation_item* "}"` |
 | `materialisation_item` | `IDENT ":" EXPRESSION` |
+| `method_clause` | `"method" ":" http_method` |
 | `model_body_item` | `field_decl \| access_block \| reservation_block` |
 | `model_change` | `"(" change_kind ")"` |
 | `model_decl` | `wire_annotation* model_kind IDENT model_header? "{" model_body_item* "}"` |
@@ -403,6 +426,7 @@ Alphabetical listing of every named rule and its production.
 | `package_description_attr` | `"description" ":" ESCAPED_STRING` |
 | `package_include_attr` | `"include" ":" "[" [ESCAPED_STRING ("," ESCAPED_STRING)*] "]"` |
 | `package_item` | `package_include_attr \| package_description_attr` |
+| `path_clause` | `"path" ":" ESCAPED_STRING` |
 | `peers_block` | `"peers" ":" "[" PEERS_CONTENT "]"` |
 | `permission` | `"read" -> p_read \| "project" -> p_project \| "subscribe" -> p_subscribe \| "write" -> p_write \| "transfer" -> p_transfer \| "manage_access" -> p_manage_access \| "derive" -> p_derive \| "redact" -> p_redact` |
 | `permission_list` | `"[" permission ("," permission)* "]"` |
@@ -419,10 +443,13 @@ Alphabetical listing of every named rule and its production.
 | `qualified_field` | `IDENT "." IDENT` |
 | `ref_type` | `"ref" "<" dotted_ref ("@" version_spec)? ">"` |
 | `registry_block` | `"registry" "{" ignored_block_item* "}"` |
+| `request_clause` | `"request" ":" dotted_ref "@" INT` |
 | `reservation_block` | `"reserved" "protobuf" "{" reservation_item* "}"` |
 | `reservation_item` | `reserved_numbers \| reserved_names` |
 | `reserved_names` | `"names" ":" "[" ESCAPED_STRING ("," ESCAPED_STRING)* "]"` |
 | `reserved_numbers` | `"numbers" ":" "[" INT ("," INT)* "]"` |
+| `response_decl` | `INT ":" dotted_ref "@" INT` |
+| `responses_block` | `"responses" "{" response_decl* "}"` |
 | `secondary_index` | `"secondary" IDENT "{" secondary_index_item* "}"` |
 | `secondary_index_item` | `key_item \| sort_item \| unique_item` |
 | `selection_clause` | `pick_clause \| omit_clause` |

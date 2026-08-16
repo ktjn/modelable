@@ -23,6 +23,7 @@ domain_item: owner_attr
            | model_decl
            | projection_decl
            | auto_projections_decl
+           | api_decl
            | generate_block
            | semantic_decl
            | index_decl
@@ -179,6 +180,23 @@ reserved_names: "names" ":" "[" ESCAPED_STRING ("," ESCAPED_STRING)* "]"
 
 
 // -- Generate ----------------------------------------------------------------
+
+api_decl: "api" IDENT "@" INT "{" api_operation* "}"
+api_operation: "operation" ESCAPED_STRING "{" api_operation_item* "}"
+api_operation_item: method_clause
+                   | path_clause
+                   | request_clause
+                   | responses_block
+method_clause: "method" ":" http_method
+path_clause: "path" ":" ESCAPED_STRING
+request_clause: "request" ":" dotted_ref "@" INT
+responses_block: "responses" "{" response_decl* "}"
+response_decl: INT ":" dotted_ref "@" INT
+http_method: "GET"    -> http_get
+           | "POST"   -> http_post
+           | "PUT"    -> http_put
+           | "PATCH"  -> http_patch
+           | "DELETE" -> http_delete
 
 generate_block: "generate" "{" generate_target* "}"
 

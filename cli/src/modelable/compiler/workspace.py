@@ -7,7 +7,15 @@ from pathlib import Path
 
 from modelable.diagnostics.model import Diagnostic
 from modelable.expressions.cel import CelContext, FieldRef, looks_boolean, parse_cel, validate_cel_expr
-from modelable.parser.ir import ArrayType, ComputedMapping, MapType, MdlFile, NamedType, ObjectType
+from modelable.parser.ir import (
+    ArrayType,
+    ComputedMapping,
+    MapType,
+    MdlFile,
+    NamedType,
+    ObjectType,
+    ProjectionVersion,
+)
 from modelable.parser.parse import parse_text_to_ir_with_tree
 from modelable.planner.planner import expand_auto_projections, expand_projection_selections
 from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref, validate_references
@@ -101,6 +109,7 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
     errors.extend(
         Diagnostic(code="SEM", message=error, severity="error", path="<workspace>") for error in auto_projection_errors
     )
+    errors.extend(_validate_api_bindings(merged))
 
     selection_errors = expand_projection_selections(merged)
     errors.extend(
@@ -115,6 +124,72 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
     warnings.extend(ref_warnings)
     errors.extend(_validate_cel(merged))
     return Workspace(sources=workspace_sources, mdl=merged, errors=errors, warnings=warnings)
+
+
+def _validate_api_bindings(mdl: MdlFile) -> list[Diagnostic]:
+    errors: list[Diagnostic] = []
+    for domain in mdl.domains:
+        for api in domain.apis:
+            for operation in api.operations:
+                operation_fqn = f"{domain.name}.{api.model}@{api.version} operation '{operation.name}'"
+                if operation.request is not None:
+                    _validate_api_projection_ref(
+                        domain.name, operation_fqn, operation.request, domain.projections, "request", errors
+                    )
+                for response in operation.responses:
+                    _validate_api_projection_ref(
+                        domain.name,
+                        operation_fqn,
+                        (response.projection, response.version),
+                        domain.projections,
+                        "response",
+                        errors,
+                    )
+    return errors
+
+
+def _validate_api_projection_ref(
+    domain_name: str,
+    operation_fqn: str,
+    reference: tuple[str, int],
+    projections: dict[str, list[ProjectionVersion]],
+    binding_kind: str,
+    errors: list[Diagnostic],
+) -> None:
+    projection_name, version = reference
+    versions = projections.get(projection_name)
+    projection = next((item for item in versions or [] if item.version == version), None)
+    if projection is None:
+        errors.append(
+            Diagnostic(
+                code="SEM",
+                message=(
+                    f"{operation_fqn}: {binding_kind} projection "
+                    f"{domain_name}.{projection_name}@{version} does not exist"
+                ),
+                severity="error",
+                path="<workspace>",
+            )
+        )
+        return
+    if binding_kind == "request" and projection_name.endswith("Reply"):
+        errors.append(
+            Diagnostic(
+                code="SEM",
+                message=f"{operation_fqn}: request binding cannot use reply projection '{projection_name}'",
+                severity="error",
+                path="<workspace>",
+            )
+        )
+    if binding_kind == "response" and projection_name.endswith("Request"):
+        errors.append(
+            Diagnostic(
+                code="SEM",
+                message=f"{operation_fqn}: response binding cannot use request projection '{projection_name}'",
+                severity="error",
+                path="<workspace>",
+            )
+        )
 
 
 _PACKAGE_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
@@ -227,9 +302,9 @@ def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) 
             else:
                 domains[domain.name] = source_location
 
-            for model_name, versions in domain.models.items():
-                for version in versions:
-                    key = (domain.name, model_name, version.version)
+            for model_name, model_versions_list in domain.models.items():
+                for model_version in model_versions_list:
+                    key = (domain.name, model_name, model_version.version)
                     previous_model_path = model_versions.get(key)
                     if previous_model_path is not None:
                         errors.append(
@@ -237,7 +312,7 @@ def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) 
                                 code="SEM",
                                 message=(
                                     "duplicate model version "
-                                    f"{domain.name}.{model_name}@{version.version} "
+                                    f"{domain.name}.{model_name}@{model_version.version} "
                                     f"also defined in {previous_model_path}"
                                 ),
                                 severity="error",
@@ -247,13 +322,13 @@ def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) 
                     else:
                         model_versions[key] = source_location
 
-            for projection_name, versions in domain.projections.items():
-                for version in versions:
+            for projection_name, projection_versions_list in domain.projections.items():
+                for projection_version in projection_versions_list:
                     # Skip auto-generated projections when checking for explicit
                     # projection conflicts — they are validated separately.
-                    if version.auto_generated:
+                    if projection_version.auto_generated:
                         continue
-                    key = (domain.name, projection_name, version.version)
+                    key = (domain.name, projection_name, projection_version.version)
                     previous_projection_path = projection_versions.get(key)
                     if previous_projection_path is not None:
                         errors.append(
@@ -261,7 +336,7 @@ def _validate_merged_workspace(sources: list[WorkspaceSource], merged: MdlFile) 
                                 code="SEM",
                                 message=(
                                     "duplicate projection version "
-                                    f"{domain.name}.{projection_name}@{version.version} "
+                                    f"{domain.name}.{projection_name}@{projection_version.version} "
                                     f"also defined in {previous_projection_path}"
                                 ),
                                 severity="error",

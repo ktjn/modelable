@@ -34,7 +34,7 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | Protobuf | 5 | Implemented local artifact with opt-in descriptor artifacts, native supported maps, source reservations, and manifest-based compatibility validation |
 | Scalable gRPC profile | 5 | Implemented local artifact with opt-in service descriptors, declared read-index metadata, and manifest-based compatibility validation |
 | Avro | 5 | Deferred |
-| OpenAPI | 5 | Implemented local artifact (schema-only; paths/operations deferred to a future phase) |
+| OpenAPI | 5 | Implemented local artifact with schemas, paths, and projection-backed operations |
 | AsyncAPI | 5 | Deferred |
 
 Phase 1 must not require runtime adapters.
