@@ -21,6 +21,7 @@ from modelable.commands.runtime import register_runtime_commands
 from modelable.commands.scenario import register_scenario_commands
 from modelable.commands.spec import register_spec_commands
 from modelable.commands.sync import register_sync_commands
+from modelable.commands.transforms import register_transform_commands
 from modelable.commands.validate_compat import register_validate_compat_commands
 from modelable.commands.workspace import register_workspace_commands
 
@@ -55,5 +56,6 @@ register_registry_commands(cli)
 register_apicurio_commands(cli)
 register_spec_commands(cli)
 register_sync_commands(cli)
+register_transform_commands(cli)
 register_validate_compat_commands(cli)
 register_capabilities_commands(cli)
