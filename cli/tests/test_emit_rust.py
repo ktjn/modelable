@@ -2118,6 +2118,47 @@ domain reporting {
     assert "impl From<BillingInvoiceV1Status> for ReportingInvoiceReportV1Status" in artifact.content
 
 
+def test_same_package_cross_domain_enum_from_impl_uses_crate_path(tmp_path):
+    """Cross-domain status-enum From impls in package mode must import via
+    `crate::{domain}::` (sibling top-level module in the same crate), not
+    `super::{domain}::` (which resolves inside the importing domain's own
+    directory and fails to compile)."""
+    text = """
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    status: enum(draft, paid)
+  }
+}
+
+domain reporting {
+  owner: "reporting-team"
+  projection InvoiceReport @ 1
+    from billing.Invoice @ 1 as i
+  {
+    invoiceId <- i.invoiceId
+    status <- i.status
+  }
+}
+
+workspace "ws" {
+  package "billing-core" {
+    include: ["billing", "reporting"]
+  }
+}
+"""
+    workspace = _load_multi_package_workspace(tmp_path, text)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    report_art = next(a for a in artifacts if a.ref == "reporting.InvoiceReport@1")
+    # The From impl importing billing's status enum must reference the sibling
+    # top-level module via crate::, since billing and reporting share one crate.
+    assert "impl From<BillingInvoiceV1Status> for ReportingInvoiceReportV1Status" in report_art.content
+    assert "use crate::billing::billing_invoice_v1::BillingInvoiceV1Status;" in report_art.content
+    assert "use super::billing::billing_invoice_v1::BillingInvoiceV1Status;" not in report_art.content
+
+
 def test_semantic_underlying_named_type_cross_package_import(tmp_path):
     # A bare (unqualified) semantic-type reference in another domain's
     # underlying type: resolve_semantic_type_ref falls back to a

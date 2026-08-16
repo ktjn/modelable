@@ -12,6 +12,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Fixed cross-domain status-enum `From` impls in package-mode Rust emission
+  importing via `super::{domain}::` (invalid for sibling top-level modules in
+  the same crate) instead of `crate::{domain}::`.
+
 ## [1.9.1] - 2026-08-16
 
 ### Added

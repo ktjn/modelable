@@ -45,11 +45,16 @@ class _FieldSpec:
 def _append_cross_enum_from_impls(
     artifacts: list[EmittedArtifact],
     enum_registry: dict[str, dict],
+    package_for_domain: dict[str, str] | None = None,
 ) -> list[EmittedArtifact]:
     """For each pair of enum types with identical variants in the same domain,
     append From impl blocks into projection files without manual match arms.
     """
-    # A projection may convert from a model owned by another domain in the flat crate.
+    # A projection may convert from a model owned by another domain.
+    # In package mode each entry also records its owning package so the emitted
+    # `use` path can be `crate::{domain}::` (same package, different domain)
+    # rather than `super::{domain}::` (which is only valid for sibling files in
+    # the same domain directory).
     entries: list[tuple[str, str, str, dict[str, list[str]], str]] = []
     for art_id, info in enum_registry.items():
         entries.append((art_id, info["domain"], info["module_name"], info["enums"], info["kind"]))
@@ -71,11 +76,12 @@ def _append_cross_enum_from_impls(
             for tgt_art_id, tgt_domain, _tgt_module, tgt_enum, tgt_kind in enum_list:
                 if (src_art_id == tgt_art_id and src_enum == tgt_enum) or tgt_kind == "model":
                     continue
-                source_path = (
-                    f"super::{_domain_mod_name(src_domain)}::{src_module}"
-                    if src_domain != tgt_domain
-                    else f"super::{src_module}"
-                )
+                if src_domain != tgt_domain:
+                    current_pkg = enum_registry.get(tgt_art_id, {}).get("pkg")
+                    prefix = _import_prefix(src_domain, tgt_domain, current_pkg, package_for_domain)
+                    source_path = f"{prefix}::{src_module}"
+                else:
+                    source_path = f"super::{src_module}"
                 lines: list[str] = [
                     "",
                     f"use {source_path}::{src_enum};",
@@ -238,7 +244,7 @@ def _emit_rust_packages(
                     modules.append(artifact.path.stem)
             domain_modules.setdefault(pkg.name, {})[domain.name] = sorted(modules)
 
-    artifacts = _append_cross_enum_from_impls(artifacts, enum_registry)
+    artifacts = _append_cross_enum_from_impls(artifacts, enum_registry, package_for_domain=package_for_domain)
 
     for pkg in mdl.workspace.packages:
         pkg_dir = out_dir / pkg.name
@@ -677,6 +683,7 @@ def _emit_model(
             "enums": local_enum_info,
             "module_name": _snake_case(type_name),
             "domain": domain.name,
+            "pkg": current_pkg,
             "kind": "model",
         }
 
@@ -847,6 +854,7 @@ def _emit_projection(
             "enums": local_enum_info,
             "module_name": _snake_case(type_name),
             "domain": domain.name,
+            "pkg": current_pkg,
             "kind": "projection",
         }
 
