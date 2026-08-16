@@ -295,7 +295,12 @@ def _resolve_ref_target(ref: RefType, mdl: MdlFile) -> tuple[str, str] | None:
     adapter_types: dict[str, str] = {b.name: b.adapter for b in mdl.bindings if b.adapter}
     for binding in mdl.bindings:
         adapter = adapter_types.get(binding.adapter, binding.adapter)
-        if binding.model == f"{target_domain}.{target_model}" and adapter == "postgres" and binding.table:
+        if (
+            binding.model == f"{target_domain}.{target_model}"
+            and binding.model_version == resolved.version.version
+            and adapter == "postgres"
+            and binding.table
+        ):
             table = binding.table
             break
     target_version = resolved.version

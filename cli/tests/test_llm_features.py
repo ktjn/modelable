@@ -171,6 +171,24 @@ def test_json_schema_importer_round_trips_to_mdl():
     assert "age?: int" in text
 
 
+def test_json_schema_importer_resolves_defs_references():
+    imported = import_from_text(
+        json.dumps(
+            {
+                "title": "Invoice",
+                "type": "object",
+                "properties": {"patientId": {"$ref": "#/$defs/patient.PatientId"}},
+                "$defs": {"patient.PatientId": {"title": "PatientId", "type": "string"}},
+            }
+        ),
+        "json-schema",
+        domain_name="billing",
+    )
+    text = imported.to_mdl()
+    assert "patientId?: PatientId" in text
+    assert "semantic PatientId: string" in text
+
+
 def test_openapi_importer_accepts_yaml_and_requires_selection_for_multiple_schemas():
     from modelable.llm.importers import import_openapi_models
 
@@ -709,6 +727,29 @@ schema:
 
     text = imported.to_mdl()
     assert '@pii @classification("restricted") email?: string' in text
+
+
+def test_odcs_importer_declares_modelable_references():
+    imported = import_from_text(
+        """
+apiVersion: v3.0.2
+kind: DataContract
+name: invoice-contract
+schema:
+  - name: Invoice
+    properties:
+      - name: patientId
+        logicalType: object
+        customProperties:
+          - property: modelableType
+            value: patient.PatientId
+""",
+        "odcs",
+        domain_name="billing",
+    )
+    text = imported.to_mdl()
+    assert "patientId?: PatientId" in text
+    assert "semantic PatientId: string" in text
 
 
 def test_odcs_importer_respects_false_boolean_flags():

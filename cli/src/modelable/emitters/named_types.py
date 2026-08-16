@@ -37,3 +37,18 @@ def resolve_named_types(
             if resolved_domain == domain.name and resolved.name == declaration.name:
                 shapes[declaration.name] = TypeShape.from_field_type(declaration.underlying)
     return names, shapes
+
+
+def resolve_named_type_domains(mdl: MdlFile, *, current_domain: str) -> dict[str, str]:
+    """Resolve the declaring domain for named model/semantic references."""
+    result: dict[str, str] = {}
+    for domain in mdl.domains:
+        for name in domain.models:
+            result.setdefault(name, domain.name)
+        for declaration in latest_semantic_types(domain):
+            try:
+                resolved_domain, _ = resolve_semantic_type_ref(mdl, current_domain, declaration.name)
+            except LookupError, AmbiguousSemanticTypeError:
+                continue
+            result.setdefault(declaration.name, resolved_domain)
+    return result

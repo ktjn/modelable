@@ -24,7 +24,9 @@ def emit_csharp(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
         )
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
-                artifacts.append(_emit_model(domain, model_name, model_version, out_dir, named_names, named_shapes))
+                artifacts.append(
+                    _emit_model(domain, model_name, model_version, out_dir, named_names, named_shapes, workspace.mdl)
+                )
         for projection_name, projection_versions in domain.projections.items():
             for projection_version in projection_versions:
                 artifacts.append(
@@ -54,10 +56,11 @@ def _emit_model(
     out_dir: Path,
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
-    lines = _header_lines(_namespace_name(domain.name))
+    lines = _header_lines(_namespace_name(domain.name), mdl)
     nested_definitions: dict[str, list[str]] = {}
     warnings: list[str] = []
 
@@ -102,7 +105,7 @@ def _emit_projection(
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     type_name = _stable_type_name(domain.name, projection_name, version.version)
-    lines = _header_lines(_namespace_name(domain.name))
+    lines = _header_lines(_namespace_name(domain.name), mdl)
     nested_definitions: dict[str, list[str]] = {}
     warnings: list[str] = []
 
@@ -141,11 +144,16 @@ def _emit_projection(
     )
 
 
-def _header_lines(namespace: str) -> list[str]:
+def _header_lines(namespace: str, mdl: MdlFile) -> list[str]:
     return [
         "#nullable enable",
         "using System;",
         "using System.Collections.Generic;",
+        *[
+            f"using {_namespace_name(domain.name)};"
+            for domain in mdl.domains
+            if _namespace_name(domain.name) != namespace
+        ],
         "",
         f"namespace {namespace};",
         "",

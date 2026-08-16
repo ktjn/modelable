@@ -68,6 +68,32 @@ domain customer {
     assert "public sealed record CustomerCustomerViewV1Address" in proj_art.content
 
 
+def test_emit_csharp_imports_cross_domain_types(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain patient {
+  owner: "patient-team"
+  value PatientId @ 1 (additive) {
+    value: uuid
+  }
+}
+
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    patientId: PatientId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_csharp(workspace, tmp_path / "out") if item.ref == "billing.Invoice@1")
+    assert "using Modelable.Patient;" in artifact.content
+    assert "PatientPatientIdV1 PatientId" in artifact.content
+
+
 def test_emit_csharp_fixed_width_integers_map_to_native_types(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

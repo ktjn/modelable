@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-from modelable.compiler.render import render_model_version
+from modelable.compiler.render import render_mdl
 from modelable.formats.openapi import iter_component_schemas, openapi_loss_warnings, parse_openapi_document
 from modelable.parser.ir import (
     AnnClassification,
@@ -30,6 +30,7 @@ from modelable.parser.ir import (
     ObjectType,
     PrimitiveType,
     RefType,
+    SemanticTypeDecl,
     VersionExact,
 )
 
@@ -42,12 +43,45 @@ class ImportedModel:
     model_name: str
     model_version: ModelVersion
     warnings: list[str] = field(default_factory=list)
+    semantic_types: list[SemanticTypeDecl] = field(default_factory=list)
+    value_types: list[str] = field(default_factory=list)
 
     def to_mdl(self) -> str:
-        return render_model_version(self.domain_name, self.model_name, self.model_version, owner="imported")
+        models = {self.model_name: [self.model_version]}
+        for value_name in self.value_types:
+            models.setdefault(
+                value_name,
+                [ModelVersion(model_kind=ModelKind.value, version=1, change_kind=ChangeKind.additive, fields=[])],
+            )
+        return render_mdl(
+            MdlFile(
+                domains=[
+                    DomainDef(
+                        name=self.domain_name,
+                        owner="imported",
+                        models=models,
+                        semantic_types=self.semantic_types,
+                    )
+                ]
+            )
+        )
 
     def to_workspace(self) -> MdlFile:
-        return MdlFile(domains=[DomainDef(name=self.domain_name, models={self.model_name: [self.model_version]})])
+        models = {self.model_name: [self.model_version]}
+        for value_name in self.value_types:
+            models.setdefault(
+                value_name,
+                [ModelVersion(model_kind=ModelKind.value, version=1, change_kind=ChangeKind.additive, fields=[])],
+            )
+        return MdlFile(
+            domains=[
+                DomainDef(
+                    name=self.domain_name,
+                    models=models,
+                    semantic_types=self.semantic_types,
+                )
+            ]
+        )
 
 
 def import_from_text(
@@ -94,7 +128,15 @@ def _import_json_schema(source_text: str, *, domain_name: str | None) -> Importe
         change_kind=ChangeKind.additive,
         fields=fields,
     )
-    return ImportedModel("json-schema", title, domain, model_name, version, warnings)
+    return ImportedModel(
+        "json-schema",
+        title,
+        domain,
+        model_name,
+        version,
+        warnings,
+        semantic_types=_placeholder_semantic_types(fields, excluded={model_name}),
+    )
 
 
 def _import_openapi(source_text: str, *, domain_name: str | None, source_name: str | None = None) -> ImportedModel:
@@ -768,7 +810,16 @@ def _import_odcs(source_text: str, *, domain_name: str | None, source_name: str 
         change_kind=ChangeKind.additive,
         fields=fields,
     )
-    return ImportedModel("odcs", name, domain, _sanitize_ident(name), version, warnings)
+    model_name = _sanitize_ident(name)
+    return ImportedModel(
+        "odcs",
+        name,
+        domain,
+        model_name,
+        version,
+        warnings,
+        semantic_types=_placeholder_semantic_types(fields, excluded={model_name}),
+    )
 
 
 def _field_from_odcs_property(prop: dict[str, Any], warnings: list[str]) -> FieldDef:
@@ -776,6 +827,7 @@ def _field_from_odcs_property(prop: dict[str, Any], warnings: list[str]) -> Fiel
     custom = _custom_properties_map(prop.get("customProperties"))
     type_name = str(
         custom.get("modelableType")
+        or custom.get("modelableNamedType")
         or prop.get("logicalType")
         or prop.get("physicalType")
         or prop.get("type")
@@ -859,7 +911,30 @@ def _modelable_type_to_field_type(type_name: str, warnings: list[str], *, enum_v
     decimal_match = re.fullmatch(r"decimal\((\d+)\s*,\s*(\d+)\)", lower)
     if decimal_match:
         return DecimalType(precision=int(decimal_match.group(1)), scale=int(decimal_match.group(2)))
+    if "." in normalized:
+        return NamedType(name=_basename_name(normalized))
     return _odcs_type_to_field_type(type_name, warnings)
+
+
+def _placeholder_semantic_types(fields: list[FieldDef], *, excluded: set[str]) -> list[SemanticTypeDecl]:
+    names: set[str] = set()
+
+    def visit(field_type: FieldType) -> None:
+        if isinstance(field_type, NamedType):
+            names.add(_basename_name(field_type.name))
+        elif isinstance(field_type, ArrayType):
+            visit(field_type.item)
+        elif isinstance(field_type, ObjectType):
+            for field in field_type.fields:
+                visit(field.type)
+
+    for model_field in fields:
+        visit(model_field.type)
+    return [
+        SemanticTypeDecl(name=name, underlying=PrimitiveType(kind="string"))
+        for name in sorted(names - excluded)
+        if name
+    ]
 
 
 def _odcs_type_to_field_type(type_name: str, warnings: list[str]) -> FieldType:
@@ -1000,6 +1075,9 @@ def _field_type_from_json_schema(
                 except ValueError:
                     pass
             return NamedType(name=target)
+        defs_prefix = "#/$defs/"
+        if reference.startswith(defs_prefix):
+            return NamedType(name=_basename_name(reference[len(defs_prefix) :]))
         warnings.append(f"Falling back to named type for external schema reference: {reference}")
         return NamedType(name=reference)
     if "enum" in prop:

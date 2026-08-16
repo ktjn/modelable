@@ -42,6 +42,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Fixed cross-domain generated-language imports, Rust projection enum
+  conversions, Rust optional-field deserialization defaults, and JSON Schema /
+  ODCS round-trip handling for referenced declarations.
+
 ## [1.8.0] - 2026-08-16
 
 ### Added
