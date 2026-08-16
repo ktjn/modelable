@@ -8,6 +8,7 @@ from modelable.compiler.workspace import Workspace
 from modelable.emitters._schema_mapping import (
     _field_to_json_schema,
     _resolve_projection_field_type,
+    _resolve_projection_source_field,
 )
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss, validation_failed
@@ -164,7 +165,14 @@ def _emit_projection_version(
 
     for field in version.fields:
         field_type = _resolve_projection_field_type(field, version, mdl)
-        prop = _field_to_json_schema(field, field_type, defs=defs, path=[field.name])
+        source_field = _resolve_projection_source_field(field, version, mdl)
+        prop = _field_to_json_schema(
+            field,
+            field_type,
+            defs=defs,
+            path=[field.name],
+            inherited_constraints=source_field.constraints if source_field is not None else (),
+        )
         if isinstance(field_type, NamedType):
             warnings.append(type_loss(field_type.name))
         _add_lineage(prop, field, version)

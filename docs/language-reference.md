@@ -148,7 +148,8 @@ tags: array<string> constraint { min_items: 1, unique_items: true }
 Supported constraints are `min`, `max`, `min_length`, `max_length`, `pattern`,
 `format`, `min_items`, `max_items`, and `unique_items`. Constraints are part of
 the canonical field shape and are emitted as JSON Schema keywords where the
-target supports them.
+target supports them. Direct projections inherit constraints from their source
+field; generated auto-projections preserve the same constraint metadata.
 
 A field may carry a default value, written as `= EXPRESSION`. The expression
 uses the same CEL subset as computed projection fields (see

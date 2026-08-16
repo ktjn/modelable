@@ -113,6 +113,7 @@ def _field_to_json_schema(
     *,
     mdl: MdlFile | None = None,
     ref_base: str = "#/$defs/",
+    inherited_constraints=(),
 ) -> dict:
     prop = (
         _type_to_json_schema(field_type, defs=defs, path=path, mdl=mdl, ref_base=ref_base)
@@ -161,7 +162,7 @@ def _field_to_json_schema(
         "max_items": "maxItems",
         "unique_items": "uniqueItems",
     }
-    for constraint in getattr(field, "constraints", []):
+    for constraint in [*getattr(field, "constraints", []), *inherited_constraints]:
         if constraint.kind in {"min", "max"} and isinstance(constraint.value, (int, float)):
             prop["minimum" if constraint.kind == "min" else "maximum"] = constraint.value
         elif constraint.kind in constraint_keys:
