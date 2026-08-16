@@ -117,7 +117,7 @@
       "patterns": [
         {
           "name": "keyword.control.mdl",
-          "match": "\\b(domain|owner|contact|description|entity|aggregate|event|value|additive|breaking|replacedBy|projection|pick|omit|from|as|where|left|cardinality|join|on|group|by|subscription|materialisation|reserved|protobuf|numbers|names|generate|openapi|typescript|avro|sql|jsonschema|asyncapi|docs|postgres|mysql|clickhouse|sqlite|binding|adapter|model|table|workspace|name|registry|package|include|peers|ai|provider|repair_attempts|import|at|consumer|auto|projections|semantic|true|false|index|primary|secondary|key|sort|unique|asc|desc|db|request|reply|exclude|access|property|read|project|subscribe|write|transfer|manage_access|derive|redact)\\b"
+          "match": "\\b(domain|owner|contact|description|entity|aggregate|event|value|additive|breaking|replacedBy|projection|pick|omit|from|as|where|left|cardinality|join|on|group|by|subscription|materialisation|reserved|protobuf|numbers|names|api|operation|method|path|request|responses|GET|POST|PUT|PATCH|DELETE|generate|openapi|typescript|avro|sql|jsonschema|asyncapi|docs|postgres|mysql|clickhouse|sqlite|binding|adapter|model|table|workspace|name|registry|package|include|peers|ai|provider|repair_attempts|import|at|consumer|auto|projections|semantic|true|false|index|primary|secondary|key|sort|unique|asc|desc|db|reply|exclude|access|property|read|project|subscribe|write|transfer|manage_access|derive|redact)\\b"
         }
       ]
     },

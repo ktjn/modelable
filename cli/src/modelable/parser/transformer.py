@@ -20,6 +20,9 @@ from modelable.parser.ir import (
     AnnPitCutoff,
     AnnServer,
     AnnWire,
+    ApiDecl,
+    ApiOperation,
+    ApiResponse,
     ArrayType,
     AutoProjectionDecl,
     AutoProjectionTarget,
@@ -129,6 +132,7 @@ class MdlTransformer(Transformer[list[object], Any]):
         models: dict[str, list[ModelVersion]] = {}
         projections: dict[str, list[ProjectionVersion]] = {}
         auto_projections: list[AutoProjectionDecl] = []
+        apis: list[ApiDecl] = []
         generate_targets: list[GenerateTarget] = []
         semantic_types: list[SemanticTypeDecl] = []
         index_decls: list[IndexDecl] = []
@@ -148,6 +152,8 @@ class MdlTransformer(Transformer[list[object], Any]):
                 projections.setdefault(projection_name, []).append(projection_version)
             elif tag == "auto_projection":
                 auto_projections.append(value)
+            elif tag == "api":
+                apis.append(value)
             elif tag == "generate":
                 generate_targets = value
             elif tag == "semantic":
@@ -163,6 +169,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             models=models,
             projections=projections,
             auto_projections=auto_projections,
+            apis=apis,
             generate_targets=generate_targets,
             semantic_types=semantic_types,
             index_decls=index_decls,
@@ -694,6 +701,54 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def group_item(self, items):
         return str(items[0]).strip()
+
+    def api_decl(self, items: list[Any]) -> tuple[str, ApiDecl]:
+        operations = [item for item in items[2:] if isinstance(item, ApiOperation)]
+        return ("api", ApiDecl(model=str(items[0]), version=int(items[1]), operations=operations))
+
+    def api_operation(self, items: list[Any]) -> ApiOperation:
+        method = next((item[1] for item in items[1:] if isinstance(item, tuple) and item[0] == "method"), None)
+        path = next((item[1] for item in items[1:] if isinstance(item, tuple) and item[0] == "path"), None)
+        request = next((item[1] for item in items[1:] if isinstance(item, tuple) and item[0] == "request"), None)
+        responses: list[ApiResponse] = next(
+            (item[1] for item in items[1:] if isinstance(item, tuple) and item[0] == "responses"), []
+        )
+        if method is None or path is None:
+            raise ValueError("API operation requires method and path")
+        return ApiOperation(name=_str(items[0]), method=method, path=path, request=request, responses=responses)
+
+    def api_operation_item(self, items: list[Any]) -> Any:
+        return items[0]
+
+    def method_clause(self, items: list[Any]) -> tuple[str, Any]:
+        return ("method", items[0])
+
+    def path_clause(self, items: list[Any]) -> tuple[str, str]:
+        return ("path", _str(items[0]))
+
+    def request_clause(self, items: list[Any]) -> tuple[str, tuple[str, int]]:
+        return ("request", (str(items[0]), int(items[1])))
+
+    def responses_block(self, items: list[Any]) -> tuple[str, list[ApiResponse]]:
+        return ("responses", list(items))
+
+    def response_decl(self, items: list[Any]) -> ApiResponse:
+        return ApiResponse(status_code=int(items[0]), projection=str(items[1]), version=int(items[2]))
+
+    def http_get(self, _items: list[Any]) -> str:
+        return "GET"
+
+    def http_post(self, _items: list[Any]) -> str:
+        return "POST"
+
+    def http_put(self, _items: list[Any]) -> str:
+        return "PUT"
+
+    def http_patch(self, _items: list[Any]) -> str:
+        return "PATCH"
+
+    def http_delete(self, _items: list[Any]) -> str:
+        return "DELETE"
 
     def version_spec(self, items):
         return items[0]

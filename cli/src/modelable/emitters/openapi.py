@@ -14,6 +14,7 @@ from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import validation_failed
 from modelable.governance.por import build_por_reference
 from modelable.parser.ir import (
+    ApiOperation,
     DomainDef,
     MdlFile,
     ProjectionVersion,
@@ -67,7 +68,7 @@ def emit_openapi(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifac
             "version": "1.0.0",
         },
         "components": {"schemas": schemas},
-        "paths": {},
+        "paths": _emit_paths(mdl, schemas),
     }
 
     warnings.extend(_validate_schemas(schemas))
@@ -82,6 +83,89 @@ def emit_openapi(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifac
         warnings=warnings,
     )
     return [artifact]
+
+
+def _emit_paths(mdl: MdlFile, schemas: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    paths: dict[str, dict[str, Any]] = {}
+    for domain in mdl.domains:
+        for api in domain.apis:
+            model_versions = domain.models.get(api.model, [])
+            model = next((item for item in model_versions if item.version == api.version), None)
+            key_fields = {field.name: field for field in model.fields if field.is_key} if model else {}
+            for operation in api.operations:
+                path_item = paths.setdefault(operation.path, {})
+                operation_doc: dict[str, Any] = {
+                    "operationId": operation.name,
+                    "responses": {},
+                    "x-modelable": {
+                        "domain": domain.name,
+                        "api": api.model,
+                        "apiVersion": api.version,
+                        "name": operation.name,
+                    },
+                }
+                parameters = []
+                for parameter_name in _path_parameters(operation):
+                    field = key_fields.get(parameter_name)
+                    if field is None:
+                        continue
+                    parameters.append(
+                        {
+                            "name": parameter_name,
+                            "in": "path",
+                            "required": True,
+                            "schema": _field_to_json_schema(field, field.type, {}, [parameter_name]),
+                        }
+                    )
+                if parameters:
+                    operation_doc["parameters"] = parameters
+                if operation.request is not None:
+                    projection_name, version = operation.request
+                    operation_doc["requestBody"] = {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": f"{_REF_BASE}{domain.name}.{projection_name}.v{version}"}
+                            }
+                        },
+                    }
+                for response in sorted(operation.responses, key=lambda item: item.status_code):
+                    operation_doc["responses"][str(response.status_code)] = {
+                        "description": _response_description(response.status_code),
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": f"{_REF_BASE}{domain.name}.{response.projection}.v{response.version}"
+                                }
+                            }
+                        },
+                    }
+                path_item[operation.method.lower()] = operation_doc
+    return {path: paths[path] for path in sorted(paths)}
+
+
+def _path_parameters(operation: ApiOperation) -> list[str]:
+    parameters: list[str] = []
+    start = 0
+    while True:
+        opening = operation.path.find("{", start)
+        if opening < 0:
+            return parameters
+        closing = operation.path.find("}", opening + 1)
+        if closing < 0:
+            return parameters
+        parameters.append(operation.path[opening + 1 : closing])
+        start = closing + 1
+
+
+def _response_description(status_code: int) -> str:
+    if 200 <= status_code < 300:
+        return "Successful response"
+    if 400 <= status_code < 500:
+        return "Client error response"
+    if 500 <= status_code < 600:
+        return "Server error response"
+    return "Response"
 
 
 def _projection_kind_lookup(domain: DomainDef) -> dict[str, str]:

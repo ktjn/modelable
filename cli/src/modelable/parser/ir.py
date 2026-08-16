@@ -456,6 +456,26 @@ class AutoProjectionDecl(BaseModel):
     targets: list[AutoProjectionTarget]
 
 
+class ApiResponse(BaseModel):
+    status_code: int
+    projection: str
+    version: int
+
+
+class ApiOperation(BaseModel):
+    name: str
+    method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
+    path: str
+    request: tuple[str, int] | None = None
+    responses: list[ApiResponse] = Field(default_factory=list)
+
+
+class ApiDecl(BaseModel):
+    model: str
+    version: int
+    operations: list[ApiOperation] = Field(default_factory=list)
+
+
 class SemanticTypeDecl(BaseModel):
     name: str
     underlying: FieldType
@@ -515,6 +535,7 @@ class DomainDef(BaseModel):
     models: dict[str, list[ModelVersion]] = Field(default_factory=dict)
     projections: dict[str, list[ProjectionVersion]] = Field(default_factory=dict)
     auto_projections: list[AutoProjectionDecl] = Field(default_factory=list)
+    apis: list[ApiDecl] = Field(default_factory=list)
     generate_targets: list[GenerateTarget] = Field(default_factory=list)
     semantic_types: list[SemanticTypeDecl] = Field(default_factory=list)
     index_decls: list[IndexDecl] = Field(default_factory=list)

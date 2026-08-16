@@ -710,8 +710,8 @@ names: `openapi`, `typescript`, `avro`, `protobuf`,
 these names also have no implemented emitter behind them at all yet
 (`avro`, `asyncapi`, and the `mysql`/`sqlite` SQL dialects — only
 `postgres` and `clickhouse` are implemented; `openapi` is implemented, see
-`modelable compile --target openapi`, though it currently emits schemas
-only, not paths/operations). See Slice B3 in
+`modelable compile --target openapi`, including schemas and explicit
+paths/operations. See Slice B3 in
 [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-b3--eliminate-silently-ignored-syntax).
 
 `modelable compile --target <name>` is the actual code-generation path, and
