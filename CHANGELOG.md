@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.8.0] - 2026-08-16
+
+### Added
+
 - The registry manifest now enumerates each model with its schema version,
   canonical content signature, and registry-backed key identity when one is
   allocated, so health and drift contracts can consume one generated artifact.
