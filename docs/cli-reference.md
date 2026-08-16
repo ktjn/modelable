@@ -88,6 +88,18 @@ classifies direct and projection consequences as actions such as
 causal path for each consequence. The command is entirely local and does not
 refresh registry snapshots.
 
+### 5.0.1 `config explain` — Explain compiler defaults
+
+```text
+modelable config explain [REF] [--path PATH] [--target TARGET] [--format text|json]
+```
+
+`config explain` reports built-in and `modelable.toml` values with their
+provenance. A configured `[defaults] auto_projections = ["db", "request",
+"reply", "event"]` setting is lowered into the existing auto-projection
+planner for workspaces under that configuration file; explicit IDL
+declarations remain authoritative.
+
 ### 5.1 `validate` — Validate definition files
 
 ```text

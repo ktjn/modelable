@@ -1,0 +1,103 @@
+from __future__ import annotations
+
+import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Literal, cast
+
+from modelable.parser.ir import AutoProjectionDecl, AutoProjectionTarget, DomainDef, MdlFile
+
+BUILTIN_DEFAULTS: dict[str, Any] = {
+    "auto_projections": [],
+    "generate_conversions": True,
+}
+
+
+@dataclass(frozen=True)
+class ConfigValue:
+    value: Any
+    provenance: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"value": self.value, "provenance": self.provenance}
+
+
+@dataclass(frozen=True)
+class ModelableConfig:
+    path: Path | None
+    values: dict[str, ConfigValue]
+
+    def explain(self, target: str | None = None) -> dict[str, Any]:
+        result = {name: value.as_dict() for name, value in sorted(self.values.items())}
+        if target is not None:
+            result["target"] = {"value": target, "provenance": "cli"}
+        return result
+
+
+def load_config(path: str | Path) -> ModelableConfig:
+    config_path = _find_config_path(Path(path))
+    values = {name: ConfigValue(value=value, provenance="built-in default") for name, value in BUILTIN_DEFAULTS.items()}
+    if config_path is None:
+        return ModelableConfig(None, values)
+
+    try:
+        data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ValueError(f"cannot read {config_path}: {exc}") from exc
+
+    defaults = data.get("defaults", {})
+    if not isinstance(defaults, dict):
+        raise ValueError("[defaults] in modelable.toml must be a table")
+    for name in BUILTIN_DEFAULTS:
+        if name in defaults:
+            values[name] = ConfigValue(defaults[name], f"{config_path} [defaults]")
+
+    targets = data.get("targets", {})
+    if isinstance(targets, dict):
+        for target_name, target_values in targets.items():
+            if isinstance(target_values, dict):
+                for name, value in target_values.items():
+                    values[f"targets.{target_name}.{name}"] = ConfigValue(
+                        value, f"{config_path} [targets.{target_name}]"
+                    )
+    return ModelableConfig(config_path, values)
+
+
+def apply_config_defaults(mdl: MdlFile, config: ModelableConfig) -> None:
+    """Lower configured auto-projection defaults into ordinary planner input."""
+    configured_targets = config.values["auto_projections"].value
+    if not configured_targets:
+        return
+    if not isinstance(configured_targets, list) or not all(isinstance(item, str) for item in configured_targets):
+        raise ValueError("defaults.auto_projections must be an array of db, request, reply, or event")
+    allowed = {"db", "request", "reply", "event"}
+    unknown = sorted(set(configured_targets) - allowed)
+    if unknown:
+        raise ValueError(f"defaults.auto_projections contains unsupported target(s): {', '.join(unknown)}")
+
+    for domain in mdl.domains:
+        _apply_domain_defaults(domain, configured_targets)
+
+
+def _apply_domain_defaults(domain: DomainDef, configured_targets: list[str]) -> None:
+    declared = {(decl.model, decl.version) for decl in domain.auto_projections}
+    for model_name, versions in domain.models.items():
+        for version in versions:
+            if (model_name, version.version) in declared:
+                continue
+            domain.auto_projections.append(
+                AutoProjectionDecl(
+                    model=model_name,
+                    version=version.version,
+                    targets=[
+                        AutoProjectionTarget(kind=cast(Literal["db", "request", "reply", "event"], target))
+                        for target in configured_targets
+                    ],
+                )
+            )
+
+
+def _find_config_path(path: Path) -> Path | None:
+    root = path if path.is_dir() else path.parent
+    candidate = root / "modelable.toml"
+    return candidate if candidate.exists() else None

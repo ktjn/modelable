@@ -16,6 +16,8 @@ releases could contain breaking changes when called out explicitly.
   with candidate validation and atomic lock replacement.
 - Added `modelable impact` consequence reports with machine-readable actions
   and causal paths for model changes.
+- Added `modelable config explain` and opt-in `modelable.toml` defaults for
+  inherited auto-projections with provenance reporting.
 
 ### Changed
 

@@ -56,6 +56,7 @@ INCLUDE_FILES = (
     "emitters/sql.py",
     "emitters/typescript.py",
     "serialization.py",
+    "config.py",
     "llm/conversation_plan.py",
     "llm/conversation_planner.py",
     "llm/conversation_backend.py",
