@@ -22,6 +22,8 @@ releases could contain breaking changes when called out explicitly.
   `migration plan` facts for model evolution.
 - Added offline `modelable doctor` diagnostics for workspace, configuration,
   snapshot, and capability integrity.
+- Added a deterministic machine-readable artifact manifest to every compilation
+  output, including input, snapshot, target, artifact, and loss metadata.
 
 ### Changed
 

@@ -1144,7 +1144,7 @@ domain platform {
     assert any(event.level == "warning" and event.message == "No artifacts generated." for event in result.events)
     assert request.out_dir is not None
     assert request.out_dir.is_dir()
-    assert not list(request.out_dir.iterdir())
+    assert (request.out_dir / "modelable-artifact-manifest.json").exists()
 
 
 def test_execute_direct_rejects_zero_artifact_output_file_before_committing_state(

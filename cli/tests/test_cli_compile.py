@@ -293,4 +293,4 @@ domain platform {
     assert result.exit_code == 0, result.output
     assert "No artifacts generated." in result.output
     assert out.is_dir()
-    assert not list(out.iterdir())
+    assert (out / "modelable-artifact-manifest.json").exists()
