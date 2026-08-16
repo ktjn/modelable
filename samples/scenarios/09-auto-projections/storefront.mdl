@@ -26,4 +26,12 @@ domain storefront {
           currency     <- p.currency
           status       <- p.status
   }
+
+  // Version 2 consumes the newer reply contract and uses pick(...) to make
+  // the public field selection explicit without repeating every mapping.
+  projection ProductDisplay @ 2
+    from catalog.ProductReply @ 2 as p
+    pick(p.productId, p.sku, p.name, p.description, p.priceCents, p.currency, p.status, p.brand)
+  {
+  }
 }

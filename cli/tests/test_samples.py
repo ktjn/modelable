@@ -204,6 +204,13 @@ def test_auto_projection_scenario_validates_cleanly():
     assert result.exit_code == 0, result.output
     assert "invalid model reference" not in result.output
 
+    catalog = (sample_path / "catalog.mdl").read_text(encoding="utf-8")
+    storefront = (sample_path / "storefront.mdl").read_text(encoding="utf-8")
+    assert "entity Product @ 2 (additive)" in catalog
+    assert "auto projections Product @ 2" in catalog
+    assert "pick(p.productId" in storefront
+    assert "from catalog.ProductReply @ 2 as p" in storefront
+
 
 def test_ecommerce_scenario_reports_validation_gaps_and_compiles_targets(tmp_path):
     repo_root = Path(__file__).resolve().parents[2]

@@ -51,8 +51,8 @@ def register_compile_commands(cli_group: click.Group) -> None:
     "--registry-ids",
     "registry_ids_path",
     type=click.Path(path_type=Path),
-    default=Path("registry-ids.lock"),
-    help="Path to the registry id allocation ledger (must be committed to git).",
+    default=None,
+    help="Path to the registry id allocation ledger. Defaults beside the source workspace.",
 )
 @click.option(
     "--allow-orphaned-registry-ids",
@@ -84,7 +84,7 @@ def compile(
     target: str,
     out_dir: Path | None,
     registry_path: str,
-    registry_ids_path: Path,
+    registry_ids_path: Path | None,
     allow_orphaned_registry_ids: bool,
     domains: tuple[str, ...],
     descriptor_set: bool,
@@ -92,6 +92,9 @@ def compile(
 ) -> None:
     """Compile Modelable definitions and write the local registry index."""
     try:
+        if registry_ids_path is None:
+            source_root = source if source.is_dir() else source.parent
+            registry_ids_path = source_root / "registry-ids.lock"
         result = CompilationService().execute_direct(
             CompilationRequest(
                 source=source,

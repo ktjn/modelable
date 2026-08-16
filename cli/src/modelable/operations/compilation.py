@@ -32,6 +32,7 @@ from modelable.emitters.openlineage import emit_openlineage
 from modelable.emitters.openmetadata import emit_openmetadata
 from modelable.emitters.protobuf import emit_protobuf
 from modelable.emitters.python import emit_python
+from modelable.emitters.registry_manifest import emit_registry_manifest
 from modelable.emitters.rust import emit_rust
 from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import list_implemented_codegen_targets
@@ -1389,6 +1390,8 @@ def _emit_target(
         return emit_odcs(workspace, output)
     if target == "openapi":
         return emit_openapi(workspace, output)
+    if target == "registry":
+        return emit_registry_manifest(workspace, output, registry_ids=registry_ids)
     if target == "protobuf":
         artifacts = emit_protobuf(workspace, output, registry_ids=registry_ids)
         if descriptor_set:

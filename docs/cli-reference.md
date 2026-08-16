@@ -261,10 +261,10 @@ queries; the lock file remains authoritative.
 
 | Flag | Required | Default | Description |
 |:-----|:---------|:--------|:------------|
-| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, `openlineage`, `odcs`, `protobuf`, or `grpc` |
+| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, `openlineage`, `odcs`, `protobuf`, `grpc`, or `registry` |
 | `--out`, `-o` | No | `./dist/<format>` | Output directory |
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
-| `--registry-ids` | No | `registry-ids.lock` | Registry id allocation ledger path (commit this file) |
+| `--registry-ids` | No | beside `SOURCE` | Registry id allocation ledger path (commit this file) |
 | `--allow-orphaned-registry-ids` | No | off | Tolerate ledger entries with no matching `registry: true` declaration instead of erroring |
 | `--descriptor-set` | No | disabled | For `protobuf` and `grpc` targets, compile generated `.proto` files into descriptor `.pb` artifacts; requires `protoc` on `PATH` |
 
@@ -289,6 +289,7 @@ queries; the lock file remains authoritative.
 | `odcs` | `./dist/odcs` |
 | `protobuf` | `./dist/protobuf` |
 | `grpc` | `./dist/grpc` |
+| `registry` | `./dist/registry` |
 
 **Artifact ID convention:** `domain.Name.vVersion` (used as filename stem).
 
@@ -978,7 +979,7 @@ explicit field-number pinning, and enum reservations remain follow-up work.
 | `--target` | Yes | — | Must be `protobuf` |
 | `--out`, `-o` | No | `./dist/protobuf` | Output directory |
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
-| `--registry-ids` | No | `registry-ids.lock` | Registry id allocation ledger; allocated semantic IDs are included in schema manifests |
+| `--registry-ids` | No | beside `SOURCE` | Registry id allocation ledger; allocated semantic IDs are included in schema manifests |
 | `--descriptor-set` | No | disabled | Compile generated `.proto` files into per-schema descriptor `.pb` artifacts; requires `protoc` on `PATH` |
 
 **Examples:**
@@ -1047,7 +1048,7 @@ service profile as a fully proven runtime integration.
 | `--target` | Yes | — | Must be `grpc` |
 | `--out`, `-o` | No | `./dist/grpc` | Output directory |
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
-| `--registry-ids` | No | `registry-ids.lock` | Registry id allocation ledger; allocated semantic IDs are included in payload schema manifests |
+| `--registry-ids` | No | beside `SOURCE` | Registry id allocation ledger; allocated semantic IDs are included in payload schema manifests |
 | `--descriptor-set` | No | disabled | Compile generated service profile into per-service descriptor `.pb` artifacts; requires `protoc` on `PATH` |
 
 **Examples:**

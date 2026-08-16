@@ -290,6 +290,7 @@ type ImplementedTarget = Literal[
     "protobuf",
     "grpc",
     "openapi",
+    "registry",
 ]
 
 

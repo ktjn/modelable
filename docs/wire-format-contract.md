@@ -62,10 +62,10 @@ Neither emitter sorts, groups, or otherwise reorders fields.
 | `float` | `f64` | `double` |
 | `bool` | `bool` | `bool` |
 | `uuid`, `uuid(7)` | `uuid::Uuid` (identical for both versions) | `string` (identical for both versions) |
-| `timestamp` | `String` (verbatim, no truncation) | `google.protobuf.Timestamp` (nanosecond precision, no truncation) |
-| `date` | `String` | `string` |
-| `time` | `String` | `string` |
-| `duration` | `String` | `string` |
+| `timestamp` | `chrono::DateTime<chrono::Utc>` (RFC 3339) | `google.protobuf.Timestamp` (nanosecond precision, no truncation) |
+| `date` | `chrono::NaiveDate` (ISO 8601) | `string` |
+| `time` | `chrono::NaiveTime` (`HH:MM:SS[.fraction]`) | `string` |
+| `duration` | `chrono::Duration` serialized as ISO 8601 (`P...`) | `string` |
 | `binary` | `Vec<u8>` | `bytes` |
 | `binary(N)` | `[u8; N]` | `bytes` (fixed length `N` recorded only in the companion `schema-manifest.json`, not in the `.proto` type itself) |
 | `decimal(p,s)` | `String` | `string` (the value's precision/scale are not encoded in the wire type; both emitters treat it as an opaque decimal-shaped string) |
@@ -84,6 +84,13 @@ Neither emitter sorts, groups, or otherwise reorders fields.
 Adopting a generated Protobuf semantic wrapper is an intentional wire change
 from the previous opaque `bytes` fallback. Existing consumers must regenerate
 their schemas and bindings together when moving to this compiler behavior.
+
+Temporal defaults are intentionally canonical across JSON/Rust boundaries:
+timestamps use RFC 3339, dates and times use ISO 8601 text, and durations use
+ISO 8601 duration text. Rust fields may opt into a target-specific type with
+`@wire(rust.type: "...")`; PostgreSQL duration storage may opt into native
+interval arithmetic with `@wire(postgres.type: "INTERVAL")`, otherwise the
+duration remains `TEXT` so its wire value round-trips byte-for-byte.
 
 ## 4. Enum Discriminant Stability
 

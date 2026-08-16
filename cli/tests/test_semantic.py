@@ -415,7 +415,7 @@ def test_inline_object_wire_hints_are_validated_recursively():
     assert any("payload" in error.lower() and "unsupported json wire encoding" in error.lower() for error in errors)
 
 
-def test_rust_type_override_is_rejected_on_non_int_fields():
+def test_rust_type_override_is_allowed_on_temporal_fields():
     mdl = parse_text_to_ir("""
     domain metrics {
       owner: "test-team"
@@ -429,7 +429,7 @@ def test_rust_type_override_is_rejected_on_non_int_fields():
 
     errors = validate(mdl)
 
-    assert any("only supports rust.type on int fields" in error.lower() for error in errors)
+    assert errors == []
 
 
 def test_projection_field_wire_hints_validate_against_source_type():

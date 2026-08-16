@@ -147,6 +147,13 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/openapi"),
     ),
+    CodegenTarget(
+        name="registry",
+        description="Deterministic registry of generated contract versions and signatures",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/registry"),
+    ),
 )
 
 
