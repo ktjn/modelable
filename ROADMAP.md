@@ -776,6 +776,8 @@ implementation plan. Phase C (deterministic OpenAPI import hardening) is
 implemented in the format adapter used by the local import flow: JSON/YAML,
 stable traversal of all component schemas, explicit multi-schema selection,
 `x-modelable` metadata, and versioned component references are supported.
+Unsupported unions, composition, nullability, and value constraints also emit
+explicit lossy-import warnings instead of being silently discarded.
 Phase D (fidelity follow-ups: constraints, presence/nullability, named enum
 reuse, discriminated unions) remains a future slice, gated on D1-D4.
 

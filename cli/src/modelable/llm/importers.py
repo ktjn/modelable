@@ -131,7 +131,7 @@ def import_openapi_models(source_text: str, *, domain_name: str | None = None) -
         metadata_domain = metadata.get("domain")
         domain = domain_name or (str(metadata_domain) if metadata_domain else None) or _guess_domain_name(name)
         warnings: list[str] = []
-        fields, field_warnings = _fields_from_json_schema(payload)
+        fields, field_warnings = _fields_from_json_schema(payload, warn_unsupported=True)
         warnings.extend(field_warnings)
         kind_text = str(metadata.get("kind") or "entity")
         try:
@@ -946,8 +946,10 @@ def _fhir_type_to_field_type(type_entry: dict[str, Any], path: str, warnings: li
     return NamedType(name=code or "Unknown")
 
 
-def _fields_from_json_schema(schema: dict) -> tuple[list[FieldDef], list[str]]:
+def _fields_from_json_schema(schema: dict, *, warn_unsupported: bool = False) -> tuple[list[FieldDef], list[str]]:
     warnings: list[str] = []
+    if warn_unsupported:
+        _warn_openapi_loss(schema, warnings, "<schema>")
     properties = schema.get("properties", {})
     required = set(schema.get("required", []))
     key_field_name = next(
@@ -956,7 +958,7 @@ def _fields_from_json_schema(schema: dict) -> tuple[list[FieldDef], list[str]]:
     )
     fields: list[FieldDef] = []
     for name, prop in properties.items():
-        field_type = _field_type_from_json_schema(prop, warnings)
+        field_type = _field_type_from_json_schema(prop, warnings, path=name, warn_unsupported=warn_unsupported)
         annotations: list = []
         modelable_field = prop.get("x-modelable-field") or {}
         if name == key_field_name or name in schema.get("x-modelable-key-fields", []) or modelable_field.get("key"):
@@ -980,7 +982,11 @@ def _fields_from_json_schema(schema: dict) -> tuple[list[FieldDef], list[str]]:
     return fields, warnings
 
 
-def _field_type_from_json_schema(prop: dict, warnings: list[str]):
+def _field_type_from_json_schema(
+    prop: dict, warnings: list[str], *, path: str = "<schema>", warn_unsupported: bool = False
+):
+    if warn_unsupported:
+        _warn_openapi_loss(prop, warnings, path)
     reference = prop.get("$ref")
     if isinstance(reference, str):
         prefix = "#/components/schemas/"
@@ -998,13 +1004,19 @@ def _field_type_from_json_schema(prop: dict, warnings: list[str]):
     if "enum" in prop:
         return EnumType(values=[str(item) for item in prop["enum"]])
     if prop.get("type") == "array":
-        return ArrayType(item=_field_type_from_json_schema(prop.get("items", {}), warnings))
+        return ArrayType(
+            item=_field_type_from_json_schema(
+                prop.get("items", {}), warnings, path=f"{path}[]", warn_unsupported=warn_unsupported
+            )
+        )
     if prop.get("type") == "object" and "properties" in prop:
         return ObjectType(
             fields=[
                 FieldDef(
                     name=name,
-                    type=_field_type_from_json_schema(child, warnings),
+                    type=_field_type_from_json_schema(
+                        child, warnings, path=f"{path}.{name}", warn_unsupported=warn_unsupported
+                    ),
                     optional=name not in set(prop.get("required", [])),
                 )
                 for name, child in prop["properties"].items()
@@ -1033,6 +1045,31 @@ def _field_type_from_json_schema(prop: dict, warnings: list[str]):
         return ObjectType(fields=[])
     warnings.append(f"Falling back to named type for schema fragment: {prop}")
     return NamedType(name=prop.get("title") or "Unknown")
+
+
+def _warn_openapi_loss(schema: dict, warnings: list[str], path: str) -> None:
+    unsupported = {
+        "allOf": "composition",
+        "anyOf": "union",
+        "oneOf": "union",
+        "nullable": "nullability",
+        "pattern": "value constraint",
+        "minimum": "value constraint",
+        "maximum": "value constraint",
+        "exclusiveMinimum": "value constraint",
+        "exclusiveMaximum": "value constraint",
+        "minLength": "value constraint",
+        "maxLength": "value constraint",
+        "minItems": "value constraint",
+        "maxItems": "value constraint",
+        "uniqueItems": "value constraint",
+    }
+    for key, category in unsupported.items():
+        if key in schema:
+            warnings.append(f"OpenAPI import drops unsupported {category} '{key}' at {path}")
+    schema_type = schema.get("type")
+    if isinstance(schema_type, list) and "null" in schema_type:
+        warnings.append(f"OpenAPI import drops unsupported nullability at {path} (type includes 'null')")
 
 
 def _field_from_avro(item: dict, warnings: list[str]) -> FieldDef:

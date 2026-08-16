@@ -236,6 +236,36 @@ def test_openapi_importer_resolves_versioned_component_refs():
     assert imported.model_version.fields[0].type.version.version == 1
 
 
+def test_openapi_importer_warns_when_fidelity_is_dropped():
+    imported = import_from_text(
+        json.dumps(
+            {
+                "openapi": "3.1.0",
+                "info": {"title": "Catalog", "version": "1"},
+                "components": {
+                    "schemas": {
+                        "Product": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string", "minLength": 1, "pattern": "^[A-Z]"},
+                                "price": {"type": "number", "minimum": 0},
+                                "kind": {"oneOf": [{"type": "string"}, {"type": "integer"}]},
+                                "notes": {"type": ["string", "null"]},
+                            },
+                        }
+                    }
+                },
+            }
+        ),
+        "openapi",
+    )
+
+    assert any("pattern" in warning and "name" in warning for warning in imported.warnings)
+    assert any("minimum" in warning and "price" in warning for warning in imported.warnings)
+    assert any("union" in warning and "kind" in warning for warning in imported.warnings)
+    assert any("nullability" in warning and "notes" in warning for warning in imported.warnings)
+
+
 def test_json_schema_importer_preserves_modelable_extensions():
     imported = import_from_text(
         json.dumps(

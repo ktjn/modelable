@@ -12,6 +12,8 @@ releases could contain breaking changes when called out explicitly.
   schemas deterministically, preserve `x-modelable` metadata, and resolve
   versioned component references. Multi-schema imports require an explicit
   schema selection instead of silently importing the first entry.
+- OpenAPI imports now report explicit warnings when unsupported unions,
+  composition, nullability, or value constraints are dropped during import.
 - `modelable compile --target openapi` emits a deterministic OpenAPI 3.1
   document with `components.schemas` and explicit `paths`/operations
   from `request`/`reply`/`event` auto-projections and hand-authored
