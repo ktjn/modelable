@@ -538,13 +538,14 @@ The compiler generates `CustomerDb @ 2`, `CustomerRequest @ 2`, `CustomerReply @
 
 ### 3.8 Semantic Types
 
-A `semantic` declaration gives a domain-meaningful name to a primitive, `decimal(p,s)`, `binary(N)`, or another semantic type. It does not introduce a new representation — the underlying type is unchanged for parsing, validation, and (where an emitter doesn't yet support semantic types) serialization. Its purpose is to let field declarations reference `ModuleId` instead of `string`, everywhere the same domain concept is used.
+A `semantic` declaration gives a domain-meaningful name to a primitive, `decimal(p,s)`, `binary(N)`, enum, or another semantic type. It does not introduce a new representation — the underlying type is unchanged for parsing, validation, and (where an emitter doesn't yet support semantic types) serialization. Its purpose is to let field declarations reference `ModuleId` instead of `string`, everywhere the same domain concept is used.
 
 #### Syntax
 
 ```mdl
 domain catalog {
   semantic ModuleId: string
+  semantic ProductStatus: enum(active, blocked)
 
   semantic ProductSku: string {
     registry: true
