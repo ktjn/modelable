@@ -1603,6 +1603,28 @@ domain events {
     assert art.content.count('#[serde(skip_serializing_if = "Option::is_none")]') == 1
 
 
+def test_emit_rust_value_type_optional_field_has_one_serde_default(tmp_path):
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  value Contact @ 1 (additive) {
+    email?: string
+  }
+  entity Customer @ 1 (additive) {
+    contact: Contact
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    artifacts = emit_rust(load_workspace(tmp_path), tmp_path / "out")
+    contact = next(artifact for artifact in artifacts if artifact.ref == "customer.Contact@1")
+
+    assert contact.content.count("#[serde(default)]") == 1
+
+
 def test_emit_rust_cross_record_enum_from_impls(tmp_path):
     """Enums with identical variants across records in the same domain get From impls (issue #119)."""
     (tmp_path / "test.mdl").write_text(
