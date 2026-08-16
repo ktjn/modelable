@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -47,6 +49,25 @@ class SnapshotResult:
     lock_path: Path
     object_count: int
     identities: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SnapshotDiff:
+    added: tuple[str, ...]
+    removed: tuple[str, ...]
+    changed: tuple[str, ...]
+
+    @property
+    def empty(self) -> bool:
+        return not self.added and not self.removed and not self.changed
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "added": list(self.added),
+            "removed": list(self.removed),
+            "changed": list(self.changed),
+            "empty": self.empty,
+        }
 
 
 def resolve_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> SnapshotResult:
@@ -153,6 +174,59 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
     return errors
 
 
+def diff_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> SnapshotDiff:
+    """Compare a validated workspace with the current local snapshot offline."""
+    with tempfile.TemporaryDirectory(prefix="modelable-registry-diff-") as temporary:
+        candidate = resolve_workspace_snapshot(workspace, temporary)
+        return diff_snapshot_paths(Path(output_dir), candidate.lock_path.parent)
+
+
+def update_workspace_snapshot(
+    workspace: Workspace, output_dir: str | Path = ".modelable"
+) -> tuple[SnapshotResult, SnapshotDiff]:
+    """Stage and atomically install a validated local snapshot candidate."""
+    paths = SnapshotPaths(Path(output_dir))
+    with tempfile.TemporaryDirectory(prefix="modelable-registry-update-") as temporary:
+        candidate_dir = Path(temporary)
+        candidate = resolve_workspace_snapshot(workspace, candidate_dir)
+        candidate_errors = verify_snapshot(candidate_dir)
+        if candidate_errors:
+            raise ValueError("Candidate snapshot is invalid:\n" + "\n".join(candidate_errors))
+        snapshot_diff = diff_snapshot_paths(paths.root, candidate_dir)
+
+        paths.root.mkdir(parents=True, exist_ok=True)
+        paths.objects.mkdir(parents=True, exist_ok=True)
+        candidate_objects = candidate_dir / "registry" / "objects"
+        for object_path in candidate_objects.glob("*.json"):
+            destination = paths.objects / object_path.name
+            if not destination.exists():
+                shutil.copyfile(object_path, destination)
+        temporary_lock = paths.root / f".registry.lock.tmp-{os.getpid()}"
+        shutil.copyfile(candidate.lock_path, temporary_lock)
+        os.replace(temporary_lock, paths.lock)
+        return SnapshotResult(paths.lock, candidate.object_count, candidate.identities), snapshot_diff
+
+
+def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
+    current_entries = _load_lock_entries(SnapshotPaths(current_dir).lock)
+    candidate_entries = _load_lock_entries(SnapshotPaths(candidate_dir).lock)
+    current_by_key = {_entry_key(entry): entry for entry in current_entries}
+    candidate_by_key = {_entry_key(entry): entry for entry in candidate_entries}
+    added = sorted(set(candidate_by_key) - set(current_by_key))
+    removed = sorted(set(current_by_key) - set(candidate_by_key))
+    changed = sorted(
+        key
+        for key in set(current_by_key) & set(candidate_by_key)
+        if current_by_key[key].get("content_hash") != candidate_by_key[key].get("content_hash")
+        or current_by_key[key].get("signature") != candidate_by_key[key].get("signature")
+    )
+    return SnapshotDiff(
+        added=tuple(_display_key(key) for key in added),
+        removed=tuple(_display_key(key) for key in removed),
+        changed=tuple(_display_key(key) for key in changed),
+    )
+
+
 def snapshot_status(output_dir: str | Path = ".modelable") -> dict[str, Any]:
     paths = SnapshotPaths(Path(output_dir))
     errors = verify_snapshot(paths.root)
@@ -221,6 +295,26 @@ def _write_object(
         "content_hash": content_hash,
         "dependencies": dependencies,
     }
+
+
+def _load_lock_entries(lock_path: Path) -> list[dict[str, Any]]:
+    if not lock_path.exists():
+        return []
+    try:
+        payload = json.loads(lock_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read registry lock {lock_path}: {exc}") from exc
+    if payload.get("format") != LOCK_FORMAT or not isinstance(payload.get("objects"), list):
+        raise ValueError(f"invalid registry lock {lock_path}")
+    return [entry for entry in payload["objects"] if isinstance(entry, dict)]
+
+
+def _entry_key(entry: dict[str, Any]) -> tuple[str, str]:
+    return (str(entry.get("kind", "unknown")), str(entry.get("identity", "unknown")))
+
+
+def _display_key(key: tuple[str, str]) -> str:
+    return f"{key[1]} ({key[0]})"
 
 
 def _dependencies(version: ModelVersion | ProjectionVersion) -> list[str]:
