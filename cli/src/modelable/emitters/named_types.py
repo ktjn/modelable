@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from modelable.emitters.shapes import TypeShape
-from modelable.parser.ir import MdlFile
+from modelable.parser.ir import MdlFile, latest_semantic_types
 from modelable.registry.resolver import AmbiguousSemanticTypeError, resolve_semantic_type_ref
 
 
@@ -27,7 +27,7 @@ def resolve_named_types(
                 names.setdefault(name, model_name(domain.name, name, versions[-1].version))
 
     for domain in mdl.domains:
-        for declaration in domain.semantic_types:
+        for declaration in latest_semantic_types(domain):
             if declaration.name in names:
                 continue
             try:

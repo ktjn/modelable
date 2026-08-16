@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from lark import Transformer
 
@@ -272,16 +272,41 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def semantic_decl(self, items: list[object]) -> tuple[str, SemanticTypeDecl]:
         name = str(items[0])
-        underlying = items[1]
-        body = items[2] if len(items) > 2 and isinstance(items[2], dict) else {}
+        header = cast(
+            tuple[str, int, ChangeKind, bool] | None,
+            items[1] if len(items) > 1 and isinstance(items[1], tuple) else None,
+        )
+        underlying = items[2] if header is not None else items[1]
+        body_index = 3 if header is not None else 2
+        body = cast(
+            dict[str, bool],
+            items[body_index] if len(items) > body_index and isinstance(items[body_index], dict) else {},
+        )
+        version = header[1] if header is not None else 0
+        change_kind = header[2] if header is not None else ChangeKind.additive
+        has_change_kind = header[3] if header is not None else False
         return (
             "semantic",
             SemanticTypeDecl(
                 name=name,
                 underlying=underlying,  # type: ignore[arg-type]
+                version=int(version),
+                change_kind=change_kind.value if isinstance(change_kind, ChangeKind) else "additive",
+                has_version_header=header is not None,
+                has_change_kind=has_change_kind,
                 registry=body.get("registry", False),
             ),
         )
+
+    def semantic_header(self, items: list[object]) -> tuple[str, int, ChangeKind, bool]:
+        if not items:
+            return ("semantic_header", 0, ChangeKind.additive, False)
+        version = int(cast(int | str, items[0]))
+        change_kind = items[1] if len(items) > 1 and isinstance(items[1], ChangeKind) else ChangeKind.additive
+        return ("semantic_header", version, change_kind, len(items) > 1)
+
+    def semantic_change(self, items: list[object]) -> ChangeKind:
+        return items[0]  # type: ignore[return-value]
 
     def sd_asc(self, _items: list[object]) -> str:
         return "asc"

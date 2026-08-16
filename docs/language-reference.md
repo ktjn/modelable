@@ -538,7 +538,7 @@ The compiler generates `CustomerDb @ 2`, `CustomerRequest @ 2`, `CustomerReply @
 
 ### 3.8 Semantic Types
 
-A `semantic` declaration gives a domain-meaningful name to a primitive, `decimal(p,s)`, `binary(N)`, enum, or another semantic type. It does not introduce a new representation — the underlying type is unchanged for parsing, validation, and (where an emitter doesn't yet support semantic types) serialization. Its purpose is to let field declarations reference `ModuleId` instead of `string`, everywhere the same domain concept is used.
+A `semantic` declaration gives a domain-meaningful name to a primitive, `decimal(p,s)`, `binary(N)`, enum, or another semantic type. It does not introduce a new representation — the underlying type is unchanged for parsing, validation, and (where an emitter doesn't yet support semantic types) serialization. Its purpose is to let field declarations reference `ModuleId` instead of `string`, everywhere the same domain concept is used. Enum declarations may be versioned with the same `@ version (additive|breaking)` header used by models.
 
 #### Syntax
 
@@ -546,6 +546,7 @@ A `semantic` declaration gives a domain-meaningful name to a primitive, `decimal
 domain catalog {
   semantic ModuleId: string
   semantic ProductStatus: enum(active, blocked)
+  semantic ProductStatus @ 2 (additive): enum(active, blocked, archived)
 
   semantic ProductSku: string {
     registry: true
@@ -565,7 +566,7 @@ and `REGISTRY_ID`; Protobuf and gRPC expose it in schema-manifest
 
 #### Referencing a semantic type
 
-Semantic types are referenced by name. A bare name resolves against the current domain's own declarations first; if the current domain has no matching declaration, resolution falls back to a workspace-wide search, but only succeeds if exactly one domain declares that name. If more than one domain declares a semantic type with the same name, a bare reference is ambiguous and is a compile error. Use a domain-qualified reference (`orders.Id`) — the same dotted syntax `ref<Domain.Model>` already uses — to name a specific domain's declaration explicitly.
+Semantic types are referenced by name. A bare name resolves against the current domain's own declarations first; if the current domain has no matching declaration, resolution falls back to a workspace-wide search, but only succeeds if exactly one domain declares that name. If more than one domain declares a semantic type with the same name, a bare reference is ambiguous and is a compile error. Use a domain-qualified reference (`orders.Id`) — the same dotted syntax `ref<Domain.Model>` already uses — to name a specific domain's declaration explicitly. When a domain contains multiple versions of a semantic type, references and generated targets use the highest version.
 
 ```mdl
 domain catalog {
@@ -591,8 +592,9 @@ Chains must be acyclic and are limited to 32 levels. Referencing an undeclared s
 
 #### Constraints
 
-- The underlying type must be a primitive, `decimal(p,s)`, `binary(N)`, or another semantic type — not an `array`, `map`, `enum`, `object`, or model reference.
-- A semantic type's name must be unique within its declaring domain and must not collide with a model name in that domain.
+- The underlying type must be a primitive, `decimal(p,s)`, `binary(N)`, enum, or another semantic type — not an `array`, `map`, `object`, or model reference.
+- Versioned semantic declarations for one name must have strictly increasing versions. An additive enum version may add values but may not remove one; removing a value requires `(breaking)`. Additive versions may not change a non-enum underlying type.
+- A semantic type's name must not collide with a model name in its domain.
 
 #### Emitter support (this slice)
 

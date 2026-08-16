@@ -50,3 +50,32 @@ def test_named_enum_semantic_type_emits_as_reusable_enum(tmp_path: Path) -> None
     assert not workspace.errors
     artifact = next(item for item in emit_json_schema(workspace, tmp_path / "out") if item.ref == "customer.Customer@1")
     assert artifact.content["properties"]["status"] == {"type": "string", "enum": ["active", "blocked"]}
+
+
+def test_versioned_enum_evolution_is_rendered_and_additive_removals_are_rejected(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        """domain customer {
+  owner: "customer-team"
+  semantic CustomerStatus @ 1 (additive): enum(active, blocked)
+  semantic CustomerStatus @ 2 (additive): enum(active)
+}""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    assert any("additive enum evolution removes values: blocked" in error.message for error in workspace.errors)
+    assert "semantic CustomerStatus @ 1 (additive): enum(active, blocked)" in render_mdl(workspace.mdl)
+
+
+def test_versioned_enum_additions_are_accepted(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        """domain customer {
+  owner: "customer-team"
+  semantic CustomerStatus @ 1 (additive): enum(active)
+  semantic CustomerStatus @ 2 (additive): enum(active, blocked)
+}""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    assert not workspace.errors

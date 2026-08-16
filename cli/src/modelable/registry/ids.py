@@ -4,12 +4,15 @@ import json
 from pathlib import Path
 from typing import cast
 
-from modelable.parser.ir import MdlFile
+from modelable.parser.ir import MdlFile, latest_semantic_types
 
 
 def _qualified_registry_names(mdl: MdlFile) -> list[str]:
     return sorted(
-        f"{domain.name}.{decl.name}" for domain in mdl.domains for decl in domain.semantic_types if decl.registry
+        f"{domain.name}.{decl.name}"
+        for domain in mdl.domains
+        for decl in latest_semantic_types(domain)
+        if decl.registry
     )
 
 

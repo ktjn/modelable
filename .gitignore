@@ -22,6 +22,7 @@ scripts/__pycache__/
 *.pyo
 .pytest_cache/
 .pytest_tmp/
+.pytest-tmp/
 .venv/
 .coverage
 cli/coverage.xml
