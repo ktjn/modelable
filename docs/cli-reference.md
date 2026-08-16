@@ -1503,6 +1503,30 @@ connection failure.
 
 ### 10.7 `registry` — Federated registry management
 
+The offline snapshot lifecycle is explicit and does not contact a source
+registry during ordinary compilation or analysis:
+
+```text
+modelable registry resolve SOURCE [--out DIR]
+modelable registry verify [--out DIR] [--format text|json]
+modelable registry status [--out DIR] [--format text|json]
+modelable registry prune [--out DIR]
+modelable registry usage SOURCE [--format text|json|manifest]
+```
+
+- `registry resolve` writes `.modelable/registry.lock` and deterministic,
+  content-addressed contract objects under `.modelable/registry/objects/`.
+- `registry verify` checks lock/object presence, hashes, signatures, and
+  identities entirely offline.
+- `registry status` reports the local snapshot without refreshing it.
+- `registry prune` removes object files that are not reachable from the current
+  lock after validation succeeds.
+- `registry usage` exports the normalized usage graph, or the compact manifest
+  of exact model references and signatures with `--format manifest`.
+
+The lock and object files are the durable snapshot; `registry.db` remains a
+rebuildable compiler index.
+
 ```text
 modelable registry init --id <registry-id> --owns <domain>[,<domain>...]
 modelable registry peer add --id <peer-id> --git <url> [--branch <branch>] [--sync <mode>] [--writeback <mode>]

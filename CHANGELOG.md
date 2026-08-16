@@ -8,6 +8,11 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added explicit offline registry snapshots with deterministic content-addressed
+  objects and `modelable registry resolve`, `verify`, `status`, and `prune`.
+- Added `modelable usage` for application-facing usage graphs and compact exact
+  contract manifests.
+
 ### Changed
 
 ### Fixed

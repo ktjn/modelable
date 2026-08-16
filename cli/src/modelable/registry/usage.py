@@ -1,0 +1,151 @@
+from __future__ import annotations
+
+from typing import Any
+
+from modelable.compiler.workspace import Workspace
+from modelable.graph.export import build_graph_export
+from modelable.registry.signature import compute_version_signature
+
+
+def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
+    """Build the cross-surface usage graph for a validated workspace.
+
+    The existing semantic graph supplies model, field, projection, and lineage
+    nodes. This layer adds application-facing consumers so impact analysis can
+    evolve without changing the stable semantic graph format.
+    """
+    graph = build_graph_export(workspace)
+    nodes = list(graph["nodes"])
+    edges = list(graph["edges"])
+    node_ids = {node["id"] for node in nodes}
+    edge_keys = {(edge["kind"], edge["source"], edge["target"]) for edge in edges}
+
+    application_name = _application_name(workspace)
+    application_id = f"application:{application_name}"
+    _add_node(
+        nodes,
+        node_ids,
+        {"id": application_id, "kind": "application", "label": application_name, "name": application_name},
+    )
+
+    for domain in workspace.mdl.domains:
+        for projection_name, versions in domain.projections.items():
+            for projection in versions:
+                projection_id = f"projection_version:{domain.name}.{projection_name}@{projection.version}"
+                source_ref = _resolve_source_ref(workspace, projection.source.model, projection.source.version)
+                source_id = f"model_version:{source_ref}"
+                _add_edge(edges, edge_keys, "projects_from", projection_id, source_id)
+
+        for api in domain.apis:
+            for api_version in [api.version]:
+                for operation in api.operations:
+                    operation_id = f"api_operation:{domain.name}.{api.model}@{api_version}:{operation.name}"
+                    _add_node(
+                        nodes,
+                        node_ids,
+                        {
+                            "id": operation_id,
+                            "kind": "api_operation",
+                            "label": operation.name,
+                            "domain": domain.name,
+                            "model": api.model,
+                            "version": api_version,
+                            "method": operation.method,
+                            "path": operation.path,
+                            "target_ref": f"{domain.name}.{api.model}@{api_version}",
+                        },
+                    )
+                    _add_edge(edges, edge_keys, "exposes", application_id, operation_id)
+                    if operation.request is not None:
+                        request_id = _projection_id(domain.name, *operation.request)
+                        _add_edge(edges, edge_keys, "request_body", operation_id, request_id)
+                    for response in operation.responses:
+                        response_id = _projection_id(domain.name, response.projection, response.version)
+                        _add_edge(edges, edge_keys, "responds_with", operation_id, response_id)
+
+        for binding in workspace.mdl.bindings:
+            storage_id = f"storage:{binding.adapter}:{binding.table or binding.name}"
+            _add_node(
+                nodes,
+                node_ids,
+                {
+                    "id": storage_id,
+                    "kind": "storage",
+                    "label": binding.table or binding.name,
+                    "adapter": binding.adapter,
+                    "table": binding.table,
+                },
+            )
+            model_id = f"model_version:{binding.model}@{binding.model_version}"
+            _add_edge(edges, edge_keys, "persists_as", model_id, storage_id)
+
+    for node in nodes:
+        if node["kind"] == "model_version":
+            domain_name, rest = str(node["target_ref"]).split(".", 1)
+            model_name, version = rest.rsplit("@", 1)
+            model_version = next(
+                version_item
+                for item in workspace.mdl.domains
+                if item.name == domain_name
+                for version_item in item.models.get(model_name, [])
+                if version_item.version == int(version)
+            )
+            node["signature"] = compute_version_signature(domain_name, model_name, model_version)
+
+    return {
+        "kind": "usage_graph",
+        "application": application_name,
+        "nodes": sorted(nodes, key=lambda item: (item["kind"], item["id"])),
+        "edges": sorted(edges, key=lambda item: (item["kind"], item["source"], item["target"])),
+    }
+
+
+def build_usage_manifest(workspace: Workspace) -> dict[str, Any]:
+    graph = build_usage_graph(workspace)
+    return {
+        "kind": "usage_manifest",
+        "application": graph["application"],
+        "references": [
+            {"ref": node["target_ref"], "signature": node["signature"]}
+            for node in graph["nodes"]
+            if node["kind"] == "model_version"
+        ],
+    }
+
+
+def _application_name(workspace: Workspace) -> str:
+    if workspace.mdl.workspace is not None:
+        configured = workspace.mdl.workspace.name or workspace.mdl.workspace.label
+        if configured:
+            return configured
+    return "workspace"
+
+
+def _resolve_source_ref(workspace: Workspace, model: str, version_spec: Any) -> str:
+    from modelable.registry.resolver import resolve_model_ref
+
+    resolved = resolve_model_ref(workspace.mdl, model, version_spec)
+    return f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}"
+
+
+def _projection_id(domain: str, projection: str, version: int) -> str:
+    return f"projection_version:{domain}.{projection}@{version}"
+
+
+def _add_node(nodes: list[dict[str, Any]], node_ids: set[str], node: dict[str, Any]) -> None:
+    if node["id"] not in node_ids:
+        nodes.append(node)
+        node_ids.add(node["id"])
+
+
+def _add_edge(
+    edges: list[dict[str, Any]],
+    edge_keys: set[tuple[str, str, str]],
+    kind: str,
+    source: str,
+    target: str,
+) -> None:
+    key = (kind, source, target)
+    if key not in edge_keys:
+        edges.append({"kind": kind, "source": source, "target": target})
+        edge_keys.add(key)
