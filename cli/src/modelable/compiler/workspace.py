@@ -5,11 +5,14 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from modelable.config import ModelableConfig, apply_config_defaults, load_config
 from modelable.diagnostics.model import Diagnostic
 from modelable.expressions.cel import CelContext, FieldRef, looks_boolean, parse_cel, validate_cel_expr
 from modelable.parser.ir import (
     ArrayType,
+    BindingDef,
     ComputedMapping,
+    FieldType,
     MapType,
     MdlFile,
     NamedType,
@@ -73,10 +76,12 @@ def load_workspace(path: str | Path) -> Workspace:
         )
         for mdl_path in discover_mdl_files(path)
     ]
-    return load_workspace_from_sources(sources)
+    return load_workspace_from_sources(sources, config=load_config(path))
 
 
-def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Workspace:
+def load_workspace_from_sources(
+    sources: list[WorkspaceDocumentSource], *, config: ModelableConfig | None = None
+) -> Workspace:
     workspace_sources: list[WorkspaceSource] = []
     errors: list[Diagnostic] = []
     warnings: list[Diagnostic] = []
@@ -104,6 +109,12 @@ def load_workspace_from_sources(sources: list[WorkspaceDocumentSource]) -> Works
         _merge_bindings(merged.bindings, mdl.bindings)
         if mdl.workspace is not None:
             merged.workspace = mdl.workspace
+
+    if config is not None:
+        try:
+            apply_config_defaults(merged, config)
+        except ValueError as exc:
+            errors.append(Diagnostic(code="CONFIG", message=str(exc), severity="error", path="modelable.toml"))
 
     auto_projection_errors = expand_auto_projections(merged)
     errors.extend(
@@ -421,7 +432,7 @@ def _validate_named_field_types(merged: MdlFile) -> list[Diagnostic]:
     opaque_names = {"bytes"}
     errors: list[Diagnostic] = []
 
-    def visit(field_type, domain_name: str, context: str) -> None:
+    def visit(field_type: FieldType, domain_name: str, context: str) -> None:
         if isinstance(field_type, NamedType):
             if field_type.name in model_names or field_type.name in opaque_names:
                 return
@@ -452,7 +463,7 @@ def _validate_named_field_types(merged: MdlFile) -> list[Diagnostic]:
     return errors
 
 
-def _merge_bindings(existing: list, incoming: list) -> None:
+def _merge_bindings(existing: list[BindingDef], incoming: list[BindingDef]) -> None:
     """Merge incoming bindings into existing, deduplicating identical definitions.
 
     Two bindings are considered identical if they share the same name, adapter,
@@ -460,7 +471,9 @@ def _merge_bindings(existing: list, incoming: list) -> None:
     Conflicting duplicates (same name, different adapter) are kept so that
     _validate_bindings can report them.
     """
-    seen: set[tuple] = {(b.name, b.adapter, b.model, b.model_version, b.table) for b in existing}
+    seen: set[tuple[str, str, str, int, str | None]] = {
+        (b.name, b.adapter, b.model, b.model_version, b.table) for b in existing
+    }
     for b in incoming:
         key = (b.name, b.adapter, b.model, b.model_version, b.table)
         if key not in seen:
