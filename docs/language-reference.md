@@ -152,7 +152,7 @@ compiled.
 | `@deprecated(replacedBy: "field")` | Field is deprecated |
 | `@owner("team")` | Field-level ownership override |
 | `@server` | Field is assigned by the server at write time (e.g. auto-generated IDs, timestamps). Excluded from `request` auto projections by default. |
-| `@wire(key: value, ...)` | Wire-format hint passed through to emitters; values are strings or `{ key: "value" }` maps (e.g. `@wire(avro: "logicalType", json: { name: "x" })`) |
+| `@wire(key: value, ...)` | Wire-format hint passed through to emitters; values are strings or `{ key: "value" }` maps (e.g. `@wire(avro: "logicalType", json: { name: "x" })`). Temporal fields have canonical RFC 3339 / ISO 8601 defaults; target-specific `rust.type` and `postgres.type` values override them. |
 | `@pitCutoff(EXPRESSION)` | Point-in-time cutoff bound for the field, used by event-sourcing / time-travel resolution |
 | `@latestBefore(EXPRESSION)` | Resolve the latest value at or before the given point in time |
 | `@latestOnly` | Keep only the latest value; older values are not retained |

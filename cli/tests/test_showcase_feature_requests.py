@@ -97,3 +97,31 @@ domain platform {
     assert payload["format"] == "modelable.registry.v1"
     assert [entry["ref"] for entry in payload["contracts"]] == ["platform.Tenant@1", "platform.TenantId"]
     assert payload["contracts"][1]["registry_id"] == 7
+
+
+def test_postgres_duration_preserves_iso_wire_text_with_native_override(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain scheduling {
+  owner: "test-team"
+  entity Appointment @ 1 (additive) {
+    @key appointmentId: uuid
+    bufferDuration: duration
+    @wire(postgres.type: "INTERVAL")
+    nativeDuration: duration
+  }
+  projection AppointmentDb @ 1 from scheduling.Appointment @ 1 as appointment {
+    appointmentId <- appointment.appointmentId
+    bufferDuration <- appointment.bufferDuration
+    nativeDuration <- appointment.nativeDuration
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifact = next(
+        a for a in emit_sql(workspace, tmp_path / "out", "postgres") if a.ref == "scheduling.AppointmentDb@1"
+    )
+    assert "buffer_duration TEXT NOT NULL" in artifact.content
+    assert "native_duration INTERVAL NOT NULL" in artifact.content

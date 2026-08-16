@@ -55,6 +55,7 @@ INCLUDE_FILES = (
     "emitters/rust.py",
     "emitters/sql.py",
     "emitters/typescript.py",
+    "serialization.py",
     "llm/conversation_plan.py",
     "llm/conversation_planner.py",
     "llm/conversation_backend.py",

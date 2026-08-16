@@ -420,7 +420,7 @@ domain platform {
     assert "pub const REGISTRY_ID" not in art.content
 
 
-def test_emit_rust_temporal_types_map_to_string(tmp_path):
+def test_emit_rust_temporal_types_use_canonical_chrono_defaults(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(
         """
@@ -440,10 +440,36 @@ domain events {
     workspace = load_workspace(tmp_path)
     artifacts = emit_rust(workspace, tmp_path / "out")
     art = next(a for a in artifacts if a.ref == "events.Event@1")
+    assert "pub occurred_at: chrono::DateTime<chrono::Utc>," in art.content
+    assert "pub scheduled_date: chrono::NaiveDate," in art.content
+    assert "pub window_start: chrono::NaiveTime," in art.content
+    assert "pub ttl: chrono::Duration," in art.content
+    assert '#[serde(with = "modelable_duration")]' in art.content
+    assert '"chrono"' in art.content or "requires: chrono" in art.content
+
+
+def test_emit_rust_temporal_type_can_be_overridden(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain events {
+  owner: "test-team"
+  entity Event @ 1 (additive) {
+    @key eventId: uuid
+    @wire(rust.type: "String")
+    occurredAt: timestamp
+    @wire(rust.type: "String")
+    ttl: duration
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    art = next(a for a in emit_rust(workspace, tmp_path / "out") if a.ref == "events.Event@1")
     assert "pub occurred_at: String," in art.content
-    assert "pub scheduled_date: String," in art.content
-    assert "pub window_start: String," in art.content
     assert "pub ttl: String," in art.content
+    assert "modelable_duration" not in art.content
 
 
 def test_emit_rust_warns_on_computed_projection_field(tmp_path):

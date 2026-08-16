@@ -47,6 +47,9 @@ releases could contain breaking changes when called out explicitly.
   default beside the source workspace when invoked through the CLI.
 - Added the `registry` target for a deterministic contract inventory containing
   schema versions, signatures, and allocated semantic registry IDs.
+- Added canonical temporal defaults: Rust emits chrono-backed date/time types,
+  PostgreSQL preserves ISO-8601 durations as text, and `rust.type`/
+  `postgres.type` wire hints provide explicit overrides.
 - Fixed C#, Java, Python, and Go emitters so named model references resolve to
   emitted versioned names and semantic-typed fields never reference undefined
   generated types.

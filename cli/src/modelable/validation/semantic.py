@@ -759,12 +759,15 @@ def _validate_rust_wire_hint(
     if (
         hint.type is not None
         and field_type is not None
-        and not (isinstance(field_type, PrimitiveType) and field_type.kind == "int")
+        and not (
+            isinstance(field_type, PrimitiveType)
+            and field_type.kind in {"int", "date", "time", "timestamp", "duration"}
+        )
     ):
         diagnostics.append(
             _diag(
                 "SEM",
-                f"{fqn}: field '{label}' only supports rust.type on int fields",
+                f"{fqn}: field '{label}' only supports rust.type on int and temporal fields",
                 path,
             )
         )

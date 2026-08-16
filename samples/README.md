@@ -175,6 +175,10 @@ A simple domain demonstrates the four compiler-generated projections (`db`, `req
 
 Key techniques demonstrated:
 - `auto projections Order @ 1 { db, request, reply, event }`
+- Versioned auto projections preserve `ProductReply@1` while publishing a
+  compatible `ProductReply@2` for a new field.
+- `pick(alias.field, ...)` creates an explicit, version-pinned public
+  projection from the newer reply contract.
 - `exclude` with field names and annotation filters (`@pii`, `@server`)
 - `on` with operation subsets (`created`, `updated`, `deleted`)
 - Inspecting expanded projections with `modelable inspect Order@1 --auto`

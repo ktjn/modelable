@@ -358,7 +358,10 @@ _PG_PRIMITIVE: dict[str, str] = {
     "time": "TIME",
     "timestamp": "TIMESTAMPTZ",
     "uuid": "UUID",
-    "duration": "INTERVAL",
+    # Keep the canonical ISO-8601 duration string intact across a database
+    # round-trip. Use @wire(postgres.type: "INTERVAL") when native interval
+    # arithmetic is preferred over wire-format fidelity.
+    "duration": "TEXT",
     "binary": "BYTEA",
     "u8": "SMALLINT",
     "u16": "INTEGER",

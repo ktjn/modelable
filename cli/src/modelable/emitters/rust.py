@@ -295,6 +295,7 @@ def _emit_cargo_toml(
     needs_serde_with = any("requires: serde_with" in _artifact_text(a) for a in pkg_artifacts)
     needs_sqlx = any("requires: sqlx" in _artifact_text(a) for a in pkg_artifacts)
     needs_clickhouse = any("requires: clickhouse" in _artifact_text(a) for a in pkg_artifacts)
+    needs_chrono = any("requires: chrono" in _artifact_text(a) for a in pkg_artifacts)
 
     lines = [
         "[package]",
@@ -315,6 +316,8 @@ def _emit_cargo_toml(
         lines.append('sqlx = "0.8"')
     if needs_clickhouse:
         lines.append('clickhouse = "0.13"')
+    if needs_chrono:
+        lines.append('chrono = { version = "0.4", features = ["serde"] }')
     for dep in deps:
         # Cargo dependency table keys can contain hyphens directly; the key IS
         # the package name unless a `package = "..."` override is given, and
@@ -585,9 +588,11 @@ def _emit_semantic_type(
 
     needs_uuid = rust_type == "uuid::Uuid"
     needs_serde_json = rust_type == "serde_json::Value"
+    needs_chrono = rust_type.startswith("chrono::")
     lines = _header_lines(
         uuid=needs_uuid,
         serde_json=needs_serde_json,
+        chrono=needs_chrono,
         extra_uses=[use_statement] if use_statement else None,
     )
     if allocated_id is not None:
@@ -683,13 +688,17 @@ def _emit_model(
     needs_uuid = _any_needs_uuid(field_specs)
     needs_serde_json = _any_needs_serde_json(field_specs)
     needs_hashmap = _any_needs_hashmap(field_specs, nested_definitions)
+    needs_chrono = _any_needs_chrono(field_specs)
     lines = _header_lines(
         serde_with=needs_serde_with,
         uuid=needs_uuid,
         serde_json=needs_serde_json,
         hashmap=needs_hashmap,
+        chrono=needs_chrono,
         extra_uses=use_statements,
     )
+    if _any_needs_duration_serde(field_specs):
+        lines.extend(_render_duration_serde_module())
     lines.extend(_render_struct_definition(type_name, field_specs))
     lines.extend(
         _render_schema_identity_impl(
@@ -788,6 +797,7 @@ def _emit_projection(
         _projection_field_is_json_passthrough_to_string(f, version, mdl) for f in version.fields
     )
     needs_hashmap = _any_needs_hashmap(field_specs, nested_definitions)
+    needs_chrono = _any_needs_chrono(field_specs)
     storage_gated = sqlx_fromrow or clickhouse_row
     extra_derives: list[str] = []
     if sqlx_fromrow:
@@ -801,8 +811,11 @@ def _emit_projection(
         uuid=needs_uuid,
         serde_json=needs_serde_json,
         hashmap=needs_hashmap,
+        chrono=needs_chrono,
         extra_uses=use_statements,
     )
+    if _any_needs_duration_serde(field_specs):
+        lines.extend(_render_duration_serde_module())
     lines.extend(
         _render_struct_definition(type_name, field_specs, extra_derives=extra_derives, storage_gated=storage_gated)
     )
@@ -981,6 +994,12 @@ def _serde_attrs_for_field(wire: dict, shape: TypeShape, *, clickhouse: bool = F
     """Return per-field #[serde(...)] attributes derived from @wire hints."""
     rust_hint = wire.get("rust")
     json_hint = wire.get("json")
+    temporal = (
+        shape.ref if shape.kind == "primitive" and shape.ref in {"date", "time", "timestamp", "duration"} else None
+    )
+    if temporal == "duration" and (rust_hint is None or getattr(rust_hint, "type", None) is None):
+        module = "modelable_duration::option" if shape.optional or shape.nullable else "modelable_duration"
+        return [f'#[serde(with = "{module}")]']
     # u64-as-string: rust.type is overridden to u64 and json serialization is string.
     if (
         rust_hint is not None
@@ -1004,6 +1023,101 @@ def _any_needs_serde_with(field_specs: list[_FieldSpec]) -> bool:
 
 def _any_needs_uuid(field_specs: list[_FieldSpec]) -> bool:
     return any("uuid::Uuid" in spec.annotation for spec in field_specs)
+
+
+def _any_needs_chrono(field_specs: list[_FieldSpec]) -> bool:
+    return any(
+        "chrono::" in spec.annotation or "modelable_duration" in attr
+        for spec in field_specs
+        for attr in spec.serde_attrs
+    )
+
+
+def _any_needs_duration_serde(field_specs: list[_FieldSpec]) -> bool:
+    return any("modelable_duration" in attr for spec in field_specs for attr in spec.serde_attrs)
+
+
+def _render_duration_serde_module() -> list[str]:
+    """Render a dependency-light ISO-8601 serde adapter for chrono durations."""
+    return [
+        "",
+        "mod modelable_duration {",
+        "    use serde::{Deserialize, Deserializer, Serializer};",
+        "",
+        "    pub fn serialize<S>(value: &chrono::Duration, serializer: S) -> Result<S::Ok, S::Error>",
+        "    where",
+        "        S: Serializer,",
+        "    {",
+        "        serializer.serialize_str(&value.to_string())",
+        "    }",
+        "",
+        "    pub fn deserialize<'de, D>(deserializer: D) -> Result<chrono::Duration, D::Error>",
+        "    where",
+        "        D: Deserializer<'de>,",
+        "    {",
+        "        let value = String::deserialize(deserializer)?;",
+        "        parse(&value).map_err(serde::de::Error::custom)",
+        "    }",
+        "",
+        "    pub mod option {",
+        "        use super::parse;",
+        "        use serde::{Deserialize, Deserializer, Serialize, Serializer};",
+        "",
+        "        pub fn serialize<S>(value: &Option<chrono::Duration>, serializer: S) -> Result<S::Ok, S::Error>",
+        "        where",
+        "            S: Serializer,",
+        "        {",
+        "            value.as_ref().map(ToString::to_string).serialize(serializer)",
+        "        }",
+        "",
+        "        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<chrono::Duration>, D::Error>",
+        "        where",
+        "            D: Deserializer<'de>,",
+        "        {",
+        "            Option::<String>::deserialize(deserializer)?",
+        "                .map(|value| parse(&value).map_err(serde::de::Error::custom))",
+        "                .transpose()",
+        "        }",
+        "    }",
+        "",
+        "    fn parse(value: &str) -> Result<chrono::Duration, String> {",
+        "        let (negative, body) = value.strip_prefix('-').map_or((false, value), |rest| (true, rest));",
+        "        let body = body.strip_prefix('P').ok_or_else(|| \"duration must start with P\".to_string())?;",
+        "        let mut total_nanos: i128 = 0;",
+        "        let mut number = String::new();",
+        "        let mut in_time = false;",
+        "        for ch in body.chars() {",
+        "            if ch.is_ascii_digit() || ch == '.' {",
+        "                number.push(ch);",
+        "                continue;",
+        "            }",
+        "            if ch == 'T' && number.is_empty() && !in_time {",
+        "                in_time = true;",
+        "                continue;",
+        "            }",
+        "            if number.is_empty() || (!in_time && ch != 'D') || (in_time && !matches!(ch, 'H' | 'M' | 'S')) {",
+        '                return Err(format!("unsupported ISO-8601 duration component: {ch}"));',
+        "            }",
+        "            let unit_nanos: i128 = match ch { 'D' => 86_400_000_000_000, 'H' => 3_600_000_000_000, 'M' => 60_000_000_000, 'S' => 1_000_000_000, _ => unreachable!() };",
+        "            let component = if ch == 'S' && number.contains('.') {",
+        "                let (whole, fraction) = number.split_once('.').unwrap();",
+        '                let nanos = format!("{fraction:0<9}").chars().take(9).collect::<String>().parse::<i128>().map_err(|_| "invalid duration fraction".to_string())?;',
+        '                whole.parse::<i128>().map_err(|_| "invalid duration seconds".to_string())? * unit_nanos + nanos',
+        "            } else {",
+        '                number.parse::<i128>().map_err(|_| "invalid duration component".to_string())? * unit_nanos',
+        "            };",
+        '            total_nanos = total_nanos.checked_add(component).ok_or_else(|| "duration is out of range".to_string())?;',
+        "            number.clear();",
+        "        }",
+        "        if !number.is_empty() || total_nanos == 0 && body.is_empty() {",
+        '            return Err("duration has an incomplete component".to_string());',
+        "        }",
+        "        let total_nanos = if negative { -total_nanos } else { total_nanos };",
+        '        let total_nanos = i64::try_from(total_nanos).map_err(|_| "duration is out of range".to_string())?;',
+        "        Ok(chrono::Duration::nanoseconds(total_nanos))",
+        "    }",
+        "}",
+    ]
 
 
 def _any_needs_serde_json(field_specs: list[_FieldSpec]) -> bool:
@@ -1043,6 +1157,7 @@ def _header_lines(
     uuid: bool = False,
     serde_json: bool = False,
     hashmap: bool = False,
+    chrono: bool = False,
     extra_uses: list[str] | None = None,
 ) -> list[str]:
     lines = ["// @generated by Modelable"]
@@ -1059,6 +1174,8 @@ def _header_lines(
         lines.insert(1, "// requires: uuid (https://docs.rs/uuid)")
     if serde_json:
         lines.insert(1, "// requires: serde_json (https://docs.rs/serde_json)")
+    if chrono:
+        lines.insert(1, "// requires: chrono (https://docs.rs/chrono)")
     if extra_uses:
         # Insert use statements just before the trailing empty string
         lines[-1:-1] = extra_uses
@@ -1264,7 +1381,7 @@ def _shape_base_annotation(
 ) -> str:
     clickhouse_string = clickhouse_hint is not None and getattr(clickhouse_hint, "encoding", None) == "string"
     if shape.kind == "primitive":
-        if rust_hint is not None and getattr(rust_hint, "type", None) and (shape.ref or "string") == "int":
+        if rust_hint is not None and getattr(rust_hint, "type", None):
             return rust_hint.type
         if shape.ref == "json" and clickhouse_string:
             return "String"
@@ -1335,10 +1452,10 @@ def _primitive_to_rust(kind: str) -> str:
         "int": "i64",
         "float": "f64",
         "uuid": "uuid::Uuid",
-        "timestamp": "String",
-        "date": "String",
-        "time": "String",
-        "duration": "String",
+        "timestamp": "chrono::DateTime<chrono::Utc>",
+        "date": "chrono::NaiveDate",
+        "time": "chrono::NaiveTime",
+        "duration": "chrono::Duration",
         "binary": "Vec<u8>",
         "json": "serde_json::Value",
         "u8": "u8",
