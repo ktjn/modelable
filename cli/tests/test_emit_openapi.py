@@ -154,6 +154,39 @@ domain catalog {
     assert props["status"] == {"type": "string", "enum": ["draft", "published", "archived"]}
 
 
+def test_emit_openapi_preserves_source_presence_and_nullability(tmp_path):
+    (tmp_path / "catalog.mdl").write_text(
+        """
+domain catalog {
+  owner: "catalog-team"
+  entity Product @ 1 (additive) {
+    requiredName: string
+    optionalLabel?: string
+    nullableDescription: string?
+    optionalNullableNote?: string?
+  }
+
+  projection ProductView @ 1
+    from catalog.Product @ 1 as p
+  {
+    requiredName <- p.requiredName
+    optionalLabel <- p.optionalLabel
+    nullableDescription <- p.nullableDescription
+    optionalNullableNote <- p.optionalNullableNote
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    schema = emit_openapi(workspace, tmp_path / "out")[0].content["components"]["schemas"]["catalog.ProductView.v1"]
+
+    assert schema["required"] == ["requiredName", "nullableDescription"]
+    assert schema["properties"]["nullableDescription"]["type"] == ["string", "null"]
+    assert schema["properties"]["optionalNullableNote"]["type"] == ["string", "null"]
+
+
 def test_emit_openapi_ref_type_resolves_to_dollar_ref(tmp_path):
     (tmp_path / "catalog.mdl").write_text(
         """

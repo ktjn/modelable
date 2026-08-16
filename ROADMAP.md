@@ -631,10 +631,13 @@ Gated on D0 (now decided), in dependency order:
 
 **Purpose:** represent absence and explicit null independently — required
 non-null, optional non-null, required nullable, optional nullable. **Design
-proposed:** `field?` remains the legacy presence marker and a post-type `?`
+and implementation:** `field?` remains the legacy presence marker and a post-type `?`
 marks nullability, as specified in
 [`docs/superpowers/specs/2026-08-16-presence-nullability-design.md`](docs/superpowers/specs/2026-08-16-presence-nullability-design.md).
-Implementation remains pending. Requires D0 (done). Acceptance: existing
+The parser, canonical renderer, compatibility model, and JSON Schema/OpenAPI
+emitters now preserve both dimensions. Remaining target-specific emitter
+coverage follows the implementation plan. Requires D0 (done). Acceptance:
+existing
 published text keeps a deterministic meaning; compatibility reports
 distinguish presence from nullability; every emitter declares exact or lossy
 representation. [Slice A1](#slice-a1--correct-optionality-compatibility-under-the-current-model)'s

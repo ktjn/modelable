@@ -353,6 +353,8 @@ class MdlTransformer(Transformer[list[object], Any]):
         return FieldDef(
             name=str(rest[0]),
             optional=any(item == "?" for item in rest),
+            nullable=sum(item == "?" for item in rest) > 1
+            or any(isinstance(item, str) and item == "nullable" for item in rest),
             type=type_item
             if isinstance(
                 type_item,
@@ -375,6 +377,9 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def optional_marker(self, _items: list[object]) -> str:
         return "?"
+
+    def nullable_marker(self, _items: list[object]) -> str:
+        return "nullable"
 
     def field_default(self, items: list[object]) -> tuple[str, str]:
         return ("default", str(items[0]).strip())

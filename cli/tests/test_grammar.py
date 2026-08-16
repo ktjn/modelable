@@ -328,6 +328,30 @@ def test_parse_field_default_values():
     assert tree.data == "start"
 
 
+def test_parse_presence_and_nullability_independently():
+    mdl = parse_text_to_ir(
+        """
+domain commerce {
+  owner: "commerce-team"
+  entity Order @ 1 (additive) {
+    requiredNonNull: string
+    optionalNonNull?: string
+    requiredNullable: string?
+    optionalNullable?: string?
+  }
+}
+"""
+    )
+
+    fields = mdl.domains[0].models["Order"][0].fields
+    assert [(field.optional, field.nullable) for field in fields] == [
+        (False, False),
+        (True, False),
+        (False, True),
+        (True, True),
+    ]
+
+
 def test_parse_workspace_metadata():
     tree = parse_text("""
     workspace "analytics-platform" {

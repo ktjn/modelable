@@ -169,6 +169,8 @@ class BrowserFieldChange:
     replacement: str | None = None
     from_optional: bool | None = None
     to_optional: bool | None = None
+    from_nullable: bool | None = None
+    to_nullable: bool | None = None
     from_type: str | None = None
     to_type: str | None = None
 

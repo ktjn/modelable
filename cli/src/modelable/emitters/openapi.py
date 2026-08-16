@@ -9,6 +9,7 @@ from modelable.compiler.workspace import Workspace
 from modelable.emitters._schema_mapping import (
     _field_to_json_schema,
     _resolve_projection_field_type,
+    _resolve_projection_source_field,
 )
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import validation_failed
@@ -208,11 +209,19 @@ def _projection_to_schema(
     properties: dict[str, Any] = {}
     required: list[str] = []
     for field in version.fields:
-        field_type = _resolve_projection_field_type(field, version, mdl)
-        properties[field.name] = _field_to_json_schema(
-            field, field_type, defs, [field.name], mdl=mdl, ref_base=_REF_BASE
+        source_field = _resolve_projection_source_field(field, version, mdl)
+        field_type = (
+            source_field.type if source_field is not None else _resolve_projection_field_type(field, version, mdl)
         )
-        required.append(field.name)  # projection fields have no `?` syntax yet
+        property_schema = _field_to_json_schema(field, field_type, defs, [field.name], mdl=mdl, ref_base=_REF_BASE)
+        if source_field is not None and source_field.nullable:
+            if isinstance(property_schema.get("type"), str):
+                property_schema["type"] = [property_schema["type"], "null"]
+            else:
+                property_schema = {"anyOf": [property_schema, {"type": "null"}]}
+        properties[field.name] = property_schema
+        if source_field is None or not source_field.optional:
+            required.append(field.name)
 
     schema = {
         "type": "object",

@@ -552,3 +552,28 @@ domain platform {
     props = art.content["properties"]
     assert props["commandId"]["x-modelable-uuid-version"] == 7
     assert "x-modelable-uuid-version" not in props["legacyId"]
+
+
+def test_emit_json_schema_separates_presence_from_nullability(tmp_path):
+    (tmp_path / "commerce.mdl").write_text(
+        """
+domain commerce {
+  owner: "commerce-team"
+  entity Order @ 1 (additive) {
+    requiredNonNull: string
+    optionalNonNull?: string
+    requiredNullable: string?
+    optionalNullable?: string?
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    schema = emit_json_schema(load_workspace(tmp_path), tmp_path / "out")[0].content
+
+    assert schema["required"] == ["requiredNonNull", "requiredNullable"]
+    assert schema["properties"]["requiredNonNull"]["type"] == "string"
+    assert schema["properties"]["optionalNonNull"]["type"] == "string"
+    assert schema["properties"]["requiredNullable"]["type"] == ["string", "null"]
+    assert schema["properties"]["optionalNullable"]["type"] == ["string", "null"]

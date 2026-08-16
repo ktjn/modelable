@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Model fields now distinguish legacy presence (`field?`) from explicit
+  nullability (`field: type?` and `field?: type?`), and JSON Schema/OpenAPI
+  artifacts preserve both dimensions.
 - OpenAPI imports now accept JSON and YAML documents, traverse all component
   schemas deterministically, preserve `x-modelable` metadata, and resolve
   versioned component references. Multi-schema imports require an explicit

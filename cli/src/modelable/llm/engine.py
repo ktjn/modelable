@@ -500,7 +500,7 @@ def _classify_attach_change_kind(changes: list[FieldChange]) -> str:
     for change in changes:
         if change.kind in _BREAKING_ATTACH_CHANGE_KINDS:
             return "breaking"
-        if change.kind == "nullability_changed" and change.from_optional and not change.to_optional:
+        if change.kind == "presence_changed" and change.from_optional and not change.to_optional:
             return "breaking"
     return "additive"
 

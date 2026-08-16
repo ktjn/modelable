@@ -117,7 +117,7 @@ def test_compare_model_versions_reports_rename_and_nullability():
     from modelable.compat.diff import compare_model_versions
 
     changes = compare_model_versions(old_version, new_version)
-    assert [change.kind for change in changes] == ["renamed_field", "nullability_changed"]
+    assert [change.kind for change in changes] == ["renamed_field", "presence_changed"]
     assert changes[0].field_name == "name"
     assert changes[0].replacement == "fullName"
     assert changes[1].field_name == "fullName"
@@ -216,7 +216,7 @@ def test_optional_to_required_is_breaking():
 
     report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
     assert report.status == "breaking"
-    assert any("nullability_changed email" in finding for finding in report.findings)
+    assert any("presence_changed email" in finding for finding in report.findings)
 
 
 def test_required_to_optional_is_compatible():
@@ -240,6 +240,29 @@ def test_required_to_optional_is_compatible():
 
     report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
     assert report.status == "compatible"
+    assert any("presence_changed email" in finding for finding in report.findings)
+
+
+def test_non_null_to_nullable_is_compatible_and_reports_distinct_axis():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            email: string
+          }
+          entity Customer @ 2 (additive) {
+            email: string?
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
+    assert report.status == "compatible"
+    assert any(change.kind == "nullability_changed" for change in report.changes)
     assert any("nullability_changed email" in finding for finding in report.findings)
 
 

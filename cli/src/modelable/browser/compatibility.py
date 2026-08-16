@@ -69,6 +69,8 @@ def _convert_report(report: CompatibilityReport) -> BrowserCompatibilityReport:
                 replacement=change.replacement,
                 from_optional=change.from_optional,
                 to_optional=change.to_optional,
+                from_nullable=change.from_nullable,
+                to_nullable=change.to_nullable,
                 from_type=change.from_type,
                 to_type=change.to_type,
             )

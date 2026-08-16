@@ -52,8 +52,9 @@ model_kind: "entity"    -> mk_entity
 change_kind: "additive" -> ck_additive
            | "breaking" -> ck_breaking
 
-field_decl: annotation* IDENT optional_marker? ":" type_expr field_default?
+field_decl: annotation* IDENT optional_marker? ":" type_expr nullable_marker? field_default?
 optional_marker: "?"
+nullable_marker: "?"
 field_default: "=" EXPRESSION
 
 annotation: "@key"                                                -> ann_key
