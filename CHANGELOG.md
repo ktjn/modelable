@@ -18,6 +18,8 @@ releases could contain breaking changes when called out explicitly.
   and causal paths for model changes.
 - Added `modelable config explain` and opt-in `modelable.toml` defaults for
   inherited auto-projections with provenance reporting.
+- Added target-neutral `conversions` proof reports and non-executable
+  `migration plan` facts for model evolution.
 
 ### Changed
 
