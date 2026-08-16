@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- The registry manifest now enumerates each model with its schema version,
+  canonical content signature, and registry-backed key identity when one is
+  allocated, so health and drift contracts can consume one generated artifact.
 - `modelable compile --target event-sink` now emits a deterministic,
   adapter-neutral change-event envelope, payload schemas, operation coverage,
   and transactional outbox contract for event projections.
