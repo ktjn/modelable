@@ -391,6 +391,7 @@ class ProjectionField(BaseModel):
     name: str
     mapping: ProjectionMapping
     annotations: list[Annotation] = Field(default_factory=list)
+    constraints: list[ValueConstraint] = Field(default_factory=list)
 
     @property
     def is_pii(self) -> bool:

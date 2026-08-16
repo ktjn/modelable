@@ -30,6 +30,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Propagated field constraints through generated and direct projection views so
+  JSON Schema output preserves source validation semantics.
+
 - Extended `modelable doctor` to verify the derived registry index and detect
   stale or tampered generated artifacts from their manifests.
 

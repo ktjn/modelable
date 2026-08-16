@@ -102,6 +102,7 @@ def _build_projection_fields(
                 name=field.name,
                 mapping=DirectMapping(source_alias=alias, source_field=field.name),
                 annotations=list(field.annotations),
+                constraints=list(field.constraints),
             )
         )
     return included
@@ -231,6 +232,7 @@ def _expand_selection(
                 name=name,
                 mapping=DirectMapping(source_alias=alias, source_field=name),
                 annotations=list(field.annotations),
+                constraints=list(field.constraints),
             )
         )
 
