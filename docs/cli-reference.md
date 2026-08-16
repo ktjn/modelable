@@ -1059,7 +1059,19 @@ modelable compile ./models --target grpc --out ./dist/grpc
 
 ---
 
-### 5.23 `spec` — Track external specifications
+### 5.23 `compile --target event-sink` — Export the event-sink contract
+
+```text
+modelable compile PATH --target event-sink --out DIR
+```
+
+Writes `event-sink.json`, containing the standard change-event envelope,
+versioned event payload schemas, normalized operation coverage, and the
+transactional outbox/deduplication contract. This is an adapter-neutral
+contract artifact; broker delivery and live materialization are runtime
+follow-up work.
+
+### 5.24 `spec` — Track external specifications
 
 ```text
 modelable spec add ID --kind <dbt|fhir|odcs> --source PATH_OR_URL --ref Domain.Model@version [--source-name NAME] [--path PATH]

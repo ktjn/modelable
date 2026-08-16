@@ -66,6 +66,7 @@ def _expand_domain_auto_projections(domain: DomainDef) -> list[str]:
                 ),
                 fields=fields,
                 auto_generated=True,
+                event_operations=list(target.operations) if target.kind == "event" else [],
             )
             domain.projections.setdefault(projection_name, []).append(projection)
 

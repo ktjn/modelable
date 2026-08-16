@@ -437,6 +437,7 @@ class ProjectionVersion(BaseModel):
     annotations: list[Annotation] = Field(default_factory=list)
     protobuf_reservations: ProtobufReservations | None = None
     selection: SelectionClause | None = None
+    event_operations: list[str] = Field(default_factory=list)
 
     def wire_targets(self) -> dict[str, WireTargetHint]:
         from modelable.parser.wire import wire_targets_from_annotations

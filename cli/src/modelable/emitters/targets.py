@@ -154,6 +154,13 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/registry"),
     ),
+    CodegenTarget(
+        name="event-sink",
+        description="Adapter-neutral change-event and transactional outbox contract",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/event-sink"),
+    ),
 )
 
 

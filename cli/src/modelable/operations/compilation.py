@@ -20,6 +20,7 @@ from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.csharp import emit_csharp
 from modelable.emitters.dbt_yaml import emit_dbt_yaml
 from modelable.emitters.descriptors import DescriptorGenerationError, compile_descriptor_set
+from modelable.emitters.event_sink import emit_event_sink
 from modelable.emitters.fhir import emit_fhir_profile
 from modelable.emitters.go import emit_go
 from modelable.emitters.grpc import emit_grpc
@@ -1392,6 +1393,8 @@ def _emit_target(
         return emit_openapi(workspace, output)
     if target == "registry":
         return emit_registry_manifest(workspace, output, registry_ids=registry_ids)
+    if target == "event-sink":
+        return emit_event_sink(workspace, output)
     if target == "protobuf":
         artifacts = emit_protobuf(workspace, output, registry_ids=registry_ids)
         if descriptor_set:

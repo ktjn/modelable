@@ -35,6 +35,7 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | Scalable gRPC profile | 5 | Implemented local artifact with opt-in service descriptors, declared read-index metadata, and manifest-based compatibility validation |
 | Avro | 5 | Deferred |
 | OpenAPI | 5 | Implemented local artifact with schemas, paths, and projection-backed operations |
+| Event sink | 5 | Implemented local contract artifact; broker and materialization runtime deferred |
 | AsyncAPI | 5 | Deferred |
 
 Phase 1 must not require runtime adapters.
@@ -240,6 +241,10 @@ implemented:
   and value type. Unsupported nested/complex FHIR representation remains a
   warning/follow-up boundary rather than a silent lossy mapping.
 - OpenAPI: generate schemas from projections, not necessarily canonical entities.
+- Event sink: generate a deterministic event envelope, event payload schemas,
+  operation coverage, and transactional outbox contract from event projections;
+  broker delivery and live materialization remain outside the local emitter
+  boundary.
 - AsyncAPI: generate event channels from event projections and change event envelopes.
 - ODCS: export data contracts while keeping `.mdl` as source of truth.
 - OpenMetadata: export ownership, lineage, and classification metadata. Live
