@@ -291,6 +291,7 @@ type ImplementedTarget = Literal[
     "grpc",
     "openapi",
     "registry",
+    "event-sink",
 ]
 
 

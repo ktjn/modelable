@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- `modelable compile --target event-sink` now emits a deterministic,
+  adapter-neutral change-event envelope, payload schemas, operation coverage,
+  and transactional outbox contract for event projections.
 - Model fields now distinguish legacy presence (`field?`) from explicit
   nullability (`field: type?` and `field?: type?`), and JSON Schema/OpenAPI
   artifacts preserve both dimensions.
