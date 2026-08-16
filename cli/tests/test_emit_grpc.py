@@ -40,7 +40,7 @@ domain customer {
         service_proto.content
         == """syntax = "proto3";
 
-package modelable.customer.v1.scalable;
+package modelable.customer.v1.customer.scalable;
 
 import "google/protobuf/timestamp.proto";
 

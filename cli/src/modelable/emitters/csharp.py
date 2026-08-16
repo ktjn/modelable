@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss
+from modelable.emitters.named_types import resolve_named_types
 from modelable.emitters.naming import pascalize_titlecase as _pascalize
 from modelable.emitters.shapes import TypeShape
-from modelable.parser.ir import DirectMapping, DomainDef, ModelVersion, ProjectionVersion
+from modelable.parser.ir import DirectMapping, DomainDef, MdlFile, ModelVersion, ProjectionVersion
 from modelable.registry.resolver import resolve_model_ref
 
 
@@ -15,12 +17,21 @@ def emit_csharp(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit C# source files for every model and projection version."""
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
-        for model_name, versions in domain.models.items():
-            for version in versions:
-                artifacts.append(_emit_model(domain, model_name, version, out_dir))
-        for projection_name, versions in domain.projections.items():
-            for version in versions:
-                artifacts.append(_emit_projection(domain, projection_name, version, out_dir, workspace.mdl))
+        named_names, named_shapes = resolve_named_types(
+            workspace.mdl,
+            current_domain=domain.name,
+            model_name=_stable_type_name,
+        )
+        for model_name, model_versions in domain.models.items():
+            for model_version in model_versions:
+                artifacts.append(_emit_model(domain, model_name, model_version, out_dir, named_names, named_shapes))
+        for projection_name, projection_versions in domain.projections.items():
+            for projection_version in projection_versions:
+                artifacts.append(
+                    _emit_projection(
+                        domain, projection_name, projection_version, out_dir, workspace.mdl, named_names, named_shapes
+                    )
+                )
     return artifacts
 
 
@@ -36,7 +47,14 @@ def _stable_type_name(domain: str, name: str, version: int) -> str:
     return f"{_pascalize(domain)}{_pascalize(name)}V{version}"
 
 
-def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path) -> EmittedArtifact:
+def _emit_model(
+    domain: DomainDef,
+    model_name: str,
+    version: ModelVersion,
+    out_dir: Path,
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
+) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
     lines = _header_lines(_namespace_name(domain.name))
@@ -48,7 +66,13 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     for field in version.fields:
         shape = TypeShape.from_field_type(field.type, optional=field.optional)
         csharp_type = _shape_to_csharp(
-            shape, owner_type=type_name, path=[field.name], definitions=nested_definitions, warnings=warnings
+            shape,
+            owner_type=type_name,
+            path=[field.name],
+            definitions=nested_definitions,
+            warnings=warnings,
+            named_names=named_names,
+            named_shapes=named_shapes,
         )
         prefix = "required " if not (shape.optional or shape.nullable) else ""
         lines.append(f"    public {prefix}{csharp_type} {_property_name(field.name)} {{ get; init; }}")
@@ -72,7 +96,9 @@ def _emit_projection(
     projection_name: str,
     version: ProjectionVersion,
     out_dir: Path,
-    mdl,
+    mdl: MdlFile,
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     type_name = _stable_type_name(domain.name, projection_name, version.version)
@@ -95,6 +121,8 @@ def _emit_projection(
                 path=[field.name],
                 definitions=nested_definitions,
                 warnings=warnings,
+                named_names=named_names,
+                named_shapes=named_shapes,
             )
             prefix = "required " if not (field_shape.optional or field_shape.nullable) else ""
         lines.append(f"    public {prefix}{csharp_type} {_property_name(field.name)} {{ get; init; }}")
@@ -143,8 +171,18 @@ def _shape_to_csharp(
     path: list[str],
     definitions: dict[str, list[str]],
     warnings: list[str],
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
 ) -> str:
-    base = _shape_base_to_csharp(shape, owner_type=owner_type, path=path, definitions=definitions, warnings=warnings)
+    base = _shape_base_to_csharp(
+        shape,
+        owner_type=owner_type,
+        path=path,
+        definitions=definitions,
+        warnings=warnings,
+        named_names=named_names,
+        named_shapes=named_shapes,
+    )
     if shape.optional or shape.nullable:
         return f"{base}?"
     return base
@@ -157,6 +195,8 @@ def _shape_base_to_csharp(
     path: list[str],
     definitions: dict[str, list[str]],
     warnings: list[str],
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
 ) -> str:
     if shape.kind == "primitive":
         return _primitive_to_csharp(shape.ref or "string")
@@ -169,13 +209,25 @@ def _shape_base_to_csharp(
     if shape.kind == "array":
         element = shape.element or TypeShape(kind="primitive", ref="object")
         inner = _shape_to_csharp(
-            element, owner_type=owner_type, path=[*path, "Item"], definitions=definitions, warnings=warnings
+            element,
+            owner_type=owner_type,
+            path=[*path, "Item"],
+            definitions=definitions,
+            warnings=warnings,
+            named_names=named_names,
+            named_shapes=named_shapes,
         )
         return f"List<{inner}>"
     if shape.kind == "map":
         value = shape.value or TypeShape(kind="primitive", ref="object")
         inner = _shape_to_csharp(
-            value, owner_type=owner_type, path=[*path, "Value"], definitions=definitions, warnings=warnings
+            value,
+            owner_type=owner_type,
+            path=[*path, "Value"],
+            definitions=definitions,
+            warnings=warnings,
+            named_names=named_names,
+            named_shapes=named_shapes,
         )
         return f"Dictionary<string, {inner}>"
     if shape.kind == "ref":
@@ -183,12 +235,31 @@ def _shape_base_to_csharp(
     if shape.kind == "enum":
         return "string"
     if shape.kind == "named":
+        if shape.ref in named_names:
+            return named_names[shape.ref]
+        if shape.ref in named_shapes:
+            return _shape_base_to_csharp(
+                named_shapes[shape.ref],
+                owner_type=owner_type,
+                path=path,
+                definitions=definitions,
+                warnings=warnings,
+                named_names=named_names,
+                named_shapes=named_shapes,
+            )
         return _pascalize(shape.ref or "Named")
     if shape.kind == "object":
         type_name = _nested_type_name(owner_type, path)
         if type_name not in definitions:
             definitions[type_name] = _build_record_definition(
-                type_name, shape, owner_type=owner_type, path=path, definitions=definitions, warnings=warnings
+                type_name,
+                shape,
+                owner_type=owner_type,
+                path=path,
+                definitions=definitions,
+                warnings=warnings,
+                named_names=named_names,
+                named_shapes=named_shapes,
             )
         return type_name
     return "object"
@@ -233,6 +304,8 @@ def _build_record_definition(
     path: list[str],
     definitions: dict[str, list[str]],
     warnings: list[str],
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
 ) -> list[str]:
     lines = [f"public sealed record {type_name}", "{"]
     for field in shape.fields:
@@ -243,6 +316,8 @@ def _build_record_definition(
             path=[*path, field.name],
             definitions=definitions,
             warnings=warnings,
+            named_names=named_names,
+            named_shapes=named_shapes,
         )
         prefix = "required " if not (child_shape.optional or child_shape.nullable) else ""
         lines.append(f"    public {prefix}{child_type} {_property_name(field.name)} {{ get; init; }}")
@@ -250,7 +325,7 @@ def _build_record_definition(
     return lines
 
 
-def _resolve_projection_field_shape(field, projection: ProjectionVersion, mdl):
+def _resolve_projection_field_shape(field: Any, projection: ProjectionVersion, mdl: MdlFile) -> TypeShape | None:
     if not isinstance(field.mapping, DirectMapping):
         return None
     try:
@@ -263,6 +338,6 @@ def _resolve_projection_field_shape(field, projection: ProjectionVersion, mdl):
         return None
     source_mv = resolved.version
     for src_field in source_mv.fields:
-        if src_field.name == field.mapping.source_field:
-            return TypeShape.from_field_type(src_field.type, optional=src_field.optional)
+        if src_field.name == field.mapping.source_field and hasattr(src_field, "type"):
+            return TypeShape.from_field_type(src_field.type, optional=getattr(src_field, "optional", False))
     return None

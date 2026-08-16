@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss
+from modelable.emitters.named_types import resolve_named_types
 from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.shapes import TypeShape
-from modelable.parser.ir import DirectMapping, DomainDef, ModelVersion, ProjectionVersion
+from modelable.parser.ir import DirectMapping, DomainDef, MdlFile, ModelVersion, ProjectionVersion
 from modelable.registry.resolver import resolve_model_ref
 
 
@@ -17,12 +19,19 @@ def emit_go(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit Go source files for every model and projection version."""
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
-        for model_name, versions in domain.models.items():
-            for version in versions:
-                artifacts.append(_emit_model(domain, model_name, version, out_dir))
-        for projection_name, versions in domain.projections.items():
-            for version in versions:
-                artifacts.append(_emit_projection(domain, projection_name, version, out_dir, workspace.mdl))
+        named_names, named_shapes = resolve_named_types(
+            workspace.mdl, current_domain=domain.name, model_name=_stable_type_name
+        )
+        for model_name, model_versions in domain.models.items():
+            for model_version in model_versions:
+                artifacts.append(_emit_model(domain, model_name, model_version, out_dir, named_names, named_shapes))
+        for projection_name, projection_versions in domain.projections.items():
+            for projection_version in projection_versions:
+                artifacts.append(
+                    _emit_projection(
+                        domain, projection_name, projection_version, out_dir, workspace.mdl, named_names, named_shapes
+                    )
+                )
     return artifacts
 
 
@@ -34,7 +43,14 @@ def _stable_type_name(domain: str, name: str, version: int) -> str:
     return f"{_pascalize(domain)}{_pascalize(name)}V{version}"
 
 
-def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path) -> EmittedArtifact:
+def _emit_model(
+    domain: DomainDef,
+    model_name: str,
+    version: ModelVersion,
+    out_dir: Path,
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
+) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
@@ -47,6 +63,8 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
         definitions=nested_definitions,
         imports=imports,
         warnings=warnings,
+        named_names=named_names,
+        named_shapes=named_shapes,
     )
 
     lines = _header_lines(_package_name(domain.name), imports)
@@ -70,7 +88,9 @@ def _emit_projection(
     projection_name: str,
     version: ProjectionVersion,
     out_dir: Path,
-    mdl,
+    mdl: MdlFile,
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     type_name = _stable_type_name(domain.name, projection_name, version.version)
@@ -92,6 +112,8 @@ def _emit_projection(
             definitions=nested_definitions,
             imports=imports,
             warnings=warnings,
+            named_names=named_names,
+            named_shapes=named_shapes,
         )
         optional = field_shape.optional or field_shape.nullable
         field_specs.append((index, field.name, annotation, optional))
@@ -172,13 +194,15 @@ def _json_tag(value: str, optional: bool) -> str:
 
 
 def _field_specs_from_model_fields(
-    fields,
+    fields: Any,
     *,
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
     imports: set[str],
     warnings: list[str],
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
 ) -> list[tuple[int, str, str, bool]]:
     specs: list[tuple[int, str, str, bool]] = []
     for index, field in enumerate(fields):
@@ -190,6 +214,8 @@ def _field_specs_from_model_fields(
             definitions=definitions,
             imports=imports,
             warnings=warnings,
+            named_names=named_names,
+            named_shapes=named_shapes,
         )
         default_none = shape.optional or shape.nullable
         specs.append((index, field.name, annotation, default_none))
@@ -197,13 +223,15 @@ def _field_specs_from_model_fields(
 
 
 def _field_specs_from_object_fields(
-    fields,
+    fields: Any,
     *,
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
     imports: set[str],
     warnings: list[str],
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
 ) -> list[tuple[int, str, str, bool]]:
     specs: list[tuple[int, str, str, bool]] = []
     for index, field in enumerate(fields):
@@ -214,6 +242,8 @@ def _field_specs_from_object_fields(
             definitions=definitions,
             imports=imports,
             warnings=warnings,
+            named_names=named_names,
+            named_shapes=named_shapes,
         )
         default_none = field.optional or field.shape.optional or field.shape.nullable
         specs.append((index, field.name, annotation, default_none))
@@ -228,6 +258,8 @@ def _shape_annotation(
     definitions: dict[str, list[str]],
     imports: set[str],
     warnings: list[str],
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
 ) -> str:
     base = _shape_base_annotation(
         shape,
@@ -236,6 +268,8 @@ def _shape_annotation(
         definitions=definitions,
         imports=imports,
         warnings=warnings,
+        named_names=named_names,
+        named_shapes=named_shapes,
     )
     if shape.optional or shape.nullable:
         return f"*{base}"
@@ -250,6 +284,8 @@ def _shape_base_annotation(
     definitions: dict[str, list[str]],
     imports: set[str],
     warnings: list[str],
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
 ) -> str:
     if shape.kind == "primitive":
         field_ref = f"{owner_type}.{'.'.join(path)}"
@@ -267,6 +303,8 @@ def _shape_base_annotation(
             definitions=definitions,
             imports=imports,
             warnings=warnings,
+            named_names=named_names,
+            named_shapes=named_shapes,
         )
         return f"[]{element_type}"
     if shape.kind == "map":
@@ -278,6 +316,8 @@ def _shape_base_annotation(
             definitions=definitions,
             imports=imports,
             warnings=warnings,
+            named_names=named_names,
+            named_shapes=named_shapes,
         )
         return f"map[string]{value_type}"
     if shape.kind == "ref":
@@ -285,6 +325,19 @@ def _shape_base_annotation(
     if shape.kind == "enum":
         return "string"
     if shape.kind == "named":
+        if shape.ref in named_names:
+            return named_names[shape.ref]
+        if shape.ref in named_shapes:
+            return _shape_base_annotation(
+                named_shapes[shape.ref],
+                owner_type=owner_type,
+                path=path,
+                definitions=definitions,
+                imports=imports,
+                warnings=warnings,
+                named_names=named_names,
+                named_shapes=named_shapes,
+            )
         return _pascalize(shape.ref or "Named")
     if shape.kind == "object":
         type_name = _nested_type_name(owner_type, path)
@@ -298,6 +351,8 @@ def _shape_base_annotation(
                     definitions=definitions,
                     imports=imports,
                     warnings=warnings,
+                    named_names=named_names,
+                    named_shapes=named_shapes,
                 ),
             )
         return type_name
@@ -339,7 +394,7 @@ def _nested_type_name(owner_type: str, path: list[str]) -> str:
     return f"{owner_type}{suffix}" if suffix else owner_type
 
 
-def _resolve_projection_field_shape(field, projection: ProjectionVersion, mdl):
+def _resolve_projection_field_shape(field: Any, projection: ProjectionVersion, mdl: MdlFile) -> TypeShape | None:
     if not isinstance(field.mapping, DirectMapping):
         return None
     try:
@@ -352,6 +407,6 @@ def _resolve_projection_field_shape(field, projection: ProjectionVersion, mdl):
         return None
     source_mv = resolved.version
     for src_field in source_mv.fields:
-        if src_field.name == field.mapping.source_field:
-            return TypeShape.from_field_type(src_field.type, optional=src_field.optional)
+        if src_field.name == field.mapping.source_field and hasattr(src_field, "type"):
+            return TypeShape.from_field_type(src_field.type, optional=getattr(src_field, "optional", False))
     return None
