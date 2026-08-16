@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.9.0] - 2026-08-16
+
+### Added
+
 - Added discriminated union field types with JSON Schema and OpenAPI `oneOf`/`discriminator` output.
 
 - Added first-class field value constraints for numeric bounds, string lengths,
