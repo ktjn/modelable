@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.9.1] - 2026-08-16
+
+### Added
+
 - Added discriminated-union compatibility findings for discriminator, variant,
   and variant-shape changes.
 
