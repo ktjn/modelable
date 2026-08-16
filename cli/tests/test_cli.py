@@ -287,7 +287,7 @@ domain platform {
         )
 
         assert result.exit_code == 0
-        lock_path = Path("registry-ids.lock")
+        lock_path = tmp_path / "registry-ids.lock"
         assert lock_path.exists()
         assert json.loads(lock_path.read_text(encoding="utf-8")) == {"platform.SchemaId": 1}
         generated = (tmp_path / "dist" / "platform" / "schema_id.rs").read_text(encoding="utf-8")
@@ -315,7 +315,7 @@ domain platform {
             )
             assert result.exit_code == 0
 
-        assert json.loads(Path("registry-ids.lock").read_text(encoding="utf-8")) == {"platform.SchemaId": 1}
+        assert json.loads((tmp_path / "registry-ids.lock").read_text(encoding="utf-8")) == {"platform.SchemaId": 1}
 
 
 def test_compile_rejects_orphaned_registry_id_without_flag(tmp_path):
@@ -332,7 +332,9 @@ domain platform {
 
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
-        Path("registry-ids.lock").write_text('{"platform.RemovedId": 1, "platform.SchemaId": 2}\n', encoding="utf-8")
+        (tmp_path / "registry-ids.lock").write_text(
+            '{"platform.RemovedId": 1, "platform.SchemaId": 2}\n', encoding="utf-8"
+        )
         result = runner.invoke(
             cli,
             ["compile", str(mdl), "--target", "rust", "--out", str(tmp_path / "dist")],

@@ -1180,7 +1180,9 @@ def _field_specs_from_model_fields(
                 rust_hint=wire.get("rust"),
                 named_type_map=named_type_map,
             )
-        elif shape.optional:
+        elif is_optional:
+            serde_attrs = ["#[serde(default)]", *serde_attrs]
+        if shape.optional and shape.kind != "array":
             # Omittable field: skip during serialization when None.
             # Nullable-only fields must always be serialized (as null), so no skip attr.
             serde_attrs = ['#[serde(skip_serializing_if = "Option::is_none")]', *serde_attrs]
@@ -1213,6 +1215,8 @@ def _field_specs_from_object_fields(
         )
         default_none = field.optional or field.shape.optional or field.shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field.shape)
+        if default_none:
+            serde_attrs = ["#[serde(default)]", *serde_attrs]
         specs.append(
             _FieldSpec(
                 index=index, name=field.name, annotation=annotation, optional=default_none, serde_attrs=serde_attrs

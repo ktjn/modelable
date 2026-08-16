@@ -51,6 +51,7 @@ INCLUDE_FILES = (
     "emitters/markdown.py",
     "emitters/protobuf.py",
     "emitters/python.py",
+    "emitters/registry_manifest.py",
     "emitters/rust.py",
     "emitters/sql.py",
     "emitters/typescript.py",

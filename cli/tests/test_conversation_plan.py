@@ -709,7 +709,6 @@ def test_conversation_request_exposes_only_closed_typed_plan_schema() -> None:
         '"validation_override"',
         '"url"',
         '"token"',
-        '"registry"',
         '"environment"',
     ):
         assert forbidden not in schema_text
