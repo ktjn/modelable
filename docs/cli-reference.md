@@ -100,6 +100,23 @@ provenance. A configured `[defaults] auto_projections = ["db", "request",
 planner for workspaces under that configuration file; explicit IDL
 declarations remain authoritative.
 
+### 5.0.2 `doctor` — Check local toolchain health
+
+```text
+modelable doctor [PATH] [--format text|json]
+```
+
+`doctor` performs an offline health check for the workspace, resolved compiler
+configuration, local registry snapshot, and advertised compiler capabilities.
+It exits `0` only when the workspace parses without errors and its registry
+snapshot is valid. Use JSON output for automation and text output for a quick
+human-readable summary.
+
+```bash
+modelable doctor .
+modelable doctor . --format json
+```
+
 ### 5.1 `validate` — Validate definition files
 
 ```text
