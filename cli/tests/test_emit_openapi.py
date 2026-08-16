@@ -200,6 +200,51 @@ def test_emit_openapi_is_deterministic_across_runs(tmp_path):
     assert json.dumps(first[0].content, sort_keys=True) == json.dumps(second[0].content, sort_keys=True)
 
 
+def test_emit_openapi_sorts_schemas_and_paths_by_identity(tmp_path):
+    (tmp_path / "zeta.mdl").write_text(
+        """
+domain zeta {
+  owner: "zeta-team"
+
+  entity Zed @ 1 (additive) {
+    @key id: uuid
+    value: string
+  }
+
+  auto projections Zed @ 1 {
+    reply
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "alpha.mdl").write_text(
+        """
+domain alpha {
+  owner: "alpha-team"
+
+  entity Able @ 1 (additive) {
+    @key id: uuid
+    value: string
+  }
+
+  auto projections Able @ 1 {
+    reply
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    document = emit_openapi(workspace, tmp_path / "out")[0].content
+
+    assert list(document["components"]["schemas"]) == [
+        "alpha.AbleReply.v1",
+        "zeta.ZedReply.v1",
+    ]
+
+
 def test_emit_openapi_document_envelope_is_minimal_and_valid(tmp_path):
     (tmp_path / "customer.mdl").write_text(_AUTO_PROJECTION_FIXTURE, encoding="utf-8")
     workspace = load_workspace(tmp_path)

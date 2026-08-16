@@ -21,6 +21,8 @@ releases could contain breaking changes when called out explicitly.
   from `request`/`reply`/`event` auto-projections and hand-authored
   projections. API declarations support versioned operations, key-based path
   parameters, JSON request bodies, and projection-backed responses.
+- OpenAPI export now orders schemas and operations by stable contract identity,
+  so equivalent workspaces produce reproducible artifact ordering.
 
 ### Changed
 

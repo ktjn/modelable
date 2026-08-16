@@ -48,11 +48,12 @@ def emit_openapi(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifac
     schemas: dict[str, dict[str, Any]] = {}
     warnings: list[str] = []
 
-    for domain in mdl.domains:
+    for domain in sorted(mdl.domains, key=lambda item: item.name):
         kind_lookup = _projection_kind_lookup(domain)
-        for projection_name, versions in domain.projections.items():
+        for projection_name in sorted(domain.projections):
+            versions = domain.projections[projection_name]
             projection_kind = kind_lookup.get(projection_name)
-            for version in versions:
+            for version in sorted(versions, key=lambda item: item.version):
                 if not _should_emit(version, projection_kind):
                     continue
                 schema_id, schema, field_warnings = _projection_to_schema(
@@ -68,7 +69,7 @@ def emit_openapi(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifac
             "version": "1.0.0",
         },
         "components": {"schemas": schemas},
-        "paths": _emit_paths(mdl, schemas),
+        "paths": _emit_paths(mdl),
     }
 
     warnings.extend(_validate_schemas(schemas))
@@ -85,14 +86,14 @@ def emit_openapi(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifac
     return [artifact]
 
 
-def _emit_paths(mdl: MdlFile, schemas: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+def _emit_paths(mdl: MdlFile) -> dict[str, dict[str, Any]]:
     paths: dict[str, dict[str, Any]] = {}
-    for domain in mdl.domains:
-        for api in domain.apis:
+    for domain in sorted(mdl.domains, key=lambda item: item.name):
+        for api in sorted(domain.apis, key=lambda item: (item.model, item.version)):
             model_versions = domain.models.get(api.model, [])
             model = next((item for item in model_versions if item.version == api.version), None)
             key_fields = {field.name: field for field in model.fields if field.is_key} if model else {}
-            for operation in api.operations:
+            for operation in sorted(api.operations, key=lambda item: (item.path, item.method, item.name)):
                 path_item = paths.setdefault(operation.path, {})
                 operation_doc: dict[str, Any] = {
                     "operationId": operation.name,

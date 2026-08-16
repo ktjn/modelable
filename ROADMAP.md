@@ -540,14 +540,15 @@ Before adding several more formats, normalize the importer/exporter boundary:
 Work should then proceed in this order, subject to the language prerequisites in
 Priority 6:
 
-1. **P0 — harden OpenAPI import and add OpenAPI export.**
+1. **Shipped — harden OpenAPI import and add OpenAPI export.**
    - Accept both YAML and JSON OpenAPI documents.
    - Stop treating the first `components.schemas` entry as the whole API.
    - Map reusable component schemas deliberately to value/entity candidates,
      request bodies and parameters to request projections, responses to reply
      projections, `$ref` to named references, and operation/security metadata
      where Modelable has a corresponding concept.
-   - Add deterministic OpenAPI generation from API-facing projections.
+   - Add deterministic OpenAPI generation from API-facing projections, with
+     stable schema and operation ordering.
    - Preserve Modelable-specific round-trip metadata through namespaced
      extensions where doing so does not change OpenAPI semantics.
 2. **P0 — add Avro export and harden Avro import.**
