@@ -770,10 +770,12 @@ intentionally erases nominal identity.
 
 Phase A (schema-only `components.schemas` emission) is implemented; see
 `docs/superpowers/specs/archived/2026-08-14-openapi-emission-design.md`.
-Only Phase D (fidelity follow-ups: constraints, presence/nullability, named
-enum reuse, discriminated unions) remains gated on D1-D4. Phase B (paths and
-operations) needs its own accepted grammar design (§7 of the linked design
-document) before implementation.
+Phase B (versioned paths and operations, including operation-aware
+compatibility facts) is implemented; see the archived Phase B design and
+implementation plan. Phase C (deterministic OpenAPI import hardening) and
+Phase D (fidelity follow-ups: constraints, presence/nullability, named enum
+reuse, discriminated unions) remain future slices, with Phase D gated on
+D1-D4.
 
 #### Slice F3 — AsyncAPI emission
 
