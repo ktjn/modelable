@@ -109,8 +109,9 @@ modelable doctor [PATH] [--format text|json]
 `doctor` performs an offline health check for the workspace, resolved compiler
 configuration, local registry snapshot, and advertised compiler capabilities.
 It exits `0` only when the workspace parses without errors and its registry
-snapshot is valid. Use JSON output for automation and text output for a quick
-human-readable summary.
+snapshot is valid, the derived registry index passes its integrity check, and
+all tracked generated artifacts still match their manifest hashes. Use JSON
+output for automation and text output for a quick human-readable summary.
 
 ```bash
 modelable doctor .
