@@ -96,6 +96,7 @@ domain platform {
     payload = json.loads(artifact.content)
     assert payload["format"] == "modelable.registry.v1"
     assert [entry["ref"] for entry in payload["contracts"]] == ["platform.Tenant@1", "platform.TenantId"]
+    assert payload["contracts"][0]["registry_id"] == 7
     assert payload["contracts"][1]["registry_id"] == 7
 
 

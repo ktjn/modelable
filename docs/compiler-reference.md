@@ -36,6 +36,7 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | Avro | 5 | Deferred |
 | OpenAPI | 5 | Implemented local artifact with schemas, paths, and projection-backed operations |
 | Event sink | 5 | Implemented local contract artifact; broker and materialization runtime deferred |
+| Registry manifest | 5 | Implemented local contract inventory with model identity metadata |
 | AsyncAPI | 5 | Deferred |
 
 Phase 1 must not require runtime adapters.
@@ -245,6 +246,9 @@ implemented:
   operation coverage, and transactional outbox contract from event projections;
   broker delivery and live materialization remain outside the local emitter
   boundary.
+- Registry manifest: enumerate every model and projection with its version and
+  canonical signature, plus the allocated registry-backed key identity for
+  models that use one.
 - AsyncAPI: generate event channels from event projections and change event envelopes.
 - ODCS: export data contracts while keeping `.mdl` as source of truth.
 - OpenMetadata: export ownership, lineage, and classification metadata. Live
