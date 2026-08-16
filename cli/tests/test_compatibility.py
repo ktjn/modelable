@@ -266,6 +266,55 @@ def test_non_null_to_nullable_is_compatible_and_reports_distinct_axis():
     assert any("nullability_changed email" in finding for finding in report.findings)
 
 
+def test_nullable_to_non_null_is_breaking_and_reports_distinct_axis():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            email: string?
+          }
+          entity Customer @ 2 (breaking) {
+            email: string
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
+    assert report.status == "breaking"
+    assert any(change.kind == "nullability_changed" for change in report.changes)
+    assert any("nullability_changed email" in finding for finding in report.findings)
+
+
+def test_renamed_nullable_field_preserves_nullability_metadata():
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @deprecated(replacedBy: "fullName") name: string?
+          }
+          entity Customer @ 2 (breaking) {
+            fullName: string
+          }
+        }
+        """
+    )
+
+    from modelable.compat.diff import compare_model_versions
+
+    changes = compare_model_versions(mdl.domains[0].models["Customer"][0], mdl.domains[0].models["Customer"][1])
+
+    renamed = next(change for change in changes if change.kind == "renamed_field")
+    nullability = next(change for change in changes if change.kind == "nullability_changed")
+    assert renamed.from_nullable is True
+    assert renamed.to_nullable is False
+    assert nullability.field_name == "fullName"
+
+
 def test_compare_model_versions_reports_enum_and_identity_changes():
     mdl = parse_text_to_ir(
         """
