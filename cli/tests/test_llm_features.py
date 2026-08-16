@@ -266,6 +266,39 @@ def test_openapi_importer_warns_when_fidelity_is_dropped():
     assert any("nullability" in warning and "notes" in warning for warning in imported.warnings)
 
 
+def test_openapi_importer_warns_when_operations_and_security_are_dropped():
+    imported = import_from_text(
+        json.dumps(
+            {
+                "openapi": "3.1.0",
+                "info": {"title": "Catalog", "version": "1"},
+                "security": [{"oauth": []}],
+                "components": {
+                    "securitySchemes": {"oauth": {"type": "oauth2", "flows": {}}},
+                    "schemas": {"Product": {"type": "object", "properties": {"id": {"type": "string"}}}},
+                },
+                "paths": {
+                    "/products": {
+                        "get": {
+                            "security": [{"oauth": []}],
+                            "parameters": [{"name": "limit", "in": "query"}],
+                            "responses": {"200": {"description": "ok"}},
+                        }
+                    }
+                },
+            }
+        ),
+        "openapi",
+    )
+
+    assert any("operation metadata" in warning for warning in imported.warnings)
+    assert any("operation security" in warning for warning in imported.warnings)
+    assert any("parameters" in warning for warning in imported.warnings)
+    assert any("response bindings" in warning for warning in imported.warnings)
+    assert any("root security" in warning for warning in imported.warnings)
+    assert any("securitySchemes" in warning for warning in imported.warnings)
+
+
 def test_json_schema_importer_preserves_modelable_extensions():
     imported = import_from_text(
         json.dumps(
