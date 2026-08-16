@@ -877,9 +877,9 @@ All generated artifacts must include model version metadata.
 
 The registry uses a **file-first, SQLite-indexed** storage model.
 
-**Source of truth: `.mdl` files on disk.** Authors write and version-control `.mdl` definition files using the Modelable IDL. The registry never modifies these files. All definitions live in source control alongside application code.
+**Source of truth: `.mdl` files and explicit registry snapshots.** Authors write and version-control `.mdl` definition files using the Modelable IDL. An explicit `modelable registry resolve` operation may materialize exact external dependencies as a durable `.modelable/registry.lock` plus content-addressed objects. Ordinary compilation and analysis never refresh these snapshots or contact a network source.
 
-**Derived index: SQLite.** The `modelable compile` command reads all `.mdl` files and writes a derived `registry.db` (SQLite) file to the `.modelable/` output directory. The database is a build artifact — never edited directly. Deleting it and re-running `compile` must produce an identical result.
+**Derived index: SQLite.** The `modelable compile` command reads all `.mdl` files and local registry snapshot objects and writes a derived `registry.db` (SQLite) file to the `.modelable/` output directory. The database is a build artifact — never edited directly. Deleting it and re-running `compile` must produce an identical result without contacting a network source.
 
 SQLite is used because it provides efficient relational queries for lineage traversal, consumer lookup, and compatibility checks without requiring a server or any setup for local use.
 
@@ -888,6 +888,8 @@ SQLite is used because it provides efficient relational queries for lineage trav
 ```
 .modelable/
   registry.db                          # derived — rebuilt by `modelable compile`
+  registry.lock                        # durable exact dependency snapshot
+  registry/objects/<sha256>.json       # content-addressed normalized contracts
   plans/
     customer.Customer.v2.plan.json     # interpreted plan document
   artifacts/
