@@ -41,6 +41,11 @@ releases could contain breaking changes when called out explicitly.
   fields.
 - Fixed Rust compilation output for optional arrays whose elements are named
   types, preserving the generated type name and import.
+- Fixed C#, Java, Python, and Go emitters so named model references resolve to
+  emitted versioned names and semantic-typed fields never reference undefined
+  generated types.
+- Fixed gRPC service package collisions, PostgreSQL secondary-index name
+  collisions, and invalid nullable ClickHouse arrays.
 
 ## [1.7.0] - 2026-08-14
 

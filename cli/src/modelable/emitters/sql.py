@@ -204,7 +204,7 @@ def _emit_secondary_index_ddl(version: ProjectionVersion, table_name: str, mdl: 
             continue
 
         keyword = "UNIQUE INDEX" if secondary.unique else "INDEX"
-        index_name = _snake_case(secondary.name)
+        index_name = _snake_case(f"{table_name}_{secondary.name}")
         lines.append(f"CREATE {keyword} IF NOT EXISTS {index_name} ON {table_name} ({', '.join(columns)});")
 
     return lines, warnings
@@ -386,6 +386,8 @@ def _ch_base_type(field_type, wire: dict) -> str:
 
 def _ch_col_type(field_type, wire: dict, *, optional: bool) -> str:
     base = _ch_base_type(field_type, wire)
+    if optional and isinstance(field_type, ArrayType):
+        return base
     return f"Nullable({base})" if optional else base
 
 

@@ -123,6 +123,7 @@ def test_shared_model_graph_change_runs_all_export_smokes() -> None:
         "cli/src/modelable/emitters/__init__.py",
         "cli/src/modelable/emitters/base.py",
         "cli/src/modelable/emitters/diagnostics.py",
+        "cli/src/modelable/emitters/named_types.py",
         "cli/src/modelable/emitters/json_schema.py",
         "cli/src/modelable/emitters/shapes.py",
         "cli/src/modelable/emitters/csharp.py",

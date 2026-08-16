@@ -30,6 +30,7 @@ _BROWSER_PACKAGE_FILES = {
     "emitters/_schema_mapping.py",
     "emitters/json_schema.py",
     "emitters/naming.py",
+    "emitters/named_types.py",
     "emitters/package_graph.py",
     "emitters/shapes.py",
     "emitters/csharp.py",

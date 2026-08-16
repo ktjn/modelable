@@ -34,7 +34,11 @@ def emit_grpc(
         domain, name, version = _split_ref(ref)
         artifact_id = f"{domain}.{name}.v{version}.grpc"
         base_path = out_dir / domain / f"{name}.v{version}"
-        service_proto = _render_service_proto(package=f"{_package_name(domain, version)}.scalable")
+        # Each artifact is a standalone service surface. Keep the common
+        # envelope names, but isolate them by model so protoc can compile the
+        # complete generated graph in one invocation.
+        service_package = f"{_package_name(domain, version)}.{_package_segment(name)}.scalable"
+        service_proto = _render_service_proto(package=service_package)
         service_manifest = _service_manifest_json(
             ref=ref,
             service_proto=f"{name}.v{version}.grpc.proto",
@@ -286,3 +290,7 @@ def _split_ref(ref: str) -> tuple[str, str, int]:
 def _package_name(domain: str, version: int) -> str:
     normalized = re.sub(r"[^0-9A-Za-z_]+", "_", domain).strip("_").lower()
     return f"modelable.{normalized}.v{version}"
+
+
+def _package_segment(name: str) -> str:
+    return re.sub(r"[^0-9A-Za-z_]+", "_", name).strip("_").lower() or "model"
