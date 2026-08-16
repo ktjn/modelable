@@ -20,6 +20,8 @@ releases could contain breaking changes when called out explicitly.
   inherited auto-projections with provenance reporting.
 - Added target-neutral `conversions` proof reports and non-executable
   `migration plan` facts for model evolution.
+- Added offline `modelable doctor` diagnostics for workspace, configuration,
+  snapshot, and capability integrity.
 
 ### Changed
 

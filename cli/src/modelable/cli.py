@@ -12,6 +12,7 @@ from modelable.commands.diff import register_diff_commands
 from modelable.commands.docs_ask import register_docs_ask_commands
 from modelable.commands.docs_eval import register_docs_eval_commands
 from modelable.commands.docs_index import register_docs_index_commands
+from modelable.commands.doctor import register_doctor_commands
 from modelable.commands.graph import register_graph_commands
 from modelable.commands.impact import register_impact_commands
 from modelable.commands.llm import register_llm_commands
@@ -43,6 +44,7 @@ register_config_commands(cli)
 register_create_commands(cli)
 register_diff_commands(cli)
 register_docs_index_commands(cli)
+register_doctor_commands(cli)
 register_docs_eval_commands(cli)
 register_docs_ask_commands(cli)
 register_graph_commands(cli)
