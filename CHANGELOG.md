@@ -15,6 +15,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Fixed duplicate `#[serde(default)]` attributes in generated Rust value types.
+
 ## [1.9.0] - 2026-08-16
 
 ### Added

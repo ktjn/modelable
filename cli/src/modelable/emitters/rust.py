@@ -1303,7 +1303,7 @@ def _field_specs_from_model_fields(
         if shape.optional and shape.kind != "array":
             # Omittable field: skip during serialization when None.
             # Nullable-only fields must always be serialized (as null), so no skip attr.
-            serde_attrs = ["#[serde(default)]", '#[serde(skip_serializing_if = "Option::is_none")]', *serde_attrs]
+            serde_attrs = ['#[serde(skip_serializing_if = "Option::is_none")]', *serde_attrs]
         specs.append(
             _FieldSpec(
                 index=index, name=field.name, annotation=annotation, optional=is_optional, serde_attrs=serde_attrs
