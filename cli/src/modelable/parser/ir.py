@@ -219,8 +219,41 @@ class NamedType(BaseModel):
     name: str
 
 
+class UnionVariant(BaseModel):
+    tag: str
+    type: FieldType
+
+
+class UnionType(BaseModel):
+    kind: Literal["union"] = "union"
+    discriminator: str
+    variants: list[UnionVariant]
+
+    @model_validator(mode="after")
+    def validate_variants(self) -> UnionType:
+        if not self.discriminator:
+            raise ValueError("union discriminator must not be empty")
+        if len(self.variants) < 2:
+            raise ValueError("union must contain at least two variants")
+        tags = [variant.tag for variant in self.variants]
+        if len(tags) != len(set(tags)):
+            raise ValueError("union variant tags must be unique")
+        if not all(isinstance(variant.type, (ObjectType, NamedType, RefType)) for variant in self.variants):
+            raise ValueError("union variants must be object, named, or ref types")
+        return self
+
+
 FieldType = Annotated[
-    PrimitiveType | DecimalType | FixedBinaryType | ArrayType | MapType | RefType | EnumType | ObjectType | NamedType,
+    PrimitiveType
+    | DecimalType
+    | FixedBinaryType
+    | ArrayType
+    | MapType
+    | RefType
+    | EnumType
+    | ObjectType
+    | NamedType
+    | UnionType,
     Field(discriminator="kind"),
 ]
 

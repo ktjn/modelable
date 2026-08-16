@@ -22,6 +22,7 @@ from modelable.parser.ir import (
     ProjectionField,
     ProjectionVersion,
     RefType,
+    UnionType,
     ValueConstraint,
 )
 from modelable.registry.resolver import resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
@@ -271,6 +272,31 @@ def _type_to_json_schema(
             )
             return {"$ref": f"{ref_base}{def_name}"}
         return _object_type_to_json_schema(field_type, defs=defs, path=path, mdl=mdl, ref_base=ref_base)
+    if isinstance(field_type, UnionType):
+        variants = []
+        mapping = {}
+        for variant in field_type.variants:
+            variant_path = [*(path or ["Union"]), variant.tag]
+            variant_schema = _type_to_json_schema(
+                variant.type, defs=defs, path=variant_path, mdl=mdl, ref_base=ref_base
+            )
+            variants.append(
+                {
+                    "allOf": [
+                        variant_schema,
+                        {
+                            "type": "object",
+                            "properties": {field_type.discriminator: {"const": variant.tag}},
+                            "required": [field_type.discriminator],
+                        },
+                    ]
+                }
+            )
+            mapping[variant.tag] = variant_schema.get("$ref", "#")
+        return {
+            "oneOf": variants,
+            "discriminator": {"propertyName": field_type.discriminator, "mapping": mapping},
+        }
 
     return {"type": "object"}
 

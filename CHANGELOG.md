@@ -8,6 +8,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added discriminated union field types with JSON Schema and OpenAPI `oneOf`/`discriminator` output.
+
 - Added first-class field value constraints for numeric bounds, string lengths,
   patterns, formats, array item counts, and uniqueness, with JSON Schema output.
 

@@ -110,6 +110,7 @@ type_expr: primitive_type
          | map_type
          | ref_type
          | object_type
+         | union_type
          | dotted_ref
 
 primitive_type: "string"    -> pt_string
@@ -145,6 +146,8 @@ array_type: "array" "<" type_expr ">"
 map_type: "map" "<" type_expr "," type_expr ">"
 ref_type: "ref" "<" dotted_ref ("@" version_spec)? ">"
 object_type: "object" "{" field_decl* "}"
+union_type: "union" "<" IDENT ">" "{" union_variant ("," union_variant)* "}"
+union_variant: IDENT ":" type_expr
 
 
 // -- Projections --------------------------------------------------------------
@@ -484,7 +487,9 @@ Alphabetical listing of every named rule and its production.
 | `subscription_decl_item` | `IDENT ":" EXPRESSION` |
 | `subscription_item` | `IDENT ":" EXPRESSION` |
 | `target_name` | `"openapi"                 -> tn_openapi \| "typescript"              -> tn_typescript \| "avro"                    -> tn_avro \| "protobuf"                -> tn_protobuf \| "sql" "(" db_dialect ")"  -> tn_sql \| "jsonschema"              -> tn_jsonschema \| "asyncapi"                -> tn_asyncapi \| "docs"                    -> tn_docs` |
-| `type_expr` | `primitive_type \| decimal_type \| fixed_binary_type \| enum_type \| array_type \| map_type \| ref_type \| object_type \| dotted_ref` |
+| `type_expr` | `primitive_type \| decimal_type \| fixed_binary_type \| enum_type \| array_type \| map_type \| ref_type \| object_type \| union_type \| dotted_ref` |
+| `union_type` | `"union" "<" IDENT ">" "{" union_variant ("," union_variant)* "}"` |
+| `union_variant` | `IDENT ":" type_expr` |
 | `unique_item` | `"unique" ":" bool_literal` |
 | `version_expr` | `INT \| VERSION_RANGE` |
 | `version_selector` | `"@" version_expr` |

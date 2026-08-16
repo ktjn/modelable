@@ -33,6 +33,42 @@ def test_emitted_artifact_path_contract_accepts_pure_paths():
     assert get_type_hints(EmittedArtifact)["path"] is PurePath
 
 
+def test_discriminated_union_emits_one_of_and_discriminator(tmp_path):
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain payments {
+  entity Card @ 1 (additive) {
+    number: string
+  }
+  entity Bank @ 1 (additive) {
+    iban: string
+  }
+  entity Payment @ 1 (additive) {
+    method: union<kind> { card: ref<payments.Card>, bank: ref<payments.Bank> }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    artifact = next(
+        item
+        for item in emit_json_schema_artifacts(load_workspace(tmp_path))
+        if item.artifact_id == "payments.Payment.v1"
+    )
+
+    union_schema = artifact.content["properties"]["method"]
+    assert union_schema["discriminator"] == {
+        "propertyName": "kind",
+        "mapping": {
+            "bank": "#/$defs/payments.Bank.v1",
+            "card": "#/$defs/payments.Card.v1",
+        },
+    }
+    assert [item["allOf"][1]["properties"]["kind"]["const"] for item in union_schema["oneOf"]] == ["card", "bank"]
+
+
 def test_emit_simple_model(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

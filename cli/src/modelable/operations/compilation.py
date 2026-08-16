@@ -50,7 +50,17 @@ from modelable.operations.file_transaction import (
     RollbackError,
     StagedFile,
 )
-from modelable.parser.ir import ArrayType, FieldDef, FieldType, MapType, MdlFile, NamedType, ObjectType, ParseError
+from modelable.parser.ir import (
+    ArrayType,
+    FieldDef,
+    FieldType,
+    MapType,
+    MdlFile,
+    NamedType,
+    ObjectType,
+    ParseError,
+    UnionType,
+)
 from modelable.planner.plans import write_plans
 from modelable.registry.factory import get_registry
 from modelable.registry.ids import allocate_registry_ids, read_lock_file, write_lock_file
@@ -1441,6 +1451,9 @@ def _collect_named_type_names(field_type: FieldType, result: set[str]) -> None:
     elif isinstance(field_type, ObjectType):
         for field in field_type.fields:
             _collect_named_type_names(field.type, result)
+    elif isinstance(field_type, UnionType):
+        for variant in field_type.variants:
+            _collect_named_type_names(variant.type, result)
 
 
 def _domain_defining(mdl: MdlFile, name: str) -> str | None:

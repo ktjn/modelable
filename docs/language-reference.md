@@ -95,6 +95,21 @@ models/
 | `ref<Domain.Model>` | Cross-domain reference |
 | `enum(a, b, c)` | Inline enumeration |
 | `object { ... }` | Inline structured object; contains field declarations, exactly like a model body |
+| `union<discriminator> { tag: T, ... }` | Discriminated union; each variant is selected by the discriminator property |
+
+For example, a payment method can carry one of two object shapes while making
+the selected shape explicit on `kind`:
+
+```mdl
+method: union<kind> {
+  card: ref<payments.Card>,
+  bank: ref<payments.Bank>
+}
+```
+
+JSON Schema and OpenAPI emit this as `oneOf` branches with a discriminator
+mapping. Variant branches are required to be object-shaped at the target
+boundary so the discriminator property can be validated.
 | `json` | Arbitrary JSON value, opaque to Modelable; maps to `serde_json::Value` (Rust), `unknown` (TypeScript), `{}` (JSON Schema) |
 
 An `object` type is an inline record of named fields:

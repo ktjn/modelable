@@ -31,6 +31,8 @@ from modelable.parser.ir import (
     PrimitiveType,
     RefType,
     SemanticTypeDecl,
+    UnionType,
+    UnionVariant,
     VersionExact,
 )
 
@@ -1061,6 +1063,9 @@ def _fields_from_json_schema(schema: dict, *, warn_unsupported: bool = False) ->
 def _field_type_from_json_schema(
     prop: dict, warnings: list[str], *, path: str = "<schema>", warn_unsupported: bool = False
 ):
+    union = _discriminated_union_from_json_schema(prop, warnings, path=path, warn_unsupported=warn_unsupported)
+    if union is not None:
+        return union
     if warn_unsupported:
         _warn_openapi_loss(prop, warnings, path)
     reference = prop.get("$ref")
@@ -1124,6 +1129,41 @@ def _field_type_from_json_schema(
         return ObjectType(fields=[])
     warnings.append(f"Falling back to named type for schema fragment: {prop}")
     return NamedType(name=prop.get("title") or "Unknown")
+
+
+def _discriminated_union_from_json_schema(
+    prop: dict, warnings: list[str], *, path: str, warn_unsupported: bool
+) -> UnionType | None:
+    discriminator = prop.get("discriminator")
+    one_of = prop.get("oneOf")
+    if not isinstance(discriminator, dict) or not isinstance(discriminator.get("propertyName"), str):
+        return None
+    if not isinstance(one_of, list) or len(one_of) < 2:
+        return None
+    variants: list[UnionVariant] = []
+    for item in one_of:
+        if not isinstance(item, dict):
+            return None
+        schemas = item.get("allOf")
+        if not isinstance(schemas, list) or len(schemas) != 2:
+            return None
+        marker = schemas[1]
+        if not isinstance(marker, dict):
+            return None
+        marker_properties = marker.get("properties")
+        marker_value = (
+            marker_properties.get(discriminator["propertyName"], {}).get("const")
+            if isinstance(marker_properties, dict)
+            and isinstance(marker_properties.get(discriminator["propertyName"]), dict)
+            else None
+        )
+        if not isinstance(marker_value, str):
+            return None
+        variant_type = _field_type_from_json_schema(
+            schemas[0], warnings, path=f"{path}.{marker_value}", warn_unsupported=warn_unsupported
+        )
+        variants.append(UnionVariant(tag=marker_value, type=variant_type))
+    return UnionType(discriminator=discriminator["propertyName"], variants=variants)
 
 
 def _warn_openapi_loss(schema: dict, warnings: list[str], path: str) -> None:
