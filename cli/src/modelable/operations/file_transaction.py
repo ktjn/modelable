@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import sys
 import time
 import uuid
 from collections.abc import Callable, Sequence
@@ -477,6 +478,8 @@ def _process_alive(pid: int) -> bool:
     it is treated as alive. Any other OSError is treated as alive so we never
     reclaim a lock when liveness cannot be confirmed.
     """
+    if sys.platform == "win32":
+        return _windows_process_alive(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -486,6 +489,27 @@ def _process_alive(pid: int) -> bool:
     except OSError:
         return True
     return True
+
+
+def _windows_process_alive(pid: int) -> bool:
+    """Use Windows process state because ``os.kill(pid, 0)`` is unreliable there."""
+    import ctypes
+
+    process_query_limited_information = 0x1000
+    error_access_denied = 5
+    still_active = 259
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        return ctypes.get_last_error() == error_access_denied
+
+    try:
+        exit_code = ctypes.c_ulong()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return True
+        return exit_code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def _parse_lock_pid(data: bytes) -> int | None:
