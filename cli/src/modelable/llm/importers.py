@@ -9,6 +9,7 @@ from typing import Any
 import yaml
 
 from modelable.compiler.render import render_model_version
+from modelable.formats.openapi import iter_component_schemas, parse_openapi_document
 from modelable.parser.ir import (
     AnnClassification,
     AnnKey,
@@ -29,6 +30,7 @@ from modelable.parser.ir import (
     ObjectType,
     PrimitiveType,
     RefType,
+    VersionExact,
 )
 
 
@@ -55,7 +57,7 @@ def import_from_text(
     if source_format == "json-schema":
         return _import_json_schema(source_text, domain_name=domain_name)
     if source_format == "openapi":
-        return _import_openapi(source_text, domain_name=domain_name)
+        return _import_openapi(source_text, domain_name=domain_name, source_name=source_name)
     if source_format == "avro":
         return _import_avro(source_text, domain_name=domain_name)
     if source_format == "protobuf":
@@ -95,18 +97,64 @@ def _import_json_schema(source_text: str, *, domain_name: str | None) -> Importe
     return ImportedModel("json-schema", title, domain, model_name, version, warnings)
 
 
-def _import_openapi(source_text: str, *, domain_name: str | None) -> ImportedModel:
-    doc = json.loads(source_text)
-    schema = doc.get("components", {}).get("schemas", {})
-    if schema:
-        name, payload = next(iter(schema.items()))
-    else:
-        name, payload = "OpenApiModel", doc
-    domain = domain_name or _guess_domain_name(name)
-    model_name = _sanitize_ident(name)
-    fields, warnings = _fields_from_json_schema(payload)
-    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
-    return ImportedModel("openapi", name, domain, model_name, version, warnings)
+def _import_openapi(source_text: str, *, domain_name: str | None, source_name: str | None = None) -> ImportedModel:
+    models = import_openapi_models(source_text, domain_name=domain_name)
+    if source_name is not None:
+        selected = next(
+            (model for model in models if model.source_name == source_name or model.model_name == source_name), None
+        )
+        if selected is None:
+            raise ValueError(f"OpenAPI component schema '{source_name}' not found in source")
+        return selected
+    if len(models) == 1:
+        return models[0]
+    if not models:
+        raise ValueError("OpenAPI document does not declare components.schemas; pass a supported schema document")
+    names = ", ".join(model.source_name for model in models)
+    raise ValueError(f"OpenAPI document contains multiple component schemas ({names}); select one with --name")
+
+
+def import_openapi_models(source_text: str, *, domain_name: str | None = None) -> list[ImportedModel]:
+    """Import every OpenAPI component schema deterministically.
+
+    The CLI's single-model import remains available through ``source_name``;
+    this collection API prevents the old first-schema-only behavior for
+    callers that need the complete document.
+    """
+    document = parse_openapi_document(source_text)
+    models: list[ImportedModel] = []
+    for component_name, payload in iter_component_schemas(document):
+        metadata = payload.get("x-modelable") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        name = str(metadata.get("name") or payload.get("title") or component_name)
+        metadata_domain = metadata.get("domain")
+        domain = domain_name or (str(metadata_domain) if metadata_domain else None) or _guess_domain_name(name)
+        warnings: list[str] = []
+        fields, field_warnings = _fields_from_json_schema(payload)
+        warnings.extend(field_warnings)
+        kind_text = str(metadata.get("kind") or "entity")
+        try:
+            model_kind = ModelKind(kind_text)
+        except ValueError:
+            model_kind = ModelKind.entity
+            warnings.append(f"OpenAPI x-modelable kind '{kind_text}' has no Modelable model; importing as entity")
+        models.append(
+            ImportedModel(
+                "openapi",
+                component_name,
+                domain,
+                _sanitize_ident(name),
+                ModelVersion(
+                    model_kind=model_kind,
+                    version=_coerce_int(metadata.get("version")) or 1,
+                    change_kind=ChangeKind.additive,
+                    fields=fields,
+                ),
+                warnings,
+            )
+        )
+    return models
 
 
 def _import_avro(source_text: str, *, domain_name: str | None) -> ImportedModel:
@@ -933,6 +981,20 @@ def _fields_from_json_schema(schema: dict) -> tuple[list[FieldDef], list[str]]:
 
 
 def _field_type_from_json_schema(prop: dict, warnings: list[str]):
+    reference = prop.get("$ref")
+    if isinstance(reference, str):
+        prefix = "#/components/schemas/"
+        if reference.startswith(prefix):
+            target = reference[len(prefix) :]
+            if ".v" in target:
+                target_name, version_text = target.rsplit(".v", 1)
+                try:
+                    return RefType(target=target_name, version=VersionExact(version=int(version_text)))
+                except ValueError:
+                    pass
+            return NamedType(name=target)
+        warnings.append(f"Falling back to named type for external schema reference: {reference}")
+        return NamedType(name=reference)
     if "enum" in prop:
         return EnumType(values=[str(item) for item in prop["enum"]])
     if prop.get("type") == "array":
