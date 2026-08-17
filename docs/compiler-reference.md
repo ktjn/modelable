@@ -195,9 +195,10 @@ implemented:
   `service-manifest.json`. Manifest-based compatibility validation compares
   generated service metadata and reports read-index changes as
   `requires_read_rebuild`. Descriptor-binary diffing, explicit
-  rebuild/migration declarations, and Scalable registration fixtures remain
+  rebuild/migration declarations, and a runtime Scalable registry fixture remain
   follow-up work before gRPC is considered stable for long-lived external
-  transport contracts.
+  transport contracts. The Modelable-side registration fixture validates the
+  generated descriptor, schema identity, service, and index bundle.
 - Protobuf: `compile --target protobuf` emits deterministic `.proto` files and
   schema manifests for models and projections. Supported `map<K,V>` fields
   render as native Protobuf maps, unsupported map shapes fail clearly, and
