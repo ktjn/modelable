@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from typing import Any
 
 from click.testing import CliRunner
 
@@ -33,6 +35,19 @@ def _protobuf_artifacts(path: Path):
 
 def _grpc_artifacts(path: Path):
     return emit_grpc(load_workspace(path), path.parent / "grpc-out")
+
+
+def _set_descriptor_hash(artifacts: list[Any], target: str, content_hash: str) -> None:
+    manifest_name = "schema-manifest.json" if target == "protobuf" else "service-manifest.json"
+    for artifact in artifacts:
+        if artifact.path.name != manifest_name or not isinstance(artifact.content, str):
+            continue
+        manifest = json.loads(artifact.content)
+        entry = manifest["schemas"][0] if target == "protobuf" else manifest
+        entry["descriptor"] = {"content_hash": content_hash}
+        artifact.content = json.dumps(manifest, indent=2) + "\n"
+        return
+    raise AssertionError(f"missing {manifest_name}")
 
 
 def _model_version(mdl_text: str, version: int = 1):
@@ -82,6 +97,75 @@ domain billing {
     )
 
     report = compare_protobuf_manifests(_protobuf_artifacts(old), _protobuf_artifacts(new))
+
+    assert report.status == "wire_compatible"
+    assert report.findings == []
+
+
+def test_protobuf_compat_flags_changed_descriptor_for_review(tmp_path):
+    source = _write(
+        tmp_path / "source.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    old = _protobuf_artifacts(source)
+    new = _protobuf_artifacts(source)
+    _set_descriptor_hash(old, "protobuf", "old-descriptor-hash")
+    _set_descriptor_hash(new, "protobuf", "new-descriptor-hash")
+
+    report = compare_protobuf_manifests(old, new)
+
+    assert report.status == "review_required"
+    assert [finding.code for finding in report.findings] == ["descriptor_changed"]
+
+
+def test_grpc_compat_flags_changed_descriptor_for_review(tmp_path):
+    source = _write(
+        tmp_path / "source.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    old = _grpc_artifacts(source)
+    new = _grpc_artifacts(source)
+    _set_descriptor_hash(old, "grpc", "old-descriptor-hash")
+    _set_descriptor_hash(new, "grpc", "new-descriptor-hash")
+
+    report = compare_grpc_artifacts(old, new)
+
+    assert report.status == "review_required"
+    assert [finding.code for finding in report.findings] == ["descriptor_changed"]
+
+
+def test_compat_accepts_unchanged_descriptor_hash(tmp_path):
+    source = _write(
+        tmp_path / "source.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    old = _protobuf_artifacts(source)
+    new = _protobuf_artifacts(source)
+    _set_descriptor_hash(old, "protobuf", "same-descriptor-hash")
+    _set_descriptor_hash(new, "protobuf", "same-descriptor-hash")
+
+    report = compare_protobuf_manifests(old, new)
 
     assert report.status == "wire_compatible"
     assert report.findings == []

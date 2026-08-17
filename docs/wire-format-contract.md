@@ -19,11 +19,11 @@ close that gap.
 
 **What this document does not guarantee:**
 
-- **Descriptor-binary compatibility diffing.** `modelable validate-compat
+- **Descriptor-binary semantic diffing.** `modelable validate-compat
   --target protobuf|grpc` guards field-number reuse, deleted-field
   reservations, target type changes, requiredness changes, inline enum value
-  reuse, and gRPC read-index changes. The first slice is manifest-based and
-  does not compare descriptor binaries.
+  reuse, and gRPC read-index changes. It now flags changed compiled-descriptor
+  hashes for review; semantic descriptor diffing remains follow-up work.
 - **Explicit field-number pinning or enum reservations.** The source language
   supports deleted-field Protobuf reservations today, but explicit per-field
   numbers and reserved enum ordinals/names remain follow-up work. A

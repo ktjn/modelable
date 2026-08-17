@@ -12,6 +12,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Compatibility validation now flags changed compiled Protobuf and gRPC
+  descriptor hashes for review instead of silently ignoring descriptor drift.
+
 ## [1.9.3] - 2026-08-17
 
 ### Added

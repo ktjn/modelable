@@ -228,7 +228,7 @@ Work should proceed in dependency order:
    `validate-compat --target protobuf|grpc` validates generated manifests for
    field-number reuse, deleted-field reservations, target type changes,
    requiredness changes, inline enum value reuse, and gRPC read-index changes.
-   Remaining follow-ups are descriptor-binary diffing, explicit field-number
+   Remaining follow-ups are descriptor-binary semantic diffing, explicit field-number
    pinning, enum reservations, explicit rebuild/migration declarations, and
    Scalable registration fixtures.
 5. **Prove Scalable registration end to end.**
