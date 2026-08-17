@@ -24,11 +24,12 @@ close that gap.
   reservations, target type changes, requiredness changes, inline enum value
   reuse, and gRPC read-index changes. The first slice is manifest-based and
   does not compare descriptor binaries.
-- **Explicit field-number pinning, enum reservations, or Scalable registration
-  fixtures.** The source language supports deleted-field Protobuf reservations
-  today, but explicit per-field numbers, reserved enum ordinals/names, and
-  consumer fixtures that register generated descriptors and manifests remain
-  follow-up work.
+- **Explicit field-number pinning or enum reservations.** The source language
+  supports deleted-field Protobuf reservations today, but explicit per-field
+  numbers and reserved enum ordinals/names remain follow-up work. A
+  Modelable-side Scalable registration fixture now validates generated
+  descriptors, schema identity, services, and index metadata; a runtime
+  Scalable registry fixture remains follow-up work.
 - **Value-level canonicalization.** Decimal literals and timestamp
   strings pass through the compiler unmodified — there is no numeric
   reformatting or truncation applied to field *values* (as opposed to

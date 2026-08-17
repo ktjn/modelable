@@ -234,6 +234,9 @@ Work should proceed in dependency order:
 5. **Prove Scalable registration end to end.**
    Add consumer fixtures that register generated schema identity, command/read
    services, and index metadata without duplicating Modelable-owned constants.
+   The first Modelable-side fixture now validates this generated contract bundle
+   and checks protobuf/gRPC compatibility outcomes; a Scalable runtime registry
+   fixture remains the next integration slice.
 
 The next dependency-ordered Scalable slice remains item 5: proving Scalable
 registration end to end.

@@ -1,0 +1,18 @@
+domain marketplace {
+  owner: "marketplace-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+    createdAt: timestamp
+    displayName?: string
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary by_customer {
+      key: [customerId]
+      sort: [createdAt desc]
+    }
+  }
+}
