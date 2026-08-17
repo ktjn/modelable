@@ -86,6 +86,7 @@ def compare_protobuf_manifests(
             )
             continue
         findings.extend(_compare_schema(ref, old_schema, new_schema))
+        findings.extend(_compare_descriptor(ref, old_schema.get("descriptor"), new_schema.get("descriptor")))
 
     status, severity = _worst(findings, default_status="wire_compatible")
     return TargetCompatibilityReport(target="protobuf", status=status, severity=severity, findings=findings)
@@ -116,6 +117,7 @@ def compare_grpc_artifacts(
             )
             continue
         findings.extend(_compare_service(ref, old_service, new_service))
+        findings.extend(_compare_descriptor(ref, old_service.get("descriptor"), new_service.get("descriptor")))
 
     status, severity = _worst(findings, default_status="read_compatible")
     return TargetCompatibilityReport(target="grpc", status=status, severity=severity, findings=findings)
@@ -316,6 +318,23 @@ def _compare_schema(
             )
 
     return findings
+
+
+def _compare_descriptor(ref: str, old_descriptor: object, new_descriptor: object) -> list[TargetCompatibilityFinding]:
+    if not isinstance(old_descriptor, dict) or not isinstance(new_descriptor, dict):
+        return []
+    old_hash = _string_value(old_descriptor.get("content_hash"))
+    new_hash = _string_value(new_descriptor.get("content_hash"))
+    if old_hash is None or new_hash is None or old_hash == new_hash:
+        return []
+    return [
+        _finding(
+            "descriptor_changed",
+            "review_required",
+            ref,
+            "compiled descriptor content changed and requires descriptor compatibility review",
+        )
+    ]
 
 
 def _compare_field(

@@ -194,7 +194,8 @@ implemented:
   `<Name>.v<version>.grpc.descriptor.pb` descriptor artifact and records it in
   `service-manifest.json`. Manifest-based compatibility validation compares
   generated service metadata and reports read-index changes as
-  `requires_read_rebuild`. Descriptor-binary diffing, explicit
+  `requires_read_rebuild`. Changed compiled-descriptor hashes are reported as
+  `review_required`; descriptor-binary semantic diffing, explicit
   rebuild/migration declarations, and a runtime Scalable registry fixture remain
   follow-up work before gRPC is considered stable for long-lived external
   transport contracts. The Modelable-side registration fixture validates the
