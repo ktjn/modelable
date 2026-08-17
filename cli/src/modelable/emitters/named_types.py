@@ -91,7 +91,7 @@ def resolve_named_ref(
     # cross-domain semantic name that resolve_named_types only keyed locally).
     try:
         resolved_domain, decl = resolve_semantic_type_ref(mdl, current_domain, ref)
-    except (LookupError, AmbiguousSemanticTypeError):
+    except LookupError, AmbiguousSemanticTypeError:
         return (None, None, None)
     if resolved_domain != current_domain:
         return (resolved_domain, None, TypeShape.from_field_type(decl.underlying))
