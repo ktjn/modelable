@@ -18,7 +18,7 @@ next."
 
 ## Current baseline
 
-The latest published release is 1.6.0. The stable 1.x surface includes:
+The latest published release is 1.9.3. The stable 1.x surface includes:
 
 - The `.mdl` language, semantic validation, compatibility and lineage reports,
   governance findings, the language server, and the VS Code extension distributed
@@ -786,8 +786,10 @@ intentionally erases nominal identity.
 Phase A (schema-only `components.schemas` emission) is implemented; see
 `docs/superpowers/specs/archived/2026-08-14-openapi-emission-design.md`.
 Phase B (versioned paths and operations, including operation-aware
-compatibility facts) is implemented; see the archived Phase B design and
-implementation plan. Phase C (deterministic OpenAPI import hardening) is
+compatibility facts) is implemented in [PR #357](https://github.com/ktjn/modelable/pull/357)
+and [PR #358](https://github.com/ktjn/modelable/pull/358); the original downstream
+request is complete and closed in [issue #352](https://github.com/ktjn/modelable/issues/352).
+See the archived Phase B design and implementation plan. Phase C (deterministic OpenAPI import hardening) is
 implemented in the format adapter used by the local import flow: JSON/YAML,
 stable traversal of all component schemas, explicit multi-schema selection,
 `x-modelable` metadata, and versioned component references are supported.
