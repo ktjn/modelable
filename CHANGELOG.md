@@ -12,6 +12,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+## [1.9.3] - 2026-08-17
+
+### Added
+
+### Changed
+
+### Fixed
+
 - The Go, Java, Python, and C# emitters no longer blanket-import every other
   domain's types into every generated file; cross-domain imports are now
   reference-scoped to only the domains a file actually references, so a pure
