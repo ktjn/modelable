@@ -6,7 +6,7 @@ from typing import Any
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss
-from modelable.emitters.named_types import resolve_named_types
+from modelable.emitters.named_types import resolve_named_ref, resolve_named_types
 from modelable.emitters.naming import pascalize_titlecase as _pascalize
 from modelable.emitters.shapes import TypeShape
 from modelable.parser.ir import DirectMapping, DomainDef, MdlFile, ModelVersion, ProjectionVersion
@@ -60,12 +60,11 @@ def _emit_model(
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
-    lines = _header_lines(_namespace_name(domain.name), mdl)
+    imports: set[str] = set()
     nested_definitions: dict[str, list[str]] = {}
     warnings: list[str] = []
 
-    lines.append(f"public sealed record {type_name}")
-    lines.append("{")
+    params: list[str] = []
     for field in version.fields:
         shape = TypeShape.from_field_type(field.type, optional=field.optional)
         csharp_type = _shape_to_csharp(
@@ -73,12 +72,20 @@ def _emit_model(
             owner_type=type_name,
             path=[field.name],
             definitions=nested_definitions,
+            imports=imports,
             warnings=warnings,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=domain.name,
         )
         prefix = "required " if not (shape.optional or shape.nullable) else ""
-        lines.append(f"    public {prefix}{csharp_type} {_property_name(field.name)} {{ get; init; }}")
+        params.append(f"    public {prefix}{csharp_type} {_property_name(field.name)} {{ get; init; }}")
+
+    lines = _header_lines(_namespace_name(domain.name), imports)
+    lines.append(f"public sealed record {type_name}")
+    lines.append("{")
+    lines.extend(params)
     lines.append("}")
     lines.extend(_render_nested_definitions(nested_definitions))
 
@@ -105,12 +112,11 @@ def _emit_projection(
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     type_name = _stable_type_name(domain.name, projection_name, version.version)
-    lines = _header_lines(_namespace_name(domain.name), mdl)
+    imports: set[str] = set()
     nested_definitions: dict[str, list[str]] = {}
     warnings: list[str] = []
 
-    lines.append(f"public sealed record {type_name}")
-    lines.append("{")
+    params: list[str] = []
     for field in version.fields:
         field_shape = _resolve_projection_field_shape(field, version, mdl)
         if field_shape is None:
@@ -123,12 +129,20 @@ def _emit_projection(
                 owner_type=type_name,
                 path=[field.name],
                 definitions=nested_definitions,
+                imports=imports,
                 warnings=warnings,
                 named_names=named_names,
                 named_shapes=named_shapes,
+                mdl=mdl,
+                current_domain=domain.name,
             )
             prefix = "required " if not (field_shape.optional or field_shape.nullable) else ""
-        lines.append(f"    public {prefix}{csharp_type} {_property_name(field.name)} {{ get; init; }}")
+        params.append(f"    public {prefix}{csharp_type} {_property_name(field.name)} {{ get; init; }}")
+
+    lines = _header_lines(_namespace_name(domain.name), imports)
+    lines.append(f"public sealed record {type_name}")
+    lines.append("{")
+    lines.extend(params)
     lines.append("}")
     lines.extend(_render_nested_definitions(nested_definitions))
 
@@ -144,16 +158,12 @@ def _emit_projection(
     )
 
 
-def _header_lines(namespace: str, mdl: MdlFile) -> list[str]:
+def _header_lines(namespace: str, imports: set[str]) -> list[str]:
     return [
         "#nullable enable",
         "using System;",
         "using System.Collections.Generic;",
-        *[
-            f"using {_namespace_name(domain.name)};"
-            for domain in mdl.domains
-            if _namespace_name(domain.name) != namespace
-        ],
+        *sorted(imports),
         "",
         f"namespace {namespace};",
         "",
@@ -178,18 +188,24 @@ def _shape_to_csharp(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    imports: set[str],
     warnings: list[str],
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
+    current_domain: str,
 ) -> str:
     base = _shape_base_to_csharp(
         shape,
         owner_type=owner_type,
         path=path,
         definitions=definitions,
+        imports=imports,
         warnings=warnings,
         named_names=named_names,
         named_shapes=named_shapes,
+        mdl=mdl,
+        current_domain=current_domain,
     )
     if shape.optional or shape.nullable:
         return f"{base}?"
@@ -202,9 +218,12 @@ def _shape_base_to_csharp(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    imports: set[str],
     warnings: list[str],
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
+    current_domain: str,
 ) -> str:
     if shape.kind == "primitive":
         return _primitive_to_csharp(shape.ref or "string")
@@ -221,9 +240,12 @@ def _shape_base_to_csharp(
             owner_type=owner_type,
             path=[*path, "Item"],
             definitions=definitions,
+            imports=imports,
             warnings=warnings,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=current_domain,
         )
         return f"List<{inner}>"
     if shape.kind == "map":
@@ -233,9 +255,12 @@ def _shape_base_to_csharp(
             owner_type=owner_type,
             path=[*path, "Value"],
             definitions=definitions,
+            imports=imports,
             warnings=warnings,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=current_domain,
         )
         return f"Dictionary<string, {inner}>"
     if shape.kind == "ref":
@@ -243,17 +268,25 @@ def _shape_base_to_csharp(
     if shape.kind == "enum":
         return "string"
     if shape.kind == "named":
-        if shape.ref in named_names:
-            return named_names[shape.ref]
-        if shape.ref in named_shapes:
+        declaring_domain, named_name, inline_shape = resolve_named_ref(
+            mdl, current_domain=current_domain, ref=shape.ref or "", names=named_names, shapes=named_shapes
+        )
+        if named_name is not None:
+            if declaring_domain is not None and declaring_domain != current_domain:
+                imports.add(f"using {_namespace_name(declaring_domain)};")
+            return named_name
+        if inline_shape is not None:
             return _shape_base_to_csharp(
-                named_shapes[shape.ref],
+                inline_shape,
                 owner_type=owner_type,
                 path=path,
                 definitions=definitions,
+                imports=imports,
                 warnings=warnings,
                 named_names=named_names,
                 named_shapes=named_shapes,
+                mdl=mdl,
+                current_domain=current_domain,
             )
         return _pascalize(shape.ref or "Named")
     if shape.kind == "object":
@@ -265,9 +298,12 @@ def _shape_base_to_csharp(
                 owner_type=owner_type,
                 path=path,
                 definitions=definitions,
+                imports=imports,
                 warnings=warnings,
                 named_names=named_names,
                 named_shapes=named_shapes,
+                mdl=mdl,
+                current_domain=current_domain,
             )
         return type_name
     return "object"
@@ -311,9 +347,12 @@ def _build_record_definition(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    imports: set[str],
     warnings: list[str],
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
+    current_domain: str,
 ) -> list[str]:
     lines = [f"public sealed record {type_name}", "{"]
     for field in shape.fields:
@@ -323,9 +362,12 @@ def _build_record_definition(
             owner_type=owner_type,
             path=[*path, field.name],
             definitions=definitions,
+            imports=imports,
             warnings=warnings,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=current_domain,
         )
         prefix = "required " if not (child_shape.optional or child_shape.nullable) else ""
         lines.append(f"    public {prefix}{child_type} {_property_name(field.name)} {{ get; init; }}")

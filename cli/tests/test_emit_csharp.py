@@ -90,8 +90,58 @@ domain billing {
     )
     workspace = load_workspace(source)
     artifact = next(item for item in emit_csharp(workspace, tmp_path / "out") if item.ref == "billing.Invoice@1")
-    assert "using Modelable.Patient;" in artifact.content
+    assert artifact.content.count("using Modelable.Patient;") == 1
     assert "PatientPatientIdV1 PatientId" in artifact.content
+
+
+def test_emit_csharp_pure_value_type_does_not_import_other_domains(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain patient {
+  owner: "patient-team"
+  value PatientId @ 1 (additive) {
+    value: uuid
+  }
+}
+
+domain pure {
+  owner: "pure-team"
+  entity Tag @ 1 (additive) {
+    @key tagId: uuid
+    label: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_csharp(workspace, tmp_path / "out") if item.ref == "pure.Tag@1")
+    assert "using Modelable.Patient;" not in artifact.content
+
+
+def test_emit_csharp_cross_domain_semantic_ref_emits_inline_primitive(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain patient {
+  owner: "patient-team"
+  semantic PatientId : uuid
+}
+
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    patientId: patient.PatientId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_csharp(workspace, tmp_path / "out") if item.ref == "billing.Invoice@1")
+    assert "Guid PatientId { get; init; }" in artifact.content
+    assert "PatientPatientId" not in artifact.content
+    assert "using Modelable.Patient;" not in artifact.content
 
 
 def test_emit_csharp_fixed_width_integers_map_to_native_types(tmp_path):

@@ -1,5 +1,7 @@
 import hashlib
+import subprocess
 
+import pytest
 from click.testing import CliRunner
 
 from modelable.cli import cli
@@ -288,3 +290,148 @@ domain customer {
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@2")
     # name comes from Customer@1 (string), not Customer@2 (int64)
     assert 'Name string `json:"name"`' in proj_art.content
+
+
+def test_emit_go_pure_value_type_does_not_import_other_domains(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain patient {
+  owner: "patient-team"
+  value PatientId @ 1 (additive) {
+    value: uuid
+  }
+}
+
+domain pure {
+  owner: "pure-team"
+  entity Tag @ 1 (additive) {
+    @key tagId: uuid
+    label: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_go(workspace, tmp_path / "out") if item.ref == "pure.Tag@1")
+    assert "import (" not in artifact.content
+    assert "patient" not in artifact.content.split("\n", 1)[1]
+
+
+def test_emit_go_cross_domain_semantic_ref_emits_inline_primitive(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain patient {
+  owner: "patient-team"
+  semantic PatientId : uuid
+}
+
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    patientId: patient.PatientId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_go(workspace, tmp_path / "out") if item.ref == "billing.Invoice@1")
+    assert 'PatientId string `json:"patientId"`' in artifact.content
+    assert "PatientPatientId" not in artifact.content
+
+
+def test_emit_go_cross_domain_value_ref_adds_one_import(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain patient {
+  owner: "patient-team"
+  value PatientId @ 1 (additive) {
+    value: uuid
+  }
+}
+
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    patientId: PatientId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_go(workspace, tmp_path / "out") if item.ref == "billing.Invoice@1")
+    assert artifact.content.count('"modelable/generated/patient"') == 1
+    assert "PatientId patient.PatientPatientIdV1" in artifact.content
+
+
+def test_emit_go_emits_go_mod(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """workspace {
+  name: "modelable-clinic"
+}
+
+domain patient {
+  owner: "patient-team"
+  value PatientId @ 1 (additive) {
+    value: uuid
+  }
+}
+
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    patientId: patient.PatientId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifacts = emit_go(workspace, tmp_path / "out")
+    go_mod = next(a for a in artifacts if a.path.name == "go.mod")
+    assert go_mod.content == "module modelable/modelable_clinic\n\ngo 1.26\n"
+
+
+@pytest.mark.skipif(subprocess.run(["go", "version"], capture_output=True).returncode != 0, reason="go not installed")
+def test_emit_go_two_domain_workspace_builds(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """workspace {
+  name: "modelable-clinic"
+}
+
+domain patient {
+  owner: "patient-team"
+  semantic PatientId : uuid
+  value PatientValue @ 1 (additive) {
+    value: uuid
+  }
+}
+
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    patientSemId: patient.PatientId
+    patientValueId: PatientValue
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    out = tmp_path / "out"
+    artifacts = emit_go(workspace, out)
+    for artifact in artifacts:
+        path = out / artifact.path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(artifact.content, encoding="utf-8")
+
+    result = subprocess.run(["go", "build", "./..."], cwd=out, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr

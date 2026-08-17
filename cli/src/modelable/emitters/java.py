@@ -7,7 +7,7 @@ from typing import Any
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss
-from modelable.emitters.named_types import resolve_named_types
+from modelable.emitters.named_types import resolve_named_ref, resolve_named_types
 from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.shapes import TypeShape
 from modelable.parser.ir import DirectMapping, DomainDef, MdlFile, ModelVersion, ProjectionVersion
@@ -62,7 +62,7 @@ def _emit_model(
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _type_name(model_name, version.version)
-    lines = _header_lines(_package_name(domain.name), mdl)
+    imports: set[str] = set()
     nested_definitions: dict[str, list[str]] = {}
     warnings: list[str] = []
 
@@ -74,11 +74,15 @@ def _emit_model(
             owner_type=type_name,
             path=[field.name],
             definitions=nested_definitions,
+            imports=imports,
             warnings=warnings,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=domain.name,
         )
         params.append(f"    {java_type} {_field_name(field.name)}")
+    lines = _header_lines(_package_name(domain.name), imports)
     lines.append(f"public record {type_name}(")
     lines.append(",\n".join(params))
     lines.append(") {")
@@ -108,7 +112,7 @@ def _emit_projection(
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     type_name = _type_name(projection_name, version.version)
-    lines = _header_lines(_package_name(domain.name), mdl)
+    imports: set[str] = set()
     nested_definitions: dict[str, list[str]] = {}
     warnings: list[str] = []
 
@@ -124,11 +128,15 @@ def _emit_projection(
                 owner_type=type_name,
                 path=[field.name],
                 definitions=nested_definitions,
+                imports=imports,
                 warnings=warnings,
                 named_names=named_names,
                 named_shapes=named_shapes,
+                mdl=mdl,
+                current_domain=domain.name,
             )
         params.append(f"    {java_type} {_field_name(field.name)}")
+    lines = _header_lines(_package_name(domain.name), imports)
     lines.append(f"public record {type_name}(")
     lines.append(",\n".join(params))
     lines.append(") {")
@@ -147,7 +155,7 @@ def _emit_projection(
     )
 
 
-def _header_lines(package_name: str, mdl: MdlFile) -> list[str]:
+def _header_lines(package_name: str, imports: set[str]) -> list[str]:
     return [
         f"package {package_name};",
         "",
@@ -161,13 +169,7 @@ def _header_lines(package_name: str, mdl: MdlFile) -> list[str]:
         "import java.util.Map;",
         "import java.util.Optional;",
         "import java.util.UUID;",
-        *[
-            f"import {_package_name(domain.name)}.{_type_name(model_name, version.version)};"
-            for domain in mdl.domains
-            if _package_name(domain.name) != package_name
-            for model_name, versions in domain.models.items()
-            for version in versions
-        ],
+        *sorted(imports),
         "",
     ]
 
@@ -195,18 +197,24 @@ def _shape_to_java(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    imports: set[str],
     warnings: list[str],
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
+    current_domain: str,
 ) -> str:
     base = _shape_base_to_java(
         shape,
         owner_type=owner_type,
         path=path,
         definitions=definitions,
+        imports=imports,
         warnings=warnings,
         named_names=named_names,
         named_shapes=named_shapes,
+        mdl=mdl,
+        current_domain=current_domain,
     )
     if shape.optional or shape.nullable:
         return f"Optional<{base}>"
@@ -219,9 +227,12 @@ def _shape_base_to_java(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    imports: set[str],
     warnings: list[str],
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
+    current_domain: str,
 ) -> str:
     if shape.kind == "primitive":
         field_ref = f"{owner_type}.{'.'.join(path)}"
@@ -241,9 +252,12 @@ def _shape_base_to_java(
             owner_type=owner_type,
             path=[*path, "Item"],
             definitions=definitions,
+            imports=imports,
             warnings=warnings,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=current_domain,
         )
         return f"List<{inner}>"
     if shape.kind == "map":
@@ -253,9 +267,12 @@ def _shape_base_to_java(
             owner_type=owner_type,
             path=[*path, "Value"],
             definitions=definitions,
+            imports=imports,
             warnings=warnings,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=current_domain,
         )
         return f"Map<String, {inner}>"
     if shape.kind == "ref":
@@ -263,17 +280,25 @@ def _shape_base_to_java(
     if shape.kind == "enum":
         return "String"
     if shape.kind == "named":
-        if shape.ref in named_names:
-            return named_names[shape.ref]
-        if shape.ref in named_shapes:
+        declaring_domain, named_name, inline_shape = resolve_named_ref(
+            mdl, current_domain=current_domain, ref=shape.ref or "", names=named_names, shapes=named_shapes
+        )
+        if named_name is not None:
+            if declaring_domain is not None and declaring_domain != current_domain:
+                imports.add(f"import {_package_name(declaring_domain)}.{named_name};")
+            return named_name
+        if inline_shape is not None:
             return _shape_base_to_java(
-                named_shapes[shape.ref],
+                inline_shape,
                 owner_type=owner_type,
                 path=path,
                 definitions=definitions,
+                imports=imports,
                 warnings=warnings,
                 named_names=named_names,
                 named_shapes=named_shapes,
+                mdl=mdl,
+                current_domain=current_domain,
             )
         return _pascalize(shape.ref or "Named")
     if shape.kind == "object":
@@ -285,9 +310,12 @@ def _shape_base_to_java(
                 owner_type=owner_type,
                 path=path,
                 definitions=definitions,
+                imports=imports,
                 warnings=warnings,
                 named_names=named_names,
                 named_shapes=named_shapes,
+                mdl=mdl,
+                current_domain=current_domain,
             )
         return type_name
     return "Object"
@@ -332,9 +360,12 @@ def _build_record_definition(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
+    imports: set[str],
     warnings: list[str],
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    mdl: MdlFile,
+    current_domain: str,
 ) -> list[str]:
     lines = [f"    public record {type_name}("]
     params: list[str] = []
@@ -345,9 +376,12 @@ def _build_record_definition(
             owner_type=owner_type,
             path=[*path, field.name],
             definitions=definitions,
+            imports=imports,
             warnings=warnings,
             named_names=named_names,
             named_shapes=named_shapes,
+            mdl=mdl,
+            current_domain=current_domain,
         )
         params.append(f"        {child_type} {_field_name(field.name)}")
     lines.append(",\n".join(params))
