@@ -20,6 +20,7 @@ from modelable.compat.targets import (
     compare_storage_migration,
 )
 from modelable.compiler.workspace import load_workspace
+from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.grpc import emit_grpc
 from modelable.emitters.openapi import emit_openapi
 from modelable.emitters.protobuf import emit_protobuf
@@ -88,6 +89,81 @@ def _protobuf_artifacts(path: Path):
 
 def _grpc_artifacts(path: Path):
     return emit_grpc(load_workspace(path), path.parent / "grpc-out")
+
+
+def _openapi_artifact(document: dict[str, Any]) -> EmittedArtifact:
+    return EmittedArtifact(
+        target="openapi",
+        ref="workspace",
+        artifact_id="openapi",
+        path=Path("openapi.json"),
+        content=document,
+        content_hash="test-hash",
+    )
+
+
+def test_openapi_compat_reports_operation_binding_changes():
+    old_operation = {
+        "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Req.v1"}}}},
+        "responses": {
+            "200": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Reply.v1"}}}},
+            "404": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error.v1"}}}},
+        },
+    }
+    new_operation = {
+        "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Req.v2"}}}},
+        "responses": {"200": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Reply.v2"}}}}},
+    }
+    old = _openapi_artifact(
+        {"openapi": "3.1.0", "paths": {"/customers/{id}": {"get": old_operation}, "/legacy": {"delete": {}}}}
+    )
+    new = _openapi_artifact({"openapi": "3.1.0", "paths": {"/customers/{id}": {"get": new_operation}}})
+
+    report = compare_openapi_artifacts([old], [new])
+
+    assert report.status == "breaking"
+    assert [finding.code for finding in report.findings] == [
+        "operation_removed",
+        "path_parameters_changed",
+        "request_binding_changed",
+        "response_removed",
+        "response_binding_changed",
+    ]
+
+
+def test_openapi_compat_ignores_malformed_non_operation_artifacts():
+    empty_report = compare_openapi_artifacts([], [_openapi_artifact({"paths": []})])
+    malformed_report = compare_openapi_artifacts(
+        [_openapi_artifact({"paths": {"/customers": {"get": {}}}})],
+        [
+            _openapi_artifact(
+                {
+                    "paths": {
+                        "not-a-path-item": [],
+                        "/customers": {
+                            "get": {
+                                "parameters": ["not-a-parameter", {"in": "query"}],
+                                "requestBody": {"content": []},
+                                "responses": [],
+                            }
+                        },
+                    }
+                }
+            )
+        ],
+    )
+    malformed_media_report = compare_openapi_artifacts(
+        [_openapi_artifact({"paths": {"/customers": {"get": {"requestBody": {"content": {"application/json": []}}}}}})],
+        [_openapi_artifact({"paths": {"/customers": {"get": {"requestBody": {"content": {"application/json": []}}}}}})],
+    )
+
+    assert empty_report.status == "read_compatible"
+    assert empty_report.findings == []
+    assert malformed_report.status == "read_compatible"
+    assert malformed_report.findings == []
+    assert malformed_media_report.findings == []
 
 
 def _set_descriptor_hash(artifacts: list[Any], target: str, content_hash: str) -> None:
@@ -465,6 +541,37 @@ domain billing {
 
     assert result.exit_code == 0
     assert "status: wire_compatible" in result.output
+    assert "- no target compatibility findings" in result.output
+
+
+def test_validate_compat_cli_passes_openapi_without_operations(tmp_path):
+    source = """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+"""
+    old = _write(tmp_path / "old.mdl", source)
+    new = _write(tmp_path / "new.mdl", source)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(old),
+            "--to",
+            str(new),
+            "--target",
+            "openapi",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "target: openapi" in result.output
+    assert "status: read_compatible" in result.output
     assert "- no target compatibility findings" in result.output
 
 
