@@ -309,7 +309,7 @@ queries; the lock file remains authoritative.
 
 | Flag | Required | Default | Description |
 |:-----|:---------|:--------|:------------|
-| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, `openlineage`, `odcs`, `protobuf`, `grpc`, `openapi`, `registry`, or `event-sink` |
+| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, `openlineage`, `odcs`, `protobuf`, `grpc`, `openapi`, `avro`, `registry`, or `event-sink` |
 | `--out`, `-o` | No | `./dist/<format>` | Output directory |
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
 | `--registry-ids` | No | beside `SOURCE` | Registry id allocation ledger path (commit this file) |

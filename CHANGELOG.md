@@ -8,6 +8,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added deterministic Avro record export with logical types, optional unions,
+  arrays, maps, enums, model identity metadata, and explicit loss warnings for
+  unsupported shapes.
+
 ### Changed
 
 - Reconciled compiler, architecture, and integration documentation with the

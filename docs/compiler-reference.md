@@ -33,7 +33,7 @@ Emitters must be deterministic: the same normalized graph and emitter options pr
 | ODCS export | 4 | Implemented local artifact |
 | Protobuf | 5 | Implemented local artifact with opt-in descriptor artifacts, native supported maps, source reservations, and manifest-based compatibility validation |
 | Scalable gRPC profile | 5 | Implemented local artifact with opt-in service descriptors, declared read-index metadata, and manifest-based compatibility validation |
-| Avro | 5 | Deferred |
+| Avro | 5 | Implemented local artifact for model and event records |
 | OpenAPI | 5 | Implemented local artifact with schemas, paths, and projection-backed operations |
 | Event sink | 5 | Implemented local contract artifact; broker and materialization runtime deferred |
 | Registry manifest | 5 | Implemented local contract inventory with model identity metadata |

@@ -556,7 +556,9 @@ Priority 6:
      stable schema and operation ordering.
    - Preserve Modelable-specific round-trip metadata through namespaced
      extensions where doing so does not change OpenAPI semantics.
-2. **P0 — add Avro export and harden Avro import.**
+2. **P0 — add Avro export and harden Avro import.** Avro record export is
+   shipped as a deterministic local target for models and event projections;
+   deterministic import hardening remains.
    Treat records as model/event contracts, map arrays/enums/logical types and
    optional unions, preserve Modelable identity/governance metadata through
    legal custom attributes, and add reader/writer compatibility regression
@@ -812,8 +814,10 @@ event-envelope contract.
 
 #### Slice F4 — Avro emission
 
-After defaults, nullability (D1), named enums (D3), unions (D4), and
-target-specific reader/writer compatibility.
+The deterministic local record emitter is shipped for models and event
+projections, including defaults, nullability, arrays, maps, enums, logical
+types, and explicit loss warnings. Remaining work is deterministic Avro
+import hardening and target-specific reader/writer compatibility.
 
 #### Slice F5 — GraphQL/Federation emission
 

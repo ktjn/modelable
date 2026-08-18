@@ -17,6 +17,7 @@ from typing import Literal
 from modelable.artifact_manifest import MANIFEST_NAME, build_artifact_manifest, write_artifact_manifest
 from modelable.compiler.workspace import Workspace, load_workspace
 from modelable.diagnostics.model import Diagnostic
+from modelable.emitters.avro import emit_avro
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.csharp import emit_csharp
 from modelable.emitters.dbt_yaml import emit_dbt_yaml
@@ -1420,6 +1421,8 @@ def _emit_target(
         return emit_registry_manifest(workspace, output, registry_ids=registry_ids)
     if target == "event-sink":
         return emit_event_sink(workspace, output)
+    if target == "avro":
+        return emit_avro(workspace, output)
     if target == "protobuf":
         artifacts = emit_protobuf(workspace, output, registry_ids=registry_ids)
         if descriptor_set:

@@ -148,6 +148,13 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         default_out_dir=Path("./dist/openapi"),
     ),
     CodegenTarget(
+        name="avro",
+        description="Avro record schemas for models and event projections",
+        status="implemented",
+        kind="artifact",
+        default_out_dir=Path("./dist/avro"),
+    ),
+    CodegenTarget(
         name="registry",
         description="Deterministic registry of generated contract versions and signatures",
         status="implemented",

@@ -38,6 +38,7 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "protobuf",
         "grpc",
         "openapi",
+        "avro",
         "registry",
         "event-sink",
     ]
