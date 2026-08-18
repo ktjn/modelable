@@ -123,6 +123,74 @@ def compare_grpc_artifacts(
     return TargetCompatibilityReport(target="grpc", status=status, severity=severity, findings=findings)
 
 
+def compare_openapi_artifacts(
+    old_artifacts: list[EmittedArtifact],
+    new_artifacts: list[EmittedArtifact],
+) -> TargetCompatibilityReport:
+    """Compare OpenAPI operations for client-visible compatibility."""
+    old_document = _artifact_document(old_artifacts, "openapi")
+    new_document = _artifact_document(new_artifacts, "openapi")
+    old_operations = _openapi_operations(old_document)
+    new_operations = _openapi_operations(new_document)
+    findings: list[TargetCompatibilityFinding] = []
+
+    for ref in sorted(set(old_operations) - set(new_operations)):
+        findings.append(_finding("operation_removed", "breaking", ref, "OpenAPI operation was removed"))
+    for ref in sorted(set(old_operations) & set(new_operations)):
+        old_operation = old_operations[ref]
+        new_operation = new_operations[ref]
+        old_parameters = _openapi_path_parameters(old_operation)
+        new_parameters = _openapi_path_parameters(new_operation)
+        if old_parameters != new_parameters:
+            findings.append(
+                _finding(
+                    "path_parameters_changed",
+                    "breaking",
+                    ref,
+                    "OpenAPI path parameters changed",
+                    axis="source_compatibility",
+                )
+            )
+        old_request = _openapi_json_binding(old_operation.get("requestBody"))
+        new_request = _openapi_json_binding(new_operation.get("requestBody"))
+        if old_request != new_request:
+            findings.append(
+                _finding(
+                    "request_binding_changed",
+                    "breaking",
+                    ref,
+                    "OpenAPI request body binding changed",
+                    axis="source_compatibility",
+                )
+            )
+        old_responses = _openapi_responses(old_operation)
+        new_responses = _openapi_responses(new_operation)
+        for status in sorted(set(old_responses) - set(new_responses)):
+            findings.append(
+                _finding(
+                    "response_removed",
+                    "breaking",
+                    ref,
+                    f"OpenAPI response {status} was removed",
+                    axis="source_compatibility",
+                )
+            )
+        for status in sorted(set(old_responses) & set(new_responses)):
+            if old_responses[status] != new_responses[status]:
+                findings.append(
+                    _finding(
+                        "response_binding_changed",
+                        "breaking",
+                        ref,
+                        f"OpenAPI response {status} binding changed",
+                        axis="source_compatibility",
+                    )
+                )
+
+    status, severity = _worst(findings, default_status="read_compatible")
+    return TargetCompatibilityReport(target="openapi", status=status, severity=severity, findings=findings)
+
+
 def compare_source_representation(
     domain_name: str,
     model_name: str,
@@ -468,6 +536,71 @@ def _finding(
         field=field,
         index=index,
     )
+
+
+def _artifact_document(artifacts: list[EmittedArtifact], target: str) -> dict[str, Any]:
+    artifact = next((item for item in artifacts if item.target == target), None)
+    if artifact is None or not isinstance(artifact.content, dict):
+        return {}
+    return artifact.content
+
+
+def _openapi_operations(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    paths = document.get("paths")
+    if not isinstance(paths, dict):
+        return {}
+    methods = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
+    operations: dict[str, dict[str, Any]] = {}
+    for path, path_item in paths.items():
+        if not isinstance(path, str) or not isinstance(path_item, dict):
+            continue
+        for method, operation in path_item.items():
+            if method.lower() in methods and isinstance(operation, dict):
+                operations[f"{method.lower()} {path}"] = operation
+    return operations
+
+
+def _openapi_path_parameters(operation: dict[str, Any]) -> tuple[tuple[str, str, bool, str], ...]:
+    parameters = operation.get("parameters")
+    if not isinstance(parameters, list):
+        return ()
+    result = []
+    for parameter in parameters:
+        if not isinstance(parameter, dict) or parameter.get("in") != "path":
+            continue
+        schema = parameter.get("schema")
+        result.append(
+            (
+                str(parameter.get("name", "")),
+                "path",
+                bool(parameter.get("required")),
+                json.dumps(schema, sort_keys=True, separators=(",", ":")),
+            )
+        )
+    return tuple(sorted(result))
+
+
+def _openapi_json_binding(value: object) -> str | None:
+    if not isinstance(value, dict):
+        return None
+    content = value.get("content")
+    if not isinstance(content, dict):
+        return None
+    media = content.get("application/json")
+    if not isinstance(media, dict):
+        return None
+    return json.dumps(media.get("schema"), sort_keys=True, separators=(",", ":"))
+
+
+def _openapi_responses(operation: dict[str, Any]) -> dict[str, str | None]:
+    responses = operation.get("responses")
+    if not isinstance(responses, dict):
+        return {}
+    return {
+        str(status): _openapi_json_binding(response)
+        for status, response in responses.items()
+        if isinstance(status, str)
+    }
 
 
 def _worst(findings: list[TargetCompatibilityFinding], *, default_status: str) -> tuple[str, str]:

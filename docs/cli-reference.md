@@ -256,7 +256,7 @@ modelable diff customer.Customer@1 customer.Customer@2
 ### 5.5 `validate-compat` — Validate target compatibility
 
 ```text
-modelable validate-compat --from OLD --to NEW --target protobuf|grpc
+modelable validate-compat --from OLD --to NEW --target protobuf|grpc|openapi
 ```
 
 Compares generated target manifests from two Modelable workspaces without
@@ -270,13 +270,14 @@ non-zero.
 |:-----|:---------|:------------|
 | `--from` | Yes | Old `.mdl` file or workspace directory |
 | `--to` | Yes | New `.mdl` file or workspace directory |
-| `--target` | Yes | Target compatibility profile: `protobuf` or `grpc` |
+| `--target` | Yes | Target compatibility profile: `protobuf`, `grpc`, or `openapi` |
 
 **Examples:**
 
 ```bash
 modelable validate-compat --from ./old-models --to ./models --target protobuf
 modelable validate-compat --from ./old-models --to ./models --target grpc
+modelable validate-compat --from ./old-models --to ./models --target openapi
 ```
 
 ---
