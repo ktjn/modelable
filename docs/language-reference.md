@@ -676,7 +676,7 @@ Changing an `index` declaration between two published model versions (adding, re
 
 #### Emitter support
 
-The Postgres SQL emitter consumes `index` declarations, generating `CREATE INDEX`/`CREATE UNIQUE INDEX` statements for each `secondary` block (see [Compiler Reference](compiler-reference.md)). The Protobuf target records declared indexes in schema manifests, and the gRPC target records `read_indexes` in service manifests. `modelable validate-compat --target grpc` reports read-index changes as `requires_read_rebuild`. ClickHouse DDL remains a deferred follow-up.
+The Postgres SQL emitter consumes `index` declarations, generating `CREATE INDEX`/`CREATE UNIQUE INDEX` statements for each `secondary` block (see [Compiler Reference](compiler-reference.md)). The ClickHouse SQL emitter renders each `secondary` block as an inline `INDEX ... TYPE bloom_filter GRANULARITY 1` data-skipping index on the generated `MergeTree` table; a `unique: true` block still emits the index but adds a diagnostic warning, since ClickHouse cannot enforce uniqueness. The Protobuf target records declared indexes in schema manifests, and the gRPC target records `read_indexes` in service manifests. `modelable validate-compat --target grpc` reports read-index changes as `requires_read_rebuild`.
 
 ---
 

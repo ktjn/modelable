@@ -71,7 +71,6 @@ def test_every_deferred_feature_is_linked_or_acknowledged():
     "name",
     [
         "composite-keys",
-        "clickhouse-secondary-indexes",
         "model-lifecycle-status",
         "workspace-registry",
         "workspace-peers",
