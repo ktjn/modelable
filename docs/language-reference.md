@@ -739,8 +739,8 @@ The `generate { }` block accepts a closed grammar vocabulary of target
 names: `openapi`, `typescript`, `avro`, `protobuf`,
 `sql(postgres | mysql | clickhouse | sqlite)`, `jsonschema`, `asyncapi`,
 `docs`. As noted above, declaring these does not run an emitter. Several of
-these names also have no implemented emitter behind them at all yet
-(`avro`, `asyncapi`, and the `mysql`/`sqlite` SQL dialects — only
+these names still have no implemented emitter behind them
+(`asyncapi` and the `mysql`/`sqlite` SQL dialects — only
 `postgres` and `clickhouse` are implemented; `openapi` is implemented, see
 `modelable compile --target openapi`, including schemas and explicit
 paths/operations. See Slice B3 in

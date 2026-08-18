@@ -1210,8 +1210,9 @@ preview, confirmation, and audit policy.
 - Materialized projection into PostgreSQL (Phase 5).
 - Live OpenMetadata catalog synchronization (local export only is shipped; see [integrations.md](integrations.md)).
 - Runtime OpenLineage event collection beyond design-time Modelable events.
-- Avro and AsyncAPI generation (Phase 5) — import-only support exists via
-  LLM-assisted generators. OpenAPI export is implemented for schemas and
+- AsyncAPI generation (Phase 5) — import-only support exists via
+  LLM-assisted generators. Avro export is implemented for model and event
+  records; deterministic Avro import remains deferred. OpenAPI export is implemented for schemas and
   explicit paths/operations; deterministic OpenAPI JSON/YAML import is
   implemented for component schemas, with LLM assistance still available for
   unsupported fidelity and API constructs.
