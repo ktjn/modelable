@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
@@ -14,7 +15,6 @@ from modelable.parser.ir import (
     DirectMapping,
     DomainDef,
     EnumType,
-    FieldDef,
     FixedBinaryType,
     MapType,
     ModelVersion,
@@ -253,6 +253,7 @@ def _emit_projection(
     warnings: list[str] = []
     for field in version.fields:
         field_type = _resolve_projection_field_type(field, version, mdl)
+        field_optional = _resolve_projection_field_optional(field, version, mdl)
         if field_type is None:
             warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
         elif (
@@ -263,7 +264,7 @@ def _emit_projection(
             warnings.append(missing_metadata(f"{domain.name}.{projection_name}.{field.name}"))
         field_name = _apply_case(field.name, field_case) if field_case else field.name
         lines.append(
-            f"  {field_name}: {_type_to_ts(field_type, wire_targets=field.wire_targets(), resolved_refs=resolved_refs, named_imports=named_imports, named_types=named_types)};"
+            f"  {field_name}{'?' if field_optional else ''}: {_type_to_ts(field_type, wire_targets=field.wire_targets(), resolved_refs=resolved_refs, named_imports=named_imports, named_types=named_types)};"
         )
     lines.append("}")
     lines.append(f"export type {projection_name} = {interface_name};")
@@ -321,10 +322,10 @@ def _domain_metadata_entries(
 
 
 def _resolve_projection_field_type(
-    field: FieldDef,
+    field: Any,
     projection: ProjectionVersion,
-    mdl,
-):
+    mdl: Any,
+) -> Any:
     if not isinstance(field.mapping, DirectMapping):
         return None
     try:
@@ -340,6 +341,19 @@ def _resolve_projection_field_type(
         if src_field.name == field.mapping.source_field:
             return src_field.type
     return None
+
+
+def _resolve_projection_field_optional(field: Any, projection: ProjectionVersion, mdl: Any) -> bool:
+    if not isinstance(field.mapping, DirectMapping):
+        return False
+    try:
+        source_domain, source_model = projection.source.model.rsplit(".", 1)
+        resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", projection.source.version)
+    except LookupError, ValueError:
+        return False
+    return any(
+        src_field.name == field.mapping.source_field and src_field.optional for src_field in resolved.version.fields
+    )
 
 
 def _version_label(version_spec) -> str:

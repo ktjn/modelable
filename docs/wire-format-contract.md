@@ -119,8 +119,11 @@ string), so this specific hazard is Protobuf-only.
 
 Protobuf packages are `modelable.<domain>.v<version>` (domain name
 lowercased, non-alphanumeric characters collapsed to `_`). Message names
-are the bare model/projection name, unchanged. Field names are
-snake-cased from their `.mdl` camelCase source (`widgetId` → `widget_id`).
+are the bare model/projection name, unchanged. Rust field identifiers are
+snake-cased from their `.mdl` camelCase source, while serde renames preserve
+the canonical JSON wire names (`widgetId` remains `"widgetId"`). A
+model/projection-level `@wire(json.fieldCase: ...)` override changes that JSON
+name deliberately; Protobuf field names remain snake_case.
 
 ## 6. How This Is Enforced
 

@@ -219,7 +219,7 @@ domain catalog {
     schemas = artifacts[0].content["components"]["schemas"]
     brand_prop = schemas["catalog.ProductSummary.v1"]["properties"]["brand"]
 
-    assert brand_prop == {"$ref": "#/components/schemas/catalog.Brand.v1"}
+    assert brand_prop == {"type": "string", "format": "uuid"}
 
 
 def test_emit_openapi_is_deterministic_across_runs(tmp_path):

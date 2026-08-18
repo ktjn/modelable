@@ -1603,6 +1603,27 @@ domain events {
     assert art.content.count('#[serde(skip_serializing_if = "Option::is_none")]') == 1
 
 
+def test_emit_rust_uses_modelable_field_names_on_json_wire(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    customer = next(a for a in artifacts if a.ref == "customer.Customer@1")
+
+    assert '#[serde(rename = "customerId")]' in customer.content
+    assert '#[serde(rename = "displayName")]' in customer.content
+
+
 def test_emit_rust_value_type_optional_field_has_one_serde_default(tmp_path):
     source = tmp_path / "workspace.mdl"
     source.write_text(

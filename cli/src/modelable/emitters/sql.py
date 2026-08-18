@@ -291,7 +291,10 @@ def _resolve_ref_target(ref: RefType, mdl: MdlFile) -> tuple[str, str] | None:
         resolved = resolve_model_ref(mdl, ref.target, ref.version)
     except LookupError, ValueError:
         return None
-    table = _snake_case(target_model)
+    # References point at the persisted db projection. When no explicit
+    # binding exists, use the same default name as _emit_projection_ddl rather
+    # than the source model name.
+    table = _snake_case(f"{target_model}Db")
     adapter_types: dict[str, str] = {b.name: b.adapter for b in mdl.bindings if b.adapter}
     for binding in mdl.bindings:
         adapter = adapter_types.get(binding.adapter, binding.adapter)

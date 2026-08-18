@@ -16,6 +16,7 @@ from modelable.parser.ir import (
     FixedBinaryType,
     MapType,
     MdlFile,
+    ModelVersion,
     NamedType,
     ObjectType,
     PrimitiveType,
@@ -231,6 +232,12 @@ def _type_to_json_schema(
             except LookupError:
                 resolved = None
             if resolved is not None:
+                if ref_base == "#/components/schemas/":
+                    if not isinstance(resolved.version, ModelVersion):
+                        return {"type": "string", "x-modelable-ref": field_type.target}
+                    key_field = next((field for field in resolved.version.fields if field.is_key), None)
+                    if key_field is not None:
+                        return _type_to_json_schema(key_field.type, defs=defs, path=path, mdl=mdl, ref_base=ref_base)
                 return {"$ref": f"{ref_base}{resolved.domain_name}.{resolved.model_name}.v{resolved.version.version}"}
         return {
             "type": "string",

@@ -544,6 +544,81 @@ binding order-binding {
     assert "CREATE INDEX IF NOT EXISTS orders_by_customer ON orders (customer_id, created_at DESC);" in art.content
 
 
+def test_postgres_foreign_key_uses_referenced_model_binding(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    customerId: ref<customers.Customer @ 1>
+  }
+  auto projections Invoice @ 1 { db }
+}
+
+domain customers {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+  auto projections Customer @ 1 { db }
+}
+
+binding pg {
+  adapter: postgres
+}
+
+binding invoice-table {
+  model: billing.Invoice @ 1
+  adapter: pg
+  table: "invoice_records"
+}
+
+binding customer-table {
+  model: customers.Customer @ 1
+  adapter: pg
+  table: "customer_records"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_sql(workspace, tmp_path / "out", "postgres")
+    invoice = next(a for a in artifacts if a.ref == "billing.InvoiceDb@1")
+
+    assert "FOREIGN KEY (customer_id) REFERENCES customer_records (customer_id)" in invoice.content
+    assert "REFERENCES customer (customer_id)" not in invoice.content
+
+
+def test_postgres_foreign_key_uses_default_db_projection_name(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    customerId: ref<customers.Customer @ 1>
+  }
+  auto projections Invoice @ 1 { db }
+}
+
+domain customers {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+  auto projections Customer @ 1 { db }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_sql(workspace, tmp_path / "out", "postgres")
+    invoice = next(a for a in artifacts if a.ref == "billing.InvoiceDb@1")
+
+    assert "FOREIGN KEY (customer_id) REFERENCES customer_db (customer_id)" in invoice.content
+
+
 def test_postgres_ddl_unique_secondary_index_uses_unique_keyword(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """
