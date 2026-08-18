@@ -309,7 +309,7 @@ queries; the lock file remains authoritative.
 
 | Flag | Required | Default | Description |
 |:-----|:---------|:--------|:------------|
-| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, `openlineage`, `odcs`, `protobuf`, `grpc`, or `registry` |
+| `--target` | Yes | — | Output format: `json-schema`, `markdown`, `typescript`, `csharp`, `java`, `python`, `rust`, `go`, `sql-postgres`, `sql-clickhouse`, `dbt-yaml`, `fhir-profile`, `openmetadata`, `openlineage`, `odcs`, `protobuf`, `grpc`, `openapi`, `registry`, or `event-sink` |
 | `--out`, `-o` | No | `./dist/<format>` | Output directory |
 | `--registry` | No | `.modelable/registry.db` | Registry index path |
 | `--registry-ids` | No | beside `SOURCE` | Registry id allocation ledger path (commit this file) |
@@ -337,7 +337,9 @@ queries; the lock file remains authoritative.
 | `odcs` | `./dist/odcs` |
 | `protobuf` | `./dist/protobuf` |
 | `grpc` | `./dist/grpc` |
+| `openapi` | `./dist/openapi` |
 | `registry` | `./dist/registry` |
+| `event-sink` | `./dist/event-sink` |
 
 **Artifact ID convention:** `domain.Name.vVersion` (used as filename stem).
 
@@ -954,6 +956,43 @@ schema:
 ```bash
 modelable compile ./models --target odcs --out ./dist/odcs
 datacontract lint ./dist/odcs/customer.Customer.v1.odcs.yaml
+```
+
+---
+
+### 5.20.1 `compile --target openapi` — Export an OpenAPI 3.1 document
+
+```text
+modelable compile PATH --target openapi --out DIR
+```
+
+**Implemented as a compile target** (Slice F2 in
+[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-f2--openapi-emission)).
+
+Writes a single `openapi.json` document — unlike most other targets, this is
+one file for the whole workspace, not one file per domain or model version.
+`components.schemas` contains one entry per API-facing projection version
+(`request`, `reply`, and `event` auto-projection kinds, plus any
+hand-authored projection; `db` projections are excluded by default), each
+carrying an `x-modelable` block (domain, name, kind, source entity, version)
+and an `x-modelable-por` point-of-reference. `paths` is built from declared
+`api { }` operations: path parameters from the source model's `@key`
+fields, `requestBody` and response bodies as `$ref`s into
+`components.schemas`, and an `x-modelable` block per operation (domain, api
+model, api version, operation name).
+
+**Options:**
+
+| Flag | Required | Default | Description |
+|:-----|:---------|:--------|:------------|
+| `--target` | Yes | — | Must be `openapi` |
+| `--out`, `-o` | No | `./dist/openapi` | Output directory |
+| `--registry` | No | `.modelable/registry.db` | Registry index path |
+
+**Examples:**
+
+```bash
+modelable compile ./models --target openapi --out ./dist/openapi
 ```
 
 ---
