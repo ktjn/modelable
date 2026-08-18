@@ -12,6 +12,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Fixed browser and Playground wheel builds failing after the Hatchling
+  dependency update due to mismatched build constraints.
 - Compatibility validation now flags changed compiled Protobuf and gRPC
   descriptor hashes for review instead of silently ignoring descriptor drift.
 
