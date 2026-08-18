@@ -87,8 +87,8 @@ def test_browser_build_backend_is_exactly_constrained() -> None:
     with (browser_root / "pyproject.toml").open("rb") as pyproject_file:
         pyproject = tomllib.load(pyproject_file)
 
-    assert pyproject["build-system"]["requires"] == ["hatchling==1.31.0"]
-    assert (browser_root / "build-constraints.txt").read_text(encoding="utf-8") == ("hatchling==1.31.0\n")
+    assert pyproject["build-system"]["requires"] == ["hatchling==1.32.0"]
+    assert (browser_root / "build-constraints.txt").read_text(encoding="utf-8") == ("hatchling==1.32.0\n")
 
 
 def test_browser_wheel_contains_only_browser_compiler_surface(tmp_path: Path) -> None:
