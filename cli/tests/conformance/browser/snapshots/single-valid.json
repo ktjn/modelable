@@ -7,7 +7,8 @@
         "path": "customer.Customer.v1.json",
         "source_refs": [
           "customer.Customer@1"
-        ]
+        ],
+        "warnings": []
       }
     ],
     "diagnostics": []

@@ -51,6 +51,7 @@ export const BROWSER_CONFORMANCE_SCENARIOS = {
   'invalid-semantic': ['invalid-semantic.mdl'],
   'multi-domain': ['multi-domain-customer.mdl', 'multi-domain-order.mdl'],
   'single-valid': ['single-valid.mdl'],
+  'sql-index': ['sql-index.mdl'],
 };
 
 export function pyodidePackageDestination(fileName) {

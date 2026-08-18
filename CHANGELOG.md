@@ -24,6 +24,11 @@ releases could contain breaking changes when called out explicitly.
   names.
 - Fixed browser and Playground wheel builds failing after the Hatchling
   dependency update due to mismatched build constraints.
+- Fixed the browser/Playground compiler silently dropping every emitter's
+  generation warnings (type-loss, missing-metadata, and similar) — the
+  `compile` request now carries each generated artifact's warnings through to
+  the client instead of discarding `EmittedArtifact.warnings`, matching what
+  the CLI already prints.
 - Compatibility validation now flags changed compiled Protobuf and gRPC
   descriptor hashes for review instead of silently ignoring descriptor drift.
 

@@ -18,6 +18,7 @@ SCENARIOS: dict[str, tuple[str, ...]] = {
     "invalid-semantic": ("invalid-semantic.mdl",),
     "multi-domain": ("multi-domain-customer.mdl", "multi-domain-order.mdl"),
     "single-valid": ("single-valid.mdl",),
+    "sql-index": ("sql-index.mdl",),
 }
 VALID_SCENARIOS = {"multi-domain", "single-valid"}
 
@@ -58,6 +59,9 @@ def write_snapshots(fixture_root: Path, output: Path) -> None:
             snapshot["compile"] = _json_value(compiler.compile_json_schema(sources))
         if scenario == "compatibility":
             snapshot["compatibility"] = _json_value(compiler.compatibility(1))
+        if scenario == "sql-index":
+            snapshot["compileSqlPostgres"] = _json_value(compiler.compile(sources, "sql-postgres"))
+            snapshot["compileSqlClickhouse"] = _json_value(compiler.compile(sources, "sql-clickhouse"))
         (output / f"{scenario}.json").write_text(
             json.dumps(
                 snapshot,

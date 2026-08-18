@@ -13,6 +13,7 @@ const customerArtifact = {
   media_type: 'application/schema+json',
   content: '{"title":"Customer"}',
   source_refs: ['file:///main.mdl'],
+  warnings: [],
 };
 
 const documentDiagnostic = {
@@ -60,6 +61,7 @@ describe('appReducer', () => {
             media_type: 'application/schema+json',
             content: '{}',
             source_refs: [],
+            warnings: [],
           },
         ],
         duration: 12,
@@ -82,6 +84,7 @@ describe('appReducer', () => {
           media_type: 'application/schema+json',
           content: '{}',
           source_refs: [],
+          warnings: [],
         },
       ],
     };

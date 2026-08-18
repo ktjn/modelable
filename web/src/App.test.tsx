@@ -1405,6 +1405,7 @@ describe('App', () => {
             media_type: 'application/schema+json',
             content: '{"title":"Customer"}',
             source_refs: ['file:///main.mdl'],
+            warnings: [],
           },
         ],
       });
@@ -1437,12 +1438,14 @@ describe('App', () => {
         media_type: 'application/schema+json',
         content: '{"title":"Customer"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
       {
         path: 'order.schema.json',
         media_type: 'application/schema+json',
         content: '{"title":"Order"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
     ]);
     selectArtifact('order.schema.json');
@@ -1476,6 +1479,7 @@ describe('App', () => {
         media_type: 'application/schema+json',
         content: '{"title":"Regenerated"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
     ]);
     expect(screen.getByText('Current')).toBeTruthy();
@@ -1491,12 +1495,14 @@ describe('App', () => {
         media_type: 'application/schema+json',
         content: '{"title":"Customer"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
       {
         path: 'order.schema.json',
         media_type: 'application/schema+json',
         content: '{"title":"Order"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
     ]);
     selectArtifact('order.schema.json');
@@ -1534,6 +1540,7 @@ describe('App', () => {
         media_type: 'application/schema+json',
         content: '{"title":"Regenerated"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
     ]);
     expect(screen.getByText('Current')).toBeTruthy();
@@ -1554,12 +1561,14 @@ describe('App', () => {
         media_type: 'application/schema+json',
         content: '{"title":"Customer"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
       {
         path: 'order.schema.json',
         media_type: 'application/schema+json',
         content: '{"title":"Order"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
     ]);
     selectArtifact('order.schema.json');
@@ -1599,6 +1608,7 @@ describe('App', () => {
         media_type: 'application/schema+json',
         content: '{"title":"Regenerated"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
     ]);
     expect(screen.getByText('Current')).toBeTruthy();
@@ -1615,12 +1625,14 @@ describe('App', () => {
         media_type: 'application/schema+json',
         content: '{"title":"Z"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
       {
         path: 'a-first.schema.json',
         media_type: 'application/schema+json',
         content: '{"title":"A"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
     ]);
 
@@ -1642,12 +1654,14 @@ describe('App', () => {
         media_type: 'application/schema+json',
         content: '{"title":"Customer"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
       {
         path: 'order.schema.json',
         media_type: 'application/schema+json',
         content: '{"title":"Order"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
     ]);
     selectArtifact('order.schema.json');
@@ -1669,12 +1683,14 @@ describe('App', () => {
         media_type: 'application/schema+json',
         content: '{"title":"Customer"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
       {
         path: '../Order<>.schema.json',
         media_type: 'application/schema+json',
         content: '{"title":"Order"}',
         source_refs: ['file:///main.mdl'],
+        warnings: [],
       },
     ]);
     selectArtifact('../Order<>.schema.json');
@@ -1752,6 +1768,7 @@ describe('App', () => {
             media_type: 'application/schema+json',
             content: '{"title":"Customer"}',
             source_refs: ['file:///main.mdl'],
+            warnings: [],
           },
         ],
       });

@@ -1168,6 +1168,7 @@ function AppInner({
                 media_type: file.media_type,
                 content: file.after_text ?? '',
                 source_refs: [],
+                warnings: [],
               }));
             dispatch({
               type: 'operationSucceeded',

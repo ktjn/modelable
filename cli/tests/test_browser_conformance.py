@@ -21,6 +21,7 @@ SNAPSHOT_NAMES = (
     "invalid-semantic.json",
     "multi-domain.json",
     "single-valid.json",
+    "sql-index.json",
 )
 
 
@@ -107,6 +108,21 @@ def test_compatibility_scenario_records_a_breaking_report() -> None:
     assert len(reports) == 1
     assert reports[0]["status"] == "breaking"
     assert any(change["kind"] == "removed_field" for change in reports[0]["changes"])
+
+
+def test_sql_index_scenario_matches_between_dialects_and_carries_the_uniqueness_warning() -> None:
+    snapshot = json.loads((SNAPSHOT_ROOT / "sql-index.json").read_text(encoding="utf-8"))
+
+    assert snapshot["open"]["diagnostics"] == []
+
+    postgres_artifact = snapshot["compileSqlPostgres"]["artifacts"][0]
+    assert "CREATE UNIQUE INDEX IF NOT EXISTS order_db_by_email" in postgres_artifact["content"]
+    assert postgres_artifact["warnings"] == []
+
+    clickhouse_artifact = snapshot["compileSqlClickhouse"]["artifacts"][0]
+    assert "INDEX idx_by_email (email) TYPE bloom_filter GRANULARITY 1" in clickhouse_artifact["content"]
+    assert len(clickhouse_artifact["warnings"]) == 1
+    assert "cannot enforce uniqueness" in clickhouse_artifact["warnings"][0]
 
 
 def _dispatch(method: str, payload: object) -> dict:

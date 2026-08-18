@@ -167,7 +167,49 @@ def test_compile_json_schema_returns_text_artifact():
     assert result.artifacts[0].path == "customer.Customer.v1.json"
     assert result.artifacts[0].media_type == "application/schema+json"
     assert result.artifacts[0].source_refs == ("customer.Customer@1",)
+    assert result.artifacts[0].warnings == ()
     assert json.loads(result.artifacts[0].content)["title"] == "Customer"
+
+
+def test_compile_surfaces_emitter_warnings_on_the_artifact():
+    """Emitter warnings (EmittedArtifact.warnings) must reach the browser client.
+
+    Found while adding ClickHouse secondary-index support: `compile()`
+    constructed `BrowserArtifact` without ever reading `artifact.warnings`, so
+    every emitter's warnings (type-loss, missing-metadata, and this ClickHouse
+    uniqueness warning) were silently dropped for browser/Playground callers
+    even though the CLI prints them.
+    """
+    source = BrowserSource(
+        uri="inmemory:///platform.mdl",
+        text=(
+            "domain platform {\n"
+            '  owner: "test-team"\n'
+            "  entity Order @ 1 (additive) {\n"
+            "    @key orderId: uuid\n"
+            "         email:   string\n"
+            "  }\n"
+            "  index Order @ 1 {\n"
+            "    primary orderId\n"
+            "    secondary byEmail {\n"
+            "      key:    [email]\n"
+            "      unique: true\n"
+            "    }\n"
+            "  }\n"
+            "  auto projections Order @ 1 {\n"
+            "    db\n"
+            "  }\n"
+            "}\n"
+        ),
+        version=1,
+    )
+
+    result = BrowserCompiler().compile((source,), "sql-clickhouse")
+
+    assert result.diagnostics == ()
+    assert len(result.artifacts) == 1
+    assert len(result.artifacts[0].warnings) == 1
+    assert "cannot enforce uniqueness" in result.artifacts[0].warnings[0]
 
 
 def test_compile_json_schema_blocks_duplicate_definitions_across_uris():

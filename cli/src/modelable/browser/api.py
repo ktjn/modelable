@@ -410,6 +410,7 @@ class BrowserCompiler:
                     media_type=media_type,
                     content=render_artifact_text(artifact),
                     source_refs=(artifact.ref,),
+                    warnings=tuple(artifact.warnings),
                 )
                 for artifact in emitted
             ),

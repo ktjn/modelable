@@ -1,0 +1,24 @@
+domain platform {
+  owner: "test-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+         email:   string
+         region:  string
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byEmail {
+      key:    [email]
+      unique: true
+    }
+    secondary byRegion {
+      key: [region]
+    }
+  }
+
+  auto projections Order @ 1 {
+    db
+  }
+}

@@ -84,6 +84,7 @@ export interface BrowserArtifact {
   media_type: string;
   content: string;
   source_refs: string[];
+  warnings: string[];
 }
 
 export interface BrowserWorkspaceResult {
@@ -522,11 +523,12 @@ export function isBrowserDiagnostic(
 export function isBrowserArtifact(value: unknown): value is BrowserArtifact {
   return (
     isRecord(value) &&
-    hasExactKeys(value, ['path', 'media_type', 'content', 'source_refs']) &&
+    hasExactKeys(value, ['path', 'media_type', 'content', 'source_refs', 'warnings']) &&
     typeof value.path === 'string' &&
     typeof value.media_type === 'string' &&
     typeof value.content === 'string' &&
-    isStringArray(value.source_refs)
+    isStringArray(value.source_refs) &&
+    isStringArray(value.warnings)
   );
 }
 
