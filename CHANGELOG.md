@@ -16,6 +16,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Concurrent compilations now serialize registry ID allocation and atomically
+  replace the registry ID ledger, preventing lost allocations and partial lock
+  files.
+
 ## [1.9.4] - 2026-08-18
 
 ### Added
