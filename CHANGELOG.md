@@ -16,6 +16,11 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Documented `modelable compile --target openapi` and `--target event-sink`
+  in `docs/cli-reference.md` — both were shipped, `implemented` codegen
+  targets missing from the CLI reference's `--target` option list, default
+  output directory table, and (for `openapi`) any dedicated command section.
+
 ### Fixed
 
 - Fixed generated OpenAPI references for `ref<>` fields, aligned Rust JSON
