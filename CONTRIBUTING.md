@@ -83,6 +83,60 @@ following gates:
     changelog current so a release never requires retrofitting entries at tag
     time.
 
+## Shipping a new feature without leaving a gap
+
+Most of the "fix: close X gap" commits in this repo's history are a feature
+that shipped against its happy path and was found to silently misbehave
+somewhere else later — a target it didn't cover, an input shape it didn't
+validate, a diagnostic that got dropped in one surface but not another. The
+project already has the mechanisms to catch this before merge; the failure
+mode is not applying them consistently. When adding or changing a
+user-visible capability, work through this list rather than only the tests
+for the case you had in mind:
+
+1. **Register it in the capability manifest.** Add or update a `Capability`
+   entry in `cli/src/modelable/capabilities.py` with an honest
+   `CapabilityStatus` (`implemented`, `experimental`, `deferred`,
+   `candidate`, or `removed`) and at least one `test_refs` entry pointing at
+   a real test. `test_capability_manifest_linkage.py` enforces that the
+   reference exists — don't claim `implemented` for a case you haven't
+   proven. `modelable capabilities` is the single source of truth for
+   support status; if docs prose would say something different, the docs are
+   wrong, not the manifest.
+2. **Never let parsed input silently no-op.** If the grammar/IR accepts a
+   construct the compiler can't fully act on yet, it must produce an
+   explicit diagnostic (see `validation/deferred_syntax.py`'s `DEFERRED`
+   pattern), not disappear. Per `ROADMAP.md`'s interleaving rule 2, silently
+   dropped or ignored parsed content is a release blocker for that
+   construct — treat it as such in review, not as a follow-up ticket.
+3. **Add a shared conformance fixture, not just a local unit test.**
+   Anything reachable from more than one surface (native CLI, browser/Pyodide
+   compiler, LSP, Playground) needs a fixture under `cli/tests/conformance/`
+   exercised through each surface it touches, per the Slice G3 pattern.
+   Tranche 1 of that work found a real bug precisely this way: a diagnostic
+   that worked in the CLI was invisible in the browser because
+   `workspace.py`'s `synchronize()` only read one of two fields. A
+   same-surface-only test would not have caught it.
+4. **Hold new emitters/importers to the real-data bar before calling them
+   stable.** Interleaving rule 6: a new target isn't stable until
+   representative real-world fixture data is covered by deterministic
+   regression tests, not just a hand-written minimal case. Hand-written
+   fixtures are fine for early development; they are not sufficient to flip
+   a capability's status to `implemented`.
+5. **If it touches compatibility semantics, prove the negative case.** A
+   confirmed false compatibility result is a release blocker (interleaving
+   rule 1). Add a test in `compat/diff.py`/`compat/checker.py` coverage that
+   shows the change is correctly classified as breaking, not just that the
+   compatible case passes.
+6. **Changelog and, where relevant, roadmap.** Add the `CHANGELOG.md` entry
+   (see gate 6 above) and, if the change closes or partially closes an item
+   tracked in `ROADMAP.md`, update that item in the same PR so the roadmap
+   doesn't drift from what's actually shipped.
+
+None of this replaces normal code review — it's the specific checklist for
+the failure mode this project keeps hitting: a feature that works when used
+the way its author tested it, and breaks on the first real use that wasn't.
+
 ## Pull requests
 
 A pull request should explain the intent, affected behavior, verification
