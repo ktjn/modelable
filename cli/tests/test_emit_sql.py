@@ -661,7 +661,7 @@ binding order-binding {
     assert "CREATE UNIQUE INDEX IF NOT EXISTS orders_by_email ON orders (email);" in art.content
 
 
-def test_clickhouse_ddl_does_not_include_secondary_index(tmp_path):
+def test_clickhouse_ddl_emits_secondary_index_as_inline_data_skipping_index(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """
 domain platform {
@@ -699,7 +699,52 @@ binding order-binding {
     workspace = load_workspace(tmp_path)
     artifacts = emit_sql(workspace, tmp_path / "out", "clickhouse")
     art = next(a for a in artifacts if a.ref == "platform.OrderDb@1")
-    assert "INDEX" not in art.content
+    assert "INDEX idx_by_email (email) TYPE bloom_filter GRANULARITY 1" in art.content
+    assert art.warnings == []
+
+
+def test_clickhouse_ddl_unique_secondary_index_warns_uniqueness_not_enforced(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "test-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+         email:   string
+  }
+
+  index Order @ 1 {
+    primary orderId
+    secondary byEmail {
+      key:    [email]
+      unique: true
+    }
+  }
+
+  auto projections Order @ 1 {
+    db
+  }
+}
+
+binding ch-conn {
+  adapter: clickhouse
+}
+
+binding order-binding {
+  model: platform.Order @ 1
+  adapter: ch-conn
+  table: "orders"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_sql(workspace, tmp_path / "out", "clickhouse")
+    art = next(a for a in artifacts if a.ref == "platform.OrderDb@1")
+    assert "INDEX idx_by_email (email) TYPE bloom_filter GRANULARITY 1" in art.content
+    assert len(art.warnings) == 1
+    assert "cannot enforce uniqueness" in art.warnings[0]
 
 
 def test_sql_dialect_registry_lists_postgres_and_clickhouse():

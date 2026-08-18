@@ -43,8 +43,10 @@ target:
 - Rust nominal newtypes for `semantic` declarations.
 - Deterministic small-integer allocation for `semantic ... { registry: true }`
   declarations through the git-tracked `registry-ids.lock` ledger.
-- Primary and secondary index declarations, currently consumed by PostgreSQL
-  generation.
+- Primary and secondary index declarations, consumed by PostgreSQL generation
+  (as `CREATE INDEX` statements) and ClickHouse generation (as inline
+  `bloom_filter` data-skipping indexes; declared `unique` constraints are
+  accepted but flagged as unenforceable on MergeTree tables).
 - Protobuf payload schemas and generic Scalable command/read services.
 - A documented Rust/Protobuf wire-format contract with golden fixtures.
 

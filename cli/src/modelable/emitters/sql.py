@@ -15,6 +15,7 @@ from modelable.parser.ir import (
     DomainDef,
     EnumType,
     FixedBinaryType,
+    IndexDecl,
     MapType,
     MdlFile,
     ModelVersion,
@@ -40,7 +41,10 @@ SQL_DIALECTS: tuple[SqlDialect, ...] = (
     ),
     SqlDialect(
         name="clickhouse",
-        description="ClickHouse CREATE TABLE DDL (MergeTree engine); secondary index declarations are not yet emitted",
+        description=(
+            "ClickHouse CREATE TABLE DDL (MergeTree engine), including secondary index "
+            "declarations emitted as inline data-skipping indexes"
+        ),
     ),
 )
 
@@ -128,9 +132,11 @@ def _emit_projection_ddl(
         lines.extend(index_lines)
         warnings.extend(index_warnings)
     else:
+        index_clauses, index_warnings = _emit_clickhouse_secondary_index_clauses(version, mdl)
+        warnings.extend(index_warnings)
         lines.append(f"CREATE TABLE IF NOT EXISTS {table_name}")
         lines.append("(")
-        lines.append(",\n".join(columns))
+        lines.append(",\n".join([*columns, *index_clauses]))
         lines.append(") ENGINE = MergeTree()")
         lines.append("ORDER BY tuple(); -- TODO: set ORDER BY for production use")
 
@@ -159,6 +165,29 @@ def _resolve_table_name(version: ProjectionVersion, mdl: MdlFile, dialect: str) 
     return None
 
 
+def _resolve_index_decl(version: ProjectionVersion, mdl: MdlFile) -> IndexDecl | None:
+    """Find the `index` declaration for this projection's source model version, if any."""
+    try:
+        source_domain, source_model = version.source.model.rsplit(".", 1)
+    except ValueError:
+        return None
+    domain_def = next((d for d in mdl.domains if d.name == source_domain), None)
+    if domain_def is None:
+        return None
+    try:
+        resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", version.source.version)
+    except LookupError:
+        return None
+    return next(
+        (
+            decl
+            for decl in domain_def.index_decls
+            if decl.model == source_model and decl.version == resolved.version.version
+        ),
+        None,
+    )
+
+
 def _emit_secondary_index_ddl(version: ProjectionVersion, table_name: str, mdl: MdlFile) -> tuple[list[str], list[str]]:
     """Render CREATE INDEX statements for the model version's `index` declaration, if any.
 
@@ -170,25 +199,7 @@ def _emit_secondary_index_ddl(version: ProjectionVersion, table_name: str, mdl: 
     """
     lines: list[str] = []
     warnings: list[str] = []
-    try:
-        source_domain, source_model = version.source.model.rsplit(".", 1)
-    except ValueError:
-        return lines, warnings
-    domain_def = next((d for d in mdl.domains if d.name == source_domain), None)
-    if domain_def is None:
-        return lines, warnings
-    try:
-        resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", version.source.version)
-    except LookupError:
-        return lines, warnings
-    index_decl = next(
-        (
-            decl
-            for decl in domain_def.index_decls
-            if decl.model == source_model and decl.version == resolved.version.version
-        ),
-        None,
-    )
+    index_decl = _resolve_index_decl(version, mdl)
     if index_decl is None:
         return lines, warnings
 
@@ -221,6 +232,46 @@ def _emit_secondary_index_ddl(version: ProjectionVersion, table_name: str, mdl: 
         lines.append(f"CREATE {keyword} IF NOT EXISTS {index_name} ON {table_name} ({', '.join(columns)});")
 
     return lines, warnings
+
+
+def _emit_clickhouse_secondary_index_clauses(version: ProjectionVersion, mdl: MdlFile) -> tuple[list[str], list[str]]:
+    """Render inline `INDEX ... TYPE bloom_filter` data-skipping index clauses for CREATE TABLE.
+
+    ClickHouse has no separate `CREATE INDEX` statement and no notion of a
+    unique constraint on a MergeTree table, so this deliberately diverges
+    from the PostgreSQL rendering in `_emit_secondary_index_ddl`: clauses are
+    inline column-list entries, sort direction is dropped (data-skipping
+    indexes have no ordering concept), and a declared `unique: true` still
+    emits the index but adds a warning that ClickHouse cannot enforce it.
+    """
+    clauses: list[str] = []
+    warnings: list[str] = []
+    index_decl = _resolve_index_decl(version, mdl)
+    if index_decl is None:
+        return clauses, warnings
+
+    for secondary in index_decl.secondary:
+        columns: list[str] = []
+        skipped = False
+        for field_name in [*secondary.key, *(sort_field.field for sort_field in secondary.sort)]:
+            column = _resolve_projection_column(field_name, version)
+            if column is None:
+                warnings.append(type_loss(f"secondary index '{secondary.name}': field '{field_name}' is not projected"))
+                skipped = True
+                break
+            columns.append(column)
+        if skipped or not columns:
+            continue
+
+        if secondary.unique:
+            warnings.append(
+                type_loss(f"secondary index '{secondary.name}': ClickHouse MergeTree tables cannot enforce uniqueness")
+            )
+
+        index_name = _snake_case(f"idx_{secondary.name}")
+        clauses.append(f"    INDEX {index_name} ({', '.join(columns)}) TYPE bloom_filter GRANULARITY 1")
+
+    return clauses, warnings
 
 
 def _resolve_projection_column(source_field_name: str, version: ProjectionVersion) -> str | None:

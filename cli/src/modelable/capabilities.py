@@ -78,17 +78,6 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         test_refs=("test_semantic.py::test_composite_key_is_not_yet_supported",),
     ),
     Capability(
-        name="clickhouse-secondary-indexes",
-        category="deferred_feature",
-        status=CapabilityStatus.deferred,
-        description="Secondary index declarations emitted as ClickHouse DDL",
-        notes=(
-            "Only the sql-postgres target emits index declarations today; "
-            "sql-clickhouse emits a bare MergeTree table with no secondary indexes."
-        ),
-        test_refs=("test_emit_sql.py::test_clickhouse_ddl_does_not_include_secondary_index",),
-    ),
-    Capability(
         name="model-lifecycle-status",
         category="deferred_feature",
         status=CapabilityStatus.deferred,

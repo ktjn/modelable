@@ -8,6 +8,12 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- ClickHouse SQL generation now emits declared secondary indexes as inline
+  `bloom_filter` data-skipping indexes on the generated `MergeTree` table,
+  matching PostgreSQL's existing secondary-index support. A `unique: true`
+  secondary index still emits the index but adds a diagnostic warning since
+  ClickHouse `MergeTree` tables cannot enforce uniqueness.
+
 ### Changed
 
 ### Fixed
