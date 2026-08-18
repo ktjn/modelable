@@ -39,12 +39,14 @@ const artifacts: BrowserArtifact[] = [
     media_type: 'application/schema+json',
     content: '{"title":"Customer"}',
     source_refs: ['file:///customer.mdl'],
+    warnings: [],
   },
   {
     path: 'order.schema.json',
     media_type: 'application/schema+json',
     content: '{"title":"Order"}',
     source_refs: ['file:///order.mdl'],
+    warnings: [],
   },
 ];
 

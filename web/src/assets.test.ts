@@ -297,6 +297,7 @@ describe('same-origin Python assets', () => {
       'composite-key.mdl',
       'compatibility.mdl',
       'deferred-constructs.mdl',
+      'sql-index.mdl',
     ];
     const snapshotNames = [
       'single-valid.json',
@@ -307,6 +308,7 @@ describe('same-origin Python assets', () => {
       'composite-key.json',
       'compatibility.json',
       'deferred-constructs.json',
+      'sql-index.json',
     ];
     await Promise.all([
       ...fixtureNames.map((name) => writeFile(join(fixtures, name), `fixture ${name}`)),
@@ -335,6 +337,8 @@ describe('same-origin Python assets', () => {
       'multi-domain.json',
       'single-valid.json',
       'single-valid.mdl',
+      'sql-index.json',
+      'sql-index.mdl',
     ]);
   });
 

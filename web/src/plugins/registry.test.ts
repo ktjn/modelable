@@ -12,6 +12,7 @@ const artifact: BrowserArtifact = {
   content: 'type Example { id: ID! }',
   media_type: 'text/plain',
   source_refs: [],
+  warnings: [],
 };
 
 function Viewer(_props: ArtifactViewerProps) {

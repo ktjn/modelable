@@ -28,6 +28,7 @@ type TestClient = {
   ): Promise<unknown>;
   formatSource(source: Source): Promise<unknown>;
   compileJsonSchema(sources: Source[]): Promise<unknown>;
+  compile(sources: Source[], target: string): Promise<unknown>;
   completion(
     position: LanguagePosition,
   ): Promise<{ items: { label: string }[] }>;
@@ -136,6 +137,7 @@ const scenarios = {
   'invalid-semantic': ['invalid-semantic.mdl'],
   'multi-domain': ['multi-domain-customer.mdl', 'multi-domain-order.mdl'],
   'single-valid': ['single-valid.mdl'],
+  'sql-index': ['sql-index.mdl'],
 } as const;
 const localRequestAudits = new WeakMap<BrowserContext, () => void>();
 
@@ -186,6 +188,10 @@ test('browser compiler matches native snapshots including cross-file references'
         }
         if (scenario === 'compatibility') {
           result.compatibility = await client.compatibility(workspaceRevision);
+        }
+        if (scenario === 'sql-index') {
+          result.compileSqlPostgres = await client.compile(sources, 'sql-postgres');
+          result.compileSqlClickhouse = await client.compile(sources, 'sql-clickhouse');
         }
         return result;
       },

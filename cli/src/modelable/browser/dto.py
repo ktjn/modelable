@@ -38,6 +38,7 @@ class BrowserArtifact:
     media_type: str
     content: str
     source_refs: tuple[str, ...]
+    warnings: tuple[str, ...]
 
 
 @dataclass(frozen=True)
