@@ -20,6 +20,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- OpenAPI imports now emit deterministic, location-specific loss warnings for
+  dropped path, operation, root, and reusable component metadata.
+
 - Concurrent compilations now serialize registry ID allocation and atomically
   replace the registry ID ledger, preventing lost allocations and partial lock
   files.

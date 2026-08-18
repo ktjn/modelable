@@ -327,17 +327,24 @@ def test_openapi_importer_warns_when_operations_and_security_are_dropped():
                 "openapi": "3.1.0",
                 "info": {"title": "Catalog", "version": "1"},
                 "security": [{"oauth": []}],
+                "servers": [{"url": "https://api.example.test"}],
+                "tags": [{"name": "products"}],
                 "components": {
                     "securitySchemes": {"oauth": {"type": "oauth2", "flows": {}}},
+                    "callbacks": {"productChanged": {}},
                     "schemas": {"Product": {"type": "object", "properties": {"id": {"type": "string"}}}},
                 },
                 "paths": {
                     "/products": {
+                        "summary": "Products",
+                        "parameters": [{"name": "tenant", "in": "header"}],
                         "get": {
+                            "operationId": "listProducts",
+                            "tags": ["products"],
                             "security": [{"oauth": []}],
                             "parameters": [{"name": "limit", "in": "query"}],
                             "responses": {"200": {"description": "ok"}},
-                        }
+                        },
                     }
                 },
             }
@@ -351,6 +358,10 @@ def test_openapi_importer_warns_when_operations_and_security_are_dropped():
     assert any("response bindings" in warning for warning in imported.warnings)
     assert any("root security" in warning for warning in imported.warnings)
     assert any("securitySchemes" in warning for warning in imported.warnings)
+    assert any("operation identifiers" in warning for warning in imported.warnings)
+    assert any("path-item summaries" in warning for warning in imported.warnings)
+    assert any("root servers" in warning for warning in imported.warnings)
+    assert any("components.callbacks" in warning for warning in imported.warnings)
 
 
 def test_json_schema_importer_preserves_modelable_extensions():
