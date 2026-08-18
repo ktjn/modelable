@@ -64,7 +64,7 @@ from modelable.parser.ir import (
 )
 from modelable.planner.plans import write_plans
 from modelable.registry.factory import get_registry
-from modelable.registry.ids import allocate_registry_ids, read_lock_file, write_lock_file
+from modelable.registry.ids import RegistryIdLock, allocate_registry_ids, read_lock_file, write_lock_file
 from modelable.registry.index import build_registry
 from modelable.registry.oci import OCIRegistryError
 from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
@@ -179,6 +179,7 @@ class PendingCompilation:
     source_fingerprints: tuple[FileFingerprint, ...]
     affected_definitions: tuple[AffectedDefinition, ...]
     registry_id_changes: tuple[RegistryIdChange, ...]
+    registry_ids_before: dict[str, int]
     warnings: tuple[str, ...]
     manifest_fingerprint: str
     preview_timestamp: str
@@ -256,11 +257,12 @@ class CompilationService:
             )
         ).resolve()
         try:
-            result = self._execute_direct_staged(
-                request,
-                workspace_root=workspace_root,
-                staging_dir=staging_dir,
-            )
+            with RegistryIdLock(_registry_ids_path(request, workspace_root)):
+                result = self._execute_direct_staged(
+                    request,
+                    workspace_root=workspace_root,
+                    staging_dir=staging_dir,
+                )
         except FileTransactionCommittedError as error:
             _remove_staging_after_commit(staging_dir, error)
             raise
@@ -414,6 +416,7 @@ class CompilationService:
                 source_fingerprints=source_fingerprints,
                 affected_definitions=affected_definitions,
                 registry_id_changes=registry_id_changes,
+                registry_ids_before=existing_registry_ids,
                 warnings=warnings,
                 manifest_fingerprint=manifest_fingerprint,
                 preview_timestamp=preview_timestamp,
@@ -457,13 +460,18 @@ class CompilationService:
                     staged_path=audit_staged_path,
                 )
             )
-            written_paths = self.transaction_factory(pending.workspace_root).promote(
-                transaction_files,
-                validate=lambda: _verify_apply_freshness(
-                    pending,
-                    audit_path,
-                ),
-            )
+            registry_ids_path = next(item.destination for item in pending.files if item.category == "registry_ids")
+            with RegistryIdLock(registry_ids_path):
+                _verify_apply_freshness(pending, audit_path)
+                if read_lock_file(registry_ids_path) != pending.registry_ids_before:
+                    raise StaleCompilationError("The registry ID ledger changed after this compilation was previewed.")
+                written_paths = self.transaction_factory(pending.workspace_root).promote(
+                    transaction_files,
+                    validate=lambda: _verify_apply_freshness(
+                        pending,
+                        audit_path,
+                    ),
+                )
             applied = AppliedCompilation(
                 action_id=pending.action_id,
                 written_paths=written_paths,
@@ -544,6 +552,11 @@ def _workspace_root(source: Path) -> Path:
     if resolved.is_file():
         return resolved.parent
     return resolved
+
+
+def _registry_ids_path(request: CompilationRequest, workspace_root: Path) -> Path:
+    path = request.registry_ids_path
+    return path if path.is_absolute() else workspace_root / path
 
 
 def _load_preview_workspace(source: Path) -> Workspace:

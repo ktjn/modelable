@@ -1,7 +1,15 @@
 import json
 
+import pytest
+
 from modelable.compiler.workspace import load_workspace
-from modelable.registry.ids import allocate_registry_ids, read_lock_file, write_lock_file
+from modelable.registry.ids import (
+    RegistryIdLock,
+    RegistryIdLockContentionError,
+    allocate_registry_ids,
+    read_lock_file,
+    write_lock_file,
+)
 
 
 def _write_mdl(path, text):
@@ -132,3 +140,20 @@ def test_write_then_read_lock_file_round_trips_sorted_by_id(tmp_path):
     raw = path.read_text(encoding="utf-8")
     assert list(json.loads(raw).keys()) == ["a.A", "b.Z"]
     assert read_lock_file(path) == {"a.A": 1, "b.Z": 2}
+
+
+def test_registry_id_lock_serializes_processes(tmp_path):
+    ledger = tmp_path / "registry-ids.lock"
+    with RegistryIdLock(ledger), pytest.raises(RegistryIdLockContentionError), RegistryIdLock(ledger, timeout=0):
+        raise AssertionError("unreachable")
+
+
+def test_registry_id_lock_reclaims_dead_process_lock(tmp_path):
+    ledger = tmp_path / "registry-ids.lock"
+    lock_path = ledger.with_name(".registry-ids.lock.lock")
+    lock_path.write_text("2147483647\n", encoding="utf-8")
+
+    with RegistryIdLock(ledger):
+        assert lock_path.exists()
+
+    assert not lock_path.exists()
