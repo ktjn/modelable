@@ -10,6 +10,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Reconciled compiler, architecture, and integration documentation with the
+  authoritative capability manifest, including model lifecycle status,
+  ClickHouse indexes, and Protobuf/gRPC descriptor and compatibility support.
+
 ### Fixed
 
 ## [1.9.4] - 2026-08-18
