@@ -98,6 +98,32 @@ domain customer {
     assert "name: string" in proj_art.content
 
 
+def test_emit_typescript_projection_preserves_optional_fields(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName?: string
+  }
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    displayName <- c.displayName
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_typescript(workspace, tmp_path / "out")
+    projection = next(a for a in artifacts if a.ref == "customer.CustomerView@1")
+
+    assert "displayName?: string;" in projection.content
+
+
 def test_emit_typescript_projection_with_source_version_range_uses_matching_source_types(tmp_path):
     mdl = tmp_path / "test.mdl"
     mdl.write_text(

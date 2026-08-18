@@ -82,29 +82,44 @@ mod modelable_duration {
 }
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PlatformWidgetV1 {
+    #[serde(rename = "widgetId")]
     pub widget_id: uuid::Uuid,
+    #[serde(rename = "legacyId")]
     pub legacy_id: uuid::Uuid,
     pub name: String,
     pub quantity: i64,
     pub weight: f64,
     pub active: bool,
+    #[serde(rename = "createdAt")]
     pub created_at: chrono::DateTime<chrono::Utc>,
+    #[serde(rename = "bornOn")]
     pub born_on: chrono::NaiveDate,
+    #[serde(rename = "dailyAt")]
     pub daily_at: chrono::NaiveTime,
     #[serde(with = "modelable_duration")]
     pub ttl: chrono::Duration,
     pub blob: Vec<u8>,
     pub checksum: [u8; 32],
     pub price: String,
+    #[serde(rename = "smallCount")]
     pub small_count: u8,
+    #[serde(rename = "mediumCount")]
     pub medium_count: u16,
+    #[serde(rename = "bigCount")]
     pub big_count: u32,
+    #[serde(rename = "hugeCount")]
     pub huge_count: u64,
+    #[serde(rename = "massiveCount")]
     pub massive_count: u128,
+    #[serde(rename = "smallDelta")]
     pub small_delta: i8,
+    #[serde(rename = "mediumDelta")]
     pub medium_delta: i16,
+    #[serde(rename = "bigDelta")]
     pub big_delta: i32,
+    #[serde(rename = "hugeDelta")]
     pub huge_delta: i64,
+    #[serde(rename = "massiveDelta")]
     pub massive_delta: i128,
     pub status: PlatformWidgetV1Status,
     pub tags: Vec<String>,

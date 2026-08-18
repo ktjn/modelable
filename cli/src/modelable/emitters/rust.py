@@ -677,6 +677,7 @@ def _emit_model(
         definitions=nested_definitions,
         enum_info=local_enum_info,
         named_type_map=named_type_map,
+        declaration_wire=version.wire_targets(),
     )
     if enum_registry is not None:
         enum_registry[artifact_id] = {
@@ -793,6 +794,10 @@ def _emit_projection(
             )
         optional = field_shape.optional or field_shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field_shape, clickhouse=clickhouse_row)
+        serde_attrs = [
+            *_serde_json_name_attrs(field.name, {**version.wire_targets(), **wire}),
+            *serde_attrs,
+        ]
         if field_shape.optional and not clickhouse_row:
             serde_attrs = ["#[serde(default)]", '#[serde(skip_serializing_if = "Option::is_none")]', *serde_attrs]
         field_specs.append(
@@ -1024,6 +1029,25 @@ def _serde_attrs_for_field(wire: dict, shape: TypeShape, *, clickhouse: bool = F
         if ch_hint is not None and getattr(ch_hint, "encoding", None) == "uuid":
             return ['#[serde(with = "clickhouse::serde::uuid")]']
     return []
+
+
+def _serde_json_name_attrs(field_name: str, wire: dict) -> list[str]:
+    """Keep Rust's identifier spelling separate from the canonical JSON name."""
+    json_hint = wire.get("json")
+    field_case = getattr(json_hint, "field_case", None) if json_hint is not None else None
+    if field_case == "snake_case":
+        json_name = _snake_case(field_name)
+    elif field_case == "camelCase":
+        parts = _snake_case(field_name).split("_")
+        json_name = parts[0] + "".join(part.capitalize() for part in parts[1:])
+    elif field_case == "PascalCase":
+        json_name = "".join(part.capitalize() for part in _snake_case(field_name).split("_"))
+    elif field_case == "SCREAMING_SNAKE_CASE":
+        json_name = _snake_case(field_name).upper()
+    else:
+        json_name = field_name
+    rust_name = _field_name(field_name)
+    return [] if json_name == rust_name else [f'#[serde(rename = "{json_name}")]']
 
 
 def _any_needs_serde_with(field_specs: list[_FieldSpec]) -> bool:
@@ -1278,6 +1302,7 @@ def _field_specs_from_model_fields(
     definitions: dict[str, list[str]],
     enum_info: dict[str, list[str]] | None = None,
     named_type_map: dict[str, str] | None = None,
+    declaration_wire: dict | None = None,
 ) -> list[_FieldSpec]:
     specs: list[_FieldSpec] = []
     for index, field in enumerate(fields):
@@ -1294,6 +1319,7 @@ def _field_specs_from_model_fields(
         )
         is_optional = shape.optional or shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, shape)
+        serde_attrs = [*_serde_json_name_attrs(field.name, {**(declaration_wire or {}), **wire}), *serde_attrs]
         # Optional arrays use Vec<T> + #[serde(default)] — Option<Vec<T>> forces unwrap before iteration.
         if is_optional and shape.kind == "array":
             is_optional = False
@@ -1341,6 +1367,7 @@ def _field_specs_from_object_fields(
         )
         default_none = field.optional or field.shape.optional or field.shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field.shape)
+        serde_attrs = [*_serde_json_name_attrs(field.name, wire), *serde_attrs]
         if default_none:
             serde_attrs = ["#[serde(default)]", *serde_attrs]
         specs.append(

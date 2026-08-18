@@ -12,6 +12,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Fixed generated OpenAPI references for `ref<>` fields, aligned Rust JSON
+  field names with the canonical source spelling, preserved optional fields in
+  TypeScript projections, and made PostgreSQL foreign keys honor bound table
+  names.
 - Fixed browser and Playground wheel builds failing after the Hatchling
   dependency update due to mismatched build constraints.
 - Compatibility validation now flags changed compiled Protobuf and gRPC
