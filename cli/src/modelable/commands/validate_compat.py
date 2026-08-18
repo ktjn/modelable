@@ -10,9 +10,11 @@ from modelable.compat.targets import (
     PASSING_STATUSES,
     TargetCompatibilityReport,
     compare_grpc_artifacts,
+    compare_openapi_artifacts,
     compare_protobuf_manifests,
 )
 from modelable.emitters.grpc import emit_grpc
+from modelable.emitters.openapi import emit_openapi
 from modelable.emitters.protobuf import emit_protobuf
 from modelable.emitters.targets import list_compat_checkable_targets
 
@@ -47,10 +49,15 @@ def validate_compat(from_path: Path, to_path: Path, target: str, policy_path: Pa
             emit_protobuf(old_workspace, Path(".modelable/compat/old/protobuf")),
             emit_protobuf(new_workspace, Path(".modelable/compat/new/protobuf")),
         )
-    else:
+    elif target == "grpc":
         report = compare_grpc_artifacts(
             emit_grpc(old_workspace, Path(".modelable/compat/old/grpc")),
             emit_grpc(new_workspace, Path(".modelable/compat/new/grpc")),
+        )
+    else:
+        report = compare_openapi_artifacts(
+            emit_openapi(old_workspace, Path(".modelable/compat/old/openapi")),
+            emit_openapi(new_workspace, Path(".modelable/compat/new/openapi")),
         )
 
     _render_report(report)

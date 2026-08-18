@@ -13,6 +13,7 @@ from modelable.compat.targets import (
     SEVERITIES,
     compare_governance_review,
     compare_grpc_artifacts,
+    compare_openapi_artifacts,
     compare_projection_rebuild,
     compare_protobuf_manifests,
     compare_source_representation,
@@ -20,6 +21,7 @@ from modelable.compat.targets import (
 )
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.grpc import emit_grpc
+from modelable.emitters.openapi import emit_openapi
 from modelable.emitters.protobuf import emit_protobuf
 from modelable.parser.parse import parse_text_to_ir
 
@@ -27,6 +29,57 @@ from modelable.parser.parse import parse_text_to_ir
 def _write(path: Path, text: str) -> Path:
     path.write_text(text, encoding="utf-8")
     return path
+
+
+def _openapi_artifacts(path: Path):
+    return emit_openapi(load_workspace(path), path.parent / "out")
+
+
+def test_openapi_compat_reports_removed_operation_and_response(tmp_path: Path):
+    old = _write(
+        tmp_path / "old.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key id: uuid
+  }
+  auto projections Customer @ 1 { reply }
+  api Customer @ 1 {
+    operation "getCustomer" {
+      method: GET
+      path: "/customers/{id}"
+      responses { 200: CustomerReply @ 1 }
+    }
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key id: uuid
+  }
+  auto projections Customer @ 1 { reply }
+  api Customer @ 1 {
+    operation "getCustomer" {
+      method: GET
+      path: "/customers/{id}"
+      responses { 404: CustomerReply @ 1 }
+    }
+  }
+}
+""",
+    )
+
+    report = compare_openapi_artifacts(_openapi_artifacts(old), _openapi_artifacts(new))
+
+    assert report.target == "openapi"
+    assert report.status == "breaking"
+    assert [finding.code for finding in report.findings] == ["response_removed"]
 
 
 def _protobuf_artifacts(path: Path):
@@ -455,6 +508,7 @@ def test_validate_compat_target_choices_match_the_registry():
 
     assert "protobuf" in result.output
     assert "grpc" in result.output
+    assert "openapi" in result.output
 
 
 # --- Slice C3: common target-compatibility axis/severity IR -----------------
