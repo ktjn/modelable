@@ -50,7 +50,11 @@ Every single property in the system must be traceable. If a field exists in a co
 
 Published model versions and projection versions are immutable. Any incompatible change must create a new version.
 
-Mutable drafts may exist before publication, but published contracts must be stable so downstream systems can rely on them.
+Authors may edit local `.mdl` files before publishing, but the current grammar
+does not represent a model lifecycle status such as `draft`, `published`,
+`deprecated`, or `retired`. Every versioned declaration is treated as a
+published immutable contract once compiled; lifecycle tracking remains
+deferred.
 
 ### 2.4 Platform-Neutral Definitions
 

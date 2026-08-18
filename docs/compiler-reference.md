@@ -225,8 +225,9 @@ implemented:
   to the emitting projection's own column name via its `DirectMapping`s;
   a referenced field the projection doesn't include is skipped (with a
   `type_loss` warning) rather than emitted as a broken column reference.
-  ClickHouse index DDL is deferred — ClickHouse's data-skipping-index
-  model doesn't map mechanically onto the same statement shape.
+  ClickHouse index DDL is implemented as an inline data-skipping index on the
+  generated `MergeTree` table. A declared `unique: true` index is emitted with
+  a warning because ClickHouse cannot enforce uniqueness.
 - dbt YAML: describe schemas and model/source metadata without making dbt the source of truth.
 - FHIR R4 profiles: emit R4 `StructureDefinition` constraint profiles for
   projection artifacts. The current hardening boundary supports projections
