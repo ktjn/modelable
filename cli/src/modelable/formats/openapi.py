@@ -42,24 +42,60 @@ def openapi_loss_warnings(document: dict[str, Any]) -> list[str]:
     if isinstance(paths, dict) and paths:
         warnings.append("OpenAPI import drops unsupported operation metadata under 'paths'")
         methods = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
+        path_item_metadata = {
+            "$ref": "path-item references",
+            "summary": "path-item summaries",
+            "description": "path-item descriptions",
+            "servers": "path-item servers",
+            "parameters": "path-item parameters",
+        }
+        operation_metadata = {
+            "tags": "operation tags",
+            "summary": "operation summaries",
+            "description": "operation descriptions",
+            "externalDocs": "operation external documentation",
+            "operationId": "operation identifiers",
+            "callbacks": "operation callbacks",
+            "deprecated": "operation deprecation metadata",
+            "servers": "operation servers",
+            "security": "operation security",
+            "parameters": "operation parameters",
+            "requestBody": "request body",
+            "responses": "response bindings",
+        }
         for path, path_item in sorted(paths.items()):
             if not isinstance(path_item, dict):
                 continue
+            path_location = f"paths.{path}"
+            for key, label in path_item_metadata.items():
+                if _is_present(path_item.get(key)):
+                    warnings.append(f"OpenAPI import drops unsupported {label} at {path_location}")
             for method, operation in sorted(path_item.items()):
                 if method.lower() not in methods or not isinstance(operation, dict):
                     continue
                 location = f"paths.{path}.{method}"
-                if operation.get("security") is not None:
-                    warnings.append(f"OpenAPI import drops unsupported operation security at {location}")
-                if operation.get("parameters"):
-                    warnings.append(f"OpenAPI import drops unsupported operation parameters at {location}")
-                if operation.get("requestBody") is not None:
-                    warnings.append(f"OpenAPI import drops unsupported request body at {location}")
-                if operation.get("responses"):
-                    warnings.append(f"OpenAPI import drops unsupported response bindings at {location}")
-    if document.get("security") is not None:
-        warnings.append("OpenAPI import drops unsupported root security requirements")
-    security_schemes = (document.get("components") or {}).get("securitySchemes")
-    if security_schemes:
+                for key, label in operation_metadata.items():
+                    if _is_present(operation.get(key)):
+                        warnings.append(f"OpenAPI import drops unsupported {label} at {location}")
+    for key, label in (
+        ("security", "root security requirements"),
+        ("servers", "root servers"),
+        ("tags", "root tags"),
+        ("externalDocs", "root external documentation"),
+        ("webhooks", "webhooks"),
+    ):
+        if _is_present(document.get(key)):
+            warnings.append(f"OpenAPI import drops unsupported {label}")
+    components = document.get("components") or {}
+    if not isinstance(components, dict):
+        return warnings
+    for key in ("parameters", "responses", "requestBodies", "headers", "examples", "links", "callbacks", "pathItems"):
+        if _is_present(components.get(key)):
+            warnings.append(f"OpenAPI import drops unsupported components.{key}")
+    if _is_present(components.get("securitySchemes")):
         warnings.append("OpenAPI import drops unsupported components.securitySchemes")
     return warnings
+
+
+def _is_present(value: Any) -> bool:
+    return value is not None and value != {} and value != []
