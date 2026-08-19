@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- OpenAPI compilation now validates the complete generated document, including
+  paths and operations, against the OpenAPI 3.1 specification.
+
 - `modelable validate-compat --target openapi` now reports breaking changes to
   emitted API schemas, operations, path parameters, request bindings, and
   responses.

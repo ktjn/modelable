@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import PurePath
 from typing import Any
 
-from jsonschema import Draft202012Validator
+from openapi_spec_validator import validate as validate_openapi
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters._schema_mapping import (
@@ -73,7 +73,7 @@ def emit_openapi(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifac
         "paths": _emit_paths(mdl),
     }
 
-    warnings.extend(_validate_schemas(schemas))
+    warnings.extend(_validate_document(document))
 
     artifact = EmittedArtifact(
         target="openapi",
@@ -253,13 +253,10 @@ def _version_label(version_spec: VersionSpec) -> str:
     return "?"
 
 
-def _validate_schemas(schemas: dict[str, dict[str, Any]]) -> list[str]:
-    fragment: dict[str, Any] = {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$defs": schemas,
-    }
+def _validate_document(document: dict[str, Any]) -> list[str]:
+    """Validate the complete emitted document against OpenAPI 3.1."""
     try:
-        Draft202012Validator.check_schema(fragment)
+        validate_openapi(document)
     except Exception as exc:
         return [validation_failed("openapi.json", str(exc))]
     return []
