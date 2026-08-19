@@ -133,6 +133,37 @@ def test_openapi_compat_reports_operation_binding_changes():
     ]
 
 
+def test_openapi_compat_reports_changed_and_removed_component_schemas():
+    old = _openapi_artifact(
+        {
+            "components": {
+                "schemas": {
+                    "Billing.CustomerReply.v1": {"type": "object", "required": ["id"]},
+                    "Billing.Legacy.v1": {"type": "object"},
+                }
+            }
+        }
+    )
+    new = _openapi_artifact(
+        {
+            "components": {
+                "schemas": {
+                    "Billing.CustomerReply.v1": {"type": "object", "required": ["id", "name"]},
+                    "Billing.AddedLater.v1": {"type": "object", "properties": {"id": {"type": "string"}}},
+                }
+            }
+        }
+    )
+
+    report = compare_openapi_artifacts([old], [new])
+
+    assert report.status == "breaking"
+    assert [(finding.code, finding.ref) for finding in report.findings] == [
+        ("schema_removed", "Billing.Legacy.v1"),
+        ("schema_changed", "Billing.CustomerReply.v1"),
+    ]
+
+
 def test_openapi_compat_ignores_malformed_non_operation_artifacts():
     empty_report = compare_openapi_artifacts([], [_openapi_artifact({"paths": []})])
     malformed_report = compare_openapi_artifacts(

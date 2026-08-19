@@ -9,7 +9,8 @@ releases could contain breaking changes when called out explicitly.
 ### Added
 
 - `modelable validate-compat --target openapi` now reports breaking changes to
-  emitted API operations, path parameters, request bindings, and responses.
+  emitted API schemas, operations, path parameters, request bindings, and
+  responses.
 
 - Added deterministic Avro record export with logical types, optional unions,
   arrays, maps, enums, model identity metadata, and explicit loss warnings for
