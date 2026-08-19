@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.9.5] - 2026-08-19
+
+### Added
+
 - OpenAPI compilation now validates the complete generated document, including
   paths and operations, against the OpenAPI 3.1 specification.
 
