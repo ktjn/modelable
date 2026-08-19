@@ -27,6 +27,13 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- FHIR Extension StructureDefinitions now declare `Extension.url` as a `uri`,
+  including nested object-extension URLs, and resolve named value types to
+  valid `value[x]` datatypes so generated snapshots pass the HL7 validator.
+
+- Python output now imports referenced value types from sibling modules,
+  including same-domain model modules, so resolved annotations are usable.
+
 - ClickHouse secondary indexes containing `DateTime64` columns now use
   `minmax` indexes, avoiding insert-time bloom filter failures.
 
