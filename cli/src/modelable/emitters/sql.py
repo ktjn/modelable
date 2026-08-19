@@ -252,6 +252,7 @@ def _emit_clickhouse_secondary_index_clauses(version: ProjectionVersion, mdl: Md
 
     for secondary in index_decl.secondary:
         columns: list[str] = []
+        index_fields = []
         skipped = False
         for field_name in [*secondary.key, *(sort_field.field for sort_field in secondary.sort)]:
             column = _resolve_projection_column(field_name, version)
@@ -260,6 +261,9 @@ def _emit_clickhouse_secondary_index_clauses(version: ProjectionVersion, mdl: Md
                 skipped = True
                 break
             columns.append(column)
+            source_field = _resolve_projection_source_field(field_name, version, mdl)
+            if source_field is not None:
+                index_fields.append(source_field)
         if skipped or not columns:
             continue
 
@@ -269,7 +273,8 @@ def _emit_clickhouse_secondary_index_clauses(version: ProjectionVersion, mdl: Md
             )
 
         index_name = _snake_case(f"idx_{secondary.name}")
-        clauses.append(f"    INDEX {index_name} ({', '.join(columns)}) TYPE bloom_filter GRANULARITY 1")
+        index_type = _clickhouse_secondary_index_type(index_fields)
+        clauses.append(f"    INDEX {index_name} ({', '.join(columns)}) TYPE {index_type} GRANULARITY 1")
 
     return clauses, warnings
 
@@ -279,6 +284,25 @@ def _resolve_projection_column(source_field_name: str, version: ProjectionVersio
         if isinstance(field.mapping, DirectMapping) and field.mapping.source_field == source_field_name:
             return _snake_case(field.name)
     return None
+
+
+def _resolve_projection_source_field(source_field_name: str, version: ProjectionVersion, mdl: MdlFile) -> Any | None:
+    source = _resolve_source_model(version, mdl)
+    if source is None:
+        return None
+    return next((field for field in source.fields if field.name == source_field_name), None)
+
+
+def _clickhouse_secondary_index_type(fields: list[Any]) -> str:
+    """Choose an index type accepted for every column in the index.
+
+    ClickHouse bloom filters reject DateTime/DateTime64 columns at insert time,
+    even though CREATE TABLE accepts the index. A minmax index remains valid
+    for mixed string/temporal composite indexes and supports range predicates.
+    """
+    if any(_ch_base_type(field.type, field.wire_targets()).startswith("DateTime") for field in fields):
+        return "minmax"
+    return "bloom_filter"
 
 
 def _projection_key_columns(version: ProjectionVersion, mdl: MdlFile) -> list[str]:

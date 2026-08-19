@@ -312,7 +312,9 @@ domain clinical {
     doc = json.loads(ext.content)
     assert doc["resourceType"] == "StructureDefinition"
     assert doc["type"] == "Extension"
-    assert doc["derivation"] == "specialization"
+    assert doc["derivation"] == "constraint"
+    assert doc["baseDefinition"] == "http://hl7.org/fhir/StructureDefinition/Extension"
+    assert doc["context"] == [{"type": "element", "expression": "Element"}]
     assert doc["kind"] == "complex-type"
     assert doc["name"] == "PatientProfilePatientId"
     assert doc["url"] == "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.patientId"
@@ -321,9 +323,32 @@ domain clinical {
     assert "Extension" in ext_elements
     assert ext_elements["Extension.url"]["fixedUri"] == doc["url"]
     assert ext_elements["Extension.value[x]"]["type"] == [{"code": "string"}]
+    assert ext_elements["Extension.value[x]"]["base"] == {"path": "Extension.value[x]", "min": 1, "max": "1"}
 
     # Active is a known Patient field, so no extension companion
     assert "PatientProfileActive" not in {a.artifact_id for a in artifacts}
+
+
+def test_emit_fhir_profile_emits_shared_annotation_extensions(tmp_path):
+    (tmp_path / "clinical.mdl").write_text(
+        """
+domain clinical {
+  entity Patient @ 1 (additive) {
+    @key patientId: uuid
+    @pii @classification("confidential") name: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    artifacts = emit_fhir_profile(load_workspace(tmp_path), tmp_path / "out")
+    by_id = {artifact.artifact_id: json.loads(artifact.content) for artifact in artifacts}
+
+    assert {"pii", "classification"} <= by_id.keys()
+    assert by_id["pii"]["url"] == "http://modelable.io/fhir/StructureDefinition/pii"
+    assert by_id["pii"]["baseDefinition"] == "http://hl7.org/fhir/StructureDefinition/Extension"
+    assert by_id["pii"]["snapshot"]["element"][-1]["type"] == [{"code": "boolean"}]
+    assert by_id["classification"]["snapshot"]["element"][-1]["type"] == [{"code": "code"}]
 
 
 def test_emit_fhir_profile_object_type_extension_field_yields_sub_extensions(tmp_path):

@@ -90,6 +90,7 @@ annotation: "@key"                                                -> ann_key
           | "@pitCutoff" "(" ANNOTATION_EXPR ")"                  -> ann_pit_cutoff
           | "@latestBefore" "(" ANNOTATION_EXPR ")"               -> ann_latest_before
           | "@latestOnly"                                         -> ann_latest_only
+          | "@custom" "(" (IDENT | ESCAPED_STRING) ["," ANNOTATION_EXPR] ")" -> ann_custom
 
 wire_annotation: "@wire" "(" wire_option ("," wire_option)* ")" -> ann_wire
 wire_option: wire_key ":" wire_value
@@ -373,7 +374,7 @@ Alphabetical listing of every named rule and its production.
 | `ai_model` | `"model" ":" ESCAPED_STRING` |
 | `ai_provider` | `"provider" ":" ESCAPED_STRING` |
 | `ai_repair_attempts` | `"repair_attempts" ":" INT` |
-| `annotation` | `"@key"                                                -> ann_key \| "@pii"                                                -> ann_pii \| "@classification" "(" ESCAPED_STRING ")"             -> ann_classification \| "@deprecated" "(" "replacedBy" ":" ESCAPED_STRING ")" -> ann_deprecated \| "@owner" "(" ESCAPED_STRING ")"                      -> ann_owner \| "@server"                                             -> ann_server \| wire_annotation \| "@pitCutoff" "(" ANNOTATION_EXPR ")"                  -> ann_pit_cutoff \| "@latestBefore" "(" ANNOTATION_EXPR ")"               -> ann_latest_before \| "@latestOnly"                                         -> ann_latest_only` |
+| `annotation` | `"@key"                                                -> ann_key \| "@pii"                                                -> ann_pii \| "@classification" "(" ESCAPED_STRING ")"             -> ann_classification \| "@deprecated" "(" "replacedBy" ":" ESCAPED_STRING ")" -> ann_deprecated \| "@owner" "(" ESCAPED_STRING ")"                      -> ann_owner \| "@server"                                             -> ann_server \| wire_annotation \| "@pitCutoff" "(" ANNOTATION_EXPR ")"                  -> ann_pit_cutoff \| "@latestBefore" "(" ANNOTATION_EXPR ")"               -> ann_latest_before \| "@latestOnly"                                         -> ann_latest_only \| "@custom" "(" (IDENT \| ESCAPED_STRING) ["," ANNOTATION_EXPR] ")" -> ann_custom` |
 | `api_decl` | `"api" IDENT "@" INT "{" api_operation* "}"` |
 | `api_operation` | `"operation" ESCAPED_STRING "{" api_operation_item* "}"` |
 | `api_operation_item` | `method_clause \| path_clause \| request_clause \| responses_block` |

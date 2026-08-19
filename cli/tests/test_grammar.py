@@ -1,6 +1,7 @@
 import pytest
 from lark import Tree
 
+from modelable.compiler.render import render_mdl
 from modelable.parser.ir import MdlFile, SortField
 from modelable.parser.parse import ParseError, parse_file, parse_text, parse_text_to_ir, parse_text_to_ir_with_tree
 
@@ -326,6 +327,28 @@ def test_parse_field_default_values():
     }
     """)
     assert tree.data == "start"
+
+
+def test_parse_and_render_custom_annotation():
+    mdl = parse_text_to_ir(
+        """
+domain commerce {
+  owner: "commerce-team"
+  entity Order @ 1 (additive) {
+    @custom("retention", "seven-years")
+    orderId: uuid
+  }
+}
+"""
+    )
+
+    annotation = mdl.domains[0].models["Order"][0].fields[0].annotations[0]
+    assert annotation.kind == "custom"
+    assert annotation.name == "retention"
+    assert annotation.expression == '"seven-years"'
+    rendered = render_mdl(mdl)
+    assert '@custom("retention", "seven-years")' in rendered
+    assert render_mdl(parse_text_to_ir(rendered)) == rendered
 
 
 def test_parse_presence_and_nullability_independently():

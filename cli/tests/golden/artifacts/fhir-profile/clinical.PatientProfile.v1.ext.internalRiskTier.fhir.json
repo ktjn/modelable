@@ -8,21 +8,40 @@
   "fhirVersion": "4.0.1",
   "kind": "complex-type",
   "abstract": false,
+  "context": [
+    {
+      "type": "element",
+      "expression": "Element"
+    }
+  ],
   "type": "Extension",
-  "derivation": "specialization",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "derivation": "constraint",
   "snapshot": {
     "element": [
       {
         "id": "Extension",
         "path": "Extension",
-        "definition": "Modelable extension for clinical.PatientProfile.internalRiskTier."
+        "definition": "Modelable extension for clinical.PatientProfile.internalRiskTier.",
+        "min": 0,
+        "max": "*",
+        "base": {
+          "path": "Extension",
+          "min": 0,
+          "max": "*"
+        }
       },
       {
         "id": "Extension.url",
         "path": "Extension.url",
         "min": 1,
         "max": "1",
-        "fixedUri": "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.internalRiskTier"
+        "fixedUri": "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.internalRiskTier",
+        "base": {
+          "path": "Extension.url",
+          "min": 1,
+          "max": "1"
+        }
       },
       {
         "id": "Extension.value[x]",
@@ -38,6 +57,11 @@
         "binding": {
           "strength": "required",
           "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.internalRiskTier"
+        },
+        "base": {
+          "path": "Extension.value[x]",
+          "min": 1,
+          "max": "1"
         }
       }
     ]
@@ -47,14 +71,26 @@
       {
         "id": "Extension",
         "path": "Extension",
-        "definition": "Modelable extension for clinical.PatientProfile.internalRiskTier."
+        "definition": "Modelable extension for clinical.PatientProfile.internalRiskTier.",
+        "min": 0,
+        "max": "*",
+        "base": {
+          "path": "Extension",
+          "min": 0,
+          "max": "*"
+        }
       },
       {
         "id": "Extension.url",
         "path": "Extension.url",
         "min": 1,
         "max": "1",
-        "fixedUri": "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.internalRiskTier"
+        "fixedUri": "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.internalRiskTier",
+        "base": {
+          "path": "Extension.url",
+          "min": 1,
+          "max": "1"
+        }
       },
       {
         "id": "Extension.value[x]",
@@ -70,6 +106,11 @@
         "binding": {
           "strength": "required",
           "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.internalRiskTier"
+        },
+        "base": {
+          "path": "Extension.value[x]",
+          "min": 1,
+          "max": "1"
         }
       }
     ]
