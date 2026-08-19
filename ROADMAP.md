@@ -16,16 +16,20 @@ One document, reordered so shipped work is compact and open work is prominent,
 replaces the indirection of jumping between three files to answer "what's
 next."
 
+Longer-horizon product ideas and ecosystem alignment that are not ready for the
+committed roadmap live in [Future Direction](docs/future-direction.md).
+
 ## Current baseline
 
-The latest published release is 1.9.3. The stable 1.x surface includes:
+The latest published release is 1.9.4. The stable 1.x surface includes:
 
 - The `.mdl` language, semantic validation, compatibility and lineage reports,
   governance findings, the language server, and the VS Code extension distributed
   as a release artifact.
-- Deterministic generation for JSON Schema, TypeScript, C#, Java, Python, Rust,
-  Go, SQL DDL, dbt `schema.yml`, Markdown, FHIR R4 profiles, OpenMetadata,
-  OpenLineage, ODCS, Protobuf, and Scalable-oriented gRPC services.
+- Deterministic generation for JSON Schema, OpenAPI, Avro, TypeScript, C#, Java,
+  Python, Rust, Go, SQL DDL, dbt `schema.yml`, Markdown, FHIR R4 profiles,
+  OpenMetadata, OpenLineage, ODCS, Protobuf, event-sink contracts, and
+  Scalable-oriented gRPC services.
 - Import/migration support for JSON Schema, OpenAPI, Avro, Protobuf, SQL DDL,
   dbt, FHIR, and ODCS. Import fidelity varies by format and is explicitly part
   of the external-integration hardening roadmap below.
@@ -49,6 +53,9 @@ target:
   accepted but flagged as unenforceable on MergeTree tables).
 - Protobuf payload schemas and generic Scalable command/read services.
 - A documented Rust/Protobuf wire-format contract with golden fixtures.
+- OpenAPI 3.1 full-document generation/validation and operation/schema
+  compatibility checks.
+- Avro record export with explicit target-loss diagnostics.
 
 The changelog records release-level detail. The archived
 [Scalable feature-gaps response](docs/superpowers/specs/archived/2026-07-07-modelable-feature-gaps-response-design.md)
@@ -79,20 +86,22 @@ docs prose for anything not covered here.
 
 ## Delivery lanes
 
-Four lanes run in parallel rather than one strict priority queue:
+Five lanes run in parallel rather than one strict priority queue:
 
 | Lane | Covers | Priorities below |
 |---|---|---|
 | P1 | Playground | Priority 1 |
 | P2 | Scalable/Rust integration | Priority 2 |
 | C | Compiler correctness, compatibility, capability/doc consistency | Priority 3 |
+| R | Offline registry, usage/consequence analysis, developer impact DX | Priority 4 |
 | L | Language evolution, extensibility, gated target work | Priority 6 |
 
-Priorities 4 and 5 (authoring/adoption, external integrations) draw from
-whichever lane a given item belongs to as it becomes concrete. Priority 7
-(repository health) is engineering-quality work found by direct code/CI
-inspection rather than product feature requests, and runs beside all four
-lanes without displacing them.
+Priority 4 is the primary home for exact offline dependency state, application
+usage/consequence analysis, generated transformation DX, and the remaining
+authoring/adoption work. Priority 5 owns external format and platform
+integration. Priority 7 (repository health) is engineering-quality work found
+by direct code/CI inspection rather than product feature requests, and runs
+beside all five lanes without displacing them.
 
 Interleaving rules:
 
@@ -461,9 +470,13 @@ types resolve deterministically, documented capabilities match compiler
 behavior, and no parsed syntax is silently discarded. Every point in that list
 is satisfied today except the remaining half of Slice B2.
 
-## Priority 4 — improve authoring, adoption, and cross-target consistency
+## Priority 4 — consequence-driven developer experience and adoption
 
-After the active Playground foundation and Scalable/Rust path:
+The next compiler-product direction is the one defined by the proposed
+[Offline Registry and Consequence-Driven Developer Experience design](docs/superpowers/specs/2026-08-16-offline-registry-dx-design.md): exact external dependency state, derived application usage, causal consequence analysis, and proof-driven generation of repetitive data plumbing. It extends the existing compiler; it does not require a hosted registry or runtime execution engine.
+
+Work should proceed in dependency order. Each unshipped implementation slice
+still requires its own issue and accepted design before becoming committed:
 
 1. **Shipped:** safe conversational workspace management in the existing CLI
    chat. Natural-language requests use typed plans and a reusable workspace
@@ -488,21 +501,59 @@ After the active Playground foundation and Scalable/Rust path:
    Registry synchronization, publishing, and external-service operations remain
    separate follow-ups with their own authorization, credential, preview,
    confirmation, and audit policies.
-4. Extend nominal semantic-type generation beyond Rust (Slice F1), prioritizing
+4. **Next — durable offline registry snapshot.** Separate source registries,
+   durable dependency state, and the rebuildable `registry.db` index. Resolve
+   external requirements explicitly into a deterministic `.modelable/registry.lock`
+   plus content-addressed normalized contract objects. Normal `validate`,
+   `compile`, `diff`, `impact`, lineage, and editor operations must use only
+   local source plus the exact snapshot and must never refresh dependencies
+   implicitly. Same logical version with different canonical content is an
+   error, not an update.
+5. **Next — derived application usage and consequence graph.** Give each
+   workspace/package a stable application identity, derive actual contract use
+   from external references/API/event/persistence surfaces, and export a compact
+   usage manifest. Build one public consequence model over existing source,
+   wire, storage-migration, projection-rebuild, and governance facts. Add a
+   machine-readable `modelable impact --from OLD --to NEW` surface that retains
+   causal paths and can report actions such as `regenerate`, `recompile`,
+   `consumer_update`, `storage_migration`, `data_backfill`,
+   `projection_rebuild`, `event_replay`, `governance_review`, and `breaking`.
+6. **Next — staged, consequence-aware registry updates.** `registry update`
+   must resolve candidates, stage an exact candidate snapshot, compare semantic
+   graphs, calculate consequences, apply configured policy, show exact
+   dependency/generated-artifact changes, and replace durable dependency state
+   atomically only after successful validation. Dependency updates must never
+   behave like an opaque refresh.
+7. **Next — proof-driven generated conversions.** Generate conversions between
+   canonical models, auto/hand-authored projections, API/event/database shapes,
+   and adjacent versions only when the semantic graph proves the mapping.
+   Classify conversions as total/reversible, total/irreversible, fallible,
+   hook-required, or impossible. Use target-native idioms and stable user-owned
+   hooks; never invent inverse mappings from similar names. Surface conversion
+   changes as `impact` consequences.
+8. **Next — deterministic defaults and override hierarchy.** Separate semantic
+   contract data from build/operational generation defaults and define one
+   explainable precedence chain: built-ins < workspace < domain < model or
+   projection < field < invocation. Prefer `modelable.toml` for operational
+   defaults and keep contract-significant semantics in `.mdl`.
+9. Extend nominal semantic-type generation beyond Rust (Slice F1), prioritizing
    TypeScript, Go, Java, C#, Python, JSON Schema, and SQL according to concrete
    consumer demand. Targets that intentionally erase nominal identity must say
    so explicitly. See [Slice F1](#slice-f1--nominal-semantic-types-beyond-rust)
    below.
-5. Extend `modelable inspect` with registry-ID and canonical-signature lookup so
-   generated constants and registry state are easy to diagnose.
-6. Publish the VS Code extension through the Marketplace once the release and
-   support process is defined.
-7. Continue conformance, documentation, diagnostics, and importer hardening
-   where contributor or user reports expose real gaps.
+10. Extend `modelable inspect` with registry-ID, canonical-signature, exact
+    snapshot object, and resolved-reference lookup so generated constants and
+    dependency state are easy to diagnose.
+11. Publish the VS Code extension through the Marketplace once the release and
+    support process is defined.
+12. Continue conformance, documentation, diagnostics, and importer hardening
+    where contributor or user reports expose real gaps.
 
-Completion means a new team can install the CLI and editor tooling, understand
-generated identity and compatibility behavior, and adopt a supported target
-without relying on internal repository knowledge.
+Completion means a team can resolve external contracts once, compile entirely
+offline against exact immutable dependency state, ask Modelable what a proposed
+change affects and why, update dependencies with a reviewable consequence
+preview, and eliminate mechanical conversion/default boilerplate without
+editing generated code or relying on a hosted Modelable service.
 
 ## Priority 5 — deepen external integrations and format interoperability
 
@@ -556,13 +607,12 @@ Priority 6:
      stable schema and operation ordering.
    - Preserve Modelable-specific round-trip metadata through namespaced
      extensions where doing so does not change OpenAPI semantics.
-2. **P0 — add Avro export and harden Avro import.** Avro record export is
-   shipped as a deterministic local target for models and event projections;
-   deterministic import hardening remains.
-   Treat records as model/event contracts, map arrays/enums/logical types and
-   optional unions, preserve Modelable identity/governance metadata through
-   legal custom attributes, and add reader/writer compatibility regression
-   fixtures before declaring the target stable.
+2. **P0 — harden Avro import and reader/writer compatibility.** Avro record
+   export is shipped as a deterministic local target for models and event
+   projections. Treat records as model/event contracts, map arrays/enums/
+   logical types and optional unions, preserve Modelable identity/governance
+   metadata through legal custom attributes, and add reader/writer
+   compatibility regression fixtures before declaring the adapter stable.
 3. **P1 — add AsyncAPI import/export.**
    Map Modelable events/projections to messages, bindings/topics to channels,
    producer/consumer intent to operations, and JSON Schema/Avro/Protobuf payload
@@ -715,6 +765,19 @@ include draft mutability, published immutability, deprecated resolution
 warnings, retired range resolution, legal transitions, interaction with
 required `changeKind`, and signature/registry records.
 
+#### Slice D7 — explicit evolution intent and migration semantics
+
+**Purpose:** distinguish an intentional rename/move/default/transform/split/
+merge/drop from unrelated delete-and-add changes so lineage and consequences
+remain correct across versions. The normalized IR should record explicit
+migration intent and feed compatibility, generated conversions, storage
+migration/backfill facts, projection rebuild, and event replay consequences.
+The compiler must not infer a rename or inverse transformation from similar
+names. Syntax and the exact first operation set require an accepted design;
+`rename`, `move`, `default`, and explicit transform/hook semantics are the
+minimum useful starting point, while split/merge/backfill/replay may remain
+plan-level consequences rather than source syntax.
+
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
 
@@ -782,7 +845,7 @@ prerequisites:
 
 #### Slice F1 — nominal semantic types beyond Rust
 
-Directly aligns with [Priority 4 item 4](#priority-4--improve-authoring-adoption-and-cross-target-consistency)
+Directly aligns with [Priority 4 item 9](#priority-4--consequence-driven-developer-experience-and-adoption)
 and remains valid; not gated on D0. Priority order (follow concrete consumer
 demand, roadmap ordering as the starting point): TypeScript, Go, Java, C#,
 Python, JSON Schema, SQL. Each target must state whether it preserves or
@@ -946,12 +1009,13 @@ tune against.
 ## Candidate pool
 
 These ideas are intentionally unordered until a concrete consumer, issue, and
-accepted design establish their value:
+accepted design establish their value. Larger product directions are tracked in
+[Future Direction](docs/future-direction.md) rather than expanding this pool:
 
 - Embedded Python authoring that statically extracts a small, deterministic
   subset into canonical `.mdl` without importing or executing user code.
-- Distributed registry synchronization beyond the current file-first ledger
-  and local registry cache.
+- Hosted/distributed registry synchronization beyond the offline snapshot and
+  replaceable source-registry adapter model.
 - Additional artifact formats requested by a real consumer beyond the explicit
   interoperability sequence in Priority 5.
 - A third compatibility signal for state-migration necessity.
@@ -963,36 +1027,43 @@ accepted design establish their value:
 
 ## Outside the near-term compiler roadmap
 
-Runtime subscriptions, adapters, replay, materialization, and hosted distributed
-registry services are separate product concerns. They should not displace
-compiler-contract, adoption, or integration work without an explicit product
-decision and accepted architecture.
+Runtime subscriptions, adapters, replay execution, materialization workers, and
+hosted distributed registry services remain separate product concerns. They
+should not displace compiler-contract, offline dependency, consequence,
+adoption, or integration work without an explicit product decision and
+accepted architecture.
 
-Slice B3 made the specific grammar constructs behind this boundary visible
-instead of silently discarded: `registry {}`, `peers: [...]`, `consumer {}`,
-`subscription {}` (both forms), `materialisation {}`, and unrecognized
-`binding {}` content now each emit a non-blocking `DEFERRED` diagnostic (see
-`modelable capabilities`) citing this section. That diagnostic is the
-correctness fix; it is not a design for the underlying features. Each
-construct still needs its own product decision and a
-`superpowers:brainstorming`-driven design pass before it can move out of
-`deferred` status:
+The offline registry snapshot in Priority 4 changes one important boundary:
+**exact external dependency state, source-registry resolution, inferred usage,
+and consequence analysis are compiler concerns.** They do not require a
+Modelable-hosted registry and do not imply runtime subscriptions or
+materialization.
 
-- **Registry and peers** — needs a federation model: how a registry is
-  addressed, what a peer relationship means for resolution and compatibility
-  checking, and how it relates to the existing `import domain ... from
-  registry` syntax (already implemented) and the ad hoc peer-ID text scan in
-  `lsp/federation.py` (editor-only today, not compiler-enforced).
-- **Consumers** — needs a decision on what tracking a declared consumer
-  should drive (impact analysis? notification? nothing beyond documentation?)
-  before an IR shape makes sense.
-- **Subscriptions and materialisation** — both presuppose a runtime execution
-  model that does not exist yet (see above); design work here should follow,
-  not precede, an explicit product decision to build that runtime.
+Slice B3's existing deferred grammar remains deferred until separately designed:
 
-Until each gets its own accepted design, `modelable capabilities` and the
-`DEFERRED` diagnostic are the authoritative source on their status — not
-docs prose, which is exactly the drift Slice B2 corrected.
+- **`registry {}` and `peers: [...]` syntax** — the near-term registry snapshot
+  should not revive old grammar merely because external sources now exist.
+  Source-registry configuration and dependency requirements need an accepted
+  compiler-level design; the durable snapshot remains authoritative for normal
+  offline compilation.
+- **`consumer {}` syntax** — common-case application consumption should be
+  inferred from resolved semantic references and exported through the usage
+  manifest. Manual/external consumer evidence may become useful later, but it
+  does not justify enabling the existing undeveloped grammar now.
+- **`subscription {}` and `materialisation {}`** — both presuppose runtime
+  execution, replay, state, failure handling, and operational semantics that
+  Modelable does not implement. Keep them deferred unless the product boundary
+  changes explicitly.
+- **Unrecognized `binding {}` content** — remains deferred until a concrete
+  adapter contract defines what the compiler must validate and preserve.
+
+Until each deferred grammar construct gets its own accepted design,
+`modelable capabilities` and the `DEFERRED` diagnostic are authoritative on its
+status. Longer-horizon ideas such as consumer usage evidence, portable contract
+packages/OCI distribution, deployment-plan generation, verification adapters,
+contract-test corpus generation, and organization-graph federation are kept in
+[Future Direction](docs/future-direction.md) until a concrete consumer promotes
+them into this roadmap.
 
 See [architecture](docs/architecture.md) for the product boundary,
 [integrations](docs/integrations.md) for external-tool research, and
