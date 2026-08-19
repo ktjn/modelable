@@ -1,0 +1,14 @@
+{
+  "target": "grpc",
+  "ref": "catalog.ProductReply@1",
+  "schema_manifest": "schema-manifest.json",
+  "service_proto": "ProductReply.v1.grpc.proto",
+  "services": [
+    "CommandService",
+    "EntityReadService"
+  ],
+  "entity_types": [
+    "catalog.ProductReply@1"
+  ],
+  "read_indexes": []
+}

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package modelable.customer.v1;
+
+message CustomerRequest {
+  string customer_id = 1;
+  string display_name = 2;
+  string email = 3;
+  CustomerRequestStatus status = 4;
+  repeated string tags = 5;
+  map<string, int64> metadata = 6;
+  bytes address = 7;
+  bytes favorite_product = 8;
+}
+
+enum CustomerRequestStatus {
+  CUSTOMER_REQUEST_STATUS_UNSPECIFIED = 0;
+  CUSTOMER_REQUEST_STATUS_ACTIVE = 1;
+  CUSTOMER_REQUEST_STATUS_SUSPENDED = 2;
+  CUSTOMER_REQUEST_STATUS_DELETED = 3;
+}

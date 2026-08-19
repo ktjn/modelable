@@ -1,0 +1,132 @@
+{
+  "target": "protobuf",
+  "schemas": [
+    {
+      "ref": "customer.Customer@1",
+      "kind": "entity",
+      "schema_id": "modelable://customer/Customer/v1/protobuf",
+      "modelable_signature": "13e27986c86efd2ec29ec83de2c1c725dcd654eaad29b60b5ea3ad9f74284f51",
+      "schema_fingerprint": "5171a8ac42d748b5ab1687ad0a5ffdcdf35fe4f7c916f3a7e0105ff44b57431b",
+      "semantic_types": [],
+      "fields": [
+        {
+          "name": "customerId",
+          "proto_name": "customer_id",
+          "number": 1,
+          "type": "string",
+          "key": true
+        },
+        {
+          "name": "displayName",
+          "proto_name": "display_name",
+          "number": 2,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "email",
+          "proto_name": "email",
+          "number": 3,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "internalRiskNotes",
+          "proto_name": "internal_risk_notes",
+          "number": 4,
+          "type": "optional string",
+          "key": false
+        },
+        {
+          "name": "status",
+          "proto_name": "status",
+          "number": 5,
+          "type": "CustomerStatus",
+          "key": false,
+          "enum_values": [
+            "active",
+            "suspended",
+            "deleted"
+          ]
+        },
+        {
+          "name": "tags",
+          "proto_name": "tags",
+          "number": 6,
+          "type": "repeated string",
+          "key": false
+        },
+        {
+          "name": "metadata",
+          "proto_name": "metadata",
+          "number": 7,
+          "type": "map<string, int64>",
+          "key": false,
+          "map": {
+            "key_type": "string",
+            "value_type": "int64"
+          }
+        },
+        {
+          "name": "address",
+          "proto_name": "address",
+          "number": 8,
+          "type": "optional bytes",
+          "key": false
+        },
+        {
+          "name": "favoriteProduct",
+          "proto_name": "favorite_product",
+          "number": 9,
+          "type": "optional bytes",
+          "key": false
+        },
+        {
+          "name": "createdAt",
+          "proto_name": "created_at",
+          "number": 10,
+          "type": "google.protobuf.Timestamp",
+          "key": false
+        },
+        {
+          "name": "updatedAt",
+          "proto_name": "updated_at",
+          "number": 11,
+          "type": "optional google.protobuf.Timestamp",
+          "key": false
+        }
+      ],
+      "indexes": {
+        "primary": {
+          "index_name": "primary",
+          "index_version": 1,
+          "key_fields": [
+            "customerId"
+          ],
+          "sort_fields": [],
+          "unique": true
+        },
+        "secondary": [
+          {
+            "index_name": "byEmail",
+            "index_version": 1,
+            "key_fields": [
+              "email"
+            ],
+            "sort_fields": [],
+            "unique": true
+          },
+          {
+            "index_name": "byStatus",
+            "index_version": 1,
+            "key_fields": [
+              "status"
+            ],
+            "sort_fields": [],
+            "unique": false
+          }
+        ]
+      }
+    }
+  ]
+}

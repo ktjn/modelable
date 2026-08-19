@@ -1,0 +1,76 @@
+{
+  "name": "catalog",
+  "description": null,
+  "owner": "catalog-team",
+  "assets": [
+    {
+      "name": "Product",
+      "kind": "entity",
+      "version": 1,
+      "changeKind": "additive",
+      "fullyQualifiedName": "modelable.catalog.Product.v1",
+      "fields": [
+        {
+          "name": "productId",
+          "type": "uuid",
+          "required": true,
+          "key": true,
+          "pii": false,
+          "classification": null,
+          "owner": null
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "key": false,
+          "pii": false,
+          "classification": null,
+          "owner": null
+        }
+      ]
+    },
+    {
+      "name": "ProductReply",
+      "kind": "projection",
+      "version": 1,
+      "fullyQualifiedName": "modelable.catalog.ProductReply.v1",
+      "source": {
+        "model": "catalog.Product",
+        "version": {
+          "kind": "exact",
+          "version": 1
+        },
+        "alias": "product"
+      },
+      "fields": [
+        {
+          "name": "productId",
+          "mapping": "direct",
+          "source": "catalog.Product@1.productId",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "name",
+          "mapping": "direct",
+          "source": "catalog.Product@1.name",
+          "pii": false,
+          "classification": null
+        }
+      ]
+    }
+  ],
+  "lineage": [
+    {
+      "from": "modelable.catalog.Product.v1.productId",
+      "to": "modelable.catalog.ProductReply.v1.productId",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.catalog.Product.v1.name",
+      "to": "modelable.catalog.ProductReply.v1.name",
+      "kind": "direct"
+    }
+  ]
+}

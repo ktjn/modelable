@@ -17,6 +17,24 @@ The mypy baseline check is a *ratchet*, not a plain type check: it fails on any 
 
 CI runs all four checks (`validate.yml`); passing pytest locally is not sufficient — always run the other three before pushing.
 
+## Codegen output changes
+
+If your change alters what any codegen target emits (a shared rendering
+helper, a per-target emitter, `_schema_mapping.py`, etc.), `pytest` will fail
+in `tests/test_golden_artifacts.py` with a content diff against
+`tests/golden/artifacts/`. If the new output is correct, regenerate and
+review the diff like any other generated-artifact change before committing:
+
+```bash
+uv run python scripts/write_golden_artifacts.py --output tests/golden/artifacts
+```
+
+If the diff is not what you expected, that's the test doing its job — it
+means the change touched more than intended. `tests/golden/artifacts/`
+holds real generated code (including `.py` files) and is excluded from
+`ruff`/formatting in `pyproject.toml`; never hand-edit it or run a formatter
+over it directly.
+
 ## Plans and specs
 
 Design docs and implementation plans (created via the `writing-plans`/brainstorming workflow) live in `docs/superpowers/specs/` and `docs/superpowers/plans/`. Once a plan's implementation has merged to `main`, move both the plan and any spec it implements into `docs/superpowers/specs/archived/` and `docs/superpowers/plans/archived/` (same filename, just relocated) in the same PR or a prompt follow-up — don't leave completed plans sitting alongside active ones. Only plans/specs for work still in progress (or not yet started) belong in the top-level `plans/`/`specs/` directories.

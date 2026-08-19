@@ -1,0 +1,24 @@
+{
+  "target": "grpc",
+  "ref": "catalog.Product@1",
+  "schema_manifest": "schema-manifest.json",
+  "service_proto": "Product.v1.grpc.proto",
+  "services": [
+    "CommandService",
+    "EntityReadService"
+  ],
+  "entity_types": [
+    "catalog.Product@1"
+  ],
+  "read_indexes": [
+    {
+      "index_name": "primary",
+      "index_version": 1,
+      "key_fields": [
+        "productId"
+      ],
+      "sort_fields": [],
+      "unique": true
+    }
+  ]
+}

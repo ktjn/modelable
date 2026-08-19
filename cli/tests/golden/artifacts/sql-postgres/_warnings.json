@@ -1,0 +1,5 @@
+{
+  "customer.CustomerReply@1": [
+    "[EMIT002] Type 'secondary index 'byEmail': field 'email' is not projected' cannot be represented without loss"
+  ]
+}

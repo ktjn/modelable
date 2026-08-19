@@ -1,0 +1,199 @@
+{
+  "eventType": "COMPLETE",
+  "eventTime": "1970-01-01T00:00:00.000Z",
+  "run": {
+    "runId": "modelable-customer-CustomerRequest-v1",
+    "facets": {}
+  },
+  "job": {
+    "namespace": "modelable://customer",
+    "name": "compile/customer.CustomerRequest.v1"
+  },
+  "inputs": [
+    {
+      "namespace": "modelable://customer",
+      "name": "customer.Customer.v1",
+      "facets": {
+        "schema": {
+          "_producer": "https://github.com/ktjn/modelable",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json",
+          "fields": [
+            {
+              "name": "customerId",
+              "type": "uuid"
+            },
+            {
+              "name": "displayName",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string",
+              "description": "pii=true"
+            },
+            {
+              "name": "internalRiskNotes",
+              "type": "string",
+              "description": "classification=secret"
+            },
+            {
+              "name": "status",
+              "type": "enum(active,suspended,deleted)"
+            },
+            {
+              "name": "tags",
+              "type": "array<string>"
+            },
+            {
+              "name": "metadata",
+              "type": "map<string,int>"
+            },
+            {
+              "name": "address",
+              "type": "object"
+            },
+            {
+              "name": "favoriteProduct",
+              "type": "ref<catalog.Product>"
+            },
+            {
+              "name": "createdAt",
+              "type": "timestamp"
+            },
+            {
+              "name": "updatedAt",
+              "type": "timestamp"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "namespace": "modelable://customer",
+      "name": "customer.CustomerRequest.v1",
+      "facets": {
+        "schema": {
+          "_producer": "https://github.com/ktjn/modelable",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json",
+          "fields": [
+            {
+              "name": "customerId",
+              "type": "uuid"
+            },
+            {
+              "name": "displayName",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string",
+              "description": "pii=true"
+            },
+            {
+              "name": "status",
+              "type": "enum(active,suspended,deleted)"
+            },
+            {
+              "name": "tags",
+              "type": "array<string>"
+            },
+            {
+              "name": "metadata",
+              "type": "map<string,int>"
+            },
+            {
+              "name": "address",
+              "type": "object"
+            },
+            {
+              "name": "favoriteProduct",
+              "type": "ref<catalog.Product>"
+            }
+          ]
+        },
+        "columnLineage": {
+          "_producer": "https://github.com/ktjn/modelable",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json",
+          "fields": {
+            "customerId": {
+              "inputFields": [
+                {
+                  "namespace": "modelable://customer",
+                  "name": "customer.Customer.v1",
+                  "field": "customerId"
+                }
+              ]
+            },
+            "displayName": {
+              "inputFields": [
+                {
+                  "namespace": "modelable://customer",
+                  "name": "customer.Customer.v1",
+                  "field": "displayName"
+                }
+              ]
+            },
+            "email": {
+              "inputFields": [
+                {
+                  "namespace": "modelable://customer",
+                  "name": "customer.Customer.v1",
+                  "field": "email"
+                }
+              ]
+            },
+            "status": {
+              "inputFields": [
+                {
+                  "namespace": "modelable://customer",
+                  "name": "customer.Customer.v1",
+                  "field": "status"
+                }
+              ]
+            },
+            "tags": {
+              "inputFields": [
+                {
+                  "namespace": "modelable://customer",
+                  "name": "customer.Customer.v1",
+                  "field": "tags"
+                }
+              ]
+            },
+            "metadata": {
+              "inputFields": [
+                {
+                  "namespace": "modelable://customer",
+                  "name": "customer.Customer.v1",
+                  "field": "metadata"
+                }
+              ]
+            },
+            "address": {
+              "inputFields": [
+                {
+                  "namespace": "modelable://customer",
+                  "name": "customer.Customer.v1",
+                  "field": "address"
+                }
+              ]
+            },
+            "favoriteProduct": {
+              "inputFields": [
+                {
+                  "namespace": "modelable://customer",
+                  "name": "customer.Customer.v1",
+                  "field": "favoriteProduct"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "producer": "https://github.com/ktjn/modelable",
+  "schemaURL": "https://openlineage.io/spec/1-0-5/OpenLineage.json#/definitions/RunEvent"
+}

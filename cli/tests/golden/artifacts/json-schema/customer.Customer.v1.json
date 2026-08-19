@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "customer.Customer.v1",
+  "type": "object",
+  "title": "Customer",
+  "x-modelable": {
+    "domain": "customer",
+    "name": "Customer",
+    "kind": "entity",
+    "version": 1,
+    "changeKind": "additive",
+    "owner": "customer-team"
+  },
+  "x-modelable-por": {
+    "model": "customer.Customer.v1",
+    "issuer": "modelable-registry.local",
+    "issuedAt": "1970-01-01T00:00:00Z"
+  },
+  "properties": {
+    "customerId": {
+      "type": "string",
+      "format": "uuid",
+      "x-modelable-field": {
+        "key": true
+      }
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string",
+      "x-modelable-field": {
+        "pii": true
+      }
+    },
+    "internalRiskNotes": {
+      "type": "string",
+      "x-modelable-classification": "secret"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "suspended",
+        "deleted"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "format": "int64"
+      }
+    },
+    "address": {
+      "$ref": "#/$defs/Address"
+    },
+    "favoriteProduct": {
+      "$ref": "#/$defs/catalog.Product.v1"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-modelable-field": {
+        "server": true
+      }
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "x-modelable-field": {
+        "server": true
+      }
+    }
+  },
+  "required": [
+    "customerId",
+    "displayName",
+    "email",
+    "status",
+    "tags",
+    "metadata",
+    "createdAt"
+  ],
+  "$defs": {
+    "Address": {
+      "title": "Address",
+      "type": "object",
+      "properties": {
+        "line1": {
+          "type": "string"
+        },
+        "line2": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "line1"
+      ]
+    }
+  }
+}

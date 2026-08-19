@@ -1,0 +1,89 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.status",
+  "version": "1",
+  "name": "PatientProfileStatus",
+  "title": "PatientProfile status",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "kind": "complex-type",
+  "abstract": false,
+  "type": "Extension",
+  "derivation": "specialization",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Extension",
+        "path": "Extension",
+        "definition": "Modelable extension for clinical.PatientProfile.status."
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "min": 1,
+        "max": "1",
+        "fixedUri": "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.status"
+      },
+      {
+        "id": "Extension.value[x]",
+        "path": "Extension.value[x]",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "code"
+          }
+        ],
+        "definition": "Modelable field status extension value.",
+        "binding": {
+          "strength": "required",
+          "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.status"
+        }
+      }
+    ]
+  },
+  "differential": {
+    "element": [
+      {
+        "id": "Extension",
+        "path": "Extension",
+        "definition": "Modelable extension for clinical.PatientProfile.status."
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "min": 1,
+        "max": "1",
+        "fixedUri": "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.status"
+      },
+      {
+        "id": "Extension.value[x]",
+        "path": "Extension.value[x]",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "code"
+          }
+        ],
+        "definition": "Modelable field status extension value.",
+        "binding": {
+          "strength": "required",
+          "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.status"
+        }
+      }
+    ]
+  },
+  "publisher": "clinical-platform",
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "email",
+          "value": "clinical@example.com"
+        }
+      ]
+    }
+  ],
+  "description": "Clinical model contracts for FHIR R4 profile regression coverage."
+}

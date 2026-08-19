@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "catalog.Product.v1",
+  "type": "object",
+  "title": "Product",
+  "x-modelable": {
+    "domain": "catalog",
+    "name": "Product",
+    "kind": "entity",
+    "version": 1,
+    "changeKind": "additive",
+    "owner": "catalog-team"
+  },
+  "x-modelable-por": {
+    "model": "catalog.Product.v1",
+    "issuer": "modelable-registry.local",
+    "issuedAt": "1970-01-01T00:00:00Z"
+  },
+  "properties": {
+    "productId": {
+      "type": "string",
+      "format": "uuid",
+      "x-modelable-field": {
+        "key": true
+      }
+    },
+    "name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "productId",
+    "name"
+  ]
+}

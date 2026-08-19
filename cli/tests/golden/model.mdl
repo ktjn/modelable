@@ -1,0 +1,68 @@
+domain catalog {
+  owner: "catalog-team"
+
+  entity Product @ 1 (additive) {
+    @key productId: uuid
+    name: string
+  }
+
+  auto projections Product @ 1 {
+    reply
+  }
+}
+
+domain customer {
+  owner: "customer-team"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+    @pii
+    email: string
+    @classification("secret")
+    internalRiskNotes?: string
+    status: enum(active, suspended, deleted)
+    tags: array<string>
+    metadata: map<string, int>
+    address?: object {
+      line1: string
+      line2?: string
+    }
+    favoriteProduct?: ref<catalog.Product @ 1>
+    @server
+    createdAt: timestamp
+    @server
+    updatedAt?: timestamp
+  }
+
+  index Customer @ 1 {
+    primary customerId
+    secondary byEmail {
+      key:    [email]
+      unique: true
+    }
+    secondary byStatus {
+      key: [status]
+    }
+  }
+
+  auto projections Customer @ 1 {
+    db
+
+    request exclude [internalRiskNotes]
+
+    reply exclude [@pii, @classification("secret")]
+
+    event on [created, deleted]
+  }
+
+  api Customer @ 1 {
+    operation "getCustomer" {
+      method: GET
+      path: "/customers/{customerId}"
+      responses {
+        200: CustomerReply @ 1
+      }
+    }
+  }
+}

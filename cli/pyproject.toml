@@ -102,7 +102,10 @@ source = ["src/modelable"]
 [tool.ruff]
 line-length = 120
 target-version = "py314"
-exclude = [".pytest-tmp"]
+# tests/golden/artifacts holds checked-in *generated* codegen output (including
+# .py files) used for byte-for-byte regression testing -- it is fixture data,
+# not project source, and must not be linted or reformatted as if it were.
+exclude = [".pytest-tmp", "tests/golden/artifacts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF"]

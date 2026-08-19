@@ -1,0 +1,334 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Modelable API",
+    "version": "1.0.0"
+  },
+  "components": {
+    "schemas": {
+      "catalog.ProductReply.v1": {
+        "type": "object",
+        "title": "ProductReply",
+        "x-modelable": {
+          "domain": "catalog",
+          "name": "ProductReply",
+          "kind": "reply",
+          "sourceEntity": "catalog.Product@1",
+          "version": 1
+        },
+        "x-modelable-por": {
+          "model": "catalog.ProductReply.v1",
+          "issuer": "modelable-registry.local",
+          "issuedAt": "1970-01-01T00:00:00Z"
+        },
+        "properties": {
+          "productId": {
+            "type": "string",
+            "format": "uuid",
+            "x-modelable-field": {
+              "key": true
+            }
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "productId",
+          "name"
+        ]
+      },
+      "Address": {
+        "title": "Address",
+        "type": "object",
+        "properties": {
+          "line1": {
+            "type": "string"
+          },
+          "line2": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "line1"
+        ]
+      },
+      "customer.CustomerEvent.v1": {
+        "type": "object",
+        "title": "CustomerEvent",
+        "x-modelable": {
+          "domain": "customer",
+          "name": "CustomerEvent",
+          "kind": "event",
+          "sourceEntity": "customer.Customer@1",
+          "version": 1
+        },
+        "x-modelable-por": {
+          "model": "customer.CustomerEvent.v1",
+          "issuer": "modelable-registry.local",
+          "issuedAt": "1970-01-01T00:00:00Z"
+        },
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "x-modelable-field": {
+              "key": true
+            }
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "x-modelable-field": {
+              "pii": true
+            }
+          },
+          "internalRiskNotes": {
+            "type": "string",
+            "x-modelable-classification": "secret"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "deleted"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "favoriteProduct": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "x-modelable-field": {
+              "server": true
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "x-modelable-field": {
+              "server": true
+            }
+          }
+        },
+        "required": [
+          "customerId",
+          "displayName",
+          "email",
+          "status",
+          "tags",
+          "metadata",
+          "createdAt"
+        ]
+      },
+      "customer.CustomerReply.v1": {
+        "type": "object",
+        "title": "CustomerReply",
+        "x-modelable": {
+          "domain": "customer",
+          "name": "CustomerReply",
+          "kind": "reply",
+          "sourceEntity": "customer.Customer@1",
+          "version": 1
+        },
+        "x-modelable-por": {
+          "model": "customer.CustomerReply.v1",
+          "issuer": "modelable-registry.local",
+          "issuedAt": "1970-01-01T00:00:00Z"
+        },
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "x-modelable-field": {
+              "key": true
+            }
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "deleted"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "favoriteProduct": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "x-modelable-field": {
+              "server": true
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "x-modelable-field": {
+              "server": true
+            }
+          }
+        },
+        "required": [
+          "customerId",
+          "displayName",
+          "status",
+          "tags",
+          "metadata",
+          "createdAt"
+        ]
+      },
+      "customer.CustomerRequest.v1": {
+        "type": "object",
+        "title": "CustomerRequest",
+        "x-modelable": {
+          "domain": "customer",
+          "name": "CustomerRequest",
+          "kind": "request",
+          "sourceEntity": "customer.Customer@1",
+          "version": 1
+        },
+        "x-modelable-por": {
+          "model": "customer.CustomerRequest.v1",
+          "issuer": "modelable-registry.local",
+          "issuedAt": "1970-01-01T00:00:00Z"
+        },
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "x-modelable-field": {
+              "key": true
+            }
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "x-modelable-field": {
+              "pii": true
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "deleted"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "favoriteProduct": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "customerId",
+          "displayName",
+          "email",
+          "status",
+          "tags",
+          "metadata"
+        ]
+      }
+    }
+  },
+  "paths": {
+    "/customers/{customerId}": {
+      "get": {
+        "operationId": "getCustomer",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/customer.CustomerReply.v1"
+                }
+              }
+            }
+          }
+        },
+        "x-modelable": {
+          "domain": "customer",
+          "api": "Customer",
+          "apiVersion": 1,
+          "name": "getCustomer"
+        },
+        "parameters": [
+          {
+            "name": "customerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-modelable-field": {
+                "key": true
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
