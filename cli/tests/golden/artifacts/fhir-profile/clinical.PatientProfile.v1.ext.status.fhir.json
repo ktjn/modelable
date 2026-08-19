@@ -42,6 +42,7 @@
             "code": "uri"
           }
         ],
+        "definition": "Source of the definition for the extension code - a logical name or a URL.",
         "base": {
           "path": "Extension.url",
           "min": 1,
@@ -96,6 +97,7 @@
             "code": "uri"
           }
         ],
+        "definition": "Source of the definition for the extension code - a logical name or a URL.",
         "base": {
           "path": "Extension.url",
           "min": 1,
