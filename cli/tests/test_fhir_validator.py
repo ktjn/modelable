@@ -49,10 +49,17 @@ def test_compile_fhir_profile_passes_hl7_validator_when_available(tmp_path):
 domain clinical {
   owner: "clinical-platform"
 
+  value ContactDetails @ 1 (additive) {
+    email?: string
+    phone?: string
+  }
+
   entity Patient @ 1 (additive) {
     @key id: uuid
     active: bool
     birthDate?: date
+    contact: ContactDetails
+    @pii patientId: uuid
   }
 
   projection PatientProfile @ 1
@@ -60,6 +67,8 @@ domain clinical {
   {
     active <- p.active
     birthDate <- p.birthDate
+    contact <- p.contact
+    patientId <- p.patientId
   }
 }
 """,
@@ -70,7 +79,15 @@ domain clinical {
     compile_result = CliRunner().invoke(cli, ["compile", str(source), "--target", "fhir-profile", "--out", str(out)])
 
     assert compile_result.exit_code == 0, compile_result.output
-    profile = out / "clinical.PatientProfile.v1.fhir.json"
-    result = validate_fhir_profile(profile, Path(validator))
+
+    # Validate every emitted artifact together (the profile, its companion
+    # per-field extension StructureDefinitions, and the shared `pii`
+    # annotation extension) so cross-references between them resolve -
+    # validating the profile alone previously hid real errors on the
+    # composite direct field (`contact`, mapped to the base resource's own
+    # `Patient.contact`) and the extension slicing/value elements.
+    fhir_artifacts = sorted(out.glob("*.fhir.json"))
+    assert fhir_artifacts
+    result = validate_fhir_profile(fhir_artifacts, Path(validator))
 
     assert result.returncode == 0, result.stdout + result.stderr

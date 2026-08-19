@@ -31,6 +31,17 @@ releases could contain breaking changes when called out explicitly.
   including nested object-extension URLs, and resolve named value types to
   valid `value[x]` datatypes so generated snapshots pass the HL7 validator.
 
+- FHIR profile generation now emits extension-slicing elements before
+  resource-specific fields (matching every base resource's own structural
+  element order), assigns a real `type`/`base`/`definition` to every
+  snapshot element (the base `Extension`/`Extension.value[x]` elements
+  included), and no longer lets a repeating field's cardinality leak into
+  its own `Extension.value[x]` (which is always 0..1 in base FHIR - the
+  repetition belongs to the slice that references it). Previously,
+  profiles with a composite direct field (e.g. `Patient.contact`) failed
+  official HL7 validation with `BackboneElement`-narrowing, missing-type,
+  missing-cardinality, and differential/snapshot ordering-mismatch errors.
+
 - Python output now imports referenced value types from sibling modules,
   including same-domain model modules, so resolved annotations are usable.
 

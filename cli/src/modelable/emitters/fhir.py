@@ -369,8 +369,14 @@ def _elements(
         ),
     }
     elements: list[dict[str, object]] = [root]
-    for field in direct_fields:
-        elements.append(_field_element(domain, projection_name, projection, field, source, base_resource, mdl))
+    # `Extension`/`modifierExtension` precede every resource-specific field
+    # (identifier, name, contact, ...) in every base FHIR resource's own
+    # structural element order. A differential must list its elements in
+    # that same base-structural order for the official snapshot generator
+    # to match each differential element against the base it constrains -
+    # out of order, it reports "No match found ... check that the path and
+    # definitions are legal in the differential (including order)" and
+    # aborts snapshot generation for every element after the mismatch.
     if ext_fields:
         elements.append(_extension_slicing_element(base_resource))
         for field in ext_fields:
@@ -391,6 +397,8 @@ def _elements(
                         source_field=source_field,
                     )
                 )
+    for field in direct_fields:
+        elements.append(_field_element(domain, projection_name, projection, field, source, base_resource, mdl))
     return elements
 
 
@@ -414,7 +422,9 @@ def _field_element(
         "max": max_occurs,
         "base": {"path": path, "min": 0, "max": max_occurs},
         "definition": f"Modelable field {field.name}.",
-        "type": _fhir_type(field_type, source_field=source_field, mdl=mdl, current_domain=domain.name),
+        "type": _fhir_type(
+            field_type, source_field=source_field, mdl=mdl, current_domain=domain.name, allow_backbone=True
+        ),
     }
 
     binding = _binding(domain.name, projection_name, field.name, field_type)
@@ -448,7 +458,15 @@ def _fhir_type(
     source_field: FieldDef | None = None,
     mdl: MdlFile | None = None,
     current_domain: str | None = None,
+    allow_backbone: bool = False,
 ) -> list[dict[str, object]]:
+    # `allow_backbone` must stay False for every call site that ultimately
+    # feeds an Extension's own `value[x]` (including nested sub-extension
+    # `value[x]`) - the base FHIR `Extension.value[x]` element's own type
+    # binding excludes `BackboneElement`, so assigning it there is invalid
+    # generated output, not just a stylistic choice. It is only valid for a
+    # genuine base-resource field element (e.g. `Patient.contact`), whose
+    # own base type in core FHIR already is `BackboneElement`.
     if source_field is not None:
         wire_type = _wire_fhir_type_override(source_field)
         if wire_type is not None:
@@ -468,13 +486,13 @@ def _fhir_type(
             }
         ]
     if isinstance(field_type, ArrayType):
-        return _fhir_type(field_type.item, mdl=mdl, current_domain=current_domain)
+        return _fhir_type(field_type.item, mdl=mdl, current_domain=current_domain, allow_backbone=allow_backbone)
     if isinstance(field_type, NamedType) and mdl is not None and current_domain is not None:
         model_ref = field_type.name if "." in field_type.name else f"{current_domain}.{field_type.name}"
         try:
             resolved = resolve_model_ref(mdl, model_ref, VersionMin(min_inclusive=1))
         except LookupError:
-            return [{"code": "string"}]
+            return [{"code": "BackboneElement"}] if allow_backbone else [{"code": "string"}]
         if isinstance(resolved.version, ModelVersion) and resolved.version.model_kind.value == "value":
             value_field = resolved.version.fields[0] if len(resolved.version.fields) == 1 else None
             if value_field is not None:
@@ -483,10 +501,11 @@ def _fhir_type(
                     source_field=value_field,
                     mdl=mdl,
                     current_domain=resolved.domain_name,
+                    allow_backbone=allow_backbone,
                 )
-        return [{"code": "string"}]
+        return [{"code": "BackboneElement"}] if allow_backbone else [{"code": "string"}]
     if isinstance(field_type, (NamedType, ObjectType)):
-        return [{"code": "BackboneElement"}]
+        return [{"code": "BackboneElement"}] if allow_backbone else [{"code": "string"}]
     return [{"code": "string"}]
 
 
@@ -596,6 +615,9 @@ def _extension_slicing_element(base_resource: str) -> dict[str, object]:
         "path": f"{base_resource}.extension",
         "min": 0,
         "max": "*",
+        "base": {"path": f"{base_resource}.extension", "min": 0, "max": "*"},
+        "definition": "Optional Extensions Element - found in all resources.",
+        "type": [{"code": "Extension"}],
         "slicing": {
             "discriminator": [{"type": "value", "path": "url"}],
             "ordered": False,
@@ -622,6 +644,7 @@ def _extension_slice_element(
         "sliceName": field.name,
         "min": 0 if source_field is not None and source_field.optional else 1,
         "max": max_occurs,
+        "base": {"path": f"{base_resource}.extension", "min": 0, "max": "*"},
         "type": [
             {
                 "code": "Extension",
@@ -652,12 +675,19 @@ def _extension_value_element(
     *,
     source_field: FieldDef | None = None,
 ) -> dict[str, object]:
-    max_occurs = _max_occurs(field_type)
+    # A repeating field is expressed by letting the *slice*
+    # (`Extension.extension:{field.name}`, built in `_extension_slice_element`)
+    # repeat - each individual Extension occurrence still carries exactly one
+    # value, matching the base `Extension.value[x]` element's own fixed 0..1
+    # cardinality in core FHIR. Reusing the field's own (possibly `*`) max
+    # here as well would double-apply the array-ness and violate that base
+    # cardinality once `base` is present for the validator to check against.
     element: dict[str, object] = {
         "id": f"{base_resource}.extension:{field.name}.value[x]",
         "path": f"{base_resource}.extension.value[x]",
         "min": 1,
-        "max": max_occurs,
+        "max": "1",
+        "base": {"path": "Extension.value[x]", "min": 0, "max": "1"},
         "type": _fhir_type(field_type, source_field=source_field, mdl=mdl, current_domain=domain_name),
     }
 
@@ -679,12 +709,16 @@ def _extension_sd_value_element(
     *,
     source_field: FieldDef | None = None,
 ) -> dict[str, object]:
-    max_occurs = _max_occurs(field_type)
+    # See the matching comment in `_extension_value_element`: an extension
+    # definition describes a single occurrence, so `value[x]` is always 0..1
+    # regardless of the source field's own cardinality - repetition is a
+    # property of the *slice* that references this definition, not of the
+    # definition itself.
     element: dict[str, object] = {
         "id": "Extension.value[x]",
         "path": "Extension.value[x]",
         "min": 1,
-        "max": max_occurs,
+        "max": "1",
         "type": _fhir_type(field_type, source_field=source_field, mdl=mdl, current_domain=domain_name),
     }
 
@@ -757,7 +791,11 @@ def _extension_sd_sub_extension_elements(
                 "id": f"{slice_id}.value[x]",
                 "path": "Extension.extension.value[x]",
                 "min": 1,
-                "max": sub_max,
+                # Same reasoning as `_extension_sd_value_element`/
+                # `_extension_value_element`: the outer slice above already
+                # carries `sub_max`'s repetition; a single sub-extension
+                # occurrence's own value is always 0..1 per base FHIR.
+                "max": "1",
                 "type": sub_fhir_type,
                 "definition": f"Modelable sub-field {field.name}.{sub_field.name} value.",
             }
@@ -792,6 +830,7 @@ def _emit_extension_sd(
             "max": "1",
             "fixedUri": ext_url,
             "type": [{"code": "uri"}],
+            "definition": "Source of the definition for the extension code - a logical name or a URL.",
         },
     ]
     elements.extend(
