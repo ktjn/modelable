@@ -154,6 +154,8 @@ _BASE_RESOURCE_ELEMENTS: dict[str, frozenset[str]] = {
 def emit_fhir_profile(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit FHIR R4 StructureDefinition profiles and companion Extension SDs."""
     artifacts: list[EmittedArtifact] = []
+    annotation_extensions = _annotation_extension_artifacts(workspace, out_dir)
+    artifacts.extend(annotation_extensions)
     for domain in workspace.mdl.domains:
         for projection_name, versions in domain.projections.items():
             for version in versions:
@@ -161,6 +163,89 @@ def emit_fhir_profile(workspace: Workspace, out_dir: Path) -> list[EmittedArtifa
                 artifacts.append(result["profile"])
                 artifacts.extend(result["extensions"])
     return artifacts
+
+
+def _annotation_extension_artifacts(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
+    artifacts: list[EmittedArtifact] = []
+    annotations: tuple[tuple[str, type[AnnPii] | type[AnnClassification], str], ...] = (
+        ("pii", AnnPii, "boolean"),
+        ("classification", AnnClassification, "code"),
+    )
+    for name, annotation_type, value_code in annotations:
+        if any(
+            isinstance(annotation, annotation_type)
+            for domain in workspace.mdl.domains
+            for versions in domain.models.values()
+            for version in versions
+            for field in version.fields
+            for annotation in field.annotations
+        ) or any(
+            isinstance(annotation, annotation_type)
+            for domain in workspace.mdl.domains
+            for versions in domain.projections.values()
+            for version in versions
+            for field in version.fields
+            for annotation in field.annotations
+        ):
+            artifacts.append(_emit_annotation_extension_sd(name, value_code, out_dir))
+    return artifacts
+
+
+def _emit_annotation_extension_sd(name: str, value_code: str, out_dir: Path) -> EmittedArtifact:
+    url = f"{MODELABLE_STRUCTURE_DEFINITION_BASE}/{name}"
+    elements = [
+        {
+            "id": "Extension",
+            "path": "Extension",
+            "min": 0,
+            "max": "1",
+            "definition": f"Modelable {name} annotation extension.",
+        },
+        {
+            "id": "Extension.url",
+            "path": "Extension.url",
+            "min": 1,
+            "max": "1",
+            "fixedUri": url,
+            "definition": " identifies the extension.",
+        },
+        {
+            "id": "Extension.value[x]",
+            "path": "Extension.value[x]",
+            "min": 1,
+            "max": "1",
+            "type": [{"code": value_code}],
+            "definition": f"Value of the Modelable {name} annotation.",
+        },
+    ]
+    _add_extension_bases(elements)
+    struct_def: dict[str, object] = {
+        "resourceType": "StructureDefinition",
+        "url": url,
+        "version": "1",
+        "name": f"Modelable{name.title()}",
+        "title": f"Modelable {name} annotation",
+        "status": "draft",
+        "fhirVersion": FHIR_R4_VERSION,
+        "kind": "complex-type",
+        "abstract": False,
+        "context": [{"type": "element", "expression": "Element"}],
+        "type": "Extension",
+        "baseDefinition": f"{FHIR_STRUCTURE_DEFINITION_BASE}/Extension",
+        "derivation": "constraint",
+        "snapshot": {"element": elements},
+        "differential": {"element": elements},
+    }
+    content = json.dumps(struct_def, indent=2, ensure_ascii=False) + "\n"
+    return EmittedArtifact(
+        target="fhir-extension",
+        ref=f"workspace.extension.{name}",
+        artifact_id=name,
+        path=out_dir / f"{name}.fhir.json",
+        content=content,
+        content_hash=compute_content_hash(content),
+        warnings=[],
+    )
 
 
 def _emit_projection(
@@ -338,10 +423,11 @@ def _field_element(
 def _source_field(field: ProjectionField, source: ResolvedModelRef | None) -> FieldDef | None:
     if source is None or not isinstance(field.mapping, DirectMapping):
         return None
-    return next(
+    candidate = next(
         (source_field for source_field in source.version.fields if source_field.name == field.mapping.source_field),
         None,
     )
+    return candidate if isinstance(candidate, FieldDef) else None
 
 
 def _fhir_type(field_type: FieldType, *, source_field: FieldDef | None = None) -> list[dict[str, object]]:
@@ -669,6 +755,7 @@ def _emit_extension_sd(
     elements.extend(
         _extension_sd_sub_extension_elements(domain.name, projection_name, field, source_field, ext_id, ext_url)
     )
+    _add_extension_bases(elements)
 
     struct_def: dict[str, object] = {
         "resourceType": "StructureDefinition",
@@ -680,8 +767,10 @@ def _emit_extension_sd(
         "fhirVersion": FHIR_R4_VERSION,
         "kind": "complex-type",
         "abstract": False,
+        "context": [{"type": "element", "expression": "Element"}],
         "type": "Extension",
-        "derivation": "specialization",
+        "baseDefinition": f"{FHIR_STRUCTURE_DEFINITION_BASE}/Extension",
+        "derivation": "constraint",
         "snapshot": {"element": elements},
         "differential": {"element": elements},
     }
@@ -697,6 +786,21 @@ def _emit_extension_sd(
         content_hash=compute_content_hash(content),
         warnings=[],
     )
+
+
+def _add_extension_bases(elements: list[dict[str, object]]) -> None:
+    for element in elements:
+        path = str(element["path"])
+        element.setdefault("min", 0)
+        element.setdefault("max", "*")
+        element.setdefault(
+            "base",
+            {
+                "path": path,
+                "min": element["min"],
+                "max": element["max"],
+            },
+        )
 
 
 def _version_label(projection: ProjectionVersion) -> str:

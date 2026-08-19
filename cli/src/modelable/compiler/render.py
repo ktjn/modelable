@@ -6,6 +6,7 @@ import re
 from modelable.parser.ir import (
     AccessBlock,
     AnnClassification,
+    AnnCustom,
     AnnDeprecated,
     AnnKey,
     AnnLatestBefore,
@@ -546,6 +547,9 @@ def _render_annotation_literal(annotation: Annotation) -> str:
         return f"@latestBefore({annotation.expression})"
     if isinstance(annotation, AnnLatestOnly):
         return "@latestOnly"
+    if isinstance(annotation, AnnCustom):
+        suffix = f", {annotation.expression}" if annotation.expression is not None else ""
+        return f'@custom("{annotation.name}"{suffix})'
     if isinstance(annotation, AnnWire):
         return render_wire_annotation(annotation)
     return "@unknown"

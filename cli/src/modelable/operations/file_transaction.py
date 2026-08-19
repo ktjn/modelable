@@ -348,7 +348,15 @@ class FileTransaction:
             lock_path = self._lock_path
             try:
                 self._unlink(lock_path, missing_ok=True)
-            except OSError:
+            except OSError as error:
+                # On Windows, the next waiter can open the lock immediately
+                # after unlink succeeds while this release is still
+                # returning. A sharing violation then means the path belongs
+                # to the successor; never rename it as our fallback cleanup.
+                if getattr(error, "winerror", None) == 32:
+                    self._lock_path = None
+                    self._cleanup_lock_directories()
+                    return errors
                 released = lock_path.with_name(f".compilation-lock-released-{self._token}")
                 try:
                     self._replace(lock_path, released)

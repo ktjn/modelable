@@ -223,7 +223,7 @@ def _parse_default(value: str | None, schema: Any) -> Any:
         schema = schema[-1]
     if schema == "boolean":
         return value.lower() == "true"
-    if schema in {"int", "long", "float", "double"}:
+    if isinstance(schema, str) and schema in {"int", "long", "float", "double"}:
         try:
             return float(value) if schema in {"float", "double"} else int(value)
         except ValueError:

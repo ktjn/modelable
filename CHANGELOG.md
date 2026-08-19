@@ -27,6 +27,18 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- ClickHouse secondary indexes containing `DateTime64` columns now use
+  `minmax` indexes, avoiding insert-time bloom filter failures.
+
+- `@custom(...)` annotations now parse and round-trip through the canonical
+  Modelable renderer.
+
+- FHIR output now emits valid constrained Extension StructureDefinitions,
+  including shared `pii` and `classification` extension artifacts.
+
+- Avro defaults for decimal and other structured logical schemas no longer
+  fail with an unhashable-schema error.
+
 - OpenAPI imports now emit deterministic, location-specific loss warnings for
   dropped path, operation, root, and reusable component metadata.
 

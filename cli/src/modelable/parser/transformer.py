@@ -525,7 +525,7 @@ class MdlTransformer(Transformer[list[object], Any]):
         return AnnLatestOnly()
 
     def ann_custom(self, items: list[object]) -> AnnCustom:
-        name = str(items[0])
+        name = _str(items[0])
         expression = str(items[1]).strip() if len(items) > 1 else None
         return AnnCustom(name=name, expression=expression)
 

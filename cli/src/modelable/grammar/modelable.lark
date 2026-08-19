@@ -73,6 +73,7 @@ annotation: "@key"                                                -> ann_key
           | "@pitCutoff" "(" ANNOTATION_EXPR ")"                  -> ann_pit_cutoff
           | "@latestBefore" "(" ANNOTATION_EXPR ")"               -> ann_latest_before
           | "@latestOnly"                                         -> ann_latest_only
+          | "@custom" "(" (IDENT | ESCAPED_STRING) ["," ANNOTATION_EXPR] ")" -> ann_custom
 
 wire_annotation: "@wire" "(" wire_option ("," wire_option)* ")" -> ann_wire
 wire_option: wire_key ":" wire_value

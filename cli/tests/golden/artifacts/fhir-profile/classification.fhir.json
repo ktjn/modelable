@@ -1,9 +1,9 @@
 {
   "resourceType": "StructureDefinition",
-  "url": "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.status",
+  "url": "http://modelable.io/fhir/StructureDefinition/classification",
   "version": "1",
-  "name": "PatientProfileStatus",
-  "title": "PatientProfile status",
+  "name": "ModelableClassification",
+  "title": "Modelable classification annotation",
   "status": "draft",
   "fhirVersion": "4.0.1",
   "kind": "complex-type",
@@ -22,13 +22,13 @@
       {
         "id": "Extension",
         "path": "Extension",
-        "definition": "Modelable extension for clinical.PatientProfile.status.",
         "min": 0,
-        "max": "*",
+        "max": "1",
+        "definition": "Modelable classification annotation extension.",
         "base": {
           "path": "Extension",
           "min": 0,
-          "max": "*"
+          "max": "1"
         }
       },
       {
@@ -36,7 +36,8 @@
         "path": "Extension.url",
         "min": 1,
         "max": "1",
-        "fixedUri": "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.status",
+        "fixedUri": "http://modelable.io/fhir/StructureDefinition/classification",
+        "definition": " identifies the extension.",
         "base": {
           "path": "Extension.url",
           "min": 1,
@@ -53,11 +54,7 @@
             "code": "code"
           }
         ],
-        "definition": "Modelable field status extension value.",
-        "binding": {
-          "strength": "required",
-          "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.status"
-        },
+        "definition": "Value of the Modelable classification annotation.",
         "base": {
           "path": "Extension.value[x]",
           "min": 1,
@@ -71,13 +68,13 @@
       {
         "id": "Extension",
         "path": "Extension",
-        "definition": "Modelable extension for clinical.PatientProfile.status.",
         "min": 0,
-        "max": "*",
+        "max": "1",
+        "definition": "Modelable classification annotation extension.",
         "base": {
           "path": "Extension",
           "min": 0,
-          "max": "*"
+          "max": "1"
         }
       },
       {
@@ -85,7 +82,8 @@
         "path": "Extension.url",
         "min": 1,
         "max": "1",
-        "fixedUri": "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.status",
+        "fixedUri": "http://modelable.io/fhir/StructureDefinition/classification",
+        "definition": " identifies the extension.",
         "base": {
           "path": "Extension.url",
           "min": 1,
@@ -102,11 +100,7 @@
             "code": "code"
           }
         ],
-        "definition": "Modelable field status extension value.",
-        "binding": {
-          "strength": "required",
-          "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.status"
-        },
+        "definition": "Value of the Modelable classification annotation.",
         "base": {
           "path": "Extension.value[x]",
           "min": 1,
@@ -114,17 +108,5 @@
         }
       }
     ]
-  },
-  "publisher": "clinical-platform",
-  "contact": [
-    {
-      "telecom": [
-        {
-          "system": "email",
-          "value": "clinical@example.com"
-        }
-      ]
-    }
-  ],
-  "description": "Clinical model contracts for FHIR R4 profile regression coverage."
+  }
 }

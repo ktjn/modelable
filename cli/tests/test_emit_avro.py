@@ -78,3 +78,24 @@ def test_compile_avro_writes_deterministic_avsc_artifacts(tmp_path) -> None:
     artifact = out / "customer" / "Customer.v1.avsc"
     assert artifact.exists()
     assert json.loads(artifact.read_text(encoding="utf-8"))["name"] == "CustomerV1"
+
+
+def test_emit_avro_accepts_defaults_for_structured_logical_schemas(tmp_path) -> None:
+    source = """
+domain billing {
+  owner: "billing-team"
+
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    amount: decimal(10, 2) = 0
+    issuedAt: timestamp = 0
+  }
+}
+"""
+    (tmp_path / "billing.mdl").write_text(source, encoding="utf-8")
+
+    artifacts = emit_avro(load_workspace(tmp_path), tmp_path / "out")
+    fields = {field["name"]: field for field in artifacts[0].content["fields"]}
+
+    assert fields["amount"]["default"] == "0"
+    assert fields["issuedAt"]["default"] == "0"
