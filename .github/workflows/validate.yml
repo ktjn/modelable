@@ -239,8 +239,12 @@ jobs:
       - name: Install Playwright browser
         # Bounded because this step has hung for 50+ minutes on a stuck apt
         # mirror fetch (Ubuntu package lists) rather than failing outright,
-        # blocking the whole job until someone manually cancelled it.
-        timeout-minutes: 5
+        # blocking the whole job until someone manually cancelled it. 10
+        # minutes (not the first fix's 5) because a second, real incident
+        # showed the mirror can be genuinely slow rather than fully stuck --
+        # progressing, just at ~30 KB/s -- and a too-tight budget turns
+        # ordinary slowness into a false-positive failure.
+        timeout-minutes: 10
         run: npx playwright install --with-deps ${{ matrix.browser }}
         working-directory: web
 
