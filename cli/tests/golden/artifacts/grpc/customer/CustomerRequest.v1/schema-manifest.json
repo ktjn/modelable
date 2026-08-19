@@ -1,0 +1,80 @@
+{
+  "target": "protobuf",
+  "schemas": [
+    {
+      "ref": "customer.CustomerRequest@1",
+      "kind": "projection",
+      "schema_id": "modelable://customer/CustomerRequest/v1/protobuf",
+      "modelable_signature": "d92afc25fb644b65964befb72523229f7335444b173efabe97fe0e2083597f3a",
+      "schema_fingerprint": "677f5ab570ac830a22e5825a66631434117e4c98a2eb84fd72642fdd2b865520",
+      "semantic_types": [],
+      "fields": [
+        {
+          "name": "customerId",
+          "proto_name": "customer_id",
+          "number": 1,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "displayName",
+          "proto_name": "display_name",
+          "number": 2,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "email",
+          "proto_name": "email",
+          "number": 3,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "status",
+          "proto_name": "status",
+          "number": 4,
+          "type": "CustomerRequestStatus",
+          "key": false,
+          "enum_values": [
+            "active",
+            "suspended",
+            "deleted"
+          ]
+        },
+        {
+          "name": "tags",
+          "proto_name": "tags",
+          "number": 5,
+          "type": "repeated string",
+          "key": false
+        },
+        {
+          "name": "metadata",
+          "proto_name": "metadata",
+          "number": 6,
+          "type": "map<string, int64>",
+          "key": false,
+          "map": {
+            "key_type": "string",
+            "value_type": "int64"
+          }
+        },
+        {
+          "name": "address",
+          "proto_name": "address",
+          "number": 7,
+          "type": "bytes",
+          "key": false
+        },
+        {
+          "name": "favoriteProduct",
+          "proto_name": "favorite_product",
+          "number": 8,
+          "type": "bytes",
+          "key": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "target": "protobuf",
+  "schemas": [
+    {
+      "ref": "catalog.ProductReply@1",
+      "kind": "projection",
+      "schema_id": "modelable://catalog/ProductReply/v1/protobuf",
+      "modelable_signature": "f430bc215188e677a3296b59d327fc33f93a181ec47cfde9f5539ae9e0b71bab",
+      "schema_fingerprint": "dabd5948e6e82715f2fb5c3c7f2e97547ea11c71fd87ef59ed5da68f7bd064a4",
+      "semantic_types": [],
+      "fields": [
+        {
+          "name": "productId",
+          "proto_name": "product_id",
+          "number": 1,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "name",
+          "proto_name": "name",
+          "number": 2,
+          "type": "string",
+          "key": false
+        }
+      ]
+    }
+  ]
+}

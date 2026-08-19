@@ -1,0 +1,188 @@
+{
+  "components": {
+    "schemas": {
+      "Address": {
+        "properties": {
+          "line1": {
+            "type": "string"
+          },
+          "line2": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "line1"
+        ],
+        "title": "Address",
+        "type": "object"
+      },
+      "customer.CustomerEvent.v1": {
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "x-modelable-field": {
+              "server": true
+            }
+          },
+          "customerId": {
+            "format": "uuid",
+            "type": "string",
+            "x-modelable-field": {
+              "key": true
+            }
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "x-modelable-field": {
+              "pii": true
+            }
+          },
+          "favoriteProduct": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "internalRiskNotes": {
+            "type": "string",
+            "x-modelable-classification": "secret"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "suspended",
+              "deleted"
+            ],
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string",
+            "x-modelable-field": {
+              "server": true
+            }
+          }
+        },
+        "required": [
+          "customerId",
+          "displayName",
+          "email",
+          "status",
+          "tags",
+          "metadata",
+          "createdAt"
+        ],
+        "title": "CustomerEvent",
+        "type": "object",
+        "x-modelable": {
+          "domain": "customer",
+          "kind": "event",
+          "name": "CustomerEvent",
+          "sourceEntity": "customer.Customer@1",
+          "version": 1
+        },
+        "x-modelable-por": {
+          "issuedAt": "1970-01-01T00:00:00Z",
+          "issuer": "modelable-registry.local",
+          "model": "customer.CustomerEvent.v1"
+        }
+      }
+    }
+  },
+  "envelope": {
+    "operations": [
+      "insert",
+      "update",
+      "upsert",
+      "delete",
+      "snapshot"
+    ],
+    "properties": {
+      "domain": {
+        "type": "string"
+      },
+      "key": {
+        "type": "string"
+      },
+      "model": {
+        "type": "string"
+      },
+      "operation": {
+        "type": "string"
+      },
+      "payload": {
+        "type": "object"
+      },
+      "sequence": {
+        "type": "string"
+      },
+      "timestamp": {
+        "format": "date-time",
+        "type": "string"
+      },
+      "version": {
+        "minimum": 1,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "domain",
+      "model",
+      "version",
+      "operation",
+      "key",
+      "timestamp",
+      "payload"
+    ]
+  },
+  "events": [
+    {
+      "channel": "customer.Customer.events.v1",
+      "domain": "customer",
+      "model": "Customer",
+      "operations": [
+        "insert",
+        "delete"
+      ],
+      "payload_schema": {
+        "$ref": "#/components/schemas/customer.CustomerEvent.v1"
+      },
+      "ref": "customer.CustomerEvent@1",
+      "version": 1
+    }
+  ],
+  "format": "modelable.event-sink.v1",
+  "outbox": {
+    "deduplication_key": [
+      "domain",
+      "model",
+      "version",
+      "key",
+      "sequence"
+    ],
+    "delivery": "transactional",
+    "status_fields": [
+      "published_at",
+      "attempts",
+      "last_error"
+    ]
+  }
+}

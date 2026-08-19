@@ -1,0 +1,68 @@
+{
+  "contracts": [
+    {
+      "domain": "catalog",
+      "kind": "model",
+      "name": "Product",
+      "ref": "catalog.Product@1",
+      "registry_id": null,
+      "schema_version": 1,
+      "signature": "913d4b9e75927aefb96c6fa0e597d02ff3720fa94c4ab4011a9d355f6dd57c6c"
+    },
+    {
+      "domain": "catalog",
+      "kind": "projection",
+      "name": "ProductReply",
+      "ref": "catalog.ProductReply@1",
+      "registry_id": null,
+      "schema_version": 1,
+      "signature": "f430bc215188e677a3296b59d327fc33f93a181ec47cfde9f5539ae9e0b71bab"
+    },
+    {
+      "domain": "customer",
+      "kind": "model",
+      "name": "Customer",
+      "ref": "customer.Customer@1",
+      "registry_id": null,
+      "schema_version": 1,
+      "signature": "13e27986c86efd2ec29ec83de2c1c725dcd654eaad29b60b5ea3ad9f74284f51"
+    },
+    {
+      "domain": "customer",
+      "kind": "projection",
+      "name": "CustomerDb",
+      "ref": "customer.CustomerDb@1",
+      "registry_id": null,
+      "schema_version": 1,
+      "signature": "f68767535749a3e3824f2ef5406bd247dc16897959d610e5c405fc3082bb6c65"
+    },
+    {
+      "domain": "customer",
+      "kind": "projection",
+      "name": "CustomerEvent",
+      "ref": "customer.CustomerEvent@1",
+      "registry_id": null,
+      "schema_version": 1,
+      "signature": "23c29aa7cbca0cfa61c1ecab857781e963e0a85124b08cb006650d0f8e9f15e3"
+    },
+    {
+      "domain": "customer",
+      "kind": "projection",
+      "name": "CustomerReply",
+      "ref": "customer.CustomerReply@1",
+      "registry_id": null,
+      "schema_version": 1,
+      "signature": "d0ee4d47dc5e7dc25a1ec8ec2ae12f3b08e3eeb1a7c2bb6c9f9ef5ea065f55eb"
+    },
+    {
+      "domain": "customer",
+      "kind": "projection",
+      "name": "CustomerRequest",
+      "ref": "customer.CustomerRequest@1",
+      "registry_id": null,
+      "schema_version": 1,
+      "signature": "d92afc25fb644b65964befb72523229f7335444b173efabe97fe0e2083597f3a"
+    }
+  ],
+  "format": "modelable.registry.v1"
+}

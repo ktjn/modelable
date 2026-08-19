@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package modelable.customer.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message Customer {
+  string customer_id = 1;
+  string display_name = 2;
+  string email = 3;
+  optional string internal_risk_notes = 4;
+  CustomerStatus status = 5;
+  repeated string tags = 6;
+  map<string, int64> metadata = 7;
+  optional bytes address = 8;
+  optional bytes favorite_product = 9;
+  google.protobuf.Timestamp created_at = 10;
+  optional google.protobuf.Timestamp updated_at = 11;
+}
+
+enum CustomerStatus {
+  CUSTOMER_STATUS_UNSPECIFIED = 0;
+  CUSTOMER_STATUS_ACTIVE = 1;
+  CUSTOMER_STATUS_SUSPENDED = 2;
+  CUSTOMER_STATUS_DELETED = 3;
+}

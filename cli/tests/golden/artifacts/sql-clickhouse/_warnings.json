@@ -1,0 +1,14 @@
+{
+  "customer.CustomerDb@1": [
+    "[EMIT002] Type 'secondary index 'byEmail': ClickHouse MergeTree tables cannot enforce uniqueness' cannot be represented without loss"
+  ],
+  "customer.CustomerEvent@1": [
+    "[EMIT002] Type 'secondary index 'byEmail': ClickHouse MergeTree tables cannot enforce uniqueness' cannot be represented without loss"
+  ],
+  "customer.CustomerReply@1": [
+    "[EMIT002] Type 'secondary index 'byEmail': field 'email' is not projected' cannot be represented without loss"
+  ],
+  "customer.CustomerRequest@1": [
+    "[EMIT002] Type 'secondary index 'byEmail': ClickHouse MergeTree tables cannot enforce uniqueness' cannot be represented without loss"
+  ]
+}

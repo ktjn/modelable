@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package modelable.customer.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message CustomerReply {
+  string customer_id = 1;
+  string display_name = 2;
+  CustomerReplyStatus status = 3;
+  repeated string tags = 4;
+  map<string, int64> metadata = 5;
+  bytes address = 6;
+  bytes favorite_product = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+enum CustomerReplyStatus {
+  CUSTOMER_REPLY_STATUS_UNSPECIFIED = 0;
+  CUSTOMER_REPLY_STATUS_ACTIVE = 1;
+  CUSTOMER_REPLY_STATUS_SUSPENDED = 2;
+  CUSTOMER_REPLY_STATUS_DELETED = 3;
+}

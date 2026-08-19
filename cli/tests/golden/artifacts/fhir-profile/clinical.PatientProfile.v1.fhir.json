@@ -1,0 +1,497 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1",
+  "version": "1",
+  "name": "PatientProfile",
+  "title": "PatientProfile",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Patient",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Patient",
+  "derivation": "constraint",
+  "mapping": [
+    {
+      "identity": "modelable",
+      "uri": "https://github.com/ktjn/modelable",
+      "name": "Modelable"
+    }
+  ],
+  "snapshot": {
+    "element": [
+      {
+        "id": "Patient",
+        "path": "Patient",
+        "min": 0,
+        "max": "*",
+        "base": {
+          "path": "Patient",
+          "min": 0,
+          "max": "*"
+        },
+        "definition": "Modelable projection clinical.PatientProfile@1 constrained from clinical.Patient@1."
+      },
+      {
+        "id": "Patient.birthDate",
+        "path": "Patient.birthDate",
+        "min": 0,
+        "max": "1",
+        "base": {
+          "path": "Patient.birthDate",
+          "min": 0,
+          "max": "1"
+        },
+        "definition": "Modelable field birthDate.",
+        "type": [
+          {
+            "code": "date"
+          }
+        ],
+        "extension": [
+          {
+            "url": "http://modelable.io/fhir/StructureDefinition/classification",
+            "valueCode": "confidential"
+          },
+          {
+            "url": "http://modelable.io/fhir/StructureDefinition/classification",
+            "valueCode": "confidential"
+          },
+          {
+            "url": "http://modelable.io/fhir/StructureDefinition/pii",
+            "valueBoolean": true
+          },
+          {
+            "url": "http://modelable.io/fhir/StructureDefinition/pii",
+            "valueBoolean": true
+          }
+        ],
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.birthDate"
+          }
+        ]
+      },
+      {
+        "id": "Patient.active",
+        "path": "Patient.active",
+        "min": 1,
+        "max": "1",
+        "base": {
+          "path": "Patient.active",
+          "min": 0,
+          "max": "1"
+        },
+        "definition": "Modelable field active.",
+        "type": [
+          {
+            "code": "boolean"
+          }
+        ],
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.active"
+          }
+        ]
+      },
+      {
+        "id": "Patient.managingOrganization",
+        "path": "Patient.managingOrganization",
+        "min": 0,
+        "max": "1",
+        "base": {
+          "path": "Patient.managingOrganization",
+          "min": 0,
+          "max": "1"
+        },
+        "definition": "Modelable field managingOrganization.",
+        "type": [
+          {
+            "code": "Reference",
+            "targetProfile": [
+              "http://hl7.org/fhir/StructureDefinition/Organization"
+            ]
+          }
+        ],
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.managingOrganization"
+          }
+        ]
+      },
+      {
+        "id": "Patient.extension",
+        "path": "Patient.extension",
+        "min": 0,
+        "max": "*",
+        "slicing": {
+          "discriminator": [
+            {
+              "type": "value",
+              "path": "url"
+            }
+          ],
+          "ordered": false,
+          "rules": "open"
+        }
+      },
+      {
+        "id": "Patient.extension:patientId",
+        "path": "Patient.extension",
+        "sliceName": "patientId",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": [
+              "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.patientId"
+            ]
+          }
+        ],
+        "definition": "Modelable field patientId (extension).",
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.patientId"
+          }
+        ]
+      },
+      {
+        "id": "Patient.extension:patientId.value[x]",
+        "path": "Patient.extension.value[x]",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "string"
+          }
+        ],
+        "definition": "Modelable field patientId extension value."
+      },
+      {
+        "id": "Patient.extension:status",
+        "path": "Patient.extension",
+        "sliceName": "status",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": [
+              "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.status"
+            ]
+          }
+        ],
+        "definition": "Modelable field status (extension).",
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.status"
+          }
+        ]
+      },
+      {
+        "id": "Patient.extension:status.value[x]",
+        "path": "Patient.extension.value[x]",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "code"
+          }
+        ],
+        "definition": "Modelable field status extension value.",
+        "binding": {
+          "strength": "required",
+          "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.status"
+        }
+      },
+      {
+        "id": "Patient.extension:internalRiskTier",
+        "path": "Patient.extension",
+        "sliceName": "internalRiskTier",
+        "min": 0,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": [
+              "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.internalRiskTier"
+            ]
+          }
+        ],
+        "definition": "Modelable field internalRiskTier (extension).",
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.internalRiskTier"
+          }
+        ]
+      },
+      {
+        "id": "Patient.extension:internalRiskTier.value[x]",
+        "path": "Patient.extension.value[x]",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "code"
+          }
+        ],
+        "definition": "Modelable field internalRiskTier extension value.",
+        "binding": {
+          "strength": "required",
+          "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.internalRiskTier"
+        }
+      }
+    ]
+  },
+  "differential": {
+    "element": [
+      {
+        "id": "Patient",
+        "path": "Patient",
+        "min": 0,
+        "max": "*",
+        "base": {
+          "path": "Patient",
+          "min": 0,
+          "max": "*"
+        },
+        "definition": "Modelable projection clinical.PatientProfile@1 constrained from clinical.Patient@1."
+      },
+      {
+        "id": "Patient.birthDate",
+        "path": "Patient.birthDate",
+        "min": 0,
+        "max": "1",
+        "base": {
+          "path": "Patient.birthDate",
+          "min": 0,
+          "max": "1"
+        },
+        "definition": "Modelable field birthDate.",
+        "type": [
+          {
+            "code": "date"
+          }
+        ],
+        "extension": [
+          {
+            "url": "http://modelable.io/fhir/StructureDefinition/classification",
+            "valueCode": "confidential"
+          },
+          {
+            "url": "http://modelable.io/fhir/StructureDefinition/classification",
+            "valueCode": "confidential"
+          },
+          {
+            "url": "http://modelable.io/fhir/StructureDefinition/pii",
+            "valueBoolean": true
+          },
+          {
+            "url": "http://modelable.io/fhir/StructureDefinition/pii",
+            "valueBoolean": true
+          }
+        ],
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.birthDate"
+          }
+        ]
+      },
+      {
+        "id": "Patient.active",
+        "path": "Patient.active",
+        "min": 1,
+        "max": "1",
+        "base": {
+          "path": "Patient.active",
+          "min": 0,
+          "max": "1"
+        },
+        "definition": "Modelable field active.",
+        "type": [
+          {
+            "code": "boolean"
+          }
+        ],
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.active"
+          }
+        ]
+      },
+      {
+        "id": "Patient.managingOrganization",
+        "path": "Patient.managingOrganization",
+        "min": 0,
+        "max": "1",
+        "base": {
+          "path": "Patient.managingOrganization",
+          "min": 0,
+          "max": "1"
+        },
+        "definition": "Modelable field managingOrganization.",
+        "type": [
+          {
+            "code": "Reference",
+            "targetProfile": [
+              "http://hl7.org/fhir/StructureDefinition/Organization"
+            ]
+          }
+        ],
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.managingOrganization"
+          }
+        ]
+      },
+      {
+        "id": "Patient.extension",
+        "path": "Patient.extension",
+        "min": 0,
+        "max": "*",
+        "slicing": {
+          "discriminator": [
+            {
+              "type": "value",
+              "path": "url"
+            }
+          ],
+          "ordered": false,
+          "rules": "open"
+        }
+      },
+      {
+        "id": "Patient.extension:patientId",
+        "path": "Patient.extension",
+        "sliceName": "patientId",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": [
+              "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.patientId"
+            ]
+          }
+        ],
+        "definition": "Modelable field patientId (extension).",
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.patientId"
+          }
+        ]
+      },
+      {
+        "id": "Patient.extension:patientId.value[x]",
+        "path": "Patient.extension.value[x]",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "string"
+          }
+        ],
+        "definition": "Modelable field patientId extension value."
+      },
+      {
+        "id": "Patient.extension:status",
+        "path": "Patient.extension",
+        "sliceName": "status",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": [
+              "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.status"
+            ]
+          }
+        ],
+        "definition": "Modelable field status (extension).",
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.status"
+          }
+        ]
+      },
+      {
+        "id": "Patient.extension:status.value[x]",
+        "path": "Patient.extension.value[x]",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "code"
+          }
+        ],
+        "definition": "Modelable field status extension value.",
+        "binding": {
+          "strength": "required",
+          "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.status"
+        }
+      },
+      {
+        "id": "Patient.extension:internalRiskTier",
+        "path": "Patient.extension",
+        "sliceName": "internalRiskTier",
+        "min": 0,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": [
+              "http://modelable.io/fhir/StructureDefinition/clinical.PatientProfile.v1.ext.internalRiskTier"
+            ]
+          }
+        ],
+        "definition": "Modelable field internalRiskTier (extension).",
+        "mapping": [
+          {
+            "identity": "modelable",
+            "map": "clinical.Patient@1.internalRiskTier"
+          }
+        ]
+      },
+      {
+        "id": "Patient.extension:internalRiskTier.value[x]",
+        "path": "Patient.extension.value[x]",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "code"
+          }
+        ],
+        "definition": "Modelable field internalRiskTier extension value.",
+        "binding": {
+          "strength": "required",
+          "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.internalRiskTier"
+        }
+      }
+    ]
+  },
+  "publisher": "clinical-platform",
+  "contact": [
+    {
+      "telecom": [
+        {
+          "system": "email",
+          "value": "clinical@example.com"
+        }
+      ]
+    }
+  ],
+  "description": "Clinical model contracts for FHIR R4 profile regression coverage."
+}

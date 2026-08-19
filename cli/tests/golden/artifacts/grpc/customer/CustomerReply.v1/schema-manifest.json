@@ -1,0 +1,87 @@
+{
+  "target": "protobuf",
+  "schemas": [
+    {
+      "ref": "customer.CustomerReply@1",
+      "kind": "projection",
+      "schema_id": "modelable://customer/CustomerReply/v1/protobuf",
+      "modelable_signature": "d0ee4d47dc5e7dc25a1ec8ec2ae12f3b08e3eeb1a7c2bb6c9f9ef5ea065f55eb",
+      "schema_fingerprint": "2dbef11a11f8f05fdafd8df2ac169880362be457aff7d6e2777687d8206faa3e",
+      "semantic_types": [],
+      "fields": [
+        {
+          "name": "customerId",
+          "proto_name": "customer_id",
+          "number": 1,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "displayName",
+          "proto_name": "display_name",
+          "number": 2,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "status",
+          "proto_name": "status",
+          "number": 3,
+          "type": "CustomerReplyStatus",
+          "key": false,
+          "enum_values": [
+            "active",
+            "suspended",
+            "deleted"
+          ]
+        },
+        {
+          "name": "tags",
+          "proto_name": "tags",
+          "number": 4,
+          "type": "repeated string",
+          "key": false
+        },
+        {
+          "name": "metadata",
+          "proto_name": "metadata",
+          "number": 5,
+          "type": "map<string, int64>",
+          "key": false,
+          "map": {
+            "key_type": "string",
+            "value_type": "int64"
+          }
+        },
+        {
+          "name": "address",
+          "proto_name": "address",
+          "number": 6,
+          "type": "bytes",
+          "key": false
+        },
+        {
+          "name": "favoriteProduct",
+          "proto_name": "favorite_product",
+          "number": 7,
+          "type": "bytes",
+          "key": false
+        },
+        {
+          "name": "createdAt",
+          "proto_name": "created_at",
+          "number": 8,
+          "type": "google.protobuf.Timestamp",
+          "key": false
+        },
+        {
+          "name": "updatedAt",
+          "proto_name": "updated_at",
+          "number": 9,
+          "type": "google.protobuf.Timestamp",
+          "key": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "target": "protobuf",
+  "schemas": [
+    {
+      "ref": "catalog.Product@1",
+      "kind": "entity",
+      "schema_id": "modelable://catalog/Product/v1/protobuf",
+      "modelable_signature": "913d4b9e75927aefb96c6fa0e597d02ff3720fa94c4ab4011a9d355f6dd57c6c",
+      "schema_fingerprint": "df282503e965cbae06163f357221b82a876599d47e209a3210d6e4f668598ae4",
+      "semantic_types": [],
+      "fields": [
+        {
+          "name": "productId",
+          "proto_name": "product_id",
+          "number": 1,
+          "type": "string",
+          "key": true
+        },
+        {
+          "name": "name",
+          "proto_name": "name",
+          "number": 2,
+          "type": "string",
+          "key": false
+        }
+      ]
+    }
+  ]
+}

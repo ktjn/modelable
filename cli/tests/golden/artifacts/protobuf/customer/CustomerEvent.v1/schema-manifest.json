@@ -1,0 +1,101 @@
+{
+  "target": "protobuf",
+  "schemas": [
+    {
+      "ref": "customer.CustomerEvent@1",
+      "kind": "projection",
+      "schema_id": "modelable://customer/CustomerEvent/v1/protobuf",
+      "modelable_signature": "23c29aa7cbca0cfa61c1ecab857781e963e0a85124b08cb006650d0f8e9f15e3",
+      "schema_fingerprint": "4d734bfbfb880ab1000a6ab9a9479c442a462fdd63f69353eeb22d1646218e2e",
+      "semantic_types": [],
+      "fields": [
+        {
+          "name": "customerId",
+          "proto_name": "customer_id",
+          "number": 1,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "displayName",
+          "proto_name": "display_name",
+          "number": 2,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "email",
+          "proto_name": "email",
+          "number": 3,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "internalRiskNotes",
+          "proto_name": "internal_risk_notes",
+          "number": 4,
+          "type": "string",
+          "key": false
+        },
+        {
+          "name": "status",
+          "proto_name": "status",
+          "number": 5,
+          "type": "CustomerEventStatus",
+          "key": false,
+          "enum_values": [
+            "active",
+            "suspended",
+            "deleted"
+          ]
+        },
+        {
+          "name": "tags",
+          "proto_name": "tags",
+          "number": 6,
+          "type": "repeated string",
+          "key": false
+        },
+        {
+          "name": "metadata",
+          "proto_name": "metadata",
+          "number": 7,
+          "type": "map<string, int64>",
+          "key": false,
+          "map": {
+            "key_type": "string",
+            "value_type": "int64"
+          }
+        },
+        {
+          "name": "address",
+          "proto_name": "address",
+          "number": 8,
+          "type": "bytes",
+          "key": false
+        },
+        {
+          "name": "favoriteProduct",
+          "proto_name": "favorite_product",
+          "number": 9,
+          "type": "bytes",
+          "key": false
+        },
+        {
+          "name": "createdAt",
+          "proto_name": "created_at",
+          "number": 10,
+          "type": "google.protobuf.Timestamp",
+          "key": false
+        },
+        {
+          "name": "updatedAt",
+          "proto_name": "updated_at",
+          "number": 11,
+          "type": "google.protobuf.Timestamp",
+          "key": false
+        }
+      ]
+    }
+  ]
+}

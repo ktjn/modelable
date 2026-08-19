@@ -1,0 +1,14 @@
+{
+  "target": "grpc",
+  "ref": "customer.CustomerRequest@1",
+  "schema_manifest": "schema-manifest.json",
+  "service_proto": "CustomerRequest.v1.grpc.proto",
+  "services": [
+    "CommandService",
+    "EntityReadService"
+  ],
+  "entity_types": [
+    "customer.CustomerRequest@1"
+  ],
+  "read_indexes": []
+}

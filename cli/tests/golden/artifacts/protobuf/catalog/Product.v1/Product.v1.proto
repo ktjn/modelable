@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package modelable.catalog.v1;
+
+message Product {
+  string product_id = 1;
+  string name = 2;
+}

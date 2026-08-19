@@ -887,9 +887,46 @@ visibility-only artifact/terminal-summary behavior as before.
 (never lower one to make a change pass); add more files to
 `coverage-baseline.txt` if a future slice identifies another critical path.
 
+#### 3. A golden-file regression suite pins every implemented codegen target's full output
+
+**Evidence:** `cli/tests/test_golden_artifacts.py` compiles the shared
+`cli/tests/golden/model.mdl` fixture (keys, PII/classification annotations,
+an enum, array/map/optional/nested-object fields, a cross-domain `ref<>`, a
+secondary index with a `unique` constraint, an auto-projection event, and an
+`api` operation) — plus, for `fhir-profile`, the existing
+`cli/tests/fixtures/fhir_patient_profile.mdl` fixture — to every
+`status="implemented"` target in `emitters/targets.py` and byte-compares each
+emitted artifact, including its emitter warnings, against checked-in copies
+in `cli/tests/golden/artifacts/`. `cli/scripts/write_golden_artifacts.py`
+regenerates them deterministically (also used as this test's own fixture
+generator, invoked via subprocess so the checked-in copy and a fresh run are
+compared as two independent artifacts, not the same in-memory object).
+
+**Impact:** Before this, multi-target regression coverage
+(`test_fixtures_regression.py`'s per-target loops) only asserted that
+compilation exited zero and produced a file of the right extension — not
+that the file's *content* was what it should be. A change to shared
+rendering code could silently drift a target's output with no test noticing,
+as long as it didn't happen to touch whatever narrow substring an existing
+`test_emit_*.py` assertion checked. This suite closes that gap for every
+implemented target at once, and `test_golden_targets_cover_every_implemented_codegen_target`
+fails immediately if a target is added without golden coverage — the same
+"target listings drifting" failure mode Slice B2 tracks for documentation,
+now guarded at the test-coverage level too.
+
+**Remaining work:** Native/CLI only — the same fixture compiled through
+`BrowserCompiler.compile()` (browser/Playground) is not yet part of this
+suite; PR #402's `sql-index` scenario is the only target with that kind of
+native/browser cross-surface proof today (Slice G3). Extending
+cross-surface golden coverage to more targets is a separate, larger slice.
+A deliberate emitter output change must regenerate the golden files
+(`uv run python scripts/write_golden_artifacts.py --output tests/golden/artifacts`)
+and include the diff in the same PR, exactly like reviewing any other
+generated-artifact change.
+
 ### Dependency management
 
-#### 3. Dependabot routine groups are explicit version-update groups
+#### 4. Dependabot routine groups are explicit version-update groups
 
 **Evidence:** `.github/dependabot.yml` keeps one routine group per ecosystem
 for Python, VS Code, and GitHub Actions updates, and each group declares

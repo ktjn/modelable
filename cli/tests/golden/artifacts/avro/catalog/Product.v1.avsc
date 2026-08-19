@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "ProductV1",
+  "namespace": "catalog",
+  "fields": [
+    {
+      "name": "productId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "name",
+      "type": "string"
+    }
+  ],
+  "x-modelable": {
+    "ref": "catalog.Product@1",
+    "kind": "model",
+    "version": 1
+  }
+}
