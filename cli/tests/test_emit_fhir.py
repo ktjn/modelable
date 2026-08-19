@@ -353,6 +353,36 @@ domain clinical {
     assert by_id["classification"]["snapshot"]["element"][-1]["type"] == [{"code": "code"}]
 
 
+def test_emit_fhir_profile_resolves_named_value_type_extension_values(tmp_path):
+    (tmp_path / "clinical.mdl").write_text(
+        """
+domain clinical {
+  value PatientId @ 1 (additive) {
+    value: decimal(10, 2)
+  }
+
+  entity Patient @ 1 (additive) {
+    @key id: uuid
+    patientId: PatientId
+  }
+
+  projection PatientProfile @ 1
+    from clinical.Patient @ 1 as p
+  {
+    patientId <- p.patientId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    artifacts = emit_fhir_profile(load_workspace(tmp_path), tmp_path / "out")
+    extension = next(artifact for artifact in artifacts if artifact.target == "fhir-extension")
+    elements = {element["id"]: element for element in json.loads(extension.content)["snapshot"]["element"]}
+
+    assert elements["Extension.value[x]"]["type"] == [{"code": "decimal"}]
+    assert elements["Extension.value[x]"]["type"] != [{"code": "BackboneElement"}]
+
+
 def test_emit_fhir_profile_object_type_extension_field_yields_sub_extensions(tmp_path):
     (tmp_path / "clinical.mdl").write_text(
         """
@@ -420,6 +450,7 @@ domain clinical {
     assert "Extension.extension:street" in ext_elements
     assert ext_elements["Extension.extension:street"]["sliceName"] == "street"
     assert ext_elements["Extension.extension:street.url"]["fixedUri"] == f"{ext_url}#street"
+    assert ext_elements["Extension.extension:street.url"]["type"] == [{"code": "uri"}]
     assert ext_elements["Extension.extension:street.value[x]"]["type"] == [{"code": "string"}]
 
     assert "Extension.extension:city" in ext_elements
