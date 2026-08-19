@@ -803,9 +803,20 @@ stable traversal of all component schemas, explicit multi-schema selection,
 Unsupported unions, composition, nullability, and value constraints also emit
 explicit lossy-import warnings instead of being silently discarded; dropped
 operation, request/response, and security metadata is reported the same way.
-Phase D (fidelity follow-ups) is in progress: the core D1-D4 schema slices have
-shipped, while remaining target parity, compatibility reporting, and explicit
-loss diagnostics continue as follow-up work.
+Phase D (fidelity follow-ups): the core D1-D4 schema slices have shipped
+(constraints, named enums, and discriminated unions all reach OpenAPI output
+through the same field-mapping path `json-schema` uses, so they already have
+parity there). Compatibility reporting and explicit loss diagnostics are now
+also shipped: `modelable validate-compat --target openapi` reports breaking
+changes to operations, path parameters, request/response bindings, and
+component schemas ([PR #409](https://github.com/ktjn/modelable/pull/409),
+[PR #410](https://github.com/ktjn/modelable/pull/410)), and the emitter
+validates the complete generated document against OpenAPI 3.1 — not just the
+`components.schemas` fragment — surfacing invalid output through the existing
+`EMIT004` warning path ([PR #411](https://github.com/ktjn/modelable/pull/411)).
+No further Phase D work is scoped; a genuinely new fidelity gap would need its
+own issue and, per this roadmap's own policy, an accepted design before
+becoming committed work.
 
 #### Slice F3 — AsyncAPI emission
 
