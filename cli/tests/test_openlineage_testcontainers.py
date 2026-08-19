@@ -22,6 +22,11 @@ POSTGRES_VERSION = "14"
     os.getenv("MODELABLE_OPENLINEAGE_TESTCONTAINERS") != "1",
     reason="set MODELABLE_OPENLINEAGE_TESTCONTAINERS=1 to run the Marquez Docker Compose smoke test",
 )
+# The global --timeout=120 in pyproject.toml is too tight for this test: the
+# wait loop below already budgets 180s for Marquez to become healthy, on top
+# of DockerCompose(wait=True)'s own health-check wait -- the global timeout
+# could kill this test before its own documented budget is reached.
+@pytest.mark.timeout(300)
 def test_openlineage_sync_round_trips_with_marquez(tmp_path: Path) -> None:
     compose_dir = tmp_path / "marquez-compose"
     compose_dir.mkdir()
