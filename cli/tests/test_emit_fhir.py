@@ -322,6 +322,7 @@ domain clinical {
     ext_elements = {el["id"]: el for el in doc["snapshot"]["element"]}
     assert "Extension" in ext_elements
     assert ext_elements["Extension.url"]["fixedUri"] == doc["url"]
+    assert ext_elements["Extension.url"]["type"] == [{"code": "uri"}]
     assert ext_elements["Extension.value[x]"]["type"] == [{"code": "string"}]
     assert ext_elements["Extension.value[x]"]["base"] == {"path": "Extension.value[x]", "min": 1, "max": "1"}
 
@@ -347,6 +348,7 @@ domain clinical {
     assert {"pii", "classification"} <= by_id.keys()
     assert by_id["pii"]["url"] == "http://modelable.io/fhir/StructureDefinition/pii"
     assert by_id["pii"]["baseDefinition"] == "http://hl7.org/fhir/StructureDefinition/Extension"
+    assert by_id["pii"]["snapshot"]["element"][1]["type"] == [{"code": "uri"}]
     assert by_id["pii"]["snapshot"]["element"][-1]["type"] == [{"code": "boolean"}]
     assert by_id["classification"]["snapshot"]["element"][-1]["type"] == [{"code": "code"}]
 

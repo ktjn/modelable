@@ -355,3 +355,27 @@ domain billing {
     artifact = next(item for item in emit_python(workspace, tmp_path / "out") if item.ref == "billing.Invoice@1")
     assert artifact.content.count("from patient.patient_patient_id_v1 import PatientPatientIdV1") == 1
     assert "patientId: PatientPatientIdV1" in artifact.content
+
+
+def test_emit_python_same_domain_value_ref_imports_sibling_module(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain clinical {
+  owner: "clinical-team"
+  value Diagnosis @ 1 (additive) {
+    value: string
+  }
+
+  entity Encounter @ 1 (additive) {
+    @key encounterId: uuid
+    diagnosis: Diagnosis
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_python(workspace, tmp_path / "out") if item.ref == "clinical.Encounter@1")
+
+    assert "from clinical.clinical_diagnosis_v1 import ClinicalDiagnosisV1" in artifact.content
+    assert "diagnosis: ClinicalDiagnosisV1" in artifact.content

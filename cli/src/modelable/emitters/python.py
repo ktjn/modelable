@@ -330,7 +330,7 @@ def _shape_base_annotation(
             mdl, current_domain=current_domain, ref=shape.ref or "", names=named_names, shapes=named_shapes
         )
         if named_name is not None:
-            if declaring_domain is not None and declaring_domain != current_domain:
+            if declaring_domain is not None and named_name != owner_type:
                 imports.add(
                     f"from {_package_name(declaring_domain)}.{_module_filename(named_name)[:-3]} import {named_name}"
                 )

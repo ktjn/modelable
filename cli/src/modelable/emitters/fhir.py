@@ -207,6 +207,7 @@ def _emit_annotation_extension_sd(name: str, value_code: str, out_dir: Path) -> 
             "min": 1,
             "max": "1",
             "fixedUri": url,
+            "type": [{"code": "uri"}],
             "definition": " identifies the extension.",
         },
         {
@@ -750,6 +751,7 @@ def _emit_extension_sd(
             "min": 1,
             "max": "1",
             "fixedUri": ext_url,
+            "type": [{"code": "uri"}],
         },
     ]
     elements.extend(
