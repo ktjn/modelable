@@ -127,12 +127,36 @@ def compare_openapi_artifacts(
     old_artifacts: list[EmittedArtifact],
     new_artifacts: list[EmittedArtifact],
 ) -> TargetCompatibilityReport:
-    """Compare OpenAPI operations for client-visible compatibility."""
+    """Compare OpenAPI schemas and operations for client-visible compatibility."""
     old_document = _artifact_document(old_artifacts, "openapi")
     new_document = _artifact_document(new_artifacts, "openapi")
+    old_schemas = _openapi_schemas(old_document)
+    new_schemas = _openapi_schemas(new_document)
     old_operations = _openapi_operations(old_document)
     new_operations = _openapi_operations(new_document)
     findings: list[TargetCompatibilityFinding] = []
+
+    for ref in sorted(set(old_schemas) - set(new_schemas)):
+        findings.append(
+            _finding(
+                "schema_removed",
+                "breaking",
+                ref,
+                "OpenAPI component schema was removed",
+                axis="source_compatibility",
+            )
+        )
+    for ref in sorted(set(old_schemas) & set(new_schemas)):
+        if old_schemas[ref] != new_schemas[ref]:
+            findings.append(
+                _finding(
+                    "schema_changed",
+                    "breaking",
+                    ref,
+                    "OpenAPI component schema changed",
+                    axis="source_compatibility",
+                )
+            )
 
     for ref in sorted(set(old_operations) - set(new_operations)):
         findings.append(_finding("operation_removed", "breaking", ref, "OpenAPI operation was removed"))
@@ -558,6 +582,16 @@ def _openapi_operations(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
             if method.lower() in methods and isinstance(operation, dict):
                 operations[f"{method.lower()} {path}"] = operation
     return operations
+
+
+def _openapi_schemas(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    components = document.get("components")
+    if not isinstance(components, dict):
+        return {}
+    schemas = components.get("schemas")
+    if not isinstance(schemas, dict):
+        return {}
+    return {str(name): schema for name, schema in schemas.items() if isinstance(name, str) and isinstance(schema, dict)}
 
 
 def _openapi_path_parameters(operation: dict[str, Any]) -> tuple[tuple[str, str, bool, str], ...]:
