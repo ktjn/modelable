@@ -21,6 +21,12 @@ ELASTICSEARCH_VERSION = "9.4.2"
     os.getenv("MODELABLE_OPENMETADATA_TESTCONTAINERS") != "1",
     reason="set MODELABLE_OPENMETADATA_TESTCONTAINERS=1 to run the OpenMetadata Docker Compose smoke test",
 )
+# The global --timeout=120 in pyproject.toml is too tight for this test:
+# _wait_for_openmetadata below already budgets 240s for the server (a JVM
+# app doing DB migrations on first boot) to become healthy, on top of
+# DockerCompose(wait=True)'s own health-check wait -- the global timeout
+# was killing this test before its own documented budget could be reached.
+@pytest.mark.timeout(480)
 def test_openmetadata_export_with_testcontainers(tmp_path: Path) -> None:
     compose_dir = tmp_path / "openmetadata-compose"
     compose_dir.mkdir()
