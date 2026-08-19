@@ -7,7 +7,7 @@ from jsonschema import Draft202012Validator
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
-from modelable.emitters.openapi import emit_openapi
+from modelable.emitters.openapi import _validate_document, emit_openapi
 
 _AUTO_PROJECTION_FIXTURE = """
 domain customer {
@@ -290,6 +290,19 @@ def test_emit_openapi_document_envelope_is_minimal_and_valid(tmp_path):
     assert "title" in doc["info"]
     assert "version" in doc["info"]
     assert artifacts[0].warnings == []
+
+
+def test_validate_openapi_document_reports_invalid_operations():
+    warnings = _validate_document(
+        {
+            "openapi": "3.1.0",
+            "info": {"title": "Invalid", "version": "1.0.0"},
+            "paths": {"/customers": {"get": {"responses": {}}}},
+        }
+    )
+
+    assert len(warnings) == 1
+    assert warnings[0].startswith("[EMIT004] Generated artifact failed validation: openapi.json")
 
 
 def test_emit_openapi_components_schemas_validate_as_json_schema_2020_12(tmp_path):
