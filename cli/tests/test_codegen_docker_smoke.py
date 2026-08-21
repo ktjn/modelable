@@ -9,6 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.emitters.targets import list_implemented_codegen_targets
 
 SAMPLE_MDL = """
 domain customer {
@@ -59,14 +60,22 @@ domain customer {
 SMOKE_UUID = "123e4567-e89b-12d3-a456-426614174000"
 
 TARGETS = [
-    ("csharp", "mcr.microsoft.com/dotnet/sdk:10.0", "dotnet"),
-    ("java", "eclipse-temurin:25.0.3_9-jdk-ubi10-minimal", "javac"),
-    ("python", "python:3.14.4-slim", "python"),
-    ("rust", "rust:1.95.0", "cargo"),
-    ("go", "golang:1.26.3", "go"),
-    ("typescript", "node:26.0.0-slim", "npx"),
-    ("protobuf", "python:3.14.4-slim", "protoc"),
+    ("csharp", "mcr.microsoft.com/dotnet/sdk:10.0"),
+    ("java", "eclipse-temurin:25.0.3_9-jdk-ubi10-minimal"),
+    ("python", "python:3.14.4-slim"),
+    ("rust", "rust:1.95.0"),
+    ("go", "golang:1.26.3"),
+    ("typescript", "node:26.0.0-slim"),
+    ("protobuf", "python:3.14.4-slim"),
 ]
+
+_DOCKER_TARGET_NAMES = {target for target, _ in TARGETS}
+
+
+def test_docker_smoke_matrix_names_implemented_targets() -> None:
+    implemented = {target.name for target in list_implemented_codegen_targets()}
+    assert implemented >= _DOCKER_TARGET_NAMES
+    assert {"csharp", "java", "python", "rust", "go", "typescript"} <= _DOCKER_TARGET_NAMES
 
 
 def _docker_available() -> bool:
@@ -118,13 +127,14 @@ def _assert_docker_success(result: subprocess.CompletedProcess[str], target: str
     )
 
 
+@pytest.mark.docker
 @pytest.mark.skipif(
-    os.getenv("MODELABLE_DOCKER_SMOKE") != "1",
-    reason="set MODELABLE_DOCKER_SMOKE=1 to run the Docker-based codegen smoke tests",
+    os.getenv("MODELABLE_DOCKER_TESTS") != "1",
+    reason="set MODELABLE_DOCKER_TESTS=1 to run the Docker-based codegen smoke tests",
 )
 @pytest.mark.skipif(not _docker_available(), reason="docker is required for generated-language smoke tests")
-@pytest.mark.parametrize("target,image,tool", TARGETS)
-def test_codegen_backends_compile_inside_docker(tmp_path, target: str, image: str, tool: str) -> None:
+@pytest.mark.parametrize("target,image", TARGETS)
+def test_codegen_backends_compile_inside_docker(tmp_path, target: str, image: str) -> None:
     _, out = _compile_target(tmp_path, target)
 
     if target == "csharp":

@@ -59,6 +59,17 @@ def _regenerate(output: Path) -> None:
     )
 
 
+@pytest.fixture(scope="module")
+def regenerated_artifacts(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
+    """Generate two trees once for freshness and determinism assertions."""
+    root = tmp_path_factory.mktemp("golden-artifacts")
+    first = root / "first"
+    second = root / "second"
+    _regenerate(first)
+    _regenerate(second)
+    return first, second
+
+
 def test_golden_targets_cover_every_implemented_codegen_target() -> None:
     """A newly added or newly-implemented codegen target must gain golden coverage.
 
@@ -70,9 +81,8 @@ def test_golden_targets_cover_every_implemented_codegen_target() -> None:
     assert generator.ALL_GOLDEN_TARGETS == IMPLEMENTED_TARGETS
 
 
-def test_golden_artifacts_are_up_to_date(tmp_path: Path) -> None:
-    regenerated = tmp_path / "artifacts"
-    _regenerate(regenerated)
+def test_golden_artifacts_are_up_to_date(regenerated_artifacts: tuple[Path, Path]) -> None:
+    regenerated, _ = regenerated_artifacts
 
     checked_in_targets = {path.name for path in GOLDEN_ARTIFACTS.iterdir() if path.is_dir()}
     regenerated_targets = {path.name for path in regenerated.iterdir() if path.is_dir()}
@@ -110,11 +120,8 @@ def test_golden_artifacts_are_up_to_date(tmp_path: Path) -> None:
     )
 
 
-def test_golden_artifact_generation_is_deterministic(tmp_path: Path) -> None:
-    first = tmp_path / "first"
-    second = tmp_path / "second"
-    _regenerate(first)
-    _regenerate(second)
+def test_golden_artifact_generation_is_deterministic(regenerated_artifacts: tuple[Path, Path]) -> None:
+    first, second = regenerated_artifacts
 
     first_files = sorted(path.relative_to(first) for path in first.rglob("*") if path.is_file())
     second_files = sorted(path.relative_to(second) for path in second.rglob("*") if path.is_file())
