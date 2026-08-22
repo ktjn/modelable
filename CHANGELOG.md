@@ -23,6 +23,11 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Anonymous `enum(...)` members are now validated centrally before any
+  emitter runs: duplicate canonical members are rejected with a diagnostic
+  naming the owning field and the conflicting member, recursively through
+  arrays, maps, inline objects, and union variants. Empty member sets remain
+  a parse error and are now also rejected at the IR level.
 - `compile --target rust` no longer generates implicit `From` conversions
   between unrelated enums that merely share the same member set. Enum
   conversions are now generated only from explicit projection lineage (a

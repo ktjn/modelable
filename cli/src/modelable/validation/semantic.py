@@ -26,6 +26,7 @@ from modelable.parser.ir import (
     ObjectType,
     PrimitiveType,
     RefType,
+    UnionType,
 )
 from modelable.registry.resolver import resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
 
@@ -177,6 +178,54 @@ def _validate_api_declarations(
                     )
 
 
+def _validate_enum_members(
+    fqn: str,
+    label: str,
+    field_type: FieldType,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    """Recursively validate anonymous `enum(...)` members (evolution plan F2).
+
+    Canonical identity is the authored member text, independent of any target
+    spelling: an empty member set or duplicate canonical members are rejected
+    before emitters run. Recurses through arrays, maps, inline objects, and
+    discriminated-union variants so no parsed enum bypasses the check.
+    """
+    if isinstance(field_type, EnumType):
+        if not field_type.values:
+            diagnostics.append(_diag("SEM", f"{fqn}: field '{label}' has an empty enum member set", path))
+            return
+        seen: set[str] = set()
+        duplicates: list[str] = []
+        for value in field_type.values:
+            if value in seen and value not in duplicates:
+                duplicates.append(value)
+            seen.add(value)
+        for value in duplicates:
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{fqn}: field '{label}' has duplicate enum member '{value}'",
+                    path,
+                )
+            )
+        return
+    if isinstance(field_type, ArrayType):
+        _validate_enum_members(fqn, f"{label}[]", field_type.item, diagnostics, path)
+        return
+    if isinstance(field_type, MapType):
+        _validate_enum_members(fqn, f"{label}{{}}", field_type.value, diagnostics, path)
+        return
+    if isinstance(field_type, ObjectType):
+        for sub_field in field_type.fields:
+            _validate_enum_members(fqn, f"{label}.{sub_field.name}", sub_field.type, diagnostics, path)
+        return
+    if isinstance(field_type, UnionType):
+        for variant in field_type.variants:
+            _validate_enum_members(fqn, f"{label}.{variant.tag}", variant.type, diagnostics, path)
+
+
 def _validate_classification_level(
     fqn: str,
     field_name: str,
@@ -271,6 +320,7 @@ def _validate_models(
                 _validate_default_value_range(f"{fqn}@{version.version}", field, diagnostics, path)
                 _validate_fixed_binary_length(f"{fqn}@{version.version}", field, diagnostics, path)
                 _validate_value_constraints(f"{fqn}@{version.version}", field, diagnostics, path)
+                _validate_enum_members(f"{fqn}@{version.version}", field.name, field.type, diagnostics, path)
 
         for index in range(1, len(versions)):
             previous = versions[index - 1]
@@ -319,6 +369,8 @@ def _validate_projections(
                 _validate_value_constraints(
                     f"{fqn}@{version.version}", field, diagnostics, path, field_type=source_type
                 )
+                if source_type is not None:
+                    _validate_enum_members(f"{fqn}@{version.version}", field.name, source_type, diagnostics, path)
 
 
 def _validate_change_kind(

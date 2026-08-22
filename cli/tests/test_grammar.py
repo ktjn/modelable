@@ -673,3 +673,19 @@ def test_ref_type_with_version_nested_in_array():
     assert field.type.item.kind == "ref"
     assert field.type.item.version.kind == "min"
     assert field.type.item.version.min_inclusive == 1
+
+
+def test_empty_enum_is_parse_error():
+    try:
+        parse_text_to_ir("""
+        domain platform {
+          owner: "platform-team"
+          entity Command @ 1 (additive) {
+            @key commandId: uuid
+            state: enum()
+          }
+        }
+        """)
+        raise AssertionError("expected ParseError")
+    except ParseError as exc:
+        assert "enum" in str(exc).lower()
