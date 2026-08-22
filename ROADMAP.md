@@ -702,13 +702,21 @@ Each constraint must define valid source types, propagation through direct
 projections, narrowing/widening rules, compatibility impact, and target
 support/loss diagnostics.
 
-#### Slice D3 — named, version-aware enums
+#### Slice D3 — versioned semantic enums
 
 **Purpose:** reusable vocabularies with domain-qualified identity, value
 evolution, wire values, Protobuf numbering/reservations, and compatibility
 across targets. **Shipped:** PRs #381 and #382 added reusable semantic enum
 identity, schema reuse, version evolution, conversion behavior, and
-compatibility checks. Depended on by D4.
+compatibility checks. That shipped source form is
+`semantic Name @ version: enum(...)`; references still resolve through the
+general semantic-type path, several emitters flatten the underlying shape, and
+member identity, subset projections, persistent Protobuf allocation, and exact
+versioned field references remain extensions. Those extensions are decomposed
+as E1-E11 in the
+[Model Evolution Slices Roadmap](docs/superpowers/plans/2026-08-22-model-evolution-slices-roadmap.md).
+They build on D3 rather than introducing a second parallel enum declaration.
+Depended on by D4.
 
 #### Slice D4 — discriminated unions
 
@@ -765,10 +773,14 @@ remain correct across versions. The normalized IR should record explicit
 migration intent and feed compatibility, generated conversions, storage
 migration/backfill facts, projection rebuild, and event replay consequences.
 The compiler must not infer a rename or inverse transformation from similar
-names. Syntax and the exact first operation set require an accepted design;
-`rename`, `move`, `default`, and explicit transform/hook semantics are the
-minimum useful starting point, while split/merge/backfill/replay may remain
-plan-level consequences rather than source syntax.
+names. The first accepted authoring scope is exact linear `evolves @ N`
+construction with `add`, `remove`, `rename`, and complete-field `replace`;
+compatibility remains derived from the expanded immutable versions. It is
+decomposed as D1-D8 in the
+[Model Evolution Slices Roadmap](docs/superpowers/plans/2026-08-22-model-evolution-slices-roadmap.md).
+Move, default, transform, split, merge, backfill, and replay semantics remain
+outside that first source-language capability until concrete consumers justify
+them.
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
