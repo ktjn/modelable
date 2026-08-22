@@ -1081,3 +1081,22 @@ domain consumer {
 
     assert result.exit_code == 1
     assert "ambiguous type 'SharedId'; candidates: alpha.SharedId, beta.SharedId" in result.output
+
+
+def test_emit_protobuf_rejects_enum_member_identifier_collision(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  entity Widget @ 1 (additive) {
+    @key widgetId: uuid
+    state: enum(FooBar, foo_bar)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+
+    with pytest.raises(ValueError, match=r"member collision.*'FooBar', 'foo_bar'.*FOO_BAR"):
+        emit_protobuf(workspace, tmp_path / "out")

@@ -23,6 +23,12 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Anonymous enum members that collapse to one generated identifier or wire
+  value are now caught before emission: Rust and Avro report an `EMIT006`
+  diagnostic naming the target, owner, and colliding canonical members;
+  Protobuf rejects the collision with a precise error. `@wire(json.case /
+  json.overrides)` mappings that map two members onto the same wire value are
+  rejected by semantic validation.
 - Anonymous `enum(...)` members are now validated centrally before any
   emitter runs: duplicate canonical members are rejected with a diagnostic
   naming the owning field and the conflicting member, recursively through

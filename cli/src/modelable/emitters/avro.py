@@ -9,7 +9,8 @@ from typing import Any
 from modelable.compiler.workspace import Workspace
 from modelable.emitters._schema_mapping import _resolve_projection_source_field
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
-from modelable.emitters.diagnostics import emit_warning, type_loss
+from modelable.emitters.diagnostics import emit_warning, enum_member_collision, type_loss
+from modelable.emitters.naming import find_identifier_collisions
 from modelable.parser.ir import (
     ArrayType,
     DecimalType,
@@ -137,6 +138,8 @@ def _type_schema(field_type: FieldType, context: _AvroContext, path: list[str]) 
         return {"type": "map", "values": _type_schema(field_type.value, context, [*path, "Value"])}
     if isinstance(field_type, EnumType):
         name = _avro_name("".join(path) + "Enum")
+        for identifier, members in find_identifier_collisions(field_type.values, _avro_name).items():
+            context.warnings.append(enum_member_collision("avro", ".".join(path), identifier, members))
         return {"type": "enum", "name": name, "symbols": [_avro_name(value) for value in field_type.values]}
     if isinstance(field_type, ObjectType):
         return _object_schema(field_type, context, path)

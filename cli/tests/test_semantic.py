@@ -1101,3 +1101,71 @@ def test_valid_nested_enums_produce_no_sem_error():
     workspace = load_workspace_from_sources([source])
 
     assert not [e.message for e in workspace.errors if "enum" in e.message]
+
+
+def test_json_case_mapping_two_members_to_one_wire_value_is_a_sem_error():
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            @wire(json.case: "snake_case")
+            state: enum(fooBar, foo_bar)
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([source])
+
+    errors = [e.message for e in workspace.errors]
+    assert any(
+        "state" in message and "same json wire value 'foo_bar'" in message and "'fooBar'" in message
+        for message in errors
+    ), errors
+
+
+def test_json_overrides_mapping_two_members_to_one_wire_value_is_a_sem_error():
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            @wire(json.overrides: { active: "on", resumed: "on" })
+            state: enum(active, resumed, blocked)
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([source])
+
+    errors = [e.message for e in workspace.errors]
+    assert any("state" in message and "same json wire value 'on'" in message for message in errors), errors
+
+
+def test_distinct_json_wire_values_produce_no_sem_error():
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            @wire(json.case: "snake_case")
+            state: enum(active, blocked)
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([source])
+
+    assert not [e.message for e in workspace.errors if "wire value" in e.message]

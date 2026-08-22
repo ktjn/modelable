@@ -7,6 +7,7 @@ from typing import Any
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import missing_metadata, type_loss
+from modelable.emitters.naming import apply_case_style
 from modelable.emitters.naming import pascalize_plain as pascalize
 from modelable.parser.ir import (
     ArrayType,
@@ -370,19 +371,7 @@ def _version_label(version_spec) -> str:
 
 def _apply_case(value: str, case: str) -> str:
     """Convert an enum value string to the specified wire case convention."""
-    words = re.sub(r"([a-z])([A-Z])", r"\1_\2", value)
-    words_list = [w for w in re.split(r"[^A-Za-z0-9]+", words) if w]
-    if not words_list:
-        return value
-    if case == "SCREAMING_SNAKE_CASE":
-        return "_".join(w.upper() for w in words_list)
-    if case == "snake_case":
-        return "_".join(w.lower() for w in words_list)
-    if case == "camelCase":
-        return words_list[0].lower() + "".join(w.capitalize() for w in words_list[1:])
-    if case == "PascalCase":
-        return "".join(w.capitalize() for w in words_list)
-    return value
+    return apply_case_style(value, case)
 
 
 def _type_to_ts(

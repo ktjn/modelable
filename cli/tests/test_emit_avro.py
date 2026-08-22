@@ -210,3 +210,23 @@ domain lonely {
 
     assert fields["mystery"]["type"] == "string"
     assert any("unresolved Avro named type NoSuchValue" in warning for warning in artifacts[0].warnings)
+
+
+def test_avro_enum_symbol_collision_emits_pre_emission_diagnostic(tmp_path) -> None:
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    state: enum(foo-bar, foo_bar)
+  }
+}
+"""
+    (tmp_path / "orders.mdl").write_text(source, encoding="utf-8")
+
+    artifacts = emit_avro(load_workspace(tmp_path), tmp_path / "out")
+
+    collisions = [warning for warning in artifacts[0].warnings if "EMIT006" in warning]
+    assert any("'foo-bar', 'foo_bar'" in w and "'foo_bar'" in w for w in collisions)
+    assert any("Order.state" in w for w in collisions)

@@ -23,3 +23,11 @@ def validation_failed(path: str, detail: str) -> str:
 
 def deferred_target(target: str) -> str:
     return emit_warning("EMIT005", f"Deferred target requested in current phase: {target}")
+
+
+def enum_member_collision(target: str, owner: str, identifier: str, members: list[str]) -> str:
+    quoted = ", ".join(f"'{member}'" for member in members)
+    return emit_warning(
+        "EMIT006",
+        f"{target} enum '{owner}' member collision: {quoted} all generate identifier '{identifier}'",
+    )
