@@ -152,6 +152,67 @@ _BASE_RESOURCE_ELEMENTS: dict[str, frozenset[str]] = {
     ),
 }
 
+# Real base FHIR R4 type for each supported base resource element whose type is
+# a single complex datatype. When a profile maps a Modelable composite (value
+# object / named type) onto one of these elements, the differential must
+# constrain the element to its real base type (e.g. `Observation.code` is a
+# `CodeableConcept`), not the generic `BackboneElement` fallback — the official
+# HL7 validator rejects snapshot generation otherwise. Elements whose real base
+# type genuinely is `BackboneElement` (e.g. `Patient.contact`,
+# `Observation.component`) are intentionally absent: the fallback is already
+# correct for them. Choice elements (`[x]`) and primitive-typed elements are
+# also absent — the former have no single specific type, the latter never
+# reach the composite fallback.
+_BASE_RESOURCE_FIELD_TYPES: dict[str, dict[str, str]] = {
+    "Patient": {
+        "identifier": "Identifier",
+        "name": "HumanName",
+        "telecom": "ContactPoint",
+        "address": "Address",
+        "maritalStatus": "CodeableConcept",
+        "photo": "Attachment",
+        "generalPractitioner": "Reference",
+        "managingOrganization": "Reference",
+    },
+    "Observation": {
+        "identifier": "Identifier",
+        "basedOn": "Reference",
+        "partOf": "Reference",
+        "category": "CodeableConcept",
+        "code": "CodeableConcept",
+        "subject": "Reference",
+        "focus": "Reference",
+        "encounter": "Reference",
+        "performer": "Reference",
+        "dataAbsentReason": "CodeableConcept",
+        "interpretation": "CodeableConcept",
+        "note": "Annotation",
+        "bodySite": "CodeableConcept",
+        "method": "CodeableConcept",
+        "specimen": "Reference",
+        "device": "Reference",
+        "hasMember": "Reference",
+        "derivedFrom": "Reference",
+    },
+    "Encounter": {
+        "class": "Coding",
+        "type": "CodeableConcept",
+        "serviceType": "CodeableConcept",
+        "priority": "CodeableConcept",
+        "subject": "Reference",
+        "episodeOfCare": "Reference",
+        "basedOn": "Reference",
+        "appointment": "Reference",
+        "period": "Period",
+        "length": "Duration",
+        "reasonCode": "CodeableConcept",
+        "reasonReference": "Reference",
+        "account": "Reference",
+        "serviceProvider": "Reference",
+        "partOf": "Reference",
+    },
+}
+
 
 def emit_fhir_profile(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit FHIR R4 StructureDefinition profiles and companion Extension SDs."""
@@ -423,7 +484,12 @@ def _field_element(
         "base": {"path": path, "min": 0, "max": max_occurs},
         "definition": f"Modelable field {field.name}.",
         "type": _fhir_type(
-            field_type, source_field=source_field, mdl=mdl, current_domain=domain.name, allow_backbone=True
+            field_type,
+            source_field=source_field,
+            mdl=mdl,
+            current_domain=domain.name,
+            allow_backbone=True,
+            base_element=(base_resource, field.name),
         ),
     }
 
@@ -459,6 +525,7 @@ def _fhir_type(
     mdl: MdlFile | None = None,
     current_domain: str | None = None,
     allow_backbone: bool = False,
+    base_element: tuple[str, str] | None = None,
 ) -> list[dict[str, object]]:
     # `allow_backbone` must stay False for every call site that ultimately
     # feeds an Extension's own `value[x]` (including nested sub-extension
@@ -486,13 +553,19 @@ def _fhir_type(
             }
         ]
     if isinstance(field_type, ArrayType):
-        return _fhir_type(field_type.item, mdl=mdl, current_domain=current_domain, allow_backbone=allow_backbone)
+        return _fhir_type(
+            field_type.item,
+            mdl=mdl,
+            current_domain=current_domain,
+            allow_backbone=allow_backbone,
+            base_element=base_element,
+        )
     if isinstance(field_type, NamedType) and mdl is not None and current_domain is not None:
         model_ref = field_type.name if "." in field_type.name else f"{current_domain}.{field_type.name}"
         try:
             resolved = resolve_model_ref(mdl, model_ref, VersionMin(min_inclusive=1))
         except LookupError:
-            return [{"code": "BackboneElement"}] if allow_backbone else [{"code": "string"}]
+            return _composite_fallback(allow_backbone, base_element)
         if isinstance(resolved.version, ModelVersion) and resolved.version.model_kind.value == "value":
             value_field = resolved.version.fields[0] if len(resolved.version.fields) == 1 else None
             if value_field is not None:
@@ -502,11 +575,27 @@ def _fhir_type(
                     mdl=mdl,
                     current_domain=resolved.domain_name,
                     allow_backbone=allow_backbone,
+                    base_element=base_element,
                 )
-        return [{"code": "BackboneElement"}] if allow_backbone else [{"code": "string"}]
+        return _composite_fallback(allow_backbone, base_element)
     if isinstance(field_type, (NamedType, ObjectType)):
-        return [{"code": "BackboneElement"}] if allow_backbone else [{"code": "string"}]
+        return _composite_fallback(allow_backbone, base_element)
     return [{"code": "string"}]
+
+
+def _composite_fallback(allow_backbone: bool, base_element: tuple[str, str] | None) -> list[dict[str, object]]:
+    specific = _specific_base_element_type(base_element)
+    if specific is not None:
+        return [{"code": specific}]
+    return [{"code": "BackboneElement"}] if allow_backbone else [{"code": "string"}]
+
+
+def _specific_base_element_type(base_element: tuple[str, str] | None) -> str | None:
+    """Return the real FHIR base type for a known base-resource element, if any."""
+    if base_element is None:
+        return None
+    resource, name = base_element
+    return _BASE_RESOURCE_FIELD_TYPES.get(resource, {}).get(name)
 
 
 def _wire_fhir_type_override(field: FieldDef) -> str | None:

@@ -23,6 +23,17 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- `compile --target avro` now resolves multi-field named-type references
+  (value or entity, same-domain or cross-domain) to their own Avro record
+  instead of degrading to a lossy `string`; unresolvable names keep their
+  explicit `EMIT002` loss warning.
+- `compile --target fhir-profile` now constrains composite direct fields onto
+  supported base resources with their real base FHIR type from a per-resource
+  element table (for example `Observation.code` → `CodeableConcept`,
+  `Patient.address` → `Address`, `Encounter.reasonCode` → `CodeableConcept`)
+  instead of the generic `BackboneElement` fallback, so such profiles pass the
+  official HL7 FHIR validator. Elements whose real base type genuinely is
+  `BackboneElement` are unchanged.
 - ROADMAP.md no longer claims 1.9.4 is the latest published release (1.9.5
   shipped on 2026-08-19), and Slice D4 no longer lists union compatibility
   classification as pending work — it shipped in PR #386.
