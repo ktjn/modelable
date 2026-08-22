@@ -228,3 +228,64 @@ domain orders {
     workspace = _workspace(source)
     messages = [d.message for d in workspace.errors]
     assert any("collides with a semantic type" in message for message in messages), messages
+
+
+def test_duplicate_enum_projection_declaration_is_rejected():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic OrderStatus @ 1 (additive): enum(draft, approved)
+
+  enum projection Public @ 1 (additive)
+    from OrderStatus @ 1
+    pick(approved)
+
+  enum projection Public @ 1 (additive)
+    from OrderStatus @ 1
+    pick(approved)
+}
+"""
+    workspace = _workspace(source)
+    messages = [d.message for d in workspace.errors]
+    assert any("orders.Public@1" in message and "more than once" in message for message in messages), messages
+
+
+def test_model_name_collision_is_rejected():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic OrderStatus @ 1 (additive): enum(draft, approved)
+
+  entity Public @ 1 (additive) {
+    @key publicId: uuid
+  }
+
+  enum projection Public @ 1 (additive)
+    from OrderStatus @ 1
+    pick(approved)
+}
+"""
+    workspace = _workspace(source)
+    messages = [d.message for d in workspace.errors]
+    assert any(
+        "enum projection 'Public' collides with a model of the same name" in message for message in messages
+    ), messages
+
+
+def test_non_positive_version_header_is_rejected():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic OrderStatus @ 1 (additive): enum(draft, approved)
+
+  enum projection Zero @ 0
+    from OrderStatus @ 1
+    pick(approved)
+}
+"""
+    workspace = _workspace(source)
+    messages = [d.message for d in workspace.errors]
+    assert any("version must be positive" in message for message in messages), messages
