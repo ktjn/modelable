@@ -377,6 +377,19 @@ def attach_external_version(
     if source_path is None:
         raise ValueError(f"Could not find source file for {ref}")
 
+    # Canonical version state comes from the normalized merged workspace, never
+    # from a per-file re-parse (evolution plan F4). The per-file parse below is
+    # only retained because this command rewrites that specific file.
+    normalized_domain = next((item for item in workspace.mdl.domains if item.name == model_ref.domain), None)
+    if normalized_domain is None:
+        raise ValueError(f"Unknown domain: {model_ref.domain}")
+    normalized_versions = normalized_domain.models.get(model_ref.name)
+    if not normalized_versions:
+        raise ValueError(f"Unknown model: {ref}")
+    current = next((item for item in normalized_versions if item.version == model_ref.version), None)
+    if current is None:
+        raise ValueError(f"Unknown model version: {ref}")
+
     mdl_text = source_path.read_text(encoding="utf-8")
     mdl = parse_text_to_ir(mdl_text)
     domain = next((item for item in mdl.domains if item.name == model_ref.domain), None)
@@ -385,9 +398,6 @@ def attach_external_version(
     versions = domain.models.get(model_ref.name)
     if not versions:
         raise ValueError(f"Unknown model: {ref}")
-    current = next((item for item in versions if item.version == model_ref.version), None)
-    if current is None:
-        raise ValueError(f"Unknown model version: {ref}")
 
     if isinstance(source, Path):
         source_text = source.read_text(encoding="utf-8")

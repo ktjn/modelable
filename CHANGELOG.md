@@ -15,6 +15,13 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- The normalization boundary is now explicit: `parser.parse_text_to_ir` /
+  `parse_file_to_ir` and `compiler.compile_text` / `compile_file` are
+  documented as parsing-level APIs returning unresolved per-source
+  declarations; canonical normalized contracts come only from
+  `compiler.workspace.load_workspace_from_sources`. `modelable attach`
+  now reads referenced model versions from the normalized workspace instead of
+  re-parsing a single file.
 - README's capabilities and playground sections reflect the currently shipped
   artifact targets (OpenAPI, Avro, event-sink) and playground features.
 - The release process now reminds maintainers to update ROADMAP.md's "latest
