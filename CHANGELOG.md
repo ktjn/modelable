@@ -14,6 +14,15 @@ releases could contain breaking changes when called out explicitly.
   content under the same logical version is reported as a changed diff entry,
   and exact enum references (including from semantic declarations) are recorded
   as dependency edges.
+- Enum evolution is classified through the owning declaration: `modelable
+  diff` reports an enum version bump as `enum_version_changed` with
+  member-level detail from the referenced declaration — additions are
+  compatible with an exhaustive-consumer note, removals break with the
+  removed member named. Switching a field to a different nominal enum is
+  `enum_reference_changed` and breaking even when member sets match.
+  Anonymous `enum(...)` changes keep their conservative `enum_changed`
+  classification. Declaration-level helpers also distinguish explicit pick
+  growth from implicit omit growth on enum projections.
 - Enum projections: derive a nominal subset from an enum-backed semantic
   declaration at an exact version via `enum projection Name @ 1 (additive)
   from Source @ 1 pick(a, b)` or `omit(...)`. Both forms normalize into the

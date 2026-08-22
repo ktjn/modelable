@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import re
 from dataclasses import dataclass, field
 
@@ -12,6 +13,7 @@ from modelable.compat.diff import (
     describe_field_change,
     is_field_change_breaking,
 )
+from modelable.compat.enums import compare_semantic_enum_versions, describe_enum_change
 from modelable.dependency_graph import build_projection_dependencies, resolve_projection_aliases
 from modelable.parser.ir import (
     ApiDecl,
@@ -21,7 +23,7 @@ from modelable.parser.ir import (
     ModelVersion,
     ProjectionVersion,
 )
-from modelable.registry.resolver import find_dependents
+from modelable.registry.resolver import find_dependents, resolve_semantic_type_ref
 
 
 @dataclass(frozen=True)
@@ -88,6 +90,7 @@ def check_model_version_compatibility(
     old_index = _find_index_decl(mdl, domain_name, model_name, from_version)
     new_index = _find_index_decl(mdl, domain_name, model_name, to_version)
     changes.extend(compare_index_decls(old_index, new_index))
+    changes = _refine_enum_version_changes(mdl, changes, from_model_domain=domain_name)
     findings = [describe_field_change(change) for change in changes]
     status = "breaking" if _has_breaking_change(changes) else "compatible"
     return CompatibilityReport(
@@ -99,6 +102,57 @@ def check_model_version_compatibility(
         findings=findings,
         changes=changes,
     )
+
+
+def _refine_enum_version_changes(
+    mdl: MdlFile,
+    changes: list[FieldChange],
+    *,
+    from_model_domain: str,
+) -> list[FieldChange]:
+    """Classify enum version bumps through the referenced declaration diff.
+
+    An ``enum_version_changed`` field change is non-breaking when the
+    referenced declaration diff only adds members (with an exhaustive-consumer
+    note), and breaking with member detail when members were removed. This is
+    possible only here, where the workspace is available for exact resolution —
+    the structural diff alone cannot see declaration content (evolution plan
+    E5, item 4).
+    """
+    refined: list[FieldChange] = []
+    for change in changes:
+        if change.kind != "enum_version_changed" or not change.from_type or not change.to_type:
+            refined.append(change)
+            continue
+
+        def _parse_ref(text: str) -> tuple[str, int] | None:
+            if " @ " not in text:
+                return None
+            name, _, version_text = text.rpartition(" @ ")
+            try:
+                return name, int(version_text)
+            except ValueError:
+                return None
+
+        old_ref = _parse_ref(change.from_type)
+        new_ref = _parse_ref(change.to_type)
+        if old_ref is None or new_ref is None or old_ref[0] != new_ref[0]:
+            refined.append(change)
+            continue
+
+        try:
+            _old_domain, old_decl = resolve_semantic_type_ref(mdl, from_model_domain, old_ref[0], old_ref[1])
+            _new_domain, new_decl = resolve_semantic_type_ref(mdl, from_model_domain, new_ref[0], new_ref[1])
+        except LookupError:
+            refined.append(change)
+            continue
+
+        enum_changes = compare_semantic_enum_versions(old_decl, new_decl)
+        notes = [describe_enum_change(item) for item in enum_changes]
+        breaking = any(item.breaking for item in enum_changes)
+        note = "; ".join(notes) if notes else "member sets are identical"
+        refined.append(dataclasses.replace(change, breaking_override=breaking, note=note))
+    return refined
 
 
 def check_projection_version_compatibility(
