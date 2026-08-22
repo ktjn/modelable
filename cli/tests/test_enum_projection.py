@@ -269,9 +269,9 @@ domain orders {
 """
     workspace = _workspace(source)
     messages = [d.message for d in workspace.errors]
-    assert any(
-        "enum projection 'Public' collides with a model of the same name" in message for message in messages
-    ), messages
+    assert any("enum projection 'Public' collides with a model of the same name" in message for message in messages), (
+        messages
+    )
 
 
 def test_non_positive_version_header_is_rejected():
