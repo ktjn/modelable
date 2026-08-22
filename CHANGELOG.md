@@ -8,6 +8,12 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Enum contracts are now first-class registry citizens: semantic types and
+  enum projections are written as immutable, content-addressed snapshot
+  objects with their own canonical signatures; changing an enum's canonical
+  content under the same logical version is reported as a changed diff entry,
+  and exact enum references (including from semantic declarations) are recorded
+  as dependency edges.
 - Enum projections: derive a nominal subset from an enum-backed semantic
   declaration at an exact version via `enum projection Name @ 1 (additive)
   from Source @ 1 pick(a, b)` or `omit(...)`. Both forms normalize into the

@@ -12,6 +12,8 @@ from typing import Any
 from modelable.compiler.workspace import Workspace
 from modelable.parser.ir import (
     ArrayType,
+    EnumProjectionDecl,
+    EnumRefType,
     FieldType,
     MapType,
     ModelVersion,
@@ -19,13 +21,18 @@ from modelable.parser.ir import (
     ObjectType,
     ProjectionVersion,
     RefType,
+    SemanticTypeDecl,
     VersionExact,
     VersionMin,
     VersionPinned,
     VersionRange,
     VersionSpec,
 )
-from modelable.registry.signature import compute_version_signature
+from modelable.registry.signature import (
+    compute_enum_projection_signature,
+    compute_semantic_signature,
+    compute_version_signature,
+)
 
 LOCK_FORMAT = "modelable.registry.lock.v1"
 OBJECT_FORMAT = "modelable.registry.object.v1"
@@ -112,6 +119,10 @@ def resolve_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".
                         source_paths.get(id(domain)),
                     )
                 )
+        for decl in sorted(domain.semantic_types, key=lambda item: (item.name, item.version)):
+            entries.append(_write_enum_object(paths, domain.name, decl.name, "semantic", decl))
+        for projection in sorted(domain.enum_projections, key=lambda item: (item.name, item.version)):
+            entries.append(_write_enum_object(paths, domain.name, projection.name, "enum_projection", projection))
 
     entries.sort(key=lambda item: (str(item["identity"]), int(item["version"]), str(item["kind"])))
     lock = {
@@ -263,6 +274,54 @@ def prune_snapshot(output_dir: str | Path = ".modelable") -> int:
     return removed
 
 
+def _write_enum_object(
+    paths: SnapshotPaths,
+    domain_name: str,
+    name: str,
+    kind: str,
+    declaration: SemanticTypeDecl | EnumProjectionDecl,
+) -> dict[str, Any]:
+    """Write a semantic-type or enum-projection snapshot object.
+
+    Enum contracts participate in the same content-addressed, immutable object
+    model as models and projections (evolution plan E4): same logical version
+    with different canonical content lands as a ``changed`` diff entry under
+    the existing immutability rule.
+    """
+    identity = f"{domain_name}.{name}@{declaration.version}"
+    if isinstance(declaration, SemanticTypeDecl):
+        signature = compute_semantic_signature(domain_name, declaration)
+        dependencies = sorted(_enum_ref_dependencies(declaration.underlying, domain_name))
+    else:
+        signature = compute_enum_projection_signature(domain_name, declaration)
+        dependencies = [f"{_qualified(name=declaration.source_name, domain=domain_name)}@{declaration.source_version}"]
+    payload: dict[str, Any] = {
+        "format": OBJECT_FORMAT,
+        "identity": identity,
+        "kind": kind,
+        "version": declaration.version,
+        "signature": signature,
+        "dependencies": dependencies,
+        "provenance": {"source": None},
+        "contract": declaration.model_dump(mode="json"),
+    }
+    content_hash = _content_hash(payload)
+    payload["content_hash"] = content_hash
+    _atomic_write_json(paths.objects / f"{content_hash}.json", payload)
+    return {
+        "identity": identity,
+        "kind": kind,
+        "version": declaration.version,
+        "signature": payload["signature"],
+        "content_hash": content_hash,
+        "dependencies": dependencies,
+    }
+
+
+def _qualified(name: str, domain: str) -> str:
+    return name if "." in name else f"{domain}.{name}"
+
+
 def _write_object(
     paths: SnapshotPaths,
     domain_name: str,
@@ -341,6 +400,10 @@ def _collect_field_dependencies(mapping: Any, dependencies: set[str]) -> None:
 def _collect_type_dependencies(field_type: FieldType, dependencies: set[str]) -> None:
     if isinstance(field_type, RefType):
         dependencies.add(_format_dependency(field_type.target, field_type.version))
+    elif isinstance(field_type, EnumRefType):
+        # Exact-versioned enum references are dependency edges to the
+        # declaring semantic type (evolution plan E4).
+        dependencies.add(f"{field_type.name}@{field_type.version}")
     elif isinstance(field_type, ArrayType):
         _collect_type_dependencies(field_type.item, dependencies)
     elif isinstance(field_type, MapType):
@@ -349,8 +412,16 @@ def _collect_type_dependencies(field_type: FieldType, dependencies: set[str]) ->
     elif isinstance(field_type, ObjectType):
         for field in field_type.fields:
             _collect_type_dependencies(field.type, dependencies)
+
+
+def _enum_ref_dependencies(field_type: FieldType, domain_name: str) -> set[str]:
+    """Enum-reference edges from a semantic declaration's underlying type."""
+    dependencies: set[str] = set()
+    if isinstance(field_type, EnumRefType):
+        dependencies.add(f"{_qualified(field_type.name, domain_name)}@{field_type.version}")
     elif isinstance(field_type, NamedType):
-        return
+        dependencies.add(_qualified(field_type.name, domain_name))
+    return dependencies
 
 
 def _format_dependency(target: str, version: VersionSpec | None) -> str:

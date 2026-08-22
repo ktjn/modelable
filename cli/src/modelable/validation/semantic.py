@@ -15,6 +15,7 @@ from modelable.parser.ir import (
     ComputedMapping,
     DecimalType,
     DomainDef,
+    EnumRefType,
     EnumType,
     FieldDef,
     FieldType,
@@ -584,7 +585,7 @@ def _validate_fixed_binary_length(
         )
 
 
-_SEMANTIC_UNDERLYING_TYPES = (PrimitiveType, DecimalType, FixedBinaryType, EnumType, NamedType)
+_SEMANTIC_UNDERLYING_TYPES = (PrimitiveType, DecimalType, FixedBinaryType, EnumType, NamedType, EnumRefType)
 _SEMANTIC_CHAIN_DEPTH_LIMIT = 32
 
 
