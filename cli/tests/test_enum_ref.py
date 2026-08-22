@@ -21,15 +21,17 @@ domain orders {
   owner: "orders-team"
 
   semantic OrderStatus @ 1 (additive): enum(active, blocked)
+  semantic OrderStatus @ 2 (additive): enum(active, blocked, voided)
 
   entity Order @ 1 (additive) {
     @key orderId: uuid
     status: OrderStatus @ 1
   }
 
-  entity Order @ 2 (additive) {
+  entity Order @ 2 (breaking) {
     @key orderId: uuid
-    status: OrderStatus @ 1
+    status: OrderStatus @ 2
+    priorState?: orders.OrderStatus @ 1
     anonymous?: enum(active, blocked)
   }
 }
@@ -119,7 +121,67 @@ domain orders {
     )
     errors = [d.message for d in workspace.errors]
     assert any(d.code == "ENUMREF" for d in workspace.errors), errors
-    assert any("targets version 99" in message and "version 1" in message for message in errors), errors
+    assert any("no version 99" in message and "known versions: [1]" in message for message in errors), errors
+
+
+def test_adding_a_later_declaration_does_not_re_resolve_existing_consumers():
+    """E2 item 6: a consumer pinned to OrderStatus @ 1 stays resolved to that
+    exact version after OrderStatus @ 2 is declared."""
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=SOURCE)]
+    )
+    errors = [d.message for d in workspace.errors if "OrderStatus" in d.message or "status" in d.message.lower()]
+    assert not [message for message in errors if "ENUMREF" in message or "no version" in message], errors
+
+    orders = next(domain for domain in workspace.mdl.domains if domain.name == "orders")
+    v1 = next(item for item in orders.models["Order"] if item.version == 1)
+    v1_status = next(field for field in v1.fields if field.name == "status").type
+    assert isinstance(v1_status, EnumRefType)
+    assert v1_status.version == 1
+
+
+def test_bare_semantic_enum_reference_warns_with_resolved_version():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic OrderStatus @ 3 (additive): enum(active, blocked)
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: OrderStatus
+  }
+}
+"""
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=source)]
+    )
+
+    enum_warnings = [d for d in workspace.warnings if d.code == "ENUMREF" and "status" in d.message]
+    assert any(
+        "resolves to orders.OrderStatus@3" in d.message and "OrderStatus @ 3" in d.message for d in enum_warnings
+    ), [d.message for d in workspace.warnings]
+    # Non-blocking: it is a warning, not an error.
+    assert not any(d.code == "ENUMREF" and d.severity == "error" for d in workspace.errors)
+
+
+def test_non_enum_bare_reference_gets_no_enumref_warning():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic CustomerId @ 1 (additive): string
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customer: CustomerId
+  }
+}
+"""
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=source)]
+    )
+    assert not [d for d in workspace.warnings if d.code == "ENUMREF"]
 
 
 def test_non_enum_target_is_an_enumref_error():
