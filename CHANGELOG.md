@@ -66,6 +66,12 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Generated Rust for a model bound with `adapter: postcard` (and projections
+  sourced from it) no longer emits `#[serde(skip_serializing_if =
+  "Option::is_none")]` on optional fields. Omittability has no encoding in
+  non-self-describing binary formats, so skipping `None` fields silently
+  corrupted the stream exactly when an option was absent; `#[serde(default)]`
+  is retained and JSON output for unbound models is unchanged.
 - Anonymous enum members that collapse to one generated identifier or wire
   value are now caught before emission: Rust and Avro report an `EMIT006`
   diagnostic naming the target, owner, and colliding canonical members;
