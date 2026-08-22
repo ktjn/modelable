@@ -99,3 +99,114 @@ domain billing {
 
     assert fields["amount"]["default"] == "0"
     assert fields["issuedAt"]["default"] == "0"
+
+
+def test_emit_avro_resolves_multi_field_named_type_references_as_records(tmp_path) -> None:
+    source = """
+domain patient {
+  owner: "patient-team"
+
+  value PatientAddress @ 1 (additive) {
+    street: string
+    city: string
+  }
+
+  value ContactDetails @ 1 (additive) {
+    email: string
+    phone?: string
+  }
+
+  entity Patient @ 1 (additive) {
+    @key patientId: uuid
+    contact: ContactDetails
+    address?: PatientAddress
+    otherDomainAddress?: clinical.OtherAddress
+  }
+
+  projection PatientEvent @ 1
+    from patient.Patient @ 1 as p
+  {
+    address <- p.address
+  }
+
+  semantic EmailCode @ 1 (additive): string
+
+  entity ClinicalRef @ 1 (additive) {
+    @key refId: uuid
+    code: EmailCode
+  }
+}
+
+domain clinical {
+  owner: "clinical-team"
+
+  value OtherAddress @ 1 (additive) {
+    line1: string
+  }
+
+  entity OtherThing @ 1 (additive) {
+    @key thingId: uuid
+    note: string
+  }
+}
+"""
+    (tmp_path / "patient.mdl").write_text(source, encoding="utf-8")
+
+    artifacts = emit_avro(load_workspace(tmp_path), tmp_path / "out")
+    by_ref = {artifact.ref: artifact for artifact in artifacts}
+
+    model = by_ref["patient.Patient@1"].content
+    fields = {field["name"]: field for field in model["fields"]}
+
+    # Same-domain multi-field value type resolves to its own Avro record.
+    assert fields["contact"]["type"] == {
+        "type": "record",
+        "name": "Patientcontact",
+        "fields": [
+            {"name": "email", "type": "string"},
+            {"name": "phone", "type": ["null", "string"]},
+        ],
+    }
+
+    # Optional named-type references wrap the resolved record, not a lossy string.
+    assert fields["address"]["type"][0] == "null"
+    assert fields["address"]["type"][1]["type"] == "record"
+    assert fields["address"]["type"][1]["name"] == "Patientaddress"
+    assert [item["name"] for item in fields["address"]["type"][1]["fields"]] == ["street", "city"]
+
+    # Cross-domain qualified named types resolve as well.
+    assert fields["otherDomainAddress"]["type"][1] == {
+        "type": "record",
+        "name": "PatientotherDomainAddress",
+        "fields": [{"name": "line1", "type": "string"}],
+    }
+
+    # Semantic-typed fields keep their existing underlying-type resolution.
+    event = by_ref["patient.PatientEvent@1"].content
+
+    assert [field["name"] for field in event["fields"]] == ["address"]
+    assert event["fields"][0]["type"][1]["type"] == "record"
+
+    # A semantic NamedType still resolves through the semantic path.
+    ref_fields = {field["name"]: field for field in by_ref["patient.ClinicalRef@1"].content["fields"]}
+    assert ref_fields["code"]["type"] == "string"
+
+
+def test_emit_avro_warns_when_named_type_cannot_resolve(tmp_path) -> None:
+    source = """
+domain lonely {
+  owner: "lonely-team"
+
+  entity Thing @ 1 (additive) {
+    @key thingId: uuid
+    mystery: NoSuchValue
+  }
+}
+"""
+    (tmp_path / "lonely.mdl").write_text(source, encoding="utf-8")
+
+    artifacts = emit_avro(load_workspace(tmp_path), tmp_path / "out")
+    fields = {field["name"]: field for field in artifacts[0].content["fields"]}
+
+    assert fields["mystery"]["type"] == "string"
+    assert any("unresolved Avro named type NoSuchValue" in warning for warning in artifacts[0].warnings)

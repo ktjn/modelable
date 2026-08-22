@@ -510,3 +510,76 @@ domain clinical {
     # diagnosis is not a standard Patient field -> extension slice
     assert "Patient.extension:diagnosis" in elements
     assert elements["Patient.extension:diagnosis.value[x]"]["type"] == [{"code": "CodeableConcept"}]
+
+
+def test_emit_fhir_profile_composite_direct_fields_use_their_real_base_type(tmp_path):
+    (tmp_path / "clinical.mdl").write_text(
+        """
+domain clinical {
+  value Address @ 1 (additive) {
+    street: string
+    city: string
+  }
+
+  entity Observation @ 1 (additive) {
+    @key observationId: uuid
+    code: Address
+  }
+
+  projection ObservationFhirView @ 1
+    from clinical.Observation @ 1 as o
+  {
+    code <- o.code
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_fhir_profile(workspace, tmp_path / "out")
+
+    profile = next(a for a in artifacts if a.target == "fhir-profile")
+    doc = json.loads(profile.content)
+    assert doc["type"] == "Observation"
+    elements = {el["id"]: el for el in doc["snapshot"]["element"]}
+
+    # Observation.code's real base FHIR type is CodeableConcept, so a composite
+    # Modelable field mapped onto it must constrain to that type, not the
+    # generic BackboneElement fallback.
+    assert elements["Observation.code"]["type"] == [{"code": "CodeableConcept"}]
+
+
+def test_emit_fhir_profile_genuine_backbone_elements_keep_the_fallback(tmp_path):
+    (tmp_path / "clinical.mdl").write_text(
+        """
+domain clinical {
+  value ContactDetails @ 1 (additive) {
+    email: string
+    phone: string
+  }
+
+  entity Patient @ 1 (additive) {
+    @key patientId: uuid
+    contact: ContactDetails
+  }
+
+  projection PatientFhirView @ 1
+    from clinical.Patient @ 1 as p
+  {
+    contact <- p.contact
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_fhir_profile(workspace, tmp_path / "out")
+
+    profile = next(a for a in artifacts if a.target == "fhir-profile")
+    doc = json.loads(profile.content)
+    assert doc["type"] == "Patient"
+    elements = {el["id"]: el for el in doc["snapshot"]["element"]}
+
+    # Patient.contact's real base type genuinely is BackboneElement, so the
+    # fallback stays correct there.
+    assert elements["Patient.contact"]["type"] == [{"code": "BackboneElement"}]

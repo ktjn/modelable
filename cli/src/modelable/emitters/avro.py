@@ -25,8 +25,9 @@ from modelable.parser.ir import (
     ProjectionVersion,
     RefType,
     UnionType,
+    VersionMin,
 )
-from modelable.registry.resolver import resolve_ref_type, resolve_semantic_type_ref
+from modelable.registry.resolver import resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
 
 
 @dataclass
@@ -157,15 +158,45 @@ def _type_schema(field_type: FieldType, context: _AvroContext, path: list[str]) 
         try:
             semantic = resolve_semantic_type_ref(context.workspace, context.namespace, field_type.name)[1]
         except LookupError, TypeError:
+            semantic = None
+        if semantic is not None:
+            return _type_schema(semantic.underlying, context, [*path, field_type.name])
+        model_ref = field_type.name if "." in field_type.name else f"{context.namespace}.{field_type.name}"
+        try:
+            resolved = resolve_model_ref(context.workspace, model_ref, VersionMin(min_inclusive=1))
+        except LookupError:
             context.warnings.append(type_loss(f"unresolved Avro named type {field_type.name}"))
             return "string"
-        return _type_schema(semantic.underlying, context, [*path, field_type.name])
+        if isinstance(resolved.version, ModelVersion):
+            return _named_record_schema(resolved.version, context, path)
+        context.warnings.append(type_loss(f"Avro named type target is not a model {field_type.name}"))
+        return "string"
     if isinstance(field_type, UnionType):
         context.warnings.append(
             emit_warning("EMIT002", f"Avro discriminator '{field_type.discriminator}' is not represented in a union")
         )
         return [_type_schema(variant.type, context, [*path, variant.tag]) for variant in field_type.variants]
     return "string"
+
+
+def _named_record_schema(version: ModelVersion, context: _AvroContext, path: list[str]) -> Any:
+    """Render a resolved named type (value or entity) as its own Avro record."""
+    name = _avro_name("".join(path))
+    if name in context.named:
+        return name
+    context.named.add(name)
+    return {
+        "type": "record",
+        "name": name,
+        "fields": [
+            {
+                "name": _avro_name(item.name),
+                "type": _field_schema(item, item.type, context, [*path, item.name]),
+                **({"default": _parse_default(item.default, item.type)} if item.default is not None else {}),
+            }
+            for item in version.fields
+        ],
+    }
 
 
 def _object_schema(field_type: ObjectType, context: _AvroContext, path: list[str]) -> dict[str, Any] | str:
