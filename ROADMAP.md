@@ -86,12 +86,12 @@ docs prose for anything not covered here.
 
 ## Delivery lanes
 
-Five lanes run in parallel rather than one strict priority queue:
+The active lanes run in parallel rather than one strict priority queue:
 
 | Lane | Covers | Priorities below |
 |---|---|---|
-| P1 | Playground | Priority 1 |
-| P2 | Scalable/Rust integration | Priority 2 |
+| P1 | Playground (paused) | Priority 1 |
+| P2 | Scalable/Rust integration (paused) | Priority 2 |
 | C | Compiler correctness, compatibility, capability/doc consistency | Priority 3 |
 | R | Offline registry, usage/consequence analysis, developer impact DX | Priority 4 |
 | L | Language evolution, extensibility, gated target work | Priority 6 |
@@ -101,7 +101,7 @@ usage/consequence analysis, generated transformation DX, and the remaining
 authoring/adoption work. Priority 5 owns external format and platform
 integration. Priority 7 (repository health) is engineering-quality work found
 by direct code/CI inspection rather than product feature requests, and runs
-beside all five lanes without displacing them.
+beside the active lanes without displacing them.
 
 Interleaving rules:
 
@@ -110,21 +110,21 @@ Interleaving rules:
    affected construct.
 3. Incomplete diagnostics that do not change compiler output may proceed
    beside active roadmap work.
-4. New broad language features do not preempt Priorities 1 and 2 without a
+4. New broad language features do not preempt active priorities without a
    concrete consumer and accepted design.
 5. Every slice is rechecked against `main` immediately before design
    acceptance.
 6. A new importer or emitter does not become stable until representative
    real-world fixture data is covered by deterministic regression tests.
 
-## Priority 1 — advance the Playground
+## Priority 1 — Playground (paused)
 
-The Playground is now the immediate product priority. The shipped browser
-compiler and single-file editor prove the delivery path; the next work must
-replace the temporary single-file state model before language services,
-visualization, analysis, or local AI build on it.
+The Playground roadmap is paused. The shipped browser compiler, durable
+workspace, language services, visualization, analysis, local AI, offline
+hardening, documentation RAG, Ollama provider, and artifact-viewer plugin
+contract are considered sufficient for the current product direction.
 
-Work proceeds in phase order, with one active phase at a time:
+The completed phases are retained as product history:
 
 1. **Shipped: browser compiler spike.**
    The static proof loads the pinned browser wheel in same-origin Pyodide and
@@ -196,23 +196,18 @@ Work proceeds in phase order, with one active phase at a time:
    to keep the CSP `connect-src` allowlist static and narrow); requires
    `OLLAMA_ORIGINS` configured on the Ollama server to accept requests from
    the Playground's origin.
-11. **Active next phase: extensibility.**
-   The first slice adds host-registered artifact-viewer plugin contracts with
-   deterministic validation and a safe built-in fallback. Additional
-   visualization modes and optional GitHub integration still require separate
-   contracts with explicit user authorization.
+11. **Deferred: further extensibility.**
+   Additional visualization modes and optional GitHub integration remain
+   deferred until the Playground roadmap is reopened and each boundary has an
+   accepted design, explicit authorization model, and tests.
 
-The artifact-viewer contract is the first implementation slice of item 11.
-The remaining extensibility work is not complete until visualization and
-GitHub boundaries have their own accepted designs and tests.
+## Priority 2 — Scalable and Rust contract path (paused)
 
-## Priority 2 — complete the Scalable and Rust contract path
+This product track is postponed. The shipped Rust, Protobuf, gRPC, descriptor,
+and compatibility work remains documented below, but Scalable registration is
+not currently an active roadmap commitment.
 
-The next non-Playground product track makes Modelable-generated identities and
-transport contracts directly consumable by Scalable without parallel
-handwritten metadata.
-
-Work should proceed in dependency order:
+The completed dependency phases are retained as product history:
 
 1. **Shipped: emit stable Rust identity constants.**
    Registry-backed semantic newtypes now expose their allocated registry ID,
@@ -239,29 +234,17 @@ Work should proceed in dependency order:
    `validate-compat --target protobuf|grpc` validates generated manifests for
    field-number reuse, deleted-field reservations, target type changes,
    requiredness changes, inline enum value reuse, and gRPC read-index changes.
-   Remaining follow-ups are descriptor-binary semantic diffing, explicit field-number
-   pinning, enum reservations, explicit rebuild/migration declarations, and
-   Scalable registration fixtures.
-5. **Prove Scalable registration end to end.**
-   Add consumer fixtures that register generated schema identity, command/read
-   services, and index metadata without duplicating Modelable-owned constants.
-   The first Modelable-side fixture now validates this generated contract bundle
-   and checks protobuf/gRPC compatibility outcomes; a Scalable runtime registry
-   fixture remains the next integration slice.
-
-The next dependency-ordered Scalable slice remains item 5: proving Scalable
-registration end to end.
-
-Completion means a Scalable consumer can compile generated Rust and Protobuf
-artifacts, register them using generated identity metadata, and detect an
-incompatible transport change in CI.
+   Remaining follow-ups are descriptor-binary semantic diffing, explicit
+   field-number pinning, enum reservations, and explicit rebuild/migration
+   declarations. Scalable registration fixtures are postponed with this
+   priority.
 
 ## Priority 3 — compiler correctness, compatibility, and capability integrity
 
-Lane C. This priority does not wait behind Priorities 1 and 2 — per
+Lane C. This priority does not wait behind the paused Playground and Scalable
+tracks — per
 interleaving rule 1, a confirmed false compatibility result is a release
-blocker, so this lane runs in parallel with active Playground and Scalable
-work.
+blocker, so this lane remains active.
 
 Almost the entire correctness and capability programme below has shipped.
 What's genuinely still open is the non-composite-key half of
@@ -501,15 +484,21 @@ still requires its own issue and accepted design before becoming committed:
    Registry synchronization, publishing, and external-service operations remain
    separate follow-ups with their own authorization, credential, preview,
    confirmation, and audit policies.
-4. **Next — durable offline registry snapshot.** Separate source registries,
-   durable dependency state, and the rebuildable `registry.db` index. Resolve
-   external requirements explicitly into a deterministic `.modelable/registry.lock`
-   plus content-addressed normalized contract objects. Normal `validate`,
+4. **Active plan — complete the durable offline registry snapshot.** The
+   initial local snapshot, verification, status, pruning, and atomic update
+   foundation is shipped. The remaining work is to separate source adapters,
+   resolve direct and transitive external dependencies, and make exact
+   provenance and offline compiler isolation enforceable. See the
+   [Offline Registry and Consequence-Driven DX Delivery Plan](docs/superpowers/plans/2026-08-21-offline-registry-dx-delivery.md).
+   The target state separates source registries, durable dependency state, and
+   the rebuildable `registry.db` index. External requirements resolve
+   explicitly into a deterministic `.modelable/registry.lock` plus
+   content-addressed normalized contract objects. Normal `validate`,
    `compile`, `diff`, `impact`, lineage, and editor operations must use only
    local source plus the exact snapshot and must never refresh dependencies
    implicitly. Same logical version with different canonical content is an
    error, not an update.
-5. **Next — derived application usage and consequence graph.** Give each
+5. **Following slice — derived application usage and consequence graph.** Give each
    workspace/package a stable application identity, derive actual contract use
    from external references/API/event/persistence surfaces, and export a compact
    usage manifest. Build one public consequence model over existing source,
@@ -518,7 +507,7 @@ still requires its own issue and accepted design before becoming committed:
    causal paths and can report actions such as `regenerate`, `recompile`,
    `consumer_update`, `storage_migration`, `data_backfill`,
    `projection_rebuild`, `event_replay`, `governance_review`, and `breaking`.
-6. **Next — staged, consequence-aware registry updates.** `registry update`
+6. **Following slice — staged, consequence-aware registry updates.** `registry update`
    must resolve candidates, stage an exact candidate snapshot, compare semantic
    graphs, calculate consequences, apply configured policy, show exact
    dependency/generated-artifact changes, and replace durable dependency state
