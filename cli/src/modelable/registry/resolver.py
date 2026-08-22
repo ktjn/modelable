@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from modelable.parser.ir import (
+    DomainDef,
     MdlFile,
     ModelVersion,
     ProjectionVersion,
@@ -141,38 +142,79 @@ def resolve_semantic_type_ref(
     mdl: MdlFile,
     current_domain: str,
     name: str,
+    exact_version: int | None = None,
 ) -> tuple[str, SemanticTypeDecl]:
     """Resolve a semantic-type reference to (declaring_domain_name, SemanticTypeDecl).
 
     ``name`` may be a bare name (resolved in ``current_domain`` first, falling back to
     a workspace-wide search only when exactly one declaration matches) or a
     domain-qualified reference (``"orders.Id"``).
+
+    When ``exact_version`` is given, only a declaration of that name at exactly
+    that version matches — a later version never re-resolves an earlier
+    published consumer (evolution plan E2). Without it, the latest declared
+    version wins, matching historical behavior.
     """
     if "." in name:
         domain_name, type_name = name.split(".", 1)
         domain = next((item for item in mdl.domains if item.name == domain_name), None)
         if domain is None:
             raise LookupError(f"unknown domain '{domain_name}' in semantic type reference '{name}'")
-        decl = next((item for item in latest_semantic_types(domain) if item.name == type_name), None)
+        decl = _find_semantic_decl(domain, type_name, exact_version)
         if decl is None:
-            raise LookupError(f"unknown semantic type '{name}'")
+            raise _unknown_semantic_type_error(name, domain, type_name, exact_version)
         return domain_name, decl
 
     current = next((item for item in mdl.domains if item.name == current_domain), None)
     if current is not None:
-        local = next((item for item in latest_semantic_types(current) if item.name == name), None)
+        local = _find_semantic_decl(current, name, exact_version)
         if local is not None:
             return current_domain, local
 
-    matches = [
-        (domain.name, decl) for domain in mdl.domains for decl in latest_semantic_types(domain) if decl.name == name
-    ]
+    # Workspace-wide fallback mirrors bare-name semantics: only a unique
+    # workspace match is accepted, more than one is ambiguous.
+    matches: list[tuple[str, SemanticTypeDecl]] = []
+    for domain in mdl.domains:
+        decl = _find_semantic_decl(domain, name, exact_version)
+        if decl is not None:
+            matches.append((domain.name, decl))
     if not matches:
+        known_domains = [domain for domain in mdl.domains if any(item.name == name for item in domain.semantic_types)]
+        if known_domains and exact_version is not None:
+            known = sorted(
+                {item.version for domain in known_domains for item in domain.semantic_types if item.name == name}
+            )
+            raise LookupError(f"semantic type '{name}' has no version {exact_version} (known versions: {known})")
         raise LookupError(f"unknown semantic type '{name}'")
     if len(matches) > 1:
         candidates = ", ".join(f"{domain_name}.{decl.name}" for domain_name, decl in matches)
         raise AmbiguousSemanticTypeError(f"ambiguous semantic type '{name}'; candidates: {candidates}")
     return matches[0]
+
+
+def _find_semantic_decl(
+    domain: DomainDef,
+    name: str,
+    exact_version: int | None,
+) -> SemanticTypeDecl | None:
+    if exact_version is None:
+        return next((item for item in latest_semantic_types(domain) if item.name == name), None)
+    return next(
+        (item for item in domain.semantic_types if item.name == name and item.version == exact_version),
+        None,
+    )
+
+
+def _unknown_semantic_type_error(
+    name: str,
+    domain: DomainDef,
+    type_name: str,
+    exact_version: int | None,
+) -> LookupError:
+    if exact_version is None:
+        return LookupError(f"unknown semantic type '{name}'")
+    known = sorted({item.version for item in domain.semantic_types if item.name == type_name})
+    return LookupError(f"semantic type '{name}' has no version {exact_version} (known versions: {known})")
 
 
 def validate_references(mdl: MdlFile) -> list[str]:

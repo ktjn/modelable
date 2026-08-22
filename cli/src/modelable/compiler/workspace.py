@@ -132,7 +132,9 @@ def load_workspace_from_sources(
 
     errors.extend(_validate_package_config(merged))
     errors.extend(_validate_merged_workspace(workspace_sources, merged))
-    errors.extend(_validate_named_field_types(merged))
+    named_errors, named_warnings = _validate_named_field_types(merged)
+    errors.extend(named_errors)
+    warnings.extend(named_warnings)
     ref_errors, ref_warnings = _validate_ref_types_in_merged_workspace(workspace_sources, merged)
     errors.extend(ref_errors)
     warnings.extend(ref_warnings)
@@ -429,26 +431,51 @@ def _validate_ref_types_in_merged_workspace(
     return errors, warnings
 
 
-def _validate_named_field_types(merged: MdlFile) -> list[Diagnostic]:
-    """Reject bare semantic field types that cannot be resolved unambiguously."""
+def _validate_named_field_types(merged: MdlFile) -> tuple[list[Diagnostic], list[Diagnostic]]:
+    """Reject bare semantic field types that cannot be resolved unambiguously.
+
+    Exact versioned enum references (``EnumRefType``) resolve to exactly the
+    requested declaration version — a later version never re-resolves an
+    earlier published consumer. Bare references that resolve to an enum-backed
+    semantic type are accepted as an authoring form but produce a non-blocking
+    ``ENUMREF`` warning naming the resolved version, mirroring the unversioned
+    ``ref<>`` policy (evolution plan E2).
+    """
     model_names = {model_name for domain in merged.domains for model_name in domain.models}
     opaque_names = {"bytes"}
     errors: list[Diagnostic] = []
+    warnings: list[Diagnostic] = []
 
     def visit(field_type: FieldType, domain_name: str, context: str) -> None:
         if isinstance(field_type, NamedType):
             if field_type.name in model_names or field_type.name in opaque_names:
                 return
             try:
-                resolve_semantic_type_ref(merged, domain_name, field_type.name)
+                _declaring_domain, decl = resolve_semantic_type_ref(merged, domain_name, field_type.name)
             except LookupError as exc:
                 message = str(exc).replace("ambiguous semantic type", "ambiguous type", 1)
                 errors.append(
                     Diagnostic(code="SEM", message=f"{context}: {message}", severity="error", path="<workspace>")
                 )
+                return
+            if isinstance(decl.underlying, EnumType):
+                warnings.append(
+                    Diagnostic(
+                        code="ENUMREF",
+                        message=(
+                            f"{context}: semantic enum reference '{field_type.name}' resolves to "
+                            f"{_declaring_domain}.{field_type.name}@{decl.version}; declare an exact "
+                            f"version ('{field_type.name} @ {decl.version}') before publishing"
+                        ),
+                        severity="warning",
+                        path="<workspace>",
+                    )
+                )
         elif isinstance(field_type, EnumRefType):
             try:
-                _declaring_domain, decl = resolve_semantic_type_ref(merged, domain_name, field_type.name)
+                _declaring_domain, decl = resolve_semantic_type_ref(
+                    merged, domain_name, field_type.name, exact_version=field_type.version
+                )
             except LookupError as exc:
                 message = str(exc).replace("ambiguous semantic type", "ambiguous enum type", 1)
                 errors.append(
@@ -462,18 +489,6 @@ def _validate_named_field_types(merged: MdlFile) -> list[Diagnostic]:
                         message=(
                             f"{context}: exact enum reference '{field_type.name} @ {field_type.version}' "
                             "must target an enum-backed semantic type"
-                        ),
-                        severity="error",
-                        path="<workspace>",
-                    )
-                )
-            elif decl.version != field_type.version:
-                errors.append(
-                    Diagnostic(
-                        code="ENUMREF",
-                        message=(
-                            f"{context}: exact enum reference '{field_type.name}' targets version "
-                            f"{field_type.version}, but the resolved declaration is version {decl.version}"
                         ),
                         severity="error",
                         path="<workspace>",
@@ -499,7 +514,7 @@ def _validate_named_field_types(merged: MdlFile) -> list[Diagnostic]:
                         domain.name,
                         f"{domain.name}.{model_name}@{version.version}.{model_field.name}",
                     )
-    return errors
+    return errors, warnings
 
 
 def _merge_bindings(existing: list[BindingDef], incoming: list[BindingDef]) -> None:

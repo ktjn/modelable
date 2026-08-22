@@ -16,6 +16,11 @@ releases could contain breaking changes when called out explicitly.
   diagnostics; enum-backed semantic declarations reject duplicate and empty
   member sets. Anonymous `enum(...)` and unversioned semantic types remain
   source-compatible.
+- Exact versioned semantic-enum references resolve exactly: a later declared
+  version never re-resolves an earlier published consumer, and requesting a
+  missing version is rejected with the known versions listed. Bare semantic
+  enum references remain valid authoring syntax but now produce a
+  non-blocking `ENUMREF` warning naming the resolved version.
 - `modelable diff` documentation now lists the discriminated-union change
   kinds (`union_discriminator_changed`, `union_variant_added`,
   `union_variant_removed`, `union_variant_changed`), and the language
