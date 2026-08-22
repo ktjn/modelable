@@ -84,41 +84,8 @@ impl From<CustomerCustomerV1Status> for CustomerCustomerDbV1Status {
     fn from(src: CustomerCustomerV1Status) -> Self {
         match src {
             CustomerCustomerV1Status::Active => CustomerCustomerDbV1Status::Active,
-            CustomerCustomerV1Status::Deleted => CustomerCustomerDbV1Status::Deleted,
             CustomerCustomerV1Status::Suspended => CustomerCustomerDbV1Status::Suspended,
-        }
-    }
-}
-
-use super::customer_customer_request_v1::CustomerCustomerRequestV1Status;
-impl From<CustomerCustomerRequestV1Status> for CustomerCustomerDbV1Status {
-    fn from(src: CustomerCustomerRequestV1Status) -> Self {
-        match src {
-            CustomerCustomerRequestV1Status::Active => CustomerCustomerDbV1Status::Active,
-            CustomerCustomerRequestV1Status::Deleted => CustomerCustomerDbV1Status::Deleted,
-            CustomerCustomerRequestV1Status::Suspended => CustomerCustomerDbV1Status::Suspended,
-        }
-    }
-}
-
-use super::customer_customer_reply_v1::CustomerCustomerReplyV1Status;
-impl From<CustomerCustomerReplyV1Status> for CustomerCustomerDbV1Status {
-    fn from(src: CustomerCustomerReplyV1Status) -> Self {
-        match src {
-            CustomerCustomerReplyV1Status::Active => CustomerCustomerDbV1Status::Active,
-            CustomerCustomerReplyV1Status::Deleted => CustomerCustomerDbV1Status::Deleted,
-            CustomerCustomerReplyV1Status::Suspended => CustomerCustomerDbV1Status::Suspended,
-        }
-    }
-}
-
-use super::customer_customer_event_v1::CustomerCustomerEventV1Status;
-impl From<CustomerCustomerEventV1Status> for CustomerCustomerDbV1Status {
-    fn from(src: CustomerCustomerEventV1Status) -> Self {
-        match src {
-            CustomerCustomerEventV1Status::Active => CustomerCustomerDbV1Status::Active,
-            CustomerCustomerEventV1Status::Deleted => CustomerCustomerDbV1Status::Deleted,
-            CustomerCustomerEventV1Status::Suspended => CustomerCustomerDbV1Status::Suspended,
+            CustomerCustomerV1Status::Deleted => CustomerCustomerDbV1Status::Deleted,
         }
     }
 }

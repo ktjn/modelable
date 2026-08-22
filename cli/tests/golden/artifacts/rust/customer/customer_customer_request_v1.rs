@@ -70,41 +70,8 @@ impl From<CustomerCustomerV1Status> for CustomerCustomerRequestV1Status {
     fn from(src: CustomerCustomerV1Status) -> Self {
         match src {
             CustomerCustomerV1Status::Active => CustomerCustomerRequestV1Status::Active,
-            CustomerCustomerV1Status::Deleted => CustomerCustomerRequestV1Status::Deleted,
             CustomerCustomerV1Status::Suspended => CustomerCustomerRequestV1Status::Suspended,
-        }
-    }
-}
-
-use super::customer_customer_db_v1::CustomerCustomerDbV1Status;
-impl From<CustomerCustomerDbV1Status> for CustomerCustomerRequestV1Status {
-    fn from(src: CustomerCustomerDbV1Status) -> Self {
-        match src {
-            CustomerCustomerDbV1Status::Active => CustomerCustomerRequestV1Status::Active,
-            CustomerCustomerDbV1Status::Deleted => CustomerCustomerRequestV1Status::Deleted,
-            CustomerCustomerDbV1Status::Suspended => CustomerCustomerRequestV1Status::Suspended,
-        }
-    }
-}
-
-use super::customer_customer_reply_v1::CustomerCustomerReplyV1Status;
-impl From<CustomerCustomerReplyV1Status> for CustomerCustomerRequestV1Status {
-    fn from(src: CustomerCustomerReplyV1Status) -> Self {
-        match src {
-            CustomerCustomerReplyV1Status::Active => CustomerCustomerRequestV1Status::Active,
-            CustomerCustomerReplyV1Status::Deleted => CustomerCustomerRequestV1Status::Deleted,
-            CustomerCustomerReplyV1Status::Suspended => CustomerCustomerRequestV1Status::Suspended,
-        }
-    }
-}
-
-use super::customer_customer_event_v1::CustomerCustomerEventV1Status;
-impl From<CustomerCustomerEventV1Status> for CustomerCustomerRequestV1Status {
-    fn from(src: CustomerCustomerEventV1Status) -> Self {
-        match src {
-            CustomerCustomerEventV1Status::Active => CustomerCustomerRequestV1Status::Active,
-            CustomerCustomerEventV1Status::Deleted => CustomerCustomerRequestV1Status::Deleted,
-            CustomerCustomerEventV1Status::Suspended => CustomerCustomerRequestV1Status::Suspended,
+            CustomerCustomerV1Status::Deleted => CustomerCustomerRequestV1Status::Deleted,
         }
     }
 }

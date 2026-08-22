@@ -23,6 +23,12 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- `compile --target rust` no longer generates implicit `From` conversions
+  between unrelated enums that merely share the same member set. Enum
+  conversions are now generated only from explicit projection lineage (a
+  direct mapping from a source model's field), so equal-shaped domain concepts
+  can no longer be converted interchangeably. Cross-domain flat-mode lineage
+  conversions also now emit valid `super::{domain}::` import paths.
 - `compile --target avro` now resolves multi-field named-type references
   (value or entity, same-domain or cross-domain) to their own Avro record
   instead of degrading to a lossy `string`; unresolvable names keep their

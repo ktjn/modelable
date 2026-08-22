@@ -2209,3 +2209,81 @@ workspace "ws" {
 
     wrapped_art = next(a for a in artifacts if a.ref == "dom_a.Wrapped")
     assert "use pkg_b::dom_b::base::Base;" in wrapped_art.content
+
+
+def test_no_conversion_between_unrelated_enums_with_identical_members(tmp_path):
+    """Nominal-enum plan Slice 0: two enums with identical member sets must
+    never become implicitly convertible. Only explicit projection lineage may
+    generate a From impl between two concrete enum types."""
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    state: enum(active, blocked)
+  }
+  entity Guard @ 1 (additive) {
+    @key guardId: uuid
+    mode: enum(active, blocked)
+  }
+  projection OrderSummary @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    by_ref = {item.ref: item for item in artifacts}
+    summary = by_ref["orders.OrderSummary@1"].content
+
+    # No shape-based conversion between OrderV1State and GuardV1Mode (or any
+    # unrelated pair) may appear anywhere in the emitted set.
+    for artifact in artifacts:
+        assert "impl From<OrderV1State>" not in artifact.content or "for GuardV1Mode" not in artifact.content
+        assert "impl From<GuardV1Mode>" not in artifact.content or "for OrderV1State" not in artifact.content
+
+    # The projection does not map the enum field at all, so no status enum
+    # conversion is expected either.
+    assert "impl From<" not in "".join(line for line in summary.splitlines() if "State" in line or "Mode" in line)
+
+
+def test_direct_lineage_projection_still_gets_enum_conversion(tmp_path):
+    """Nominal-enum plan Slice 0: a direct mapping from `source.status` to a
+    projection field still generates exactly the required safe conversion."""
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    state: enum(active, blocked)
+  }
+  entity Guard @ 1 (additive) {
+    @key guardId: uuid
+    mode: enum(active, blocked)
+  }
+  projection OrderView @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+    state <- o.state
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    view = next(item for item in artifacts if item.ref == "orders.OrderView@1").content
+    # The lineage-required conversion exists.
+    assert "impl From<OrdersOrderV1State> for OrdersOrderViewV1State {" in view
+    assert "use super::orders_order_v1::OrdersOrderV1State;" in view
+
+    # The equal-shaped-but-unrelated Guard enum is still not connected.
+    assert "GuardV1Mode" not in view
