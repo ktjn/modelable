@@ -7,6 +7,7 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
+from modelable.emitters.naming import find_identifier_collisions
 from modelable.parser.ir import (
     AnnKey,
     ArrayType,
@@ -651,6 +652,16 @@ def _render_proto(
     for enum in enums:
         lines.extend(["", f"enum {enum.name} {{"])
         prefix = _enum_prefix(enum.name)
+
+        def _proto_identifier(value: str, _prefix: str = prefix) -> str:
+            return f"{_prefix}_{_enum_value(value)}"
+
+        for identifier, members in find_identifier_collisions(list(enum.values), _proto_identifier).items():
+            raise ValueError(
+                f"{package}.{message_name}: protobuf enum '{enum.name}' member collision: "
+                + ", ".join(f"'{member}'" for member in members)
+                + f" all generate identifier '{identifier}'"
+            )
         lines.append(f"  {prefix}_UNSPECIFIED = 0;")
         for index, value in enumerate(enum.values, start=1):
             lines.append(f"  {prefix}_{_enum_value(value)} = {index};")

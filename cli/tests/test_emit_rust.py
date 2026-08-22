@@ -2287,3 +2287,49 @@ def test_direct_lineage_projection_still_gets_enum_conversion(tmp_path):
 
     # The equal-shaped-but-unrelated Guard enum is still not connected.
     assert "GuardV1Mode" not in view
+
+
+def test_rust_enum_member_collision_emits_pre_emission_diagnostic(tmp_path):
+    """Evolution plan F3: distinct canonical members that normalize to one Rust
+    identifier produce an EMIT006 diagnostic instead of silently rendering a
+    broken enum."""
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    state: enum(foo-bar, foo_bar)
+    priority?: enum(fooBar, FooBar)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    model = next(item for item in artifacts if item.ref == "orders.Order@1")
+    collisions = [w for w in model.warnings if "EMIT006" in w]
+    assert any("'foo-bar', 'foo_bar'" in w and "'FooBar'" in w and "OrderV1.state" in w for w in collisions)
+    assert any("'fooBar', 'FooBar'" in w and "'FooBar'" in w and "OrderV1.priority" in w for w in collisions)
+
+
+def test_rust_enum_without_collisions_has_no_diagnostics(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    state: enum(active, blocked, foo_bar)
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    model = next(item for item in artifacts if item.ref == "orders.Order@1")
+    assert not [w for w in model.warnings if "EMIT006" in w]

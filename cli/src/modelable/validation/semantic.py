@@ -6,6 +6,7 @@ from pathlib import Path
 
 from modelable.compat.diff import compare_model_versions, is_field_change_breaking, is_optionality_breaking
 from modelable.diagnostics.model import Diagnostic
+from modelable.emitters.naming import apply_case_style, find_identifier_collisions
 from modelable.parser.ir import (
     AnnWire,
     ArrayType,
@@ -27,6 +28,7 @@ from modelable.parser.ir import (
     PrimitiveType,
     RefType,
     UnionType,
+    WireTargetHint,
 )
 from modelable.registry.resolver import resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
 
@@ -801,6 +803,37 @@ def _validate_wire_hints(
             )
 
 
+def _validate_json_wire_value_collisions(
+    fqn: str,
+    label: str,
+    field_type: EnumType,
+    hint: WireTargetHint,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    """Reject @wire(json.case/overrides) mappings that collapse two canonical
+    enum members onto one wire value (evolution plan F3, item 3)."""
+
+    def _wire_value(member: str) -> str:
+        override = hint.overrides.get(member)
+        if override is not None:
+            return override
+        if hint.case is not None:
+            return apply_case_style(member, hint.case)
+        return member
+
+    for value, members in find_identifier_collisions(list(field_type.values), _wire_value).items():
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: field '{label}' maps enum members "
+                + ", ".join(f"'{member}'" for member in members)
+                + f" to the same json wire value '{value}'",
+                path,
+            )
+        )
+
+
 def _validate_json_wire_hint(
     fqn: str,
     field: FieldDef,
@@ -825,8 +858,10 @@ def _validate_json_wire_hint(
     is_enum = isinstance(field_type, EnumType)
 
     if hint.encoding is None:
-        # json.case / json.overrides on enum fields are valid without an encoding
+        # json.case / json.overrides on enum fields are valid without an encoding,
+        # but two canonical members must never map to the same wire value.
         if is_enum and (hint.case is not None or hint.overrides):
+            _validate_json_wire_value_collisions(fqn, label, field_type, hint, diagnostics, path)
             return
         diagnostics.append(
             _diag(

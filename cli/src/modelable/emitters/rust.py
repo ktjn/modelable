@@ -7,7 +7,8 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
-from modelable.emitters.diagnostics import missing_metadata, type_loss
+from modelable.emitters.diagnostics import enum_member_collision, missing_metadata, type_loss
+from modelable.emitters.naming import find_identifier_collisions
 from modelable.emitters.naming import pascalize_titlecase as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.package_graph import PackageGraph, build_package_graph
@@ -662,6 +663,11 @@ def _emit_model(
     for field in version.fields:
         if isinstance(field.type, NamedType) and field.type.name not in named_type_map:
             warnings.append(missing_metadata(f"{domain.name}.{model_name}.{field.name}"))
+        _append_enum_collision_warnings(
+            TypeShape.from_field_type(field.type),
+            owner=f"{type_name}.{field.name}",
+            warnings=warnings,
+        )
 
     needs_serde_with = _any_needs_serde_with(field_specs)
     needs_uuid = _any_needs_uuid(field_specs)
@@ -745,6 +751,11 @@ def _emit_projection(
             field_specs.append(_FieldSpec(index=index, name=field.name, annotation="String", optional=False))
             continue
         wire = _resolve_merged_projection_wire(field, version, mdl)
+        _append_enum_collision_warnings(
+            field_shape,
+            owner=f"{type_name}.{field.name}",
+            warnings=warnings,
+        )
         if clickhouse_row and field_shape.kind == "enum":
             # clickhouse-rs 0.15 panics on serialize_unit_variant for typed enums;
             # force String for all ClickHouse-bound enum fields.
@@ -1260,6 +1271,35 @@ def _render_enum_definition(type_name: str, values: list[str]) -> list[str]:
         lines.append(f"    {member},")
     lines.append("}")
     return lines
+
+
+def _append_enum_collision_warnings(
+    shape: TypeShape | None,
+    *,
+    owner: str,
+    warnings: list[str],
+) -> None:
+    """Report anonymous-enum members that collapse to one Rust identifier.
+
+    Rust's member policy (PascalCase plus leading-digit escaping) can map
+    distinct canonical members — `foo bar` and `foo_bar` — onto the same
+    variant name, which would render an invalid enum. The collision is a
+    pre-emission EMIT006 diagnostic naming the owner and both members;
+    canonical member identity is never rewritten to hide it.
+    """
+    if shape is None:
+        return
+    if shape.kind == "enum":
+        for identifier, members in find_identifier_collisions(list(shape.enum_values), _enum_member_name).items():
+            warnings.append(enum_member_collision("rust", owner, identifier, members))
+        return
+    if shape.kind == "array" and shape.element is not None:
+        _append_enum_collision_warnings(shape.element, owner=f"{owner}[]", warnings=warnings)
+    elif shape.kind == "map" and shape.value is not None:
+        _append_enum_collision_warnings(shape.value, owner=f"{owner}{{}}", warnings=warnings)
+    elif shape.kind == "object":
+        for item in shape.fields:
+            _append_enum_collision_warnings(item.shape, owner=f"{owner}.{item.name}", warnings=warnings)
 
 
 def _field_specs_from_model_fields(
