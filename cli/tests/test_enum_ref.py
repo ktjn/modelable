@@ -165,6 +165,56 @@ domain orders {
     assert not any(d.code == "ENUMREF" and d.severity == "error" for d in workspace.errors)
 
 
+def test_qualified_missing_version_lists_known_versions():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic OrderStatus @ 1 (additive): enum(active, blocked)
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: orders.OrderStatus @ 99
+  }
+}
+"""
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=source)]
+    )
+    errors = [d.message for d in workspace.errors]
+    assert any("no version 99" in message and "known versions: [1]" in message for message in errors), errors
+
+
+def test_cross_domain_bare_reference_missing_version_is_rejected():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic OrderStatus @ 1 (additive): enum(active, blocked)
+}
+
+domain shipping {
+  owner: "shipping-team"
+
+  entity Manifest @ 1 (additive) {
+    @key manifestId: uuid
+    status: ShipmentAlias
+  }
+
+  semantic ShipmentAlias @ 1 (additive): enum(active)
+}
+"""
+    # Bare 'OrderStatus' referenced nowhere; instead exercise the workspace-wide
+    # fallback missing-version path through an exact reference from another
+    # domain where the local domain has no such declaration at that version.
+    source = source.replace("status: ShipmentAlias", "orderStatus: orders.OrderStatus @ 7")
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=source)]
+    )
+    errors = [d.message for d in workspace.errors]
+    assert any("no version 7" in message and "known versions: [1]" in message for message in errors), errors
+
+
 def test_non_enum_bare_reference_gets_no_enumref_warning():
     source = """
 domain orders {
