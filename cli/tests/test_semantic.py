@@ -1028,3 +1028,76 @@ def test_ref_nested_in_array_is_validated():
     workspace = load_workspace_from_sources([source])
 
     assert any("items" in e.message for e in workspace.errors)
+
+
+def test_duplicate_enum_member_is_a_sem_error():
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            state: enum(active, blocked, active)
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([source])
+
+    errors = [e.message for e in workspace.errors]
+    assert any("state" in message and "duplicate enum member 'active'" in message for message in errors), errors
+
+
+def test_duplicate_enum_members_nested_in_containers_are_sem_errors():
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            tags: array<enum(red, blue, red)>
+            attrs: map<string, enum(on, off, on)>
+            details: object {
+              level: enum(low, high, low)
+            }
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([source])
+
+    errors = [e.message for e in workspace.errors]
+    assert any("tags[]" in message and "duplicate enum member 'red'" in message for message in errors), errors
+    assert any("attrs{}" in message and "duplicate enum member 'on'" in message for message in errors), errors
+    assert any("details.level" in message and "duplicate enum member 'low'" in message for message in errors), errors
+
+
+def test_valid_nested_enums_produce_no_sem_error():
+    source = WorkspaceDocumentSource(
+        path=Path("orders.mdl"),
+        uri="file:///orders.mdl",
+        text="""
+        domain orders {
+          owner: "test-team"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+            state: enum(active, blocked)
+            tags: array<enum(red, blue)>
+            attrs: map<string, enum(on, off)>
+            details: object {
+              level: enum(low, high)
+            }
+          }
+        }
+        """,
+    )
+
+    workspace = load_workspace_from_sources([source])
+
+    assert not [e.message for e in workspace.errors if "enum" in e.message]
