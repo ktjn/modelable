@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from modelable.parser.ir import (
     ArrayType,
     DecimalType,
+    EnumRefType,
     EnumType,
     FieldType,
     FixedBinaryType,
@@ -110,6 +111,11 @@ class TypeShape:
                 ),
             )
         if isinstance(field_type, NamedType):
+            return cls(kind="named", optional=optional, ref=field_type.name)
+        if isinstance(field_type, EnumRefType):
+            # Exact-versioned enum references ride the named-type path until
+            # dedicated emitter support lands (E5+); identity is preserved in
+            # the IR and signatures regardless.
             return cls(kind="named", optional=optional, ref=field_type.name)
         raise TypeError(f"unsupported field type: {type(field_type)!r}")
 

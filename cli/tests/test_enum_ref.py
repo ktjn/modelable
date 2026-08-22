@@ -1,0 +1,175 @@
+"""Round-trip and validation tests for exact versioned semantic-enum
+references (evolution plan E1)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from modelable.compiler.render import render_mdl
+from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
+from modelable.parser.ir import EnumRefType
+from modelable.parser.parse import parse_text_to_ir, parse_text_to_ir_with_tree
+
+
+def _field_type_of(mdl, domain: str, model: str, field: str):
+    d = next(item for item in mdl.domains if item.name == domain)
+    return next(f.type for f in d.models[model][0].fields if f.name == field)
+
+
+SOURCE = """
+domain orders {
+  owner: "orders-team"
+
+  semantic OrderStatus @ 1 (additive): enum(active, blocked)
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: OrderStatus @ 1
+  }
+
+  entity Order @ 2 (additive) {
+    @key orderId: uuid
+    status: OrderStatus @ 1
+    anonymous?: enum(active, blocked)
+  }
+}
+
+domain shipping {
+  owner: "shipping-team"
+
+  semantic ShipmentState @ 1 (additive): enum(active, blocked)
+
+  entity Manifest @ 1 (additive) {
+    @key manifestId: uuid
+    orderStatus: orders.OrderStatus @ 1
+    ownState: ShipmentState @ 1
+  }
+}
+"""
+
+
+def test_same_domain_exact_enum_reference_parses_and_round_trips():
+    mdl = parse_text_to_ir(SOURCE)
+    status_type = _field_type_of(mdl, "orders", "Order", "status")
+    assert isinstance(status_type, EnumRefType)
+    assert status_type.name == "OrderStatus"
+    assert status_type.version == 1
+
+    rendered = render_mdl(mdl)
+    assert "status: OrderStatus @ 1" in rendered
+
+    reparsed, _tree = parse_text_to_ir_with_tree(rendered)
+    assert _field_type_of(reparsed, "orders", "Order", "status") == status_type
+
+
+def test_cross_domain_qualified_exact_reference_round_trips():
+    mdl = parse_text_to_ir(SOURCE)
+    ref_type = _field_type_of(mdl, "shipping", "Manifest", "orderStatus")
+    assert isinstance(ref_type, EnumRefType)
+    assert ref_type.name == "orders.OrderStatus"
+    assert ref_type.version == 1
+
+    rendered = render_mdl(mdl)
+    assert "orderStatus: orders.OrderStatus @ 1" in rendered
+
+    reparsed, _tree = parse_text_to_ir_with_tree(rendered)
+    assert _field_type_of(reparsed, "shipping", "Manifest", "orderStatus") == ref_type
+
+
+def test_identical_shaped_semantic_enums_remain_distinct():
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=SOURCE)]
+    )
+    assert not [d.message for d in workspace.errors]
+
+    # orders.OrderStatus @ 1 and shipping.ShipmentState @ 1 have identical
+    # members but are distinct declarations; both references are valid.
+    shipping = next(domain for domain in workspace.mdl.domains if domain.name == "shipping")
+    assert shipping.semantic_types[0].underlying.values == ["active", "blocked"]
+
+
+def test_mixed_anonymous_and_versioned_semantic_enums_coexist():
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=SOURCE)]
+    )
+    assert not [d.message for d in workspace.errors]
+
+    mdl = parse_text_to_ir(SOURCE)
+    v2 = next(domain for domain in mdl.domains if domain.name == "orders").models["Order"][1]
+    kinds = {field.name: field.type.kind for field in v2.fields}
+    assert kinds["anonymous"] == "enum"
+    assert kinds["status"] == "enum_ref"
+
+
+def test_exact_version_mismatch_is_an_enumref_error():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic OrderStatus @ 1 (additive): enum(active, blocked)
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: OrderStatus @ 99
+  }
+}
+"""
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=source)]
+    )
+    errors = [d.message for d in workspace.errors]
+    assert any(d.code == "ENUMREF" for d in workspace.errors), errors
+    assert any("targets version 99" in message and "version 1" in message for message in errors), errors
+
+
+def test_non_enum_target_is_an_enumref_error():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic CustomerId @ 1 (additive): string
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: CustomerId @ 1
+  }
+}
+"""
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=source)]
+    )
+    errors = [d.message for d in workspace.errors]
+    assert any(d.code == "ENUMREF" and "enum-backed" in d.message for d in workspace.errors), errors
+
+
+def test_unknown_enum_reference_is_an_enumref_error():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: NoSuchStatus @ 1
+  }
+}
+"""
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=source)]
+    )
+    errors = [d.message for d in workspace.errors]
+    assert any(d.code == "ENUMREF" for d in workspace.errors), errors
+
+
+def test_duplicate_semantic_enum_members_are_rejected():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic Bad @ 1 (additive): enum(active, active)
+}
+"""
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=source)]
+    )
+    errors = [d.message for d in workspace.errors]
+    assert any("Bad" in message and "duplicate enum member 'active'" in message for message in errors), errors

@@ -28,6 +28,7 @@ from modelable.parser.ir import (
     DecimalType,
     DirectMapping,
     DomainDef,
+    EnumRefType,
     EnumType,
     FieldDef,
     FieldType,
@@ -489,6 +490,8 @@ def _render_type(field_type: FieldType) -> str:
         return f"object {{ {inner} }}"
     if isinstance(field_type, NamedType):
         return field_type.name
+    if isinstance(field_type, EnumRefType):
+        return f"{field_type.name} @ {field_type.version}"
     if isinstance(field_type, UnionType):
         variants = ", ".join(f"{variant.tag}: {_render_type(variant.type)}" for variant in field_type.variants)
         return f"union<{field_type.discriminator}> {{ {variants} }}"
@@ -513,6 +516,8 @@ def _render_signature_type(field_type: FieldType) -> str:
         return f"object {{ {inner} }}"
     if isinstance(field_type, NamedType):
         return field_type.name
+    if isinstance(field_type, EnumRefType):
+        return f"{field_type.name}@{field_type.version}"
     if isinstance(field_type, UnionType):
         variants = ", ".join(
             f"{variant.tag}: {_render_signature_type(variant.type)}" for variant in field_type.variants

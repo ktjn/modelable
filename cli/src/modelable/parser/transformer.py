@@ -32,6 +32,7 @@ from modelable.parser.ir import (
     DecimalType,
     DirectMapping,
     DomainDef,
+    EnumRefType,
     EnumType,
     FieldDef,
     FieldMapping,
@@ -402,6 +403,7 @@ class MdlTransformer(Transformer[list[object], Any]):
                     EnumType,
                     ObjectType,
                     NamedType,
+                    EnumRefType,
                     UnionType,
                 ),
             )
@@ -558,6 +560,9 @@ class MdlTransformer(Transformer[list[object], Any]):
         if isinstance(item, str):
             return NamedType(name=item)
         return item  # type: ignore[return-value]
+
+    def enum_ref_type(self, items: list[object]) -> EnumRefType:
+        return EnumRefType(name=_str(items[0]), version=int(_str(items[1])))
 
     def pt_string(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="string")

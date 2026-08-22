@@ -636,6 +636,23 @@ def _validate_semantic_types(
                 )
             )
 
+        # Member-identity checks specific to enum-backed declarations (E1):
+        # reuse the anonymous-enum member rules on the declared member set.
+        if isinstance(decl.underlying, EnumType):
+            if not decl.underlying.values:
+                diagnostics.append(
+                    _diag("SEM", f"{domain.name}: semantic type '{decl.name}' has an empty enum member set", path)
+                )
+            duplicates = sorted({value for value in decl.underlying.values if decl.underlying.values.count(value) > 1})
+            for value in duplicates:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{domain.name}: semantic type '{decl.name}' has duplicate enum member '{value}'",
+                        path,
+                    )
+                )
+
     for name in sorted(seen_names):
         versions = sorted((item for item in domain.semantic_types if item.name == name), key=lambda item: item.version)
         for previous, current_version in pairwise(versions):

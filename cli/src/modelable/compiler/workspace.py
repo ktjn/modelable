@@ -12,6 +12,8 @@ from modelable.parser.ir import (
     ArrayType,
     BindingDef,
     ComputedMapping,
+    EnumRefType,
+    EnumType,
     FieldType,
     MapType,
     MdlFile,
@@ -443,6 +445,39 @@ def _validate_named_field_types(merged: MdlFile) -> list[Diagnostic]:
                 message = str(exc).replace("ambiguous semantic type", "ambiguous type", 1)
                 errors.append(
                     Diagnostic(code="SEM", message=f"{context}: {message}", severity="error", path="<workspace>")
+                )
+        elif isinstance(field_type, EnumRefType):
+            try:
+                _declaring_domain, decl = resolve_semantic_type_ref(merged, domain_name, field_type.name)
+            except LookupError as exc:
+                message = str(exc).replace("ambiguous semantic type", "ambiguous enum type", 1)
+                errors.append(
+                    Diagnostic(code="ENUMREF", message=f"{context}: {message}", severity="error", path="<workspace>")
+                )
+                return
+            if not isinstance(decl.underlying, EnumType):
+                errors.append(
+                    Diagnostic(
+                        code="ENUMREF",
+                        message=(
+                            f"{context}: exact enum reference '{field_type.name} @ {field_type.version}' "
+                            "must target an enum-backed semantic type"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+            elif decl.version != field_type.version:
+                errors.append(
+                    Diagnostic(
+                        code="ENUMREF",
+                        message=(
+                            f"{context}: exact enum reference '{field_type.name}' targets version "
+                            f"{field_type.version}, but the resolved declaration is version {decl.version}"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
                 )
         elif isinstance(field_type, ArrayType):
             visit(field_type.item, domain_name, context)
