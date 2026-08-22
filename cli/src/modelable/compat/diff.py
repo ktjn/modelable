@@ -10,6 +10,7 @@ from modelable.parser.ir import (
     ClassificationLevel,
     ComputedMapping,
     DirectMapping,
+    EnumRefType,
     EnumType,
     FieldDef,
     FieldType,
@@ -34,6 +35,11 @@ class FieldChange:
     to_nullable: bool | None = None
     from_type: str | None = None
     to_type: str | None = None
+    # Explicit classification override for kinds whose breaking-ness depends
+    # on context the structural diff cannot see (e.g. an enum version bump is
+    # non-breaking when the referenced declaration diff only adds members).
+    breaking_override: bool | None = None
+    note: str = ""
 
 
 @dataclass(frozen=True)
@@ -225,6 +231,21 @@ def _compare_field_types(old_field: FieldDef, new_field: FieldDef, field_name: s
                     )
                 )
         return changes
+    if isinstance(old_type, EnumRefType) and isinstance(new_type, EnumRefType):
+        # Nominal enum references are compared by declaring identity, not
+        # shape (evolution plan E5): same declaration at a newer version is an
+        # enum version bump classified through the referenced declaration diff;
+        # a different declaration is a nominal replacement even when member
+        # sets match.
+        kind = "enum_reference_changed" if old_type.name != new_type.name else "enum_version_changed"
+        return [
+            FieldChange(
+                kind=kind,
+                field_name=field_name,
+                from_type=f"{old_type.name} @ {old_type.version}",
+                to_type=f"{new_type.name} @ {new_type.version}",
+            )
+        ]
     kind = "enum_changed" if isinstance(old_type, EnumType) and isinstance(new_type, EnumType) else "type_changed"
     return [FieldChange(kind=kind, field_name=field_name, from_type=old_sig, to_type=new_sig)]
 
@@ -329,11 +350,15 @@ def is_field_change_breaking(change: FieldChange) -> bool:
     compat/checker.py's report-level rollup and compat/targets.py's
     source-compatibility axis both call this instead of re-deriving it.
     """
+    if change.breaking_override is not None:
+        return change.breaking_override
     if change.kind in {
         "removed_field",
         "renamed_field",
         "type_changed",
         "enum_changed",
+        "enum_version_changed",
+        "enum_reference_changed",
         "union_discriminator_changed",
         "union_variant_added",
         "union_variant_removed",
@@ -386,6 +411,11 @@ def describe_field_change(change: FieldChange) -> str:
         return f"identity_changed {change.field_name}"
     if change.kind == "enum_changed":
         return f"enum_changed {change.field_name}"
+    if change.kind in {"enum_version_changed", "enum_reference_changed"}:
+        text = f"{change.kind} {change.field_name}: {change.from_type} -> {change.to_type}"
+        if change.note:
+            text += f" ({change.note})"
+        return text
     if change.kind == "type_changed":
         return f"type_changed {change.field_name}"
     if change.kind == "union_discriminator_changed":
