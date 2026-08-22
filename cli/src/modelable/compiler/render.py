@@ -133,6 +133,36 @@ def render_signature_projection_version(
     return "\n".join(lines) + "\n"
 
 
+def render_signature_semantic_type(domain_name: str, declaration: SemanticTypeDecl) -> str:
+    """Render the normalized text used by semantic-type canonical signatures.
+
+    Enum member order is authored content and is preserved as written: wire
+    meaning may attach to member order in later slices, so signature text must
+    not erase it (evolution plan E4).
+    """
+    header = (
+        f"semantic {domain_name}.{declaration.name} @ {declaration.version} "
+        f"({declaration.change_kind}): {_render_type(declaration.underlying)}"
+    )
+    if declaration.registry:
+        header += " { registry: true }"
+    return header + "\n"
+
+
+def render_signature_enum_projection(domain_name: str, projection: EnumProjectionDecl) -> str:
+    """Render the normalized text used by enum-projection canonical signatures.
+
+    Normalized members are ordered-independent identities, so they are sorted;
+    the authored pick/omit form is deliberately excluded from signature text.
+    """
+    members = ", ".join(sorted(projection.members or projection.selected))
+    return (
+        f"enum projection {domain_name}.{projection.name} @ {projection.version} "
+        f"({projection.change_kind}) from {projection.source_name} @ {projection.source_version} "
+        f"{projection.selection_kind}({members})\n"
+    )
+
+
 def _render_domain(domain: DomainDef) -> list[str]:
     lines = [f"domain {domain.name} {{"]
     has_body = False
