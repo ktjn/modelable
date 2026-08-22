@@ -132,9 +132,10 @@ modelable compile customer.mdl --target typescript --out generated/types
 - Trace projection fields to canonical source fields.
 - Report structurally missing access and classification metadata.
 - Expand automatic database, request, reply, and event projections.
-- Generate JSON Schema, Markdown, TypeScript, C#, Java, Python, Rust, Go, SQL
-  DDL, dbt `schema.yml`, FHIR R4 profile, OpenMetadata JSON, and OpenLineage
-  event, ODCS, Protobuf, and Scalable-oriented gRPC artifacts.
+- Generate JSON Schema, OpenAPI 3.1, Markdown, TypeScript, C#, Java, Python,
+  Rust, Go, SQL DDL, dbt `schema.yml`, FHIR R4 profile, OpenMetadata JSON, and
+  OpenLineage event, ODCS, Protobuf, Avro record, event-sink contract, and
+  Scalable-oriented gRPC artifacts.
 - Provide diagnostics, completion, hover, navigation, references, rename, formatting, and other editor features through the language server.
 - Import or assist with models through optional LLM provider integrations.
 
@@ -147,21 +148,34 @@ and runtime materialization remain future candidates.
 ## Browser playground
 
 The static [Modelable playground](https://ktjn.github.io/modelable/playground/)
-runs the compiler locally in the browser. Its Phase 3a workspace supports
-creating, importing, renaming, deleting, selecting, and editing multiple
-`.mdl` files, then validates or generates JSON Schema from the complete
-workspace.
+runs the compiler locally in the browser. It supports creating, importing,
+renaming, deleting, selecting, and editing multiple `.mdl` files, then
+validating or generating artifacts from the complete workspace.
 
 The one local workspace is restored automatically from IndexedDB. Source text
 never leaves the page; compiler output is not persisted. If browser storage is
 unavailable, editing continues in memory with an explicit status. Invalid or
 incompatible stored data is left untouched until the user exports it or resets
-the workspace. Protocol v2 now provides 300 ms live diagnostics plus
-browser-native completion, hover, go-to-definition, references, and rename
-over the complete local workspace. These can use the last parseable semantic
-snapshot while current text contains a syntax error; stale results are
-discarded. Diagnostics, completion results, and hover content remain derived
-in-memory state and are never persisted.
+the workspace.
+
+Beyond the editor, the playground provides:
+
+- Protocol v2 language services: 300 ms live diagnostics plus browser-native
+  completion, hover, go-to-definition, references, and rename over the complete
+  local workspace, usable from the last parseable semantic snapshot while
+  current text contains a syntax error.
+- Domain and entity graph visualization with field lineage tracing, version
+  compatibility views with downstream projection impacts, governance findings,
+  and SVG/PNG diagram export.
+- Local AI assistance via WebLLM (or an optional local Ollama server) for
+  entity generation and explanations, always behind validated previews and
+  explicit user acceptance.
+- Offline operation through a service worker, accessibility enforcement,
+  performance budgets, and automatic documentation retrieval (`/docs`-style
+  questions routed to the bundled RAG index).
+
+Diagnostics, completion results, hover content, and other derived state remain
+in-memory only and are never persisted.
 
 ## 1.0 stable surface
 

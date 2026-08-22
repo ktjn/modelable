@@ -717,10 +717,13 @@ with stable variant identity and discriminator values; adding/removing
 variants is compatibility-classified; every emitter preserves semantics or
 emits an explicit loss diagnostic. **Core schema slice shipped:** PR #384
 added the grammar/IR, canonical rendering, JSON Schema/OpenAPI `oneOf` plus
-discriminator output, and JSON Schema round-trip import. **Next:** classify
-union compatibility changes, add explicit target-loss diagnostics, and extend
-preservation beyond schema-oriented targets. Depends on D3, D1, and stable
-target-compatibility semantics.
+discriminator output, and JSON Schema round-trip import. **Compatibility
+classification shipped:** PR #386 classifies union variant and discriminator
+changes (`union_variant_added`, `union_variant_removed`,
+`union_variant_changed`, `union_discriminator_changed`) in
+`cli/src/modelable/compat/diff.py`. **Next:** add explicit target-loss
+diagnostics and extend preservation beyond schema-oriented targets. Depends on
+D3, D1, and stable target-compatibility semantics.
 
 #### Slice D5 — resolve composite-key support
 
