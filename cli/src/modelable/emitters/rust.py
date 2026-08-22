@@ -133,6 +133,7 @@ def _emit_rust_single_crate(
 ) -> list[EmittedArtifact]:
     postgres_sources = _adapter_bound_sources(workspace.mdl, "postgres")
     clickhouse_sources = _adapter_bound_sources(workspace.mdl, "clickhouse")
+    postcard_sources = _adapter_bound_sources(workspace.mdl, "postcard")
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
         for decl in latest_semantic_types(domain):
@@ -141,7 +142,16 @@ def _emit_rust_single_crate(
             artifacts.append(_emit_semantic_type(domain, decl, out_dir, allocated_id=allocated_id))
         for model_name, versions in domain.models.items():
             for version in versions:
-                artifacts.append(_emit_model(domain, model_name, version, out_dir, mdl=workspace.mdl))
+                artifacts.append(
+                    _emit_model(
+                        domain,
+                        model_name,
+                        version,
+                        out_dir,
+                        mdl=workspace.mdl,
+                        suppress_skip_serializing=f"{domain.name}.{model_name}" in postcard_sources,
+                    )
+                )
         for projection_name, versions in domain.projections.items():
             for version in versions:
                 source = version.source.model
@@ -154,6 +164,7 @@ def _emit_rust_single_crate(
                         workspace.mdl,
                         sqlx_fromrow=source in postgres_sources,
                         clickhouse_row=source in clickhouse_sources,
+                        suppress_skip_serializing=source in postcard_sources,
                     )
                 )
     return artifacts
@@ -170,6 +181,7 @@ def _emit_rust_packages(
     assert mdl.workspace is not None
     postgres_sources = _adapter_bound_sources(mdl, "postgres")
     clickhouse_sources = _adapter_bound_sources(mdl, "clickhouse")
+    postcard_sources = _adapter_bound_sources(mdl, "postcard")
     package_for_domain = package_graph.package_for_domain
     domains_by_name = {domain.name: domain for domain in mdl.domains}
 
@@ -207,6 +219,7 @@ def _emit_rust_packages(
                         mdl=mdl,
                         current_pkg=pkg.name,
                         package_for_domain=package_for_domain,
+                        suppress_skip_serializing=f"{domain.name}.{model_name}" in postcard_sources,
                     )
                     artifacts.append(artifact)
                     modules.append(artifact.path.stem)
@@ -221,6 +234,7 @@ def _emit_rust_packages(
                         mdl,
                         sqlx_fromrow=source in postgres_sources,
                         clickhouse_row=source in clickhouse_sources,
+                        suppress_skip_serializing=source in postcard_sources,
                         current_pkg=pkg.name,
                         package_for_domain=package_for_domain,
                     )
@@ -633,6 +647,7 @@ def _emit_model(
     mdl: MdlFile | None = None,
     current_pkg: str | None = None,
     package_for_domain: dict[str, str] | None = None,
+    suppress_skip_serializing: bool = False,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
@@ -657,6 +672,7 @@ def _emit_model(
         definitions=nested_definitions,
         named_type_map=named_type_map,
         declaration_wire=version.wire_targets(),
+        suppress_skip_serializing=suppress_skip_serializing,
     )
 
     warnings: list[str] = []
@@ -720,6 +736,7 @@ def _emit_projection(
     *,
     sqlx_fromrow: bool = False,
     clickhouse_row: bool = False,
+    suppress_skip_serializing: bool = False,
     current_pkg: str | None = None,
     package_for_domain: dict[str, str] | None = None,
 ) -> EmittedArtifact:
@@ -777,7 +794,9 @@ def _emit_projection(
             *serde_attrs,
         ]
         if field_shape.optional and not clickhouse_row:
-            serde_attrs = ["#[serde(default)]", '#[serde(skip_serializing_if = "Option::is_none")]', *serde_attrs]
+            serde_attrs = ["#[serde(default)]", *serde_attrs]
+            if not suppress_skip_serializing:
+                serde_attrs.insert(1, '#[serde(skip_serializing_if = "Option::is_none")]')
         field_specs.append(
             _FieldSpec(index=index, name=field.name, annotation=annotation, optional=optional, serde_attrs=serde_attrs)
         )
@@ -1311,6 +1330,7 @@ def _field_specs_from_model_fields(
     enum_info: dict[str, list[str]] | None = None,
     named_type_map: dict[str, str] | None = None,
     declaration_wire: dict | None = None,
+    suppress_skip_serializing: bool = False,
 ) -> list[_FieldSpec]:
     specs: list[_FieldSpec] = []
     for index, field in enumerate(fields):
@@ -1342,9 +1362,12 @@ def _field_specs_from_model_fields(
             )
         elif is_optional:
             serde_attrs = ["#[serde(default)]", *serde_attrs]
-        if shape.optional and shape.kind != "array":
+        if shape.optional and shape.kind != "array" and not suppress_skip_serializing:
             # Omittable field: skip during serialization when None.
             # Nullable-only fields must always be serialized (as null), so no skip attr.
+            # Suppressed for non-self-describing encodings (postcard and similar):
+            # a positional decoder still expects the field, so skipping corrupts
+            # the stream exactly when the option is None. See issue #430.
             serde_attrs = ['#[serde(skip_serializing_if = "Option::is_none")]', *serde_attrs]
         specs.append(
             _FieldSpec(

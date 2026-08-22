@@ -2333,3 +2333,96 @@ def test_rust_enum_without_collisions_has_no_diagnostics(tmp_path):
 
     model = next(item for item in artifacts if item.ref == "orders.Order@1")
     assert not [w for w in model.warnings if "EMIT006" in w]
+
+
+def test_postcard_binding_suppresses_skip_serializing_if(tmp_path):
+    """Issue #430: skip_serializing_if silently corrupts non-self-describing
+    encodings (postcard, bincode) because omittability has no positional
+    encoding. A postcard adapter binding suppresses the attribute while
+    leaving JSON-shaped output unchanged."""
+    (tmp_path / "orders.mdl").write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Cart @ 1 (additive) {
+    @key cartId: uuid
+    coupon?: string
+  }
+  entity Cart @ 2 (additive) {
+    @key cartId: uuid
+    coupon?: string
+    giftNote?: string
+  }
+
+  entity Wishlist @ 1 (additive) {
+    @key wishlistId: uuid
+    note?: string
+  }
+
+  projection CartRow @ 1
+    from orders.Cart @ 2 as c
+  {
+    cartId <- c.cartId
+    coupon <- c.coupon
+    giftNote <- c.giftNote
+  }
+}
+
+binding cart-codec {
+  model: orders.Cart @ 2
+  adapter: postcard
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    by_ref = {a.ref: a for a in artifacts}
+
+    # Bound model: no skip attr, serde(default) retained.
+    bound = by_ref["orders.Cart@2"].content
+    assert "#[serde(default)]" in bound
+    assert "skip_serializing_if" not in bound
+
+    # Unbound model: JSON omittable behavior unchanged.
+    unbound = by_ref["orders.Wishlist@1"].content
+    assert 'skip_serializing_if = "Option::is_none"' in unbound
+
+    # Projections sourced from the bound model are suppressed too.
+    row = by_ref["orders.CartRow@1"].content
+    assert "#[serde(default)]" in row
+    assert "skip_serializing_if" not in row
+
+
+def test_postcard_connector_binding_resolves_indirectly(tmp_path):
+    (tmp_path / "all.mdl").write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Cart @ 1 (additive) {
+    @key cartId: uuid
+    coupon?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "bindings.mdl").write_text(
+        """
+binding cart-codec-conn {
+  adapter: postcard
+}
+
+binding cart-row-table {
+  model: orders.Cart @ 1
+  adapter: cart-codec-conn
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    model = next(a for a in artifacts if a.ref == "orders.Cart@1").content
+    assert "#[serde(default)]" in model
+    assert "skip_serializing_if" not in model

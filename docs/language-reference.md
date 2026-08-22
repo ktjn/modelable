@@ -781,6 +781,13 @@ binding customer-postgres {
 }
 ```
 
+The `postcard` adapter marks a model (and projections sourced from it) as
+encoded with a non-self-describing binary format. Generated Rust for such
+models keeps `#[serde(default)]` but omits `#[serde(skip_serializing_if =
+"Option::is_none")]`: omittability has no encoding in a positional format, and
+skipping `None` fields silently corrupts the stream. JSON output for unbound
+models is unchanged.
+
 ---
 
 ## 5. Toolchain
