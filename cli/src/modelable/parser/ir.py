@@ -541,6 +541,27 @@ class SemanticTypeDecl(BaseModel):
     registry: bool = False
 
 
+class EnumProjectionDecl(BaseModel):
+    """A nominal derived subset of an enum-backed semantic declaration.
+
+    Authored via ``pick(...)`` or ``omit(...)`` against an exact source
+    version; ``members`` holds the normalized exact resulting subset filled in
+    by workspace normalization (evolution plan E3). The projection is a
+    distinct contract entity from its source even when subsets match.
+    """
+
+    name: str
+    version: int = 0
+    change_kind: Literal["additive", "breaking"] = "additive"
+    has_version_header: bool = False
+    has_change_kind: bool = False
+    source_name: str
+    source_version: int
+    selection_kind: Literal["pick", "omit"]
+    selected: list[str] = Field(default_factory=list)
+    members: list[str] = Field(default_factory=list)
+
+
 def latest_semantic_types(domain: DomainDef) -> list[SemanticTypeDecl]:
     """Return the latest declaration for each semantic type name."""
     latest: dict[str, SemanticTypeDecl] = {}
@@ -607,6 +628,7 @@ class DomainDef(BaseModel):
     apis: list[ApiDecl] = Field(default_factory=list)
     generate_targets: list[GenerateTarget] = Field(default_factory=list)
     semantic_types: list[SemanticTypeDecl] = Field(default_factory=list)
+    enum_projections: list[EnumProjectionDecl] = Field(default_factory=list)
     index_decls: list[IndexDecl] = Field(default_factory=list)
 
 

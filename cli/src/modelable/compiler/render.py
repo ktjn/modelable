@@ -28,6 +28,7 @@ from modelable.parser.ir import (
     DecimalType,
     DirectMapping,
     DomainDef,
+    EnumProjectionDecl,
     EnumRefType,
     EnumType,
     FieldDef,
@@ -146,6 +147,9 @@ def _render_domain(domain: DomainDef) -> list[str]:
         has_body = True
     for semantic_decl in domain.semantic_types:
         lines.extend(_indent(_render_semantic_type(semantic_decl), 2))
+        has_body = True
+    for enum_projection in domain.enum_projections:
+        lines.extend(_indent(_render_enum_projection(enum_projection), 2))
         has_body = True
     if domain.models:
         if has_body:
@@ -345,6 +349,19 @@ def _render_semantic_type(declaration: SemanticTypeDecl) -> list[str]:
     if not declaration.registry:
         return [header]
     return [f"{header} {{", "  registry: true", "}"]
+
+
+def _render_enum_projection(declaration: EnumProjectionDecl) -> list[str]:
+    version = ""
+    if declaration.has_version_header:
+        version = f" @ {declaration.version}"
+        if declaration.has_change_kind:
+            version += f" ({declaration.change_kind})"
+    header = (
+        f"enum projection {declaration.name}{version} from {declaration.source_name} @ {declaration.source_version}"
+    )
+    members = ", ".join(declaration.selected)
+    return [f"{header} {declaration.selection_kind}({members})"]
 
 
 def _render_index(declaration: IndexDecl) -> list[str]:
