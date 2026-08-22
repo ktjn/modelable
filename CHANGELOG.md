@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.10.0] - 2026-08-22
+
+### Added
+
 - Enum contracts are now first-class registry citizens: semantic types and
   enum projections are written as immutable, content-addressed snapshot
   objects with their own canonical signatures; changing an enum's canonical
