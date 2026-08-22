@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Enum projections: derive a nominal subset from an enum-backed semantic
+  declaration at an exact version via `enum projection Name @ 1 (additive)
+  from Source @ 1 pick(a, b)` or `omit(...)`. Both forms normalize into the
+  exact resulting member identities of the referenced source version; missing
+  members, repeated selections, empty results, non-enum sources, unknown
+  sources, and name collisions in the shared nominal enum namespace are
+  rejected. Projections pinned to an older source version never grow when the
+  source gains members.
 - Exact versioned semantic-enum references: a field can reference an
   enum-backed `semantic` declaration at an exact version with same-domain
   (`status: OrderStatus @ 1`) or qualified (`status: orders.OrderStatus @ 1`)

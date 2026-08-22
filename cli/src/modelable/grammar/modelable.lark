@@ -22,6 +22,7 @@ domain_item: owner_attr
            | desc_attr
            | model_decl
            | projection_decl
+           | enum_projection_decl
            | auto_projections_decl
            | api_decl
            | generate_block
@@ -274,6 +275,14 @@ auto_projections_decl: "auto" "projections" IDENT "@" INT "{" auto_projection_it
 
 semantic_decl: "semantic" IDENT semantic_header? ":" type_expr semantic_body?
 semantic_header: "@" INT semantic_change?
+
+// -- Enum projections ---------------------------------------------------------
+// Chosen spelling (E3 spike): the concise `enum projection` form. At domain
+// top level no other rule starts with the "enum" keyword, so this creates no
+// ambiguous second declaration namespace.
+enum_projection_decl: "enum" "projection" IDENT semantic_header? "from" dotted_ref "@" INT pick_or_omit_clause
+pick_or_omit_clause: "pick" "(" enum_member ("," enum_member)* ")"  -> pick_selection
+                   | "omit" "(" enum_member ("," enum_member)* ")"  -> omit_selection
 semantic_change: "(" change_kind ")"
 semantic_body: "{" semantic_item* "}"
 semantic_item: "registry" ":" bool_literal

@@ -32,6 +32,7 @@ from modelable.parser.ir import (
     DecimalType,
     DirectMapping,
     DomainDef,
+    EnumProjectionDecl,
     EnumRefType,
     EnumType,
     FieldDef,
@@ -139,6 +140,7 @@ class MdlTransformer(Transformer[list[object], Any]):
         apis: list[ApiDecl] = []
         generate_targets: list[GenerateTarget] = []
         semantic_types: list[SemanticTypeDecl] = []
+        enum_projections: list[EnumProjectionDecl] = []
         index_decls: list[IndexDecl] = []
 
         for tag, value in [item for item in items[1:] if isinstance(item, tuple)]:
@@ -162,6 +164,8 @@ class MdlTransformer(Transformer[list[object], Any]):
                 generate_targets = value
             elif tag == "semantic":
                 semantic_types.append(value)
+            elif tag == "enum_projection":
+                enum_projections.append(value)
             elif tag == "index":
                 index_decls.append(value)
 
@@ -176,6 +180,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             apis=apis,
             generate_targets=generate_targets,
             semantic_types=semantic_types,
+            enum_projections=enum_projections,
             index_decls=index_decls,
         )
 
@@ -563,6 +568,40 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def enum_ref_type(self, items: list[object]) -> EnumRefType:
         return EnumRefType(name=_str(items[0]), version=int(_str(items[1])))
+
+    def enum_projection_decl(self, items: list[object]) -> tuple[str, EnumProjectionDecl]:
+        name = _str(items[0])
+        header = cast(
+            tuple[str, int, ChangeKind, bool] | None,
+            items[1] if len(items) > 3 and isinstance(items[1], tuple) else None,
+        )
+        rest_index = 2 if header is not None else 1
+        source_name = _str(items[rest_index])
+        source_version = int(_str(items[rest_index + 1]))
+        selection_kind, selected = cast(tuple[str, list[str]], items[rest_index + 2])
+        version = header[1] if header is not None else 0
+        change_kind = header[2] if header is not None else ChangeKind.additive
+        has_change_kind = header[3] if header is not None else False
+        return (
+            "enum_projection",
+            EnumProjectionDecl(
+                name=name,
+                version=int(version),
+                change_kind=change_kind.value,
+                has_version_header=header is not None,
+                has_change_kind=has_change_kind,
+                source_name=source_name,
+                source_version=source_version,
+                selection_kind=cast(Literal["pick", "omit"], selection_kind),
+                selected=selected,
+            ),
+        )
+
+    def pick_selection(self, items: list[object]) -> tuple[str, list[str]]:
+        return ("pick", [_str(item) for item in items])
+
+    def omit_selection(self, items: list[object]) -> tuple[str, list[str]]:
+        return ("omit", [_str(item) for item in items])
 
     def pt_string(self, _items: list[object]) -> PrimitiveType:
         return PrimitiveType(kind="string")

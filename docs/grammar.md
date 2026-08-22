@@ -39,6 +39,7 @@ domain_item: owner_attr
            | desc_attr
            | model_decl
            | projection_decl
+           | enum_projection_decl
            | auto_projections_decl
            | api_decl
            | generate_block
@@ -291,6 +292,14 @@ auto_projections_decl: "auto" "projections" IDENT "@" INT "{" auto_projection_it
 
 semantic_decl: "semantic" IDENT semantic_header? ":" type_expr semantic_body?
 semantic_header: "@" INT semantic_change?
+
+// -- Enum projections ---------------------------------------------------------
+// Chosen spelling (E3 spike): the concise `enum projection` form. At domain
+// top level no other rule starts with the "enum" keyword, so this creates no
+// ambiguous second declaration namespace.
+enum_projection_decl: "enum" "projection" IDENT semantic_header? "from" dotted_ref "@" INT pick_or_omit_clause
+pick_or_omit_clause: "pick" "(" enum_member ("," enum_member)* ")"  -> pick_selection
+                   | "omit" "(" enum_member ("," enum_member)* ")"  -> omit_selection
 semantic_change: "(" change_kind ")"
 semantic_body: "{" semantic_item* "}"
 semantic_item: "registry" ":" bool_literal
@@ -403,11 +412,12 @@ Alphabetical listing of every named rule and its production.
 | `decimal_type` | `"decimal" "(" INT "," INT ")"` |
 | `desc_attr` | `"description" ":" ESCAPED_STRING` |
 | `domain_decl` | `"domain" domain_name "{" domain_item* "}"` |
-| `domain_item` | `owner_attr \| contact_attr \| desc_attr \| model_decl \| projection_decl \| auto_projections_decl \| api_decl \| generate_block \| semantic_decl \| index_decl` |
+| `domain_item` | `owner_attr \| contact_attr \| desc_attr \| model_decl \| projection_decl \| enum_projection_decl \| auto_projections_decl \| api_decl \| generate_block \| semantic_decl \| index_decl` |
 | `domain_name` | `IDENT \| ESCAPED_STRING` |
 | `dotted_ref` | `IDENT ("." IDENT)*` |
 | `entity_grant` | `"entity" principal permission_list` |
 | `enum_member` | `IDENT \| NUMERIC_IDENT` |
+| `enum_projection_decl` | `"enum" "projection" IDENT semantic_header? "from" dotted_ref "@" INT pick_or_omit_clause` |
 | `enum_ref_type` | `dotted_ref "@" INT` |
 | `enum_type` | `"enum" "(" enum_member ("," enum_member)* ")"` |
 | `exclude_option` | `"exclude" "[" auto_projection_exclusion ("," auto_projection_exclusion)* "]"` |
@@ -452,6 +462,7 @@ Alphabetical listing of every named rule and its production.
 | `permission` | `"read" -> p_read \| "project" -> p_project \| "subscribe" -> p_subscribe \| "write" -> p_write \| "transfer" -> p_transfer \| "manage_access" -> p_manage_access \| "derive" -> p_derive \| "redact" -> p_redact` |
 | `permission_list` | `"[" permission ("," permission)* "]"` |
 | `pick_clause` | `"pick" "(" selector ("," selector)* ")"` |
+| `pick_or_omit_clause` | `"pick" "(" enum_member ("," enum_member)* ")"  -> pick_selection \| "omit" "(" enum_member ("," enum_member)* ")"  -> omit_selection` |
 | `pinned_import` | `"at" dotted_ref "@" INT "#" IDENT` |
 | `primary_index` | `"primary" IDENT ("," IDENT)*` |
 | `primitive_type` | `"string"    -> pt_string \| "int"       -> pt_int \| "float"     -> pt_float \| "bool"      -> pt_bool \| "date"      -> pt_date \| "time"      -> pt_time \| "timestamp" -> pt_timestamp \| "uuid" ("(" INT ")")?  -> pt_uuid \| "duration"  -> pt_duration \| "binary"    -> pt_binary \| "json"      -> pt_json \| "u8"        -> pt_u8 \| "u16"       -> pt_u16 \| "u32"       -> pt_u32 \| "u64"       -> pt_u64 \| "u128"      -> pt_u128 \| "i8"        -> pt_i8 \| "i16"       -> pt_i16 \| "i32"       -> pt_i32 \| "i64"       -> pt_i64 \| "i128"      -> pt_i128` |

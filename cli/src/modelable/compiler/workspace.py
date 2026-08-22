@@ -123,6 +123,9 @@ def load_workspace_from_sources(
     errors.extend(
         Diagnostic(code="SEM", message=error, severity="error", path="<workspace>") for error in auto_projection_errors
     )
+    enum_projection_errors, enum_projection_warnings = _expand_enum_projections(merged)
+    errors.extend(enum_projection_errors)
+    warnings.extend(enum_projection_warnings)
     errors.extend(_validate_api_bindings(merged))
 
     selection_errors = expand_projection_selections(merged)
@@ -514,6 +517,136 @@ def _validate_named_field_types(merged: MdlFile) -> tuple[list[Diagnostic], list
                         domain.name,
                         f"{domain.name}.{model_name}@{version.version}.{model_field.name}",
                     )
+    return errors, warnings
+
+
+def _expand_enum_projections(merged: MdlFile) -> tuple[list[Diagnostic], list[Diagnostic]]:
+    """Resolve enum-projection sources exactly and normalize their member sets.
+
+    Both pick(...) and omit(...) normalize into the exact resulting member
+    identities of the exact referenced source version; the authored form is
+    retained on the declaration only for rendering and diagnostics (evolution
+    plan E3).
+    """
+    errors: list[Diagnostic] = []
+    warnings: list[Diagnostic] = []
+    for domain in merged.domains:
+        seen: dict[tuple[str, int], int] = {}
+        for projection in domain.enum_projections:
+            context = f"{domain.name}.{projection.name}@{projection.version}"
+            if seen.get((projection.name, projection.version)):
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=f"{context}: enum projection is declared more than once",
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+            seen[(projection.name, projection.version)] = 1
+            if projection.name in domain.models:
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=f"{domain.name}: enum projection '{projection.name}' collides with a model of the same name",
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+            if any(item.name == projection.name for item in domain.semantic_types):
+                errors.append(
+                    Diagnostic(
+                        code="ENUMPROJ",
+                        message=(
+                            f"{domain.name}: enum projection '{projection.name}' collides with a semantic "
+                            "type of the same name in the shared nominal enum namespace"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+
+            try:
+                _declaring_domain, source = resolve_semantic_type_ref(
+                    merged, domain.name, projection.source_name, exact_version=projection.source_version
+                )
+            except LookupError as exc:
+                message = str(exc).replace("ambiguous semantic type", "ambiguous enum type", 1)
+                errors.append(
+                    Diagnostic(code="ENUMPROJ", message=f"{context}: {message}", severity="error", path="<workspace>")
+                )
+                continue
+            if not isinstance(source.underlying, EnumType):
+                errors.append(
+                    Diagnostic(
+                        code="ENUMPROJ",
+                        message=(
+                            f"{context}: enum projection source "
+                            f"'{projection.source_name} @ {projection.source_version}' must be an "
+                            "enum-backed semantic type"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                continue
+
+            source_values = list(source.underlying.values)
+            repeated = sorted({member for member in projection.selected if projection.selected.count(member) > 1})
+            if repeated:
+                errors.append(
+                    Diagnostic(
+                        code="ENUMPROJ",
+                        message=(
+                            f"{context}: {projection.selection_kind} lists member(s) more than once: "
+                            + ", ".join(repeated)
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                continue
+            unknown = sorted(set(projection.selected) - set(source_values))
+            if unknown:
+                errors.append(
+                    Diagnostic(
+                        code="ENUMPROJ",
+                        message=(
+                            f"{context}: {projection.selection_kind} references member(s) missing from "
+                            f"source '{projection.source_name} @ {projection.source_version}': " + ", ".join(unknown)
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                continue
+
+            if projection.selection_kind == "pick":
+                # Ordered-independent subset of exact source-member identities.
+                members = sorted(set(projection.selected))
+            else:
+                members = sorted(value for value in source_values if value not in set(projection.selected))
+            if not members:
+                errors.append(
+                    Diagnostic(
+                        code="ENUMPROJ",
+                        message=f"{context}: enum projection would have an empty member set",
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                continue
+            if projection.has_version_header and projection.version < 1:
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=f"{context}: enum projection version must be positive",
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                continue
+            projection.members = members
     return errors, warnings
 
 
