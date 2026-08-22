@@ -112,6 +112,7 @@ type_expr: primitive_type
          | ref_type
          | object_type
          | union_type
+         | enum_ref_type
          | dotted_ref
 
 primitive_type: "string"    -> pt_string
@@ -146,6 +147,7 @@ NUMERIC_IDENT: /[0-9][A-Za-z0-9_-]*/
 array_type: "array" "<" type_expr ">"
 map_type: "map" "<" type_expr "," type_expr ">"
 ref_type: "ref" "<" dotted_ref ("@" version_spec)? ">"
+enum_ref_type: dotted_ref "@" INT
 object_type: "object" "{" field_decl* "}"
 union_type: "union" "<" IDENT ">" "{" union_variant ("," union_variant)* "}"
 union_variant: IDENT ":" type_expr
@@ -406,6 +408,7 @@ Alphabetical listing of every named rule and its production.
 | `dotted_ref` | `IDENT ("." IDENT)*` |
 | `entity_grant` | `"entity" principal permission_list` |
 | `enum_member` | `IDENT \| NUMERIC_IDENT` |
+| `enum_ref_type` | `dotted_ref "@" INT` |
 | `enum_type` | `"enum" "(" enum_member ("," enum_member)* ")"` |
 | `exclude_option` | `"exclude" "[" auto_projection_exclusion ("," auto_projection_exclusion)* "]"` |
 | `field_decl` | `annotation* IDENT optional_marker? ":" type_expr nullable_marker? constraint_clause* field_default?` |
@@ -488,7 +491,7 @@ Alphabetical listing of every named rule and its production.
 | `subscription_decl_item` | `IDENT ":" EXPRESSION` |
 | `subscription_item` | `IDENT ":" EXPRESSION` |
 | `target_name` | `"openapi"                 -> tn_openapi \| "typescript"              -> tn_typescript \| "avro"                    -> tn_avro \| "protobuf"                -> tn_protobuf \| "sql" "(" db_dialect ")"  -> tn_sql \| "jsonschema"              -> tn_jsonschema \| "asyncapi"                -> tn_asyncapi \| "docs"                    -> tn_docs` |
-| `type_expr` | `primitive_type \| decimal_type \| fixed_binary_type \| enum_type \| array_type \| map_type \| ref_type \| object_type \| union_type \| dotted_ref` |
+| `type_expr` | `primitive_type \| decimal_type \| fixed_binary_type \| enum_type \| array_type \| map_type \| ref_type \| object_type \| union_type \| enum_ref_type \| dotted_ref` |
 | `union_type` | `"union" "<" IDENT ">" "{" union_variant ("," union_variant)* "}"` |
 | `union_variant` | `IDENT ":" type_expr` |
 | `unique_item` | `"unique" ":" bool_literal` |

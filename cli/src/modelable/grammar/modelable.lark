@@ -95,6 +95,7 @@ type_expr: primitive_type
          | ref_type
          | object_type
          | union_type
+         | enum_ref_type
          | dotted_ref
 
 primitive_type: "string"    -> pt_string
@@ -129,6 +130,7 @@ NUMERIC_IDENT: /[0-9][A-Za-z0-9_-]*/
 array_type: "array" "<" type_expr ">"
 map_type: "map" "<" type_expr "," type_expr ">"
 ref_type: "ref" "<" dotted_ref ("@" version_spec)? ">"
+enum_ref_type: dotted_ref "@" INT
 object_type: "object" "{" field_decl* "}"
 union_type: "union" "<" IDENT ">" "{" union_variant ("," union_variant)* "}"
 union_variant: IDENT ":" type_expr

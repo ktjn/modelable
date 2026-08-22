@@ -219,6 +219,18 @@ class NamedType(BaseModel):
     name: str
 
 
+class EnumRefType(BaseModel):
+    """Exact-versioned reference to an enum-backed semantic declaration.
+
+    Nominal by construction: the reference carries declaring identity and exact
+    version, never a copied member list (evolution plan E1).
+    """
+
+    kind: Literal["enum_ref"] = "enum_ref"
+    name: str
+    version: int
+
+
 class UnionVariant(BaseModel):
     tag: str
     type: FieldType
@@ -253,6 +265,7 @@ FieldType = Annotated[
     | EnumType
     | ObjectType
     | NamedType
+    | EnumRefType
     | UnionType,
     Field(discriminator="kind"),
 ]

@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Exact versioned semantic-enum references: a field can reference an
+  enum-backed `semantic` declaration at an exact version with same-domain
+  (`status: OrderStatus @ 1`) or qualified (`status: orders.OrderStatus @ 1`)
+  syntax. References validate against the resolved declaration — unknown,
+  ambiguous, wrong-version, and non-enum targets are rejected with `ENUMREF`
+  diagnostics; enum-backed semantic declarations reject duplicate and empty
+  member sets. Anonymous `enum(...)` and unversioned semantic types remain
+  source-compatible.
 - `modelable diff` documentation now lists the discriminated-union change
   kinds (`union_discriminator_changed`, `union_variant_added`,
   `union_variant_removed`, `union_variant_changed`), and the language

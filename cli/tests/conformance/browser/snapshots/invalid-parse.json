@@ -7,7 +7,7 @@
         "end_column": null,
         "end_line": null,
         "line": -1,
-        "message": "Unexpected end-of-input. Expected one of: \n\t* LPAR\n\t* RBRACE\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* ACCESS\n\t* ACCESS\n\t* RESERVED\n\t* RESERVED\n\t* __ANON_0\n\t* __ANON_1\n\t* __ANON_2\n\t* __ANON_3\n\t* __ANON_4\n\t* __ANON_5\n\t* __ANON_6\n\t* __ANON_7\n\t* __ANON_8\n\t* __ANON_9\n\t* __ANON_9\n\t* __ANON_9\n\t* __ANON_9\n\t* __ANON_10\n\t* __ANON_10\n\t* EQUAL\n\t* CONSTRAINT\n\t* CONSTRAINT\n\t* QMARK\n\t* DOT\n",
+        "message": "Unexpected end-of-input. Expected one of: \n\t* LPAR\n\t* AT\n\t* RBRACE\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* IDENT\n\t* ACCESS\n\t* ACCESS\n\t* RESERVED\n\t* RESERVED\n\t* __ANON_0\n\t* __ANON_1\n\t* __ANON_2\n\t* __ANON_3\n\t* __ANON_4\n\t* __ANON_5\n\t* __ANON_6\n\t* __ANON_7\n\t* __ANON_8\n\t* __ANON_9\n\t* __ANON_9\n\t* __ANON_9\n\t* __ANON_9\n\t* __ANON_10\n\t* __ANON_10\n\t* EQUAL\n\t* CONSTRAINT\n\t* CONSTRAINT\n\t* QMARK\n\t* DOT\n",
         "severity": "error",
         "uri": "fixture:///invalid-parse.mdl"
       }
