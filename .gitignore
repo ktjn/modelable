@@ -52,3 +52,7 @@ web/public/python-rag-test/
 # packages it independently of git tracking). Committing it produced permanent
 # local diff noise after every sync; a fresh checkout regenerates it for free.
 cli/src/modelable/data/docs-index/
+
+# Local scratch output and Playwright CLI captures
+output/
+.playwright-cli/

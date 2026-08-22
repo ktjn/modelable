@@ -110,6 +110,13 @@ method: union<kind> {
 JSON Schema and OpenAPI emit this as `oneOf` branches with a discriminator
 mapping. Variant branches are required to be object-shaped at the target
 boundary so the discriminator property can be validated.
+
+Union versions are compatibility-classified like any other field change:
+changing a union's discriminator property (`union_discriminator_changed`),
+adding a variant (`union_variant_added`), removing one
+(`union_variant_removed`), or changing an existing variant's type
+(`union_variant_changed`) each produce their own compatibility finding, so
+version bumps can be validated against exactly which part of the union moved.
 | `json` | Arbitrary JSON value, opaque to Modelable; maps to `serde_json::Value` (Rust), `unknown` (TypeScript), `{}` (JSON Schema) |
 
 An `object` type is an inline record of named fields:
@@ -743,8 +750,9 @@ these names still have no implemented emitter behind them
 (`asyncapi` and the `mysql`/`sqlite` SQL dialects — only
 `postgres` and `clickhouse` are implemented; `openapi` is implemented, see
 `modelable compile --target openapi`, including schemas and explicit
-paths/operations. See Slice B3 in
-[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-b3--eliminate-silently-ignored-syntax).
+paths/operations. See the capability/doc-consistency slices (B2 and the
+F-slices) in
+[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-b2--reconcile-current-documentation-claims).
 
 `modelable compile --target <name>` is the actual code-generation path, and
 its target names and descriptions are compiler-owned data, not this table —

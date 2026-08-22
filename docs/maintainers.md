@@ -490,7 +490,9 @@ this flow; `release-tag.yml` fails with an explicit error if it's missing.
    `Release <version>` PR.
 3. Review the PR diff (especially `CHANGELOG.md` and the English of the entries)
    and merge it. If `auto_merge` was enabled, the PR merges itself once CI is
-   green.
+   green. The automation does not touch `ROADMAP.md`'s "The latest published
+   release is ..." baseline line — update it in this PR or a follow-up so the
+   roadmap does not trail the release.
 4. Once the release PR merges, `release-tag.yml` detects the merge, derives the
    version from the `Release <version>` title, and pushes the annotated
    `v<version>` tag. That tag triggers `.github/workflows/release.yml`, which
@@ -504,7 +506,9 @@ is mechanical and does not judge the changelog content.
 
 ### Manual command sequence
 
-1. Move user-facing changelog entries from `Unreleased` into a dated release.
+1. Move user-facing changelog entries from `Unreleased` into a dated release,
+   and update `ROADMAP.md`'s "The latest published release is ..." baseline
+   line (the automated flow does not cover it either).
 2. Set the same version in `cli/pyproject.toml`, `cli/browser/pyproject.toml`,
    and `vscode/package.json`. `cli/browser/pyproject.toml` must match
    `cli/pyproject.toml` exactly — `build_browser_wheel.py` refuses to build a

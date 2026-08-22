@@ -8,9 +8,24 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- `modelable diff` documentation now lists the discriminated-union change
+  kinds (`union_discriminator_changed`, `union_variant_added`,
+  `union_variant_removed`, `union_variant_changed`), and the language
+  reference documents how union versions are compatibility-classified.
+
 ### Changed
 
+- README's capabilities and playground sections reflect the currently shipped
+  artifact targets (OpenAPI, Avro, event-sink) and playground features.
+- The release process now reminds maintainers to update ROADMAP.md's "latest
+  published release" baseline line, which the automated release flow does not
+  touch.
+
 ### Fixed
+
+- ROADMAP.md no longer claims 1.9.4 is the latest published release (1.9.5
+  shipped on 2026-08-19), and Slice D4 no longer lists union compatibility
+  classification as pending work — it shipped in PR #386.
 
 ## [1.9.5] - 2026-08-19
 
