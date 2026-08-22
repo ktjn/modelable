@@ -42,83 +42,73 @@ class _FieldSpec:
     serde_attrs: list[str] = dc_field(default_factory=list)
 
 
-def _append_cross_enum_from_impls(
-    artifacts: list[EmittedArtifact],
-    enum_registry: dict[str, dict],
+def _lineage_enum_from_impl_lines(
+    version: ProjectionVersion,
+    mdl: MdlFile,
+    proj_domain: str,
+    proj_type_name: str,
+    *,
+    current_pkg: str | None = None,
     package_for_domain: dict[str, str] | None = None,
-) -> list[EmittedArtifact]:
-    """For each pair of enum types with identical variants in the same domain,
-    append From impl blocks into projection files without manual match arms.
+) -> list[str]:
+    """Generate `From` impls between a source model's nested enum types and the
+    projection's re-declared copies of them, for direct-mapped fields only.
+
+    Conversions come exclusively from explicit projection lineage: a projection
+    field directly mapped from `source.field` needs exactly one conversion
+    between those two concrete generated enum types. Two enums with identical
+    member sets are never connected implicitly — same members do not imply the
+    same type (nominal-enum plan, Slice 0).
     """
-    # A projection may convert from a model owned by another domain.
-    # In package mode each entry also records its owning package so the emitted
-    # `use` path can be `crate::{domain}::` (same package, different domain)
-    # rather than `super::{domain}::` (which is only valid for sibling files in
-    # the same domain directory).
-    entries: list[tuple[str, str, str, dict[str, list[str]], str]] = []
-    for art_id, info in enum_registry.items():
-        entries.append((art_id, info["domain"], info["module_name"], info["enums"], info["kind"]))
+    try:
+        src_domain_str, src_model_name = version.source.model.rsplit(".", 1)
+    except ValueError:
+        return []
+    if package_for_domain is None:
+        # Single-crate layout: files live one level below their domain module,
+        # so a sibling file is `super::{module}` and another domain's file is
+        # `super::{domain_mod}::{module}`.
+        prefix = "super" if src_domain_str == proj_domain else f"super::{_domain_mod_name(src_domain_str)}"
+    else:
+        if src_domain_str not in package_for_domain or proj_domain not in package_for_domain:
+            return []
+        prefix = _import_prefix(src_domain_str, proj_domain, current_pkg, package_for_domain)
 
-    # Build: frozenset(raw_variants) -> [(artifact_id, domain, module_name, enum_type_name, kind)]
-    extra: dict[str, list[str]] = {}  # artifact_id -> lines to append
-    variant_map: dict[frozenset[str], list[tuple[str, str, str, str, str]]] = {}
-    for art_id, domain, module_name, enums, kind in entries:
-        for enum_type_name, raw_variants in enums.items():
-            variant_map.setdefault(frozenset(raw_variants), []).append(
-                (art_id, domain, module_name, enum_type_name, kind)
-            )
+    try:
+        resolved = resolve_model_ref(mdl, version.source.model, version.source.version)
+    except LookupError:
+        return []
+    src_version = resolved.version
+    if not isinstance(src_version, ModelVersion):
+        return []
 
-    for variant_set, enum_list in variant_map.items():
-        if len(enum_list) < 2:
+    src_type_name = _stable_type_name(src_domain_str, src_model_name, src_version.version)
+    prefix = _import_prefix(src_domain_str, proj_domain, current_pkg, package_for_domain)
+
+    lines: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    for field in version.fields:
+        if not isinstance(field.mapping, DirectMapping):
             continue
-        sorted_variants = sorted(variant_set)
-        for src_art_id, src_domain, src_module, src_enum, _src_kind in enum_list:
-            for tgt_art_id, tgt_domain, _tgt_module, tgt_enum, tgt_kind in enum_list:
-                if (src_art_id == tgt_art_id and src_enum == tgt_enum) or tgt_kind == "model":
-                    continue
-                if src_domain != tgt_domain:
-                    current_pkg = enum_registry.get(tgt_art_id, {}).get("pkg")
-                    prefix = _import_prefix(src_domain, tgt_domain, current_pkg, package_for_domain)
-                    source_path = f"{prefix}::{src_module}"
-                else:
-                    source_path = f"super::{src_module}"
-                lines: list[str] = [
-                    "",
-                    f"use {source_path}::{src_enum};",
-                    f"impl From<{src_enum}> for {tgt_enum} {{",
-                    f"    fn from(src: {src_enum}) -> Self {{",
-                    "        match src {",
-                ]
-                for raw_v in sorted_variants:
-                    member = _enum_member_name(raw_v)
-                    lines.append(f"            {src_enum}::{member} => {tgt_enum}::{member},")
-                lines += ["        }", "    }", "}"]
-                extra.setdefault(tgt_art_id, []).extend(lines)
-
-    if not extra:
-        return artifacts
-
-    result: list[EmittedArtifact] = []
-    for artifact in artifacts:
-        appendage = extra.get(artifact.artifact_id)
-        if appendage:
-            if not isinstance(artifact.content, str):
-                raise TypeError(f"Rust artifact {artifact.artifact_id} content must be text")
-            new_content = artifact.content.rstrip("\n") + "\n" + "\n".join(appendage) + "\n"
-            result.append(
-                EmittedArtifact(
-                    target=artifact.target,
-                    ref=artifact.ref,
-                    artifact_id=artifact.artifact_id,
-                    path=artifact.path,
-                    content=new_content,
-                    content_hash=compute_content_hash(new_content),
-                    warnings=artifact.warnings,
-                )
-            )
-        else:
-            result.append(artifact)
-    return result
+        shape = _resolve_projection_field_shape(field, version, mdl)
+        if shape is None or shape.kind != "enum":
+            continue
+        src_enum = _nested_type_name(src_type_name, [field.mapping.source_field])
+        proj_enum = _nested_type_name(proj_type_name, [field.name])
+        key = (src_enum, proj_enum)
+        if key in seen:
+            continue
+        seen.add(key)
+        lines.append("")
+        lines.append(f"use {prefix}::{_snake_case(src_type_name)}::{src_enum};")
+        lines.append(f"impl From<{src_enum}> for {proj_enum} {{")
+        lines.append(f"    fn from(src: {src_enum}) -> Self {{")
+        lines.append("        match src {")
+        for raw_v in shape.enum_values:
+            member = _enum_member_name(raw_v)
+            lines.append(f"            {src_enum}::{member} => {proj_enum}::{member},")
+        lines += ["        }", "    }", "}"]
+    return lines
 
 
 def emit_rust(
@@ -142,7 +132,6 @@ def _emit_rust_single_crate(
 ) -> list[EmittedArtifact]:
     postgres_sources = _adapter_bound_sources(workspace.mdl, "postgres")
     clickhouse_sources = _adapter_bound_sources(workspace.mdl, "clickhouse")
-    enum_registry: dict[str, dict] = {}
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
         for decl in latest_semantic_types(domain):
@@ -151,9 +140,7 @@ def _emit_rust_single_crate(
             artifacts.append(_emit_semantic_type(domain, decl, out_dir, allocated_id=allocated_id))
         for model_name, versions in domain.models.items():
             for version in versions:
-                artifacts.append(
-                    _emit_model(domain, model_name, version, out_dir, enum_registry=enum_registry, mdl=workspace.mdl)
-                )
+                artifacts.append(_emit_model(domain, model_name, version, out_dir, mdl=workspace.mdl))
         for projection_name, versions in domain.projections.items():
             for version in versions:
                 source = version.source.model
@@ -166,10 +153,9 @@ def _emit_rust_single_crate(
                         workspace.mdl,
                         sqlx_fromrow=source in postgres_sources,
                         clickhouse_row=source in clickhouse_sources,
-                        enum_registry=enum_registry,
                     )
                 )
-    return _append_cross_enum_from_impls(artifacts, enum_registry)
+    return artifacts
 
 
 def _emit_rust_packages(
@@ -186,7 +172,6 @@ def _emit_rust_packages(
     package_for_domain = package_graph.package_for_domain
     domains_by_name = {domain.name: domain for domain in mdl.domains}
 
-    enum_registry: dict[str, dict] = {}
     artifacts: list[EmittedArtifact] = []
     domain_modules: dict[str, dict[str, list[str]]] = {}  # pkg -> domain -> [module names]
 
@@ -218,7 +203,6 @@ def _emit_rust_packages(
                         model_name,
                         version,
                         pkg_dir,
-                        enum_registry=enum_registry,
                         mdl=mdl,
                         current_pkg=pkg.name,
                         package_for_domain=package_for_domain,
@@ -236,15 +220,12 @@ def _emit_rust_packages(
                         mdl,
                         sqlx_fromrow=source in postgres_sources,
                         clickhouse_row=source in clickhouse_sources,
-                        enum_registry=enum_registry,
                         current_pkg=pkg.name,
                         package_for_domain=package_for_domain,
                     )
                     artifacts.append(artifact)
                     modules.append(artifact.path.stem)
             domain_modules.setdefault(pkg.name, {})[domain.name] = sorted(modules)
-
-    artifacts = _append_cross_enum_from_impls(artifacts, enum_registry, package_for_domain=package_for_domain)
 
     for pkg in mdl.workspace.packages:
         pkg_dir = out_dir / pkg.name
@@ -648,7 +629,6 @@ def _emit_model(
     version: ModelVersion,
     out_dir: Path,
     *,
-    enum_registry: dict[str, dict] | None = None,
     mdl: MdlFile | None = None,
     current_pkg: str | None = None,
     package_for_domain: dict[str, str] | None = None,
@@ -656,7 +636,6 @@ def _emit_model(
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     type_name = _stable_type_name(domain.name, model_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
-    local_enum_info: dict[str, list[str]] = {}
 
     # Resolve NamedType references from the workspace
     named_refs: set[str] = set()
@@ -675,18 +654,9 @@ def _emit_model(
         owner_type=type_name,
         path=[],
         definitions=nested_definitions,
-        enum_info=local_enum_info,
         named_type_map=named_type_map,
         declaration_wire=version.wire_targets(),
     )
-    if enum_registry is not None:
-        enum_registry[artifact_id] = {
-            "enums": local_enum_info,
-            "module_name": _snake_case(type_name),
-            "domain": domain.name,
-            "pkg": current_pkg,
-            "kind": "model",
-        }
 
     warnings: list[str] = []
     for field in version.fields:
@@ -744,14 +714,12 @@ def _emit_projection(
     *,
     sqlx_fromrow: bool = False,
     clickhouse_row: bool = False,
-    enum_registry: dict[str, dict] | None = None,
     current_pkg: str | None = None,
     package_for_domain: dict[str, str] | None = None,
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     type_name = _stable_type_name(domain.name, projection_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
-    local_enum_info: dict[str, list[str]] = {}
 
     field_shapes: dict[str, TypeShape | None] = {
         field.name: _resolve_projection_field_shape(field, version, mdl) for field in version.fields
@@ -789,7 +757,6 @@ def _emit_projection(
                 definitions=nested_definitions,
                 rust_hint=wire.get("rust"),
                 clickhouse_hint=wire.get("clickhouse"),
-                enum_info=local_enum_info,
                 named_type_map=named_type_map,
             )
         optional = field_shape.optional or field_shape.nullable
@@ -853,15 +820,16 @@ def _emit_projection(
             package_for_domain=package_for_domain,
         )
     )
-
-    if enum_registry is not None:
-        enum_registry[artifact_id] = {
-            "enums": local_enum_info,
-            "module_name": _snake_case(type_name),
-            "domain": domain.name,
-            "pkg": current_pkg,
-            "kind": "projection",
-        }
+    lines.extend(
+        _lineage_enum_from_impl_lines(
+            version,
+            mdl,
+            domain.name,
+            type_name,
+            current_pkg=current_pkg,
+            package_for_domain=package_for_domain,
+        )
+    )
 
     text = "\n".join(lines) + "\n"
     module_path = (
