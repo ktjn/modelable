@@ -37,6 +37,15 @@ def parse_file(path: str | Path) -> Tree:
 
 
 def parse_text_to_ir_with_tree(text: str, path: str | Path | None = None) -> tuple[MdlFile, Tree]:
+    """Parse one source document into its per-file IR plus syntax tree.
+
+    Parsing-level API: the returned ``MdlFile`` is an *unresolved, per-source*
+    declaration set — cross-file references are not resolved, auto projections
+    are not expanded, and config defaults are not applied. It is intended for
+    syntax tooling (formatter, deferred-syntax scan). Canonical normalized
+    contracts come only from
+    :func:`modelable.compiler.workspace.load_workspace_from_sources`.
+    """
     tree = parse_text(text)
     try:
         return MdlTransformer().transform(tree), tree
@@ -49,10 +58,16 @@ def parse_text_to_ir_with_tree(text: str, path: str | Path | None = None) -> tup
 
 
 def parse_text_to_ir(text: str, path: str | Path | None = None) -> MdlFile:
+    """Parsing-level API — see :func:`parse_text_to_ir_with_tree`.
+
+    Returns unresolved per-source declarations; do not treat them as canonical
+    contracts for signatures, registry state, compatibility, or emission.
+    """
     mdl, _tree = parse_text_to_ir_with_tree(text, path=path)
     return mdl
 
 
 def parse_file_to_ir(path: str | Path) -> MdlFile:
+    """Parsing-level API — see :func:`parse_text_to_ir_with_tree`."""
     path = Path(path)
     return parse_text_to_ir(path.read_text(encoding="utf-8"), path=path)
