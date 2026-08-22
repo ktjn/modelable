@@ -21,7 +21,7 @@ committed roadmap live in [Future Direction](docs/future-direction.md).
 
 ## Current baseline
 
-The latest published release is 1.9.4. The stable 1.x surface includes:
+The latest published release is 1.10.0. The stable 1.x surface includes:
 
 - The `.mdl` language, semantic validation, compatibility and lineage reports,
   governance findings, the language server, and the VS Code extension distributed
