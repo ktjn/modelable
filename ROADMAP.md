@@ -969,13 +969,25 @@ been misclassified as an enclosing model, corrupting field lookups for
 whatever came after it until the next real declaration. Fixed by excluding
 `semantic` matches from scope tracking explicitly, with a regression test
 that places a `semantic` declaration between two entities and confirms the
-second entity's own field still resolves correctly. **Next:** references,
-rename, and completion (each gets the analogous
-`domain.semantic_types`/`domain.enum_projections` branch plus the same
-`_DECL_PATTERN`/`_ENUM_PROJECTION_DECL_PATTERN` treatment), then member
-resolution inside `pick`/`omit` against the exact source version (genuinely
-new logic, no existing pattern to extend), then rename-scoping to nominal
-identity, then VS Code/Monaco mirroring and cross-surface conformance
+second entity's own field still resolves correctly. **References is done
+next:** the same three changes applied to `references.py`'s own copies of
+`_DECL_PATTERN`/`_current_scope`/the qualified-reference resolver
+(`_references_for_qualified_ref`), plus a matching `enum_projection` branch in
+`_find_decl_location` (mirroring `definition.py`'s) so "find all references"
+on an `enum projection` declaration locates its own header line rather than
+falling through the single-keyword `_DECL_PATTERN`. `_reference_locations_for_decl`,
+which scans for *usages* of a qualified ref, needed no change — it already
+matches on the ref string itself (`domain.Name@version`) with no kind-specific
+branching, so it picked up semantic/enum-projection usages for free once the
+declaration-side lookup worked. Verified end-to-end that references on a
+qualified `orders.OrderStatus @ 1` field type return both the declaration and
+the usage site, and that the same intervening-`semantic`-declaration scope
+regression is guarded here too. **Next:** rename and completion (each gets
+the analogous `domain.semantic_types`/`domain.enum_projections` branch plus
+the same `_DECL_PATTERN`/`_ENUM_PROJECTION_DECL_PATTERN` treatment), then
+member resolution inside `pick`/`omit` against the exact source version
+(genuinely new logic, no existing pattern to extend), then rename-scoping to
+nominal identity, then VS Code/Monaco mirroring and cross-surface conformance
 fixtures. Then D7/D8's convergence gate. They build on D3 rather than
 introducing a second parallel enum declaration.
 Depended on by D4.
