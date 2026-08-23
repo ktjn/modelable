@@ -709,12 +709,38 @@ evolution, wire values, Protobuf numbering/reservations, and compatibility
 across targets. **Shipped:** PRs #381 and #382 added reusable semantic enum
 identity, schema reuse, version evolution, conversion behavior, and
 compatibility checks. That shipped source form is
-`semantic Name @ version: enum(...)`; references still resolve through the
-general semantic-type path, several emitters flatten the underlying shape, and
-member identity, subset projections, persistent Protobuf allocation, and exact
-versioned field references remain extensions. Those extensions are decomposed
-as E1-E11 in the
-[Model Evolution Slices Roadmap](docs/superpowers/plans/2026-08-22-model-evolution-slices-roadmap.md).
+`semantic Name @ version: enum(...)`. The extensions decomposed as E1-E11 in
+the
+[Model Evolution Slices Roadmap](docs/superpowers/plans/2026-08-22-model-evolution-slices-roadmap.md)
+are shipping incrementally: foundation slices F1-F4 (unsafe shape-based Rust
+conversion removal, central anonymous-enum member validation, target
+name/wire-value collision validation, normalized-contract equivalence) and
+identity slices E1-E5 (exact versioned semantic-enum references, exact
+identity resolution, `pick`/`omit` enum projections with subset lineage,
+registry signature/snapshot inclusion, and compatibility/causal-impact
+classification) are shipped. **E6 (stable Protobuf enum number allocation) is
+now shipped too:** `cli/src/modelable/registry/enum_numbers.py` allocates and
+persists per-declaration member numbers in a `enum-numbers.lock` ledger
+(same shape and lock discipline as `registry-ids.lock`), preserving numbers
+across additions and reordering, reserving removed members' numbers
+permanently, and rejecting a later version that reintroduces a removed
+member's name. `emitters/protobuf.py` now emits enum-backed `semantic`
+declarations as a single nominal, package-qualified Protobuf `enum` in each
+domain's `semantic-types.proto` bundle (rather than crashing, which it did
+unconditionally before this slice for any `EnumRefType` field or an
+enum-backed `semantic` declaration), referenced by every field through a
+qualified type import; removed members render as `reserved` statements.
+Enum projections resolve their included members' numbers directly from their
+source declaration's allocation rather than getting an independent one.
+`modelable compile`'s ledger wiring covers the direct/non-conversational
+compile path (`--enum-numbers`, defaulting to `enum-numbers.lock` beside the
+source) with the same staged-promotion and cross-process locking discipline
+as `registry-ids.lock`; conversational preview/apply stages and promotes the
+ledger file consistently but does not yet get its own dedicated
+change-tracking or audit-record entries the way `registry_id_changes` does
+for `registry-ids.lock` — that stronger conversational-surface parity is
+explicitly deferred as a small follow-up, not part of this slice. **Next:**
+E7-E11 (per-target emission and editor support) and D7/D8's convergence gate.
 They build on D3 rather than introducing a second parallel enum declaration.
 Depended on by D4.
 

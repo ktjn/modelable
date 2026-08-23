@@ -15,6 +15,7 @@ from modelable.parser.ir import (
     DecimalType,
     DirectMapping,
     DomainDef,
+    EnumRefType,
     EnumType,
     FieldDef,
     FieldType,
@@ -31,7 +32,8 @@ from modelable.parser.ir import (
     SemanticTypeDecl,
     latest_semantic_types,
 )
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.enum_numbers import EnumNumberAllocation
+from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
 from modelable.registry.signature import compute_version_signature
 
 
@@ -71,6 +73,7 @@ class _ProtoField:
     fixed_length: int | None = None
     semantic: _SemanticProtoType | None = None
     map: _ProtoMap | None = None
+    enum_ref: _ProtoEnumType | None = None
 
 
 @dataclass(frozen=True)
@@ -80,11 +83,34 @@ class _ProtoEnum:
 
 
 @dataclass(frozen=True)
+class _ProtoEnumType:
+    """A nominal, domain-owned enum type (evolution plan E6).
+
+    Declared once per declaring domain in that domain's semantic-types.proto
+    bundle and referenced by qualified type name everywhere it's used, unlike
+    ``_ProtoEnum`` which is rendered fresh, per field, for anonymous
+    ``enum(...)`` field types.
+    """
+
+    ref: str
+    declaring_domain: str
+    proto_type: str
+    members: tuple[tuple[str, int], ...]
+    reservations: tuple[tuple[str, int], ...]
+
+
+@dataclass(frozen=True)
+class _EnumIndex:
+    by_ref: dict[str, _ProtoEnumType]
+
+
+@dataclass(frozen=True)
 class _ProtoMap:
     key_type: str
     value_type: str
     value_fixed_length: int | None = None
     value_semantic: _SemanticProtoType | None = None
+    value_enum_ref: _ProtoEnumType | None = None
 
 
 def emit_protobuf(
@@ -92,10 +118,12 @@ def emit_protobuf(
     out_dir: Path,
     *,
     registry_ids: dict[str, int] | None = None,
+    enum_numbers: dict[str, EnumNumberAllocation] | None = None,
 ) -> list[EmittedArtifact]:
     """Emit Protocol Buffers schema artifacts for semantic types, models, and projections."""
     semantic_index = _build_semantic_index(workspace.mdl, registry_ids)
-    artifacts = _emit_semantic_bundles(semantic_index, out_dir)
+    enum_index = _build_enum_index(workspace.mdl, enum_numbers)
+    artifacts = _emit_semantic_bundles(semantic_index, enum_index, out_dir)
     for domain in workspace.mdl.domains:
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
@@ -104,7 +132,9 @@ def emit_protobuf(
                     model_name,
                     model_version,
                     out_dir,
+                    workspace.mdl,
                     semantic_index,
+                    enum_index,
                 )
                 artifacts.extend([proto, manifest])
         for projection_name, projection_versions in domain.projections.items():
@@ -116,6 +146,7 @@ def emit_protobuf(
                     out_dir,
                     workspace.mdl,
                     semantic_index,
+                    enum_index,
                 )
                 artifacts.extend([proto, manifest])
     return artifacts
@@ -126,15 +157,20 @@ def _emit_model_version(
     model_name: str,
     version: ModelVersion,
     out_dir: Path,
+    mdl: MdlFile,
     semantic_index: _SemanticIndex,
+    enum_index: _EnumIndex,
 ) -> tuple[EmittedArtifact, EmittedArtifact]:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     proto_fields = [
         _field_to_proto(
             field,
+            mdl,
+            domain_name=domain.name,
             message_name=model_name,
             field_number=index,
             semantic_index=semantic_index,
+            enum_index=enum_index,
         )
         for index, field in enumerate(version.fields, start=1)
     ]
@@ -148,6 +184,7 @@ def _emit_model_version(
         message_name=model_name,
         fields=proto_fields,
         reservations=version.protobuf_reservations,
+        enum_imports=_referenced_enum_imports(proto_fields),
     )
     indexes = _manifest_indexes(_index_decl_for(domain, model_name, version.version))
     manifest_content = _manifest_json(
@@ -188,6 +225,7 @@ def _emit_projection_version(
     out_dir: Path,
     mdl: MdlFile,
     semantic_index: _SemanticIndex,
+    enum_index: _EnumIndex,
 ) -> tuple[EmittedArtifact, EmittedArtifact]:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     proto_fields = [
@@ -195,9 +233,11 @@ def _emit_projection_version(
             field,
             version,
             mdl,
+            domain_name=domain.name,
             message_name=projection_name,
             field_number=index,
             semantic_index=semantic_index,
+            enum_index=enum_index,
         )
         for index, field in enumerate(version.fields, start=1)
     ]
@@ -211,6 +251,7 @@ def _emit_projection_version(
         message_name=projection_name,
         fields=proto_fields,
         reservations=version.protobuf_reservations,
+        enum_imports=_referenced_enum_imports(proto_fields),
     )
     manifest_content = _manifest_json(
         domain=domain.name,
@@ -243,16 +284,22 @@ def _emit_projection_version(
 
 def _field_to_proto(
     field: FieldDef,
+    mdl: MdlFile,
     *,
+    domain_name: str,
     message_name: str,
     field_number: int,
     semantic_index: _SemanticIndex,
+    enum_index: _EnumIndex,
 ) -> _ProtoField:
-    type_name, enum, fixed_length, semantic, proto_map = _type_to_proto(
+    type_name, enum, fixed_length, semantic, proto_map, enum_ref = _type_to_proto(
         field.type,
+        mdl,
+        domain_name=domain_name,
         message_name=message_name,
         field_name=field.name,
         semantic_index=semantic_index,
+        enum_index=enum_index,
     )
     if field.optional and not type_name.startswith("repeated ") and proto_map is None:
         type_name = f"optional {type_name}"
@@ -266,6 +313,7 @@ def _field_to_proto(
         fixed_length=fixed_length,
         semantic=semantic,
         map=proto_map,
+        enum_ref=enum_ref,
     )
 
 
@@ -274,16 +322,21 @@ def _projection_field_to_proto(
     projection: ProjectionVersion,
     mdl: MdlFile,
     *,
+    domain_name: str,
     message_name: str,
     field_number: int,
     semantic_index: _SemanticIndex,
+    enum_index: _EnumIndex,
 ) -> _ProtoField:
     field_type = _resolve_projection_field_type(field, projection, mdl)
-    type_name, enum, fixed_length, semantic, proto_map = _type_to_proto(
+    type_name, enum, fixed_length, semantic, proto_map, enum_ref = _type_to_proto(
         field_type,
+        mdl,
+        domain_name=domain_name,
         message_name=message_name,
         field_name=field.name,
         semantic_index=semantic_index,
+        enum_index=enum_index,
     )
     return _ProtoField(
         source_name=field.name,
@@ -295,6 +348,7 @@ def _projection_field_to_proto(
         fixed_length=fixed_length,
         semantic=semantic,
         map=proto_map,
+        enum_ref=enum_ref,
     )
 
 
@@ -326,52 +380,66 @@ def _resolve_projection_field_type(field: ProjectionField, projection: Projectio
 
 def _type_to_proto(
     field_type: FieldType,
+    mdl: MdlFile,
     *,
+    domain_name: str,
     message_name: str,
     field_name: str,
     semantic_index: _SemanticIndex,
-) -> tuple[str, _ProtoEnum | None, int | None, _SemanticProtoType | None, _ProtoMap | None]:
+    enum_index: _EnumIndex,
+) -> tuple[str, _ProtoEnum | None, int | None, _SemanticProtoType | None, _ProtoMap | None, _ProtoEnumType | None]:
     if isinstance(field_type, PrimitiveType):
         type_name, fixed_length = _primitive_to_proto(field_type.kind)
-        return type_name, None, fixed_length, None, None
+        return type_name, None, fixed_length, None, None, None
     if isinstance(field_type, DecimalType):
-        return "string", None, None, None, None
+        return "string", None, None, None, None, None
     if isinstance(field_type, FixedBinaryType):
-        return "bytes", None, field_type.length, None, None
+        return "bytes", None, field_type.length, None, None, None
     if isinstance(field_type, NamedType):
         semantic = semantic_index.resolve(field_type.name)
         if semantic is not None:
-            return semantic.proto_type, None, None, semantic, None
-        return "bytes", None, None, None, None
+            return semantic.proto_type, None, None, semantic, None, None
+        return "bytes", None, None, None, None, None
+    if isinstance(field_type, EnumRefType):
+        declaring_domain, decl = resolve_semantic_type_ref(mdl, domain_name, field_type.name, field_type.version)
+        enum_ref = enum_index.by_ref[f"{declaring_domain}.{decl.name}"]
+        return enum_ref.proto_type, None, None, None, None, enum_ref
     if isinstance(field_type, MapType):
         key_type = _map_key_to_proto(field_type.key, message_name=message_name, field_name=field_name)
-        value_type, value_fixed_length, value_semantic, value_enum = _map_value_to_proto(
+        value_type, value_fixed_length, value_semantic, value_enum, value_enum_ref = _map_value_to_proto(
             field_type.value,
+            mdl,
+            domain_name=domain_name,
             message_name=message_name,
             field_name=field_name,
             semantic_index=semantic_index,
+            enum_index=enum_index,
         )
         proto_map = _ProtoMap(
             key_type=key_type,
             value_type=value_type,
             value_fixed_length=value_fixed_length,
             value_semantic=value_semantic,
+            value_enum_ref=value_enum_ref,
         )
-        return f"map<{key_type}, {value_type}>", value_enum, None, None, proto_map
+        return f"map<{key_type}, {value_type}>", value_enum, None, None, proto_map, None
     if isinstance(field_type, ArrayType):
-        inner, _, _, semantic, item_map = _type_to_proto(
+        inner, _, _, semantic, item_map, item_enum_ref = _type_to_proto(
             field_type.item,
+            mdl,
+            domain_name=domain_name,
             message_name=message_name,
             field_name=field_name,
             semantic_index=semantic_index,
+            enum_index=enum_index,
         )
         if item_map is not None:
             raise ValueError(f"protobuf field '{field_name}' cannot use a map inside an array")
-        return f"repeated {inner.removeprefix('optional ')}", None, None, semantic, None
+        return f"repeated {inner.removeprefix('optional ')}", None, None, semantic, None, item_enum_ref
     if isinstance(field_type, EnumType):
         enum = _ProtoEnum(name=f"{message_name}{_pascal_case(field_name)}", values=tuple(field_type.values))
-        return enum.name, enum, None, None, None
-    return "bytes", None, None, None, None
+        return enum.name, enum, None, None, None, None
+    return "bytes", None, None, None, None, None
 
 
 def _map_key_to_proto(field_type: FieldType, *, message_name: str, field_name: str) -> str:
@@ -397,21 +465,27 @@ def _map_key_to_proto(field_type: FieldType, *, message_name: str, field_name: s
 
 def _map_value_to_proto(
     field_type: FieldType,
+    mdl: MdlFile,
     *,
+    domain_name: str,
     message_name: str,
     field_name: str,
     semantic_index: _SemanticIndex,
-) -> tuple[str, int | None, _SemanticProtoType | None, _ProtoEnum | None]:
+    enum_index: _EnumIndex,
+) -> tuple[str, int | None, _SemanticProtoType | None, _ProtoEnum | None, _ProtoEnumType | None]:
     if isinstance(field_type, NamedType) and semantic_index.resolve(field_type.name) is None:
         raise ValueError(
             f"{message_name}.{field_name}: protobuf map value named type {field_type.name} is not supported"
         )
 
-    type_name, enum, fixed_length, semantic, proto_map = _type_to_proto(
+    type_name, enum, fixed_length, semantic, proto_map, enum_ref = _type_to_proto(
         field_type,
+        mdl,
+        domain_name=domain_name,
         message_name=message_name,
         field_name=field_name,
         semantic_index=semantic_index,
+        enum_index=enum_index,
     )
     if proto_map is not None:
         raise ValueError(
@@ -421,7 +495,7 @@ def _map_value_to_proto(
         raise ValueError(
             f"{message_name}.{field_name}: protobuf map value type {_type_display(field_type)} is not supported"
         )
-    return type_name.removeprefix("optional "), fixed_length, semantic, enum
+    return type_name.removeprefix("optional "), fixed_length, semantic, enum, enum_ref
 
 
 def _type_display(field_type: FieldType) -> str:
@@ -497,19 +571,31 @@ def _unique_semantic_decl(
     return candidates[0]
 
 
+class _EnumFamilyTerminalError(Exception):
+    """The semantic declaration's terminal type is enum-backed.
+
+    Enum-backed declarations (directly ``enum(...)`` or aliasing another
+    enum-backed declaration) are not protobuf scalar wrapper types; the enum
+    index (evolution plan E6) handles them separately.
+    """
+
+
 def _semantic_terminal_type(
     decl: SemanticTypeDecl,
     declarations: dict[str, tuple[tuple[str, SemanticTypeDecl], ...]],
 ) -> FieldType:
     current = decl.underlying
     visited = {decl.name}
-    while isinstance(current, NamedType):
+    while True:
+        if isinstance(current, (EnumType, EnumRefType)):
+            raise _EnumFamilyTerminalError()
+        if not isinstance(current, NamedType):
+            return current
         if current.name in visited:
             raise ValueError(f"semantic type cycle encountered at '{current.name}'")
         visited.add(current.name)
         _, next_decl = _unique_semantic_decl(current.name, declarations)
         current = next_decl.underlying
-    return current
 
 
 def _semantic_terminal_proto(field_type: FieldType) -> tuple[str, int | None]:
@@ -537,7 +623,11 @@ def _build_semantic_index(
     for domain in sorted(mdl.domains, key=lambda item: item.name):
         for decl in sorted(latest_semantic_types(domain), key=lambda item: item.name):
             ref = f"{domain.name}.{decl.name}"
-            terminal, fixed_length = _semantic_terminal_proto(_semantic_terminal_type(decl, declarations))
+            try:
+                terminal_type = _semantic_terminal_type(decl, declarations)
+            except _EnumFamilyTerminalError:
+                continue
+            terminal, fixed_length = _semantic_terminal_proto(terminal_type)
             allocated = (registry_ids or {}).get(ref) if decl.registry else None
             if allocated is not None:
                 allocated = _validate_registry_id(ref, allocated)
@@ -557,13 +647,81 @@ def _build_semantic_index(
     )
 
 
-def _render_semantic_bundle(domain: str, definitions: tuple[_SemanticProtoType, ...]) -> str:
+def _build_enum_index(
+    mdl: MdlFile,
+    enum_numbers: dict[str, EnumNumberAllocation] | None,
+) -> _EnumIndex:
+    """Build the shared nominal-enum index (evolution plan E6).
+
+    One ``_ProtoEnumType`` per enum-backed semantic declaration, shared by
+    every field that references it, keyed by qualified declaration name.
+    Numbers come from the persisted allocation ledger when available;
+    otherwise they fall back to declaration order, which is not guaranteed
+    stable across edits.
+    """
+    by_ref: dict[str, _ProtoEnumType] = {}
+    for domain in sorted(mdl.domains, key=lambda item: item.name):
+        for decl in sorted(latest_semantic_types(domain), key=lambda item: item.name):
+            if not isinstance(decl.underlying, EnumType):
+                continue
+            ref = f"{domain.name}.{decl.name}"
+            allocation = (enum_numbers or {}).get(ref)
+            if allocation is not None:
+                members = allocation.members
+                reservations = allocation.reservations
+            else:
+                members = tuple((value, index) for index, value in enumerate(decl.underlying.values, start=1))
+                reservations = ()
+            by_ref[ref] = _ProtoEnumType(
+                ref=ref,
+                declaring_domain=domain.name,
+                proto_type=f".{_semantic_package(domain.name)}.{decl.name}",
+                members=members,
+                reservations=reservations,
+            )
+    return _EnumIndex(by_ref=by_ref)
+
+
+def _render_enum_block(name: str, enum_type: _ProtoEnumType) -> list[str]:
+    prefix = _enum_prefix(name)
+    member_values = [member for member, _ in enum_type.members]
+
+    def _proto_identifier(value: str, _prefix: str = prefix) -> str:
+        return f"{_prefix}_{_enum_value(value)}"
+
+    for identifier, colliding in find_identifier_collisions(member_values, _proto_identifier).items():
+        raise ValueError(
+            f"{enum_type.ref}: protobuf enum '{name}' member collision: "
+            + ", ".join(f"'{member}'" for member in colliding)
+            + f" all generate identifier '{identifier}'"
+        )
+
+    lines = [f"enum {name} {{"]
+    if enum_type.reservations:
+        numbers = ", ".join(str(number) for _, number in enum_type.reservations)
+        names = ", ".join(json.dumps(member) for member, _ in enum_type.reservations)
+        lines.append(f"  reserved {numbers};")
+        lines.append(f"  reserved {names};")
+    lines.append(f"  {prefix}_UNSPECIFIED = 0;")
+    for member, number in enum_type.members:
+        lines.append(f"  {prefix}_{_enum_value(member)} = {number};")
+    lines.append("}")
+    return lines
+
+
+def _render_semantic_bundle(
+    domain: str,
+    definitions: tuple[_SemanticProtoType, ...],
+    enum_definitions: tuple[tuple[str, _ProtoEnumType], ...],
+) -> str:
     lines = ['syntax = "proto3";', "", f"package {_semantic_package(domain)};", ""]
     if any(definition.underlying_type == "google.protobuf.Timestamp" for definition in definitions):
         lines.extend(['import "google/protobuf/timestamp.proto";', ""])
-    for index, definition in enumerate(definitions):
-        if index:
+    first = True
+    for definition in definitions:
+        if not first:
             lines.append("")
+        first = False
         message_name = definition.proto_type.rsplit(".", 1)[1]
         lines.extend(
             [
@@ -572,14 +730,30 @@ def _render_semantic_bundle(domain: str, definitions: tuple[_SemanticProtoType, 
                 "}",
             ]
         )
+    for name, enum_type in enum_definitions:
+        if not first:
+            lines.append("")
+        first = False
+        lines.extend(_render_enum_block(name, enum_type))
     lines.append("")
     return "\n".join(lines)
 
 
-def _emit_semantic_bundles(index: _SemanticIndex, out_dir: Path) -> list[EmittedArtifact]:
+def _emit_semantic_bundles(
+    semantic_index: _SemanticIndex,
+    enum_index: _EnumIndex,
+    out_dir: Path,
+) -> list[EmittedArtifact]:
+    enum_by_domain: dict[str, list[tuple[str, _ProtoEnumType]]] = {}
+    for enum_type in enum_index.by_ref.values():
+        name = enum_type.proto_type.rsplit(".", 1)[1]
+        enum_by_domain.setdefault(enum_type.declaring_domain, []).append((name, enum_type))
+
     artifacts: list[EmittedArtifact] = []
-    for domain, definitions in sorted(index.by_domain.items()):
-        content = _render_semantic_bundle(domain, definitions)
+    for domain in sorted(set(semantic_index.by_domain) | set(enum_by_domain)):
+        definitions = semantic_index.by_domain.get(domain, ())
+        enum_definitions = tuple(sorted(enum_by_domain.get(domain, [])))
+        content = _render_semantic_bundle(domain, definitions, enum_definitions)
         ref = f"{domain}.semantic-types"
         artifacts.append(
             EmittedArtifact(
@@ -625,18 +799,30 @@ def _reservation_lines(reservations: ProtobufReservations | None) -> list[str]:
     return lines
 
 
+def _referenced_enum_imports(fields: list[_ProtoField]) -> set[str]:
+    domains = {field.enum_ref.declaring_domain for field in fields if field.enum_ref is not None}
+    domains.update(
+        field.map.value_enum_ref.declaring_domain
+        for field in fields
+        if field.map is not None and field.map.value_enum_ref is not None
+    )
+    return {f"{domain}/semantic-types.proto" for domain in domains}
+
+
 def _render_proto(
     *,
     package: str,
     message_name: str,
     fields: list[_ProtoField],
     reservations: ProtobufReservations | None = None,
+    enum_imports: set[str] | None = None,
 ) -> str:
     lines = ['syntax = "proto3";', "", f"package {package};", ""]
     imports: set[str] = set()
     if any("google.protobuf.Timestamp" in field.type_name for field in fields):
         imports.add("google/protobuf/timestamp.proto")
     imports.update(f"{semantic.declaring_domain}/semantic-types.proto" for semantic in _referenced_semantics(fields))
+    imports.update(enum_imports or ())
     for import_path in sorted(imports):
         lines.append(f'import "{import_path}";')
     if imports:
@@ -749,6 +935,11 @@ def _manifest_field(field: _ProtoField) -> dict[str, object]:
         entry["semantic_type"] = field.semantic.ref
     if field.enum is not None:
         entry["enum_values"] = list(field.enum.values)
+    if field.enum_ref is not None:
+        entry["enum_type"] = field.enum_ref.ref
+        entry["enum_numbers"] = dict(field.enum_ref.members)
+        if field.enum_ref.reservations:
+            entry["enum_reservations"] = dict(field.enum_ref.reservations)
     if field.map is not None:
         map_entry: dict[str, object] = {
             "key_type": field.map.key_type,
@@ -758,6 +949,9 @@ def _manifest_field(field: _ProtoField) -> dict[str, object]:
             map_entry["value_fixed_length"] = field.map.value_fixed_length
         if field.map.value_semantic is not None:
             map_entry["value_semantic_type"] = field.map.value_semantic.ref
+        if field.map.value_enum_ref is not None:
+            map_entry["value_enum_type"] = field.map.value_enum_ref.ref
+            map_entry["value_enum_numbers"] = dict(field.map.value_enum_ref.members)
         entry["map"] = map_entry
     return entry
 
