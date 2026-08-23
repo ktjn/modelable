@@ -930,9 +930,41 @@ physical-storage simplification, not a regression), and adding native
 support is a larger, unscoped design decision — whether to add real enum
 enforcement for *both* anonymous and nominal enums at once — that belongs in
 its own accepted design rather than being smuggled into a "wire through the
-missing case" slice. **Next:** E11 (editor/language-service support for the
-same semantic-enum identity) and D7/D8's convergence gate. They build on D3
-rather than introducing a second parallel enum declaration.
+missing case" slice.
+**E11 (editor/language-service support) is in progress.** A survey found
+`cli/src/modelable/language/` (hover, definition, references, rename,
+completion) is entirely regex/token-based over raw source text, not
+IR-based — every qualified-reference resolver (`domain.Name@version`) checks
+only `domain.models`/`domain.projections`, an identical gap repeated across
+all 5 files, plus a separate pre-existing display bug in the shared
+`llm/context.py` helper these language services (and the CLI/VS Code chat
+participants) already depend on: `_field_type_text` printed the literal
+string `"enum_ref"` for any `EnumRefType` field instead of a useful
+`Name@version`. **Hover is done first**, since fixing the shared
+`llm/context.py` helper (adding `build_semantic_enum_summary` and
+`build_enum_projection_summary`, mirroring the existing
+`build_model_summary`/`build_projection_summary`, plus the `_field_type_text`
+fix) already gets hover working for a qualified reference to an enum-backed
+`semantic` declaration or an `enum projection`, since `hover.py` needs no
+source-location search the way definition/references/rename do — it only
+needs the resolved declaration data. Scope is deliberately limited to
+*qualified* references (`orders.OrderStatus @ 1`); *bare* references
+(`OrderStatus @ 1`, no domain prefix — the common case after E1 established
+same-domain bare resolution as the default) get no hover today for **any**
+semantic declaration, scalar or enum, since `_hover_for_bare_word` only
+resolves field/declaration names within the current model/projection scope,
+not semantic-type references appearing in a field's type position — this is
+a pre-existing, non-enum-specific gap, not something to fix incidentally
+inside an enum-focused slice. **Next:** definition, references, rename, and
+completion (each gets the analogous `domain.semantic_types`/
+`domain.enum_projections` branch, plus each needs `_DECL_PATTERN` extended
+to recognize `semantic` and a new pattern for the two-token `enum
+projection` declaration header before declaration-location lookups work),
+then member resolution inside `pick`/`omit` against the exact source version
+(genuinely new logic, no existing pattern to extend), then rename-scoping to
+nominal identity, then VS Code/Monaco mirroring and cross-surface
+conformance fixtures. Then D7/D8's convergence gate. They build on D3 rather
+than introducing a second parallel enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions

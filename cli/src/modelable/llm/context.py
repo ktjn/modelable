@@ -8,6 +8,7 @@ from modelable.compiler.workspace import Workspace
 from modelable.parser.ir import (
     ComputedMapping,
     DirectMapping,
+    EnumType,
     ProjectionField,
     VersionMin,
     VersionPinned,
@@ -136,6 +137,49 @@ def build_projection_summary(workspace: Workspace, ref: str) -> str:
     return "\n".join(lines)
 
 
+def build_semantic_enum_summary(workspace: Workspace, ref: str) -> str:
+    """Summarize an enum-backed ``semantic Name @ version: enum(...)`` declaration
+    (evolution plan E11), mirroring build_model_summary/build_projection_summary
+    for the language-service hover/completion surfaces."""
+    model_ref = parse_model_ref(ref)
+    domain = next((d for d in workspace.mdl.domains if d.name == model_ref.domain), None)
+    if domain is None:
+        return f"Unknown domain: {model_ref.domain}"
+    decl = next(
+        (item for item in domain.semantic_types if item.name == model_ref.name and item.version == model_ref.version),
+        None,
+    )
+    if decl is None or not isinstance(decl.underlying, EnumType):
+        return f"Unknown semantic enum version: {ref}"
+
+    lines = [f"{model_ref.domain}.{model_ref.name}@{decl.version}"]
+    lines.append(f"change: {decl.change_kind}")
+    lines.append(f"enum({', '.join(decl.underlying.values)})")
+    if domain.owner:
+        lines.append(f"owner: {domain.owner}")
+    return "\n".join(lines)
+
+
+def build_enum_projection_summary(workspace: Workspace, ref: str) -> str:
+    """Summarize an ``enum projection Name @ version from Source @ version
+    pick/omit(...)`` declaration (evolution plan E11)."""
+    model_ref = parse_model_ref(ref)
+    domain = next((d for d in workspace.mdl.domains if d.name == model_ref.domain), None)
+    if domain is None:
+        return f"Unknown domain: {model_ref.domain}"
+    decl = next(
+        (item for item in domain.enum_projections if item.name == model_ref.name and item.version == model_ref.version),
+        None,
+    )
+    if decl is None:
+        return f"Unknown enum projection version: {ref}"
+
+    lines = [f"{model_ref.domain}.{model_ref.name}@{decl.version}"]
+    lines.append(f"{decl.selection_kind} from {decl.source_name}@{decl.source_version}")
+    lines.append(f"members: {', '.join(decl.members)}")
+    return "\n".join(lines)
+
+
 def _field_type_text(field_type: Any) -> str:
     kind = getattr(field_type, "kind", None)
     if kind is None:
@@ -150,6 +194,8 @@ def _field_type_text(field_type: Any) -> str:
         return f"ref<{field_type.target}>"
     if kind == "enum":
         return f"enum({', '.join(field_type.values)})"
+    if kind == "enum_ref":
+        return f"{field_type.name}@{field_type.version}"
     if kind == "object":
         return "object"
     if kind == "named":
