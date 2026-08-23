@@ -16,8 +16,11 @@ _QUALIFIED_REF_PATTERN = re.compile(
 )
 _FIELD_REF_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
 _DECL_PATTERN = re.compile(
-    r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
+    r"^\s*(?P<kind>entity|aggregate|event|value|projection|semantic)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
+)
+_ENUM_PROJECTION_DECL_PATTERN = re.compile(
+    r"^\s*enum\s+projection\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
 _DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _WORD_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -122,6 +125,10 @@ def _definition_for_qualified_ref(workspace: Workspace, ref: str) -> LanguageLoc
         return _definition_for_decl(workspace, model_ref.domain, "model", model_ref.name, model_ref.version)
     if model_ref.name in domain.projections:
         return _definition_for_decl(workspace, model_ref.domain, "projection", model_ref.name, model_ref.version)
+    if any(item.name == model_ref.name for item in domain.semantic_types):
+        return _definition_for_decl(workspace, model_ref.domain, "semantic", model_ref.name, model_ref.version)
+    if any(item.name == model_ref.name for item in domain.enum_projections):
+        return _definition_for_decl(workspace, model_ref.domain, "enum_projection", model_ref.name, model_ref.version)
     return None
 
 
@@ -138,6 +145,10 @@ def _definition_for_ref_type_match(
         return _definition_for_decl(workspace, domain_name, "model", name, resolved_version)
     if name in domain.projections:
         return _definition_for_decl(workspace, domain_name, "projection", name, resolved_version)
+    if any(item.name == name for item in domain.semantic_types):
+        return _definition_for_decl(workspace, domain_name, "semantic", name, resolved_version)
+    if any(item.name == name for item in domain.enum_projections):
+        return _definition_for_decl(workspace, domain_name, "enum_projection", name, resolved_version)
     return None
 
 
@@ -240,8 +251,27 @@ def _find_decl_location(
         if domain_match:
             current_domain = domain_match.group("quoted") or domain_match.group("name")
             continue
+        if current_domain != domain_name:
+            continue
+        if kind == "enum_projection":
+            enum_projection_match = _ENUM_PROJECTION_DECL_PATTERN.match(line)
+            if (
+                enum_projection_match
+                and enum_projection_match.group("name") == name
+                and int(enum_projection_match.group("version")) == version
+            ):
+                return LanguageLocation(
+                    uri=uri,
+                    range=LanguageRange.at(
+                        line_no,
+                        codepoint_to_utf16(line, enum_projection_match.start("name")),
+                        line_no,
+                        codepoint_to_utf16(line, enum_projection_match.end("name")),
+                    ),
+                )
+            continue
         decl_match = _DECL_PATTERN.match(line)
-        if not decl_match or current_domain != domain_name:
+        if not decl_match:
             continue
         decl_kind = decl_match.group("kind")
         if kind == "model":
@@ -327,7 +357,7 @@ def _current_scope(text: str, line: int) -> tuple[str, str, str, int] | None:
             current_version = None
             continue
         decl_match = _DECL_PATTERN.match(item)
-        if decl_match and current_domain is not None:
+        if decl_match and current_domain is not None and decl_match.group("kind") != "semantic":
             current_kind = "model" if decl_match.group("kind") != "projection" else "projection"
             current_name = decl_match.group("name")
             current_version = int(decl_match.group("version"))
