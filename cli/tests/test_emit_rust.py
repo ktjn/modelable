@@ -1985,6 +1985,15 @@ def test_multi_package_generates_cargo_toml(tmp_path):
     assert "path = " not in cargo_b.content.split("[dependencies]")[1] or "pkg_a" not in cargo_b.content
 
 
+def test_multi_package_uuid_dependency_does_not_enable_native_randomness(tmp_path):
+    workspace = _load_multi_package_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    cargo_a = next(a for a in artifacts if _relpath(a, tmp_path) == "out/pkg-a/Cargo.toml")
+    assert 'uuid = { version = "1", features = ["serde"] }' in cargo_a.content
+    assert '"v4"' not in cargo_a.content
+
+
 def test_multi_package_generates_lib_rs(tmp_path):
     workspace = _load_multi_package_workspace(tmp_path)
     artifacts = emit_rust(workspace, tmp_path / "out")

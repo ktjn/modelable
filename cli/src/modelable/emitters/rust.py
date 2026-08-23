@@ -310,7 +310,7 @@ def _emit_cargo_toml(
         'serde = { version = "1", features = ["derive"] }',
     ]
     if needs_uuid:
-        lines.append('uuid = { version = "1", features = ["v4", "serde"] }')
+        lines.append('uuid = { version = "1", features = ["serde"] }')
     if needs_serde_json:
         lines.append('serde_json = "1"')
     if needs_serde_with:

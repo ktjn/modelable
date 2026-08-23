@@ -12,6 +12,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Rust package manifests no longer enable UUID v4 generation when emitted
+  contracts only store and serialize UUID values, allowing generated packages
+  to compile for `wasm32-unknown-unknown` without a browser randomness feature.
+
 ## [1.10.0] - 2026-08-22
 
 ### Added
