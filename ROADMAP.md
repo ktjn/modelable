@@ -896,9 +896,23 @@ fell to the final `"unknown"` fallback instead of the anonymous-enum case's
 `"enum(a,b,c)"`): both now render `"enumRef<Name@version>"`, carrying exact
 declaration identity rather than the constant-set members these two
 catalog/lineage formats have no closed-set concept for anyway (unlike ODCS,
-neither has an existing `enum: [...]`-shaped field to extend). **Next:** FHIR
-(real design work: both the type-code mapping and a declaration-scoped
-ValueSet binding are missing), then Markdown (trivial display fix).
+neither has an existing `enum: [...]`-shaped field to extend). **FHIR is done
+next**, and was genuinely two gaps, not one: (1) `_fhir_type` had no
+`EnumRefType` branch and fell through to the final `[{"code": "string"}]`
+instead of the anonymous-enum case's proper `[{"code": "code"}]` (FHIR's
+closed-set primitive); (2) `_binding` only matched bare `EnumType`, and even
+for that anonymous case the ValueSet URL was field-scoped
+(`{domain}.{projection}.{field}`) rather than declaration-scoped, so two
+fields sharing the same nominal enum would each have gotten their own
+disconnected ValueSet instead of one shared one. `emitters/fhir.py` now
+resolves an `EnumRefType` to its declaration and emits one ValueSet URL keyed
+by `{declaringDomain}.{declarationName}` reused across every field
+referencing it — the companion Extension StructureDefinition's own
+`Extension.value[x]` binding matches the profile's binding exactly, since
+both now resolve through the same declaration-scoped path. The
+pre-existing anonymous-enum behavior (field-scoped URL) is deliberately
+unchanged, since an anonymous `enum(...)` genuinely has no cross-field
+identity to share. **Next:** Markdown (trivial display fix).
 `sql-postgres`/`sql-clickhouse`/`dbt-yaml` are intentionally
 deferred: today's `EnumRefType` fallback already matches what anonymous
 `enum(...)` fields get in each of those three targets (a documented,

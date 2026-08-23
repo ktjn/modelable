@@ -12,6 +12,7 @@ from modelable.parser.ir import (
     DecimalType,
     DirectMapping,
     DomainDef,
+    EnumRefType,
     EnumType,
     FieldDef,
     FieldType,
@@ -25,7 +26,7 @@ from modelable.parser.ir import (
     RefType,
     VersionMin,
 )
-from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref
+from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_semantic_type_ref
 
 FHIR_R4_VERSION = "4.0.1"
 FHIR_STRUCTURE_DEFINITION_BASE = "http://hl7.org/fhir/StructureDefinition"
@@ -493,7 +494,7 @@ def _field_element(
         ),
     }
 
-    binding = _binding(domain.name, projection_name, field.name, field_type)
+    binding = _binding(domain.name, projection_name, field.name, field_type, mdl=mdl)
     if binding is not None:
         element["binding"] = binding
 
@@ -543,6 +544,8 @@ def _fhir_type(
     if isinstance(field_type, DecimalType):
         return [{"code": "decimal"}]
     if isinstance(field_type, EnumType):
+        return [{"code": "code"}]
+    if isinstance(field_type, EnumRefType):
         return [{"code": "code"}]
     if isinstance(field_type, RefType):
         target = field_type.target.rsplit(".", 1)[-1]
@@ -653,7 +656,29 @@ def _primitive_type(kind: str) -> str:
     return mapping.get(kind, "string")
 
 
-def _binding(domain_name: str, projection_name: str, field_name: str, field_type: FieldType) -> dict[str, str] | None:
+def _binding(
+    domain_name: str,
+    projection_name: str,
+    field_name: str,
+    field_type: FieldType,
+    *,
+    mdl: MdlFile | None = None,
+) -> dict[str, str] | None:
+    if isinstance(field_type, EnumRefType) and mdl is not None:
+        try:
+            declaring_domain, decl = resolve_semantic_type_ref(mdl, domain_name, field_type.name, field_type.version)
+        except LookupError:
+            return None
+        if not isinstance(decl.underlying, EnumType):
+            return None
+        # Declaration-scoped, not field-scoped: every field referencing the
+        # same nominal enum declaration shares one ValueSet (evolution plan
+        # E10), unlike the anonymous-enum case below, which has no
+        # cross-field identity to share.
+        return {
+            "strength": "required",
+            "valueSet": f"{MODELABLE_VALUE_SET_BASE}/{declaring_domain}.{decl.name}",
+        }
     if not isinstance(field_type, EnumType):
         return None
     return {
@@ -782,7 +807,7 @@ def _extension_value_element(
 
     element["definition"] = f"Modelable field {field.name} extension value."
 
-    binding = _binding(domain_name, projection_name, field.name, field_type)
+    binding = _binding(domain_name, projection_name, field.name, field_type, mdl=mdl)
     if binding is not None:
         element["binding"] = binding
 
@@ -813,7 +838,7 @@ def _extension_sd_value_element(
 
     element["definition"] = f"Modelable field {field.name} extension value."
 
-    binding = _binding(domain_name, projection_name, field.name, field_type)
+    binding = _binding(domain_name, projection_name, field.name, field_type, mdl=mdl)
     if binding is not None:
         element["binding"] = binding
 
