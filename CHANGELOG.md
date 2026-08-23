@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.11.0] - 2026-08-23
+
+### Added
+
 - Go-to-definition, find-all-references, and rename now work for enum-backed
   `semantic` declarations and `enum projection` declarations, matching the
   support already in place for models and projections (#458, #459, #460).
