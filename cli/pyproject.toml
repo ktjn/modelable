@@ -62,6 +62,7 @@ dev = [
     "pytest-lsp>=1.0.1",
     "pytest-xdist>=3.0",
     "pytest-timeout>=2.3",
+    "pytest-rerunfailures>=14.0",
     "ruff>=0.15.18",
     "mypy>=2.1.0",
     "build>=1.2",
@@ -94,6 +95,7 @@ addopts = "-n auto --timeout=120"
 markers = [
     "docker: requires Docker daemon and internet access (opt-in via MODELABLE_DOCKER_TESTS=1)",
     "ollama: requires a developer-controlled local Ollama server and model (opt-in via MODELABLE_OLLAMA_TESTS=1)",
+    "flaky: real-thread timing test whose pass/fail depends on OS scheduling under load; retried via pytest-rerunfailures instead of silently accepted or globally retried. Each use must record the observed failure mode in a comment.",
 ]
 
 [tool.coverage.run]
@@ -157,6 +159,7 @@ dev = [
     "pytest-lsp>=1.0.1",
     "pytest-xdist>=3.0",
     "pytest-timeout>=2.3",
+    "pytest-rerunfailures>=14.0",
     "ruff>=0.15.18",
     "testcontainers==4.15.0",
 ]
