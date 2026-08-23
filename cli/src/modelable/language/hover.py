@@ -9,8 +9,10 @@ from modelable.language.positions import codepoint_to_utf16, document_lines, utf
 from modelable.language.ref_lookup import REF_TYPE_PATTERN, resolve_ref_match_version
 from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import (
+    build_enum_projection_summary,
     build_model_summary,
     build_projection_summary,
+    build_semantic_enum_summary,
     parse_model_ref,
     parse_model_ref_version_spec,
 )
@@ -154,6 +156,10 @@ def _make_ref_hover(
         summary = build_model_summary(workspace, ref)
     elif model_ref.name in domain.projections:
         summary = build_projection_summary(workspace, ref)
+    elif any(item.name == model_ref.name for item in domain.semantic_types):
+        summary = build_semantic_enum_summary(workspace, ref)
+    elif any(item.name == model_ref.name for item in domain.enum_projections):
+        summary = build_enum_projection_summary(workspace, ref)
     else:
         return None
 
