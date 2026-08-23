@@ -17,6 +17,7 @@ from modelable.parser.ir import (
     DecimalType,
     DirectMapping,
     DomainDef,
+    EnumRefType,
     EnumType,
     FieldDef,
     MapType,
@@ -173,6 +174,8 @@ def _type_str(field_type) -> str:
         return f"ref<{field_type.target}>"
     if isinstance(field_type, EnumType):
         return f"enum({', '.join(field_type.values)})"
+    if isinstance(field_type, EnumRefType):
+        return f"{field_type.name}@{field_type.version}"
     if isinstance(field_type, NamedType):
         return field_type.name
     if isinstance(field_type, ObjectType):
