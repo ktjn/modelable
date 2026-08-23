@@ -775,14 +775,26 @@ now emits one reusable `export enum` per enum-backed semantic declaration,
 imported as a value (not `import type`, since a TS `enum` is also a runtime
 value) everywhere it's referenced — verified with real `tsc --strict`
 compilation of generated output, including that an invalid string literal is
-correctly rejected. Python, Java, C#, and Go are the same shape of gap but not
-yet fixed; each needs its own focused slice per the same one-target-per-PR
-review discipline used here (the roadmap's own "adjacent slices should not be
-combined" principle, applied within E8 since it spans five otherwise-unrelated
-codegen files). **Next:** the remaining E8 targets (Python, Java, C#, Go),
-then E9-E11 (per-target emission and editor support) and D7/D8's convergence
-gate. They build on D3 rather than introducing a second parallel enum
-declaration.
+correctly rejected. **Python is done next:** `emitters/python.py` now emits
+one reusable `class X(StrEnum)` per enum-backed semantic declaration, using
+Python 3.14's built-in `enum.StrEnum` so the generated type still compares
+and serializes as its wire string value with no behavior change for existing
+JSON-producing callers. This slice also extended the shared
+`emitters/named_types.py` resolver (`resolve_named_types`/`resolve_named_ref`)
+used by Python, Java, C#, and Go alike with an explicit `emit_nominal_enums`
+opt-in flag, rather than changing its default behavior — turning it on
+unconditionally would have made Java/C#/Go silently reference an `OrderStatus`
+type name that nothing actually emits yet, breaking their generated output.
+Only `emitters/python.py` passes `emit_nominal_enums=True`; Java/C#/Go stay on
+the old inline behavior (verified by a regression test) until each gets its
+own slice and starts emitting the corresponding type declarations. Java, C#,
+and Go are the same shape of gap but not yet fixed; each still needs its own
+focused slice per the same one-target-per-PR review discipline used here (the
+roadmap's own "adjacent slices should not be combined" principle, applied
+within E8 since it spans five otherwise-unrelated codegen files). **Next:**
+the remaining E8 targets (Java, C#, Go), then E9-E11 (per-target emission and
+editor support) and D7/D8's convergence gate. They build on D3 rather than
+introducing a second parallel enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions

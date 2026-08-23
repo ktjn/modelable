@@ -11,7 +11,16 @@ from modelable.emitters.named_types import resolve_named_ref, resolve_named_type
 from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.shapes import TypeShape
-from modelable.parser.ir import DirectMapping, DomainDef, MdlFile, ModelVersion, ProjectionVersion
+from modelable.parser.ir import (
+    DirectMapping,
+    DomainDef,
+    EnumType,
+    MdlFile,
+    ModelVersion,
+    ProjectionVersion,
+    SemanticTypeDecl,
+    latest_semantic_types,
+)
 from modelable.registry.resolver import resolve_model_ref
 
 
@@ -20,8 +29,11 @@ def emit_python(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
         named_names, named_shapes = resolve_named_types(
-            workspace.mdl, current_domain=domain.name, model_name=_stable_type_name
+            workspace.mdl, current_domain=domain.name, model_name=_stable_type_name, emit_nominal_enums=True
         )
+        for decl in latest_semantic_types(domain):
+            if isinstance(decl.underlying, EnumType):
+                artifacts.append(_emit_enum_type(domain, decl, out_dir))
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
                 artifacts.append(
@@ -171,6 +183,44 @@ def _module_path(domain: str, type_name: str) -> Path:
 def _package_name(domain: str) -> str:
     parts = [part.lower() for part in re.split(r"[^A-Za-z0-9]+", domain) if part]
     return ".".join(parts) or "modelable"
+
+
+def _enum_member_name(value: str) -> str:
+    text = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
+    text = re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_").upper()
+    if text and text[0].isdigit():
+        text = f"_{text}"
+    return text or "UNKNOWN"
+
+
+def _emit_enum_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path) -> EmittedArtifact:
+    """Emit one reusable Python ``StrEnum`` for an enum-backed semantic
+    declaration (evolution plan E8), imported everywhere it's referenced
+    instead of degrading to a bare ``str`` annotation.
+    """
+    assert isinstance(decl.underlying, EnumType)
+    artifact_id = f"{domain.name}.{decl.name}"
+    lines = [
+        "from __future__ import annotations",
+        "",
+        "from enum import StrEnum",
+        "",
+        "",
+        f"class {decl.name}(StrEnum):",
+    ]
+    for value in decl.underlying.values:
+        member = _enum_member_name(value)
+        lines.append(f"    {member} = {value!r}")
+    text = "\n".join(lines) + "\n"
+    return EmittedArtifact(
+        target="python",
+        ref=artifact_id,
+        artifact_id=artifact_id,
+        path=out_dir / _module_path(domain.name, decl.name),
+        content=text,
+        content_hash=compute_content_hash(text),
+        warnings=[],
+    )
 
 
 def _render_dataclass_definition(type_name: str, field_specs: list[tuple[int, str, str, bool]]) -> list[str]:
@@ -327,7 +377,12 @@ def _shape_base_annotation(
         return "str"
     if shape.kind == "named":
         declaring_domain, named_name, inline_shape = resolve_named_ref(
-            mdl, current_domain=current_domain, ref=shape.ref or "", names=named_names, shapes=named_shapes
+            mdl,
+            current_domain=current_domain,
+            ref=shape.ref or "",
+            names=named_names,
+            shapes=named_shapes,
+            emit_nominal_enums=True,
         )
         if named_name is not None:
             if declaring_domain is not None and named_name != owner_type:

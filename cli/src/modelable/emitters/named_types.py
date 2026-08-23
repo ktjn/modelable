@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from modelable.emitters.shapes import TypeShape
-from modelable.parser.ir import MdlFile, latest_semantic_types
+from modelable.parser.ir import EnumType, MdlFile, latest_semantic_types
 from modelable.registry.resolver import AmbiguousSemanticTypeError, resolve_semantic_type_ref
 
 
@@ -12,12 +12,23 @@ def resolve_named_types(
     *,
     current_domain: str,
     model_name: Callable[[str, str, int], str],
+    emit_nominal_enums: bool = False,
 ) -> tuple[dict[str, str], dict[str, TypeShape]]:
     """Resolve source-level named references for a generated target.
 
     Model references point at the versioned declaration name emitted by the
-    target. Semantic types are expanded to their underlying shape because the
-    lightweight emitters do not produce a separate semantic wrapper artifact.
+    target. When ``emit_nominal_enums`` is set, enum-backed semantic
+    declarations get their own declared name too (evolution plan E8) --
+    the caller must emit one reusable enum type per declaration and import
+    it by name, the same way it already imports a model. Every other
+    semantic underlying type -- and, for callers not yet migrated to
+    ``emit_nominal_enums``, enum-backed ones too -- is expanded inline,
+    because those lightweight emitters do not produce a separate wrapper
+    artifact for scalar semantics. ``emit_nominal_enums`` defaults to False
+    so this shared resolver stays correct for every target as E8 rolls out
+    to each one individually; flipping it for a target's emitter is only
+    safe once that emitter actually emits the enum type declarations this
+    produces references to.
     """
     names: dict[str, str] = {}
     shapes: dict[str, TypeShape] = {}
@@ -35,7 +46,10 @@ def resolve_named_types(
             except LookupError, AmbiguousSemanticTypeError:
                 continue
             if resolved_domain == domain.name and resolved.name == declaration.name:
-                shapes[declaration.name] = TypeShape.from_field_type(declaration.underlying)
+                if emit_nominal_enums and isinstance(declaration.underlying, EnumType):
+                    names[declaration.name] = declaration.name
+                else:
+                    shapes[declaration.name] = TypeShape.from_field_type(declaration.underlying)
     return names, shapes
 
 
@@ -58,6 +72,7 @@ def resolve_named_ref(
     ref: str,
     names: dict[str, str],
     shapes: dict[str, TypeShape],
+    emit_nominal_enums: bool = False,
 ) -> tuple[str | None, str | None, TypeShape | None]:
     """Resolve a single named/semantic reference to the representation a target
     should emit.
@@ -94,15 +109,22 @@ def resolve_named_ref(
     except LookupError, AmbiguousSemanticTypeError:
         return (None, None, None)
     if resolved_domain != current_domain:
+        if emit_nominal_enums and isinstance(decl.underlying, EnumType):
+            return (resolved_domain, decl.name, None)
         return (resolved_domain, None, TypeShape.from_field_type(decl.underlying))
     return (None, None, None)
 
 
 def _declaring_domain(mdl: MdlFile, name: str) -> str | None:
-    """Return the domain that declares the named model ``name`` (or None)."""
+    """Return the domain that declares the named model or enum-backed
+    semantic declaration ``name`` (or None)."""
     for domain in mdl.domains:
         if name in domain.models:
             return domain.name
+    for domain in mdl.domains:
+        for declaration in latest_semantic_types(domain):
+            if declaration.name == name and isinstance(declaration.underlying, EnumType):
+                return domain.name
     return None
 
 
