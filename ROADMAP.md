@@ -787,12 +787,23 @@ unconditionally would have made Java/C#/Go silently reference an `OrderStatus`
 type name that nothing actually emits yet, breaking their generated output.
 Only `emitters/python.py` passes `emit_nominal_enums=True`; Java/C#/Go stay on
 the old inline behavior (verified by a regression test) until each gets its
-own slice and starts emitting the corresponding type declarations. Java, C#,
-and Go are the same shape of gap but not yet fixed; each still needs its own
-focused slice per the same one-target-per-PR review discipline used here (the
+own slice and starts emitting the corresponding type declarations.
+**Java is done next:** `emitters/java.py` now emits one reusable `public
+enum` per enum-backed semantic declaration. Unlike Python/TypeScript/Rust,
+Java's conventional `UPPER_SNAKE_CASE` enum constant identifier is not the
+same string as the canonical lowercase wire value, and this codegen target
+has no JSON library dependency to lean on (generated records carry no
+Jackson/Gson annotations today), so the enum carries its wire value
+explicitly via `toWireValue()`/`fromWireValue(String)` rather than relying on
+`Enum.name()`. Verified with a real `javac`/`java` compile-and-run inside the
+same `eclipse-temurin` Docker image this repo's existing Java Docker smoke
+test already uses, confirming both the record construction and the
+wire-value round trip work, not just that the source parses. C# and Go are
+the same shape of gap but not yet fixed; each still needs its own focused
+slice per the same one-target-per-PR review discipline used here (the
 roadmap's own "adjacent slices should not be combined" principle, applied
 within E8 since it spans five otherwise-unrelated codegen files). **Next:**
-the remaining E8 targets (Java, C#, Go), then E9-E11 (per-target emission and
+the remaining E8 targets (C#, Go), then E9-E11 (per-target emission and
 editor support) and D7/D8's convergence gate. They build on D3 rather than
 introducing a second parallel enum declaration.
 Depended on by D4.

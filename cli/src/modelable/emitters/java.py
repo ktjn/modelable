@@ -10,7 +10,16 @@ from modelable.emitters.diagnostics import type_loss
 from modelable.emitters.named_types import resolve_named_ref, resolve_named_types
 from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.shapes import TypeShape
-from modelable.parser.ir import DirectMapping, DomainDef, MdlFile, ModelVersion, ProjectionVersion
+from modelable.parser.ir import (
+    DirectMapping,
+    DomainDef,
+    EnumType,
+    MdlFile,
+    ModelVersion,
+    ProjectionVersion,
+    SemanticTypeDecl,
+    latest_semantic_types,
+)
 from modelable.registry.resolver import resolve_model_ref
 
 
@@ -22,7 +31,11 @@ def emit_java(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
             workspace.mdl,
             current_domain=domain.name,
             model_name=lambda _domain, name, version: _type_name(name, version),
+            emit_nominal_enums=True,
         )
+        for decl in latest_semantic_types(domain):
+            if isinstance(decl.underlying, EnumType):
+                artifacts.append(_emit_enum_type(domain, decl, out_dir))
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
                 artifacts.append(
@@ -281,7 +294,12 @@ def _shape_base_to_java(
         return "String"
     if shape.kind == "named":
         declaring_domain, named_name, inline_shape = resolve_named_ref(
-            mdl, current_domain=current_domain, ref=shape.ref or "", names=named_names, shapes=named_shapes
+            mdl,
+            current_domain=current_domain,
+            ref=shape.ref or "",
+            names=named_names,
+            shapes=named_shapes,
+            emit_nominal_enums=True,
         )
         if named_name is not None:
             if declaring_domain is not None and declaring_domain != current_domain:
@@ -409,3 +427,64 @@ def _resolve_projection_field_shape(field: Any, projection: ProjectionVersion, m
 
 def _java_path(domain: str, type_name: str) -> Path:
     return Path(*_package_name(domain).split(".")) / f"{type_name}.java"
+
+
+def _enum_member_name(value: str) -> str:
+    text = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", value)
+    text = re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_").upper()
+    if text and text[0].isdigit():
+        text = f"_{text}"
+    return text or "UNKNOWN"
+
+
+def _emit_enum_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path) -> EmittedArtifact:
+    """Emit one reusable Java ``enum`` for an enum-backed semantic
+    declaration (evolution plan E8), imported everywhere it's referenced
+    instead of degrading to a bare ``String``.
+
+    Carries its canonical wire value explicitly (``toWireValue``/
+    ``fromWireValue``) rather than relying on ``Enum.name()``, since the
+    Java-conventional ``UPPER_SNAKE_CASE`` constant name is not the same
+    string as the wire value every other target preserves.
+    """
+    assert isinstance(decl.underlying, EnumType)
+    artifact_id = f"{domain.name}.{decl.name}"
+    type_name = decl.name
+    members = [(_enum_member_name(value), value) for value in decl.underlying.values]
+
+    lines = [f"package {_package_name(domain.name)};", "", f"public enum {type_name} {{"]
+    lines.append(",\n".join(f'    {member}("{value}")' for member, value in members) + ";")
+    lines.extend(
+        [
+            "",
+            "    private final String wireValue;",
+            "",
+            f"    {type_name}(String wireValue) {{",
+            "        this.wireValue = wireValue;",
+            "    }",
+            "",
+            "    public String toWireValue() {",
+            "        return wireValue;",
+            "    }",
+            "",
+            f"    public static {type_name} fromWireValue(String value) {{",
+            f"        for ({type_name} item : values()) {{",
+            "            if (item.wireValue.equals(value)) {",
+            "                return item;",
+            "            }",
+            "        }",
+            f'        throw new IllegalArgumentException("Unknown {type_name} wire value: " + value);',
+            "    }",
+            "}",
+        ]
+    )
+    text = "\n".join(lines) + "\n"
+    return EmittedArtifact(
+        target="java",
+        ref=artifact_id,
+        artifact_id=artifact_id,
+        path=out_dir / _java_path(domain.name, type_name),
+        content=text,
+        content_hash=compute_content_hash(text),
+        warnings=[],
+    )
