@@ -18,6 +18,9 @@ from modelable.parser.ir import (
     DecimalType,
     DirectMapping,
     DomainDef,
+    EnumProjectionDecl,
+    EnumRefType,
+    EnumType,
     FieldType,
     FixedBinaryType,
     MapType,
@@ -28,6 +31,7 @@ from modelable.parser.ir import (
     PrimitiveType,
     ProjectionVersion,
     SemanticTypeDecl,
+    latest_enum_projections,
     latest_semantic_types,
 )
 from modelable.registry.resolver import AmbiguousSemanticTypeError, resolve_model_ref, resolve_semantic_type_ref
@@ -140,6 +144,11 @@ def _emit_rust_single_crate(
             qualified_name = f"{domain.name}.{decl.name}"
             allocated_id = (registry_ids or {}).get(qualified_name) if decl.registry else None
             artifacts.append(_emit_semantic_type(domain, decl, out_dir, allocated_id=allocated_id))
+        for projection in latest_enum_projections(domain):
+            source_domain, source_decl = resolve_semantic_type_ref(
+                workspace.mdl, domain.name, projection.source_name, projection.source_version
+            )
+            artifacts.append(_emit_enum_projection(domain, projection, source_domain, source_decl, out_dir))
         for model_name, versions in domain.models.items():
             for version in versions:
                 artifacts.append(
@@ -204,6 +213,21 @@ def _emit_rust_packages(
                     pkg_dir,
                     allocated_id=allocated_id,
                     mdl=mdl,
+                    current_pkg=pkg.name,
+                    package_for_domain=package_for_domain,
+                )
+                artifacts.append(artifact)
+                modules.append(artifact.path.stem)
+            for projection in latest_enum_projections(domain):
+                source_domain, source_decl = resolve_semantic_type_ref(
+                    mdl, domain.name, projection.source_name, projection.source_version
+                )
+                artifact = _emit_enum_projection(
+                    domain,
+                    projection,
+                    source_domain,
+                    source_decl,
+                    pkg_dir,
                     current_pkg=pkg.name,
                     package_for_domain=package_for_domain,
                 )
@@ -371,8 +395,8 @@ def _stable_type_name(domain: str, name: str, version: int) -> str:
 
 
 def _collect_named_type_refs(field_type, result: set) -> None:
-    """Recursively collect NamedType names from a field type."""
-    if isinstance(field_type, NamedType):
+    """Recursively collect NamedType/EnumRefType names from a field type."""
+    if isinstance(field_type, (NamedType, EnumRefType)):
         result.add(field_type.name)
     elif isinstance(field_type, ArrayType):
         _collect_named_type_refs(field_type.item, result)
@@ -483,6 +507,30 @@ def _resolve_named_type_map(
     return resolved_map, use_statements
 
 
+def _resolve_enum_backed_named(
+    ref: str,
+    mdl: MdlFile | None,
+    current_domain: str,
+) -> tuple[str, list[str]] | None:
+    """If ``ref`` (a ``TypeShape.ref`` for a "named" shape) resolves to an
+    enum-backed semantic declaration, return its (declared name, members).
+
+    Used to detect nominal enum fields that ride the "named" shape kind
+    (evolution plan E1+) so ClickHouse string-forcing (evolution plan E7,
+    item 6) can still find them the same way it already does for anonymous
+    ``enum(...)`` fields.
+    """
+    if mdl is None:
+        return None
+    try:
+        _, decl = resolve_semantic_type_ref(mdl, current_domain, ref)
+    except LookupError, AmbiguousSemanticTypeError:
+        return None
+    if isinstance(decl.underlying, EnumType):
+        return decl.name, list(decl.underlying.values)
+    return None
+
+
 def _rust_type_for_semantic_underlying(
     underlying: FieldType,
     *,
@@ -580,6 +628,14 @@ def _emit_semantic_type(
 ) -> EmittedArtifact:
     artifact_id = f"{domain.name}.{decl.name}"
     struct_name = decl.name
+    if isinstance(decl.underlying, EnumType):
+        return _emit_semantic_enum_type(
+            domain,
+            decl,
+            decl.underlying,
+            out_dir,
+            allocated_id=allocated_id,
+        )
     rust_type, base_derives, use_statement = _rust_type_for_semantic_underlying(
         decl.underlying,
         mdl=mdl,
@@ -632,6 +688,134 @@ def _emit_semantic_type(
         ref=artifact_id,
         artifact_id=artifact_id,
         path=out_dir / _snake_case(domain.name) / f"{_snake_case(decl.name)}.rs",
+        content=text,
+        content_hash=compute_content_hash(text),
+        warnings=[],
+    )
+
+
+def _emit_semantic_enum_type(
+    domain: DomainDef,
+    decl: SemanticTypeDecl,
+    underlying: EnumType,
+    out_dir: Path,
+    *,
+    allocated_id: int | None = None,
+) -> EmittedArtifact:
+    """Emit one nominal Rust ``pub enum`` for an enum-backed semantic
+    declaration (evolution plan E7), reused by every field that references it
+    instead of the opaque string-wrapper newtype other semantic underlying
+    types get.
+    """
+    artifact_id = f"{domain.name}.{decl.name}"
+    type_name = decl.name
+    for identifier, members in find_identifier_collisions(list(underlying.values), _enum_member_name).items():
+        raise ValueError(
+            f"{artifact_id}: Rust enum '{type_name}' member collision: "
+            + ", ".join(f"'{member}'" for member in members)
+            + f" all generate identifier '{identifier}'"
+        )
+    lines = _header_lines()
+    if allocated_id is not None:
+        lines.append(f"/// registry id: {allocated_id}")
+    lines.extend(_render_enum_definition(type_name, list(underlying.values)))
+    if allocated_id is not None:
+        lines.extend(_render_registry_id_impl(type_name, allocated_id))
+
+    text = "\n".join(lines) + "\n"
+    return EmittedArtifact(
+        target="rust",
+        ref=artifact_id,
+        artifact_id=artifact_id,
+        path=out_dir / _snake_case(domain.name) / f"{_snake_case(decl.name)}.rs",
+        content=text,
+        content_hash=compute_content_hash(text),
+        warnings=[],
+    )
+
+
+def _emit_enum_projection(
+    domain: DomainDef,
+    projection: EnumProjectionDecl,
+    source_domain: str,
+    source_decl: SemanticTypeDecl,
+    out_dir: Path,
+    *,
+    current_pkg: str | None = None,
+    package_for_domain: dict[str, str] | None = None,
+) -> EmittedArtifact:
+    """Emit one nominal Rust ``pub enum`` for an enum projection, plus proven
+    lineage conversions to and from its source semantic-enum type (evolution
+    plan E7). Projection-to-source is always total (a projection's members
+    are always a subset of its source's, by construction). Source-to-
+    projection is a checked ``TryFrom`` unless the projection covers every
+    source member, in which case it is total too.
+    """
+    assert isinstance(source_decl.underlying, EnumType)
+    artifact_id = f"{domain.name}.{projection.name}"
+    type_name = projection.name
+    source_type_name = source_decl.name
+    source_values = list(source_decl.underlying.values)
+    projected_values = list(projection.members)
+
+    for identifier, members in find_identifier_collisions(projected_values, _enum_member_name).items():
+        raise ValueError(
+            f"{artifact_id}: Rust enum '{type_name}' member collision: "
+            + ", ".join(f"'{member}'" for member in members)
+            + f" all generate identifier '{identifier}'"
+        )
+
+    prefix = _import_prefix(source_domain, domain.name, current_pkg, package_for_domain)
+    source_module = _snake_case(source_decl.name)
+
+    lines = _header_lines(extra_uses=[f"use {prefix}::{source_module}::{source_type_name};"])
+    lines.extend(_render_enum_definition(type_name, projected_values))
+
+    lines.append("")
+    lines.append(f"impl From<{type_name}> for {source_type_name} {{")
+    lines.append(f"    fn from(value: {type_name}) -> Self {{")
+    lines.append("        match value {")
+    for value in projected_values:
+        member = _enum_member_name(value)
+        lines.append(f"            {type_name}::{member} => {source_type_name}::{member},")
+    lines += ["        }", "    }", "}"]
+
+    excluded = [value for value in source_values if value not in set(projected_values)]
+    lines.append("")
+    if excluded:
+        error_name = f"{type_name}FromSourceError"
+        lines.extend(
+            [
+                "#[derive(Debug, Clone, PartialEq)]",
+                f"pub struct {error_name}(pub {source_type_name});",
+                "",
+                f"impl TryFrom<{source_type_name}> for {type_name} {{",
+                f"    type Error = {error_name};",
+                "",
+                f"    fn try_from(value: {source_type_name}) -> Result<Self, Self::Error> {{",
+                "        match value {",
+            ]
+        )
+        for value in projected_values:
+            member = _enum_member_name(value)
+            lines.append(f"            {source_type_name}::{member} => Ok({type_name}::{member}),")
+        lines.append(f"            other => Err({error_name}(other)),")
+        lines += ["        }", "    }", "}"]
+    else:
+        lines.append(f"impl From<{source_type_name}> for {type_name} {{")
+        lines.append(f"    fn from(value: {source_type_name}) -> Self {{")
+        lines.append("        match value {")
+        for value in projected_values:
+            member = _enum_member_name(value)
+            lines.append(f"            {source_type_name}::{member} => {type_name}::{member},")
+        lines += ["        }", "    }", "}"]
+
+    text = "\n".join(lines) + "\n"
+    return EmittedArtifact(
+        target="rust",
+        ref=artifact_id,
+        artifact_id=artifact_id,
+        path=out_dir / _snake_case(domain.name) / f"{_snake_case(projection.name)}.rs",
         content=text,
         content_hash=compute_content_hash(text),
         warnings=[],
@@ -773,9 +957,14 @@ def _emit_projection(
             owner=f"{type_name}.{field.name}",
             warnings=warnings,
         )
-        if clickhouse_row and field_shape.kind == "enum":
+        is_nominal_enum = (
+            field_shape.kind == "named"
+            and field_shape.ref is not None
+            and _resolve_enum_backed_named(field_shape.ref, mdl, domain.name)
+        )
+        if clickhouse_row and (field_shape.kind == "enum" or is_nominal_enum):
             # clickhouse-rs 0.15 panics on serialize_unit_variant for typed enums;
-            # force String for all ClickHouse-bound enum fields.
+            # force String for all ClickHouse-bound enum fields, nominal or anonymous.
             annotation = "String"
         else:
             annotation = _shape_annotation(
@@ -959,6 +1148,9 @@ def _emit_from_impl(
                 continue
             field_shape = _resolve_projection_field_shape(proj_field, version, mdl)
             if field_shape is not None and field_shape.kind == "enum":
+                # Anonymous per-field enums are nested under the source model's
+                # module; nominal enum-backed semantics are already imported
+                # from their own module by the caller's named-type resolution.
                 enum_type = _nested_type_name(src_type_name, [proj_field.mapping.source_field])
                 if storage_gated:
                     lines.append('#[cfg(feature = "storage")]')
@@ -977,11 +1169,26 @@ def _emit_from_impl(
         if isinstance(proj_field.mapping, DirectMapping):
             src_rust_name = _field_name(proj_field.mapping.source_field)
             field_shape = _resolve_projection_field_shape(proj_field, version, mdl)
+            nominal_enum = (
+                _resolve_enum_backed_named(field_shape.ref, mdl, proj_domain)
+                if field_shape is not None and field_shape.kind == "named" and field_shape.ref is not None
+                else None
+            )
             if clickhouse_row and field_shape is not None and field_shape.kind == "enum":
                 # ClickHouse-bound enum fields are stored as String; generate explicit match.
                 src_enum_type = _nested_type_name(src_type_name, [proj_field.mapping.source_field])
                 lines.append(f"            {rust_name}: match src.{src_rust_name} {{")
                 for raw_v in field_shape.enum_values:
+                    member = _enum_member_name(raw_v)
+                    lines.append(f'                {src_enum_type}::{member} => "{raw_v}".to_string(),')
+                lines.append("            },")
+            elif clickhouse_row and nominal_enum is not None:
+                # Same ClickHouse string-forcing for a nominal enum-backed
+                # semantic field; its type is already imported by name at the
+                # top of this file (evolution plan E7).
+                src_enum_type, members = nominal_enum
+                lines.append(f"            {rust_name}: match src.{src_rust_name} {{")
+                for raw_v in members:
                     member = _enum_member_name(raw_v)
                     lines.append(f'                {src_enum_type}::{member} => "{raw_v}".to_string(),')
                 lines.append("            },")

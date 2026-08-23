@@ -739,9 +739,34 @@ as `registry-ids.lock`; conversational preview/apply stages and promotes the
 ledger file consistently but does not yet get its own dedicated
 change-tracking or audit-record entries the way `registry_id_changes` does
 for `registry-ids.lock` — that stronger conversational-surface parity is
-explicitly deferred as a small follow-up, not part of this slice. **Next:**
-E7-E11 (per-target emission and editor support) and D7/D8's convergence gate.
-They build on D3 rather than introducing a second parallel enum declaration.
+explicitly deferred as a small follow-up, not part of this slice.
+**E7 (nominal Rust enums and lineage conversions) is now shipped too:**
+`emitters/rust.py` emits one real `pub enum` per enum-backed semantic
+declaration (`_emit_semantic_enum_type`) instead of the opaque
+`#[serde(transparent)] pub struct X(pub String)` wrapper every other
+semantic underlying type gets — that String-wrapper fallback was silently
+discarding the closed member set entirely, with no exhaustiveness safety, for
+every enum-backed declaration since D3 shipped it. Enum projections get their
+own `pub enum` too (`_emit_enum_projection`), plus lineage-proven
+conversions: projection-to-source is always `From` (a projection's members
+are always a subset of its source's by construction); source-to-projection is
+a checked `TryFrom` with a stable per-projection error type unless the
+projection covers every source member, in which case both directions are
+`From`. Verified by compiling generated output with a real `cargo build`
+(plain and with the `clickhouse` feature) in addition to the Python test
+suite. Fixed two further real bugs found while wiring this up: (1)
+`_collect_named_type_refs` only recognized `NamedType`, so any model field
+using the newer exact-versioned `EnumRefType` reference silently produced no
+`use` import — the field referenced a type name that would not resolve, a
+compile error in the generated Rust the existing tests never exercised; (2)
+ClickHouse's forced-string encoding (`clickhouse-rs` panics on
+`serialize_unit_variant` for typed enums) only matched the anonymous
+`enum(...)` shape kind, so a ClickHouse-bound projection field using a
+nominal enum-backed semantic type would have generated an unencoded enum
+field and hit that panic at runtime — extended to cover the nominal case too.
+**Next:** E8-E11 (per-target emission and editor support) and D7/D8's
+convergence gate. They build on D3 rather than introducing a second parallel
+enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions
