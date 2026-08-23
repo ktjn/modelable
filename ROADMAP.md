@@ -826,10 +826,35 @@ degrading to a bare scalar — E8 is complete.** `named_types.py`'s
 explicit rather than becoming the unconditional default, so a future emitter
 added to this family can't accidentally skip opting in and reference a type
 name nothing emits (the exact bug this flag was added to prevent, caught
-during the TypeScript-to-Python transition). **Next:** E9-E11 (per-target
-schema/API and editor support for the same semantic-enum identity) and
-D7/D8's convergence gate. They build on D3 rather than introducing a second
-parallel enum declaration.
+during the TypeScript-to-Python transition).
+**E9 (schema/API targets) is in progress.** Protobuf/gRPC already satisfy
+E9's item 1 as a side effect of E6's implementation — `emitters/protobuf.py`
+already emitted one package-qualified nominal `enum` per declaration with
+correct cross-domain `import`/fully-qualified-type references before E9
+started, and `emitters/grpc.py` reuses that output unchanged, so no separate
+gRPC-specific work was needed. **Avro is done next:** `emitters/avro.py` now
+derives one qualified named Avro enum per enum-backed semantic declaration
+(`namespace` = declaring domain, `name` = declaration name) on first use
+within a schema, and reuses it via Avro's native named-type string reference
+(`"orders.OrderStatus"`) on every repeat — mirroring the dedup pattern this
+emitter already used for nested record types — instead of silently
+degrading to a bare `"string"`, which is what an `EnumRefType` field
+produced before this slice (a real correctness gap, not just a lost-identity
+one: nothing enforced the closed value set). Verified with a real
+`fastavro` binary encode/decode round-trip confirming both that valid wire
+values round-trip correctly and that the schema actually rejects a value
+outside the declared symbol set. JSON Schema and OpenAPI (E9 item 3) are not
+yet fixed and have their own confirmed correctness gap worth flagging now:
+an `EnumRefType` field currently renders as `{"type": "object"}` in JSON
+Schema — not just an unconstrained type, an actively wrong one that would
+reject valid string status values under schema validation. Enum projections
+(E9 item 2's "distinct names" half) remain out of scope everywhere in E9 so
+far, consistent with E6/E7/E8's precedent: no field can reference a
+projection as its type yet, so there is nothing for a schema/API target to
+render a distinct name for. **Next:** JSON Schema and OpenAPI, then E10-E11
+(storage/metadata targets and editor support for the same semantic-enum
+identity) and D7/D8's convergence gate. They build on D3 rather than
+introducing a second parallel enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions
