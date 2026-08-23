@@ -890,10 +890,16 @@ resolves the reference and emits both the closed value set and a
 identity (`domain.Name`), reusing the existing `NamedType`
 `modelableNamedType` extra-property convention this emitter already had for
 non-enum semantics. Applies to both model and projection field paths.
-**Next:** OpenMetadata + OpenLineage (paired — near-duplicate gap in both),
-then FHIR (real design work: both the type-code mapping and a
-declaration-scoped ValueSet binding are missing), then Markdown (trivial
-display fix). `sql-postgres`/`sql-clickhouse`/`dbt-yaml` are intentionally
+**OpenMetadata and OpenLineage are done next** (paired, since both emitters'
+`_type_name` helpers had the exact same shape of bug — an `EnumRefType`
+fell to the final `"unknown"` fallback instead of the anonymous-enum case's
+`"enum(a,b,c)"`): both now render `"enumRef<Name@version>"`, carrying exact
+declaration identity rather than the constant-set members these two
+catalog/lineage formats have no closed-set concept for anyway (unlike ODCS,
+neither has an existing `enum: [...]`-shaped field to extend). **Next:** FHIR
+(real design work: both the type-code mapping and a declaration-scoped
+ValueSet binding are missing), then Markdown (trivial display fix).
+`sql-postgres`/`sql-clickhouse`/`dbt-yaml` are intentionally
 deferred: today's `EnumRefType` fallback already matches what anonymous
 `enum(...)` fields get in each of those three targets (a documented,
 symmetric physical-storage simplification, not a regression), and adding
