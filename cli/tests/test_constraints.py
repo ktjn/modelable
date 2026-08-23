@@ -49,7 +49,14 @@ def test_named_enum_semantic_type_emits_as_reusable_enum(tmp_path: Path) -> None
     workspace = load_workspace(source)
     assert not workspace.errors
     artifact = next(item for item in emit_json_schema(workspace, tmp_path / "out") if item.ref == "customer.Customer@1")
-    assert artifact.content["properties"]["status"] == {"type": "string", "enum": ["active", "blocked"]}
+    # Evolution plan E9: a nominal enum-backed semantic reference is a $ref
+    # into a reusable named definition, not a re-inlined enum array.
+    assert artifact.content["properties"]["status"] == {"$ref": "#/$defs/CustomerCustomerStatus"}
+    assert artifact.content["$defs"]["CustomerCustomerStatus"] == {
+        "title": "CustomerStatus",
+        "type": "string",
+        "enum": ["active", "blocked"],
+    }
 
 
 def test_versioned_enum_evolution_is_rendered_and_additive_removals_are_rejected(tmp_path: Path) -> None:

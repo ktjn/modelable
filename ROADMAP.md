@@ -843,15 +843,36 @@ produced before this slice (a real correctness gap, not just a lost-identity
 one: nothing enforced the closed value set). Verified with a real
 `fastavro` binary encode/decode round-trip confirming both that valid wire
 values round-trip correctly and that the schema actually rejects a value
-outside the declared symbol set. JSON Schema and OpenAPI (E9 item 3) are not
-yet fixed and have their own confirmed correctness gap worth flagging now:
-an `EnumRefType` field currently renders as `{"type": "object"}` in JSON
-Schema — not just an unconstrained type, an actively wrong one that would
-reject valid string status values under schema validation. Enum projections
-(E9 item 2's "distinct names" half) remain out of scope everywhere in E9 so
-far, consistent with E6/E7/E8's precedent: no field can reference a
-projection as its type yet, so there is nothing for a schema/API target to
-render a distinct name for. **Next:** JSON Schema and OpenAPI, then E10-E11
+outside the declared symbol set.
+**JSON Schema and OpenAPI close out E9's targets.** Both share one mapping
+module, `emitters/_schema_mapping.py`, so fixing it fixes both formats in
+one change. Two real problems existed, not one: `EnumRefType` had no
+handling at all in `_type_to_json_schema` and fell through to the generic
+`{"type": "object"}` fallback — not merely unconstrained, actively wrong,
+since it would reject every valid string status value under schema
+validation; and the older bare-`NamedType` enum-reference path (predating
+`EnumRefType`) already resolved correctly but re-inlined a fresh `enum`
+array at every occurrence instead of the reusable `$ref` E9 item 3 requires.
+Both paths now go through one new `_enum_semantic_to_json_schema` helper
+that registers the declaration once in `defs`/`components.schemas` (keyed by
+declaring domain + declaration name) and returns a `$ref` on every
+occurrence and every repeat, while a genuinely anonymous `enum(...)` field
+still renders inline, unchanged, per item 3's "anonymous enums stay inline."
+Verified with real `jsonschema` `Draft202012Validator` schema-validity and
+data-validation checks (confirming both that a valid value passes and an
+invalid one is correctly rejected with a message naming the bad value) and
+the existing `openapi-spec-validator`-backed `_validate_document` check this
+codebase already uses for its other OpenAPI tests. Updated one pre-E9 test
+(`test_named_enum_semantic_type_emits_as_reusable_enum`) whose name already
+described the intended behavior but whose assertion only checked the old
+inline-expansion shape; it now checks the real `$ref`.
+**E9 is complete: every schema/API target (Protobuf, gRPC, Avro, JSON
+Schema, OpenAPI) now emits or references one reusable nominal enum instead
+of losing identity or, in JSON Schema's case, actively mismapping the
+type.** Enum projections (E9 item 2's "distinct names" half) remain out of
+scope everywhere in E9, consistent with E6/E7/E8's precedent: no field can
+reference a projection as its type yet, so there is nothing for a
+schema/API target to render a distinct name for. **Next:** E10-E11
 (storage/metadata targets and editor support for the same semantic-enum
 identity) and D7/D8's convergence gate. They build on D3 rather than
 introducing a second parallel enum declaration.

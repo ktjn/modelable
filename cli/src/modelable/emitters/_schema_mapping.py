@@ -10,6 +10,7 @@ from modelable.parser.ir import (
     ArrayType,
     DecimalType,
     DirectMapping,
+    EnumRefType,
     EnumType,
     FieldDef,
     FieldType,
@@ -23,6 +24,7 @@ from modelable.parser.ir import (
     ProjectionField,
     ProjectionVersion,
     RefType,
+    SemanticTypeDecl,
     UnionType,
     ValueConstraint,
 )
@@ -248,14 +250,23 @@ def _type_to_json_schema(
             "type": "string",
             "enum": field_type.values,
         }
+    if isinstance(field_type, EnumRefType):
+        if mdl is not None:
+            try:
+                declaring_domain, decl = resolve_semantic_type_ref(mdl, "", field_type.name, field_type.version)
+            except LookupError:
+                pass
+            else:
+                return _enum_semantic_to_json_schema(declaring_domain, decl, defs=defs, ref_base=ref_base)
+        return {"type": "string"}
     if isinstance(field_type, NamedType):
         if mdl is not None:
             try:
-                semantic = resolve_semantic_type_ref(mdl, "", field_type.name)[1]
+                declaring_domain, semantic = resolve_semantic_type_ref(mdl, "", field_type.name)
             except LookupError, TypeError:
                 semantic = None
             if semantic is not None and isinstance(semantic.underlying, EnumType):
-                return {"type": "string", "enum": semantic.underlying.values}
+                return _enum_semantic_to_json_schema(declaring_domain, semantic, defs=defs, ref_base=ref_base)
         def_name = _definition_name([field_type.name])
         if defs is not None:
             defs.setdefault(
@@ -306,6 +317,26 @@ def _type_to_json_schema(
         }
 
     return {"type": "object"}
+
+
+def _enum_semantic_to_json_schema(
+    declaring_domain: str,
+    decl: SemanticTypeDecl,
+    *,
+    defs: dict[str, dict] | None,
+    ref_base: str,
+) -> dict:
+    """Render an enum-backed semantic declaration as one reusable named
+    schema (evolution plan E9), referenced via ``$ref`` everywhere it's used
+    instead of re-expanding an inline ``enum`` array per occurrence.
+    """
+    assert isinstance(decl.underlying, EnumType)
+    def_name = _definition_name([declaring_domain, decl.name])
+    schema = {"title": decl.name, "type": "string", "enum": list(decl.underlying.values)}
+    if defs is not None:
+        defs.setdefault(def_name, schema)
+        return {"$ref": f"{ref_base}{def_name}"}
+    return schema
 
 
 def _object_type_to_json_schema(
