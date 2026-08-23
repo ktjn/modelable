@@ -8,9 +8,23 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Go-to-definition, find-all-references, and rename now work for enum-backed
+  `semantic` declarations and `enum projection` declarations, matching the
+  support already in place for models and projections (#458, #459, #460).
+- The compiler now warns (`POSTCARD` diagnostic) when a domain binds some of
+  its models to the `postcard` adapter but leaves a sibling model with
+  optional fields unbound, since that model silently keeps the JSON-shaped
+  `skip_serializing_if` behavior that postcard cannot decode across
+  presence/absence (#439).
+
 ### Changed
 
 ### Fixed
+
+- Documented that a `postcard` adapter binding's `@ version` only selects
+  which field shape resolves `fields:` mappings; the serialization
+  suppression itself applies to every version of the bound model, and this
+  behavior is now pinned by a regression test (#440).
 
 ## [1.10.1] - 2026-08-23
 

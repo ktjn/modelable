@@ -788,6 +788,24 @@ models keeps `#[serde(default)]` but omits `#[serde(skip_serializing_if =
 skipping `None` fields silently corrupts the stream. JSON output for unbound
 models is unchanged.
 
+A binding's `@ version` selects which version's field shape is used to
+resolve `fields:` mappings, but the `postcard` suppression itself applies to
+**every version of the bound model**, not just the version named. A workspace
+that encodes all versions of a model with postcard only needs one binding
+for it.
+
+Because the suppression is opt-in per model, a domain where every durable
+model is postcard-encoded needs a binding on each one; an optional field on
+a model with no binding keeps the JSON-shaped `skip_serializing_if`, which
+postcard cannot decode once presence changes across a write and a read. To
+catch the most common way this goes wrong — a new model added next to
+already-bound ones, without a binding of its own — the compiler emits a
+`POSTCARD` warning for any model with optional fields that has no postcard
+binding, in a domain where at least one other model is bound to postcard.
+There is no diagnostic for a domain with no postcard bindings at all: the
+warning only fires once a domain has established that it treats postcard
+encoding as the norm.
+
 ---
 
 ## 5. Toolchain

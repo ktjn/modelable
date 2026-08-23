@@ -141,6 +141,7 @@ def load_workspace_from_sources(
     ref_errors, ref_warnings = _validate_ref_types_in_merged_workspace(workspace_sources, merged)
     errors.extend(ref_errors)
     warnings.extend(ref_warnings)
+    warnings.extend(_validate_postcard_bindings(merged))
     errors.extend(_validate_cel(merged))
     return Workspace(sources=workspace_sources, mdl=merged, errors=errors, warnings=warnings)
 
@@ -689,6 +690,57 @@ def _validate_bindings(merged: MdlFile) -> list[Diagnostic]:
         else:
             seen[b.name] = b.adapter
     return errors
+
+
+def _validate_postcard_bindings(merged: MdlFile) -> list[Diagnostic]:
+    """Warn when a domain has postcard-bound models but also unbound models with
+    optional fields.
+
+    postcard is not self-describing, so unbound optional fields keep the
+    default serde ``skip_serializing_if`` behaviour, which postcard cannot
+    decode across presence/absence once a value is later omitted or added
+    (see #430/#437). A domain that already binds some of its models to
+    postcard is presumably encoding everything that way, so a sibling model
+    with optional fields and no binding is the most likely place for that bug
+    to reappear silently.
+    """
+    adapter_types: dict[str, str] = {b.name: b.adapter for b in merged.bindings if b.adapter}
+    bound_models: set[str] = set()
+    for b in merged.bindings:
+        if not b.model:
+            continue
+        resolved = adapter_types.get(b.adapter, b.adapter)
+        if resolved == "postcard":
+            bound_models.add(b.model)
+    if not bound_models:
+        return []
+    bound_domains = {model.split(".", 1)[0] for model in bound_models}
+
+    warnings: list[Diagnostic] = []
+    for domain in merged.domains:
+        if domain.name not in bound_domains:
+            continue
+        for model_name, versions in domain.models.items():
+            qualified = f"{domain.name}.{model_name}"
+            if qualified in bound_models:
+                continue
+            if not any(field.optional for version in versions for field in version.fields):
+                continue
+            warnings.append(
+                Diagnostic(
+                    code="POSTCARD",
+                    message=(
+                        f"{qualified} has optional fields but no postcard binding, even though "
+                        f"other models in domain '{domain.name}' are bound to postcard; unbound "
+                        "optional fields keep skip_serializing_if, which postcard cannot decode "
+                        "across presence/absence -- add a binding for this model or confirm the "
+                        "omission is intentional"
+                    ),
+                    severity="warning",
+                    path="<workspace>",
+                )
+            )
+    return warnings
 
 
 def _validate_cel(merged: MdlFile) -> list[Diagnostic]:
