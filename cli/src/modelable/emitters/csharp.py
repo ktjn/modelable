@@ -9,7 +9,16 @@ from modelable.emitters.diagnostics import type_loss
 from modelable.emitters.named_types import resolve_named_ref, resolve_named_types
 from modelable.emitters.naming import pascalize_titlecase as _pascalize
 from modelable.emitters.shapes import TypeShape
-from modelable.parser.ir import DirectMapping, DomainDef, MdlFile, ModelVersion, ProjectionVersion
+from modelable.parser.ir import (
+    DirectMapping,
+    DomainDef,
+    EnumType,
+    MdlFile,
+    ModelVersion,
+    ProjectionVersion,
+    SemanticTypeDecl,
+    latest_semantic_types,
+)
 from modelable.registry.resolver import resolve_model_ref
 
 
@@ -21,7 +30,11 @@ def emit_csharp(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
             workspace.mdl,
             current_domain=domain.name,
             model_name=_stable_type_name,
+            emit_nominal_enums=True,
         )
+        for decl in latest_semantic_types(domain):
+            if isinstance(decl.underlying, EnumType):
+                artifacts.append(_emit_enum_type(domain, decl, out_dir))
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
                 artifacts.append(
@@ -269,7 +282,12 @@ def _shape_base_to_csharp(
         return "string"
     if shape.kind == "named":
         declaring_domain, named_name, inline_shape = resolve_named_ref(
-            mdl, current_domain=current_domain, ref=shape.ref or "", names=named_names, shapes=named_shapes
+            mdl,
+            current_domain=current_domain,
+            ref=shape.ref or "",
+            names=named_names,
+            shapes=named_shapes,
+            emit_nominal_enums=True,
         )
         if named_name is not None:
             if declaring_domain is not None and declaring_domain != current_domain:
@@ -373,6 +391,64 @@ def _build_record_definition(
         lines.append(f"    public {prefix}{child_type} {_property_name(field.name)} {{ get; init; }}")
     lines.append("}")
     return lines
+
+
+def _enum_member_name(value: str) -> str:
+    return _pascalize(value)
+
+
+def _emit_enum_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path) -> EmittedArtifact:
+    """Emit one reusable C# ``enum`` for an enum-backed semantic declaration
+    (evolution plan E8), imported everywhere it's referenced instead of
+    degrading to a bare ``string``.
+
+    C# enum members can't carry per-value data the way a Java or Rust enum
+    can, so the wire mapping lives on companion extension methods
+    (``ToWireValue()``/``ToXyz(string)``) instead of relying on
+    ``Enum.ToString()``, which would emit the PascalCase member name rather
+    than the canonical wire value.
+    """
+    assert isinstance(decl.underlying, EnumType)
+    artifact_id = f"{domain.name}.{decl.name}"
+    type_name = decl.name
+    members = [(_enum_member_name(value), value) for value in decl.underlying.values]
+
+    lines = [
+        "#nullable enable",
+        "using System;",
+        "",
+        f"namespace {_namespace_name(domain.name)};",
+        "",
+        f"public enum {type_name}",
+        "{",
+        *(f"    {member}," for member, _ in members),
+        "}",
+        "",
+        f"public static class {type_name}Extensions",
+        "{",
+        f"    public static string ToWireValue(this {type_name} value) => value switch",
+        "    {",
+        *(f'        {type_name}.{member} => "{value}",' for member, value in members),
+        f'        _ => throw new ArgumentOutOfRangeException(nameof(value), value, "Unknown {type_name}"),',
+        "    };",
+        "",
+        f"    public static {type_name} To{type_name}(this string value) => value switch",
+        "    {",
+        *(f'        "{value}" => {type_name}.{member},' for member, value in members),
+        f'        _ => throw new ArgumentException($"Unknown {type_name} wire value: {{value}}", nameof(value)),',
+        "    };",
+        "}",
+    ]
+    text = "\n".join(lines) + "\n"
+    return EmittedArtifact(
+        target="csharp",
+        ref=artifact_id,
+        artifact_id=artifact_id,
+        path=out_dir / f"{artifact_id}.cs",
+        content=text,
+        content_hash=compute_content_hash(text),
+        warnings=[],
+    )
 
 
 def _resolve_projection_field_shape(field: Any, projection: ProjectionVersion, mdl: MdlFile) -> TypeShape | None:
