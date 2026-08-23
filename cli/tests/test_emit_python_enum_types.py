@@ -103,23 +103,24 @@ domain orders {
     assert isinstance(order_status.ACTIVE, str)
 
 
-def test_go_is_unaffected_by_python_nominal_enum_opt_in(tmp_path):
-    """Regression guard: named_types.py's shared resolver must stay opt-in per
-    target so untouched emitters keep their existing (inline) behavior until
-    their own E8 slice lands. Java and C# have since gotten their own slices
-    (see test_emit_java_enum_types.py, test_emit_csharp_enum_types.py) and are
-    intentionally not checked here anymore; Go has not."""
-    from modelable.emitters.go import emit_go
+def test_default_emit_nominal_enums_stays_off_for_unmigrated_callers(tmp_path):
+    """Regression guard: named_types.py's resolve_named_types/resolve_named_ref
+    default to inline expansion. Every current caller (Python, TypeScript's own
+    resolver, Java, C#, Go) has now migrated to emit_nominal_enums=True as of
+    E8's Go slice, but the default itself must stay False so a future emitter
+    that doesn't explicitly opt in can't silently reference a type name
+    nothing emits, the exact bug this flag was added to prevent (see git log
+    for the Python E8 slice)."""
+    from modelable.emitters.named_types import resolve_named_types
 
     workspace = _workspace(
         """
 domain orders {
   owner: "orders-team"
   semantic OrderStatus @ 1 (additive): enum(pending, active, done)
-  entity Order @ 1 (additive) { @key orderId: uuid status: OrderStatus @ 1 }
 }
 """
     )
-    go_content = next(a.content for a in emit_go(workspace, tmp_path / "go") if a.ref == "orders.Order@1")
-
-    assert "Status string" in go_content
+    names, shapes = resolve_named_types(workspace.mdl, current_domain="orders", model_name=lambda d, n, v: n)
+    assert "OrderStatus" not in names
+    assert "OrderStatus" in shapes

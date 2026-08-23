@@ -807,14 +807,29 @@ explicit-round-trip shape as Java's slice, adapted to C#'s idiom, again
 without adding a JSON library dependency the generated records don't already
 have. Verified with a real `dotnet run` (not just `dotnet build`) exercising
 record construction, array/map fields typed by the nominal enum, and both
-extension-method directions of the wire round trip. Go is the same shape of
-gap but not yet fixed; it still needs its own focused slice per the same
-one-target-per-PR review discipline used here (the roadmap's own "adjacent
-slices should not be combined" principle, applied within E8 since it spans
-five otherwise-unrelated codegen files). **Next:** the remaining E8 target
-(Go), then E9-E11 (per-target emission and editor support) and D7/D8's
-convergence gate. They build on D3 rather than introducing a second parallel
-enum declaration.
+extension-method directions of the wire round trip.
+**Go closes out E8:** `emitters/go.py` now emits a reusable `type X string`
+plus `X<Member>`-prefixed constants (Go has no enum-scoped constant
+namespace, so each constant is prefixed with the type name to avoid
+colliding with another enum's members in the same package) per enum-backed
+semantic declaration. Unlike Java/C#, this needed no explicit wire-value
+plumbing at all: `encoding/json` already marshals/unmarshals any
+string-kinded named type as its underlying string, so the canonical wire
+value round-trips for free. Verified with a real `go run` exercising struct
+construction, `json.Marshal`/`json.Unmarshal` round-tripping through the
+nominal type, and a cross-domain package-qualified reference
+(`orders.OrderStatus` used from the `fulfillment` package). **All five
+typed-SDK targets (TypeScript, Python, Java, C#, Go) now emit a real
+reusable type for enum-backed semantic declarations instead of silently
+degrading to a bare scalar — E8 is complete.** `named_types.py`'s
+`emit_nominal_enums` flag has no remaining unmigrated callers, but stays
+explicit rather than becoming the unconditional default, so a future emitter
+added to this family can't accidentally skip opting in and reference a type
+name nothing emits (the exact bug this flag was added to prevent, caught
+during the TypeScript-to-Python transition). **Next:** E9-E11 (per-target
+schema/API and editor support for the same semantic-enum identity) and
+D7/D8's convergence gate. They build on D3 rather than introducing a second
+parallel enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions
