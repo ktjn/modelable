@@ -23,8 +23,11 @@ _QUALIFIED_REF_PATTERN = re.compile(
 )
 _FIELD_REF_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
 _DECL_PATTERN = re.compile(
-    r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
+    r"^\s*(?P<kind>entity|aggregate|event|value|projection|semantic)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
+)
+_ENUM_PROJECTION_DECL_PATTERN = re.compile(
+    r"^\s*enum\s+projection\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
 _DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _MODEL_FIELD_PATTERN = re.compile(
@@ -122,7 +125,7 @@ def rename(
     edits: list[LanguageTextEdit] = []
     hashes = workspace.current_hashes()
 
-    if target.kind in {"model_decl", "projection_decl"}:
+    if target.kind in {"model_decl", "projection_decl", "semantic_decl", "enum_projection_decl"}:
         _add_decl_renames(edits, semantic, workspace, hashes, target, new_name)
     elif target.kind == "model_field":
         _add_model_field_renames(edits, semantic, workspace, hashes, target, new_name)
@@ -173,6 +176,24 @@ def _target_at(
                 field_name=None,
                 range=LanguageRange.at(line, match.start("name"), line, match.end("name")),
             )
+        if any(item.name == name for item in domain_def.semantic_types):
+            return _Target(
+                kind="semantic_decl",
+                domain=domain,
+                name=name,
+                version=version,
+                field_name=None,
+                range=LanguageRange.at(line, match.start("name"), line, match.end("name")),
+            )
+        if any(item.name == name for item in domain_def.enum_projections):
+            return _Target(
+                kind="enum_projection_decl",
+                domain=domain,
+                name=name,
+                version=version,
+                field_name=None,
+                range=LanguageRange.at(line, match.start("name"), line, match.end("name")),
+            )
         return None
 
     for match in _FIELD_REF_PATTERN.finditer(text_line):
@@ -214,6 +235,40 @@ def _target_at(
     word = _word_at(text_line, character)
     if word is None:
         return None
+
+    domain_of_line = _domain_at_or_before(text, line)
+    if domain_of_line is not None:
+        enum_projection_match = _ENUM_PROJECTION_DECL_PATTERN.match(text_line)
+        if (
+            enum_projection_match
+            and enum_projection_match.group("name") == word
+            and _contains(enum_projection_match.start("name"), enum_projection_match.end("name"), character)
+        ):
+            return _Target(
+                kind="enum_projection_decl",
+                domain=domain_of_line,
+                name=word,
+                version=int(enum_projection_match.group("version")),
+                field_name=None,
+                range=LanguageRange.at(
+                    line, enum_projection_match.start("name"), line, enum_projection_match.end("name")
+                ),
+            )
+        decl_match = _DECL_PATTERN.match(text_line)
+        if (
+            decl_match
+            and decl_match.group("kind") == "semantic"
+            and decl_match.group("name") == word
+            and _contains(decl_match.start("name"), decl_match.end("name"), character)
+        ):
+            return _Target(
+                kind="semantic_decl",
+                domain=domain_of_line,
+                name=word,
+                version=int(decl_match.group("version")),
+                field_name=None,
+                range=LanguageRange.at(line, decl_match.start("name"), line, decl_match.end("name")),
+            )
 
     scope = _current_scope(text, line)
     if scope is None:
@@ -261,7 +316,12 @@ def _add_decl_renames(
     target: _Target,
     new_name: str,
 ) -> None:
-    decl_kind = "model" if target.kind == "model_decl" else "projection"
+    decl_kind = {
+        "model_decl": "model",
+        "projection_decl": "projection",
+        "semantic_decl": "semantic",
+        "enum_projection_decl": "enum_projection",
+    }[target.kind]
     declaration = _find_decl_location(semantic, target.domain, decl_kind, target.name, target.version)
     if declaration is not None:
         doc = workspace.current_document(declaration[0])
@@ -541,8 +601,24 @@ def _find_decl_location(
             if domain_match:
                 current_domain = domain_match.group("quoted") or domain_match.group("name")
                 continue
+            if current_domain != domain_name:
+                continue
+            if kind == "enum_projection":
+                enum_projection_match = _ENUM_PROJECTION_DECL_PATTERN.match(line_text)
+                if (
+                    enum_projection_match
+                    and enum_projection_match.group("name") == name
+                    and int(enum_projection_match.group("version")) == version
+                ):
+                    return (
+                        source.uri,
+                        LanguageRange.at(
+                            line_no, enum_projection_match.start("name"), line_no, enum_projection_match.end("name")
+                        ),
+                    )
+                continue
             decl_match = _DECL_PATTERN.match(line_text)
-            if not decl_match or current_domain != domain_name:
+            if not decl_match:
                 continue
             decl_kind = decl_match.group("kind")
             if kind == "model":
@@ -561,6 +637,16 @@ def _find_decl_location(
     return None
 
 
+def _domain_at_or_before(text: str, line: int) -> str | None:
+    lines = document_lines(text)
+    current_domain: str | None = None
+    for item in lines[: line + 1]:
+        domain_match = _DOMAIN_PATTERN.match(item)
+        if domain_match:
+            current_domain = domain_match.group("quoted") or domain_match.group("name")
+    return current_domain
+
+
 def _current_scope(text: str, line: int) -> tuple[str, str, str, int] | None:
     lines = document_lines(text)
     current_domain: str | None = None
@@ -576,7 +662,7 @@ def _current_scope(text: str, line: int) -> tuple[str, str, str, int] | None:
             current_version = None
             continue
         decl_match = _DECL_PATTERN.match(item)
-        if decl_match and current_domain is not None:
+        if decl_match and current_domain is not None and decl_match.group("kind") != "semantic":
             current_kind = "model" if decl_match.group("kind") != "projection" else "projection"
             current_name = decl_match.group("name")
             current_version = int(decl_match.group("version"))

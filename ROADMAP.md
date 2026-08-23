@@ -982,14 +982,34 @@ branching, so it picked up semantic/enum-projection usages for free once the
 declaration-side lookup worked. Verified end-to-end that references on a
 qualified `orders.OrderStatus @ 1` field type return both the declaration and
 the usage site, and that the same intervening-`semantic`-declaration scope
-regression is guarded here too. **Next:** rename and completion (each gets
-the analogous `domain.semantic_types`/`domain.enum_projections` branch plus
-the same `_DECL_PATTERN`/`_ENUM_PROJECTION_DECL_PATTERN` treatment), then
-member resolution inside `pick`/`omit` against the exact source version
-(genuinely new logic, no existing pattern to extend), then rename-scoping to
-nominal identity, then VS Code/Monaco mirroring and cross-surface conformance
-fixtures. Then D7/D8's convergence gate. They build on D3 rather than
-introducing a second parallel enum declaration.
+regression is guarded here too. **Rename is done next:** the same
+`_DECL_PATTERN`/`_ENUM_PROJECTION_DECL_PATTERN`/`_current_scope` changes,
+plus a new `semantic_decl`/`enum_projection_decl` pair of `_Target.kind`
+values wired through `rename()`'s dispatch and `_add_decl_renames`'s
+`decl_kind` mapping (which already handled model/projection generically, so
+the qualified-reference and usage-rewrite paths needed no further branching).
+One gap `rename.py` has that `definition.py`/`references.py` don't: renaming
+from the *declaration's own name* (not a qualified reference elsewhere) goes
+through a bare-word path keyed off `_current_scope`, which deliberately
+excludes `semantic` (and never included two-token `enum projection`) from
+scope tracking — so without an explicit check, invoking rename directly on
+`semantic OrderStatus @ 1` or `enum projection PublicStatus @ 1`'s own name
+would silently report "no renamable symbol". Added a `_domain_at_or_before`
+helper plus explicit own-line pattern checks ahead of the scope-based
+fallback so both declaration forms are renamable from their own header, not
+just from a qualified reference to them elsewhere. Verified end-to-end:
+renaming via the qualified field reference, renaming from the semantic
+declaration's own name, and renaming from the enum projection's own name all
+produce the correct edit sets, and the same intervening-`semantic`-decl scope
+regression is guarded here too. **Next:** completion (analogous
+`domain.semantic_types`/`domain.enum_projections` branch plus the same
+`_DECL_PATTERN`/`_ENUM_PROJECTION_DECL_PATTERN` treatment), then member
+resolution inside `pick`/`omit` against the exact source version (genuinely
+new logic, no existing pattern to extend), then rename-scoping to nominal
+identity (worth re-checking now that rename covers semantic/enum-projection
+declarations directly), then VS Code/Monaco mirroring and cross-surface
+conformance fixtures. Then D7/D8's convergence gate. They build on D3 rather
+than introducing a second parallel enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions
