@@ -912,19 +912,27 @@ referencing it — the companion Extension StructureDefinition's own
 both now resolve through the same declaration-scoped path. The
 pre-existing anonymous-enum behavior (field-scoped URL) is deliberately
 unchanged, since an anonymous `enum(...)` genuinely has no cross-field
-identity to share. **Next:** Markdown (trivial display fix).
-`sql-postgres`/`sql-clickhouse`/`dbt-yaml` are intentionally
-deferred: today's `EnumRefType` fallback already matches what anonymous
-`enum(...)` fields get in each of those three targets (a documented,
-symmetric physical-storage simplification, not a regression), and adding
-native `CREATE TYPE ... AS ENUM` / ClickHouse `Enum8` / dbt
-`accepted_values` support is a larger, unscoped design decision — whether to
-add real enum enforcement for *both* anonymous and nominal enums at once —
-that belongs in its own accepted design rather than being smuggled into a
-"wire through the missing case" slice. Then E11 (editor/language-service
-support for the same semantic-enum identity) and D7/D8's convergence gate.
-They build on D3 rather than introducing a second parallel enum
-declaration.
+identity to share. **Markdown closes out the E10 targets that get a real
+fix:** the same `_type_name`-shaped bug as OpenMetadata/OpenLineage (fell to
+`"unknown"` instead of the anonymous case's `"enum(a, b, c)"`), fixed the
+same way, rendering `"Name@version"` — a format chosen to echo this
+language's own `Name @ version` reference syntax directly in the generated
+docs table, since Markdown's audience is a human reader rather than another
+tool.
+**E10 is complete for every target with a real gap.** `registry` needed no
+change (pure identity/signature inventory), `event-sink` was already correct
+as an E9 side effect (delegates to `emitters/openapi.py`), and
+`sql-postgres`/`sql-clickhouse`/`dbt-yaml` are intentionally deferred:
+today's `EnumRefType` fallback already matches what anonymous `enum(...)`
+fields get in each of those three targets (a documented, symmetric
+physical-storage simplification, not a regression), and adding native
+`CREATE TYPE ... AS ENUM` / ClickHouse `Enum8` / dbt `accepted_values`
+support is a larger, unscoped design decision — whether to add real enum
+enforcement for *both* anonymous and nominal enums at once — that belongs in
+its own accepted design rather than being smuggled into a "wire through the
+missing case" slice. **Next:** E11 (editor/language-service support for the
+same semantic-enum identity) and D7/D8's convergence gate. They build on D3
+rather than introducing a second parallel enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions
