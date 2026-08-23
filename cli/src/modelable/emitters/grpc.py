@@ -7,6 +7,7 @@ from pathlib import Path
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.protobuf import emit_protobuf
+from modelable.registry.enum_numbers import EnumNumberAllocation
 
 
 def emit_grpc(
@@ -14,6 +15,7 @@ def emit_grpc(
     out_dir: Path,
     *,
     registry_ids: dict[str, int] | None = None,
+    enum_numbers: dict[str, EnumNumberAllocation] | None = None,
 ) -> list[EmittedArtifact]:
     """Emit the Scalable gRPC profile beside generated protobuf payload schemas."""
     artifacts: list[EmittedArtifact] = []
@@ -21,6 +23,7 @@ def emit_grpc(
         workspace,
         out_dir,
         registry_ids=registry_ids,
+        enum_numbers=enum_numbers,
     )
     artifacts.extend(_retarget_payload_artifacts(protobuf_artifacts))
 

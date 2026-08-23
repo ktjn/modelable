@@ -63,6 +63,9 @@ from modelable.parser.ir import (
     UnionType,
 )
 from modelable.planner.plans import write_plans
+from modelable.registry.enum_numbers import EnumNumberAllocation, EnumNumberConflictError, allocate_enum_numbers
+from modelable.registry.enum_numbers import read_lock_file as read_enum_numbers_lock_file
+from modelable.registry.enum_numbers import write_lock_file as write_enum_numbers_lock_file
 from modelable.registry.factory import get_registry
 from modelable.registry.ids import RegistryIdLock, allocate_registry_ids, read_lock_file, write_lock_file
 from modelable.registry.index import build_registry
@@ -122,6 +125,7 @@ class CompilationRequest:
     registry_path: str = ".modelable/registry.db"
     registry_ids_path: Path = Path("registry-ids.lock")
     allow_orphaned_registry_ids: bool = False
+    enum_numbers_path: Path = Path("enum-numbers.lock")
     domains: tuple[str, ...] = ()
     descriptor_set: bool = False
     package: str | None = None
@@ -147,7 +151,7 @@ class FileFingerprint:
 
 @dataclass(frozen=True)
 class CompilationFilePreview:
-    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor", "manifest"]
+    category: Literal["registry_ids", "enum_numbers", "registry", "plan", "artifact", "descriptor", "manifest"]
     destination: Path
     staged_path: Path
     status: Literal["created", "changed", "unchanged"]
@@ -257,7 +261,10 @@ class CompilationService:
             )
         ).resolve()
         try:
-            with RegistryIdLock(_registry_ids_path(request, workspace_root)):
+            with (
+                RegistryIdLock(_registry_ids_path(request, workspace_root)),
+                RegistryIdLock(_enum_numbers_path(request, workspace_root)),
+            ):
                 result = self._execute_direct_staged(
                     request,
                     workspace_root=workspace_root,
@@ -281,11 +288,15 @@ class CompilationService:
     ) -> DirectCompilationResult:
         staged_output = staging_dir / "output"
         staged_registry_ids = staging_dir / "registry-ids.lock"
+        staged_enum_numbers = staging_dir / "enum-numbers.lock"
         staged_registry = staging_dir / "registry" / "registry.db"
         staged_plans = staging_dir / "plans"
         if request.registry_ids_path.exists():
             staged_registry_ids.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(request.registry_ids_path, staged_registry_ids)
+        if request.enum_numbers_path.exists():
+            staged_enum_numbers.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(request.enum_numbers_path, staged_enum_numbers)
         staged_request = dataclasses.replace(
             request,
             out_dir=staged_output,
@@ -293,6 +304,7 @@ class CompilationService:
                 request.registry_path if request.registry_path.startswith("oci://") else str(staged_registry)
             ),
             registry_ids_path=staged_registry_ids,
+            enum_numbers_path=staged_enum_numbers,
         )
         run = _run_compilation(
             staged_request,
@@ -303,6 +315,7 @@ class CompilationService:
             request=request,
             staged_output=staged_output,
             staged_registry_ids=staged_registry_ids,
+            staged_enum_numbers=staged_enum_numbers,
             staged_registry=staged_registry,
             staged_plans=staged_plans,
         )
@@ -352,6 +365,9 @@ class CompilationService:
             if layout.registry_ids.exists():
                 staged_request.registry_ids_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(layout.registry_ids, staged_request.registry_ids_path)
+            if layout.enum_numbers.exists():
+                staged_request.enum_numbers_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(layout.enum_numbers, staged_request.enum_numbers_path)
 
             run = _run_compilation(
                 staged_request,
@@ -494,6 +510,7 @@ class _PreviewLayout:
     out_dir: Path
     registry: Path
     registry_ids: Path
+    enum_numbers: Path
 
 
 @dataclass(frozen=True)
@@ -501,12 +518,15 @@ class _DirectPathMapper:
     request: CompilationRequest
     staged_output: Path
     staged_registry_ids: Path
+    staged_enum_numbers: Path
     staged_registry: Path
     staged_plans: Path
 
     def promotion_order(self, staged_path: Path) -> tuple[int, str]:
         resolved = staged_path.resolve()
         if resolved == self.staged_registry_ids.resolve():
+            return (0, str(resolved))
+        if resolved == self.staged_enum_numbers.resolve():
             return (0, str(resolved))
         if resolved == self.staged_registry.resolve():
             return (1, str(resolved))
@@ -520,6 +540,8 @@ class _DirectPathMapper:
         resolved = staged_path.resolve()
         if resolved == self.staged_registry_ids.resolve():
             return self.request.registry_ids_path
+        if resolved == self.staged_enum_numbers.resolve():
+            return self.request.enum_numbers_path
         if resolved == self.staged_registry.resolve():
             return Path(self.request.registry_path)
         if resolved.is_relative_to(self.staged_plans.resolve()):
@@ -556,6 +578,11 @@ def _workspace_root(source: Path) -> Path:
 
 def _registry_ids_path(request: CompilationRequest, workspace_root: Path) -> Path:
     path = request.registry_ids_path
+    return path if path.is_absolute() else workspace_root / path
+
+
+def _enum_numbers_path(request: CompilationRequest, workspace_root: Path) -> Path:
+    path = request.enum_numbers_path
     return path if path.is_absolute() else workspace_root / path
 
 
@@ -621,13 +648,25 @@ def _validate_preview_request(
         label="registry ID path",
         source_paths=source_paths,
     )
+    enum_numbers = _resolve_conversation_path(
+        workspace_root,
+        request.enum_numbers_path,
+        label="enum number ledger path",
+        source_paths=source_paths,
+    )
     if registry == registry_ids:
         raise CompilationError("Registry and registry ID paths must be distinct.")
+    if registry_ids == enum_numbers:
+        raise CompilationError("Registry ID and enum number ledger paths must be distinct.")
+    if registry == enum_numbers:
+        raise CompilationError("Registry and enum number ledger paths must be distinct.")
     if out_dir == registry_ids or out_dir.is_relative_to(registry_ids):
         raise CompilationError("Output path overlaps the registry ID control path.")
+    if out_dir == enum_numbers or out_dir.is_relative_to(enum_numbers):
+        raise CompilationError("Output path overlaps the enum number ledger control path.")
     if out_dir == registry or out_dir.is_relative_to(registry):
         raise CompilationError("Output path overlaps the registry control path.")
-    return _PreviewLayout(out_dir=out_dir, registry=registry, registry_ids=registry_ids)
+    return _PreviewLayout(out_dir=out_dir, registry=registry, registry_ids=registry_ids, enum_numbers=enum_numbers)
 
 
 def _resolve_conversation_path(
@@ -685,6 +724,7 @@ def _stage_request(
         out_dir=staged(layout.out_dir),
         registry_path=str(staged(layout.registry)),
         registry_ids_path=staged(layout.registry_ids),
+        enum_numbers_path=staged(layout.enum_numbers),
     )
 
 
@@ -735,9 +775,11 @@ def _build_file_previews(
 def _file_category(
     destination: Path,
     layout: _PreviewLayout,
-) -> Literal["registry_ids", "registry", "plan", "artifact", "descriptor", "manifest"]:
+) -> Literal["registry_ids", "enum_numbers", "registry", "plan", "artifact", "descriptor", "manifest"]:
     if destination == layout.registry_ids:
         return "registry_ids"
+    if destination == layout.enum_numbers:
+        return "enum_numbers"
     if destination == layout.registry:
         return "registry"
     if destination.suffix == ".pb":
@@ -751,7 +793,7 @@ def _file_category(
 
 def _file_preview(
     *,
-    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor", "manifest"],
+    category: Literal["registry_ids", "enum_numbers", "registry", "plan", "artifact", "descriptor", "manifest"],
     destination: Path,
     staged_path: Path,
     before_bytes: bytes | None,
@@ -1141,7 +1183,7 @@ def _verify_apply_freshness(
 
 
 def _category_label(
-    category: Literal["registry_ids", "registry", "plan", "artifact", "descriptor", "manifest"],
+    category: Literal["registry_ids", "enum_numbers", "registry", "plan", "artifact", "descriptor", "manifest"],
 ) -> str:
     return category.replace("_", " ")
 
@@ -1260,6 +1302,13 @@ def _run_compilation(
         raise CompilationError(str(exc)) from exc
     write_lock_file(request.registry_ids_path, registry_ids)
 
+    existing_enum_numbers = read_enum_numbers_lock_file(request.enum_numbers_path)
+    try:
+        enum_numbers = allocate_enum_numbers(workspace.mdl, existing_enum_numbers)
+    except EnumNumberConflictError as exc:
+        raise CompilationError(str(exc)) from exc
+    write_enum_numbers_lock_file(request.enum_numbers_path, enum_numbers)
+
     registry = get_registry(request.registry_path)
     if request.registry_path.startswith("oci://"):
         built_registry_path = build_registry(
@@ -1280,7 +1329,7 @@ def _run_compilation(
         raise CompilationError(str(exc)) from exc
 
     events = [CompilationEvent("ok", f"wrote {request.registry_path}")]
-    written_paths = [request.registry_ids_path]
+    written_paths = [request.registry_ids_path, request.enum_numbers_path]
     if not request.registry_path.startswith("oci://"):
         written_paths.append(Path(request.registry_path))
 
@@ -1297,6 +1346,7 @@ def _run_compilation(
             output,
             registry_ids,
             descriptor_set=request.descriptor_set,
+            enum_numbers=enum_numbers,
         )
     except ValueError as exc:
         raise CompilationError(str(exc)) from exc
@@ -1401,6 +1451,7 @@ def _emit_target(
     registry_ids: dict[str, int],
     *,
     descriptor_set: bool,
+    enum_numbers: dict[str, EnumNumberAllocation] | None = None,
 ) -> list[EmittedArtifact]:
     if target == "json-schema":
         return emit_json_schema(workspace, output)
@@ -1437,7 +1488,7 @@ def _emit_target(
     if target == "avro":
         return emit_avro(workspace, output)
     if target == "protobuf":
-        artifacts = emit_protobuf(workspace, output, registry_ids=registry_ids)
+        artifacts = emit_protobuf(workspace, output, registry_ids=registry_ids, enum_numbers=enum_numbers)
         if descriptor_set:
             try:
                 return _emit_protobuf_with_descriptors(artifacts, output)
@@ -1445,7 +1496,7 @@ def _emit_target(
                 raise CompilationError(str(exc)) from exc
         return artifacts
     if target == "grpc":
-        artifacts = emit_grpc(workspace, output, registry_ids=registry_ids)
+        artifacts = emit_grpc(workspace, output, registry_ids=registry_ids, enum_numbers=enum_numbers)
         if descriptor_set:
             try:
                 return _emit_grpc_with_descriptors(artifacts, output)

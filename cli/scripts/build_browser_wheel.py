@@ -66,6 +66,7 @@ INCLUDE_FILES = (
     "llm/workspace_editor.py",
     "llm/workspace_query.py",
     "registry/__init__.py",
+    "registry/enum_numbers.py",
     "registry/resolver.py",
     "registry/signature.py",
     "rag/context.py",

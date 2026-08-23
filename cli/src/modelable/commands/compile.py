@@ -60,6 +60,13 @@ def register_compile_commands(cli_group: click.Group) -> None:
     help="Tolerate ledger entries with no matching 'registry: true' declaration instead of erroring.",
 )
 @click.option(
+    "--enum-numbers",
+    "enum_numbers_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Path to the Protobuf enum number allocation ledger. Defaults beside the source workspace.",
+)
+@click.option(
     "--domain",
     "domains",
     multiple=True,
@@ -86,15 +93,18 @@ def compile(
     registry_path: str,
     registry_ids_path: Path | None,
     allow_orphaned_registry_ids: bool,
+    enum_numbers_path: Path | None,
     domains: tuple[str, ...],
     descriptor_set: bool,
     package: str | None,
 ) -> None:
     """Compile Modelable definitions and write the local registry index."""
     try:
+        source_root = source if source.is_dir() else source.parent
         if registry_ids_path is None:
-            source_root = source if source.is_dir() else source.parent
             registry_ids_path = source_root / "registry-ids.lock"
+        if enum_numbers_path is None:
+            enum_numbers_path = source_root / "enum-numbers.lock"
         result = CompilationService().execute_direct(
             CompilationRequest(
                 source=source,
@@ -103,6 +113,7 @@ def compile(
                 registry_path=registry_path,
                 registry_ids_path=registry_ids_path,
                 allow_orphaned_registry_ids=allow_orphaned_registry_ids,
+                enum_numbers_path=enum_numbers_path,
                 domains=domains,
                 descriptor_set=descriptor_set,
                 package=package,
