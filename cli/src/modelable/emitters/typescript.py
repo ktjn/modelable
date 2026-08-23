@@ -15,6 +15,7 @@ from modelable.parser.ir import (
     DecimalType,
     DirectMapping,
     DomainDef,
+    EnumRefType,
     EnumType,
     FixedBinaryType,
     MapType,
@@ -24,10 +25,12 @@ from modelable.parser.ir import (
     PrimitiveType,
     ProjectionVersion,
     RefType,
+    SemanticTypeDecl,
     VersionExact,
     VersionMin,
     VersionPinned,
     VersionRange,
+    latest_semantic_types,
 )
 from modelable.registry.resolver import (
     ResolvedModelRef,
@@ -40,6 +43,9 @@ from modelable.registry.resolver import (
 def emit_typescript(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
+        for decl in latest_semantic_types(domain):
+            if isinstance(decl.underlying, EnumType):
+                artifacts.append(_emit_enum_type(domain, decl, out_dir))
         for model_name, versions in domain.models.items():
             for version in versions:
                 artifacts.append(_emit_model(domain, model_name, version, out_dir, workspace.mdl))
@@ -47,6 +53,37 @@ def emit_typescript(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact
             for version in versions:
                 artifacts.append(_emit_projection(domain, projection_name, version, out_dir, workspace.mdl))
     return artifacts
+
+
+def _enum_member_name(value: str) -> str:
+    name = pascalize(value)
+    if name and name[0].isdigit():
+        name = f"_{name}"
+    return name or "Unknown"
+
+
+def _emit_enum_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path) -> EmittedArtifact:
+    """Emit one reusable TypeScript ``enum`` for an enum-backed semantic
+    declaration (evolution plan E8), imported by name everywhere it's
+    referenced instead of being re-inlined as a fresh union type per field.
+    """
+    assert isinstance(decl.underlying, EnumType)
+    artifact_id = f"{domain.name}.{decl.name}"
+    lines = [f"export enum {decl.name} {{"]
+    for value in decl.underlying.values:
+        member = _enum_member_name(value)
+        lines.append(f"  {member} = {value!r},")
+    lines.append("}")
+    content = "\n".join(lines) + "\n"
+    return EmittedArtifact(
+        target="typescript",
+        ref=artifact_id,
+        artifact_id=artifact_id,
+        path=out_dir / f"{artifact_id}.ts",
+        content=content,
+        content_hash=compute_content_hash(content),
+        warnings=[],
+    )
 
 
 def _artifact_id(domain: str, name: str, version: int) -> str:
@@ -114,8 +151,19 @@ def _collect_named_imports(
     named_imports: dict[str, tuple[str, str]],
     named_types: dict[str, object] | None = None,
     current_domain: str = "",
+    named_enum_imports: dict[str, tuple[str, str]] | None = None,
 ) -> None:
-    """Collect model imports and inline semantic-type definitions."""
+    """Collect model imports, inline semantic-type definitions, and nominal
+    enum-backed semantic imports."""
+    if isinstance(field_type, EnumRefType):
+        name = field_type.name
+        if named_enum_imports is not None and name not in named_enum_imports and mdl is not None:
+            try:
+                decl_domain, decl = resolve_semantic_type_ref(mdl, current_domain, name, field_type.version)
+            except LookupError:
+                return
+            named_enum_imports[name] = (decl.name, f"{decl_domain}.{decl.name}")
+        return
     if isinstance(field_type, NamedType):
         name = field_type.name
         if name not in named_imports and mdl is not None:
@@ -140,14 +188,15 @@ def _collect_named_imports(
                         named_imports,
                         named_types,
                         current_domain,
+                        named_enum_imports,
                     )
     elif isinstance(field_type, ArrayType):
-        _collect_named_imports(field_type.item, mdl, named_imports, named_types, current_domain)
+        _collect_named_imports(field_type.item, mdl, named_imports, named_types, current_domain, named_enum_imports)
     elif isinstance(field_type, MapType):
-        _collect_named_imports(field_type.value, mdl, named_imports, named_types, current_domain)
+        _collect_named_imports(field_type.value, mdl, named_imports, named_types, current_domain, named_enum_imports)
     elif isinstance(field_type, ObjectType):
         for f in field_type.fields:
-            _collect_named_imports(f.type, mdl, named_imports, named_types, current_domain)
+            _collect_named_imports(f.type, mdl, named_imports, named_types, current_domain, named_enum_imports)
 
 
 def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path, mdl=None) -> EmittedArtifact:
@@ -158,10 +207,11 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     resolved_refs: dict[tuple[object, ...], str] = {}  # (target, version-key) → stable interface name
     named_imports: dict[str, tuple[str, str]] = {}  # bare name → (stable iface name, artifact_id)
     named_types: dict[str, object] = {}
+    named_enum_imports: dict[str, tuple[str, str]] = {}  # bare name → (enum name, artifact_id)
     if mdl is not None:
         for field in version.fields:
             _collect_ref_imports(field.type, mdl, resolved_refs)
-            _collect_named_imports(field.type, mdl, named_imports, named_types, domain.name)
+            _collect_named_imports(field.type, mdl, named_imports, named_types, domain.name, named_enum_imports)
 
     declaration_json_wire = version.wire_targets().get("json")
     field_case = declaration_json_wire.field_case if declaration_json_wire is not None else None
@@ -173,6 +223,9 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     for name in sorted(named_imports):
         iface, aid = named_imports[name]
         import_lines.append(f'import type {{ {iface} }} from "./{aid}";')
+    for name in sorted(named_enum_imports):
+        enum_name, aid = named_enum_imports[name]
+        import_lines.append(f'import {{ {enum_name} }} from "./{aid}";')
 
     meta_lines = _metadata_lines(
         _domain_metadata_entries(
@@ -194,9 +247,15 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
         ):
             warnings.append(missing_metadata(f"{domain.name}.{model_name}.{field.name}"))
         field_name = _apply_case(field.name, field_case) if field_case else field.name
-        body_lines.append(
-            f"  {field_name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets(), resolved_refs=resolved_refs, named_imports=named_imports, named_types=named_types)};"
+        field_ts = _type_to_ts(
+            field.type,
+            wire_targets=field.wire_targets(),
+            resolved_refs=resolved_refs,
+            named_imports=named_imports,
+            named_types=named_types,
+            named_enum_imports=named_enum_imports,
         )
+        body_lines.append(f"  {field_name}{'?' if field.optional else ''}: {field_ts};")
     body_lines.append("}")
     body_lines.append(f"export type {model_name} = {interface_name};")
 
@@ -238,18 +297,28 @@ def _emit_projection(
     resolved_refs: dict[tuple[object, ...], str] = {}
     named_imports: dict[str, tuple[str, str]] = {}
     named_types: dict[str, object] = {}
+    named_enum_imports: dict[str, tuple[str, str]] = {}
     for field in version.fields:
         field_type = _resolve_projection_field_type(field, version, mdl)
         if field_type is not None:
             _collect_ref_imports(field_type, mdl, resolved_refs)
-            _collect_named_imports(field_type, mdl, named_imports, named_types, domain.name)
-    import_lines = [
-        f'import type {{ {iface} }} from "./{aid}";'
-        for iface, aid in [(_iface, _iface_to_artifact_id(_iface)) for _iface in sorted(set(resolved_refs.values()))]
-    ] + [
-        f'import type {{ {iface} }} from "./{aid}";'
-        for iface, aid in (named_imports[name] for name in sorted(named_imports))
-    ]
+            _collect_named_imports(field_type, mdl, named_imports, named_types, domain.name, named_enum_imports)
+    import_lines = (
+        [
+            f'import type {{ {iface} }} from "./{aid}";'
+            for iface, aid in [
+                (_iface, _iface_to_artifact_id(_iface)) for _iface in sorted(set(resolved_refs.values()))
+            ]
+        ]
+        + [
+            f'import type {{ {iface} }} from "./{aid}";'
+            for iface, aid in (named_imports[name] for name in sorted(named_imports))
+        ]
+        + [
+            f'import {{ {enum_name} }} from "./{aid}";'
+            for enum_name, aid in (named_enum_imports[name] for name in sorted(named_enum_imports))
+        ]
+    )
     lines = [*meta_lines, f"export interface {interface_name} {{"]
     warnings: list[str] = []
     for field in version.fields:
@@ -264,9 +333,15 @@ def _emit_projection(
         ):
             warnings.append(missing_metadata(f"{domain.name}.{projection_name}.{field.name}"))
         field_name = _apply_case(field.name, field_case) if field_case else field.name
-        lines.append(
-            f"  {field_name}{'?' if field_optional else ''}: {_type_to_ts(field_type, wire_targets=field.wire_targets(), resolved_refs=resolved_refs, named_imports=named_imports, named_types=named_types)};"
+        field_ts = _type_to_ts(
+            field_type,
+            wire_targets=field.wire_targets(),
+            resolved_refs=resolved_refs,
+            named_imports=named_imports,
+            named_types=named_types,
+            named_enum_imports=named_enum_imports,
         )
+        lines.append(f"  {field_name}{'?' if field_optional else ''}: {field_ts};")
     lines.append("}")
     lines.append(f"export type {projection_name} = {interface_name};")
     all_lines = [*meta_lines, *([*import_lines, ""] if import_lines else []), *lines[len(meta_lines) :]]
@@ -381,6 +456,7 @@ def _type_to_ts(
     resolved_refs: dict[tuple[object, ...], str] | None = None,
     named_imports: dict[str, tuple[str, str]] | None = None,
     named_types: dict[str, object] | None = None,
+    named_enum_imports: dict[str, tuple[str, str]] | None = None,
 ) -> str:
     json_wire = None
     if wire_targets is not None:
@@ -422,13 +498,28 @@ def _type_to_ts(
         return "string"
     if isinstance(field_type, ArrayType):
         item_ts = _type_to_ts(
-            field_type.item, resolved_refs=resolved_refs, named_imports=named_imports, named_types=named_types
+            field_type.item,
+            resolved_refs=resolved_refs,
+            named_imports=named_imports,
+            named_types=named_types,
+            named_enum_imports=named_enum_imports,
         )
         if isinstance(field_type.item, EnumType):
             return f"({item_ts})[]"
         return f"{item_ts}[]"
     if isinstance(field_type, MapType):
-        return f"Record<string, {_type_to_ts(field_type.value, resolved_refs=resolved_refs, named_imports=named_imports, named_types=named_types)}>"
+        value_ts = _type_to_ts(
+            field_type.value,
+            resolved_refs=resolved_refs,
+            named_imports=named_imports,
+            named_types=named_types,
+            named_enum_imports=named_enum_imports,
+        )
+        return f"Record<string, {value_ts}>"
+    if isinstance(field_type, EnumRefType):
+        if named_enum_imports and field_type.name in named_enum_imports:
+            return named_enum_imports[field_type.name][0]
+        return "string"
     if isinstance(field_type, RefType):
         if resolved_refs is not None:
             key = _ref_cache_key(field_type)
@@ -450,7 +541,17 @@ def _type_to_ts(
         return values or "string"
     if isinstance(field_type, ObjectType):
         inner = "; ".join(
-            f"{field.name}{'?' if field.optional else ''}: {_type_to_ts(field.type, wire_targets=field.wire_targets(), resolved_refs=resolved_refs, named_imports=named_imports, named_types=named_types)}"
+            f"{field.name}{'?' if field.optional else ''}: "
+            f"{
+                _type_to_ts(
+                    field.type,
+                    wire_targets=field.wire_targets(),
+                    resolved_refs=resolved_refs,
+                    named_imports=named_imports,
+                    named_types=named_types,
+                    named_enum_imports=named_enum_imports,
+                )
+            }"
             for field in field_type.fields
         )
         return f"{{ {inner} }}"
@@ -463,6 +564,7 @@ def _type_to_ts(
                 resolved_refs=resolved_refs,
                 named_imports=named_imports,
                 named_types=named_types,
+                named_enum_imports=named_enum_imports,
             )
         return field_type.name
     if field_type is None:

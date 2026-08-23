@@ -764,9 +764,25 @@ ClickHouse's forced-string encoding (`clickhouse-rs` panics on
 `enum(...)` shape kind, so a ClickHouse-bound projection field using a
 nominal enum-backed semantic type would have generated an unencoded enum
 field and hit that panic at runtime — extended to cover the nominal case too.
-**Next:** E8-E11 (per-target emission and editor support) and D7/D8's
-convergence gate. They build on D3 rather than introducing a second parallel
-enum declaration.
+**E8 (typed-SDK nominal enums) is in progress, TypeScript done first:**
+before this, none of TypeScript/Python/Java/C#/Go emitted any standalone
+artifact for a semantic declaration at all (every target always inlined the
+underlying shape) — a real gap distinct from Rust/Protobuf's "wrong
+representation" bugs fixed in E6/E7. For an `EnumRefType` field specifically,
+this meant every target quietly degraded to a bare scalar (TypeScript emitted
+literally `unknown`, discarding type safety entirely). `emitters/typescript.py`
+now emits one reusable `export enum` per enum-backed semantic declaration,
+imported as a value (not `import type`, since a TS `enum` is also a runtime
+value) everywhere it's referenced — verified with real `tsc --strict`
+compilation of generated output, including that an invalid string literal is
+correctly rejected. Python, Java, C#, and Go are the same shape of gap but not
+yet fixed; each needs its own focused slice per the same one-target-per-PR
+review discipline used here (the roadmap's own "adjacent slices should not be
+combined" principle, applied within E8 since it spans five otherwise-unrelated
+codegen files). **Next:** the remaining E8 targets (Python, Java, C#, Go),
+then E9-E11 (per-target emission and editor support) and D7/D8's convergence
+gate. They build on D3 rather than introducing a second parallel enum
+declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions
