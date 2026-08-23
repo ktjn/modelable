@@ -235,3 +235,126 @@ binding shared-conn {
     workspace = load_workspace(tmp_path)
     # same binding name with different adapter is a conflict
     assert any("binding 'shared-conn'" in d.message for d in workspace.errors)
+
+
+def test_load_workspace_warns_on_unbound_optional_model_in_postcard_domain(tmp_path):
+    """Issue #439: a domain that binds some models to postcard but leaves a
+    sibling model with optional fields unbound silently reintroduces #430
+    for that model -- warn instead of staying silent."""
+    (tmp_path / "orders.mdl").write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Cart @ 1 (additive) {
+    @key cartId: uuid
+    coupon?: string
+  }
+  entity Wishlist @ 1 (additive) {
+    @key wishlistId: uuid
+    note?: string
+  }
+}
+
+binding cart-codec {
+  model: orders.Cart @ 1
+  adapter: postcard
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+
+    assert not workspace.errors
+    postcard_warnings = [w for w in workspace.warnings if w.code == "POSTCARD"]
+    assert len(postcard_warnings) == 1
+    assert "orders.Wishlist" in postcard_warnings[0].message
+    assert "orders.Cart" not in postcard_warnings[0].message
+
+
+def test_load_workspace_no_postcard_warning_when_no_model_is_postcard_bound(tmp_path):
+    """A domain with no postcard bindings at all is not opining on encoding --
+    optional fields there are just ordinary JSON-shaped output."""
+    (tmp_path / "orders.mdl").write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Wishlist @ 1 (additive) {
+    @key wishlistId: uuid
+    note?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+
+    assert not [w for w in workspace.warnings if w.code == "POSTCARD"]
+
+
+def test_load_workspace_no_postcard_warning_when_unbound_model_has_no_optional_fields(tmp_path):
+    """A sibling model with no optional fields has nothing for postcard's
+    skip_serializing_if gap to corrupt, so it should not be flagged."""
+    (tmp_path / "orders.mdl").write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Cart @ 1 (additive) {
+    @key cartId: uuid
+    coupon?: string
+  }
+  entity Wishlist @ 1 (additive) {
+    @key wishlistId: uuid
+    note: string
+  }
+}
+
+binding cart-codec {
+  model: orders.Cart @ 1
+  adapter: postcard
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+
+    assert not [w for w in workspace.warnings if w.code == "POSTCARD"]
+
+
+def test_load_workspace_postcard_warning_resolves_indirect_connector_binding(tmp_path):
+    """The postcard warning must resolve two-level bindings the same way the
+    Rust emitter does (a model binding referencing a connector binding's
+    adapter by name)."""
+    (tmp_path / "orders.mdl").write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Cart @ 1 (additive) {
+    @key cartId: uuid
+    coupon?: string
+  }
+  entity Wishlist @ 1 (additive) {
+    @key wishlistId: uuid
+    note?: string
+  }
+}
+
+binding cart-codec-conn {
+  adapter: postcard
+}
+
+binding cart-row {
+  model: orders.Cart @ 1
+  adapter: cart-codec-conn
+}
+""",
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+
+    postcard_warnings = [w for w in workspace.warnings if w.code == "POSTCARD"]
+    assert len(postcard_warnings) == 1
+    assert "orders.Wishlist" in postcard_warnings[0].message

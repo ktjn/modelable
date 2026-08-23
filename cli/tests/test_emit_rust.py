@@ -2393,6 +2393,12 @@ binding cart-codec {
     assert "#[serde(default)]" in bound
     assert "skip_serializing_if" not in bound
 
+    # Issue #440: a binding names a version but applies to the whole model --
+    # every version of Cart is suppressed, not just the one the binding names.
+    other_version = by_ref["orders.Cart@1"].content
+    assert "#[serde(default)]" in other_version
+    assert "skip_serializing_if" not in other_version
+
     # Unbound model: JSON omittable behavior unchanged.
     unbound = by_ref["orders.Wishlist@1"].content
     assert 'skip_serializing_if = "Option::is_none"' in unbound
