@@ -798,14 +798,23 @@ explicitly via `toWireValue()`/`fromWireValue(String)` rather than relying on
 `Enum.name()`. Verified with a real `javac`/`java` compile-and-run inside the
 same `eclipse-temurin` Docker image this repo's existing Java Docker smoke
 test already uses, confirming both the record construction and the
-wire-value round trip work, not just that the source parses. C# and Go are
-the same shape of gap but not yet fixed; each still needs its own focused
-slice per the same one-target-per-PR review discipline used here (the
-roadmap's own "adjacent slices should not be combined" principle, applied
-within E8 since it spans five otherwise-unrelated codegen files). **Next:**
-the remaining E8 targets (C#, Go), then E9-E11 (per-target emission and
-editor support) and D7/D8's convergence gate. They build on D3 rather than
-introducing a second parallel enum declaration.
+wire-value round trip work, not just that the source parses.
+**C# is done next:** `emitters/csharp.py` now emits one reusable C# `enum`
+per enum-backed semantic declaration. C# enum members can't carry per-value
+data the way Java's or Rust's can, so the wire mapping lives on companion
+`ToWireValue()`/`ToXyz(string)` extension methods instead — the same
+explicit-round-trip shape as Java's slice, adapted to C#'s idiom, again
+without adding a JSON library dependency the generated records don't already
+have. Verified with a real `dotnet run` (not just `dotnet build`) exercising
+record construction, array/map fields typed by the nominal enum, and both
+extension-method directions of the wire round trip. Go is the same shape of
+gap but not yet fixed; it still needs its own focused slice per the same
+one-target-per-PR review discipline used here (the roadmap's own "adjacent
+slices should not be combined" principle, applied within E8 since it spans
+five otherwise-unrelated codegen files). **Next:** the remaining E8 target
+(Go), then E9-E11 (per-target emission and editor support) and D7/D8's
+convergence gate. They build on D3 rather than introducing a second parallel
+enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions
