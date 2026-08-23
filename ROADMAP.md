@@ -872,10 +872,39 @@ of losing identity or, in JSON Schema's case, actively mismapping the
 type.** Enum projections (E9 item 2's "distinct names" half) remain out of
 scope everywhere in E9, consistent with E6/E7/E8's precedent: no field can
 reference a projection as its type yet, so there is nothing for a
-schema/API target to render a distinct name for. **Next:** E10-E11
-(storage/metadata targets and editor support for the same semantic-enum
-identity) and D7/D8's convergence gate. They build on D3 rather than
-introducing a second parallel enum declaration.
+schema/API target to render a distinct name for.
+**E10 (remaining storage/metadata targets) is in progress.** A survey of
+E10's full target list — `sql-postgres`, `sql-clickhouse`, `dbt-yaml`,
+`fhir-profile`, `openmetadata`, `openlineage`, `odcs`, `markdown`,
+`registry`, `event-sink` — found `registry` needs no change (it emits a pure
+identity/signature inventory with no per-field type mapping at all) and
+`event-sink` is already correct as a side effect of E9 (it delegates payload
+schemas entirely to the now-fixed `emitters/openapi.py`). **ODCS is done
+first**, since it had the most severe gap of the remaining eight: an
+`EnumRefType` field fell through every branch in `_type_info` to
+`{"logicalType": "string", "modelable_type": "unknown"}`, discarding the
+closed value set entirely (worse than the anonymous-enum case, which already
+correctly emits an `enum: [...]` customProperty). `emitters/odcs.py` now
+resolves the reference and emits both the closed value set and a
+`modelableEnumType` custom property carrying the qualified declaration
+identity (`domain.Name`), reusing the existing `NamedType`
+`modelableNamedType` extra-property convention this emitter already had for
+non-enum semantics. Applies to both model and projection field paths.
+**Next:** OpenMetadata + OpenLineage (paired — near-duplicate gap in both),
+then FHIR (real design work: both the type-code mapping and a
+declaration-scoped ValueSet binding are missing), then Markdown (trivial
+display fix). `sql-postgres`/`sql-clickhouse`/`dbt-yaml` are intentionally
+deferred: today's `EnumRefType` fallback already matches what anonymous
+`enum(...)` fields get in each of those three targets (a documented,
+symmetric physical-storage simplification, not a regression), and adding
+native `CREATE TYPE ... AS ENUM` / ClickHouse `Enum8` / dbt
+`accepted_values` support is a larger, unscoped design decision — whether to
+add real enum enforcement for *both* anonymous and nominal enums at once —
+that belongs in its own accepted design rather than being smuggled into a
+"wire through the missing case" slice. Then E11 (editor/language-service
+support for the same semantic-enum identity) and D7/D8's convergence gate.
+They build on D3 rather than introducing a second parallel enum
+declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions

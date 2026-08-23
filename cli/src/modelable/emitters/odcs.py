@@ -14,6 +14,7 @@ from modelable.parser.ir import (
     DecimalType,
     DirectMapping,
     DomainDef,
+    EnumRefType,
     EnumType,
     FieldDef,
     FieldType,
@@ -31,7 +32,7 @@ from modelable.parser.ir import (
     VersionPinned,
     VersionRange,
 )
-from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref
+from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_semantic_type_ref
 
 ODCS_VERSION = "v3.1.0"
 
@@ -43,7 +44,7 @@ def emit_odcs(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     for domain in workspace.mdl.domains:
         for model_name, versions in domain.models.items():
             for version in versions:
-                artifacts.append(_emit_model(domain, model_name, version, out_dir))
+                artifacts.append(_emit_model(domain, model_name, version, out_dir, workspace.mdl))
         for projection_name, versions in domain.projections.items():
             for version in versions:
                 artifacts.append(_emit_projection(domain, projection_name, version, out_dir, workspace.mdl))
@@ -51,10 +52,12 @@ def emit_odcs(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     return artifacts
 
 
-def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path) -> EmittedArtifact:
+def _emit_model(
+    domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path, mdl: MdlFile
+) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     ref = f"{domain.name}.{model_name}@{version.version}"
-    properties = [_model_property(field) for field in version.fields]
+    properties = [_model_property(field, mdl, domain.name) for field in version.fields]
     custom_properties = _base_custom_properties(domain, ref, version.model_kind.value)
     custom_properties["modelableChangeKind"] = version.change_kind.value
 
@@ -82,7 +85,7 @@ def _emit_projection(
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     ref = f"{domain.name}.{projection_name}@{version.version}"
     source = _resolve_source(mdl, version)
-    properties = [_projection_property(field, version, source) for field in version.fields]
+    properties = [_projection_property(field, version, source, mdl, domain.name) for field in version.fields]
     custom_properties = _base_custom_properties(domain, ref, "projection")
     custom_properties["modelableSource"] = f"{version.source.model}@{_version_label(version.source.version)}"
 
@@ -142,8 +145,8 @@ def _contract_document(
     }
 
 
-def _model_property(field: FieldDef) -> dict[str, Any]:
-    prop = _field_property(field.name, field.type, required=not field.optional)
+def _model_property(field: FieldDef, mdl: MdlFile, current_domain: str) -> dict[str, Any]:
+    prop = _field_property(field.name, field.type, mdl, current_domain, required=not field.optional)
     if field.is_key:
         prop["primaryKey"] = True
     _apply_governance(prop, field.is_pii, field.classification.value if field.classification else None, _owner(field))
@@ -154,11 +157,13 @@ def _projection_property(
     field: ProjectionField,
     projection: ProjectionVersion,
     source: ResolvedModelRef | None,
+    mdl: MdlFile,
+    current_domain: str,
 ) -> dict[str, Any]:
     source_field = _source_field(field, source)
     field_type = source_field.type if source_field is not None else PrimitiveType(kind="string")
     required = not source_field.optional if source_field is not None else True
-    prop = _field_property(field.name, field_type, required=required)
+    prop = _field_property(field.name, field_type, mdl, current_domain, required=required)
 
     pii = field.is_pii or (source_field.is_pii if source_field is not None else False)
     classification = field.classification or (source_field.classification if source_field is not None else None)
@@ -179,8 +184,10 @@ def _projection_property(
     return prop
 
 
-def _field_property(name: str, field_type: FieldType, *, required: bool) -> dict[str, Any]:
-    type_info = _type_info(field_type)
+def _field_property(
+    name: str, field_type: FieldType, mdl: MdlFile, current_domain: str, *, required: bool
+) -> dict[str, Any]:
+    type_info = _type_info(field_type, mdl, current_domain)
     prop: dict[str, Any] = {
         "name": name,
         "logicalType": type_info["logicalType"],
@@ -196,7 +203,7 @@ def _field_property(name: str, field_type: FieldType, *, required: bool) -> dict
     return prop
 
 
-def _type_info(field_type: FieldType) -> dict[str, Any]:
+def _type_info(field_type: FieldType, mdl: MdlFile, current_domain: str) -> dict[str, Any]:
     if isinstance(field_type, PrimitiveType):
         if field_type.kind == "uuid":
             return {
@@ -234,6 +241,20 @@ def _type_info(field_type: FieldType) -> dict[str, Any]:
         }
     if isinstance(field_type, EnumType):
         return {"logicalType": "string", "modelable_type": _type_name(field_type), "enum": field_type.values}
+    if isinstance(field_type, EnumRefType):
+        try:
+            declaring_domain, decl = resolve_semantic_type_ref(mdl, current_domain, field_type.name, field_type.version)
+        except LookupError:
+            return {"logicalType": "string", "modelable_type": "unknown"}
+        if not isinstance(decl.underlying, EnumType):
+            return {"logicalType": "string", "modelable_type": "unknown"}
+        qualified_name = f"{declaring_domain}.{decl.name}"
+        return {
+            "logicalType": "string",
+            "modelable_type": qualified_name,
+            "enum": list(decl.underlying.values),
+            "extra": {"modelableEnumType": qualified_name},
+        }
     if isinstance(field_type, ObjectType):
         return {"logicalType": "object", "modelable_type": "object"}
     if isinstance(field_type, NamedType):
@@ -348,6 +369,8 @@ def _type_name(field_type: FieldType) -> str:
         return f"ref<{field_type.target}>"
     if isinstance(field_type, EnumType):
         return "enum(" + ",".join(field_type.values) + ")"
+    if isinstance(field_type, EnumRefType):
+        return field_type.name
     if isinstance(field_type, NamedType):
         return field_type.name
     if isinstance(field_type, ObjectType):
