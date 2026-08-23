@@ -572,6 +572,16 @@ def latest_semantic_types(domain: DomainDef) -> list[SemanticTypeDecl]:
     return list(latest.values())
 
 
+def latest_enum_projections(domain: DomainDef) -> list[EnumProjectionDecl]:
+    """Return the latest declaration for each enum projection name."""
+    latest: dict[str, EnumProjectionDecl] = {}
+    for declaration in domain.enum_projections:
+        current = latest.get(declaration.name)
+        if current is None or declaration.version > current.version:
+            latest[declaration.name] = declaration
+    return list(latest.values())
+
+
 class SortField(BaseModel):
     field: str
     direction: Literal["asc", "desc"] = "asc"
