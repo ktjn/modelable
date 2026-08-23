@@ -103,13 +103,14 @@ domain orders {
     assert isinstance(order_status.ACTIVE, str)
 
 
-def test_java_csharp_go_are_unaffected_by_python_nominal_enum_opt_in(tmp_path):
+def test_csharp_go_are_unaffected_by_python_nominal_enum_opt_in(tmp_path):
     """Regression guard: named_types.py's shared resolver must stay opt-in per
     target so untouched emitters keep their existing (inline) behavior until
-    their own E8 slice lands."""
+    their own E8 slice lands. Java has since gotten its own slice (see
+    test_emit_java_enum_types.py) and is intentionally not checked here
+    anymore; C# and Go have not."""
     from modelable.emitters.csharp import emit_csharp
     from modelable.emitters.go import emit_go
-    from modelable.emitters.java import emit_java
 
     workspace = _workspace(
         """
@@ -120,10 +121,8 @@ domain orders {
 }
 """
     )
-    java_content = next(a.content for a in emit_java(workspace, tmp_path / "java") if a.ref == "orders.Order@1")
     cs_content = next(a.content for a in emit_csharp(workspace, tmp_path / "cs") if a.ref == "orders.Order@1")
     go_content = next(a.content for a in emit_go(workspace, tmp_path / "go") if a.ref == "orders.Order@1")
 
-    assert "String status" in java_content
     assert "string Status" in cs_content
     assert "Status string" in go_content
