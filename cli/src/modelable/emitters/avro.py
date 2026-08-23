@@ -14,6 +14,7 @@ from modelable.emitters.naming import find_identifier_collisions
 from modelable.parser.ir import (
     ArrayType,
     DecimalType,
+    EnumRefType,
     EnumType,
     FieldDef,
     FieldType,
@@ -141,6 +142,8 @@ def _type_schema(field_type: FieldType, context: _AvroContext, path: list[str]) 
         for identifier, members in find_identifier_collisions(field_type.values, _avro_name).items():
             context.warnings.append(enum_member_collision("avro", ".".join(path), identifier, members))
         return {"type": "enum", "name": name, "symbols": [_avro_name(value) for value in field_type.values]}
+    if isinstance(field_type, EnumRefType):
+        return _enum_ref_schema(field_type, context, path)
     if isinstance(field_type, ObjectType):
         return _object_schema(field_type, context, path)
     if isinstance(field_type, RefType):
@@ -180,6 +183,38 @@ def _type_schema(field_type: FieldType, context: _AvroContext, path: list[str]) 
         )
         return [_type_schema(variant.type, context, [*path, variant.tag]) for variant in field_type.variants]
     return "string"
+
+
+def _enum_ref_schema(field_type: EnumRefType, context: _AvroContext, path: list[str]) -> Any:
+    """Render an exact-versioned enum-backed semantic reference as one
+    qualified named Avro enum (evolution plan E9), reused via Avro's
+    named-type string reference on every repeat instead of re-declaring a
+    fresh field-local enum per occurrence.
+    """
+    try:
+        declaring_domain, decl = resolve_semantic_type_ref(
+            context.workspace, context.namespace, field_type.name, field_type.version
+        )
+    except LookupError:
+        context.warnings.append(type_loss(f"unresolved Avro enum reference {field_type.name}"))
+        return "string"
+    if not isinstance(decl.underlying, EnumType):
+        context.warnings.append(type_loss(f"Avro enum reference target is not enum-backed {field_type.name}"))
+        return "string"
+    avro_name = _avro_name(decl.name)
+    qualified_name = f"{declaring_domain}.{avro_name}"
+    tracking_key = f"enum:{qualified_name}"
+    if tracking_key in context.named:
+        return qualified_name
+    context.named.add(tracking_key)
+    for identifier, members in find_identifier_collisions(decl.underlying.values, _avro_name).items():
+        context.warnings.append(enum_member_collision("avro", qualified_name, identifier, members))
+    return {
+        "type": "enum",
+        "name": avro_name,
+        "namespace": declaring_domain,
+        "symbols": [_avro_name(value) for value in decl.underlying.values],
+    }
 
 
 def _named_record_schema(version: ModelVersion, context: _AvroContext, path: list[str]) -> Any:
