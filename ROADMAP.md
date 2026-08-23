@@ -955,16 +955,29 @@ semantic declaration, scalar or enum, since `_hover_for_bare_word` only
 resolves field/declaration names within the current model/projection scope,
 not semantic-type references appearing in a field's type position — this is
 a pre-existing, non-enum-specific gap, not something to fix incidentally
-inside an enum-focused slice. **Next:** definition, references, rename, and
-completion (each gets the analogous `domain.semantic_types`/
-`domain.enum_projections` branch, plus each needs `_DECL_PATTERN` extended
-to recognize `semantic` and a new pattern for the two-token `enum
-projection` declaration header before declaration-location lookups work),
-then member resolution inside `pick`/`omit` against the exact source version
-(genuinely new logic, no existing pattern to extend), then rename-scoping to
-nominal identity, then VS Code/Monaco mirroring and cross-surface
-conformance fixtures. Then D7/D8's convergence gate. They build on D3 rather
-than introducing a second parallel enum declaration.
+inside an enum-focused slice. **Definition is done next:** `_DECL_PATTERN`
+now recognizes `semantic` as a declaration keyword, and a new
+`_ENUM_PROJECTION_DECL_PATTERN` handles the two-token `enum projection Name
+@ version` header (the single-keyword pattern can't match it). Qualified
+references to either now jump to their declaration the same way qualified
+model/projection references already did. Extending `_DECL_PATTERN` surfaced
+a real regression risk caught before it shipped: `_current_scope` (used for
+bare-word field lookups inside the *enclosing* model/projection) blindly
+classified any decl match that wasn't literally `"projection"` as a `"model"`
+scope — so a `semantic` declaration sitting between two entities would have
+been misclassified as an enclosing model, corrupting field lookups for
+whatever came after it until the next real declaration. Fixed by excluding
+`semantic` matches from scope tracking explicitly, with a regression test
+that places a `semantic` declaration between two entities and confirms the
+second entity's own field still resolves correctly. **Next:** references,
+rename, and completion (each gets the analogous
+`domain.semantic_types`/`domain.enum_projections` branch plus the same
+`_DECL_PATTERN`/`_ENUM_PROJECTION_DECL_PATTERN` treatment), then member
+resolution inside `pick`/`omit` against the exact source version (genuinely
+new logic, no existing pattern to extend), then rename-scoping to nominal
+identity, then VS Code/Monaco mirroring and cross-surface conformance
+fixtures. Then D7/D8's convergence gate. They build on D3 rather than
+introducing a second parallel enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions
