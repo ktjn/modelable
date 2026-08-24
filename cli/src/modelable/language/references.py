@@ -18,7 +18,9 @@ _FIELD_REF_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection|semantic)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
+    r"(?:.*?\bevolves\s*@\s*(?P<base>\d+))?"
 )
+_EVOLVES_FIELD_OP_PATTERN = re.compile(r"^\s*(?:remove|rename|replace)\s+(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
 _ENUM_PROJECTION_DECL_PATTERN = re.compile(
     r"^\s*enum\s+projection\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
@@ -93,6 +95,17 @@ def _resolve_references(
     word = _word_at(text_line, character)
     if word is None:
         return []
+
+    evolves_op_match = _EVOLVES_FIELD_OP_PATTERN.match(text_line)
+    if evolves_op_match is not None and _contains(
+        evolves_op_match.start("field"), evolves_op_match.end("field"), character
+    ):
+        scope = _current_scope(text, line)
+        base_version = _evolves_base_at(text, line)
+        if scope is not None and base_version is not None and scope[1] == "model":
+            return _references_for_evolves_field(
+                semantic, scope[0], scope[2], base_version, evolves_op_match.group("field"), include_declaration
+            )
 
     scope = _current_scope(text, line)
     if scope is None:
@@ -295,6 +308,89 @@ def _references_for_source_field(
                 )
 
     return _dedupe_locations(locations)
+
+
+def _references_for_evolves_field(
+    workspace: Workspace,
+    domain_name: str,
+    model_name: str,
+    base_version: int,
+    field_name: str,
+    include_declaration: bool,
+) -> list[LanguageLocation]:
+    """A field name referenced as the argument of `remove`/`rename`/`replace`
+    inside an `evolves` block always names a field that exists on that
+    block's base version (the compiler rejects any other case) -- so its
+    declaration and alias.field usages are resolved exactly like an ordinary
+    reference to that base version, plus every other operation line across
+    this model's evolves blocks that mentions the same field name."""
+    if not _field_exists(workspace, domain_name, model_name, base_version, field_name):
+        return []
+    locations = _references_for_source_field(
+        workspace, domain_name, model_name, base_version, field_name, include_declaration
+    )
+    locations.extend(_evolves_operation_field_locations(workspace, domain_name, model_name, field_name))
+    return _dedupe_locations(locations)
+
+
+def _evolves_operation_field_locations(
+    workspace: Workspace,
+    domain_name: str,
+    model_name: str,
+    field_name: str,
+) -> list[LanguageLocation]:
+    locations: list[LanguageLocation] = []
+    for source in workspace.sources:
+        current_domain: str | None = None
+        active = False
+        lines = document_lines(source.text)
+        for line_no, line_text in enumerate(lines):
+            domain_match = _DOMAIN_PATTERN.match(line_text)
+            if domain_match:
+                current_domain = domain_match.group("quoted") or domain_match.group("name")
+                active = False
+                continue
+            decl_match = _DECL_PATTERN.match(line_text)
+            if decl_match:
+                active = (
+                    current_domain == domain_name
+                    and decl_match.group("name") == model_name
+                    and decl_match.group("base") is not None
+                )
+                continue
+            if not active:
+                continue
+            if line_text.strip() == "}":
+                active = False
+                continue
+            match = _EVOLVES_FIELD_OP_PATTERN.match(line_text)
+            if match is None or match.group("field") != field_name:
+                continue
+            locations.append(
+                LanguageLocation(
+                    uri=source.uri,
+                    range=LanguageRange.at(
+                        line_no,
+                        codepoint_to_utf16(line_text, match.start("field")),
+                        line_no,
+                        codepoint_to_utf16(line_text, match.end("field")),
+                    ),
+                )
+            )
+    return locations
+
+
+def _evolves_base_at(text: str, line: int) -> int | None:
+    current_base: int | None = None
+    for item in document_lines(text)[: line + 1]:
+        if _DOMAIN_PATTERN.match(item):
+            current_base = None
+            continue
+        decl_match = _DECL_PATTERN.match(item)
+        if decl_match:
+            base = decl_match.group("base")
+            current_base = int(base) if base is not None else None
+    return current_base
 
 
 def _references_for_projection_field(
