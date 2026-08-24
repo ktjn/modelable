@@ -128,6 +128,50 @@ def test_semantic_tokens_highlight_enum_backed_semantics_and_enum_projections():
     assert _token_type_at(tokens, pick_line, lines[pick_line].index("pick")) == "keyword"
 
 
+EVOLVES_SOURCE = """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    total: decimal(10, 2)
+    legacy: string
+  }
+  entity Order @ 2 (breaking) evolves @ 1 {
+    remove legacy
+    rename total -> amount
+    replace amount: decimal(12, 2)
+    add note?: string
+  }
+}
+""".strip("\n")
+
+
+def test_semantic_tokens_highlight_evolves_keywords_and_arrow_operator():
+    """Evolution plan D8: the auto-generated VS Code/Monaco grammars picked
+    up evolves/add/remove/rename/replace for free from D1/D2's grammar
+    changes, but semantic_tokens.py has its own separate, hand-maintained
+    _KEYWORDS set that was never updated -- these fell through to unstyled
+    plain text."""
+    tokens = _decode_semantic_tokens(semantic_tokens.build_semantic_tokens(EVOLVES_SOURCE).data)
+    lines = EVOLVES_SOURCE.splitlines()
+
+    header_line = _line_index(lines, "  entity Order @ 2 (breaking) evolves @ 1 {")
+    assert _token_type_at(tokens, header_line, lines[header_line].index("evolves")) == "keyword"
+
+    remove_line = _line_index(lines, "    remove legacy")
+    assert _token_type_at(tokens, remove_line, lines[remove_line].index("remove")) == "keyword"
+
+    rename_line = _line_index(lines, "    rename total -> amount")
+    assert _token_type_at(tokens, rename_line, lines[rename_line].index("rename")) == "keyword"
+    assert _token_type_at(tokens, rename_line, lines[rename_line].index("->")) == "operator"
+
+    replace_line = _line_index(lines, "    replace amount: decimal(12, 2)")
+    assert _token_type_at(tokens, replace_line, lines[replace_line].index("replace")) == "keyword"
+
+    add_line = _line_index(lines, "    add note?: string")
+    assert _token_type_at(tokens, add_line, lines[add_line].index("add")) == "keyword"
+
+
 def test_semantic_tokens_full_handler_uses_open_buffer_text():
     uri = "file:///workspace/customer.mdl"
     inner_index = SimpleNamespace(

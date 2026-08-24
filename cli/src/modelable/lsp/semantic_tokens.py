@@ -22,6 +22,7 @@ _TOKEN_TYPES = [
 
 _KEYWORDS = {
     "access",
+    "add",
     "additive",
     "aggregate",
     "ai",
@@ -38,6 +39,7 @@ _KEYWORDS = {
     "docs",
     "domain",
     "entity",
+    "evolves",
     "event",
     "exclude",
     "from",
@@ -63,6 +65,9 @@ _KEYWORDS = {
     "read",
     "redact",
     "registry",
+    "remove",
+    "rename",
+    "replace",
     "restricted",
     "semantic",
     "sql",
@@ -338,7 +343,7 @@ def _add_operator_tokens(tokens: list[_Token], line_no: int, line: str, spans: l
         if _overlaps_any(i, i + 1, spans):
             i += 1
             continue
-        if line.startswith("<-", i):
+        if line.startswith("<-", i) or line.startswith("->", i):
             tokens.append(_Token(line=line_no, start=i, length=2, token_type=types.SemanticTokenTypes.Operator.value))
             i += 2
             continue
