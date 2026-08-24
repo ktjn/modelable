@@ -8,8 +8,11 @@ from modelable.lsp.workspace import LspWorkspaceIndex
 
 _DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _DECL_PATTERN = re.compile(
-    r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
+    r"^\s*(?P<kind>entity|aggregate|event|value|projection|semantic)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
+)
+_ENUM_PROJECTION_HEADER_PATTERN = re.compile(
+    r"^\s*enum\s+projection\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
 _FIELD_PATTERN = re.compile(r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\??\s*:")
 _PROJECTION_FIELD_PATTERN = re.compile(
@@ -55,13 +58,42 @@ def build_document_symbols(
             current_decl_name = decl_match.group("name")
             current_decl_kind = decl_match.group("kind")
             current_decl_version = int(decl_match.group("version"))
+            end_line = (
+                _semantic_decl_end_line(lines, line_no)
+                if current_decl_kind == "semantic"
+                else _block_end_line(lines, line_no)
+            )
             current_decl = _make_decl_symbol(
                 lines,
                 line_no,
-                current_domain_name,
+                end_line,
                 current_decl_kind,
                 current_decl_name,
                 current_decl_version,
+                name_start=decl_match.start("name"),
+                name_end=decl_match.end("name"),
+            )
+            if current_domain.children is None:
+                current_domain.children = [current_decl]
+            else:
+                current_domain.children = [*current_domain.children, current_decl]
+            continue
+
+        enum_projection_match = _ENUM_PROJECTION_HEADER_PATTERN.match(line)
+        if enum_projection_match and current_domain is not None and current_domain_name is not None:
+            current_decl_name = enum_projection_match.group("name")
+            current_decl_kind = "enum projection"
+            current_decl_version = int(enum_projection_match.group("version"))
+            end_line = _enum_projection_decl_end_line(lines, line_no)
+            current_decl = _make_decl_symbol(
+                lines,
+                line_no,
+                end_line,
+                current_decl_kind,
+                current_decl_name,
+                current_decl_version,
+                name_start=enum_projection_match.start("name"),
+                name_end=enum_projection_match.end("name"),
             )
             if current_domain.children is None:
                 current_domain.children = [current_decl]
@@ -141,10 +173,13 @@ def _make_domain_symbol(
 def _make_decl_symbol(
     lines: list[str],
     line_no: int,
-    domain_name: str,
+    end_line: int,
     kind: str,
     name: str,
     version: int,
+    *,
+    name_start: int,
+    name_end: int,
 ) -> types.DocumentSymbol:
     detail = f"{kind} @{version}"
     return types.DocumentSymbol(
@@ -153,13 +188,11 @@ def _make_decl_symbol(
         detail=detail,
         range=types.Range(
             start=types.Position(line=line_no, character=0),
-            end=types.Position(
-                line=_block_end_line(lines, line_no), character=len(lines[_block_end_line(lines, line_no)])
-            ),
+            end=types.Position(line=end_line, character=len(lines[end_line])),
         ),
         selection_range=types.Range(
-            start=types.Position(line=line_no, character=_decl_name_start(lines[line_no])),
-            end=types.Position(line=line_no, character=_decl_name_end(lines[line_no])),
+            start=types.Position(line=line_no, character=name_start),
+            end=types.Position(line=line_no, character=name_end),
         ),
     )
 
@@ -214,15 +247,38 @@ def _domain_name_end(line: str) -> int:
     return match.end("quoted") if match.group("quoted") is not None else match.end("name")
 
 
-def _decl_name_start(line: str) -> int:
-    match = _DECL_PATTERN.match(line)
-    if match is None:
-        return 0
-    return match.start("name")
+def _semantic_decl_end_line(lines: list[str], start_line: int) -> int:
+    """A `semantic` declaration is a single line unless it has an optional
+    trailing `{ registry: ... }` body -- `_block_end_line`'s brace-matching
+    assumes a body always exists (true for every other decl kind, which all
+    require `{...}`), so calling it unconditionally here would swallow the
+    rest of the document once it fails to find a `{` to match. Body syntax
+    always opens on the declaration's own line, so an unmatched `{` there is
+    the only case that needs real brace matching."""
+    if lines[start_line].count("{") > lines[start_line].count("}"):
+        return _block_end_line(lines, start_line)
+    return start_line
 
 
-def _decl_name_end(line: str) -> int:
-    match = _DECL_PATTERN.match(line)
-    if match is None:
-        return 0
-    return match.end("name")
+def _enum_projection_decl_end_line(lines: list[str], start_line: int) -> int:
+    """`enum projection` has no braces at all -- it ends at the closing paren
+    of its trailing `pick(...)`/`omit(...)` clause. Bracket-depth tracking
+    from the header line itself doesn't work here because the optional
+    `(change_kind)` on the header is its own self-closing paren group, so
+    scan for the pick/omit clause specifically and track depth from there."""
+    bound = min(start_line + 20, len(lines))
+    for line_no in range(start_line, bound):
+        if line_no > start_line and (
+            _DOMAIN_PATTERN.match(lines[line_no])
+            or _DECL_PATTERN.match(lines[line_no])
+            or _ENUM_PROJECTION_HEADER_PATTERN.match(lines[line_no])
+        ):
+            return line_no - 1
+        if "pick(" in lines[line_no] or "omit(" in lines[line_no]:
+            depth = 0
+            for scan_line in range(line_no, bound):
+                depth += lines[scan_line].count("(") - lines[scan_line].count(")")
+                if depth <= 0:
+                    return scan_line
+            return line_no
+    return start_line
