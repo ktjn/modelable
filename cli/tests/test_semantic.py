@@ -771,6 +771,30 @@ def test_semantic_type_name_colliding_with_model_is_error():
     assert any("Schema" in e for e in errors)
 
 
+def test_semantic_type_name_colliding_with_projection_is_error():
+    """Evolution plan E11: a projection sharing a name with a semantic type
+    is a rename/reference-resolution hazard the same way a model collision
+    is -- both live in the same qualified `domain.Name@version` namespace,
+    and the token-based language services can't disambiguate a qualified
+    reference between them by syntax alone."""
+    mdl = parse_text_to_ir("""
+    domain platform {
+      owner: "test-team"
+      semantic Status : u32
+      entity Widget @ 1 (additive) {
+        @key id: uuid
+      }
+      projection Status @ 1
+        from platform.Widget @ 1 as w
+      {
+        id <- w.id
+      }
+    }
+    """)
+    errors = validate(mdl)
+    assert any("Status" in e and "projection" in e for e in errors)
+
+
 def test_index_decl_primary_must_match_key_field():
     mdl = parse_text_to_ir("""
     domain platform {

@@ -626,6 +626,14 @@ def _validate_semantic_types(
                     path,
                 )
             )
+        if decl.name in domain.projections:
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{domain.name}: semantic type '{decl.name}' collides with a projection of the same name",
+                    path,
+                )
+            )
 
         if not isinstance(decl.underlying, _SEMANTIC_UNDERLYING_TYPES):
             diagnostics.append(

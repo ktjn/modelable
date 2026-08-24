@@ -274,6 +274,40 @@ domain orders {
     )
 
 
+def test_projection_name_collision_is_rejected():
+    """Evolution plan E11: a model-record projection sharing a name with an
+    enum projection is a rename/reference-resolution hazard (both live in the
+    same qualified `domain.Name@version` namespace and a token-based resolver
+    can't disambiguate them by syntax alone), so it must be rejected the same
+    way model and semantic-type collisions already are."""
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic OrderStatus @ 1 (additive): enum(draft, approved)
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+
+  projection Public @ 1
+    from orders.Order @ 1 as o
+  {
+    orderId <- o.orderId
+  }
+
+  enum projection Public @ 1 (additive)
+    from OrderStatus @ 1
+    pick(approved)
+}
+"""
+    workspace = _workspace(source)
+    messages = [d.message for d in workspace.errors]
+    assert any(
+        "enum projection 'Public' collides with a projection of the same name" in message for message in messages
+    ), messages
+
+
 def test_non_positive_version_header_is_rejected():
     source = """
 domain orders {
