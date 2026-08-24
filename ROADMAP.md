@@ -1485,9 +1485,32 @@ model's *own* `@ version` and never inspects what follows, it already
 matches an `evolves`-form header exactly like a full-form one, so jumping
 to a base version that is *itself* `evolves`-declared (a chain: v3 evolves
 @ 2, v2 evolves @ 1) worked correctly on the first try, verified directly.
-**Remaining D8 scope** (operation-aware completion — propose fields from
-the intermediate expansion state at each operation, not only the base or
-final state; references/rename for field names inside
+**Operation-aware completion shipped next.** `language/completion.py`'s
+`_DECL_PATTERN` now also captures an optional trailing `evolves @ <base>`
+on a model's own header line, carried on `_Scope.base_version`. When the
+cursor sits inside such a scope on a `remove <field>`, `rename <field> ->
+...`, or `replace <field>` operation's field-name argument, a new
+`_evolves_intermediate_fields` helper replays that block's operations —
+looked up from the still-populated `domain.model_evolutions` (never
+removed after expansion, only appended alongside) — from the base
+version's fields up through (but not including) the operation on the
+cursor's line, matched by counting preceding lines that start with
+`add`/`remove`/`rename`/`replace` against `evolution.operations`' index.
+This deliberately does not reuse `compiler/workspace.py`'s
+`_expand_model_evolutions`, which operates on fully parsed
+`ModelEvolutionDecl` objects and fails closed on any malformed operation —
+language-service completion runs on documents mid-edit, where the very
+operation being typed is often incomplete. Verified directly before
+writing tests: `remove` after an earlier `add note` offers `note`
+alongside the base fields; `rename`'s source-name position no longer
+offers a field an earlier `remove` in the same block already deleted; a
+field only introduced by a later `rename` (e.g. `amount` from `rename
+total -> amount`) is correctly absent from an earlier operation's
+candidates. A plain (non-`evolves`) model body has `base_version=None`,
+so the new branch never triggers there — confirmed no regression on
+ordinary field completion.
+
+**Remaining D8 scope** (references/rename for field names inside
 `remove`/`rename`/`replace`, distinguishing a `rename` *operation* from an
 editor symbol-rename *action*) is being scoped as its own follow-up.
 

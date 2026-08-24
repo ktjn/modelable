@@ -13,7 +13,15 @@ from modelable.language.dto import (
 )
 from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
-from modelable.parser.ir import DomainDef, EnumType, SemanticTypeDecl
+from modelable.parser.ir import (
+    AddFieldOp,
+    DomainDef,
+    EnumType,
+    RemoveFieldOp,
+    RenameFieldOp,
+    ReplaceFieldOp,
+    SemanticTypeDecl,
+)
 from modelable.registry.resolver import resolve_semantic_type_ref
 
 _KEYWORDS = (
@@ -40,7 +48,10 @@ _ANNOTATIONS = (
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
+    r"(?:.*?\bevolves\s*@\s*(?P<base>\d+))?"
 )
+_EVOLVES_OPERATION_LINE_PATTERN = re.compile(r"^\s*(?:add|remove|rename|replace)\b")
+_EVOLVES_FIELD_OP_PATTERN = re.compile(r"^\s*(?:remove|rename|replace)\s+[A-Za-z_][A-Za-z0-9_]*$")
 _DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _WORD_PREFIX_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*$")
 _ANNOTATION_PATTERN = re.compile(r"(?:^|\s)@[A-Za-z_][A-Za-z0-9_-]*$")
@@ -81,6 +92,7 @@ class _Scope:
     name: str
     version: int
     line: int
+    base_version: int | None = None
 
 
 @dataclass(frozen=True)
@@ -166,6 +178,8 @@ def _candidates(
             before_cursor,
             prefix,
         )
+    elif scope is not None and scope.base_version is not None and _evolves_operation_context(before_cursor):
+        candidates = _evolves_operation_candidates(workspace, text, scope, line, prefix)
     elif scope is not None and line > scope.line:
         candidates = _field_candidates(workspace, scope, prefix)
     else:
@@ -516,6 +530,67 @@ def _projection_reference_for_alias(
     return None
 
 
+def _evolves_operation_context(before_cursor: str) -> bool:
+    return (
+        before_cursor.endswith("remove ")
+        or before_cursor.endswith("rename ")
+        or before_cursor.endswith("replace ")
+        or bool(_EVOLVES_FIELD_OP_PATTERN.match(before_cursor.rstrip()))
+    )
+
+
+def _evolves_operation_candidates(
+    workspace: Workspace,
+    text: str,
+    scope: _Scope,
+    line: int,
+    prefix: str,
+) -> list[_Candidate]:
+    fields = _evolves_intermediate_fields(workspace, text, scope, line)
+    return _filtered_candidates([_Candidate(field, "property") for field in fields], prefix)
+
+
+def _evolves_intermediate_fields(
+    workspace: Workspace,
+    text: str,
+    scope: _Scope,
+    line: int,
+) -> tuple[str, ...]:
+    """Replay this evolves block's operations from its base version up to (but
+    not including) the operation on `line`, so `remove`/`rename`/`replace`
+    offer the field names valid at that point in the sequence -- not only the
+    base version's original fields or the fully expanded final version."""
+    if scope.base_version is None:
+        return ()
+    domain = next((item for item in workspace.mdl.domains if item.name == scope.domain), None)
+    if domain is None:
+        return ()
+    evolution = next(
+        (item for item in domain.model_evolutions if item.name == scope.name and item.version == scope.version),
+        None,
+    )
+    if evolution is None:
+        return ()
+
+    field_names = list(_workspace_fields(workspace, scope.domain, scope.name, scope.base_version))
+    preceding = sum(
+        1 for item in document_lines(text)[scope.line + 1 : line] if _EVOLVES_OPERATION_LINE_PATTERN.match(item)
+    )
+    for operation in evolution.operations[:preceding]:
+        if isinstance(operation, AddFieldOp):
+            if operation.field.name not in field_names:
+                field_names.append(operation.field.name)
+        elif isinstance(operation, RemoveFieldOp):
+            if operation.field_name in field_names:
+                field_names.remove(operation.field_name)
+        elif isinstance(operation, RenameFieldOp):
+            if operation.old_name in field_names:
+                field_names[field_names.index(operation.old_name)] = operation.new_name
+        elif isinstance(operation, ReplaceFieldOp) and operation.field.name not in field_names:
+            field_names.append(operation.field.name)
+    return tuple(sorted(field_names))
+
+
 def _current_scope(text: str, line: int) -> _Scope | None:
     current_domain: str | None = None
     current_scope: _Scope | None = None
@@ -527,11 +602,13 @@ def _current_scope(text: str, line: int) -> _Scope | None:
             continue
         declaration = _DECL_PATTERN.match(item)
         if declaration and current_domain is not None:
+            base = declaration.group("base")
             current_scope = _Scope(
                 domain=current_domain,
                 kind="projection" if declaration.group("kind") == "projection" else "model",
                 name=declaration.group("name"),
                 version=int(declaration.group("version")),
                 line=index,
+                base_version=int(base) if base is not None else None,
             )
     return current_scope
