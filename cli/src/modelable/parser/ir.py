@@ -354,6 +354,21 @@ class ProtobufReservations(BaseModel):
         return self
 
 
+class FieldProvenance(BaseModel):
+    """Records which authored operation last determined a field's identity in
+    an `evolves @ N`-expanded `ModelVersion` (evolution plan D2): inherited
+    unchanged from the base, or last touched by `add`/`rename`/`replace`.
+    Diagnostic/tooling metadata only -- deliberately excluded from canonical
+    signature rendering (`render_signature_model_version` does not reference
+    it), so it never affects equivalence between a full-form and an
+    equivalent delta-form version.
+    """
+
+    field_name: str
+    origin: Literal["inherited", "add", "rename", "replace"]
+    renamed_from: str | None = None
+
+
 class ModelVersion(BaseModel):
     model_kind: ModelKind
     version: int
@@ -364,6 +379,7 @@ class ModelVersion(BaseModel):
     has_change_kind: bool = True
     annotations: list[Annotation] = Field(default_factory=list)
     protobuf_reservations: ProtobufReservations | None = None
+    provenance: list[FieldProvenance] = Field(default_factory=list)
 
     def wire_targets(self) -> dict[str, WireTargetHint]:
         from modelable.parser.wire import wire_targets_from_annotations
@@ -374,12 +390,46 @@ class ModelVersion(BaseModel):
 class AddFieldOp(BaseModel):
     """A single `add` operation inside a `evolves @ N` block (evolution plan D1)."""
 
+    kind: Literal["add"] = "add"
     field: FieldDef
+
+
+class RemoveFieldOp(BaseModel):
+    """A single `remove` operation inside a `evolves @ N` block: deletes the
+    complete field named ``field_name`` from the base (evolution plan D2)."""
+
+    kind: Literal["remove"] = "remove"
+    field_name: str
+
+
+class RenameFieldOp(BaseModel):
+    """A single `rename old -> new` operation inside a `evolves @ N` block.
+    Retains the field's position; the field's definition is otherwise
+    unchanged (evolution plan D2)."""
+
+    kind: Literal["rename"] = "rename"
+    old_name: str
+    new_name: str
+
+
+class ReplaceFieldOp(BaseModel):
+    """A single `replace` operation inside a `evolves @ N` block: the target
+    field is identified by ``field.name`` and replaced with the complete new
+    definition, retaining position (evolution plan D2)."""
+
+    kind: Literal["replace"] = "replace"
+    field: FieldDef
+
+
+EvolutionOperation = Annotated[
+    AddFieldOp | RemoveFieldOp | RenameFieldOp | ReplaceFieldOp,
+    Field(discriminator="kind"),
+]
 
 
 class ModelEvolutionDecl(BaseModel):
     """A model version authored as a delta against an exact prior version via
-    `evolves @ N`, rather than a complete field list (evolution plan D1).
+    `evolves @ N`, rather than a complete field list (evolution plan D1/D2).
 
     Source-only form: workspace expansion resolves ``base_version`` against
     the model's existing version history, deep-copies that version's fields,
@@ -394,7 +444,7 @@ class ModelEvolutionDecl(BaseModel):
     change_kind: ChangeKind = ChangeKind.additive
     has_change_kind: bool = False
     base_version: int
-    operations: list[AddFieldOp] = Field(default_factory=list)
+    operations: list[EvolutionOperation] = Field(default_factory=list)
 
 
 class VersionExact(BaseModel):

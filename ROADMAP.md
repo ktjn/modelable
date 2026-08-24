@@ -1232,8 +1232,48 @@ before exec — always use the script's in-place write mode instead of
 `> file` when the script itself reads that file as input. Deliberately
 minimal scope, matching the instructions: no model-level annotations/access/
 reservations on the `evolves` form yet (D3's territory), and no `remove`/
-`rename`/`replace` operations yet (D2). **Next:** D2 (remove, rename,
-replace, and provenance).
+`rename`/`replace` operations yet (D2). **D2 (remove, rename, replace, and
+provenance) is shipped.** Extends the grammar with `remove IDENT`, `rename
+IDENT -> IDENT`, and `replace <complete field decl>` (target identified by
+the field's own name) alongside D1's `add`; `ModelEvolutionDecl.operations`
+is now a `kind`-discriminated union (`AddFieldOp | RemoveFieldOp |
+RenameFieldOp | ReplaceFieldOp`) applied sequentially in
+`_expand_model_evolutions`, tracking field position explicitly: `add`
+appends, `remove` deletes in place, `rename`/`replace` mutate the field at
+its existing index (never re-append), so position is preserved exactly as
+the instructions require. Every operation validates against the *current*
+intermediate state (not just the base), so `rename`-then-`replace` on the
+same field, or an `add` followed later by a `remove` of that same field,
+both work correctly within one `evolves` block. Rejections point at the
+failing operation with a diagnostic naming what's actually wrong: unknown
+source field (`remove`/`rename`/`replace` naming a field that isn't
+present at that point in the sequence -- this also covers "repeated
+removal" for free, since a second `remove` of an already-removed field is
+just an unknown-source error), an occupied rename target (renaming onto a
+name another field already holds -- renaming a field to its own current
+name is treated as a harmless no-op, not an error), and a replacement name
+that matches no existing field. Added `FieldProvenance` (`field_name`,
+`origin: inherited|add|rename|replace`, `renamed_from`) recording which
+operation *last* touched each field -- diagnostic/tooling metadata for D4
+and D8 to consume, deliberately excluded from canonical signature
+rendering (`render_signature_model_version` never references it, so it
+costs nothing to verify: it's real diagnostic data, not dead weight,
+because D4 already has a concrete, blocking consumer for it) and provably
+inert for the full-form/delta-form equivalence proofs from D1, which still
+hold with all four operations mixed (verified end-to-end: identical
+fields, identical signature, byte-identical Rust output). One important
+gap intentionally *not* closed in D2: `compare_model_versions` (used by
+`_validate_change_kind`, which D1 already wired every expanded version
+through) still diffs by field name with no awareness of explicit rename/
+remove provenance, so today a `rename`/`remove` inside an `evolves` block
+is classified exactly like a naive delete would be (a `(breaking)`
+declaration, correctly) -- the fixed test fixtures for `remove`/`rename`
+had to be written as `(breaking)` for that reason. Feeding
+`FieldProvenance` into `compare_model_versions` so a declared rename stops
+looking like delete-and-add is explicitly D4's job ("connect operation
+intent to compatibility"), not something to smuggle into D2. **Next:** D3
+(settle and implement model-level metadata inheritance -- access blocks,
+annotations, Protobuf reservations on the `evolves` form).
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:

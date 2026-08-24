@@ -10,11 +10,13 @@ from modelable.config import ModelableConfig, apply_config_defaults, load_config
 from modelable.diagnostics.model import Diagnostic
 from modelable.expressions.cel import CelContext, FieldRef, looks_boolean, parse_cel, validate_cel_expr
 from modelable.parser.ir import (
+    AddFieldOp,
     ArrayType,
     BindingDef,
     ComputedMapping,
     EnumRefType,
     EnumType,
+    FieldProvenance,
     FieldType,
     MapType,
     MdlFile,
@@ -22,6 +24,9 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     ProjectionVersion,
+    RemoveFieldOp,
+    RenameFieldOp,
+    ReplaceFieldOp,
     UnionType,
 )
 from modelable.parser.parse import parse_text_to_ir_with_tree
@@ -613,23 +618,91 @@ def _expand_model_evolutions(merged: MdlFile) -> list[Diagnostic]:
                 continue
 
             new_fields = copy.deepcopy(highest_lower.fields)
-            seen_names = {existing_field.name for existing_field in new_fields}
-            duplicate = False
+            provenance = [FieldProvenance(field_name=f.name, origin="inherited") for f in new_fields]
+            operation_failed = False
             for operation in evolution.operations:
-                if operation.field.name in seen_names:
-                    errors.append(
-                        Diagnostic(
-                            code="SEM",
-                            message=f"{context}: add declares duplicate field '{operation.field.name}'",
-                            severity="error",
-                            path="<workspace>",
+                if isinstance(operation, AddFieldOp):
+                    if any(f.name == operation.field.name for f in new_fields):
+                        errors.append(
+                            Diagnostic(
+                                code="SEM",
+                                message=f"{context}: add declares duplicate field '{operation.field.name}'",
+                                severity="error",
+                                path="<workspace>",
+                            )
                         )
+                        operation_failed = True
+                        break
+                    new_fields.append(copy.deepcopy(operation.field))
+                    provenance.append(FieldProvenance(field_name=operation.field.name, origin="add"))
+                elif isinstance(operation, RemoveFieldOp):
+                    index = next((i for i, f in enumerate(new_fields) if f.name == operation.field_name), None)
+                    if index is None:
+                        errors.append(
+                            Diagnostic(
+                                code="SEM",
+                                message=f"{context}: remove references unknown field '{operation.field_name}'",
+                                severity="error",
+                                path="<workspace>",
+                            )
+                        )
+                        operation_failed = True
+                        break
+                    del new_fields[index]
+                    del provenance[index]
+                elif isinstance(operation, RenameFieldOp):
+                    index = next((i for i, f in enumerate(new_fields) if f.name == operation.old_name), None)
+                    if index is None:
+                        errors.append(
+                            Diagnostic(
+                                code="SEM",
+                                message=f"{context}: rename references unknown field '{operation.old_name}'",
+                                severity="error",
+                                path="<workspace>",
+                            )
+                        )
+                        operation_failed = True
+                        break
+                    if operation.new_name != operation.old_name and any(
+                        f.name == operation.new_name for f in new_fields
+                    ):
+                        errors.append(
+                            Diagnostic(
+                                code="SEM",
+                                message=(
+                                    f"{context}: rename target '{operation.new_name}' is already occupied by "
+                                    "another field"
+                                ),
+                                severity="error",
+                                path="<workspace>",
+                            )
+                        )
+                        operation_failed = True
+                        break
+                    new_fields[index] = new_fields[index].model_copy(update={"name": operation.new_name})
+                    provenance[index] = FieldProvenance(
+                        field_name=operation.new_name, origin="rename", renamed_from=operation.old_name
                     )
-                    duplicate = True
-                    break
-                new_fields.append(copy.deepcopy(operation.field))
-                seen_names.add(operation.field.name)
-            if duplicate:
+                else:
+                    assert isinstance(operation, ReplaceFieldOp)
+                    index = next((i for i, f in enumerate(new_fields) if f.name == operation.field.name), None)
+                    if index is None:
+                        errors.append(
+                            Diagnostic(
+                                code="SEM",
+                                message=(
+                                    f"{context}: replace field '{operation.field.name}' does not match any "
+                                    "existing field"
+                                ),
+                                severity="error",
+                                path="<workspace>",
+                            )
+                        )
+                        operation_failed = True
+                        break
+                    new_fields[index] = copy.deepcopy(operation.field)
+                    provenance[index] = FieldProvenance(field_name=operation.field.name, origin="replace")
+            if operation_failed:
                 continue
 
             expanded = ModelVersion(
@@ -639,6 +712,7 @@ def _expand_model_evolutions(merged: MdlFile) -> list[Diagnostic]:
                 fields=new_fields,
                 has_version_header=True,
                 has_change_kind=evolution.has_change_kind,
+                provenance=provenance,
             )
             _validate_models(domain.name, {evolution.name: [expanded]}, errors, "<workspace>")
             _validate_change_kind(f"{domain.name}.{evolution.name}", highest_lower, expanded, errors, "<workspace>")

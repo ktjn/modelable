@@ -56,6 +56,9 @@ from modelable.parser.ir import (
     ProjectionVersion,
     ProtobufReservations,
     RefType,
+    RemoveFieldOp,
+    RenameFieldOp,
+    ReplaceFieldOp,
     SecondaryIndexDecl,
     SelectionClause,
     SemanticTypeDecl,
@@ -265,7 +268,11 @@ class MdlTransformer(Transformer[list[object], Any]):
             index += 1
         base_version = int(_str(items[index]))
         index += 1
-        operations = [item for item in items[index:] if isinstance(item, AddFieldOp)]
+        operations = [
+            item
+            for item in items[index:]
+            if isinstance(item, (AddFieldOp, RemoveFieldOp, RenameFieldOp, ReplaceFieldOp))
+        ]
         return (
             "model_evolution",
             ModelEvolutionDecl(
@@ -286,6 +293,17 @@ class MdlTransformer(Transformer[list[object], Any]):
         field = items[0]
         assert isinstance(field, FieldDef)
         return AddFieldOp(field=field)
+
+    def remove_operation(self, items: list[object]) -> RemoveFieldOp:
+        return RemoveFieldOp(field_name=_str(items[0]))
+
+    def rename_operation(self, items: list[object]) -> RenameFieldOp:
+        return RenameFieldOp(old_name=_str(items[0]), new_name=_str(items[1]))
+
+    def replace_operation(self, items: list[object]) -> ReplaceFieldOp:
+        field = items[0]
+        assert isinstance(field, FieldDef)
+        return ReplaceFieldOp(field=field)
 
     def mk_entity(self, _items: list[object]) -> ModelKind:
         return ModelKind.entity
