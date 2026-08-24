@@ -1435,7 +1435,38 @@ fixture, not in production code: an initial reservation number collided
 with an auto-assigned Protobuf field number, correctly rejected by
 `protobuf.py`'s existing reservation validation — fixed by picking a
 number outside the auto-assigned range, not by weakening the fixture's
-coverage. **Next:** D8 (delta formatter and language-service support).
+coverage. **D8 (delta formatter and language-service support) is
+starting, and instruction #1 (formatter round trips) found a real,
+severe bug on first contact: `compiler/render.py`'s `render_mdl` --
+the canonical formatter, reachable from `modelable format` and the
+browser's format-on-save -- silently dropped an entire `evolves`
+declaration on every format pass.** `_render_domain` only ever iterated
+`domain.models`; `render_mdl` runs on the *raw parsed* `MdlFile`
+(`parse_text_to_ir`, not `load_workspace_from_sources`), where an
+`evolves`-declared version exists only in `domain.model_evolutions` and
+hasn't been expanded into `domain.models` yet -- so formatting a file
+containing `evolves` silently deleted that declaration's fields, its
+operations, and its Protobuf reservations from the source. Fixed by
+adding `_render_model_evolution`/`_render_evolution_operation` (mirroring
+`_render_model`'s structure and reusing its `_render_field`/
+`_render_access`/`_render_protobuf_reservations`/`_render_annotations`
+helpers) and merging `domain.models` and `domain.model_evolutions` by
+`(model_name, version)` before rendering, so a model's history renders in
+natural ascending version order regardless of which form each version was
+authored in. Verified: the `evolves` header, operation order, and
+Protobuf reservations all round-trip exactly, and formatting reaches a
+genuine fixed point (formatting the formatted output produces
+byte-identical text) — not just "doesn't crash." **Remaining D8 scope**
+(syntax tokens for `add`/`remove`/`rename`/`replace`/`evolves` in the LSP's
+own `semantic_tokens.py` — the auto-generated VS Code TextMate/Monaco
+grammars already got these keywords for free from D1/D2's grammar changes,
+but the hand-maintained LSP module has its own separate `_KEYWORDS` set
+that was never updated; operation-aware completion; definition/hover on
+the exact base version; references/rename for field names inside
+`remove`/`rename`/`replace`) is a substantial LSP feature surface
+comparable in scope to E11's five-service buildout earlier in this
+session, and is being scoped as its own follow-up rather than rushed into
+the same PR as the critical formatter fix.
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:

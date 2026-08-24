@@ -22,11 +22,13 @@ import pytest
 
 from modelable.compat.checker import analyze_impact, check_model_version_compatibility
 from modelable.compat.diff import compare_model_versions
+from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
 from modelable.dependency_graph import build_projection_dependencies
 from modelable.emitters.rust import emit_rust
 from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.parser.ir import AccessGrant, DecimalType, FieldProvenance
+from modelable.parser.parse import parse_text_to_ir
 from modelable.registry.signature import compute_version_signature
 from modelable.registry.snapshot import resolve_workspace_snapshot
 
@@ -1226,3 +1228,101 @@ def test_no_emitter_module_references_evolves_specific_symbols():
         if any(name in text for name in forbidden):
             offenders.append(path.name)
     assert offenders == []
+
+
+# -- D8: delta formatter and language-service support ------------------------
+
+
+def test_formatter_preserves_evolves_and_operation_order():
+    """Confirmed real bug found while starting D8: render_mdl silently
+    dropped the entire evolves declaration on format, since _render_domain
+    only ever iterated domain.models -- render_mdl operates on the raw
+    parsed MdlFile (parse_text_to_ir), where an evolves version exists only
+    in domain.model_evolutions, not yet expanded into domain.models."""
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    total: decimal(10, 2)
+    legacy: string
+  }
+  entity Order @ 2 (breaking) evolves @ 1 {
+    remove legacy
+    rename total -> amount
+    replace amount: decimal(12, 2)
+    add note?: string
+    reserved protobuf {
+      numbers: [10]
+      names: ["legacy"]
+    }
+  }
+}
+""".strip()
+    mdl = parse_text_to_ir(source)
+
+    rendered = render_mdl(mdl)
+
+    assert "evolves @ 1" in rendered
+    reparsed = parse_text_to_ir(rendered)
+    evolution = reparsed.domains[0].model_evolutions[0]
+    assert [type(op).__name__ for op in evolution.operations] == [
+        "RemoveFieldOp",
+        "RenameFieldOp",
+        "ReplaceFieldOp",
+        "AddFieldOp",
+    ]
+    assert evolution.operations[0].field_name == "legacy"
+    assert evolution.operations[1].old_name == "total"
+    assert evolution.operations[1].new_name == "amount"
+    assert evolution.protobuf_reservations is not None
+    assert evolution.protobuf_reservations.numbers == [10]
+
+
+def test_formatter_round_trip_reaches_a_fixed_point_for_evolves():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    total: decimal(10, 2)
+  }
+  entity Order @ 2 (breaking) evolves @ 1 {
+    rename total -> amount
+    add note?: string
+  }
+}
+""".strip()
+    mdl = parse_text_to_ir(source)
+
+    first_pass = render_mdl(mdl)
+    second_pass = render_mdl(parse_text_to_ir(first_pass))
+
+    assert first_pass == second_pass
+
+
+def test_formatter_orders_full_and_delta_versions_of_the_same_model_by_version():
+    """A model's history can span both domain.models and
+    domain.model_evolutions -- the rendered output should read in natural
+    ascending version order regardless of which form each version used."""
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  entity Order @ 2 (additive) evolves @ 1 {
+    add note?: string
+  }
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+}
+""".strip()
+    mdl = parse_text_to_ir(source)
+
+    rendered = render_mdl(mdl)
+
+    v1_index = rendered.index("Order @ 1")
+    v2_index = rendered.index("Order @ 2")
+    assert v1_index < v2_index

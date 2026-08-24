@@ -5,6 +5,7 @@ import re
 
 from modelable.parser.ir import (
     AccessBlock,
+    AddFieldOp,
     AnnClassification,
     AnnCustom,
     AnnDeprecated,
@@ -31,6 +32,7 @@ from modelable.parser.ir import (
     EnumProjectionDecl,
     EnumRefType,
     EnumType,
+    EvolutionOperation,
     FieldDef,
     FieldType,
     FixedBinaryType,
@@ -38,6 +40,7 @@ from modelable.parser.ir import (
     IndexDecl,
     MapType,
     MdlFile,
+    ModelEvolutionDecl,
     ModelVersion,
     NamedType,
     ObjectType,
@@ -46,6 +49,9 @@ from modelable.parser.ir import (
     ProjectionVersion,
     ProtobufReservations,
     RefType,
+    RemoveFieldOp,
+    RenameFieldOp,
+    ReplaceFieldOp,
     SelectionClause,
     SemanticTypeDecl,
     UnionType,
@@ -181,12 +187,26 @@ def _render_domain(domain: DomainDef) -> list[str]:
     for enum_projection in domain.enum_projections:
         lines.extend(_indent(_render_enum_projection(enum_projection), 2))
         has_body = True
-    if domain.models:
+    if domain.models or domain.model_evolutions:
         if has_body:
             lines.append("")
-        for model_name in sorted(domain.models):
-            for mv in domain.models[model_name]:
-                lines.extend(_indent(_render_model(model_name, mv), 2))
+        # A model's version history can span both domain.models (full-form
+        # versions) and domain.model_evolutions (evolves @ N versions) --
+        # merge and sort by version per model name so the rendered output
+        # reads in natural version order regardless of which form each
+        # version was authored in (evolution plan D8).
+        all_model_names = sorted(set(domain.models) | {evolution.name for evolution in domain.model_evolutions})
+        for model_name in all_model_names:
+            entries: list[tuple[int, list[str]]] = [
+                (mv.version, _render_model(model_name, mv)) for mv in domain.models.get(model_name, [])
+            ]
+            entries.extend(
+                (evolution.version, _render_model_evolution(model_name, evolution))
+                for evolution in domain.model_evolutions
+                if evolution.name == model_name
+            )
+            for _version, rendered in sorted(entries, key=lambda entry: entry[0]):
+                lines.extend(_indent(rendered, 2))
         has_body = True
     visible_projections = [
         (name, pv) for name, pvs in domain.projections.items() for pv in pvs if not pv.auto_generated
@@ -239,6 +259,36 @@ def _render_model(model_name: str, version: ModelVersion) -> list[str]:
         lines.append(_render_field(field, 2))
     lines.append("}")
     return lines
+
+
+def _render_model_evolution(model_name: str, decl: ModelEvolutionDecl) -> list[str]:
+    prefix = " ".join(_render_annotations(decl.annotations))
+    header = f"{decl.model_kind.value} {model_name} @ {decl.version}"
+    if decl.has_change_kind:
+        header += f" ({decl.change_kind.value})"
+    header += f" evolves @ {decl.base_version}"
+    lines = [_with_prefix(prefix, f"{header} {{")]
+    if decl.protobuf_reservations is not None:
+        lines.extend(_indent(_render_protobuf_reservations(decl.protobuf_reservations), 2))
+    if decl.access is not None:
+        lines.extend(_indent(_render_access(decl.access), 2))
+    for operation in decl.operations:
+        lines.append(_render_evolution_operation(operation, 2))
+    lines.append("}")
+    return lines
+
+
+def _render_evolution_operation(operation: EvolutionOperation, indent: int = 0) -> str:
+    pad = " " * indent
+    if isinstance(operation, AddFieldOp):
+        return f"{pad}add {_render_field(operation.field)}"
+    if isinstance(operation, RemoveFieldOp):
+        return f"{pad}remove {operation.field_name}"
+    if isinstance(operation, RenameFieldOp):
+        return f"{pad}rename {operation.old_name} -> {operation.new_name}"
+    if isinstance(operation, ReplaceFieldOp):
+        return f"{pad}replace {_render_field(operation.field)}"
+    raise TypeError(f"unsupported evolution operation: {operation!r}")
 
 
 def _render_field(field: FieldDef, indent: int = 0) -> str:
