@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import re
 from dataclasses import dataclass, field
@@ -17,6 +18,7 @@ from modelable.parser.ir import (
     FieldType,
     MapType,
     MdlFile,
+    ModelVersion,
     NamedType,
     ObjectType,
     ProjectionVersion,
@@ -26,7 +28,12 @@ from modelable.parser.parse import parse_text_to_ir_with_tree
 from modelable.planner.planner import expand_auto_projections, expand_projection_selections
 from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref, validate_references
 from modelable.validation.deferred_syntax import find_deferred_syntax_diagnostics
-from modelable.validation.semantic import validate_diagnostics, validate_ref_type_field
+from modelable.validation.semantic import (
+    _validate_change_kind,
+    _validate_models,
+    validate_diagnostics,
+    validate_ref_type_field,
+)
 
 
 @dataclass(frozen=True)
@@ -112,6 +119,8 @@ def load_workspace_from_sources(
         _merge_bindings(merged.bindings, mdl.bindings)
         if mdl.workspace is not None:
             merged.workspace = mdl.workspace
+
+    errors.extend(_expand_model_evolutions(merged))
 
     if config is not None:
         try:
@@ -519,6 +528,122 @@ def _validate_named_field_types(merged: MdlFile) -> tuple[list[Diagnostic], list
                         f"{domain.name}.{model_name}@{version.version}.{model_field.name}",
                     )
     return errors, warnings
+
+
+def _expand_model_evolutions(merged: MdlFile) -> list[Diagnostic]:
+    """Resolve `evolves @ N` model versions into complete `ModelVersion`
+    objects before anything else sees them.
+
+    Add-only for now (evolution plan D1): the base version must be the
+    highest existing version of the same model/kind below the new version --
+    no first-version, missing-base, wrong-kind, forward, or branching
+    histories. The result is a deep copy of the base's fields with `add`
+    operations appended in order, appended to `domain.models` exactly as a
+    hand-written complete version would be, so nothing downstream (semantic
+    validation, compatibility, projections, emitters, registry) needs to
+    know an evolution object ever existed.
+    """
+    errors: list[Diagnostic] = []
+    for domain in merged.domains:
+        for evolution in domain.model_evolutions:
+            context = f"{domain.name}.{evolution.name}@{evolution.version}"
+            existing_versions = domain.models.get(evolution.name, [])
+            if any(version.version == evolution.version for version in existing_versions):
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=f"{context}: version is already declared",
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                continue
+            if not existing_versions:
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=f"{context}: evolves has no prior version of '{evolution.name}' to evolve from",
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                continue
+
+            lower_versions = [version for version in existing_versions if version.version < evolution.version]
+            highest_lower = max(lower_versions, key=lambda version: version.version, default=None)
+            if highest_lower is None:
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=(
+                            f"{context}: evolves @ {evolution.base_version} is not before version {evolution.version}"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                continue
+            if highest_lower.version != evolution.base_version:
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=(
+                            f"{context}: evolves @ {evolution.base_version} is not the highest version of "
+                            f"'{evolution.name}' below {evolution.version} (that is @ {highest_lower.version}); "
+                            "evolution cannot branch from a superseded version"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                continue
+            if highest_lower.model_kind != evolution.model_kind:
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=(
+                            f"{context}: evolves @ {evolution.base_version} is a "
+                            f"{highest_lower.model_kind.value}, but this declaration is "
+                            f"{evolution.model_kind.value}"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                continue
+
+            new_fields = copy.deepcopy(highest_lower.fields)
+            seen_names = {existing_field.name for existing_field in new_fields}
+            duplicate = False
+            for operation in evolution.operations:
+                if operation.field.name in seen_names:
+                    errors.append(
+                        Diagnostic(
+                            code="SEM",
+                            message=f"{context}: add declares duplicate field '{operation.field.name}'",
+                            severity="error",
+                            path="<workspace>",
+                        )
+                    )
+                    duplicate = True
+                    break
+                new_fields.append(copy.deepcopy(operation.field))
+                seen_names.add(operation.field.name)
+            if duplicate:
+                continue
+
+            expanded = ModelVersion(
+                model_kind=evolution.model_kind,
+                version=evolution.version,
+                change_kind=evolution.change_kind,
+                fields=new_fields,
+                has_version_header=True,
+                has_change_kind=evolution.has_change_kind,
+            )
+            _validate_models(domain.name, {evolution.name: [expanded]}, errors, "<workspace>")
+            _validate_change_kind(f"{domain.name}.{evolution.name}", highest_lower, expanded, errors, "<workspace>")
+            domain.models.setdefault(evolution.name, []).append(expanded)
+    return errors
 
 
 def _expand_enum_projections(merged: MdlFile) -> tuple[list[Diagnostic], list[Diagnostic]]:

@@ -21,6 +21,7 @@ domain_item: owner_attr
            | contact_attr
            | desc_attr
            | model_decl
+           | model_evolution_decl
            | projection_decl
            | enum_projection_decl
            | auto_projections_decl
@@ -44,6 +45,14 @@ model_change: "(" change_kind ")"
 model_body_item: field_decl
                | access_block
                | reservation_block
+
+// -- Model version deltas (evolution plan D1: add-only) ----------------------
+// A model version authored as a delta against an exact prior version rather
+// than a complete field list. The base version resolves within the same
+// domain/model/kind at workspace-normalization time, not at parse time.
+model_evolution_decl: model_kind IDENT "@" INT model_change? "evolves" "@" INT "{" evolution_item* "}"
+evolution_item: add_operation
+add_operation: "add" field_decl
 
 model_kind: "entity"    -> mk_entity
           | "aggregate" -> mk_aggregate

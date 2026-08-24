@@ -7,6 +7,7 @@ from lark import Transformer
 from modelable.parser.ir import (
     AccessBlock,
     AccessGrant,
+    AddFieldOp,
     AiConfig,
     AnnClassification,
     AnnCustom,
@@ -44,6 +45,7 @@ from modelable.parser.ir import (
     JoinRef,
     MapType,
     MdlFile,
+    ModelEvolutionDecl,
     ModelKind,
     ModelVersion,
     NamedType,
@@ -142,6 +144,7 @@ class MdlTransformer(Transformer[list[object], Any]):
         semantic_types: list[SemanticTypeDecl] = []
         enum_projections: list[EnumProjectionDecl] = []
         index_decls: list[IndexDecl] = []
+        model_evolutions: list[ModelEvolutionDecl] = []
 
         for tag, value in [item for item in items[1:] if isinstance(item, tuple)]:
             if tag == "owner":
@@ -168,6 +171,8 @@ class MdlTransformer(Transformer[list[object], Any]):
                 enum_projections.append(value)
             elif tag == "index":
                 index_decls.append(value)
+            elif tag == "model_evolution":
+                model_evolutions.append(value)
 
         return DomainDef(
             name=name,
@@ -182,6 +187,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             semantic_types=semantic_types,
             enum_projections=enum_projections,
             index_decls=index_decls,
+            model_evolutions=model_evolutions,
         )
 
     def domain_name(self, items: list[object]) -> str:
@@ -244,6 +250,42 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def model_body_item(self, items: list[object]) -> object:
         return items[0]
+
+    def model_evolution_decl(self, items: list[object]) -> tuple[str, ModelEvolutionDecl]:
+        model_kind = items[0] if isinstance(items[0], ModelKind) else ModelKind.entity
+        name = _str(items[1])
+        version = int(_str(items[2]))
+        index = 3
+        change_kind = ChangeKind.additive
+        has_change_kind = False
+        candidate = items[index] if index < len(items) else None
+        if isinstance(candidate, ChangeKind):
+            change_kind = candidate
+            has_change_kind = True
+            index += 1
+        base_version = int(_str(items[index]))
+        index += 1
+        operations = [item for item in items[index:] if isinstance(item, AddFieldOp)]
+        return (
+            "model_evolution",
+            ModelEvolutionDecl(
+                model_kind=model_kind,
+                name=name,
+                version=version,
+                change_kind=change_kind,
+                has_change_kind=has_change_kind,
+                base_version=base_version,
+                operations=operations,
+            ),
+        )
+
+    def evolution_item(self, items: list[object]) -> object:
+        return items[0]
+
+    def add_operation(self, items: list[object]) -> AddFieldOp:
+        field = items[0]
+        assert isinstance(field, FieldDef)
+        return AddFieldOp(field=field)
 
     def mk_entity(self, _items: list[object]) -> ModelKind:
         return ModelKind.entity

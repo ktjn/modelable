@@ -1201,7 +1201,39 @@ decomposed as D1-D8 in the
 [Model Evolution Slices Roadmap](docs/superpowers/plans/2026-08-22-model-evolution-slices-roadmap.md).
 Move, default, transform, split, merge, backfill, and replay semantics remain
 outside that first source-language capability until concrete consumers justify
-them.
+them. **D1 (add-only exact-base evolution) is shipped**, the first usable
+vertical slice: `entity Foo @ N (kind) evolves @ base { add field: type }`
+parses into a source-only `ModelEvolutionDecl`/`AddFieldOp` pair (`parser/ir.py`,
+`parser/transformer.py`) that workspace normalization
+(`compiler/workspace.py::_expand_model_evolutions`) resolves and expands into
+a complete `ModelVersion` before anything else runs -- mirrors the
+`EnumProjectionDecl`/`_expand_enum_projections` precedent from E3 exactly:
+source-only IR in, normalized canonical IR out, so no downstream consumer
+(validation, compatibility, signatures, emitters, registry) ever sees an
+unresolved evolution object. Base resolution requires the named base to be
+the *highest existing version of the same model/kind strictly below* the new
+version -- numeric gaps are fine (`@ 5 evolves @ 1` is valid if 1 is still
+the highest version below 5), but branching from a superseded version,
+missing/forward bases, and kind mismatches are all rejected with a
+diagnostic naming the actual required base. The expanded version is
+deep-copied from the base (never aliased) and re-runs the same per-version
+field/key/annotation validation (`_validate_models`) and the same
+additive/breaking classification (`_validate_change_kind`, reusing
+`compare_model_versions`) a hand-written complete version would get --
+verified directly: an equivalent full-form and add-only-form source pair
+produce byte-identical normalized fields, signatures, and Rust codegen
+output. Editor grammar sync (`vscode/syntaxes/modelable.tmLanguage.json`,
+`web/src/language/monaco-providers.ts`, `docs/grammar.md`) regenerated via
+their existing generator scripts, which surfaced a real mistake worth
+recording: piping a generator's stdout directly into the same file it reads
+as a template (`script ... > target-file`) truncates the file before the
+process can read it, since shell redirection opens and truncates the target
+before exec — always use the script's in-place write mode instead of
+`> file` when the script itself reads that file as input. Deliberately
+minimal scope, matching the instructions: no model-level annotations/access/
+reservations on the `evolves` form yet (D3's territory), and no `remove`/
+`rename`/`replace` operations yet (D2). **Next:** D2 (remove, rename,
+replace, and provenance).
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
