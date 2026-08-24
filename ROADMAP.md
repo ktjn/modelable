@@ -1072,9 +1072,47 @@ pass -- models and projections can *also* collide in name with each other,
 with the same misrouting consequence for their own qualified references --
 but that predates this enum work entirely and is deliberately left
 unfixed here; it belongs in its own compiler-validation slice, not smuggled
-into an enum-focused audit. **Next:** VS Code/Monaco mirroring and
-cross-surface conformance fixtures. Then D7/D8's convergence gate. They
-build on D3 rather than introducing a second parallel enum declaration.
+into an enum-focused audit. **VS Code/Monaco mirroring found a real,
+separate cluster of gaps.** The five services fixed so far (hover,
+definition, references, rename, completion) are all wrapped by a thin LSP
+adapter and consumed identically by the browser/Monaco playground, so
+fixing `language/` fixed both surfaces automatically -- already verified
+earlier in this slice. But `cli/src/modelable/lsp/` also has several
+LSP-only capabilities with **no** `language/` counterpart, each with its
+own independent copy of the same `_DECL_PATTERN`-style regex, and none of
+them recognized `semantic` or `enum projection` declarations either:
+`document_symbols.py` (VS Code's outline view and symbol search --
+`workspace_symbols.py` builds directly on top of it, so fixing one fixed
+both for free), `semantic_tokens.py` (syntax highlighting), `code_actions.py`
+(quick-fixes), and `inlay_hints.py`. Audited all four. `code_actions.py` and
+`inlay_hints.py` turned out not to need changes: their quick-fixes
+(`@key`-missing, version-header-missing, projection field-mapping type
+hints) are all inherently model/projection-specific -- semantic and enum
+projection declarations have no fields, no `@key` requirement, and (for
+plain scalar semantics) no required version header, so there's nothing
+enum-shaped for those features to say. `semantic_tokens.py` and
+`document_symbols.py` did need fixes, and `document_symbols.py` in
+particular had a **latent trap**: naively adding `semantic` to its
+`_DECL_PATTERN` (the fix that worked cleanly in all five `language/`
+services) would have made its `_block_end_line` helper swallow the rest of
+the document, since that helper assumes every declaration's range ends at a
+matching `}` -- true for every existing decl kind (all require a `{...}`
+body) but not for `semantic` (single-line in the common case, with only an
+*optional* trailing `{ registry: ... }` block) or `enum projection` (no
+braces at all -- ends at its `pick(...)`/`omit(...)` clause's closing
+paren). Fixed with two dedicated, bounded end-line helpers
+(`_semantic_decl_end_line`, checking for an unmatched `{` on the
+declaration's own line before falling back to brace matching;
+`_enum_projection_decl_end_line`, scanning forward for the `pick(`/`omit(`
+clause specifically rather than generic paren-depth tracking, since the
+optional `(change_kind)` on the header is its own self-closing paren group
+that would otherwise trigger a premature stop) -- both bounded so a
+malformed or unusual declaration degrades to an imprecise range rather than
+an unbounded scan. Verified end-to-end including the body and no-body
+`semantic` cases and the `enum projection`-immediately-followed-by-another-
+declaration case, with 5 new tests. **Next:** cross-surface conformance
+fixtures. Then D7/D8's convergence gate. They build on D3 rather than
+introducing a second parallel enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions

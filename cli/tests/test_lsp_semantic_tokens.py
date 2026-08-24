@@ -92,6 +92,42 @@ def test_semantic_tokens_highlight_model_keywords_names_and_literals():
     assert _token_type_at(tokens, _line_index(lines, "    fullName <- c.name"), lines[9].rindex("name")) == "property"
 
 
+ENUM_SOURCE = """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(pending, active, done)
+  enum projection PublicStatus @ 1 (additive)
+    from OrderStatus @ 1
+    pick(active, done)
+}
+""".strip("\n")
+
+
+def test_semantic_tokens_highlight_enum_backed_semantics_and_enum_projections():
+    """Evolution plan E11: `semantic` declarations and the two-token `enum
+    projection` header previously fell through to unstyled plain text (or,
+    for the literal word `enum` in that header, the wrong token type --
+    Type instead of Keyword, since `enum` is also the anonymous-enum type
+    constructor keyword)."""
+    tokens = _decode_semantic_tokens(semantic_tokens.build_semantic_tokens(ENUM_SOURCE).data)
+    lines = ENUM_SOURCE.splitlines()
+
+    semantic_line = _line_index(lines, "  semantic OrderStatus @ 1 (additive): enum(pending, active, done)")
+    assert _token_type_at(tokens, semantic_line, lines[semantic_line].index("semantic")) == "keyword"
+    assert _token_type_at(tokens, semantic_line, lines[semantic_line].index("OrderStatus")) == "class"
+    assert _token_type_at(tokens, semantic_line, lines[semantic_line].rindex("1")) == "number"
+    assert _token_type_at(tokens, semantic_line, lines[semantic_line].index("enum(")) == "type"
+
+    header_line = _line_index(lines, "  enum projection PublicStatus @ 1 (additive)")
+    assert _token_type_at(tokens, header_line, lines[header_line].index("enum")) == "keyword"
+    assert _token_type_at(tokens, header_line, lines[header_line].index("projection")) == "keyword"
+    assert _token_type_at(tokens, header_line, lines[header_line].index("PublicStatus")) == "class"
+    assert _token_type_at(tokens, header_line, lines[header_line].rindex("1")) == "number"
+
+    pick_line = _line_index(lines, "    pick(active, done)")
+    assert _token_type_at(tokens, pick_line, lines[pick_line].index("pick")) == "keyword"
+
+
 def test_semantic_tokens_full_handler_uses_open_buffer_text():
     uri = "file:///workspace/customer.mdl"
     inner_index = SimpleNamespace(

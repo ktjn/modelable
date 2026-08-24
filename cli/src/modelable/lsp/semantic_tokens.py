@@ -49,9 +49,11 @@ _KEYWORDS = {
     "materialisation",
     "mysql",
     "on",
+    "omit",
     "openapi",
     "owner",
     "peers",
+    "pick",
     "pii",
     "postgres",
     "project",
@@ -62,6 +64,7 @@ _KEYWORDS = {
     "redact",
     "registry",
     "restricted",
+    "semantic",
     "sql",
     "sqlite",
     "string",
@@ -98,8 +101,11 @@ _WORD_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*")
 _NUMBER_PATTERN = re.compile(r"\d+")
 _DOMAIN_DECL_PATTERN = re.compile(r"^\s*domain\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)")
 _DECL_PATTERN = re.compile(
-    r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
+    r"^\s*(?P<kind>entity|aggregate|event|value|projection|semantic)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
+)
+_ENUM_PROJECTION_HEADER_PATTERN = re.compile(
+    r"^\s*(?P<kw1>enum)\s+(?P<kw2>projection)\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
 _FIELD_PATTERN = re.compile(
     r"^\s*(?:@[A-Za-z_][A-Za-z0-9_-]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\??\s*:"
@@ -149,6 +155,18 @@ def _add_line_tokens(tokens: list[_Token], line_no: int, line: str, spans: list[
     _add_match_token(tokens, line_no, line, _DECL_PATTERN, "kind", types.SemanticTokenTypes.Keyword.value)
     _add_match_token(tokens, line_no, line, _DECL_PATTERN, "name", types.SemanticTokenTypes.Class.value)
     _add_match_token(tokens, line_no, line, _DECL_PATTERN, "version", types.SemanticTokenTypes.Number.value)
+    _add_match_token(
+        tokens, line_no, line, _ENUM_PROJECTION_HEADER_PATTERN, "kw1", types.SemanticTokenTypes.Keyword.value
+    )
+    _add_match_token(
+        tokens, line_no, line, _ENUM_PROJECTION_HEADER_PATTERN, "kw2", types.SemanticTokenTypes.Keyword.value
+    )
+    _add_match_token(
+        tokens, line_no, line, _ENUM_PROJECTION_HEADER_PATTERN, "name", types.SemanticTokenTypes.Class.value
+    )
+    _add_match_token(
+        tokens, line_no, line, _ENUM_PROJECTION_HEADER_PATTERN, "version", types.SemanticTokenTypes.Number.value
+    )
     _add_match_token(tokens, line_no, line, _FIELD_PATTERN, "name", types.SemanticTokenTypes.Property.value)
     _add_match_token(
         tokens,
