@@ -1510,9 +1510,42 @@ candidates. A plain (non-`evolves`) model body has `base_version=None`,
 so the new branch never triggers there — confirmed no regression on
 ordinary field completion.
 
-**Remaining D8 scope** (references/rename for field names inside
-`remove`/`rename`/`replace`, distinguishing a `rename` *operation* from an
-editor symbol-rename *action*) is being scoped as its own follow-up.
+**References and rename for field names inside `remove`/`rename`/`replace`
+close out D8.** Previously, invoking find-references or rename-symbol on a
+field name written as the argument of `remove <field>`, `rename <field> ->
+...` (source side), or `replace <field>: ...` inside an `evolves` block
+silently found nothing: `language/references.py` and `language/rename.py`
+both resolve bare field-name tokens by matching `_MODEL_FIELD_PATTERN`
+(`name: type`) within the *current* version's own textual body, but an
+`evolves`-declared version never writes its inherited fields that way —
+only the operations that touch them. Fixed by adding an
+`_EVOLVES_FIELD_OP_PATTERN` (`remove|rename|replace <field>`, deliberately
+excluding `add` — an add introduces a fresh field, it doesn't reference an
+existing one) checked before the generic field-resolution fallback in both
+modules, plus a small `_evolves_base_at` scan reusing the same optional
+`evolves @ <base>` capture added to `_DECL_PATTERN` in D8's earlier
+completion slice. The referenced field always exists on the block's base
+version (the compiler rejects any other case at `_expand_model_evolutions`
+time), so it resolves through the *existing* `_references_for_source_field`
+/ `_find_source_field_location` machinery pointed at the base version —
+picking up the base declaration and any projections pinned to that exact
+version for free — plus a new `_evolves_operation_field_locations` scan
+that finds every other `remove`/`rename`/`replace` line, across *all* of
+this model's evolves blocks, that mentions the same field name. This is
+the "distinguish the `rename` operation from an editor rename action" case
+named in the roadmap: clicking the *source* name in `rename total ->
+amount` is a reference to the field `total` and renames correctly, while
+the literal `rename` keyword and the freshly-introduced target name
+`amount` are correctly inert — `amount` names no existing field until the
+rename actually takes effect, so it is never itself a rename source.
+Verified directly and with dedicated tests before considering this
+complete: renaming through a `remove` argument moves the base declaration,
+the operation line, and a projection's `alias.field` usage together in one
+edit; renaming through a `rename` operation's source argument leaves the
+new name's own token completely untouched; invoking rename directly on the
+`rename` keyword itself correctly raises `InvalidRenameError`. **This
+closes out D8 and the full D-series (D1-D8) of the Model Evolution Slices
+Roadmap.**
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:

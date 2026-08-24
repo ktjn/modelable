@@ -25,7 +25,9 @@ _FIELD_REF_PATTERN = re.compile(r"(?P<alias>[A-Za-z_][A-Za-z0-9_]*)\.(?P<field>[
 _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection|semantic)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
+    r"(?:.*?\bevolves\s*@\s*(?P<base>\d+))?"
 )
+_EVOLVES_FIELD_OP_PATTERN = re.compile(r"^\s*(?:remove|rename|replace)\s+(?P<field>[A-Za-z_][A-Za-z0-9_]*)")
 _ENUM_PROJECTION_DECL_PATTERN = re.compile(
     r"^\s*enum\s+projection\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
@@ -270,6 +272,24 @@ def _target_at(
                 range=LanguageRange.at(line, decl_match.start("name"), line, decl_match.end("name")),
             )
 
+    evolves_op_match = _EVOLVES_FIELD_OP_PATTERN.match(text_line)
+    if evolves_op_match is not None and _contains(
+        evolves_op_match.start("field"), evolves_op_match.end("field"), character
+    ):
+        evolves_scope = _current_scope(text, line)
+        base_version = _evolves_base_at(text, line)
+        if evolves_scope is not None and base_version is not None and evolves_scope[1] == "model":
+            field_name = evolves_op_match.group("field")
+            if _is_field_name(semantic, evolves_scope[0], evolves_scope[2], base_version, field_name):
+                return _Target(
+                    kind="model_field",
+                    domain=evolves_scope[0],
+                    name=evolves_scope[2],
+                    version=base_version,
+                    field_name=field_name,
+                    range=LanguageRange.at(line, evolves_op_match.start("field"), line, evolves_op_match.end("field")),
+                )
+
     scope = _current_scope(text, line)
     if scope is None:
         return None
@@ -370,6 +390,13 @@ def _add_model_field_renames(
         if doc is not None:
             edits.append(_make_edit(declaration[0], declaration[1], new_name, doc.version, hashes))
 
+    for evolves_uri, evolves_range in _evolves_operation_field_locations(
+        semantic, target.domain, target.name, target.field_name or ""
+    ):
+        doc = workspace.current_document(evolves_uri)
+        if doc is not None:
+            edits.append(_make_edit(evolves_uri, evolves_range, new_name, doc.version, hashes))
+
     for source in semantic.sources:
         doc = workspace.current_document(source.uri)
         if doc is None:
@@ -416,6 +443,56 @@ def _add_model_field_renames(
                         hashes,
                     )
                 )
+
+
+def _evolves_operation_field_locations(
+    workspace: Workspace,
+    domain_name: str,
+    model_name: str,
+    field_name: str,
+) -> list[tuple[str, LanguageRange]]:
+    locations: list[tuple[str, LanguageRange]] = []
+    for source in workspace.sources:
+        current_domain: str | None = None
+        active = False
+        source_lines = document_lines(source.text)
+        for line_no, line_text in enumerate(source_lines):
+            domain_match = _DOMAIN_PATTERN.match(line_text)
+            if domain_match:
+                current_domain = domain_match.group("quoted") or domain_match.group("name")
+                active = False
+                continue
+            decl_match = _DECL_PATTERN.match(line_text)
+            if decl_match:
+                active = (
+                    current_domain == domain_name
+                    and decl_match.group("name") == model_name
+                    and decl_match.group("base") is not None
+                )
+                continue
+            if not active:
+                continue
+            if line_text.strip() == "}":
+                active = False
+                continue
+            match = _EVOLVES_FIELD_OP_PATTERN.match(line_text)
+            if match is None or match.group("field") != field_name:
+                continue
+            locations.append((source.uri, LanguageRange.at(line_no, match.start("field"), line_no, match.end("field"))))
+    return locations
+
+
+def _evolves_base_at(text: str, line: int) -> int | None:
+    current_base: int | None = None
+    for item in document_lines(text)[: line + 1]:
+        if _DOMAIN_PATTERN.match(item):
+            current_base = None
+            continue
+        decl_match = _DECL_PATTERN.match(item)
+        if decl_match:
+            base = decl_match.group("base")
+            current_base = int(base) if base is not None else None
+    return current_base
 
 
 def _add_projection_field_renames(
