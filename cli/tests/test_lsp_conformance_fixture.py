@@ -33,6 +33,16 @@ _WORKSPACE_ROOT = Path(tempfile.mkdtemp(prefix="modelable-lsp-conformance-"))
 _CUSTOMER_MDL = _WORKSPACE_ROOT / "customer.mdl"
 _CUSTOMER_MDL.write_text(_SOURCE_TEXT, encoding="utf-8")
 
+# Evolution plan E11: same idea, a second fixture covering enum-backed
+# semantics and enum projections, which had no representation in this
+# cross-surface conformance fixture before.
+_ENUM_FIXTURE_PATH = Path(__file__).parent / "conformance" / "language" / "workspace-valid-enum.json"
+_ENUM_FIXTURE = json.loads(_ENUM_FIXTURE_PATH.read_text(encoding="utf-8"))
+_ENUM_SOURCE_TEXT = _ENUM_FIXTURE["workspace"]["sources"][0]["text"]
+_ENUM_WORKSPACE_ROOT = Path(tempfile.mkdtemp(prefix="modelable-lsp-conformance-enum-"))
+_ORDERS_MDL = _ENUM_WORKSPACE_ROOT / "orders.mdl"
+_ORDERS_MDL.write_text(_ENUM_SOURCE_TEXT, encoding="utf-8")
+
 
 async def _open(client) -> None:
     client.text_document_did_open(
@@ -42,6 +52,20 @@ async def _open(client) -> None:
                 language_id="mdl",
                 version=1,
                 text=_SOURCE_TEXT,
+            )
+        )
+    )
+    await client.wait_for_notification(types.TEXT_DOCUMENT_PUBLISH_DIAGNOSTICS)
+
+
+async def _open_enum(client) -> None:
+    client.text_document_did_open(
+        types.DidOpenTextDocumentParams(
+            text_document=types.TextDocumentItem(
+                uri=_ORDERS_MDL.as_uri(),
+                language_id="mdl",
+                version=1,
+                text=_ENUM_SOURCE_TEXT,
             )
         )
     )
@@ -159,3 +183,108 @@ async def test_fixture_rename_matches_browser_dispatch(lsp):
     edits = result.changes[_CUSTOMER_MDL.as_uri()]
     assert len(edits) >= _FIXTURE["rename"]["minEdits"]
     assert all(edit.new_text == _FIXTURE["rename"]["expectNewText"] for edit in edits)
+
+
+@pytest.mark.parametrize("lsp", [_ENUM_WORKSPACE_ROOT], indirect=True)
+async def test_enum_fixture_completion_matches_browser_dispatch(lsp):
+    await _open_enum(lsp)
+    request = _ENUM_FIXTURE["completion"]["request"]
+
+    result = await lsp.text_document_completion_async(
+        types.CompletionParams(
+            text_document=types.TextDocumentIdentifier(uri=_ORDERS_MDL.as_uri()),
+            position=_position(request),
+        )
+    )
+
+    items = result.items if hasattr(result, "items") else (result or [])
+    assert [item.label for item in items] == _ENUM_FIXTURE["completion"]["labels"]
+
+
+@pytest.mark.parametrize("lsp", [_ENUM_WORKSPACE_ROOT], indirect=True)
+async def test_enum_fixture_hover_matches_browser_dispatch(lsp):
+    await _open_enum(lsp)
+    request = _ENUM_FIXTURE["hover"]["request"]
+
+    result = await lsp.text_document_hover_async(
+        types.HoverParams(
+            text_document=types.TextDocumentIdentifier(uri=_ORDERS_MDL.as_uri()),
+            position=_position(request),
+        )
+    )
+
+    assert result is not None
+    markdown = result.contents.value if hasattr(result.contents, "value") else str(result.contents)
+    assert _ENUM_FIXTURE["hover"]["markdownContains"] in markdown
+
+
+@pytest.mark.parametrize("lsp", [_ENUM_WORKSPACE_ROOT], indirect=True)
+async def test_enum_fixture_definition_matches_browser_dispatch(lsp):
+    await _open_enum(lsp)
+    request = _ENUM_FIXTURE["definition"]["request"]
+
+    result = await lsp.text_document_definition_async(
+        types.DefinitionParams(
+            text_document=types.TextDocumentIdentifier(uri=_ORDERS_MDL.as_uri()),
+            position=_position(request),
+        )
+    )
+
+    location = result if isinstance(result, types.Location) else (result[0] if result else None)
+    assert location is not None
+    assert location.uri == _ORDERS_MDL.as_uri()
+    assert location.range.start.line == _ENUM_FIXTURE["definition"]["expectLocation"]["line"]
+
+
+@pytest.mark.parametrize("lsp", [_ENUM_WORKSPACE_ROOT], indirect=True)
+async def test_enum_fixture_references_matches_browser_dispatch(lsp):
+    await _open_enum(lsp)
+    request = _ENUM_FIXTURE["references"]["request"]
+
+    result = await lsp.text_document_references_async(
+        types.ReferenceParams(
+            text_document=types.TextDocumentIdentifier(uri=_ORDERS_MDL.as_uri()),
+            position=_position(request),
+            context=types.ReferenceContext(include_declaration=request.get("includeDeclaration", True)),
+        )
+    )
+
+    assert result is not None
+    assert len(result) >= _ENUM_FIXTURE["references"]["minCount"]
+
+
+@pytest.mark.parametrize("lsp", [_ENUM_WORKSPACE_ROOT], indirect=True)
+async def test_enum_fixture_prepare_rename_matches_browser_dispatch(lsp):
+    await _open_enum(lsp)
+    request = _ENUM_FIXTURE["prepareRename"]["request"]
+
+    result = await lsp.text_document_prepare_rename_async(
+        types.PrepareRenameParams(
+            text_document=types.TextDocumentIdentifier(uri=_ORDERS_MDL.as_uri()),
+            position=_position(request),
+        )
+    )
+
+    assert isinstance(result, types.Range)
+    lines = _ENUM_SOURCE_TEXT.splitlines()
+    identifier = lines[result.start.line][result.start.character : result.end.character]
+    assert identifier == _ENUM_FIXTURE["prepareRename"]["expectPlaceholder"]
+
+
+@pytest.mark.parametrize("lsp", [_ENUM_WORKSPACE_ROOT], indirect=True)
+async def test_enum_fixture_rename_matches_browser_dispatch(lsp):
+    await _open_enum(lsp)
+    request = _ENUM_FIXTURE["rename"]["request"]
+
+    result = await lsp.text_document_rename_async(
+        types.RenameParams(
+            text_document=types.TextDocumentIdentifier(uri=_ORDERS_MDL.as_uri()),
+            position=_position(request),
+            new_name=request["newName"],
+        )
+    )
+
+    assert result is not None
+    edits = result.changes[_ORDERS_MDL.as_uri()]
+    assert len(edits) >= _ENUM_FIXTURE["rename"]["minEdits"]
+    assert all(edit.new_text == _ENUM_FIXTURE["rename"]["expectNewText"] for edit in edits)

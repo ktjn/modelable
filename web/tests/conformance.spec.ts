@@ -343,6 +343,123 @@ test('protocol v2 exposes definition, references, prepareRename, and rename', as
   expect(result.rename.edit.edits[0]!.new_text).toBe('Client');
 });
 
+test('protocol v2 exposes completion, hover, definition, references, and rename for enum-backed semantics', async ({
+  page,
+}) => {
+  // Evolution plan E11: mirrors the two tests above, which never exercised a
+  // `semantic` declaration or `enum projection` -- this is the browser-side
+  // half of tests/conformance/language/workspace-valid-enum.json's scenario
+  // (cli/tests/test_browser_conformance.py and test_lsp_conformance_fixture.py
+  // are the other two consumers of that same fixture; this spec does not
+  // fetch the JSON directly and instead keeps its own copy of the scenario
+  // in sync by hand, the same way the plain-model tests above already do).
+  await page.goto('?test=1');
+  await waitForReady(page);
+  const result = await page.evaluate(async () => {
+    const client = (
+      globalThis as typeof globalThis & {
+        __modelableBrowserCompiler?: TestClient;
+      }
+    ).__modelableBrowserCompiler;
+    if (client === undefined) {
+      throw new Error('Test client was not exposed');
+    }
+    const source: Source = {
+      uri: 'file:///orders.mdl',
+      text: [
+        'domain orders {',
+        '  owner: "team"',
+        '  semantic OrderStatus @ 1 (additive): enum(pending, active, done)',
+        '  enum projection PublicStatus @ 1 (additive)',
+        '    from OrderStatus @ 1',
+        '    pick(active, done)',
+        '  entity Order @ 1 (additive) {',
+        '    @key orderId: uuid',
+        '    status: orders.OrderStatus @ 1',
+        '  }',
+        '}',
+      ].join('\n'),
+      version: 1,
+    };
+    const workspaceRevision = 300;
+    await client.openWorkspace(workspaceRevision, [source]);
+
+    const completion = await client.completion({
+      workspaceRevision,
+      uri: source.uri,
+      line: 8,
+      character: 19,
+    });
+
+    const hover = await client.hover({
+      workspaceRevision,
+      uri: source.uri,
+      line: 8,
+      character: 20,
+    });
+
+    const definition = await client.definition({
+      workspaceRevision,
+      uri: source.uri,
+      line: 8,
+      character: 20,
+    });
+
+    const references = await client.references(
+      {
+        workspaceRevision,
+        uri: source.uri,
+        line: 8,
+        character: 20,
+      },
+      true,
+    );
+
+    const prepareRename = await client.prepareRename({
+      workspaceRevision,
+      uri: source.uri,
+      line: 2,
+      character: 12,
+    });
+
+    const rename = await client.rename(
+      {
+        workspaceRevision,
+        uri: source.uri,
+        line: 2,
+        character: 12,
+      },
+      'OrderState',
+    );
+
+    return {
+      labels: completion.items.map((item) => item.label),
+      hover: hover.hover?.markdown ?? null,
+      definition,
+      references,
+      prepareRename,
+      rename,
+    };
+  });
+
+  expect(result.labels).toEqual(['Order', 'OrderStatus', 'PublicStatus']);
+  expect(result.hover).toContain('enum(pending, active, done)');
+
+  expect(result.definition.location).not.toBeNull();
+  expect(result.definition.location!.uri).toBe('file:///orders.mdl');
+  expect(result.definition.location!.range.start.line).toBe(2);
+
+  expect(result.references.locations.length).toBeGreaterThanOrEqual(2);
+
+  expect(result.prepareRename.prepared).not.toBeNull();
+  expect(result.prepareRename.prepared!.placeholder).toBe('OrderStatus');
+
+  expect(result.rename.edit.edits.length).toBeGreaterThanOrEqual(2);
+  expect(
+    result.rename.edit.edits.every((edit) => edit.new_text === 'OrderState'),
+  ).toBe(true);
+});
+
 test('workspace.graph returns domain and entity mode graphs', async ({
   page,
 }) => {

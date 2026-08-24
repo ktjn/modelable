@@ -1,0 +1,76 @@
+{
+  "workspace": {
+    "workspaceRevision": 1,
+    "sources": [
+      {
+        "uri": "file:///orders.mdl",
+        "text": "domain orders {\n  owner: \"team\"\n  semantic OrderStatus @ 1 (additive): enum(pending, active, done)\n  enum projection PublicStatus @ 1 (additive)\n    from OrderStatus @ 1\n    pick(active, done)\n  entity Order @ 1 (additive) {\n    @key orderId: uuid\n    status: orders.OrderStatus @ 1\n  }\n}\n",
+        "version": 1
+      }
+    ]
+  },
+  "completion": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///orders.mdl",
+      "line": 8,
+      "character": 19
+    },
+    "labels": [
+      "Order",
+      "OrderStatus",
+      "PublicStatus"
+    ]
+  },
+  "hover": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///orders.mdl",
+      "line": 8,
+      "character": 20
+    },
+    "markdownContains": "enum(pending, active, done)"
+  },
+  "definition": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///orders.mdl",
+      "line": 8,
+      "character": 20
+    },
+    "expectLocation": {
+      "uri": "file:///orders.mdl",
+      "line": 2
+    }
+  },
+  "references": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///orders.mdl",
+      "line": 8,
+      "character": 20,
+      "includeDeclaration": true
+    },
+    "minCount": 2
+  },
+  "prepareRename": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///orders.mdl",
+      "line": 2,
+      "character": 12
+    },
+    "expectPlaceholder": "OrderStatus"
+  },
+  "rename": {
+    "request": {
+      "workspaceRevision": 1,
+      "uri": "file:///orders.mdl",
+      "line": 2,
+      "character": 12,
+      "newName": "OrderState"
+    },
+    "expectNewText": "OrderState",
+    "minEdits": 2
+  }
+}

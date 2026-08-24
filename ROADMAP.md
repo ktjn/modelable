@@ -1110,9 +1110,33 @@ that would otherwise trigger a premature stop) -- both bounded so a
 malformed or unusual declaration degrades to an imprecise range rather than
 an unbounded scan. Verified end-to-end including the body and no-body
 `semantic` cases and the `enum projection`-immediately-followed-by-another-
-declaration case, with 5 new tests. **Next:** cross-surface conformance
-fixtures. Then D7/D8's convergence gate. They build on D3 rather than
-introducing a second parallel enum declaration.
+declaration case, with 5 new tests. **Cross-surface conformance fixtures
+close out E11.** `cli/tests/conformance/language/workspace-valid.json` is a
+single shared fixture (workspace text + one request/expectation per
+capability) with three independent consumers that must all agree:
+`test_lsp_conformance_fixture.py` (real `pygls` subprocess), `test_browser_
+conformance.py` (in-process `dispatch_browser_request`), and `web/tests/
+conformance.spec.ts` (real Playwright browser -- which, notably, does
+*not* fetch the JSON; it keeps its own hand-written copy of the same
+scenario in sync, the same duplication-by-hand the plain-model tests
+already lived with). None of the three had ever exercised a `semantic`
+declaration or `enum projection` through this shared conformance path.
+Added a sibling fixture, `workspace-valid-enum.json` (a `semantic
+OrderStatus`, an `enum projection PublicStatus` picking from it, and an
+entity field referencing `OrderStatus` by qualified reference), and the
+matching test functions/spec in all three consumers, covering completion
+(the field-type domain-member list), hover, definition, references, and
+rename -- the same five capabilities the plain-model fixture covers.
+Verified against the real, rebuilt browser bundle (a stale local `dist/`
+build silently ran against pre-E11 compiled code on the first attempt,
+which is worth remembering: `npm run build` before trusting local
+Playwright runs against anything that isn't already covered by CI's
+fresh-build job). Completion coverage in the fixture doubles as a
+regression guard for the `_alias_field_candidates` fallback added in the
+completion PR, exercised end-to-end through all three surfaces rather than
+only in `language/` unit tests. **This closes out E11's editor/
+language-service slice.** Then D7/D8's convergence gate. They build on D3
+rather than introducing a second parallel enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions
