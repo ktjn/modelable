@@ -13,7 +13,8 @@ from modelable.language.dto import (
 )
 from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
-from modelable.parser.ir import DomainDef
+from modelable.parser.ir import DomainDef, EnumType, SemanticTypeDecl
+from modelable.registry.resolver import resolve_semantic_type_ref
 
 _KEYWORDS = (
     "domain",
@@ -66,6 +67,11 @@ _SOURCE_ALIAS_PATTERN = re.compile(
 )
 _IMPORT_DOMAIN_PATTERN = re.compile(r"\bimport\s+domain\s+[A-Za-z_][A-Za-z0-9_.-]*$")
 _DOMAIN_DECL_PATTERN = re.compile(r"^\s*domain\s+[A-Za-z_][A-Za-z0-9_-]*$")
+_ENUM_PROJECTION_HEADER_PATTERN = re.compile(r"^\s*enum\s+projection\s+[A-Za-z_][A-Za-z0-9_]*")
+_ENUM_PROJECTION_FROM_PATTERN = re.compile(r"^\s*from\s+(?P<name>[A-Za-z_][A-Za-z0-9_.]*)\s*@\s*(?P<version>\d+)\s*$")
+_PICK_OMIT_PATTERN = re.compile(
+    r"\b(?:pick|omit)\s*\(\s*(?P<already>(?:[A-Za-z_][A-Za-z0-9_]*\s*,\s*)*)(?P<prefix>[A-Za-z_][A-Za-z0-9_]*)?$"
+)
 
 
 @dataclass(frozen=True)
@@ -142,6 +148,8 @@ def _candidates(
         candidates = _annotation_candidates(prefix)
     elif _import_pin_model_context(before_cursor):
         candidates = _import_pin_model_candidates(catalog, before_cursor, prefix)
+    elif _pick_omit_context(before_cursor):
+        candidates = _pick_omit_candidates(workspace, text, line, before_cursor)
     elif _domain_context(before_cursor):
         candidates = _domain_candidates(workspace, prefix)
         candidates.extend(_catalog_domain_candidates(catalog, prefix))
@@ -427,6 +435,63 @@ def _import_pin_model_candidates(
         if domain == domain_name and (not model_prefix or model_name.lower().startswith(model_prefix.lower()))
     ]
     return _filtered_candidates(candidates, prefix)
+
+
+def _pick_omit_context(before_cursor: str) -> bool:
+    return bool(_PICK_OMIT_PATTERN.search(before_cursor))
+
+
+def _pick_omit_candidates(
+    workspace: Workspace,
+    text: str,
+    line: int,
+    before_cursor: str,
+) -> list[_Candidate]:
+    match = _PICK_OMIT_PATTERN.search(before_cursor)
+    if match is None:
+        return []
+    already = {item.strip() for item in match.group("already").split(",") if item.strip()}
+    member_prefix = match.group("prefix") or ""
+    source = _enum_projection_source_for_line(text, workspace, line)
+    if source is None:
+        return []
+    _declaring_domain, decl = source
+    if not isinstance(decl.underlying, EnumType):
+        return []
+    candidates = [_Candidate(value, "value") for value in decl.underlying.values if value not in already]
+    return _filtered_candidates(candidates, member_prefix)
+
+
+def _enum_projection_source_for_line(
+    text: str,
+    workspace: Workspace,
+    line: int,
+) -> tuple[str, SemanticTypeDecl] | None:
+    """Find the `from Source @ version` this line's `pick`/`omit` clause belongs
+    to by scanning backward for the nearest preceding `enum projection` header
+    and its `from` clause -- `pick`/`omit` only ever appears immediately after
+    one in the grammar, so the most recently seen pair is always correct."""
+    current_domain: str | None = None
+    pending_from: tuple[str, int] | None = None
+    for item in document_lines(text)[: line + 1]:
+        domain_match = _DOMAIN_PATTERN.match(item)
+        if domain_match:
+            current_domain = domain_match.group("quoted") or domain_match.group("name")
+            pending_from = None
+            continue
+        if _ENUM_PROJECTION_HEADER_PATTERN.match(item):
+            pending_from = None
+            continue
+        from_match = _ENUM_PROJECTION_FROM_PATTERN.match(item)
+        if from_match is not None:
+            pending_from = (from_match.group("name"), int(from_match.group("version")))
+    if current_domain is None or pending_from is None:
+        return None
+    source_name, source_version = pending_from
+    try:
+        return resolve_semantic_type_ref(workspace.mdl, current_domain, source_name, exact_version=source_version)
+    except LookupError:
+        return None
 
 
 def _alias_name(before_cursor: str) -> tuple[str, str] | None:

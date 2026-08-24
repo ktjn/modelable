@@ -1020,13 +1020,30 @@ This closes the general field-type completion gap and, as part of the same
 change, surfaces enum-backed types where they actually appear in the
 grammar. Verified end-to-end and with 3 new tests: full member list after a
 bare `domain.`, prefix filtering, and an unknown-domain alias still
-resolving to no candidates rather than erroring. **Next:** member resolution
-inside `pick`/`omit` against the exact source version (genuinely new logic,
-no existing pattern to extend), then rename-scoping to nominal identity
-(worth re-checking now that rename covers semantic/enum-projection
-declarations directly), then VS Code/Monaco mirroring and cross-surface
-conformance fixtures. Then D7/D8's convergence gate. They build on D3 rather
-than introducing a second parallel enum declaration.
+resolving to no candidates rather than erroring. **Member resolution inside
+`pick`/`omit` is done next.** The compiler side of this already shipped in
+E3 — `_expand_enum_projections` in `compiler/workspace.py` already resolves
+`pick`/`omit` against the *exact* source version and validates unknown or
+duplicate members — so this slice is purely editor-side: completing member
+names while typing inside a `pick(...)`/`omit(...)` clause. Added a new
+completion context (`_pick_omit_context`/`_pick_omit_candidates`) that
+detects an unclosed `pick(`/`omit(` on the current line and resolves the
+enclosing enum projection's source by scanning backward for the nearest
+`enum projection ... from Source @ version` pair — since `pick`/`omit` only
+ever appears immediately after one in the grammar, the most recently seen
+pair while scanning is always the correct one, even with multiple enum
+projections in the same domain and no explicit scope-reset needed. Offers
+the source enum's members via `resolve_semantic_type_ref` (the same exact-
+version resolver the compiler uses), minus whatever's already been typed in
+the clause, filtered by the in-progress prefix. Verified end-to-end and with
+6 new tests: unfiltered member list, already-selected exclusion, prefix
+filtering, `omit` parity, correct-source resolution with two enum
+projections in one domain, and empty results when the source can't resolve.
+**Next:** rename-scoping to nominal identity (worth re-checking now that
+rename covers semantic/enum-projection declarations directly), then VS
+Code/Monaco mirroring and cross-surface conformance fixtures. Then D7/D8's
+convergence gate. They build on D3 rather than introducing a second
+parallel enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions
