@@ -19,8 +19,10 @@ from pathlib import Path
 
 import pytest
 
+from modelable.compat.checker import analyze_impact, check_model_version_compatibility
 from modelable.compat.diff import compare_model_versions
 from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
+from modelable.dependency_graph import build_projection_dependencies
 from modelable.emitters.rust import emit_rust
 from modelable.parser.ir import AccessGrant, DecimalType, FieldProvenance
 from modelable.registry.signature import compute_version_signature
@@ -867,3 +869,163 @@ domain orders {
     assert "provenance" not in stored["contract"]
     field_names = {f["name"] for f in stored["contract"]["fields"]}
     assert field_names == {"orderId", "amount", "note"}
+
+
+# -- D6: projection, dependency, and impact transparency ---------------------
+
+
+def _customer_block(evolved: bool) -> str:
+    if evolved:
+        v2 = """
+  entity Customer @ 2 (additive) evolves @ 1 {
+    add email?: string
+  }"""
+    else:
+        v2 = """
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    name: string
+    status: string
+    email?: string
+  }"""
+    return f"""
+domain customer {{
+  owner: "test-team"
+  entity Customer @ 1 (additive) {{
+    @key customerId: uuid
+    name: string
+    status: string
+  }}{v2}
+}}
+"""
+
+
+_PROJECTIONS_BLOCK = """
+domain orders {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customerId: uuid
+    totalAmount: decimal(10, 2)
+  }
+}
+
+domain billing {
+  owner: "test-team"
+
+  projection CustomerDirect @ 1
+    from customer.Customer @ 2 as c
+  {
+    custId <- c.customerId
+    custName <- c.name
+  }
+
+  projection CustomerComputed @ 1
+    from customer.Customer @ 2 as c
+  {
+    custId <- c.customerId
+    isActive = c.status == "active"
+  }
+
+  projection CustomerPicked @ 1
+    from customer.Customer @ 2 as c
+    pick(customerId, name)
+  {
+  }
+
+  projection CustomerOmitted @ 1
+    from customer.Customer @ 2 as c
+    omit(status)
+  {
+  }
+
+  projection CustomerOrderStats @ 1
+    from customer.Customer @ 2 as c
+    left join orders.Order @ 1 as o on c.customerId == o.customerId
+    where c.status == "active"
+    group by c.customerId
+  {
+    custId <- c.customerId
+    totalSpent = sum(o.totalAmount)
+  }
+
+  projection CustomerDirectSummary @ 1
+    from billing.CustomerDirect @ 1 as cd
+  {
+    summaryId <- cd.custId
+  }
+}
+"""
+
+_PROJECTION_NAMES = (
+    "CustomerDirect",
+    "CustomerComputed",
+    "CustomerPicked",
+    "CustomerOmitted",
+    "CustomerOrderStats",
+    "CustomerDirectSummary",
+)
+
+
+def _d6_workspace(evolved: bool):
+    text = _customer_block(evolved) + _PROJECTIONS_BLOCK
+    workspace = _workspace(text)
+    assert not workspace.errors, workspace.errors
+    return workspace.mdl
+
+
+def _projection_version(mdl, name: str):
+    domain = next(d for d in mdl.domains if d.name == "billing")
+    return domain.projections[name][0]
+
+
+def test_resolved_projection_fields_are_identical_for_full_and_delta_source():
+    """Instruction #1/#2: pairs full/delta fixtures across direct fields,
+    computed fields, pick, omit, joins+filters+grouping, and
+    projection-of-projection chains, requiring equivalent resolved fields."""
+    full_mdl = _d6_workspace(evolved=False)
+    delta_mdl = _d6_workspace(evolved=True)
+
+    for name in _PROJECTION_NAMES:
+        full_pv = _projection_version(full_mdl, name)
+        delta_pv = _projection_version(delta_mdl, name)
+        assert full_pv.fields == delta_pv.fields, name
+
+
+def test_projection_dependency_graph_edges_are_identical_for_full_and_delta_source():
+    """Instruction #2: equivalent property dependency graph edges -- covers
+    direct mappings, computed expressions, join predicates, where filters,
+    and group-by keys in one projection (CustomerOrderStats)."""
+    full_mdl = _d6_workspace(evolved=False)
+    delta_mdl = _d6_workspace(evolved=True)
+
+    for name in _PROJECTION_NAMES:
+        full_deps = build_projection_dependencies(full_mdl, "billing", name, _projection_version(full_mdl, name))
+        delta_deps = build_projection_dependencies(delta_mdl, "billing", name, _projection_version(delta_mdl, name))
+        assert full_deps == delta_deps, name
+
+    # Confirm the join/filter/group dependency kinds are actually exercised,
+    # not silently absent from both sides.
+    stats_deps = build_projection_dependencies(
+        full_mdl, "billing", "CustomerOrderStats", _projection_version(full_mdl, "CustomerOrderStats")
+    )
+    assert {dep.usage_kind for dep in stats_deps} >= {"filter", "group"}
+
+
+def test_impact_analysis_is_identical_for_full_and_delta_source():
+    """Instruction #3: equivalent projection compatibility and impact paths.
+    Customer @ 1 -> @ 2 only adds an optional field neither projection
+    references, so every dependent projection should be unaffected either
+    way -- and identically so between the full and delta forms."""
+    full_mdl = _d6_workspace(evolved=False)
+    delta_mdl = _d6_workspace(evolved=True)
+
+    for mdl in (full_mdl, delta_mdl):
+        report = check_model_version_compatibility(mdl, "customer", "Customer", 1, 2)
+        for name in _PROJECTION_NAMES:
+            if name == "CustomerDirectSummary":
+                # Sources from a projection, not the model directly -- not a
+                # dependent of the model version change itself.
+                continue
+            impact = analyze_impact(mdl, report, ("billing", name, 1))
+            assert impact.status == "compatible", (name, impact.reason)

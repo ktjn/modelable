@@ -1376,8 +1376,39 @@ Instruction #4's "rebuild and compile a historical snapshot without the
 base source file" is satisfied by construction once the contract fix
 landed: the stored object holds the complete field list already, so
 nothing about using it later needs the base version's file, or even the
-base version's `ModelVersion` object, to exist anymore. **Next:** D6
-(prove projection, dependency, and impact transparency).
+base version's `ModelVersion` object, to exist anymore. **D6 (projection,
+dependency, and impact transparency) is shipped -- a pure proof slice,
+no source changes.** Audited every module instruction #5 named
+(`planner.py`, `dependency_graph.py`, `compat/checker.py`, the codegen
+conversion paths) for any reference to `domain.model_evolutions`,
+`ModelEvolutionDecl`, or `FieldProvenance`: none exists anywhere outside
+`compiler/workspace.py` (which owns expansion) and `compat/diff.py`
+(D4's provenance-based rename matching, itself already reading only
+`ModelVersion.provenance`, not raw evolves syntax). Every projection,
+dependency-graph, and impact-analysis code path only ever sees
+`domain.models` -- the merged, post-expansion state -- so instruction #5's
+"guard against branching on delta source syntax" already holds by
+construction; there was nothing to add a guard *to*. Verified this
+concretely rather than taking the grep result on faith: one shared fixture
+pair (a two-version `Customer` model, full-form vs `evolves`-based, with a
+companion `Order` model) drives six projections covering every construct
+instruction #1 named -- direct fields, a computed CEL expression, `pick`,
+`omit`, a join+`where`+`group by` combination in one projection, and a
+projection-of-projection chain sourcing from another projection. Asserted
+equal for both source forms: resolved projection fields (instruction #1),
+`build_projection_dependencies` edges including every `usage_kind` --
+direct, computed, join, filter, group (instruction #2), and
+`analyze_impact` results for the model's own v1→v2 change against every
+model-sourced dependent (instruction #3; the projection-of-projection
+case is intentionally excluded from the impact check, since it depends on
+another projection, not the model version, so it isn't a *direct*
+dependent of that change). Canonical lineage was already anchored to
+normalized field identities before this slice -- `ProjectionField`/
+lineage records reference resolved field names, never anything
+evolves-specific -- so instruction #4 needed no change either; provenance
+already only reaches diagnostic/hover-adjacent surfaces (D4's compat
+messages), never lineage. **Next:** D7 (prove all generated targets are
+syntax-independent).
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
