@@ -59,7 +59,74 @@ def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion)
     matched_old: set[str] = set()
     matched_new: set[str] = set()
 
+    # Evolution plan D4: an explicit `rename old -> new` inside `evolves` is
+    # never ambiguous the way name-similarity or @deprecated(replacedBy: ...)
+    # inference is -- match on that provenance first. ModelVersion.provenance
+    # is empty for a hand-written full-form version, so this is a no-op there
+    # and falls straight through to the existing @deprecated-based detection.
+    for entry in new_version.provenance:
+        # A field renamed and then later replaced in the same evolves block
+        # keeps origin == "replace" (the last operation to touch it) but
+        # still carries renamed_from -- it was still renamed.
+        if entry.renamed_from is None:
+            continue
+        if entry.renamed_from == entry.field_name:
+            # A no-op rename (old == new name) changes nothing observable;
+            # treating it as a structural rename would spuriously classify
+            # an identical field as breaking.
+            continue
+        old_field = old_fields.get(entry.renamed_from)
+        new_field = new_fields.get(entry.field_name)
+        if old_field is None or new_field is None:
+            continue
+        if entry.renamed_from in matched_old or entry.field_name in matched_new:
+            continue
+        changes.append(
+            FieldChange(
+                kind="renamed_field",
+                field_name=old_field.name,
+                previous_name=old_field.name,
+                replacement=entry.field_name,
+                from_optional=old_field.optional,
+                to_optional=new_field.optional,
+                from_nullable=old_field.nullable,
+                to_nullable=new_field.nullable,
+                from_type=_type_signature(old_field),
+                to_type=_type_signature(new_field),
+                note="declared via evolves rename",
+            )
+        )
+        if old_field.optional != new_field.optional:
+            changes.append(
+                FieldChange(
+                    kind="presence_changed",
+                    field_name=entry.field_name,
+                    from_optional=old_field.optional,
+                    to_optional=new_field.optional,
+                    from_nullable=old_field.nullable,
+                    to_nullable=new_field.nullable,
+                    from_type=_type_signature(old_field),
+                    to_type=_type_signature(new_field),
+                )
+            )
+        if old_field.nullable != new_field.nullable:
+            changes.append(
+                FieldChange(
+                    kind="nullability_changed",
+                    field_name=entry.field_name,
+                    from_nullable=old_field.nullable,
+                    to_nullable=new_field.nullable,
+                    from_type=_type_signature(old_field),
+                    to_type=_type_signature(new_field),
+                )
+            )
+        changes.extend(_compare_field_types(old_field, new_field, entry.field_name))
+        matched_old.add(entry.renamed_from)
+        matched_new.add(entry.field_name)
+
     for old_field in old_version.fields:
+        if old_field.name in matched_old:
+            continue
         replacement = _deprecated_replacement(old_field)
         if replacement is None:
             continue

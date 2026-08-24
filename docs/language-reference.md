@@ -320,14 +320,18 @@ independently at the domain level.
 
 **Compatibility note:** compatibility classification (`(additive)` /
 `(breaking)`) is derived from the *expanded* field list by comparing it
-against the base, the same way it compares any two full-form versions —
-it does not yet use the `rename`/`remove` provenance above to distinguish a
-declared rename from an unrelated delete-and-add. A `rename` or `remove`
-inside an `evolves` block is today classified exactly like a bare field
-deletion would be, which means it requires `(breaking)` even when the field
-was demonstrably renamed rather than dropped. Teaching compatibility to
-recognize a declared rename as compatible is planned but not yet
-implemented.
+against the base, the same way it compares any two full-form versions.
+A `rename` still requires `(breaking)` — the old field name genuinely stops
+existing, which is source-breaking regardless of intent — but the
+provenance recorded above lets the comparison identify *which* removed name
+and added name are actually the same field renamed, rather than treating
+them as two unrelated changes. This matters when a `rename` shares an
+`evolves` block with an unrelated `remove`/`add`: without provenance, all
+four field-name changes would be indistinguishable; with it, the rename is
+reported as one `renamed_field` fact instead of contributing to a pile of
+unrelated `removed_field`/`added_field` facts, and diagnostics name the
+responsible operation (e.g. "`renamed_field total (declared via evolves
+rename)`") rather than leaving the reader to guess.
 
 ---
 

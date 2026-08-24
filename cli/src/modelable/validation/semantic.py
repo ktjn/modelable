@@ -4,7 +4,7 @@ import re
 from itertools import pairwise
 from pathlib import Path
 
-from modelable.compat.diff import compare_model_versions, is_field_change_breaking, is_optionality_breaking
+from modelable.compat.diff import FieldChange, compare_model_versions, is_field_change_breaking, is_optionality_breaking
 from modelable.diagnostics.model import Diagnostic
 from modelable.emitters.naming import apply_case_style, find_identifier_collisions
 from modelable.parser.ir import (
@@ -376,6 +376,22 @@ def _validate_projections(
                     _validate_enum_members(f"{fqn}@{version.version}", field.name, source_type, diagnostics, path)
 
 
+def _operation_note(version: ModelVersion, field_name: str) -> str:
+    """Evolution plan D4: name the `evolves` operation responsible for a
+    field, when the expanded version carries that provenance (empty for a
+    hand-written full-form version, whose ``provenance`` is always empty)."""
+    for entry in version.provenance:
+        if entry.field_name == field_name and entry.origin != "inherited":
+            return f" (via evolves {entry.origin})"
+    return ""
+
+
+def _change_note(change: FieldChange, current: ModelVersion) -> str:
+    if change.note:
+        return f" ({change.note})"
+    return _operation_note(current, change.field_name)
+
+
 def _validate_change_kind(
     fqn: str,
     previous: ModelVersion,
@@ -393,7 +409,9 @@ def _validate_change_kind(
         if change.kind == "added_field":
             field = _find_field(current, change.field_name)
             if field is None or not field.optional:
-                incompatible_changes.append(f"added required field {change.field_name}")
+                incompatible_changes.append(
+                    f"added required field {change.field_name}{_operation_note(current, change.field_name)}"
+                )
             continue
 
         if change.kind == "presence_changed":
@@ -402,7 +420,7 @@ def _validate_change_kind(
             incompatible_changes.append(f"presence change {change.field_name}")
             continue
 
-        incompatible_changes.append(f"{change.kind} {change.field_name}")
+        incompatible_changes.append(f"{change.kind} {change.field_name}{_change_note(change, current)}")
 
     context = f"{fqn}@{current.version}"
     if current.change_kind == ChangeKind.additive:
