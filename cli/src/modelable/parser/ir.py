@@ -371,6 +371,32 @@ class ModelVersion(BaseModel):
         return wire_targets_from_annotations(self.annotations)
 
 
+class AddFieldOp(BaseModel):
+    """A single `add` operation inside a `evolves @ N` block (evolution plan D1)."""
+
+    field: FieldDef
+
+
+class ModelEvolutionDecl(BaseModel):
+    """A model version authored as a delta against an exact prior version via
+    `evolves @ N`, rather than a complete field list (evolution plan D1).
+
+    Source-only form: workspace expansion resolves ``base_version`` against
+    the model's existing version history, deep-copies that version's fields,
+    and applies ``operations`` in order to produce a complete ``ModelVersion``
+    before semantic validation ever runs -- canonical ``ModelVersion`` never
+    carries partial or delta state.
+    """
+
+    model_kind: ModelKind
+    name: str
+    version: int
+    change_kind: ChangeKind = ChangeKind.additive
+    has_change_kind: bool = False
+    base_version: int
+    operations: list[AddFieldOp] = Field(default_factory=list)
+
+
 class VersionExact(BaseModel):
     kind: Literal["exact"] = "exact"
     version: int
@@ -640,6 +666,7 @@ class DomainDef(BaseModel):
     semantic_types: list[SemanticTypeDecl] = Field(default_factory=list)
     enum_projections: list[EnumProjectionDecl] = Field(default_factory=list)
     index_decls: list[IndexDecl] = Field(default_factory=list)
+    model_evolutions: list[ModelEvolutionDecl] = Field(default_factory=list)
 
 
 class PackageConfig(BaseModel):

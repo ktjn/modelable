@@ -38,6 +38,7 @@ domain_item: owner_attr
            | contact_attr
            | desc_attr
            | model_decl
+           | model_evolution_decl
            | projection_decl
            | enum_projection_decl
            | auto_projections_decl
@@ -61,6 +62,14 @@ model_change: "(" change_kind ")"
 model_body_item: field_decl
                | access_block
                | reservation_block
+
+// -- Model version deltas (evolution plan D1: add-only) ----------------------
+// A model version authored as a delta against an exact prior version rather
+// than a complete field list. The base version resolves within the same
+// domain/model/kind at workspace-normalization time, not at parse time.
+model_evolution_decl: model_kind IDENT "@" INT model_change? "evolves" "@" INT "{" evolution_item* "}"
+evolution_item: add_operation
+add_operation: "add" field_decl
 
 model_kind: "entity"    -> mk_entity
           | "aggregate" -> mk_aggregate
@@ -380,6 +389,7 @@ Alphabetical listing of every named rule and its production.
 |---|---|
 | `access_block` | `"access" "{" access_item* "}"` |
 | `access_item` | `entity_grant \| property_grant` |
+| `add_operation` | `"add" field_decl` |
 | `ai_block` | `"ai" "{" ai_item* "}"` |
 | `ai_item` | `ai_provider \| ai_model \| ai_repair_attempts` |
 | `ai_model` | `"model" ":" ESCAPED_STRING` |
@@ -412,7 +422,7 @@ Alphabetical listing of every named rule and its production.
 | `decimal_type` | `"decimal" "(" INT "," INT ")"` |
 | `desc_attr` | `"description" ":" ESCAPED_STRING` |
 | `domain_decl` | `"domain" domain_name "{" domain_item* "}"` |
-| `domain_item` | `owner_attr \| contact_attr \| desc_attr \| model_decl \| projection_decl \| enum_projection_decl \| auto_projections_decl \| api_decl \| generate_block \| semantic_decl \| index_decl` |
+| `domain_item` | `owner_attr \| contact_attr \| desc_attr \| model_decl \| model_evolution_decl \| projection_decl \| enum_projection_decl \| auto_projections_decl \| api_decl \| generate_block \| semantic_decl \| index_decl` |
 | `domain_name` | `IDENT \| ESCAPED_STRING` |
 | `dotted_ref` | `IDENT ("." IDENT)*` |
 | `entity_grant` | `"entity" principal permission_list` |
@@ -420,6 +430,7 @@ Alphabetical listing of every named rule and its production.
 | `enum_projection_decl` | `"enum" "projection" IDENT semantic_header? "from" dotted_ref "@" INT pick_or_omit_clause` |
 | `enum_ref_type` | `dotted_ref "@" INT` |
 | `enum_type` | `"enum" "(" enum_member ("," enum_member)* ")"` |
+| `evolution_item` | `add_operation` |
 | `exclude_option` | `"exclude" "[" auto_projection_exclusion ("," auto_projection_exclusion)* "]"` |
 | `field_decl` | `annotation* IDENT optional_marker? ":" type_expr nullable_marker? constraint_clause* field_default?` |
 | `field_default` | `"=" EXPRESSION` |
@@ -445,6 +456,7 @@ Alphabetical listing of every named rule and its production.
 | `model_body_item` | `field_decl \| access_block \| reservation_block` |
 | `model_change` | `"(" change_kind ")"` |
 | `model_decl` | `wire_annotation* model_kind IDENT model_header? "{" model_body_item* "}"` |
+| `model_evolution_decl` | `model_kind IDENT "@" INT model_change? "evolves" "@" INT "{" evolution_item* "}"` |
 | `model_header` | `"@" INT model_change? \| model_change` |
 | `model_kind` | `"entity"    -> mk_entity \| "aggregate" -> mk_aggregate \| "event"     -> mk_event \| "value"     -> mk_value` |
 | `nullable_marker` | `"?"` |

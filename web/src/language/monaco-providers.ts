@@ -27,6 +27,8 @@ export function registerModelableProviders(
       'owner',
       'contact',
       'description',
+      'evolves',
+      'add',
       'entity',
       'aggregate',
       'event',
