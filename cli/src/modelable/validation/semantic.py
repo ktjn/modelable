@@ -20,6 +20,7 @@ from modelable.parser.ir import (
     FieldDef,
     FieldType,
     FixedBinaryType,
+    IndexDecl,
     MapType,
     MdlFile,
     ModelKind,
@@ -1123,68 +1124,113 @@ def _validate_index_decls(
         seen_model_versions.add((decl.model, decl.version))
 
         model_versions = domain.models.get(decl.model)
-        if model_versions is None:
-            diagnostics.append(_diag("SEM", f"{fqn}: index references unknown model '{decl.model}'", path))
+        model_version = next((mv for mv in (model_versions or []) if mv.version == decl.version), None)
+        if model_version is None:
+            # An evolves-declared version isn't expanded into domain.models
+            # until workspace.py::_expand_model_evolutions runs, which is
+            # after this per-source validation pass -- see D8. Its full
+            # field list (and therefore the field-based checks in
+            # _validate_index_decl_against_version) genuinely isn't known
+            # yet, but the model/version itself is not an error: skip the
+            # deeper checks here rather than rejecting valid code.
+            # workspace.py re-runs those checks once expansion has happened.
+            if any(
+                evolution.name == decl.model and evolution.version == decl.version
+                for evolution in domain.model_evolutions
+            ):
+                continue
+            if model_versions is None:
+                diagnostics.append(_diag("SEM", f"{fqn}: index references unknown model '{decl.model}'", path))
+            else:
+                diagnostics.append(
+                    _diag("SEM", f"{fqn}: index references {decl.model}@{decl.version} which does not exist", path)
+                )
             continue
+
+        _validate_index_decl_against_version(domain.name, decl, model_version, diagnostics, path)
+
+
+def _validate_index_decl_against_version(
+    domain_name: str,
+    decl: IndexDecl,
+    model_version: ModelVersion,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    fqn = f"{domain_name}.{decl.model}@{decl.version}"
+
+    if model_version.model_kind not in (ModelKind.entity, ModelKind.aggregate):
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: index may only target 'entity' or 'aggregate' models, "
+                f"but '{decl.model}' is '{model_version.model_kind.value}'",
+                path,
+            )
+        )
+        return
+
+    field_names = {field.name for field in model_version.fields}
+    key_field_names = {field.name for field in model_version.fields if field.is_key}
+
+    if set(decl.primary) != key_field_names:
+        diagnostics.append(
+            _diag(
+                "SEM",
+                f"{fqn}: index primary {sorted(decl.primary)} must exactly match "
+                f"the model's @key field(s) {sorted(key_field_names)}",
+                path,
+            )
+        )
+
+    seen_secondary_names: set[str] = set()
+    for secondary in decl.secondary:
+        if secondary.name in seen_secondary_names:
+            diagnostics.append(
+                _diag("SEM", f"{fqn}: secondary index '{secondary.name}' is declared more than once", path)
+            )
+        seen_secondary_names.add(secondary.name)
+
+        for field_name in secondary.key:
+            if field_name not in field_names:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{fqn}: secondary index '{secondary.name}' references undeclared field "
+                        f"'{field_name}' in 'key'",
+                        path,
+                    )
+                )
+        for sort_field in secondary.sort:
+            if sort_field.field not in field_names:
+                diagnostics.append(
+                    _diag(
+                        "SEM",
+                        f"{fqn}: secondary index '{secondary.name}' references undeclared field "
+                        f"'{sort_field.field}' in 'sort'",
+                        path,
+                    )
+                )
+
+
+def _validate_index_decls_against_evolved_versions(
+    domain: DomainDef,
+    diagnostics: list[Diagnostic],
+    path: str | Path | None,
+) -> None:
+    """Complete the field-based checks _validate_index_decls skipped for any
+    `index` declaration targeting an evolves-declared version, now that
+    workspace.py::_expand_model_evolutions has populated domain.models with
+    that version's full field list."""
+    evolved_versions = {(evolution.name, evolution.version) for evolution in domain.model_evolutions}
+    for decl in domain.index_decls:
+        if (decl.model, decl.version) not in evolved_versions:
+            continue
+        model_versions = domain.models.get(decl.model, [])
         model_version = next((mv for mv in model_versions if mv.version == decl.version), None)
         if model_version is None:
-            diagnostics.append(
-                _diag("SEM", f"{fqn}: index references {decl.model}@{decl.version} which does not exist", path)
-            )
             continue
-
-        if model_version.model_kind not in (ModelKind.entity, ModelKind.aggregate):
-            diagnostics.append(
-                _diag(
-                    "SEM",
-                    f"{fqn}: index may only target 'entity' or 'aggregate' models, "
-                    f"but '{decl.model}' is '{model_version.model_kind.value}'",
-                    path,
-                )
-            )
-            continue
-
-        field_names = {field.name for field in model_version.fields}
-        key_field_names = {field.name for field in model_version.fields if field.is_key}
-
-        if set(decl.primary) != key_field_names:
-            diagnostics.append(
-                _diag(
-                    "SEM",
-                    f"{fqn}: index primary {sorted(decl.primary)} must exactly match "
-                    f"the model's @key field(s) {sorted(key_field_names)}",
-                    path,
-                )
-            )
-
-        seen_secondary_names: set[str] = set()
-        for secondary in decl.secondary:
-            if secondary.name in seen_secondary_names:
-                diagnostics.append(
-                    _diag("SEM", f"{fqn}: secondary index '{secondary.name}' is declared more than once", path)
-                )
-            seen_secondary_names.add(secondary.name)
-
-            for field_name in secondary.key:
-                if field_name not in field_names:
-                    diagnostics.append(
-                        _diag(
-                            "SEM",
-                            f"{fqn}: secondary index '{secondary.name}' references undeclared field "
-                            f"'{field_name}' in 'key'",
-                            path,
-                        )
-                    )
-            for sort_field in secondary.sort:
-                if sort_field.field not in field_names:
-                    diagnostics.append(
-                        _diag(
-                            "SEM",
-                            f"{fqn}: secondary index '{secondary.name}' references undeclared field "
-                            f"'{sort_field.field}' in 'sort'",
-                            path,
-                        )
-                    )
+        _validate_index_decl_against_version(domain.name, decl, model_version, diagnostics, path)
 
 
 def _iter_ref_types(field_type: FieldType) -> list[RefType]:

@@ -35,6 +35,7 @@ from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type
 from modelable.validation.deferred_syntax import find_deferred_syntax_diagnostics
 from modelable.validation.semantic import (
     _validate_change_kind,
+    _validate_index_decls_against_evolved_versions,
     _validate_models,
     validate_diagnostics,
     validate_ref_type_field,
@@ -126,6 +127,21 @@ def load_workspace_from_sources(
             merged.workspace = mdl.workspace
 
     errors.extend(_expand_model_evolutions(merged))
+    for domain in merged.domains:
+        _validate_index_decls_against_evolved_versions(domain, errors, "<workspace>")
+        # Evolves-declared versions are appended to domain.models above in
+        # domain.model_evolutions' declaration order, which can leave a
+        # model's version list out of ascending order whenever a full-form
+        # version is interleaved between evolves-form ones (e.g. v1, v2
+        # evolves, v3 evolves, v5 full, v8 evolves -- v5 parses straight
+        # into domain.models before the evolves versions are appended,
+        # landing before v2/v3/v8 in list order). Every downstream consumer
+        # that iterates a model's versions (codegen targets, docs/lineage
+        # emitters) expects ascending order, matching what a pure full-form
+        # file naturally produces -- so normalize once, here, rather than
+        # in each consumer.
+        for versions in domain.models.values():
+            versions.sort(key=lambda version: version.version)
 
     if config is not None:
         try:
