@@ -260,6 +260,16 @@ jobs:
         env:
           PLAYWRIGHT_PROJECT: ${{ matrix.browser }}
 
+      - name: Report flaky e2e tests
+        # Retries (playwright.config.ts) absorb an intermittent failure so
+        # the job doesn't go red, but a test that needed one is still worth
+        # knowing about -- surfaced as a warning annotation rather than
+        # silently disappearing. Runs even if the e2e step failed outright,
+        # since some tests in that run may still have been flaky-but-passed.
+        if: always()
+        run: npm run report:flaky
+        working-directory: web
+
       - name: Upload Playwright report on failure
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7.0.1
