@@ -13,6 +13,7 @@ from modelable.language.dto import (
 )
 from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
+from modelable.parser.ir import DomainDef
 
 _KEYWORDS = (
     "domain",
@@ -260,22 +261,39 @@ def _alias_field_candidates(
     before_cursor: str,
     prefix: str,
 ) -> list[_Candidate]:
-    if scope is None:
-        return []
     alias_match = _alias_name(before_cursor)
     if alias_match is None:
         return []
     alias, alias_prefix = alias_match
-    reference = _projection_reference_for_alias(text, scope, line, alias)
-    if reference is None:
-        return []
 
-    domain_name, model_name, version = reference
-    fields = _workspace_fields(workspace, domain_name, model_name, version)
-    if not fields and catalog is not None:
-        fields = tuple(sorted(catalog.field_names(domain_name, model_name, version)))
-    candidates = [_Candidate(field_name, "property") for field_name in fields]
+    if scope is not None:
+        reference = _projection_reference_for_alias(text, scope, line, alias)
+        if reference is not None:
+            domain_name, model_name, version = reference
+            fields = _workspace_fields(workspace, domain_name, model_name, version)
+            if not fields and catalog is not None:
+                fields = tuple(sorted(catalog.field_names(domain_name, model_name, version)))
+            candidates = [_Candidate(field_name, "property") for field_name in fields]
+            return _filtered_candidates(candidates, alias_prefix or prefix)
+
+    # Not a projection-source alias -- if it names a domain directly (the
+    # shape a field type reference takes, e.g. `status: orders.OrderStatus @
+    # 1`), offer everything the domain declares: models, projections,
+    # semantic types, and enum projections.
+    domain = next((item for item in workspace.mdl.domains if item.name == alias), None)
+    if domain is None:
+        return []
+    candidates = _domain_member_candidates(domain)
     return _filtered_candidates(candidates, alias_prefix or prefix)
+
+
+def _domain_member_candidates(domain: DomainDef) -> list[_Candidate]:
+    names: set[str] = set()
+    names.update(domain.models)
+    names.update(domain.projections)
+    names.update(item.name for item in domain.semantic_types)
+    names.update(item.name for item in domain.enum_projections)
+    return [_Candidate(name, "class") for name in sorted(names)]
 
 
 def _version_candidates(

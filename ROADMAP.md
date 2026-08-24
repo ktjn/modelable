@@ -1001,12 +1001,29 @@ just from a qualified reference to them elsewhere. Verified end-to-end:
 renaming via the qualified field reference, renaming from the semantic
 declaration's own name, and renaming from the enum projection's own name all
 produce the correct edit sets, and the same intervening-`semantic`-decl scope
-regression is guarded here too. **Next:** completion (analogous
-`domain.semantic_types`/`domain.enum_projections` branch plus the same
-`_DECL_PATTERN`/`_ENUM_PROJECTION_DECL_PATTERN` treatment), then member
-resolution inside `pick`/`omit` against the exact source version (genuinely
-new logic, no existing pattern to extend), then rename-scoping to nominal
-identity (worth re-checking now that rename covers semantic/enum-projection
+regression is guarded here too. **Completion is done next, but it turned out
+not to fit the pattern the other four services used.** `completion.py` has
+no qualified-reference resolver to extend the way hover/definition/references/
+rename did — its only dotted-reference completion trigger is `_reference_context`
+(`from `/`join `), which is specific to projection sources and correctly
+excludes semantic types and enum projections (neither can be a projection
+source). The actual gap was upstream of anything enum-specific: a field type
+reference like `status: orders.OrderStatus @ 1` typed as `status: orders.`
+triggered `_alias_context` (any bare `word.` at the cursor), which only ever
+resolved projection-source aliases and silently returned nothing otherwise —
+true for models and projections too, not just semantic types. Fixed by
+extending `_alias_field_candidates` to fall back to "does the alias name an
+actual domain" once the projection-alias lookup misses, returning every
+member the domain declares (models, projections, semantic types, and enum
+projections, all as `class`-kind candidates) filtered by the typed prefix.
+This closes the general field-type completion gap and, as part of the same
+change, surfaces enum-backed types where they actually appear in the
+grammar. Verified end-to-end and with 3 new tests: full member list after a
+bare `domain.`, prefix filtering, and an unknown-domain alias still
+resolving to no candidates rather than erroring. **Next:** member resolution
+inside `pick`/`omit` against the exact source version (genuinely new logic,
+no existing pattern to extend), then rename-scoping to nominal identity
+(worth re-checking now that rename covers semantic/enum-projection
 declarations directly), then VS Code/Monaco mirroring and cross-surface
 conformance fixtures. Then D7/D8's convergence gate. They build on D3 rather
 than introducing a second parallel enum declaration.
