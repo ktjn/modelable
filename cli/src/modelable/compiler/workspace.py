@@ -554,6 +554,18 @@ def _expand_enum_projections(merged: MdlFile) -> tuple[list[Diagnostic], list[Di
                         path="<workspace>",
                     )
                 )
+            if projection.name in domain.projections:
+                errors.append(
+                    Diagnostic(
+                        code="SEM",
+                        message=(
+                            f"{domain.name}: enum projection '{projection.name}' collides with a "
+                            "projection of the same name"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
             if any(item.name == projection.name for item in domain.semantic_types):
                 errors.append(
                     Diagnostic(

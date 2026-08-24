@@ -1039,11 +1039,42 @@ the clause, filtered by the in-progress prefix. Verified end-to-end and with
 6 new tests: unfiltered member list, already-selected exclusion, prefix
 filtering, `omit` parity, correct-source resolution with two enum
 projections in one domain, and empty results when the source can't resolve.
-**Next:** rename-scoping to nominal identity (worth re-checking now that
-rename covers semantic/enum-projection declarations directly), then VS
-Code/Monaco mirroring and cross-surface conformance fixtures. Then D7/D8's
-convergence gate. They build on D3 rather than introducing a second
-parallel enum declaration.
+**Rename-scoping to nominal identity found a real bug, not just a
+theoretical one, and it was fixed at the source rather than in each
+regex-based resolver.** All five language services (hover, definition,
+references, rename, completion) resolve a qualified reference
+`domain.Name@version` by checking `domain.models`, then `domain.projections`,
+then `domain.semantic_types`, then `domain.enum_projections`, in that fixed
+priority order, regardless of the syntactic position the reference appears
+in -- consistent with the token-based (not IR-based) architecture the E11
+survey identified at the start of this slice. The compiler already forbids
+a semantic type or enum projection from colliding in name with a *model* in
+the same domain, but nothing forbade a semantic type or an enum projection
+from colliding in name with a *projection* -- so `projection Status @ 1`
+and `semantic Status @ 1 (additive): enum(...)` coexisting in one domain was
+a valid, compiling workspace. Confirmed the consequence directly: renaming
+through a field's qualified reference to the semantic type
+(`status: orders.Status @ 1`) silently renamed the *projection* declaration
+instead (checked first in every resolver's priority order) and left the
+semantic type itself untouched -- a real, silent misrouting bug, not a
+hypothetical one. Rather than patching priority order in five separate
+regex-based resolvers (which only reduces the odds of misrouting, since the
+underlying ambiguity -- one qualified-reference syntax, four possible
+referent kinds, no position-aware parsing -- is inherent to this
+architecture), fixed it at the source: added the missing collision checks
+(`validation/semantic.py` for semantic-type-vs-projection,
+`compiler/workspace.py`'s `_expand_enum_projections` for
+enum-projection-vs-projection) so the ambiguous state can no longer exist in
+a workspace that compiles cleanly, symmetric with the existing
+model-collision checks. Verified with 2 new regression tests pinning both
+diagnostics. A separate, older, non-enum-specific gap was found in the same
+pass -- models and projections can *also* collide in name with each other,
+with the same misrouting consequence for their own qualified references --
+but that predates this enum work entirely and is deliberately left
+unfixed here; it belongs in its own compiler-validation slice, not smuggled
+into an enum-focused audit. **Next:** VS Code/Monaco mirroring and
+cross-surface conformance fixtures. Then D7/D8's convergence gate. They
+build on D3 rather than introducing a second parallel enum declaration.
 Depended on by D4.
 
 #### Slice D4 — discriminated unions
