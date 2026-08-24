@@ -1547,6 +1547,71 @@ new name's own token completely untouched; invoking rename directly on the
 closes out D8 and the full D-series (D1-D8) of the Model Evolution Slices
 Roadmap.**
 
+**Q1 (combined feature qualification) is starting.** Q1 is the convergence
+gate depending on E10, E11, and D8 -- it proves semantic enums, enum
+projections, and `evolves` deltas compose correctly through every semantic
+and generated surface, using one compact history rather than each feature's
+own narrow fixture. `cli/tests/test_q1_convergence.py` adds a single
+`catalog.Product` model with a full v1, an additive delta v2, a breaking
+delta v3, a full-form "reset" v5 (proving delta authoring is opt-in per
+version, not sticky once started), and an additive delta v8 -- deliberately
+interleaving full-form and delta-form versions rather than picking one
+style, since that's exactly the combination no earlier D-slice fixture
+exercised. Alongside it: two equal-shaped but nominally distinct semantic
+enums (`Grade`/`Rank`), a `pick` and an `omit` enum projection, a `value`
+type, an `index` declaration, Protobuf reservations, an access block,
+`@pii`/`@classification` governance annotations, a field default, a
+cross-domain `ref<>`, and a cross-domain projection with a `left join`.
+Every proof compiles this same history two ways -- entirely full-form, and
+using the interleaved delta forms -- and requires agreement at every
+downstream boundary: signatures, snapshot objects, compatibility reports,
+projection dependency graphs, impact analysis, and every implemented
+codegen target's byte-for-byte output (reusing the golden-artifact
+generator's emitter dispatch table, same as D7). **This fixture found two
+real bugs on first contact, both fixed in this slice, not worked around in
+the fixture:**
+
+1. `index` declarations targeting an evolves-declared version were
+   incorrectly rejected (`index references Product@8 which does not
+   exist`). `_validate_index_decls` (`validation/semantic.py`) runs per-
+   source at parse time, before `workspace.py::_expand_model_evolutions`
+   populates `domain.models` with the expanded version -- structurally the
+   same class of bug as D8's formatter fix, just in validation instead of
+   rendering. Fixed by having `_validate_index_decls` recognize a target
+   version present in `domain.model_evolutions` and skip its field-based
+   checks (which need the expanded field list, not yet available) rather
+   than reject; a new `_validate_index_decls_against_evolved_versions`
+   completes those field-based checks once `workspace.py` has run
+   expansion, so `index primary`/`secondary` mismatches against an
+   evolves-declared version are still caught -- verified directly with a
+   deliberately-invalid `index primary` targeting the wrong field on an
+   evolves version.
+2. Interleaving a full-form version between evolves-form ones left a
+   model's version list out of ascending order: full-form versions parse
+   straight into `domain.models` in document order, while
+   `_expand_model_evolutions` appends every evolves version afterward in
+   `domain.model_evolutions` declaration order -- so `v1, v2(delta),
+   v3(delta), v5(full), v8(delta)` landed in `domain.models` as `[v1, v5,
+   v2, v3, v8]`, not ascending. This was invisible to every earlier
+   D-slice fixture because none mixed authoring forms for the same model.
+   It surfaced as a byte-for-byte content mismatch in the OpenMetadata
+   target's asset list (the first consumer in the fixture to iterate a
+   model's versions and expose their order in output). Fixed by sorting
+   each model's version list by version number once, in `workspace.py`,
+   immediately after evolution expansion -- a single normalization point
+   rather than a fix in every consumer that iterates model versions.
+
+Both fixes are proven directly (an invalid evolves-targeted index primary
+is still rejected; the OpenMetadata asset list is now byte-identical
+between the interleaved-delta and full-form histories) as well as by the
+9 passing convergence tests. Full local `pytest tests/` suite: 2514 passed,
+58 skipped. **Remaining Q1 scope** (documentation instructions #4/#5 --
+updating `docs/language-reference.md`, generated `docs/grammar.md`,
+`docs/compiler-reference.md`, `docs/wire-format-contract.md`,
+`docs/architecture.md`, and documenting structural loss per target and the
+anonymous/semantic/enum-projection/value/full/evolved/normalized/projection
+distinction) is being scoped as its own follow-up.
+
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
 
