@@ -1407,8 +1407,35 @@ normalized field identities before this slice -- `ProjectionField`/
 lineage records reference resolved field names, never anything
 evolves-specific -- so instruction #4 needed no change either; provenance
 already only reaches diagnostic/hover-adjacent surfaces (D4's compat
-messages), never lineage. **Next:** D7 (prove all generated targets are
-syntax-independent).
+messages), never lineage. **D7 (all generated targets are
+syntax-independent) is shipped -- another pure proof slice.** Grepped
+every file in `emitters/` for `model_evolutions`, `ModelEvolutionDecl`, and
+the four operation IR types (`AddFieldOp`/`RemoveFieldOp`/`RenameFieldOp`/
+`ReplaceFieldOp`): zero matches, confirmed as a real regression-guard test
+rather than a one-off check, so a future emitter can't silently grow a
+delta-aware branch without failing loudly. Verified concretely for all 20
+implemented targets (instruction #1's `list_implemented_codegen_targets()`)
+by reusing `scripts/write_golden_artifacts.py`'s own `TARGET_EMITTERS`
+dispatch table and `FHIR_TARGET_EMITTER` (loaded as a module, not
+re-declared, so the dispatch table can't drift from what the golden-file
+suite already exercises) against one small model history authored both
+ways: `add`/`remove`/`rename`/`replace` all in one `evolves` block, plus a
+Protobuf reservation, plus a downstream projection sourcing from the
+evolved version -- deliberately hitting instruction #3's named concerns
+(Protobuf numbering/reservations, SDK field shapes across all six typed
+targets, SQL mappings, metadata lineage, registry manifests, event-sink
+output) in one fixture rather than nineteen bespoke ones.
+`fhir-profile` needed its own small fixture pair, same as the golden-file
+suite already does, since FHIR mapping needs field/model names FHIR
+recognizes rather than an arbitrary shape. Byte-compared every artifact's
+`content` and `warnings` between the full-form and delta-form workspace
+for every target — not spot-checking a representative field, the literal
+instruction #2 requirement. One real bug surfaced while building the
+fixture, not in production code: an initial reservation number collided
+with an auto-assigned Protobuf field number, correctly rejected by
+`protobuf.py`'s existing reservation validation — fixed by picking a
+number outside the auto-assigned range, not by weakening the fixture's
+coverage. **Next:** D8 (delta formatter and language-service support).
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:

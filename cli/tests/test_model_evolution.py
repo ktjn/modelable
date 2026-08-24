@@ -14,6 +14,7 @@ from an equivalent hand-written complete form at every downstream boundary.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 
@@ -24,9 +25,12 @@ from modelable.compat.diff import compare_model_versions
 from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
 from modelable.dependency_graph import build_projection_dependencies
 from modelable.emitters.rust import emit_rust
+from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.parser.ir import AccessGrant, DecimalType, FieldProvenance
 from modelable.registry.signature import compute_version_signature
 from modelable.registry.snapshot import resolve_workspace_snapshot
+
+IMPLEMENTED_TARGET_NAMES = {target.name for target in list_implemented_codegen_targets()}
 
 
 def _workspace(source: str):
@@ -1029,3 +1033,196 @@ def test_impact_analysis_is_identical_for_full_and_delta_source():
                 continue
             impact = analyze_impact(mdl, report, ("billing", name, 1))
             assert impact.status == "compatible", (name, impact.reason)
+
+
+# -- D7: every generated target is syntax-independent ------------------------
+
+
+def _load_golden_generator():
+    generator_path = Path(__file__).parents[1] / "scripts" / "write_golden_artifacts.py"
+    spec = importlib.util.spec_from_file_location("write_golden_artifacts_d7", generator_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_D7_ORDER_FULL = """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    total: decimal(10, 2)
+    legacyNote: string
+  }
+  entity Order @ 2 (breaking) {
+    @key orderId: uuid
+    amount: decimal(12, 2)
+    note?: string
+    reserved protobuf {
+      numbers: [10]
+      names: ["legacyNote"]
+    }
+  }
+
+  projection OrderView @ 1
+    from orders.Order @ 2 as o
+  {
+    viewId <- o.orderId
+    amount <- o.amount
+    note <- o.note
+  }
+}
+"""
+
+_D7_ORDER_DELTA = """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    total: decimal(10, 2)
+    legacyNote: string
+  }
+  entity Order @ 2 (breaking) evolves @ 1 {
+    remove legacyNote
+    rename total -> amount
+    replace amount: decimal(12, 2)
+    add note?: string
+    reserved protobuf {
+      numbers: [10]
+      names: ["legacyNote"]
+    }
+  }
+
+  projection OrderView @ 1
+    from orders.Order @ 2 as o
+  {
+    viewId <- o.orderId
+    amount <- o.amount
+    note <- o.note
+  }
+}
+"""
+
+
+def test_every_implemented_target_produces_identical_output_for_full_and_delta_source(tmp_path):
+    """Instructions #1/#3/#4: compile one small history in full and
+    equivalent delta forms using every target in list_implemented_codegen_
+    targets() (via the golden-artifact generator's own emitter dispatch
+    table, reused rather than re-declared), covering Protobuf numbering/
+    reservations, SDK field shapes (typescript/csharp/java/python/rust/go),
+    SQL mappings, metadata lineage, registry manifests, and event-sink
+    output in one fixture. Byte-compares every artifact's content and
+    warnings -- not just a representative field."""
+    generator = _load_golden_generator()
+    full_ws = _workspace(_D7_ORDER_FULL)
+    delta_ws = _workspace(_D7_ORDER_DELTA)
+
+    mismatches: list[str] = []
+    for target_name, emitter in generator.TARGET_EMITTERS.items():
+        full_artifacts = {a.ref: a for a in emitter(full_ws, tmp_path / "full" / target_name)}
+        delta_artifacts = {a.ref: a for a in emitter(delta_ws, tmp_path / "delta" / target_name)}
+        if full_artifacts.keys() != delta_artifacts.keys():
+            mismatches.append(
+                f"{target_name}: artifact ref sets differ: {full_artifacts.keys()} vs {delta_artifacts.keys()}"
+            )
+            continue
+        for ref, full_artifact in full_artifacts.items():
+            delta_artifact = delta_artifacts[ref]
+            if full_artifact.content != delta_artifact.content:
+                mismatches.append(f"{target_name}:{ref} content differs")
+            if full_artifact.warnings != delta_artifact.warnings:
+                mismatches.append(f"{target_name}:{ref} warnings differ")
+
+    assert mismatches == []
+    # Confirm this actually exercised every non-FHIR implemented target,
+    # rather than silently iterating an empty or stale dispatch table.
+    assert generator.TARGET_EMITTERS.keys() == IMPLEMENTED_TARGET_NAMES - {"fhir-profile"}
+
+
+_D7_PATIENT_FULL = """
+domain clinical {
+  owner: "clinical-platform"
+  entity Patient @ 1 (additive) {
+    @key patientId: uuid
+    active: bool
+    legacyStatus: string
+  }
+  entity Patient @ 2 (breaking) {
+    @key patientId: uuid
+    active: bool
+    status: string
+  }
+
+  projection PatientProfile @ 1
+    from clinical.Patient @ 2 as p
+  {
+    patientId <- p.patientId
+    active <- p.active
+    status <- p.status
+  }
+}
+"""
+
+_D7_PATIENT_DELTA = """
+domain clinical {
+  owner: "clinical-platform"
+  entity Patient @ 1 (additive) {
+    @key patientId: uuid
+    active: bool
+    legacyStatus: string
+  }
+  entity Patient @ 2 (breaking) evolves @ 1 {
+    remove legacyStatus
+    add status: string
+  }
+
+  projection PatientProfile @ 1
+    from clinical.Patient @ 2 as p
+  {
+    patientId <- p.patientId
+    active <- p.active
+    status <- p.status
+  }
+}
+"""
+
+
+def test_fhir_profile_target_produces_identical_output_for_full_and_delta_source(tmp_path):
+    """fhir-profile uses its own fixture shape (like the golden-artifact
+    suite does), since FHIR mapping needs field/model names FHIR recognizes."""
+    generator = _load_golden_generator()
+    full_ws = _workspace(_D7_PATIENT_FULL)
+    delta_ws = _workspace(_D7_PATIENT_DELTA)
+
+    full_artifacts = {a.ref: a for a in generator.FHIR_TARGET_EMITTER(full_ws, tmp_path / "full")}
+    delta_artifacts = {a.ref: a for a in generator.FHIR_TARGET_EMITTER(delta_ws, tmp_path / "delta")}
+
+    assert full_artifacts.keys() == delta_artifacts.keys()
+    for ref, full_artifact in full_artifacts.items():
+        delta_artifact = delta_artifacts[ref]
+        assert full_artifact.content == delta_artifact.content, ref
+        assert full_artifact.warnings == delta_artifact.warnings, ref
+
+
+def test_no_emitter_module_references_evolves_specific_symbols():
+    """Exit criteria: no emitter contains an evolves or operation-specific
+    branch. Every emitter only ever sees domain.models -- the merged,
+    post-expansion state -- so none of them should reference the
+    source-only evolution IR at all."""
+    emitters_dir = Path(__file__).parents[1] / "src" / "modelable" / "emitters"
+    forbidden = (
+        "model_evolutions",
+        "ModelEvolutionDecl",
+        "AddFieldOp",
+        "RemoveFieldOp",
+        "RenameFieldOp",
+        "ReplaceFieldOp",
+    )
+    offenders = []
+    for path in sorted(emitters_dir.glob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        if any(name in text for name in forbidden):
+            offenders.append(path.name)
+    assert offenders == []
