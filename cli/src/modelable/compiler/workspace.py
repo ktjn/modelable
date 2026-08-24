@@ -701,7 +701,15 @@ def _expand_model_evolutions(merged: MdlFile) -> list[Diagnostic]:
                         operation_failed = True
                         break
                     new_fields[index] = copy.deepcopy(operation.field)
-                    provenance[index] = FieldProvenance(field_name=operation.field.name, origin="replace")
+                    # Preserve an earlier rename's renamed_from so compat's
+                    # rename detection still sees it after a later replace
+                    # touches the same field (see D4's provenance-based
+                    # rename matching in compat/diff.py).
+                    provenance[index] = FieldProvenance(
+                        field_name=operation.field.name,
+                        origin="replace",
+                        renamed_from=provenance[index].renamed_from,
+                    )
             if operation_failed:
                 continue
 

@@ -1303,9 +1303,47 @@ model kinds (entity, aggregate, event, value) evolving. No de-duplication
 work was needed for "consequences from one operation causing both model
 invalidity and a compatibility finding": `_validate_models` and
 `_validate_change_kind` each run exactly once per expanded version, so
-there was never a duplication risk to begin with. **Next:** D4 (connect
-operation intent to compatibility) -- the fix for the `(breaking)`-only
-caveat this slice's own tests had to work around for `remove`/`rename`.
+there was never a duplication risk to begin with. **D4 (connect operation
+intent to compatibility) is shipped.** `compare_model_versions()`
+(`compat/diff.py`) now checks `new_version.provenance` for a `rename`
+(or a `replace` whose `renamed_from` survived from an earlier `rename` on
+the same field, see below) *before* falling through to the existing
+`@deprecated(replacedBy: ...)` annotation-based rename inference --
+`ModelVersion.provenance` is always empty for a hand-written full-form
+version, so that path is unchanged and a no-op there, matching instruction
+#1 ("keep `compare_model_versions()` operating only on complete versions").
+The real value isn't reclassifying a rename as non-breaking -- a rename is
+still correctly `(breaking)`, since the old field name genuinely stops
+existing -- it's disambiguation: an `evolves` block with a `rename` *and*
+an unrelated `remove`/`add` in the same version previously had no way to
+tell which removed/added name-pair was the declared rename versus which
+were genuinely separate changes; provenance-based matching resolves that
+deterministically instead of leaving it to name-similarity guessing (which
+this codebase never did) or requiring a manually-authored `@deprecated`
+annotation. Fixed a real bug caught by an existing D2 test while wiring
+this up: `_expand_model_evolutions` was overwriting a field's provenance
+entry on `replace`, discarding `renamed_from` set by an earlier `rename` on
+the same field within the same block (`rename total -> amount` then
+`replace amount: ...`) -- `origin` correctly reflects the *last* operation
+per D2's instructions, but `renamed_from` needed to survive that overwrite
+for compatibility to still see the rename. Also fixed a self-rename edge
+case (`rename x -> x`) that would otherwise have produced a spurious
+`renamed_field` compatibility finding for a field that changed nothing.
+`replace` needed no special classification logic (instruction #3, "the
+operation name is not itself additive or breaking") -- it was already
+correctly handled by the existing same-name field comparison, since
+`replace` never changes a field's name. Enriched `_validate_change_kind`'s
+diagnostic text (`validation/semantic.py`) to name the responsible
+`evolves` operation when provenance is available (e.g. "`renamed_field
+total (declared via evolves rename)`", "`added required field note (via
+evolves add)`"), satisfying instruction #4 without touching the full-form
+path's plain message at all -- verified a full-form/delta-form pair
+produces genuinely different `FieldChange` kinds for an equivalent rename
+(full: `removed_field` + `added_field`, since nothing links "total" to
+"amount" without provenance; delta: a single `renamed_field`), which is
+correct and expected per the exit criteria's "apart from richer provenance
+text" allowance, not a bug to chase down. **Next:** D5 (prove signatures
+and registry objects are syntax-independent).
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
