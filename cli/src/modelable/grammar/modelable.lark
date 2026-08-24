@@ -46,15 +46,23 @@ model_body_item: field_decl
                | access_block
                | reservation_block
 
-// -- Model version deltas (evolution plan D1/D2) ------------------------------
+// -- Model version deltas (evolution plan D1/D2/D3) ---------------------------
 // A model version authored as a delta against an exact prior version rather
 // than a complete field list. The base version resolves within the same
 // domain/model/kind at workspace-normalization time, not at parse time.
-model_evolution_decl: model_kind IDENT "@" INT model_change? "evolves" "@" INT "{" evolution_item* "}"
+// Model-level metadata (wire annotations, access block, Protobuf
+// reservations) follows the same complete-replacement-or-inherit rule as
+// field operations: present on the evolves form, it replaces; omitted, it
+// inherits from the base (reservations are the one exception -- they are
+// version-local exactly like the full-form declaration, see
+// docs/language-reference.md §2.6/2.7).
+model_evolution_decl: wire_annotation* model_kind IDENT "@" INT model_change? "evolves" "@" INT "{" evolution_item* "}"
 evolution_item: add_operation
               | remove_operation
               | rename_operation
               | replace_operation
+              | access_block
+              | reservation_block
 add_operation: "add" field_decl
 remove_operation: "remove" IDENT
 rename_operation: "rename" IDENT "->" IDENT

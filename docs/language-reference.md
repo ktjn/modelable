@@ -248,6 +248,87 @@ reserved number, source field name, or generated Protobuf field name. The
 Protobuf and gRPC targets use these reservations to render `reserved`
 declarations and to validate target compatibility.
 
+### 2.7 Model version evolution (`evolves`)
+
+A new model version can be authored as a delta against an exact prior
+version instead of a complete field list:
+
+```mdl
+entity Order @ 1 (additive) {
+  @key orderId: uuid
+  total: decimal(10, 2)
+  legacyNote: string
+}
+
+entity Order @ 2 (breaking) evolves @ 1 {
+  add note?: string
+  remove legacyNote
+  rename total -> amount
+  replace amount: decimal(12, 2)
+}
+```
+
+The compiler resolves `evolves @ N` against the model's existing version
+history and expands it into a complete `ModelVersion` — a deep copy of
+version `N`'s fields with the operations applied in order — before any
+validation, compatibility check, or codegen ever runs. An add-only or mixed
+delta form is indistinguishable from an equivalent hand-written complete
+form at every one of those boundaries: identical normalized fields,
+identical signatures, identical generated output.
+
+**Base resolution.** `N` must be the *highest existing version of the same
+model and model kind strictly below* the new version. Numeric gaps between
+versions are fine — `@ 5 evolves @ 1` is valid as long as `1` is still the
+highest version below `5` — but evolving from a version that has since been
+superseded by a later one ("branching"), from a version of a different
+model kind, or from a version that doesn't exist, is rejected with a
+diagnostic naming the actual required base.
+
+**Operations** apply sequentially against the current intermediate state,
+not just the base, so a `rename` followed later by a `replace` of the same
+field (as in the example above) works correctly within one block:
+
+- `add field: type` — appends a new field. Rejects a name already present.
+- `remove name` — deletes the complete field. Rejects an unknown name (this
+  also covers removing the same field twice — the second `remove` sees no
+  matching field).
+- `rename old -> new` — keeps the field's position; only its name changes.
+  Rejects an unknown source name or a target name already held by another
+  field. Renaming a field to its own current name is a harmless no-op.
+- `replace field: type` — keeps the field's position; the target is
+  identified by the field name in the declaration itself, and its complete
+  definition (type, constraints, defaults, annotations) is replaced.
+  Rejects a name that matches no existing field.
+
+**Provenance.** The expander records, for every field in an evolved version,
+which operation last determined its identity — inherited unchanged from the
+base, or last touched by `add`/`rename`/`replace` (with the prior name for a
+rename). This is diagnostic/tooling metadata only and is not part of the
+canonical signature.
+
+**Model-level metadata** — the `@wire(...)` annotations before the model
+keyword and the `access { ... }` block — follow the same rule as field
+operations: present on the `evolves` declaration, they completely replace
+what the base had; omitted, they are inherited from the base unchanged.
+Protobuf reservations are the one exception: they are version-local exactly
+like a full-form declaration (§2.6) and are **never** inherited — an
+`evolves` declaration that needs to reserve a removed field's number must
+say so explicitly, the same as a full-form declaration would.
+
+`index` declarations are not part of `evolves` and are always declared
+independently at the domain level.
+
+**Compatibility note:** compatibility classification (`(additive)` /
+`(breaking)`) is derived from the *expanded* field list by comparing it
+against the base, the same way it compares any two full-form versions —
+it does not yet use the `rename`/`remove` provenance above to distinguish a
+declared rename from an unrelated delete-and-add. A `rename` or `remove`
+inside an `evolves` block is today classified exactly like a bare field
+deletion would be, which means it requires `(breaking)` even when the field
+was demonstrably renamed rather than dropped. Teaching compatibility to
+recognize a declared rename as compatible is planned but not yet
+implemented.
+
 ---
 
 ## 3. Projections, Lineage, and Derivation

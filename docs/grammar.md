@@ -63,15 +63,23 @@ model_body_item: field_decl
                | access_block
                | reservation_block
 
-// -- Model version deltas (evolution plan D1/D2) ------------------------------
+// -- Model version deltas (evolution plan D1/D2/D3) ---------------------------
 // A model version authored as a delta against an exact prior version rather
 // than a complete field list. The base version resolves within the same
 // domain/model/kind at workspace-normalization time, not at parse time.
-model_evolution_decl: model_kind IDENT "@" INT model_change? "evolves" "@" INT "{" evolution_item* "}"
+// Model-level metadata (wire annotations, access block, Protobuf
+// reservations) follows the same complete-replacement-or-inherit rule as
+// field operations: present on the evolves form, it replaces; omitted, it
+// inherits from the base (reservations are the one exception -- they are
+// version-local exactly like the full-form declaration, see
+// docs/language-reference.md §2.6/2.7).
+model_evolution_decl: wire_annotation* model_kind IDENT "@" INT model_change? "evolves" "@" INT "{" evolution_item* "}"
 evolution_item: add_operation
               | remove_operation
               | rename_operation
               | replace_operation
+              | access_block
+              | reservation_block
 add_operation: "add" field_decl
 remove_operation: "remove" IDENT
 rename_operation: "rename" IDENT "->" IDENT
@@ -436,7 +444,7 @@ Alphabetical listing of every named rule and its production.
 | `enum_projection_decl` | `"enum" "projection" IDENT semantic_header? "from" dotted_ref "@" INT pick_or_omit_clause` |
 | `enum_ref_type` | `dotted_ref "@" INT` |
 | `enum_type` | `"enum" "(" enum_member ("," enum_member)* ")"` |
-| `evolution_item` | `add_operation \| remove_operation \| rename_operation \| replace_operation` |
+| `evolution_item` | `add_operation \| remove_operation \| rename_operation \| replace_operation \| access_block \| reservation_block` |
 | `exclude_option` | `"exclude" "[" auto_projection_exclusion ("," auto_projection_exclusion)* "]"` |
 | `field_decl` | `annotation* IDENT optional_marker? ":" type_expr nullable_marker? constraint_clause* field_default?` |
 | `field_default` | `"=" EXPRESSION` |
@@ -462,7 +470,7 @@ Alphabetical listing of every named rule and its production.
 | `model_body_item` | `field_decl \| access_block \| reservation_block` |
 | `model_change` | `"(" change_kind ")"` |
 | `model_decl` | `wire_annotation* model_kind IDENT model_header? "{" model_body_item* "}"` |
-| `model_evolution_decl` | `model_kind IDENT "@" INT model_change? "evolves" "@" INT "{" evolution_item* "}"` |
+| `model_evolution_decl` | `wire_annotation* model_kind IDENT "@" INT model_change? "evolves" "@" INT "{" evolution_item* "}"` |
 | `model_header` | `"@" INT model_change? \| model_change` |
 | `model_kind` | `"entity"    -> mk_entity \| "aggregate" -> mk_aggregate \| "event"     -> mk_event \| "value"     -> mk_value` |
 | `nullable_marker` | `"?"` |

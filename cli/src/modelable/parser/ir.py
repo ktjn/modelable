@@ -429,13 +429,23 @@ EvolutionOperation = Annotated[
 
 class ModelEvolutionDecl(BaseModel):
     """A model version authored as a delta against an exact prior version via
-    `evolves @ N`, rather than a complete field list (evolution plan D1/D2).
+    `evolves @ N`, rather than a complete field list (evolution plan
+    D1/D2/D3).
 
     Source-only form: workspace expansion resolves ``base_version`` against
     the model's existing version history, deep-copies that version's fields,
     and applies ``operations`` in order to produce a complete ``ModelVersion``
     before semantic validation ever runs -- canonical ``ModelVersion`` never
     carries partial or delta state.
+
+    ``annotations``/``access`` follow inherit-when-omitted, replace-when-
+    present: an empty ``annotations`` list or a ``None`` ``access`` here
+    always means "omitted on this declaration" (the grammar has no way to
+    author an explicit empty wire-annotation list or an explicit "no access
+    block" other than omitting them), so workspace expansion inherits the
+    base's value in that case and uses this declaration's value verbatim
+    otherwise. ``protobuf_reservations`` is version-local, matching the
+    full-form declaration exactly -- it is never inherited.
     """
 
     model_kind: ModelKind
@@ -445,6 +455,9 @@ class ModelEvolutionDecl(BaseModel):
     has_change_kind: bool = False
     base_version: int
     operations: list[EvolutionOperation] = Field(default_factory=list)
+    annotations: list[Annotation] = Field(default_factory=list)
+    access: AccessBlock | None = None
+    protobuf_reservations: ProtobufReservations | None = None
 
 
 class VersionExact(BaseModel):
