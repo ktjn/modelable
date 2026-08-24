@@ -331,7 +331,14 @@ def _write_object(
     source_path: Path | None,
 ) -> dict[str, Any]:
     identity = f"{domain_name}.{name}@{version.version}"
-    contract = version.model_dump(mode="json")
+    # Evolution plan D5: `provenance` (which `evolves` operation last touched
+    # each field) is operation-syntax-adjacent diagnostic metadata, not
+    # canonical contract content -- an evolved version and an equivalent
+    # hand-written full-form version must produce the same stored object and
+    # the same content_hash, the same way they already produce the same
+    # `signature` (compute_version_signature never looks at it either).
+    # ProjectionVersion has no such field; excluding it is a no-op there.
+    contract = version.model_dump(mode="json", exclude={"provenance"})
     dependencies = _dependencies(version)
     payload: dict[str, Any] = {
         "format": OBJECT_FORMAT,
