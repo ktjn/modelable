@@ -22,6 +22,10 @@ _DECL_PATTERN = re.compile(
 _ENUM_PROJECTION_DECL_PATTERN = re.compile(
     r"^\s*enum\s+projection\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
+_EVOLVES_HEADER_PATTERN = re.compile(
+    r"^\s*(?P<kind>entity|aggregate|event|value)\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
+    r"(?:\s*\([a-z]+\))?\s*evolves\s*@\s*(?P<base_version>\d+)"
+)
 _DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _WORD_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _MODEL_FIELD_PATTERN = re.compile(
@@ -71,6 +75,16 @@ def _resolve_definition(
     character: int,
 ) -> LanguageLocation | None:
     text_line = lines[line]
+
+    for match in _EVOLVES_HEADER_PATTERN.finditer(text_line):
+        if _contains(match.start("base_version"), match.end("base_version"), character):
+            domain_name = _domain_at_or_before(text, line)
+            if domain_name is not None:
+                location = _definition_for_decl(
+                    semantic, domain_name, "model", match.group("name"), int(match.group("base_version"))
+                )
+                if location is not None:
+                    return location
 
     for match in _QUALIFIED_REF_PATTERN.finditer(text_line):
         if _contains(match.start(), match.end(), character):
@@ -340,6 +354,15 @@ def _find_field_location(
         if line.strip() == "}":
             active = False
     return None
+
+
+def _domain_at_or_before(text: str, line: int) -> str | None:
+    current_domain: str | None = None
+    for item in document_lines(text)[: line + 1]:
+        domain_match = _DOMAIN_PATTERN.match(item)
+        if domain_match:
+            current_domain = domain_match.group("quoted") or domain_match.group("name")
+    return current_domain
 
 
 def _current_scope(text: str, line: int) -> tuple[str, str, str, int] | None:

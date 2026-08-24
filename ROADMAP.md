@@ -1456,17 +1456,40 @@ natural ascending version order regardless of which form each version was
 authored in. Verified: the `evolves` header, operation order, and
 Protobuf reservations all round-trip exactly, and formatting reaches a
 genuine fixed point (formatting the formatted output produces
-byte-identical text) — not just "doesn't crash." **Remaining D8 scope**
-(syntax tokens for `add`/`remove`/`rename`/`replace`/`evolves` in the LSP's
-own `semantic_tokens.py` — the auto-generated VS Code TextMate/Monaco
-grammars already got these keywords for free from D1/D2's grammar changes,
-but the hand-maintained LSP module has its own separate `_KEYWORDS` set
-that was never updated; operation-aware completion; definition/hover on
-the exact base version; references/rename for field names inside
-`remove`/`rename`/`replace`) is a substantial LSP feature surface
-comparable in scope to E11's five-service buildout earlier in this
-session, and is being scoped as its own follow-up rather than rushed into
-the same PR as the critical formatter fix.
+byte-identical text) — not just "doesn't crash." **Syntax tokens and
+definition/hover on the exact base version are shipped next.** Added
+`add`/`remove`/`rename`/`replace`/`evolves` to `lsp/semantic_tokens.py`'s
+own `_KEYWORDS` set — the auto-generated VS Code TextMate/Monaco grammars
+already got these keywords for free from D1/D2's grammar changes via
+`render_editor_grammars.py`, but the hand-maintained LSP semantic-tokens
+module has its own separate keyword list that was never updated, so these
+words fell through to unstyled plain text under a real language server
+even though the static grammar highlighted them. Also taught
+`_add_operator_tokens` about `->` (previously only `<-` was recognized as
+a two-character operator token; `->` silently split into an unstyled `-`
+and an `Operator`-classified `>`, affecting both `rename old -> new` and
+the pre-existing `generate` block target syntax). For definition/hover:
+added an `_EVOLVES_HEADER_PATTERN` to both `language/hover.py` and
+`language/definition.py` matching the model's own header line up through
+`evolves @ <base_version>`, with a dedicated branch checked before the
+existing qualified-reference pattern (the base-version number has no
+domain-qualified syntax to hover/jump from otherwise — it is always an
+implicit same-domain, same-model reference). Hovering the base version
+number shows the exact base declaration's full summary (kind, change,
+fields — a superset of "signature/field count," reusing the same
+`build_model_summary` a qualified reference to it would use, for
+consistency); go-to-definition jumps to the base's declaration line.
+Reused `_find_decl_location`/`_definition_for_decl` as-is rather than
+writing new lookup logic: since `_DECL_PATTERN` only captures through a
+model's *own* `@ version` and never inspects what follows, it already
+matches an `evolves`-form header exactly like a full-form one, so jumping
+to a base version that is *itself* `evolves`-declared (a chain: v3 evolves
+@ 2, v2 evolves @ 1) worked correctly on the first try, verified directly.
+**Remaining D8 scope** (operation-aware completion — propose fields from
+the intermediate expansion state at each operation, not only the base or
+final state; references/rename for field names inside
+`remove`/`rename`/`replace`, distinguishing a `rename` *operation* from an
+editor symbol-rename *action*) is being scoped as its own follow-up.
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:

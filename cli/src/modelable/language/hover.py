@@ -40,6 +40,10 @@ _DECL_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value|projection)\s+"
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
+_EVOLVES_HEADER_PATTERN = re.compile(
+    r"^\s*(?P<kind>entity|aggregate|event|value)\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
+    r"(?:\s*\([a-z]+\))?\s*evolves\s*@\s*(?P<base_version>\d+)"
+)
 _DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _WORD_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -70,6 +74,21 @@ def hover(
         character = utf16_to_codepoint(text_line, position.character)
     except ValueError:
         return None
+
+    for match in _EVOLVES_HEADER_PATTERN.finditer(text_line):
+        if _contains(match.start("base_version"), match.end("base_version"), character):
+            result = _hover_for_evolves_base(
+                semantic,
+                document.text,
+                position.line,
+                match.group("name"),
+                match.group("base_version"),
+                text_line,
+                match.start("base_version"),
+                match.end("base_version"),
+            )
+            if result is not None:
+                return result
 
     for match in _QUALIFIED_REF_PATTERN.finditer(text_line):
         if _contains(match.start(), match.end(), character):
@@ -172,6 +191,37 @@ def _make_ref_hover(
         ),
         text_line,
     )
+
+
+def _hover_for_evolves_base(
+    workspace: Workspace,
+    text: str,
+    line: int,
+    model_name: str,
+    base_version_text: str,
+    text_line: str,
+    start: int,
+    end: int,
+) -> LanguageHover | None:
+    """Evolution plan D8: hover on the base-version number in `evolves @ N`
+    shows the exact base declaration's summary (kind, change, fields) --
+    the same information a qualified reference to it would show, since
+    the base is always in the same domain as the `evolves` declaration
+    itself and has no domain-qualified syntax to hover on otherwise."""
+    domain_name = _domain_at_or_before(text, line)
+    if domain_name is None:
+        return None
+    ref = f"{domain_name}.{model_name}@{base_version_text}"
+    return _make_ref_hover(workspace, ref, text_line, line, start, end)
+
+
+def _domain_at_or_before(text: str, line: int) -> str | None:
+    current_domain: str | None = None
+    for item in document_lines(text)[: line + 1]:
+        domain_match = _DOMAIN_PATTERN.match(item)
+        if domain_match:
+            current_domain = domain_match.group("quoted") or domain_match.group("name")
+    return current_domain
 
 
 def _make_ref_type_hover(
