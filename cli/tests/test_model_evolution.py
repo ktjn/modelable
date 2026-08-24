@@ -14,6 +14,7 @@ from an equivalent hand-written complete form at every downstream boundary.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,7 @@ from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace
 from modelable.emitters.rust import emit_rust
 from modelable.parser.ir import AccessGrant, DecimalType, FieldProvenance
 from modelable.registry.signature import compute_version_signature
+from modelable.registry.snapshot import resolve_workspace_snapshot
 
 
 def _workspace(source: str):
@@ -777,3 +779,91 @@ domain orders {
     assert not delta_workspace.errors
     assert {c.kind for c in full_changes} == {"removed_field", "added_field"}
     assert {c.kind for c in delta_changes} == {"renamed_field", "type_changed"}
+
+
+# -- D5: signatures and registry objects are syntax-independent -------------
+
+
+def test_full_form_and_delta_form_produce_identical_snapshot_objects(tmp_path):
+    """Exit criteria: equivalent full/delta versions have identical
+    signatures, object hashes, and offline artifacts."""
+    full_source = """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    total: decimal(10, 2)
+  }
+  entity Order @ 2 (additive) {
+    @key orderId: uuid
+    total: decimal(10, 2)
+    note?: string
+  }
+}
+"""
+    delta_source = """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    total: decimal(10, 2)
+  }
+  entity Order @ 2 (additive) evolves @ 1 {
+    add note?: string
+  }
+}
+"""
+    same_path = Path("orders.mdl")
+    full_ws = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=same_path, uri="file:///orders.mdl", text=full_source)]
+    )
+    delta_ws = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=same_path, uri="file:///orders.mdl", text=delta_source)]
+    )
+    assert not full_ws.errors
+    assert not delta_ws.errors
+
+    full_result = resolve_workspace_snapshot(full_ws, tmp_path / "full")
+    delta_result = resolve_workspace_snapshot(delta_ws, tmp_path / "delta")
+
+    full_lock = json.loads(full_result.lock_path.read_text(encoding="utf-8"))
+    delta_lock = json.loads(delta_result.lock_path.read_text(encoding="utf-8"))
+    full_entries = {e["identity"]: e for e in full_lock["objects"]}
+    delta_entries = {e["identity"]: e for e in delta_lock["objects"]}
+
+    assert full_entries.keys() == delta_entries.keys()
+    for identity in full_entries:
+        assert full_entries[identity]["signature"] == delta_entries[identity]["signature"], identity
+        assert full_entries[identity]["content_hash"] == delta_entries[identity]["content_hash"], identity
+
+
+def test_snapshot_object_contract_excludes_provenance_and_is_self_contained(tmp_path):
+    """A stored snapshot object is the complete expanded version -- it must
+    not need the base version or the evolves operation syntax to be useful,
+    and `provenance` (diagnostic-only, operation-syntax-adjacent) must not
+    leak into the canonical stored contract."""
+    source = """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    total: decimal(10, 2)
+  }
+  entity Order @ 2 (breaking) evolves @ 1 {
+    rename total -> amount
+    add note?: string
+  }
+}
+"""
+    workspace = _workspace(source)
+    assert not workspace.errors
+
+    result = resolve_workspace_snapshot(workspace, tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    v2_entry = next(e for e in lock["objects"] if e["identity"] == "orders.Order@2")
+    object_path = result.lock_path.parent / "registry" / "objects" / f"{v2_entry['content_hash']}.json"
+    stored = json.loads(object_path.read_text(encoding="utf-8"))
+
+    assert "provenance" not in stored["contract"]
+    field_names = {f["name"] for f in stored["contract"]["fields"]}
+    assert field_names == {"orderId", "amount", "note"}

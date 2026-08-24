@@ -1342,8 +1342,42 @@ produces genuinely different `FieldChange` kinds for an equivalent rename
 (full: `removed_field` + `added_field`, since nothing links "total" to
 "amount" without provenance; delta: a single `renamed_field`), which is
 correct and expected per the exit criteria's "apart from richer provenance
-text" allowance, not a bug to chase down. **Next:** D5 (prove signatures
-and registry objects are syntax-independent).
+text" allowance, not a bug to chase down. **D5 (signatures and registry
+objects are syntax-independent) is shipped, and it found a real bug.**
+`registry/snapshot.py::resolve_workspace_snapshot` already only iterates
+`domain.models` (the merged, post-expansion `MdlFile`), never
+`domain.model_evolutions` -- by construction, it cannot tell whether a
+given `ModelVersion` came from a full-form declaration or an `evolves`
+block, satisfying most of the exit criteria for free the same way every
+other downstream consumer (compat, projections, emitters) already does.
+But `_write_object`'s stored `contract` was built from
+`version.model_dump(mode="json")` with no field exclusions -- it dumped the
+*entire* `ModelVersion`, including D2's `provenance` field, straight into
+the persisted snapshot object and into the `content_hash` computed over
+that payload. `compute_version_signature` was already provably
+provenance-independent (it uses the dedicated canonical renderer, not a
+raw dump), but nothing had ever checked whether the *stored snapshot
+object* was too -- and it wasn't: verified directly that an equivalent
+full-form/delta-form pair produced matching `signature` but a *different*
+`content_hash`, an exact violation of instruction #6 ("keep formatting and
+locations out of semantic hashes") that no prior test caught because D1-D4
+never wrote a registry-snapshot-specific equivalence test. Fixed by
+excluding `provenance` from the dumped `contract`
+(`model_dump(mode="json", exclude={"provenance"})`) -- `ProjectionVersion`
+has no such field, so the exclusion is a no-op there. This also directly
+satisfies instruction #2 ("omit unresolved base chains and operation
+syntax from canonical content"): `provenance` is exactly
+operation-syntax-adjacent diagnostic metadata, and it no longer appears in
+the canonical stored object at all. Instruction #3 ("preserve original
+`.mdl` only in source packages that intentionally carry source") needed no
+work -- confirmed registry snapshots never embedded raw source text to
+begin with, only a `source_path` string for audit/provenance tracking.
+Instruction #4's "rebuild and compile a historical snapshot without the
+base source file" is satisfied by construction once the contract fix
+landed: the stored object holds the complete field list already, so
+nothing about using it later needs the base version's file, or even the
+base version's `ModelVersion` object, to exist anymore. **Next:** D6
+(prove projection, dependency, and impact transparency).
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
