@@ -20,7 +20,7 @@ import pytest
 
 from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
 from modelable.emitters.rust import emit_rust
-from modelable.parser.ir import DecimalType, FieldProvenance
+from modelable.parser.ir import AccessGrant, DecimalType, FieldProvenance
 from modelable.registry.signature import compute_version_signature
 
 
@@ -440,3 +440,149 @@ domain orders {
     workspace = _workspace(source)
 
     assert any("unknown field 'other'" in e.message for e in workspace.errors)
+
+
+# -- D3: model-level metadata inheritance ------------------------------------
+
+
+def test_omitted_access_and_annotations_are_inherited_from_the_base():
+    source = """
+domain orders {
+  owner: "orders-team"
+  @wire(json.fieldCase: "snake_case")
+  entity Order @ 1 (additive) {
+    access {
+      entity team-a [read]
+    }
+    @key orderId: uuid
+  }
+  entity Order @ 2 (additive) evolves @ 1 {
+    add note?: string
+  }
+}
+"""
+    workspace = _workspace(source)
+
+    assert not workspace.errors
+    expanded = next(v for v in workspace.mdl.domains[0].models["Order"] if v.version == 2)
+    assert len(expanded.annotations) == 1
+    assert expanded.annotations[0].targets["json"].field_case == "snake_case"
+    assert expanded.access is not None
+    assert expanded.access.entity == [AccessGrant(principal="team-a", permissions=["read"])]
+
+
+def test_present_access_and_annotations_completely_replace_the_base():
+    source = """
+domain orders {
+  owner: "orders-team"
+  @wire(json.fieldCase: "snake_case")
+  entity Order @ 1 (additive) {
+    access {
+      entity team-a [read]
+    }
+    @key orderId: uuid
+  }
+  @wire(json.fieldCase: "camelCase")
+  entity Order @ 2 (breaking) evolves @ 1 {
+    access {
+      entity team-b [write]
+    }
+    add note?: string
+  }
+}
+"""
+    workspace = _workspace(source)
+
+    assert not workspace.errors
+    expanded = next(v for v in workspace.mdl.domains[0].models["Order"] if v.version == 2)
+    assert len(expanded.annotations) == 1
+    assert expanded.annotations[0].targets["json"].field_case == "camelCase"
+    assert expanded.access is not None
+    assert expanded.access.entity == [AccessGrant(principal="team-b", permissions=["write"])]
+
+
+def test_protobuf_reservations_are_version_local_and_never_inherited():
+    source = """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    reserved protobuf {
+      numbers: [3]
+    }
+    @key orderId: uuid
+  }
+  entity Order @ 2 (additive) evolves @ 1 {
+    add note?: string
+  }
+}
+"""
+    workspace = _workspace(source)
+
+    assert not workspace.errors
+    expanded = next(v for v in workspace.mdl.domains[0].models["Order"] if v.version == 2)
+    assert expanded.protobuf_reservations is None
+
+
+def test_protobuf_reservations_present_on_the_evolves_form_are_used_as_is():
+    source = """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    legacy?: string
+  }
+  entity Order @ 2 (breaking) evolves @ 1 {
+    remove legacy
+    reserved protobuf {
+      numbers: [2]
+      names: ["legacy"]
+    }
+  }
+}
+"""
+    workspace = _workspace(source)
+
+    assert not workspace.errors
+    expanded = next(v for v in workspace.mdl.domains[0].models["Order"] if v.version == 2)
+    assert expanded.protobuf_reservations is not None
+    assert expanded.protobuf_reservations.numbers == [2]
+    assert expanded.protobuf_reservations.names == ["legacy"]
+
+
+def test_invalid_wire_annotation_on_the_evolves_form_is_still_caught():
+    source = """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: string
+  }
+  @wire(json.fieldCase: "not_a_real_case")
+  entity Span @ 2 (additive) evolves @ 1 {
+    add note?: string
+  }
+}
+"""
+    workspace = _workspace(source)
+
+    assert any("unsupported json.fieldCase" in e.message for e in workspace.errors)
+
+
+@pytest.mark.parametrize("model_kind", ["entity", "aggregate", "event", "value"])
+def test_evolves_is_supported_for_every_model_kind(model_kind):
+    key_field = "@key id: uuid" if model_kind in ("entity", "aggregate") else "id: uuid"
+    source = f"""
+domain orders {{
+  owner: "orders-team"
+  {model_kind} Item @ 1 (additive) {{
+    {key_field}
+  }}
+  {model_kind} Item @ 2 (additive) evolves @ 1 {{
+    add note?: string
+  }}
+}}
+"""
+    workspace = _workspace(source)
+
+    assert not workspace.errors
+    expanded = next(v for v in workspace.mdl.domains[0].models["Item"] if v.version == 2)
+    assert [f.name for f in expanded.fields] == ["id", "note"]

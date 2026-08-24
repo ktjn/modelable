@@ -255,6 +255,8 @@ class MdlTransformer(Transformer[list[object], Any]):
         return items[0]
 
     def model_evolution_decl(self, items: list[object]) -> tuple[str, ModelEvolutionDecl]:
+        annotations = [item for item in items if isinstance(item, ANNOTATION_TYPES)]
+        items = [item for item in items if not isinstance(item, ANNOTATION_TYPES)]
         model_kind = items[0] if isinstance(items[0], ModelKind) else ModelKind.entity
         name = _str(items[1])
         version = int(_str(items[2]))
@@ -268,11 +270,12 @@ class MdlTransformer(Transformer[list[object], Any]):
             index += 1
         base_version = int(_str(items[index]))
         index += 1
+        body = items[index:]
         operations = [
-            item
-            for item in items[index:]
-            if isinstance(item, (AddFieldOp, RemoveFieldOp, RenameFieldOp, ReplaceFieldOp))
+            item for item in body if isinstance(item, (AddFieldOp, RemoveFieldOp, RenameFieldOp, ReplaceFieldOp))
         ]
+        access = next((item for item in body if isinstance(item, AccessBlock)), None)
+        reservation = next((item for item in body if isinstance(item, ProtobufReservations)), None)
         return (
             "model_evolution",
             ModelEvolutionDecl(
@@ -283,6 +286,9 @@ class MdlTransformer(Transformer[list[object], Any]):
                 has_change_kind=has_change_kind,
                 base_version=base_version,
                 operations=operations,
+                annotations=annotations,
+                access=access,
+                protobuf_reservations=reservation,
             ),
         )
 

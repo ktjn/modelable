@@ -1271,9 +1271,41 @@ declaration, correctly) -- the fixed test fixtures for `remove`/`rename`
 had to be written as `(breaking)` for that reason. Feeding
 `FieldProvenance` into `compare_model_versions` so a declared rename stops
 looking like delete-and-add is explicitly D4's job ("connect operation
-intent to compatibility"), not something to smuggle into D2. **Next:** D3
-(settle and implement model-level metadata inheritance -- access blocks,
-annotations, Protobuf reservations on the `evolves` form).
+intent to compatibility"), not something to smuggle into D2. **D3 (model-
+level metadata inheritance) is shipped.** Extends the grammar so
+`model_evolution_decl` accepts the same `wire_annotation*` prefix and
+`access_block`/`reservation_block` body items a full-form `model_decl`
+already does. `ModelEvolutionDecl` gained `annotations`/`access`/
+`protobuf_reservations`, all `None`/empty by default (the grammar has no
+way to author an explicit empty wire-annotation list or an explicit "no
+access block" other than omitting them, so absence is unambiguous).
+Expansion applies the rule the instructions specified: `annotations` and
+`access`, if present on the `evolves` declaration, completely replace the
+base's; if omitted, they're inherited verbatim (deep-copied, not aliased).
+`protobuf_reservations` deliberately does **not** follow that rule.
+Instruction #4 asked to settle whether reservations are cumulative or
+version-local by checking existing behavior first -- they're already
+documented as version-local for full-form declarations
+(`docs/language-reference.md` §2.6, predates this slice), and nothing in
+the emitter or registry code merges reservations across versions, so the
+only consistent choice for `evolves` is the same rule: never inherited,
+used as-authored if present, `None` if omitted. Recorded this explicitly
+in a new §2.7 in the language reference (also closes a documentation gap
+D1/D2 shipped without: this is the first real writeup of the whole
+`evolves` feature, including the compatibility-classification caveat below).
+`index` declarations require no change -- they were already domain-level,
+never part of a model body, so "keep them outside evolves" was already
+true by construction. Ordinary validation (key count, wire annotations,
+constraints, enum members) runs on the fully-expanded version exactly as
+before, so an invalid `@wire` on an `evolves` header is caught the same way
+it would be on a full-form header -- verified directly. Covered all four
+model kinds (entity, aggregate, event, value) evolving. No de-duplication
+work was needed for "consequences from one operation causing both model
+invalidity and a compatibility finding": `_validate_models` and
+`_validate_change_kind` each run exactly once per expanded version, so
+there was never a duplication risk to begin with. **Next:** D4 (connect
+operation intent to compatibility) -- the fix for the `(breaking)`-only
+caveat this slice's own tests had to work around for `remove`/`rename`.
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:

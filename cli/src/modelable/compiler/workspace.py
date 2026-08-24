@@ -713,6 +713,14 @@ def _expand_model_evolutions(merged: MdlFile) -> list[Diagnostic]:
                 has_version_header=True,
                 has_change_kind=evolution.has_change_kind,
                 provenance=provenance,
+                # Inherit-when-omitted, replace-when-present (evolution plan
+                # D3). protobuf_reservations is deliberately excluded from
+                # this rule -- reservations are version-local for a
+                # full-form declaration too (docs/language-reference.md
+                # §2.6), so an evolved version never inherits them either.
+                annotations=evolution.annotations or copy.deepcopy(highest_lower.annotations),
+                access=copy.deepcopy(evolution.access) if evolution.access is not None else highest_lower.access,
+                protobuf_reservations=evolution.protobuf_reservations,
             )
             _validate_models(domain.name, {evolution.name: [expanded]}, errors, "<workspace>")
             _validate_change_kind(f"{domain.name}.{evolution.name}", highest_lower, expanded, errors, "<workspace>")
