@@ -10,15 +10,8 @@ domain customer {
     createdAt: timestamp
   }
 
-  entity Customer @ 2 (additive) {
-    @key customerId: uuid
-    legalName: string
-    @pii
-    email?: string
-    @classification("confidential")
-    creditLimit?: decimal(12, 2)
-    status: enum(active, suspended, closed)
-    createdAt: timestamp
+  entity Customer @ 2 (additive) evolves @ 1 {
+    add @classification("confidential") creditLimit?: decimal(12, 2)
   }
 
   // Compiler-expanded models: CustomerDb, CustomerRequest, CustomerReply,

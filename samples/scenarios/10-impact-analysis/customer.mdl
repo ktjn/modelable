@@ -5,8 +5,7 @@ domain customer {
     name: string
     email: string
   }
-  entity Customer @ 2 (breaking) {
-    @key customerId: uuid
-    name: string
+  entity Customer @ 2 (breaking) evolves @ 1 {
+    remove email
   }
 }

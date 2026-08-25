@@ -28,6 +28,7 @@ contributors can run without access to private downstream projects. See
 | 7 | `07-multi-system-master-data` | Enterprise Multi-System Master Data Architecture | Master Data / Data Platform | Very High | [Compiler reference](../docs/compiler-reference.md) |
 | 8 | `08-distributed-multi-registry` | Federated Registry Network | Federation / Peer Sync | High | [Compiler reference](../docs/compiler-reference.md) |
 | 9 | `09-auto-projections` | Compiler-Generated Projection Contracts | Core Language | Medium | [Language reference](../docs/language-reference.md) §3.7 |
+| 10 | `10-impact-analysis` | Breaking-Change Impact Analysis | Core Language | Low | [Language reference](../docs/language-reference.md) §2.7 |
 | 11 | `11-fleet-telemetry-type-system` | IoT Fleet Telemetry | Core Language | Medium | [Language reference](../docs/language-reference.md) §2.1, §3.8, §3.9 |
 
 ---
@@ -175,6 +176,9 @@ A simple domain demonstrates the four compiler-generated projections (`db`, `req
 
 Key techniques demonstrated:
 - `auto projections Order @ 1 { db, request, reply, event }`
+- `Product @ 2` is authored as an `evolves @ 1 { add brand?: string }`
+  delta instead of repeating the complete field list, per [Language
+  reference](../docs/language-reference.md) §2.7
 - Versioned auto projections preserve `ProductReply@1` while publishing a
   compatible `ProductReply@2` for a new field.
 - `pick(alias.field, ...)` creates an explicit, version-pinned public
@@ -185,6 +189,25 @@ Key techniques demonstrated:
 
 See the [language reference](../docs/language-reference.md) §3.7 and
 [architecture](../docs/architecture.md) §3.5 for the full auto-projection rules.
+
+---
+
+### 10. Breaking-Change Impact Analysis (`scenarios/10-impact-analysis/`)
+
+A minimal `customer` domain removes a field between versions, authored as an
+`evolves` delta, and two downstream projections in separate domains react
+differently: one uses the removed field and breaks, the other doesn't and
+only needs regeneration.
+
+Key techniques demonstrated:
+- `entity Customer @ 2 (breaking) evolves @ 1 { remove email }` — an
+  intentional breaking removal authored as a concise delta instead of a
+  full field list, per [Language reference](../docs/language-reference.md) §2.7
+- `modelable impact --from customer.Customer@1 --to customer.Customer@2`
+  reports `billing.BillingCustomer` as breaking (it maps the removed
+  `email` field) and `shipping.ShippingLabel` as needing regeneration only
+  (it never referenced `email`) — the same source change, two different
+  downstream consequences, both explicit rather than inferred
 
 ---
 
