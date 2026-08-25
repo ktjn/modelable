@@ -333,6 +333,27 @@ unrelated `removed_field`/`added_field` facts, and diagnostics name the
 responsible operation (e.g. "`renamed_field total (declared via evolves
 rename)`") rather than leaving the reader to guess.
 
+**Adopting or reverting delta authoring on an existing history** (evolution
+plan A2) is never required — a full-form and an `evolves`-form declaration
+of the same version are indistinguishable at every downstream boundary (see
+§3.10's "Normalized version" row), so switching between them is purely an
+authoring-ergonomics choice. `modelable compact-version domain.Model@version`
+(see [CLI Reference §5.26](cli-reference.md#526-compact-version--compact-a-version-into-an-evolves-delta))
+proposes an `evolves` delta against the version's base for review, and
+`modelable expand-version domain.Model@version` (see [CLI Reference
+§5.27](cli-reference.md#527-expand-version--expand-an-evolves-declared-version-to-full-form))
+renders an `evolves`-form version back out as a complete declaration.
+Both verify every implemented codegen target's output is byte-identical
+before writing anything, and both refuse to touch a version whose field
+block contains any comment, rather than risk discarding it silently.
+`compact-version` only ever proposes a rename when the removed field
+carries `@deprecated(replacedBy: "...")` naming the added field — the same
+evidence the compatibility comparison above already recognizes — and
+refuses to compact a version whose fields were reordered relative to its
+base, since `add` can only ever append (never insert), so reproducing a
+reordered field list would mean silently changing generated field/column
+order in every codegen target.
+
 ---
 
 ## 3. Projections, Lineage, and Derivation

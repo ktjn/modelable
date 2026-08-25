@@ -1265,6 +1265,68 @@ modelable extract-enum \
 
 ---
 
+### 5.26 `compact-version` — Compact a version into an evolves delta
+
+```text
+modelable compact-version domain.Model@version [--path PATH] [--dry-run]
+```
+
+Proposes an `evolves` delta for an existing full-form model version against
+its base (see [Language Reference
+§2.7](language-reference.md#27-model-version-evolution-evolves)) -- the
+"adopt concise authoring" half of evolution plan A2's expand/compact pair.
+
+- Only proposes `add`, `remove`, and `replace` outright. A `rename` is only
+  proposed when the removed field carries `@deprecated(replacedBy:
+  "newName")` naming a field the target version added -- the same evidence
+  the compatibility checker already recognizes as a rename. Any other
+  removed/added pair, however similar, stays a separate `remove` and `add`;
+  this command never guesses a rename from name or type similarity.
+- Aborts, rather than reorder fields, when the target version's field order
+  cannot be reproduced by "base's surviving fields in their original
+  relative order, followed by newly-added fields at the end" -- the only
+  shape `add` (which always appends) can produce. Reordering would change
+  generated field/column order in every codegen target, a real artifact
+  change A2 forbids.
+- Aborts if the base version's model-level `@wire` annotations or `access`
+  block cannot be inherited-or-replaced-whole: `evolves` has no syntax for
+  "explicitly none" when the base has some, so a target version that
+  genuinely drops all of them cannot be expressed as a delta.
+- Aborts if the target version's field block contains any comment, rather
+  than risk discarding it.
+- Before writing anything, every implemented codegen target is run against
+  both the original and the candidate compacted workspace and their output
+  is required to be byte-identical.
+
+**Example:**
+
+```bash
+modelable compact-version orders.Order@2 --dry-run
+```
+
+---
+
+### 5.27 `expand-version` — Expand an evolves-declared version to full form
+
+```text
+modelable expand-version domain.Model@version [--path PATH] [--dry-run]
+```
+
+The inverse of `compact-version`: renders an `evolves`-declared version's
+already-normalized complete field list back out as a full-form declaration,
+for review or to stop authoring that version as a delta. Aborts if the
+`evolves` block contains any comment, and (like `compact-version`) verifies
+every implemented codegen target's output is byte-identical before writing
+anything.
+
+**Example:**
+
+```bash
+modelable expand-version orders.Order@2 --dry-run
+```
+
+---
+
 ## 6. AI Integration Details
 
 The `update` command and mutation planning in `chat` use the configured LLM

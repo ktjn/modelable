@@ -1773,6 +1773,90 @@ failure. Documented in Language Reference §3.10 (cross-linking to the new
 command) and a new CLI Reference §5.25. Full local `pytest tests/` suite:
 2535 passed, 59 skipped.
 
+**A2 (expand and compact tooling for version deltas) is shipped in full --
+all 6 instructions.** New compiler-owned module `compiler/version_delta.py`
+adds `compute_delta_operations(base, target)` (instruction #1): the inverse
+of `workspace.py::_expand_model_evolutions`, computing the
+`add`/`remove`/`rename`/`replace` sequence that reproduces a target version
+exactly from its base. Two conservative design choices, both deliberate
+rather than accidental gaps:
+
+1. **Rename evidence.** Reuses `compat/diff.py::_deprecated_replacement`
+   directly -- a field is only proposed as a rename when the removed field
+   carries `@deprecated(replacedBy: "newName")` naming a field the target
+   added. Verified directly: a `total`/`amount` pair with *no* such
+   annotation stays `remove` + `add`; the identical pair *with* the
+   annotation produces `rename` (+ `replace` when the definition also
+   changed beyond the name) -- satisfying instruction #3's "only
+   evidence-backed rename; ambiguous rename-like changes remain remove plus
+   add" to the letter, and reusing rather than reinventing the evidence
+   rule.
+2. **Field order.** `add` always appends (`_expand_model_evolutions` calls
+   `new_fields.append`, never inserts), so an operation sequence can only
+   reproduce a target whose fields are "base's survivors in original
+   relative order, then new fields at the end." A target that inserted a
+   field in the *middle* returns `None` rather than silently reordering --
+   caught because Protobuf field numbers and every codegen target's
+   struct/record field order are assigned by declaration order, so
+   reordering would be a real generated-artifact change, which A2's exit
+   criteria explicitly forbids ("no canonical contract or generated
+   artifact changes"). Verified directly with a mid-list-insertion fixture.
+
+New `refactor/compact_version.py` (instruction #3) and
+`refactor/expand_version.py` (instruction #2) build on this, plus a new
+shared `refactor/_model_block.py` (locates a model version's exact `{
+... }` text span via brace-depth tracking, for both directions) and
+`refactor/_target_emitters.py` (the emitter dispatch table, factored out of
+A1's `extract_enum.py` for reuse rather than duplicated). Both directions
+share A1's exact safety discipline -- surgical single-block text
+replacement, not `render_mdl`-the-whole-file (same comment-loss risk
+established in A1's module docstring) -- but add a **stronger** gate than
+A1's: instruction #4 ("require identical signatures... before applying")
+undersells what's actually needed, since `compute_version_signature`
+deliberately excludes model-level `@wire` annotations, `access` blocks, and
+Protobuf reservations (`render_signature_model_version` never touches
+them) -- so signature equality alone would not catch a bug in carrying
+those forward correctly. Both tools instead run **every implemented
+codegen target against the original and candidate workspace and require
+byte-identical content and warnings**, matching A2's exit criteria's actual
+wording ("no... generated artifact changes") rather than the weaker
+instruction #4 restated literally. A genuine, proactively-detected edge
+case surfaced while building this: `evolves` has no syntax for "explicitly
+no annotations/access" when the base has some (only inherit-whole or
+replace-whole), so compacting a version that genuinely drops all
+model-level annotations/access relative to its base is impossible to
+express -- detected explicitly and aborted with a clear reason, not left
+for the artifact-comparison gate to catch after the fact. Instruction #5
+("preserve comments when mapping is exact; otherwise stop and request
+review") is implemented via the conservative half of that sentence only:
+either direction aborts outright if the block being replaced contains
+*any* comment, full stop -- correlating individual comments to their new
+per-field position across a whole-block rewrite is a real, harder design
+problem than fits this slice, so rather than half-solve it, both tools
+guarantee zero silent loss and are honest that finer-grained "exact
+mapping" preservation remains a possible future refinement. Instruction #6
+("a repetition lint may suggest the refactor but must never require delta
+syntax") holds by construction: neither command runs automatically or is
+invoked by any lint (A1's `ENUMSHAPE` is the only auto-triggered
+compiler-side lint in the A-series, and it is unrelated to model version
+deltas), and full-form authoring remains the compiler's ordinary,
+unprompted path for every model kind.
+
+Verified directly and by round-trip: `compact-version` then
+`expand-version` on the same fixture reproduces the exact original
+full-form text byte-for-byte (proven directly in
+`test_compact_round_trips_through_expand_byte_identical`, not merely
+asserted); reload after either command shows zero errors and zero
+warnings. 16 new tests in `cli/tests/test_version_delta.py` cover the
+compiler-level diff function (no-evidence remove+add, evidence-backed
+rename, reorder rejection) and both CLI-facing tools (happy path,
+round-trip, already-in-target-form rejection, no-prior-version rejection,
+reorder rejection, comment-abort, access-loss-abort, apply-time rollback on
+a simulated reload failure). New CLI Reference §5.26/§5.27 and a new
+Language Reference §2.7 paragraph document both commands, cross-linked.
+Full local `pytest tests/` suite: 2551 passed, 59 skipped. **This closes
+A2 and the full A-series (A1, A2) of optional post-Q1 adoption work.**
+
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
 
