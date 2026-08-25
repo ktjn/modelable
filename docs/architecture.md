@@ -682,6 +682,16 @@ Adapter capabilities are declared internally by each adapter implementation and 
 
 Model versions are immutable once published.
 
+A version may be authored either as a complete field list, or as a delta
+against an exact prior version (`evolves @ N { add/remove/rename/replace
+... }` — see [Language Reference
+§2.7](language-reference.md#27-model-version-evolution-evolves)). This is
+purely an authoring-time choice: the compiler expands a delta into the
+identical complete version before any rule in this section applies, so the
+compatibility classification, planner behavior, and every guarantee below
+are defined in terms of the *normalized* version and apply identically
+regardless of which form a given version was written in.
+
 Compatible changes:
 
 - Add optional field.

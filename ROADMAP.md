@@ -1605,12 +1605,58 @@ Both fixes are proven directly (an invalid evolves-targeted index primary
 is still rejected; the OpenMetadata asset list is now byte-identical
 between the interleaved-delta and full-form histories) as well as by the
 9 passing convergence tests. Full local `pytest tests/` suite: 2514 passed,
-58 skipped. **Remaining Q1 scope** (documentation instructions #4/#5 --
-updating `docs/language-reference.md`, generated `docs/grammar.md`,
-`docs/compiler-reference.md`, `docs/wire-format-contract.md`,
-`docs/architecture.md`, and documenting structural loss per target and the
-anonymous/semantic/enum-projection/value/full/evolved/normalized/projection
-distinction) is being scoped as its own follow-up.
+58 skipped.
+
+**Q1's documentation pass (instructions #4/#5) closes out the programme.**
+`docs/grammar.md` was already current against `modelable.lark` (regenerated
+and diffed — no changes). The remaining four named docs and the required
+terminology distinction were genuinely missing rather than stale: grepping
+for `evolves`/`enum projection` across `docs/compiler-reference.md`,
+`docs/wire-format-contract.md`, and `docs/architecture.md` found zero
+matches in all three, and `docs/language-reference.md` had no enum
+projection section at all despite E10/E11 having shipped the feature
+earlier this session -- §2.7 (`evolves`) was already documented
+incrementally as D1-D8 shipped, but enum projections never got their own
+section. Added **new Language Reference §3.8.1 "Enum projections"**
+covering `pick`/`omit` member-set semantics, exact-version source
+resolution, nominal identity (a projection is a distinct contract entity
+from its source even at full coverage), the total/partial `From`/`TryFrom`
+conversion-direction rule the Rust emitter implements, and the four
+enum-projection-specific compatibility finding kinds
+(`enum_projection_source_changed`/`_member_added`/`_member_removed`/
+`_implicit_member_added`). Added **new §3.10 "Terminology"** -- a
+nine-row table distinguishing anonymous enum, semantic enum, enum
+projection, non-enum semantic type, value model, full declaration, evolved
+declaration, normalized version, and record projection, satisfying
+instruction #5 directly (this is the distinction list the roadmap names
+verbatim). **Structural loss per target** (also instruction #5) is
+documented as a dedicated bullet in Compiler Reference §10: no implemented
+target besides Rust emits a dedicated artifact for an enum projection
+declaration, framed explicitly as a permanent structural-loss boundary
+(most target ecosystems have no native "checked subset of another enum"
+concept) rather than a deferred gap, since conflating the two would wrongly
+imply more emitter work eventually closes it. Compiler Reference §1 and
+Wire-Format Contract §1 each gained a paragraph stating plainly that
+`evolves` is a source-only, pre-normalization construct -- no emitter has
+or needs `evolves`-specific code, proven across every implemented target by
+the Q1 convergence suite, not merely asserted. Architecture §8.1 gained a
+short paragraph noting a version's authoring form (full vs. evolved) is
+orthogonal to every versioning/compatibility rule in that section, since
+both normalize to the same `ModelVersion` before any rule applies. CLI
+reference, capabilities output, getting-started guide, and representative
+`.mdl` samples were reviewed and deliberately **not** touched: `cli-
+reference.md` and `getting-started.md` have no section where an
+evolves/enum-projection example fits without disproportionate
+restructuring for a docs-only slice, and the conformance sample fixtures
+(`samples/conformance/*.mdl`) feed golden-artifact regression tests that
+would need coordinated regeneration to touch safely -- left as explicit
+follow-up rather than silently claimed as done. Every new `.mdl` code
+example was verified against the existing `test_doc_examples_parse.py`
+parametrized-over-every-code-block suite (it re-parses every fenced `mdl`
+block in `language-reference.md`), and the full local `pytest tests/` suite
+stayed green (2515 passed, 59 skipped) with no source changes in this
+slice -- documentation only. **This closes Q1, the convergence gate for
+the entire session's E10/E11/D1-D8 programme.**
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:

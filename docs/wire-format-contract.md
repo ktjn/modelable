@@ -17,6 +17,14 @@ already pure functions of the parsed IR — but it wasn't previously pinned
 by a regression test. This document and the accompanying golden fixture
 close that gap.
 
+This extends to a model version's *authoring form*: a version written as a
+complete field list and the same version authored as an `evolves` delta
+(see [Language Reference
+§2.7](language-reference.md#27-model-version-evolution-evolves)) produce
+byte-identical Rust and Protobuf output, since `evolves` is fully resolved
+into a complete version before either emitter runs. Neither emitter has, or
+needs, any `evolves`-specific code path.
+
 **What this document does not guarantee:**
 
 - **Descriptor-binary semantic diffing.** `modelable validate-compat
@@ -34,6 +42,12 @@ close that gap.
   strings pass through the compiler unmodified — there is no numeric
   reformatting or truncation applied to field *values* (as opposed to
   field *types*, which this document does cover).
+- **Enum projection wire encoding.** An `enum projection` (see [Language
+  Reference §3.8.1](language-reference.md#381-enum-projections)) gets Rust
+  `From`/`TryFrom` conversions against its source enum's *existing* Rust
+  representation — it does not introduce a new wire type, and there is no
+  Protobuf representation for an enum projection at all today. Do not
+  assume an enum projection has independent wire identity.
 
 ## 2. Field Ordering And Numbering
 
