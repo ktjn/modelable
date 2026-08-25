@@ -1202,6 +1202,69 @@ modelable spec sync customer-dbt --write
 
 ---
 
+### 5.25 `extract-enum` — Extract a shared semantic enum
+
+```text
+modelable extract-enum --name NAME --domain DOMAIN --field domain.Model@version.field [--field ...] [--change-kind additive|breaking] [--path PATH] [--dry-run]
+```
+
+Converts two or more identically-shaped `enum(...)` field-type occurrences
+(see the `ENUMSHAPE` discovery lint documented in [Language Reference
+§3.10](language-reference.md#310-terminology-enum-model-version-and-projection-variants))
+into references to a single new `semantic` enum declaration -- the explicit,
+human-driven extraction step evolution plan A1 pairs with that lint's purely
+informational discovery.
+
+- `--name` / `--domain` name the new declaration and the domain that owns
+  it; both are required choices, never inferred.
+- `--field` (repeatable, at least two required) selects the exact field
+  locations to convert, in `domain.Model@version.field` form -- the same
+  format the `ENUMSHAPE` warning's message already lists occurrences in.
+  Every selected field must share the *exact* same member set; extraction
+  never merges differently-shaped fields on its own.
+- `--change-kind` sets the new declaration's own `(additive|breaking)`
+  header (default `additive`).
+- `--dry-run` prints the unified diff without writing any files.
+
+Every selected field's `enum(...)` type text is rewritten in place via a
+surgical, single-line text edit -- every other line in the file, including
+comments, is copied through unchanged (the underlying IR has no concept of
+comments at all, so a full re-render-based approach would silently drop
+them; this command never re-renders a whole file). The new `semantic`
+declaration is inserted into the owning domain, right after its
+`owner`/`contact`/`description` attributes. Before writing anything, the
+candidate result is fully reloaded and validated, and every implemented
+codegen target is run against it to catch a target-breaking edit before it
+reaches disk; if either check fails, nothing is written.
+
+**Aborts rather than guesses** when: a selected version is declared via
+`evolves` (the field's `enum(...)` text isn't present to rewrite -- extract
+from the version where it's textually declared instead); a field's type
+spans more than one line; the owning domain doesn't exist; the chosen name
+collides with an existing declaration; or the selected fields' member sets
+don't match exactly.
+
+**Not yet supported:** routing a strict-subset occurrence through a new
+`enum projection` instead of a direct reference. That requires a field to
+be *retyped to reference the projection*, which the language does not
+support today -- verified directly, `status: SomeProjection @ 1` on a
+model field is rejected (`unknown semantic type`) even though the same
+name resolves fine as the projection's own declaration. This is a
+separate, pre-existing gap in field-type resolution (`resolve_semantic_
+type_ref` only looks in `domain.semantic_types`), not an extraction-tooling
+limitation, and is tracked as its own follow-up.
+
+**Example:**
+
+```bash
+modelable extract-enum \
+  --name OrderStatus --domain orders \
+  --field orders.Order@1.status --field orders.OrderHistory@1.previousStatus \
+  --dry-run
+```
+
+---
+
 ## 6. AI Integration Details
 
 The `update` command and mutation planning in `chat` use the configured LLM

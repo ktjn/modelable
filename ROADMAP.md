@@ -1716,10 +1716,62 @@ candidate for a future slice (widen `_operand_types_compatible` to treat
 own blast radius, not a documentation/lint-scope fix -- the example's
 duplication is therefore left in place on purpose, as an honest
 demonstration of what the lint catches, rather than papered over.
-**Instructions #2-5 (extraction tooling: canonical naming, owning-domain
-choice, pick/omit-as-projection option, wire-metadata preservation, and
-safe-abort-on-unmappable-comments) are being scoped as their own
-follow-up.**
+**Instructions #2-5's direct-reference extraction case is shipped as
+`modelable extract-enum`.** New module `refactor/extract_enum.py` and CLI
+command `commands/extract_enum.py`. Deliberately **not** built on
+`llm/workspace_editor.py`'s existing IR-mutate-and-`render_mdl`-the-whole-
+file approach used by every other structural edit in the codebase: `COMMENT`
+is a `%ignore`d lexer token (`grammar/modelable.lark`), so it never enters
+the parse tree at all -- re-rendering a changed file from IR would silently
+drop any comment in that file, anywhere, not just near the edit. That's
+instruction #4's exact concern ("abort safely when comments... cannot be
+mapped without loss"), so this tool instead performs surgical, single-line
+text edits: every untouched line is copied through byte-for-byte, and a
+location it cannot safely rewrite (multi-line type, `evolves`-declared
+version, unresolvable domain/field) aborts with a clear reason rather than
+guessing. Requires explicit choices exactly as instruction #2 specifies --
+canonical name, owning domain, and every field location -- with no
+inference or automatic merging: selections with different member sets are
+rejected outright, matching the exit criteria "no unrelated concepts are
+merged automatically." Every implemented codegen target is run against the
+candidate workspace before anything is written (instruction #3); on
+success, the new `semantic` declaration is inserted into the owning
+domain's block and each selected field's `enum(...)` type is rewritten to
+reference it, then the whole edit is re-validated as a complete reloaded
+workspace before any file is actually written, with an automatic rollback
+if the post-write reload somehow still fails.
+
+**Instruction #2's "whether intentional subsets become enum projections"
+sub-case is deliberately not implemented, and this was a real discovery,
+not an assumption.** Routing a subset occurrence through an `enum
+projection` requires retyping that field to *reference* the projection --
+and verified directly, the language does not support that today:
+`status: SomeProjection @ 1` on a model field is rejected with `ENUMREF:
+unknown semantic type 'SomeProjection'`, even though the identical name
+resolves fine as the projection's own declaration. The cause:
+`registry/resolver.py::resolve_semantic_type_ref` -- the only resolution
+path a field's `NamedType`/`EnumRefType` goes through -- looks up
+`domain.semantic_types` exclusively, with no fallback to
+`domain.enum_projections`. This is a separate, pre-existing gap in
+field-type resolution, not an extraction-tooling gap; fixing it means
+extending (or adding a parallel path alongside) that resolver function,
+compiler surface area with its own audit well beyond a refactor tool.
+Documented as a follow-up in both this entry and the command's own CLI
+Reference section (§5.25) and docstring, rather than silently working
+around it or quietly shipping a "supports enum projections" claim that
+isn't actually true.
+
+Verified directly: extraction round-trips correctly end-to-end through the
+CLI (`--dry-run` prints an accurate diff; applying resolves the source
+ENUMSHAPE finding with zero remaining diagnostics on reload), and a
+dedicated standalone/trailing-comment fixture proves comments survive the
+edit untouched. 12 new tests in `cli/tests/test_extract_enum.py` cover the
+happy path, comment preservation, mismatched-shape/evolves/non-
+enum-field/unknown-domain/name-collision/too-few-fields/duplicate-selection
+rejection, and apply-time rollback on a simulated post-write reload
+failure. Documented in Language Reference §3.10 (cross-linking to the new
+command) and a new CLI Reference §5.25. Full local `pytest tests/` suite:
+2535 passed, 59 skipped.
 
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
