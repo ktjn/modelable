@@ -1693,6 +1693,29 @@ fields to prove that). Documented in a new "Discovering repeated anonymous
 enum shapes" note directly under Language Reference §3.10's terminology
 table, the natural place given it explains "anonymous enum" identity
 concretely. Full local `pytest tests/` suite: 2523 passed, 59 skipped.
+**The lint found a real duplicate on first contact against the
+playground's own bundled example content**: `web/src/example-customer.mdl`
+declares `status: enum(active, suspended, closed)` verbatim on both
+`Customer @ 1` and `Customer @ 2` -- exactly the case this lint exists to
+surface, and now a genuine (non-blocking) `ENUMSHAPE` finding on the
+playground's default workspace. Two E2E tests
+(`web/tests/playground.spec.ts`) asserted the default workspace had zero
+diagnostics; updated both to expect the one legitimate `ENUMSHAPE` finding
+instead of masking it. Investigated extracting a shared `semantic
+CustomerStatus` enum to actually eliminate the duplication instead of just
+updating the assertions, and hit a real, separate, pre-existing gap while
+doing so: `expressions/cel.py`'s `_operand_types_compatible` allows an
+inline anonymous `enum`-typed field to compare against a string literal
+via `==` (needed by `example-billing.mdl`'s `isActive = c.status ==
+"active"`), but not an `enum_ref`-typed field (a reference to a named
+`semantic` enum) -- so extracting the shared enum breaks that unrelated
+CEL comparison with a `CEL003` error. This is a genuine, narrow follow-up
+candidate for a future slice (widen `_operand_types_compatible` to treat
+`enum_ref` the same as `enum` for `==`/`!=` against `string`), deliberately
+**not** fixed here since it is an unrelated CEL type-system change with its
+own blast radius, not a documentation/lint-scope fix -- the example's
+duplication is therefore left in place on purpose, as an honest
+demonstration of what the lint catches, rather than papered over.
 **Instructions #2-5 (extraction tooling: canonical naming, owning-domain
 choice, pick/omit-as-projection option, wire-metadata preservation, and
 safe-abort-on-unmappable-comments) are being scoped as their own

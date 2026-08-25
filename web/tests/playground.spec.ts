@@ -261,8 +261,13 @@ test('creates, validates, and restores a multi-file workspace', async ({
     'domain sales { owner: "sales-team" entity Order @ 1 (additive) { @key orderId: uuid } }',
   );
   await page.getByRole('button', { name: 'Validate' }).click();
+  // customer.mdl's bundled Customer @ 1 / @ 2 both declare
+  // status: enum(active, suspended, closed) verbatim -- a real,
+  // intentionally-left-in-place duplicate the ENUMSHAPE discovery lint
+  // (evolution plan A1) correctly flags as a single non-blocking warning,
+  // not the 0 diagnostics a clean workspace would otherwise have.
   await expect(page.getByRole('status')).toContainText(
-    /validation complete.*0 diagnostics/i,
+    /validation complete.*1 diagnostic\b/i,
   );
   await expect
     .poll(() =>
@@ -573,9 +578,13 @@ test('retains the labeled textarea fallback when EditContext is unavailable', as
   await expect(page.getByRole('status')).toHaveText(
     /validation complete/i,
   );
-  await expect(page.getByTestId('diagnostics')).toContainText(
-    'No diagnostics',
-  );
+  // The bundled customer.mdl's Customer @ 1 / @ 2 both declare
+  // status: enum(active, suspended, closed) verbatim -- the ENUMSHAPE
+  // discovery lint (evolution plan A1) correctly flags that real
+  // duplicate, so the workspace is never actually diagnostic-free with
+  // the default files present. This still proves adding scratch.mdl (with
+  // valid content) didn't introduce a new problem.
+  await expect(page.getByTestId('diagnostics')).toContainText('ENUMSHAPE');
 });
 
 test('has no automated accessibility violations when ready', async ({
