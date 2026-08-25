@@ -8,6 +8,56 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Model version evolution: a new version can be authored as a delta against
+  an exact prior version (`entity Name @ N evolves @ base { add/remove/
+  rename/replace ... }`) instead of a complete field list, for every model
+  kind. A delta-authored version is expanded into a complete version before
+  validation, compatibility, signatures, or codegen ever run, so it is
+  indistinguishable from an equivalent hand-written full declaration at
+  every downstream boundary — identical fields, identical signature,
+  identical generated output at every implemented target (#468-#474,
+  #481).
+  - Renames declared via `evolves` are tracked with provenance, so
+    compatibility diagnostics correctly report a single `renamed_field`
+    fact instead of an unrelated `removed_field`/`added_field` pair, even
+    when the rename shares a block with other operations (#469, #471).
+  - Model-level `@wire` annotations and `access` blocks follow
+    inherit-when-omitted, replace-when-present; Protobuf reservations
+    remain version-local and are never inherited (#470).
+- The canonical formatter (`modelable format`, and the browser
+  playground's format-on-save) now round-trips `evolves` declarations
+  correctly; previously it silently dropped them (#477).
+- Editor language services (completion, go-to-definition, hover,
+  find-all-references, and rename) now understand `evolves` blocks: syntax
+  highlighting for `add`/`remove`/`rename`/`replace`/`evolves`, hover and
+  go-to-definition on a base-version reference, completion inside
+  `remove`/`rename`/`replace` that reflects the field set at that exact
+  point in the operation sequence, and find-references/rename for field
+  names referenced by those operations (#477-#480).
+- A new non-blocking `ENUMSHAPE` diagnostic surfaces when two or more
+  inline `enum(...)` field types share an identical member set anywhere in
+  the workspace, listing every occurrence — discovery only, with no claim
+  the fields represent the same concept (#484).
+- `modelable extract-enum` converts a set of hand-selected, identically-shaped
+  `enum(...)` field occurrences into references to a new shared `semantic`
+  enum declaration, via comment-preserving surgical text edits and with
+  every implemented codegen target validated before anything is written
+  (#485).
+- `modelable compact-version` and `modelable expand-version` convert a
+  model version between full-form and `evolves`-delta authoring. Renames
+  are only proposed when backed by an existing `@deprecated(replacedBy:
+  ...)` annotation; a version whose field order can't be reproduced
+  without reordering (and thereby changing generated field/column order)
+  is rejected outright. Every implemented codegen target's output is
+  required to be byte-identical between the original and the converted
+  form before anything is written (#486).
+- E11 enum-projection tooling completed: editor completion support,
+  `pick`/`omit` member validation, a namespace-collision fix, VS Code/Monaco
+  grammar parity, and cross-surface conformance coverage (#463-#467).
+- CI now retries E2E (Playwright) tests up to twice and reports any test
+  that needed a retry as a warning annotation, instead of either failing
+  the build on a one-off flake or silently absorbing it (#482).
+
 ### Changed
 
 ### Fixed
