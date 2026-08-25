@@ -172,6 +172,7 @@ def load_workspace_from_sources(
     errors.extend(ref_errors)
     warnings.extend(ref_warnings)
     warnings.extend(_validate_postcard_bindings(merged))
+    warnings.extend(_find_repeated_anonymous_enum_shapes(merged))
     errors.extend(_validate_cel(merged))
     return Workspace(sources=workspace_sources, mdl=merged, errors=errors, warnings=warnings)
 
@@ -983,6 +984,67 @@ def _validate_postcard_bindings(merged: MdlFile) -> list[Diagnostic]:
                     path="<workspace>",
                 )
             )
+    return warnings
+
+
+def _find_repeated_anonymous_enum_shapes(merged: MdlFile) -> list[Diagnostic]:
+    """Discovery-only lint (evolution plan A1): report inline `enum(...)`
+    field types whose exact member set (order-independent) recurs at more
+    than one field location across the workspace.
+
+    This makes **no equivalence claim** -- two fields sharing a member set
+    are not asserted to represent the same domain concept, only that they
+    are structurally identical, which is worth a human look. Extracting a
+    shared `semantic` enum declaration (or leaving the fields as
+    independently-evolving anonymous enums) remains an explicit choice for
+    a human to make; this function only surfaces the candidates.
+
+    Semantic-type-backed enums (`NamedType`/`EnumRefType`) are deliberately
+    excluded -- they already have a name and an evolution history of their
+    own, so there is nothing to discover there.
+    """
+    occurrences: dict[tuple[str, ...], list[str]] = {}
+
+    def visit(field_type: FieldType, context: str) -> None:
+        if isinstance(field_type, EnumType):
+            key = tuple(sorted(field_type.values))
+            occurrences.setdefault(key, []).append(context)
+        elif isinstance(field_type, ArrayType):
+            visit(field_type.item, context)
+        elif isinstance(field_type, MapType):
+            visit(field_type.key, f"{context}[key]")
+            visit(field_type.value, f"{context}[value]")
+        elif isinstance(field_type, ObjectType):
+            for nested in field_type.fields:
+                visit(nested.type, f"{context}.{nested.name}")
+        elif isinstance(field_type, UnionType):
+            for variant in field_type.variants:
+                visit(variant.type, f"{context}.{variant.tag}")
+
+    for domain in merged.domains:
+        for model_name, versions in domain.models.items():
+            for version in versions:
+                for model_field in version.fields:
+                    visit(model_field.type, f"{domain.name}.{model_name}@{version.version}.{model_field.name}")
+
+    warnings: list[Diagnostic] = []
+    for key in sorted(occurrences):
+        locations = sorted(occurrences[key])
+        if len(locations) < 2:
+            continue
+        warnings.append(
+            Diagnostic(
+                code="ENUMSHAPE",
+                message=(
+                    f"anonymous enum shape ({', '.join(key)}) is structurally identical across "
+                    f"{len(locations)} field(s): {', '.join(locations)} -- this is a structural "
+                    "observation only, not a claim these fields represent the same concept; "
+                    "review and, if appropriate, extract a shared `semantic` enum declaration"
+                ),
+                severity="warning",
+                path="<workspace>",
+            )
+        )
     return warnings
 
 
