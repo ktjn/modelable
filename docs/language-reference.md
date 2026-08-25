@@ -873,7 +873,11 @@ correctness rule** — it makes no claim the fields represent the same
 concept, imposes no requirement to act on it, and a `semantic` enum
 reference is never flagged (it already has a name and its own version
 history). Whether to extract a shared `semantic` enum declaration for a
-reported group remains an explicit human decision.
+reported group remains an explicit human decision — `modelable
+extract-enum` (see [CLI Reference
+§5.25](cli-reference.md#525-extract-enum--extract-a-shared-semantic-enum))
+performs that extraction once the human has made it, taking the exact
+`domain.Model@version.field` locations this warning lists.
 
 ---
 
