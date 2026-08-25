@@ -23,20 +23,13 @@ domain catalog {
     @server      updatedAt?:   timestamp
   }
 
-  // Version 2 adds a backwards-compatible merchandising field. The separate
-  // auto-projection block keeps ProductReply@1 available for existing clients
-  // while publishing ProductReply@2 for consumers that need the new field.
-  entity Product @ 2 (additive) {
-    @key         productId:    uuid
-                 sku:          string
-                 name:         string
-                 description?: string
-                 priceCents:   int
-                 currency:     string
-                 status:        enum(draft, active, discontinued)
-                 brand?:       string
-    @server      createdAt:    timestamp
-    @server      updatedAt?:   timestamp
+  // Version 2 adds a backwards-compatible merchandising field, authored as
+  // an evolves delta against @ 1 instead of repeating the complete field
+  // list. The separate auto-projection block keeps ProductReply@1
+  // available for existing clients while publishing ProductReply@2 for
+  // consumers that need the new field.
+  entity Product @ 2 (additive) evolves @ 1 {
+    add brand?: string
   }
 
   // ── Auto projections ──────────────────────────────────────────────────────
