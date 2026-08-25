@@ -862,6 +862,19 @@ implies identity between them:
 | **Normalized version** | Neither — the expanded `ModelVersion` object that exists once workspace loading completes | What both a full declaration and an evolved declaration become before validation, compatibility, signatures, or codegen ever run. A full-form and an evolved-form authoring of the *same* version are indistinguishable once normalized: identical fields, identical signature, identical generated output at every target (verified directly by the Q1 convergence suite, `cli/tests/test_q1_convergence.py`). |
 | **Record projection** | `projection Name @ v from Source @ v as alias ... { field <- alias.field, ... }` (§3) | A derived model-shaped *view* — its own fields, built from one or more source models'/projections' fields via joins, filters, and computed expressions. Not to be confused with an enum projection, which derives a member *subset*, not a field list, and has no join/filter/computation concept. |
 
+**Discovering repeated anonymous enum shapes.** Since an anonymous enum has
+no name, nothing prevents the same member set from being independently
+hand-typed at more than one field. The compiler surfaces this as a
+non-blocking `ENUMSHAPE` warning: when two or more field types resolve to
+the exact same member set (order-independent; array/map/object-nested enum
+fields are included), every occurrence is listed by its
+`domain.Model@version.field` location. This is **discovery, not a
+correctness rule** — it makes no claim the fields represent the same
+concept, imposes no requirement to act on it, and a `semantic` enum
+reference is never flagged (it already has a name and its own version
+history). Whether to extract a shared `semantic` enum declaration for a
+reported group remains an explicit human decision.
+
 ---
 
 ## 4. Output Targets

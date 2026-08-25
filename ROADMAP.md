@@ -1658,6 +1658,69 @@ stayed green (2515 passed, 59 skipped) with no source changes in this
 slice -- documentation only. **This closes Q1, the convergence gate for
 the entire session's E10/E11/D1-D8 programme.**
 
+**A1 (explicit enum discovery and extraction tooling) is starting --
+instruction #1's discovery lint is shipped.** A1 is optional adoption work
+gated behind Q1, split into discovery (instruction #1) and extraction
+(instructions #2-5) per the roadmap's own instructions -- shipped as two
+slices for the same reason every D-slice was narrowly scoped. A new
+non-blocking `ENUMSHAPE` warning
+(`compiler/workspace.py::_find_repeated_anonymous_enum_shapes`, wired into
+`load_workspace_from_sources` the same way as the existing `POSTCARD`
+binding warning) walks every field type across the merged, expanded
+workspace -- recursing into `array<>`/`map<>`/`object{}`/`union<>` nesting
+the same way `_validate_named_field_types` already does -- and groups
+every inline `enum(...)` occurrence by its exact member set, order-
+independent. Any member set appearing at two or more field locations is
+reported in one finding naming every occurrence's
+`domain.Model@version.field` location, deliberately worded as a structural
+observation with **no equivalence claim** (the roadmap's own phrase):
+finding two fields with the same three status values does not assert they
+represent the same domain concept, and the finding text says so
+explicitly rather than implying an action is required. A field referencing
+a named `semantic` enum (`NamedType`/`EnumRefType`) is excluded outright --
+it already has a name and its own version/compatibility history, so there
+is nothing to discover. Verified directly through the CLI (`modelable
+validate` prints the warning exactly like `POSTCARD`/`ENUMREF` already do,
+requiring no new command) and with 8 dedicated tests covering: cross-model
+repetition, order-independence, no false positive on a genuinely unique
+shape, exclusion of semantic-enum references, nested `array`/`object`
+locations (with dotted paths for the latter), three-or-more-occurrence
+groups, and correct visibility into an `evolves`-declared version's fields
+post-expansion (this warning runs after evolution expansion, like
+`POSTCARD`, not per-source like `SEM`-coded checks -- the fixture
+deliberately covers an evolved version's inherited *and* newly-added
+fields to prove that). Documented in a new "Discovering repeated anonymous
+enum shapes" note directly under Language Reference §3.10's terminology
+table, the natural place given it explains "anonymous enum" identity
+concretely. Full local `pytest tests/` suite: 2523 passed, 59 skipped.
+**The lint found a real duplicate on first contact against the
+playground's own bundled example content**: `web/src/example-customer.mdl`
+declares `status: enum(active, suspended, closed)` verbatim on both
+`Customer @ 1` and `Customer @ 2` -- exactly the case this lint exists to
+surface, and now a genuine (non-blocking) `ENUMSHAPE` finding on the
+playground's default workspace. Two E2E tests
+(`web/tests/playground.spec.ts`) asserted the default workspace had zero
+diagnostics; updated both to expect the one legitimate `ENUMSHAPE` finding
+instead of masking it. Investigated extracting a shared `semantic
+CustomerStatus` enum to actually eliminate the duplication instead of just
+updating the assertions, and hit a real, separate, pre-existing gap while
+doing so: `expressions/cel.py`'s `_operand_types_compatible` allows an
+inline anonymous `enum`-typed field to compare against a string literal
+via `==` (needed by `example-billing.mdl`'s `isActive = c.status ==
+"active"`), but not an `enum_ref`-typed field (a reference to a named
+`semantic` enum) -- so extracting the shared enum breaks that unrelated
+CEL comparison with a `CEL003` error. This is a genuine, narrow follow-up
+candidate for a future slice (widen `_operand_types_compatible` to treat
+`enum_ref` the same as `enum` for `==`/`!=` against `string`), deliberately
+**not** fixed here since it is an unrelated CEL type-system change with its
+own blast radius, not a documentation/lint-scope fix -- the example's
+duplication is therefore left in place on purpose, as an honest
+demonstration of what the lint catches, rather than papered over.
+**Instructions #2-5 (extraction tooling: canonical naming, owning-domain
+choice, pick/omit-as-projection option, wire-metadata preservation, and
+safe-abort-on-unmappable-comments) are being scoped as their own
+follow-up.**
+
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
 
