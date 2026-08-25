@@ -15,6 +15,19 @@ Emitters transform validated Modelable definitions into external artifacts. They
 
 Emitters must be deterministic: the same normalized graph and emitter options produce byte-for-byte equivalent artifacts, apart from documented formatting differences.
 
+**Model version deltas are resolved before the normalized graph exists.** A
+version authored via `evolves` (see [Language Reference
+§2.7](language-reference.md#27-model-version-evolution-evolves)) is a
+source-only construct: the workspace loader expands it into a complete
+`ModelVersion` — deep-copying the base version's fields and applying the
+declared operations in order — before any validation, compatibility check,
+signature computation, or emitter ever runs. No emitter, and nothing past
+the workspace-loading boundary generally, contains `evolves`-specific
+handling; an evolved version and an equivalent hand-written full-form
+version are byte-for-byte identical at every downstream boundary, including
+every implemented codegen target's output (verified directly across all of
+them by `cli/tests/test_q1_convergence.py`).
+
 ## 2. Phase Scope
 
 | Target | Phase | Status |
@@ -269,6 +282,20 @@ implemented:
   `registry_id`, and the canonical `modelable_signature` separately from
   `schema_fingerprint`. Other non-Rust targets continue to resolve semantic
   references structurally.
+- Enum projections (`enum projection Name @ v from Source @ v pick(...)|omit(...)`,
+  see [Language Reference §3.8.1](language-reference.md#381-enum-projections)):
+  the Rust emitter generates `impl From<Projection> for Source` (always
+  total — a projection's members are always a subset of the source's) and
+  either `impl TryFrom<Source> for Projection` (a partial subset) or `impl
+  From<Source> for Projection` (the projection covers every source member,
+  so it's total too). No other implemented target emits a dedicated
+  artifact for an enum projection declaration today — this is a genuine
+  structural-loss boundary rather than a deferred gap, since most target
+  ecosystems (JSON Schema, TypeScript, SQL, Protobuf, Avro, and so on) have
+  no native representation for "a checked subset of another enum." The
+  registry snapshot, compatibility reports, and canonical signature still
+  track the projection's normalized member set and source reference fully,
+  independent of target support.
 
 Every generated Rust model and projection exposes its declared version as an
 associated `u32` constant such as

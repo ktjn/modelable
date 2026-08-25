@@ -713,6 +713,78 @@ OpenMetadata, ODCS, markdown, Go, Java, C#, Python) continue to resolve a
 semantic type reference structurally. Extending nominal semantic-type support
 to those targets is deferred to follow-up slices.
 
+### 3.8.1 Enum projections
+
+An `enum projection` declares a nominal, versioned, exact subset of an
+enum-backed `semantic` declaration's members — the enum equivalent of a
+record `projection`'s `pick`/`omit` field selection (§3.5.1), but deriving
+from a semantic enum's *members* rather than a model's *fields*:
+
+```mdl
+semantic OrderStatus @ 1 (additive): enum(draft, submitted, approved, rejected, cancelled, deleted)
+
+enum projection PublicOrderStatus @ 1 (additive)
+  from OrderStatus @ 1
+  pick(submitted, approved, rejected, cancelled)
+
+enum projection HiddenDrafts @ 1 (additive)
+  from OrderStatus @ 1
+  omit(draft, deleted)
+```
+
+- **`pick(...)`** — the projection's member set is exactly the listed
+  members, normalized to the source's exact member identities.
+- **`omit(...)`** — the projection's member set is the source's complement:
+  every source member *not* listed.
+- The source is resolved against an **exact** version (`from OrderStatus @
+  1`, never a range); the projection's member set is fixed at that source
+  version and does not grow if a later source version adds members —
+  re-basing onto a newer source version requires a new projection version
+  that names it explicitly.
+- Listing an unknown member, listing the same member more than once, or an
+  `omit` that would leave zero members, are all compile errors.
+- An enum projection's name shares the same nominal namespace as models,
+  record projections, and semantic types within its domain — declaring one
+  with a name already used by any of those is a compile error.
+
+**Nominal identity.** An enum projection is a distinct contract entity from
+its source, and from any other enum projection, even when their exact member
+sets coincide — two projections that both happen to select `{submitted,
+approved}` from the same source are still two separate declarations with
+independent compatibility history, exactly as two equal-shaped `semantic`
+enums are never treated as the same type (see §3.10).
+
+**Conversion direction.** A projection's members are always a subset of its
+source's, so converting a projection value *to* its source is always total
+(cannot fail). Converting a source value *to* the projection is a checked,
+possibly-failing conversion — unless the projection happens to cover every
+source member, in which case it is total too. The Rust emitter reflects this
+exactly: `impl From<Projection> for Source` always, and either `impl
+TryFrom<Source> for Projection` (partial) or `impl From<Source> for
+Projection` (total, full coverage) depending on which case applies.
+
+**Compatibility.** Enum projection changes are visible in compatibility
+reports as their own finding kinds — `enum_projection_source_changed`
+(pointing at a different source declaration or version),
+`enum_projection_member_added`/`enum_projection_member_removed` (a
+`pick`/`omit` clause edit), and `enum_projection_implicit_member_added` (an
+`omit` projection picking up a member the source gained since the
+projection's last version, without the projection's own clause changing) —
+distinct from the source semantic enum's own
+`enum_member_added`/`enum_member_removed` findings.
+
+#### Emitter support (this slice)
+
+The Rust emitter generates the `From`/`TryFrom` conversions described above.
+No other target currently emits a dedicated artifact for an enum projection
+declaration — this is a genuine, currently-permanent structural loss for
+those targets, not a deferred gap pending more emitter work, since most
+target ecosystems (JSON Schema, TypeScript, SQL, Protobuf, Avro, and so on)
+have no native concept of "a checked subset of another enum" to encode into.
+The projection's normalized member set, source reference, and compatibility
+history remain fully tracked in the registry snapshot and compatibility
+reports regardless of target support.
+
 ---
 
 ### 3.9 Index Declarations
@@ -769,6 +841,26 @@ Changing an `index` declaration between two published model versions (adding, re
 #### Emitter support
 
 The Postgres SQL emitter consumes `index` declarations, generating `CREATE INDEX`/`CREATE UNIQUE INDEX` statements for each `secondary` block (see [Compiler Reference](compiler-reference.md)). The ClickHouse SQL emitter renders each `secondary` block as an inline `INDEX ... TYPE bloom_filter GRANULARITY 1` data-skipping index on the generated `MergeTree` table; a `unique: true` block still emits the index but adds a diagnostic warning, since ClickHouse cannot enforce uniqueness. The Protobuf target records declared indexes in schema manifests, and the gRPC target records `read_indexes` in service manifests. `modelable validate-compat --target grpc` reports read-index changes as `requires_read_rebuild`.
+
+---
+
+### 3.10 Terminology: enum, model version, and projection variants
+
+Several similarly-named constructs exist for related but distinct purposes.
+None of the pairs below are interchangeable, and shape equality never
+implies identity between them:
+
+| Term | Declared as | Identity |
+|---|---|---|
+| **Anonymous enum** | `enum(a, b, c)` written inline as a field's type (§2.1) | No name of its own. Two fields independently declared `enum(active, blocked)` are unrelated — there is nothing to compare for "sameness" beyond the field's own type-compatibility rules. |
+| **Semantic enum** | `semantic Name @ v (kind): enum(...)` (§3.8) | Named and versioned. Two semantic enums with identical member sets (e.g. `Grade` and `Rank`, both `enum(gold, silver, bronze)`) are still two distinct types — shape alone never implies identity. |
+| **Enum projection** | `enum projection Name @ v from Source @ v pick(...)\|omit(...)` (§3.8.1) | Named, versioned, and derived from an exact semantic-enum version. A projection covering every source member is still a distinct contract entity from its source, not an alias for it. |
+| **Non-enum semantic type** | `semantic Name @ v (kind): <primitive\|decimal\|binary\|semantic type>` (§3.8) | Same nominal-naming mechanism as a semantic enum, but wraps a non-enum underlying type. No `pick`/`omit`/projection concept applies — there is nothing to select a member subset *of*. |
+| **Value model** | `value Name @ v { field: type, ... }` (§2.4) | A model kind with no `@key`, used for embedded/reusable multi-field groups. Distinct from a semantic type: a semantic type names *one* wrapped type, a value model is a *record shape* with its own fields. |
+| **Full declaration** | `entity Name @ v (kind) { field: type, ... }` — the complete field list written out | The ordinary authoring form for any model version: every field the version has, stated directly. |
+| **Evolved declaration** | `entity Name @ v (kind) evolves @ base { add/remove/rename/replace ... }` (§2.7) | A version authored as a delta against an exact prior version instead of a complete list. Purely an authoring-time choice — never required, and switchable per version (one version can be full-form while its neighbors are evolved-form). |
+| **Normalized version** | Neither — the expanded `ModelVersion` object that exists once workspace loading completes | What both a full declaration and an evolved declaration become before validation, compatibility, signatures, or codegen ever run. A full-form and an evolved-form authoring of the *same* version are indistinguishable once normalized: identical fields, identical signature, identical generated output at every target (verified directly by the Q1 convergence suite, `cli/tests/test_q1_convergence.py`). |
+| **Record projection** | `projection Name @ v from Source @ v as alias ... { field <- alias.field, ... }` (§3) | A derived model-shaped *view* — its own fields, built from one or more source models'/projections' fields via joins, filters, and computed expressions. Not to be confused with an enum projection, which derives a member *subset*, not a field list, and has no join/filter/computation concept. |
 
 ---
 
