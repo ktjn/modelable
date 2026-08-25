@@ -26,6 +26,9 @@ small; each document has one role.
   workflows, local export targets, and non-committed integration research.
 - [Maintainer and agent guide](maintainers.md): local gates, review policy,
   release process, and automation rules.
+- [Future direction](future-direction.md) and [emitter extension overlays
+  proposal](emitter-extension-overlays.md): not-yet-accepted design
+  candidates, tracked separately from the roadmap until promoted.
 
 The [roadmap](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) covers
 product priorities, compiler correctness/capability slice detail, and

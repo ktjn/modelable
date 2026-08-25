@@ -132,6 +132,12 @@ modelable compile customer.mdl --target typescript --out generated/types
 - Trace projection fields to canonical source fields.
 - Report structurally missing access and classification metadata.
 - Expand automatic database, request, reply, and event projections.
+- Author a model version as a delta against its prior version
+  (`evolves @ N { add/remove/rename/replace ... }`) instead of repeating
+  its complete field list, with tooling to convert either direction
+  (`modelable compact-version` / `expand-version`) and to extract a
+  repeated inline enum shape into a shared, versioned `semantic` enum
+  (`modelable extract-enum`).
 - Generate JSON Schema, OpenAPI 3.1, Markdown, TypeScript, C#, Java, Python,
   Rust, Go, SQL DDL, dbt `schema.yml`, FHIR R4 profile, OpenMetadata JSON, and
   OpenLineage event, ODCS, Protobuf, Avro record, event-sink contract, and
@@ -185,7 +191,7 @@ Modelable 1.0 stabilizes the local compiler and language-server toolchain.
 
 - `.mdl` language: syntax, types, projections, ownership, classification, and
   access metadata.
-- CLI: `validate`, `compile`, `check`, `generate`, `attach`, `spec`, and the
+- CLI: `validate`, `compile`, `diff`, `generate`, `attach`, `spec`, and the
   language server.
 - Generated artifacts: JSON Schema, TypeScript, C#, Java, Python, Rust, Go,
   SQL DDL, dbt `schema.yml`, Markdown, FHIR R4 profile, OpenMetadata JSON,
