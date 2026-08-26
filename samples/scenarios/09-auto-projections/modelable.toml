@@ -1,0 +1,7 @@
+# Workspace-level compiler defaults, read from the directory `modelable`
+# is invoked against (see `modelable config explain`). [defaults] values
+# apply to every model version that doesn't already declare the same
+# thing explicitly -- an explicit declaration always wins.
+
+[defaults]
+auto_projections = ["db", "request", "reply", "event"]

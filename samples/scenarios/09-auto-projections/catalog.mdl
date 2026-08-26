@@ -34,27 +34,21 @@ domain catalog {
 
   // ── Auto projections ──────────────────────────────────────────────────────
   //
-  // Four models are generated from the single entity above:
+  // Neither Product version declares its own `auto projections` block --
+  // this workspace's modelable.toml sets [defaults] auto_projections =
+  // ["db", "request", "reply", "event"], which the compiler lowers into
+  // exactly that block for every model version that doesn't already
+  // declare one explicitly (see `modelable config explain`). Four models
+  // are generated for each version:
   //
-  //   ProductDb @ 1        — all fields; used for Postgres DDL and storage bindings
-  //   ProductRequest @ 1   — client write model; @server fields excluded
-  //   ProductReply @ 1     — API read model; all fields
-  //   ProductEvent @ 1     — change event; all fields; emitted on create/update/delete
-
-  auto projections Product @ 1 {
-    db
-    request
-    reply
-    event
-  }
-
-  auto projections Product @ 2 {
-    db
-    request
-    reply
-    event
-  }
-
+  //   ProductDb @ N        — all fields; used for Postgres DDL and storage bindings
+  //   ProductRequest @ N   — client write model; @server fields excluded
+  //   ProductReply @ N     — API read model; all fields
+  //   ProductEvent @ N     — change event; all fields; emitted on create/update/delete
+  //
+  // Category, below, needs its own explicit block instead: the config
+  // default can only express "all four, unfiltered" -- exclude/on
+  // customisation always requires an explicit declaration.
 
   // ── A second entity with customised auto projections ──────────────────────
   //

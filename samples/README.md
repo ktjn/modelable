@@ -176,7 +176,13 @@ See the [compiler reference](../docs/compiler-reference.md) for federation and l
 A simple domain demonstrates the four compiler-generated projections (`db`, `request`, `reply`, `event`) for an `Order` entity, including inline customization with `exclude` and `on` filters.
 
 Key techniques demonstrated:
-- `auto projections Order @ 1 { db, request, reply, event }`
+- `modelable.toml`'s `[defaults] auto_projections = ["db", "request",
+  "reply", "event"]` supplies `Product`'s auto projections for both
+  versions without either declaring its own `auto projections` block --
+  `modelable config explain` shows the resolved value and where it came
+  from. `Category`, which needs `exclude`/`on` customisation, still
+  declares its block explicitly; a config default only fills in when
+  nothing is declared.
 - `Product @ 2` is authored as an `evolves @ 1 { add brand?: string }`
   delta instead of repeating the complete field list, per [Language
   reference](../docs/language-reference.md) §2.7
