@@ -981,6 +981,15 @@ def test_cel_type_inference_covers_literals_operators_and_functions():
 def test_cel_compatibility_allows_governed_cross_type_comparisons():
     cases = [
         ("==", "enum", "string", False),
+        # "enum_ref" is an exact-versioned reference to an enum-backed
+        # `semantic` declaration (`tier: LoyaltyTier @ 1`) -- comparable to
+        # a string literal exactly like an anonymous enum(...) field
+        # already is.
+        ("==", "enum_ref", "string", False),
+        # A bare "named" reference (`tier: LoyaltyTier`, no exact version)
+        # may resolve to a non-enum semantic type, so it stays rejected --
+        # only the exact-versioned enum_ref form is safe to widen.
+        ("==", "named", "string", True),
         ("==", "ref", "uuid", False),
         (">", "date", "string", False),
         (">", "u16", "int", False),
