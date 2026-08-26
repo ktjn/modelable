@@ -2,10 +2,10 @@ domain billing {
   owner: "billing-platform"
 
   projection BillingCustomer @ 1
-    from customer.Customer @ 2 as c
+    from customer.Customer @ 3 as c
   {
     billingId <- c.customerId
-    name <- c.legalName
+    name <- c.fullName
     @pii
     invoiceEmail <- c.email
     isActive = c.status == "active"

@@ -6,14 +6,16 @@ domain sales {
     name: string
     sku: string
     category: enum(physical, digital, subscription)
+    tags: array<string>
     unitPrice: decimal(10, 2)
     createdAt: timestamp
   }
 
   entity Purchase @ 1 (additive) {
     @key purchaseId: uuid
-    customer: ref<customer.Customer @ 2>
+    customer: ref<customer.Customer @ 3>
     total: decimal(12, 2)
+      constraint { min: 0 }
     placedAt: timestamp
   }
 }

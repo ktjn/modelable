@@ -6,7 +6,8 @@ domain customer {
     legalName: string
     @pii
     email?: string
-    status: enum(active, suspended, closed)
+    status: CustomerStatus @ 1
+    billingAddress?: Address
     createdAt: timestamp
   }
 
@@ -14,12 +15,48 @@ domain customer {
     add @classification("confidential") creditLimit?: decimal(12, 2)
   }
 
+  // v3 renames legalName -> fullName -- the original name undersold that
+  // this holds a person's full legal name, not just a company name.
+  entity Customer @ 3 (breaking) evolves @ 2 {
+    rename legalName -> fullName
+  }
+
+  index Customer @ 3 {
+    primary customerId
+
+    secondary byEmail {
+      key:    [email]
+      unique: true
+    }
+  }
+
   // Compiler-expanded models: CustomerDb, CustomerRequest, CustomerReply,
   // and CustomerEvent (fired on created / updated / deleted).
-  auto projections Customer @ 2 {
+  auto projections Customer @ 3 {
     db
     request
     reply
     event
+  }
+
+  // A named, versioned enum -- a field can reference it by identity,
+  // unlike an inline enum(...) literal.
+  semantic CustomerStatus @ 1 (additive): enum(active, suspended, closed)
+
+  // A nominal, versioned subset of CustomerStatus's members -- its own
+  // contract identity, distinct from CustomerStatus itself. The Rust SDK
+  // target generates a checked TryFrom<CustomerStatus> and a total
+  // From<ActiveCustomerStatus> from a declaration like this.
+  enum projection ActiveCustomerStatus @ 1 (additive)
+    from CustomerStatus @ 1
+    omit(closed)
+
+  // A `value` model: a reusable, embeddable field group with no @key of
+  // its own, referenced by bare name from a field in the same domain.
+  value Address @ 1 (additive) {
+    street: string
+    city: string
+    postalCode: string
+    countryCode: string
   }
 }

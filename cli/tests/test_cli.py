@@ -1025,7 +1025,7 @@ def test_scenario_list_show_and_load(tmp_path):
     assert show_result.exit_code == 0, show_result.output
     assert "09-auto-projections" in show_result.output
     assert "workspace.mdl" in show_result.output
-    assert "auto projections Product @ 1" in show_result.output
+    assert "auto projections Category @ 1" in show_result.output
 
     output_dir = tmp_path / "loaded"
     load_result = runner.invoke(
@@ -1038,6 +1038,7 @@ def test_scenario_list_show_and_load(tmp_path):
     assert (loaded / "workspace.mdl").exists()
     assert (loaded / "catalog.mdl").exists()
     assert (loaded / "storefront.mdl").exists()
+    assert (loaded / "modelable.toml").exists()
 
 
 def test_resolve_bad_ref_exits_nonzero(tmp_path):

@@ -207,9 +207,33 @@ def test_auto_projection_scenario_validates_cleanly():
     catalog = (sample_path / "catalog.mdl").read_text(encoding="utf-8")
     storefront = (sample_path / "storefront.mdl").read_text(encoding="utf-8")
     assert "entity Product @ 2 (additive)" in catalog
-    assert "auto projections Product @ 2" in catalog
     assert "pick(p.productId" in storefront
     assert "from catalog.ProductReply @ 2 as p" in storefront
+
+    # Product's auto projections are deliberately not declared explicitly
+    # for either version -- modelable.toml's [defaults] auto_projections
+    # supplies them instead, verified below by resolving the workspace and
+    # checking the expanded ProductReply@2 fields, not just parsing text.
+    assert "auto projections Product" not in catalog
+    assert (sample_path / "modelable.toml").exists()
+
+    from modelable.compiler.workspace import load_workspace
+
+    workspace = load_workspace(sample_path)
+    catalog_domain = next(d for d in workspace.mdl.domains if d.name == "catalog")
+    reply_v2 = next(pv for pv in catalog_domain.projections["ProductReply"] if pv.version == 2)
+    assert {f.name for f in reply_v2.fields} == {
+        "productId",
+        "sku",
+        "name",
+        "description",
+        "priceCents",
+        "currency",
+        "status",
+        "createdAt",
+        "updatedAt",
+        "brand",
+    }
 
 
 def test_ecommerce_scenario_reports_validation_gaps_and_compiles_targets(tmp_path):
