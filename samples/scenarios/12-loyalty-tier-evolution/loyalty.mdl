@@ -1,0 +1,75 @@
+// Loyalty program membership domain.
+//
+// Demonstrates the full model-version-evolution feature set in one small,
+// realistic history: a named, versioned semantic enum; a nominal derived
+// subset of it (an enum projection); and a membership contract authored
+// across four releases as `evolves` deltas exercising every operation
+// (add, rename, replace, remove).
+
+domain loyalty {
+  owner: "loyalty-platform"
+  description: "Customer loyalty program membership and tier history."
+
+  // A named, versioned enum. Unlike an inline `enum(...)` field type, a
+  // `semantic` declaration gives this concept an identity every field can
+  // reference by name -- a second field elsewhere that happens to declare
+  // the same five members inline would never be silently treated as "the
+  // same enum" (see the language reference's terminology table, §3.10).
+  semantic LoyaltyTier @ 1 (additive): enum(bronze, silver, gold, platinum, internal_vip)
+
+  // A nominal, versioned subset of LoyaltyTier's members -- a distinct
+  // contract entity from LoyaltyTier itself, even though `omit` here
+  // excludes only one member. The Rust SDK target generates a checked
+  // `TryFrom<LoyaltyTier> for PublicTier` and a total
+  // `From<PublicTier> for LoyaltyTier` from this declaration, so
+  // application code has a compiler-checked boundary preventing the
+  // internal-only tier from silently reaching a customer-facing rendering
+  // path.
+  enum projection PublicTier @ 1 (additive)
+    from LoyaltyTier @ 1
+    omit(internal_vip)
+
+  entity Member @ 1 (additive) {
+    @key memberId: uuid
+    @pii
+    email: string
+    tier: LoyaltyTier @ 1
+    pointsBalance: int
+    joinedAt: timestamp
+  }
+
+  // v2 launches a referral program: one new field, authored as a delta
+  // instead of repeating the complete field list.
+  entity Member @ 2 (additive) evolves @ 1 {
+    add referralCode?: string
+  }
+
+  // v3 renames pointsBalance -> lifetimePoints (the original name implied
+  // a balance that could reset; it never actually did) and, in the same
+  // block, changes its type from a whole-number count to a decimal, since
+  // bonus multipliers can now award fractional points. `rename` then
+  // `replace` on the same field both apply against the current
+  // intermediate state, not just the base, so this works in one block.
+  entity Member @ 3 (breaking) evolves @ 2 {
+    rename pointsBalance -> lifetimePoints
+    replace lifetimePoints: decimal(12, 2)
+  }
+
+  // v4 retires the referral program (remove -- always breaking, since an
+  // existing consumer reading that field would stop working) and starts
+  // tracking tier change history (add, optional -- existing members have
+  // no historical value until their tier next changes).
+  entity Member @ 4 (breaking) evolves @ 3 {
+    remove referralCode
+    add tierUpdatedAt?: timestamp
+  }
+
+  index Member @ 4 {
+    primary memberId
+
+    secondary byTier {
+      key:  [tier]
+      sort: [tierUpdatedAt desc]
+    }
+  }
+}

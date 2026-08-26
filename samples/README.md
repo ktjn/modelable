@@ -30,6 +30,7 @@ contributors can run without access to private downstream projects. See
 | 9 | `09-auto-projections` | Compiler-Generated Projection Contracts | Core Language | Medium | [Language reference](../docs/language-reference.md) §3.7 |
 | 10 | `10-impact-analysis` | Breaking-Change Impact Analysis | Core Language | Low | [Language reference](../docs/language-reference.md) §2.7 |
 | 11 | `11-fleet-telemetry-type-system` | IoT Fleet Telemetry | Core Language | Medium | [Language reference](../docs/language-reference.md) §2.1, §3.8, §3.9 |
+| 12 | `12-loyalty-tier-evolution` | Loyalty Program Membership Evolution | Core Language | Medium | [Language reference](../docs/language-reference.md) §2.7, §3.8, §3.8.1 |
 
 ---
 
@@ -227,6 +228,39 @@ Key techniques demonstrated:
 - `auto projections` combined with the above on the same entity
 
 See the [language reference](../docs/language-reference.md) §2.1 (built-in types), §3.8 (semantic types), and §3.9 (index declarations).
+
+---
+
+### 12. Loyalty Program Membership Evolution (`scenarios/12-loyalty-tier-evolution/`)
+
+A loyalty program's `Member` entity is authored across four releases entirely
+as `evolves` deltas, exercising every operation the language supports, plus a
+named semantic enum and a nominal derived subset of it (an enum projection).
+
+Key techniques demonstrated:
+- `semantic LoyaltyTier @ 1 (additive): enum(...)` — a named, versioned enum
+  a field can reference by identity, distinct from an inline `enum(...)`
+  literal even if another field happens to declare the same members
+- `enum projection PublicTier @ 1 (additive) from LoyaltyTier @ 1
+  omit(internal_vip)` — a nominal subset with its own contract identity;
+  the Rust SDK target generates a checked `TryFrom<LoyaltyTier>` and a
+  total `From<PublicTier>`
+- `Member @ 2 (additive) evolves @ 1 { add referralCode?: string }`
+- `Member @ 3 (breaking) evolves @ 2 { rename pointsBalance ->
+  lifetimePoints; replace lifetimePoints: decimal(12, 2) }` — a rename and
+  a replace of the same field in one block, both applying against the
+  current intermediate state
+- `Member @ 4 (breaking) evolves @ 3 { remove referralCode; add
+  tierUpdatedAt?: timestamp }`
+- `modelable expand-version loyalty.Member@3` renders any of these deltas
+  back out as the equivalent complete declaration for review
+- A downstream projection (`rewards.MemberSummary`) sourcing from
+  `loyalty.Member @ 4` resolves field-level lineage through the complete
+  evolves history exactly as it would against an equivalent hand-written
+  full-form declaration
+
+See the [language reference](../docs/language-reference.md) §2.7 (`evolves`),
+§3.8 (semantic types), and §3.8.1 (enum projections).
 
 ---
 
