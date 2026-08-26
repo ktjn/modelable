@@ -12,6 +12,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+## [1.12.1] - 2026-08-26
+
+### Added
+
+### Changed
+
+### Fixed
+
 ## [1.12.0] - 2026-08-26
 
 ### Added
