@@ -62,6 +62,11 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- A field referencing a named `semantic` enum by exact version (`Name @
+  version`) can now be compared to a string literal (`==`/`!=`) in a CEL
+  expression, matching the behavior an inline `enum(...)` field already
+  had (#490).
+
 ## [1.11.0] - 2026-08-23
 
 ### Added
