@@ -1716,6 +1716,18 @@ candidate for a future slice (widen `_operand_types_compatible` to treat
 own blast radius, not a documentation/lint-scope fix -- the example's
 duplication is therefore left in place on purpose, as an honest
 demonstration of what the lint catches, rather than papered over.
+**Fixed in a later, standalone slice** (while enriching the playground
+showcase to actually use semantic enums): `_operand_types_compatible` now
+treats `enum_ref` the same as `enum` for `==`/`!=` against `string`,
+deliberately *not* widening the same treatment to a bare, unversioned
+`named` reference (which may resolve to a non-enum semantic type, where
+allowing the comparison could mask a real type error). Verified directly
+both ways -- an `enum_ref`-typed field now compares cleanly, a `named`
+non-enum semantic type still correctly rejects the same comparison with
+`CEL003`. New test cases added to
+`test_cel_compatibility_allows_governed_cross_type_comparisons`
+(`cli/tests/test_cel_validation.py`). Documented in Language Reference
+§9.4.
 **Instructions #2-5's direct-reference extraction case is shipped as
 `modelable extract-enum`.** New module `refactor/extract_enum.py` and CLI
 command `commands/extract_enum.py`. Deliberately **not** built on

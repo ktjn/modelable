@@ -564,7 +564,14 @@ def _operand_types_compatible(op: str, left: str, right: str, numeric: set[str])
     if left in numeric and right in numeric:
         return True
     if op in {"==", "!="}:
-        if "enum" in {left, right} and (left == "string" or right == "string"):
+        # "enum_ref" is an exact-versioned reference to an enum-backed
+        # `semantic` declaration (grammar-guaranteed -- see EnumRefType's
+        # resolution validation) -- comparable to a string literal exactly
+        # like an anonymous `enum(...)` field already is. A bare "named"
+        # reference is excluded deliberately: it may resolve to a non-enum
+        # semantic type (e.g. `semantic Sku: string`), where allowing this
+        # comparison could mask a real type error this check exists to catch.
+        if {"enum", "enum_ref"} & {left, right} and (left == "string" or right == "string"):
             return True
         return "ref" in {left, right}
     if op in {"<", "<=", ">", ">="}:

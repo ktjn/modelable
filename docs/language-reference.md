@@ -1292,6 +1292,12 @@ errors. Runtime namespaces such as `request`, `auth`, and `params` are reserved
 for deferred runtime contexts. Their presence in the grammar does not imply
 that a runtime feature is currently available.
 
+A field whose type is an inline `enum(...)` or an exact-versioned reference
+to an enum-backed `semantic` declaration (`Name @ version`) may be compared
+to a string literal with `==`/`!=` either way — `c.status == "active"` is
+valid for both. A bare, unversioned semantic-type reference is not widened
+this way, since it may resolve to a non-enum underlying type.
+
 ## 10. Ownership, Classification, and Access
 
 Ownership and governance metadata are definition-time contract metadata:
