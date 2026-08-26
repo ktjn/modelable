@@ -20,6 +20,12 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- `vscode/package.json`'s `engines.vscode` was left at `^1.125.0` after a
+  dependency-bot PR raised `@types/vscode` to `^1.134.0`, so `vsce package`
+  rejected the mismatch and the 1.12.0 release build failed before
+  publishing anything (no GitHub release or PyPI package went out for
+  1.12.0). `engines.vscode` now matches `@types/vscode` at `^1.134.0`.
+
 ## [1.12.0] - 2026-08-26
 
 ### Added
