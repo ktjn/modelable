@@ -12,6 +12,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+## [1.12.1] - 2026-08-26
+
+### Added
+
+### Changed
+
+### Fixed
+
 - `vscode/package.json`'s `engines.vscode` was left at `^1.125.0` after a
   dependency-bot PR raised `@types/vscode` to `^1.134.0`, so `vsce package`
   rejected the mismatch and the 1.12.0 release build failed before
