@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.12.0] - 2026-08-26
+
+### Added
+
 - Model version evolution: a new version can be authored as a delta against
   an exact prior version (`entity Name @ N evolves @ base { add/remove/
   rename/replace ... }`) instead of a complete field list, for every model
