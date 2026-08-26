@@ -1,0 +1,27 @@
+{
+  "loyalty.LoyaltyTier": {
+    "members": [
+      {
+        "name": "bronze",
+        "number": 1
+      },
+      {
+        "name": "silver",
+        "number": 2
+      },
+      {
+        "name": "gold",
+        "number": 3
+      },
+      {
+        "name": "platinum",
+        "number": 4
+      },
+      {
+        "name": "internal_vip",
+        "number": 5
+      }
+    ],
+    "reservations": []
+  }
+}

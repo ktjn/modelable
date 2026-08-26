@@ -1,0 +1,18 @@
+// A downstream consumer projecting from the fully-evolved Member @ 4 --
+// field-level lineage resolves through the evolves history exactly as it
+// would for an equivalent hand-written full-form declaration, since the
+// compiler expands `evolves` into a complete version before anything else
+// (validation, lineage, codegen) ever runs.
+
+domain rewards {
+  owner: "rewards-team"
+
+  projection MemberSummary @ 1
+    from loyalty.Member @ 4 as m
+  {
+    memberId <- m.memberId
+    tier <- m.tier
+    lifetimePoints <- m.lifetimePoints
+    tierUpdatedAt <- m.tierUpdatedAt
+  }
+}
