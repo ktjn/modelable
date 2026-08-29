@@ -205,157 +205,6 @@
       ]
     },
     {
-      "name": "CustomerRequest",
-      "kind": "projection",
-      "version": 1,
-      "fullyQualifiedName": "modelable.customer.CustomerRequest.v1",
-      "source": {
-        "model": "customer.Customer",
-        "version": {
-          "kind": "exact",
-          "version": 1
-        },
-        "alias": "customer"
-      },
-      "fields": [
-        {
-          "name": "customerId",
-          "mapping": "direct",
-          "source": "customer.Customer@1.customerId",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "displayName",
-          "mapping": "direct",
-          "source": "customer.Customer@1.displayName",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "email",
-          "mapping": "direct",
-          "source": "customer.Customer@1.email",
-          "pii": true,
-          "classification": null
-        },
-        {
-          "name": "status",
-          "mapping": "direct",
-          "source": "customer.Customer@1.status",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "tags",
-          "mapping": "direct",
-          "source": "customer.Customer@1.tags",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "metadata",
-          "mapping": "direct",
-          "source": "customer.Customer@1.metadata",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "address",
-          "mapping": "direct",
-          "source": "customer.Customer@1.address",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "favoriteProduct",
-          "mapping": "direct",
-          "source": "customer.Customer@1.favoriteProduct",
-          "pii": false,
-          "classification": null
-        }
-      ]
-    },
-    {
-      "name": "CustomerReply",
-      "kind": "projection",
-      "version": 1,
-      "fullyQualifiedName": "modelable.customer.CustomerReply.v1",
-      "source": {
-        "model": "customer.Customer",
-        "version": {
-          "kind": "exact",
-          "version": 1
-        },
-        "alias": "customer"
-      },
-      "fields": [
-        {
-          "name": "customerId",
-          "mapping": "direct",
-          "source": "customer.Customer@1.customerId",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "displayName",
-          "mapping": "direct",
-          "source": "customer.Customer@1.displayName",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "status",
-          "mapping": "direct",
-          "source": "customer.Customer@1.status",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "tags",
-          "mapping": "direct",
-          "source": "customer.Customer@1.tags",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "metadata",
-          "mapping": "direct",
-          "source": "customer.Customer@1.metadata",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "address",
-          "mapping": "direct",
-          "source": "customer.Customer@1.address",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "favoriteProduct",
-          "mapping": "direct",
-          "source": "customer.Customer@1.favoriteProduct",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "createdAt",
-          "mapping": "direct",
-          "source": "customer.Customer@1.createdAt",
-          "pii": false,
-          "classification": null
-        },
-        {
-          "name": "updatedAt",
-          "mapping": "direct",
-          "source": "customer.Customer@1.updatedAt",
-          "pii": false,
-          "classification": null
-        }
-      ]
-    },
-    {
       "name": "CustomerEvent",
       "kind": "projection",
       "version": 1,
@@ -447,6 +296,157 @@
           "classification": null
         }
       ]
+    },
+    {
+      "name": "CustomerReply",
+      "kind": "projection",
+      "version": 1,
+      "fullyQualifiedName": "modelable.customer.CustomerReply.v1",
+      "source": {
+        "model": "customer.Customer",
+        "version": {
+          "kind": "exact",
+          "version": 1
+        },
+        "alias": "customer"
+      },
+      "fields": [
+        {
+          "name": "customerId",
+          "mapping": "direct",
+          "source": "customer.Customer@1.customerId",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "displayName",
+          "mapping": "direct",
+          "source": "customer.Customer@1.displayName",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "status",
+          "mapping": "direct",
+          "source": "customer.Customer@1.status",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "tags",
+          "mapping": "direct",
+          "source": "customer.Customer@1.tags",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "metadata",
+          "mapping": "direct",
+          "source": "customer.Customer@1.metadata",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "address",
+          "mapping": "direct",
+          "source": "customer.Customer@1.address",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "favoriteProduct",
+          "mapping": "direct",
+          "source": "customer.Customer@1.favoriteProduct",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "createdAt",
+          "mapping": "direct",
+          "source": "customer.Customer@1.createdAt",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "updatedAt",
+          "mapping": "direct",
+          "source": "customer.Customer@1.updatedAt",
+          "pii": false,
+          "classification": null
+        }
+      ]
+    },
+    {
+      "name": "CustomerRequest",
+      "kind": "projection",
+      "version": 1,
+      "fullyQualifiedName": "modelable.customer.CustomerRequest.v1",
+      "source": {
+        "model": "customer.Customer",
+        "version": {
+          "kind": "exact",
+          "version": 1
+        },
+        "alias": "customer"
+      },
+      "fields": [
+        {
+          "name": "customerId",
+          "mapping": "direct",
+          "source": "customer.Customer@1.customerId",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "displayName",
+          "mapping": "direct",
+          "source": "customer.Customer@1.displayName",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "email",
+          "mapping": "direct",
+          "source": "customer.Customer@1.email",
+          "pii": true,
+          "classification": null
+        },
+        {
+          "name": "status",
+          "mapping": "direct",
+          "source": "customer.Customer@1.status",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "tags",
+          "mapping": "direct",
+          "source": "customer.Customer@1.tags",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "metadata",
+          "mapping": "direct",
+          "source": "customer.Customer@1.metadata",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "address",
+          "mapping": "direct",
+          "source": "customer.Customer@1.address",
+          "pii": false,
+          "classification": null
+        },
+        {
+          "name": "favoriteProduct",
+          "mapping": "direct",
+          "source": "customer.Customer@1.favoriteProduct",
+          "pii": false,
+          "classification": null
+        }
+      ]
     }
   ],
   "lineage": [
@@ -507,91 +507,6 @@
     },
     {
       "from": "modelable.customer.Customer.v1.customerId",
-      "to": "modelable.customer.CustomerRequest.v1.customerId",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.displayName",
-      "to": "modelable.customer.CustomerRequest.v1.displayName",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.email",
-      "to": "modelable.customer.CustomerRequest.v1.email",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.status",
-      "to": "modelable.customer.CustomerRequest.v1.status",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.tags",
-      "to": "modelable.customer.CustomerRequest.v1.tags",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.metadata",
-      "to": "modelable.customer.CustomerRequest.v1.metadata",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.address",
-      "to": "modelable.customer.CustomerRequest.v1.address",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.favoriteProduct",
-      "to": "modelable.customer.CustomerRequest.v1.favoriteProduct",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.customerId",
-      "to": "modelable.customer.CustomerReply.v1.customerId",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.displayName",
-      "to": "modelable.customer.CustomerReply.v1.displayName",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.status",
-      "to": "modelable.customer.CustomerReply.v1.status",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.tags",
-      "to": "modelable.customer.CustomerReply.v1.tags",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.metadata",
-      "to": "modelable.customer.CustomerReply.v1.metadata",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.address",
-      "to": "modelable.customer.CustomerReply.v1.address",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.favoriteProduct",
-      "to": "modelable.customer.CustomerReply.v1.favoriteProduct",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.createdAt",
-      "to": "modelable.customer.CustomerReply.v1.createdAt",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.updatedAt",
-      "to": "modelable.customer.CustomerReply.v1.updatedAt",
-      "kind": "direct"
-    },
-    {
-      "from": "modelable.customer.Customer.v1.customerId",
       "to": "modelable.customer.CustomerEvent.v1.customerId",
       "kind": "direct"
     },
@@ -643,6 +558,91 @@
     {
       "from": "modelable.customer.Customer.v1.updatedAt",
       "to": "modelable.customer.CustomerEvent.v1.updatedAt",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.customerId",
+      "to": "modelable.customer.CustomerReply.v1.customerId",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.displayName",
+      "to": "modelable.customer.CustomerReply.v1.displayName",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.status",
+      "to": "modelable.customer.CustomerReply.v1.status",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.tags",
+      "to": "modelable.customer.CustomerReply.v1.tags",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.metadata",
+      "to": "modelable.customer.CustomerReply.v1.metadata",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.address",
+      "to": "modelable.customer.CustomerReply.v1.address",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.favoriteProduct",
+      "to": "modelable.customer.CustomerReply.v1.favoriteProduct",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.createdAt",
+      "to": "modelable.customer.CustomerReply.v1.createdAt",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.updatedAt",
+      "to": "modelable.customer.CustomerReply.v1.updatedAt",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.customerId",
+      "to": "modelable.customer.CustomerRequest.v1.customerId",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.displayName",
+      "to": "modelable.customer.CustomerRequest.v1.displayName",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.email",
+      "to": "modelable.customer.CustomerRequest.v1.email",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.status",
+      "to": "modelable.customer.CustomerRequest.v1.status",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.tags",
+      "to": "modelable.customer.CustomerRequest.v1.tags",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.metadata",
+      "to": "modelable.customer.CustomerRequest.v1.metadata",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.address",
+      "to": "modelable.customer.CustomerRequest.v1.address",
+      "kind": "direct"
+    },
+    {
+      "from": "modelable.customer.Customer.v1.favoriteProduct",
+      "to": "modelable.customer.CustomerRequest.v1.favoriteProduct",
       "kind": "direct"
     }
   ]

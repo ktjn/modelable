@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -33,7 +34,10 @@ from types import ModuleType
 
 import pytest
 
+from modelable.compiler.workspace import load_workspace
+from modelable.emitters.base import render_artifact_text
 from modelable.emitters.targets import list_implemented_codegen_targets
+from modelable.registry.snapshot import load_snapshot_workspace, resolve_workspace_snapshot
 
 GOLDEN_ROOT = Path(__file__).parent / "golden"
 GOLDEN_ARTIFACTS = GOLDEN_ROOT / "artifacts"
@@ -79,6 +83,39 @@ def test_golden_targets_cover_every_implemented_codegen_target() -> None:
     generator = _load_generator_module()
 
     assert generator.ALL_GOLDEN_TARGETS == IMPLEMENTED_TARGETS
+
+
+def test_snapshot_round_trip_preserves_every_codegen_target_output(tmp_path: Path) -> None:
+    """The offline snapshot must be a lossless compiler input for every target."""
+    generator = _load_generator_module()
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    shutil.copyfile(GOLDEN_ROOT / "model.mdl", source_root / "model.mdl")
+    fhir_source = (Path(__file__).parent / "fixtures" / "fhir_patient_profile.mdl").read_text(encoding="utf-8")
+    fhir_source = fhir_source.replace(
+        "  entity Patient @ 1 (additive) {",
+        "  entity Organization @ 1 (additive) {\n    @key\n    organizationId: uuid\n  }\n\n"
+        "  entity Patient @ 1 (additive) {",
+        1,
+    )
+    (source_root / "fhir_patient_profile.mdl").write_text(fhir_source, encoding="utf-8")
+
+    source_workspace = load_workspace(source_root)
+    resolve_workspace_snapshot(source_workspace, tmp_path / ".modelable")
+    snapshot_workspace = load_snapshot_workspace(tmp_path / ".modelable")
+
+    emitters = dict(generator.TARGET_EMITTERS)
+    emitters["fhir-profile"] = generator.FHIR_TARGET_EMITTER
+    for target, emitter in emitters.items():
+        source_artifacts = {
+            artifact.ref: (render_artifact_text(artifact), artifact.warnings)
+            for artifact in emitter(source_workspace, Path("source-artifacts") / target)
+        }
+        snapshot_artifacts = {
+            artifact.ref: (render_artifact_text(artifact), artifact.warnings)
+            for artifact in emitter(snapshot_workspace, Path("snapshot-artifacts") / target)
+        }
+        assert snapshot_artifacts == source_artifacts, target
 
 
 def test_golden_artifacts_are_up_to_date(regenerated_artifacts: tuple[Path, Path]) -> None:

@@ -1757,7 +1757,8 @@ offline. Verification also checks that this list is complete and matches every
 dependency edge in the locked objects.
 Verification also rejects conflicting content hashes for one logical identity.
 Semantic and enum-projection objects retain source paths and hashes when
-resolved from a local file.
+resolved from a local file. Snapshot objects also retain the domain metadata
+and declarations required to generate equivalent target artifacts offline.
 
 External source adapters, transitive dependency closure, cross-application
 usage aggregation, and policy-aware updates are deferred. The similarly named

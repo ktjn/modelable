@@ -31,6 +31,11 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- OpenMetadata generation now uses deterministic domain, asset, and version
+  ordering for equivalent source and offline snapshot workspaces.
+- Offline snapshot objects now retain the domain metadata and declarations
+  required for lossless target generation.
+
 - Registry locks now record deterministic requested-to-resolved dependency
   requirements with exact signatures and content-addressed object hashes, and
   verification rejects incomplete or non-deterministic requirement graphs and

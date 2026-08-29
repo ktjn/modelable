@@ -105,7 +105,7 @@ def resolve_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".
                 entries.append(
                     _write_object(
                         paths,
-                        domain.name,
+                        domain,
                         name,
                         "model",
                         model_version,
@@ -118,7 +118,7 @@ def resolve_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".
                 entries.append(
                     _write_object(
                         paths,
-                        domain.name,
+                        domain,
                         name,
                         "projection",
                         projection_version,
@@ -127,14 +127,12 @@ def resolve_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".
                     )
                 )
         for decl in sorted(domain.semantic_types, key=lambda item: (item.name, item.version)):
-            entries.append(
-                _write_enum_object(paths, domain.name, decl.name, "semantic", decl, source_paths.get(id(domain)))
-            )
+            entries.append(_write_enum_object(paths, domain, decl.name, "semantic", decl, source_paths.get(id(domain))))
         for projection in sorted(domain.enum_projections, key=lambda item: (item.name, item.version)):
             entries.append(
                 _write_enum_object(
                     paths,
-                    domain.name,
+                    domain,
                     projection.name,
                     "enum_projection",
                     projection,
@@ -288,7 +286,8 @@ def load_snapshot_workspace(output_dir: str | Path = ".modelable") -> Workspace:
         identity = str(payload["identity"])
         qualified_name, _version = identity.rsplit("@", 1)
         domain_name, name = qualified_name.rsplit(".", 1)
-        domain = domains.setdefault(domain_name, _snapshot_domain(domain_name))
+        metadata = payload.get("domain")
+        domain = domains.setdefault(domain_name, _snapshot_domain(domain_name, metadata))
         provenance = payload.get("provenance")
         if domain_name not in source_paths and isinstance(provenance, dict):
             source = provenance.get("source")
@@ -322,8 +321,32 @@ def load_snapshot_workspace(output_dir: str | Path = ".modelable") -> Workspace:
     return Workspace(sources=sources, mdl=mdl, errors=[], warnings=[])
 
 
-def _snapshot_domain(name: str) -> DomainDef:
-    return DomainDef(name=name)
+def _domain_metadata(domain: DomainDef) -> dict[str, Any]:
+    return {
+        "name": domain.name,
+        "owner": domain.owner,
+        "contact": domain.contact,
+        "description": domain.description,
+        "auto_projections": [projection.model_dump(mode="json") for projection in domain.auto_projections],
+        "apis": [api.model_dump(mode="json") for api in domain.apis],
+        "index_decls": [index.model_dump(mode="json") for index in domain.index_decls],
+    }
+
+
+def _snapshot_domain(name: str, metadata: Any = None) -> DomainDef:
+    if not isinstance(metadata, dict):
+        return DomainDef(name=name)
+    return DomainDef.model_validate(
+        {
+            "name": name,
+            "owner": metadata.get("owner") if isinstance(metadata.get("owner"), str) else None,
+            "contact": metadata.get("contact") if isinstance(metadata.get("contact"), str) else None,
+            "description": metadata.get("description") if isinstance(metadata.get("description"), str) else None,
+            "auto_projections": metadata.get("auto_projections", []),
+            "apis": metadata.get("apis", []),
+            "index_decls": metadata.get("index_decls", []),
+        }
+    )
 
 
 def diff_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> SnapshotDiff:
@@ -417,7 +440,7 @@ def prune_snapshot(output_dir: str | Path = ".modelable") -> int:
 
 def _write_enum_object(
     paths: SnapshotPaths,
-    domain_name: str,
+    domain: DomainDef,
     name: str,
     kind: str,
     declaration: SemanticTypeDecl | EnumProjectionDecl,
@@ -430,13 +453,13 @@ def _write_enum_object(
     with different canonical content lands as a ``changed`` diff entry under
     the existing immutability rule.
     """
-    identity = f"{domain_name}.{name}@{declaration.version}"
+    identity = f"{domain.name}.{name}@{declaration.version}"
     if isinstance(declaration, SemanticTypeDecl):
-        signature = compute_semantic_signature(domain_name, declaration)
-        dependencies = sorted(_enum_ref_dependencies(declaration.underlying, domain_name))
+        signature = compute_semantic_signature(domain.name, declaration)
+        dependencies = sorted(_enum_ref_dependencies(declaration.underlying, domain.name))
     else:
-        signature = compute_enum_projection_signature(domain_name, declaration)
-        dependencies = [f"{_qualified(name=declaration.source_name, domain=domain_name)}@{declaration.source_version}"]
+        signature = compute_enum_projection_signature(domain.name, declaration)
+        dependencies = [f"{_qualified(name=declaration.source_name, domain=domain.name)}@{declaration.source_version}"]
     payload: dict[str, Any] = {
         "format": OBJECT_FORMAT,
         "identity": identity,
@@ -444,6 +467,7 @@ def _write_enum_object(
         "version": declaration.version,
         "signature": signature,
         "dependencies": dependencies,
+        "domain": _domain_metadata(domain),
         "provenance": {
             "source": str(source_path) if source_path is not None else None,
             "source_hash": _optional_file_hash(source_path),
@@ -469,14 +493,14 @@ def _qualified(name: str, domain: str) -> str:
 
 def _write_object(
     paths: SnapshotPaths,
-    domain_name: str,
+    domain: DomainDef,
     name: str,
     kind: str,
     version: ModelVersion | ProjectionVersion,
     source_path: Path | None,
     mdl: MdlFile,
 ) -> dict[str, Any]:
-    identity = f"{domain_name}.{name}@{version.version}"
+    identity = f"{domain.name}.{name}@{version.version}"
     # Evolution plan D5: `provenance` (which `evolves` operation last touched
     # each field) is operation-syntax-adjacent diagnostic metadata, not
     # canonical contract content -- an evolved version and an equivalent
@@ -485,14 +509,15 @@ def _write_object(
     # `signature` (compute_version_signature never looks at it either).
     # ProjectionVersion has no such field; excluding it is a no-op there.
     contract = version.model_dump(mode="json", exclude={"provenance"})
-    dependencies = _dependencies(version, mdl, domain_name)
+    dependencies = _dependencies(version, mdl, domain.name)
     payload: dict[str, Any] = {
         "format": OBJECT_FORMAT,
         "identity": identity,
         "kind": kind,
         "version": version.version,
-        "signature": compute_version_signature(domain_name, name, version),
+        "signature": compute_version_signature(domain.name, name, version),
         "dependencies": dependencies,
+        "domain": _domain_metadata(domain),
         "provenance": {
             "source": str(source_path) if source_path is not None else None,
             "source_hash": _optional_file_hash(source_path),
