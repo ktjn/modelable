@@ -1,7 +1,7 @@
 # Emitter Extension Overlays
 
 **Status:** Accepted stabilization direction  
-**Authority:** [`docs/architecture.md`](architecture.md) §14 and [`ROADMAP.md`](../ROADMAP.md) Phase 4 define the normative direction. This document provides the detailed overlay model.
+**Authority:** [`docs/architecture.md`](architecture.md) §14 and [`ROADMAP.md`](https://github.com/ktjn/modelable/blob/main/ROADMAP.md) Phase 4 define the normative direction. This document provides the detailed overlay model.
 
 ## 1. Purpose
 
