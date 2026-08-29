@@ -7,8 +7,10 @@ from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
+from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.snapshot import (
     diff_workspace_snapshot,
+    load_snapshot_workspace,
     prune_snapshot,
     resolve_workspace_snapshot,
     update_workspace_snapshot,
@@ -101,6 +103,49 @@ domain orders {
         )["provenance"]
         assert provenance["source"] == str(source)
         assert len(provenance["source_hash"]) == 64
+
+
+def test_transitive_dependency_closure_rebuilds_offline_index(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key id: uuid
+  }
+}
+domain billing {
+  owner: "billing-platform"
+  projection Billing @ 1
+    from customer.Customer @ 1 as c
+  {
+    id <- c.id
+  }
+}
+domain reporting {
+  owner: "reporting-platform"
+  projection CustomerReport @ 1
+    from billing.Billing @ 1 as b
+  {
+    id <- b.id
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    result = resolve_workspace_snapshot(load_workspace(source), output_dir)
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+
+    requirements = {(item["from"], item["resolved"]) for item in lock["requirements"]}
+    assert ("billing.Billing@1", "customer.Customer@1") in requirements
+    assert ("reporting.CustomerReport@1", "billing.Billing@1") in requirements
+
+    loaded = load_snapshot_workspace(output_dir)
+    assert {domain.name for domain in loaded.mdl.domains} == {"billing", "customer", "reporting"}
+    index_path = build_registry_from_snapshot(output_dir)
+    assert index_path == output_dir / "registry.db"
 
 
 def test_verify_detects_non_deterministic_dependency_resolution(tmp_path: Path) -> None:
