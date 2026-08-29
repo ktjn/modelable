@@ -4,6 +4,7 @@ from typing import Any
 
 from modelable.compiler.workspace import Workspace
 from modelable.graph.export import build_graph_export
+from modelable.identity import declaration_id
 from modelable.registry.signature import compute_version_signature
 
 
@@ -31,7 +32,7 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
     for domain in workspace.mdl.domains:
         for projection_name, versions in domain.projections.items():
             for projection in versions:
-                projection_id = f"projection_version:{domain.name}.{projection_name}@{projection.version}"
+                projection_id = "projection_version:" + declaration_id(domain.name, projection_name, projection.version)
                 source_ref = _resolve_source_ref(workspace, projection.source.model, projection.source.version)
                 source_id = f"model_version:{source_ref}"
                 _add_edge(edges, edge_keys, "projects_from", projection_id, source_id)
@@ -52,7 +53,7 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
                             "version": api_version,
                             "method": operation.method,
                             "path": operation.path,
-                            "target_ref": f"{domain.name}.{api.model}@{api_version}",
+                            "target_ref": declaration_id(domain.name, api.model, api_version),
                         },
                     )
                     _add_edge(edges, edge_keys, "exposes", application_id, operation_id)
@@ -125,11 +126,11 @@ def _resolve_source_ref(workspace: Workspace, model: str, version_spec: Any) -> 
     from modelable.registry.resolver import resolve_model_ref
 
     resolved = resolve_model_ref(workspace.mdl, model, version_spec)
-    return f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}"
+    return declaration_id(resolved.domain_name, resolved.model_name, resolved.version.version)
 
 
 def _projection_id(domain: str, projection: str, version: int) -> str:
-    return f"projection_version:{domain}.{projection}@{version}"
+    return "projection_version:" + declaration_id(domain, projection, version)
 
 
 def _add_node(nodes: list[dict[str, Any]], node_ids: set[str], node: dict[str, Any]) -> None:
