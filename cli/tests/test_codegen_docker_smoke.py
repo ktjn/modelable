@@ -615,6 +615,78 @@ def test_offline_snapshot_csharp_consumer_compiles(tmp_path: Path) -> None:
     _assert_docker_success(result, "offline snapshot csharp")
 
 
+@pytest.mark.docker
+@pytest.mark.skipif(
+    os.getenv("MODELABLE_DOCKER_TESTS") != "1",
+    reason="set MODELABLE_DOCKER_TESTS=1 to run the Docker-based codegen smoke tests",
+)
+@pytest.mark.skipif(not _docker_available(), reason="docker is required for generated-language smoke tests")
+def test_offline_snapshot_protobuf_consumer_compiles(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mdl"
+    provider.write_text(
+        textwrap.dedent(
+            """
+            domain customer {
+              owner: "customer-platform"
+              entity Customer @ 1 (additive) {
+                @key customerId: uuid
+                displayName: string
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        textwrap.dedent(
+            """
+            domain analytics {
+              owner: "analytics-platform"
+              projection CustomerSummary @ 1
+                from customer.Customer @ 1 as c
+              {
+                customerId <- c.customerId
+                name <- c.displayName
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    snapshot = tmp_path / ".modelable"
+    runner = CliRunner()
+    resolved = runner.invoke(cli, ["registry", "resolve", str(provider), "--out", str(snapshot)])
+    assert resolved.exit_code == 0, resolved.output
+    out = tmp_path / "generated" / "protobuf"
+    compiled = runner.invoke(
+        cli,
+        [
+            "compile",
+            str(consumer),
+            "--target",
+            "protobuf",
+            "--snapshot",
+            str(snapshot),
+            "--out",
+            str(out),
+        ],
+    )
+    assert compiled.exit_code == 0, compiled.output
+    result = _run_docker(
+        tmp_path,
+        "python:3.14.4-slim",
+        "apt-get update >/dev/null"
+        " && apt-get install -y --no-install-recommends protobuf-compiler >/dev/null"
+        " && find generated/protobuf -name '*.proto' -print0"
+        " | xargs -0 protoc -I generated/protobuf"
+        " --descriptor_set_out=/tmp/modelable-offline-snapshot.pb --include_imports",
+    )
+    _assert_docker_success(result, "offline snapshot protobuf")
+
+
 def _write_python_smoke(tmp_path: Path, out: Path) -> None:
     smoke = tmp_path / "smoke.py"
     smoke.write_text(
