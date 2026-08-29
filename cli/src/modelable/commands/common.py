@@ -2,24 +2,26 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 from rich.console import Console
 
 from modelable.compiler.workspace import load_workspace
 from modelable.diagnostics.model import render_diagnostic
 from modelable.parser.ir import ParseError, VersionPinned
+from modelable.registry.sources import SourceAdapter
 
 console = Console()
 
 
-def load_workspace_or_exit(path: Path):
+def load_workspace_or_exit(path: Path, *, source_adapter: SourceAdapter | None = None) -> Any:
     try:
-        workspace = load_workspace(path)
+        workspace = source_adapter.load(path) if source_adapter is not None else load_workspace(path)
     except FileNotFoundError:
         console.print("[yellow]No .mdl files found.[/yellow]")
         sys.exit(0)
     except ParseError as exc:
-        console.print(f"[red]ERROR[/red] {render_diagnostic(exc.diagnostic(path=path))}")
+        console.print(f"[red]ERROR[/red] {render_diagnostic(exc.diagnostic(path=str(path)))}")
         sys.exit(1)
 
     if workspace.errors:
@@ -33,7 +35,7 @@ def load_workspace_or_exit(path: Path):
     return workspace
 
 
-def render_version_spec(version_spec) -> str:
+def render_version_spec(version_spec: Any) -> str:
     kind = getattr(version_spec, "kind", None)
     if kind == "exact":
         return str(version_spec.version)
