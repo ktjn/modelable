@@ -37,7 +37,11 @@ import pytest
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.base import render_artifact_text
 from modelable.emitters.targets import list_implemented_codegen_targets
-from modelable.registry.snapshot import load_snapshot_workspace, resolve_workspace_snapshot
+from modelable.registry.snapshot import (
+    load_snapshot_workspace,
+    load_workspace_with_snapshot,
+    resolve_workspace_snapshot,
+)
 
 GOLDEN_ROOT = Path(__file__).parent / "golden"
 GOLDEN_ARTIFACTS = GOLDEN_ROOT / "artifacts"
@@ -116,6 +120,39 @@ def test_snapshot_round_trip_preserves_every_codegen_target_output(tmp_path: Pat
             for artifact in emitter(snapshot_workspace, Path("snapshot-artifacts") / target)
         }
         assert snapshot_artifacts == source_artifacts, target
+
+
+def test_composed_snapshot_generates_every_codegen_target(tmp_path: Path) -> None:
+    """A consumer workspace can generate every target from an offline provider snapshot."""
+    generator = _load_generator_module()
+    provider_root = tmp_path / "provider"
+    provider_root.mkdir()
+    shutil.copyfile(GOLDEN_ROOT / "model.mdl", provider_root / "model.mdl")
+    consumer_path = tmp_path / "consumer.mdl"
+    consumer_path.write_text(
+        """
+domain analytics {
+  owner: "analytics-team"
+  projection CustomerSummary @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.displayName
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    snapshot_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(provider_root), snapshot_dir)
+    composed = load_workspace_with_snapshot(load_workspace(consumer_path), snapshot_dir)
+    assert composed.errors == []
+
+    for target, emitter in generator.TARGET_EMITTERS.items():
+        artifacts = emitter(composed, tmp_path / "artifacts" / target)
+        assert artifacts, target
+        assert all(render_artifact_text(artifact) for artifact in artifacts), target
 
 
 def test_golden_artifacts_are_up_to_date(regenerated_artifacts: tuple[Path, Path]) -> None:
