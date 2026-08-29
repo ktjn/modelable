@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 
 from modelable.commands.common import console, load_workspace_or_exit
+from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.snapshot import (
     diff_workspace_snapshot,
     prune_snapshot,
@@ -104,6 +105,18 @@ def verify(output_dir: Path, output_format: str) -> None:
         console.print("[green]OK[/green] registry snapshot is valid")
     if errors:
         sys.exit(1)
+
+
+@registry.command("rebuild-index")
+@click.option("--out", "output_dir", type=click.Path(path_type=Path), default=Path(".modelable"), show_default=True)
+def rebuild_index(output_dir: Path) -> None:
+    """Rebuild registry.db from the durable snapshot without source refresh."""
+    try:
+        registry_path = build_registry_from_snapshot(output_dir)
+    except ValueError as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
+    console.print(f"[green]OK[/green] rebuilt derived registry index at {registry_path}")
 
 
 @registry.command("status")

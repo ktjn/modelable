@@ -1,9 +1,9 @@
-__all__ = ["build_registry"]
+__all__ = ["build_registry", "build_registry_from_snapshot"]
 
 
 def __getattr__(name: str):
-    if name == "build_registry":
-        from modelable.registry.index import build_registry
+    if name in {"build_registry", "build_registry_from_snapshot"}:
+        from modelable.registry.index import build_registry, build_registry_from_snapshot
 
-        return build_registry
+        return build_registry if name == "build_registry" else build_registry_from_snapshot
     raise AttributeError(name)

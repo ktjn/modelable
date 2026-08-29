@@ -31,6 +31,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- `registry rebuild-index` can reconstruct the derived SQLite index from a
+  valid durable snapshot without loading or refreshing source files.
+
 - Local registry snapshot provenance now includes a source content hash, and
   `registry verify` reports drift when an available source changes.
 
