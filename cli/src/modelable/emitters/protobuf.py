@@ -7,7 +7,8 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
-from modelable.emitters.naming import find_identifier_collisions
+from modelable.emitters.base import artifact_id as _artifact_id
+from modelable.emitters.naming import find_identifier_collisions, proto_domain_segment, proto_package_name
 from modelable.parser.ir import (
     AnnKey,
     ArrayType,
@@ -180,7 +181,7 @@ def _emit_model_version(
         ref=f"{domain.name}.{model_name}@{version.version}",
     )
     proto_content = _render_proto(
-        package=_package_name(domain.name, version.version),
+        package=proto_package_name(domain.name, version.version),
         message_name=model_name,
         fields=proto_fields,
         reservations=version.protobuf_reservations,
@@ -247,7 +248,7 @@ def _emit_projection_version(
         ref=f"{domain.name}.{projection_name}@{version.version}",
     )
     proto_content = _render_proto(
-        package=_package_name(domain.name, version.version),
+        package=proto_package_name(domain.name, version.version),
         message_name=projection_name,
         fields=proto_fields,
         reservations=version.protobuf_reservations,
@@ -609,8 +610,7 @@ def _semantic_terminal_proto(field_type: FieldType) -> tuple[str, int | None]:
 
 
 def _semantic_package(domain: str) -> str:
-    normalized = re.sub(r"[^0-9A-Za-z_]+", "_", domain).strip("_").lower()
-    return f"modelable.{normalized}.semantic"
+    return f"modelable.{proto_domain_segment(domain)}.semantic"
 
 
 def _build_semantic_index(
@@ -1003,15 +1003,6 @@ def _schema_fingerprint(
     if reservations is not None:
         normalized["reservations"] = _manifest_reservations(reservations)
     return compute_content_hash(json.dumps(normalized, indent=2, ensure_ascii=False))
-
-
-def _artifact_id(domain: str, name: str, version: int) -> str:
-    return f"{domain}.{name}.v{version}"
-
-
-def _package_name(domain: str, version: int) -> str:
-    normalized = re.sub(r"[^0-9A-Za-z_]+", "_", domain).strip("_").lower()
-    return f"modelable.{normalized}.v{version}"
 
 
 def _snake_case(value: str) -> str:

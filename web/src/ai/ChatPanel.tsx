@@ -20,6 +20,15 @@ const DiffViewer = lazy(() =>
   import('./DiffViewer').then((m) => ({ default: m.DiffViewer })),
 );
 
+const RECOMMENDED_TIER_LABELS: Record<
+  NonNullable<ModelOption['recommendedTier']>,
+  string
+> = {
+  fast: ' (Recommended · Fast)',
+  balanced: ' (Recommended · Balanced)',
+  quality: ' (Recommended · Quality)',
+};
+
 export interface ChatPanelProps {
   messages: ChatMessage[];
   activeFileContent: string;
@@ -79,6 +88,18 @@ export function ChatPanel({
     if (text === '') return;
     setDraft('');
     onSend(text);
+  };
+
+  const submitCustomModel = (): void => {
+    const value = customModelId.trim();
+    if (value === '') return;
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      onFetchModels(value);
+    } else {
+      onAddModel(value);
+    }
+    setShowAddCustom(false);
+    setCustomModelId('');
   };
 
   const composerDisabled = actionsDisabled || aiState.status === 'downloading';
@@ -164,98 +185,70 @@ export function ChatPanel({
                 </select>
               </div>
               {aiState.status === 'idle' ? (
-                <>
-                  <div className="chat-model-selector">
-                    {!showAddCustom ? (
-                      <div className="chat-model-selector__row">
-                        <select
-                          className="chat-model-select"
-                          aria-label="AI model"
-                          value={selectedModel}
-                          onChange={(e) => {
-                            if (e.target.value === '__add_custom__') {
-                              setShowAddCustom(true);
-                            } else {
-                              onModelChange(e.target.value);
-                            }
-                          }}
-                        >
-                          {models.map((m: ModelOption) => {
-                            const tierLabel =
-                              m.recommendedTier === 'fast'
-                                ? ' (Recommended · Fast)'
-                                : m.recommendedTier === 'balanced'
-                                  ? ' (Recommended · Balanced)'
-                                  : m.recommendedTier === 'quality'
-                                    ? ' (Recommended · Quality)'
-                                    : '';
-                            return (
-                              <option key={m.id} value={m.id}>
-                                {m.label} — {m.description}
-                                {tierLabel}
-                              </option>
-                            );
-                          })}
-                          {aiState.providerKind === 'webgpu' ? (
-                            <option value="__add_custom__">+ Add custom model…</option>
-                          ) : null}
-                        </select>
-                        <button type="button" onClick={onDownloadModel} disabled={models.length === 0}>
-                          {aiState.providerKind === 'ollama' ? 'Use Ollama' : 'Download AI model'}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="chat-model-selector__row">
-                        <input
-                          type="text"
-                          className="chat-model-input"
-                          placeholder="Model ID or URL to models.json"
-                          value={customModelId}
-                          onChange={(e) => setCustomModelId(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              if (customModelId.trim()) {
-                                const val = customModelId.trim();
-                                if (val.startsWith('http://') || val.startsWith('https://')) {
-                                  onFetchModels(val);
-                                } else {
-                                  onAddModel(val);
-                                }
-                                setShowAddCustom(false);
-                                setCustomModelId('');
-                              }
-                            } else if (e.key === 'Escape') {
-                              setShowAddCustom(false);
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          disabled={!customModelId.trim()}
-                          onClick={() => {
-                            const val = customModelId.trim();
-                            if (val.startsWith('http://') || val.startsWith('https://')) {
-                              onFetchModels(val);
-                            } else {
-                              onAddModel(val);
-                            }
+                <div className="chat-model-selector">
+                  {!showAddCustom ? (
+                    <div className="chat-model-selector__row">
+                      <select
+                        className="chat-model-select"
+                        aria-label="AI model"
+                        value={selectedModel}
+                        onChange={(e) => {
+                          if (e.target.value === '__add_custom__') {
+                            setShowAddCustom(true);
+                          } else {
+                            onModelChange(e.target.value);
+                          }
+                        }}
+                      >
+                        {models.map((m: ModelOption) => (
+                          <option key={m.id} value={m.id}>
+                            {m.label} — {m.description}
+                            {m.recommendedTier === undefined
+                              ? ''
+                              : RECOMMENDED_TIER_LABELS[m.recommendedTier]}
+                          </option>
+                        ))}
+                        {aiState.providerKind === 'webgpu' ? (
+                          <option value="__add_custom__">+ Add custom model…</option>
+                        ) : null}
+                      </select>
+                      <button type="button" onClick={onDownloadModel} disabled={models.length === 0}>
+                        {aiState.providerKind === 'ollama' ? 'Use Ollama' : 'Download AI model'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="chat-model-selector__row">
+                      <input
+                        type="text"
+                        className="chat-model-input"
+                        placeholder="Model ID or URL to models.json"
+                        value={customModelId}
+                        onChange={(e) => setCustomModelId(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            submitCustomModel();
+                          } else if (e.key === 'Escape') {
                             setShowAddCustom(false);
-                            setCustomModelId('');
-                          }}
-                        >
-                          Add
-                        </button>
-                        <button
-                          type="button"
-                          className="chip"
-                          onClick={() => setShowAddCustom(false)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </>
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={!customModelId.trim()}
+                        onClick={submitCustomModel}
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        className="chip"
+                        onClick={() => setShowAddCustom(false)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
               ) : null}
               {aiState.status === 'unsupported' || aiState.status === 'error' ? (
                 <button type="button" onClick={onUseHeuristic}>

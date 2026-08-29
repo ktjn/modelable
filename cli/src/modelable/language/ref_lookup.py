@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 
 from modelable.compiler.workspace import Workspace
-from modelable.parser.ir import VersionExact, VersionMin, VersionPinned, VersionRange, VersionSpec
+from modelable.parser.ir import JoinRef, SourceRef, VersionExact, VersionMin, VersionPinned, VersionRange, VersionSpec
 from modelable.registry.resolver import resolve_model_ref
 
 REF_TYPE_PATTERN = re.compile(
@@ -60,3 +60,37 @@ def resolve_ref_match_version(
     except LookupError:
         return None
     return resolved.version.version
+
+
+def projection_aliases(
+    workspace: Workspace,
+    domain_name: str,
+    projection_name: str,
+    version: int,
+) -> dict[str, tuple[str, str, int]]:
+    """Map each source/join alias of a projection version to its resolved model.
+
+    Values are ``(domain, model, version)`` triples; aliases whose model
+    reference does not resolve are omitted, as are unknown projections.
+    """
+    domain = next((item for item in workspace.mdl.domains if item.name == domain_name), None)
+    if domain is None:
+        return {}
+    versions = domain.projections.get(projection_name, [])
+    projection_version = next((item for item in versions if item.version == version), None)
+    if projection_version is None:
+        return {}
+
+    aliases: dict[str, tuple[str, str, int]] = {}
+    all_sources: list[SourceRef | JoinRef] = [projection_version.source, *projection_version.joins]
+    for source_ref in all_sources:
+        try:
+            resolved = resolve_model_ref(workspace.mdl, source_ref.model, source_ref.version)
+        except LookupError:
+            continue
+        aliases[source_ref.alias] = (
+            resolved.domain_name,
+            resolved.model_name,
+            resolved.version.version,
+        )
+    return aliases

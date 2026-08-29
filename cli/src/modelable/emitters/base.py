@@ -20,6 +20,24 @@ class EmittedArtifact:
     warnings: list[str] = field(default_factory=list)
 
 
+def artifact_id(domain: str, name: str, version: int) -> str:
+    """Stable artifact identifier shared by every target: ``domain.Name.vVersion``."""
+    return f"{domain}.{name}.v{version}"
+
+
+def render_nested_definitions(definitions: dict[str, list[str]]) -> list[str]:
+    """Join collected nested type definitions, each preceded by a blank line.
+
+    Shared by the source-code emitters, which all accumulate nested object
+    definitions in an insertion-ordered dict while rendering the owning type.
+    """
+    lines: list[str] = []
+    for definition in definitions.values():
+        lines.append("")
+        lines.extend(definition)
+    return lines
+
+
 def compute_content_hash(content: ArtifactContent) -> str:
     if isinstance(content, bytes):
         return hashlib.sha256(content).hexdigest()

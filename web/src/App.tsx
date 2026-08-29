@@ -1,6 +1,4 @@
 import {
-  lazy,
-  Suspense,
   useCallback,
   useEffect,
   useReducer,
@@ -17,6 +15,7 @@ import {
 import {
   BrowserCompilerClient,
   BrowserCompilerError,
+  COMPILE_TARGET_LABELS,
   type BrowserCompilerClientLike,
   type CompileTarget,
 } from './client';
@@ -43,6 +42,7 @@ import {
   mutateWorkspace,
   mutateWorkspaceBatch,
   pathFromSourceUri,
+  sourceUriFromPath,
   workspaceSources,
   type PlaygroundWorkspace,
   type WorkspaceMutation,
@@ -83,8 +83,8 @@ import {
   WebGpuProvider,
   getGpuLimits,
   suggestModels,
-  AiProviderError,
   type ModelOption,
+  type SuggestedModelTiers,
 } from './ai/webgpu-provider';
 import { SimulatorProvider } from './ai/simulator-provider';
 import {
@@ -132,20 +132,6 @@ const extensionMap: Record<CompileTarget, string> = {
   python: '.py',
 };
 
-const compileTargetLabels: Record<CompileTarget, string> = {
-  jsonSchema: 'JSON Schema',
-  typescript: 'TypeScript',
-  'sql-postgres': 'SQL (Postgres)',
-  'sql-clickhouse': 'SQL (ClickHouse)',
-  protobuf: 'Protobuf',
-  rust: 'Rust',
-  java: 'Java',
-  go: 'Go',
-  csharp: 'C#',
-  markdown: 'Markdown',
-  python: 'Python',
-};
-
 export interface AppProps {
   createClient?: () => BrowserCompilerClientLike;
   createRepository?: () => WorkspaceRepository;
@@ -163,6 +149,71 @@ function asCompilerError(error: unknown): BrowserCompilerError {
     'COMPILER_FAILED',
     'Compiler request failed',
   );
+}
+
+/** Surfaces an assistant-side failure through the chat message's diagnostics. */
+function aiDiagnostic(
+  code: 'AI_ERROR' | 'AI_APPLY_ERROR',
+  message: string,
+): BrowserDiagnostic {
+  return {
+    code,
+    severity: 'error',
+    message,
+    uri: '',
+    line: null,
+    column: null,
+    end_line: null,
+    end_column: null,
+  };
+}
+
+/** Workspace path for a source URI returned by a conversation apply. */
+function conversationSourcePath(uri: string): string {
+  return decodeURIComponent(new URL(uri).pathname.slice(1));
+}
+
+type RecommendedTier = NonNullable<ModelOption['recommendedTier']>;
+
+const tierOrder: Record<RecommendedTier, number> = {
+  fast: 0,
+  balanced: 1,
+  quality: 2,
+};
+
+/** Recommended models sort ahead of the rest, then by ascending VRAM. */
+function tierRank(tier: RecommendedTier | undefined): number {
+  return tier === undefined ? 3 : tierOrder[tier];
+}
+
+function recommendedTierFor(
+  modelId: string,
+  suggested: SuggestedModelTiers,
+): RecommendedTier | undefined {
+  switch (modelId) {
+    case suggested.fast:
+      return 'fast';
+    case suggested.balanced:
+      return 'balanced';
+    case suggested.quality:
+      return 'quality';
+    default:
+      return undefined;
+  }
+}
+
+/** Appends models that are not already listed, preserving the current order. */
+function mergeModelOptions(
+  current: ModelOption[],
+  incoming: readonly ModelOption[],
+): ModelOption[] {
+  const merged = [...current];
+  for (const model of incoming) {
+    if (!merged.some((existing) => existing.id === model.id)) {
+      merged.push(model);
+    }
+  }
+  return merged;
 }
 
 function hasErrorDiagnostics(
@@ -473,12 +524,7 @@ function AppInner({
         (file) => file.path === activePath,
       );
       const activeSource = sources.find(
-        (source) =>
-          source.uri ===
-          `file:///${activePath
-            .split('/')
-            .map(encodeURIComponent)
-            .join('/')}`,
+        (source) => source.uri === sourceUriFromPath(activePath),
       );
       if (activeFile === undefined || activeSource === undefined) {
         return;
@@ -728,12 +774,9 @@ function AppInner({
     aiDispatch({ type: 'detect_start' });
     const modelParam = params.get('model');
     if (modelParam !== null) {
-      setModels((current) => {
-        if (current.some((m) => m.id === modelParam)) {
-          return current;
-        }
-        return [...current, createModelOption(modelParam)];
-      });
+      setModels((current) =>
+        mergeModelOptions(current, [createModelOption(modelParam)]),
+      );
       setSelectedModel(modelParam);
     }
 
@@ -746,15 +789,7 @@ function AppInner({
       aiDispatch({ type: 'detect_available' });
       void WebGpuProvider.getWebLlmModels()
         .then((webLlmModels) => {
-          setModels((current) => {
-            const merged = [...current];
-            for (const m of webLlmModels) {
-              if (!merged.some((existing) => existing.id === m.id)) {
-                merged.push(m);
-              }
-            }
-            return merged;
-          });
+          setModels((current) => mergeModelOptions(current, webLlmModels));
 
           void getGpuLimits()
             .then((limits) => {
@@ -763,19 +798,11 @@ function AppInner({
                 const updated = current
                   .map((m) => ({
                     ...m,
-                    recommendedTier:
-                      m.id === suggested.fast
-                        ? ('fast' as const)
-                        : m.id === suggested.balanced
-                          ? ('balanced' as const)
-                          : m.id === suggested.quality
-                            ? ('quality' as const)
-                            : undefined,
+                    recommendedTier: recommendedTierFor(m.id, suggested),
                   }))
                   .sort((a, b) => {
-                    const rank = { fast: 0, balanced: 1, quality: 2 } as const;
-                    const aRank = a.recommendedTier ? rank[a.recommendedTier] : 3;
-                    const bRank = b.recommendedTier ? rank[b.recommendedTier] : 3;
+                    const aRank = tierRank(a.recommendedTier);
+                    const bRank = tierRank(b.recommendedTier);
                     if (aRank !== bRank) return aRank - bRank;
                     return a.vramMb - b.vramMb;
                   });
@@ -878,12 +905,7 @@ function AppInner({
   }, [aiState.provider]);
 
   const handleAiAddModel = useCallback((id: string): void => {
-    setModels((current) => {
-      if (current.some((m) => m.id === id)) {
-        return current;
-      }
-      return [...current, createModelOption(id)];
-    });
+    setModels((current) => mergeModelOptions(current, [createModelOption(id)]));
     setSelectedModel(id);
   }, []);
 
@@ -901,15 +923,7 @@ function AppInner({
         return res.json() as Promise<ModelOption[]>;
       })
       .then((newModels) => {
-        setModels((current) => {
-          const merged = [...current];
-          for (const m of newModels) {
-            if (!merged.some((existing) => existing.id === m.id)) {
-              merged.push(m);
-            }
-          }
-          return merged;
-        });
+        setModels((current) => mergeModelOptions(current, newModels));
         if (newModels.length > 0) {
           setSelectedModel(newModels[0]!.id);
         }
@@ -1053,19 +1067,10 @@ function AppInner({
           (error: unknown) => {
             updateAssistantMessage(assistantId, {
               diagnostics: [
-                {
-                  code: 'AI_ERROR',
-                  severity: 'error',
-                  message:
-                    error instanceof Error
-                      ? error.message
-                      : 'Conversation failed',
-                  uri: '',
-                  line: null,
-                  column: null,
-                  end_line: null,
-                  end_column: null,
-                },
+                aiDiagnostic(
+                  'AI_ERROR',
+                  toErrorMessage(error, 'Conversation failed'),
+                ),
               ],
               pending: false,
             });
@@ -1129,35 +1134,27 @@ function AppInner({
     (source: string, actionId?: string): void => {
       const client = clientRef.current;
       if (actionId !== undefined && client?.conversationApply !== undefined) {
+        const reportApplyFailure = (message: string): void => {
+          setChatMessages((messages) =>
+            messages.map((candidate) =>
+              candidate.role === 'assistant' &&
+              candidate.kind === 'generate' &&
+              candidate.actionId === actionId
+                ? {
+                    ...candidate,
+                    diagnostics: [aiDiagnostic('AI_APPLY_ERROR', message)],
+                  }
+                : candidate,
+            ),
+          );
+        };
         void client.conversationApply(
           conversationSessionIdRef.current,
           actionId,
           workspaceRef.current.revision,
         ).then((result) => {
           if (result.reply.kind !== 'applied') {
-            setChatMessages((messages) =>
-              messages.map((message) =>
-                message.role === 'assistant' &&
-                message.kind === 'generate' &&
-                message.actionId === actionId
-                  ? {
-                      ...message,
-                      diagnostics: [
-                        {
-                          code: 'AI_APPLY_ERROR',
-                          severity: 'error',
-                          message: result.reply.text,
-                          uri: '',
-                          line: null,
-                          column: null,
-                          end_line: null,
-                          end_column: null,
-                        },
-                      ],
-                    }
-                  : message,
-              ),
-            );
+            reportApplyFailure(result.reply.text);
             return;
           }
           if (result.reply.operation_kind === 'compile') {
@@ -1187,13 +1184,10 @@ function AppInner({
             current.files.map((file) => [file.path, file]),
           );
           const returnedByPath = new Map(
-            result.sources.map((item) => [
-              decodeURIComponent(new URL(item.uri).pathname.slice(1)),
-              item,
-            ]),
+            result.sources.map((item) => [conversationSourcePath(item.uri), item]),
           );
           for (const item of result.sources) {
-            const path = decodeURIComponent(new URL(item.uri).pathname.slice(1));
+            const path = conversationSourcePath(item.uri);
             const existing = currentByPath.get(path);
             if (existing?.content !== item.text) {
               sourceEditorRef.current?.applyFormattedText(path, item.text);
@@ -1211,31 +1205,8 @@ function AppInner({
           replaceWorkspace(updated, true);
           markLatestGenerateOutcome('accepted');
         }).catch((error: unknown) => {
-          setChatMessages((messages) =>
-            messages.map((message) =>
-              message.role === 'assistant' &&
-              message.kind === 'generate' &&
-              message.actionId === actionId
-                ? {
-                    ...message,
-                    diagnostics: [
-                      {
-                        code: 'AI_APPLY_ERROR',
-                        severity: 'error',
-                        message:
-                          error instanceof Error
-                            ? error.message
-                            : 'Could not apply conversation preview',
-                        uri: '',
-                        line: null,
-                        column: null,
-                        end_line: null,
-                        end_column: null,
-                      },
-                    ],
-                  }
-                : message,
-            ),
+          reportApplyFailure(
+            toErrorMessage(error, 'Could not apply conversation preview'),
           );
         });
         return;
@@ -1511,11 +1482,11 @@ function AppInner({
     });
   }
   if (!actionsDisabled) {
-    for (const target of Object.keys(compileTargetLabels) as CompileTarget[]) {
+    for (const target of Object.keys(COMPILE_TARGET_LABELS) as CompileTarget[]) {
       commands.push({
         id: `target-${target}`,
         group: 'Target language',
-        label: `Set target: ${compileTargetLabels[target]}`,
+        label: `Set target: ${COMPILE_TARGET_LABELS[target]}`,
         hint: target === state.compileTarget ? 'Current' : undefined,
         onRun: () => handleCompileTargetChange(target),
       });
@@ -1785,6 +1756,15 @@ function AppInner({
                       const location = positioned
                         ? `${path}:${diagnostic.line}:${diagnostic.column}`
                         : path;
+                      const body = (
+                        <>
+                          <span className="diagnostics__location">
+                            {location}
+                          </span>
+                          <strong>{diagnostic.code}</strong>{' '}
+                          {diagnostic.message}
+                        </>
+                      );
                       return (
                         <li key={`${diagnostic.code}-${index}`}>
                           {positioned ? (
@@ -1793,20 +1773,10 @@ function AppInner({
                               className="diagnostics__item"
                               onClick={() => revealDiagnostic(diagnostic)}
                             >
-                              <span className="diagnostics__location">
-                                {location}
-                              </span>
-                              <strong>{diagnostic.code}</strong>{' '}
-                              {diagnostic.message}
+                              {body}
                             </button>
                           ) : (
-                            <span className="diagnostics__item">
-                              <span className="diagnostics__location">
-                                {location}
-                              </span>
-                              <strong>{diagnostic.code}</strong>{' '}
-                              {diagnostic.message}
-                            </span>
+                            <span className="diagnostics__item">{body}</span>
                           )}
                         </li>
                       );

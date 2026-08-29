@@ -1,4 +1,4 @@
-import type { CompileTarget } from '../client';
+import { COMPILE_TARGET_LABELS, type CompileTarget } from '../client';
 import type { RuntimePhase } from '../app-state';
 
 export interface ToolbarProps {
@@ -79,17 +79,11 @@ export function Toolbar({
           className="compile-target-selector"
           aria-label="Target language"
         >
-          <option value="jsonSchema">JSON Schema</option>
-          <option value="typescript">TypeScript</option>
-          <option value="sql-postgres">SQL (Postgres)</option>
-          <option value="sql-clickhouse">SQL (ClickHouse)</option>
-          <option value="protobuf">Protobuf</option>
-          <option value="rust">Rust</option>
-          <option value="java">Java</option>
-          <option value="go">Go</option>
-          <option value="csharp">C#</option>
-          <option value="markdown">Markdown</option>
-          <option value="python">Python</option>
+          {Object.entries(COMPILE_TARGET_LABELS).map(([target, label]) => (
+            <option key={target} value={target}>
+              {label}
+            </option>
+          ))}
         </select>
         <button
           type="button"

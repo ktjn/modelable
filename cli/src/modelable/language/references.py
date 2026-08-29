@@ -6,6 +6,10 @@ from collections.abc import Iterable
 from modelable.compiler.workspace import Workspace
 from modelable.language.dto import LanguageLocation, LanguagePosition, LanguageRange
 from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
+from modelable.language.ref_lookup import projection_aliases as _projection_aliases
+from modelable.language.scanning import DOMAIN_PATTERN as _DOMAIN_PATTERN
+from modelable.language.scanning import contains as _contains
+from modelable.language.scanning import word_at as _word_at
 from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import parse_model_ref
 from modelable.parser.ir import JoinRef, ModelVersion, ProjectionVersion, SourceRef
@@ -24,8 +28,6 @@ _EVOLVES_FIELD_OP_PATTERN = re.compile(r"^\s*(?:remove|rename|replace)\s+(?P<fie
 _ENUM_PROJECTION_DECL_PATTERN = re.compile(
     r"^\s*enum\s+projection\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
 )
-_DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
-_WORD_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _MODEL_FIELD_PATTERN = re.compile(
     r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\??\s*:"
 )
@@ -441,35 +443,6 @@ def _reference_locations_for_decl(
     return locations
 
 
-def _projection_aliases(
-    workspace: Workspace,
-    domain_name: str,
-    projection_name: str,
-    version: int,
-) -> dict[str, tuple[str, str, int]]:
-    domain = next((item for item in workspace.mdl.domains if item.name == domain_name), None)
-    if domain is None:
-        return {}
-    versions = domain.projections.get(projection_name, [])
-    projection_version = next((item for item in versions if item.version == version), None)
-    if projection_version is None:
-        return {}
-
-    aliases: dict[str, tuple[str, str, int]] = {}
-    all_sources: list[SourceRef | JoinRef] = [projection_version.source, *projection_version.joins]
-    for source_ref in all_sources:
-        try:
-            resolved = resolve_model_ref(workspace.mdl, source_ref.model, source_ref.version)
-        except LookupError:
-            continue
-        aliases[source_ref.alias] = (
-            resolved.domain_name,
-            resolved.model_name,
-            resolved.version.version,
-        )
-    return aliases
-
-
 def _field_exists(workspace: Workspace, domain_name: str, model_name: str, version: int, field_name: str) -> bool:
     source_version = _source_version(workspace, domain_name, model_name, version)
     if source_version is None:
@@ -651,14 +624,3 @@ def _current_scope(text: str, line: int) -> tuple[str, str, str, int] | None:
     if current_domain and current_kind and current_name and current_version is not None:
         return current_domain, current_kind, current_name, current_version
     return None
-
-
-def _word_at(text_line: str, character: int) -> str | None:
-    for match in _WORD_PATTERN.finditer(text_line):
-        if _contains(match.start(), match.end(), character):
-            return match.group(0)
-    return None
-
-
-def _contains(start: int, end: int, character: int) -> bool:
-    return start <= character <= max(end - 1, start)

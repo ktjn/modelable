@@ -251,7 +251,7 @@ export function workspaceSources(
   workspace: PlaygroundWorkspace,
 ): BrowserSource[] {
   return [...workspace.files].sort(compareFiles).map((file) => ({
-    uri: sourceUri(file.path),
+    uri: sourceUriFromPath(file.path),
     text: file.content,
     version: file.version,
   }));
@@ -282,7 +282,7 @@ function compareFiles(left: PlaygroundFile, right: PlaygroundFile): number {
   return left.path.localeCompare(right.path);
 }
 
-function sourceUri(path: string): string {
+export function sourceUriFromPath(path: string): string {
   return `file:///${path.split('/').map(encodeURIComponent).join('/')}`;
 }
 
