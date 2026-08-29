@@ -351,6 +351,71 @@ def test_offline_snapshot_typescript_consumer_compiles(tmp_path: Path) -> None:
     _assert_docker_success(result, "offline snapshot typescript")
 
 
+@pytest.mark.docker
+@pytest.mark.skipif(
+    os.getenv("MODELABLE_DOCKER_TESTS") != "1",
+    reason="set MODELABLE_DOCKER_TESTS=1 to run the Docker-based codegen smoke tests",
+)
+@pytest.mark.skipif(not _docker_available(), reason="docker is required for generated-language smoke tests")
+def test_offline_snapshot_python_consumer_compiles(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mdl"
+    provider.write_text(
+        textwrap.dedent(
+            """
+            domain customer {
+              owner: "customer-platform"
+              entity Customer @ 1 (additive) {
+                @key customerId: uuid
+                displayName: string
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        textwrap.dedent(
+            """
+            domain analytics {
+              owner: "analytics-platform"
+              projection CustomerSummary @ 1
+                from customer.Customer @ 1 as c
+              {
+                customerId <- c.customerId
+                name <- c.displayName
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    snapshot = tmp_path / ".modelable"
+    runner = CliRunner()
+    resolved = runner.invoke(cli, ["registry", "resolve", str(provider), "--out", str(snapshot)])
+    assert resolved.exit_code == 0, resolved.output
+    out = tmp_path / "generated" / "python"
+    compiled = runner.invoke(
+        cli,
+        [
+            "compile",
+            str(consumer),
+            "--target",
+            "python",
+            "--snapshot",
+            str(snapshot),
+            "--out",
+            str(out),
+        ],
+    )
+    assert compiled.exit_code == 0, compiled.output
+    _write_offline_python_smoke(tmp_path)
+    result = _run_docker(tmp_path, "python:3.14.4-slim", "/usr/local/bin/python smoke.py")
+    _assert_docker_success(result, "offline snapshot python")
+
+
 def _write_python_smoke(tmp_path: Path, out: Path) -> None:
     smoke = tmp_path / "smoke.py"
     smoke.write_text(
@@ -786,6 +851,57 @@ def _write_offline_typescript_smoke(tmp_path: Path) -> None:
               },
               "include": ["smoke.ts", "generated/typescript/**/*.ts"]
             }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_offline_python_smoke(tmp_path: Path) -> None:
+    (tmp_path / "smoke.py").write_text(
+        textwrap.dedent(
+            f"""
+            from __future__ import annotations
+
+            import importlib.util
+            import sys
+            from pathlib import Path
+            from uuid import UUID
+
+
+            ROOT = Path(__file__).resolve().parent
+
+
+            def load_module(path: Path, name: str):
+                spec = importlib.util.spec_from_file_location(name, path)
+                assert spec is not None and spec.loader is not None
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[name] = module
+                spec.loader.exec_module(module)
+                return module
+
+
+            customer = load_module(
+                ROOT / "generated" / "python" / "customer" / "customer_customer_v1.py",
+                "customer_customer_v1",
+            )
+            analytics = load_module(
+                ROOT / "generated" / "python" / "analytics" / "analytics_customer_summary_v1.py",
+                "analytics_customer_summary_v1",
+            )
+
+            customer_obj = customer.CustomerCustomerV1(
+                customerId=UUID("{SMOKE_UUID}"),
+                displayName="Alice",
+            )
+            summary_obj = analytics.AnalyticsCustomerSummaryV1(
+                customerId=UUID("{SMOKE_UUID}"),
+                name="Alice",
+            )
+
+            assert customer_obj.customerId == summary_obj.customerId
+            assert summary_obj.name == customer_obj.displayName
             """
         ).strip()
         + "\n",
