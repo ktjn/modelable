@@ -12,6 +12,7 @@ releases could contain breaking changes when called out explicitly.
   compiler core; unsupported code-generation targets report a specific
   diagnostic before writing artifacts or registry state.
 - Rust code generation now emits nominal enum projection field types.
+- TypeScript code generation now emits and reuses nominal enum projection field types.
 
 ### Changed
 
