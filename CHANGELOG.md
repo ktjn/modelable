@@ -42,6 +42,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- `registry status --format json` now exits nonzero when the local snapshot is
+  invalid, matching its human-readable output.
+
 - `vscode/package.json`'s `engines.vscode` was left at `^1.125.0` after a
   dependency-bot PR raised `@types/vscode` to `^1.134.0`, so `vsce package`
   rejected the mismatch and the 1.12.0 release build failed before
