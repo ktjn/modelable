@@ -31,6 +31,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- `registry resolve` now goes through an explicit local source-adapter
+  boundary; external or network-backed adapters remain opt-in and unavailable
+  to ordinary compiler operations.
+
 - `registry rebuild-index` can reconstruct the derived SQLite index from a
   valid durable snapshot without loading or refreshing source files.
 

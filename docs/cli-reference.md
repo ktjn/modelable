@@ -1733,6 +1733,8 @@ modelable registry usage SOURCE [--format text|json|manifest]
 
 - `registry resolve` writes `.modelable/registry.lock` and deterministic,
   content-addressed contract objects under `.modelable/registry/objects/`.
+  The current `SOURCE` implementation is the explicit offline local source
+  adapter; external or network-backed adapters are not enabled by this CLI.
 - `registry diff` stages a candidate in a temporary directory and reports exact
   added, removed, and changed contract identities without changing local state.
 - `registry update` validates that candidate and atomically replaces the lock;

@@ -14,6 +14,7 @@ from modelable.registry.snapshot import (
     update_workspace_snapshot,
     verify_snapshot,
 )
+from modelable.registry.sources import LocalSourceAdapter
 
 FIXTURE = Path(__file__).parent / "fixtures" / "customer.mdl"
 
@@ -89,6 +90,21 @@ def test_registry_cli_resolve_and_verify_json(tmp_path: Path) -> None:
     assert resolved.exit_code == 0, resolved.output
     assert verified.exit_code == 0, verified.output
     assert json.loads(verified.output) == {"valid": True, "errors": []}
+
+
+def test_registry_resolve_uses_explicit_local_source_adapter(tmp_path: Path, monkeypatch) -> None:
+    calls: list[Path] = []
+    original_load = LocalSourceAdapter.load
+
+    def recording_load(adapter: LocalSourceAdapter, source: Path):
+        calls.append(source)
+        return original_load(adapter, source)
+
+    monkeypatch.setattr(LocalSourceAdapter, "load", recording_load)
+    result = CliRunner().invoke(cli, ["registry", "resolve", str(FIXTURE), "--out", str(tmp_path / ".modelable")])
+
+    assert result.exit_code == 0, result.output
+    assert calls == [FIXTURE]
 
 
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:

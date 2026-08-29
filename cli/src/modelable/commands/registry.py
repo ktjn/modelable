@@ -16,6 +16,7 @@ from modelable.registry.snapshot import (
     update_workspace_snapshot,
     verify_snapshot,
 )
+from modelable.registry.sources import LocalSourceAdapter
 from modelable.registry.usage import build_usage_graph, build_usage_manifest
 
 
@@ -33,7 +34,7 @@ def registry() -> None:
 @click.option("--out", "output_dir", type=click.Path(path_type=Path), default=Path(".modelable"), show_default=True)
 def resolve(source: Path, output_dir: Path) -> None:
     """Resolve SOURCE into an exact local registry snapshot."""
-    workspace = load_workspace_or_exit(source)
+    workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
         result = resolve_workspace_snapshot(workspace, output_dir)
     except ValueError as exc:
