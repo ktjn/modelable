@@ -35,7 +35,7 @@ def emit_openmetadata(workspace: Workspace, out_dir: Path) -> list[EmittedArtifa
     """Emit OpenMetadata-oriented catalog assets with ownership, governance, and lineage."""
     artifacts: list[EmittedArtifact] = []
 
-    for domain in workspace.mdl.domains:
+    for domain in sorted(workspace.mdl.domains, key=lambda item: item.name):
         artifact_id = f"{domain.name}.openmetadata"
         om_data = {
             "name": domain.name,
@@ -45,12 +45,12 @@ def emit_openmetadata(workspace: Workspace, out_dir: Path) -> list[EmittedArtifa
             "lineage": [],
         }
 
-        for model_name, versions in domain.models.items():
-            for version in versions:
+        for model_name, versions in sorted(domain.models.items()):
+            for version in sorted(versions, key=lambda item: item.version):
                 om_data["assets"].append(_model_asset(domain, model_name, version))
 
-        for projection_name, versions in domain.projections.items():
-            for version in versions:
+        for projection_name, versions in sorted(domain.projections.items()):
+            for version in sorted(versions, key=lambda item: item.version):
                 source = _resolve_source(workspace, version)
                 om_data["assets"].append(_projection_asset(domain, projection_name, version, source))
                 om_data["lineage"].extend(_projection_lineage(domain, projection_name, version, source))
