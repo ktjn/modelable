@@ -8,12 +8,14 @@ from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss
 from modelable.emitters.named_types import resolve_named_ref, resolve_named_types
+from modelable.emitters.naming import find_identifier_collisions
 from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.shapes import TypeShape
 from modelable.parser.ir import (
     DirectMapping,
     DomainDef,
+    EnumProjectionDecl,
     EnumType,
     MdlFile,
     ModelVersion,
@@ -34,6 +36,11 @@ def emit_python(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
         for decl in latest_semantic_types(domain):
             if isinstance(decl.underlying, EnumType):
                 artifacts.append(_emit_enum_type(domain, decl, out_dir))
+        for decl in domain.semantic_types:
+            if isinstance(decl.underlying, EnumType) and decl not in latest_semantic_types(domain):
+                artifacts.append(_emit_versioned_enum_type(domain, decl, out_dir))
+        for projection in domain.enum_projections:
+            artifacts.append(_emit_enum_projection(domain, projection, out_dir))
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
                 artifacts.append(
@@ -193,12 +200,19 @@ def _enum_member_name(value: str) -> str:
     return text or "UNKNOWN"
 
 
+def _validate_enum_members(owner: str, values: list[str]) -> None:
+    for identifier, members in find_identifier_collisions(values, _enum_member_name).items():
+        joined_members = ", ".join(repr(member) for member in members)
+        raise ValueError(f"{owner}: Python enum members {joined_members} all generate identifier {identifier!r}")
+
+
 def _emit_enum_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path) -> EmittedArtifact:
     """Emit one reusable Python ``StrEnum`` for an enum-backed semantic
     declaration (evolution plan E8), imported everywhere it's referenced
     instead of degrading to a bare ``str`` annotation.
     """
     assert isinstance(decl.underlying, EnumType)
+    _validate_enum_members(f"{domain.name}.{decl.name}", decl.underlying.values)
     artifact_id = f"{domain.name}.{decl.name}"
     lines = [
         "from __future__ import annotations",
@@ -383,13 +397,19 @@ def _shape_base_annotation(
             names=named_names,
             shapes=named_shapes,
             emit_nominal_enums=True,
+            emit_nominal_enum_projections=True,
+            exact_version=shape.version,
         )
         if named_name is not None:
+            local_name = named_name
             if declaring_domain is not None and named_name != owner_type:
+                if declaring_domain != current_domain and not named_name.startswith(_pascalize(declaring_domain)):
+                    local_name = f"{_pascalize(declaring_domain)}{named_name}"
                 imports.add(
-                    f"from {_package_name(declaring_domain)}.{_module_filename(named_name)[:-3]} import {named_name}"
+                    f"from {_package_name(declaring_domain)}.{_module_filename(named_name)[:-3]} import "
+                    f"{named_name}{f' as {local_name}' if local_name != named_name else ''}"
                 )
-            return named_name
+            return local_name
         if inline_shape is not None:
             return _shape_base_annotation(
                 inline_shape,
@@ -471,3 +491,56 @@ def _resolve_projection_field_shape(field: Any, projection: ProjectionVersion, m
         if src_field.name == field.mapping.source_field and hasattr(src_field, "type"):
             return TypeShape.from_field_type(src_field.type, optional=getattr(src_field, "optional", False))
     return None
+
+
+def _emit_enum_projection(domain: DomainDef, projection: EnumProjectionDecl, out_dir: Path) -> EmittedArtifact:
+    type_name = f"{_pascalize(domain.name)}{projection.name}V{projection.version}"
+    _validate_enum_members(f"{domain.name}.{projection.name}@{projection.version}", projection.members)
+    lines = [
+        "from __future__ import annotations",
+        "",
+        "from enum import StrEnum",
+        "",
+        "",
+        f"class {type_name}(StrEnum):",
+    ]
+    for value in projection.members:
+        lines.append(f"    {_enum_member_name(value)} = {value!r}")
+    text = "\n".join(lines) + "\n"
+    artifact_id = f"{domain.name}.{projection.name}.v{projection.version}"
+    return EmittedArtifact(
+        target="python",
+        ref=f"{domain.name}.{projection.name}@{projection.version}",
+        artifact_id=artifact_id,
+        path=out_dir / _module_path(domain.name, type_name),
+        content=text,
+        content_hash=compute_content_hash(text),
+        warnings=[],
+    )
+
+
+def _emit_versioned_enum_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path) -> EmittedArtifact:
+    type_name = f"{_pascalize(domain.name)}{decl.name}V{decl.version}"
+    lines = [
+        "from __future__ import annotations",
+        "",
+        "from enum import StrEnum",
+        "",
+        "",
+        f"class {type_name}(StrEnum):",
+    ]
+    assert isinstance(decl.underlying, EnumType)
+    _validate_enum_members(f"{domain.name}.{decl.name}@{decl.version}", decl.underlying.values)
+    for value in decl.underlying.values:
+        lines.append(f"    {_enum_member_name(value)} = {value!r}")
+    text = "\n".join(lines) + "\n"
+    artifact_id = f"{domain.name}.{decl.name}.v{decl.version}"
+    return EmittedArtifact(
+        target="python",
+        ref=f"{domain.name}.{decl.name}@{decl.version}",
+        artifact_id=artifact_id,
+        path=out_dir / _module_path(domain.name, type_name),
+        content=text,
+        content_hash=compute_content_hash(text),
+        warnings=[],
+    )

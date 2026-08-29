@@ -63,6 +63,7 @@ class TypeShape:
     precision: int | None = None
     scale: int | None = None
     length: int | None = None
+    version: int | None = None
 
     @classmethod
     def from_field(cls, value: str | FieldType, *, optional: bool = False) -> TypeShape:
@@ -110,12 +111,12 @@ class TypeShape:
                     for field in field_type.fields
                 ),
             )
-        if isinstance(field_type, NamedType):
-            return cls(kind="named", optional=optional, ref=field_type.name)
         if isinstance(field_type, EnumRefType):
             # Exact-versioned enum references ride the named-type path until
             # dedicated emitter support lands (E5+); identity is preserved in
             # the IR and signatures regardless.
+            return cls(kind="named", optional=optional, ref=field_type.name, version=field_type.version)
+        if isinstance(field_type, NamedType):
             return cls(kind="named", optional=optional, ref=field_type.name)
         raise TypeError(f"unsupported field type: {type(field_type)!r}")
 

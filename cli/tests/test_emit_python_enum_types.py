@@ -5,8 +5,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
-from modelable.emitters.python import emit_python
+from modelable.emitters.python import _emit_enum_projection, _emit_versioned_enum_type, emit_python
+from modelable.parser.ir import DomainDef, EnumProjectionDecl, EnumType, SemanticTypeDecl
 
 
 def _workspace(source: str):
@@ -124,3 +127,116 @@ domain orders {
     names, shapes = resolve_named_types(workspace.mdl, current_domain="orders", model_name=lambda d, n, v: n)
     assert "OrderStatus" not in names
     assert "OrderStatus" in shapes
+
+
+def test_projection_typed_field_emits_versioned_strenum(tmp_path):
+    workspace = _workspace(
+        """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(pending, active)
+  enum projection PublicOrderStatus @ 1
+    from OrderStatus @ 1
+    pick(pending)
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicOrderStatus @ 1
+  }
+}
+"""
+    )
+    artifacts = emit_python(workspace, tmp_path / "out")
+    enum_artifact = next(a for a in artifacts if a.ref == "orders.PublicOrderStatus@1")
+    assert "class OrdersPublicOrderStatusV1(StrEnum):" in enum_artifact.content
+    assert "PENDING = 'pending'" in enum_artifact.content
+
+    model_artifact = next(a for a in artifacts if a.ref == "orders.Order@1")
+    assert "from orders.orders_public_order_status_v1 import OrdersPublicOrderStatusV1" in model_artifact.content
+    assert "status: OrdersPublicOrderStatusV1" in model_artifact.content
+
+
+def test_exact_semantic_enum_versions_remain_distinct(tmp_path):
+    workspace = _workspace(
+        """
+domain orders {
+  owner: "orders-team"
+  semantic Status @ 1 (additive): enum(pending, active)
+  semantic Status @ 2 (additive): enum(pending, active, done)
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    oldStatus: Status @ 1
+    newStatus: Status @ 2
+  }
+}
+"""
+    )
+    artifacts = emit_python(workspace, tmp_path / "out")
+    old_enum = next(a for a in artifacts if a.ref == "orders.Status@1")
+    latest_enum = next(a for a in artifacts if a.ref == "orders.Status")
+    assert "class OrdersStatusV1(StrEnum):" in old_enum.content
+    assert "class Status(StrEnum):" in latest_enum.content
+    assert "DONE = 'done'" not in old_enum.content
+    model = next(a for a in artifacts if a.ref == "orders.Order@1")
+    assert "oldStatus: OrdersStatusV1" in model.content
+    assert "newStatus: Status" in model.content
+
+
+def test_cross_domain_semantic_enums_use_distinct_import_aliases(tmp_path):
+    workspace = _workspace(
+        """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: billing.Status @ 1
+  }
+}
+domain billing {
+  owner: "billing-team"
+  semantic Status @ 1 (additive): enum(pending, active)
+}
+"""
+    )
+    artifacts = emit_python(workspace, tmp_path / "out")
+    model = next(a for a in artifacts if a.ref == "orders.Order@1")
+    assert "from billing.status import Status as BillingStatus" in model.content
+    assert "status: BillingStatus" in model.content
+
+
+def test_latest_enum_member_identifier_collisions_fail_python_emission(tmp_path):
+    workspace = _workspace(
+        """
+domain orders {
+  owner: "orders-team"
+  semantic Status @ 1 (additive): enum(foo-bar, foo_bar)
+}
+"""
+    )
+
+    with pytest.raises(ValueError, match=r"foo-bar.*foo_bar.*FOO_BAR"):
+        emit_python(workspace, tmp_path / "out")
+
+
+def test_versioned_enum_member_identifier_collisions_fail_python_emission(tmp_path):
+    declaration = SemanticTypeDecl(
+        name="Status",
+        version=1,
+        underlying=EnumType(values=["foo-bar", "foo_bar"]),
+    )
+
+    with pytest.raises(ValueError, match=r"foo-bar.*foo_bar.*FOO_BAR"):
+        _emit_versioned_enum_type(DomainDef(name="orders"), declaration, tmp_path / "out")
+
+
+def test_enum_projection_member_identifier_collisions_fail_python_emission(tmp_path):
+    projection = EnumProjectionDecl(
+        name="PublicStatus",
+        version=1,
+        source_name="Status",
+        source_version=1,
+        selection_kind="pick",
+        members=["foo-bar", "foo_bar"],
+    )
+
+    with pytest.raises(ValueError, match=r"foo-bar.*foo_bar.*FOO_BAR"):
+        _emit_enum_projection(DomainDef(name="orders"), projection, tmp_path / "out")
