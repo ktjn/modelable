@@ -244,6 +244,13 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                     errors.append(f"registry lock requirement signature mismatch for {source} -> {resolved}")
                 if target.get("content_hash") != requirement.get("object"):
                     errors.append(f"registry lock requirement object mismatch for {source} -> {resolved}")
+            try:
+                expected_requirements = _build_requirements(objects)
+            except ValueError as exc:
+                errors.append(f"cannot reconstruct registry lock requirements: {exc}")
+            else:
+                if requirements != expected_requirements:
+                    errors.append("registry lock requirements do not match object dependency edges")
     return errors
 
 
