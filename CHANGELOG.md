@@ -22,6 +22,8 @@ releases could contain breaking changes when called out explicitly.
 
 - Graph export now uses the canonical declaration identity and semantic-path
   grammar for version and field references.
+- Compiler integrations can compose local source documents with a validated
+  registry snapshot for offline external-contract resolution.
 
 ### Fixed
 
