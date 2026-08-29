@@ -7,11 +7,13 @@ from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss
 from modelable.emitters.named_types import resolve_named_ref, resolve_named_types
+from modelable.emitters.naming import find_identifier_collisions
 from modelable.emitters.naming import pascalize_titlecase as _pascalize
 from modelable.emitters.shapes import TypeShape
 from modelable.parser.ir import (
     DirectMapping,
     DomainDef,
+    EnumProjectionDecl,
     EnumType,
     MdlFile,
     ModelVersion,
@@ -35,6 +37,11 @@ def emit_csharp(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
         for decl in latest_semantic_types(domain):
             if isinstance(decl.underlying, EnumType):
                 artifacts.append(_emit_enum_type(domain, decl, out_dir))
+        for decl in domain.semantic_types:
+            if isinstance(decl.underlying, EnumType) and decl not in latest_semantic_types(domain):
+                artifacts.append(_emit_versioned_enum_type(domain, decl, out_dir))
+        for projection in domain.enum_projections:
+            artifacts.append(_emit_enum_projection(domain, projection, out_dir))
         for model_name, model_versions in domain.models.items():
             for model_version in model_versions:
                 artifacts.append(
@@ -288,6 +295,8 @@ def _shape_base_to_csharp(
             names=named_names,
             shapes=named_shapes,
             emit_nominal_enums=True,
+            emit_nominal_enum_projections=True,
+            exact_version=shape.version,
         )
         if named_name is not None:
             if declaring_domain is not None and declaring_domain != current_domain:
@@ -397,6 +406,12 @@ def _enum_member_name(value: str) -> str:
     return _pascalize(value)
 
 
+def _validate_enum_members(owner: str, values: list[str]) -> None:
+    for identifier, members in find_identifier_collisions(values, _enum_member_name).items():
+        joined_members = ", ".join(repr(member) for member in members)
+        raise ValueError(f"{owner}: C# enum members {joined_members} all generate identifier {identifier!r}")
+
+
 def _emit_enum_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path) -> EmittedArtifact:
     """Emit one reusable C# ``enum`` for an enum-backed semantic declaration
     (evolution plan E8), imported everywhere it's referenced instead of
@@ -409,9 +424,27 @@ def _emit_enum_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path) ->
     than the canonical wire value.
     """
     assert isinstance(decl.underlying, EnumType)
-    artifact_id = f"{domain.name}.{decl.name}"
-    type_name = decl.name
-    members = [(_enum_member_name(value), value) for value in decl.underlying.values]
+    return _emit_enum_artifact(
+        domain,
+        type_name=decl.name,
+        values=decl.underlying.values,
+        ref=f"{domain.name}.{decl.name}",
+        artifact_id=f"{domain.name}.{decl.name}",
+        out_dir=out_dir,
+    )
+
+
+def _emit_enum_artifact(
+    domain: DomainDef,
+    *,
+    type_name: str,
+    values: list[str],
+    ref: str,
+    artifact_id: str,
+    out_dir: Path,
+) -> EmittedArtifact:
+    _validate_enum_members(ref, values)
+    members = [(_enum_member_name(value), value) for value in values]
 
     lines = [
         "#nullable enable",
@@ -442,12 +475,37 @@ def _emit_enum_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path) ->
     text = "\n".join(lines) + "\n"
     return EmittedArtifact(
         target="csharp",
-        ref=artifact_id,
+        ref=ref,
         artifact_id=artifact_id,
         path=out_dir / f"{artifact_id}.cs",
         content=text,
         content_hash=compute_content_hash(text),
         warnings=[],
+    )
+
+
+def _emit_enum_projection(domain: DomainDef, projection: EnumProjectionDecl, out_dir: Path) -> EmittedArtifact:
+    type_name = f"{_pascalize(domain.name)}{projection.name}V{projection.version}"
+    return _emit_enum_artifact(
+        domain,
+        type_name=type_name,
+        values=projection.members,
+        ref=f"{domain.name}.{projection.name}@{projection.version}",
+        artifact_id=f"{domain.name}.{projection.name}.v{projection.version}",
+        out_dir=out_dir,
+    )
+
+
+def _emit_versioned_enum_type(domain: DomainDef, decl: SemanticTypeDecl, out_dir: Path) -> EmittedArtifact:
+    assert isinstance(decl.underlying, EnumType)
+    type_name = f"{_pascalize(domain.name)}{decl.name}V{decl.version}"
+    return _emit_enum_artifact(
+        domain,
+        type_name=type_name,
+        values=decl.underlying.values,
+        ref=f"{domain.name}.{decl.name}@{decl.version}",
+        artifact_id=f"{domain.name}.{decl.name}.v{decl.version}",
+        out_dir=out_dir,
     )
 
 

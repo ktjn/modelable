@@ -15,6 +15,7 @@ releases could contain breaking changes when called out explicitly.
 - TypeScript code generation now emits and reuses nominal enum projection field types.
 - Python code generation now emits and reuses versioned nominal enum projection field types.
 - Java code generation now emits and reuses nominal enum projection field types.
+- C# code generation now emits and reuses nominal enum projection field types.
 
 ### Changed
 
