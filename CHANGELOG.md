@@ -20,6 +20,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Graph export now uses the canonical declaration identity and semantic-path
+  grammar for version and field references.
+
 ### Fixed
 
 ## [1.12.1] - 2026-08-26
