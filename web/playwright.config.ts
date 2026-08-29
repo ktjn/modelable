@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const project = process.env.PLAYWRIGHT_PROJECT;
+export const playwrightBaseURL = 'http://127.0.0.1:4173/modelable/playground/';
 
 export default defineConfig({
   testDir: './tests',
@@ -21,7 +22,7 @@ export default defineConfig({
   ],
   outputDir: 'output/playwright',
   use: {
-    baseURL: 'http://127.0.0.1:4173/modelable/playground/',
+    baseURL: playwrightBaseURL,
     trace: 'retain-on-failure',
   },
   expect: {

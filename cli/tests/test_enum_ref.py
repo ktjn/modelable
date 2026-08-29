@@ -11,6 +11,7 @@ from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
 from modelable.emitters.targets import list_implemented_codegen_targets
 from modelable.operations.compilation import (
+    _ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS,
     CompilationDiagnosticsError,
     _reject_unsupported_enum_projection_fields,
 )
@@ -200,7 +201,7 @@ domain orders {
     assert any("enum projection 'PublicStatus' resolves to" in d.message for d in workspace.warnings)
 
 
-def test_phase_one_rejects_projection_typed_fields_for_every_codegen_target():
+def test_projection_typed_fields_are_rejected_only_for_unsupported_targets():
     source = """
 domain orders {
   owner: "orders-team"
@@ -219,8 +220,36 @@ domain orders {
     )
 
     for target in (item.name for item in list_implemented_codegen_targets()):
-        with pytest.raises(CompilationDiagnosticsError, match=rf"target '{target}'.*EMIT007|target '{target}'"):
+        if target in _ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS:
             _reject_unsupported_enum_projection_fields(workspace, target)
+        else:
+            with pytest.raises(CompilationDiagnosticsError, match=rf"target '{target}'.*EMIT007|target '{target}'"):
+                _reject_unsupported_enum_projection_fields(workspace, target)
+
+
+def test_rust_rejects_non_latest_enum_projection_field_reference():
+    source = """
+domain orders {
+  owner: "orders-team"
+  semantic Status @ 1 (additive): enum(pending, paid, cancelled)
+  enum projection PublicStatus @ 1 (additive)
+    from Status @ 1
+    pick(paid)
+  enum projection PublicStatus @ 2 (additive)
+    from Status @ 1
+    pick(paid, cancelled)
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicStatus @ 1
+  }
+}
+"""
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=source)]
+    )
+
+    with pytest.raises(CompilationDiagnosticsError, match="non-latest enum projection"):
+        _reject_unsupported_enum_projection_fields(workspace, "rust")
 
 
 def test_qualified_missing_version_lists_known_versions():
