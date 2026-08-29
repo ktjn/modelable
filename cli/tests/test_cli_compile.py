@@ -5,6 +5,8 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.compiler.workspace import load_workspace
+from modelable.registry.snapshot import resolve_workspace_snapshot
 
 _TWO_DOMAIN_MDL = """
 domain logs {
@@ -87,6 +89,57 @@ def test_compile_unknown_domain_errors_clearly(tmp_path):
     assert "logs" in result.output
     assert "nlq" in result.output
     assert not out.exists()
+
+
+def test_compile_uses_offline_snapshot_for_external_reference(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mdl"
+    provider.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        """
+domain analytics {
+  owner: "analytics-platform"
+  projection CustomerSummary @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.displayName
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    snapshot = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(provider), snapshot)
+    out = tmp_path / "dist" / "json-schema"
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "compile",
+            str(consumer),
+            "--target",
+            "json-schema",
+            "--snapshot",
+            str(snapshot),
+            "--out",
+            str(out),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (out / "analytics.CustomerSummary.v1.json").exists()
 
 
 def test_compile_without_domain_flag_compiles_whole_workspace(tmp_path):

@@ -1731,6 +1731,10 @@ modelable registry prune [--out DIR]
 modelable registry usage SOURCE [--format text|json|manifest]
 ```
 
+Compilation can compose local source files with a validated offline snapshot
+by passing `--snapshot DIR`; the snapshot is loaded before ordinary reference
+validation and target generation.
+
 - `registry resolve` writes `.modelable/registry.lock` and deterministic,
   content-addressed contract objects under `.modelable/registry/objects/`.
   The current `SOURCE` implementation is the explicit offline local source

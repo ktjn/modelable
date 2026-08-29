@@ -48,6 +48,13 @@ def register_compile_commands(cli_group: click.Group) -> None:
     help="Path to the registry index file.",
 )
 @click.option(
+    "--snapshot",
+    "snapshot_path",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Validated local registry snapshot to use for offline external references.",
+)
+@click.option(
     "--registry-ids",
     "registry_ids_path",
     type=click.Path(path_type=Path),
@@ -91,6 +98,7 @@ def compile(
     target: str,
     out_dir: Path | None,
     registry_path: str,
+    snapshot_path: Path | None,
     registry_ids_path: Path | None,
     allow_orphaned_registry_ids: bool,
     enum_numbers_path: Path | None,
@@ -111,6 +119,7 @@ def compile(
                 target=target,
                 out_dir=out_dir,
                 registry_path=registry_path,
+                snapshot_path=snapshot_path,
                 registry_ids_path=registry_ids_path,
                 allow_orphaned_registry_ids=allow_orphaned_registry_ids,
                 enum_numbers_path=enum_numbers_path,

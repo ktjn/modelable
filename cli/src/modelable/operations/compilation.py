@@ -73,6 +73,7 @@ from modelable.registry.ids import RegistryIdLock, allocate_registry_ids, read_l
 from modelable.registry.index import build_registry
 from modelable.registry.oci import OCIRegistryError
 from modelable.registry.resolver import resolve_enum_type_ref, resolve_model_ref, resolve_semantic_type_ref
+from modelable.registry.snapshot import load_workspace_with_snapshot
 
 TARGETS = tuple(target.name for target in list_implemented_codegen_targets())
 # Target support is enabled one target-family slice at a time after real
@@ -130,6 +131,7 @@ class CompilationRequest:
     target: str
     out_dir: Path | None = None
     registry_path: str = ".modelable/registry.db"
+    snapshot_path: Path | None = None
     registry_ids_path: Path = Path("registry-ids.lock")
     allow_orphaned_registry_ids: bool = False
     enum_numbers_path: Path = Path("enum-numbers.lock")
@@ -1288,6 +1290,12 @@ def _run_compilation(
             (exc.diagnostic(path=str(request.source)),),
             origin="parse",
         ) from exc
+
+    if request.snapshot_path is not None:
+        try:
+            workspace = load_workspace_with_snapshot(workspace, request.snapshot_path)
+        except (FileNotFoundError, ValueError) as exc:
+            raise CompilationError(f"Cannot load offline registry snapshot: {exc}") from exc
 
     if workspace.errors:
         raise CompilationDiagnosticsError(
