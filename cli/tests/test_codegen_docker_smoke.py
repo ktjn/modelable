@@ -213,6 +213,75 @@ def test_codegen_backends_compile_inside_docker(tmp_path, target: str, image: st
     raise AssertionError(f"Unhandled target: {target}")
 
 
+@pytest.mark.docker
+@pytest.mark.skipif(
+    os.getenv("MODELABLE_DOCKER_TESTS") != "1",
+    reason="set MODELABLE_DOCKER_TESTS=1 to run the Docker-based codegen smoke tests",
+)
+@pytest.mark.skipif(not _docker_available(), reason="docker is required for generated-language smoke tests")
+def test_offline_snapshot_rust_consumer_compiles_locked_and_offline(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mdl"
+    provider.write_text(
+        textwrap.dedent(
+            """
+            domain customer {
+              owner: "customer-platform"
+              entity Customer @ 1 (additive) {
+                @key customerId: uuid
+                displayName: string
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        textwrap.dedent(
+            """
+            domain analytics {
+              owner: "analytics-platform"
+              projection CustomerSummary @ 1
+                from customer.Customer @ 1 as c
+              {
+                customerId <- c.customerId
+                name <- c.displayName
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    snapshot = tmp_path / ".modelable"
+    runner = CliRunner()
+    resolved = runner.invoke(cli, ["registry", "resolve", str(provider), "--out", str(snapshot)])
+    assert resolved.exit_code == 0, resolved.output
+    out = tmp_path / "generated" / "rust"
+    compiled = runner.invoke(
+        cli,
+        [
+            "compile",
+            str(consumer),
+            "--target",
+            "rust",
+            "--snapshot",
+            str(snapshot),
+            "--out",
+            str(out),
+        ],
+    )
+    assert compiled.exit_code == 0, compiled.output
+    _write_offline_rust_smoke(tmp_path)
+    result = _run_docker(
+        tmp_path,
+        "rust:1.95.0",
+        "/usr/local/cargo/bin/cargo generate-lockfile --offline && /usr/local/cargo/bin/cargo test --quiet --locked --offline",
+    )
+    _assert_docker_success(result, "offline snapshot rust")
+
+
 def _write_python_smoke(tmp_path: Path, out: Path) -> None:
     smoke = tmp_path / "smoke.py"
     smoke.write_text(
@@ -395,6 +464,10 @@ def _write_rust_smoke(tmp_path: Path, out: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
+    _write_standard_rust_sources(tmp_path)
+
+
+def _write_standard_rust_sources(tmp_path: Path) -> None:
     src_dir = tmp_path / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
     (src_dir / "lib.rs").write_text(
@@ -449,6 +522,58 @@ def _write_rust_smoke(tmp_path: Path, out: Path) -> None:
                     assert_eq!(CustomerCustomerV1::SCHEMA_CONTENT_SIGNATURE.len(), 32);
                     assert_eq!(CustomerCustomerViewV1::SCHEMA_VERSION, 1);
                     assert_eq!(CustomerCustomerViewV1::SCHEMA_CONTENT_SIGNATURE.len(), 32);
+                }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_offline_rust_smoke(tmp_path: Path) -> None:
+    (tmp_path / "Cargo.toml").write_text(
+        textwrap.dedent(
+            """
+            [package]
+            name = "modelable_offline_snapshot_smoke"
+            version = "0.1.0"
+            edition = "2024"
+
+            [dependencies]
+            serde = { version = "1", features = ["derive"] }
+            uuid = { version = "1", features = ["serde"] }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    src_dir = tmp_path / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+    (src_dir / "lib.rs").write_text(
+        textwrap.dedent(
+            """
+            #[path = "../generated/rust/customer/customer_customer_v1.rs"]
+            mod customer;
+            #[path = "../generated/rust/analytics/analytics_customer_summary_v1.rs"]
+            mod analytics;
+
+            #[cfg(test)]
+            mod smoke {
+                use super::analytics::AnalyticsCustomerSummaryV1;
+                use super::customer::CustomerCustomerV1;
+                use uuid::Uuid;
+
+                #[test]
+                fn generated_snapshot_contracts_compile_and_keep_identity() {
+                    let id = Uuid::parse_str("123e4567-e89b-12d3-a456-426614174000").unwrap();
+                    let customer = CustomerCustomerV1 { customer_id: id, display_name: String::from("Alice") };
+                    let summary = AnalyticsCustomerSummaryV1 { customer_id: id, name: String::from("Alice") };
+                    assert_eq!(customer.customer_id, summary.customer_id);
+                    assert_eq!(CustomerCustomerV1::SCHEMA_VERSION, 1);
+                    assert_eq!(AnalyticsCustomerSummaryV1::SCHEMA_VERSION, 1);
+                    assert_eq!(CustomerCustomerV1::SCHEMA_CONTENT_SIGNATURE.len(), 32);
+                    assert_eq!(AnalyticsCustomerSummaryV1::SCHEMA_CONTENT_SIGNATURE.len(), 32);
                 }
             }
             """
