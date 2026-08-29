@@ -9,7 +9,7 @@ from modelable.parser.ir import ModelKind
 
 
 class CapabilityStatus(StrEnum):
-    """One of the five statuses ROADMAP.md Slice B2 standardizes on."""
+    """One of the five capability statuses exposed by Modelable."""
 
     implemented = "implemented"
     experimental = "experimental"
@@ -25,9 +25,8 @@ class Capability:
     status: CapabilityStatus
     description: str
     notes: str | None = None
-    # "test_file.py::test_function_name" references (Slice G3) that prove this
-    # capability's status is accurate. Checked by test_capability_manifest_linkage.py,
-    # so a status claim can't silently drift from what the test suite actually verifies.
+    # Test references prove capability status against implementation. The historical
+    # origin of this linkage is archived as ROADMAP.md Slice G3.
     test_refs: tuple[str, ...] = ()
 
 
@@ -71,9 +70,9 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         status=CapabilityStatus.deferred,
         description="Multiple @key fields on a single entity or aggregate",
         notes=(
-            "docs/architecture.md describes this as supported; "
-            "cli/src/modelable/validation/semantic.py requires exactly one @key field "
-            "per entity/aggregate today. See Slice D5 in ROADMAP.md."
+            "docs/architecture.md records the current invariant: exactly one @key field "
+            "per entity/aggregate. Composite keys remain deferred; see ROADMAP.md Slice D5 "
+            "(legacy mapping) and Phase 2 for declaration-model stabilization."
         ),
         test_refs=("test_semantic.py::test_composite_key_is_not_yet_supported",),
     ),
@@ -83,8 +82,8 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         status=CapabilityStatus.deferred,
         description="Draft, published, deprecated, and retired version status",
         notes=(
-            "docs/architecture.md describes this lifecycle; it is not represented in the "
-            "current stable grammar or IR. See Slice D6 in ROADMAP.md."
+            "docs/architecture.md explicitly records that lifecycle status is not represented "
+            "in the current stable grammar or IR. See ROADMAP.md Slice D6 (legacy mapping)."
         ),
         test_refs=("test_capabilities.py::test_model_version_has_no_lifecycle_status_field",),
     ),
@@ -95,9 +94,9 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         description="Preserving semantic-type nominal identity in targets other than Rust, Protobuf, and gRPC",
         notes=(
             "Other targets resolve a semantic type reference structurally today. "
-            "See Slice F1 and Priority 4 item 4 in ROADMAP.md. "
-            "Not yet linked to a proving test (see Slice G3 outcome note) -- what the other targets' "
-            "output should look like structurally needs its own small scoping pass first."
+            "See ROADMAP.md Slice F1 (legacy mapping) and Phase 5 capability negotiation. "
+            "Not yet linked to a proving test; the intended output for each target needs "
+            "target-specific scoping before implementation."
         ),
     ),
     Capability(
@@ -106,7 +105,9 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         status=CapabilityStatus.deferred,
         description="Workspace-level `registry {}` configuration",
         notes=(
-            "Parses but is discarded before IR construction; has no effect on compilation. See Slice B3 in ROADMAP.md."
+            "Parses but is discarded before IR construction; has no effect on compilation. "
+            "The stabilization disposition is retain + explicit DEFERRED diagnostic; see ROADMAP.md "
+            "Current/deferred syntax disposition and legacy Slice B3."
         ),
         test_refs=("test_deferred_syntax.py::test_workspace_registry_block_produces_deferred_warning",),
     ),
@@ -117,8 +118,8 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         description="Workspace-level `peers: [...]` federation declarations",
         notes=(
             "Parses but is discarded before IR construction; has no effect on compilation. "
-            "Peer identifiers referenced elsewhere are checked by a separate editor-only "
-            "text scan, not this declaration. See Slice B3 in ROADMAP.md."
+            "Peer identifiers referenced elsewhere are checked by a separate editor-only text scan. "
+            "The stabilization disposition is retain + explicit DEFERRED diagnostic; see legacy Slice B3."
         ),
         test_refs=("test_deferred_syntax.py::test_workspace_peers_block_produces_deferred_warning",),
     ),
@@ -128,8 +129,9 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         status=CapabilityStatus.deferred,
         description="Top-level `consumer {}` declarations",
         notes=(
-            "Parses but is discarded before IR construction; consumer registration and "
-            "impact analysis have no effect. See Slice B3 in ROADMAP.md."
+            "Parses but is discarded before IR construction; consumer registration and impact analysis "
+            "have no effect. Retained with DEFERRED diagnostics for language stability; Phase 7 prefers "
+            "derived usage evidence."
         ),
         test_refs=("test_deferred_syntax.py::test_top_level_consumer_declaration_produces_deferred_warning",),
     ),
@@ -139,8 +141,8 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         status=CapabilityStatus.deferred,
         description="Per-projection and top-level `subscription {}` declarations",
         notes=(
-            "Parses but is discarded before IR construction; no runtime subscription "
-            "behavior is implemented. See Slice B3 in ROADMAP.md."
+            "Parses but is discarded before IR construction; no runtime subscription behavior is implemented. "
+            "Retained with explicit DEFERRED diagnostics; runtime execution remains outside the core roadmap."
         ),
         test_refs=(
             "test_deferred_syntax.py::test_top_level_subscription_declaration_produces_deferred_warning",
@@ -153,8 +155,8 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         status=CapabilityStatus.deferred,
         description="Per-projection `materialisation {}` declarations",
         notes=(
-            "Parses but is discarded before IR construction; no runtime materialization "
-            "is implemented. See Slice B3 in ROADMAP.md."
+            "Parses but is discarded before IR construction; no runtime materialization is implemented. "
+            "Retained with explicit DEFERRED diagnostics; runtime execution remains outside the core roadmap."
         ),
         test_refs=("test_deferred_syntax.py::test_projection_materialisation_block_produces_deferred_warning",),
     ),
@@ -164,8 +166,8 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         status=CapabilityStatus.deferred,
         description="Unrecognized keys inside `binding {}` beyond `adapter`, `model`, and `table`",
         notes=(
-            "Parses but is discarded before IR construction; only `adapter`, `model`, and "
-            "`table` are honored today. See Slice B3 in ROADMAP.md."
+            "Parses but is discarded before IR construction; only `adapter`, `model`, and `table` are honored today. "
+            "Unsupported opaque content remains explicitly DEFERRED under the stabilization language-stability rule."
         ),
         test_refs=(
             "test_deferred_syntax.py::test_binding_opaque_content_produces_one_deferred_warning_per_unrecognized_key",
@@ -177,11 +179,9 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
         status=CapabilityStatus.deferred,
         description="Comparing event operation coverage between two projection versions",
         notes=(
-            "AutoProjectionTarget.operations only exists on the pre-expansion "
-            "`auto projections {}` declaration and is discarded during "
-            "expansion; it is not present on the resulting ProjectionVersion "
-            "to diff. See Slice C1 in ROADMAP.md. "
-            "Not yet linked to a proving test (see Slice G3 outcome note)."
+            "AutoProjectionTarget.operations only exists on the pre-expansion `auto projections {}` declaration "
+            "and is discarded during expansion; it is not present on the resulting ProjectionVersion to diff. "
+            "See legacy Slice C1 and Phase 10 layered compatibility. Not yet linked to a proving test."
         ),
     ),
 )
