@@ -31,6 +31,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Capability and CLI documentation now distinguish implemented local registry
+  snapshots from deferred external dependency resolution and federation.
+
 ### Fixed
 
 - `vscode/package.json`'s `engines.vscode` was left at `^1.125.0` after a

@@ -36,10 +36,18 @@ class CapabilityManifest:
     sql_dialects: tuple[Capability, ...]
     model_kinds: tuple[Capability, ...]
     annotations: tuple[Capability, ...]
+    registry_capabilities: tuple[Capability, ...]
     deferred_features: tuple[Capability, ...]
 
     def all(self) -> tuple[Capability, ...]:
-        return self.targets + self.sql_dialects + self.model_kinds + self.annotations + self.deferred_features
+        return (
+            self.targets
+            + self.sql_dialects
+            + self.model_kinds
+            + self.annotations
+            + self.registry_capabilities
+            + self.deferred_features
+        )
 
 
 _MODEL_KIND_DESCRIPTIONS: dict[str, str] = {
@@ -186,6 +194,49 @@ _DEFERRED_FEATURES: tuple[Capability, ...] = (
     ),
 )
 
+_REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
+    Capability(
+        name="local-registry-snapshot",
+        category="registry_capability",
+        status=CapabilityStatus.implemented,
+        description="Creates and verifies deterministic local lock/object snapshots",
+        notes="External source-registry resolution is not included; use explicit local source paths.",
+        test_refs=("test_registry_snapshot.py::test_resolve_writes_deterministic_lock_and_objects",),
+    ),
+    Capability(
+        name="snapshot-provenance",
+        category="registry_capability",
+        status=CapabilityStatus.implemented,
+        description="Records source provenance alongside content-addressed snapshot objects",
+        notes="Provenance is evidence for a local snapshot and does not authorize remote refresh.",
+        test_refs=("test_registry_snapshot.py::test_resolve_writes_deterministic_lock_and_objects",),
+    ),
+    Capability(
+        name="offline-compiler-analysis",
+        category="registry_capability",
+        status=CapabilityStatus.implemented,
+        description="Runs validation, compilation, compatibility, lineage, and usage analysis without registry refresh",
+        notes="Network-backed integrations remain explicit commands or external adapters.",
+        test_refs=("test_registry_offline.py::test_core_analysis_does_not_contact_network",),
+    ),
+    Capability(
+        name="transitive-dependency-closure",
+        category="registry_capability",
+        status=CapabilityStatus.deferred,
+        description="Resolves and pins direct and transitive external dependency requirements",
+        notes="Current snapshot commands accept local workspace source only; external source adapters are planned.",
+        test_refs=("test_capabilities.py::test_registry_capability_scope_is_explicit",),
+    ),
+    Capability(
+        name="cross-application-consequence-analysis",
+        category="registry_capability",
+        status=CapabilityStatus.deferred,
+        description="Aggregates usage manifests across applications and applies update consequences",
+        notes="Current usage and impact commands operate on one loaded workspace; aggregation and policy-aware updates are planned.",
+        test_refs=("test_capabilities.py::test_registry_capability_scope_is_explicit",),
+    ),
+)
+
 
 def build_capability_manifest() -> CapabilityManifest:
     targets = tuple(
@@ -229,5 +280,6 @@ def build_capability_manifest() -> CapabilityManifest:
         sql_dialects=sql_dialects,
         model_kinds=model_kinds,
         annotations=annotations,
+        registry_capabilities=_REGISTRY_CAPABILITIES,
         deferred_features=_DEFERRED_FEATURES,
     )
