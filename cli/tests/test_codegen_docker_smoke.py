@@ -282,6 +282,75 @@ def test_offline_snapshot_rust_consumer_compiles_locked_and_offline(tmp_path: Pa
     _assert_docker_success(result, "offline snapshot rust")
 
 
+@pytest.mark.docker
+@pytest.mark.skipif(
+    os.getenv("MODELABLE_DOCKER_TESTS") != "1",
+    reason="set MODELABLE_DOCKER_TESTS=1 to run the Docker-based codegen smoke tests",
+)
+@pytest.mark.skipif(not _docker_available(), reason="docker is required for generated-language smoke tests")
+def test_offline_snapshot_typescript_consumer_compiles(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mdl"
+    provider.write_text(
+        textwrap.dedent(
+            """
+            domain customer {
+              owner: "customer-platform"
+              entity Customer @ 1 (additive) {
+                @key customerId: uuid
+                displayName: string
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        textwrap.dedent(
+            """
+            domain analytics {
+              owner: "analytics-platform"
+              projection CustomerSummary @ 1
+                from customer.Customer @ 1 as c
+              {
+                customerId <- c.customerId
+                name <- c.displayName
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    snapshot = tmp_path / ".modelable"
+    runner = CliRunner()
+    resolved = runner.invoke(cli, ["registry", "resolve", str(provider), "--out", str(snapshot)])
+    assert resolved.exit_code == 0, resolved.output
+    out = tmp_path / "generated" / "typescript"
+    compiled = runner.invoke(
+        cli,
+        [
+            "compile",
+            str(consumer),
+            "--target",
+            "typescript",
+            "--snapshot",
+            str(snapshot),
+            "--out",
+            str(out),
+        ],
+    )
+    assert compiled.exit_code == 0, compiled.output
+    _write_offline_typescript_smoke(tmp_path)
+    result = _run_docker(
+        tmp_path,
+        "node:26.0.0-slim",
+        "/usr/local/bin/npx --yes -p typescript@5.9.2 tsc -p tsconfig.json",
+    )
+    _assert_docker_success(result, "offline snapshot typescript")
+
+
 def _write_python_smoke(tmp_path: Path, out: Path) -> None:
     smoke = tmp_path / "smoke.py"
     smoke.write_text(
@@ -693,6 +762,52 @@ def _write_typescript_smoke(tmp_path: Path, out: Path) -> None:
             }};
 
             if (customer.displayName !== view.displayName) {{
+              throw new Error("generated interfaces did not preserve the expected fields");
+            }}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_offline_typescript_smoke(tmp_path: Path) -> None:
+    (tmp_path / "tsconfig.json").write_text(
+        textwrap.dedent(
+            """
+            {
+              "compilerOptions": {
+                "target": "ES2022",
+                "module": "ES2022",
+                "moduleResolution": "Node",
+                "strict": true,
+                "noEmit": true,
+                "skipLibCheck": true
+              },
+              "include": ["smoke.ts", "generated/typescript/**/*.ts"]
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "smoke.ts").write_text(
+        textwrap.dedent(
+            f"""
+            import type {{ CustomerCustomerV1 }} from "./generated/typescript/customer.Customer.v1";
+            import type {{ AnalyticsCustomerSummaryV1 }} from "./generated/typescript/analytics.CustomerSummary.v1";
+
+            const customer: CustomerCustomerV1 = {{
+              customerId: "{SMOKE_UUID}",
+              displayName: "Alice",
+            }};
+
+            const summary: AnalyticsCustomerSummaryV1 = {{
+              customerId: "{SMOKE_UUID}",
+              name: "Alice",
+            }};
+
+            if (customer.customerId !== summary.customerId) {{
               throw new Error("generated interfaces did not preserve the expected fields");
             }}
             """
