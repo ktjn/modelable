@@ -416,6 +416,75 @@ def test_offline_snapshot_python_consumer_compiles(tmp_path: Path) -> None:
     _assert_docker_success(result, "offline snapshot python")
 
 
+@pytest.mark.docker
+@pytest.mark.skipif(
+    os.getenv("MODELABLE_DOCKER_TESTS") != "1",
+    reason="set MODELABLE_DOCKER_TESTS=1 to run the Docker-based codegen smoke tests",
+)
+@pytest.mark.skipif(not _docker_available(), reason="docker is required for generated-language smoke tests")
+def test_offline_snapshot_java_consumer_compiles(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mdl"
+    provider.write_text(
+        textwrap.dedent(
+            """
+            domain customer {
+              owner: "customer-platform"
+              entity Customer @ 1 (additive) {
+                @key customerId: uuid
+                displayName: string
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        textwrap.dedent(
+            """
+            domain analytics {
+              owner: "analytics-platform"
+              projection CustomerSummary @ 1
+                from customer.Customer @ 1 as c
+              {
+                customerId <- c.customerId
+                name <- c.displayName
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    snapshot = tmp_path / ".modelable"
+    runner = CliRunner()
+    resolved = runner.invoke(cli, ["registry", "resolve", str(provider), "--out", str(snapshot)])
+    assert resolved.exit_code == 0, resolved.output
+    out = tmp_path / "generated" / "java"
+    compiled = runner.invoke(
+        cli,
+        [
+            "compile",
+            str(consumer),
+            "--target",
+            "java",
+            "--snapshot",
+            str(snapshot),
+            "--out",
+            str(out),
+        ],
+    )
+    assert compiled.exit_code == 0, compiled.output
+    _write_offline_java_smoke(tmp_path)
+    result = _run_docker(
+        tmp_path,
+        "eclipse-temurin:25.0.3_9-jdk-ubi10-minimal",
+        "javac -d build $(find . -name '*.java') && java -cp build analytics.Smoke",
+    )
+    _assert_docker_success(result, "offline snapshot java")
+
+
 def _write_python_smoke(tmp_path: Path, out: Path) -> None:
     smoke = tmp_path / "smoke.py"
     smoke.write_text(
@@ -902,6 +971,37 @@ def _write_offline_python_smoke(tmp_path: Path) -> None:
 
             assert customer_obj.customerId == summary_obj.customerId
             assert summary_obj.name == customer_obj.displayName
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_offline_java_smoke(tmp_path: Path) -> None:
+    smoke_dir = tmp_path / "analytics"
+    smoke_dir.mkdir(parents=True, exist_ok=True)
+    (smoke_dir / "Smoke.java").write_text(
+        textwrap.dedent(
+            f"""
+            package analytics;
+
+            import customer.CustomerV1;
+            import java.util.UUID;
+
+            public final class Smoke {{
+              public static void main(String[] args) {{
+                var id = UUID.fromString("{SMOKE_UUID}");
+                var customer = new CustomerV1(id, "Alice");
+                var summary = new CustomerSummaryV1(id, "Alice");
+                if (!customer.customerId().equals(summary.customerId())) {{
+                  throw new IllegalStateException("generated records did not preserve the expected identity");
+                }}
+                if (!customer.displayName().equals(summary.name())) {{
+                  throw new IllegalStateException("generated records did not preserve the expected fields");
+                }}
+              }}
+            }}
             """
         ).strip()
         + "\n",
