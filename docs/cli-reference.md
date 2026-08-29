@@ -1756,6 +1756,8 @@ selector and the exact resolved identity, signature, and object hash used
 offline. Verification also checks that this list is complete and matches every
 dependency edge in the locked objects.
 Verification also rejects conflicting content hashes for one logical identity.
+Semantic and enum-projection objects retain source paths and hashes when
+resolved from a local file.
 
 External source adapters, transitive dependency closure, cross-application
 usage aggregation, and policy-aware updates are deferred. The similarly named
