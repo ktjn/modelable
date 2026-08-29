@@ -1,6 +1,6 @@
 # Roadmap Archive — August 2026
 
-> **Status:** Historical snapshot/index. The active roadmap is [`ROADMAP.md`](../ROADMAP.md).
+> **Status:** Historical snapshot/index. The active roadmap is [`ROADMAP.md`](https://github.com/ktjn/modelable/blob/main/ROADMAP.md).
 >
 > This file preserves the shipped-state record, legacy priority/slice vocabulary, and migration context from the roadmap that existed immediately before the stabilization rewrite at commit `2d47f38bd169394901fcfc8ee57573ce1fb8d2b9`.
 >
