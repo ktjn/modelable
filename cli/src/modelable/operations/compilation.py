@@ -77,7 +77,9 @@ from modelable.registry.resolver import resolve_enum_type_ref, resolve_model_ref
 TARGETS = tuple(target.name for target in list_implemented_codegen_targets())
 # Target support is enabled one target-family slice at a time after real
 # compiler verification.
-_ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS: frozenset[str] = frozenset({"rust"})
+_ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS: frozenset[str] = frozenset(
+    {"rust", "typescript", "python", "java", "csharp", "go"}
+)
 
 _DEFAULT_OUT_DIRS: dict[str, Path] = {
     target.name: target.default_out_dir
