@@ -53,6 +53,8 @@ from modelable.operations.file_transaction import (
 )
 from modelable.parser.ir import (
     ArrayType,
+    EnumProjectionDecl,
+    EnumRefType,
     FieldDef,
     FieldType,
     MapType,
@@ -70,9 +72,12 @@ from modelable.registry.factory import get_registry
 from modelable.registry.ids import RegistryIdLock, allocate_registry_ids, read_lock_file, write_lock_file
 from modelable.registry.index import build_registry
 from modelable.registry.oci import OCIRegistryError
-from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
+from modelable.registry.resolver import resolve_enum_type_ref, resolve_model_ref, resolve_semantic_type_ref
 
 TARGETS = tuple(target.name for target in list_implemented_codegen_targets())
+# Phase 1 deliberately rejects all projection-typed fields. Target support is
+# enabled one target-family slice at a time after real compiler verification.
+_ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS: frozenset[str] = frozenset()
 
 _DEFAULT_OUT_DIRS: dict[str, Path] = {
     target.name: target.default_out_dir
@@ -1290,6 +1295,7 @@ def _run_compilation(
 
     emit_workspace = _scope_workspace(workspace, request)
     _validate_package_request(workspace, request)
+    _reject_unsupported_enum_projection_fields(emit_workspace, request.target)
 
     existing_registry_ids = read_lock_file(request.registry_ids_path)
     try:
@@ -1411,6 +1417,75 @@ def _artifact_belongs_to_package(artifact: EmittedArtifact, output: Path, packag
     except ValueError:
         return False
     return relative.parts[:1] == (package,)
+
+
+def _reject_unsupported_enum_projection_fields(workspace: Workspace, target: str) -> None:
+    """Fail before target emission when a target lacks projection-field support."""
+    if target in _ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS:
+        return
+    diagnostics: list[Diagnostic] = []
+
+    def visit(field_type: FieldType, domain_name: str, owner: str) -> None:
+        current_domain = next((domain for domain in workspace.mdl.domains if domain.name == domain_name), None)
+        if isinstance(field_type, NamedType) and not (
+            current_domain is not None and field_type.name in current_domain.models
+        ):
+            try:
+                _declaring_domain, declaration = resolve_enum_type_ref(workspace.mdl, domain_name, field_type.name)
+            except LookupError:
+                return
+            if isinstance(declaration, EnumProjectionDecl):
+                diagnostics.append(
+                    Diagnostic(
+                        code="EMIT007",
+                        message=(
+                            f"{owner}: target '{target}' does not support enum-projection-typed fields "
+                            f"('{_declaring_domain}.{declaration.name}@{declaration.version}')"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                return
+        elif isinstance(field_type, EnumRefType):
+            try:
+                _declaring_domain, declaration = resolve_enum_type_ref(
+                    workspace.mdl, domain_name, field_type.name, exact_version=field_type.version
+                )
+            except LookupError:
+                return
+            if isinstance(declaration, EnumProjectionDecl):
+                diagnostics.append(
+                    Diagnostic(
+                        code="EMIT007",
+                        message=(
+                            f"{owner}: target '{target}' does not support enum-projection-typed fields "
+                            f"('{_declaring_domain}.{declaration.name}@{declaration.version}')"
+                        ),
+                        severity="error",
+                        path="<workspace>",
+                    )
+                )
+                return
+        elif isinstance(field_type, ArrayType):
+            visit(field_type.item, domain_name, owner)
+        elif isinstance(field_type, MapType):
+            visit(field_type.key, domain_name, owner)
+            visit(field_type.value, domain_name, owner)
+        elif isinstance(field_type, ObjectType):
+            for nested in field_type.fields:
+                visit(nested.type, domain_name, f"{owner}.{nested.name}")
+        elif isinstance(field_type, UnionType):
+            for variant in field_type.variants:
+                visit(variant.type, domain_name, f"{owner}.{variant.tag}")
+
+    for domain in workspace.mdl.domains:
+        for model_name, versions in domain.models.items():
+            for version in versions:
+                for field in version.fields:
+                    visit(field.type, domain.name, f"{domain.name}.{model_name}@{version.version}.{field.name}")
+    if diagnostics:
+        raise CompilationDiagnosticsError(tuple(diagnostics), origin="workspace")
 
 
 def _scope_workspace(workspace: Workspace, request: CompilationRequest) -> Workspace:

@@ -5,8 +5,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
+from modelable.emitters.targets import list_implemented_codegen_targets
+from modelable.operations.compilation import (
+    CompilationDiagnosticsError,
+    _reject_unsupported_enum_projection_fields,
+)
 from modelable.parser.ir import EnumRefType
 from modelable.parser.parse import parse_text_to_ir, parse_text_to_ir_with_tree
 
@@ -163,6 +170,57 @@ domain orders {
     ), [d.message for d in workspace.warnings]
     # Non-blocking: it is a warning, not an error.
     assert not any(d.code == "ENUMREF" and d.severity == "error" for d in workspace.errors)
+
+
+def test_projection_field_reference_accepts_exact_and_warns_when_bare():
+    source = """
+domain orders {
+  owner: "orders-team"
+
+  semantic OrderStatus @ 1 (additive): enum(pending, paid)
+  enum projection PublicStatus @ 1 (additive)
+    from OrderStatus @ 1
+    pick(paid)
+
+  entity ExactOrder @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicStatus @ 1
+  }
+  entity BareOrder @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicStatus
+  }
+}
+"""
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=source)]
+    )
+
+    assert not workspace.errors, [d.message for d in workspace.errors]
+    assert any("enum projection 'PublicStatus' resolves to" in d.message for d in workspace.warnings)
+
+
+def test_phase_one_rejects_projection_typed_fields_for_every_codegen_target():
+    source = """
+domain orders {
+  owner: "orders-team"
+  semantic Status @ 1 (additive): enum(pending, paid)
+  enum projection PublicStatus @ 1 (additive)
+    from Status @ 1
+    pick(paid)
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicStatus @ 1
+  }
+}
+"""
+    workspace = load_workspace_from_sources(
+        [WorkspaceDocumentSource(path=Path("a.mdl"), uri="file:///a.mdl", text=source)]
+    )
+
+    for target in (item.name for item in list_implemented_codegen_targets()):
+        with pytest.raises(CompilationDiagnosticsError, match=rf"target '{target}'.*EMIT007|target '{target}'"):
+            _reject_unsupported_enum_projection_fields(workspace, target)
 
 
 def test_qualified_missing_version_lists_known_versions():

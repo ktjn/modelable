@@ -16,18 +16,21 @@ from modelable.parser.ir import (
     EnumRefType,
     FieldType,
     MapType,
+    MdlFile,
     ModelVersion,
     NamedType,
     ObjectType,
     ProjectionVersion,
     RefType,
     SemanticTypeDecl,
+    UnionType,
     VersionExact,
     VersionMin,
     VersionPinned,
     VersionRange,
     VersionSpec,
 )
+from modelable.registry.resolver import resolve_enum_type_ref
 from modelable.registry.signature import (
     compute_enum_projection_signature,
     compute_semantic_signature,
@@ -105,6 +108,7 @@ def resolve_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".
                         "model",
                         model_version,
                         source_paths.get(id(domain)),
+                        workspace.mdl,
                     )
                 )
         for name, projection_versions in sorted(domain.projections.items()):
@@ -117,6 +121,7 @@ def resolve_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".
                         "projection",
                         projection_version,
                         source_paths.get(id(domain)),
+                        workspace.mdl,
                     )
                 )
         for decl in sorted(domain.semantic_types, key=lambda item: (item.name, item.version)):
@@ -329,6 +334,7 @@ def _write_object(
     kind: str,
     version: ModelVersion | ProjectionVersion,
     source_path: Path | None,
+    mdl: MdlFile,
 ) -> dict[str, Any]:
     identity = f"{domain_name}.{name}@{version.version}"
     # Evolution plan D5: `provenance` (which `evolves` operation last touched
@@ -339,7 +345,7 @@ def _write_object(
     # `signature` (compute_version_signature never looks at it either).
     # ProjectionVersion has no such field; excluding it is a no-op there.
     contract = version.model_dump(mode="json", exclude={"provenance"})
-    dependencies = _dependencies(version)
+    dependencies = _dependencies(version, mdl, domain_name)
     payload: dict[str, Any] = {
         "format": OBJECT_FORMAT,
         "identity": identity,
@@ -383,7 +389,7 @@ def _display_key(key: tuple[str, str]) -> str:
     return f"{key[1]} ({key[0]})"
 
 
-def _dependencies(version: ModelVersion | ProjectionVersion) -> list[str]:
+def _dependencies(version: ModelVersion | ProjectionVersion, mdl: MdlFile, domain_name: str) -> list[str]:
     dependencies: set[str] = set()
     if isinstance(version, ProjectionVersion):
         dependencies.add(_format_dependency(version.source.model, version.source.version))
@@ -392,7 +398,7 @@ def _dependencies(version: ModelVersion | ProjectionVersion) -> list[str]:
             _collect_field_dependencies(field.mapping, dependencies)
     else:
         for model_field in version.fields:
-            _collect_type_dependencies(model_field.type, dependencies)
+            _collect_type_dependencies(model_field.type, dependencies, mdl, domain_name)
     return sorted(dependencies)
 
 
@@ -404,21 +410,50 @@ def _collect_field_dependencies(mapping: Any, dependencies: set[str]) -> None:
         return
 
 
-def _collect_type_dependencies(field_type: FieldType, dependencies: set[str]) -> None:
+def _collect_type_dependencies(
+    field_type: FieldType,
+    dependencies: set[str],
+    mdl: MdlFile | None = None,
+    domain_name: str | None = None,
+) -> None:
     if isinstance(field_type, RefType):
         dependencies.add(_format_dependency(field_type.target, field_type.version))
     elif isinstance(field_type, EnumRefType):
         # Exact-versioned enum references are dependency edges to the
         # declaring semantic type (evolution plan E4).
-        dependencies.add(f"{field_type.name}@{field_type.version}")
+        if mdl is not None and domain_name is not None:
+            try:
+                resolved_domain, declaration = resolve_enum_type_ref(
+                    mdl, domain_name, field_type.name, exact_version=field_type.version
+                )
+            except LookupError:
+                pass
+            else:
+                if isinstance(declaration, EnumProjectionDecl):
+                    dependencies.add(f"{resolved_domain}.{declaration.name}@{declaration.version}")
+                else:
+                    dependencies.add(f"{field_type.name}@{field_type.version}")
+        else:
+            dependencies.add(f"{field_type.name}@{field_type.version}")
+    elif isinstance(field_type, NamedType) and mdl is not None and domain_name is not None:
+        try:
+            resolved_domain, declaration = resolve_enum_type_ref(mdl, domain_name, field_type.name)
+        except LookupError:
+            pass
+        else:
+            if isinstance(declaration, EnumProjectionDecl):
+                dependencies.add(f"{resolved_domain}.{declaration.name}@{declaration.version}")
     elif isinstance(field_type, ArrayType):
-        _collect_type_dependencies(field_type.item, dependencies)
+        _collect_type_dependencies(field_type.item, dependencies, mdl, domain_name)
     elif isinstance(field_type, MapType):
-        _collect_type_dependencies(field_type.key, dependencies)
-        _collect_type_dependencies(field_type.value, dependencies)
+        _collect_type_dependencies(field_type.key, dependencies, mdl, domain_name)
+        _collect_type_dependencies(field_type.value, dependencies, mdl, domain_name)
     elif isinstance(field_type, ObjectType):
         for field in field_type.fields:
-            _collect_type_dependencies(field.type, dependencies)
+            _collect_type_dependencies(field.type, dependencies, mdl, domain_name)
+    elif isinstance(field_type, UnionType):
+        for variant in field_type.variants:
+            _collect_type_dependencies(variant.type, dependencies, mdl, domain_name)
 
 
 def _enum_ref_dependencies(field_type: FieldType, domain_name: str) -> set[str]:

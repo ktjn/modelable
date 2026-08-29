@@ -14,6 +14,7 @@ from modelable.parser.ir import (
     ArrayType,
     BindingDef,
     ComputedMapping,
+    EnumProjectionDecl,
     EnumRefType,
     EnumType,
     FieldProvenance,
@@ -31,7 +32,12 @@ from modelable.parser.ir import (
 )
 from modelable.parser.parse import parse_text_to_ir_with_tree
 from modelable.planner.planner import expand_auto_projections, expand_projection_selections
-from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref, validate_references
+from modelable.registry.resolver import (
+    resolve_enum_type_ref,
+    resolve_model_ref,
+    resolve_semantic_type_ref,
+    validate_references,
+)
 from modelable.validation.deferred_syntax import find_deferred_syntax_diagnostics
 from modelable.validation.semantic import (
     _validate_change_kind,
@@ -476,29 +482,32 @@ def _validate_named_field_types(merged: MdlFile) -> tuple[list[Diagnostic], list
     ``ENUMREF`` warning naming the resolved version, mirroring the unversioned
     ``ref<>`` policy (evolution plan E2).
     """
-    model_names = {model_name for domain in merged.domains for model_name in domain.models}
     opaque_names = {"bytes"}
     errors: list[Diagnostic] = []
     warnings: list[Diagnostic] = []
 
     def visit(field_type: FieldType, domain_name: str, context: str) -> None:
         if isinstance(field_type, NamedType):
-            if field_type.name in model_names or field_type.name in opaque_names:
+            current_domain = next((domain for domain in merged.domains if domain.name == domain_name), None)
+            if (
+                current_domain is not None and field_type.name in current_domain.models
+            ) or field_type.name in opaque_names:
                 return
             try:
-                _declaring_domain, decl = resolve_semantic_type_ref(merged, domain_name, field_type.name)
+                _declaring_domain, decl = resolve_enum_type_ref(merged, domain_name, field_type.name)
             except LookupError as exc:
                 message = str(exc).replace("ambiguous semantic type", "ambiguous type", 1)
                 errors.append(
                     Diagnostic(code="SEM", message=f"{context}: {message}", severity="error", path="<workspace>")
                 )
                 return
-            if isinstance(decl.underlying, EnumType):
+            if isinstance(decl, EnumProjectionDecl) or isinstance(decl.underlying, EnumType):
                 warnings.append(
                     Diagnostic(
                         code="ENUMREF",
                         message=(
-                            f"{context}: semantic enum reference '{field_type.name}' resolves to "
+                            f"{context}: {('enum projection' if isinstance(decl, EnumProjectionDecl) else 'semantic enum reference')} "
+                            f"'{field_type.name}' resolves to "
                             f"{_declaring_domain}.{field_type.name}@{decl.version}; declare an exact "
                             f"version ('{field_type.name} @ {decl.version}') before publishing"
                         ),
@@ -508,7 +517,7 @@ def _validate_named_field_types(merged: MdlFile) -> tuple[list[Diagnostic], list
                 )
         elif isinstance(field_type, EnumRefType):
             try:
-                _declaring_domain, decl = resolve_semantic_type_ref(
+                _declaring_domain, decl = resolve_enum_type_ref(
                     merged, domain_name, field_type.name, exact_version=field_type.version
                 )
             except LookupError as exc:
@@ -517,13 +526,13 @@ def _validate_named_field_types(merged: MdlFile) -> tuple[list[Diagnostic], list
                     Diagnostic(code="ENUMREF", message=f"{context}: {message}", severity="error", path="<workspace>")
                 )
                 return
-            if not isinstance(decl.underlying, EnumType):
+            if not isinstance(decl, EnumProjectionDecl) and not isinstance(decl.underlying, EnumType):
                 errors.append(
                     Diagnostic(
                         code="ENUMREF",
                         message=(
                             f"{context}: exact enum reference '{field_type.name} @ {field_type.version}' "
-                            "must target an enum-backed semantic type"
+                            "must target an enum-backed semantic type or an enum projection"
                         ),
                         severity="error",
                         path="<workspace>",
