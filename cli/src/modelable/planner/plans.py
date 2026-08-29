@@ -11,6 +11,8 @@ from modelable.parser.ir import ComputedMapping, DirectMapping, MdlFile, Project
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
 from modelable.registry.resolver import resolve_model_ref
 
+PLAN_SCHEMA = "modelable.plan/v0"
+
 
 def build_plan(
     domain_name: str,
@@ -46,7 +48,7 @@ def build_plan(
         fields_block.append(entry)
 
     return {
-        "$schema": "modelable-plan/1.0",
+        "$schema": PLAN_SCHEMA,
         "domain": domain_name,
         "projection": projection_name,
         "version": pv.version,

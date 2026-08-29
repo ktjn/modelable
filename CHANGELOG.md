@@ -20,6 +20,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Emitted projection plans are now explicitly tagged as the unstable
+  `modelable.plan/v0` protocol.
 - Graph export now uses the canonical declaration identity and semantic-path
   grammar for version and field references.
 - `compile` can now consume a validated local registry snapshot with
