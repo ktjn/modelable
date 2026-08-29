@@ -1090,6 +1090,57 @@ domain nlq {
     assert not any("nlq" in path.parts for path in rust_paths)
 
 
+def test_execute_direct_emits_rust_enum_projection_field_type(tmp_path: Path) -> None:
+    source = write_workspace(
+        tmp_path,
+        """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(pending, paid)
+  enum projection PublicStatus @ 1 (additive)
+    from OrderStatus @ 1
+    pick(paid)
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicStatus @ 1
+  }
+}
+""",
+    )
+
+    result = CompilationService().execute_direct(request_for(tmp_path, source, "rust"))
+
+    model_path = next(path for path in result.written_paths if path.name == "orders_order_v1.rs")
+    assert "pub status: PublicStatus," in model_path.read_text(encoding="utf-8")
+    assert any(path.name == "public_status.rs" for path in result.written_paths)
+
+
+def test_execute_direct_rejects_scoped_cross_domain_enum_projection_dependency(tmp_path: Path) -> None:
+    source = write_workspace(
+        tmp_path,
+        """
+domain catalog {
+  owner: "catalog-team"
+  semantic Status @ 1 (additive): enum(active, retired)
+  enum projection PublicStatus @ 1 (additive)
+    from Status @ 1
+    pick(active)
+}
+
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: catalog.PublicStatus @ 1
+  }
+}
+""",
+    )
+
+    with pytest.raises(CompilationError, match=r"catalog.*excluded by --domain"):
+        CompilationService().execute_direct(request_for(tmp_path, source, "rust", domains=("orders",)))
+
+
 @pytest.mark.parametrize(
     ("target", "fixture", "pattern"),
     [

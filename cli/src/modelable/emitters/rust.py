@@ -27,14 +27,21 @@ from modelable.parser.ir import (
     MdlFile,
     ModelVersion,
     NamedType,
+    ObjectType,
     PackageConfig,
     PrimitiveType,
     ProjectionVersion,
     SemanticTypeDecl,
+    UnionType,
     latest_enum_projections,
     latest_semantic_types,
 )
-from modelable.registry.resolver import AmbiguousSemanticTypeError, resolve_model_ref, resolve_semantic_type_ref
+from modelable.registry.resolver import (
+    AmbiguousSemanticTypeError,
+    resolve_enum_type_ref,
+    resolve_model_ref,
+    resolve_semantic_type_ref,
+)
 from modelable.registry.signature import compute_version_signature
 
 
@@ -126,10 +133,56 @@ def emit_rust(
     package's domains are emitted under their own ``src/`` tree with a
     generated Cargo.toml, lib.rs, and per-domain mod.rs.
     """
+    _validate_rust_enum_projection_versions(workspace)
     package_graph = build_package_graph(workspace.mdl)
     if package_graph.package_for_domain:
         return _emit_rust_packages(workspace, out_dir, package_graph, registry_ids=registry_ids)
     return _emit_rust_single_crate(workspace, out_dir, registry_ids=registry_ids)
+
+
+def _validate_rust_enum_projection_versions(workspace: Workspace) -> None:
+    """Reject exact non-latest projection references before direct emission."""
+    latest_by_domain_and_name = {
+        (domain.name, projection.name): projection.version
+        for domain in workspace.mdl.domains
+        for projection in latest_enum_projections(domain)
+    }
+
+    def visit(field_type: FieldType, domain_name: str, owner: str) -> None:
+        if isinstance(field_type, EnumRefType):
+            try:
+                declaring_domain, declaration = resolve_enum_type_ref(
+                    workspace.mdl, domain_name, field_type.name, exact_version=field_type.version
+                )
+            except LookupError, AmbiguousSemanticTypeError:
+                return
+            if isinstance(declaration, EnumProjectionDecl):
+                latest_version = latest_by_domain_and_name[(declaring_domain, declaration.name)]
+                if field_type.version != latest_version:
+                    raise ValueError(
+                        f"{owner}: Rust emission does not support non-latest enum projection references "
+                        f"('{declaring_domain}.{declaration.name}@{field_type.version}'; latest is "
+                        f"@{latest_version})"
+                    )
+        elif isinstance(field_type, (NamedType,)):
+            return
+        elif isinstance(field_type, ArrayType):
+            visit(field_type.item, domain_name, owner)
+        elif isinstance(field_type, MapType):
+            visit(field_type.key, domain_name, owner)
+            visit(field_type.value, domain_name, owner)
+        elif isinstance(field_type, ObjectType):
+            for nested in field_type.fields:
+                visit(nested.type, domain_name, f"{owner}.{nested.name}")
+        elif isinstance(field_type, UnionType):
+            for variant in field_type.variants:
+                visit(variant.type, domain_name, f"{owner}.{variant.tag}")
+
+    for domain in workspace.mdl.domains:
+        for model_name, versions in domain.models.items():
+            for version in versions:
+                for field in version.fields:
+                    visit(field.type, domain.name, f"{domain.name}.{model_name}@{version.version}.{field.name}")
 
 
 def _emit_rust_single_crate(
@@ -403,6 +456,12 @@ def _collect_named_type_refs(field_type, result: set) -> None:
     elif isinstance(field_type, MapType):
         _collect_named_type_refs(field_type.key, result)
         _collect_named_type_refs(field_type.value, result)
+    elif isinstance(field_type, ObjectType):
+        for field in field_type.fields:
+            _collect_named_type_refs(field.type, result)
+    elif isinstance(field_type, UnionType):
+        for variant in field_type.variants:
+            _collect_named_type_refs(variant.type, result)
 
 
 def _collect_named_type_refs_from_shape(shape: TypeShape, result: set[str]) -> None:
@@ -412,7 +471,12 @@ def _collect_named_type_refs_from_shape(shape: TypeShape, result: set[str]) -> N
     elif shape.kind == "array" and shape.element is not None:
         _collect_named_type_refs_from_shape(shape.element, result)
     elif shape.kind == "map" and shape.value is not None:
+        if shape.key is not None:
+            _collect_named_type_refs_from_shape(shape.key, result)
         _collect_named_type_refs_from_shape(shape.value, result)
+    elif shape.kind == "object":
+        for field in shape.fields:
+            _collect_named_type_refs_from_shape(field.shape, result)
 
 
 def _crate_ident(package_name: str) -> str:
@@ -456,7 +520,7 @@ def _domain_for_named_type(name: str, current_domain: str | None, mdl: MdlFile) 
         if name in domain.models:
             return domain.name
     try:
-        resolved_domain, _decl = resolve_semantic_type_ref(mdl, current_domain or "", name)
+        resolved_domain, _decl = resolve_enum_type_ref(mdl, current_domain or "", name)
     except AmbiguousSemanticTypeError, LookupError:
         return None
     return resolved_domain
@@ -479,6 +543,18 @@ def _resolve_named_type_map(
     resolved_map: dict[str, str] = {}
     use_statements: list[str] = []
     for name in sorted(named_refs):
+        local_domain = next((domain for domain in mdl.domains if domain.name == current_domain), None)
+        local_projection = (
+            next((projection for projection in latest_enum_projections(local_domain) if projection.name == name), None)
+            if local_domain is not None
+            else None
+        )
+        if local_projection is not None:
+            module = _snake_case(local_projection.name)
+            prefix = _import_prefix(current_domain or "", current_domain, current_pkg, package_for_domain)
+            resolved_map[name] = local_projection.name
+            use_statements.append(f"use {prefix}::{module}::{local_projection.name};")
+            continue
         resolved = False
         for domain in mdl.domains:
             if name in domain.models:
@@ -495,7 +571,7 @@ def _resolve_named_type_map(
         if resolved:
             continue
         try:
-            domain_name, semantic_decl = resolve_semantic_type_ref(mdl, current_domain or "", name)
+            domain_name, semantic_decl = resolve_enum_type_ref(mdl, current_domain or "", name)
         except AmbiguousSemanticTypeError:
             raise
         except LookupError:
@@ -523,9 +599,11 @@ def _resolve_enum_backed_named(
     if mdl is None:
         return None
     try:
-        _, decl = resolve_semantic_type_ref(mdl, current_domain, ref)
+        _, decl = resolve_enum_type_ref(mdl, current_domain, ref)
     except LookupError, AmbiguousSemanticTypeError:
         return None
+    if isinstance(decl, EnumProjectionDecl):
+        return decl.name, list(decl.members)
     if isinstance(decl.underlying, EnumType):
         return decl.name, list(decl.underlying.values)
     return None
@@ -1591,6 +1669,7 @@ def _field_specs_from_object_fields(
     path: list[str],
     definitions: dict[str, list[str]],
     enum_info: dict[str, list[str]] | None = None,
+    named_type_map: dict[str, str] | None = None,
 ) -> list[_FieldSpec]:
     specs: list[_FieldSpec] = []
     for index, field in enumerate(fields):
@@ -1602,6 +1681,7 @@ def _field_specs_from_object_fields(
             definitions=definitions,
             rust_hint=wire.get("rust"),
             enum_info=enum_info,
+            named_type_map=named_type_map,
         )
         default_none = field.optional or field.shape.optional or field.shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field.shape)
@@ -1713,6 +1793,7 @@ def _shape_base_annotation(
                     path=path,
                     definitions=definitions,
                     enum_info=enum_info,
+                    named_type_map=named_type_map,
                 ),
             )
         return type_name

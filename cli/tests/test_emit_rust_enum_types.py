@@ -3,6 +3,8 @@ projection lineage conversions (evolution plan E7)."""
 
 from __future__ import annotations
 
+import pytest
+
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.rust import emit_rust
 
@@ -121,6 +123,59 @@ domain orders {
     assert "impl From<FullStatus> for OrderStatus {" in projection_artifact.content
     assert "impl From<OrderStatus> for FullStatus {" in projection_artifact.content
     assert "TryFrom" not in projection_artifact.content
+
+
+def test_enum_projection_field_emits_nominal_rust_type(tmp_path):
+    _write(
+        tmp_path,
+        "model.mdl",
+        """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(pending, active, done)
+  enum projection PublicStatus @ 1 (additive)
+    from OrderStatus @ 1
+    pick(active, done)
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicStatus @ 1
+    metadata: object { status: PublicStatus @ 1 }
+  }
+}
+""",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    entity_artifact = next(a for a in artifacts if a.ref == "orders.Order@1")
+
+    assert "use super::public_status::PublicStatus;" in entity_artifact.content
+    assert entity_artifact.content.count("pub status: PublicStatus,") == 2
+
+
+def test_direct_rust_emission_rejects_non_latest_projection_field_reference(tmp_path):
+    _write(
+        tmp_path,
+        "model.mdl",
+        """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(pending, active, done)
+  enum projection PublicStatus @ 2 (additive)
+    from OrderStatus @ 1
+    pick(active, done)
+  enum projection PublicStatus @ 1 (additive)
+    from OrderStatus @ 1
+    pick(active)
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicStatus @ 1
+  }
+}
+""",
+    )
+
+    with pytest.raises(ValueError, match="non-latest enum projection"):
+        emit_rust(load_workspace(tmp_path), tmp_path / "out")
 
 
 def test_clickhouse_bound_projection_forces_string_for_nominal_enum_field(tmp_path):

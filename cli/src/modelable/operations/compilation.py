@@ -75,9 +75,9 @@ from modelable.registry.oci import OCIRegistryError
 from modelable.registry.resolver import resolve_enum_type_ref, resolve_model_ref, resolve_semantic_type_ref
 
 TARGETS = tuple(target.name for target in list_implemented_codegen_targets())
-# Phase 1 deliberately rejects all projection-typed fields. Target support is
-# enabled one target-family slice at a time after real compiler verification.
-_ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS: frozenset[str] = frozenset()
+# Target support is enabled one target-family slice at a time after real
+# compiler verification.
+_ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS: frozenset[str] = frozenset({"rust"})
 
 _DEFAULT_OUT_DIRS: dict[str, Path] = {
     target.name: target.default_out_dir
@@ -1293,9 +1293,9 @@ def _run_compilation(
             origin="workspace",
         )
 
+    _reject_unsupported_enum_projection_fields(workspace, request.target)
     emit_workspace = _scope_workspace(workspace, request)
     _validate_package_request(workspace, request)
-    _reject_unsupported_enum_projection_fields(emit_workspace, request.target)
 
     existing_registry_ids = read_lock_file(request.registry_ids_path)
     try:
@@ -1421,8 +1421,6 @@ def _artifact_belongs_to_package(artifact: EmittedArtifact, output: Path, packag
 
 def _reject_unsupported_enum_projection_fields(workspace: Workspace, target: str) -> None:
     """Fail before target emission when a target lacks projection-field support."""
-    if target in _ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS:
-        return
     diagnostics: list[Diagnostic] = []
 
     def visit(field_type: FieldType, domain_name: str, owner: str) -> None:
@@ -1435,6 +1433,8 @@ def _reject_unsupported_enum_projection_fields(workspace: Workspace, target: str
             except LookupError:
                 return
             if isinstance(declaration, EnumProjectionDecl):
+                if target in _ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS:
+                    return
                 diagnostics.append(
                     Diagnostic(
                         code="EMIT007",
@@ -1455,13 +1455,32 @@ def _reject_unsupported_enum_projection_fields(workspace: Workspace, target: str
             except LookupError:
                 return
             if isinstance(declaration, EnumProjectionDecl):
+                if target in _ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS:
+                    declaring_domain = next(
+                        domain for domain in workspace.mdl.domains if domain.name == _declaring_domain
+                    )
+                    latest_versions = [
+                        projection
+                        for projection in declaring_domain.enum_projections
+                        if projection.name == declaration.name
+                    ]
+                    latest_version = max((projection.version for projection in latest_versions), default=None)
+                    if latest_version is None or field_type.version == latest_version:
+                        return
+                    message = (
+                        f"{owner}: target '{target}' does not support non-latest enum projection references "
+                        f"('{_declaring_domain}.{declaration.name}@{field_type.version}'; latest is "
+                        f"@{latest_version})"
+                    )
+                else:
+                    message = (
+                        f"{owner}: target '{target}' does not support enum-projection-typed fields "
+                        f"('{_declaring_domain}.{declaration.name}@{declaration.version}')"
+                    )
                 diagnostics.append(
                     Diagnostic(
                         code="EMIT007",
-                        message=(
-                            f"{owner}: target '{target}' does not support enum-projection-typed fields "
-                            f"('{_declaring_domain}.{declaration.name}@{declaration.version}')"
-                        ),
+                        message=message,
                         severity="error",
                         path="<workspace>",
                     )
@@ -1584,11 +1603,12 @@ def _emit_target(
 
 
 def _collect_named_type_names(field_type: FieldType, result: set[str]) -> None:
-    if isinstance(field_type, NamedType):
+    if isinstance(field_type, (NamedType, EnumRefType)):
         result.add(field_type.name)
     elif isinstance(field_type, ArrayType):
         _collect_named_type_names(field_type.item, result)
     elif isinstance(field_type, MapType):
+        _collect_named_type_names(field_type.key, result)
         _collect_named_type_names(field_type.value, result)
     elif isinstance(field_type, ObjectType):
         for field in field_type.fields:
@@ -1599,8 +1619,18 @@ def _collect_named_type_names(field_type: FieldType, result: set[str]) -> None:
 
 
 def _domain_defining(mdl: MdlFile, name: str) -> str | None:
+    if "." in name:
+        qualified_domain, qualified_name = name.split(".", 1)
+        for domain in mdl.domains:
+            if domain.name == qualified_domain and (
+                qualified_name in domain.models
+                or any(projection.name == qualified_name for projection in domain.enum_projections)
+            ):
+                return domain.name
     for domain in mdl.domains:
         if name in domain.models:
+            return domain.name
+        if any(projection.name == name for projection in domain.enum_projections):
             return domain.name
         if any(declaration.name == name for declaration in domain.semantic_types):
             return domain.name
@@ -1613,6 +1643,7 @@ def _semantic_domains_defining(mdl: MdlFile, name: str) -> tuple[str, ...]:
             domain.name
             for domain in mdl.domains
             if any(declaration.name == name for declaration in domain.semantic_types)
+            or any(projection.name == name for projection in domain.enum_projections)
         )
     )
 
