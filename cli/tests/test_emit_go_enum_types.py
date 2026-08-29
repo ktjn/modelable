@@ -5,8 +5,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
-from modelable.emitters.go import emit_go
+from modelable.emitters.go import _emit_enum_projection, _emit_enum_type, _emit_versioned_enum_type, emit_go
+from modelable.parser.ir import DomainDef, EnumProjectionDecl, EnumType, SemanticTypeDecl
 
 
 def _workspace(source: str):
@@ -103,3 +106,49 @@ domain fulfillment {
     shipment_artifact = next(a for a in artifacts if a.ref == "fulfillment.Shipment@1")
     assert '"modelable/generated/orders"' in shipment_artifact.content
     assert "Status orders.OrderStatus" in shipment_artifact.content
+
+
+def test_projection_typed_field_emits_and_uses_versioned_go_enum(tmp_path):
+    workspace = _workspace(
+        """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(pending, active)
+  enum projection PublicOrderStatus @ 1
+    from OrderStatus @ 1
+    pick(pending)
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicOrderStatus @ 1
+  }
+}
+"""
+    )
+    artifacts = emit_go(workspace, tmp_path / "out")
+    enum_artifact = next(a for a in artifacts if a.ref == "orders.PublicOrderStatus@1")
+    assert "type OrdersPublicOrderStatusV1 string" in enum_artifact.content
+    assert 'OrdersPublicOrderStatusV1Pending OrdersPublicOrderStatusV1 = "pending"' in enum_artifact.content
+
+    model_artifact = next(a for a in artifacts if a.ref == "orders.Order@1")
+    assert "Status OrdersPublicOrderStatusV1" in model_artifact.content
+
+
+def test_go_enum_member_identifier_collisions_fail_for_all_artifact_paths(tmp_path):
+    domain = DomainDef(name="orders")
+    projection = EnumProjectionDecl(
+        name="PublicStatus",
+        version=1,
+        source_name="Status",
+        source_version=1,
+        selection_kind="pick",
+        members=["foo-bar", "foo_bar"],
+    )
+    declaration = SemanticTypeDecl(name="Status", version=1, underlying=EnumType(values=["foo-bar", "foo_bar"]))
+
+    for emit in (
+        lambda: _emit_enum_type(domain, declaration, tmp_path / "out"),
+        lambda: _emit_versioned_enum_type(domain, declaration, tmp_path / "out"),
+        lambda: _emit_enum_projection(domain, projection, tmp_path / "out"),
+    ):
+        with pytest.raises(ValueError, match=r"foo-bar.*foo_bar.*FooBar"):
+            emit()
