@@ -99,6 +99,33 @@ def preview_for(
     )
 
 
+def test_projection_typed_field_is_rejected_before_compilation_state_writes(tmp_path: Path) -> None:
+    source = write_workspace(
+        tmp_path,
+        """
+domain platform {
+  owner: "platform-team"
+  semantic Status @ 1 (additive): enum(active, archived)
+  enum projection PublicStatus @ 1 (additive)
+    from Status @ 1
+    pick(active)
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicStatus @ 1
+  }
+}
+""",
+    )
+    request = request_for(tmp_path, source, "json-schema")
+
+    with pytest.raises(CompilationDiagnosticsError, match="enum-projection-typed fields"):
+        CompilationService().execute_direct(request)
+
+    assert not request.registry_ids_path.exists()
+    assert not Path(request.registry_path).exists()
+    assert not request.out_dir.exists()
+
+
 def test_preview_rejects_a_target_not_in_the_codegen_registry(tmp_path: Path) -> None:
     source = write_workspace(tmp_path)
 

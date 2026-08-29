@@ -13,17 +13,19 @@ from modelable.compat.diff import (
     describe_field_change,
     is_field_change_breaking,
 )
-from modelable.compat.enums import compare_semantic_enum_versions, describe_enum_change
+from modelable.compat.enums import compare_enum_projections, compare_semantic_enum_versions, describe_enum_change
 from modelable.dependency_graph import build_projection_dependencies, resolve_projection_aliases
 from modelable.parser.ir import (
     ApiDecl,
     ApiOperation,
+    EnumProjectionDecl,
     IndexDecl,
     MdlFile,
     ModelVersion,
     ProjectionVersion,
+    SemanticTypeDecl,
 )
-from modelable.registry.resolver import find_dependents, resolve_semantic_type_ref
+from modelable.registry.resolver import find_dependents, resolve_enum_type_ref
 
 
 @dataclass(frozen=True)
@@ -121,7 +123,11 @@ def _refine_enum_version_changes(
     """
     refined: list[FieldChange] = []
     for change in changes:
-        if change.kind != "enum_version_changed" or not change.from_type or not change.to_type:
+        if (
+            change.kind not in {"enum_version_changed", "enum_reference_changed"}
+            or not change.from_type
+            or not change.to_type
+        ):
             refined.append(change)
             continue
 
@@ -136,18 +142,36 @@ def _refine_enum_version_changes(
 
         old_ref = _parse_ref(change.from_type)
         new_ref = _parse_ref(change.to_type)
-        if old_ref is None or new_ref is None or old_ref[0] != new_ref[0]:
+        if old_ref is None or new_ref is None:
             refined.append(change)
             continue
 
         try:
-            _old_domain, old_decl = resolve_semantic_type_ref(mdl, from_model_domain, old_ref[0], old_ref[1])
-            _new_domain, new_decl = resolve_semantic_type_ref(mdl, from_model_domain, new_ref[0], new_ref[1])
+            _old_domain, old_decl = resolve_enum_type_ref(mdl, from_model_domain, old_ref[0], old_ref[1])
+            _new_domain, new_decl = resolve_enum_type_ref(mdl, from_model_domain, new_ref[0], new_ref[1])
         except LookupError:
             refined.append(change)
             continue
 
-        enum_changes = compare_semantic_enum_versions(old_decl, new_decl)
+        if isinstance(old_decl, EnumProjectionDecl) and isinstance(new_decl, EnumProjectionDecl):
+            if old_ref[0] != new_ref[0]:
+                refined.append(change)
+                continue
+            enum_changes = compare_enum_projections(_old_domain, old_decl, new_decl)
+        elif isinstance(old_decl, SemanticTypeDecl) and isinstance(new_decl, SemanticTypeDecl):
+            if old_ref[0] != new_ref[0]:
+                refined.append(change)
+                continue
+            enum_changes = compare_semantic_enum_versions(old_decl, new_decl)
+        else:
+            refined.append(
+                dataclasses.replace(
+                    change,
+                    breaking_override=True,
+                    note="nominal enum declaration changed between a semantic enum and an enum projection",
+                )
+            )
+            continue
         notes = [describe_enum_change(item) for item in enum_changes]
         breaking = any(item.breaking for item in enum_changes)
         note = "; ".join(notes) if notes else "member sets are identical"

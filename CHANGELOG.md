@@ -8,6 +8,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Enum projections can now be resolved as field-type references in the
+  compiler core; unsupported code-generation targets report a specific
+  diagnostic before writing artifacts or registry state.
+
 ### Changed
 
 ### Fixed

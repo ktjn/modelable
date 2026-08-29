@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from modelable.parser.ir import (
     DomainDef,
+    EnumProjectionDecl,
     MdlFile,
     ModelVersion,
     ProjectionVersion,
@@ -14,6 +15,7 @@ from modelable.parser.ir import (
     VersionPinned,
     VersionRange,
     VersionSpec,
+    latest_enum_projections,
     latest_semantic_types,
 )
 from modelable.registry.signature import compute_version_signature
@@ -52,7 +54,7 @@ def resolve_model_ref(
             if min_v < v.version <= selected.version:
                 from modelable.parser.ir import ChangeKind
 
-                if v.change_kind == ChangeKind.breaking:
+                if isinstance(v, ModelVersion) and v.change_kind == ChangeKind.breaking:
                     raise LookupError(
                         f"unresolved model reference {model_ref}@{_format_version_spec(version_spec)}: "
                         f"breaking change at version {v.version} blocks automatic resolution"
@@ -192,6 +194,64 @@ def resolve_semantic_type_ref(
     return matches[0]
 
 
+def resolve_enum_type_ref(
+    mdl: MdlFile,
+    current_domain: str,
+    name: str,
+    exact_version: int | None = None,
+) -> tuple[str, SemanticTypeDecl | EnumProjectionDecl]:
+    """Resolve an enum reference to a semantic enum or enum projection.
+
+    Semantic-type resolution remains the authoritative first path so callers
+    that historically resolve a shared name keep their existing behavior.
+    Projection lookup is used only when that path has no match; projection
+    sources intentionally continue to use ``resolve_semantic_type_ref``.
+    """
+    try:
+        return resolve_semantic_type_ref(mdl, current_domain, name, exact_version)
+    except LookupError as semantic_error:
+        if isinstance(semantic_error, AmbiguousSemanticTypeError):
+            raise
+        current = next((item for item in mdl.domains if item.name == current_domain), None)
+        if "." not in name and current is not None:
+            local = _find_enum_projection_decl(current, name, exact_version)
+            if local is not None:
+                return current_domain, local
+        # A semantic ambiguity must not be hidden by a projection fallback.
+        # A missing exact semantic version may still fall back to an exact
+        # projection reference of the same name in another domain.
+        if "." in name:
+            domain_name, projection_name = name.split(".", 1)
+            domain = next((item for item in mdl.domains if item.name == domain_name), None)
+            if domain is None:
+                raise semantic_error
+            projection = _find_enum_projection_decl(domain, projection_name, exact_version)
+            if projection is None:
+                raise semantic_error
+            return domain_name, projection
+
+        matches: list[tuple[str, EnumProjectionDecl]] = []
+        for domain in mdl.domains:
+            projection = _find_enum_projection_decl(domain, name, exact_version)
+            if projection is not None:
+                matches.append((domain.name, projection))
+        if not matches:
+            known = sorted(
+                {item.version for domain in mdl.domains for item in domain.enum_projections if item.name == name}
+            )
+            if known and exact_version is not None:
+                raise LookupError(
+                    f"enum projection '{name}' has no version {exact_version} (known versions: {known})"
+                ) from semantic_error
+            raise semantic_error
+        if len(matches) > 1:
+            candidates = ", ".join(f"{domain_name}.{projection.name}" for domain_name, projection in matches)
+            raise AmbiguousSemanticTypeError(
+                f"ambiguous enum type '{name}'; candidates: {candidates}"
+            ) from semantic_error
+        return matches[0]
+
+
 def _find_semantic_decl(
     domain: DomainDef,
     name: str,
@@ -201,6 +261,19 @@ def _find_semantic_decl(
         return next((item for item in latest_semantic_types(domain) if item.name == name), None)
     return next(
         (item for item in domain.semantic_types if item.name == name and item.version == exact_version),
+        None,
+    )
+
+
+def _find_enum_projection_decl(
+    domain: DomainDef,
+    name: str,
+    exact_version: int | None,
+) -> EnumProjectionDecl | None:
+    if exact_version is None:
+        return next((item for item in latest_enum_projections(domain) if item.name == name), None)
+    return next(
+        (item for item in domain.enum_projections if item.name == name and item.version == exact_version),
         None,
     )
 
@@ -266,10 +339,10 @@ def _find_model_versions(
     mdl: MdlFile,
     domain_name: str,
     model_name: str,
-) -> list[ModelVersion]:
+) -> list[ModelVersion | ProjectionVersion]:
     for domain in mdl.domains:
         if domain.name == domain_name:
-            versions: list[ModelVersion] = []
+            versions: list[ModelVersion | ProjectionVersion] = []
             versions.extend(domain.models.get(model_name, []))
             versions.extend(domain.projections.get(model_name, []))
             return versions

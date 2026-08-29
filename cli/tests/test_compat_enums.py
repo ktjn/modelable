@@ -64,6 +64,63 @@ def test_member_removal_through_a_version_bump_is_breaking():
     assert any("removes member 'approved'" in finding for finding in report.findings)
 
 
+def test_projection_typed_field_version_bump_reports_projection_cause():
+    source = """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(pending, paid, shipped)
+
+  enum projection PublicStatus @ 1 (additive)
+    from OrderStatus @ 1
+    pick(pending, paid)
+  enum projection PublicStatus @ 2 (breaking)
+    from OrderStatus @ 1
+    pick(pending)
+
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicStatus @ 1
+  }
+  entity Order @ 2 (breaking) {
+    @key orderId: uuid
+    status: PublicStatus @ 2
+  }
+}
+"""
+    workspace = _workspace(source)
+    report = check_model_version_compatibility(workspace.mdl, "orders", "Order", 1, 2)
+
+    change = next(c for c in report.changes if c.kind == "enum_version_changed")
+    assert change.breaking_override is True
+    assert "projection removes member 'paid'" in change.note
+
+
+def test_mixed_semantic_and_projection_replacement_is_explicitly_breaking():
+    source = """
+domain orders {
+  owner: "orders-team"
+  semantic Status @ 1 (additive): enum(active)
+  enum projection PublicStatus @ 1 (additive)
+    from Status @ 1
+    pick(active)
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: Status @ 1
+  }
+  entity Order @ 2 (breaking) {
+    @key orderId: uuid
+    status: PublicStatus @ 1
+  }
+}
+"""
+    workspace = _workspace(source)
+    report = check_model_version_compatibility(workspace.mdl, "orders", "Order", 1, 2)
+
+    change = next(c for c in report.changes if c.kind == "enum_reference_changed")
+    assert change.breaking_override is True
+    assert "semantic enum and an enum projection" in change.note
+
+
 def test_nominal_replacement_is_breaking_even_with_identical_members():
     source = """
 domain orders {
