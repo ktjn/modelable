@@ -126,6 +126,35 @@ domain platform {
     assert not request.out_dir.exists()
 
 
+def test_projection_preflight_uses_current_domain_model_names(tmp_path: Path) -> None:
+    source = write_workspace(
+        tmp_path,
+        """
+domain source {
+  owner: "source-team"
+  entity PublicStatus @ 1 (additive) {
+    @key id: uuid
+  }
+}
+domain platform {
+  owner: "platform-team"
+  semantic Status @ 1 (additive): enum(active)
+  enum projection PublicStatus @ 1 (additive)
+    from Status @ 1
+    pick(active)
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: PublicStatus
+  }
+}
+""",
+    )
+    request = request_for(tmp_path, source, "json-schema")
+
+    with pytest.raises(CompilationDiagnosticsError, match="enum-projection-typed fields"):
+        CompilationService().execute_direct(request)
+
+
 def test_preview_rejects_a_target_not_in_the_codegen_registry(tmp_path: Path) -> None:
     source = write_workspace(tmp_path)
 

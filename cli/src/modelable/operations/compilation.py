@@ -1424,10 +1424,12 @@ def _reject_unsupported_enum_projection_fields(workspace: Workspace, target: str
     if target in _ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS:
         return
     diagnostics: list[Diagnostic] = []
-    model_names = {name for domain in workspace.mdl.domains for name in domain.models}
 
     def visit(field_type: FieldType, domain_name: str, owner: str) -> None:
-        if isinstance(field_type, NamedType) and field_type.name not in model_names:
+        current_domain = next((domain for domain in workspace.mdl.domains if domain.name == domain_name), None)
+        if isinstance(field_type, NamedType) and not (
+            current_domain is not None and field_type.name in current_domain.models
+        ):
             try:
                 _declaring_domain, declaration = resolve_enum_type_ref(workspace.mdl, domain_name, field_type.name)
             except LookupError:
