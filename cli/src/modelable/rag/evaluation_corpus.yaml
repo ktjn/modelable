@@ -1,3 +1,5 @@
+# Regenerated against docs/architecture.md in the stabilization architecture rewrite.
+# Keep these ids synchronized with the committed documentation chunk index.
 cases:
   - category: lexical
     question: Modelable architecture
@@ -89,7 +91,7 @@ cases:
   - question: What are the security requirements?
     relevant_chunks: [architecture.md#16-security-requirements]
   - question: What is included in the MVP?
-    relevant_chunks: [architecture.md#17-mvp-scope-phase-1]
+    relevant_chunks: [architecture.md#171-mvp-scope-phase-1]
   - question: Which CLI commands are part of the MVP?
     relevant_chunks: [architecture.md#172-cli-commands]
   - question: What is outside the MVP scope?
