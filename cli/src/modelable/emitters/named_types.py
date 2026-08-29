@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.shapes import TypeShape
-from modelable.parser.ir import EnumType, MdlFile, latest_semantic_types
-from modelable.registry.resolver import AmbiguousSemanticTypeError, resolve_semantic_type_ref
+from modelable.parser.ir import EnumProjectionDecl, EnumType, MdlFile, SemanticTypeDecl, latest_semantic_types
+from modelable.registry.resolver import AmbiguousSemanticTypeError, resolve_enum_type_ref, resolve_semantic_type_ref
 
 
 def resolve_named_types(
@@ -13,6 +14,7 @@ def resolve_named_types(
     current_domain: str,
     model_name: Callable[[str, str, int], str],
     emit_nominal_enums: bool = False,
+    emit_nominal_enum_projections: bool = False,
 ) -> tuple[dict[str, str], dict[str, TypeShape]]:
     """Resolve source-level named references for a generated target.
 
@@ -73,6 +75,8 @@ def resolve_named_ref(
     names: dict[str, str],
     shapes: dict[str, TypeShape],
     emit_nominal_enums: bool = False,
+    emit_nominal_enum_projections: bool = False,
+    exact_version: int | None = None,
 ) -> tuple[str | None, str | None, TypeShape | None]:
     """Resolve a single named/semantic reference to the representation a target
     should emit.
@@ -93,25 +97,33 @@ def resolve_named_ref(
     """
     declaring_domain, bare = split_domain_qualifier(ref)
     if declaring_domain is None:
-        if ref in names:
+        if exact_version is None and ref in names:
             return (_declaring_domain(mdl, ref) or current_domain, names[ref], None)
-        if ref in shapes:
+        if exact_version is None and ref in shapes:
             return (current_domain, None, shapes[ref])
     else:
-        if bare in names and declaring_domain != current_domain:
+        if exact_version is None and bare in names and declaring_domain != current_domain:
             return (declaring_domain, names[bare], None)
-        if bare in shapes and declaring_domain != current_domain:
+        if exact_version is None and bare in shapes and declaring_domain != current_domain:
             return (declaring_domain, None, shapes[bare])
     # Qualified semantic reference not visible in the per-domain dicts (or a
     # cross-domain semantic name that resolve_named_types only keyed locally).
     try:
-        resolved_domain, decl = resolve_semantic_type_ref(mdl, current_domain, ref)
+        resolved_domain, decl = resolve_enum_type_ref(mdl, current_domain, ref, exact_version)
     except LookupError, AmbiguousSemanticTypeError:
         return (None, None, None)
     if resolved_domain != current_domain:
-        if emit_nominal_enums and isinstance(decl.underlying, EnumType):
-            return (resolved_domain, decl.name, None)
+        if emit_nominal_enum_projections and isinstance(decl, EnumProjectionDecl):
+            return (resolved_domain, _projection_type_name(resolved_domain, decl), None)
+        if emit_nominal_enums and isinstance(decl, SemanticTypeDecl) and isinstance(decl.underlying, EnumType):
+            return (resolved_domain, _semantic_enum_type_name(mdl, resolved_domain, decl), None)
+        if not isinstance(decl, SemanticTypeDecl):
+            return (None, None, None)
         return (resolved_domain, None, TypeShape.from_field_type(decl.underlying))
+    if emit_nominal_enum_projections and isinstance(decl, EnumProjectionDecl):
+        return (current_domain, _projection_type_name(current_domain, decl), None)
+    if emit_nominal_enums and isinstance(decl, SemanticTypeDecl) and isinstance(decl.underlying, EnumType):
+        return (current_domain, _semantic_enum_type_name(mdl, current_domain, decl), None)
     return (None, None, None)
 
 
@@ -141,3 +153,21 @@ def resolve_named_type_domains(mdl: MdlFile, *, current_domain: str) -> dict[str
                 continue
             result.setdefault(declaration.name, resolved_domain)
     return result
+
+
+def _projection_type_name(domain: str, projection: EnumProjectionDecl) -> str:
+    return f"{_pascalize(domain)}{projection.name}V{projection.version}"
+
+
+def _semantic_enum_type_name(mdl: MdlFile, domain: str, declaration: SemanticTypeDecl) -> str:
+    latest = next(
+        (
+            item
+            for item in latest_semantic_types(next(item for item in mdl.domains if item.name == domain))
+            if item.name == declaration.name
+        ),
+        declaration,
+    )
+    if declaration.version == latest.version:
+        return declaration.name
+    return f"{_pascalize(domain)}{declaration.name}V{declaration.version}"
