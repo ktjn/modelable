@@ -159,6 +159,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
     if not isinstance(objects, list):
         return ["registry lock objects must be an array"]
     seen: set[str] = set()
+    identity_hashes: dict[str, str] = {}
     for entry in objects:
         if not isinstance(entry, dict):
             errors.append("registry lock contains a non-object entry")
@@ -168,6 +169,12 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
         if not isinstance(content_hash, str) or not isinstance(identity, str):
             errors.append("registry lock entry requires identity and content_hash")
             continue
+        previous_hash = identity_hashes.get(identity)
+        if previous_hash is not None and previous_hash != content_hash:
+            errors.append(
+                f"registry lock identity {identity} has conflicting content hashes {previous_hash} and {content_hash}"
+            )
+        identity_hashes[identity] = content_hash
         if content_hash in seen:
             continue
         seen.add(content_hash)
