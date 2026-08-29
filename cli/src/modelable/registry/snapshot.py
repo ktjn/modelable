@@ -10,7 +10,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from modelable.compiler.workspace import Workspace, WorkspaceSource
+from modelable.compiler.render import render_mdl
+from modelable.compiler.workspace import (
+    Workspace,
+    WorkspaceDocumentSource,
+    WorkspaceSource,
+    load_workspace_from_sources,
+)
 from modelable.parser.ir import (
     ArrayType,
     DomainDef,
@@ -319,6 +325,22 @@ def load_snapshot_workspace(output_dir: str | Path = ".modelable") -> Workspace:
         for source in [source_paths.get(domain_name)]
     ]
     return Workspace(sources=sources, mdl=mdl, errors=[], warnings=[])
+
+
+def load_workspace_with_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> Workspace:
+    """Compose local source documents with an exact offline registry snapshot."""
+    snapshot = load_snapshot_workspace(output_dir)
+    sources = [
+        WorkspaceDocumentSource(path=source.path, uri=source.uri, text=source.text) for source in workspace.sources
+    ]
+    sources.append(
+        WorkspaceDocumentSource(
+            path=None,
+            uri=f"snapshot://{Path(output_dir).resolve()}",
+            text=render_mdl(snapshot.mdl),
+        )
+    )
+    return load_workspace_from_sources(sources)
 
 
 def _domain_metadata(domain: DomainDef) -> dict[str, Any]:

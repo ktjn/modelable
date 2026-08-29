@@ -11,6 +11,7 @@ from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.snapshot import (
     diff_workspace_snapshot,
     load_snapshot_workspace,
+    load_workspace_with_snapshot,
     prune_snapshot,
     resolve_workspace_snapshot,
     update_workspace_snapshot,
@@ -146,6 +147,49 @@ domain reporting {
     assert {domain.name for domain in loaded.mdl.domains} == {"billing", "customer", "reporting"}
     index_path = build_registry_from_snapshot(output_dir)
     assert index_path == output_dir / "registry.db"
+
+
+def test_consumer_composes_with_provider_snapshot_offline(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mdl"
+    provider.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    legalName: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        """
+domain analytics {
+  owner: "analytics-platform"
+  projection CustomerSummary @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.legalName
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    provider_workspace = load_workspace(provider)
+    snapshot_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(provider_workspace, snapshot_dir)
+
+    consumer_workspace = load_workspace(consumer)
+    assert consumer_workspace.errors
+    composed = load_workspace_with_snapshot(consumer_workspace, snapshot_dir)
+
+    assert composed.errors == []
+    assert {domain.name for domain in composed.mdl.domains} == {"analytics", "customer"}
+    assert composed.mdl.domains[0].projections["CustomerSummary"][0].fields[0].name == "customerId"
 
 
 def test_verify_detects_non_deterministic_dependency_resolution(tmp_path: Path) -> None:
