@@ -1725,6 +1725,7 @@ modelable registry resolve SOURCE [--out DIR]
 modelable registry diff SOURCE [--out DIR] [--format text|json]
 modelable registry update SOURCE [--out DIR] [--format text|json]
 modelable registry verify [--out DIR] [--format text|json]
+modelable registry rebuild-index [--out DIR]
 modelable registry status [--out DIR] [--format text|json]
 modelable registry prune [--out DIR]
 modelable registry usage SOURCE [--format text|json|manifest]
@@ -1739,6 +1740,8 @@ modelable registry usage SOURCE [--format text|json|manifest]
 - `registry verify` checks lock/object presence, hashes, signatures, and
   identities entirely offline, and reports source drift when a recorded local
   source is still available but no longer matches its provenance hash.
+- `registry rebuild-index` reconstructs the derived `registry.db` from the
+  validated lock and objects, without loading or refreshing source files.
 - `registry status` reports the local snapshot without refreshing it.
 - `registry prune` removes object files that are not reachable from the current
   lock after validation succeeds.

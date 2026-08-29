@@ -1,8 +1,12 @@
 import sqlite3
 from pathlib import Path
 
+from click.testing import CliRunner
+
+from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
-from modelable.registry.index import build_registry
+from modelable.registry.index import build_registry, build_registry_from_snapshot
+from modelable.registry.snapshot import resolve_workspace_snapshot
 
 
 def test_registry_package_exports_build_registry():
@@ -37,6 +41,33 @@ def test_build_registry_writes_sqlite_index(tmp_path):
 
     assert registry_path == tmp_path / ".modelable" / "registry.db"
     assert registry_path.exists()
+
+
+def test_build_registry_from_snapshot_works_without_source_files(tmp_path: Path):
+    source = tmp_path / "customer.mdl"
+    _write_customer_model(source)
+    snapshot_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), snapshot_dir)
+    source.unlink()
+
+    registry_path = build_registry_from_snapshot(snapshot_dir)
+
+    with sqlite3.connect(registry_path) as conn:
+        assert conn.execute("select name from models").fetchall() == [("Customer",)]
+        assert conn.execute("select source_path from model_versions").fetchall() == [(str(source),)]
+
+
+def test_rebuild_index_cli_works_without_source_files(tmp_path: Path):
+    source = tmp_path / "customer.mdl"
+    _write_customer_model(source)
+    snapshot_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), snapshot_dir)
+    source.unlink()
+
+    result = CliRunner().invoke(cli, ["registry", "rebuild-index", "--out", str(snapshot_dir)])
+
+    assert result.exit_code == 0, result.output
+    assert "rebuilt derived registry index" in result.output
 
 
 def test_build_registry_populates_domain_model_versions_and_fields(tmp_path):

@@ -9,9 +9,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from modelable.compiler.workspace import Workspace
+from modelable.compiler.workspace import Workspace, WorkspaceSource
 from modelable.parser.ir import (
     ArrayType,
+    DomainDef,
     EnumProjectionDecl,
     EnumRefType,
     FieldType,
@@ -198,6 +199,60 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                     if actual_source_hash != expected_source_hash:
                         errors.append(f"registry source drift for {identity}: found {actual_source_hash}")
     return errors
+
+
+def load_snapshot_workspace(output_dir: str | Path = ".modelable") -> Workspace:
+    """Load a validated durable snapshot as a compiler workspace offline."""
+    paths = SnapshotPaths(Path(output_dir))
+    errors = verify_snapshot(paths.root)
+    if errors:
+        raise ValueError("Cannot load an invalid registry snapshot:\n" + "\n".join(errors))
+
+    lock = json.loads(paths.lock.read_text(encoding="utf-8"))
+    domains: dict[str, DomainDef] = {}
+    source_paths: dict[str, str | None] = {}
+    for entry in lock["objects"]:
+        content_hash = str(entry["content_hash"])
+        payload = json.loads((paths.objects / f"{content_hash}.json").read_text(encoding="utf-8"))
+        identity = str(payload["identity"])
+        qualified_name, _version = identity.rsplit("@", 1)
+        domain_name, name = qualified_name.rsplit(".", 1)
+        domain = domains.setdefault(domain_name, _snapshot_domain(domain_name))
+        provenance = payload.get("provenance")
+        if domain_name not in source_paths and isinstance(provenance, dict):
+            source = provenance.get("source")
+            source_paths[domain_name] = source if isinstance(source, str) else None
+        contract = payload["contract"]
+        kind = payload["kind"]
+        if kind == "model":
+            domain.models.setdefault(name, []).append(ModelVersion.model_validate(contract))
+        elif kind == "projection":
+            domain.projections.setdefault(name, []).append(ProjectionVersion.model_validate(contract))
+        elif kind == "semantic":
+            domain.semantic_types.append(SemanticTypeDecl.model_validate(contract))
+        elif kind == "enum_projection":
+            domain.enum_projections.append(EnumProjectionDecl.model_validate(contract))
+        else:
+            raise ValueError(f"unsupported registry object kind: {kind!r}")
+
+    mdl = MdlFile(domains=list(domains.values()))
+    sources = [
+        WorkspaceSource(
+            path=Path(source) if source is not None else None,
+            uri=source or f"snapshot://{domain_name}",
+            text="",
+            mdl=MdlFile(domains=[domain]),
+            errors=[],
+            content_hash="",
+        )
+        for domain_name, domain in domains.items()
+        for source in [source_paths.get(domain_name)]
+    ]
+    return Workspace(sources=sources, mdl=mdl, errors=[], warnings=[])
+
+
+def _snapshot_domain(name: str) -> DomainDef:
+    return DomainDef(name=name)
 
 
 def diff_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> SnapshotDiff:

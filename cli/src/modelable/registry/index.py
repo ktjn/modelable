@@ -5,14 +5,23 @@ import json
 import sqlite3
 from importlib.resources import files
 from pathlib import Path
+from typing import Any
 
 from modelable.compat.checker import check_model_version_compatibility
 from modelable.compiler.workspace import Workspace
 from modelable.diagnostics.model import render_diagnostic
 from modelable.governance.por import build_por_record
-from modelable.parser.ir import AccessBlock, AccessGrant, ComputedMapping, DirectMapping
+from modelable.parser.ir import (
+    AccessBlock,
+    AccessGrant,
+    ComputedMapping,
+    DirectMapping,
+    ModelVersion,
+    ProjectionVersion,
+)
 from modelable.planner.lineage import build_projection_lineage
 from modelable.registry.resolver import resolved_version_spec
+from modelable.registry.snapshot import load_snapshot_workspace
 
 
 def build_registry(
@@ -43,6 +52,16 @@ def build_registry(
     return registry_path
 
 
+def build_registry_from_snapshot(
+    snapshot_dir: str | Path = ".modelable",
+    *,
+    output_dir: str | Path | None = None,
+) -> Path:
+    """Rebuild the derived SQLite index from a durable snapshot offline."""
+    workspace = load_snapshot_workspace(snapshot_dir)
+    return build_registry(workspace, output_dir if output_dir is not None else snapshot_dir)
+
+
 def _insert_registry_ids(conn: sqlite3.Connection, registry_ids: dict[str, int] | None) -> None:
     if not registry_ids:
         return
@@ -62,13 +81,13 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
             (domain.name, domain.owner, domain.description),
         )
 
-        for model_name, versions in domain.models.items():
-            kind = versions[0].model_kind.value
+        for model_name, model_versions in domain.models.items():
+            kind = model_versions[0].model_kind.value
             conn.execute(
                 "insert into models (domain_name, name, kind) values (?, ?, ?)",
                 (domain.name, model_name, kind),
             )
-            for version in versions:
+            for model_version in model_versions:
                 conn.execute(
                     """
                     insert into model_versions
@@ -78,13 +97,13 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                     (
                         domain.name,
                         model_name,
-                        version.version,
-                        version.change_kind.value,
-                        str(source_paths[id(domain)]),
+                        model_version.version,
+                        model_version.change_kind.value,
+                        str(source_paths.get(id(domain)) or "<registry-snapshot>"),
                     ),
                 )
-                for position, field in enumerate(version.fields):
-                    classification = field.classification
+                for position, model_field in enumerate(model_version.fields):
+                    classification = model_field.classification
                     conn.execute(
                         """
                         insert into fields
@@ -97,35 +116,35 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                         (
                             domain.name,
                             model_name,
-                            version.version,
-                            field.name,
+                            model_version.version,
+                            model_field.name,
                             position,
-                            _to_json(field.type),
-                            int(field.optional),
-                            int(field.is_key),
-                            int(field.is_pii),
+                            _to_json(model_field.type),
+                            int(model_field.optional),
+                            int(model_field.is_key),
+                            int(model_field.is_pii),
                             classification.value if classification else None,
                         ),
                     )
                 _insert_access_policies(
                     conn,
-                    subject_ref=f"{domain.name}.{model_name}@{version.version}",
-                    access=version.access,
+                    subject_ref=f"{domain.name}.{model_name}@{model_version.version}",
+                    access=model_version.access,
                     same_domain=domain.name,
                     owner=domain.owner,
                 )
                 _insert_por_log(
                     conn,
-                    build_por_record(f"{domain.name}.{model_name}.v{version.version}").as_dict(),
+                    build_por_record(f"{domain.name}.{model_name}.v{model_version.version}").as_dict(),
                 )
-            _insert_compatibility_reports(conn, workspace, domain.name, model_name, versions)
+            _insert_compatibility_reports(conn, workspace, domain.name, model_name, model_versions)
 
-        for projection_name, versions in domain.projections.items():
+        for projection_name, projection_versions in domain.projections.items():
             conn.execute(
                 "insert into projections (domain_name, name) values (?, ?)",
                 (domain.name, projection_name),
             )
-            for version in versions:
+            for projection_version in projection_versions:
                 conn.execute(
                     """
                     insert into projection_versions
@@ -138,16 +157,16 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                     (
                         domain.name,
                         projection_name,
-                        version.version,
-                        version.source.model,
+                        projection_version.version,
+                        projection_version.source.model,
                         _to_json(
                             resolved_version_spec(
                                 workspace.mdl,
-                                version.source.model,
-                                version.source.version,
+                                projection_version.source.model,
+                                projection_version.source.version,
                             )
                         ),
-                        version.source.alias,
+                        projection_version.source.alias,
                     ),
                 )
                 conn.execute(
@@ -162,20 +181,20 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                     (
                         domain.name,
                         projection_name,
-                        version.version,
+                        projection_version.version,
                         "primary",
-                        version.source.model,
+                        projection_version.source.model,
                         _to_json(
                             resolved_version_spec(
                                 workspace.mdl,
-                                version.source.model,
-                                version.source.version,
+                                projection_version.source.model,
+                                projection_version.source.version,
                             )
                         ),
-                        version.source.alias,
+                        projection_version.source.alias,
                     ),
                 )
-                for join in version.joins:
+                for join in projection_version.joins:
                     conn.execute(
                         """
                         insert into projection_sources
@@ -189,7 +208,7 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                         (
                             domain.name,
                             projection_name,
-                            version.version,
+                            projection_version.version,
                             "join",
                             join.model,
                             _to_json(resolved_version_spec(workspace.mdl, join.model, join.version)),
@@ -197,8 +216,8 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                             join.on,
                         ),
                     )
-                for position, field in enumerate(version.fields):
-                    classification = field.classification
+                for position, projection_field in enumerate(projection_version.fields):
+                    classification = projection_field.classification
                     conn.execute(
                         """
                         insert into projection_fields
@@ -211,11 +230,11 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                         (
                             domain.name,
                             projection_name,
-                            version.version,
-                            field.name,
+                            projection_version.version,
+                            projection_field.name,
                             position,
-                            _to_json(field.mapping),
-                            int(field.is_pii),
+                            _to_json(projection_field.mapping),
+                            int(projection_field.is_pii),
                             classification.value if classification else None,
                         ),
                     )
@@ -223,21 +242,21 @@ def _insert_workspace(conn: sqlite3.Connection, workspace: Workspace) -> None:
                         conn,
                         domain.name,
                         projection_name,
-                        version.version,
-                        field.name,
-                        field.mapping,
+                        projection_version.version,
+                        projection_field.name,
+                        projection_field.mapping,
                     )
-                _insert_lineage_edges(conn, workspace, domain.name, projection_name, version)
+                _insert_lineage_edges(conn, workspace, domain.name, projection_name, projection_version)
                 _insert_access_policies(
                     conn,
-                    subject_ref=f"{domain.name}.{projection_name}@{version.version}",
-                    access=version.access,
+                    subject_ref=f"{domain.name}.{projection_name}@{projection_version.version}",
+                    access=projection_version.access,
                     same_domain=domain.name,
                     owner=domain.owner,
                 )
                 _insert_por_log(
                     conn,
-                    build_por_record(f"{domain.name}.{projection_name}.v{version.version}").as_dict(),
+                    build_por_record(f"{domain.name}.{projection_name}.v{projection_version.version}").as_dict(),
                 )
 
     for binding in workspace.mdl.bindings:
@@ -370,7 +389,7 @@ def _insert_compatibility_reports(
     workspace: Workspace,
     domain_name: str,
     model_name: str,
-    versions,
+    versions: list[ModelVersion],
 ) -> None:
     for previous, current in itertools.pairwise(versions):
         report = check_model_version_compatibility(
@@ -401,7 +420,7 @@ def _insert_lineage_edges(
     workspace: Workspace,
     domain_name: str,
     projection_name: str,
-    version,
+    version: ProjectionVersion,
 ) -> None:
     lineage = build_projection_lineage(domain_name, projection_name, version, workspace.mdl)
     target_prefix = f"{domain_name}.{projection_name}@{version.version}"
@@ -432,5 +451,5 @@ def _insert_por_log(conn: sqlite3.Connection, por_record: dict[str, str | None])
     )
 
 
-def _to_json(value) -> str:
+def _to_json(value: Any) -> str:
     return json.dumps(value.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
