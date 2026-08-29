@@ -1869,6 +1869,40 @@ Language Reference §2.7 paragraph document both commands, cross-linked.
 Full local `pytest tests/` suite: 2551 passed, 59 skipped. **This closes
 A2 and the full A-series (A1, A2) of optional post-Q1 adoption work.**
 
+#### Enum projections as field types
+
+A1's `extract-enum` follow-up (see above) found that a field cannot
+reference an `enum projection` as its own type at all — rejected with
+`ENUMREF: unknown semantic type`. Scoped in
+[Enum Projections as Field Types — Design](docs/superpowers/specs/2026-08-28-enum-projection-field-references-design.md)
+and shipped in phases mirroring E6-E10's own delivery order:
+
+- **Phase 1 (compiler core), PR #498:** `registry/resolver.py::resolve_enum_type_ref`
+  resolves a field-type reference to either a `SemanticTypeDecl` or an
+  `EnumProjectionDecl` without changing `resolve_semantic_type_ref`'s own
+  callers/behavior; validation, compatibility, signatures, and dependency
+  graph all handle the projection case. Every emitter not yet migrated gets
+  one shared `EMIT007` rejection (`operations/compilation.py::_reject_unsupported_enum_projection_fields`,
+  gated by `_ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS`) instead of silently
+  mis-resolving.
+- **Phase 2 item 1 (Rust), PR #499.**
+- **Phase 2 item 2 (typed SDKs — TypeScript, Python, Java, C#, Go), PRs
+  #500-#504.** Each emitter now emits/reuses a nominal type for a
+  projection-typed field. **Found and fixed in this session:** none of
+  those five PRs added its target to `_ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS`,
+  so `modelable compile --target python|typescript|java|csharp|go` still
+  raised `EMIT007` end-to-end even though each emitter's own unit tests
+  passed — the gate, not the emitter, was the gap. Fixed by adding all five
+  targets to the frozenset alongside `rust`. Verified with a real
+  `modelable compile` run against a projection-typed-field fixture for all
+  six now-supported targets (each produces the expected nominal-type
+  artifact) and against a still-unsupported target (`json-schema`, still
+  correctly rejected with `EMIT007`). Full local `pytest tests/` suite:
+  2584 passed, 59 skipped.
+- **Phase 2 item 3 (schema/API targets — Protobuf/gRPC, Avro, JSON Schema,
+  OpenAPI) and item 4 (ODCS, OpenMetadata, OpenLineage, FHIR, Markdown)
+  remain open**, per the design's proposed order.
+
 Also in this lane, **not** gated behind D0 because it is purely additive
 grammar that never reinterprets existing text:
 
