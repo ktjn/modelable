@@ -114,6 +114,38 @@ domain billing {
     assert any("but 'customer.Customer@>=1<3' selects customer.Customer@2" in error for error in errors)
 
 
+def test_verify_detects_missing_dependency_requirement(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key id: uuid
+  }
+}
+domain billing {
+  owner: "billing-platform"
+  projection Billing @ 1
+    from customer.Customer @ 1 as c
+  {
+    id <- c.id
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    result = resolve_workspace_snapshot(load_workspace(source), output_dir)
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    lock["requirements"] = []
+    result.lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    errors = verify_snapshot(output_dir)
+
+    assert any("requirements do not match object dependency edges" in error for error in errors)
+
+
 def test_verify_detects_tampered_object(tmp_path: Path) -> None:
     result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
     object_path = next((result.lock_path.parent / "registry" / "objects").glob("*.json"))

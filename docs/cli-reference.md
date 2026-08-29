@@ -1753,7 +1753,8 @@ modelable registry usage SOURCE [--format text|json|manifest]
 The lock and object files are the durable snapshot; `registry.db` remains a
 rebuildable compiler index. Lock requirements retain the requested version
 selector and the exact resolved identity, signature, and object hash used
-offline.
+offline. Verification also checks that this list is complete and matches every
+dependency edge in the locked objects.
 
 External source adapters, transitive dependency closure, cross-application
 usage aggregation, and policy-aware updates are deferred. The similarly named
