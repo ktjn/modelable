@@ -485,6 +485,71 @@ def test_offline_snapshot_java_consumer_compiles(tmp_path: Path) -> None:
     _assert_docker_success(result, "offline snapshot java")
 
 
+@pytest.mark.docker
+@pytest.mark.skipif(
+    os.getenv("MODELABLE_DOCKER_TESTS") != "1",
+    reason="set MODELABLE_DOCKER_TESTS=1 to run the Docker-based codegen smoke tests",
+)
+@pytest.mark.skipif(not _docker_available(), reason="docker is required for generated-language smoke tests")
+def test_offline_snapshot_go_consumer_compiles(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mdl"
+    provider.write_text(
+        textwrap.dedent(
+            """
+            domain customer {
+              owner: "customer-platform"
+              entity Customer @ 1 (additive) {
+                @key customerId: uuid
+                displayName: string
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        textwrap.dedent(
+            """
+            domain analytics {
+              owner: "analytics-platform"
+              projection CustomerSummary @ 1
+                from customer.Customer @ 1 as c
+              {
+                customerId <- c.customerId
+                name <- c.displayName
+              }
+            }
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    snapshot = tmp_path / ".modelable"
+    runner = CliRunner()
+    resolved = runner.invoke(cli, ["registry", "resolve", str(provider), "--out", str(snapshot)])
+    assert resolved.exit_code == 0, resolved.output
+    out = tmp_path / "generated" / "go"
+    compiled = runner.invoke(
+        cli,
+        [
+            "compile",
+            str(consumer),
+            "--target",
+            "go",
+            "--snapshot",
+            str(snapshot),
+            "--out",
+            str(out),
+        ],
+    )
+    assert compiled.exit_code == 0, compiled.output
+    _write_offline_go_smoke(tmp_path)
+    result = _run_docker(tmp_path, "golang:1.26.3", "/usr/local/go/bin/go test ./...")
+    _assert_docker_success(result, "offline snapshot go")
+
+
 def _write_python_smoke(tmp_path: Path, out: Path) -> None:
     smoke = tmp_path / "smoke.py"
     smoke.write_text(
@@ -1001,6 +1066,51 @@ def _write_offline_java_smoke(tmp_path: Path) -> None:
                   throw new IllegalStateException("generated records did not preserve the expected fields");
                 }}
               }}
+            }}
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_offline_go_smoke(tmp_path: Path) -> None:
+    (tmp_path / "go.mod").write_text(
+        textwrap.dedent(
+            """
+            module example.com/modelable-offline-snapshot-smoke
+
+            go 1.26
+            """
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    smoke_dir = tmp_path / "generated" / "go" / "analytics"
+    smoke_dir.mkdir(parents=True, exist_ok=True)
+    (smoke_dir / "smoke_test.go").write_text(
+        textwrap.dedent(
+            f"""
+            package analytics
+
+            import (
+                "testing"
+
+                customer "example.com/modelable-offline-snapshot-smoke/generated/go/customer"
+            )
+
+            func TestGeneratedSnapshotContractsCompile(t *testing.T) {{
+                customerObj := customer.CustomerCustomerV1{{
+                    CustomerId: "{SMOKE_UUID}",
+                    DisplayName: "Alice",
+                }}
+                summary := AnalyticsCustomerSummaryV1{{
+                    CustomerId: "{SMOKE_UUID}",
+                    Name: "Alice",
+                }}
+                if customerObj.CustomerId != summary.CustomerId || customerObj.DisplayName != summary.Name {{
+                    t.Fatal("generated structs did not preserve the expected fields")
+                }}
             }}
             """
         ).strip()
