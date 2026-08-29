@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from modelable.compiler.workspace import Workspace
+from modelable.identity import declaration_id, semantic_path
 from modelable.llm.context import parse_model_ref
 from modelable.parser.ir import (
     DirectMapping,
@@ -181,7 +182,7 @@ def _add_model_version(
             "version": version.version,
             "change_kind": version.change_kind.value,
             "model_kind": version.model_kind.value,
-            "target_ref": f"{domain_name}.{model_name}@{version.version}",
+            "target_ref": declaration_id(domain_name, model_name, version.version),
         },
         parents=(model_id,),
     )
@@ -199,7 +200,7 @@ def _add_model_field(
     version: int,
     field: FieldDef,
 ) -> None:
-    field_id = f"field:{domain_name}.{model_name}@{version}.{field.name}"
+    field_id = "field:" + semantic_path(declaration_id(domain_name, model_name, version), field.name)
     builder.add_node(
         {
             "id": field_id,
@@ -211,7 +212,7 @@ def _add_model_field(
             "field": field.name,
             "optional": field.optional,
             "nullable": field.nullable,
-            "target_ref": f"{domain_name}.{model_name}@{version}.{field.name}",
+            "target_ref": semantic_path(declaration_id(domain_name, model_name, version), field.name),
         },
         parents=(version_id,),
     )
@@ -270,7 +271,7 @@ def _add_projection_version(
             "name": projection_name,
             "version": version.version,
             "source_ref": source_ref,
-            "target_ref": f"{domain_name}.{projection_name}@{version.version}",
+            "target_ref": declaration_id(domain_name, projection_name, version.version),
         },
         parents=(projection_id,),
     )
@@ -297,7 +298,9 @@ def _add_projection_field(
     projection_version: ProjectionVersion,
     field: ProjectionField,
 ) -> None:
-    field_id = f"projection_field:{domain_name}.{projection_name}@{projection_version.version}.{field.name}"
+    field_id = "projection_field:" + semantic_path(
+        declaration_id(domain_name, projection_name, projection_version.version), field.name
+    )
     node: dict[str, Any] = {
         "id": field_id,
         "kind": "projection_field",
@@ -306,7 +309,9 @@ def _add_projection_field(
         "name": projection_name,
         "version": projection_version.version,
         "field": field.name,
-        "target_ref": f"{domain_name}.{projection_name}@{projection_version.version}.{field.name}",
+        "target_ref": semantic_path(
+            declaration_id(domain_name, projection_name, projection_version.version), field.name
+        ),
     }
     if isinstance(field.mapping, DirectMapping):
         node["mapping_kind"] = "direct"
@@ -331,7 +336,7 @@ def _add_projection_field(
 
 def _resolve_version_ref(workspace: Workspace, model_ref: str, version_spec) -> str:
     resolved = resolve_model_ref(workspace.mdl, model_ref, version_spec)
-    return f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}"
+    return declaration_id(resolved.domain_name, resolved.model_name, resolved.version.version)
 
 
 def _resolve_direct_mapping_ref(
@@ -345,7 +350,9 @@ def _resolve_direct_mapping_ref(
         raise LookupError(f"unknown source alias '{source_alias}' in projection {projection_version.version}")
     resolved = resolve_model_ref(workspace.mdl, source_model_ref.model, source_model_ref.version)
     field_name = source_field
-    return f"source_ref:{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}.{field_name}"
+    return "source_ref:" + semantic_path(
+        declaration_id(resolved.domain_name, resolved.model_name, resolved.version.version), field_name
+    )
 
 
 def _alias_map(projection_version: ProjectionVersion) -> dict[str, Any]:

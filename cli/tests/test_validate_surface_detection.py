@@ -110,6 +110,7 @@ def test_shared_model_graph_change_runs_all_export_smokes() -> None:
         "cli/src/modelable/governance/checker.py",
         "cli/src/modelable/grammar/modelable.lark",
         "cli/src/modelable/graph/export.py",
+        "cli/src/modelable/identity.py",
         "cli/src/modelable/language/completion.py",
         "cli/src/modelable/llm/conversation_plan.py",
         "cli/src/modelable/llm/conversation_planner.py",
