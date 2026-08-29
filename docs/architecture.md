@@ -1,1290 +1,614 @@
-# Modelable Architecture and System Specification
+# Modelable Architecture
 
-> **Authority:** This is the product source of truth for Modelable concepts and
-> contract semantics. Sections describing runtime adapters, materialization, or
-> external services are deferred unless the root roadmap and an accepted issue
-> say otherwise. Concretely, as of this revision: §3.6 Subscription, §3.7
-> Adapter Binding, and §7.3–§7.5 (Runtime Engine, Materializer, Adapter Layer)
-> describe a system that is **not implemented** — only its grammar parses
-> without error today (see [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md)
-> "Outside the near-term compiler roadmap"). What ships today is `cli/src/modelable/runtime/adapter/postgres.py`,
-> a minimal single-target Postgres bootstrap/materialize stub with no read
-> path, retry, batching, or health/lag reporting — not the multi-adapter,
-> delivery-semantics-guaranteed runtime these sections describe. §7.1 Model
-> Registry's "create draft / publish / deprecate" API framing is also aspirational: the
-> real registry is a read-only, compile-time-derived SQLite index over
-> git-tracked `.mdl` source, not a live mutation API.
+> **Authority:** This document defines the intended product and architectural boundaries for Modelable. Implementation details may lag behind it, but new work should move toward these boundaries rather than expand older coupling.
 
-## 1. Purpose
+## 1. Product thesis
 
-Modelable is a **meta-model framework** for defining, tracing, and governing domain-owned data models across disparate systems. It acts as a semantic layer on top of existing infrastructure (databases, APIs, message brokers) to ensure maximum traceability and understandability of every single data property.
+Modelable is a semantic and consequence compiler for versioned, domain-owned data contracts.
 
-The framework ensures that any property—whether it appears in a database table, an API response, or a streaming event—can be traced back to the specific domain and canonical model that owns it.
+Its core responsibility is to answer four questions:
 
-Modelable provides:
+1. What does a data contract mean?
+2. Where did every field and declaration come from?
+3. What changes when that contract evolves?
+4. What must downstream systems do as a consequence?
 
-- **Universal Lineage:** Tracking the origin and transformation of every field across system boundaries.
-- **Domain-Owned Contracts:** Explicit ownership and lifecycle for canonical models.
-- **Explicit Mapping:** A declarative way to project, subset, and join models while maintaining property-level "back-references."
-- **Platform-Agnostic Governance:** Applying policies (PII, security, retention) at the source and propagating them to all consumers.
+Modelable is not primarily a code generator, schema registry, runtime, integration platform, database abstraction, or catalog. Those are consumers of the semantic model and consequence analysis.
 
-Modelable is not a database; it is the **lineage backbone** that makes data movement and consumption predictable and auditable.
-
-## 2. Design Principles
-
-### 2.1 Domain Ownership
-
-Each model is owned by exactly one domain. The owning domain controls the canonical definition, lifecycle, versioning, access policy, and deprecation policy for that model.
-
-Other domains may consume source models only through explicitly declared projections or subscriptions.
-
-### 2.2 Property-Level Traceability
-
-Every single property in the system must be traceable. If a field exists in a consumer's projection, the framework must be able to answer:
-- Which source model and field did this come from?
-- Who owns that source model?
-- What transformations (if any) were applied?
-- What are the governance constraints (e.g., PII) inherited from the source?
-
-### 2.3 Immutable Contracts
-
-Published model versions and projection versions are immutable. Any incompatible change must create a new version.
-
-Authors may edit local `.mdl` files before publishing, but the current grammar
-does not represent a model lifecycle status such as `draft`, `published`,
-`deprecated`, or `retired`. Every versioned declaration is treated as a
-published immutable contract once compiled; lifecycle tracking remains
-deferred.
-
-### 2.4 Platform-Neutral Definitions
-
-Model and projection definitions must not depend on a specific database or streaming platform.
-
-Database and stream integrations are expressed through adapter bindings. The same logical model should be usable with PostgreSQL, MongoDB, Kafka, Pulsar, NATS, or other supported systems when the adapter capabilities are sufficient.
-
-### 2.5 Explicit Derivation
-
-All derived data must be declared. Field renames, type conversions, computed fields, filters, joins, aggregations, and materialized replicas must be traceable back to their source models and source fields.
-
-### 2.6 Framework-First Integration
-
-Modelable is designed to wrap existing systems. It should not require a "rip and replace" of current infrastructure, but rather provide the mapping layer that makes existing data "modelable" and traceable.
-
-### 2.7 Compatibility Before Runtime
-
-The system should reject invalid or incompatible definitions before runtime when possible. Runtime failures should be reserved for operational issues such as unavailable streams, write conflicts, bad source payloads, or adapter outages.
-
-### 2.8 One Compiler Across Native and Browser Surfaces
-
-The shipped browser proof preserves this implemented dependency direction:
+The intended architecture is:
 
 ```text
-React and Monaco single-file editor
-  -> BrowserCompilerClient protocol v1
-  -> module Web Worker
-  -> pinned same-origin Pyodide
-  -> modelable.browser BrowserCompiler
-  -> parser, validator, canonical renderer, JSON Schema emitter
+.mdl sources
+   ↓
+syntax AST
+   ↓
+semantic graph
+   ↓
+resolved workspace graph
+   ↓
+usage graph
+   ↓
+change graph
+   ↓
+consequence graph
+   ↓
+modelable.plan/v1
+   ↓
+emitters / analyzers / policies / integrations
 ```
 
-The `modelable-browser` wheel is staged deterministically from the existing
-`cli/src/modelable` source tree. Its selected module closure excludes desktop
-surfaces such as the CLI, language server, database adapters, sockets, and
-subprocess integration. It is a browser distribution of the same compiler
-semantics, not a second semantic implementation.
-
-## 3. Core Concepts
+The semantic graph and consequence graph are the product. Everything around them should remain replaceable.
 
-### 3.1 Domain
-
-A domain is an ownership boundary for models and projections.
-
-Required properties:
-
-- `name`: Unique domain identifier.
-- `owner`: Team, service, or organization responsible for the domain.
-- `description`: Human-readable purpose.
-- `policies`: Optional governance, privacy, and access defaults.
-
-Example:
-
-```mdl
-domain customer {
-  owner: "customer-platform"
-  description: "Customer identity and lifecycle data."
-}
-```
-
-### 3.2 Model
-
-A model is a canonical business entity, event, value object, or aggregate owned by a domain.
-
-Required properties:
-
-- `domain`: Owning domain.
-- `name`: Unique model name within the domain.
-- `kind`: `entity`, `event`, `value`, or `aggregate`.
-- `identity`: Key definition for addressable records when applicable. Every entity and aggregate currently declares exactly one `@key` field; composite keys (multiple `@key` fields) are not yet supported by the compiler. See [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-d5--resolve-composite-key-support).
-- `versions`: Published model versions.
-
-Example:
-
-```mdl
-domain customer {
-  entity Customer @ 1 (additive) {
-    @key customerId: uuid
-  }
-}
-```
-
-### 3.3 Model Version
-
-A model version is an immutable schema and semantic contract for a model.
-
-Required properties:
-
-- `version`: Integer version number. Must be greater than the previous published version for the same model.
-- `changeKind`: `additive` or `breaking`, required on every entity, aggregate, and event version. See section 8.1 for enforcement rules.
-- `fields`: Field definitions.
-- `identity`: Identity fields for entities and aggregates.
-- `constraints`: Optional validation constraints.
-- `metadata`: Optional classification, documentation, and ownership metadata.
-
-Model lifecycle status (`draft`, `published`, `deprecated`, `retired`) is not
-yet represented in the grammar or IR — there is no `status` field today, and
-every published version is treated as immutable with no separate
-draft/deprecated/retired state. See
-[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-d6--model-lifecycle-status).
-
-Example:
-
-```mdl
-domain customer {
-  entity Customer @ 2 (additive) {
-    @key        customerId: uuid
-                legalName:  string
-    @pii        email?:     string
-                status:     enum(active, blocked, deleted)
-                createdAt:  timestamp
-  }
-}
-```
-
-Composite keys (multiple `@key` fields on one entity or aggregate) are not
-yet supported — the example above shows the current single-key form.
-Declaring two `@key` fields is a compile error today (see
-`cli/tests/test_semantic.py::test_composite_key_is_not_yet_supported` for
-the executable conformance record). See
-[ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-d5--resolve-composite-key-support).
-
-### 3.4 Projection
-
-A projection is a versioned derived contract based on one or more source model versions.
-
-Projections may be used for:
-
-- Consumer-specific contracts.
-- Read models.
-- API response models.
-- Stream output contracts.
-- Materialized database replicas.
-- Analytics-ready datasets.
-- Aggregated views.
-
-Required properties:
-
-- `domain`: Domain that owns the projection.
-- `name`: Projection name.
-- `version`: Projection version.
-- `sources`: Source model versions with optional joins and filters.
-- `identity`: Target identity, if materializable.
-- `fields`: Target fields and derivation rules (map-based).
-- `materialisation`: Optional strategy for persistence (strategy, key, partitionBy, binding, etc.).
-- `subscription`: Optional stream/change source configuration (source, adapter, fromOffset, filter, etc.).
-
-Example:
-
-```mdl
-domain billing {
-  projection BillingCustomer @ 1
-    from customer.Customer @ 2 as c
-  {
-    billingCustomerId <- c.customerId
-    name             <- c.legalName
-    @pii invoiceEmail <- c.email
-    isBillable        = c.status == "active"
-  }
-}
-```
-
-### 3.5 Auto Projections
-
-An auto projection is a shorthand declaration that instructs the compiler to generate four standard derived models from a single `entity` or `aggregate` definition. The four generated models cover the most common use cases for any addressable entity:
-
-| Kind | Generated name | Purpose |
-|:-----|:---------------|:--------|
-| `db` | `{Entity}Db` | Persistence contract — the full entity schema used for SQL DDL and storage bindings |
-| `request` | `{Entity}Request` | Write model — fields a client provides when creating or updating an entity; `@server`-assigned fields are excluded by default |
-| `reply` | `{Entity}Reply` | Read model — fields returned in API responses |
-| `event` | `{Entity}Event` | Change event — emitted on entity state transitions (`created`, `updated`, `deleted`) |
-
-Auto projections require no hand-authored field mappings. The compiler expands each kind into a fully explicit projection with complete property-level lineage, identical in semantics to a hand-authored projection. The expansion appears in the plan document and is inspectable.
-
-Example:
-
-```mdl
-domain customer {
-  entity Customer @ 1 (additive) {
-    @key       customerId:   uuid
-               legalName:    string
-    @pii       email:        string
-               phoneNumber?: string
-               status:       enum(active, suspended, deleted)
-    @server    createdAt:    timestamp
-    @server    updatedAt?:   timestamp
-  }
-
-  auto projections Customer @ 1 {
-    db
-    request
-    reply
-    event
-  }
-}
-```
-
-The compiler generates `CustomerDb @ 1`, `CustomerRequest @ 1`, `CustomerReply @ 1`, and `CustomerEvent @ 1`. Each is an immutable, versioned projection registered in the lineage graph.
-
-Individual kinds support inline customisation:
-
-```mdl
-auto projections Customer @ 1 {
-  db
-  request exclude [status]
-  reply   exclude [@pii]
-  event   on [created, deleted]
-}
-```
-
-`exclude` accepts field names, annotation filters (`@pii`, `@classification("confidential")`), or both. `on` accepts any subset of `[created, updated, deleted]`.
-
-Auto projections may only target `entity` or `aggregate` models. The four generated names are reserved; defining an explicit projection with the same name for the same entity version is a compile error. For use cases requiring joins, aggregations, or computed fields, hand-authored projections remain necessary.
-
-> For the full IDL syntax, compiler expansion rules, and inline customization options, see [language-reference.md](language-reference.md) §3.7.
-
-### 3.6 Subscription
-
-> **Status: deferred.** `subscription` blocks parse and are validated
-> structurally, but nothing executes them — there is no subscription runtime.
-
-A subscription declares how a projection is kept up to date from one or more source streams or change sources.
-
-Required properties:
-
-- `name`: Unique subscription name.
-- `projection`: Target projection version.
-- `source`: Stream, change data capture source, or model source.
-- `target`: Stream or database target.
-- `delivery`: Delivery and retry semantics.
-- `state`: Optional state management for joins and aggregations.
-
-Example (Phase 5 — subscription IDL syntax is defined in the Phase 5 spec):
-
-```mdl
-subscription billing-customer-replica {
-  projection: billing.BillingCustomer @ 1
-
-  source {
-    type: stream
-    model: customer.Customer @ 2
-  }
-
-  target {
-    type: database
-    adapter: postgres
-    table: "billing_customers"
-  }
-
-  delivery {
-    mode: at_least_once
-    idempotencyKey: billingCustomerId
-    deadLetter: "billing-customer-replica-dlq"
-  }
-}
-```
-
-### 3.7 Adapter Binding
-
-> **Status: partially implemented.** `binding` declarations parse and are used
-> narrowly today (for example, SQL DDL table-name resolution in
-> `sql-postgres`/`sql-clickhouse` output). The broader runtime
-> materialization/adapter-execution model this section describes is deferred
-> — see §7.3–§7.5.
-
-An adapter binding connects a logical model, projection, subscription, or materialization to a concrete backend.
-
-Adapter bindings must be separate from model definitions.
-
-Example:
-
-```mdl
-binding customer-postgres {
-  model:   customer.Customer @ 2
-  adapter: postgres
-  table:   "customers"
-  fields: {
-    customerId -> customer_id
-    legalName  -> legal_name
-    createdAt  -> created_at
-  }
-}
-```
-
-## 4. Type System
-
-The core type system must support:
-
-| IDL type | Description |
-|:---------|:------------|
-| `string` | UTF-8 string |
-| `bool` | Boolean |
-| `int` | 64-bit integer |
-| `float` | 64-bit float |
-| `decimal(p,s)` | Arbitrary-precision decimal |
-| `uuid` | UUID v4 |
-| `timestamp` | UTC datetime with microsecond precision |
-| `date` | Calendar date (no time component) |
-| `time` | Time of day (no date component) |
-| `duration` | ISO 8601 duration |
-| `binary` | Raw bytes |
-| `enum(a, b, c)` | Inline enumeration |
-| `array<T>` | Ordered list of type T |
-| `map<K, V>` | Key-value map |
-| `ref<Domain.Model>` | Cross-domain model reference |
-| Named type (bare `IDENT`) | Reference to a `value` object in the same domain |
-
-Field modifiers:
-
-- `?` suffix — optional field (nullable / not required)
-- `@key` — identity field (required for `entity` and `aggregate` models)
-- `@pii` — marks field as personally identifiable information
-- `@classification("level")` — governance classification level (`open`, `internal`, `confidential`, `restricted`, `secret`), ordered from least to most restricted
-- `@deprecated(replacedBy: "field")` — marks field as deprecated
-- `@owner("team")` — field-level ownership override
-- `@server` — field is assigned by the server at write time (e.g. auto-generated identifiers, audit timestamps). Excluded from `request` auto projections by default.
-
-Example:
-
-```mdl
-@pii
-@classification("confidential")
-email?: string
-```
-
-## 5. Projection Semantics
-
-### 5.1 Field Selection
-
-A projection may expose a subset of source fields. The `<-` operator declares a direct mapping and makes lineage unambiguous.
-
-```mdl
-customerId <- c.customerId
-name       <- c.legalName
-```
-
-### 5.2 Field Rename
-
-Renames are expressed as projection mappings with a different target name on the left.
-
-```mdl
-invoiceEmail <- c.email
-```
-
-### 5.3 Computed Fields
-
-Computed fields use the `=` operator with a CEL expression over source fields. The compiler records which source fields appear in the expression for lineage tracking.
-
-```mdl
-isActive = c.status == "active"
-```
-
-The expression language must be deterministic, side-effect free, and validateable by the planner.
-
-### 5.4 Filters
-
-Row-level filters are expressed as `join` conditions or as boolean computed fields. A dedicated `where` clause may be added in a future version.
-
-### 5.5 Joins
-
-A projection may join multiple source models. The `on` expression is a CEL equality comparison between aliased fields.
-
-```mdl
-projection OrderWithCustomer @ 1
-  from orders.Order @ 3 as o
-  join customer.Customer @ 2 as c on o.customerId == c.customerId
-{
-  orderId      <- o.orderId
-  customerName <- c.legalName
-  total        <- o.totalAmount
-}
-```
-
-The planner must reject joins that cannot be executed by the selected runtime or adapters.
-
-### 5.6 Aggregations
-
-Aggregations use `group by` on the source alias and aggregate functions (`count`, `sum`, `min`, `max`, `avg`) in computed fields.
-
-```mdl
-domain analytics {
-  projection CustomerOrderSummary @ 1
-    from orders.Order @ 3 as o
-    group by o.customerId
-  {
-    customerId    <- o.customerId
-    totalOrders    = count(o.orderId)
-    lifetimeValue  = sum(o.totalAmount)
-    lastOrderAt    = max(o.createdAt)
-  }
-}
-```
-
-Supported initial aggregate functions:
-
-- `count`
-- `sum`
-- `min`
-- `max`
-- `avg`
-
-Windowed aggregations may be added later.
-
-## 6. Streaming Semantics
-
-### 6.1 Change Event Envelope
-
-Streaming model data must use a stable envelope.
-
-```json
-{
-  "domain": "customer",
-  "model": "Customer",
-  "version": 2,
-  "operation": "upsert",
-  "key": "cust_123",
-  "sequence": "00000000042",
-  "timestamp": "2026-05-12T10:00:00Z",
-  "payload": {
-    "customerId": "cust_123",
-    "legalName": "Acme AB",
-    "email": "billing@acme.test",
-    "status": "active",
-    "createdAt": "2026-05-12T09:55:00Z"
-  }
-}
-```
-
-Required envelope fields:
-
-- `domain`
-- `model`
-- `version`
-- `operation`
-- `key`
-- `timestamp`
-- `payload`
-
-Recommended envelope fields:
-
-- `sequence`
-- `traceId`
-- `correlationId`
-- `producer`
-- `schemaId`
-- `sourceOffset`
-
-Supported operations:
-
-- `insert`
-- `update`
-- `upsert`
-- `delete`
-- `snapshot`
-
-### 6.2 Delivery Modes
-
-The platform must support:
-
-- `at_most_once`
-- `at_least_once`
-- `effectively_once`
+## 2. Design principles
 
-`effectively_once` means the runtime provides idempotent writes and deterministic replay, not that the underlying broker necessarily provides global exactly-once delivery.
-
-### 6.3 Ordering
+### 2.1 Semantic core, replaceable edges
 
-Ordering is guaranteed per model identity key when the selected stream adapter supports partitioning by key.
+The language describes domain semantics. It must not accumulate implementation details for individual emitters, frameworks, databases, brokers, SDKs, or deployment environments.
 
-The system must not promise global ordering across all records or all domains.
+Target-specific behavior belongs in extensions, overlays, policies, adapters, or generated artifacts.
 
-### 6.4 Replay and Backfill
-
-Subscriptions must support replay where the source adapter supports retained events or change logs.
+### 2.2 One semantic implementation
 
-Materialized projections must support rebuild from:
+CLI, browser, LSP, CI, build plugins, agents, and future server surfaces must reuse the same semantic engine. A host may differ in transport and persistence, but must not reimplement Modelable semantics.
 
-- Source streams.
-- Source database snapshots.
-- A combination of snapshot plus stream catch-up.
+### 2.3 Stable meaning before feature breadth
 
-### 6.5 Dead Letter Handling
+New grammar constructs are expensive because they affect parsing, validation, compatibility, lineage, language tooling, documentation, browser support, and many emitters.
 
-Invalid or unprocessable events must be routed to a dead-letter target when configured.
-
-Dead-letter records should include:
+A new requirement should first be expressed using existing semantics plus one of:
 
-- Original event.
-- Validation error.
-- Projection name and version.
-- Subscription name.
-- Processing timestamp.
-- Retry count.
+- projection
+- semantic/value type
+- policy
+- target overlay
+- emitter
+- analyzer
+- importer
+- adapter
 
-## 7. Runtime Architecture
+The grammar should change only when the requirement cannot be represented correctly through those mechanisms.
 
-### 7.1 Model Registry
+### 2.4 Nominal identity over structural copying
 
-The model registry stores:
+Reusable semantic declarations must preserve declaring identity and version. Enums, semantic types, values, entities, events, aggregates, and projections should not be duplicated structurally when a nominal reference can represent the same contract.
 
-- Domains.
-- Models.
-- Model versions.
-- Projections.
-- Projection versions.
-- Subscriptions.
-- Adapter bindings.
-- Compatibility reports.
-- Lineage metadata.
-- Access policies.
+### 2.5 Explicit derivation
 
-The registry must expose APIs for:
+Every derived field must retain source lineage. Selection, rename, computation, join, filtering, aggregation, conversion, and projection chaining must produce inspectable derivation edges.
 
-- Create draft model.
-- Publish model version.
-- Deprecate model version.
-- Register projection.
-- Validate projection.
-- Query lineage.
-- Query compatibility.
-- Export schemas and generated artifacts.
-
-### 7.2 Compiler and Planner
+### 2.6 Compatibility is layered
 
-The compiler normalizes definitions into an internal representation.
+Semantic compatibility and target compatibility are different concerns.
 
-The planner validates whether a model, projection, or subscription can be executed against the selected adapters.
+Semantic analysis identifies facts such as:
 
-Planner responsibilities:
+- field removed
+- requiredness changed
+- type changed
+- enum narrowed
+- key changed
+- projection source changed
 
-- Resolve source references.
-- Validate field mappings.
-- Validate expression types.
-- Validate access permissions.
-- Validate adapter capabilities.
-- Determine whether execution is pushdown, runtime-based, or unsupported.
-- Produce executable projection plans.
-
-The planner's primary output is a **plan document** — a structured, serialisable artifact (JSON) that the runtime engine (Phase 5) interprets at execution time. Plan documents are not generated executable code; they are data that describes how to execute a projection. They are human-readable, diffable in git, and inspectable for debugging.
+Target evaluators interpret those facts for Protobuf, OpenAPI, Avro, SQL, generated SDKs, or other consumers.
 
-A plan document contains:
-
-- Resolved source model versions (exact version numbers, not ranges).
-- Field mapping table: each target field mapped to its source field and optional transformation expression.
-- Filter expression in CEL string form.
-- Join descriptors: type (`left`, `inner`), left key, right key, and declared cardinality.
-- Aggregation descriptors: group-by fields and aggregate function per output field.
-- Adapter capability assertions evaluated during planning.
-- Planner metadata: validation timestamp and planner version.
-
-Plan documents are written to `.modelable/plans/<domain>.<Projection>.v<version>.plan.json` by the `compile` command.
-
-### 7.3 Runtime Engine
-
-> **Status: deferred.** No runtime engine exists. Plan documents (§7.2) are
-> written to disk but nothing interprets or executes them.
-
-The runtime engine executes plans produced by the planner.
-
-Execution modes:
-
-- `batch`: Run projection over bounded data.
-- `query`: Resolve projection on demand.
-- `stream`: Transform events continuously.
-- `materialized`: Maintain projected replica in target storage.
+### 2.7 Offline and deterministic by default
 
-### 7.4 Materializer
+Compilation must not require a network service. Exact dependency state, source provenance, semantic identity, and usage should be reproducible from version-controlled inputs and deterministic snapshots.
 
-> **Status: deferred.** `cli/src/modelable/runtime/adapter/postgres.py` has a
-> `materialize()` method that issues a single `INSERT ... ON CONFLICT`
-> statement — none of the idempotent-write tracking, retry, dead-letter,
-> rebuild, snapshot-catch-up, or health/lag reporting this section describes
-> exists.
+### 2.8 Runtime is outside the core
 
-The materializer keeps a target projection synchronized with source data.
+Modelable may generate runtime contracts and validation packages, but it should not become a broker abstraction, streaming engine, database synchronization runtime, materializer, or distributed registry.
 
-It must support:
+Other systems may consume Modelable artifacts to implement those concerns.
 
-- Idempotent writes.
-- Offset tracking.
-- Retry policy.
-- Dead-letter routing.
-- Rebuild.
-- Snapshot plus stream catch-up.
-- Health and lag reporting.
+## 3. Core contracts
 
-### 7.5 Adapter Layer
+Modelable should stabilize three deliberately versioned contracts.
 
-> **Status: deferred.** One minimal, single-target adapter exists
-> (`cli/src/modelable/runtime/adapter/postgres.py`: schema bootstrap and a
-> naive upsert, no read path). The multi-category adapter system (storage,
-> stream, schema, CDC) this section describes is not implemented.
+### 3.1 Semantic graph
 
-Adapters isolate backend-specific behavior.
+The semantic graph is the canonical representation of meaning after syntax has been resolved.
 
-Adapter categories:
+It owns:
 
-- Storage adapters.
-- Stream adapters.
-- Schema adapters.
-- CDC adapters.
+- declaration identity
+- domain ownership
+- versions
+- fields and members
+- type identity
+- references
+- projections
+- derivations
+- lineage
+- semantic annotations
+- compatibility-relevant facts
 
-Each adapter must publish its capabilities so the planner can determine support.
+Parser-specific objects are not a public extension API.
 
-Adapter capabilities are declared internally by each adapter implementation and are not authored in `.mdl` files. The planner queries adapter capability metadata at plan time. Example capability shape (internal representation):
+The internal Python representation may evolve. The semantic meaning may not change silently.
 
-```json
-{
-  "adapter": "postgres",
-  "capabilities": {
-    "storage": true,
-    "transactions": true,
-    "joins": true,
-    "aggregations": true,
-    "jsonFields": true,
-    "cdc": "logical_decoding"
-  }
-}
-```
+### 3.2 Plan document
 
-## 8. Versioning and Compatibility
+`modelable.plan/v1` is the stable target-neutral representation consumed by generators and analyzers.
 
-### 8.1 Model Versioning
+It must be:
 
-Model versions are immutable once published.
+- deterministic
+- serializable
+- schema-versioned
+- independent of Python object identity
+- sufficient for emitters without access to parser internals
+- usable by browser and native hosts
 
-A version may be authored either as a complete field list, or as a delta
-against an exact prior version (`evolves @ N { add/remove/rename/replace
-... }` — see [Language Reference
-§2.7](language-reference.md#27-model-version-evolution-evolves)). This is
-purely an authoring-time choice: the compiler expands a delta into the
-identical complete version before any rule in this section applies, so the
-compatibility classification, planner behavior, and every guarantee below
-are defined in terms of the *normalized* version and apply identically
-regardless of which form a given version was written in.
+A plan should contain normalized declarations, resolved references, lineage, compatibility-relevant metadata, and target-neutral generation facts.
 
-Compatible changes:
+### 3.3 Extension protocol
 
-- Add optional field.
-- Add field with default.
-- Add documentation.
-- Add metadata.
-- Mark field as deprecated.
+Extensions must depend on stable contracts rather than compiler internals.
 
-Potentially incompatible changes:
-
-- Add required field.
-- Remove field.
-- Rename field.
-- Change field type.
-- Change enum semantics.
-- Change identity.
-- Change nullability from nullable to non-nullable.
-- Change validation constraints in a stricter way.
-
-### 8.1.1 `changeKind` Declaration and Enforcement
-
-When publishing a new model version (`status: published`), authors must declare `changeKind`:
-
-- `additive` — only backward-compatible changes were made. The set of compatible changes is defined in section 8.1 above. Existing projections that pin an earlier version or use a compatible version range remain valid without re-publication.
-- `breaking` — at least one incompatible change was made. The set of potentially incompatible changes is defined in section 8.1 above.
-
-**Planner enforcement for `breaking` versions:**
-
-When a new version with `changeKind: breaking` is published, the planner marks all projections that reference any version of that model as requiring re-validation. Subscriptions backed by an affected projection are blocked from planning until the projection author explicitly re-publishes a new projection version that references a valid source version. The registry must expose a `listAffectedProjections(domain, model, breakingVersion)` query to support this workflow.
-
-**Planner enforcement for `additive` versions:**
-
-Projections with exact version pins are unaffected. Projections using version ranges are automatically re-validated against the new version (see section 8.2). If re-validation passes, no author action is required.
-
-**Draft versions:** `changeKind` is not required and is ignored for `draft` status versions.
-
-### 8.2 Projection Versioning
-
-Projection versions are immutable once published.
-
-A projection version must declare exact source model versions unless explicitly configured to accept a compatible version range.
-
-Example:
-
-```mdl
-projection BillingCustomer @ 1
-  from customer.Customer @ >=2 <3 as c
-{
-  ...
-}
-```
-
-**Version range resolution rules:**
-
-- Ranges are resolved to the **highest published version** that satisfies the constraint at plan time.
-- Since model versions are integers, range syntax uses integer comparisons: `>=2 <3` means "version 2 only", `>=2` means "version 2 or higher".
-- Exact version pins (`version: 2`) are resolved immediately and are not affected by future publications. They are recommended for production projections that require maximum stability.
-- When a new compatible (`changeKind: additive`) version is published within the declared range, the planner **automatically re-validates** the projection against the new resolved version. If re-validation passes, no projection author action is required.
-- When a new version with `changeKind: breaking` is published and falls within the declared range, the planner raises a validation error and blocks the subscription. The projection author must update the version range and re-publish.
-- The resolved concrete version is recorded in the plan document (see section 7.2). Re-planning uses the latest resolved version, not the version that was resolved at the last plan time.
-
-### 8.3 Deprecation
-
-Deprecation must be explicit and traceable.
-
-```mdl
-@deprecated(replacedBy: "primaryEmail")
-email?: string
-```
-
-The `removalAfter` date is tracked in registry metadata outside the IDL field declaration.
-
-The registry must be able to list consumers affected by a planned deprecation.
-
-## 9. Governance and Access Control
-
-The platform must support field-level classification.
-
-Classification levels form an ordered hierarchy from least to most restricted:
-
-| Level | Meaning |
-|:------|:--------|
-| `open` | No access restriction. Safe to expose to any consumer. |
-| `internal` | Restricted to internal consumers within the organisation. |
-| `confidential` | Restricted to explicitly authorised consumers. |
-| `restricted` | Restricted to a narrow, explicitly authorised set of consumers, stricter than `confidential`. |
-| `secret` | Highest restriction. Requires explicit governance approval to project. |
-
-`@pii` is an orthogonal annotation that marks personally identifiable information. A field may carry both `@pii` and a classification level — they govern different aspects (data sensitivity versus access tier).
-
-Governance checks must apply when:
-
-- Creating projections.
-- Creating subscriptions.
-- Exporting schemas.
-- Materializing projections.
-- Reading registry metadata where sensitive fields are exposed.
-
-In Phase 1, the planner reports governance findings for projections that expose secret, insufficiently documented, or classification-lowering fields. Later policy layers may promote those findings to blocking authorization decisions.
-
-## 10. Lineage
-
-The registry must store lineage from target fields back to source fields.
-
-Example lineage:
+An extension descriptor should expose at least:
 
 ```text
-billing.BillingCustomer.v1.invoiceEmail
-  <- customer.Customer.v2.email
+id
+version
+accepted plan versions
+capabilities
+configuration schema
+output kinds
+compatibility support
 ```
 
-The system must answer:
+The in-process Python API may be convenient, but the long-term boundary should also support subprocesses and WASM so extensions can be implemented independently of the compiler language.
 
-- Which models depend on this source model?
-- Which projections use this field?
-- Which subscriptions materialize this projection?
-- Which downstream systems are affected by a breaking change?
-- Which fields contain data derived from PII?
+## 4. Unified declaration model
 
-## 11. Generated Artifacts
+Modelable should converge on one declaration family:
 
-The system generates artifacts from the normalized model graph. External tools consume these artifacts; they do not feed back into the internal model.
-
-```
-Modelable IDL (.mdl files)
-   |
-   v
-Lark Parser + Semantic Validator
-   |
-   v
-Normalized Model Graph (Pydantic IR)
-   |
-   |-- JSON Schema
-   |-- Markdown docs
-   |-- TypeScript types
-   |-- OpenMetadata metadata
-   |-- ODCS export
-   `-- Registry artifacts (Apicurio)
+```text
+Declaration
+├── Entity
+├── Aggregate
+├── Event
+├── Value
+├── Enum
+├── SemanticType
+└── Projection
 ```
 
-### Incorporation Order
+Common declaration concepts should be modeled once:
 
-Artifacts are introduced in phases. Later phases depend on the normalized graph being stable.
+- qualified semantic identity
+- exact version
+- ownership
+- documentation
+- compatibility policy
+- members or fields
+- references
+- lineage
+- deprecation state where supported
 
-**Phase 1 — Local modelling compiler:**
+Declaration kinds may impose different constraints, but they should not create parallel resolution, versioning, or compatibility systems.
 
-- JSON Schema 2020-12 (first generated contract format)
-- Markdown documentation
-- TypeScript types (via `json-schema-to-typescript`)
+### 4.1 Semantic identity
 
-**Phase 2 — Artifact registry:**
+Every reusable declaration must have a canonical identity independent of source file location and target output naming.
 
-- Apicurio Registry (stores and versions generated JSON Schema artifacts)
+Conceptually:
 
-**Phase 3 — Catalog / governance sync:**
-
-- OpenMetadata export (domains, assets, lineage, classification tags)
-
-**Phase 4 — Contract interchange:**
-
-- Open Data Contract Standard (ODCS) export
-- Data Contract CLI compatibility
-
-**Phase 5 — Event and API targets:**
-
-- Avro (event schemas, Kafka contracts)
-- Protobuf + Buf (gRPC, binary wire format)
-- OpenAPI (REST API contracts)
-- AsyncAPI (event contract documentation)
-
-### External Tool Boundaries
-
-| External Tool | Role | What Modelable Does Not Delegate |
-| :--- | :--- | :--- |
-| JSON Schema / jsonschema | Generated contract format and validation | Internal DSL definition |
-| Apicurio Registry | Artifact storage and versioning | Source of truth |
-| OpenMetadata | Catalog UI, ownership, lineage visualization | Projection resolution |
-| ODCS / Data Contract CLI | Interchange and CI validation | Internal model shape |
-| json-schema-to-typescript | TypeScript type generation | Custom TS generator |
-
-### JSON Schema Extensions
-
-Generated JSON Schema documents use `x-modelable-*` vendor extensions to carry Modelable-specific metadata:
-
-| Extension | Purpose |
-| :--- | :--- |
-| `x-modelable` | Model kind, domain, name, and version block |
-| `x-modelable-field` | Fully qualified field reference for lineage |
-| `x-modelable-classification` | Field classification level: `open`, `internal`, `confidential`, `restricted`, or `secret`. Set only when `@classification` is declared; `@pii` is carried separately in `x-modelable-field`. |
-| `x-modelable-lineage` | Source field reference for derived fields |
-| `x-modelable-ref` | Cross-model reference |
-| `x-modelable-por` | Portable ownership record reference |
-
-All generated artifacts must include model version metadata.
-
-## 12. Storage Model for Registry
-
-The registry uses a **file-first, SQLite-indexed** storage model.
-
-**Source of truth: `.mdl` files and explicit registry snapshots.** Authors write and version-control `.mdl` definition files using the Modelable IDL. An explicit `modelable registry resolve` operation may materialize exact external dependencies as a durable `.modelable/registry.lock` plus content-addressed objects. Ordinary compilation and analysis never refresh these snapshots or contact a network source.
-
-**Derived index: SQLite.** The `modelable compile` command reads all `.mdl` files and local registry snapshot objects and writes a derived `registry.db` (SQLite) file to the `.modelable/` output directory. The database is a build artifact — never edited directly. Deleting it and re-running `compile` must produce an identical result without contacting a network source.
-
-SQLite is used because it provides efficient relational queries for lineage traversal, consumer lookup, and compatibility checks without requiring a server or any setup for local use.
-
-**Output layout (post-compile, local mode):**
-
-```
-.modelable/
-  registry.db                          # derived — rebuilt by `modelable compile`
-  registry.lock                        # durable exact dependency snapshot
-  registry/objects/<sha256>.json       # content-addressed normalized contracts
-  plans/
-    customer.Customer.v2.plan.json     # interpreted plan document
-  artifacts/
-    customer/
-      Customer.v2.json                 # generated JSON Schema
-      Customer.v2.md                   # generated Markdown
-      Customer.v2.ts                   # generated TypeScript types
+```text
+customer.Customer@4
+customer.CustomerStatus@2
+customer.CustomerId@1
+billing.BillingCustomer@3
 ```
 
-**Minimum logical entities in `registry.db`:**
+Field identity extends that path:
 
-- `domains`
-- `models`
-- `model_versions`
-- `fields`
-- `projections`
-- `projection_versions`
-- `projection_sources`
-- `projection_fields`
-- `field_mappings`
-- `aggregations`
-- `subscriptions`
-- `adapter_bindings`
-- `compatibility_reports`
-- `lineage_edges`
-- `access_policies`
-
-Published definitions are stored as complete immutable `.mdl` documents within the source files to preserve exact historical contracts. The SQLite index is derived from these documents, not the other way around.
-
-### 12.1 Distributed Mode
-
-When a `registry` block is present in `workspace.mdl`, the compiler operates in **distributed mode**. Peers are other git repositories. The CLI owns graph traversal and sync — no running server is required.
-
-**Output layout (post-compile, distributed mode):**
-
-```
-<workspace>/                           # source-controlled
-  workspace.mdl
-  *.mdl
-  consumers/
-    <peer-registry-id>/
-      <Projection>@<v>.mdl             # written by peer compilers (two-way write-back)
-
-.modelable/                           # build artifacts — all rebuildable by modelable compile
-  registry.db                          # single derived database (local + mirrored models, lineage, peers)
-  mirror/
-    <peer-registry-id>/                # sparse checkout of peer .mdl files
-      *.mdl
-  plans/
-    billing.BillingCustomer.v1.plan.json
-  artifacts/
-    billing/
-      BillingCustomer.v1.json
-      BillingCustomer.v1.ts
-      BillingCustomer.v1.md
+```text
+customer.Customer@4.email
 ```
 
-**Sources of truth that must be committed to git:**
+These identities are used by overlays, plan documents, lockfiles, lineage, usage evidence, and consequence analysis.
 
-- All `.mdl` source files.
-- `consumers/` entries (incoming write-backs from downstream registries).
+### 4.2 Enums and semantic types
 
-Everything under `.modelable/` is a build artifact. Deleting it and running `modelable compile` reproduces it.
+Enums and semantic types are first-class versioned declarations.
 
-**`registry.db` additions for distributed mode:**
+Consumers reference them nominally. A reference carries declaration identity and version, not a copied structural representation.
 
-- `registry_peers` — declared peer nodes, git remotes, sync and writeback modes, last-fetched git SHA.
-- `mirrored_model_versions` — cached foreign model versions with content signatures.
-- `consumers` — downstream dependents derived from the `consumers/` directory.
-- Two new columns on `lineage_edges`: `source_content_signature`, `is_cross_registry`, `source_registry_id`.
+Inline syntax may remain as authoring convenience, but compiler normalization should prefer explicit declarations when identity matters.
 
-Every published model version receives a **content signature** — a SHA-256 hash of its canonical definition — stored in `registry.db` and written into all cross-registry references. Git's SHA chain provides tamper evidence for the source files themselves; content signatures provide it for derived cross-registry references in plan documents and `consumers/` entries.
+## 5. Projection as the universal derivation mechanism
 
-See [compiler-reference.md](compiler-reference.md) for registry, graph export, and distributed-lineage behavior.
+A projection is a named, versioned derivation of one or more semantic declarations.
 
-## 13. APIs
+Projection should not be limited to DTO generation.
 
-### 13.1 Registry API
+Valid uses include:
 
-Required operations:
+- API request contract
+- API reply contract
+- persistence shape
+- event payload
+- analytics dataset
+- materialized read model contract
+- consumer-specific subset
+- enum subset
+- public compatibility view
+- cross-domain composite view
 
-- `createDomain`
-- `createModelDraft`
-- `publishModelVersion`
-- `deprecateModelVersion`
-- `createProjectionDraft`
-- `publishProjectionVersion`
-- `validateProjection`
-- `getModelVersion`
-- `getProjectionVersion`
-- `listDependencies`
-- `listConsumers`
-- `checkCompatibility`
-- `exportArtifact`
+The same lineage and compatibility machinery should apply regardless of source declaration kind.
 
-### 13.2 Runtime API
+Auto projections are authoring sugar. They must normalize into ordinary explicit projection semantics before later compiler phases.
 
-Required operations:
+## 6. Target-specific overlays
 
-- `planProjection`
-- `runBatchProjection`
-- `startSubscription`
-- `stopSubscription`
-- `rebuildMaterialization`
-- `getSubscriptionStatus`
-- `getProcessingErrors`
-- `retryDeadLetter`
+Emitter and platform configuration must not expand the semantic language indefinitely.
 
-## 14. Error Handling
+Target-specific configuration belongs in an external overlay, preferably TOML.
 
-### 14.1 Definition Errors
+Example:
 
-Definition errors must prevent publication.
+```toml
+[typescript."customer.Customer@4.customerId"]
+type = "CustomerId"
+
+[protobuf."customer.Customer@4.customerId"]
+number = 1
+
+[sql-postgres."customer.Customer@4"]
+table = "customers"
+```
+
+Overlays address canonical semantic identities, never parser positions or source line numbers.
+
+The overlay mechanism may later carry:
+
+- serialization names
+- framework attributes
+- SQL table/column mapping
+- Protobuf field numbers
+- SDK naming
+- ORM hints
+- deployment-specific bindings
+- Unity or other framework-specific generation details
+
+This replaces target-specific semantic annotations such as `@wire` over time. Existing syntax may remain temporarily for compatibility, but target configuration should move out of the semantic IR.
+
+## 7. Registry and lockfile
+
+The authoritative registry model is an offline deterministic snapshot, not a mandatory service.
+
+`modelable.lock/v1` should capture the exact state required to reproduce resolution and impact analysis, including:
+
+- exact declaration versions
+- content hashes
+- source provenance
+- transitive dependencies
+- semantic identities
+- declarations actually used
+- fields/projections actually used where available
+- generation or plan fingerprints where useful
+
+A SQLite registry may remain as a disposable local index or cache over this information. It is not the semantic authority.
+
+Remote schema registries and catalogs are adapters around generated artifacts and snapshots.
+
+## 8. Usage graph
+
+Declared consumers are weaker evidence than actual compilation usage.
+
+A consuming application should produce a snapshot proving what it compiled against. Aggregating these snapshots creates the usage graph.
+
+Example:
+
+```text
+customer.Customer@4
+├── web-frontend
+├── billing-service
+└── crm-import
+```
+
+Usage edges may point to whole declarations, projections, or individual fields.
+
+This allows Modelable to distinguish theoretical compatibility from actual blast radius.
+
+## 9. Change and consequence graphs
+
+A diff is not the final product of evolution analysis.
+
+Modelable should derive an explicit graph:
+
+```text
+Change
+  ↓ impacts
+Semantic declaration
+  ↓ invalidates / affects
+Projection
+  ↓ changes
+Artifact
+  ↓ requires
+Consumer action
+```
+
+Consequences should be structured nodes and edges rather than a growing list of string statuses.
+
+Typical terminal actions include:
+
+- no action
+- recompile
+- regenerate
+- migrate data
+- update consumer
+- review policy violation
+- breaking/manual intervention
+
+Every reported consequence should retain its causal path so tooling can answer:
+
+- what breaks?
+- why?
+- which declaration caused it?
+- which projection propagated it?
+- which generated artifact changes?
+- which repository or consumer is affected?
+- what can be automated?
+
+## 10. Compatibility architecture
+
+Compatibility runs in two layers.
+
+### 10.1 Semantic compatibility
+
+Semantic compatibility operates only on the semantic graph.
+
+It produces change facts independent of output target.
 
 Examples:
 
-- Unknown source model.
-- Unknown source field.
-- Type mismatch.
-- Invalid expression.
-- Unsupported aggregation.
-- Unauthorized field access.
-- Adapter capability mismatch.
+- declaration removed
+- field added/removed
+- requiredness changed
+- nullability changed
+- type widened/narrowed
+- enum member added/removed
+- identity changed
+- source version changed
+- projection mapping changed
 
-### 14.2 Runtime Errors
+### 10.2 Target compatibility
 
-Runtime errors must be observable and recoverable where possible.
+Target-specific evaluators consume semantic change facts plus target metadata.
 
 Examples:
 
-- Source stream unavailable.
-- Target database unavailable.
-- Invalid source payload.
-- Write conflict.
-- Offset commit failure.
-- Dead-letter write failure.
+- Protobuf field number reuse
+- OpenAPI client incompatibility
+- Avro reader/writer compatibility
+- destructive SQL migration
+- generated language API break
 
-Runtime errors must include enough context to identify:
+Target compatibility must not be embedded into generic semantic diff code.
 
-- Subscription.
-- Projection.
-- Source event.
-- Target operation.
-- Error category.
-- Retry state.
+## 11. Capability negotiation
 
-## 15. Observability
+Target support should become declarative and extension-owned rather than a central hardcoded matrix.
 
-The system must expose:
-
-- Subscription health.
-- Processing lag.
-- Last processed offset.
-- Throughput.
-- Error count.
-- Dead-letter count.
-- Rebuild progress.
-- Adapter health.
-- Projection version currently deployed.
-
-Logs and metrics must include:
-
-- Domain.
-- Model.
-- Model version.
-- Projection.
-- Projection version.
-- Subscription.
-
-## 16. Security Requirements
-
-The system must support:
-
-- Authentication for registry and runtime APIs.
-- Authorization at domain, model, projection, and field level.
-- Audit logs for publication, deprecation, access policy changes, and subscription changes.
-- Optional encryption metadata for sensitive fields.
-- Redaction rules for logs and dead-letter payloads.
-
-PII and restricted fields must not be exposed to projections unless explicitly permitted.
-
-## 17. MVP Scope (Phase 1)
-
-The first version implements the local modelling compiler. Apicurio JSON Schema
-artifact publish/pull is available as a derived-artifact integration. Runtime
-materialization, live catalog sync, and distributed registry services remain
-deferred.
-
-### 17.1 Implementation Stack
-
-- **Parser:** `lark>=1.1` (Earley parser, EBNF grammar in `cli/src/modelable/grammar/modelable.lark`).
-- **IR:** `pydantic>=2.0` (typed internal model graph; not exposed as the external contract format).
-- **Output validation:** `jsonschema>=4.23`, `referencing>=0.35`.
-- **Output:** JSON Schema 2020-12, Markdown, TypeScript (via `json-schema-to-typescript`).
-- **CLI:** `click>=8.1`, `rich>=13.0`.
-
-### 17.2 CLI Commands
-
-See the [Modelable Tooling Reference](cli-reference.md) for the full command reference.
-
-### 17.3 Included in MVP
-
-- Domain registry.
-- Model definition and immutable publishing.
-- `@server` field annotation.
-- Projection definition with field selection, rename, simple expressions (CEL), and filters.
-- Auto projections (`db`, `request`, `reply`, `event`) with compiler expansion and full lineage tracking.
-- Exact source version references and compatible version ranges.
-- Compatibility checks for additive and breaking changes.
-- Lineage tracking.
-- JSON Schema 2020-12 generation with `x-modelable-*` extensions.
-- TypeScript type generation via `json-schema-to-typescript`.
-- Markdown documentation generation.
-- Basic CLI for publishing, validating, compiling, and exporting definitions.
-- `modelable inspect <Entity>@<v> --auto` command to display the compiler-expanded auto projections.
-
-### 17.4 Conversational authoring services
-
-Conversational workspace management is an application-service layer over the
-compiler. Its dependency direction is:
+A target advertises support for capabilities such as:
 
 ```text
-CLI chat
-  -> ConversationSession
-  -> conversational planner
-  -> workspace editor (source changes) or CompilationService (local compilation)
-  -> parser, IR, renderer, validator, compatibility and dependency analysis
-
-VS Code ChatParticipant
-  -> vscode-languageclient custom request v2
-  -> bounded Python ConversationSession registry
-  -> conversational planner
-  -> workspace editor or CompilationService
-  -> parser, IR, renderer, validator, compatibility and dependency analysis
+records
+enums
+semantic-types
+unions
+maps
+constraints
+lineage
+compatibility
 ```
 
-The schema-constrained planner produces typed query, change-set,
-clarification, or unsupported results. The provider-independent workspace
-editor applies only semantic operations to copied IR documents, renders and
-validates a staged workspace, calculates compatibility and dependency impact,
-and owns fingerprinted preview/apply behavior with rollback protection. The
-conversation service owns pending proposal state and explicit confirmation;
-the Click command is a thin transport adapter.
+Before emission, Modelable compares the normalized plan with target capabilities and produces deterministic diagnostics for unsupported constructs.
 
-`CompilationService` is the shared application boundary for both direct and
-conversational compilation. Direct `modelable compile` constructs a trusted
-request, compiles in isolation, and promotes its complete result
-transactionally while retaining its existing CLI policy. Conversation
-surfaces construct only closed local requests: implemented target, existing
-domain filters, normalized workspace-relative output, and the Protobuf/gRPC
-descriptor switch. They cannot select credentials, URLs, remote registries,
-commands, environment values, compiler flags, or freshness overrides.
+This prevents semantic additions from requiring scattered emitter-specific detection logic.
 
-Conversational preview runs the real compiler in private staging without
-workspace writes and retains an immutable destination manifest. That manifest
-contains exact staged bytes, before/after hashes and sizes, complete text
-snapshots and diffs, binary evidence, affected definitions, registry-ID
-allocations, warnings, and source/destination fingerprints. Only exact
-confirmation bound to the current session and pending action promotes those
-bytes; apply does not compile again. Freshness checks and a workspace-scoped
-file transaction protect generated destinations, registry state, plan files,
-descriptor artifacts, and the final privacy-preserving audit record. A failed
-promotion restores prior files and removes newly created transaction paths.
+## 12. Policy extensions
 
-The compiler remains authoritative for parsing, normalized IR, rendering,
-validation, compatibility, and dependency analysis. Compiler modules never
-depend on provider, chat, or conversation-state modules.
+Governance facts belong in the semantic graph. Organization- or regulation-specific policy belongs in evaluators.
 
-The language server is also the implemented transport for the native VS Code
-`@modelable` participant. A versioned custom protocol carries active-editor
-focus, dirty-document URIs, session identity, exact change-set identity, and
-structured replies. The server bounds the in-memory registry to 32 sessions
-and expires idle entries after 30 minutes. The extension renders canonical
-text, server-supplied definition anchors, structured compilation files, binary
-hashes and sizes, registry-ID additions, audit links, and exact virtual
-before/after snapshots in VS Code's built-in diff editor. Python rejects an
-apply when a dirty editor matches a generated destination.
+Avoid growing fixed annotations for every regime or organization.
 
-The extension does not parse `.mdl`, synthesize plans, validate a staged
-workspace, apply a `WorkspaceEdit`, or write source files. All semantic
-planning and changes remain Python-owned compiler/application-service work.
-Registry synchronization, publishing, and other external actions remain
-separate future work because each requires its own credential, authorization,
-preview, confirmation, and audit policy.
+Preferred shape:
 
-### Shipped beyond the original MVP scope
+```text
+semantic facts
+   ↓
+policy evaluator
+   ↓
+diagnostics / consequences
+```
 
-- OpenMetadata and OpenLineage local export (`compile --target openmetadata|openlineage`) plus
-  Marquez-compatible OpenLineage event sync (`sync --lineage marquez`).
-- ODCS / Data Contract CLI local import/export and lint validation.
-- dbt `schema.yml` export/import, FHIR R4 `StructureDefinition` export/import.
-- Multi-source joins in projections (composite-key joins across domains).
-- C#, Java, Python, Rust, and Go native code generation.
-- Protobuf payload schemas and Scalable-oriented gRPC service generation.
-- Fixed-width integers, fixed-length binary values, UUIDv7-compatible
-  identifiers, semantic types, deterministic registry IDs, and index
-  declarations.
-- Safe conversational CLI workspace management with grounded questions,
-  complete entity/projection proposals, compatibility-aware textual previews,
-  explicit confirmation, stale-source detection, rollback protection, and
-  post-apply reload.
-- Native VS Code `@modelable` workspace questions and management through the
-  versioned language-server conversation service, exact diff snapshots, and
-  apply/discard/reset lifecycle controls.
-- Local conversational compilation in CLI chat and VS Code, with real staged
-  output, structured file and affected-definition evidence, literal
-  confirmation, dirty-destination and freshness checks, rollback, and
-  privacy-preserving audit records.
+Policies may inspect ownership, classification, PII, lineage, target overlays, storage projections, or usage relationships without changing the core language.
 
-### Deferred
+## 13. Host architecture
 
-- PostgreSQL storage adapter (Phase 5).
-- Kafka stream adapter (Phase 5).
-- Materialized projection into PostgreSQL (Phase 5).
-- Live OpenMetadata catalog synchronization (local export only is shipped; see [integrations.md](integrations.md)).
-- Runtime OpenLineage event collection beyond design-time Modelable events.
-- AsyncAPI generation (Phase 5) — import-only support exists via
-  LLM-assisted generators. Avro export is implemented for model and event
-  records; deterministic Avro import remains deferred. OpenAPI export is implemented for schemas and
-  explicit paths/operations; deterministic OpenAPI JSON/YAML import is
-  implemented for component schemas, with LLM assistance still available for
-  unsupported fidelity and API constructs.
-- Stateful aggregations.
-- Windowed aggregations.
-- Multiple stream backends.
-- Multiple database backends.
-- Advanced policy engine.
-- Visual modeling UI.
-- Automatic migration generation.
-- Kafka runtime provisioning, Redis materialisers, ClickHouse loaders, Feast, API gateways, dbt, Great Expectations, Soda.
-- Distributed registry peer server (HTTP API for runtime lineage queries) — Phase 2, if needed.
-- Conversational registry synchronization, publishing, and external-service
-  actions.
-- WebLLM and a VS Code Language Model API provider adapter.
+The compiler core should be independent of filesystem, network, process, UI, and transport assumptions.
 
-## 18. Non-Goals
+Conceptual API:
 
-The platform is not initially:
+```text
+input:
+  workspace files
+  configuration
+  dependency snapshot
 
-- A replacement for all database schema migration tools.
-- A universal query engine.
-- A complete data catalog.
-- A full data warehouse transformation platform.
-- A generic ETL tool.
-- A business intelligence semantic layer.
+output:
+  diagnostics
+  semantic graph
+  plan
+  compatibility facts
+  consequences
+```
 
-It may integrate with those systems, but its primary responsibility is versioned domain model contracts and derived projections.
+Hosts provide I/O:
 
-## 19. Open Design Decisions
+```text
+CLI
+Browser
+LSP
+CI
+Build plugin
+MCP/agent integration
+Future server
+```
 
-System-level design decisions have been resolved. Phase-specific documents may still track implementation choices that are deferred until their phase.
+The browser implementation is an architectural conformance surface. Browser and native compilation of the same workspace must produce equivalent semantic results.
 
-**Resolved:**
+## 14. Showcase as executable specification
 
-- **Definition IDL:** Custom text IDL (`.mdl` files), parsed with Lark (Earley grammar). See [language-reference.md](language-reference.md) for the full design rationale and syntax reference.
-- **Expression language for computed fields:** CEL (Common Expression Language). Deterministic, non-Turing-complete, sandboxable.
-- **Internal parser models:** `pydantic`. Not exposed as the external contract format.
-- **First generated artifact:** JSON Schema 2020-12.
-- **Codegen architecture:** Codegen is a first-class extensible boundary. TypeScript, C#, Java, Python, Rust, and Go are implemented locally as native generated-language backends, and additional future framework targets remain open.
-- **Future generated-language targets:** Additional generated-language targets beyond the implemented TypeScript, C#, Java, Python, Rust, and Go backends remain deferred.
-- **Version scheme:** Integer versions with a required `changeKind: additive | breaking` declaration on publish. See section 8.1.
-- **Composite keys:** Not yet supported. Every entity and aggregate requires exactly one `@key` field today. See section 3.3 and [ROADMAP.md](https://github.com/ktjn/modelable/blob/main/ROADMAP.md#slice-d5--resolve-composite-key-support).
-- **Version ranges in projections:** Allowed in MVP. The planner resolves to the highest satisfying published version at plan time. See section 8.2.
-- **Registry storage:** File-first (`.mdl` source of truth) with a single `registry.db` SQLite derived index written by `compile`. In distributed mode peers are git remotes; `mirror/` holds sparse checkouts of foreign `.mdl` files; `consumers/` holds incoming write-backs from downstream registries. All derived data is in `registry.db`; all source of truth is in git. See section 12 and [compiler-reference.md](compiler-reference.md).
-- **Runtime plan execution:** Interpreted plan documents (structured JSON artifacts). Not generated code. See section 7.2.
-- **Sample scope:** Sample scenarios may include future-phase constructs such as `materialisation`, subscriptions, and runtime adapter bindings when they are clearly examples of deferred runtime behavior.
-- **AI model configuration:** LLM-assisted CLI commands use configurable model selection rather than a hard-coded model. See [cli-reference.md](cli-reference.md).
+`modelable-showcase` should act as an external conformance suite rather than only a demonstration application.
 
-## 20. Acceptance Criteria
+It should exercise:
 
-Phase 1 is acceptable when:
+- canonical models
+- enums and semantic types
+- projections
+- API generation
+- event generation
+- persistence generation
+- multiple programming languages
+- evolution across versions
+- compatibility analysis
+- conversions
+- browser compilation
+- native compilation
+- real generated consumer builds
 
-- A domain can publish a model version.
-- Another domain can define and publish a projection over that model.
-- The system can validate the projection before runtime.
-- The system can detect whether a model change breaks existing projections.
-- The system can show lineage from projection fields to source fields.
-- The model and projection can be exported as JSON Schema and TypeScript types.
-- Projection of restricted or insufficiently governed fields is detected and reported as governance findings. Phase 1 does not claim to enforce real-world organizational authorization; enforcement remains a governance process or future policy layer.
+A significant semantic feature should not be considered complete until at least one realistic showcase scenario proves that the abstraction works across boundaries.
 
-Runtime acceptance criteria for Phase 5:
+## 15. Stability classes
 
-- A subscription can stream source changes into a materialized projected PostgreSQL table.
-- The materialization can be replayed or rebuilt.
+### Stable
+
+These surfaces require explicit versioning and migration rules:
+
+- `.mdl` semantics
+- canonical semantic identity
+- version rules
+- semantic compatibility facts
+- `modelable.plan/v1`
+- `modelable.lock/v1`
+- diagnostic identifiers
+
+### Extensible
+
+These are expected to grow independently:
+
+- emitters
+- importers
+- policies
+- analyzers
+- target compatibility evaluators
+- catalog adapters
+- registry adapters
+- overlays
+
+### Internal
+
+These may change without ecosystem compatibility guarantees:
+
+- parser implementation classes
+- internal Python graph representation
+- CLI implementation
+- cache database schema
+- compiler pass organization
+
+## 16. Protocol versioning
+
+Public machine-readable contracts should use explicit protocol identifiers:
+
+```text
+modelable.semantic/v1
+modelable.plan/v1
+modelable.lock/v1
+modelable.diagnostics/v1
+modelable.extension/v1
+```
+
+Implementation classes must not accidentally become protocols.
+
+## 17. Runtime boundary
+
+The compiler may generate contracts for runtime systems, including:
+
+- event envelopes
+- transactional outbox schemas
+- runtime validation schemas
+- persistence mappings
+- migration plans
+- stream schemas
+
+The following are outside the Modelable core roadmap:
+
+- streaming execution engine
+- materialization runtime
+- broker abstraction
+- database synchronization service
+- retry/dead-letter engine
+- distributed registry service
+
+If these capabilities are needed, Modelable should generate enough semantic information for another system to implement them.
+
+## 18. Future-use stress tests
+
+Architecture changes should be evaluated against likely future consumers without pre-implementing them.
+
+Expected extension use cases include:
+
+- GraphQL
+- AsyncAPI
+- additional schema formats
+- Iceberg/Delta/data-lake contracts
+- ORM integration
+- SDK generation
+- domain-specific standards
+- API migration tooling
+- AI-assisted refactoring
+- code migration generation
+- architecture governance
+- cross-repository impact analysis
+- runtime validation packages
+- MCP/agent semantic queries
+- Unity-specific C# and serialization overlays
+
+A future use should normally require an extension, overlay, policy, or analyzer rather than a new grammar construct.
+
+## 19. Architectural decision rule
+
+For every new requirement, apply this test:
+
+```text
+Can existing semantics represent the requirement correctly?
+  │
+  ├─ yes → extension / overlay / emitter / policy / analyzer
+  │
+  └─ no  → consider extending the semantic model
+```
+
+The anti-pattern is:
+
+```text
+new requirement
+→ new grammar keyword
+→ new IR class
+→ update every emitter
+→ target-specific compatibility branches
+```
+
+The desired pattern is:
+
+```text
+new requirement
+→ reuse semantic graph
+→ add isolated extension behavior
+```
+
+This rule is the primary mechanism for keeping Modelable stable while allowing the ecosystem around it to grow.
