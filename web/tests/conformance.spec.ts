@@ -1,11 +1,8 @@
-import {
-  expect,
-  test,
-  type Browser,
-  type BrowserContext,
-  type Page,
-} from '@playwright/test';
+import { type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test } from './worker-page';
 import { startLocalRequestAudit, waitForReady } from './helpers';
+
+test.describe.configure({ mode: 'serial' });
 
 type Source = { uri: string; text: string; version: number };
 type LanguagePosition = {
@@ -140,23 +137,32 @@ const scenarios = {
   'sql-index': ['sql-index.mdl'],
 } as const;
 const localRequestAudits = new WeakMap<BrowserContext, () => void>();
+let compilerPageReady = false;
 
-test.beforeEach(({ context }) => {
+async function ensureCompilerPage(page: Page): Promise<void> {
+  if (compilerPageReady) return;
+  await page.goto('?test=1');
+  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
+    timeout: 90_000,
+  });
+  compilerPageReady = true;
+}
+
+test.beforeEach(({ sharedPage }) => {
+  const context = sharedPage.context();
   localRequestAudits.set(context, startLocalRequestAudit(context));
 });
 
-test.afterEach(({ context }) => {
+test.afterEach(({ sharedPage }) => {
+  const context = sharedPage.context();
   localRequestAudits.get(context)?.();
   localRequestAudits.delete(context);
 });
 
 test('browser compiler matches native snapshots including cross-file references', async ({
-  page,
+  sharedPage: page,
 }) => {
-  await page.goto('?test=1');
-  await expect(page.locator('main.workbench')).not.toHaveAttribute('data-state', 'loading', {
-    timeout: 90_000,
-  });
+  await ensureCompilerPage(page);
 
   let workspaceRevision = 100;
   for (const [scenario, fixtureNames] of Object.entries(scenarios)) {
@@ -211,9 +217,9 @@ test('browser compiler matches native snapshots including cross-file references'
 });
 
 test('protocol v2 exposes completion and hover over the synchronized workspace', async ({
-  page,
+  sharedPage: page,
 }) => {
-  await page.goto('?test=1');
+  await ensureCompilerPage(page);
   await waitForReady(page);
   const result = await page.evaluate(async () => {
     const client = (
@@ -237,7 +243,7 @@ test('protocol v2 exposes completion and hover over the synchronized workspace',
       ].join('\n'),
       version: 1,
     };
-    const workspaceRevision = 100;
+    const workspaceRevision = 110;
     await client.openWorkspace(workspaceRevision, [source]);
     const completion = await client.completion({
       workspaceRevision,
@@ -264,9 +270,9 @@ test('protocol v2 exposes completion and hover over the synchronized workspace',
 });
 
 test('protocol v2 exposes definition, references, prepareRename, and rename', async ({
-  page,
+  sharedPage: page,
 }) => {
-  await page.goto('?test=1');
+  await ensureCompilerPage(page);
   await waitForReady(page);
   const result = await page.evaluate(async () => {
     const client = (
@@ -344,7 +350,7 @@ test('protocol v2 exposes definition, references, prepareRename, and rename', as
 });
 
 test('protocol v2 exposes completion, hover, definition, references, and rename for enum-backed semantics', async ({
-  page,
+  sharedPage: page,
 }) => {
   // Evolution plan E11: mirrors the two tests above, which never exercised a
   // `semantic` declaration or `enum projection` -- this is the browser-side
@@ -353,7 +359,7 @@ test('protocol v2 exposes completion, hover, definition, references, and rename 
   // are the other two consumers of that same fixture; this spec does not
   // fetch the JSON directly and instead keeps its own copy of the scenario
   // in sync by hand, the same way the plain-model tests above already do).
-  await page.goto('?test=1');
+  await ensureCompilerPage(page);
   await waitForReady(page);
   const result = await page.evaluate(async () => {
     const client = (
@@ -381,7 +387,7 @@ test('protocol v2 exposes completion, hover, definition, references, and rename 
       ].join('\n'),
       version: 1,
     };
-    const workspaceRevision = 300;
+    const workspaceRevision = 310;
     await client.openWorkspace(workspaceRevision, [source]);
 
     const completion = await client.completion({
@@ -461,9 +467,9 @@ test('protocol v2 exposes completion, hover, definition, references, and rename 
 });
 
 test('workspace.graph returns domain and entity mode graphs', async ({
-  page,
+  sharedPage: page,
 }) => {
-  await page.goto('?test=1');
+  await ensureCompilerPage(page);
   await waitForReady(page);
   const result = await page.evaluate(async () => {
     const client = (
@@ -487,7 +493,7 @@ test('workspace.graph returns domain and entity mode graphs', async ({
       ].join('\n'),
       version: 1,
     };
-    const workspaceRevision = 300;
+    const workspaceRevision = 315;
     await client.openWorkspace(workspaceRevision, [source]);
 
     const entity = await client.graph(workspaceRevision, 'entity');
@@ -495,7 +501,7 @@ test('workspace.graph returns domain and entity mode graphs', async ({
     return { entity, domain };
   });
 
-  expect(result.entity.workspace_revision).toBe(300);
+  expect(result.entity.workspace_revision).toBe(315);
   expect(result.entity.mode).toBe('entity');
   expect(result.entity.graph.schema_version).toBe(1);
   expect(result.entity.graph.nodes.length).toBeGreaterThan(0);
@@ -519,9 +525,9 @@ test('workspace.graph returns domain and entity mode graphs', async ({
 });
 
 test('workspace.graph returns projection and lineage mode graphs', async ({
-  page,
+  sharedPage: page,
 }) => {
-  await page.goto('?test=1');
+  await ensureCompilerPage(page);
   await waitForReady(page);
   const result = await page.evaluate(async () => {
     const client = (
@@ -551,7 +557,7 @@ test('workspace.graph returns projection and lineage mode graphs', async ({
       ].join('\n'),
       version: 1,
     };
-    const workspaceRevision = 350;
+    const workspaceRevision = 320;
     await client.openWorkspace(workspaceRevision, [source]);
 
     const projection = await client.graph(workspaceRevision, 'projection');
@@ -581,9 +587,9 @@ test('workspace.graph returns projection and lineage mode graphs', async ({
 });
 
 test('workspace.lineage, workspace.compatibility, and workspace.governance return analysis results', async ({
-  page,
+  sharedPage: page,
 }) => {
-  await page.goto('?test=1');
+  await ensureCompilerPage(page);
   await waitForReady(page);
   const result = await page.evaluate(async () => {
     const client = (
@@ -625,7 +631,7 @@ test('workspace.lineage, workspace.compatibility, and workspace.governance retur
       ].join('\n'),
       version: 1,
     };
-    const workspaceRevision = 400;
+    const workspaceRevision = 330;
     await client.openWorkspace(workspaceRevision, [
       customerSource,
       billingSource,
@@ -637,7 +643,7 @@ test('workspace.lineage, workspace.compatibility, and workspace.governance retur
     return { lineage, compatibility, governance };
   });
 
-  expect(result.lineage.workspace_revision).toBe(400);
+  expect(result.lineage.workspace_revision).toBe(330);
   expect(result.lineage.projections.length).toBeGreaterThan(0);
   const billingProjection = result.lineage.projections.find(
     (p) => p.projection === 'BillingCustomer',
@@ -652,7 +658,7 @@ test('workspace.lineage, workspace.compatibility, and workspace.governance retur
   expect(['direct', 'computed']).toContain(idField!.kind);
   expect(idField!.lineage.length).toBeGreaterThan(0);
 
-  expect(result.compatibility.workspace_revision).toBe(400);
+  expect(result.compatibility.workspace_revision).toBe(330);
   expect(result.compatibility.reports.length).toBeGreaterThan(0);
   const customerReport = result.compatibility.reports.find(
     (r) => r.model_name === 'Customer',
@@ -662,7 +668,7 @@ test('workspace.lineage, workspace.compatibility, and workspace.governance retur
   expect(customerReport!.to_version).toBe(2);
   expect(customerReport!.changes.length).toBeGreaterThan(0);
 
-  expect(result.governance.workspace_revision).toBe(400);
+  expect(result.governance.workspace_revision).toBe(330);
   expect(Array.isArray(result.governance.findings)).toBe(true);
 });
 
