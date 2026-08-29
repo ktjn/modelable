@@ -6,6 +6,10 @@ from modelable.compiler.workspace import Workspace
 from modelable.language.dto import LanguageLocation, LanguagePosition, LanguageRange
 from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
 from modelable.language.ref_lookup import REF_TYPE_PATTERN, resolve_ref_match_version
+from modelable.language.scanning import DOMAIN_PATTERN as _DOMAIN_PATTERN
+from modelable.language.scanning import contains as _contains
+from modelable.language.scanning import domain_at_or_before as _domain_at_or_before
+from modelable.language.scanning import word_at as _word_at
 from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import parse_model_ref
 from modelable.parser.ir import JoinRef, SourceRef
@@ -26,8 +30,6 @@ _EVOLVES_HEADER_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value)\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
     r"(?:\s*\([a-z]+\))?\s*evolves\s*@\s*(?P<base_version>\d+)"
 )
-_DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
-_WORD_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _MODEL_FIELD_PATTERN = re.compile(
     r"^\s*(?:@[A-Za-z_][A-Za-z0-9_]*(?:\([^)]*\))?\s+)*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\??\s*:"
 )
@@ -356,15 +358,6 @@ def _find_field_location(
     return None
 
 
-def _domain_at_or_before(text: str, line: int) -> str | None:
-    current_domain: str | None = None
-    for item in document_lines(text)[: line + 1]:
-        domain_match = _DOMAIN_PATTERN.match(item)
-        if domain_match:
-            current_domain = domain_match.group("quoted") or domain_match.group("name")
-    return current_domain
-
-
 def _current_scope(text: str, line: int) -> tuple[str, str, str, int] | None:
     lines = document_lines(text)
     current_domain: str | None = None
@@ -387,14 +380,3 @@ def _current_scope(text: str, line: int) -> tuple[str, str, str, int] | None:
     if current_domain and current_kind and current_name and current_version is not None:
         return current_domain, current_kind, current_name, current_version
     return None
-
-
-def _word_at(text_line: str, character: int) -> str | None:
-    for match in _WORD_PATTERN.finditer(text_line):
-        if _contains(match.start(), match.end(), character):
-            return match.group(0)
-    return None
-
-
-def _contains(start: int, end: int, character: int) -> bool:
-    return start <= character <= max(end - 1, start)

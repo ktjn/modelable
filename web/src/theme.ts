@@ -139,22 +139,20 @@ export interface UseThemeResult {
   setPreference: (pref: ThemePreference) => void;
 }
 
-export function useTheme(): UseThemeResult {
-  const [state, setState] = useState(() => ({
+function readThemeState(): Omit<UseThemeResult, 'setPreference'> {
+  return {
     preference: getThemePreference(),
     resolvedTheme: getResolvedTheme(),
-  }));
+  };
+}
+
+export function useTheme(): UseThemeResult {
+  const [state, setState] = useState(readThemeState);
 
   useEffect(() => {
-    setState({
-      preference: getThemePreference(),
-      resolvedTheme: getResolvedTheme(),
-    });
+    setState(readThemeState());
     return subscribeTheme(() => {
-      setState({
-        preference: getThemePreference(),
-        resolvedTheme: getResolvedTheme(),
-      });
+      setState(readThemeState());
     });
   }, []);
 

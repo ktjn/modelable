@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { toErrorMessage } from './errors';
 import {
   readWorkspaceFiles,
   type ImportedWorkspaceFile,
@@ -76,9 +77,7 @@ export function WorkspaceFiles({
       setError(null);
     } catch (importError: unknown) {
       setError(
-        importError instanceof Error
-          ? importError.message
-          : 'Could not import the workspace files',
+        toErrorMessage(importError, 'Could not import the workspace files'),
       );
     } finally {
       input.value = '';
@@ -122,11 +121,7 @@ export function WorkspaceFiles({
       setCreateName('');
       setError(null);
     } catch (createError: unknown) {
-      setError(
-        createError instanceof Error
-          ? createError.message
-          : 'Could not create file',
-      );
+      setError(toErrorMessage(createError, 'Could not create file'));
     }
   };
 
@@ -141,11 +136,7 @@ export function WorkspaceFiles({
       setRenameValue('');
       setError(null);
     } catch (renameError: unknown) {
-      setError(
-        renameError instanceof Error
-          ? renameError.message
-          : 'Could not rename file',
-      );
+      setError(toErrorMessage(renameError, 'Could not rename file'));
     }
   };
 

@@ -7,6 +7,11 @@ from modelable.compiler.workspace import Workspace
 from modelable.language.dto import LanguageHover, LanguagePosition, LanguageRange
 from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
 from modelable.language.ref_lookup import REF_TYPE_PATTERN, resolve_ref_match_version
+from modelable.language.scanning import DOMAIN_PATTERN as _DOMAIN_PATTERN
+from modelable.language.scanning import WORD_PATTERN as _WORD_PATTERN
+from modelable.language.scanning import contains as _contains
+from modelable.language.scanning import domain_at_or_before as _domain_at_or_before
+from modelable.language.scanning import word_at as _word_at
 from modelable.language.workspace import LanguageWorkspace
 from modelable.llm.context import (
     build_enum_projection_summary,
@@ -44,8 +49,6 @@ _EVOLVES_HEADER_PATTERN = re.compile(
     r"^\s*(?P<kind>entity|aggregate|event|value)\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*@\s*(?P<version>\d+)"
     r"(?:\s*\([a-z]+\))?\s*evolves\s*@\s*(?P<base_version>\d+)"
 )
-_DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
-_WORD_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 @dataclass(frozen=True)
@@ -213,15 +216,6 @@ def _hover_for_evolves_base(
         return None
     ref = f"{domain_name}.{model_name}@{base_version_text}"
     return _make_ref_hover(workspace, ref, text_line, line, start, end)
-
-
-def _domain_at_or_before(text: str, line: int) -> str | None:
-    current_domain: str | None = None
-    for item in document_lines(text)[: line + 1]:
-        domain_match = _DOMAIN_PATTERN.match(item)
-        if domain_match:
-            current_domain = domain_match.group("quoted") or domain_match.group("name")
-    return current_domain
 
 
 def _make_ref_type_hover(
@@ -620,22 +614,11 @@ def _current_scope(
     return None
 
 
-def _word_at(text_line: str, character: int) -> str | None:
-    for match in _WORD_PATTERN.finditer(text_line):
-        if _contains(match.start(), match.end(), character):
-            return match.group(0)
-    return None
-
-
 def _word_span(text_line: str, character: int) -> tuple[int, int]:
     for match in _WORD_PATTERN.finditer(text_line):
         if _contains(match.start(), match.end(), character):
             return match.start(), match.end()
     return character, character
-
-
-def _contains(start: int, end: int, character: int) -> bool:
-    return start <= character <= max(end - 1, start)
 
 
 def _safe_markdown(value: str) -> str:

@@ -24,33 +24,24 @@ export function BottomPanel({
   return (
     <div className="bottom-panel" data-testid="bottom-panel">
       <div className="tab-strip" role="tablist" aria-label="Bottom panel tabs">
-        <button
-          className={`tab${tab === 'diagnostics' ? ' tab--active' : ''}`}
+        <TabButton
+          label="Problems"
+          count={diagnosticsCount}
+          active={tab === 'diagnostics'}
           onClick={() => setTab('diagnostics')}
-          aria-selected={tab === 'diagnostics'}
-          role="tab"
-        >
-          Problems
-          <TabCount count={diagnosticsCount} />
-        </button>
-        <button
-          className={`tab${tab === 'compatibility' ? ' tab--active' : ''}`}
+        />
+        <TabButton
+          label="Compatibility"
+          count={compatibilityCount}
+          active={tab === 'compatibility'}
           onClick={() => setTab('compatibility')}
-          aria-selected={tab === 'compatibility'}
-          role="tab"
-        >
-          Compatibility
-          <TabCount count={compatibilityCount} />
-        </button>
-        <button
-          className={`tab${tab === 'governance' ? ' tab--active' : ''}`}
+        />
+        <TabButton
+          label="Governance"
+          count={governanceCount}
+          active={tab === 'governance'}
           onClick={() => setTab('governance')}
-          aria-selected={tab === 'governance'}
-          role="tab"
-        >
-          Governance
-          <TabCount count={governanceCount} />
-        </button>
+        />
       </div>
       <div className="bottom-panel__body" tabIndex={0}>
         {tab === 'diagnostics' && diagnostics}
@@ -58,6 +49,30 @@ export function BottomPanel({
         {tab === 'governance' && governance}
       </div>
     </div>
+  );
+}
+
+function TabButton({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick(): void;
+}) {
+  return (
+    <button
+      className={`tab${active ? ' tab--active' : ''}`}
+      onClick={onClick}
+      aria-selected={active}
+      role="tab"
+    >
+      {label}
+      <TabCount count={count} />
+    </button>
   );
 }
 

@@ -31,6 +31,26 @@ def snake_case(value: str) -> str:
     return text or "generated"
 
 
+def package_name(domain: str, *, separator: str = ".") -> str:
+    """Lowercase a domain name into target package segments joined by ``separator``.
+
+    Java/Python/Rust join with ``"."``; Go joins with ``"_"`` (single package
+    directory per domain).
+    """
+    parts = [part.lower() for part in _TOKEN_RE.split(domain) if part]
+    return separator.join(parts) or "modelable"
+
+
+def proto_domain_segment(domain: str) -> str:
+    """Normalize a domain name into a single protobuf package segment."""
+    return re.sub(r"[^0-9A-Za-z_]+", "_", domain).strip("_").lower()
+
+
+def proto_package_name(domain: str, version: int) -> str:
+    """Versioned protobuf package name shared by the protobuf and gRPC emitters."""
+    return f"modelable.{proto_domain_segment(domain)}.v{version}"
+
+
 def apply_case_style(value: str, case: str) -> str:
     """Convert an enum value string to the specified wire case convention.
 

@@ -7,6 +7,7 @@ import type {
   BrowserDefinitionResult,
   BrowserDiagnostic,
   BrowserHoverResult,
+  BrowserLanguagePosition,
   BrowserLanguagePositionValue,
   BrowserPreparedRenameResult,
   BrowserReferencesResult,
@@ -89,23 +90,9 @@ export class BrowserLanguageServiceController {
     uri: string,
     position: BrowserLanguagePositionValue,
   ): Promise<BrowserCompletionResult | undefined> {
-    if (!(await this.ensureRevision(captured))) {
-      return undefined;
-    }
-    try {
-      const result = await this.client.completion({
-        workspaceRevision: captured.revision,
-        uri,
-        line: position.line,
-        character: position.character,
-      });
-      return !this.disposed &&
-        this.observed?.revision === captured.revision
-        ? result
-        : undefined;
-    } catch (error: unknown) {
-      return this.handleProviderError(error, captured.revision);
-    }
+    return this.languageRequest(captured, uri, position, (request) =>
+      this.client.completion(request),
+    );
   }
 
   async hover(
@@ -113,23 +100,9 @@ export class BrowserLanguageServiceController {
     uri: string,
     position: BrowserLanguagePositionValue,
   ): Promise<BrowserHoverResult | undefined> {
-    if (!(await this.ensureRevision(captured))) {
-      return undefined;
-    }
-    try {
-      const result = await this.client.hover({
-        workspaceRevision: captured.revision,
-        uri,
-        line: position.line,
-        character: position.character,
-      });
-      return !this.disposed &&
-        this.observed?.revision === captured.revision
-        ? result
-        : undefined;
-    } catch (error: unknown) {
-      return this.handleProviderError(error, captured.revision);
-    }
+    return this.languageRequest(captured, uri, position, (request) =>
+      this.client.hover(request),
+    );
   }
 
   async definition(
@@ -137,23 +110,9 @@ export class BrowserLanguageServiceController {
     uri: string,
     position: BrowserLanguagePositionValue,
   ): Promise<BrowserDefinitionResult | undefined> {
-    if (!(await this.ensureRevision(captured))) {
-      return undefined;
-    }
-    try {
-      const result = await this.client.definition({
-        workspaceRevision: captured.revision,
-        uri,
-        line: position.line,
-        character: position.character,
-      });
-      return !this.disposed &&
-        this.observed?.revision === captured.revision
-        ? result
-        : undefined;
-    } catch (error: unknown) {
-      return this.handleProviderError(error, captured.revision);
-    }
+    return this.languageRequest(captured, uri, position, (request) =>
+      this.client.definition(request),
+    );
   }
 
   async references(
@@ -162,26 +121,9 @@ export class BrowserLanguageServiceController {
     position: BrowserLanguagePositionValue,
     includeDeclaration: boolean,
   ): Promise<BrowserReferencesResult | undefined> {
-    if (!(await this.ensureRevision(captured))) {
-      return undefined;
-    }
-    try {
-      const result = await this.client.references(
-        {
-          workspaceRevision: captured.revision,
-          uri,
-          line: position.line,
-          character: position.character,
-        },
-        includeDeclaration,
-      );
-      return !this.disposed &&
-        this.observed?.revision === captured.revision
-        ? result
-        : undefined;
-    } catch (error: unknown) {
-      return this.handleProviderError(error, captured.revision);
-    }
+    return this.languageRequest(captured, uri, position, (request) =>
+      this.client.references(request, includeDeclaration),
+    );
   }
 
   async prepareRename(
@@ -189,23 +131,9 @@ export class BrowserLanguageServiceController {
     uri: string,
     position: BrowserLanguagePositionValue,
   ): Promise<BrowserPreparedRenameResult | undefined> {
-    if (!(await this.ensureRevision(captured))) {
-      return undefined;
-    }
-    try {
-      const result = await this.client.prepareRename({
-        workspaceRevision: captured.revision,
-        uri,
-        line: position.line,
-        character: position.character,
-      });
-      return !this.disposed &&
-        this.observed?.revision === captured.revision
-        ? result
-        : undefined;
-    } catch (error: unknown) {
-      return this.handleProviderError(error, captured.revision);
-    }
+    return this.languageRequest(captured, uri, position, (request) =>
+      this.client.prepareRename(request),
+    );
   }
 
   async rename(
@@ -214,26 +142,9 @@ export class BrowserLanguageServiceController {
     position: BrowserLanguagePositionValue,
     newName: string,
   ): Promise<BrowserRenameResult | undefined> {
-    if (!(await this.ensureRevision(captured))) {
-      return undefined;
-    }
-    try {
-      const result = await this.client.rename(
-        {
-          workspaceRevision: captured.revision,
-          uri,
-          line: position.line,
-          character: position.character,
-        },
-        newName,
-      );
-      return !this.disposed &&
-        this.observed?.revision === captured.revision
-        ? result
-        : undefined;
-    } catch (error: unknown) {
-      return this.handleProviderError(error, captured.revision);
-    }
+    return this.languageRequest(captured, uri, position, (request) =>
+      this.client.rename(request, newName),
+    );
   }
 
   async retry(): Promise<void> {
@@ -255,6 +166,35 @@ export class BrowserLanguageServiceController {
     this.disposed = true;
     this.clearTimer();
     this.client.dispose();
+  }
+
+  /**
+   * Runs a positional language request against the captured revision, dropping
+   * the answer if the workspace moved on (or the controller was disposed)
+   * while it was in flight.
+   */
+  private async languageRequest<T>(
+    captured: PlaygroundWorkspace,
+    uri: string,
+    position: BrowserLanguagePositionValue,
+    send: (request: BrowserLanguagePosition) => Promise<T>,
+  ): Promise<T | undefined> {
+    if (!(await this.ensureRevision(captured))) {
+      return undefined;
+    }
+    try {
+      const result = await send({
+        workspaceRevision: captured.revision,
+        uri,
+        line: position.line,
+        character: position.character,
+      });
+      return !this.disposed && this.observed?.revision === captured.revision
+        ? result
+        : undefined;
+    } catch (error: unknown) {
+      return this.handleProviderError(error, captured.revision);
+    }
   }
 
   private async ensureRevision(

@@ -9,7 +9,11 @@ import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
 import 'monaco-editor/esm/vs/editor/contrib/hover/browser/hoverContribution.js';
 import 'monaco-editor/esm/vs/editor/contrib/suggest/browser/suggestController.js';
 
-import type { PlaygroundFile, PlaygroundWorkspace } from '../workspace';
+import {
+  sourceUriFromPath,
+  type PlaygroundFile,
+  type PlaygroundWorkspace,
+} from '../workspace';
 import type { BrowserLanguageServiceController } from '../language/BrowserLanguageServiceController';
 import { registerModelableProviders } from '../language/monaco-providers';
 import {
@@ -87,9 +91,6 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
           'editorHoverWidget.border': '#4b5563',
         },
       });
-      const applyMonacoTheme = (theme: ResolvedTheme): void => {
-        monaco.editor.setTheme(theme === 'dark' ? 'modelable-dark' : 'modelable');
-      };
       applyMonacoTheme(getResolvedTheme());
       const sourceEditor = monaco.editor.create(container, {
         model: null,
@@ -114,9 +115,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
 
     useEffect(() => {
       return subscribeTheme(() => {
-        monaco.editor.setTheme(
-          getResolvedTheme() === 'dark' ? 'modelable-dark' : 'modelable',
-        );
+        applyMonacoTheme(getResolvedTheme());
       });
     }, []);
 
@@ -210,7 +209,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
           monaco.editor.setModelMarkers(
             model,
             'modelable',
-            markersByUri.get(sourceUri(path)) ?? [],
+            markersByUri.get(sourceUriFromPath(path)) ?? [],
           );
         }
       }
@@ -225,7 +224,7 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
             (candidate) => candidate.path === path,
           );
           return {
-            uri: sourceUri(path),
+            uri: sourceUriFromPath(path),
             text: registryRef.current?.model(path)?.getValue() ?? '',
             version: file?.version ?? 1,
           };
@@ -304,6 +303,10 @@ export const SourceEditor = forwardRef<SourceEditorHandle, SourceEditorProps>(
   },
 );
 
+function applyMonacoTheme(theme: ResolvedTheme): void {
+  monaco.editor.setTheme(theme === 'dark' ? 'modelable-dark' : 'modelable');
+}
+
 function switchModel(
   sourceEditor: editor.IStandaloneCodeEditor,
   registry: SourceModelRegistry,
@@ -328,8 +331,4 @@ function switchModel(
   if (viewState !== undefined && viewState !== null) {
     sourceEditor.restoreViewState(viewState);
   }
-}
-
-function sourceUri(path: string): string {
-  return `file:///${path.split('/').map(encodeURIComponent).join('/')}`;
 }

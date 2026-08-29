@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
 
 from modelable.compiler.workspace import Workspace
-from modelable.emitters.base import EmittedArtifact, compute_content_hash
+from modelable.emitters.base import EmittedArtifact, compute_content_hash, render_nested_definitions
+from modelable.emitters.base import artifact_id as _artifact_id
 from modelable.emitters.diagnostics import type_loss
 from modelable.emitters.named_types import resolve_named_ref, resolve_named_types
-from modelable.emitters.naming import find_identifier_collisions
+from modelable.emitters.naming import find_identifier_collisions, package_name
 from modelable.emitters.naming import pascalize_plain as _pascalize
+from modelable.emitters.projection_shapes import projection_field_shape
 from modelable.emitters.shapes import TypeShape
 from modelable.parser.ir import (
-    DirectMapping,
     DomainDef,
     EnumProjectionDecl,
     EnumType,
@@ -22,7 +22,6 @@ from modelable.parser.ir import (
     SemanticTypeDecl,
     latest_semantic_types,
 )
-from modelable.registry.resolver import resolve_model_ref
 
 
 def emit_java(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
@@ -35,11 +34,12 @@ def emit_java(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
             model_name=lambda _domain, name, version: _type_name(name, version),
             emit_nominal_enums=True,
         )
-        for decl in latest_semantic_types(domain):
+        latest_decls = latest_semantic_types(domain)
+        for decl in latest_decls:
             if isinstance(decl.underlying, EnumType):
                 artifacts.append(_emit_enum_type(domain, decl, out_dir))
         for decl in domain.semantic_types:
-            if isinstance(decl.underlying, EnumType) and decl not in latest_semantic_types(domain):
+            if isinstance(decl.underlying, EnumType) and decl not in latest_decls:
                 artifacts.append(_emit_versioned_enum_type(domain, decl, out_dir))
         for projection in domain.enum_projections:
             artifacts.append(_emit_enum_projection(domain, projection, out_dir))
@@ -58,13 +58,8 @@ def emit_java(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     return artifacts
 
 
-def _artifact_id(domain: str, name: str, version: int) -> str:
-    return f"{domain}.{name}.v{version}"
-
-
 def _package_name(domain: str) -> str:
-    parts = [part.lower() for part in re.split(r"[^A-Za-z0-9]+", domain) if part]
-    return ".".join(parts) or "modelable"
+    return package_name(domain)
 
 
 def _type_name(name: str, version: int) -> str:
@@ -106,7 +101,7 @@ def _emit_model(
     lines.append(f"public record {type_name}(")
     lines.append(",\n".join(params))
     lines.append(") {")
-    lines.extend(_render_nested_definitions(nested_definitions))
+    lines.extend(render_nested_definitions(nested_definitions))
     lines.append("}")
 
     text = "\n".join(lines) + "\n"
@@ -138,7 +133,7 @@ def _emit_projection(
 
     params: list[str] = []
     for field in version.fields:
-        field_shape = _resolve_projection_field_shape(field, version, mdl)
+        field_shape = projection_field_shape(field, version, mdl)
         if field_shape is None:
             warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
             java_type = "Object"
@@ -160,7 +155,7 @@ def _emit_projection(
     lines.append(f"public record {type_name}(")
     lines.append(",\n".join(params))
     lines.append(") {")
-    lines.extend(_render_nested_definitions(nested_definitions))
+    lines.extend(render_nested_definitions(nested_definitions))
     lines.append("}")
 
     text = "\n".join(lines) + "\n"
@@ -175,9 +170,9 @@ def _emit_projection(
     )
 
 
-def _header_lines(package_name: str, imports: set[str]) -> list[str]:
+def _header_lines(package: str, imports: set[str]) -> list[str]:
     return [
-        f"package {package_name};",
+        f"package {package};",
         "",
         "import java.math.BigDecimal;",
         "import java.math.BigInteger;",
@@ -192,14 +187,6 @@ def _header_lines(package_name: str, imports: set[str]) -> list[str]:
         *sorted(imports),
         "",
     ]
-
-
-def _render_nested_definitions(definitions: dict[str, list[str]]) -> list[str]:
-    lines: list[str] = []
-    for definition in definitions.values():
-        lines.append("")
-        lines.extend(definition)
-    return lines
 
 
 def _field_name(value: str) -> str:
@@ -414,24 +401,6 @@ def _build_record_definition(
     lines.append(",\n".join(params))
     lines.append("    ) {}")
     return lines
-
-
-def _resolve_projection_field_shape(field: Any, projection: ProjectionVersion, mdl: MdlFile) -> TypeShape | None:
-    if not isinstance(field.mapping, DirectMapping):
-        return None
-    try:
-        source_domain, source_model = projection.source.model.rsplit(".", 1)
-    except ValueError:
-        return None
-    try:
-        resolved = resolve_model_ref(mdl, f"{source_domain}.{source_model}", projection.source.version)
-    except LookupError:
-        return None
-    source_mv = resolved.version
-    for src_field in source_mv.fields:
-        if src_field.name == field.mapping.source_field and hasattr(src_field, "type"):
-            return TypeShape.from_field_type(src_field.type, optional=getattr(src_field, "optional", False))
-    return None
 
 
 def _java_path(domain: str, type_name: str) -> Path:

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
+from modelable.emitters.naming import proto_package_name
 from modelable.emitters.protobuf import emit_protobuf
 from modelable.registry.enum_numbers import EnumNumberAllocation
 
@@ -40,7 +41,7 @@ def emit_grpc(
         # Each artifact is a standalone service surface. Keep the common
         # envelope names, but isolate them by model so protoc can compile the
         # complete generated graph in one invocation.
-        service_package = f"{_package_name(domain, version)}.{_package_segment(name)}.scalable"
+        service_package = f"{proto_package_name(domain, version)}.{_package_segment(name)}.scalable"
         service_proto = _render_service_proto(package=service_package)
         service_manifest = _service_manifest_json(
             ref=ref,
@@ -288,11 +289,6 @@ def _split_ref(ref: str) -> tuple[str, str, int]:
     domain_name, version_text = ref.split("@", 1)
     domain, name = domain_name.rsplit(".", 1)
     return domain, name, int(version_text)
-
-
-def _package_name(domain: str, version: int) -> str:
-    normalized = re.sub(r"[^0-9A-Za-z_]+", "_", domain).strip("_").lower()
-    return f"modelable.{normalized}.v{version}"
 
 
 def _package_segment(name: str) -> str:

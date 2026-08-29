@@ -76,19 +76,19 @@ function downloadBlob(blob: Blob, filename: string): void {
 export function useGraphExport(
   containerRef: RefObject<HTMLDivElement | null>,
 ) {
-  const exportSvg = useCallback(() => {
+  const exportedSvg = useCallback((): SVGElement | null => {
     const container = containerRef.current;
-    if (container === null) return;
-    const svg = cloneSvgWithStyles(container);
+    return container === null ? null : cloneSvgWithStyles(container);
+  }, [containerRef]);
+
+  const exportSvg = useCallback(() => {
+    const svg = exportedSvg();
     if (svg === null) return;
-    const blob = svgToBlob(svg);
-    downloadBlob(blob, 'model-graph.svg');
-  }, []);
+    downloadBlob(svgToBlob(svg), 'model-graph.svg');
+  }, [exportedSvg]);
 
   const exportPng = useCallback(() => {
-    const container = containerRef.current;
-    if (container === null) return;
-    const svg = cloneSvgWithStyles(container);
+    const svg = exportedSvg();
     if (svg === null) return;
 
     const svgBlob = svgToBlob(svg);
@@ -120,7 +120,7 @@ export function useGraphExport(
       URL.revokeObjectURL(url);
     };
     img.src = url;
-  }, []);
+  }, [exportedSvg]);
 
   return { exportSvg, exportPng };
 }

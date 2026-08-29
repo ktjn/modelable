@@ -12,6 +12,7 @@ from modelable.language.dto import (
     LanguageRange,
 )
 from modelable.language.positions import codepoint_to_utf16, document_lines, utf16_to_codepoint
+from modelable.language.scanning import DOMAIN_PATTERN as _DOMAIN_PATTERN
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
 from modelable.parser.ir import (
     AddFieldOp,
@@ -52,7 +53,6 @@ _DECL_PATTERN = re.compile(
 )
 _EVOLVES_OPERATION_LINE_PATTERN = re.compile(r"^\s*(?:add|remove|rename|replace)\b")
 _EVOLVES_FIELD_OP_PATTERN = re.compile(r"^\s*(?:remove|rename|replace)\s+[A-Za-z_][A-Za-z0-9_]*$")
-_DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
 _WORD_PREFIX_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_-]*$")
 _ANNOTATION_PATTERN = re.compile(r"(?:^|\s)@[A-Za-z_][A-Za-z0-9_-]*$")
 _REFERENCE_PATTERN = re.compile(r"\b(from|join)\s+[A-Za-z_][A-Za-z0-9_.-]*$")

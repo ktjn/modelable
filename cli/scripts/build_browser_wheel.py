@@ -44,6 +44,7 @@ INCLUDE_FILES = (
     "emitters/naming.py",
     "emitters/named_types.py",
     "emitters/package_graph.py",
+    "emitters/projection_shapes.py",
     "emitters/shapes.py",
     "emitters/csharp.py",
     "emitters/go.py",

@@ -41,6 +41,7 @@ import {
   isBrowserRenameResult,
   isBrowserWorkspaceResult,
 } from './protocol';
+import { toErrorMessage } from './errors';
 import type { LlmProvider } from './ai/types';
 
 export interface WorkerLike {
@@ -92,6 +93,21 @@ export type CompileTarget =
   | 'csharp'
   | 'markdown'
   | 'python';
+
+/** Human-readable name for each compile target, in menu order. */
+export const COMPILE_TARGET_LABELS: Record<CompileTarget, string> = {
+  jsonSchema: 'JSON Schema',
+  typescript: 'TypeScript',
+  'sql-postgres': 'SQL (Postgres)',
+  'sql-clickhouse': 'SQL (ClickHouse)',
+  protobuf: 'Protobuf',
+  rust: 'Rust',
+  java: 'Java',
+  go: 'Go',
+  csharp: 'C#',
+  markdown: 'Markdown',
+  python: 'Python',
+};
 
 export interface ConversationTurnInput {
   sessionId: string;
@@ -382,7 +398,7 @@ export class BrowserCompilerClient {
               sessionId: input.sessionId,
               requestId,
               workspaceRevision: input.workspaceRevision,
-              error: error instanceof Error ? error.message : 'Provider completion failed',
+              error: toErrorMessage(error, 'Provider completion failed'),
             },
             isBrowserConversationResult,
           );

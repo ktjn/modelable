@@ -227,7 +227,7 @@ export class WebGpuProvider implements LlmProvider {
       this.worker.terminate();
       this.worker = null;
     }
-    for (const [, pending] of this.pendingCompletions) {
+    for (const pending of this.pendingCompletions.values()) {
       pending.reject(new AiProviderError('PROVIDER_DISPOSED', 'Provider disposed'));
     }
     this.pendingCompletions.clear();
