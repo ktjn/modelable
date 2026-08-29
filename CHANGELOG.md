@@ -31,6 +31,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Local registry snapshot provenance now includes a source content hash, and
+  `registry verify` reports drift when an available source changes.
+
 - Capability and CLI documentation now distinguish implemented local registry
   snapshots from deferred external dependency resolution and federation.
 

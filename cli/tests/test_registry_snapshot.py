@@ -46,6 +46,19 @@ def test_verify_detects_tampered_object(tmp_path: Path) -> None:
     assert any("hash mismatch" in error for error in errors)
 
 
+def test_verify_detects_source_drift(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+
+    source.write_text(source.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+
+    errors = verify_snapshot(output_dir)
+
+    assert any("source drift" in error for error in errors)
+
+
 def test_prune_removes_unreachable_objects(tmp_path: Path) -> None:
     result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
     objects = result.lock_path.parent / "registry" / "objects"

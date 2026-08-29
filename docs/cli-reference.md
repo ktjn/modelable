@@ -1737,7 +1737,8 @@ modelable registry usage SOURCE [--format text|json|manifest]
 - `registry update` validates that candidate and atomically replaces the lock;
   it never contacts a network source and retains reusable objects.
 - `registry verify` checks lock/object presence, hashes, signatures, and
-  identities entirely offline.
+  identities entirely offline, and reports source drift when a recorded local
+  source is still available but no longer matches its provenance hash.
 - `registry status` reports the local snapshot without refreshing it.
 - `registry prune` removes object files that are not reachable from the current
   lock after validation succeeds.

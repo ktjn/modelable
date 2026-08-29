@@ -187,6 +187,16 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
             errors.append(f"registry object identity mismatch for {content_hash}")
         if payload.get("signature") != entry.get("signature"):
             errors.append(f"registry object signature mismatch for {identity}")
+        provenance = payload.get("provenance")
+        if isinstance(provenance, dict):
+            source = provenance.get("source")
+            expected_source_hash = provenance.get("source_hash")
+            if isinstance(source, str) and isinstance(expected_source_hash, str):
+                source_path = Path(source)
+                if source_path.exists() and source_path.is_file():
+                    actual_source_hash = _file_hash(source_path)
+                    if actual_source_hash != expected_source_hash:
+                        errors.append(f"registry source drift for {identity}: found {actual_source_hash}")
     return errors
 
 
@@ -353,7 +363,10 @@ def _write_object(
         "version": version.version,
         "signature": compute_version_signature(domain_name, name, version),
         "dependencies": dependencies,
-        "provenance": {"source": str(source_path) if source_path is not None else None},
+        "provenance": {
+            "source": str(source_path) if source_path is not None else None,
+            "source_hash": _optional_file_hash(source_path),
+        },
         "contract": contract,
     }
     content_hash = _content_hash(payload)
@@ -483,6 +496,16 @@ def _format_dependency(target: str, version: VersionSpec | None) -> str:
 def _content_hash(payload: dict[str, Any]) -> str:
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _optional_file_hash(path: Path | None) -> str | None:
+    if path is None or not path.is_file():
+        return None
+    return _file_hash(path)
 
 
 def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
