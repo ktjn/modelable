@@ -6,7 +6,7 @@ from pathlib import Path
 from modelable.compiler.workspace import Workspace, load_workspace
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.lineage import build_projection_lineage
-from modelable.planner.plans import build_plan, write_plans
+from modelable.planner.plans import PLAN_SCHEMA, build_plan, write_plans
 
 _MDL = textwrap.dedent("""\
     domain customer {
@@ -91,7 +91,7 @@ def test_plan_document_structure():
     lineage = build_projection_lineage("billing", "BillingCustomer", pv, mdl)
     plan = build_plan("billing", "BillingCustomer", pv, lineage, mdl)
 
-    assert plan["$schema"] == "modelable-plan/1.0"
+    assert plan["$schema"] == PLAN_SCHEMA == "modelable.plan/v0"
     assert plan["domain"] == "billing"
     assert plan["projection"] == "BillingCustomer"
     assert plan["version"] == 1
@@ -148,7 +148,7 @@ def test_write_plans_creates_files(tmp_path):
     for path in written:
         assert path.exists()
         data = json.loads(path.read_text(encoding="utf-8"))
-        assert data["$schema"] == "modelable-plan/1.0"
+        assert data["$schema"] == PLAN_SCHEMA
 
 
 def test_write_plans_file_naming(tmp_path):
