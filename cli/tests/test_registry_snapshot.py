@@ -46,6 +46,16 @@ def test_verify_detects_tampered_object(tmp_path: Path) -> None:
     assert any("hash mismatch" in error for error in errors)
 
 
+def test_verify_detects_missing_object(tmp_path: Path) -> None:
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
+    object_path = next((result.lock_path.parent / "registry" / "objects").glob("*.json"))
+    object_path.unlink()
+
+    errors = verify_snapshot(tmp_path / ".modelable")
+
+    assert any("missing registry object" in error for error in errors)
+
+
 def test_verify_detects_source_drift(tmp_path: Path) -> None:
     source = tmp_path / "customer.mdl"
     source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
@@ -79,6 +89,20 @@ def test_registry_cli_resolve_and_verify_json(tmp_path: Path) -> None:
     assert resolved.exit_code == 0, resolved.output
     assert verified.exit_code == 0, verified.output
     assert json.loads(verified.output) == {"valid": True, "errors": []}
+
+
+def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
+    runner = CliRunner()
+    output_dir = tmp_path / ".modelable"
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), output_dir)
+    next((result.lock_path.parent / "registry" / "objects").glob("*.json")).unlink()
+
+    status = runner.invoke(cli, ["registry", "status", "--out", str(output_dir), "--format", "json"])
+
+    assert status.exit_code == 1
+    payload = json.loads(status.output)
+    assert payload["valid"] is False
+    assert any("missing registry object" in error for error in payload["errors"])
 
 
 def test_update_stages_candidate_and_preserves_old_lock_on_diff(tmp_path: Path) -> None:

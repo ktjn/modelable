@@ -127,11 +127,11 @@ def status(output_dir: Path, output_format: str) -> None:
     payload = snapshot_status(output_dir)
     if output_format == "json":
         click.echo(json.dumps(payload, indent=2))
-        return
-    state = "valid" if payload["valid"] else "invalid"
-    console.print(f"{state} snapshot: {payload['objects']} object(s) in {payload['lock']}")
-    for error in payload["errors"]:
-        console.print(f"[red]ERROR[/red] {error}")
+    else:
+        state = "valid" if payload["valid"] else "invalid"
+        console.print(f"{state} snapshot: {payload['objects']} object(s) in {payload['lock']}")
+        for error in payload["errors"]:
+            console.print(f"[red]ERROR[/red] {error}")
     if not payload["valid"]:
         sys.exit(1)
 
