@@ -267,6 +267,13 @@ domain analytics {
     compatible_workspace = load_workspace(provider_compatible)
     compatible_report = check_model_version_compatibility(compatible_workspace.mdl, "customer", "Customer", 1, 2)
     assert compatible_report.status == "compatible"
+    runner = CliRunner()
+    compatible_cli = runner.invoke(
+        cli,
+        ["diff", "customer.Customer@1", "customer.Customer@2", "--path", str(provider_compatible)],
+    )
+    assert compatible_cli.exit_code == 0, compatible_cli.output
+    assert "status: compatible" in compatible_cli.output
     compatible_dependents = find_dependents(current_composed.mdl, "customer", "Customer", 1)
     assert compatible_dependents == [("analytics", "CustomerSummary", 1)]
     assert analyze_impact(current_composed.mdl, compatible_report, compatible_dependents[0]).status == "compatible"
@@ -280,6 +287,12 @@ domain analytics {
     breaking_workspace = load_workspace(provider_breaking)
     breaking_report = check_model_version_compatibility(breaking_workspace.mdl, "customer", "Customer", 1, 2)
     assert breaking_report.status == "breaking"
+    breaking_cli = runner.invoke(
+        cli,
+        ["diff", "customer.Customer@1", "customer.Customer@2", "--path", str(provider_breaking)],
+    )
+    assert breaking_cli.exit_code != 0
+    assert "status: breaking" in breaking_cli.output
     assert analyze_impact(current_composed.mdl, breaking_report, compatible_dependents[0]).status == "broken"
     assert json.loads((current_dir / "registry.lock").read_text(encoding="utf-8"))["objects"][-1]["identity"] == (
         "customer.Customer@1"
