@@ -127,9 +127,20 @@ def resolve_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".
                     )
                 )
         for decl in sorted(domain.semantic_types, key=lambda item: (item.name, item.version)):
-            entries.append(_write_enum_object(paths, domain.name, decl.name, "semantic", decl))
+            entries.append(
+                _write_enum_object(paths, domain.name, decl.name, "semantic", decl, source_paths.get(id(domain)))
+            )
         for projection in sorted(domain.enum_projections, key=lambda item: (item.name, item.version)):
-            entries.append(_write_enum_object(paths, domain.name, projection.name, "enum_projection", projection))
+            entries.append(
+                _write_enum_object(
+                    paths,
+                    domain.name,
+                    projection.name,
+                    "enum_projection",
+                    projection,
+                    source_paths.get(id(domain)),
+                )
+            )
 
     entries.sort(key=lambda item: (str(item["identity"]), int(item["version"]), str(item["kind"])))
     lock = {
@@ -410,6 +421,7 @@ def _write_enum_object(
     name: str,
     kind: str,
     declaration: SemanticTypeDecl | EnumProjectionDecl,
+    source_path: Path | None,
 ) -> dict[str, Any]:
     """Write a semantic-type or enum-projection snapshot object.
 
@@ -432,7 +444,10 @@ def _write_enum_object(
         "version": declaration.version,
         "signature": signature,
         "dependencies": dependencies,
-        "provenance": {"source": None},
+        "provenance": {
+            "source": str(source_path) if source_path is not None else None,
+            "source_hash": _optional_file_hash(source_path),
+        },
         "contract": declaration.model_dump(mode="json"),
     }
     content_hash = _content_hash(payload)

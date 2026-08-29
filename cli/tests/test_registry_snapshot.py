@@ -74,6 +74,35 @@ domain billing {
     assert requirement["object"] == target["content_hash"]
 
 
+def test_resolve_records_enum_source_provenance(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-platform"
+  semantic OrderStatus @ 1 (additive): enum(active, blocked)
+  enum projection PublicStatus @ 1 (additive)
+    from OrderStatus @ 1
+    pick(active)
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = resolve_workspace_snapshot(load_workspace(source), tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    entries = {entry["identity"]: entry for entry in lock["objects"]}
+
+    for identity in ("orders.OrderStatus@1", "orders.PublicStatus@1"):
+        provenance = json.loads(
+            (result.lock_path.parent / "registry" / "objects" / f"{entries[identity]['content_hash']}.json").read_text(
+                encoding="utf-8"
+            )
+        )["provenance"]
+        assert provenance["source"] == str(source)
+        assert len(provenance["source_hash"]) == 64
+
+
 def test_verify_detects_non_deterministic_dependency_resolution(tmp_path: Path) -> None:
     source = tmp_path / "workspace.mdl"
     source.write_text(
