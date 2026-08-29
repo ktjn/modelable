@@ -1,2196 +1,413 @@
 # Roadmap
 
-Modelable is a local compiler and language-server toolchain for versioned,
-domain-owned model contracts. This roadmap orders outcomes rather than assigning
-unconfirmed release numbers. An item becomes committed work only when it has a
-GitHub issue and an accepted design.
-
-This single document now holds everything that used to be split across three
-files: this product roadmap, the compiler correctness/capability slice detail
-(formerly `docs/correction-and-capability-plan.md`), and the repository-health
-findings (formerly `docs/engineering-roadmap.md`). They were merged on
-2026-08-12 because the split was mostly historical — the correction plan's own
-header already said it had been "folded into ROADMAP.md as Priority 3 and part
-of Priority 6," and the engineering roadmap explicitly complemented this one.
-One document, reordered so shipped work is compact and open work is prominent,
-replaces the indirection of jumping between three files to answer "what's
-next."
-
-Longer-horizon product ideas and ecosystem alignment that are not ready for the
-committed roadmap live in [Future Direction](docs/future-direction.md).
-
-## Current baseline
-
-The latest published release is 1.11.0. The stable 1.x surface includes:
-
-- The `.mdl` language, semantic validation, compatibility and lineage reports,
-  governance findings, the language server, and the VS Code extension distributed
-  as a release artifact.
-- Deterministic generation for JSON Schema, OpenAPI, Avro, TypeScript, C#, Java,
-  Python, Rust, Go, SQL DDL, dbt `schema.yml`, Markdown, FHIR R4 profiles,
-  OpenMetadata, OpenLineage, ODCS, Protobuf, event-sink contracts, and
-  Scalable-oriented gRPC services.
-- Import/migration support for JSON Schema, OpenAPI, Avro, Protobuf, SQL DDL,
-  dbt, FHIR, and ODCS. Import fidelity varies by format and is explicitly part
-  of the external-integration hardening roadmap below.
-- Local dbt, FHIR, and ODCS import and tracked-spec drift workflows.
-- Apicurio JSON Schema publish/pull and Marquez-compatible OpenLineage sync.
-- Public conformance fixtures, hosted documentation, and external-validator
-  smoke coverage for supported integration surfaces.
-- Multi-package Rust code generation (`package {}` blocks in `workspace {}`,
-  `modelable compile --package NAME`) and a one-click manual release workflow.
-
-Recent compiler-contract additions are shipped but not yet complete across every
-target:
-
-- Fixed-width integers, fixed-length binary values, and `uuid(7)`.
-- Rust nominal newtypes for `semantic` declarations.
-- Deterministic small-integer allocation for `semantic ... { registry: true }`
-  declarations through the git-tracked `registry-ids.lock` ledger.
-- Primary and secondary index declarations, consumed by PostgreSQL generation
-  (as `CREATE INDEX` statements) and ClickHouse generation (as inline
-  `bloom_filter` data-skipping indexes; declared `unique` constraints are
-  accepted but flagged as unenforceable on MergeTree tables).
-- Protobuf payload schemas and generic Scalable command/read services.
-- A documented Rust/Protobuf wire-format contract with golden fixtures.
-- OpenAPI 3.1 full-document generation/validation and operation/schema
-  compatibility checks.
-- Avro record export with explicit target-loss diagnostics.
-
-The changelog records release-level detail. The archived
-[Scalable feature-gaps response](docs/superpowers/specs/archived/2026-07-07-modelable-feature-gaps-response-design.md)
-and
-[Protobuf/gRPC design](docs/superpowers/specs/archived/2026-07-04-scalable-protobuf-grpc-support-design.md)
-record the decisions behind the recent contract work.
-
-### Documentation status
-
-The verified documentation contradictions this roadmap used to track as open
-gaps are now resolved:
-
-- **Composite keys.** `docs/architecture.md` now correctly states that every
-  entity/aggregate requires exactly one `@key` field, matching
-  `cli/src/modelable/validation/semantic.py` and `docs/language-reference.md`.
-  The claim is backed by an executable conformance fixture
-  (`cli/tests/test_semantic.py::test_composite_key_is_not_yet_supported`), not
-  just prose. Implementing composite entity identity itself remains undecided
-  future work — see [Slice D5](#slice-d5--resolve-composite-key-support).
-- **Optionality compatibility.** `optional -> required` is now classified as
-  breaking, and semantic validation and compatibility reporting agree
-  (`cli/src/modelable/compat/diff.py`, PR #279). See
-  [Slice A1](#slice-a1--correct-optionality-compatibility-under-the-current-model).
-
-`modelable capabilities` (Slice B1, shipped) is the authoritative live source
-for target/format/annotation support status going forward — prefer it over
-docs prose for anything not covered here.
-
-## Delivery lanes
-
-The active lanes run in parallel rather than one strict priority queue:
-
-| Lane | Covers | Priorities below |
-|---|---|---|
-| P1 | Playground (paused) | Priority 1 |
-| P2 | Scalable/Rust integration (paused) | Priority 2 |
-| C | Compiler correctness, compatibility, capability/doc consistency | Priority 3 |
-| R | Offline registry, usage/consequence analysis, developer impact DX | Priority 4 |
-| L | Language evolution, extensibility, gated target work | Priority 6 |
-
-Priority 4 is the primary home for exact offline dependency state, application
-usage/consequence analysis, generated transformation DX, and the remaining
-authoring/adoption work. Priority 5 owns external format and platform
-integration. Priority 7 (repository health) is engineering-quality work found
-by direct code/CI inspection rather than product feature requests, and runs
-beside the active lanes without displacing them.
-
-Interleaving rules:
-
-1. A confirmed false compatibility result is a release blocker.
-2. Silent loss or ignored parsed content is a release blocker for the
-   affected construct.
-3. Incomplete diagnostics that do not change compiler output may proceed
-   beside active roadmap work.
-4. New broad language features do not preempt active priorities without a
-   concrete consumer and accepted design.
-5. Every slice is rechecked against `main` immediately before design
-   acceptance.
-6. A new importer or emitter does not become stable until representative
-   real-world fixture data is covered by deterministic regression tests.
-
-## Priority 1 — Playground (paused)
-
-The Playground roadmap is paused. The shipped browser compiler, durable
-workspace, language services, visualization, analysis, local AI, offline
-hardening, documentation RAG, Ollama provider, and artifact-viewer plugin
-contract are considered sufficient for the current product direction.
-
-The completed phases are retained as product history:
-
-1. **Shipped: browser compiler spike.**
-   The static proof loads the pinned browser wheel in same-origin Pyodide and
-   verifies validation, formatting, JSON Schema generation, native/browser
-   conformance, and performance budgets. The completed design is archived in
-   [Browser Compiler WASM Spike — Design](docs/superpowers/specs/archived/2026-07-18-browser-compiler-wasm-spike-design.md).
-2. **Shipped: single-file editor MVP.**
-   React and Monaco provide source diagnostics, formatting, generated-artifact
-   preview, import/export, recovery, accessibility coverage, and static GitHub
-   Pages delivery. The completed design is archived in
-   [Browser Editor MVP — Design](docs/superpowers/specs/archived/2026-07-19-browser-editor-mvp-design.md).
-3. **Shipped: multi-file workspace and IndexedDB persistence.**
-   The Playground now has a versioned virtual workspace, safe `.mdl` file
-   lifecycle operations, deterministic whole-workspace compiler requests,
-   automatic local restoration, memory-only fallback, and explicit
-   corrupt-state export/reset. The completed scope is archived in
-   [Playground Workspace and Persistence — Design](docs/superpowers/specs/archived/2026-07-20-playground-workspace-persistence-design.md).
-4. **Shipped: browser-native language services.**
-   The Playground now provides completion, hover, definition, references, and
-   rename over the durable multi-file workspace without running the desktop
-   LSP transport in the browser. The completed design is archived in
-   [Playground Browser Language Services — Design](docs/superpowers/specs/archived/2026-07-20-playground-browser-language-services-design.md).
-5. **Shipped: visualization MVP.**
-   The Playground renders compiler-owned semantic graphs with domain and entity
-   visualization modes using ELK.js layout and React Flow rendering, with
-   responsive layout, accessibility, and performance budgets. The completed
-   design is archived in
-   [Playground Visualization MVP — Design](docs/superpowers/specs/archived/2026-07-21-playground-visualization-design.md).
-6. **Shipped: analysis views.**
-   The Playground provides field lineage tracing, version compatibility
-   visualization with downstream projection impacts, governance findings,
-   and SVG/PNG diagram export. The completed designs are archived in
-   [Playground Analysis Views — Design](docs/superpowers/specs/archived/2026-07-21-playground-analysis-views-design.md)
-   and
-   [Playground Analysis Views — Plan](docs/superpowers/plans/archived/2026-07-21-playground-analysis-views.md).
-7. **Shipped: local AI.**
-   The Playground provides WebLLM-powered local AI with model download UX,
-   generate-entity and explain actions, validated preview with provenance
-   tracking, and explicit user acceptance. The completed designs are archived
-   in
-   [Playground Local AI — Design](docs/superpowers/specs/archived/2026-07-22-playground-local-ai-design.md)
-   and
-   [Playground Local AI — Plan](docs/superpowers/plans/archived/2026-07-22-playground-local-ai.md).
-8. **Shipped: offline and hardening.**
-   The Playground registers a service worker for offline operation, validates
-   against both Chromium and Firefox, enforces accessibility with axe-core
-   scans and reduced-motion support, applies performance budgets to all asset
-   categories including Monaco and the AI worker, and lazy-loads AI
-   components. The completed designs are archived in
-   [Playground Offline and Hardening — Design](docs/superpowers/specs/archived/2026-07-23-playground-offline-hardening-design.md)
-   and
-   [Playground Offline and Hardening — Plan](docs/superpowers/plans/archived/2026-07-23-playground-offline-hardening.md).
-9. **Shipped: automatic chat documentation RAG.**
-   CLI chat, the VS Code/LSP conversation participant, and the static
-   Playground route high-confidence documentation questions through the shared
-   deterministic intent classifier and retrieval pipeline when an index is
-   configured. Mutation, compile, apply/discard, and slash-command turns stay
-   on the ordinary planner path; explicit `/docs` remains a force-retrieve
-   command, and automatic routing can be disabled per session. Structured
-   binary browser shards, vector/hybrid retrieval, and user-supplied indexes
-   remain deferred. Design docs:
-   [chat/RAG intent routing](docs/superpowers/specs/archived/2026-08-01-chat-rag-intent-routing-design.md),
-   [LSP adapter](docs/superpowers/specs/archived/2026-08-01-rag-lsp-adapter-design.md),
-   [Playground adapter](docs/superpowers/specs/archived/2026-08-01-rag-playground-adapter-design.md).
-10. **Shipped: optional local Ollama provider for the Playground.**
-   Users can select a local Ollama server as an alternative to WebLLM from
-   the same provider dropdown, using the shared `LlmProvider` abstraction.
-   Fixed to Ollama's default local address (no user-configurable base URL,
-   to keep the CSP `connect-src` allowlist static and narrow); requires
-   `OLLAMA_ORIGINS` configured on the Ollama server to accept requests from
-   the Playground's origin.
-11. **Deferred: further extensibility.**
-   Additional visualization modes and optional GitHub integration remain
-   deferred until the Playground roadmap is reopened and each boundary has an
-   accepted design, explicit authorization model, and tests.
-
-## Priority 2 — Scalable and Rust contract path (paused)
-
-This product track is postponed. The shipped Rust, Protobuf, gRPC, descriptor,
-and compatibility work remains documented below, but Scalable registration is
-not currently an active roadmap commitment.
-
-The completed dependency phases are retained as product history:
-
-1. **Shipped: emit stable Rust identity constants.**
-   Registry-backed semantic newtypes now expose their allocated registry ID,
-   and each versioned Rust model and projection exposes its declared version
-   and canonical Modelable version signature. Target-specific wire
-   fingerprints remain separate manifest metadata rather than canonical model
-   identity. The accepted design is documented in
-   [Rust Identity Constants — Design](docs/superpowers/specs/archived/2026-07-17-rust-identity-constants-design.md).
-2. **Shipped: carry semantic identity into Protobuf.**
-   The Protobuf and gRPC targets now emit stable declaring-domain semantic
-   wrapper messages, preserve nominal identity in model and projection fields,
-   and expose semantic refs, allocated registry IDs, canonical Modelable
-   signatures, and target-specific wire fingerprints in schema manifests. The
-   accepted design is documented in
-   [Protobuf Semantic Identity — Design](docs/superpowers/specs/archived/2026-07-17-protobuf-semantic-identity-design.md).
-3. **Shipped: close Protobuf schema-fidelity gaps.**
-   Supported `map<K,V>` fields now render as native Protobuf maps instead of
-   opaque `bytes`, unsupported map shapes fail clearly, and declared
-   primary/secondary index metadata flows into schema and service manifests.
-4. **Shipped: make the first wire-contract guard enforceable over time.**
-   Descriptor artifacts now ship for Protobuf and gRPC through opt-in
-   `--descriptor-set` generation. Source-level Protobuf reservations now
-   preserve deleted field numbers and names, and
-   `validate-compat --target protobuf|grpc` validates generated manifests for
-   field-number reuse, deleted-field reservations, target type changes,
-   requiredness changes, inline enum value reuse, and gRPC read-index changes.
-   Remaining follow-ups are descriptor-binary semantic diffing, explicit
-   field-number pinning, enum reservations, and explicit rebuild/migration
-   declarations. Scalable registration fixtures are postponed with this
-   priority.
-
-## Priority 3 — compiler correctness, compatibility, and capability integrity
-
-Lane C. This priority does not wait behind the paused Playground and Scalable
-tracks — per
-interleaving rule 1, a confirmed false compatibility result is a release
-blocker, so this lane remains active.
-
-Almost the entire correctness and capability programme below has shipped.
-What's genuinely still open is the non-composite-key half of
-[Slice B2](#slice-b2--reconcile-current-documentation-claims) and the ongoing,
-never-"done" ratchets in [Slice G1](#slice-g1--critical-compatibility-coverage)
-and [Slice G2](#slice-g2--strict-typing-baseline-reduction).
-
-### Track A — correctness fixes (all shipped)
-
-#### Slice A1 — correct optionality compatibility under the current model
-
-Fixed the bug where the model diff could emit `nullability_changed` but the
-compatibility summary didn't consistently classify `optional -> required` as
-breaking. **Shipped:** PR #279, "classify optional-to-required field changes
-as breaking." `required -> optional` is compatible, `optional -> required` is
-breaking, and semantic version validation and compatibility reporting call the
-same rule (`cli/src/modelable/compat/diff.py`). This is an explicit **stopgap
-for the current single-`optional`-flag model** — [Slice D1](#slice-d1--separate-presence-and-nullability)
-must preserve these results for equivalent transitions when presence and
-nullability separate.
-
-#### Slice A2 — create one property-dependency graph
-
-Replaced duplicated, incomplete source-property analysis (direct mappings,
-computed expressions, join predicates, filters, grouping, projection-as-source
-chains, and all source-version-reference forms) with one compiler-owned graph
-used by compatibility, governance, lineage, graph export, and editor tooling.
-**Shipped:** `cli/src/modelable/dependency_graph.py` (Slice A2 plan, archived).
-
-#### Slice A3 — validate all expression positions
-
-Runs the same CEL pipeline for computed fields, join predicates, `where`
-clauses, `group by` expressions, and supported expression-bearing annotations,
-validating result shape (booleans for filters/joins, resolved scalar types for
-grouping) so no parsed expression can bypass semantic validation. **Shipped**
-(Slice A3 plan, archived).
-
-#### Slice A4 — fix semantic-type resolution ambiguity
-
-Made semantic-type identity domain-aware and deterministic: a bare name
-resolves in the current domain first, a qualified name (`orders.Id`) resolves
-across domains, a bare name falls back to a workspace-wide match only when
-exactly one declaration exists, and ambiguity is a compile error. **Shipped:**
-`resolve_semantic_type_ref()` in `cli/src/modelable/registry/resolver.py`
-(Slice A4 plan, archived).
-
-### Track B — capability and documentation consistency
-
-#### Slice B1 — add a canonical capability manifest
-
-`modelable capabilities` (and `--format json`) exposes compiler-owned data —
-output targets and status, SQL dialects, model kinds, annotations, wire hints,
-projection features, import formats, integrations, and experimental/deferred
-grammar constructs — so CLI, Playground, and documentation-consistency checks
-stop hand-maintaining what Modelable supports. **Shipped:**
-`cli/src/modelable/capabilities.py` and `cli/src/modelable/commands/capabilities.py`.
-
-#### Slice B2 — reconcile current documentation claims
-
-**Done:** the composite-key subtask. A conformance fixture with two `@key`
-fields (`cli/tests/test_semantic.py::test_composite_key_is_not_yet_supported`)
-recorded the real validator behavior, and `docs/architecture.md` was corrected
-to match it and `docs/language-reference.md` instead of assuming the
-architecture doc was right — see
-[Slice D5](#slice-d5--resolve-composite-key-support). The optionality
-contradiction closed the same way via Slice A1.
-
-**Still open:** the remaining reconciliation topics — model lifecycle claims
-beyond what [Slice D6](#slice-d6--model-lifecycle-status) already documents as
-not implemented, target listings drifting from `modelable capabilities`,
-federation/runtime-adjacent description strength, and classification
-vocabulary consistency across all docs. Each capability should end up with
-exactly one status (implemented, experimental, deferred, candidate, removed);
-unsupported examples should be clearly labelled. `modelable capabilities` and
-the `DEFERRED` diagnostic (Slice B3) are the authoritative source on status
-today — treat any docs prose that disagrees with them as the bug.
-
-#### Slice B3 — eliminate silently ignored syntax
-
-Reviewed registry/peers, consumers, subscriptions (both forms),
-materialisation, and opaque `binding {}` content. **Outcome chosen
-(2026-08-05):** all of the above are "reject as deferred" — a non-blocking
-warning-severity `DEFERRED` diagnostic
-(`cli/src/modelable/validation/deferred_syntax.py`) rather than full
-implementation, since none has an accepted runtime design yet (see
-["Outside the near-term compiler roadmap"](#outside-the-near-term-compiler-roadmap)
-below). Stable syntax is never silently discarded as ignored text anymore.
-
-### Track C — compatibility architecture (all shipped)
-
-#### Slice C1 — projection-to-projection compatibility
-
-Treats versioned projections as first-class contracts: compares shape,
-lineage, governance, wire, storage, and materialisation impact between
-projection versions directly, wired into `modelable diff`. **Shipped:** PR
-#291, `cli/src/modelable/compat/projection_fields.py`,
-`compare_projection_versions()`/`check_projection_version_compatibility()` in
-`compat/diff.py`/`compat/checker.py`. Source-version comparison delegates to
-`check_model_version_compatibility()`; a projection change is compatible only
-when both the shape delta and the source-version delta are compatible.
-
-#### Slice C2 — extend existing version resolution to `ref<>` types
-
-Extended the projection-source version-resolution rules (exact/range/minimum/
-pin) to `ref<Domain.Model @ version_spec>` type-reference positions, so type
-references use the same canonical resolver as projection sources instead of a
-separate mechanism. **Shipped:** PR #292 (Slice C2), `RefType` in
-`cli/src/modelable/parser/ir.py`.
-
-#### Slice C3 — generalize existing target compatibility
-
-Generalized the Protobuf/gRPC-specific compatibility guards into one
-target-agnostic `TargetCompatibilityReport` axis/severity IR, extended to
-JSON, SQL/storage migration, projection rebuild, and governance review,
-without duplicating the existing Protobuf/gRPC rule logic. **Shipped:** PR
-#294, `cli/src/modelable/compat/targets.py`.
-
-#### Slice C4 — configurable compatibility and lint policy
-
-Added a configurable compatibility/lint policy so teams can set enforcement
-severity per target axis without changing the underlying compiler-determined
-facts. **Shipped:** `cli/src/modelable/compat/policy.py`.
-
-### Track G — engineering safeguards (compiler-specific)
-
-#### Slice G1 — critical compatibility coverage
-
-**Shipped, ongoing ratchet.**
-
-Protects model compatibility, projection compatibility, dependency
-resolution, expression validation, lineage, governance, signatures, and
-target compatibility via a per-critical-path coverage ratchet rather than a
-repository-wide percentage. **Shipped:** `cli/coverage-baseline.txt` lists 12
-files covering all eight categories — `compat/checker.py`, `compat/diff.py`
-(compatibility); `dependency_graph.py`, `registry/resolver.py` (dependency
-resolution); `expressions/cel.py`, `compiler/workspace.py` (expression
-validation); `planner/lineage.py` (lineage); `governance/checker.py`
-(governance); `registry/signature.py` (signatures); `emitters/protobuf.py`,
-`emitters/grpc.py`, `commands/validate_compat.py` (target compatibility) — and
-`.github/scripts/check_coverage_ratchet.py` fails CI if any of them regresses.
-This is a ratchet, not a one-time deliverable: raise individual baseline
-numbers as their tests improve (never lower one to make a change pass), and
-add files if a future slice identifies another critical path. See also
-[Priority 7, finding 2](#2-ci-enforces-a-per-critical-path-coverage-ratchet-not-a-repository-wide-threshold).
-
-#### Slice G2 — strict typing baseline reduction
-
-**Ongoing ratchet, not one-shot.**
-
-`mypy --strict` is enforced as a baseline ratchet
-(`cli/mypy-baseline.txt`, `.github/scripts/check_mypy_baseline.py`) — see
-[Priority 7, finding 1](#1-mypy---strict-is-enforced-as-a-baseline-ratchet)
-for the full evidence. **Remaining work**, in critical-path priority order:
-compatibility and dependency graph, resolver and signatures, semantic
-validation, parser/IR, emitters, importers, conversational surfaces. Burn the
-baseline down by module; when it reaches zero, replace the ratchet wrapper
-with a direct `uv run mypy src/modelable` step and delete
-`cli/mypy-baseline.txt`.
-
-#### Slice G3 — conformance fixtures
-
-**Shipped across four tranches, 2026-08-05–06.**
-
-Goal: share fixtures across the native compiler, browser compiler, LSP,
-Playground, compatibility, signatures, and manifests, with explicit coverage
-for every capability documentation disputes (especially composite keys and
-deferred constructs).
-
-- **Tranche 1 (2026-08-05):** extended the existing native/browser/Playground
-  shared-fixture pipeline (`cli/tests/conformance/browser/` →
-  `vendor-python-assets.mjs` → `conformance.spec.ts`) with `composite-key` and
-  `deferred-constructs` scenarios verified against the real Pyodide browser
-  compiler. Found and fixed a real gap along the way:
-  `language/workspace.py`'s `synchronize()` only read `workspace.errors`, so
-  Slice B3's `DEFERRED` warnings were invisible in the browser/Playground
-  despite working in the CLI.
-- **Tranche 2 (2026-08-06):** closed signature fixtures
-  (`cli/tests/conformance/signature/scenarios.py`, one canonical
-  `ModelVersion`-fixture source for the registry resolver and LSP federation
-  diagnostics) and capability-manifest-to-test linkage (`Capability.test_refs`
-  + `test_capability_manifest_linkage.py`, enforced in CI; 9 of 11 deferred
-  features linked, 2 explicitly acknowledged as unlinked pending their own
-  scoping pass).
-- **Tranche 3 (2026-08-06):** closed LSP fixture sharing (minus the full
-  31-file migration of already-passing independent fixtures, explicitly out
-  of scope). `test_lsp_conformance_fixture.py` drives the same shared fixture
-  through a real `pygls` subprocess server, exercising completion, hover,
-  definition, references, prepareRename, and rename against the same
-  expectations the browser dispatch tests assert.
-- **Tranche 4 (2026-08-06):** closed compatibility fixtures — the one area
-  that had been blocked on Playwright/Pyodide network access.
-  `cli/tests/conformance/browser/compatibility.mdl` plus a `compatibility`
-  scenario in `write_browser_conformance.py` exercises
-  `BrowserCompiler.compatibility()` end to end with a matching snapshot on
-  both the native generator and `web/tests/conformance.spec.ts`.
-
-External-format fixtures (Priority 5's forthcoming format-adapter work) must
-record source and license/provenance, be pinned locally for offline CI, and
-include stable expected output or semantic-equivalence assertions — the same
-standard this track set.
-
-Completion means compatibility reports can never contradict semantic
-validation, every property dependency (including filters and joins) is
-captured in one graph, all expressions are type-checked and traced, semantic
-types resolve deterministically, documented capabilities match compiler
-behavior, and no parsed syntax is silently discarded. Every point in that list
-is satisfied today except the remaining half of Slice B2.
-
-## Priority 4 — consequence-driven developer experience and adoption
-
-The next compiler-product direction is the one defined by the proposed
-[Offline Registry and Consequence-Driven Developer Experience design](docs/superpowers/specs/2026-08-16-offline-registry-dx-design.md): exact external dependency state, derived application usage, causal consequence analysis, and proof-driven generation of repetitive data plumbing. It extends the existing compiler; it does not require a hosted registry or runtime execution engine.
-
-Work should proceed in dependency order. Each unshipped implementation slice
-still requires its own issue and accepted design before becoming committed:
-
-1. **Shipped:** safe conversational workspace management in the existing CLI
-   chat. Natural-language requests use typed plans and a reusable workspace
-   editor to answer grounded questions, create complete entities and
-   projections, append compatibility-aware versions, and preview atomic
-   multi-file changes with textual diffs and affected-definition explanations
-   before explicit confirmation. The completed design is archived in
-   [Conversational Workspace Management — Design](docs/superpowers/specs/archived/2026-07-18-conversational-workspace-management-design.md).
-2. **Shipped:** reuse the conversational planner and workspace editor through
-   the native VS Code `@modelable` participant and versioned language-server
-   requests. The extension remains a thin UI: Python owns provider
-   configuration, typed plans, validation, exact previews, writes, rollback,
-   and reload. The completed design is archived in
-   [VS Code Conversational Foundation — Design](docs/superpowers/specs/archived/2026-07-18-vscode-conversational-foundation-design.md).
-3. **Shipped:** local Conversational Compilation Management through CLI chat
-   and the native VS Code participant. A shared application service stages the
-   real compiler output, reports exact text/binary file evidence and affected
-   definitions, requires literal or native confirmation, checks source and
-   destination freshness, promotes the staged bytes with rollback, and writes
-   privacy-preserving audit records. The completed design is archived in
-   [Conversational Compilation Management — Design](docs/superpowers/specs/archived/2026-07-19-conversational-compilation-management-design.md).
-   Registry synchronization, publishing, and external-service operations remain
-   separate follow-ups with their own authorization, credential, preview,
-   confirmation, and audit policies.
-4. **Active plan — complete the durable offline registry snapshot.** The
-   initial local snapshot, verification, status, pruning, and atomic update
-   foundation is shipped. The remaining work is to separate source adapters,
-   resolve direct and transitive external dependencies, and make exact
-   provenance and offline compiler isolation enforceable. See the
-   [Offline Registry and Consequence-Driven DX Delivery Plan](docs/superpowers/plans/2026-08-21-offline-registry-dx-delivery.md).
-   The target state separates source registries, durable dependency state, and
-   the rebuildable `registry.db` index. External requirements resolve
-   explicitly into a deterministic `.modelable/registry.lock` plus
-   content-addressed normalized contract objects. Normal `validate`,
-   `compile`, `diff`, `impact`, lineage, and editor operations must use only
-   local source plus the exact snapshot and must never refresh dependencies
-   implicitly. Same logical version with different canonical content is an
-   error, not an update.
-5. **Following slice — derived application usage and consequence graph.** Give each
-   workspace/package a stable application identity, derive actual contract use
-   from external references/API/event/persistence surfaces, and export a compact
-   usage manifest. Build one public consequence model over existing source,
-   wire, storage-migration, projection-rebuild, and governance facts. Add a
-   machine-readable `modelable impact --from OLD --to NEW` surface that retains
-   causal paths and can report actions such as `regenerate`, `recompile`,
-   `consumer_update`, `storage_migration`, `data_backfill`,
-   `projection_rebuild`, `event_replay`, `governance_review`, and `breaking`.
-6. **Following slice — staged, consequence-aware registry updates.** `registry update`
-   must resolve candidates, stage an exact candidate snapshot, compare semantic
-   graphs, calculate consequences, apply configured policy, show exact
-   dependency/generated-artifact changes, and replace durable dependency state
-   atomically only after successful validation. Dependency updates must never
-   behave like an opaque refresh.
-7. **Next — proof-driven generated conversions.** Generate conversions between
-   canonical models, auto/hand-authored projections, API/event/database shapes,
-   and adjacent versions only when the semantic graph proves the mapping.
-   Classify conversions as total/reversible, total/irreversible, fallible,
-   hook-required, or impossible. Use target-native idioms and stable user-owned
-   hooks; never invent inverse mappings from similar names. Surface conversion
-   changes as `impact` consequences.
-8. **Next — deterministic defaults and override hierarchy.** Separate semantic
-   contract data from build/operational generation defaults and define one
-   explainable precedence chain: built-ins < workspace < domain < model or
-   projection < field < invocation. Prefer `modelable.toml` for operational
-   defaults and keep contract-significant semantics in `.mdl`.
-9. Extend nominal semantic-type generation beyond Rust (Slice F1), prioritizing
-   TypeScript, Go, Java, C#, Python, JSON Schema, and SQL according to concrete
-   consumer demand. Targets that intentionally erase nominal identity must say
-   so explicitly. See [Slice F1](#slice-f1--nominal-semantic-types-beyond-rust)
-   below.
-10. Extend `modelable inspect` with registry-ID, canonical-signature, exact
-    snapshot object, and resolved-reference lookup so generated constants and
-    dependency state are easy to diagnose.
-11. Publish the VS Code extension through the Marketplace once the release and
-    support process is defined.
-12. Continue conformance, documentation, diagnostics, and importer hardening
-    where contributor or user reports expose real gaps.
-
-Completion means a team can resolve external contracts once, compile entirely
-offline against exact immutable dependency state, ask Modelable what a proposed
-change affects and why, update dependencies with a reviewable consequence
-preview, and eliminate mechanical conversion/default boilerplate without
-editing generated code or relying on a hosted Modelable service.
-
-## Priority 5 — deepen external integrations and format interoperability
-
-Integration work follows adoption work unless a concrete deployment provides a
-stronger near-term requirement. Format work should make Modelable a strong
-migration and contract-interop boundary without turning generated formats into
-alternate sources of truth.
-
-### Format adapter and regression-test foundation
-
-Before adding several more formats, normalize the importer/exporter boundary:
-
-1. Move deterministic format import out of `modelable.llm` ownership and define
-   a compiler/application-level format-adapter registry parallel to codegen
-   targets. Each adapter declares its name, extensions/media types, import and
-   export capabilities, semantic limitations, and round-trip metadata.
-2. Make `modelable capabilities` the authoritative list of supported import and
-   export formats and their maturity.
-3. Create a checked-in real-world regression corpus, organized by format, for
-   all supported importers and interoperability emitters. Prefer representative
-   public examples from standards bodies, vendors, or established open-source
-   projects; retain only data whose redistribution/license permits it and keep
-   a provenance manifest with source URL, upstream version/commit, license, and
-   any sanitization performed.
-4. Keep regression test data local and pinned so CI never depends on network
-   availability or mutable upstream files. Synthetic minimal fixtures remain
-   useful for unit tests but do not substitute for the real-world corpus.
-5. For every stable format adapter, require the relevant subset of:
-   - parse/import -> normalized graph -> semantic validation;
-   - deterministic golden output;
-   - import -> emit -> re-import semantic-equivalence tests when both
-     directions are supported;
-   - upstream or reference-validator smoke tests when practical;
-   - malformed, unsupported-feature, and edge-case fixtures that verify clear
-     diagnostics instead of silent information loss;
-   - compatibility regression fixtures across representative schema versions.
-
-### Format delivery sequence
-
-Work should then proceed in this order, subject to the language prerequisites in
-Priority 6:
-
-1. **Shipped — harden OpenAPI import and add OpenAPI export.**
-   - Accept both YAML and JSON OpenAPI documents.
-   - Stop treating the first `components.schemas` entry as the whole API.
-   - Map reusable component schemas deliberately to value/entity candidates,
-     request bodies and parameters to request projections, responses to reply
-     projections, `$ref` to named references, and operation/security metadata
-     where Modelable has a corresponding concept.
-   - Add deterministic OpenAPI generation from API-facing projections, with
-     stable schema and operation ordering.
-   - Preserve Modelable-specific round-trip metadata through namespaced
-     extensions where doing so does not change OpenAPI semantics.
-2. **P0 — harden Avro import and reader/writer compatibility.** Avro record
-   export is shipped as a deterministic local target for models and event
-   projections. Treat records as model/event contracts, map arrays/enums/
-   logical types and optional unions, preserve Modelable identity/governance
-   metadata through legal custom attributes, and add reader/writer
-   compatibility regression fixtures before declaring the adapter stable.
-3. **P1 — add AsyncAPI import/export.**
-   Map Modelable events/projections to messages, bindings/topics to channels,
-   producer/consumer intent to operations, and JSON Schema/Avro/Protobuf payload
-   schemas without duplicating those schema emitters. Kafka is the first
-   binding to harden; other protocol bindings follow concrete demand.
-4. **P1 — add XSD import.**
-   XSD is primarily an enterprise migration source. Map complex/simple types,
-   enumerations, cardinality, restrictions, namespaces, and obvious identities;
-   issue explicit lossy-import diagnostics for substitution groups, wildcards,
-   mixed content, inheritance shapes, and XML-specific constructs that have no
-   faithful Modelable representation. XSD export remains optional and should
-   require a concrete consumer.
-5. **P1/P2 — add GraphQL SDL/Federation interoperability.**
-   Start with GraphQL/Federation export because Modelable domain ownership,
-   entities, references, and API projections map naturally to subgraphs,
-   `@key` identities, relationships, and operation shapes. Add SDL import after
-   export semantics are stable and backed by representative federated schemas.
-6. **P2 — add migration-only importers for TypeSpec and Smithy.**
-   Consider LinkML and CUE in the same class if real migration demand appears.
-   These are source migration paths into canonical `.mdl`, not reasons to emit
-   another source-language artifact by default.
-7. **P2 — add lakehouse schema targets.**
-   Start with Iceberg schema emission and evaluate Delta schema interoperability
-   after the type/field-identity mapping is proven. Emit schema/contract
-   artifacts only; table lifecycle and runtime materialization stay outside the
-   compiler boundary.
-8. Continue existing integration work: live OpenMetadata synchronization,
-   remote authenticated tracked-spec sources for dbt/FHIR/ODCS, complex FHIR
-   and dbt/ODCS hardening, and lineage stitching for external dbt exposures and
-   similar consumers.
-
-The intended interoperability surface is asymmetric by design:
-
-- Bidirectional where semantic round-tripping is useful and defensible: JSON
-  Schema, Protobuf, Avro, ODCS, FHIR, OpenAPI, AsyncAPI, and eventually GraphQL.
-- Primarily import/migration: SQL DDL, XSD, TypeSpec, Smithy, and potentially
-  LinkML/CUE.
-- Primarily output/platform integration: dbt, OpenMetadata, OpenLineage,
-  PostgreSQL/ClickHouse, Iceberg/Delta, and generated programming languages.
-
-Completion means at least one real deployment can pull or synchronize external
-contracts reproducibly without making an external service the source of truth
-for Modelable models, and every stable format adapter is exercised against
-representative real-world regression data rather than only hand-written toy
-fixtures.
-
-## Priority 6 — language evolution and extensibility
-
-Lane L. These items require accepted designs and, for the syntax-changing
-ones, concrete consumer demand; they do not automatically outrank
-Priorities 1–5.
-
-Most items here were gated behind one decision, now made:
-
-#### Slice D0 — define historical language interpretation
-
-**Shipped/decided, 2026-08-06.**
-
-**Decided:** additive-syntax policy — old syntax never changes meaning; new
-semantics require new syntax. Chosen over language-version and
-compiler-version-snapshot policies since those exist to protect a large body
-of already-published `.mdl` text against reinterpretation, and that body
-doesn't exist yet. A guardrail test pins this:
-`cli/tests/test_language_stability.py` exact-matches the canonical signature
-and formatted output of a small, representative set of already-shipped
-constructs, so any accidental reinterpretation of historical syntax fails
-there first. D1 and D6 below are unblocked to scope and design (not yet
-implemented).
-
-Gated on D0 (now decided), in dependency order:
-
-#### Slice D1 — separate presence and nullability
-
-**Purpose:** represent absence and explicit null independently — required
-non-null, optional non-null, required nullable, optional nullable. **Design
-and implementation:** `field?` remains the legacy presence marker and a post-type `?`
-marks nullability, as specified in
-[`docs/superpowers/specs/archived/2026-08-16-presence-nullability-design.md`](docs/superpowers/specs/archived/2026-08-16-presence-nullability-design.md).
-**Shipped:** PR #364. The parser, canonical renderer, compatibility model,
-and JSON Schema/OpenAPI emitters preserve both dimensions. Remaining
-target-specific emitter coverage is tracked as target work. Requires D0 (done).
-Acceptance:
-existing
-published text keeps a deterministic meaning; compatibility reports
-distinguish presence from nullability; every emitter declares exact or lossy
-representation. [Slice A1](#slice-a1--correct-optionality-compatibility-under-the-current-model)'s
-stopgap results must still hold for equivalent transitions once this lands.
-
-#### Slice D2 — first-class value constraints
-
-**Purpose:** track valid property values (numeric min/max, length limits,
-pattern, format, item-count limits, uniqueness) in addition to structural
-shape, with explicit lineage and no silent widening. **Shipped:** PRs #379
-and #380 added the constraint IR, compatibility semantics, JSON Schema/OpenAPI
-mapping, projection propagation, and target support/loss coverage. Remaining
-target-specific refinements are tracked with the relevant emitter work.
-Each constraint must define valid source types, propagation through direct
-projections, narrowing/widening rules, compatibility impact, and target
-support/loss diagnostics.
-
-#### Slice D3 — versioned semantic enums
-
-**Purpose:** reusable vocabularies with domain-qualified identity, value
-evolution, wire values, Protobuf numbering/reservations, and compatibility
-across targets. **Shipped:** PRs #381 and #382 added reusable semantic enum
-identity, schema reuse, version evolution, conversion behavior, and
-compatibility checks. That shipped source form is
-`semantic Name @ version: enum(...)`. The extensions decomposed as E1-E11 in
-the
-[Model Evolution Slices Roadmap](docs/superpowers/plans/2026-08-22-model-evolution-slices-roadmap.md)
-are shipping incrementally: foundation slices F1-F4 (unsafe shape-based Rust
-conversion removal, central anonymous-enum member validation, target
-name/wire-value collision validation, normalized-contract equivalence) and
-identity slices E1-E5 (exact versioned semantic-enum references, exact
-identity resolution, `pick`/`omit` enum projections with subset lineage,
-registry signature/snapshot inclusion, and compatibility/causal-impact
-classification) are shipped. **E6 (stable Protobuf enum number allocation) is
-now shipped too:** `cli/src/modelable/registry/enum_numbers.py` allocates and
-persists per-declaration member numbers in a `enum-numbers.lock` ledger
-(same shape and lock discipline as `registry-ids.lock`), preserving numbers
-across additions and reordering, reserving removed members' numbers
-permanently, and rejecting a later version that reintroduces a removed
-member's name. `emitters/protobuf.py` now emits enum-backed `semantic`
-declarations as a single nominal, package-qualified Protobuf `enum` in each
-domain's `semantic-types.proto` bundle (rather than crashing, which it did
-unconditionally before this slice for any `EnumRefType` field or an
-enum-backed `semantic` declaration), referenced by every field through a
-qualified type import; removed members render as `reserved` statements.
-Enum projections resolve their included members' numbers directly from their
-source declaration's allocation rather than getting an independent one.
-`modelable compile`'s ledger wiring covers the direct/non-conversational
-compile path (`--enum-numbers`, defaulting to `enum-numbers.lock` beside the
-source) with the same staged-promotion and cross-process locking discipline
-as `registry-ids.lock`; conversational preview/apply stages and promotes the
-ledger file consistently but does not yet get its own dedicated
-change-tracking or audit-record entries the way `registry_id_changes` does
-for `registry-ids.lock` — that stronger conversational-surface parity is
-explicitly deferred as a small follow-up, not part of this slice.
-**E7 (nominal Rust enums and lineage conversions) is now shipped too:**
-`emitters/rust.py` emits one real `pub enum` per enum-backed semantic
-declaration (`_emit_semantic_enum_type`) instead of the opaque
-`#[serde(transparent)] pub struct X(pub String)` wrapper every other
-semantic underlying type gets — that String-wrapper fallback was silently
-discarding the closed member set entirely, with no exhaustiveness safety, for
-every enum-backed declaration since D3 shipped it. Enum projections get their
-own `pub enum` too (`_emit_enum_projection`), plus lineage-proven
-conversions: projection-to-source is always `From` (a projection's members
-are always a subset of its source's by construction); source-to-projection is
-a checked `TryFrom` with a stable per-projection error type unless the
-projection covers every source member, in which case both directions are
-`From`. Verified by compiling generated output with a real `cargo build`
-(plain and with the `clickhouse` feature) in addition to the Python test
-suite. Fixed two further real bugs found while wiring this up: (1)
-`_collect_named_type_refs` only recognized `NamedType`, so any model field
-using the newer exact-versioned `EnumRefType` reference silently produced no
-`use` import — the field referenced a type name that would not resolve, a
-compile error in the generated Rust the existing tests never exercised; (2)
-ClickHouse's forced-string encoding (`clickhouse-rs` panics on
-`serialize_unit_variant` for typed enums) only matched the anonymous
-`enum(...)` shape kind, so a ClickHouse-bound projection field using a
-nominal enum-backed semantic type would have generated an unencoded enum
-field and hit that panic at runtime — extended to cover the nominal case too.
-**E8 (typed-SDK nominal enums) is in progress, TypeScript done first:**
-before this, none of TypeScript/Python/Java/C#/Go emitted any standalone
-artifact for a semantic declaration at all (every target always inlined the
-underlying shape) — a real gap distinct from Rust/Protobuf's "wrong
-representation" bugs fixed in E6/E7. For an `EnumRefType` field specifically,
-this meant every target quietly degraded to a bare scalar (TypeScript emitted
-literally `unknown`, discarding type safety entirely). `emitters/typescript.py`
-now emits one reusable `export enum` per enum-backed semantic declaration,
-imported as a value (not `import type`, since a TS `enum` is also a runtime
-value) everywhere it's referenced — verified with real `tsc --strict`
-compilation of generated output, including that an invalid string literal is
-correctly rejected. **Python is done next:** `emitters/python.py` now emits
-one reusable `class X(StrEnum)` per enum-backed semantic declaration, using
-Python 3.14's built-in `enum.StrEnum` so the generated type still compares
-and serializes as its wire string value with no behavior change for existing
-JSON-producing callers. This slice also extended the shared
-`emitters/named_types.py` resolver (`resolve_named_types`/`resolve_named_ref`)
-used by Python, Java, C#, and Go alike with an explicit `emit_nominal_enums`
-opt-in flag, rather than changing its default behavior — turning it on
-unconditionally would have made Java/C#/Go silently reference an `OrderStatus`
-type name that nothing actually emits yet, breaking their generated output.
-Only `emitters/python.py` passes `emit_nominal_enums=True`; Java/C#/Go stay on
-the old inline behavior (verified by a regression test) until each gets its
-own slice and starts emitting the corresponding type declarations.
-**Java is done next:** `emitters/java.py` now emits one reusable `public
-enum` per enum-backed semantic declaration. Unlike Python/TypeScript/Rust,
-Java's conventional `UPPER_SNAKE_CASE` enum constant identifier is not the
-same string as the canonical lowercase wire value, and this codegen target
-has no JSON library dependency to lean on (generated records carry no
-Jackson/Gson annotations today), so the enum carries its wire value
-explicitly via `toWireValue()`/`fromWireValue(String)` rather than relying on
-`Enum.name()`. Verified with a real `javac`/`java` compile-and-run inside the
-same `eclipse-temurin` Docker image this repo's existing Java Docker smoke
-test already uses, confirming both the record construction and the
-wire-value round trip work, not just that the source parses.
-**C# is done next:** `emitters/csharp.py` now emits one reusable C# `enum`
-per enum-backed semantic declaration. C# enum members can't carry per-value
-data the way Java's or Rust's can, so the wire mapping lives on companion
-`ToWireValue()`/`ToXyz(string)` extension methods instead — the same
-explicit-round-trip shape as Java's slice, adapted to C#'s idiom, again
-without adding a JSON library dependency the generated records don't already
-have. Verified with a real `dotnet run` (not just `dotnet build`) exercising
-record construction, array/map fields typed by the nominal enum, and both
-extension-method directions of the wire round trip.
-**Go closes out E8:** `emitters/go.py` now emits a reusable `type X string`
-plus `X<Member>`-prefixed constants (Go has no enum-scoped constant
-namespace, so each constant is prefixed with the type name to avoid
-colliding with another enum's members in the same package) per enum-backed
-semantic declaration. Unlike Java/C#, this needed no explicit wire-value
-plumbing at all: `encoding/json` already marshals/unmarshals any
-string-kinded named type as its underlying string, so the canonical wire
-value round-trips for free. Verified with a real `go run` exercising struct
-construction, `json.Marshal`/`json.Unmarshal` round-tripping through the
-nominal type, and a cross-domain package-qualified reference
-(`orders.OrderStatus` used from the `fulfillment` package). **All five
-typed-SDK targets (TypeScript, Python, Java, C#, Go) now emit a real
-reusable type for enum-backed semantic declarations instead of silently
-degrading to a bare scalar — E8 is complete.** `named_types.py`'s
-`emit_nominal_enums` flag has no remaining unmigrated callers, but stays
-explicit rather than becoming the unconditional default, so a future emitter
-added to this family can't accidentally skip opting in and reference a type
-name nothing emits (the exact bug this flag was added to prevent, caught
-during the TypeScript-to-Python transition).
-**E9 (schema/API targets) is in progress.** Protobuf/gRPC already satisfy
-E9's item 1 as a side effect of E6's implementation — `emitters/protobuf.py`
-already emitted one package-qualified nominal `enum` per declaration with
-correct cross-domain `import`/fully-qualified-type references before E9
-started, and `emitters/grpc.py` reuses that output unchanged, so no separate
-gRPC-specific work was needed. **Avro is done next:** `emitters/avro.py` now
-derives one qualified named Avro enum per enum-backed semantic declaration
-(`namespace` = declaring domain, `name` = declaration name) on first use
-within a schema, and reuses it via Avro's native named-type string reference
-(`"orders.OrderStatus"`) on every repeat — mirroring the dedup pattern this
-emitter already used for nested record types — instead of silently
-degrading to a bare `"string"`, which is what an `EnumRefType` field
-produced before this slice (a real correctness gap, not just a lost-identity
-one: nothing enforced the closed value set). Verified with a real
-`fastavro` binary encode/decode round-trip confirming both that valid wire
-values round-trip correctly and that the schema actually rejects a value
-outside the declared symbol set.
-**JSON Schema and OpenAPI close out E9's targets.** Both share one mapping
-module, `emitters/_schema_mapping.py`, so fixing it fixes both formats in
-one change. Two real problems existed, not one: `EnumRefType` had no
-handling at all in `_type_to_json_schema` and fell through to the generic
-`{"type": "object"}` fallback — not merely unconstrained, actively wrong,
-since it would reject every valid string status value under schema
-validation; and the older bare-`NamedType` enum-reference path (predating
-`EnumRefType`) already resolved correctly but re-inlined a fresh `enum`
-array at every occurrence instead of the reusable `$ref` E9 item 3 requires.
-Both paths now go through one new `_enum_semantic_to_json_schema` helper
-that registers the declaration once in `defs`/`components.schemas` (keyed by
-declaring domain + declaration name) and returns a `$ref` on every
-occurrence and every repeat, while a genuinely anonymous `enum(...)` field
-still renders inline, unchanged, per item 3's "anonymous enums stay inline."
-Verified with real `jsonschema` `Draft202012Validator` schema-validity and
-data-validation checks (confirming both that a valid value passes and an
-invalid one is correctly rejected with a message naming the bad value) and
-the existing `openapi-spec-validator`-backed `_validate_document` check this
-codebase already uses for its other OpenAPI tests. Updated one pre-E9 test
-(`test_named_enum_semantic_type_emits_as_reusable_enum`) whose name already
-described the intended behavior but whose assertion only checked the old
-inline-expansion shape; it now checks the real `$ref`.
-**E9 is complete: every schema/API target (Protobuf, gRPC, Avro, JSON
-Schema, OpenAPI) now emits or references one reusable nominal enum instead
-of losing identity or, in JSON Schema's case, actively mismapping the
-type.** Enum projections (E9 item 2's "distinct names" half) remain out of
-scope everywhere in E9, consistent with E6/E7/E8's precedent: no field can
-reference a projection as its type yet, so there is nothing for a
-schema/API target to render a distinct name for.
-**E10 (remaining storage/metadata targets) is in progress.** A survey of
-E10's full target list — `sql-postgres`, `sql-clickhouse`, `dbt-yaml`,
-`fhir-profile`, `openmetadata`, `openlineage`, `odcs`, `markdown`,
-`registry`, `event-sink` — found `registry` needs no change (it emits a pure
-identity/signature inventory with no per-field type mapping at all) and
-`event-sink` is already correct as a side effect of E9 (it delegates payload
-schemas entirely to the now-fixed `emitters/openapi.py`). **ODCS is done
-first**, since it had the most severe gap of the remaining eight: an
-`EnumRefType` field fell through every branch in `_type_info` to
-`{"logicalType": "string", "modelable_type": "unknown"}`, discarding the
-closed value set entirely (worse than the anonymous-enum case, which already
-correctly emits an `enum: [...]` customProperty). `emitters/odcs.py` now
-resolves the reference and emits both the closed value set and a
-`modelableEnumType` custom property carrying the qualified declaration
-identity (`domain.Name`), reusing the existing `NamedType`
-`modelableNamedType` extra-property convention this emitter already had for
-non-enum semantics. Applies to both model and projection field paths.
-**OpenMetadata and OpenLineage are done next** (paired, since both emitters'
-`_type_name` helpers had the exact same shape of bug — an `EnumRefType`
-fell to the final `"unknown"` fallback instead of the anonymous-enum case's
-`"enum(a,b,c)"`): both now render `"enumRef<Name@version>"`, carrying exact
-declaration identity rather than the constant-set members these two
-catalog/lineage formats have no closed-set concept for anyway (unlike ODCS,
-neither has an existing `enum: [...]`-shaped field to extend). **FHIR is done
-next**, and was genuinely two gaps, not one: (1) `_fhir_type` had no
-`EnumRefType` branch and fell through to the final `[{"code": "string"}]`
-instead of the anonymous-enum case's proper `[{"code": "code"}]` (FHIR's
-closed-set primitive); (2) `_binding` only matched bare `EnumType`, and even
-for that anonymous case the ValueSet URL was field-scoped
-(`{domain}.{projection}.{field}`) rather than declaration-scoped, so two
-fields sharing the same nominal enum would each have gotten their own
-disconnected ValueSet instead of one shared one. `emitters/fhir.py` now
-resolves an `EnumRefType` to its declaration and emits one ValueSet URL keyed
-by `{declaringDomain}.{declarationName}` reused across every field
-referencing it — the companion Extension StructureDefinition's own
-`Extension.value[x]` binding matches the profile's binding exactly, since
-both now resolve through the same declaration-scoped path. The
-pre-existing anonymous-enum behavior (field-scoped URL) is deliberately
-unchanged, since an anonymous `enum(...)` genuinely has no cross-field
-identity to share. **Markdown closes out the E10 targets that get a real
-fix:** the same `_type_name`-shaped bug as OpenMetadata/OpenLineage (fell to
-`"unknown"` instead of the anonymous case's `"enum(a, b, c)"`), fixed the
-same way, rendering `"Name@version"` — a format chosen to echo this
-language's own `Name @ version` reference syntax directly in the generated
-docs table, since Markdown's audience is a human reader rather than another
-tool.
-**E10 is complete for every target with a real gap.** `registry` needed no
-change (pure identity/signature inventory), `event-sink` was already correct
-as an E9 side effect (delegates to `emitters/openapi.py`), and
-`sql-postgres`/`sql-clickhouse`/`dbt-yaml` are intentionally deferred:
-today's `EnumRefType` fallback already matches what anonymous `enum(...)`
-fields get in each of those three targets (a documented, symmetric
-physical-storage simplification, not a regression), and adding native
-`CREATE TYPE ... AS ENUM` / ClickHouse `Enum8` / dbt `accepted_values`
-support is a larger, unscoped design decision — whether to add real enum
-enforcement for *both* anonymous and nominal enums at once — that belongs in
-its own accepted design rather than being smuggled into a "wire through the
-missing case" slice.
-**E11 (editor/language-service support) is in progress.** A survey found
-`cli/src/modelable/language/` (hover, definition, references, rename,
-completion) is entirely regex/token-based over raw source text, not
-IR-based — every qualified-reference resolver (`domain.Name@version`) checks
-only `domain.models`/`domain.projections`, an identical gap repeated across
-all 5 files, plus a separate pre-existing display bug in the shared
-`llm/context.py` helper these language services (and the CLI/VS Code chat
-participants) already depend on: `_field_type_text` printed the literal
-string `"enum_ref"` for any `EnumRefType` field instead of a useful
-`Name@version`. **Hover is done first**, since fixing the shared
-`llm/context.py` helper (adding `build_semantic_enum_summary` and
-`build_enum_projection_summary`, mirroring the existing
-`build_model_summary`/`build_projection_summary`, plus the `_field_type_text`
-fix) already gets hover working for a qualified reference to an enum-backed
-`semantic` declaration or an `enum projection`, since `hover.py` needs no
-source-location search the way definition/references/rename do — it only
-needs the resolved declaration data. Scope is deliberately limited to
-*qualified* references (`orders.OrderStatus @ 1`); *bare* references
-(`OrderStatus @ 1`, no domain prefix — the common case after E1 established
-same-domain bare resolution as the default) get no hover today for **any**
-semantic declaration, scalar or enum, since `_hover_for_bare_word` only
-resolves field/declaration names within the current model/projection scope,
-not semantic-type references appearing in a field's type position — this is
-a pre-existing, non-enum-specific gap, not something to fix incidentally
-inside an enum-focused slice. **Definition is done next:** `_DECL_PATTERN`
-now recognizes `semantic` as a declaration keyword, and a new
-`_ENUM_PROJECTION_DECL_PATTERN` handles the two-token `enum projection Name
-@ version` header (the single-keyword pattern can't match it). Qualified
-references to either now jump to their declaration the same way qualified
-model/projection references already did. Extending `_DECL_PATTERN` surfaced
-a real regression risk caught before it shipped: `_current_scope` (used for
-bare-word field lookups inside the *enclosing* model/projection) blindly
-classified any decl match that wasn't literally `"projection"` as a `"model"`
-scope — so a `semantic` declaration sitting between two entities would have
-been misclassified as an enclosing model, corrupting field lookups for
-whatever came after it until the next real declaration. Fixed by excluding
-`semantic` matches from scope tracking explicitly, with a regression test
-that places a `semantic` declaration between two entities and confirms the
-second entity's own field still resolves correctly. **References is done
-next:** the same three changes applied to `references.py`'s own copies of
-`_DECL_PATTERN`/`_current_scope`/the qualified-reference resolver
-(`_references_for_qualified_ref`), plus a matching `enum_projection` branch in
-`_find_decl_location` (mirroring `definition.py`'s) so "find all references"
-on an `enum projection` declaration locates its own header line rather than
-falling through the single-keyword `_DECL_PATTERN`. `_reference_locations_for_decl`,
-which scans for *usages* of a qualified ref, needed no change — it already
-matches on the ref string itself (`domain.Name@version`) with no kind-specific
-branching, so it picked up semantic/enum-projection usages for free once the
-declaration-side lookup worked. Verified end-to-end that references on a
-qualified `orders.OrderStatus @ 1` field type return both the declaration and
-the usage site, and that the same intervening-`semantic`-declaration scope
-regression is guarded here too. **Rename is done next:** the same
-`_DECL_PATTERN`/`_ENUM_PROJECTION_DECL_PATTERN`/`_current_scope` changes,
-plus a new `semantic_decl`/`enum_projection_decl` pair of `_Target.kind`
-values wired through `rename()`'s dispatch and `_add_decl_renames`'s
-`decl_kind` mapping (which already handled model/projection generically, so
-the qualified-reference and usage-rewrite paths needed no further branching).
-One gap `rename.py` has that `definition.py`/`references.py` don't: renaming
-from the *declaration's own name* (not a qualified reference elsewhere) goes
-through a bare-word path keyed off `_current_scope`, which deliberately
-excludes `semantic` (and never included two-token `enum projection`) from
-scope tracking — so without an explicit check, invoking rename directly on
-`semantic OrderStatus @ 1` or `enum projection PublicStatus @ 1`'s own name
-would silently report "no renamable symbol". Added a `_domain_at_or_before`
-helper plus explicit own-line pattern checks ahead of the scope-based
-fallback so both declaration forms are renamable from their own header, not
-just from a qualified reference to them elsewhere. Verified end-to-end:
-renaming via the qualified field reference, renaming from the semantic
-declaration's own name, and renaming from the enum projection's own name all
-produce the correct edit sets, and the same intervening-`semantic`-decl scope
-regression is guarded here too. **Completion is done next, but it turned out
-not to fit the pattern the other four services used.** `completion.py` has
-no qualified-reference resolver to extend the way hover/definition/references/
-rename did — its only dotted-reference completion trigger is `_reference_context`
-(`from `/`join `), which is specific to projection sources and correctly
-excludes semantic types and enum projections (neither can be a projection
-source). The actual gap was upstream of anything enum-specific: a field type
-reference like `status: orders.OrderStatus @ 1` typed as `status: orders.`
-triggered `_alias_context` (any bare `word.` at the cursor), which only ever
-resolved projection-source aliases and silently returned nothing otherwise —
-true for models and projections too, not just semantic types. Fixed by
-extending `_alias_field_candidates` to fall back to "does the alias name an
-actual domain" once the projection-alias lookup misses, returning every
-member the domain declares (models, projections, semantic types, and enum
-projections, all as `class`-kind candidates) filtered by the typed prefix.
-This closes the general field-type completion gap and, as part of the same
-change, surfaces enum-backed types where they actually appear in the
-grammar. Verified end-to-end and with 3 new tests: full member list after a
-bare `domain.`, prefix filtering, and an unknown-domain alias still
-resolving to no candidates rather than erroring. **Member resolution inside
-`pick`/`omit` is done next.** The compiler side of this already shipped in
-E3 — `_expand_enum_projections` in `compiler/workspace.py` already resolves
-`pick`/`omit` against the *exact* source version and validates unknown or
-duplicate members — so this slice is purely editor-side: completing member
-names while typing inside a `pick(...)`/`omit(...)` clause. Added a new
-completion context (`_pick_omit_context`/`_pick_omit_candidates`) that
-detects an unclosed `pick(`/`omit(` on the current line and resolves the
-enclosing enum projection's source by scanning backward for the nearest
-`enum projection ... from Source @ version` pair — since `pick`/`omit` only
-ever appears immediately after one in the grammar, the most recently seen
-pair while scanning is always the correct one, even with multiple enum
-projections in the same domain and no explicit scope-reset needed. Offers
-the source enum's members via `resolve_semantic_type_ref` (the same exact-
-version resolver the compiler uses), minus whatever's already been typed in
-the clause, filtered by the in-progress prefix. Verified end-to-end and with
-6 new tests: unfiltered member list, already-selected exclusion, prefix
-filtering, `omit` parity, correct-source resolution with two enum
-projections in one domain, and empty results when the source can't resolve.
-**Rename-scoping to nominal identity found a real bug, not just a
-theoretical one, and it was fixed at the source rather than in each
-regex-based resolver.** All five language services (hover, definition,
-references, rename, completion) resolve a qualified reference
-`domain.Name@version` by checking `domain.models`, then `domain.projections`,
-then `domain.semantic_types`, then `domain.enum_projections`, in that fixed
-priority order, regardless of the syntactic position the reference appears
-in -- consistent with the token-based (not IR-based) architecture the E11
-survey identified at the start of this slice. The compiler already forbids
-a semantic type or enum projection from colliding in name with a *model* in
-the same domain, but nothing forbade a semantic type or an enum projection
-from colliding in name with a *projection* -- so `projection Status @ 1`
-and `semantic Status @ 1 (additive): enum(...)` coexisting in one domain was
-a valid, compiling workspace. Confirmed the consequence directly: renaming
-through a field's qualified reference to the semantic type
-(`status: orders.Status @ 1`) silently renamed the *projection* declaration
-instead (checked first in every resolver's priority order) and left the
-semantic type itself untouched -- a real, silent misrouting bug, not a
-hypothetical one. Rather than patching priority order in five separate
-regex-based resolvers (which only reduces the odds of misrouting, since the
-underlying ambiguity -- one qualified-reference syntax, four possible
-referent kinds, no position-aware parsing -- is inherent to this
-architecture), fixed it at the source: added the missing collision checks
-(`validation/semantic.py` for semantic-type-vs-projection,
-`compiler/workspace.py`'s `_expand_enum_projections` for
-enum-projection-vs-projection) so the ambiguous state can no longer exist in
-a workspace that compiles cleanly, symmetric with the existing
-model-collision checks. Verified with 2 new regression tests pinning both
-diagnostics. A separate, older, non-enum-specific gap was found in the same
-pass -- models and projections can *also* collide in name with each other,
-with the same misrouting consequence for their own qualified references --
-but that predates this enum work entirely and is deliberately left
-unfixed here; it belongs in its own compiler-validation slice, not smuggled
-into an enum-focused audit. **VS Code/Monaco mirroring found a real,
-separate cluster of gaps.** The five services fixed so far (hover,
-definition, references, rename, completion) are all wrapped by a thin LSP
-adapter and consumed identically by the browser/Monaco playground, so
-fixing `language/` fixed both surfaces automatically -- already verified
-earlier in this slice. But `cli/src/modelable/lsp/` also has several
-LSP-only capabilities with **no** `language/` counterpart, each with its
-own independent copy of the same `_DECL_PATTERN`-style regex, and none of
-them recognized `semantic` or `enum projection` declarations either:
-`document_symbols.py` (VS Code's outline view and symbol search --
-`workspace_symbols.py` builds directly on top of it, so fixing one fixed
-both for free), `semantic_tokens.py` (syntax highlighting), `code_actions.py`
-(quick-fixes), and `inlay_hints.py`. Audited all four. `code_actions.py` and
-`inlay_hints.py` turned out not to need changes: their quick-fixes
-(`@key`-missing, version-header-missing, projection field-mapping type
-hints) are all inherently model/projection-specific -- semantic and enum
-projection declarations have no fields, no `@key` requirement, and (for
-plain scalar semantics) no required version header, so there's nothing
-enum-shaped for those features to say. `semantic_tokens.py` and
-`document_symbols.py` did need fixes, and `document_symbols.py` in
-particular had a **latent trap**: naively adding `semantic` to its
-`_DECL_PATTERN` (the fix that worked cleanly in all five `language/`
-services) would have made its `_block_end_line` helper swallow the rest of
-the document, since that helper assumes every declaration's range ends at a
-matching `}` -- true for every existing decl kind (all require a `{...}`
-body) but not for `semantic` (single-line in the common case, with only an
-*optional* trailing `{ registry: ... }` block) or `enum projection` (no
-braces at all -- ends at its `pick(...)`/`omit(...)` clause's closing
-paren). Fixed with two dedicated, bounded end-line helpers
-(`_semantic_decl_end_line`, checking for an unmatched `{` on the
-declaration's own line before falling back to brace matching;
-`_enum_projection_decl_end_line`, scanning forward for the `pick(`/`omit(`
-clause specifically rather than generic paren-depth tracking, since the
-optional `(change_kind)` on the header is its own self-closing paren group
-that would otherwise trigger a premature stop) -- both bounded so a
-malformed or unusual declaration degrades to an imprecise range rather than
-an unbounded scan. Verified end-to-end including the body and no-body
-`semantic` cases and the `enum projection`-immediately-followed-by-another-
-declaration case, with 5 new tests. **Cross-surface conformance fixtures
-close out E11.** `cli/tests/conformance/language/workspace-valid.json` is a
-single shared fixture (workspace text + one request/expectation per
-capability) with three independent consumers that must all agree:
-`test_lsp_conformance_fixture.py` (real `pygls` subprocess), `test_browser_
-conformance.py` (in-process `dispatch_browser_request`), and `web/tests/
-conformance.spec.ts` (real Playwright browser -- which, notably, does
-*not* fetch the JSON; it keeps its own hand-written copy of the same
-scenario in sync, the same duplication-by-hand the plain-model tests
-already lived with). None of the three had ever exercised a `semantic`
-declaration or `enum projection` through this shared conformance path.
-Added a sibling fixture, `workspace-valid-enum.json` (a `semantic
-OrderStatus`, an `enum projection PublicStatus` picking from it, and an
-entity field referencing `OrderStatus` by qualified reference), and the
-matching test functions/spec in all three consumers, covering completion
-(the field-type domain-member list), hover, definition, references, and
-rename -- the same five capabilities the plain-model fixture covers.
-Verified against the real, rebuilt browser bundle (a stale local `dist/`
-build silently ran against pre-E11 compiled code on the first attempt,
-which is worth remembering: `npm run build` before trusting local
-Playwright runs against anything that isn't already covered by CI's
-fresh-build job). Completion coverage in the fixture doubles as a
-regression guard for the `_alias_field_candidates` fallback added in the
-completion PR, exercised end-to-end through all three surfaces rather than
-only in `language/` unit tests. **This closes out E11's editor/
-language-service slice.** Then D7/D8's convergence gate. They build on D3
-rather than introducing a second parallel enum declaration.
-Depended on by D4.
-
-#### Slice D4 — discriminated unions
-
-**Purpose:** represent variant-based contracts, especially event families,
-with stable variant identity and discriminator values; adding/removing
-variants is compatibility-classified; every emitter preserves semantics or
-emits an explicit loss diagnostic. **Core schema slice shipped:** PR #384
-added the grammar/IR, canonical rendering, JSON Schema/OpenAPI `oneOf` plus
-discriminator output, and JSON Schema round-trip import. **Compatibility
-classification shipped:** PR #386 classifies union variant and discriminator
-changes (`union_variant_added`, `union_variant_removed`,
-`union_variant_changed`, `union_discriminator_changed`) in
-`cli/src/modelable/compat/diff.py`. **Next:** add explicit target-loss
-diagnostics and extend preservation beyond schema-oriented targets. Depends on
-D3, D1, and stable target-compatibility semantics.
-
-#### Slice D5 — resolve composite-key support
-
-**Phase 1 (decision and conformance) — shipped.** Added the executable
-`test_composite_key_is_not_yet_supported` fixture, verified the current
-validation failure, and corrected `docs/architecture.md` to match the
-compiler and `docs/language-reference.md` instead of implementing composite
-identity speculatively. See [Documentation status](#documentation-status)
-above.
-
-**Phase 2 (implementation) — not decided.** If composite entity identity is
-ever accepted: allow one or more key fields for entities/aggregates, require
-deterministic ordering, reuse `index { primary ... }` where present, define
-fallback ordering otherwise, and update canonical signatures, compatibility,
-SQL, Protobuf/gRPC manifests, generated languages, event envelopes, `ref<>`
-identity, and join/relation validation. Multi-column join predicates and
-composite entity identity are separate features — supporting a join over
-several properties does not imply multiple `@key` fields are supported.
-
-#### Slice D6 — model lifecycle status
-
-**Purpose:** either implement or remove architecture claims for draft,
-published, deprecated, and retired model-version statuses. **Not yet
-started** as a language feature — `docs/architecture.md` currently documents
-accurately that no `status` field exists in the grammar/IR today (the
-documentation-accuracy half of this slice's concern is already satisfied the
-same way Slice D5's was; the language-feature decision itself remains open).
-Depends on D0 (done). Existing versioned declarations would need an explicit
-default status (most likely `published`) if implemented; semantics to define
-include draft mutability, published immutability, deprecated resolution
-warnings, retired range resolution, legal transitions, interaction with
-required `changeKind`, and signature/registry records.
-
-#### Slice D7 — explicit evolution intent and migration semantics
-
-**Purpose:** distinguish an intentional rename/move/default/transform/split/
-merge/drop from unrelated delete-and-add changes so lineage and consequences
-remain correct across versions. The normalized IR should record explicit
-migration intent and feed compatibility, generated conversions, storage
-migration/backfill facts, projection rebuild, and event replay consequences.
-The compiler must not infer a rename or inverse transformation from similar
-names. The first accepted authoring scope is exact linear `evolves @ N`
-construction with `add`, `remove`, `rename`, and complete-field `replace`;
-compatibility remains derived from the expanded immutable versions. It is
-decomposed as D1-D8 in the
-[Model Evolution Slices Roadmap](docs/superpowers/plans/2026-08-22-model-evolution-slices-roadmap.md).
-Move, default, transform, split, merge, backfill, and replay semantics remain
-outside that first source-language capability until concrete consumers justify
-them. **D1 (add-only exact-base evolution) is shipped**, the first usable
-vertical slice: `entity Foo @ N (kind) evolves @ base { add field: type }`
-parses into a source-only `ModelEvolutionDecl`/`AddFieldOp` pair (`parser/ir.py`,
-`parser/transformer.py`) that workspace normalization
-(`compiler/workspace.py::_expand_model_evolutions`) resolves and expands into
-a complete `ModelVersion` before anything else runs -- mirrors the
-`EnumProjectionDecl`/`_expand_enum_projections` precedent from E3 exactly:
-source-only IR in, normalized canonical IR out, so no downstream consumer
-(validation, compatibility, signatures, emitters, registry) ever sees an
-unresolved evolution object. Base resolution requires the named base to be
-the *highest existing version of the same model/kind strictly below* the new
-version -- numeric gaps are fine (`@ 5 evolves @ 1` is valid if 1 is still
-the highest version below 5), but branching from a superseded version,
-missing/forward bases, and kind mismatches are all rejected with a
-diagnostic naming the actual required base. The expanded version is
-deep-copied from the base (never aliased) and re-runs the same per-version
-field/key/annotation validation (`_validate_models`) and the same
-additive/breaking classification (`_validate_change_kind`, reusing
-`compare_model_versions`) a hand-written complete version would get --
-verified directly: an equivalent full-form and add-only-form source pair
-produce byte-identical normalized fields, signatures, and Rust codegen
-output. Editor grammar sync (`vscode/syntaxes/modelable.tmLanguage.json`,
-`web/src/language/monaco-providers.ts`, `docs/grammar.md`) regenerated via
-their existing generator scripts, which surfaced a real mistake worth
-recording: piping a generator's stdout directly into the same file it reads
-as a template (`script ... > target-file`) truncates the file before the
-process can read it, since shell redirection opens and truncates the target
-before exec — always use the script's in-place write mode instead of
-`> file` when the script itself reads that file as input. Deliberately
-minimal scope, matching the instructions: no model-level annotations/access/
-reservations on the `evolves` form yet (D3's territory), and no `remove`/
-`rename`/`replace` operations yet (D2). **D2 (remove, rename, replace, and
-provenance) is shipped.** Extends the grammar with `remove IDENT`, `rename
-IDENT -> IDENT`, and `replace <complete field decl>` (target identified by
-the field's own name) alongside D1's `add`; `ModelEvolutionDecl.operations`
-is now a `kind`-discriminated union (`AddFieldOp | RemoveFieldOp |
-RenameFieldOp | ReplaceFieldOp`) applied sequentially in
-`_expand_model_evolutions`, tracking field position explicitly: `add`
-appends, `remove` deletes in place, `rename`/`replace` mutate the field at
-its existing index (never re-append), so position is preserved exactly as
-the instructions require. Every operation validates against the *current*
-intermediate state (not just the base), so `rename`-then-`replace` on the
-same field, or an `add` followed later by a `remove` of that same field,
-both work correctly within one `evolves` block. Rejections point at the
-failing operation with a diagnostic naming what's actually wrong: unknown
-source field (`remove`/`rename`/`replace` naming a field that isn't
-present at that point in the sequence -- this also covers "repeated
-removal" for free, since a second `remove` of an already-removed field is
-just an unknown-source error), an occupied rename target (renaming onto a
-name another field already holds -- renaming a field to its own current
-name is treated as a harmless no-op, not an error), and a replacement name
-that matches no existing field. Added `FieldProvenance` (`field_name`,
-`origin: inherited|add|rename|replace`, `renamed_from`) recording which
-operation *last* touched each field -- diagnostic/tooling metadata for D4
-and D8 to consume, deliberately excluded from canonical signature
-rendering (`render_signature_model_version` never references it, so it
-costs nothing to verify: it's real diagnostic data, not dead weight,
-because D4 already has a concrete, blocking consumer for it) and provably
-inert for the full-form/delta-form equivalence proofs from D1, which still
-hold with all four operations mixed (verified end-to-end: identical
-fields, identical signature, byte-identical Rust output). One important
-gap intentionally *not* closed in D2: `compare_model_versions` (used by
-`_validate_change_kind`, which D1 already wired every expanded version
-through) still diffs by field name with no awareness of explicit rename/
-remove provenance, so today a `rename`/`remove` inside an `evolves` block
-is classified exactly like a naive delete would be (a `(breaking)`
-declaration, correctly) -- the fixed test fixtures for `remove`/`rename`
-had to be written as `(breaking)` for that reason. Feeding
-`FieldProvenance` into `compare_model_versions` so a declared rename stops
-looking like delete-and-add is explicitly D4's job ("connect operation
-intent to compatibility"), not something to smuggle into D2. **D3 (model-
-level metadata inheritance) is shipped.** Extends the grammar so
-`model_evolution_decl` accepts the same `wire_annotation*` prefix and
-`access_block`/`reservation_block` body items a full-form `model_decl`
-already does. `ModelEvolutionDecl` gained `annotations`/`access`/
-`protobuf_reservations`, all `None`/empty by default (the grammar has no
-way to author an explicit empty wire-annotation list or an explicit "no
-access block" other than omitting them, so absence is unambiguous).
-Expansion applies the rule the instructions specified: `annotations` and
-`access`, if present on the `evolves` declaration, completely replace the
-base's; if omitted, they're inherited verbatim (deep-copied, not aliased).
-`protobuf_reservations` deliberately does **not** follow that rule.
-Instruction #4 asked to settle whether reservations are cumulative or
-version-local by checking existing behavior first -- they're already
-documented as version-local for full-form declarations
-(`docs/language-reference.md` §2.6, predates this slice), and nothing in
-the emitter or registry code merges reservations across versions, so the
-only consistent choice for `evolves` is the same rule: never inherited,
-used as-authored if present, `None` if omitted. Recorded this explicitly
-in a new §2.7 in the language reference (also closes a documentation gap
-D1/D2 shipped without: this is the first real writeup of the whole
-`evolves` feature, including the compatibility-classification caveat below).
-`index` declarations require no change -- they were already domain-level,
-never part of a model body, so "keep them outside evolves" was already
-true by construction. Ordinary validation (key count, wire annotations,
-constraints, enum members) runs on the fully-expanded version exactly as
-before, so an invalid `@wire` on an `evolves` header is caught the same way
-it would be on a full-form header -- verified directly. Covered all four
-model kinds (entity, aggregate, event, value) evolving. No de-duplication
-work was needed for "consequences from one operation causing both model
-invalidity and a compatibility finding": `_validate_models` and
-`_validate_change_kind` each run exactly once per expanded version, so
-there was never a duplication risk to begin with. **D4 (connect operation
-intent to compatibility) is shipped.** `compare_model_versions()`
-(`compat/diff.py`) now checks `new_version.provenance` for a `rename`
-(or a `replace` whose `renamed_from` survived from an earlier `rename` on
-the same field, see below) *before* falling through to the existing
-`@deprecated(replacedBy: ...)` annotation-based rename inference --
-`ModelVersion.provenance` is always empty for a hand-written full-form
-version, so that path is unchanged and a no-op there, matching instruction
-#1 ("keep `compare_model_versions()` operating only on complete versions").
-The real value isn't reclassifying a rename as non-breaking -- a rename is
-still correctly `(breaking)`, since the old field name genuinely stops
-existing -- it's disambiguation: an `evolves` block with a `rename` *and*
-an unrelated `remove`/`add` in the same version previously had no way to
-tell which removed/added name-pair was the declared rename versus which
-were genuinely separate changes; provenance-based matching resolves that
-deterministically instead of leaving it to name-similarity guessing (which
-this codebase never did) or requiring a manually-authored `@deprecated`
-annotation. Fixed a real bug caught by an existing D2 test while wiring
-this up: `_expand_model_evolutions` was overwriting a field's provenance
-entry on `replace`, discarding `renamed_from` set by an earlier `rename` on
-the same field within the same block (`rename total -> amount` then
-`replace amount: ...`) -- `origin` correctly reflects the *last* operation
-per D2's instructions, but `renamed_from` needed to survive that overwrite
-for compatibility to still see the rename. Also fixed a self-rename edge
-case (`rename x -> x`) that would otherwise have produced a spurious
-`renamed_field` compatibility finding for a field that changed nothing.
-`replace` needed no special classification logic (instruction #3, "the
-operation name is not itself additive or breaking") -- it was already
-correctly handled by the existing same-name field comparison, since
-`replace` never changes a field's name. Enriched `_validate_change_kind`'s
-diagnostic text (`validation/semantic.py`) to name the responsible
-`evolves` operation when provenance is available (e.g. "`renamed_field
-total (declared via evolves rename)`", "`added required field note (via
-evolves add)`"), satisfying instruction #4 without touching the full-form
-path's plain message at all -- verified a full-form/delta-form pair
-produces genuinely different `FieldChange` kinds for an equivalent rename
-(full: `removed_field` + `added_field`, since nothing links "total" to
-"amount" without provenance; delta: a single `renamed_field`), which is
-correct and expected per the exit criteria's "apart from richer provenance
-text" allowance, not a bug to chase down. **D5 (signatures and registry
-objects are syntax-independent) is shipped, and it found a real bug.**
-`registry/snapshot.py::resolve_workspace_snapshot` already only iterates
-`domain.models` (the merged, post-expansion `MdlFile`), never
-`domain.model_evolutions` -- by construction, it cannot tell whether a
-given `ModelVersion` came from a full-form declaration or an `evolves`
-block, satisfying most of the exit criteria for free the same way every
-other downstream consumer (compat, projections, emitters) already does.
-But `_write_object`'s stored `contract` was built from
-`version.model_dump(mode="json")` with no field exclusions -- it dumped the
-*entire* `ModelVersion`, including D2's `provenance` field, straight into
-the persisted snapshot object and into the `content_hash` computed over
-that payload. `compute_version_signature` was already provably
-provenance-independent (it uses the dedicated canonical renderer, not a
-raw dump), but nothing had ever checked whether the *stored snapshot
-object* was too -- and it wasn't: verified directly that an equivalent
-full-form/delta-form pair produced matching `signature` but a *different*
-`content_hash`, an exact violation of instruction #6 ("keep formatting and
-locations out of semantic hashes") that no prior test caught because D1-D4
-never wrote a registry-snapshot-specific equivalence test. Fixed by
-excluding `provenance` from the dumped `contract`
-(`model_dump(mode="json", exclude={"provenance"})`) -- `ProjectionVersion`
-has no such field, so the exclusion is a no-op there. This also directly
-satisfies instruction #2 ("omit unresolved base chains and operation
-syntax from canonical content"): `provenance` is exactly
-operation-syntax-adjacent diagnostic metadata, and it no longer appears in
-the canonical stored object at all. Instruction #3 ("preserve original
-`.mdl` only in source packages that intentionally carry source") needed no
-work -- confirmed registry snapshots never embedded raw source text to
-begin with, only a `source_path` string for audit/provenance tracking.
-Instruction #4's "rebuild and compile a historical snapshot without the
-base source file" is satisfied by construction once the contract fix
-landed: the stored object holds the complete field list already, so
-nothing about using it later needs the base version's file, or even the
-base version's `ModelVersion` object, to exist anymore. **D6 (projection,
-dependency, and impact transparency) is shipped -- a pure proof slice,
-no source changes.** Audited every module instruction #5 named
-(`planner.py`, `dependency_graph.py`, `compat/checker.py`, the codegen
-conversion paths) for any reference to `domain.model_evolutions`,
-`ModelEvolutionDecl`, or `FieldProvenance`: none exists anywhere outside
-`compiler/workspace.py` (which owns expansion) and `compat/diff.py`
-(D4's provenance-based rename matching, itself already reading only
-`ModelVersion.provenance`, not raw evolves syntax). Every projection,
-dependency-graph, and impact-analysis code path only ever sees
-`domain.models` -- the merged, post-expansion state -- so instruction #5's
-"guard against branching on delta source syntax" already holds by
-construction; there was nothing to add a guard *to*. Verified this
-concretely rather than taking the grep result on faith: one shared fixture
-pair (a two-version `Customer` model, full-form vs `evolves`-based, with a
-companion `Order` model) drives six projections covering every construct
-instruction #1 named -- direct fields, a computed CEL expression, `pick`,
-`omit`, a join+`where`+`group by` combination in one projection, and a
-projection-of-projection chain sourcing from another projection. Asserted
-equal for both source forms: resolved projection fields (instruction #1),
-`build_projection_dependencies` edges including every `usage_kind` --
-direct, computed, join, filter, group (instruction #2), and
-`analyze_impact` results for the model's own v1→v2 change against every
-model-sourced dependent (instruction #3; the projection-of-projection
-case is intentionally excluded from the impact check, since it depends on
-another projection, not the model version, so it isn't a *direct*
-dependent of that change). Canonical lineage was already anchored to
-normalized field identities before this slice -- `ProjectionField`/
-lineage records reference resolved field names, never anything
-evolves-specific -- so instruction #4 needed no change either; provenance
-already only reaches diagnostic/hover-adjacent surfaces (D4's compat
-messages), never lineage. **D7 (all generated targets are
-syntax-independent) is shipped -- another pure proof slice.** Grepped
-every file in `emitters/` for `model_evolutions`, `ModelEvolutionDecl`, and
-the four operation IR types (`AddFieldOp`/`RemoveFieldOp`/`RenameFieldOp`/
-`ReplaceFieldOp`): zero matches, confirmed as a real regression-guard test
-rather than a one-off check, so a future emitter can't silently grow a
-delta-aware branch without failing loudly. Verified concretely for all 20
-implemented targets (instruction #1's `list_implemented_codegen_targets()`)
-by reusing `scripts/write_golden_artifacts.py`'s own `TARGET_EMITTERS`
-dispatch table and `FHIR_TARGET_EMITTER` (loaded as a module, not
-re-declared, so the dispatch table can't drift from what the golden-file
-suite already exercises) against one small model history authored both
-ways: `add`/`remove`/`rename`/`replace` all in one `evolves` block, plus a
-Protobuf reservation, plus a downstream projection sourcing from the
-evolved version -- deliberately hitting instruction #3's named concerns
-(Protobuf numbering/reservations, SDK field shapes across all six typed
-targets, SQL mappings, metadata lineage, registry manifests, event-sink
-output) in one fixture rather than nineteen bespoke ones.
-`fhir-profile` needed its own small fixture pair, same as the golden-file
-suite already does, since FHIR mapping needs field/model names FHIR
-recognizes rather than an arbitrary shape. Byte-compared every artifact's
-`content` and `warnings` between the full-form and delta-form workspace
-for every target — not spot-checking a representative field, the literal
-instruction #2 requirement. One real bug surfaced while building the
-fixture, not in production code: an initial reservation number collided
-with an auto-assigned Protobuf field number, correctly rejected by
-`protobuf.py`'s existing reservation validation — fixed by picking a
-number outside the auto-assigned range, not by weakening the fixture's
-coverage. **D8 (delta formatter and language-service support) is
-starting, and instruction #1 (formatter round trips) found a real,
-severe bug on first contact: `compiler/render.py`'s `render_mdl` --
-the canonical formatter, reachable from `modelable format` and the
-browser's format-on-save -- silently dropped an entire `evolves`
-declaration on every format pass.** `_render_domain` only ever iterated
-`domain.models`; `render_mdl` runs on the *raw parsed* `MdlFile`
-(`parse_text_to_ir`, not `load_workspace_from_sources`), where an
-`evolves`-declared version exists only in `domain.model_evolutions` and
-hasn't been expanded into `domain.models` yet -- so formatting a file
-containing `evolves` silently deleted that declaration's fields, its
-operations, and its Protobuf reservations from the source. Fixed by
-adding `_render_model_evolution`/`_render_evolution_operation` (mirroring
-`_render_model`'s structure and reusing its `_render_field`/
-`_render_access`/`_render_protobuf_reservations`/`_render_annotations`
-helpers) and merging `domain.models` and `domain.model_evolutions` by
-`(model_name, version)` before rendering, so a model's history renders in
-natural ascending version order regardless of which form each version was
-authored in. Verified: the `evolves` header, operation order, and
-Protobuf reservations all round-trip exactly, and formatting reaches a
-genuine fixed point (formatting the formatted output produces
-byte-identical text) — not just "doesn't crash." **Syntax tokens and
-definition/hover on the exact base version are shipped next.** Added
-`add`/`remove`/`rename`/`replace`/`evolves` to `lsp/semantic_tokens.py`'s
-own `_KEYWORDS` set — the auto-generated VS Code TextMate/Monaco grammars
-already got these keywords for free from D1/D2's grammar changes via
-`render_editor_grammars.py`, but the hand-maintained LSP semantic-tokens
-module has its own separate keyword list that was never updated, so these
-words fell through to unstyled plain text under a real language server
-even though the static grammar highlighted them. Also taught
-`_add_operator_tokens` about `->` (previously only `<-` was recognized as
-a two-character operator token; `->` silently split into an unstyled `-`
-and an `Operator`-classified `>`, affecting both `rename old -> new` and
-the pre-existing `generate` block target syntax). For definition/hover:
-added an `_EVOLVES_HEADER_PATTERN` to both `language/hover.py` and
-`language/definition.py` matching the model's own header line up through
-`evolves @ <base_version>`, with a dedicated branch checked before the
-existing qualified-reference pattern (the base-version number has no
-domain-qualified syntax to hover/jump from otherwise — it is always an
-implicit same-domain, same-model reference). Hovering the base version
-number shows the exact base declaration's full summary (kind, change,
-fields — a superset of "signature/field count," reusing the same
-`build_model_summary` a qualified reference to it would use, for
-consistency); go-to-definition jumps to the base's declaration line.
-Reused `_find_decl_location`/`_definition_for_decl` as-is rather than
-writing new lookup logic: since `_DECL_PATTERN` only captures through a
-model's *own* `@ version` and never inspects what follows, it already
-matches an `evolves`-form header exactly like a full-form one, so jumping
-to a base version that is *itself* `evolves`-declared (a chain: v3 evolves
-@ 2, v2 evolves @ 1) worked correctly on the first try, verified directly.
-**Operation-aware completion shipped next.** `language/completion.py`'s
-`_DECL_PATTERN` now also captures an optional trailing `evolves @ <base>`
-on a model's own header line, carried on `_Scope.base_version`. When the
-cursor sits inside such a scope on a `remove <field>`, `rename <field> ->
-...`, or `replace <field>` operation's field-name argument, a new
-`_evolves_intermediate_fields` helper replays that block's operations —
-looked up from the still-populated `domain.model_evolutions` (never
-removed after expansion, only appended alongside) — from the base
-version's fields up through (but not including) the operation on the
-cursor's line, matched by counting preceding lines that start with
-`add`/`remove`/`rename`/`replace` against `evolution.operations`' index.
-This deliberately does not reuse `compiler/workspace.py`'s
-`_expand_model_evolutions`, which operates on fully parsed
-`ModelEvolutionDecl` objects and fails closed on any malformed operation —
-language-service completion runs on documents mid-edit, where the very
-operation being typed is often incomplete. Verified directly before
-writing tests: `remove` after an earlier `add note` offers `note`
-alongside the base fields; `rename`'s source-name position no longer
-offers a field an earlier `remove` in the same block already deleted; a
-field only introduced by a later `rename` (e.g. `amount` from `rename
-total -> amount`) is correctly absent from an earlier operation's
-candidates. A plain (non-`evolves`) model body has `base_version=None`,
-so the new branch never triggers there — confirmed no regression on
-ordinary field completion.
-
-**References and rename for field names inside `remove`/`rename`/`replace`
-close out D8.** Previously, invoking find-references or rename-symbol on a
-field name written as the argument of `remove <field>`, `rename <field> ->
-...` (source side), or `replace <field>: ...` inside an `evolves` block
-silently found nothing: `language/references.py` and `language/rename.py`
-both resolve bare field-name tokens by matching `_MODEL_FIELD_PATTERN`
-(`name: type`) within the *current* version's own textual body, but an
-`evolves`-declared version never writes its inherited fields that way —
-only the operations that touch them. Fixed by adding an
-`_EVOLVES_FIELD_OP_PATTERN` (`remove|rename|replace <field>`, deliberately
-excluding `add` — an add introduces a fresh field, it doesn't reference an
-existing one) checked before the generic field-resolution fallback in both
-modules, plus a small `_evolves_base_at` scan reusing the same optional
-`evolves @ <base>` capture added to `_DECL_PATTERN` in D8's earlier
-completion slice. The referenced field always exists on the block's base
-version (the compiler rejects any other case at `_expand_model_evolutions`
-time), so it resolves through the *existing* `_references_for_source_field`
-/ `_find_source_field_location` machinery pointed at the base version —
-picking up the base declaration and any projections pinned to that exact
-version for free — plus a new `_evolves_operation_field_locations` scan
-that finds every other `remove`/`rename`/`replace` line, across *all* of
-this model's evolves blocks, that mentions the same field name. This is
-the "distinguish the `rename` operation from an editor rename action" case
-named in the roadmap: clicking the *source* name in `rename total ->
-amount` is a reference to the field `total` and renames correctly, while
-the literal `rename` keyword and the freshly-introduced target name
-`amount` are correctly inert — `amount` names no existing field until the
-rename actually takes effect, so it is never itself a rename source.
-Verified directly and with dedicated tests before considering this
-complete: renaming through a `remove` argument moves the base declaration,
-the operation line, and a projection's `alias.field` usage together in one
-edit; renaming through a `rename` operation's source argument leaves the
-new name's own token completely untouched; invoking rename directly on the
-`rename` keyword itself correctly raises `InvalidRenameError`. **This
-closes out D8 and the full D-series (D1-D8) of the Model Evolution Slices
-Roadmap.**
-
-**Q1 (combined feature qualification) is starting.** Q1 is the convergence
-gate depending on E10, E11, and D8 -- it proves semantic enums, enum
-projections, and `evolves` deltas compose correctly through every semantic
-and generated surface, using one compact history rather than each feature's
-own narrow fixture. `cli/tests/test_q1_convergence.py` adds a single
-`catalog.Product` model with a full v1, an additive delta v2, a breaking
-delta v3, a full-form "reset" v5 (proving delta authoring is opt-in per
-version, not sticky once started), and an additive delta v8 -- deliberately
-interleaving full-form and delta-form versions rather than picking one
-style, since that's exactly the combination no earlier D-slice fixture
-exercised. Alongside it: two equal-shaped but nominally distinct semantic
-enums (`Grade`/`Rank`), a `pick` and an `omit` enum projection, a `value`
-type, an `index` declaration, Protobuf reservations, an access block,
-`@pii`/`@classification` governance annotations, a field default, a
-cross-domain `ref<>`, and a cross-domain projection with a `left join`.
-Every proof compiles this same history two ways -- entirely full-form, and
-using the interleaved delta forms -- and requires agreement at every
-downstream boundary: signatures, snapshot objects, compatibility reports,
-projection dependency graphs, impact analysis, and every implemented
-codegen target's byte-for-byte output (reusing the golden-artifact
-generator's emitter dispatch table, same as D7). **This fixture found two
-real bugs on first contact, both fixed in this slice, not worked around in
-the fixture:**
-
-1. `index` declarations targeting an evolves-declared version were
-   incorrectly rejected (`index references Product@8 which does not
-   exist`). `_validate_index_decls` (`validation/semantic.py`) runs per-
-   source at parse time, before `workspace.py::_expand_model_evolutions`
-   populates `domain.models` with the expanded version -- structurally the
-   same class of bug as D8's formatter fix, just in validation instead of
-   rendering. Fixed by having `_validate_index_decls` recognize a target
-   version present in `domain.model_evolutions` and skip its field-based
-   checks (which need the expanded field list, not yet available) rather
-   than reject; a new `_validate_index_decls_against_evolved_versions`
-   completes those field-based checks once `workspace.py` has run
-   expansion, so `index primary`/`secondary` mismatches against an
-   evolves-declared version are still caught -- verified directly with a
-   deliberately-invalid `index primary` targeting the wrong field on an
-   evolves version.
-2. Interleaving a full-form version between evolves-form ones left a
-   model's version list out of ascending order: full-form versions parse
-   straight into `domain.models` in document order, while
-   `_expand_model_evolutions` appends every evolves version afterward in
-   `domain.model_evolutions` declaration order -- so `v1, v2(delta),
-   v3(delta), v5(full), v8(delta)` landed in `domain.models` as `[v1, v5,
-   v2, v3, v8]`, not ascending. This was invisible to every earlier
-   D-slice fixture because none mixed authoring forms for the same model.
-   It surfaced as a byte-for-byte content mismatch in the OpenMetadata
-   target's asset list (the first consumer in the fixture to iterate a
-   model's versions and expose their order in output). Fixed by sorting
-   each model's version list by version number once, in `workspace.py`,
-   immediately after evolution expansion -- a single normalization point
-   rather than a fix in every consumer that iterates model versions.
-
-Both fixes are proven directly (an invalid evolves-targeted index primary
-is still rejected; the OpenMetadata asset list is now byte-identical
-between the interleaved-delta and full-form histories) as well as by the
-9 passing convergence tests. Full local `pytest tests/` suite: 2514 passed,
-58 skipped.
-
-**Q1's documentation pass (instructions #4/#5) closes out the programme.**
-`docs/grammar.md` was already current against `modelable.lark` (regenerated
-and diffed — no changes). The remaining four named docs and the required
-terminology distinction were genuinely missing rather than stale: grepping
-for `evolves`/`enum projection` across `docs/compiler-reference.md`,
-`docs/wire-format-contract.md`, and `docs/architecture.md` found zero
-matches in all three, and `docs/language-reference.md` had no enum
-projection section at all despite E10/E11 having shipped the feature
-earlier this session -- §2.7 (`evolves`) was already documented
-incrementally as D1-D8 shipped, but enum projections never got their own
-section. Added **new Language Reference §3.8.1 "Enum projections"**
-covering `pick`/`omit` member-set semantics, exact-version source
-resolution, nominal identity (a projection is a distinct contract entity
-from its source even at full coverage), the total/partial `From`/`TryFrom`
-conversion-direction rule the Rust emitter implements, and the four
-enum-projection-specific compatibility finding kinds
-(`enum_projection_source_changed`/`_member_added`/`_member_removed`/
-`_implicit_member_added`). Added **new §3.10 "Terminology"** -- a
-nine-row table distinguishing anonymous enum, semantic enum, enum
-projection, non-enum semantic type, value model, full declaration, evolved
-declaration, normalized version, and record projection, satisfying
-instruction #5 directly (this is the distinction list the roadmap names
-verbatim). **Structural loss per target** (also instruction #5) is
-documented as a dedicated bullet in Compiler Reference §10: no implemented
-target besides Rust emits a dedicated artifact for an enum projection
-declaration, framed explicitly as a permanent structural-loss boundary
-(most target ecosystems have no native "checked subset of another enum"
-concept) rather than a deferred gap, since conflating the two would wrongly
-imply more emitter work eventually closes it. Compiler Reference §1 and
-Wire-Format Contract §1 each gained a paragraph stating plainly that
-`evolves` is a source-only, pre-normalization construct -- no emitter has
-or needs `evolves`-specific code, proven across every implemented target by
-the Q1 convergence suite, not merely asserted. Architecture §8.1 gained a
-short paragraph noting a version's authoring form (full vs. evolved) is
-orthogonal to every versioning/compatibility rule in that section, since
-both normalize to the same `ModelVersion` before any rule applies. CLI
-reference, capabilities output, getting-started guide, and representative
-`.mdl` samples were reviewed and deliberately **not** touched: `cli-
-reference.md` and `getting-started.md` have no section where an
-evolves/enum-projection example fits without disproportionate
-restructuring for a docs-only slice, and the conformance sample fixtures
-(`samples/conformance/*.mdl`) feed golden-artifact regression tests that
-would need coordinated regeneration to touch safely -- left as explicit
-follow-up rather than silently claimed as done. Every new `.mdl` code
-example was verified against the existing `test_doc_examples_parse.py`
-parametrized-over-every-code-block suite (it re-parses every fenced `mdl`
-block in `language-reference.md`), and the full local `pytest tests/` suite
-stayed green (2515 passed, 59 skipped) with no source changes in this
-slice -- documentation only. **This closes Q1, the convergence gate for
-the entire session's E10/E11/D1-D8 programme.**
-
-**A1 (explicit enum discovery and extraction tooling) is starting --
-instruction #1's discovery lint is shipped.** A1 is optional adoption work
-gated behind Q1, split into discovery (instruction #1) and extraction
-(instructions #2-5) per the roadmap's own instructions -- shipped as two
-slices for the same reason every D-slice was narrowly scoped. A new
-non-blocking `ENUMSHAPE` warning
-(`compiler/workspace.py::_find_repeated_anonymous_enum_shapes`, wired into
-`load_workspace_from_sources` the same way as the existing `POSTCARD`
-binding warning) walks every field type across the merged, expanded
-workspace -- recursing into `array<>`/`map<>`/`object{}`/`union<>` nesting
-the same way `_validate_named_field_types` already does -- and groups
-every inline `enum(...)` occurrence by its exact member set, order-
-independent. Any member set appearing at two or more field locations is
-reported in one finding naming every occurrence's
-`domain.Model@version.field` location, deliberately worded as a structural
-observation with **no equivalence claim** (the roadmap's own phrase):
-finding two fields with the same three status values does not assert they
-represent the same domain concept, and the finding text says so
-explicitly rather than implying an action is required. A field referencing
-a named `semantic` enum (`NamedType`/`EnumRefType`) is excluded outright --
-it already has a name and its own version/compatibility history, so there
-is nothing to discover. Verified directly through the CLI (`modelable
-validate` prints the warning exactly like `POSTCARD`/`ENUMREF` already do,
-requiring no new command) and with 8 dedicated tests covering: cross-model
-repetition, order-independence, no false positive on a genuinely unique
-shape, exclusion of semantic-enum references, nested `array`/`object`
-locations (with dotted paths for the latter), three-or-more-occurrence
-groups, and correct visibility into an `evolves`-declared version's fields
-post-expansion (this warning runs after evolution expansion, like
-`POSTCARD`, not per-source like `SEM`-coded checks -- the fixture
-deliberately covers an evolved version's inherited *and* newly-added
-fields to prove that). Documented in a new "Discovering repeated anonymous
-enum shapes" note directly under Language Reference §3.10's terminology
-table, the natural place given it explains "anonymous enum" identity
-concretely. Full local `pytest tests/` suite: 2523 passed, 59 skipped.
-**The lint found a real duplicate on first contact against the
-playground's own bundled example content**: `web/src/example-customer.mdl`
-declares `status: enum(active, suspended, closed)` verbatim on both
-`Customer @ 1` and `Customer @ 2` -- exactly the case this lint exists to
-surface, and now a genuine (non-blocking) `ENUMSHAPE` finding on the
-playground's default workspace. Two E2E tests
-(`web/tests/playground.spec.ts`) asserted the default workspace had zero
-diagnostics; updated both to expect the one legitimate `ENUMSHAPE` finding
-instead of masking it. Investigated extracting a shared `semantic
-CustomerStatus` enum to actually eliminate the duplication instead of just
-updating the assertions, and hit a real, separate, pre-existing gap while
-doing so: `expressions/cel.py`'s `_operand_types_compatible` allows an
-inline anonymous `enum`-typed field to compare against a string literal
-via `==` (needed by `example-billing.mdl`'s `isActive = c.status ==
-"active"`), but not an `enum_ref`-typed field (a reference to a named
-`semantic` enum) -- so extracting the shared enum breaks that unrelated
-CEL comparison with a `CEL003` error. This is a genuine, narrow follow-up
-candidate for a future slice (widen `_operand_types_compatible` to treat
-`enum_ref` the same as `enum` for `==`/`!=` against `string`), deliberately
-**not** fixed here since it is an unrelated CEL type-system change with its
-own blast radius, not a documentation/lint-scope fix -- the example's
-duplication is therefore left in place on purpose, as an honest
-demonstration of what the lint catches, rather than papered over.
-**Fixed in a later, standalone slice** (while enriching the playground
-showcase to actually use semantic enums): `_operand_types_compatible` now
-treats `enum_ref` the same as `enum` for `==`/`!=` against `string`,
-deliberately *not* widening the same treatment to a bare, unversioned
-`named` reference (which may resolve to a non-enum semantic type, where
-allowing the comparison could mask a real type error). Verified directly
-both ways -- an `enum_ref`-typed field now compares cleanly, a `named`
-non-enum semantic type still correctly rejects the same comparison with
-`CEL003`. New test cases added to
-`test_cel_compatibility_allows_governed_cross_type_comparisons`
-(`cli/tests/test_cel_validation.py`). Documented in Language Reference
-§9.4.
-**Instructions #2-5's direct-reference extraction case is shipped as
-`modelable extract-enum`.** New module `refactor/extract_enum.py` and CLI
-command `commands/extract_enum.py`. Deliberately **not** built on
-`llm/workspace_editor.py`'s existing IR-mutate-and-`render_mdl`-the-whole-
-file approach used by every other structural edit in the codebase: `COMMENT`
-is a `%ignore`d lexer token (`grammar/modelable.lark`), so it never enters
-the parse tree at all -- re-rendering a changed file from IR would silently
-drop any comment in that file, anywhere, not just near the edit. That's
-instruction #4's exact concern ("abort safely when comments... cannot be
-mapped without loss"), so this tool instead performs surgical, single-line
-text edits: every untouched line is copied through byte-for-byte, and a
-location it cannot safely rewrite (multi-line type, `evolves`-declared
-version, unresolvable domain/field) aborts with a clear reason rather than
-guessing. Requires explicit choices exactly as instruction #2 specifies --
-canonical name, owning domain, and every field location -- with no
-inference or automatic merging: selections with different member sets are
-rejected outright, matching the exit criteria "no unrelated concepts are
-merged automatically." Every implemented codegen target is run against the
-candidate workspace before anything is written (instruction #3); on
-success, the new `semantic` declaration is inserted into the owning
-domain's block and each selected field's `enum(...)` type is rewritten to
-reference it, then the whole edit is re-validated as a complete reloaded
-workspace before any file is actually written, with an automatic rollback
-if the post-write reload somehow still fails.
-
-**Instruction #2's "whether intentional subsets become enum projections"
-sub-case is deliberately not implemented, and this was a real discovery,
-not an assumption.** Routing a subset occurrence through an `enum
-projection` requires retyping that field to *reference* the projection --
-and verified directly, the language does not support that today:
-`status: SomeProjection @ 1` on a model field is rejected with `ENUMREF:
-unknown semantic type 'SomeProjection'`, even though the identical name
-resolves fine as the projection's own declaration. The cause:
-`registry/resolver.py::resolve_semantic_type_ref` -- the only resolution
-path a field's `NamedType`/`EnumRefType` goes through -- looks up
-`domain.semantic_types` exclusively, with no fallback to
-`domain.enum_projections`. This is a separate, pre-existing gap in
-field-type resolution, not an extraction-tooling gap; fixing it means
-extending (or adding a parallel path alongside) that resolver function,
-compiler surface area with its own audit well beyond a refactor tool.
-Documented as a follow-up in both this entry and the command's own CLI
-Reference section (§5.25) and docstring, rather than silently working
-around it or quietly shipping a "supports enum projections" claim that
-isn't actually true.
-
-Verified directly: extraction round-trips correctly end-to-end through the
-CLI (`--dry-run` prints an accurate diff; applying resolves the source
-ENUMSHAPE finding with zero remaining diagnostics on reload), and a
-dedicated standalone/trailing-comment fixture proves comments survive the
-edit untouched. 12 new tests in `cli/tests/test_extract_enum.py` cover the
-happy path, comment preservation, mismatched-shape/evolves/non-
-enum-field/unknown-domain/name-collision/too-few-fields/duplicate-selection
-rejection, and apply-time rollback on a simulated post-write reload
-failure. Documented in Language Reference §3.10 (cross-linking to the new
-command) and a new CLI Reference §5.25. Full local `pytest tests/` suite:
-2535 passed, 59 skipped.
-
-**A2 (expand and compact tooling for version deltas) is shipped in full --
-all 6 instructions.** New compiler-owned module `compiler/version_delta.py`
-adds `compute_delta_operations(base, target)` (instruction #1): the inverse
-of `workspace.py::_expand_model_evolutions`, computing the
-`add`/`remove`/`rename`/`replace` sequence that reproduces a target version
-exactly from its base. Two conservative design choices, both deliberate
-rather than accidental gaps:
-
-1. **Rename evidence.** Reuses `compat/diff.py::_deprecated_replacement`
-   directly -- a field is only proposed as a rename when the removed field
-   carries `@deprecated(replacedBy: "newName")` naming a field the target
-   added. Verified directly: a `total`/`amount` pair with *no* such
-   annotation stays `remove` + `add`; the identical pair *with* the
-   annotation produces `rename` (+ `replace` when the definition also
-   changed beyond the name) -- satisfying instruction #3's "only
-   evidence-backed rename; ambiguous rename-like changes remain remove plus
-   add" to the letter, and reusing rather than reinventing the evidence
-   rule.
-2. **Field order.** `add` always appends (`_expand_model_evolutions` calls
-   `new_fields.append`, never inserts), so an operation sequence can only
-   reproduce a target whose fields are "base's survivors in original
-   relative order, then new fields at the end." A target that inserted a
-   field in the *middle* returns `None` rather than silently reordering --
-   caught because Protobuf field numbers and every codegen target's
-   struct/record field order are assigned by declaration order, so
-   reordering would be a real generated-artifact change, which A2's exit
-   criteria explicitly forbids ("no canonical contract or generated
-   artifact changes"). Verified directly with a mid-list-insertion fixture.
-
-New `refactor/compact_version.py` (instruction #3) and
-`refactor/expand_version.py` (instruction #2) build on this, plus a new
-shared `refactor/_model_block.py` (locates a model version's exact `{
-... }` text span via brace-depth tracking, for both directions) and
-`refactor/_target_emitters.py` (the emitter dispatch table, factored out of
-A1's `extract_enum.py` for reuse rather than duplicated). Both directions
-share A1's exact safety discipline -- surgical single-block text
-replacement, not `render_mdl`-the-whole-file (same comment-loss risk
-established in A1's module docstring) -- but add a **stronger** gate than
-A1's: instruction #4 ("require identical signatures... before applying")
-undersells what's actually needed, since `compute_version_signature`
-deliberately excludes model-level `@wire` annotations, `access` blocks, and
-Protobuf reservations (`render_signature_model_version` never touches
-them) -- so signature equality alone would not catch a bug in carrying
-those forward correctly. Both tools instead run **every implemented
-codegen target against the original and candidate workspace and require
-byte-identical content and warnings**, matching A2's exit criteria's actual
-wording ("no... generated artifact changes") rather than the weaker
-instruction #4 restated literally. A genuine, proactively-detected edge
-case surfaced while building this: `evolves` has no syntax for "explicitly
-no annotations/access" when the base has some (only inherit-whole or
-replace-whole), so compacting a version that genuinely drops all
-model-level annotations/access relative to its base is impossible to
-express -- detected explicitly and aborted with a clear reason, not left
-for the artifact-comparison gate to catch after the fact. Instruction #5
-("preserve comments when mapping is exact; otherwise stop and request
-review") is implemented via the conservative half of that sentence only:
-either direction aborts outright if the block being replaced contains
-*any* comment, full stop -- correlating individual comments to their new
-per-field position across a whole-block rewrite is a real, harder design
-problem than fits this slice, so rather than half-solve it, both tools
-guarantee zero silent loss and are honest that finer-grained "exact
-mapping" preservation remains a possible future refinement. Instruction #6
-("a repetition lint may suggest the refactor but must never require delta
-syntax") holds by construction: neither command runs automatically or is
-invoked by any lint (A1's `ENUMSHAPE` is the only auto-triggered
-compiler-side lint in the A-series, and it is unrelated to model version
-deltas), and full-form authoring remains the compiler's ordinary,
-unprompted path for every model kind.
-
-Verified directly and by round-trip: `compact-version` then
-`expand-version` on the same fixture reproduces the exact original
-full-form text byte-for-byte (proven directly in
-`test_compact_round_trips_through_expand_byte_identical`, not merely
-asserted); reload after either command shows zero errors and zero
-warnings. 16 new tests in `cli/tests/test_version_delta.py` cover the
-compiler-level diff function (no-evidence remove+add, evidence-backed
-rename, reorder rejection) and both CLI-facing tools (happy path,
-round-trip, already-in-target-form rejection, no-prior-version rejection,
-reorder rejection, comment-abort, access-loss-abort, apply-time rollback on
-a simulated reload failure). New CLI Reference §5.26/§5.27 and a new
-Language Reference §2.7 paragraph document both commands, cross-linked.
-Full local `pytest tests/` suite: 2551 passed, 59 skipped. **This closes
-A2 and the full A-series (A1, A2) of optional post-Q1 adoption work.**
-
-#### Enum projections as field types
-
-A1's `extract-enum` follow-up (see above) found that a field cannot
-reference an `enum projection` as its own type at all — rejected with
-`ENUMREF: unknown semantic type`. Scoped in
-[Enum Projections as Field Types — Design](docs/superpowers/specs/2026-08-28-enum-projection-field-references-design.md)
-and shipped in phases mirroring E6-E10's own delivery order:
-
-- **Phase 1 (compiler core), PR #498:** `registry/resolver.py::resolve_enum_type_ref`
-  resolves a field-type reference to either a `SemanticTypeDecl` or an
-  `EnumProjectionDecl` without changing `resolve_semantic_type_ref`'s own
-  callers/behavior; validation, compatibility, signatures, and dependency
-  graph all handle the projection case. Every emitter not yet migrated gets
-  one shared `EMIT007` rejection (`operations/compilation.py::_reject_unsupported_enum_projection_fields`,
-  gated by `_ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS`) instead of silently
-  mis-resolving.
-- **Phase 2 item 1 (Rust), PR #499.**
-- **Phase 2 item 2 (typed SDKs — TypeScript, Python, Java, C#, Go), PRs
-  #500-#504.** Each emitter now emits/reuses a nominal type for a
-  projection-typed field. **Found and fixed in this session:** none of
-  those five PRs added its target to `_ENUM_PROJECTION_FIELD_SUPPORTED_TARGETS`,
-  so `modelable compile --target python|typescript|java|csharp|go` still
-  raised `EMIT007` end-to-end even though each emitter's own unit tests
-  passed — the gate, not the emitter, was the gap. Fixed by adding all five
-  targets to the frozenset alongside `rust`. Verified with a real
-  `modelable compile` run against a projection-typed-field fixture for all
-  six now-supported targets (each produces the expected nominal-type
-  artifact) and against a still-unsupported target (`json-schema`, still
-  correctly rejected with `EMIT007`). Full local `pytest tests/` suite:
-  2584 passed, 59 skipped.
-- **Phase 2 item 3 (schema/API targets — Protobuf/gRPC, Avro, JSON Schema,
-  OpenAPI) and item 4 (ODCS, OpenMetadata, OpenLineage, FHIR, Markdown)
-  remain open**, per the design's proposed order.
-
-Also in this lane, **not** gated behind D0 because it is purely additive
-grammar that never reinterprets existing text:
-
-#### Slice H1 — projection Pick/Omit clauses
-
-**Shipped, 2026-08-06.**
-
-Lets a `projection` select or exclude a field subset from its source
-(including qualified `alias.field` selection across `join`s, and annotation
-filters like `@pii` reusing `auto projections ... exclude`'s existing
-matcher) without hand-writing a `<-` line per field. Full design:
-[Projection Pick/Omit Clauses](docs/superpowers/specs/archived/2026-08-03-projection-pick-omit-design.md).
-
-**Outcome:** grammar adds an optional `selection_clause?` on `projection_decl`
-(`pick(...)`/`omit(...)`, mutually exclusive, non-empty by grammar
-construction). `SelectionClause` IR mirrors `AutoProjectionTarget`'s existing
-`excluded_fields`/`excluded_annotations` split. Expansion
-(`planner/planner.py::expand_projection_selections`) runs alongside
-`expand_auto_projections`, reuses `dependency_graph.py`'s alias resolution and
-the (now-public) auto-projection annotation matcher, and produces the same
-explicit `<-` IR a hand-written projection would — so compatibility (Slice
-C1), the dependency graph (Slice A2), lineage, and governance need no
-special-casing. Unqualified selectors are valid only if unambiguous across
-all declared sources; same-output-name collisions across two aliases are a
-distinct error rather than silently dropping one. The formatter
-(`compiler/render.py`) gained `_render_selection_clause` so `pick`/`omit`
-clauses round-trip on reformat instead of silently collapsing to `{ }` — a
-gap this slice found and fixed rather than leaving as a follow-up. Covered by
-`cli/tests/test_projection_selection.py`, including canonical-signature and
-compatibility equivalence with hand-written projections.
-
-Also extensibility work (Track E) that is additive but not yet prioritized
-against a concrete consumer:
-
-#### Slice E1 — typed namespaced annotations
-
-`@acme.retention("7y")`-style annotations, a grammar prerequisite for any
-annotation-plugin system. The current grammar has a closed set of
-single-token built-in annotations. First sub-slice: namespaced annotation
-identifiers, typed argument syntax, lossless preservation of unknown
-annotation text, rejection of unsupported annotations under strict policy,
-deterministic canonical rendering. A plugin contract would need each
-extension to declare its namespace/version, annotation schema, valid
-targets, compatibility significance, propagation rules, validation hooks,
-and emitter behavior.
-
-#### Slice E2 — data-quality contract metadata
-
-Non-null, uniqueness, accepted values, ranges, row-count thresholds,
-referential integrity, and external test references, surfaced through ODCS,
-dbt tests, OpenMetadata contract metadata, and the machine-readable Modelable
-graph — validated by Modelable but executed by external tools, not turning
-Modelable into a scheduler.
-
-#### Slice E3 — freshness, SLA, and retention metadata
-
-Model/projection ownership, inheritance, compatibility significance,
-duration syntax, timezone handling, and target mappings for freshness/SLA/
-retention metadata, preserved by supported contract/catalog emitters and
-visible as review or compatibility findings.
-
-Target work gated on the above language work (Track F, items 2-5). Priority 5
-owns sequencing and product scope; these slices describe language/compiler
-prerequisites:
-
-#### Slice F1 — nominal semantic types beyond Rust
-
-Directly aligns with [Priority 4 item 9](#priority-4--consequence-driven-developer-experience-and-adoption)
-and remains valid; not gated on D0. Priority order (follow concrete consumer
-demand, roadmap ordering as the starting point): TypeScript, Go, Java, C#,
-Python, JSON Schema, SQL. Each target must state whether it preserves or
-intentionally erases nominal identity.
-
-#### Slice F2 — OpenAPI emission
-
-Phase A (schema-only `components.schemas` emission) is implemented; see
-`docs/superpowers/specs/archived/2026-08-14-openapi-emission-design.md`.
-Phase B (versioned paths and operations, including operation-aware
-compatibility facts) is implemented in [PR #357](https://github.com/ktjn/modelable/pull/357)
-and [PR #358](https://github.com/ktjn/modelable/pull/358); the original downstream
-request is complete and closed in [issue #352](https://github.com/ktjn/modelable/issues/352).
-See the archived Phase B design and implementation plan. Phase C (deterministic OpenAPI import hardening) is
-implemented in the format adapter used by the local import flow: JSON/YAML,
-stable traversal of all component schemas, explicit multi-schema selection,
-`x-modelable` metadata, and versioned component references are supported.
-Unsupported unions, composition, nullability, and value constraints also emit
-explicit lossy-import warnings instead of being silently discarded; dropped
-operation, request/response, and security metadata is reported the same way.
-Phase D (fidelity follow-ups): the core D1-D4 schema slices have shipped
-(constraints, named enums, and discriminated unions all reach OpenAPI output
-through the same field-mapping path `json-schema` uses, so they already have
-parity there). Compatibility reporting and explicit loss diagnostics are now
-also shipped: `modelable validate-compat --target openapi` reports breaking
-changes to operations, path parameters, request/response bindings, and
-component schemas ([PR #409](https://github.com/ktjn/modelable/pull/409),
-[PR #410](https://github.com/ktjn/modelable/pull/410)), and the emitter
-validates the complete generated document against OpenAPI 3.1 — not just the
-`components.schemas` fragment — surfacing invalid output through the existing
-`EMIT004` warning path ([PR #411](https://github.com/ktjn/modelable/pull/411)).
-No further Phase D work is scoped; a genuinely new fidelity gap would need its
-own issue and, per this roadmap's own policy, an accepted design before
-becoming committed work.
-
-#### Slice F3 — AsyncAPI emission
-
-After named enums (D3), unions (D4), reference-version semantics, and the
-event-envelope contract.
-
-#### Slice F4 — Avro emission
-
-The deterministic local record emitter is shipped for models and event
-projections, including defaults, nullability, arrays, maps, enums, logical
-types, and explicit loss warnings. Remaining work is deterministic Avro
-import hardening and target-specific reader/writer compatibility.
-
-#### Slice F5 — GraphQL/Federation emission
-
-After identity/reference semantics and projection contract compatibility are
-sufficiently explicit for stable subgraph generation.
-
-## Priority 7 — repository health and engineering quality
-
-Gaps found by direct code and CI inspection rather than product feature
-requests. Nothing here is committed until it has an issue and an accepted
-design, per the same policy as the rest of this roadmap. Findings are ranked
-by impact within each section; "Evidence" cites the exact file so a claim can
-be verified without re-deriving it. Unlike the priorities above, these are
-continuous ratchets — "shipped" means the mechanism is in place and enforced,
-not that the work is finished.
-
-### Correctness and reliability
-
-#### 1. `mypy --strict` is enforced as a baseline ratchet
-
-**Evidence:** `cli/pyproject.toml` sets `[tool.mypy] strict = true`, and the
-Validate workflow runs
-`.github/scripts/check_mypy_baseline.py --baseline mypy-baseline.txt -- uv run
-mypy src/modelable --no-error-summary --show-error-codes` from the `cli/`
-directory. `cli/mypy-baseline.txt` captures the current strict baseline so new
-error lines fail CI while existing debt remains visible.
-
-**Impact:** Type regressions can no longer land silently on changed CLI
-surfaces. The gate also reports resolved baseline lines, so typing cleanup can
-shrink the baseline incrementally without requiring the repository to become
-fully strict-clean in one large change.
-
-**Remaining work:** see [Slice G2](#slice-g2--strict-typing-baseline-reduction)
-above for the module burn-down order.
-
-#### 2. CI enforces a per-critical-path coverage ratchet, not a repository-wide threshold
-
-**Evidence:** `cli/pyproject.toml` declares `pytest-cov` as a dev dependency
-and configures `[tool.coverage.run] source = ["src/modelable"]`.
-`validate.yml`'s `cli` job runs `uv run pytest --tb=short --cov=modelable
---cov-report=term-missing --cov-report=xml`, uploads `cli/coverage.xml` as
-the `cli-coverage-xml` artifact, and then runs
-`.github/scripts/check_coverage_ratchet.py` against
-`cli/coverage-baseline.txt` — the same checked-in-baseline pattern the mypy
-strict ratchet (finding 1, above) already uses. The baseline lists the 12
-files covering [Slice G1](#slice-g1--critical-compatibility-coverage)'s
-eight protection categories.
-
-**Impact:** A PR that drops coverage on any of these specific files fails
-CI — critical-path coverage is a ratcheted signal, tied to the paths that
-actually determine compiler correctness rather than an arbitrary
-repository-wide percentage. The rest of the codebase keeps the same
-visibility-only artifact/terminal-summary behavior as before.
-
-**Remaining work:** Raise individual baseline numbers as their tests improve
-(never lower one to make a change pass); add more files to
-`coverage-baseline.txt` if a future slice identifies another critical path.
-
-#### 3. A golden-file regression suite pins every implemented codegen target's full output
-
-**Evidence:** `cli/tests/test_golden_artifacts.py` compiles the shared
-`cli/tests/golden/model.mdl` fixture (keys, PII/classification annotations,
-an enum, array/map/optional/nested-object fields, a cross-domain `ref<>`, a
-secondary index with a `unique` constraint, an auto-projection event, and an
-`api` operation) — plus, for `fhir-profile`, the existing
-`cli/tests/fixtures/fhir_patient_profile.mdl` fixture — to every
-`status="implemented"` target in `emitters/targets.py` and byte-compares each
-emitted artifact, including its emitter warnings, against checked-in copies
-in `cli/tests/golden/artifacts/`. `cli/scripts/write_golden_artifacts.py`
-regenerates them deterministically (also used as this test's own fixture
-generator, invoked via subprocess so the checked-in copy and a fresh run are
-compared as two independent artifacts, not the same in-memory object).
-
-**Impact:** Before this, multi-target regression coverage
-(`test_fixtures_regression.py`'s per-target loops) only asserted that
-compilation exited zero and produced a file of the right extension — not
-that the file's *content* was what it should be. A change to shared
-rendering code could silently drift a target's output with no test noticing,
-as long as it didn't happen to touch whatever narrow substring an existing
-`test_emit_*.py` assertion checked. This suite closes that gap for every
-implemented target at once, and `test_golden_targets_cover_every_implemented_codegen_target`
-fails immediately if a target is added without golden coverage — the same
-"target listings drifting" failure mode Slice B2 tracks for documentation,
-now guarded at the test-coverage level too.
-
-**Remaining work:** Native/CLI only — the same fixture compiled through
-`BrowserCompiler.compile()` (browser/Playground) is not yet part of this
-suite; PR #402's `sql-index` scenario is the only target with that kind of
-native/browser cross-surface proof today (Slice G3). Extending
-cross-surface golden coverage to more targets is a separate, larger slice.
-A deliberate emitter output change must regenerate the golden files
-(`uv run python scripts/write_golden_artifacts.py --output tests/golden/artifacts`)
-and include the diff in the same PR, exactly like reviewing any other
-generated-artifact change.
-
-### Dependency management
-
-#### 4. Dependabot routine groups are explicit version-update groups
-
-**Evidence:** `.github/dependabot.yml` keeps one routine group per ecosystem
-for Python, VS Code, and GitHub Actions updates, and each group declares
-`applies-to: version-updates` before `patterns: ["*"]`.
-
-**Impact:** Routine dependency churn remains grouped for review efficiency,
-while the file documents that those groups are for version updates rather
-than vulnerability remediation. Security updates can be handled as their own
-Dependabot security-update PRs instead of being mixed into unrelated weekly
-version bumps.
-
-**Remaining work:** If security-update volume grows, add an explicit
-security-update policy with narrower package patterns or labels. The current
-configuration is deliberately simple until there is real update volume to
-tune against.
-
-## Candidate pool
-
-These ideas are intentionally unordered until a concrete consumer, issue, and
-accepted design establish their value. Larger product directions are tracked in
-[Future Direction](docs/future-direction.md) rather than expanding this pool:
-
-- Embedded Python authoring that statically extracts a small, deterministic
-  subset into canonical `.mdl` without importing or executing user code.
-- Hosted/distributed registry synchronization beyond the offline snapshot and
-  replaceable source-registry adapter model.
-- Additional artifact formats requested by a real consumer beyond the explicit
-  interoperability sequence in Priority 5.
-- A third compatibility signal for state-migration necessity.
-- An optional provider adapter for the VS Code Language Model API so users can
-  select a model available in their editor. Native model output must still
-  pass through Python-owned typed plan parsing, validation, preview, and
-  workspace editing; the extension must not duplicate those safety boundaries
-  in TypeScript.
-
-## Outside the near-term compiler roadmap
-
-Runtime subscriptions, adapters, replay execution, materialization workers, and
-hosted distributed registry services remain separate product concerns. They
-should not displace compiler-contract, offline dependency, consequence,
-adoption, or integration work without an explicit product decision and
-accepted architecture.
-
-The offline registry snapshot in Priority 4 changes one important boundary:
-**exact external dependency state, source-registry resolution, inferred usage,
-and consequence analysis are compiler concerns.** They do not require a
-Modelable-hosted registry and do not imply runtime subscriptions or
-materialization.
-
-Slice B3's existing deferred grammar remains deferred until separately designed:
-
-- **`registry {}` and `peers: [...]` syntax** — the near-term registry snapshot
-  should not revive old grammar merely because external sources now exist.
-  Source-registry configuration and dependency requirements need an accepted
-  compiler-level design; the durable snapshot remains authoritative for normal
-  offline compilation.
-- **`consumer {}` syntax** — common-case application consumption should be
-  inferred from resolved semantic references and exported through the usage
-  manifest. Manual/external consumer evidence may become useful later, but it
-  does not justify enabling the existing undeveloped grammar now.
-- **`subscription {}` and `materialisation {}`** — both presuppose runtime
-  execution, replay, state, failure handling, and operational semantics that
-  Modelable does not implement. Keep them deferred unless the product boundary
-  changes explicitly.
-- **Unrecognized `binding {}` content** — remains deferred until a concrete
-  adapter contract defines what the compiler must validate and preserve.
-
-Until each deferred grammar construct gets its own accepted design,
-`modelable capabilities` and the `DEFERRED` diagnostic are authoritative on its
-status. Longer-horizon ideas such as consumer usage evidence, portable contract
-packages/OCI distribution, deployment-plan generation, verification adapters,
-contract-test corpus generation, and organization-graph federation are kept in
-[Future Direction](docs/future-direction.md) until a concrete consumer promotes
-them into this roadmap.
-
-See [architecture](docs/architecture.md) for the product boundary,
-[integrations](docs/integrations.md) for external-tool research, and
-[GitHub issues](https://github.com/ktjn/modelable/issues) for work that is ready
-for discussion or implementation.
+Modelable is entering a stabilization phase.
+
+The product already has broad language, compatibility, lineage, code generation, import, browser, and tooling capability. The next priority is not adding more surface area. It is making the semantic core stable enough that future capability can be added without repeatedly changing grammar, IR, compatibility logic, and every emitter.
+
+The architecture source of truth is [docs/architecture.md](docs/architecture.md).
+
+## Goal
+
+Stabilize Modelable around this product boundary:
+
+```text
+semantic graph
+    +
+usage graph
+    +
+change graph
+    ↓
+consequence graph
+    ↓
+versioned plan
+    ↓
+extensions
+```
+
+The semantic graph and consequence graph are the durable product. Emitters, policies, adapters, registries, catalogs, framework integrations, and runtime consumers remain replaceable edges.
+
+## Operating rules
+
+1. Correctness and false compatibility results are release blockers.
+2. New broad grammar features are paused unless existing semantics cannot represent the requirement correctly.
+3. New target-specific behavior should prefer overlays or extensions over core annotations.
+4. New emitters must consume normalized compiler output rather than duplicate semantic resolution.
+5. Browser and native compilation must remain semantically equivalent.
+6. Significant semantic changes require realistic external conformance coverage in `modelable-showcase`.
+7. Runtime execution features remain outside the core roadmap.
+
+## Phase 1 — Freeze semantic identity
+
+### Outcome
+
+One canonical identity model for all reusable semantic declarations.
+
+### Work
+
+- Define canonical qualified identities for declarations and fields.
+- Ensure identity is independent of source file location and emitter naming.
+- Unify resolution rules for entities, aggregates, events, values, enums, semantic types, and projections.
+- Continue nominal enum and semantic-type references rather than copying structural definitions.
+- Remove declaration-kind-specific resolution paths where equivalent generic logic can be used.
+- Define explicit invariants for version identity and cross-domain references.
+
+### Acceptance
+
+The compiler can identify every reusable semantic declaration using a stable canonical identity such as:
+
+```text
+customer.Customer@4
+customer.Customer@4.email
+customer.CustomerStatus@2
+```
+
+The identity can be serialized and reused by plans, overlays, lockfiles, lineage, usage evidence, and diagnostics.
+
+## Phase 2 — Define `modelable.plan/v1`
+
+### Outcome
+
+Emitters and analyzers depend on a stable normalized contract instead of parser/internal Python classes.
+
+### Work
+
+- Define a versioned JSON-compatible plan schema.
+- Include resolved declarations, versions, field types, nominal references, projections, lineage, and target-neutral generation facts.
+- Make plan generation deterministic.
+- Add golden conformance fixtures.
+- Ensure browser and native hosts produce equivalent plans.
+- Migrate emitters incrementally to consume the plan boundary.
+- Treat Python implementation classes as internal.
+
+### Acceptance
+
+A standalone tool can consume `modelable.plan/v1` without importing parser or semantic-validation internals.
+
+## Phase 3 — Unify declarations and projections
+
+### Outcome
+
+Avoid parallel implementations for each semantic declaration kind.
+
+### Work
+
+- Establish a common declaration abstraction for:
+  - entity
+  - aggregate
+  - event
+  - value
+  - enum
+  - semantic type
+  - projection
+- Centralize ownership, versioning, documentation, reference, compatibility, and deprecation behavior where semantics are shared.
+- Treat projections as the universal named/versioned derivation mechanism.
+- Support projections of enum and other declaration types without introducing separate subset mechanisms.
+- Normalize auto projections into ordinary projection semantics early in the pipeline.
+
+### Acceptance
+
+Adding a new declaration capability does not require recreating version resolution, identity, lineage, and compatibility infrastructure.
+
+## Phase 4 — Separate target configuration from semantics
+
+### Outcome
+
+Target-specific representation choices stop expanding `.mdl` and semantic IR.
+
+### Work
+
+- Design a TOML overlay format keyed by canonical semantic identity.
+- Move new target naming, serialization, framework, SQL, Protobuf, SDK, and deployment hints into overlays.
+- Define deterministic overlay precedence and validation.
+- Expose overlay configuration schemas through target descriptors.
+- Plan deprecation/migration of `@wire` and other target-specific semantic annotations.
+- Keep semantic metadata such as ownership, classification, and PII in the semantic graph.
+
+Example:
+
+```toml
+[protobuf."customer.Customer@4.customerId"]
+number = 1
+
+[sql-postgres."customer.Customer@4"]
+table = "customers"
+```
+
+### Acceptance
+
+A new framework-specific integration, including Unity-specific C# generation, can be configured without adding a Unity/framework keyword to `.mdl`.
+
+## Phase 5 — Introduce extension descriptors and capability negotiation
+
+### Outcome
+
+Targets become discoverable components rather than entries in increasingly centralized conditionals.
+
+### Work
+
+- Define `modelable.extension/v1`.
+- Define extension descriptors containing:
+  - id
+  - version
+  - supported plan versions
+  - capabilities
+  - configuration schema
+  - output kinds
+  - compatibility support
+- Define standard semantic capabilities such as records, enums, semantic types, maps, unions, constraints, lineage, and compatibility.
+- Validate a plan against target capabilities before emission.
+- Move target capability ownership into target implementations.
+- Keep an in-process Python extension path while defining a language-neutral subprocess/WASM boundary.
+
+### Acceptance
+
+Unsupported semantic constructs fail through one compiler-owned capability check rather than emitter-specific ad-hoc logic.
+
+## Phase 6 — Formalize `modelable.lock/v1`
+
+### Outcome
+
+The registry becomes reproducible dependency/usage state rather than infrastructure.
+
+### Work
+
+- Define deterministic lock/snapshot format.
+- Record:
+  - exact declaration versions
+  - content hashes
+  - source provenance
+  - transitive dependencies
+  - canonical semantic identities
+  - declarations actually used
+  - fields/projections actually used where observable
+  - optional plan/generation fingerprints
+- Make local SQLite registry/index state reconstructable from version-controlled inputs and lock data.
+- Keep remote schema registries and catalogs as adapters.
+- Avoid requiring a Modelable service for normal compilation.
+
+### Acceptance
+
+A clean offline checkout can reproduce resolution and prove exactly which semantic contracts a consumer compiled against.
+
+## Phase 7 — Build the usage graph
+
+### Outcome
+
+Impact analysis is based on actual consumers rather than only theoretical references or manually maintained consumer declarations.
+
+### Work
+
+- Produce usage evidence from compilation.
+- Aggregate usage snapshots across applications/repositories.
+- Track whole-declaration, projection, and field-level usage where possible.
+- Make declared `consumer {}` metadata optional/non-authoritative unless a future concrete use requires it.
+- Expose usage queries to CLI, CI, IDE, and agent surfaces.
+
+### Acceptance
+
+Given a declaration version, Modelable can identify the known applications and projections that actually depend on it.
+
+## Phase 8 — Replace flat consequences with a consequence graph
+
+### Outcome
+
+Model evolution produces explainable causal paths and actionable downstream work.
+
+### Work
+
+- Replace growing string-based consequence statuses with structured nodes and edges.
+- Represent chains such as:
+
+```text
+field removal
+  ↓
+projection affected
+  ↓
+generated schema changes
+  ↓
+consumer update required
+```
+
+- Preserve causal paths for every terminal action.
+- Support queries for:
+  - what breaks
+  - why
+  - which projection propagated it
+  - which artifacts change
+  - which consumers are affected
+  - what can be regenerated automatically
+  - what requires migration/manual intervention
+- Keep simple CLI summaries as views over the graph.
+
+### Acceptance
+
+Every reported impact can be traced from root semantic change to affected consumer action.
+
+## Phase 9 — Separate semantic and target compatibility
+
+### Outcome
+
+Core compatibility produces target-neutral facts; extensions interpret them for wire/storage/API constraints.
+
+### Work
+
+- Define a canonical semantic change vocabulary.
+- Ensure generic diff logic knows nothing about Protobuf numbers, SQL migration strategy, Avro reader/writer rules, or generated-language syntax.
+- Move those rules to target compatibility evaluators.
+- Feed target results into the consequence graph.
+- Keep compatibility deterministic and independently testable.
+
+### Acceptance
+
+Adding a new target compatibility evaluator does not require modifying semantic diff algorithms.
+
+## Phase 10 — Policy extension boundary
+
+### Outcome
+
+Governance grows without adding permanent language annotations for every regulation or organization.
+
+### Work
+
+- Define a policy evaluator interface over semantic/usage/consequence data.
+- Keep facts such as PII, classification, ownership, and lineage in core semantics.
+- Implement organization/regulation-specific checks outside the fixed annotation set.
+- Allow policies to produce diagnostics and consequences.
+- Define configuration and severity handling outside source semantics where appropriate.
+
+### Acceptance
+
+A custom enterprise policy can be added without a grammar or semantic-IR change.
+
+## Phase 11 — Make `modelable-showcase` an executable conformance suite
+
+### Outcome
+
+Real consumer builds detect cross-target semantic regressions before release.
+
+### Work
+
+Exercise at least:
+
+- canonical models
+- semantic types
+- enums
+- enum projections/subsets
+- nested/value types
+- API request/reply projections
+- events
+- persistence projections
+- multiple programming-language emitters
+- Protobuf/OpenAPI/Avro/SQL
+- version evolution
+- compatibility analysis
+- generated conversions
+- browser compilation
+- native compilation
+- real generated consumer compilation
+
+Add matrix coverage for major `FieldType × declaration kind × target` combinations.
+
+### Acceptance
+
+A semantic feature is not considered complete until a realistic cross-boundary scenario validates it.
+
+## Phase 12 — Stabilize host boundaries
+
+### Outcome
+
+CLI, browser, LSP, CI, build plugins, MCP, and future server surfaces become thin hosts around one compiler.
+
+### Work
+
+- Remove filesystem/network/process assumptions from compiler-core APIs where practical.
+- Define host input as workspace files + config + dependency snapshot.
+- Define host output as diagnostics + semantic graph + plan + compatibility/consequence results.
+- Keep browser compiler as a required conformance surface.
+- Expose semantic queries through a transport-neutral API suitable for agents and tooling.
+
+### Acceptance
+
+A new host can be implemented without duplicating parsing, semantic resolution, compatibility, or lineage behavior.
+
+## Deferred product areas
+
+The following remain outside the core roadmap unless the product thesis changes:
+
+- streaming execution engine
+- subscription runtime
+- materialization runtime
+- broker abstraction
+- database synchronization service
+- retry/dead-letter execution
+- distributed Modelable registry service
+
+Modelable may generate contracts, plans, mappings, migrations, or validation packages for these systems.
+
+## Future-use design tests
+
+Future uses should be accommodated primarily through extensions rather than preemptive grammar additions.
+
+Expected stress cases include:
+
+| Use | Expected mechanism |
+|---|---|
+| GraphQL | emitter + compatibility evaluator |
+| AsyncAPI | emitter |
+| additional wire/schema formats | emitter |
+| Iceberg/Delta | emitter |
+| ORM/framework bindings | overlay + emitter |
+| Unity | C# emitter extension + overlay |
+| SDK generation | emitter |
+| industry standards | extension package |
+| enterprise governance | policy evaluator |
+| catalog integration | adapter |
+| schema registry integration | adapter |
+| API migration tooling | consequence graph + action generator |
+| AI-assisted refactoring | semantic/usage/consequence query API |
+| code migrations | action generator |
+| cross-repo blast radius | lock snapshots + usage graph |
+| runtime validation | generated package |
+| MCP/agent integration | host/query protocol |
+
+## Explicit non-goals for stabilization
+
+Do not spend stabilization capacity on:
+
+- adding emitters solely for breadth
+- adding grammar syntax for target configuration
+- making SQLite registry state authoritative
+- building a remote registry service
+- implementing runtime materialization/subscriptions
+- creating duplicate semantic implementations for browser or integrations
+
+## Contribution decision rule
+
+Before extending the language, answer:
+
+```text
+Can existing semantic constructs represent this correctly?
+  │
+  ├─ yes → extension / overlay / emitter / analyzer / policy
+  │
+  └─ no  → propose a semantic-model change
+```
+
+A proposal for a semantic-model change must document why projections, semantic types, overlays, and extension capabilities are insufficient.
+
+## Completion criteria for stabilization
+
+The stabilization program is complete when:
+
+- canonical semantic identity is defined and used consistently
+- emitters can consume `modelable.plan/v1`
+- external target configuration has a stable overlay mechanism
+- extension capability negotiation is implemented
+- dependency/usage state has a deterministic lock format
+- consequences form an explainable graph
+- semantic and target compatibility are separated
+- browser/native semantic conformance is enforced
+- showcase provides realistic cross-target conformance
+- significant new integrations can be added without changing `.mdl`
+
+At that point Modelable can resume broad feature growth with substantially lower architectural cost.
