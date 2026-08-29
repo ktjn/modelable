@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -134,6 +135,7 @@ def resolve_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".
     lock = {
         "format": LOCK_FORMAT,
         "objects": entries,
+        "requirements": _build_requirements(entries),
     }
     _atomic_write_json(paths.lock, lock)
     identities = tuple(str(entry["identity"]) for entry in entries)
@@ -198,6 +200,50 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                     actual_source_hash = _file_hash(source_path)
                     if actual_source_hash != expected_source_hash:
                         errors.append(f"registry source drift for {identity}: found {actual_source_hash}")
+    requirements = lock.get("requirements")
+    if requirements is not None:
+        if not isinstance(requirements, list):
+            errors.append("registry lock requirements must be an array")
+        else:
+            entries_by_identity = {
+                str(entry["identity"]): entry
+                for entry in objects
+                if isinstance(entry, dict) and isinstance(entry.get("identity"), str)
+            }
+            for requirement in requirements:
+                if not isinstance(requirement, dict):
+                    errors.append("registry lock contains a non-object requirement")
+                    continue
+                source_value = requirement.get("from")
+                requested_value = requirement.get("requested")
+                resolved_value = requirement.get("resolved")
+                if (
+                    not isinstance(source_value, str)
+                    or not isinstance(requested_value, str)
+                    or not isinstance(resolved_value, str)
+                ):
+                    errors.append("registry lock requirement requires from, requested, and resolved")
+                    continue
+                source = source_value
+                resolved = resolved_value
+                target = entries_by_identity.get(resolved)
+                if target is None:
+                    errors.append(f"registry lock requirement resolves to missing object {resolved}")
+                    continue
+                try:
+                    expected = _resolve_dependency_entry(requested_value, objects, source_value)
+                except ValueError as exc:
+                    errors.append(f"invalid registry lock requirement {source} -> {resolved}: {exc}")
+                else:
+                    if expected.get("identity") != resolved:
+                        errors.append(
+                            f"registry lock requirement resolves {source} -> {resolved}, "
+                            f"but {requested_value!r} selects {expected.get('identity')}"
+                        )
+                if target.get("signature") != requirement.get("signature"):
+                    errors.append(f"registry lock requirement signature mismatch for {source} -> {resolved}")
+                if target.get("content_hash") != requirement.get("object"):
+                    errors.append(f"registry lock requirement object mismatch for {source} -> {resolved}")
     return errors
 
 
@@ -546,6 +592,83 @@ def _format_dependency(target: str, version: VersionSpec | None) -> str:
     if isinstance(version, VersionPinned):
         return f"{target}@{version.version}#{version.content_hash}"
     return f"{target}@?"
+
+
+def _build_requirements(entries: list[dict[str, Any]]) -> list[dict[str, str]]:
+    requirements: list[dict[str, str]] = []
+    for entry in entries:
+        source = str(entry["identity"])
+        for requested in entry.get("dependencies", []):
+            if not isinstance(requested, str):
+                raise ValueError(f"registry dependency for {source} must be a string")
+            resolved = _resolve_dependency_entry(requested, entries, source)
+            requirements.append(
+                {
+                    "from": source,
+                    "requested": requested,
+                    "resolved": str(resolved["identity"]),
+                    "signature": str(resolved["signature"]),
+                    "object": str(resolved["content_hash"]),
+                }
+            )
+    return sorted(requirements, key=lambda item: (item["from"], item["requested"], item["resolved"]))
+
+
+def _resolve_dependency_entry(
+    requested: str, entries: list[dict[str, Any]], source: str | None = None
+) -> dict[str, Any]:
+    if "@" in requested:
+        target, selector = requested.rsplit("@", 1)
+    else:
+        target, selector = requested, "latest"
+    source_domain = source.split(".", 1)[0] if source is not None and "." in source else None
+    target_names = {target}
+    if source_domain is not None and "." not in target:
+        target_names.add(f"{source_domain}.{target}")
+    candidates = [
+        entry
+        for entry in entries
+        if isinstance(entry.get("identity"), str)
+        and any(str(entry["identity"]).startswith(f"{name}@") for name in target_names)
+        and _identity_version(str(entry["identity"])) is not None
+    ]
+    expected_hash: str | None = None
+    if "#" in selector:
+        selector, expected_hash = selector.split("#", 1)
+    if selector == "latest":
+        matching = candidates
+    elif selector.isdigit():
+        matching = [entry for entry in candidates if _entry_version(entry) == int(selector)]
+    else:
+        range_match = re.fullmatch(r">=(\d+)<(\d+)", selector)
+        minimum_match = re.fullmatch(r">=(\d+)", selector)
+        if range_match:
+            minimum, maximum = (int(value) for value in range_match.groups())
+            matching = [entry for entry in candidates if minimum <= _entry_version(entry) < maximum]
+        elif minimum_match:
+            minimum = int(minimum_match.group(1))
+            matching = [entry for entry in candidates if _entry_version(entry) >= minimum]
+        else:
+            raise ValueError(f"unsupported registry dependency selector {requested!r}")
+    if not matching:
+        raise ValueError(f"unresolved registry dependency {requested!r}")
+    selected = max(matching, key=lambda entry: (_entry_version(entry), str(entry["kind"])))
+    if expected_hash is not None and selected.get("content_hash") != expected_hash:
+        raise ValueError(f"pinned registry dependency hash mismatch for {requested!r}")
+    return selected
+
+
+def _identity_version(identity: str) -> int | None:
+    version = identity.rsplit("@", 1)[-1]
+    return int(version) if version.isdigit() else None
+
+
+def _entry_version(entry: dict[str, Any]) -> int:
+    identity = str(entry["identity"])
+    version = _identity_version(identity)
+    if version is None:
+        raise ValueError(f"registry object identity has no numeric version: {identity!r}")
+    return version
 
 
 def _content_hash(payload: dict[str, Any]) -> str:
