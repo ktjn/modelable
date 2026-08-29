@@ -35,6 +35,85 @@ def test_resolve_writes_deterministic_lock_and_objects(tmp_path: Path) -> None:
     assert [entry["identity"] for entry in lock["objects"]] == ["customer.Customer@1", "customer.Customer@2"]
 
 
+def test_resolve_records_exact_dependency_requirement(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key id: uuid
+  }
+  entity Customer @ 2 (additive) {
+    @key id: uuid
+    name?: string
+  }
+}
+domain billing {
+  owner: "billing-platform"
+  projection Billing @ 1
+    from customer.Customer @ >=1 <3 as c
+  {
+    id <- c.id
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = resolve_workspace_snapshot(load_workspace(source), tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+
+    requirements = [item for item in lock["requirements"] if item["from"] == "billing.Billing@1"]
+    assert len(requirements) == 1
+    requirement = requirements[0]
+    assert requirement["requested"] == "customer.Customer@>=1<3"
+    assert requirement["resolved"] == "customer.Customer@2"
+    target = next(item for item in lock["objects"] if item["identity"] == requirement["resolved"])
+    assert requirement["signature"] == target["signature"]
+    assert requirement["object"] == target["content_hash"]
+
+
+def test_verify_detects_non_deterministic_dependency_resolution(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key id: uuid
+  }
+  entity Customer @ 2 (additive) {
+    @key id: uuid
+    name?: string
+  }
+}
+domain billing {
+  owner: "billing-platform"
+  projection Billing @ 1
+    from customer.Customer @ >=1 <3 as c
+  {
+    id <- c.id
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    result = resolve_workspace_snapshot(load_workspace(source), output_dir)
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    requirement = next(item for item in lock["requirements"] if item["from"] == "billing.Billing@1")
+    target = next(item for item in lock["objects"] if item["identity"] == "customer.Customer@1")
+    requirement["resolved"] = target["identity"]
+    requirement["signature"] = target["signature"]
+    requirement["object"] = target["content_hash"]
+    result.lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    errors = verify_snapshot(output_dir)
+
+    assert any("but 'customer.Customer@>=1<3' selects customer.Customer@2" in error for error in errors)
+
+
 def test_verify_detects_tampered_object(tmp_path: Path) -> None:
     result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
     object_path = next((result.lock_path.parent / "registry" / "objects").glob("*.json"))

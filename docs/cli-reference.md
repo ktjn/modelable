@@ -1751,7 +1751,9 @@ modelable registry usage SOURCE [--format text|json|manifest]
   of exact model references and signatures with `--format manifest`.
 
 The lock and object files are the durable snapshot; `registry.db` remains a
-rebuildable compiler index.
+rebuildable compiler index. Lock requirements retain the requested version
+selector and the exact resolved identity, signature, and object hash used
+offline.
 
 External source adapters, transitive dependency closure, cross-application
 usage aggregation, and policy-aware updates are deferred. The similarly named

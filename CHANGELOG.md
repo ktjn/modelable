@@ -31,6 +31,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Registry locks now record deterministic requested-to-resolved dependency
+  requirements with exact signatures and content-addressed object hashes.
+
 - `registry resolve` now goes through an explicit local source-adapter
   boundary; external or network-backed adapters remain opt-in and unavailable
   to ordinary compiler operations.
