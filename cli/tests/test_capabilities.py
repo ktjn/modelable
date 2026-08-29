@@ -81,6 +81,7 @@ def test_manifest_all_returns_every_capability_across_categories():
         + len(manifest.sql_dialects)
         + len(manifest.model_kinds)
         + len(manifest.annotations)
+        + len(manifest.registry_capabilities)
         + len(manifest.deferred_features)
     )
     assert total == expected
@@ -122,6 +123,17 @@ def test_manifest_deferred_features_include_projection_event_operation_coverage(
 
     manifest_names = {capability.name for capability in manifest.deferred_features}
     assert "projection-event-operation-coverage-compatibility" in manifest_names
+
+
+def test_registry_capability_scope_is_explicit():
+    manifest = build_capability_manifest()
+    capabilities = {capability.name: capability for capability in manifest.registry_capabilities}
+
+    assert capabilities["local-registry-snapshot"].status is CapabilityStatus.implemented
+    assert capabilities["snapshot-provenance"].status is CapabilityStatus.implemented
+    assert capabilities["offline-compiler-analysis"].status is CapabilityStatus.implemented
+    assert capabilities["transitive-dependency-closure"].status is CapabilityStatus.deferred
+    assert capabilities["cross-application-consequence-analysis"].status is CapabilityStatus.deferred
 
 
 def test_model_version_has_no_lifecycle_status_field():

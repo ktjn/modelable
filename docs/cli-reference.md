@@ -1714,10 +1714,11 @@ If no models are installed, prints a hint to run `ollama pull <model>`. If
 the Ollama server is unreachable, exits with an error describing the
 connection failure.
 
-### 10.7 `registry` — Federated registry management
+### 10.7 `registry` — Local offline registry snapshots
 
-The offline snapshot lifecycle is explicit and does not contact a source
-registry during ordinary compilation or analysis:
+The currently implemented registry lifecycle is a local, offline snapshot
+workflow. It does not resolve external registries or dependency ranges, and it
+does not contact a source registry during ordinary compilation or analysis:
 
 ```text
 modelable registry resolve SOURCE [--out DIR]
@@ -1746,17 +1747,10 @@ modelable registry usage SOURCE [--format text|json|manifest]
 The lock and object files are the durable snapshot; `registry.db` remains a
 rebuildable compiler index.
 
-```text
-modelable registry init --id <registry-id> --owns <domain>[,<domain>...]
-modelable registry peer add --id <peer-id> --git <url> [--branch <branch>] [--sync <mode>] [--writeback <mode>]
-modelable registry graph
-modelable registry sync [--peer <peer-id>]
-```
-
-- `registry init` — Initialize a workspace as a named registry node.
-- `registry peer add` — Register an upstream peer registry.
-- `registry graph` — Print the federation DAG with sync state.
-- `registry sync` — Force-sync all peers (or a single peer) regardless of sync mode.
+External source adapters, transitive dependency closure, cross-application
+usage aggregation, and policy-aware updates are deferred. The similarly named
+federated `init`, `peer`, `graph`, and `sync` commands are not part of the
+current CLI and must not be treated as available interfaces.
 
 See [compiler-reference.md](compiler-reference.md) §14.
 

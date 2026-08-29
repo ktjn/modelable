@@ -16,6 +16,7 @@ def test_capabilities_text_output_lists_every_category():
     assert "deferred_feature" in result.output
     assert "typescript" in result.output
     assert "composite-keys" in result.output
+    assert "transitive-dependency-closure" in result.output
 
 
 def test_capabilities_json_output_is_valid_and_complete():
@@ -30,6 +31,7 @@ def test_capabilities_json_output_is_valid_and_complete():
     assert "entity" in names
     assert "key" in names
     assert "composite-keys" in names
+    assert "offline-compiler-analysis" in names
     for entry in payload:
         assert set(entry) == {"name", "category", "status", "description", "notes", "test_refs"}
 
