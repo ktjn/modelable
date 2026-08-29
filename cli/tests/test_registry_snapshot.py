@@ -6,8 +6,10 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.compat.checker import analyze_impact, check_model_version_compatibility
 from modelable.compiler.workspace import load_workspace
 from modelable.registry.index import build_registry_from_snapshot
+from modelable.registry.resolver import find_dependents
 from modelable.registry.snapshot import (
     diff_workspace_snapshot,
     load_snapshot_workspace,
@@ -190,6 +192,98 @@ domain analytics {
     assert composed.errors == []
     assert {domain.name for domain in composed.mdl.domains} == {"analytics", "customer"}
     assert composed.mdl.domains[0].projections["CustomerSummary"][0].fields[0].name == "customerId"
+
+
+def test_snapshot_transition_classifies_compatible_and_breaking_candidate(tmp_path: Path) -> None:
+    provider_v1 = tmp_path / "provider-v1.mdl"
+    provider_v1.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    legalName: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    provider_compatible = tmp_path / "provider-compatible.mdl"
+    provider_compatible.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    legalName: string
+  }
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    legalName: string
+    segment?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    provider_breaking = tmp_path / "provider-breaking.mdl"
+    provider_breaking.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    legalName: string
+  }
+  entity Customer @ 2 (breaking) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        """
+domain analytics {
+  owner: "analytics-platform"
+  projection CustomerSummary @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.legalName
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    current_dir = tmp_path / "current"
+    resolve_workspace_snapshot(load_workspace(provider_v1), current_dir)
+    consumer_workspace = load_workspace(consumer)
+    current_composed = load_workspace_with_snapshot(consumer_workspace, current_dir)
+    assert current_composed.errors == []
+
+    compatible_workspace = load_workspace(provider_compatible)
+    compatible_report = check_model_version_compatibility(compatible_workspace.mdl, "customer", "Customer", 1, 2)
+    assert compatible_report.status == "compatible"
+    compatible_dependents = find_dependents(current_composed.mdl, "customer", "Customer", 1)
+    assert compatible_dependents == [("analytics", "CustomerSummary", 1)]
+    assert analyze_impact(current_composed.mdl, compatible_report, compatible_dependents[0]).status == "compatible"
+
+    compatible_dir = tmp_path / "compatible"
+    resolve_workspace_snapshot(compatible_workspace, compatible_dir)
+    compatible_composed = load_workspace_with_snapshot(consumer_workspace, compatible_dir)
+    assert compatible_composed.errors == []
+    assert {domain.name for domain in compatible_composed.mdl.domains} == {"analytics", "customer"}
+
+    breaking_workspace = load_workspace(provider_breaking)
+    breaking_report = check_model_version_compatibility(breaking_workspace.mdl, "customer", "Customer", 1, 2)
+    assert breaking_report.status == "breaking"
+    assert analyze_impact(current_composed.mdl, breaking_report, compatible_dependents[0]).status == "broken"
+    assert json.loads((current_dir / "registry.lock").read_text(encoding="utf-8"))["objects"][-1]["identity"] == (
+        "customer.Customer@1"
+    )
 
 
 def test_verify_detects_non_deterministic_dependency_resolution(tmp_path: Path) -> None:
