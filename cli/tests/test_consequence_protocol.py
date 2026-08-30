@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 
 import pytest
+from click.testing import CliRunner
 
+from modelable.cli import cli
 from modelable.consequence_protocol import (
     CONSEQUENCE_SCHEMA,
     ConsequenceProtocolError,
@@ -54,3 +56,13 @@ def test_load_consequence_graph_validates_json(tmp_path: Path) -> None:
     path.write_text(json.dumps(GRAPH), encoding="utf-8")
 
     assert load_consequence_graph(path) == GRAPH
+
+
+def test_consequence_validate_command_prints_canonical_json(tmp_path: Path) -> None:
+    path = tmp_path / "consequence.json"
+    path.write_text(json.dumps(GRAPH), encoding="utf-8")
+
+    result = CliRunner().invoke(cli, ["consequence", "validate", str(path), "--format", "json"])
+
+    assert result.exit_code == 0, result.output
+    assert result.output == serialize_consequence_graph(GRAPH)
