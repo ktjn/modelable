@@ -571,6 +571,49 @@ def test_verify_detects_missing_object(tmp_path: Path) -> None:
     assert any("missing registry object" in error for error in errors)
 
 
+def test_verify_rejects_duplicate_lock_keys(tmp_path: Path) -> None:
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
+    lock_path = result.lock_path
+    text = lock_path.read_text(encoding="utf-8").rstrip()
+    lock_path.write_text(text[:-1] + ', "format": "modelable.registry.lock.v1"}\n', encoding="utf-8")
+
+    errors = verify_snapshot(lock_path.parent)
+
+    assert any("Duplicate JSON key 'format'" in error for error in errors)
+
+
+def test_verify_rejects_non_finite_lock_values(tmp_path: Path) -> None:
+    output_dir = tmp_path / ".modelable"
+    (output_dir / "registry" / "objects").mkdir(parents=True)
+    (output_dir / "registry.lock").write_text(
+        '{"format":"modelable.registry.lock.v1","objects":[],"requirements":[NaN]}\n', encoding="utf-8"
+    )
+
+    errors = verify_snapshot(output_dir)
+
+    assert any("Non-finite JSON number 'NaN'" in error for error in errors)
+
+
+def test_verify_rejects_non_object_registry_object_without_crashing(tmp_path: Path) -> None:
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
+    object_path = next((result.lock_path.parent / "registry" / "objects").glob("*.json"))
+    object_path.write_text("[]\n", encoding="utf-8")
+
+    errors = verify_snapshot(result.lock_path.parent)
+
+    assert any("registry object payload must be a JSON object" in error for error in errors)
+
+
+def test_verify_rejects_non_canonical_lock_serialization(tmp_path: Path) -> None:
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    result.lock_path.write_text(json.dumps(lock, separators=(",", ":")) + "\n", encoding="utf-8")
+
+    errors = verify_snapshot(result.lock_path.parent)
+
+    assert any("registry lock is not deterministically serialized" in error for error in errors)
+
+
 def test_verify_detects_source_drift(tmp_path: Path) -> None:
     source = tmp_path / "customer.mdl"
     source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")

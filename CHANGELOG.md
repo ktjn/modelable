@@ -12,6 +12,7 @@ releases could contain breaking changes when called out explicitly.
 - SQL Postgres and ClickHouse are now available as storage-migration compatibility evaluators through `validate-compat`.
 - FHIR profiles are now available as target-specific compatibility evaluators through `validate-compat`.
 - ODCS contracts are now available as target-specific compatibility evaluators through `validate-compat`.
+- Registry snapshot verification now rejects malformed or non-deterministically serialized lock and object JSON.
 - Added `modelable consequence validate` for standalone
   `modelable.consequence/v0` graph validation and canonical JSON output.
 - Added `modelable plan validate` for standalone `modelable.plan/v0`
