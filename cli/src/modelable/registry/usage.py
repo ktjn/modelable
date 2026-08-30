@@ -30,6 +30,9 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
         node_ids,
         {"id": application_id, "kind": "application", "label": application_name, "name": application_name},
     )
+    for node in nodes:
+        if node["kind"] in {"model_version", "projection_version"}:
+            _add_edge(edges, edge_keys, "consumes", application_id, node["id"])
 
     for domain in workspace.mdl.domains:
         for projection_name, versions in domain.projections.items():

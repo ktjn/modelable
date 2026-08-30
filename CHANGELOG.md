@@ -32,6 +32,7 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Usage graphs now connect the workspace application node to each compiled model and projection version.
 - Usage manifests now identify their `modelable.usage/v0` schema and include signatures for model and projection versions.
 - Artifact manifests now record deterministic overlay path and content provenance when target overlays are used.
 - Scalar FHIR projection profiles now consume validated `modelable.plan/v0`.
