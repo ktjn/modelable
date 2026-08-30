@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Added `modelable registry resolve-git` for resolving tracked `.mdl` files from
+  an explicit local Git repository ref without fetching or contacting a network.
 - `validate-compat` can emit target compatibility findings as a validated `modelable.consequence/v0` graph with `--format json`.
 - Avro is now available as a target-specific compatibility evaluator through `validate-compat`.
 - JSON Schema is now available as a target-specific compatibility evaluator through `validate-compat`.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -25,10 +26,33 @@ from modelable.registry.snapshot import (
     update_workspace_snapshot,
     verify_snapshot,
 )
-from modelable.registry.sources import LocalSourceAdapter
+from modelable.registry.sources import GitSourceAdapter, LocalSourceAdapter
 from modelable.registry.usage import build_usage_manifest
 
 FIXTURE = Path(__file__).parent / "fixtures" / "customer.mdl"
+
+
+def _git(cwd: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True)
+
+
+def test_git_source_adapter_loads_tracked_mdl_from_local_ref(tmp_path: Path) -> None:
+    repository = tmp_path / "contracts"
+    repository.mkdir()
+    _git(repository, "init", "--quiet")
+    _git(repository, "config", "user.email", "modelable-tests@example.invalid")
+    _git(repository, "config", "user.name", "Modelable Tests")
+    (repository / "customer.mdl").write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    _git(repository, "add", "customer.mdl")
+    _git(repository, "commit", "--quiet", "-m", "initial contracts")
+
+    workspace = GitSourceAdapter(repository, "HEAD").load(repository)
+
+    assert workspace.errors == []
+    assert [domain.name for domain in workspace.mdl.domains] == ["customer"]
+    assert workspace.sources[0].path is None
+    assert workspace.sources[0].uri.startswith("git+file://")
+    assert "@HEAD/customer.mdl" in workspace.sources[0].uri
 
 
 def test_resolve_writes_deterministic_lock_and_objects(tmp_path: Path) -> None:
@@ -692,6 +716,28 @@ def test_registry_cli_resolve_and_verify_json(tmp_path: Path) -> None:
     assert resolved.exit_code == 0, resolved.output
     assert verified.exit_code == 0, verified.output
     assert json.loads(verified.output) == {"valid": True, "errors": []}
+
+
+def test_registry_cli_resolve_git_preserves_git_provenance(tmp_path: Path) -> None:
+    repository = tmp_path / "contracts"
+    repository.mkdir()
+    _git(repository, "init", "--quiet")
+    _git(repository, "config", "user.email", "modelable-tests@example.invalid")
+    _git(repository, "config", "user.name", "Modelable Tests")
+    (repository / "customer.mdl").write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    _git(repository, "add", "customer.mdl")
+    _git(repository, "commit", "--quiet", "-m", "initial contracts")
+    output_dir = tmp_path / ".modelable"
+
+    result = CliRunner().invoke(
+        cli, ["registry", "resolve-git", str(repository), "--ref", "HEAD", "--out", str(output_dir)]
+    )
+
+    assert result.exit_code == 0, result.output
+    object_path = next((output_dir / "registry" / "objects").glob("*.json"))
+    provenance = json.loads(object_path.read_text(encoding="utf-8"))["provenance"]
+    assert provenance["source"].startswith("git+file://")
+    assert provenance["source_hash"] is None
 
 
 def test_registry_resolve_uses_explicit_local_source_adapter(tmp_path: Path, monkeypatch) -> None:

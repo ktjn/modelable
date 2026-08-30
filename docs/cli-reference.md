@@ -1738,6 +1738,7 @@ content-addressed objects:
 
 ```text
 modelable registry resolve SOURCE [--out DIR]
+modelable registry resolve-git REPOSITORY --ref REF [--out DIR]
 modelable registry diff SOURCE [--out DIR] [--format text|json]
 modelable registry update SOURCE [--out DIR] [--format text|json]
 modelable registry verify [--out DIR] [--format text|json]
@@ -1754,7 +1755,9 @@ validation and target generation.
 - `registry resolve` writes `.modelable/registry.lock` and deterministic,
   content-addressed contract objects under `.modelable/registry/objects/`.
   The current `SOURCE` implementation is the explicit offline local source
-  adapter; external or network-backed adapters are not enabled by this CLI.
+  adapter. `registry resolve-git` is an explicit local-only adapter: it reads
+  tracked `.mdl` files from `REPOSITORY` at `REF`, never fetches, and records
+  Git URI provenance. Network-backed adapters remain disabled by this CLI.
 - `registry diff` stages a candidate in a temporary directory and reports exact
   added, removed, and changed contract identities without changing local state.
 - `registry update` validates that candidate and atomically replaces the lock;
@@ -1784,7 +1787,7 @@ Semantic and enum-projection objects retain source paths and hashes when
 resolved from a local file. Snapshot objects also retain the domain metadata
 and declarations required to generate equivalent target artifacts offline.
 
-External source adapters, transitive dependency closure, cross-application
+Network-backed source adapters, transitive dependency closure, cross-application
 usage aggregation, and policy-aware updates are deferred. The similarly named
 federated `init`, `peer`, `graph`, and `sync` commands are not part of the
 current CLI and must not be treated as available interfaces.
