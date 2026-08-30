@@ -16,6 +16,7 @@ from modelable.browser.dto import (
     BrowserHoverResult,
     BrowserLanguagePosition,
     BrowserLineageResult,
+    BrowserPlanResult,
     BrowserPreparedRenameResult,
     BrowserReferencesResult,
     BrowserRenameResult,
@@ -56,6 +57,8 @@ from modelable.language.rename import rename as language_rename
 from modelable.language.workspace import LanguageDocument, LanguageWorkspace
 from modelable.parser.ir import ParseError
 from modelable.parser.parse import parse_text_to_ir
+from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import serialize_plan
 from modelable.validation.semantic import validate_diagnostics
 
 
@@ -270,6 +273,17 @@ class BrowserCompiler:
         if semantic is None:
             raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
         return build_browser_lineage(semantic, workspace_revision)
+
+    def plans(self, workspace_revision: int) -> BrowserPlanResult:
+        if workspace_revision != self.language.revision:
+            raise BrowserLanguageError("STALE_WORKSPACE")
+        semantic = self.language.semantic_workspace()
+        if semantic is None:
+            raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
+        return BrowserPlanResult(
+            workspace_revision=workspace_revision,
+            plans=tuple(serialize_plan(plan) for plan in build_plan_documents(semantic)),
+        )
 
     def compatibility(
         self,

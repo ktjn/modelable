@@ -18,7 +18,7 @@ from modelable.parser.ir import (
     ProjectionVersion,
 )
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
-from modelable.planner.protocol import PLAN_SCHEMA, serialize_plan
+from modelable.planner.protocol import PLAN_SCHEMA, PlanDocument, serialize_plan
 from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref
 
 
@@ -82,16 +82,16 @@ def write_plans(workspace: Workspace, plans_dir: Path) -> list[Path]:
     plans_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
 
-    for domain in workspace.mdl.domains:
-        for projection_name, versions in domain.projections.items():
-            for pv in versions:
-                lineage = build_projection_lineage(domain.name, projection_name, pv, workspace.mdl)
-                plan = build_plan(domain.name, projection_name, pv, lineage, workspace.mdl)
-                filename = f"{domain.name}.{projection_name}.v{pv.version}.plan.json"
-                out_path = plans_dir / filename
-                out_path.write_text(serialize_plan(plan), encoding="utf-8")
-                written.append(out_path)
-
+    for plan in build_plan_documents(workspace):
+        domain = plan["domain"]
+        projection_name = plan["projection"]
+        version = plan["version"]
+        if not isinstance(domain, str) or not isinstance(projection_name, str) or not isinstance(version, int):
+            raise TypeError("build_plan_documents returned an invalid plan identity")
+        filename = f"{domain}.{projection_name}.v{version}.plan.json"
+        out_path = plans_dir / filename
+        out_path.write_text(serialize_plan(plan), encoding="utf-8")
+        written.append(out_path)
     return written
 
 
@@ -198,3 +198,14 @@ def _collect_revalidation_reasons(source_block: dict, joins_block: list[dict]) -
             reasons.append(f"{relation} {block['model']}@{block['resolved_version']} is marked breaking")
 
     return reasons
+
+
+def build_plan_documents(workspace: Workspace) -> list[PlanDocument]:
+    """Build plan/v0 documents for every workspace projection."""
+    documents: list[PlanDocument] = []
+    for domain in workspace.mdl.domains:
+        for projection_name, versions in domain.projections.items():
+            for pv in versions:
+                lineage = build_projection_lineage(domain.name, projection_name, pv, workspace.mdl)
+                documents.append(build_plan(domain.name, projection_name, pv, lineage, workspace.mdl))
+    return documents

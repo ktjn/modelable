@@ -552,6 +552,34 @@ describe('BrowserCompilerClient', () => {
       success(worker.posted[3]!, { diagnostics: [], artifacts: [] }),
     );
     await compiled;
+
+    const plans = client.plans(7);
+    await Promise.resolve();
+    expect(worker.posted[4]?.method).toBe('workspace.plans');
+    expect(worker.posted[4]?.payload).toEqual({ workspaceRevision: 7 });
+    worker.respond(
+      success(worker.posted[4]!, {
+        workspace_revision: 7,
+        plans: [
+          JSON.stringify({
+            $schema: 'modelable.plan/v0',
+            domain: 'billing',
+            projection: 'BillingCustomer',
+            version: 1,
+            auto_generated: false,
+            requires_revalidation: false,
+            revalidation_reasons: [],
+            governance_findings: [],
+            source: {},
+            joins: [],
+            group_by: [],
+            fields: [],
+            planner_metadata: {},
+          }),
+        ],
+      }),
+    );
+    await plans;
   });
 
   test('opens a numbered workspace and sends typed language positions', async () => {

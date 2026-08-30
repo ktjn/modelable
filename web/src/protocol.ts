@@ -14,6 +14,7 @@ export type BrowserCompilerMethod =
   | 'language.rename'
   | 'workspace.graph'
   | 'workspace.lineage'
+  | 'workspace.plans'
   | 'workspace.compatibility'
   | 'workspace.governance'
   | 'conversation.turn'
@@ -247,6 +248,11 @@ export interface BrowserLineageResult {
   projections: BrowserProjectionLineage[];
 }
 
+export interface BrowserPlanResult {
+  workspace_revision: number;
+  plans: string[];
+}
+
 export interface BrowserFieldChange {
   kind: string;
   field_name: string;
@@ -372,6 +378,7 @@ const methods = new Set<BrowserCompilerMethod>([
   'language.rename',
   'workspace.graph',
   'workspace.lineage',
+  'workspace.plans',
   'workspace.compatibility',
   'workspace.governance',
   'conversation.turn',
@@ -791,6 +798,58 @@ export function isBrowserLineageResult(
     Array.isArray(value.projections) &&
     value.projections.every(isBrowserProjectionLineage)
   );
+}
+
+export function isBrowserPlanResult(
+  value: unknown,
+): value is BrowserPlanResult {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['workspace_revision', 'plans']) &&
+    isIntegerAtLeast(value.workspace_revision, 1) &&
+    Array.isArray(value.plans) &&
+    value.plans.every(isPlanJson)
+  );
+}
+
+function isPlanJson(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  try {
+    const plan: unknown = JSON.parse(value);
+    return (
+      isRecord(plan) &&
+      hasExactKeys(plan, [
+        '$schema',
+        'domain',
+        'projection',
+        'version',
+        'auto_generated',
+        'requires_revalidation',
+        'revalidation_reasons',
+        'governance_findings',
+        'source',
+        'joins',
+        'group_by',
+        'fields',
+        'planner_metadata',
+      ]) &&
+      plan.$schema === 'modelable.plan/v0' &&
+      typeof plan.domain === 'string' &&
+      typeof plan.projection === 'string' &&
+      isIntegerAtLeast(plan.version, 1) &&
+      typeof plan.auto_generated === 'boolean' &&
+      typeof plan.requires_revalidation === 'boolean' &&
+      Array.isArray(plan.revalidation_reasons) &&
+      Array.isArray(plan.governance_findings) &&
+      isRecord(plan.source) &&
+      Array.isArray(plan.joins) &&
+      Array.isArray(plan.group_by) &&
+      Array.isArray(plan.fields) &&
+      isRecord(plan.planner_metadata)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function isNullableBoolean(value: unknown): value is boolean | null {

@@ -17,6 +17,7 @@ import {
   type BrowserHoverResult,
   type BrowserLanguagePosition,
   type BrowserLineageResult,
+  type BrowserPlanResult,
   type BrowserPreparedRenameResult,
   type BrowserReferencesResult,
   type BrowserRenameResult,
@@ -36,6 +37,7 @@ import {
   isBrowserGraphResult,
   isBrowserHoverResult,
   isBrowserLineageResult,
+  isBrowserPlanResult,
   isBrowserPreparedRenameResult,
   isBrowserReferencesResult,
   isBrowserRenameResult,
@@ -320,6 +322,14 @@ export class BrowserCompilerClient {
       'workspace.lineage',
       { workspaceRevision },
       isBrowserLineageResult,
+    );
+  }
+
+  plans(workspaceRevision: number): Promise<BrowserPlanResult> {
+    return this.initializedRequest(
+      'workspace.plans',
+      { workspaceRevision },
+      isBrowserPlanResult,
     );
   }
 
