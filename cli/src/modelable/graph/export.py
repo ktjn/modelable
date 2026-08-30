@@ -9,11 +9,17 @@ from modelable.compiler.workspace import Workspace
 from modelable.identity import declaration_id, semantic_path
 from modelable.llm.context import parse_model_ref
 from modelable.parser.ir import (
+    ArrayType,
     DirectMapping,
     FieldDef,
+    FieldType,
+    MapType,
     ModelVersion,
+    ObjectType,
     ProjectionField,
     ProjectionVersion,
+    RefType,
+    UnionType,
 )
 from modelable.registry.resolver import resolve_model_ref
 
@@ -33,6 +39,7 @@ _EDGE_KIND_ORDER = {
     "has_projection": 3,
     "version_of_projection": 4,
     "maps_to": 5,
+    "references": 6,
 }
 _EDGE_GROUP_ORDER = {
     ("owns", "domain"): 0,
@@ -42,6 +49,7 @@ _EDGE_GROUP_ORDER = {
     ("version_of_projection", "projection"): 4,
     ("contains_field", "projection_version"): 5,
     ("maps_to", "projection_field"): 6,
+    ("references", "field"): 7,
 }
 
 
@@ -133,7 +141,7 @@ def _add_domain(builder: _GraphBuilder, workspace: Workspace, domain) -> None:
     )
 
     for model_name, versions in domain.models.items():
-        _add_model(builder, domain_id, domain.name, model_name, versions)
+        _add_model(builder, workspace, domain_id, domain.name, model_name, versions)
 
     for projection_name, versions in domain.projections.items():
         _add_projection(builder, workspace, domain_id, domain.name, projection_name, versions)
@@ -141,6 +149,7 @@ def _add_domain(builder: _GraphBuilder, workspace: Workspace, domain) -> None:
 
 def _add_model(
     builder: _GraphBuilder,
+    workspace: Workspace,
     domain_id: str,
     domain_name: str,
     model_name: str,
@@ -161,11 +170,12 @@ def _add_model(
     builder.add_edge(domain_id, model_id, "owns")
 
     for version in sorted(versions, key=lambda item: item.version):
-        _add_model_version(builder, model_id, domain_name, model_name, version)
+        _add_model_version(builder, workspace, model_id, domain_name, model_name, version)
 
 
 def _add_model_version(
     builder: _GraphBuilder,
+    workspace: Workspace,
     model_id: str,
     domain_name: str,
     model_name: str,
@@ -189,11 +199,12 @@ def _add_model_version(
     builder.add_edge(model_id, version_id, "version_of")
 
     for field in version.fields:
-        _add_model_field(builder, version_id, domain_name, model_name, version.version, field)
+        _add_model_field(builder, workspace, version_id, domain_name, model_name, version.version, field)
 
 
 def _add_model_field(
     builder: _GraphBuilder,
+    workspace: Workspace,
     version_id: str,
     domain_name: str,
     model_name: str,
@@ -217,6 +228,31 @@ def _add_model_field(
         parents=(version_id,),
     )
     builder.add_edge(version_id, field_id, "contains_field")
+    for ref_type in _iter_ref_types(field.type):
+        if "." not in ref_type.target:
+            continue
+        target_id = _resolve_version_ref(workspace, ref_type.target, ref_type.version)
+        builder.add_edge(field_id, f"model_version:{target_id}", "references")
+
+
+def _iter_ref_types(field_type: FieldType) -> list[RefType]:
+    if isinstance(field_type, RefType):
+        return [field_type]
+    if isinstance(field_type, ArrayType):
+        return _iter_ref_types(field_type.item)
+    if isinstance(field_type, MapType):
+        return _iter_ref_types(field_type.key) + _iter_ref_types(field_type.value)
+    if isinstance(field_type, ObjectType):
+        refs: list[RefType] = []
+        for field in field_type.fields:
+            refs.extend(_iter_ref_types(field.type))
+        return refs
+    if isinstance(field_type, UnionType):
+        union_refs: list[RefType] = []
+        for variant in field_type.variants:
+            union_refs.extend(_iter_ref_types(variant.type))
+        return union_refs
+    return []
 
 
 def _add_projection(
