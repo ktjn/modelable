@@ -193,6 +193,14 @@ domain customer {
                         "package_id": "package:billing-service/api",
                     }
                 ],
+                "artifacts": [
+                    {
+                        "path": "customer.Customer.v1.ts",
+                        "ref": "customer.Customer@1",
+                        "sha256": "b" * 64,
+                        "target": "typescript",
+                    }
+                ],
             }
         ),
         encoding="utf-8",
@@ -223,6 +231,17 @@ domain customer {
         "status": "breaking",
         "reason": "compiled usage manifest",
         "causal_path": ["customer.Customer@1", "customer.Customer@2", "package:billing-service/api"],
+    } in payload["consequences"]
+    assert {
+        "action": "regenerate",
+        "subject": "generated_artifact:typescript/customer.Customer.v1.ts",
+        "status": "breaking",
+        "reason": "generated artifact requires regeneration",
+        "causal_path": [
+            "customer.Customer@1",
+            "customer.Customer@2",
+            "generated_artifact:typescript/customer.Customer.v1.ts",
+        ],
     } in payload["consequences"]
 
     text_result = CliRunner().invoke(
