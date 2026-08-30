@@ -19,6 +19,7 @@ class CodegenTarget:
     default_out_dir: Path | None = None
     supports_compat_check: bool = False
     overlay_schema: str | None = None
+    capabilities: tuple[str, ...] = ("enums", "maps", "records", "semantic-types")
 
     def extension_descriptor(self) -> ExtensionDescriptor:
         from importlib.metadata import PackageNotFoundError, version
@@ -32,7 +33,7 @@ class CodegenTarget:
             id=f"modelable.target.{self.name}",
             version=package_version,
             accepted_plan_versions=("modelable.plan/v0",),
-            capabilities=(),
+            capabilities=self.capabilities,
             configuration_schema=self.overlay_schema,
             output_kinds=(self.kind,),
             compatibility_support=self.supports_compat_check,
@@ -46,6 +47,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="artifact",
         default_out_dir=Path("./dist/jsonschema"),
+        capabilities=("constraints", "enums", "maps", "records", "semantic-types", "unions"),
     ),
     CodegenTarget(
         name="markdown",
@@ -170,6 +172,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         kind="artifact",
         default_out_dir=Path("./dist/openapi"),
         supports_compat_check=True,
+        capabilities=("constraints", "enums", "maps", "records", "semantic-types", "unions"),
     ),
     CodegenTarget(
         name="avro",
