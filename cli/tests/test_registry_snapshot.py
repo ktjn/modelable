@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from modelable.cli import cli
 from modelable.compat.checker import analyze_impact, check_model_version_compatibility
 from modelable.compiler.workspace import load_workspace
+from modelable.extensions import PROTOCOL, ExtensionDescriptor, pin_extension_descriptor
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.resolver import find_dependents
 from modelable.registry.snapshot import (
@@ -38,6 +39,26 @@ def test_resolve_writes_deterministic_lock_and_objects(tmp_path: Path) -> None:
     assert verify_snapshot(tmp_path / ".modelable") == []
     lock = json.loads(first.lock_path.read_text(encoding="utf-8"))
     assert [entry["identity"] for entry in lock["objects"]] == ["customer.Customer@1", "customer.Customer@2"]
+
+
+def test_resolve_persists_deterministic_extension_pins(tmp_path: Path) -> None:
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+    pin = pin_extension_descriptor(descriptor, "a" * 64, source="oci://example/target")
+
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable", extension_pins=(pin,))
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+
+    assert lock["extensions"] == [pin.as_dict()]
+    assert verify_snapshot(tmp_path / ".modelable") == []
 
 
 def test_resolve_records_exact_dependency_requirement(tmp_path: Path) -> None:
@@ -492,3 +513,24 @@ def test_update_stages_candidate_and_preserves_old_lock_on_diff(tmp_path: Path) 
 
     assert applied_diff.changed == snapshot_diff.changed
     assert verify_snapshot(output_dir) == []
+
+
+def test_update_preserves_extension_pins(tmp_path: Path) -> None:
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+    pin = pin_extension_descriptor(descriptor, "a" * 64, source="oci://example/target")
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(FIXTURE), output_dir, extension_pins=(pin,))
+
+    update_workspace_snapshot(load_workspace(FIXTURE), output_dir)
+
+    lock = json.loads((output_dir / "registry.lock").read_text(encoding="utf-8"))
+    assert lock["extensions"] == [pin.as_dict()]
