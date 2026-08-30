@@ -93,7 +93,8 @@ allows dependent contracts absent from the candidate source to participate in
 the consequence graph without network access.
 Repeat `--usage-manifest FILE` to include validated compiled-consumer evidence;
 matching consumers are reported with a `consumer_update` consequence in both
-text and JSON output.
+text and JSON output. Manifest-declared generated artifacts tied to an affected
+contract also produce a `regenerate` consequence with the exact target and path.
 
 ### 5.0.1 `config explain` — Explain compiler defaults
 

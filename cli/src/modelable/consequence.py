@@ -149,6 +149,38 @@ def build_usage_consumer_consequences(
                         causal_changes=consequence.causal_changes,
                     )
                 )
+        artifacts = manifest.get("artifacts")
+        if not isinstance(artifacts, list):
+            continue
+        for artifact in artifacts:
+            if not isinstance(artifact, dict):
+                continue
+            ref = artifact.get("ref")
+            target = artifact.get("target")
+            path_value = artifact.get("path")
+            if not isinstance(ref, str) or not isinstance(target, str) or not isinstance(path_value, str):
+                continue
+            artifact_subject = f"generated_artifact:{target}/{path_value}"
+            for consequence in consequences:
+                if consequence.status == "compatible" or ref not in consequence.causal_path:
+                    continue
+                key = (artifact_subject, consequence.subject)
+                if key in seen:
+                    continue
+                seen.add(key)
+                path = consequence.causal_path
+                if not path or path[-1] != artifact_subject:
+                    path = (*path, artifact_subject)
+                consumer_consequences.append(
+                    Consequence(
+                        action=ACTION_REGENERATE,
+                        subject=artifact_subject,
+                        status=consequence.status,
+                        reason="generated artifact requires regeneration",
+                        causal_path=path,
+                        causal_changes=consequence.causal_changes,
+                    )
+                )
     return consumer_consequences
 
 
