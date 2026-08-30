@@ -52,6 +52,7 @@ def test_browser_module_selection_excludes_desktop_surfaces() -> None:
     assert "modelable/language/completion.py" in selected
     assert "modelable/language/hover.py" in selected
     assert "modelable/grammar/modelable.lark" in selected
+    assert "modelable/overlays.py" in selected
     assert not any(path.startswith("modelable/commands/") for path in selected)
     assert not any(path.startswith("modelable/lsp/") for path in selected)
     assert not any(path.startswith("modelable/runtime/") for path in selected)
