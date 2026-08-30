@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import dataclasses
+import json
 from pathlib import Path
 
 import click
@@ -13,6 +15,7 @@ from modelable.compat.targets import (
     compare_openapi_artifacts,
     compare_protobuf_manifests,
 )
+from modelable.consequence import build_consequence_graph, build_standalone_target_consequences
 from modelable.emitters.grpc import emit_grpc
 from modelable.emitters.openapi import emit_openapi
 from modelable.emitters.protobuf import emit_protobuf
@@ -39,7 +42,8 @@ def register_validate_compat_commands(cli_group: click.Group) -> None:
     help="Path to a compatibility policy YAML file (Slice C4). Without it, "
     "every non-compatible finding fails, matching the default behavior.",
 )
-def validate_compat(from_path: Path, to_path: Path, target: str, policy_path: Path | None) -> None:
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text")
+def validate_compat(from_path: Path, to_path: Path, target: str, policy_path: Path | None, output_format: str) -> None:
     """Validate target-specific compatibility between two Modelable workspaces."""
     old_workspace = load_workspace_or_exit(from_path)
     new_workspace = load_workspace_or_exit(to_path)
@@ -60,16 +64,44 @@ def validate_compat(from_path: Path, to_path: Path, target: str, policy_path: Pa
             emit_openapi(new_workspace, Path(".modelable/compat/new/openapi")),
         )
 
-    _render_report(report)
-
+    policy_result: EnforcementResult | None = None
     if policy_path is not None:
         try:
             policy = load_policy(policy_path)
-            result = policy.enforce(report)
+            policy_result = policy.enforce(report)
         except ValueError as exc:
             raise click.ClickException(str(exc)) from exc
-        _render_policy_result(result)
-        if not result.passed:
+
+    if output_format == "json":
+        consequences = build_standalone_target_consequences(
+            report,
+            source_ref=f"{report.target}:from",
+            target_ref=f"{report.target}:to",
+        )
+        payload = {
+            "kind": "target_consequence_report",
+            "target": report.target,
+            "status": report.status,
+            "severity": report.severity,
+            "findings": [dataclasses.asdict(finding) for finding in report.findings],
+            "consequences": [consequence.as_dict() for consequence in consequences],
+            "consequence_graph": build_consequence_graph(consequences),
+        }
+        if policy_result is not None:
+            payload["policy"] = {
+                "target": policy_result.target,
+                "threshold": policy_result.threshold,
+                "passed": policy_result.passed,
+                "blocking_findings": [dataclasses.asdict(finding) for finding in policy_result.blocking_findings],
+            }
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        _render_report(report)
+        if policy_result is not None:
+            _render_policy_result(policy_result)
+
+    if policy_result is not None:
+        if not policy_result.passed:
             raise click.exceptions.Exit(1)
         return
 

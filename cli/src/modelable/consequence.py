@@ -139,6 +139,28 @@ def build_target_consequences(
     return consequences
 
 
+def build_standalone_target_consequences(
+    report: TargetCompatibilityReport,
+    *,
+    source_ref: str,
+    target_ref: str,
+) -> list[Consequence]:
+    """Build graph consequences when no semantic model report is available."""
+    consequences = []
+    for finding in report.findings:
+        subject = f"{report.target}:{finding.ref}:{finding.code}"
+        consequences.append(
+            Consequence(
+                action=_action_for_target_finding(finding.axis, finding.severity),
+                subject=subject,
+                status=finding.severity,
+                reason=finding.message,
+                causal_path=(source_ref, target_ref, subject),
+            )
+        )
+    return consequences
+
+
 def build_projection_consequences(
     report: ProjectionCompatibilityReport,
     target_report: TargetCompatibilityReport,

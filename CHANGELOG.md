@@ -6,8 +6,7 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
-### Added
-
+- `validate-compat` can emit target compatibility findings as a validated `modelable.consequence/v0` graph with `--format json`.
 - Added `modelable consequence validate` for standalone
   `modelable.consequence/v0` graph validation and canonical JSON output.
 - Added `modelable plan validate` for standalone `modelable.plan/v0`

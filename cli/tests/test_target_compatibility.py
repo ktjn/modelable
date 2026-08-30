@@ -22,6 +22,7 @@ from modelable.compat.targets import (
     compare_storage_migration,
 )
 from modelable.compiler.workspace import load_workspace
+from modelable.consequence_protocol import validate_consequence_graph
 from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.grpc import emit_grpc
 from modelable.emitters.openapi import emit_openapi
@@ -641,6 +642,98 @@ domain billing {
     assert result.exit_code == 1
     assert "status: breaking" in result.output
     assert "removed_field_not_reserved" in result.output
+
+
+def test_validate_compat_cli_json_exposes_validated_consequence_graph(tmp_path):
+    old = _write(
+        tmp_path / "old.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    legacyStatus: string
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(old),
+            "--to",
+            str(new),
+            "--target",
+            "protobuf",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["kind"] == "target_consequence_report"
+    assert payload["target"] == "protobuf"
+    assert payload["status"] == "breaking"
+    graph = validate_consequence_graph(payload["consequence_graph"])
+    assert graph["$schema"] == "modelable.consequence/v0"
+    assert any(item["action"] == "breaking" for item in payload["consequences"])
+    assert any(item["causal_path"][:2] == ["protobuf:from", "protobuf:to"] for item in payload["consequences"])
+
+
+def test_validate_compat_cli_json_keeps_policy_result_machine_readable(tmp_path):
+    source = _write(
+        tmp_path / "model.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    policy = _write(tmp_path / "policy.yaml", "compatibility:\n  protobuf: compatible\n")
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(source),
+            "--to",
+            str(source),
+            "--target",
+            "protobuf",
+            "--policy",
+            str(policy),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["policy"] == {
+        "blocking_findings": [],
+        "passed": True,
+        "target": "protobuf",
+        "threshold": "compatible",
+    }
 
 
 def test_validate_compat_target_choices_match_the_registry():
