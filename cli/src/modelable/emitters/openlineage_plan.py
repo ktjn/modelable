@@ -92,11 +92,27 @@ def _dataset(domain: str, name: str, *, fields: list[dict[str, str]]) -> dict[st
 
 
 def _declaration_field(field: dict[str, object]) -> dict[str, str]:
-    return {"name": cast(str, field["name"]), "type": _type_name(field.get("type"))}
+    return _schema_field(field)
 
 
 def _output_field(field: dict[str, object]) -> dict[str, str]:
-    return {"name": cast(str, field["name"]), "type": _type_name(field.get("type"))}
+    return _schema_field(field)
+
+
+def _schema_field(field: dict[str, object]) -> dict[str, str]:
+    data = {"name": cast(str, field["name"]), "type": _type_name(field.get("type"))}
+    description_parts: list[str] = []
+    classification = field.get("classification")
+    if isinstance(classification, str):
+        description_parts.append(f"classification={classification}")
+    if field.get("pii") is True:
+        description_parts.append("pii=true")
+    owner = field.get("owner")
+    if isinstance(owner, str):
+        description_parts.append(f"owner={owner}")
+    if description_parts:
+        data["description"] = "; ".join(description_parts)
+    return data
 
 
 def _type_name(field_type: object) -> str:

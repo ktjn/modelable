@@ -42,6 +42,9 @@ def test_openlineage_plan_consumer_emits_resolved_joins_and_type_shapes(tmp_path
                         "type": {"kind": "enum_ref", "name": "AccountId", "version": 1},
                         "optional": False,
                         "nullable": False,
+                        "pii": False,
+                        "classification": None,
+                        "owner": None,
                     }
                 ],
             },
@@ -50,10 +53,19 @@ def test_openlineage_plan_consumer_emits_resolved_joins_and_type_shapes(tmp_path
     ]
     plan["fields"][0]["lineage"] = ["customer.Customer@1.customerId", "account.Account@2.accountId"]
     plan["fields"][0]["type"] = {"kind": "enum", "values": ["active", "inactive"]}
+    plan["fields"][0]["pii"] = True
+    plan["fields"][0]["classification"] = "confidential"
+    plan["fields"][0]["owner"] = "billing-team"
 
     event = emit_openlineage_plan(plan, tmp_path).content
 
     assert [dataset["name"] for dataset in event["inputs"]] == ["customer.Customer.v1", "account.Account.v2"]
     assert event["inputs"][1]["facets"]["schema"]["fields"] == [{"name": "accountId", "type": "enumRef<AccountId@1>"}]
-    assert event["outputs"][0]["facets"]["schema"]["fields"] == [{"name": "billingId", "type": "enum(active,inactive)"}]
+    assert event["outputs"][0]["facets"]["schema"]["fields"] == [
+        {
+            "name": "billingId",
+            "type": "enum(active,inactive)",
+            "description": "classification=confidential; pii=true; owner=billing-team",
+        }
+    ]
     assert event["outputs"][0]["facets"]["columnLineage"]["fields"]["billingId"]["inputFields"]
