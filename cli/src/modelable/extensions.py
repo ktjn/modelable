@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import parse_qsl, urlsplit
 
 from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
@@ -92,6 +92,98 @@ class ExtensionPin:
             "source": self.source,
             "version": self.version,
         }
+
+
+ExtensionExecutionKind = Literal["builtin", "subprocess", "wasm"]
+ExtensionFilesystemAccess = Literal["none", "workspace-read"]
+
+
+@dataclass(frozen=True)
+class ExtensionTrustPolicy:
+    """Explicit host policy for extension execution.
+
+    Built-in extensions run with the trust level of Modelable. Third-party
+    execution requires an exact pinned implementation in the corresponding
+    allowlist. Network and filesystem access stay disabled unless a host opts
+    in explicitly. The policy is a decision boundary; this release has no
+    third-party execution or discovery path.
+    """
+
+    allowed_subprocess_pins: tuple[ExtensionPin, ...] = ()
+    allowed_wasm_pins: tuple[ExtensionPin, ...] = ()
+    filesystem_access: ExtensionFilesystemAccess = "none"
+    network_enabled: bool = False
+
+    def __post_init__(self) -> None:
+        for name in ("allowed_subprocess_pins", "allowed_wasm_pins"):
+            values = getattr(self, name)
+            if not isinstance(values, tuple) or any(not isinstance(value, ExtensionPin) for value in values):
+                raise ExtensionDescriptorError(f"{name} must contain extension pins")
+            try:
+                for pin in values:
+                    normalized = parse_extension_pin(pin.as_dict())
+                    if normalized != pin:
+                        raise ExtensionDescriptorError("pin is not canonical")
+            except ExtensionDescriptorError as exc:
+                raise ExtensionDescriptorError(f"{name} contains an invalid extension pin: {exc}") from exc
+            identities = {(pin.id, pin.version, pin.implementation_hash) for pin in values}
+            if len(identities) != len(values):
+                raise ExtensionDescriptorError(f"{name} must be duplicate-free")
+            if tuple(sorted(values, key=_extension_pin_sort_key)) != values:
+                raise ExtensionDescriptorError(f"{name} must be sorted by pin identity")
+        if self.filesystem_access not in {"none", "workspace-read"}:
+            raise ExtensionDescriptorError("filesystem_access must be 'none' or 'workspace-read'")
+        if not isinstance(self.network_enabled, bool):
+            raise ExtensionDescriptorError("network_enabled must be a boolean")
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "allowed_subprocess_pins": [pin.as_dict() for pin in self.allowed_subprocess_pins],
+            "allowed_wasm_pins": [pin.as_dict() for pin in self.allowed_wasm_pins],
+            "filesystem_access": self.filesystem_access,
+            "network_enabled": self.network_enabled,
+        }
+
+
+def authorize_extension(
+    descriptor: ExtensionDescriptor,
+    *,
+    execution_kind: ExtensionExecutionKind,
+    pin: ExtensionPin | None = None,
+    policy: ExtensionTrustPolicy | None = None,
+    requested_filesystem_access: ExtensionFilesystemAccess = "none",
+    network_requested: bool = False,
+) -> None:
+    """Authorize an extension kind without discovering or executing it."""
+    if policy is None:
+        policy = ExtensionTrustPolicy()
+    if descriptor.protocol != PROTOCOL:
+        raise ExtensionDescriptorError(f"descriptor protocol must be {PROTOCOL!r}")
+    if execution_kind not in {"builtin", "subprocess", "wasm"}:
+        raise ExtensionDescriptorError(f"unknown extension execution kind {execution_kind!r}")
+    if requested_filesystem_access not in {"none", "workspace-read"}:
+        raise ExtensionDescriptorError("unknown requested filesystem access")
+    if requested_filesystem_access == "workspace-read" and policy.filesystem_access != "workspace-read":
+        raise ExtensionDescriptorError("requested filesystem access exceeds extension trust policy")
+    if not isinstance(network_requested, bool):
+        raise ExtensionDescriptorError("network_requested must be a boolean")
+    if network_requested and not policy.network_enabled:
+        raise ExtensionDescriptorError("requested network access exceeds extension trust policy")
+    if execution_kind == "builtin":
+        return
+    if pin is None:
+        raise ExtensionDescriptorError("third-party extension execution requires a provenance pin")
+    parse_extension_pin(pin.as_dict())
+    validate_extension_pin(descriptor, pin)
+    allowed = policy.allowed_subprocess_pins if execution_kind == "subprocess" else policy.allowed_wasm_pins
+    if pin not in allowed:
+        raise ExtensionDescriptorError(
+            f"extension {descriptor.id!r} is not explicitly trusted for {execution_kind} execution"
+        )
+
+
+def _extension_pin_sort_key(pin: ExtensionPin) -> tuple[str, str, str]:
+    return pin.id, pin.version, pin.implementation_hash
 
 
 def parse_extension_descriptor(data: Mapping[str, Any]) -> ExtensionDescriptor:
