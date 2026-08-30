@@ -21,6 +21,7 @@ from modelable.compat.targets import (
     compare_protobuf_manifests,
     compare_semantic_compatibility,
     compare_source_representation,
+    compare_sql_artifacts,
     compare_storage_migration,
 )
 from modelable.compiler.workspace import load_workspace
@@ -31,6 +32,7 @@ from modelable.emitters.grpc import emit_grpc
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.openapi import emit_openapi
 from modelable.emitters.protobuf import emit_protobuf
+from modelable.emitters.sql import emit_sql
 from modelable.parser.parse import parse_text_to_ir
 
 
@@ -49,6 +51,21 @@ def _avro_artifacts(path: Path):
 
 def _json_schema_artifacts(path: Path):
     return emit_json_schema(load_workspace(path), path.parent / "out")
+
+
+def _sql_artifacts(path: Path, dialect: str):
+    return emit_sql(load_workspace(path), path.parent / "out", dialect)
+
+
+def _synthetic_sql_artifact(content: object, *, target: str = "sql-postgres") -> EmittedArtifact:
+    return EmittedArtifact(
+        target=target,
+        ref="billing.CustomerView@1",
+        artifact_id="billing.CustomerView.v1",
+        path=Path("billing/CustomerView.v1.sql"),
+        content=content,
+        content_hash="test",
+    )
 
 
 def _synthetic_json_schema_artifact(content: object) -> EmittedArtifact:
@@ -71,6 +88,85 @@ def _synthetic_avro_artifact(content: object, *, target: str = "avro") -> Emitte
         content=content,
         content_hash="test",
     )
+
+
+def test_sql_compat_reports_changed_table_as_storage_migration():
+    report = compare_sql_artifacts(
+        [_synthetic_sql_artifact("CREATE TABLE customer_view (id UUID NOT NULL);\n")],
+        [_synthetic_sql_artifact("CREATE TABLE customer_view (id UUID NOT NULL, name TEXT);\n")],
+    )
+
+    assert report.target == "sql-postgres"
+    assert report.status == "migration_required"
+    assert len(report.findings) == 1
+    finding = report.findings[0]
+    assert finding.code == "table_definition_changed"
+    assert finding.axis == "storage_migration"
+    assert finding.severity == "migration_required"
+
+
+def test_sql_compat_reports_removed_table_as_breaking():
+    report = compare_sql_artifacts(
+        [_synthetic_sql_artifact("CREATE TABLE customer_view (id UUID NOT NULL);\n")],
+        [],
+    )
+
+    assert report.status == "breaking"
+    assert [finding.code for finding in report.findings] == ["table_removed"]
+
+
+def test_sql_compat_allows_unchanged_tables():
+    content = "CREATE TABLE customer_view (id UUID NOT NULL);\n"
+
+    report = compare_sql_artifacts(
+        [_synthetic_sql_artifact(content)],
+        [_synthetic_sql_artifact(content)],
+    )
+
+    assert report.status == "read_compatible"
+    assert report.findings == []
+
+
+def test_validate_compat_cli_supports_sql_postgres(tmp_path: Path):
+    old = _write(
+        tmp_path / "old-sql.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+  projection CustomerView @ 1 from billing.Customer @ 1 as c {
+    customerId <- c.customerId
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new-sql.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+  }
+  projection CustomerView @ 1 from billing.Customer @ 1 as c {
+    customerId <- c.customerId
+    displayName <- c.displayName
+  }
+}
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["validate-compat", "--from", str(old), "--to", str(new), "--target", "sql-postgres"],
+    )
+
+    assert result.exit_code == 1
+    assert "target: sql-postgres" in result.output
+    assert "table_definition_changed" in result.output
 
 
 def test_avro_compat_rejects_added_required_field(tmp_path: Path):
@@ -1053,6 +1149,8 @@ def test_validate_compat_target_choices_match_the_registry():
     assert "openapi" in result.output
     assert "avro" in result.output
     assert "json-schema" in result.output
+    assert "sql-postgres" in result.output
+    assert "sql-clickhouse" in result.output
 
 
 # --- Slice C3: common target-compatibility axis/severity IR -----------------
