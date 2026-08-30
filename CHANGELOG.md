@@ -40,6 +40,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- The CLI documentation now identifies `registry.db` as the stable rebuildable
+  derived index name; durable dependency state remains in the registry lock and
+  content-addressed objects.
 - Impact now evaluates projection changes and surfaces projection-rebuild
   consequences in the validated graph.
 - Impact consequence graphs now include target-evaluator storage migration

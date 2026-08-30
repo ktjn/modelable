@@ -51,8 +51,8 @@ explicitly listed for acceptance before implementation.
 - [x] Add an invariant test that ordinary `validate`, `compile`, `diff`,
   `impact`, lineage, and editor operations do not invoke a source adapter or
   network operation.
-- [ ] Decide whether the existing `registry.db` remains the derived index name
-  in the public CLI or is renamed only in documentation and diagnostics.
+- [x] Retain the existing `registry.db` as the derived index name in the public
+  CLI; durable dependency state remains in `registry.lock` and its objects.
 
 ## Slice 1 — complete the durable offline registry snapshot
 
