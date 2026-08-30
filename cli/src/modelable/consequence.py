@@ -28,6 +28,32 @@ class Consequence:
         }
 
 
+def build_consequence_graph(consequences: list[Consequence]) -> dict[str, Any]:
+    """Build a deterministic node/edge view from consequence causal paths."""
+    nodes: dict[str, dict[str, Any]] = {}
+    edges: set[tuple[str, str, str]] = set()
+    for consequence in consequences:
+        path = consequence.causal_path or (consequence.subject,)
+        for reference in path:
+            nodes.setdefault("reference:" + reference, {"id": reference, "kind": "reference", "label": reference})
+        edges.update(("causes", path[index], path[index + 1]) for index in range(len(path) - 1))
+        action_id = f"action:{consequence.action}:{consequence.subject}"
+        nodes[action_id] = {
+            "id": action_id,
+            "kind": "action",
+            "label": consequence.action,
+            "action": consequence.action,
+            "subject": consequence.subject,
+            "status": consequence.status,
+        }
+        edges.add(("requires", path[-1], action_id))
+    return {
+        "kind": "consequence_graph",
+        "nodes": sorted(nodes.values(), key=lambda node: str(node["id"])),
+        "edges": [{"kind": kind, "source": source, "target": target} for kind, source, target in sorted(edges)],
+    }
+
+
 def action_for_projection_status(status: str) -> str:
     if status == "broken":
         return ACTION_BREAKING
