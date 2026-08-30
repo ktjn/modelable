@@ -32,6 +32,7 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Artifact manifests now record deterministic overlay path and content provenance when target overlays are used.
 - Scalar FHIR projection profiles now consume validated `modelable.plan/v0`.
 - Scalar Protobuf projection schemas now consume validated `modelable.plan/v0`.
 - OpenAPI projection component schemas now consume validated `modelable.plan/v0`

@@ -1502,6 +1502,7 @@ def _run_compilation(
         registry_lock=registry_lock,
         output_root=output,
         extension_pins=extension_pins,
+        overlay_path=overlay_path,
     )
     write_artifact_manifest(manifest_path, manifest)
     written_paths.append(manifest_path)
