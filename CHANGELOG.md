@@ -20,6 +20,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Added a parser-free OpenLineage plan consumer for validated
+  `modelable.plan/v0` documents.
 - Emitted `modelable.plan/v0` source and join relations now carry resolved
   declaration identity, kind, version, and field facts when resolution succeeds.
 - Emitted `modelable.plan/v0` projection fields now include target-neutral
