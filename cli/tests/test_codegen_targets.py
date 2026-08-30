@@ -47,6 +47,7 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "event-sink",
     ]
     assert all(target["status"] == "implemented" for target in targets)
+    assert all(target["extension"]["protocol"] == "modelable.extension/v1" for target in targets)
 
 
 def test_codegen_descriptors_reference_valid_local_overlay_schemas():

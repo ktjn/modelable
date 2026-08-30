@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from modelable.extensions import ExtensionDescriptor
+
 TargetStatus = Literal["implemented", "deferred"]
 TargetKind = Literal["artifact", "language"]
 
@@ -17,6 +19,24 @@ class CodegenTarget:
     default_out_dir: Path | None = None
     supports_compat_check: bool = False
     overlay_schema: str | None = None
+
+    def extension_descriptor(self) -> ExtensionDescriptor:
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            package_version = version("modelable")
+        except PackageNotFoundError:
+            package_version = "unknown"
+        return ExtensionDescriptor(
+            protocol="modelable.extension/v1",
+            id=f"modelable.target.{self.name}",
+            version=package_version,
+            accepted_plan_versions=("modelable.plan/v0",),
+            capabilities=(),
+            configuration_schema=self.overlay_schema,
+            output_kinds=(self.kind,),
+            compatibility_support=self.supports_compat_check,
+        )
 
 
 CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (

@@ -8,6 +8,7 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Code generation target inventories now expose validated `modelable.extension/v1` descriptors.
 - SQL target descriptors now expose versioned local overlay schemas.
 - Added `modelable compile --overlay` support for applying validated SQL target overlays.
 - `modelable.toml` can now select a target overlay when `--overlay` is omitted.
