@@ -165,13 +165,68 @@ def _validate_relation(value: object, name: str, *, on_required: bool) -> None:
         raise PlanProtocolError(f"{name}.change_kind must be a string or null")
     if on_required:
         _require_string(relation, "on")
+    resolved = relation.get("resolved")
+    if resolved is not None:
+        _validate_resolved_declaration(resolved, f"{name}.resolved")
     _require_exact_keys(
         relation,
-        {"model", "resolved_version", "alias", "change_kind", "on"}
+        {"model", "resolved_version", "alias", "change_kind", "resolved", "on"}
         if on_required
-        else {"model", "resolved_version", "alias", "change_kind"},
+        else {"model", "resolved_version", "alias", "change_kind", "resolved"},
         name,
     )
+    if resolved is not None:
+        declaration = cast(dict[str, object], resolved)
+        expected_ref = f"{declaration['domain']}.{declaration['name']}"
+        if relation.get("model") != expected_ref:
+            raise PlanProtocolError(f"{name}.resolved identity does not match model")
+        if relation.get("resolved_version") != declaration["version"]:
+            raise PlanProtocolError(f"{name}.resolved version does not match resolved_version")
+
+
+def _validate_resolved_declaration(value: object, name: str) -> None:
+    if not isinstance(value, dict):
+        raise PlanProtocolError(f"{name} must be a JSON object or null")
+    declaration = cast(dict[str, object], value)
+    _require_string(declaration, "domain")
+    _require_string(declaration, "name")
+    _require_integer(declaration, "version")
+    kind = _require_string(declaration, "kind")
+    model_kind = declaration.get("model_kind")
+    if model_kind is not None and not isinstance(model_kind, str):
+        raise PlanProtocolError(f"{name}.model_kind must be a string or null")
+    if kind not in {"model", "projection"}:
+        raise PlanProtocolError(f"{name}.kind must be 'model' or 'projection'")
+    if kind == "model" and model_kind not in {"entity", "aggregate", "event", "value"}:
+        raise PlanProtocolError(f"{name}.model_kind must identify a model kind")
+    if kind == "projection" and model_kind is not None:
+        raise PlanProtocolError(f"{name}.model_kind must be null for projections")
+    fields = _require_list(declaration, "fields")
+    field_names: set[str] = set()
+    for index, field in enumerate(fields):
+        _validate_declaration_field(field, f"{name}.fields[{index}]")
+        field_name = cast(dict[str, object], field)["name"]
+        if field_name in field_names:
+            raise PlanProtocolError(f"{name}.fields contains duplicate name {field_name!r}")
+        field_names.add(cast(str, field_name))
+    _require_exact_keys(declaration, {"domain", "name", "version", "kind", "model_kind", "fields"}, name)
+
+
+def _validate_declaration_field(value: object, name: str) -> None:
+    if not isinstance(value, dict):
+        raise PlanProtocolError(f"{name} must be a JSON object")
+    field = cast(dict[str, object], value)
+    _require_string(field, "name")
+    field_type = field.get("type")
+    if field_type is not None and not isinstance(field_type, dict):
+        raise PlanProtocolError(f"{name}.type must be a JSON object or null")
+    optional = field.get("optional")
+    if optional is not None and not isinstance(optional, bool):
+        raise PlanProtocolError(f"{name}.optional must be a boolean or null")
+    nullable = field.get("nullable")
+    if nullable is not None and not isinstance(nullable, bool):
+        raise PlanProtocolError(f"{name}.nullable must be a boolean or null")
+    _require_exact_keys(field, {"name", "type", "optional", "nullable"}, name)
 
 
 def _validate_field(value: object, name: str) -> str:
@@ -191,9 +246,7 @@ def _validate_field(value: object, name: str) -> str:
         _require_string(field, "source_alias")
         _require_string(field, "source_field")
         _require_exact_keys(
-            field,
-            {"name", "kind", "source_alias", "source_field", "type", "optional", "lineage"},
-            name,
+            field, {"name", "kind", "source_alias", "source_field", "type", "optional", "lineage"}, name
         )
     elif kind == "computed":
         _require_string(field, "expression")

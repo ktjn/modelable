@@ -20,6 +20,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Emitted `modelable.plan/v0` source and join relations now carry resolved
+  declaration identity, kind, version, and field facts when resolution succeeds.
 - Emitted `modelable.plan/v0` projection fields now include target-neutral
   resolved type and optionality facts where available.
 - `modelable.plan/v0` plans now have a standalone loader, structural

@@ -109,6 +109,10 @@ def test_plan_document_structure():
     assert plan["source"]["resolved_version"] == 1
     assert plan["source"]["alias"] == "c"
     assert plan["source"]["change_kind"] == "additive"
+    assert plan["source"]["resolved"]["domain"] == "customer"
+    assert plan["source"]["resolved"]["kind"] == "model"
+    assert plan["source"]["resolved"]["model_kind"] == "entity"
+    assert plan["source"]["resolved"]["fields"][0]["name"] == "customerId"
     assert plan["joins"] == []
     assert plan["group_by"] == []
     assert "fields" in plan
@@ -214,6 +218,16 @@ def test_plan_protocol_rejects_invalid_structure():
     with pytest.raises(PlanProtocolError, match="duplicate name"):
         validate_plan(duplicate_fields)
 
+    invalid_declaration = copy.deepcopy(plan)
+    invalid_declaration["source"]["resolved"]["model_kind"] = "not-a-model-kind"
+    with pytest.raises(PlanProtocolError, match="model_kind"):
+        validate_plan(invalid_declaration)
+
+    mismatched_declaration = copy.deepcopy(plan)
+    mismatched_declaration["source"]["resolved"]["name"] = "OtherCustomer"
+    with pytest.raises(PlanProtocolError, match="identity"):
+        validate_plan(mismatched_declaration)
+
 
 def test_plan_protocol_rejects_duplicate_json_keys(tmp_path):
     path = tmp_path / "duplicate.plan.json"
@@ -261,6 +275,19 @@ def test_write_plans_file_naming(tmp_path):
 
     expected = plans_dir / "billing.BillingCustomer.v1.plan.json"
     assert expected.exists()
+
+
+def test_write_plans_supports_projection_sources(tmp_path):
+    fixture = Path(__file__).parent / "fixtures" / "projection_of_projection.mdl"
+    ws = load_workspace(fixture)
+    assert ws.errors == []
+
+    written = write_plans(ws, tmp_path / "plans")
+    summary = json.loads(next(path for path in written if "Summary" in path.name).read_text(encoding="utf-8"))
+    assert summary["source"]["resolved"]["kind"] == "projection"
+    assert summary["source"]["resolved"]["model_kind"] is None
+    assert summary["source"]["resolved"]["fields"][0]["type"] == {"kind": "uuid", "version": 4}
+    assert summary["source"]["resolved"]["fields"][0]["nullable"] is False
 
 
 def test_breaking_source_marks_plan_for_revalidation():
