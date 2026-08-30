@@ -206,6 +206,7 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
             "test_registry_snapshot.py::test_registry_resolve_uses_explicit_local_source_adapter",
             "test_registry_snapshot.py::test_registry_diff_uses_explicit_local_source_adapter",
             "test_registry_snapshot.py::test_registry_update_uses_explicit_local_source_adapter",
+            "test_registry_snapshot.py::test_historical_snapshot_rebuilds_without_original_source",
             "test_registry_snapshot.py::test_update_rejects_changed_content_for_existing_identity",
         ),
     ),

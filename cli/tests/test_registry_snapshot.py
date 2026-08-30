@@ -359,6 +359,26 @@ domain analytics {
     assert composed.mdl.domains[0].projections["CustomerSummary"][0].fields[0].name == "customerId"
 
 
+def test_historical_snapshot_rebuilds_without_original_source(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "provider.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    snapshot_dir = tmp_path / ".modelable"
+
+    resolve_workspace_snapshot(load_workspace(source), snapshot_dir)
+    source.unlink()
+
+    def forbidden_operation(*_args, **_kwargs):
+        raise AssertionError("historical snapshot attempted a source refresh")
+
+    monkeypatch.setattr(LocalSourceAdapter, "load", forbidden_operation)
+    monkeypatch.setattr("urllib.request.urlopen", forbidden_operation)
+
+    assert verify_snapshot(snapshot_dir) == []
+    loaded = load_snapshot_workspace(snapshot_dir)
+    assert {domain.name for domain in loaded.mdl.domains} == {"customer"}
+    assert build_registry_from_snapshot(snapshot_dir) == snapshot_dir / "registry.db"
+
+
 def test_snapshot_transition_classifies_compatible_and_breaking_candidate(tmp_path: Path) -> None:
     provider_v1 = tmp_path / "provider-v1.mdl"
     provider_v1.write_text(
