@@ -74,6 +74,7 @@ def list_codegen_targets() -> list[dict[str, object]]:
             "status": target.status,
             "kind": target.kind,
             "default_out_dir": str(target.default_out_dir) if target.default_out_dir is not None else None,
+            "overlay_schema": target.overlay_schema,
         }
         for target in _list_codegen_targets()
     ]

@@ -8,6 +8,7 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- SQL target descriptors now expose versioned local overlay schemas.
 - Added `modelable compile --overlay` support for applying validated SQL target overlays.
 - `modelable.toml` can now select a target overlay when `--overlay` is omitted.
 - Enum projections can now be resolved as field-type references in the
