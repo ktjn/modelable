@@ -5,6 +5,8 @@ from click.testing import CliRunner
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.java import emit_java
+from modelable.emitters.java_plan import emit_java_projection_plan
+from modelable.planner.plans import build_plan_documents
 
 
 def test_emit_java_model_and_projection(tmp_path):
@@ -66,6 +68,36 @@ domain customer {
     assert "Optional<String> nickname" in proj_art.content
     assert "Optional<Address> address" in proj_art.content
     assert "public record Address(" in proj_art.content
+
+
+def test_java_projection_plan_consumer_preserves_existing_output(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerView")
+    existing = next(item for item in emit_java(workspace, tmp_path / "out") if item.ref == "customer.CustomerView@1")
+
+    migrated = emit_java_projection_plan(plan, tmp_path / "out")
+
+    assert migrated.content == existing.content
+    assert migrated.content_hash == existing.content_hash
 
 
 def test_cli_compile_java_writes_files(tmp_path):

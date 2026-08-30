@@ -43,6 +43,8 @@ releases could contain breaking changes when called out explicitly.
   while preserving existing generated dataclasses.
 - Go projection fields now consume validated `modelable.plan/v0` documents
   while preserving existing generated structs.
+- Java projection fields now consume validated `modelable.plan/v0` documents
+  while preserving existing generated records.
 - JSON Schema projection artifacts now consume validated `modelable.plan/v0`
   documents while preserving existing output.
 - Markdown projection documentation now consumes validated `modelable.plan/v0`
