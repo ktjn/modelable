@@ -34,6 +34,7 @@ _BROWSER_PACKAGE_FILES = {
     "emitters/openapi_plan.py",
     "emitters/sql_plan.py",
     "emitters/typescript_plan.py",
+    "emitters/python_plan.py",
     "emitters/avro_plan.py",
     "emitters/naming.py",
     "emitters/named_types.py",

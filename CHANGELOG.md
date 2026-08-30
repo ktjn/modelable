@@ -39,6 +39,8 @@ releases could contain breaking changes when called out explicitly.
   while preserving existing DDL output.
 - TypeScript projection fields now consume validated `modelable.plan/v0`
   documents while preserving existing generated interfaces.
+- Python projection fields now consume validated `modelable.plan/v0` documents
+  while preserving existing generated dataclasses.
 - JSON Schema projection artifacts now consume validated `modelable.plan/v0`
   documents while preserving existing output.
 - Markdown projection documentation now consumes validated `modelable.plan/v0`
