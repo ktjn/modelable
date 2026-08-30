@@ -120,6 +120,41 @@ domain sales {
     } in graph["edges"]
 
 
+def test_graph_export_links_named_fields_to_semantic_type_versions(tmp_path: Path) -> None:
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  semantic CustomerId @ 1 (additive): string
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: CustomerId
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    graph = build_graph_export(workspace)
+
+    assert any(
+        node["id"] == "semantic_type:customer.CustomerId@1" and node["kind"] == "semantic_type"
+        for node in graph["nodes"]
+    )
+    assert {
+        "kind": "owns",
+        "source": "domain:customer",
+        "target": "semantic_type:customer.CustomerId@1",
+    } in graph["edges"]
+    assert {
+        "kind": "references",
+        "source": "field:customer.Customer@1#customerId",
+        "target": "semantic_type:customer.CustomerId@1",
+    } in graph["edges"]
+
+
 def test_graph_export_focuses_on_projection_and_source_fields(tmp_path: Path) -> None:
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(

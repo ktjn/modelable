@@ -11,26 +11,30 @@ from modelable.llm.context import parse_model_ref
 from modelable.parser.ir import (
     ArrayType,
     DirectMapping,
+    EnumRefType,
     FieldDef,
     FieldType,
     MapType,
     ModelVersion,
+    NamedType,
     ObjectType,
     ProjectionField,
     ProjectionVersion,
     RefType,
+    SemanticTypeDecl,
     UnionType,
 )
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
 
 _NODE_KIND_ORDER = {
     "domain": 0,
     "model": 1,
-    "model_version": 2,
-    "field": 3,
-    "projection": 4,
-    "projection_version": 5,
-    "projection_field": 6,
+    "semantic_type": 2,
+    "model_version": 3,
+    "field": 4,
+    "projection": 5,
+    "projection_version": 6,
+    "projection_field": 7,
 }
 _EDGE_KIND_ORDER = {
     "owns": 0,
@@ -143,6 +147,9 @@ def _add_domain(builder: _GraphBuilder, workspace: Workspace, domain) -> None:
     for model_name, versions in domain.models.items():
         _add_model(builder, workspace, domain_id, domain.name, model_name, versions)
 
+    for semantic_type in sorted(domain.semantic_types, key=lambda item: (item.name, item.version)):
+        _add_semantic_type(builder, workspace, domain_id, domain.name, semantic_type)
+
     for projection_name, versions in domain.projections.items():
         _add_projection(builder, workspace, domain_id, domain.name, projection_name, versions)
 
@@ -233,6 +240,53 @@ def _add_model_field(
             continue
         target_id = _resolve_version_ref(workspace, ref_type.target, ref_type.version)
         builder.add_edge(field_id, f"model_version:{target_id}", "references")
+    for type_name, exact_version in _iter_semantic_type_refs(field.type):
+        declaring_domain, declaration = resolve_semantic_type_ref(
+            workspace.mdl,
+            domain_name,
+            type_name,
+            exact_version=exact_version,
+        )
+        builder.add_edge(
+            field_id,
+            f"semantic_type:{declaration_id(declaring_domain, declaration.name, declaration.version)}",
+            "references",
+        )
+
+
+def _add_semantic_type(
+    builder: _GraphBuilder,
+    workspace: Workspace,
+    domain_id: str,
+    domain_name: str,
+    declaration: SemanticTypeDecl,
+) -> None:
+    type_id = f"semantic_type:{declaration_id(domain_name, declaration.name, declaration.version)}"
+    builder.add_node(
+        {
+            "id": type_id,
+            "kind": "semantic_type",
+            "label": f"{declaration.name}@{declaration.version}",
+            "domain": domain_name,
+            "name": declaration.name,
+            "version": declaration.version,
+            "target_ref": declaration_id(domain_name, declaration.name, declaration.version),
+        },
+        parents=(domain_id,),
+    )
+    builder.add_edge(domain_id, type_id, "owns")
+    for type_name, exact_version in _iter_semantic_type_refs(declaration.underlying):
+        declaring_domain, target = resolve_semantic_type_ref(
+            workspace.mdl,
+            domain_name,
+            type_name,
+            exact_version=exact_version,
+        )
+        builder.add_edge(
+            type_id,
+            f"semantic_type:{declaration_id(declaring_domain, target.name, target.version)}",
+            "references",
+        )
 
 
 def _iter_ref_types(field_type: FieldType) -> list[RefType]:
@@ -252,6 +306,28 @@ def _iter_ref_types(field_type: FieldType) -> list[RefType]:
         for variant in field_type.variants:
             union_refs.extend(_iter_ref_types(variant.type))
         return union_refs
+    return []
+
+
+def _iter_semantic_type_refs(field_type: FieldType) -> list[tuple[str, int | None]]:
+    if isinstance(field_type, NamedType):
+        return [(field_type.name, None)]
+    if isinstance(field_type, EnumRefType):
+        return [(field_type.name, field_type.version)]
+    if isinstance(field_type, ArrayType):
+        return _iter_semantic_type_refs(field_type.item)
+    if isinstance(field_type, MapType):
+        return _iter_semantic_type_refs(field_type.key) + _iter_semantic_type_refs(field_type.value)
+    if isinstance(field_type, ObjectType):
+        refs: list[tuple[str, int | None]] = []
+        for field in field_type.fields:
+            refs.extend(_iter_semantic_type_refs(field.type))
+        return refs
+    if isinstance(field_type, UnionType):
+        refs = []
+        for variant in field_type.variants:
+            refs.extend(_iter_semantic_type_refs(variant.type))
+        return refs
     return []
 
 
