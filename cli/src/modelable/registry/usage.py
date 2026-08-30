@@ -7,6 +7,8 @@ from modelable.graph.export import build_graph_export
 from modelable.identity import declaration_id
 from modelable.registry.signature import compute_version_signature
 
+USAGE_SCHEMA = "modelable.usage/v0"
+
 
 def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
     """Build the cross-surface usage graph for a validated workspace.
@@ -92,6 +94,17 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
                 if version_item.version == int(version)
             )
             node["signature"] = compute_version_signature(domain_name, model_name, model_version)
+        elif node["kind"] == "projection_version":
+            domain_name, rest = str(node["target_ref"]).split(".", 1)
+            projection_name, version = rest.rsplit("@", 1)
+            projection_version = next(
+                version_item
+                for item in workspace.mdl.domains
+                if item.name == domain_name
+                for version_item in item.projections.get(projection_name, [])
+                if version_item.version == int(version)
+            )
+            node["signature"] = compute_version_signature(domain_name, projection_name, projection_version)
 
     return {
         "kind": "usage_graph",
@@ -104,12 +117,13 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
 def build_usage_manifest(workspace: Workspace) -> dict[str, Any]:
     graph = build_usage_graph(workspace)
     return {
+        "$schema": USAGE_SCHEMA,
         "kind": "usage_manifest",
         "application": graph["application"],
         "references": [
             {"ref": node["target_ref"], "signature": node["signature"]}
             for node in graph["nodes"]
-            if node["kind"] == "model_version"
+            if node["kind"] in {"model_version", "projection_version"}
         ],
     }
 
