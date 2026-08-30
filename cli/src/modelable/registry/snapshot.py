@@ -39,6 +39,8 @@ from modelable.parser.ir import (
     VersionRange,
     VersionSpec,
 )
+from modelable.registry.enum_numbers import EnumNumberAllocation
+from modelable.registry.enum_numbers import read_lock_file as read_enum_numbers_lock_file
 from modelable.registry.resolver import resolve_enum_type_ref
 from modelable.registry.signature import (
     compute_enum_projection_signature,
@@ -106,6 +108,7 @@ def resolve_workspace_snapshot(
     output_dir: str | Path = ".modelable",
     *,
     extension_pins: tuple[ExtensionPin, ...] = (),
+    enum_numbers_path: str | Path | None = None,
 ) -> SnapshotResult:
     """Write a deterministic, content-addressed snapshot of a validated workspace.
 
@@ -119,6 +122,8 @@ def resolve_workspace_snapshot(
     paths = SnapshotPaths(Path(output_dir))
     paths.root.mkdir(parents=True, exist_ok=True)
     paths.objects.mkdir(parents=True, exist_ok=True)
+    if enum_numbers_path is None:
+        enum_numbers_path = _default_enum_numbers_path(workspace)
 
     source_paths = {id(domain): source.path for source in workspace.sources for domain in source.mdl.domains}
     entries: list[dict[str, Any]] = []
@@ -175,6 +180,11 @@ def resolve_workspace_snapshot(
         "objects": entries,
         "requirements": _build_requirements(entries),
         "usage": build_usage_manifest(workspace),
+        "allocations": {
+            "protobuf_enums": _serialize_enum_allocations(
+                read_enum_numbers_lock_file(Path(enum_numbers_path)) if enum_numbers_path is not None else {}
+            )
+        },
     }
     _atomic_write_json(paths.lock, lock)
     identities = tuple(str(entry["identity"]) for entry in entries)
@@ -263,6 +273,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                     if actual_source_hash != expected_source_hash:
                         errors.append(f"registry source drift for {identity}: found {actual_source_hash}")
     _verify_usage_evidence(lock.get("usage"), objects, errors)
+    _verify_allocations(lock.get("allocations"), errors)
     requirements = lock.get("requirements")
     if requirements is not None:
         if not isinstance(requirements, list):
@@ -364,6 +375,106 @@ def _verify_usage_evidence(
             errors.append(f"registry lock usage fields for {ref} must be strings")
         elif fields != sorted(set(fields)):
             errors.append(f"registry lock usage fields for {ref} are not deterministic")
+
+
+def _serialize_enum_allocations(
+    allocations: dict[str, EnumNumberAllocation],
+) -> list[dict[str, Any]]:
+    serialized: list[dict[str, Any]] = []
+    for name, allocation in sorted(allocations.items()):
+        entry: dict[str, Any] = {
+            "name": name,
+            "unspecified": allocation.unspecified,
+            "members": [{"name": member, "number": number} for member, number in allocation.members],
+            "reservations": [{"name": member, "number": number} for member, number in allocation.reservations],
+        }
+        entry["content_hash"] = _content_hash(entry)
+        serialized.append(entry)
+    return serialized
+
+
+def _default_enum_numbers_path(workspace: Workspace) -> Path | None:
+    for source in workspace.sources:
+        if source.path is not None:
+            candidate = source.path.parent / "enum-numbers.lock"
+            if candidate.exists():
+                return candidate
+    return None
+
+
+def _verify_allocations(allocations: Any, errors: list[str]) -> None:
+    if not isinstance(allocations, dict):
+        errors.append("registry lock allocations must be an object")
+        return
+    protobuf_enums = allocations.get("protobuf_enums")
+    if not isinstance(protobuf_enums, list):
+        errors.append("registry lock protobuf enum allocations must be an array")
+        return
+    names: list[str] = []
+    for entry in protobuf_enums:
+        if not isinstance(entry, dict):
+            errors.append("registry lock contains a non-object protobuf enum allocation")
+            continue
+        name = entry.get("name")
+        unspecified = entry.get("unspecified")
+        members = entry.get("members")
+        reservations = entry.get("reservations")
+        content_hash = entry.get("content_hash")
+        if (
+            not isinstance(name, str)
+            or not isinstance(unspecified, int)
+            or not isinstance(members, list)
+            or not isinstance(reservations, list)
+            or not isinstance(content_hash, str)
+        ):
+            errors.append("registry lock protobuf enum allocation requires name, numbers, and content_hash")
+            continue
+        names.append(name)
+        canonical = {
+            "name": name,
+            "unspecified": unspecified,
+            "members": members,
+            "reservations": reservations,
+        }
+        if _content_hash(canonical) != content_hash:
+            errors.append(f"protobuf enum allocation {name} content hash mismatch")
+        if unspecified != 0:
+            errors.append(f"protobuf enum allocation {name} must reserve number 0")
+        _verify_allocation_entries(name, "members", members, errors)
+        _verify_allocation_entries(name, "reservations", reservations, errors)
+        for category, entries in (("members", members), ("reservations", reservations)):
+            numbers = [
+                entry["number"] for entry in entries if isinstance(entry, dict) and isinstance(entry.get("number"), int)
+            ]
+            if numbers != sorted(numbers):
+                errors.append(f"protobuf enum allocation {name} {category} are not deterministic")
+        member_numbers = {item.get("number") for item in members if isinstance(item, dict)}
+        reserved_numbers = {item.get("number") for item in reservations if isinstance(item, dict)}
+        if member_numbers & reserved_numbers:
+            errors.append(f"protobuf enum allocation {name} reuses a member number")
+    if names != sorted(set(names)):
+        errors.append("registry lock protobuf enum allocations are not deterministic")
+
+
+def _verify_allocation_entries(name: str, category: str, entries: list[Any], errors: list[str]) -> None:
+    seen_names: set[str] = set()
+    seen_numbers: set[int] = set()
+    for entry in entries:
+        if (
+            not isinstance(entry, dict)
+            or not isinstance(entry.get("name"), str)
+            or not isinstance(entry.get("number"), int)
+        ):
+            errors.append(f"protobuf enum allocation {name} contains an invalid {category} entry")
+            continue
+        member_name = entry["name"]
+        number = entry["number"]
+        if member_name in seen_names or number in seen_numbers:
+            errors.append(f"protobuf enum allocation {name} contains duplicate {category}")
+        seen_names.add(member_name)
+        seen_numbers.add(number)
+        if number <= 0:
+            errors.append(f"protobuf enum allocation {name} contains a non-positive {category} number")
 
 
 def load_snapshot_workspace(output_dir: str | Path = ".modelable") -> Workspace:
