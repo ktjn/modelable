@@ -20,6 +20,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Added a validated TOML overlay boundary with canonical declaration/path
+  selectors, deterministic inheritance, and equal-specificity conflict errors.
 - Exposed deterministic `modelable.plan/v0` documents through the browser
   compiler protocol, with native/browser plan equivalence coverage.
 - Added a parser-free OpenLineage plan consumer for validated

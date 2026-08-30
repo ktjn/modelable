@@ -450,17 +450,24 @@ A plugin protocol must not imply that arbitrary downloaded code is safe to execu
 
 Emitter/platform configuration must not expand the semantic language indefinitely.
 
-Target-specific configuration belongs in external TOML overlays keyed by canonical semantic identity/path.
+Target-specific configuration belongs in per-target external TOML overlays keyed by canonical semantic identity/path.
 
 Example:
 
 ```toml
-[typescript."customer.Customer@4#customerId"]
+target = "typescript"
+version = 1
+
+[fields."customer.Customer@4#customerId"]
 type_name = "CustomerId"
 
-[sql-postgres."customer.Customer@4"]
+[models."customer.Customer@4"]
 table = "customers"
 ```
+
+The common `target`/`version` envelope and `[models]`/`[fields]` tables are
+the canonical topology for one overlay file. `modelable.toml` selects the
+file for a target; the target name is not repeated as a TOML table namespace.
 
 ### 14.1 What belongs in overlays
 
