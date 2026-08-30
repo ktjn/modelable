@@ -8,6 +8,7 @@ from typing import Any
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import type_loss
+from modelable.emitters.sql_plan import render_sql_projection_columns
 from modelable.overlays import OverlayDocument, OverlayError
 from modelable.parser.ir import (
     ArrayType,
@@ -26,6 +27,7 @@ from modelable.parser.ir import (
     ProjectionVersion,
     RefType,
 )
+from modelable.planner.plans import build_plan_documents
 from modelable.registry.resolver import resolve_model_ref
 
 
@@ -74,10 +76,14 @@ def emit_sql(
         _validate_sql_overlay(overlay, dialect)
 
     artifacts: list[EmittedArtifact] = []
+    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
     for domain in workspace.mdl.domains:
         for projection_name, versions in domain.projections.items():
             for version in versions:
-                art = _emit_projection_ddl(domain, projection_name, version, out_dir, workspace.mdl, dialect, overlay)
+                plan = plans[(domain.name, projection_name, version.version)]
+                art = _emit_projection_ddl(
+                    domain, projection_name, version, out_dir, workspace.mdl, dialect, overlay, plan=plan
+                )
                 if art is not None:
                     artifacts.append(art)
     return artifacts
@@ -91,33 +97,19 @@ def _emit_projection_ddl(
     mdl: MdlFile,
     dialect: str,
     overlay: OverlayDocument | None = None,
+    *,
+    plan: dict[str, object],
 ) -> EmittedArtifact | None:
     artifact_id = f"{domain.name}.{projection_name}.v{version.version}"
     table_name = _resolve_table_name(version, mdl, dialect, overlay) or _snake_case(projection_name)
 
-    columns: list[str] = []
-    checks: list[str] = []
+    column_names = {
+        field.name: _resolve_column_name(field, version, domain.name, projection_name, mdl, overlay)
+        for field in version.fields
+    }
+    wire_by_field = {field.name: _resolve_merged_wire(field, version, mdl) for field in version.fields}
+    columns, checks, warnings = render_sql_projection_columns(plan, dialect, column_names, wire_by_field)
     constraints: list[str] = []
-    warnings: list[str] = []
-
-    for field in version.fields:
-        field_type = _resolve_field_type(field, version, mdl)
-        col_name = _resolve_column_name(field, version, domain.name, projection_name, mdl, overlay)
-        if field_type is None:
-            warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
-            col_type = "TEXT" if dialect == "postgres" else "String"
-        else:
-            wire = _resolve_merged_wire(field, version, mdl)
-            optional = _is_optional(field, version, mdl)
-            if dialect == "postgres":
-                col_type = _pg_col_type(field_type, wire, optional=optional, mdl=mdl)
-                if _pg_needs_unsigned_check(field_type):
-                    checks.append(f"    CHECK ({col_name} >= 0)")
-                if isinstance(field_type, FixedBinaryType):
-                    checks.append(f"    CHECK (octet_length({col_name}) = {field_type.length})")
-            else:
-                col_type = _ch_col_type(field_type, wire, optional=optional)
-        columns.append(f"    {col_name} {col_type}")
 
     if not columns:
         return None

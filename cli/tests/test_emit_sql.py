@@ -6,7 +6,9 @@ import pytest
 
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.sql import emit_sql
+from modelable.emitters.sql_plan import emit_sql_projection_plan
 from modelable.overlays import OverlayError, parse_overlay
+from modelable.planner.plans import build_plan_documents
 
 
 def test_emit_sql_postgres_basic(tmp_path):
@@ -47,6 +49,36 @@ domain alerts {
     # optional field should NOT have NOT NULL
     assert "created_at TIMESTAMPTZ NOT NULL" not in art.content
     assert art.content_hash == hashlib.sha256(art.content.encode("utf-8")).hexdigest()
+
+
+def test_sql_projection_plan_consumer_preserves_existing_output(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain alerts {
+  owner: "test-team"
+  entity AlertRule @ 1 (additive) {
+    @key ruleId: uuid
+    name: string
+  }
+
+  projection AlertRuleRow @ 1
+    from alerts.AlertRule @ 1 as a
+  {
+    ruleId <- a.ruleId
+    name <- a.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "AlertRuleRow")
+    existing = next(item for item in emit_sql(workspace, tmp_path / "out", "postgres"))
+
+    migrated = emit_sql_projection_plan(plan, tmp_path / "out", "postgres")
+
+    assert migrated.content == existing.content
+    assert migrated.content_hash == existing.content_hash
 
 
 def test_emit_sql_overlay_overrides_table_and_column_names(tmp_path):
