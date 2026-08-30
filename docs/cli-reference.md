@@ -1758,7 +1758,9 @@ validation and target generation.
 - `registry diff` stages a candidate in a temporary directory and reports exact
   added, removed, and changed contract identities without changing local state.
 - `registry update` validates that candidate and atomically replaces the lock;
-  it never contacts a network source and retains reusable objects.
+  it never contacts a network source and retains reusable objects. It rejects a
+  candidate that changes the canonical content of an existing logical identity;
+  new versions remain valid candidates.
 - `registry verify` checks lock/object presence, hashes, signatures, and
   identities entirely offline, and reports source drift when a recorded local
   source is still available but no longer matches its provenance hash. It also

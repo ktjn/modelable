@@ -201,7 +201,10 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         status=CapabilityStatus.implemented,
         description="Creates and verifies deterministic local lock/object snapshots",
         notes="External source-registry resolution is not included; use explicit local source paths.",
-        test_refs=("test_registry_snapshot.py::test_resolve_writes_deterministic_lock_and_objects",),
+        test_refs=(
+            "test_registry_snapshot.py::test_resolve_writes_deterministic_lock_and_objects",
+            "test_registry_snapshot.py::test_update_rejects_changed_content_for_existing_identity",
+        ),
     ),
     Capability(
         name="snapshot-provenance",

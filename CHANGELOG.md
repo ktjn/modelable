@@ -131,6 +131,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Registry snapshot updates now reject a changed canonical contract for an
+  existing logical identity instead of silently replacing its pinned content.
+
 ## [1.12.1] - 2026-08-26
 
 ### Added

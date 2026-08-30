@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from modelable.cli import cli
@@ -627,6 +628,30 @@ def test_verify_detects_source_drift(tmp_path: Path) -> None:
     assert any("source drift" in error for error in errors)
 
 
+def test_update_rejects_changed_content_for_existing_identity(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    output_dir = tmp_path / ".modelable"
+    first = resolve_workspace_snapshot(load_workspace(source), output_dir)
+    original_lock = first.lock_path.read_bytes()
+
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "status?: enum(active, blocked, deleted)", "status?: enum(active, blocked, deleted, pending)", 1
+        ),
+        encoding="utf-8",
+    )
+    changed_workspace = load_workspace(source)
+
+    with pytest.raises(ValueError, match=r"cannot replace existing registry identity .*different canonical content"):
+        resolve_workspace_snapshot(changed_workspace, output_dir)
+
+    with pytest.raises(ValueError, match=r"cannot replace existing registry identity .*different canonical content"):
+        update_workspace_snapshot(changed_workspace, output_dir)
+
+    assert first.lock_path.read_bytes() == original_lock
+
+
 def test_prune_removes_unreachable_objects(tmp_path: Path) -> None:
     result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
     objects = result.lock_path.parent / "registry" / "objects"
@@ -678,26 +703,40 @@ def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
     assert any("missing registry object" in error for error in payload["errors"])
 
 
-def test_update_stages_candidate_and_preserves_old_lock_on_diff(tmp_path: Path) -> None:
+def test_update_stages_new_version_and_preserves_old_lock_on_diff(tmp_path: Path) -> None:
     workspace = load_workspace(FIXTURE)
     output_dir = tmp_path / ".modelable"
     resolve_workspace_snapshot(workspace, output_dir)
     source = tmp_path / "customer.mdl"
     source.write_text(
-        FIXTURE.read_text(encoding="utf-8").replace("legalName: string", "legalName: string\n    region: string"),
+        FIXTURE.read_text(encoding="utf-8").rsplit("}", 1)[0]
+        + """
+  entity Customer @ 3 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    @pii
+    email?: string
+    status?: enum(active, blocked, deleted)
+    createdAt: timestamp
+    region?: string
+  }
+}
+""",
         encoding="utf-8",
     )
     changed_workspace = load_workspace(source)
+    assert not changed_workspace.errors, changed_workspace.errors
 
     snapshot_diff = diff_workspace_snapshot(changed_workspace, output_dir)
     original_lock = (output_dir / "registry.lock").read_bytes()
 
-    assert snapshot_diff.changed
+    assert snapshot_diff.added == ("customer.Customer@3 (model)",)
     assert (output_dir / "registry.lock").read_bytes() == original_lock
 
     _, applied_diff = update_workspace_snapshot(changed_workspace, output_dir)
 
-    assert applied_diff.changed == snapshot_diff.changed
+    assert applied_diff.added == snapshot_diff.added
     assert verify_snapshot(output_dir) == []
 
 

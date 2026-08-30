@@ -111,6 +111,7 @@ def resolve_workspace_snapshot(
     extension_pins: tuple[ExtensionPin, ...] = (),
     enum_numbers_path: str | Path | None = None,
     registry_ids_path: str | Path | None = None,
+    allow_mutable_identity_replacements: bool = False,
 ) -> SnapshotResult:
     """Write a deterministic, content-addressed snapshot of a validated workspace.
 
@@ -174,6 +175,8 @@ def resolve_workspace_snapshot(
             )
 
     entries.sort(key=lambda item: (str(item["identity"]), int(item["version"]), str(item["kind"])))
+    if not allow_mutable_identity_replacements:
+        _reject_mutable_identity_replacements(paths.root, entries)
     try:
         canonical_pins = _canonical_extension_pins(extension_pins)
     except ExtensionDescriptorError as exc:
@@ -644,7 +647,7 @@ def _snapshot_domain(name: str, metadata: Any = None) -> DomainDef:
 def diff_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> SnapshotDiff:
     """Compare a validated workspace with the current local snapshot offline."""
     with tempfile.TemporaryDirectory(prefix="modelable-registry-diff-") as temporary:
-        candidate = resolve_workspace_snapshot(workspace, temporary)
+        candidate = resolve_workspace_snapshot(workspace, temporary, allow_mutable_identity_replacements=True)
         return diff_snapshot_paths(Path(output_dir), candidate.lock_path.parent)
 
 
@@ -660,6 +663,7 @@ def update_workspace_snapshot(
         candidate_errors = verify_snapshot(candidate_dir)
         if candidate_errors:
             raise ValueError("Candidate snapshot is invalid:\n" + "\n".join(candidate_errors))
+        _reject_mutable_identity_replacements(paths.root, _load_lock_entries(SnapshotPaths(candidate_dir).lock))
         snapshot_diff = diff_snapshot_paths(paths.root, candidate_dir)
 
         paths.root.mkdir(parents=True, exist_ok=True)
@@ -673,6 +677,26 @@ def update_workspace_snapshot(
         shutil.copyfile(candidate.lock_path, temporary_lock)
         os.replace(temporary_lock, paths.lock)
         return SnapshotResult(paths.lock, candidate.object_count, candidate.identities), snapshot_diff
+
+
+def _reject_mutable_identity_replacements(current_dir: Path, candidate_entries: list[dict[str, Any]]) -> None:
+    current_entries = _load_lock_entries(SnapshotPaths(current_dir).lock)
+    current_signatures = {
+        str(entry["identity"]): str(entry.get("signature", entry.get("content_hash")))
+        for entry in current_entries
+        if isinstance(entry.get("identity"), str) and isinstance(entry.get("signature", entry.get("content_hash")), str)
+    }
+    for entry in candidate_entries:
+        identity = entry.get("identity")
+        signature = entry.get("signature", entry.get("content_hash"))
+        if not isinstance(identity, str) or not isinstance(signature, str):
+            continue
+        previous_signature = current_signatures.get(identity)
+        if previous_signature is not None and previous_signature != signature:
+            raise ValueError(
+                f"cannot replace existing registry identity {identity} with different canonical content "
+                f"({previous_signature} -> {signature})"
+            )
 
 
 def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
