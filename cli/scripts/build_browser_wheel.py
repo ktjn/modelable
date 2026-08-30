@@ -36,6 +36,8 @@ INCLUDE_FILES = (
     "__init__.py",
     "_pydantic_py314_compat.py",
     "dependency_graph.py",
+    "consequence.py",
+    "consequence_protocol.py",
     "identity.py",
     "emitters/__init__.py",
     "emitters/base.py",

@@ -27,6 +27,26 @@ SINGLE_VERSION_SOURCE = (
     'domain customer {\n  owner: "team"\n  entity Customer @ 1 (additive) {\n    @key customerId: uuid\n  }\n}\n'
 )
 
+BREAKING_COMPAT_SOURCE = (
+    "domain customer {\n"
+    '  owner: "team"\n'
+    "  entity Customer @ 1 (additive) {\n"
+    "    @key customerId: uuid\n"
+    "    email: string\n"
+    "  }\n"
+    "  entity Customer @ 2 (breaking) {\n"
+    "    @key customerId: uuid\n"
+    "  }\n"
+    "}\n"
+    "domain billing {\n"
+    '  owner: "billing-team"\n'
+    "  projection BillingCustomer @ 1 from customer.Customer @ 1 as c {\n"
+    "    id <- c.customerId\n"
+    "    emailAddress <- c.email\n"
+    "  }\n"
+    "}\n"
+)
+
 
 @pytest.fixture(autouse=True)
 def reset_browser_dispatch():
@@ -70,6 +90,26 @@ def test_compatibility_detects_added_fields():
     assert len(added) == 1
     assert added[0]["field_name"] == "email"
     assert added[0]["to_optional"] is True
+
+
+def test_compatibility_exposes_breaking_consequence_graph():
+    open_workspace(sources=[{"uri": URI, "text": BREAKING_COMPAT_SOURCE, "version": 1}])
+    result = dispatch("workspace.compatibility", {"workspaceRevision": 100})
+
+    assert result["ok"]
+    graph = result["result"]["consequence_graph"]
+    assert graph["$schema"] == "modelable.consequence/v0"
+    assert {node["id"] for node in graph["nodes"]} >= {
+        "customer.Customer@1",
+        "change:removed_field:email",
+        "billing.BillingCustomer@1",
+    }
+    assert {
+        "kind": "causes",
+        "source": "change:removed_field:email",
+        "target": "billing.BillingCustomer@1",
+    } in graph["edges"]
+    assert len(result["result"]["impacts"]) == 1
 
 
 def test_compatibility_single_version_returns_empty():
