@@ -32,6 +32,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Impact consequence graphs now declare and validate the
+  `modelable.consequence/v0` protocol.
 - Impact graphs now expose the semantic changes that cause downstream
   consequences.
 - Impact JSON now includes a deterministic consequence graph of causal

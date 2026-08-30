@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from modelable.consequence_protocol import CONSEQUENCE_SCHEMA, validate_consequence_graph
+
 ACTION_NO_ACTION = "no_action"
 ACTION_RECOMPILE = "recompile"
 ACTION_REGENERATE = "regenerate"
@@ -55,11 +57,13 @@ def build_consequence_graph(
             edges.add(("causes", path[0], change_id))
             edges.add(("causes", change_id, path[-1]))
         edges.add(("requires", path[-1], action_id))
-    return {
+    graph = {
+        "$schema": CONSEQUENCE_SCHEMA,
         "kind": "consequence_graph",
         "nodes": sorted(nodes.values(), key=lambda node: str(node["id"])),
         "edges": [{"kind": kind, "source": source, "target": target} for kind, source, target in sorted(edges)],
     }
+    return validate_consequence_graph(graph)
 
 
 def action_for_projection_status(status: str) -> str:

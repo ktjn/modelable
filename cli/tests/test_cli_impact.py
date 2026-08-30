@@ -6,6 +6,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.consequence_protocol import validate_consequence_graph
 
 FIXTURE = Path(__file__).parent / "fixtures" / "customer.mdl"
 
@@ -59,6 +60,8 @@ domain billing {
     assert any(item["action"] == "breaking" for item in payload["consequences"])
     assert any("billing.BillingCustomer@1" in item["causal_path"] for item in payload["consequences"])
     graph = payload["consequence_graph"]
+    assert validate_consequence_graph(graph) == graph
+    assert graph["$schema"] == "modelable.consequence/v0"
     assert graph["kind"] == "consequence_graph"
     assert {node["id"] for node in graph["nodes"]} >= {
         "customer.Customer@1",

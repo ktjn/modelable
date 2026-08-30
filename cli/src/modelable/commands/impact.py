@@ -84,7 +84,11 @@ def impact(from_ref: str, to_ref: str, source: Path, output_format: str) -> None
 
 def _model_consequences(workspace: Workspace, report: CompatibilityReport) -> list[Consequence]:
     source_subject = f"{report.domain_name}.{report.model_name}@{report.to_version}"
-    change_ids = tuple(_change_node_id(change.kind, change.field_name) for change in report.changes)
+    change_ids = (
+        tuple(_change_node_id(change.kind, change.field_name) for change in report.changes)
+        if report.status != "compatible"
+        else ()
+    )
     consequences = [
         Consequence(
             action=ACTION_RECOMPILE if report.status == "compatible" else ACTION_BREAKING,
