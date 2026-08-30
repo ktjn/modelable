@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 
 from modelable.compiler.workspace import load_workspace
-from modelable.emitters.fhir import emit_fhir_profile
+from modelable.emitters.fhir import _can_route_fhir_plan, emit_fhir_profile
+from modelable.emitters.fhir_plan import emit_fhir_projection_plan
+from modelable.planner.plans import build_plan_documents
 
 
 def test_emit_fhir_profile_maps_known_fields_direct_and_unknown_as_extensions(tmp_path):
@@ -122,6 +124,48 @@ domain clinical {
         "strength": "required",
         "valueSet": "http://modelable.io/fhir/ValueSet/clinical.PatientProfile.status",
     }
+
+
+def test_emit_fhir_projection_plan_consumer_preserves_scalar_profile(tmp_path):
+    (tmp_path / "clinical.mdl").write_text(
+        """
+domain clinical {
+  owner: "clinical-platform"
+  contact: "clinical@example.com"
+  description: "Clinical model contracts"
+
+  entity Patient @ 1 (additive) {
+    patientId: uuid
+    birthDate?: date
+    active: bool
+  }
+
+  projection PatientProfile @ 1
+    from clinical.Patient @ 1 as p
+  {
+    birthDate <- p.birthDate
+    active <- p.active
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "PatientProfile")
+    version = workspace.mdl.domains[0].projections["PatientProfile"][0]
+    assert _can_route_fhir_plan(plan, version)
+    migrated = emit_fhir_projection_plan(
+        plan,
+        tmp_path / "plan-out",
+        domain_metadata={
+            "owner": "clinical-platform",
+            "contact": "clinical@example.com",
+            "description": "Clinical model contracts",
+        },
+    )
+    routed = emit_fhir_profile(workspace, tmp_path / "out")
+    routed_profile = next(a for a in routed if a.ref == "clinical.PatientProfile@1")
+    assert migrated.content == routed_profile.content
 
 
 def test_emit_fhir_profile_fixed_width_integers_map_to_integer_or_string(tmp_path):
