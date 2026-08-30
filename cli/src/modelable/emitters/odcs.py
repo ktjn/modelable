@@ -7,12 +7,11 @@ import yaml
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
+from modelable.emitters.odcs_plan import emit_odcs_projection_plan
 from modelable.parser.ir import (
     AnnOwner,
     ArrayType,
-    ComputedMapping,
     DecimalType,
-    DirectMapping,
     DomainDef,
     EnumRefType,
     EnumType,
@@ -24,15 +23,10 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     PrimitiveType,
-    ProjectionField,
-    ProjectionVersion,
     RefType,
-    VersionExact,
-    VersionMin,
-    VersionPinned,
-    VersionRange,
 )
-from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_semantic_type_ref
+from modelable.planner.plans import build_plan_documents
+from modelable.registry.resolver import resolve_semantic_type_ref
 
 ODCS_VERSION = "v3.1.0"
 
@@ -40,14 +34,24 @@ ODCS_VERSION = "v3.1.0"
 def emit_odcs(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit Open Data Contract Standard YAML documents for each model and projection version."""
     artifacts: list[EmittedArtifact] = []
+    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
 
     for domain in workspace.mdl.domains:
         for model_name, versions in domain.models.items():
             for version in versions:
                 artifacts.append(_emit_model(domain, model_name, version, out_dir, workspace.mdl))
-        for projection_name, versions in domain.projections.items():
-            for version in versions:
-                artifacts.append(_emit_projection(domain, projection_name, version, out_dir, workspace.mdl))
+        for projection_name, projection_versions in domain.projections.items():
+            for projection_version in projection_versions:
+                plan = plans[(domain.name, projection_name, projection_version.version)]
+                artifacts.append(
+                    emit_odcs_projection_plan(
+                        plan,
+                        out_dir,
+                        domain_description=domain.description,
+                        domain_owner=domain.owner,
+                        domain_contact=domain.contact,
+                    )
+                )
 
     return artifacts
 
@@ -68,43 +72,6 @@ def _emit_model(
         ref=ref,
         kind=version.model_kind.value,
         schema_custom_properties={"modelableKind": version.model_kind.value},
-        properties=properties,
-        custom_properties=custom_properties,
-    )
-
-    return _artifact("odcs", ref, artifact_id, out_dir / f"{artifact_id}.odcs.yaml", doc)
-
-
-def _emit_projection(
-    domain: DomainDef,
-    projection_name: str,
-    version: ProjectionVersion,
-    out_dir: Path,
-    mdl: MdlFile,
-) -> EmittedArtifact:
-    artifact_id = _artifact_id(domain.name, projection_name, version.version)
-    ref = f"{domain.name}.{projection_name}@{version.version}"
-    source = _resolve_source(mdl, version)
-    properties = [_projection_property(field, version, source, mdl, domain.name) for field in version.fields]
-    custom_properties = _base_custom_properties(domain, ref, "projection")
-    custom_properties["modelableSource"] = f"{version.source.model}@{_version_label(version.source.version)}"
-
-    schema_custom_properties: dict[str, Any] = {
-        "modelableKind": "projection",
-        "modelableSource": custom_properties["modelableSource"],
-    }
-    if version.where:
-        schema_custom_properties["modelableWhere"] = version.where
-    if version.group_by:
-        schema_custom_properties["modelableGroupBy"] = version.group_by
-
-    doc = _contract_document(
-        domain=domain,
-        name=projection_name,
-        version=version.version,
-        ref=ref,
-        kind="projection",
-        schema_custom_properties=schema_custom_properties,
         properties=properties,
         custom_properties=custom_properties,
     )
@@ -150,37 +117,6 @@ def _model_property(field: FieldDef, mdl: MdlFile, current_domain: str) -> dict[
     if field.is_key:
         prop["primaryKey"] = True
     _apply_governance(prop, field.is_pii, field.classification.value if field.classification else None, _owner(field))
-    return prop
-
-
-def _projection_property(
-    field: ProjectionField,
-    projection: ProjectionVersion,
-    source: ResolvedModelRef | None,
-    mdl: MdlFile,
-    current_domain: str,
-) -> dict[str, Any]:
-    source_field = _source_field(field, source)
-    field_type = source_field.type if source_field is not None else PrimitiveType(kind="string")
-    required = not source_field.optional if source_field is not None else True
-    prop = _field_property(field.name, field_type, mdl, current_domain, required=required)
-
-    pii = field.is_pii or (source_field.is_pii if source_field is not None else False)
-    classification = field.classification or (source_field.classification if source_field is not None else None)
-    owner = _owner(source_field) if source_field is not None else None
-    _apply_governance(prop, pii, classification.value if classification is not None else None, owner)
-
-    custom_properties = {}
-    if isinstance(field.mapping, DirectMapping):
-        custom_properties["modelableMapping"] = "direct"
-        custom_properties["modelableLineage"] = [_source_field_ref(projection, field.mapping)]
-    elif isinstance(field.mapping, ComputedMapping):
-        custom_properties["modelableMapping"] = "computed"
-        custom_properties["modelableExpression"] = field.mapping.expression
-    else:
-        custom_properties["modelableMapping"] = "unknown"
-    prop["customProperties"].extend(_custom_properties(custom_properties))
-
     return prop
 
 
@@ -306,50 +242,11 @@ def _artifact(target: str, ref: str, artifact_id: str, path: Path, doc: dict[str
     )
 
 
-def _resolve_source(mdl: MdlFile, projection: ProjectionVersion) -> ResolvedModelRef | None:
-    try:
-        return resolve_model_ref(mdl, projection.source.model, projection.source.version)
-    except LookupError:
-        return None
-
-
-def _source_field(field: ProjectionField, source: ResolvedModelRef | None) -> FieldDef | None:
-    if source is None or not isinstance(field.mapping, DirectMapping):
-        return None
-    return next(
-        (source_field for source_field in source.version.fields if source_field.name == field.mapping.source_field),
-        None,
-    )
-
-
-def _source_field_ref(projection: ProjectionVersion, mapping: DirectMapping) -> str:
-    version = projection.source.version
-    if isinstance(version, VersionExact):
-        return f"{projection.source.model}@{version.version}.{mapping.source_field}"
-    if isinstance(version, VersionPinned):
-        return f"{projection.source.model}@{version.version}#{version.content_hash}.{mapping.source_field}"
-    return f"{projection.source.model}@{_version_label(version)}.{mapping.source_field}"
-
-
 def _owner(field: FieldDef) -> str | None:
     for annotation in field.annotations:
         if isinstance(annotation, AnnOwner):
             return annotation.team
     return None
-
-
-def _version_label(version_spec: Any) -> str:
-    if isinstance(version_spec, VersionExact):
-        return str(version_spec.version)
-    if isinstance(version_spec, VersionRange):
-        return f">={version_spec.min_inclusive}<{version_spec.max_exclusive}"
-    if isinstance(version_spec, VersionMin):
-        return f">={version_spec.min_inclusive}"
-    if isinstance(version_spec, VersionPinned):
-        return f"{version_spec.version}#{version_spec.content_hash}"
-    if isinstance(version_spec, int):
-        return str(version_spec)
-    return "?"
 
 
 def _artifact_id(domain: str, name: str, version: int) -> str:
