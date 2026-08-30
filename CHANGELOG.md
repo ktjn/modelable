@@ -32,6 +32,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Registry snapshots now persist and verify deterministic compiled usage evidence
+  alongside their locked contract objects.
 - Usage graphs and manifests now include versioned enum projection contracts
   and their semantic source lineage.
 - Usage graphs now include semantic-type declaration nodes and resolver-backed

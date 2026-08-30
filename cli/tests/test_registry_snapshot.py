@@ -21,6 +21,7 @@ from modelable.registry.snapshot import (
     verify_snapshot,
 )
 from modelable.registry.sources import LocalSourceAdapter
+from modelable.registry.usage import build_usage_manifest
 
 FIXTURE = Path(__file__).parent / "fixtures" / "customer.mdl"
 
@@ -39,6 +40,33 @@ def test_resolve_writes_deterministic_lock_and_objects(tmp_path: Path) -> None:
     assert verify_snapshot(tmp_path / ".modelable") == []
     lock = json.loads(first.lock_path.read_text(encoding="utf-8"))
     assert [entry["identity"] for entry in lock["objects"]] == ["customer.Customer@1", "customer.Customer@2"]
+
+
+def test_resolve_persists_deterministic_usage_evidence(tmp_path: Path) -> None:
+    workspace = load_workspace(FIXTURE)
+    output_dir = tmp_path / ".modelable"
+
+    result = resolve_workspace_snapshot(workspace, output_dir)
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+
+    assert lock["usage"] == build_usage_manifest(workspace)
+    assert verify_snapshot(output_dir) == []
+
+    first_lock = result.lock_path.read_bytes()
+    resolve_workspace_snapshot(workspace, output_dir)
+    assert result.lock_path.read_bytes() == first_lock
+
+
+def test_verify_rejects_usage_evidence_with_a_mismatched_signature(tmp_path: Path) -> None:
+    output_dir = tmp_path / ".modelable"
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), output_dir)
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    lock["usage"]["references"][0]["signature"] = "0" * 64
+    result.lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    errors = verify_snapshot(output_dir)
+
+    assert any("usage reference customer.Customer@1 signature" in error for error in errors)
 
 
 def test_resolve_persists_deterministic_extension_pins(tmp_path: Path) -> None:
