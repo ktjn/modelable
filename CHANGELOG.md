@@ -46,6 +46,7 @@ releases could contain breaking changes when called out explicitly.
 - Java projection fields now consume validated `modelable.plan/v0` documents
   while preserving existing generated records.
 - C# projection fields now consume validated `modelable.plan/v0` documents
+- Plain Rust projection fields now consume validated `modelable.plan/v0` documents
   while preserving existing generated records.
 - JSON Schema projection artifacts now consume validated `modelable.plan/v0`
   documents while preserving existing output.

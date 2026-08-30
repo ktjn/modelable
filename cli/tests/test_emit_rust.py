@@ -11,6 +11,8 @@ import modelable.emitters.rust as rust_emitter
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.rust import emit_rust
+from modelable.emitters.rust_plan import emit_rust_projection_plan
+from modelable.planner.plans import build_plan_documents
 from modelable.registry.signature import compute_version_signature
 
 
@@ -536,6 +538,42 @@ domain customer {
     proj_art = next(a for a in artifacts if a.ref == "customer.CustomerView@2")
     # name comes from Customer@1 (String), not Customer@2 (i64)
     assert "pub name: String," in proj_art.content
+
+
+def test_emit_rust_projection_plan_consumer_preserves_existing_output(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    from modelable.compiler.workspace import load_workspace
+
+    workspace = load_workspace(tmp_path)
+    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerView")
+    projection_version = workspace.mdl.domains[0].projections["CustomerView"][0]
+    migrated = emit_rust_projection_plan(
+        plan,
+        tmp_path / "plan-out",
+        schema_signature=compute_version_signature("customer", "CustomerView", projection_version),
+    )
+    routed = next(a for a in emit_rust(workspace, tmp_path / "out") if a.ref == "customer.CustomerView@1")
+    assert migrated.content == routed.content
+    assert migrated.content_hash == routed.content_hash
 
 
 def test_emit_rust_projection_imports_named_type_fields(tmp_path):

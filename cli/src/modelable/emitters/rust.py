@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from dataclasses import field as dc_field
 from pathlib import Path
+from typing import cast
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
@@ -12,6 +13,7 @@ from modelable.emitters.naming import find_identifier_collisions
 from modelable.emitters.naming import pascalize_titlecase as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.package_graph import PackageGraph, build_package_graph
+from modelable.emitters.rust_plan import emit_rust_projection_plan
 from modelable.emitters.shapes import TypeShape
 from modelable.parser.ir import (
     ArrayType,
@@ -36,6 +38,8 @@ from modelable.parser.ir import (
     latest_enum_projections,
     latest_semantic_types,
 )
+from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PlanDocument
 from modelable.registry.resolver import (
     AmbiguousSemanticTypeError,
     resolve_enum_type_ref,
@@ -135,9 +139,12 @@ def emit_rust(
     """
     _validate_rust_enum_projection_versions(workspace)
     package_graph = build_package_graph(workspace.mdl)
+    plans: dict[tuple[object, object, object], PlanDocument] = {
+        (plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)
+    }
     if package_graph.package_for_domain:
-        return _emit_rust_packages(workspace, out_dir, package_graph, registry_ids=registry_ids)
-    return _emit_rust_single_crate(workspace, out_dir, registry_ids=registry_ids)
+        return _emit_rust_packages(workspace, out_dir, package_graph, registry_ids=registry_ids, plans=plans)
+    return _emit_rust_single_crate(workspace, out_dir, registry_ids=registry_ids, plans=plans)
 
 
 def _validate_rust_enum_projection_versions(workspace: Workspace) -> None:
@@ -186,7 +193,11 @@ def _validate_rust_enum_projection_versions(workspace: Workspace) -> None:
 
 
 def _emit_rust_single_crate(
-    workspace: Workspace, out_dir: Path, *, registry_ids: dict[str, int] | None = None
+    workspace: Workspace,
+    out_dir: Path,
+    *,
+    registry_ids: dict[str, int] | None = None,
+    plans: dict[tuple[object, object, object], PlanDocument] | None = None,
 ) -> list[EmittedArtifact]:
     postgres_sources = _adapter_bound_sources(workspace.mdl, "postgres")
     clickhouse_sources = _adapter_bound_sources(workspace.mdl, "clickhouse")
@@ -227,6 +238,7 @@ def _emit_rust_single_crate(
                         sqlx_fromrow=source in postgres_sources,
                         clickhouse_row=source in clickhouse_sources,
                         suppress_skip_serializing=source in postcard_sources,
+                        plan=plans.get((domain.name, projection_name, version.version)) if plans else None,
                     )
                 )
     return artifacts
@@ -238,6 +250,7 @@ def _emit_rust_packages(
     package_graph: PackageGraph,
     *,
     registry_ids: dict[str, int] | None = None,
+    plans: dict[tuple[object, object, object], PlanDocument] | None = None,
 ) -> list[EmittedArtifact]:
     mdl = workspace.mdl
     assert mdl.workspace is not None
@@ -314,6 +327,7 @@ def _emit_rust_packages(
                         suppress_skip_serializing=source in postcard_sources,
                         current_pkg=pkg.name,
                         package_for_domain=package_for_domain,
+                        plan=plans.get((domain.name, projection_name, version.version)) if plans else None,
                     )
                     artifacts.append(artifact)
                     modules.append(artifact.path.stem)
@@ -1001,7 +1015,19 @@ def _emit_projection(
     suppress_skip_serializing: bool = False,
     current_pkg: str | None = None,
     package_for_domain: dict[str, str] | None = None,
+    plan=None,
 ) -> EmittedArtifact:
+    if plan is not None and _can_route_rust_projection_plan(
+        plan,
+        sqlx_fromrow=sqlx_fromrow,
+        clickhouse_row=clickhouse_row,
+        suppress_skip_serializing=suppress_skip_serializing,
+    ):
+        return emit_rust_projection_plan(
+            plan,
+            out_dir,
+            schema_signature=compute_version_signature(domain.name, projection_name, version),
+        )
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     type_name = _stable_type_name(domain.name, projection_name, version.version)
     nested_definitions: dict[str, list[str]] = {}
@@ -1143,6 +1169,68 @@ def _emit_projection(
         content_hash=compute_content_hash(text),
         warnings=warnings,
     )
+
+
+def _can_route_rust_projection_plan(
+    plan: PlanDocument,
+    *,
+    sqlx_fromrow: bool,
+    clickhouse_row: bool,
+    suppress_skip_serializing: bool,
+) -> bool:
+    """Route only facts fully represented by plan/v0 in this migration slice."""
+    fields = cast(list[dict[str, object]], plan.get("fields", []))
+    joins = cast(list[dict[str, object]], plan.get("joins", []))
+    if sqlx_fromrow or clickhouse_row or suppress_skip_serializing or joins:
+        return False
+    if any(field.get("kind") not in {"direct", "computed"} for field in fields):
+        return False
+    source = cast(dict[str, object], plan.get("source", {}))
+    source_model = source.get("model")
+    if not isinstance(source_model, str) or not source_model.startswith(f"{plan.get('domain')}."):
+        return False
+    for relation in [source, *joins]:
+        resolved = relation.get("resolved") if isinstance(relation, dict) else None
+        for field in resolved.get("fields", []) if isinstance(resolved, dict) else []:
+            if field.get("annotations"):
+                return False
+    for field in fields:
+        field_type = field.get("type")
+        if field.get("nullable") is True:
+            return False
+        if isinstance(field_type, dict) and not _rust_plan_type_is_plain(field_type):
+            return False
+        if field.get("optional") is True and isinstance(field_type, dict) and field_type.get("kind") == "array":
+            return False
+    return True
+
+
+def _rust_plan_type_is_plain(field_type: dict[str, object]) -> bool:
+    kind = field_type.get("kind")
+    if kind in {
+        "string",
+        "int",
+        "float",
+        "bool",
+        "date",
+        "time",
+        "timestamp",
+        "uuid",
+        "duration",
+        "binary",
+        "json",
+        "decimal",
+        "fixed_binary",
+        "primitive",
+    }:
+        return True
+    if kind == "array":
+        item = field_type.get("item")
+        return isinstance(item, dict) and _rust_plan_type_is_plain(item)
+    if kind == "map":
+        value = field_type.get("value")
+        return isinstance(value, dict) and _rust_plan_type_is_plain(value)
+    return False
 
 
 def _projection_field_is_json_passthrough_to_string(proj_field, version: ProjectionVersion, mdl: MdlFile) -> bool:

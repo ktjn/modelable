@@ -135,6 +135,7 @@ def test_shared_model_graph_change_runs_all_export_smokes() -> None:
         "cli/src/modelable/emitters/go_plan.py",
         "cli/src/modelable/emitters/java_plan.py",
         "cli/src/modelable/emitters/csharp_plan.py",
+        "cli/src/modelable/emitters/rust_plan.py",
         "cli/src/modelable/emitters/avro_plan.py",
         "cli/src/modelable/emitters/shapes.py",
         "cli/src/modelable/emitters/csharp.py",
