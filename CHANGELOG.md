@@ -20,6 +20,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Exposed deterministic `modelable.plan/v0` documents through the browser
+  compiler protocol, with native/browser plan equivalence coverage.
 - Added a parser-free OpenLineage plan consumer for validated
   `modelable.plan/v0` documents.
 - Emitted `modelable.plan/v0` source and join relations now carry resolved

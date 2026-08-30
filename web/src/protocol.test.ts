@@ -11,6 +11,7 @@ import {
   isBrowserHoverResult,
   isBrowserLanguageLocation,
   isBrowserLineageResult,
+  isBrowserPlanResult,
   isBrowserPreparedRenameResult,
   isBrowserReferencesResult,
   isBrowserRenameResult,
@@ -364,6 +365,42 @@ describe('isBrowserLineageResult', () => {
       ],
     };
     expect(isBrowserLineageResult(invalid)).toBe(false);
+  });
+});
+
+describe('isBrowserPlanResult', () => {
+  const validPlan = JSON.stringify({
+    $schema: 'modelable.plan/v0',
+    domain: 'billing',
+    projection: 'BillingCustomer',
+    version: 1,
+    auto_generated: false,
+    requires_revalidation: false,
+    revalidation_reasons: [],
+    governance_findings: [],
+    source: {},
+    joins: [],
+    group_by: [],
+    fields: [],
+    planner_metadata: {},
+  });
+
+  test('accepts validated plan documents', () => {
+    expect(
+      isBrowserPlanResult({
+        workspace_revision: 3,
+        plans: [validPlan],
+      }),
+    ).toBe(true);
+  });
+
+  test('rejects plans with another protocol schema', () => {
+    expect(
+      isBrowserPlanResult({
+        workspace_revision: 3,
+        plans: [validPlan.replace('modelable.plan/v0', 'modelable.plan/v1')],
+      }),
+    ).toBe(false);
   });
 });
 

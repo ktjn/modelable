@@ -9,6 +9,7 @@ from modelable.browser.dto import (
     BrowserFormatResult,
     BrowserHoverResult,
     BrowserLanguagePosition,
+    BrowserPlanResult,
     BrowserSource,
     BrowserWorkspaceResult,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "BrowserFormatResult",
     "BrowserHoverResult",
     "BrowserLanguagePosition",
+    "BrowserPlanResult",
     "BrowserSource",
     "BrowserWorkspaceResult",
     "dispatch_browser_request",

@@ -18,6 +18,7 @@ from modelable.browser.dto import (
     BrowserHoverResult,
     BrowserLanguagePosition,
     BrowserLineageResult,
+    BrowserPlanResult,
     BrowserPreparedRenameResult,
     BrowserReferencesResult,
     BrowserRenameResult,
@@ -41,6 +42,7 @@ _METHODS = {
     "language.rename",
     "workspace.graph",
     "workspace.lineage",
+    "workspace.plans",
     "workspace.compatibility",
     "workspace.governance",
     "conversation.turn",
@@ -152,6 +154,7 @@ _DispatchResult = (
     | BrowserRenameResult
     | BrowserGraphResult
     | BrowserLineageResult
+    | BrowserPlanResult
     | BrowserCompatibilityResult
     | BrowserGovernanceResult
     | PendingPlanRequest
@@ -208,6 +211,9 @@ def _dispatch(method: str, payload: dict[str, Any]) -> _DispatchResult:
     if method == "workspace.lineage":
         _require_exact_fields(payload, {"workspaceRevision"})
         return _compiler.lineage(_integer(payload["workspaceRevision"]))
+    if method == "workspace.plans":
+        _require_exact_fields(payload, {"workspaceRevision"})
+        return _compiler.plans(_integer(payload["workspaceRevision"]))
     if method == "workspace.compatibility":
         _require_exact_fields(payload, {"workspaceRevision"})
         return _compiler.compatibility(_integer(payload["workspaceRevision"]))

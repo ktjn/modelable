@@ -99,6 +99,12 @@ class BrowserCompileResult:
 
 
 @dataclass(frozen=True)
+class BrowserPlanResult:
+    workspace_revision: int
+    plans: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class BrowserSourceRange:
     uri: str
     start_line: int
