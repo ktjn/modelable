@@ -79,7 +79,8 @@ Definition files use the Modelable IDL with the `.mdl` extension. The grammar is
 ### 5.0 `impact` — Report change consequences
 
 ```text
-modelable impact --from OLD --to NEW --path SOURCE [--snapshot DIR] [--format text|json]
+modelable impact --from OLD --to NEW --path SOURCE [--snapshot DIR]
+  [--usage-manifest FILE]... [--format text|json]
 ```
 
 `impact` compares two model versions, reports compatibility findings, and
@@ -90,6 +91,9 @@ refresh registry snapshots. When supplied, `--snapshot DIR` loads and verifies
 the durable local snapshot before composing its contracts with `SOURCE`; this
 allows dependent contracts absent from the candidate source to participate in
 the consequence graph without network access.
+Repeat `--usage-manifest FILE` to include validated compiled-consumer evidence;
+matching consumers are reported with a `consumer_update` consequence in both
+text and JSON output.
 
 ### 5.0.1 `config explain` — Explain compiler defaults
 

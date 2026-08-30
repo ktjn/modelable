@@ -111,6 +111,47 @@ def build_model_consequences(workspace: Workspace, report: CompatibilityReport) 
     return consequences
 
 
+def build_usage_consumer_consequences(
+    consequences: list[Consequence], usage_manifests: list[dict[str, object]]
+) -> list[Consequence]:
+    """Add known compiled-consumer actions from validated usage manifests."""
+    consumer_consequences: list[Consequence] = []
+    seen: set[tuple[str, str]] = set()
+    for manifest in usage_manifests:
+        consumer = manifest.get("application_id") or manifest.get("application")
+        references = manifest.get("references")
+        if not isinstance(consumer, str) or not isinstance(references, list):
+            continue
+        for reference in references:
+            if not isinstance(reference, dict) or not isinstance(reference.get("ref"), str):
+                continue
+            ref = reference["ref"]
+            for consequence in consequences:
+                if consequence.status == "compatible" or ref not in consequence.causal_path:
+                    continue
+                subject_value = reference.get("package_id") or consumer
+                if not isinstance(subject_value, str):
+                    continue
+                key = (subject_value, consequence.subject)
+                if key in seen:
+                    continue
+                seen.add(key)
+                path = consequence.causal_path
+                if not path or path[-1] != subject_value:
+                    path = (*path, subject_value)
+                consumer_consequences.append(
+                    Consequence(
+                        action=ACTION_CONSUMER_UPDATE,
+                        subject=subject_value,
+                        status=consequence.status,
+                        reason="compiled usage manifest",
+                        causal_path=path,
+                        causal_changes=consequence.causal_changes,
+                    )
+                )
+    return consumer_consequences
+
+
 def build_target_consequences(
     report: CompatibilityReport,
     target_report: TargetCompatibilityReport,

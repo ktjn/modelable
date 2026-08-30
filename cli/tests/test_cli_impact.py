@@ -157,6 +157,92 @@ domain customer {
     assert any("billing.BillingCustomer@1" in item["causal_path"] for item in payload["consequences"])
 
 
+def test_impact_includes_known_consumers_from_usage_manifest(tmp_path: Path) -> None:
+    source = tmp_path / "candidate.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    email: string
+  }
+  entity Customer @ 2 (breaking) {
+    @key
+    customerId: uuid
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    manifest = tmp_path / "billing-usage.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "$schema": "modelable.usage/v0",
+                "kind": "usage_manifest",
+                "application": "billing-service",
+                "application_id": "application:billing-service",
+                "packages": [{"id": "package:billing-service/api", "name": "api"}],
+                "references": [
+                    {
+                        "ref": "customer.Customer@1",
+                        "signature": "a" * 64,
+                        "fields": ["customer.Customer@1#email"],
+                        "package_id": "package:billing-service/api",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "customer.Customer@1",
+            "--to",
+            "customer.Customer@2",
+            "--path",
+            str(source),
+            "--usage-manifest",
+            str(manifest),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert {
+        "action": "consumer_update",
+        "subject": "package:billing-service/api",
+        "status": "breaking",
+        "reason": "compiled usage manifest",
+        "causal_path": ["customer.Customer@1", "customer.Customer@2", "package:billing-service/api"],
+    } in payload["consequences"]
+
+    text_result = CliRunner().invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "customer.Customer@1",
+            "--to",
+            "customer.Customer@2",
+            "--path",
+            str(source),
+            "--usage-manifest",
+            str(manifest),
+        ],
+    )
+    assert text_result.exit_code == 1, text_result.output
+    assert "consumer_update: package:billing-service/api (compiled usage manifest)" in text_result.output
+
+
 def test_impact_graph_omits_nonbreaking_changes(tmp_path: Path) -> None:
     result = CliRunner().invoke(
         cli,

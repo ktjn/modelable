@@ -77,7 +77,7 @@ explicitly listed for acceptance before implementation.
 - [ ] Generalize existing compatibility findings into consequence facts with
   causal paths and actions such as regeneration, consumer update, migration,
   backfill, projection rebuild, replay, review, and breaking change.
-- [ ] Extend `modelable impact --from OLD --to NEW` to consume local snapshots
+- [x] Extend `modelable impact --from OLD --to NEW` to consume local snapshots
   and aggregated usage manifests in both human and JSON output.
 
 ## Slice 3 — make registry updates consequence-aware
