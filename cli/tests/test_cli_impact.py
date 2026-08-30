@@ -6,7 +6,9 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.compiler.workspace import load_workspace
 from modelable.consequence_protocol import validate_consequence_graph
+from modelable.registry.snapshot import resolve_workspace_snapshot
 
 FIXTURE = Path(__file__).parent / "fixtures" / "customer.mdl"
 
@@ -92,6 +94,67 @@ domain billing {
         "source": "change:removed_field:email",
         "target": "billing.BillingCustomer@1",
     } in graph["edges"]
+
+
+def test_impact_can_load_dependents_from_an_offline_snapshot(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mdl"
+    provider.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    email: string
+  }
+}
+domain billing {
+  owner: "billing-team"
+  projection BillingCustomer @ 1 from customer.Customer @ 1 as c {
+    id <- c.customerId
+    emailAddress <- c.email
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    snapshot = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(provider), snapshot)
+
+    candidate = tmp_path / "candidate.mdl"
+    candidate.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 2 (breaking) {
+    @key
+    customerId: uuid
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "customer.Customer@1",
+            "--to",
+            "customer.Customer@2",
+            "--path",
+            str(candidate),
+            "--snapshot",
+            str(snapshot),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert any("billing.BillingCustomer@1" in item["causal_path"] for item in payload["consequences"])
 
 
 def test_impact_graph_omits_nonbreaking_changes(tmp_path: Path) -> None:

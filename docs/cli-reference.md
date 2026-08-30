@@ -79,14 +79,17 @@ Definition files use the Modelable IDL with the `.mdl` extension. The grammar is
 ### 5.0 `impact` — Report change consequences
 
 ```text
-modelable impact --from OLD --to NEW --path SOURCE [--format text|json]
+modelable impact --from OLD --to NEW --path SOURCE [--snapshot DIR] [--format text|json]
 ```
 
 `impact` compares two model versions, reports compatibility findings, and
 classifies direct and projection consequences as actions such as
 `no_action`, `recompile`, `regenerate`, or `breaking`. JSON output includes a
 causal path for each consequence. The command is entirely local and does not
-refresh registry snapshots.
+refresh registry snapshots. When supplied, `--snapshot DIR` loads and verifies
+the durable local snapshot before composing its contracts with `SOURCE`; this
+allows dependent contracts absent from the candidate source to participate in
+the consequence graph without network access.
 
 ### 5.0.1 `config explain` — Explain compiler defaults
 

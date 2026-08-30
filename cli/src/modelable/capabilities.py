@@ -240,6 +240,14 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         test_refs=("test_registry_offline.py::test_core_analysis_does_not_invoke_source_adapter_or_network",),
     ),
     Capability(
+        name="snapshot-aware-impact",
+        category="registry_capability",
+        status=CapabilityStatus.implemented,
+        description="Runs impact analysis with additional contracts from a validated offline snapshot",
+        notes="Aggregated usage manifests and policy-aware cross-application analysis remain deferred.",
+        test_refs=("test_cli_impact.py::test_impact_can_load_dependents_from_an_offline_snapshot",),
+    ),
+    Capability(
         name="consequence-graph-analysis",
         category="registry_capability",
         status=CapabilityStatus.implemented,

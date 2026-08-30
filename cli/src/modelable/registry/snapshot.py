@@ -607,17 +607,43 @@ def load_snapshot_workspace(output_dir: str | Path = ".modelable") -> Workspace:
 def load_workspace_with_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> Workspace:
     """Compose local source documents with an exact offline registry snapshot."""
     snapshot = load_snapshot_workspace(output_dir)
-    sources = [
-        WorkspaceDocumentSource(path=source.path, uri=source.uri, text=source.text) for source in workspace.sources
-    ]
-    sources.append(
-        WorkspaceDocumentSource(
-            path=None,
-            uri=f"snapshot://{Path(output_dir).resolve()}",
-            text=render_mdl(snapshot.mdl),
-        )
+    domains: dict[str, DomainDef] = {}
+    for domain in [*workspace.mdl.domains, *snapshot.mdl.domains]:
+        existing = domains.get(domain.name)
+        if existing is None:
+            domains[domain.name] = domain.model_copy(deep=True)
+            continue
+        for model_name, model_versions in domain.models.items():
+            existing.models.setdefault(model_name, []).extend(model_versions)
+        for projection_name, projection_versions in domain.projections.items():
+            existing.projections.setdefault(projection_name, []).extend(projection_versions)
+        existing.auto_projections.extend(domain.auto_projections)
+        existing.apis.extend(domain.apis)
+        existing.generate_targets.extend(domain.generate_targets)
+        existing.semantic_types.extend(domain.semantic_types)
+        existing.enum_projections.extend(domain.enum_projections)
+        existing.index_decls.extend(domain.index_decls)
+        existing.model_evolutions.extend(domain.model_evolutions)
+    text = "\n\n".join(
+        [
+            render_mdl(
+                MdlFile(
+                    domains=list(domains.values()),
+                    bindings=workspace.mdl.bindings,
+                    workspace=workspace.mdl.workspace,
+                )
+            )
+        ]
     )
-    return load_workspace_from_sources(sources)
+    return load_workspace_from_sources(
+        [
+            WorkspaceDocumentSource(
+                path=None,
+                uri=f"snapshot://{Path(output_dir).resolve()}",
+                text=text,
+            )
+        ]
+    )
 
 
 def _domain_metadata(domain: DomainDef) -> dict[str, Any]:
