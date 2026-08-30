@@ -1,10 +1,16 @@
 import hashlib
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.markdown import emit_markdown
+from modelable.emitters.markdown_plan import emit_markdown_projection_plan
+from modelable.planner.protocol import load_plan
 
 
 def test_emit_simple_model(tmp_path):
@@ -364,3 +370,35 @@ domain platform {
     art = next(a for a in artifacts if a.ref == "platform.Command@1")
     assert "uuid(7)" in art.content
     assert "legacyId" in art.content
+
+
+def test_markdown_projection_consumer_uses_validated_plan_data(tmp_path):
+    fixture = Path(__file__).parent / "fixtures" / "plan_v0" / "billing.BillingCustomer.v1.plan.json"
+    artifact = emit_markdown_projection_plan(load_plan(fixture), tmp_path, domain_owner="billing-team")
+
+    assert artifact.ref == "billing.BillingCustomer@1"
+    assert "# BillingCustomer v1" in artifact.content
+    assert "**Source:** customer.Customer @ 1 as c" in artifact.content
+    assert "direct: c.customerId (customer.Customer)" in artifact.content
+
+
+def test_markdown_plan_consumer_imports_without_parser_modules() -> None:
+    source_root = Path(__file__).parents[1] / "src"
+    script = """
+import builtins
+
+real_import = builtins.__import__
+
+def guarded_import(name, *args, **kwargs):
+    if name.startswith('modelable.parser'):
+        raise AssertionError('Markdown plan consumer imported parser internals')
+    return real_import(name, *args, **kwargs)
+
+builtins.__import__ = guarded_import
+from modelable.emitters.markdown_plan import emit_markdown_projection_plan
+assert emit_markdown_projection_plan
+"""
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(source_root)
+    result = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr

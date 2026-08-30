@@ -4,6 +4,7 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
+from modelable.emitters.markdown_plan import emit_markdown_projection_plan
 from modelable.parser.ir import (
     AnnClassification,
     AnnDeprecated,
@@ -13,9 +14,7 @@ from modelable.parser.ir import (
     AnnServer,
     AnnWire,
     ArrayType,
-    ComputedMapping,
     DecimalType,
-    DirectMapping,
     DomainDef,
     EnumRefType,
     EnumType,
@@ -25,27 +24,32 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     PrimitiveType,
-    ProjectionField,
-    ProjectionVersion,
     RefType,
-    VersionExact,
-    VersionMin,
-    VersionPinned,
-    VersionRange,
 )
 from modelable.parser.wire import render_wire_annotation
+from modelable.planner.plans import build_plan_documents
 
 
 def emit_markdown(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit Markdown documentation for every model and projection version."""
     artifacts: list[EmittedArtifact] = []
+    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
     for domain in workspace.mdl.domains:
         for model_name, versions in domain.models.items():
             for version in versions:
                 artifacts.append(_emit_model(domain, model_name, version, out_dir))
-        for projection_name, versions in domain.projections.items():
-            for version in versions:
-                artifacts.append(_emit_projection(domain, projection_name, version, out_dir))
+        for projection_name, projection_versions in domain.projections.items():
+            for projection_version in projection_versions:
+                plan = plans[(domain.name, projection_name, projection_version.version)]
+                artifacts.append(
+                    emit_markdown_projection_plan(
+                        plan,
+                        out_dir,
+                        domain_owner=domain.owner,
+                        domain_contact=domain.contact,
+                        domain_description=domain.description,
+                    )
+                )
     return artifacts
 
 
@@ -97,68 +101,6 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     )
 
 
-def _emit_projection(
-    domain: DomainDef, projection_name: str, version: ProjectionVersion, out_dir: Path
-) -> EmittedArtifact:
-    artifact_id = _artifact_id(domain.name, projection_name, version.version)
-    lines: list[str] = []
-
-    lines.append(f"# {projection_name} v{version.version}")
-    lines.append("")
-    lines.append(f"**Domain:** {domain.name}  ")
-    lines.append(f"**Name:** {projection_name}  ")
-    lines.append(f"**Version:** {version.version}  ")
-    lines.append(f"**Artifact ID:** {artifact_id}  ")
-    lines.append(f"**Artifact:** {artifact_id}.md  ")
-    if domain.owner:
-        lines.append(f"**Owner:** {domain.owner}  ")
-    if domain.contact:
-        lines.append(f"**Contact:** {domain.contact}  ")
-    if domain.description:
-        lines.append(f"**Description:** {domain.description}  ")
-    lines.append("**Kind:** projection  ")
-    auto_label = "yes" if version.auto_generated else "no"
-    lines.append(f"**Auto generated:** {auto_label}  ")
-    lines.append(
-        f"**Source:** {version.source.model} @ {_version_str(version.source.version)} as {version.source.alias}  "
-    )
-    if version.where:
-        lines.append(f"**Where:** {version.where}  ")
-    if version.group_by:
-        lines.append(f"**Group by:** {', '.join(version.group_by)}  ")
-    lines.append("")
-
-    lines.append("## Sources")
-    lines.append("")
-    lines.append("| Model | Version | Alias |")
-    lines.append("|---|---|---|")
-    lines.append(f"| {version.source.model} | {_version_str(version.source.version)} | {version.source.alias} |")
-    for join in version.joins:
-        lines.append(f"| {join.model} | {_version_str(join.version)} | {join.alias} (join on `{join.on}`) |")
-    lines.append("")
-
-    lines.append("## Fields")
-    lines.append("")
-    lines.append("| Field | Lineage | Annotations | Classification |")
-    lines.append("|---|---|---|---|")
-    for field in version.fields:
-        lineage_str = _format_lineage(field, version.source.model)
-        ann_str = _format_projection_annotations(field)
-        cls_str = _projection_field_classification(field)
-        lines.append(f"| {field.name} | {lineage_str} | {ann_str} | {cls_str} |")
-    lines.append("")
-
-    text = "\n".join(lines)
-    return EmittedArtifact(
-        target="markdown",
-        ref=f"{domain.name}.{projection_name}@{version.version}",
-        artifact_id=artifact_id,
-        path=out_dir / f"{artifact_id}.md",
-        content=text,
-        content_hash=compute_content_hash(text),
-    )
-
-
 def _type_str(field_type) -> str:
     if isinstance(field_type, PrimitiveType):
         if field_type.kind == "uuid" and field_type.version == 7:
@@ -183,18 +125,6 @@ def _type_str(field_type) -> str:
     return "unknown"
 
 
-def _version_str(version_spec) -> str:
-    if isinstance(version_spec, VersionExact):
-        return str(version_spec.version)
-    if isinstance(version_spec, VersionRange):
-        return f">={version_spec.min_inclusive}<{version_spec.max_exclusive}"
-    if isinstance(version_spec, VersionMin):
-        return f">={version_spec.min_inclusive}"
-    if isinstance(version_spec, VersionPinned):
-        return f"{version_spec.version}#{version_spec.content_hash}"
-    return "?"
-
-
 def _format_annotations(field: FieldDef) -> str:
     parts: list[str] = []
     for ann in field.annotations:
@@ -215,43 +145,8 @@ def _format_annotations(field: FieldDef) -> str:
     return ", ".join(parts) if parts else "—"
 
 
-def _format_projection_annotations(field: ProjectionField) -> str:
-    parts: list[str] = []
-    for ann in field.annotations:
-        if isinstance(ann, AnnPii):
-            parts.append("@pii")
-        elif isinstance(ann, AnnServer):
-            parts.append("@server")
-        elif isinstance(ann, AnnDeprecated):
-            parts.append(f"@deprecated → {ann.replaced_by}")
-        elif isinstance(ann, AnnOwner):
-            parts.append(f"@owner({ann.team})")
-        elif isinstance(ann, AnnClassification):
-            pass
-        elif isinstance(ann, AnnWire):
-            parts.append(render_wire_annotation(ann))
-    return ", ".join(parts) if parts else "—"
-
-
 def _field_classification(field: FieldDef) -> str:
     for ann in field.annotations:
         if isinstance(ann, AnnClassification):
             return ann.level
-    return "—"
-
-
-def _projection_field_classification(field: ProjectionField) -> str:
-    for ann in field.annotations:
-        if isinstance(ann, AnnClassification):
-            return ann.level
-    return "—"
-
-
-def _format_lineage(field: ProjectionField, source_model: str) -> str:
-    mapping = field.mapping
-    if isinstance(mapping, DirectMapping):
-        return f"direct: {mapping.source_alias}.{mapping.source_field} ({source_model})"
-    if isinstance(mapping, ComputedMapping):
-        expr = mapping.expression.replace("|", "\\|")
-        return f"computed: `{expr}`"
     return "—"
