@@ -14,6 +14,8 @@ releases could contain breaking changes when called out explicitly.
   package-level consumption edges alongside application-level edges.
 - Usage graphs and manifests now expose stable application and package identities
   derived from workspace and package names.
+- `modelable registry usage` can now include generated-artifact declarations from
+  one or more compiler manifests, linking each artifact to its contract reference.
 - Added `modelable registry resolve-git` for resolving tracked `.mdl` files from
   an explicit local Git repository ref without fetching or contacting a network.
 - `validate-compat` can emit target compatibility findings as a validated `modelable.consequence/v0` graph with `--format json`.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from modelable.compiler.workspace import Workspace
@@ -11,7 +12,11 @@ from modelable.registry.signature import compute_enum_projection_signature, comp
 USAGE_SCHEMA = "modelable.usage/v0"
 
 
-def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
+def build_usage_graph(
+    workspace: Workspace,
+    *,
+    artifact_manifests: Sequence[Mapping[str, Any]] = (),
+) -> dict[str, Any]:
     """Build the cross-surface usage graph for a validated workspace.
 
     The existing semantic graph supplies model, field, projection, and lineage
@@ -40,6 +45,32 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
             package_id = package_by_domain.get(domain_name)
             if package_id is not None:
                 _add_edge(edges, edge_keys, "consumes", package_id, node["id"])
+
+    artifacts = _artifact_declarations(artifact_manifests)
+    node_by_ref = {
+        str(node["target_ref"]): str(node["id"])
+        for node in nodes
+        if node.get("kind") in {"model_version", "projection_version", "enum_projection"} and "target_ref" in node
+    }
+    for artifact in artifacts:
+        artifact_id = _artifact_node_id(artifact)
+        _add_node(
+            nodes,
+            node_ids,
+            {
+                "id": artifact_id,
+                "kind": "generated_artifact",
+                "label": artifact["path"],
+                "path": artifact["path"],
+                "ref": artifact.get("ref"),
+                "sha256": artifact["sha256"],
+                "target": artifact["target"],
+            },
+        )
+        ref = artifact.get("ref")
+        target_id = node_by_ref.get(ref) if isinstance(ref, str) else None
+        if target_id is not None:
+            _add_edge(edges, edge_keys, "generated_from", artifact_id, target_id)
 
     for domain in workspace.mdl.domains:
         for projection_name, versions in domain.projections.items():
@@ -155,8 +186,12 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
     }
 
 
-def build_usage_manifest(workspace: Workspace) -> dict[str, Any]:
-    graph = build_usage_graph(workspace)
+def build_usage_manifest(
+    workspace: Workspace,
+    *,
+    artifact_manifests: Sequence[Mapping[str, Any]] = (),
+) -> dict[str, Any]:
+    graph = build_usage_graph(workspace, artifact_manifests=artifact_manifests)
     nodes = {node["id"]: node for node in graph["nodes"]}
     fields_by_version: dict[str, list[str]] = {}
     for edge in graph["edges"]:
@@ -181,7 +216,7 @@ def build_usage_manifest(workspace: Workspace) -> dict[str, Any]:
         if package_id is not None:
             reference["package_id"] = package_id
         references.append(reference)
-    return {
+    payload: dict[str, Any] = {
         "$schema": USAGE_SCHEMA,
         "kind": "usage_manifest",
         "application": graph["application"],
@@ -189,6 +224,10 @@ def build_usage_manifest(workspace: Workspace) -> dict[str, Any]:
         "packages": graph["packages"],
         "references": references,
     }
+    artifacts = _artifact_declarations(artifact_manifests)
+    if artifacts:
+        payload["artifacts"] = artifacts
+    return payload
 
 
 def _application_name(workspace: Workspace) -> str:
@@ -228,6 +267,37 @@ def _resolve_source_ref(workspace: Workspace, model: str, version_spec: Any) -> 
 
 def _projection_id(domain: str, projection: str, version: int) -> str:
     return "projection_version:" + declaration_id(domain, projection, version)
+
+
+def _artifact_declarations(manifests: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]:
+    declarations: dict[tuple[str, str], dict[str, str]] = {}
+    for manifest in manifests:
+        target = manifest.get("target")
+        target_name = target.get("name") if isinstance(target, Mapping) else None
+        entries = manifest.get("artifacts")
+        if not isinstance(target_name, str) or not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, Mapping):
+                continue
+            path = entry.get("path")
+            sha256 = entry.get("sha256")
+            if not isinstance(path, str) or not path or not isinstance(sha256, str) or not sha256:
+                continue
+            ref = entry.get("ref")
+            declaration = {
+                "path": path,
+                "sha256": sha256,
+                "target": target_name,
+            }
+            if isinstance(ref, str):
+                declaration["ref"] = ref
+            declarations[(target_name, path)] = declaration
+    return [declarations[key] for key in sorted(declarations)]
+
+
+def _artifact_node_id(artifact: Mapping[str, str | None]) -> str:
+    return f"generated_artifact:{artifact['target']}/{artifact['path']}"
 
 
 def _add_node(nodes: list[dict[str, Any]], node_ids: set[str], node: dict[str, Any]) -> None:

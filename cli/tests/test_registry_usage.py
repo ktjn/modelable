@@ -104,6 +104,47 @@ def test_usage_cli_emits_json() -> None:
     assert payload["kind"] == "usage_manifest"
 
 
+def test_usage_cli_includes_explicit_artifact_manifest(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    artifact_manifest = tmp_path / "modelable-artifact-manifest.json"
+    artifact_manifest.write_text(
+        json.dumps(
+            {
+                "format": "modelable.artifact-manifest.v1",
+                "target": {"name": "typescript"},
+                "artifacts": [{"path": "customer.Customer.v1.ts", "ref": "customer.Customer@1", "sha256": "c" * 64}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["registry", "usage", str(source), "--format", "manifest", "--artifact-manifest", str(artifact_manifest)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["artifacts"] == [
+        {
+            "path": "customer.Customer.v1.ts",
+            "ref": "customer.Customer@1",
+            "sha256": "c" * 64,
+            "target": "typescript",
+        }
+    ]
+
+
 def test_usage_manifest_includes_projection_signatures(tmp_path: Path) -> None:
     source = tmp_path / "models.mdl"
     source.write_text(
@@ -214,3 +255,50 @@ domain customer {
         "source": "projection_field:customer.CustomerView@1#isActive",
         "target": "field:customer.Customer@1#status",
     } in graph["edges"]
+
+
+def test_usage_graph_declares_generated_artifacts_and_manifest_preserves_them(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    artifact_manifest = {
+        "format": "modelable.artifact-manifest.v1",
+        "target": {"name": "typescript", "kind": "language", "status": "implemented"},
+        "artifacts": [{"path": "customer.Customer.v1.ts", "ref": "customer.Customer@1", "sha256": "a" * 64}],
+    }
+
+    workspace = load_workspace(source)
+    graph = build_usage_graph(workspace, artifact_manifests=(artifact_manifest,))
+    manifest = build_usage_manifest(workspace, artifact_manifests=(artifact_manifest,))
+
+    assert {
+        "kind": "generated_from",
+        "source": "generated_artifact:typescript/customer.Customer.v1.ts",
+        "target": "model_version:customer.Customer@1",
+    } in graph["edges"]
+    assert {
+        "id": "generated_artifact:typescript/customer.Customer.v1.ts",
+        "kind": "generated_artifact",
+        "label": "customer.Customer.v1.ts",
+        "path": "customer.Customer.v1.ts",
+        "ref": "customer.Customer@1",
+        "sha256": "a" * 64,
+        "target": "typescript",
+    } in graph["nodes"]
+    assert manifest["artifacts"] == [
+        {
+            "path": "customer.Customer.v1.ts",
+            "ref": "customer.Customer@1",
+            "sha256": "a" * 64,
+            "target": "typescript",
+        }
+    ]

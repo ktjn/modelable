@@ -64,3 +64,18 @@ def test_usage_protocol_rejects_invalid_field_prefix() -> None:
 
     with pytest.raises(protocol.UsageProtocolError, match="must belong to reference"):
         protocol.validate_usage_manifest(manifest)
+
+
+def test_usage_protocol_round_trips_generated_artifacts() -> None:
+    protocol = _protocol()
+    manifest = _manifest()
+    manifest["artifacts"] = [
+        {
+            "path": "customer.Customer.v1.ts",
+            "ref": "customer.Customer@1",
+            "sha256": "b" * 64,
+            "target": "typescript",
+        }
+    ]
+
+    assert json.loads(protocol.serialize_usage_manifest(manifest)) == manifest

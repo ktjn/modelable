@@ -1753,6 +1753,7 @@ modelable registry rebuild-index [--out DIR]
 modelable registry status [--out DIR] [--format text|json]
 modelable registry prune [--out DIR]
 modelable registry usage SOURCE [--format text|json|manifest]
+  [--artifact-manifest FILE]...
 ```
 
 Compilation can compose local source files with a validated offline snapshot
@@ -1785,7 +1786,10 @@ validation and target generation.
   of exact model references and signatures with `--format manifest`. Both forms
   include a path-independent `application_id`, configured package IDs, and
   `package_id` on references assigned to a package; the existing `application`
-  name remains for compatibility.
+  name remains for compatibility. Pass `--artifact-manifest FILE` to include
+  generated artifact declarations; the graph adds `generated_artifact` nodes and
+  `generated_from` edges, while the manifest carries their target, path, ref,
+  and SHA-256 hash. The option is repeatable for multiple target outputs.
 
 The lock and object files are the durable snapshot; `registry.db` remains a
 rebuildable compiler index. Lock requirements retain the requested version
