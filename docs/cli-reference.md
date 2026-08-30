@@ -256,7 +256,7 @@ modelable diff customer.Customer@1 customer.Customer@2
 ### 5.5 `validate-compat` — Validate target compatibility
 
 ```text
-modelable validate-compat --from OLD --to NEW --target json-schema|sql-postgres|sql-clickhouse|avro|protobuf|grpc|openapi
+modelable validate-compat --from OLD --to NEW --target json-schema|sql-postgres|sql-clickhouse|fhir-profile|avro|protobuf|grpc|openapi
 ```
 
 Compares generated target artifacts from two Modelable workspaces without
@@ -270,7 +270,7 @@ non-zero.
 |:-----|:---------|:------------|
 | `--from` | Yes | Old `.mdl` file or workspace directory |
 | `--to` | Yes | New `.mdl` file or workspace directory |
-| `--target` | Yes | Target compatibility profile: `json-schema`, `sql-postgres`, `sql-clickhouse`, `avro`, `protobuf`, `grpc`, or `openapi` |
+| `--target` | Yes | Target compatibility profile: `json-schema`, `sql-postgres`, `sql-clickhouse`, `fhir-profile`, `avro`, `protobuf`, `grpc`, or `openapi` |
 
 **Examples:**
 
@@ -282,6 +282,7 @@ modelable validate-compat --from ./old-models --to ./models --target avro
 modelable validate-compat --from ./old-models --to ./models --target json-schema
 modelable validate-compat --from ./old-models --to ./models --target sql-postgres
 modelable validate-compat --from ./old-models --to ./models --target sql-clickhouse
+modelable validate-compat --from ./old-models --to ./models --target fhir-profile
 ```
 
 ---
