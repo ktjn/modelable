@@ -13,9 +13,11 @@ from modelable.compat.targets import (
     SEVERITIES,
     compare_governance_review,
     compare_grpc_artifacts,
+    compare_model_storage_migration,
     compare_openapi_artifacts,
     compare_projection_rebuild,
     compare_protobuf_manifests,
+    compare_semantic_compatibility,
     compare_source_representation,
     compare_storage_migration,
 )
@@ -772,6 +774,43 @@ def test_source_representation_classifies_breaking_and_compatible_changes():
     assert removed.axis == "source_compatibility"
     assert added.severity == "compatible"
     assert added.axis == "source_compatibility"
+
+
+def test_semantic_compatibility_ignores_storage_changes_from_model_report():
+    mdl = parse_text_to_ir(
+        """
+        domain billing {
+          owner: "billing"
+          entity Order @ 1 (additive) {
+            @key orderId: uuid
+          }
+          entity Order @ 2 (additive) {
+            @key orderId: uuid
+          }
+          index Order @ 2 {
+            primary orderId
+            secondary by_order {
+              key: [orderId]
+            }
+          }
+        }
+        """
+    )
+
+    from modelable.compat.checker import check_model_version_compatibility
+
+    model_report = check_model_version_compatibility(mdl, "billing", "Order", 1, 2)
+    semantic_report = compare_semantic_compatibility(model_report)
+
+    assert model_report.status == "compatible"
+    assert [change.kind for change in model_report.semantic_changes] == []
+    assert len(model_report.storage_changes) == 2
+    assert all(change.kind == "index_changed" for change in model_report.storage_changes)
+    assert semantic_report.status == "compatible"
+    assert semantic_report.findings == []
+    storage_report = compare_model_storage_migration(model_report)
+    assert storage_report.status == "migration_required"
+    assert len(storage_report.findings) == 2
 
 
 def test_source_representation_is_the_json_representation_axis_by_reuse():

@@ -37,6 +37,8 @@ class CompatibilityReport:
     status: str
     findings: list[str] = field(default_factory=list)
     changes: list[FieldChange] = field(default_factory=list)
+    semantic_changes: list[FieldChange] = field(default_factory=list)
+    storage_changes: list[FieldChange] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -88,11 +90,12 @@ def check_model_version_compatibility(
     """Compare two published versions and classify the change set."""
     old_version = _find_version(mdl, domain_name, model_name, from_version)
     new_version = _find_version(mdl, domain_name, model_name, to_version)
-    changes = compare_model_versions(old_version, new_version)
+    semantic_changes = compare_model_versions(old_version, new_version)
     old_index = _find_index_decl(mdl, domain_name, model_name, from_version)
     new_index = _find_index_decl(mdl, domain_name, model_name, to_version)
-    changes.extend(compare_index_decls(old_index, new_index))
-    changes = _refine_enum_version_changes(mdl, changes, from_model_domain=domain_name)
+    storage_changes = compare_index_decls(old_index, new_index)
+    semantic_changes = _refine_enum_version_changes(mdl, semantic_changes, from_model_domain=domain_name)
+    changes = [*semantic_changes, *storage_changes]
     findings = [describe_field_change(change) for change in changes]
     status = "breaking" if _has_breaking_change(changes) else "compatible"
     return CompatibilityReport(
@@ -103,6 +106,8 @@ def check_model_version_compatibility(
         status=status,
         findings=findings,
         changes=changes,
+        semantic_changes=semantic_changes,
+        storage_changes=storage_changes,
     )
 
 
