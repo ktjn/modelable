@@ -7,6 +7,7 @@ from modelable.commands.capabilities import register_capabilities_commands
 from modelable.commands.codegen import register_codegen_commands
 from modelable.commands.compile import register_compile_commands
 from modelable.commands.config import register_config_commands
+from modelable.commands.consequence import register_consequence_commands
 from modelable.commands.create import register_create_commands
 from modelable.commands.diff import register_diff_commands
 from modelable.commands.docs_ask import register_docs_ask_commands
@@ -43,6 +44,7 @@ def cli() -> None:
 
 register_workspace_commands(cli)
 register_compile_commands(cli)
+register_consequence_commands(cli)
 register_config_commands(cli)
 register_create_commands(cli)
 register_diff_commands(cli)

@@ -8,6 +8,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added `modelable consequence validate` for standalone
+  `modelable.consequence/v0` graph validation and canonical JSON output.
 - Added `modelable plan validate` for standalone `modelable.plan/v0`
   validation and deterministic JSON serialization.
 - Compilation now verifies that selected targets accept the emitted plan protocol before writing state.
