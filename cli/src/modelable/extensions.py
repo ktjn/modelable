@@ -241,6 +241,16 @@ def parse_extension_descriptor(data: Mapping[str, Any]) -> ExtensionDescriptor:
     )
 
 
+def validate_extension_plan_version(descriptor: ExtensionDescriptor, plan_version: str) -> None:
+    """Ensure an extension accepts the normalized plan protocol being supplied."""
+    if descriptor.protocol != PROTOCOL:
+        raise ExtensionDescriptorError(f"descriptor protocol must be {PROTOCOL!r}")
+    if not isinstance(plan_version, str) or not plan_version:
+        raise ExtensionDescriptorError("plan protocol version must be a non-empty string")
+    if plan_version not in descriptor.accepted_plan_versions:
+        raise ExtensionDescriptorError(f"extension {descriptor.id!r} does not accept plan protocol {plan_version!r}")
+
+
 def pin_extension_descriptor(
     descriptor: ExtensionDescriptor,
     implementation_hash: str,

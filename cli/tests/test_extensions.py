@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from modelable.artifact_manifest import _compiler_version
-from modelable.emitters.targets import get_codegen_target
+from modelable.emitters.targets import get_codegen_target, list_implemented_codegen_targets
 from modelable.extensions import (
     PROTOCOL,
     ExtensionDescriptor,
@@ -18,6 +18,7 @@ from modelable.extensions import (
     parse_extension_pin,
     pin_extension_descriptor,
     validate_extension_pin,
+    validate_extension_plan_version,
 )
 
 
@@ -330,3 +331,63 @@ def test_extension_trust_policy_rejects_noncanonical_pins() -> None:
 
     with pytest.raises(ExtensionDescriptorError, match="canonical"):
         ExtensionTrustPolicy(allowed_subprocess_pins=(pin,))
+
+
+def test_extension_plan_version_admission_accepts_declared_protocol() -> None:
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+
+    validate_extension_plan_version(descriptor, "modelable.plan/v0")
+
+
+def test_extension_plan_version_admission_rejects_undeclared_protocol() -> None:
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+
+    with pytest.raises(ExtensionDescriptorError, match="does not accept plan protocol"):
+        validate_extension_plan_version(descriptor, "modelable.plan/v1")
+
+
+def test_extension_plan_version_admission_rejects_invalid_version_input() -> None:
+    descriptor = get_codegen_target("typescript").extension_descriptor()
+
+    for plan_version in ("", 42):
+        with pytest.raises(ExtensionDescriptorError, match="plan protocol version"):
+            validate_extension_plan_version(descriptor, plan_version)
+
+
+def test_extension_plan_version_admission_rejects_invalid_descriptor_protocol() -> None:
+    descriptor = ExtensionDescriptor(
+        protocol="modelable.extension/v2",
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+
+    with pytest.raises(ExtensionDescriptorError, match="descriptor protocol"):
+        validate_extension_plan_version(descriptor, "modelable.plan/v0")
+
+
+def test_implemented_targets_advertise_plan_v0() -> None:
+    for target in list_implemented_codegen_targets():
+        validate_extension_plan_version(target.extension_descriptor(), "modelable.plan/v0")
