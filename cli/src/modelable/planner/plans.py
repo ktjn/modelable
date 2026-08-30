@@ -17,6 +17,11 @@ from modelable.parser.ir import (
     ModelVersion,
     ProjectionField,
     ProjectionVersion,
+    VersionExact,
+    VersionMin,
+    VersionPinned,
+    VersionRange,
+    VersionSpec,
 )
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
 from modelable.planner.protocol import PLAN_SCHEMA, PlanDocument, serialize_plan
@@ -29,11 +34,22 @@ def build_plan(
     pv: ProjectionVersion,
     lineage: ProjectionLineage,
     mdl: MdlFile,
-) -> dict:
+) -> PlanDocument:
     """Return the plan document dict for a single projection version."""
     source_block = _resolve_source_block(pv.source.model, pv.source.version, pv.source.alias, mdl)
 
-    joins_block = [_resolve_source_block(join.model, join.version, join.alias, mdl, on=join.on) for join in pv.joins]
+    joins_block = [
+        _resolve_source_block(
+            join.model,
+            join.version,
+            join.alias,
+            mdl,
+            on=join.on,
+            join_kind=join.join_kind,
+            cardinality=join.cardinality,
+        )
+        for join in pv.joins
+    ]
     revalidation_reasons = _collect_revalidation_reasons(source_block, joins_block)
     governance_findings = [
         finding.as_dict() for finding in build_projection_governance_findings(domain_name, projection_name, pv, mdl)
@@ -41,10 +57,10 @@ def build_plan(
 
     lineage_by_field = {fl.field_name: fl for fl in lineage.fields}
 
-    fields_block = []
+    fields_block: list[dict[str, object]] = []
     for proj_field in pv.fields:
         mapping = proj_field.mapping
-        entry: dict = {"name": proj_field.name}
+        entry: dict[str, object] = {"name": proj_field.name}
         if isinstance(mapping, DirectMapping):
             entry["kind"] = "direct"
             entry["source_alias"] = mapping.source_alias
@@ -71,6 +87,7 @@ def build_plan(
         "governance_findings": governance_findings,
         "source": source_block,
         "joins": joins_block,
+        "where": pv.where,
         "group_by": pv.group_by,
         "fields": fields_block,
         "planner_metadata": {
@@ -99,11 +116,13 @@ def write_plans(workspace: Workspace, plans_dir: Path) -> list[Path]:
 
 def _resolve_source_block(
     model_ref: str,
-    version_spec,
+    version_spec: VersionSpec,
     alias: str,
     mdl: MdlFile,
     on: str | None = None,
-) -> dict:
+    join_kind: str | None = None,
+    cardinality: str | None = None,
+) -> dict[str, object]:
     try:
         resolved = resolve_model_ref(mdl, model_ref, version_spec)
         resolved_version = resolved.version.version
@@ -115,8 +134,9 @@ def _resolve_source_block(
     else:
         resolved_block = _resolved_declaration_block(resolved, mdl)
 
-    block: dict = {
+    block: dict[str, object] = {
         "model": model_ref,
+        "version": _version_spec(version_spec),
         "resolved_version": resolved_version,
         "alias": alias,
         "change_kind": change_kind,
@@ -124,7 +144,25 @@ def _resolve_source_block(
     }
     if on is not None:
         block["on"] = on
+        block["kind"] = join_kind
+        block["cardinality"] = cardinality
     return block
+
+
+def _version_spec(version_spec: object) -> dict[str, object]:
+    if isinstance(version_spec, VersionExact):
+        return {"kind": "exact", "version": version_spec.version}
+    if isinstance(version_spec, VersionRange):
+        return {
+            "kind": "range",
+            "minInclusive": version_spec.min_inclusive,
+            "maxExclusive": version_spec.max_exclusive,
+        }
+    if isinstance(version_spec, VersionMin):
+        return {"kind": "min", "minInclusive": version_spec.min_inclusive}
+    if isinstance(version_spec, VersionPinned):
+        return {"kind": "pinned", "version": version_spec.version, "contentHash": version_spec.content_hash}
+    raise TypeError(f"unsupported version specification: {type(version_spec).__name__}")
 
 
 def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dict[str, object]:
@@ -238,7 +276,7 @@ def _field_owner(field: FieldDef | ProjectionField | None) -> str | None:
     return None
 
 
-def _collect_revalidation_reasons(source_block: dict, joins_block: list[dict]) -> list[str]:
+def _collect_revalidation_reasons(source_block: dict[str, object], joins_block: list[dict[str, object]]) -> list[str]:
     reasons: list[str] = []
 
     for block in [source_block, *joins_block]:

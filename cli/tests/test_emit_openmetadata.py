@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.openmetadata import emit_openmetadata
+from modelable.emitters.openmetadata_plan import emit_openmetadata_projection_plan
+from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import load_plan
 
 
 def test_emit_openmetadata(tmp_path):
@@ -139,3 +147,121 @@ domain customer {
             "kind": "direct",
         },
     ]
+
+
+def test_openmetadata_projection_consumer_uses_validated_plan_data(tmp_path):
+    fixture = Path(__file__).parent / "fixtures" / "plan_v0" / "billing.BillingCustomer.v1.plan.json"
+    plan = load_plan(fixture)
+
+    asset, lineage = emit_openmetadata_projection_plan(plan)
+
+    assert asset == {
+        "name": "BillingCustomer",
+        "kind": "projection",
+        "version": 1,
+        "fullyQualifiedName": "modelable.billing.BillingCustomer.v1",
+        "source": {"model": "customer.Customer", "version": {"kind": "exact", "version": 1}, "alias": "c"},
+        "fields": [
+            {
+                "name": "billingId",
+                "mapping": "direct",
+                "source": "customer.Customer@1.customerId",
+                "pii": False,
+                "classification": None,
+            }
+        ],
+    }
+    assert lineage == [
+        {
+            "from": "modelable.customer.Customer.v1.customerId",
+            "to": "modelable.billing.BillingCustomer.v1.billingId",
+            "kind": "direct",
+        }
+    ]
+
+
+def test_openmetadata_projection_consumer_preserves_join_source_and_filter_facts(tmp_path):
+    (tmp_path / "joined.mdl").write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) { @key customerId: uuid }
+}
+domain account {
+  owner: "account-team"
+  entity Account @ 2 (additive) { @key accountId: uuid name: string }
+}
+domain billing {
+  owner: "billing-team"
+  projection BillingCustomer @ 1
+    from customer.Customer @ >=1<3 as c
+    left join account.Account @ >=2<4 as a on c.customerId == a.accountId
+    cardinality: many
+    where c.customerId != null
+  {
+    accountName <- a.name
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    assert workspace.errors == []
+    plan = next(plan for plan in build_plan_documents(workspace) if plan["domain"] == "billing")
+
+    asset, lineage = emit_openmetadata_projection_plan(plan)
+
+    assert asset["source"] == {
+        "model": "customer.Customer",
+        "version": {"kind": "range", "minInclusive": 1, "maxExclusive": 3},
+        "alias": "c",
+    }
+    assert asset["where"] == "c.customerId != null"
+    assert asset["joins"] == [
+        {
+            "model": "account.Account",
+            "version": {"kind": "range", "minInclusive": 2, "maxExclusive": 4},
+            "alias": "a",
+            "on": "c.customerId == a.accountId",
+            "kind": "left",
+            "cardinality": "many",
+        }
+    ]
+    assert asset["fields"] == [
+        {
+            "name": "accountName",
+            "mapping": "direct",
+            "source": "account.Account@>=2<4.name",
+            "pii": False,
+            "classification": None,
+        }
+    ]
+    assert lineage == [
+        {
+            "from": "modelable.account.Account.v2.name",
+            "to": "modelable.billing.BillingCustomer.v1.accountName",
+            "kind": "direct",
+        }
+    ]
+
+
+def test_openmetadata_plan_consumer_imports_without_parser_modules() -> None:
+    source_root = Path(__file__).parents[1] / "src"
+    script = """
+import builtins
+
+real_import = builtins.__import__
+
+def guarded_import(name, *args, **kwargs):
+    if name.startswith('modelable.parser'):
+        raise AssertionError('OpenMetadata plan consumer imported parser internals')
+    return real_import(name, *args, **kwargs)
+
+builtins.__import__ = guarded_import
+from modelable.emitters.openmetadata_plan import emit_openmetadata_projection_plan
+assert emit_openmetadata_projection_plan
+"""
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(source_root)
+    result = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr

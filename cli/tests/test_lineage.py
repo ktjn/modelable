@@ -113,10 +113,53 @@ def test_plan_document_structure():
     assert plan["source"]["resolved"]["kind"] == "model"
     assert plan["source"]["resolved"]["model_kind"] == "entity"
     assert plan["source"]["resolved"]["fields"][0]["name"] == "customerId"
+    assert plan["source"]["version"] == {"kind": "exact", "version": 1}
     assert plan["joins"] == []
     assert plan["group_by"] == []
     assert "fields" in plan
     assert "planner_metadata" in plan
+
+
+def test_plan_document_preserves_projection_filter_and_join_facts() -> None:
+    mdl = parse_text_to_ir(
+        textwrap.dedent(
+            """
+            domain customer {
+              owner: "test-team"
+              entity Customer @ 1 (additive) { @key customerId: uuid }
+            }
+            domain account {
+              owner: "test-team"
+              entity Account @ 2 (additive) { @key accountId: uuid }
+            }
+            domain billing {
+              owner: "test-team"
+              projection BillingCustomer @ 1
+                from customer.Customer @ >=1<3 as c
+                left join account.Account @ >=2<4 as a on c.customerId = a.accountId
+                cardinality: many
+                where c.customerId != null
+              {
+                billingId <- c.customerId
+              }
+            }
+            """
+        )
+    )
+    pv = mdl.domains[2].projections["BillingCustomer"][0]
+    lineage = build_projection_lineage("billing", "BillingCustomer", pv, mdl)
+    plan = build_plan("billing", "BillingCustomer", pv, lineage, mdl)
+
+    assert plan["source"]["version"] == {"kind": "range", "minInclusive": 1, "maxExclusive": 3}
+    assert plan["where"] == "c.customerId != null"
+    assert len(plan["joins"]) == 1
+    join = plan["joins"][0]
+    assert join["model"] == "account.Account"
+    assert join["version"] == {"kind": "range", "minInclusive": 2, "maxExclusive": 4}
+    assert join["resolved_version"] == 2
+    assert join["on"] == "c.customerId = a.accountId"
+    assert join["kind"] == "left"
+    assert join["cardinality"] == "many"
 
 
 def test_plan_field_kinds():
@@ -227,6 +270,26 @@ def test_plan_protocol_rejects_invalid_structure():
     mismatched_declaration["source"]["resolved"]["name"] = "OtherCustomer"
     with pytest.raises(PlanProtocolError, match="identity"):
         validate_plan(mismatched_declaration)
+
+    mismatched_version = copy.deepcopy(plan)
+    mismatched_version["source"]["version"]["version"] = 2
+    with pytest.raises(PlanProtocolError, match="requested version"):
+        validate_plan(mismatched_version)
+
+    unknown_alias = copy.deepcopy(plan)
+    unknown_alias["fields"][0]["source_alias"] = "missing"
+    with pytest.raises(PlanProtocolError, match="relation"):
+        validate_plan(unknown_alias)
+
+    unknown_field = copy.deepcopy(plan)
+    unknown_field["fields"][0]["source_field"] = "missing"
+    with pytest.raises(PlanProtocolError, match="present"):
+        validate_plan(unknown_field)
+
+    unresolved_with_version = copy.deepcopy(plan)
+    unresolved_with_version["source"]["resolved"] = None
+    with pytest.raises(PlanProtocolError, match="resolved_version"):
+        validate_plan(unresolved_with_version)
 
 
 def test_plan_protocol_rejects_duplicate_json_keys(tmp_path):

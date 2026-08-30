@@ -27,6 +27,7 @@ def test_openlineage_plan_consumer_emits_resolved_joins_and_type_shapes(tmp_path
     plan["joins"] = [
         {
             "model": "account.Account",
+            "version": {"kind": "exact", "version": 2},
             "resolved_version": 2,
             "alias": "a",
             "change_kind": None,
@@ -49,6 +50,8 @@ def test_openlineage_plan_consumer_emits_resolved_joins_and_type_shapes(tmp_path
                 ],
             },
             "on": "c.accountId = a.accountId",
+            "kind": "inner",
+            "cardinality": None,
         }
     ]
     plan["fields"][0]["lineage"] = ["customer.Customer@1.customerId", "account.Account@2.accountId"]
