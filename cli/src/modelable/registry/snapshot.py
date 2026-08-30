@@ -41,6 +41,7 @@ from modelable.parser.ir import (
 )
 from modelable.registry.enum_numbers import EnumNumberAllocation
 from modelable.registry.enum_numbers import read_lock_file as read_enum_numbers_lock_file
+from modelable.registry.ids import read_lock_file as read_registry_ids_lock_file
 from modelable.registry.resolver import resolve_enum_type_ref
 from modelable.registry.signature import (
     compute_enum_projection_signature,
@@ -109,6 +110,7 @@ def resolve_workspace_snapshot(
     *,
     extension_pins: tuple[ExtensionPin, ...] = (),
     enum_numbers_path: str | Path | None = None,
+    registry_ids_path: str | Path | None = None,
 ) -> SnapshotResult:
     """Write a deterministic, content-addressed snapshot of a validated workspace.
 
@@ -124,6 +126,8 @@ def resolve_workspace_snapshot(
     paths.objects.mkdir(parents=True, exist_ok=True)
     if enum_numbers_path is None:
         enum_numbers_path = _default_enum_numbers_path(workspace)
+    if registry_ids_path is None:
+        registry_ids_path = _default_registry_ids_path(workspace)
 
     source_paths = {id(domain): source.path for source in workspace.sources for domain in source.mdl.domains}
     entries: list[dict[str, Any]] = []
@@ -181,9 +185,12 @@ def resolve_workspace_snapshot(
         "requirements": _build_requirements(entries),
         "usage": build_usage_manifest(workspace),
         "allocations": {
+            "registry_ids": _serialize_registry_ids(
+                read_registry_ids_lock_file(Path(registry_ids_path)) if registry_ids_path is not None else {}
+            ),
             "protobuf_enums": _serialize_enum_allocations(
                 read_enum_numbers_lock_file(Path(enum_numbers_path)) if enum_numbers_path is not None else {}
-            )
+            ),
         },
     }
     _atomic_write_json(paths.lock, lock)
@@ -402,6 +409,24 @@ def _default_enum_numbers_path(workspace: Workspace) -> Path | None:
     return None
 
 
+def _default_registry_ids_path(workspace: Workspace) -> Path | None:
+    for source in workspace.sources:
+        if source.path is not None:
+            candidate = source.path.parent / "registry-ids.lock"
+            if candidate.exists():
+                return candidate
+    return None
+
+
+def _serialize_registry_ids(ids: dict[str, int]) -> list[dict[str, Any]]:
+    serialized: list[dict[str, Any]] = []
+    for name, allocated_id in sorted(ids.items(), key=lambda item: item[1]):
+        entry: dict[str, Any] = {"name": name, "id": allocated_id}
+        entry["content_hash"] = _content_hash(entry)
+        serialized.append(entry)
+    return serialized
+
+
 def _verify_allocations(allocations: Any, errors: list[str]) -> None:
     if not isinstance(allocations, dict):
         errors.append("registry lock allocations must be an object")
@@ -409,7 +434,39 @@ def _verify_allocations(allocations: Any, errors: list[str]) -> None:
     protobuf_enums = allocations.get("protobuf_enums")
     if not isinstance(protobuf_enums, list):
         errors.append("registry lock protobuf enum allocations must be an array")
-        return
+    else:
+        _verify_enum_allocations(protobuf_enums, errors)
+    registry_ids = allocations.get("registry_ids")
+    if not isinstance(registry_ids, list):
+        errors.append("registry lock registry ID allocations must be an array")
+    else:
+        _verify_registry_ids(registry_ids, errors)
+
+
+def _verify_registry_ids(entries: list[Any], errors: list[str]) -> None:
+    ids: list[int] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            errors.append("registry lock contains a non-object registry ID allocation")
+            continue
+        name = entry.get("name")
+        allocated_id = entry.get("id")
+        content_hash = entry.get("content_hash")
+        if not isinstance(name, str) or not isinstance(allocated_id, int) or not isinstance(content_hash, str):
+            errors.append("registry lock registry ID allocation requires name, id, and content_hash")
+            continue
+        ids.append(allocated_id)
+        if _content_hash({"name": name, "id": allocated_id}) != content_hash:
+            errors.append(f"registry ID allocation {name} content hash mismatch")
+        if allocated_id <= 0:
+            errors.append(f"registry ID allocation {name} must be positive")
+    if ids != sorted(ids):
+        errors.append("registry lock registry ID allocations are not deterministic")
+    if len(ids) != len(set(ids)):
+        errors.append("registry lock registry ID allocations contain duplicate IDs")
+
+
+def _verify_enum_allocations(protobuf_enums: list[Any], errors: list[str]) -> None:
     names: list[str] = []
     for entry in protobuf_enums:
         if not isinstance(entry, dict):

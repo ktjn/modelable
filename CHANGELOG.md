@@ -32,6 +32,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Registry snapshots now persist and verify registry-ID allocations needed for
+  reproducible semantic identity.
 - Registry snapshots now persist and verify Protobuf enum-number allocations
   needed for reproducible wire compatibility.
 - Registry snapshots now persist and verify deterministic compiled usage evidence
