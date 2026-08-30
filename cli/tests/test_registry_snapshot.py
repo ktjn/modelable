@@ -11,6 +11,8 @@ from modelable.compiler.workspace import load_workspace
 from modelable.extensions import PROTOCOL, ExtensionDescriptor, pin_extension_descriptor
 from modelable.registry.enum_numbers import allocate_enum_numbers
 from modelable.registry.enum_numbers import write_lock_file as write_enum_numbers_lock_file
+from modelable.registry.ids import allocate_registry_ids
+from modelable.registry.ids import write_lock_file as write_registry_ids_lock_file
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.resolver import find_dependents
 from modelable.registry.snapshot import (
@@ -151,6 +153,55 @@ domain orders {
     errors = verify_snapshot(result.lock_path.parent)
 
     assert any("protobuf enum allocation orders.OrderStatus content hash" in error for error in errors)
+
+
+def test_resolve_captures_registry_ids_in_lock(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic CommandId : u32 { registry: true }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    registry_ids_path = tmp_path / "registry-ids.lock"
+    write_registry_ids_lock_file(registry_ids_path, allocate_registry_ids(workspace.mdl, {}))
+
+    result = resolve_workspace_snapshot(workspace, tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+
+    allocation = lock["allocations"]["registry_ids"][0]
+    assert allocation["name"] == "platform.CommandId"
+    assert allocation["id"] == 1
+    assert len(allocation["content_hash"]) == 64
+    assert verify_snapshot(result.lock_path.parent) == []
+
+
+def test_verify_rejects_tampered_registry_id_allocation(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic CommandId : u32 { registry: true }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    registry_ids_path = tmp_path / "registry-ids.lock"
+    write_registry_ids_lock_file(registry_ids_path, allocate_registry_ids(workspace.mdl, {}))
+    result = resolve_workspace_snapshot(workspace, tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    lock["allocations"]["registry_ids"][0]["id"] = 99
+    result.lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    errors = verify_snapshot(result.lock_path.parent)
+
+    assert any("registry ID allocation platform.CommandId content hash" in error for error in errors)
 
 
 def test_resolve_records_exact_dependency_requirement(tmp_path: Path) -> None:
