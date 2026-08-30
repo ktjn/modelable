@@ -126,6 +126,21 @@ domain platform {
     assert not request.out_dir.exists()
 
 
+def test_compile_applies_workspace_relative_sql_overlay(tmp_path: Path) -> None:
+    source = write_workspace(tmp_path)
+    overlay = tmp_path / "postgres.toml"
+    overlay.write_text(
+        'target = "sql-postgres"\nversion = 1\n\n[models."platform.Order@1"]\ntable = "orders_view"\n',
+        encoding="utf-8",
+    )
+    request = request_for(tmp_path, source, "sql-postgres", overlay_path=Path("postgres.toml"))
+
+    CompilationService().execute_direct(request)
+
+    sql = (request.out_dir / "platform.OrderView.v1.sql").read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS orders_view" in sql
+
+
 def test_projection_preflight_uses_current_domain_model_names(tmp_path: Path) -> None:
     source = write_workspace(
         tmp_path,
@@ -245,6 +260,23 @@ def test_apply_rejects_stale_source(tmp_path: Path) -> None:
 
     assert not pending.staging_dir.exists()
     assert not (tmp_path / ".modelable" / "locks").exists()
+
+
+def test_apply_rejects_stale_overlay(tmp_path: Path) -> None:
+    source = write_workspace(tmp_path)
+    overlay = tmp_path / "postgres.toml"
+    overlay.write_text('target = "sql-postgres"\nversion = 1\n', encoding="utf-8")
+    service = CompilationService(temp_root=tmp_path.parent)
+    pending = service.preview(
+        CompilationRequest(source=source, target="sql-postgres", overlay_path=Path("postgres.toml")),
+        policy=CompilationPolicy.conversation(),
+    )
+    overlay.write_text('target = "sql-postgres"\nversion = 2\n', encoding="utf-8")
+
+    with pytest.raises(StaleCompilationError, match="source"):
+        service.apply(pending, confirmation=confirmation_for(pending))
+
+    assert not pending.staging_dir.exists()
 
 
 def test_apply_rejects_changed_resolved_parent_even_with_same_bytes(
