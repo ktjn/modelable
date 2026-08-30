@@ -7,15 +7,23 @@ from pathlib import Path
 import click
 
 from modelable.commands.common import console, load_workspace_or_exit
-from modelable.compat.checker import check_model_version_compatibility
-from modelable.compat.targets import compare_model_storage_migration
+from modelable.compat.checker import (
+    CompatibilityReport,
+    ProjectionCompatibilityReport,
+    check_model_version_compatibility,
+    check_projection_version_compatibility,
+)
+from modelable.compat.targets import compare_model_storage_migration, compare_projection_rebuild
 from modelable.consequence import (
     build_consequence_graph,
     build_model_consequences,
+    build_projection_consequences,
     build_target_consequences,
     change_nodes_for_report,
+    projection_change_nodes,
 )
 from modelable.llm.context import parse_model_ref_version_spec
+from modelable.parser.ir import ProjectionVersion
 from modelable.registry.resolver import resolve_model_ref
 
 
@@ -42,20 +50,37 @@ def impact(from_ref: str, to_ref: str, source: Path, output_format: str) -> None
             raise ValueError("impact requires refs of the same definition kind")
         if not hasattr(old.version, "fields") or not hasattr(new.version, "fields"):
             raise ValueError("impact currently supports model and projection versions")
-        report = check_model_version_compatibility(
-            workspace.mdl,
-            old.domain_name,
-            old.model_name,
-            old.version.version,
-            new.version.version,
-        )
+        report: CompatibilityReport | ProjectionCompatibilityReport
+        if isinstance(old.version, ProjectionVersion):
+            report = check_projection_version_compatibility(
+                workspace.mdl,
+                old.domain_name,
+                old.model_name,
+                old.version.version,
+                new.version.version,
+            )
+        else:
+            report = check_model_version_compatibility(
+                workspace.mdl,
+                old.domain_name,
+                old.model_name,
+                old.version.version,
+                new.version.version,
+            )
     except (LookupError, ValueError) as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
 
-    consequences = build_model_consequences(workspace, report)
-    consequences.extend(build_target_consequences(report, compare_model_storage_migration(report)))
-    change_nodes = change_nodes_for_report(report)
+    if isinstance(report, ProjectionCompatibilityReport):
+        consequences = build_projection_consequences(
+            report,
+            compare_projection_rebuild(report.domain_name, report.projection_name, report.changes),
+        )
+        change_nodes = projection_change_nodes(report)
+    else:
+        consequences = build_model_consequences(workspace, report)
+        consequences.extend(build_target_consequences(report, compare_model_storage_migration(report)))
+        change_nodes = change_nodes_for_report(report)
     payload = {
         "kind": "consequence_report",
         "from": from_ref,

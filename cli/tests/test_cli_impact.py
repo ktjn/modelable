@@ -159,3 +159,48 @@ domain billing {
     graph = validate_consequence_graph(payload["consequence_graph"])
     assert any(node["action"] == "storage_migration" for node in graph["nodes"] if node["kind"] == "action")
     assert any(node["id"] == "change:index_changed:by_order" for node in graph["nodes"])
+
+
+def test_impact_graph_includes_projection_rebuild_consequence(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    status: string
+  }
+  projection OrderView @ 1 from orders.Order @ 1 as o {
+    orderId <- o.orderId
+    isShipped = o.status == "shipped"
+  }
+  projection OrderView @ 2 from orders.Order @ 1 as o {
+    orderId <- o.orderId
+    isShipped = o.status == "delivered"
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "orders.OrderView@1",
+            "--to",
+            "orders.OrderView@2",
+            "--path",
+            str(source),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert any(item["action"] == "projection_rebuild" for item in payload["consequences"])
+    graph = validate_consequence_graph(payload["consequence_graph"])
+    assert any(node["action"] == "projection_rebuild" for node in graph["nodes"] if node["kind"] == "action")

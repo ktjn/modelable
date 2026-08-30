@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from modelable.compat.checker import CompatibilityReport, analyze_impact
+from modelable.compat.checker import CompatibilityReport, ProjectionCompatibilityReport, analyze_impact
+from modelable.compat.diff import ProjectionChange
 from modelable.compat.targets import TargetCompatibilityReport
 from modelable.compiler.workspace import Workspace
 from modelable.consequence_protocol import CONSEQUENCE_SCHEMA, validate_consequence_graph
@@ -138,6 +139,45 @@ def build_target_consequences(
     return consequences
 
 
+def build_projection_consequences(
+    report: ProjectionCompatibilityReport,
+    target_report: TargetCompatibilityReport,
+) -> list[Consequence]:
+    """Build direct and target consequences for one projection transition."""
+    source_ref = f"{report.domain_name}.{report.projection_name}@{report.from_version}"
+    target_ref = f"{report.domain_name}.{report.projection_name}@{report.to_version}"
+    consequences = [
+        Consequence(
+            action=ACTION_BREAKING if report.status == "breaking" else ACTION_RECOMPILE,
+            subject=target_ref,
+            status=report.status,
+            reason="direct projection change",
+            causal_path=(source_ref, target_ref),
+            causal_changes=(
+                tuple(_projection_change_node_id(change) for change in report.changes)
+                if report.status == "breaking"
+                else ()
+            ),
+        )
+    ]
+    for finding in target_report.findings:
+        subject = f"{target_report.target}:{finding.ref}:{finding.code}"
+        change_ids = tuple(
+            _projection_change_node_id(change) for change in report.changes if finding.field == change.field_name
+        )
+        consequences.append(
+            Consequence(
+                action=_action_for_target_finding(finding.axis, finding.severity),
+                subject=subject,
+                status=finding.severity,
+                reason=finding.message,
+                causal_path=(source_ref, target_ref, subject),
+                causal_changes=change_ids,
+            )
+        )
+    return consequences
+
+
 def change_nodes_for_report(report: CompatibilityReport) -> list[dict[str, object]]:
     changes = report.semantic_changes if report.status != "compatible" else []
     changes = [*changes, *report.storage_changes]
@@ -152,8 +192,24 @@ def change_nodes_for_report(report: CompatibilityReport) -> list[dict[str, objec
     ]
 
 
+def projection_change_nodes(report: ProjectionCompatibilityReport) -> list[dict[str, object]]:
+    return [
+        {
+            "id": _projection_change_node_id(change),
+            "kind": "change",
+            "change_kind": change.kind,
+            "field": change.field_name or "<projection>",
+        }
+        for change in report.changes
+    ]
+
+
 def _change_node_id(change_kind: str, field_name: str) -> str:
     return f"change:{change_kind}:{field_name}"
+
+
+def _projection_change_node_id(change: ProjectionChange) -> str:
+    return _change_node_id(change.kind, change.field_name or "<projection>")
 
 
 def _projection_change_ids(status: str, reason: str | None, report: CompatibilityReport) -> tuple[str, ...]:
