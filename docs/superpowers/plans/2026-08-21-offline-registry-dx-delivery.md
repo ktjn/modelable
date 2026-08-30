@@ -44,11 +44,11 @@ explicitly listed for acceptance before implementation.
 
 ## Slice 0 — reconcile the foundation
 
-- [ ] Update capability and CLI documentation to distinguish local snapshot
+- [x] Update capability and CLI documentation to distinguish local snapshot
   creation from external dependency resolution.
-- [ ] Add machine-readable capability facts for snapshot provenance,
+- [x] Add machine-readable capability facts for snapshot provenance,
   transitive closure, offline-only operation, and consequence coverage.
-- [ ] Add an invariant test that ordinary `validate`, `compile`, `diff`,
+- [x] Add an invariant test that ordinary `validate`, `compile`, `diff`,
   `impact`, lineage, and editor operations do not invoke a source adapter or
   network operation.
 - [ ] Decide whether the existing `registry.db` remains the derived index name

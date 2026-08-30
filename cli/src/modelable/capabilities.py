@@ -217,7 +217,7 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         status=CapabilityStatus.implemented,
         description="Runs validation, compilation, compatibility, lineage, and usage analysis without registry refresh",
         notes="Network-backed integrations remain explicit commands or external adapters.",
-        test_refs=("test_registry_offline.py::test_core_analysis_does_not_contact_network",),
+        test_refs=("test_registry_offline.py::test_core_analysis_does_not_invoke_source_adapter_or_network",),
     ),
     Capability(
         name="consequence-graph-analysis",
