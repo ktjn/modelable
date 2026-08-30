@@ -16,3 +16,13 @@ def test_other_targets_do_not_support_compat_check():
 def test_list_compat_checkable_targets_returns_protobuf_grpc_and_openapi():
     names = {target.name for target in list_compat_checkable_targets()}
     assert names == {"protobuf", "grpc", "openapi"}
+
+
+def test_sql_targets_publish_local_overlay_schema_paths():
+    assert get_codegen_target("sql-postgres").overlay_schema == (
+        "modelable/schemas/overlays/sql-postgres-v1.schema.json"
+    )
+    assert get_codegen_target("sql-clickhouse").overlay_schema == (
+        "modelable/schemas/overlays/sql-clickhouse-v1.schema.json"
+    )
+    assert all(target.overlay_schema is None for target in CODEGEN_TARGETS if not target.name.startswith("sql-"))

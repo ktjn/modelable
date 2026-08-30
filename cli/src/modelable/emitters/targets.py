@@ -16,6 +16,7 @@ class CodegenTarget:
     kind: TargetKind
     default_out_dir: Path | None = None
     supports_compat_check: bool = False
+    overlay_schema: str | None = None
 
 
 CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
@@ -81,6 +82,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="artifact",
         default_out_dir=Path("./dist/sql/postgres"),
+        overlay_schema="modelable/schemas/overlays/sql-postgres-v1.schema.json",
     ),
     CodegenTarget(
         name="sql-clickhouse",
@@ -88,6 +90,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="artifact",
         default_out_dir=Path("./dist/sql/clickhouse"),
+        overlay_schema="modelable/schemas/overlays/sql-clickhouse-v1.schema.json",
     ),
     CodegenTarget(
         name="dbt-yaml",

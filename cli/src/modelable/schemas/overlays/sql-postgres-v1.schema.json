@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://modelable.dev/schemas/overlays/sql-postgres-v1.schema.json",
+  "title": "Modelable PostgreSQL overlay v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["target", "version"],
+  "properties": {
+    "target": {"const": "sql-postgres"},
+    "version": {"const": 1},
+    "defaults": {"$ref": "#/$defs/defaults"},
+    "models": {"$ref": "#/$defs/models"},
+    "fields": {"$ref": "#/$defs/fields"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "table": {"$ref": "#/$defs/identifier"},
+        "column": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "models": {
+      "type": "object",
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*@(?:\\*|[1-9][0-9]*|<[1-9][0-9]*|>=[1-9][0-9]*(?:,<[1-9][0-9]*)?)$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["table"],
+          "properties": {"table": {"$ref": "#/$defs/identifier"}}
+        }
+      },
+      "additionalProperties": false
+    },
+    "fields": {
+      "type": "object",
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*@(?:\\*|[1-9][0-9]*|<[1-9][0-9]*|>=[1-9][0-9]*(?:,<[1-9][0-9]*)?)#(?:[A-Za-z_][A-Za-z0-9_]*(?:\\[\\]|\\{\\}|\\{key\\})?|\\[\\]|\\{\\}|\\{key\\})(?:\\.(?:[A-Za-z_][A-Za-z0-9_]*(?:\\[\\]|\\{\\}|\\{key\\})?|\\[\\]|\\{\\}|\\{key\\}))*$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["column"],
+          "properties": {"column": {"$ref": "#/$defs/identifier"}}
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

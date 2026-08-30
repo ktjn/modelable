@@ -1,4 +1,8 @@
+import json
+from pathlib import Path
+
 from click.testing import CliRunner
+from jsonschema import Draft202012Validator
 
 from modelable.cli import cli
 from modelable.commands.codegen import list_codegen_targets
@@ -43,6 +47,49 @@ def test_codegen_formats_list_supported_and_deferred_targets():
         "event-sink",
     ]
     assert all(target["status"] == "implemented" for target in targets)
+
+
+def test_codegen_descriptors_reference_valid_local_overlay_schemas():
+    root = Path(__file__).parents[1] / "src"
+    targets = {target["name"]: target for target in list_codegen_targets()}
+
+    for target_name in ("sql-postgres", "sql-clickhouse"):
+        schema_path = root / targets[target_name]["overlay_schema"]
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        Draft202012Validator.check_schema(schema)
+        assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
+        assert schema["properties"]["target"]["const"] == target_name
+        assert schema["properties"]["version"]["const"] == 1
+        Draft202012Validator(schema).validate(
+            {
+                "target": target_name,
+                "version": 1,
+                "models": {"customer.Customer@1": {"table": "customers"}},
+                "fields": {"customer.Customer@1#customerId": {"column": "customer_id"}},
+            }
+        )
+        Draft202012Validator(schema).validate(
+            {
+                "target": target_name,
+                "version": 1,
+                "models": {"customer.Customer@<3": {"table": "legacy_customers"}},
+            }
+        )
+        validator = Draft202012Validator(schema)
+        for payload in (
+            {
+                "target": target_name,
+                "version": 1,
+                "models": {"customer.Customer@01": {"table": "customers"}},
+            },
+            {
+                "target": target_name,
+                "version": 1,
+                "fields": {"customer.Customer@1#bad..path": {"column": "customer_id"}},
+            },
+        ):
+            errors = list(validator.iter_errors(payload))
+            assert errors
 
 
 def test_codegen_types_expose_target_inventory_and_shape_catalog():
