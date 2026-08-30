@@ -56,7 +56,7 @@ explicitly listed for acceptance before implementation.
 
 ## Slice 1 — complete the durable offline registry snapshot
 
-- [ ] Introduce a source-adapter interface with explicit resolution commands;
+- [x] Introduce a source-adapter interface with explicit resolution commands;
   ordinary compiler services receive only a resolved snapshot.
 - [ ] Parse dependency requirements, resolve direct and transitive ranges, and
   record the exact selected identity and canonical signature in the lock.

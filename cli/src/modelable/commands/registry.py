@@ -16,7 +16,7 @@ from modelable.registry.snapshot import (
     update_workspace_snapshot,
     verify_snapshot,
 )
-from modelable.registry.sources import LocalSourceAdapter
+from modelable.registry.sources import GitSourceAdapter, GitSourceError, LocalSourceAdapter
 from modelable.registry.usage import build_usage_graph, build_usage_manifest
 from modelable.registry.usage_protocol import serialize_usage_manifest
 
@@ -38,6 +38,24 @@ def resolve(source: Path, output_dir: Path) -> None:
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
         result = resolve_workspace_snapshot(workspace, output_dir)
+    except ValueError as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
+    console.print(f"[green]OK[/green] wrote {result.object_count} object(s) to {result.lock_path}")
+
+
+@registry.command("resolve-git")
+@click.argument("repository", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--ref", required=True)
+@click.option("--out", "output_dir", type=click.Path(path_type=Path), default=Path(".modelable"), show_default=True)
+def resolve_git(repository: Path, ref: str, output_dir: Path) -> None:
+    """Resolve tracked .mdl files from a local Git REPOSITORY ref."""
+    try:
+        workspace = load_workspace_or_exit(repository, source_adapter=GitSourceAdapter(repository, ref))
+        result = resolve_workspace_snapshot(workspace, output_dir)
+    except GitSourceError as exc:
+        console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)

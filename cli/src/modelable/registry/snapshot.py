@@ -130,7 +130,9 @@ def resolve_workspace_snapshot(
     if registry_ids_path is None:
         registry_ids_path = _default_registry_ids_path(workspace)
 
-    source_paths = {id(domain): source.path for source in workspace.sources for domain in source.mdl.domains}
+    source_locations = {
+        id(domain): (source.path, source.uri) for source in workspace.sources for domain in source.mdl.domains
+    }
     entries: list[dict[str, Any]] = []
 
     for domain in workspace.mdl.domains:
@@ -143,7 +145,7 @@ def resolve_workspace_snapshot(
                         name,
                         "model",
                         model_version,
-                        source_paths.get(id(domain)),
+                        source_locations.get(id(domain)),
                         workspace.mdl,
                     )
                 )
@@ -156,12 +158,14 @@ def resolve_workspace_snapshot(
                         name,
                         "projection",
                         projection_version,
-                        source_paths.get(id(domain)),
+                        source_locations.get(id(domain)),
                         workspace.mdl,
                     )
                 )
         for decl in sorted(domain.semantic_types, key=lambda item: (item.name, item.version)):
-            entries.append(_write_enum_object(paths, domain, decl.name, "semantic", decl, source_paths.get(id(domain))))
+            entries.append(
+                _write_enum_object(paths, domain, decl.name, "semantic", decl, source_locations.get(id(domain)))
+            )
         for projection in sorted(domain.enum_projections, key=lambda item: (item.name, item.version)):
             entries.append(
                 _write_enum_object(
@@ -170,7 +174,7 @@ def resolve_workspace_snapshot(
                     projection.name,
                     "enum_projection",
                     projection,
-                    source_paths.get(id(domain)),
+                    source_locations.get(id(domain)),
                 )
             )
 
@@ -785,7 +789,7 @@ def _write_enum_object(
     name: str,
     kind: str,
     declaration: SemanticTypeDecl | EnumProjectionDecl,
-    source_path: Path | None,
+    source_location: tuple[Path | None, str] | None,
 ) -> dict[str, Any]:
     """Write a semantic-type or enum-projection snapshot object.
 
@@ -809,10 +813,7 @@ def _write_enum_object(
         "signature": signature,
         "dependencies": dependencies,
         "domain": _domain_metadata(domain),
-        "provenance": {
-            "source": str(source_path) if source_path is not None else None,
-            "source_hash": _optional_file_hash(source_path),
-        },
+        "provenance": _provenance(source_location),
         "contract": declaration.model_dump(mode="json"),
     }
     content_hash = _content_hash(payload)
@@ -838,7 +839,7 @@ def _write_object(
     name: str,
     kind: str,
     version: ModelVersion | ProjectionVersion,
-    source_path: Path | None,
+    source_location: tuple[Path | None, str] | None,
     mdl: MdlFile,
 ) -> dict[str, Any]:
     identity = f"{domain.name}.{name}@{version.version}"
@@ -859,10 +860,7 @@ def _write_object(
         "signature": compute_version_signature(domain.name, name, version),
         "dependencies": dependencies,
         "domain": _domain_metadata(domain),
-        "provenance": {
-            "source": str(source_path) if source_path is not None else None,
-            "source_hash": _optional_file_hash(source_path),
-        },
+        "provenance": _provenance(source_location),
         "contract": contract,
     }
     content_hash = _content_hash(payload)
@@ -1077,6 +1075,16 @@ def _content_hash(payload: dict[str, Any]) -> str:
 
 def _file_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _provenance(source_location: tuple[Path | None, str] | None) -> dict[str, str | None]:
+    if source_location is None:
+        return {"source": None, "source_hash": None}
+    source_path, source_uri = source_location
+    return {
+        "source": str(source_path) if source_path is not None else source_uri,
+        "source_hash": _optional_file_hash(source_path),
+    }
 
 
 def _optional_file_hash(path: Path | None) -> str | None:
