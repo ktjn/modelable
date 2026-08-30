@@ -26,6 +26,7 @@ def test_usage_graph_contains_exact_model_signatures() -> None:
 def test_usage_manifest_is_compact() -> None:
     manifest = build_usage_manifest(load_workspace(FIXTURE))
 
+    assert manifest["$schema"] == "modelable.usage/v0"
     assert manifest["kind"] == "usage_manifest"
     assert all(set(reference) == {"ref", "signature"} for reference in manifest["references"])
 
@@ -35,4 +36,32 @@ def test_usage_cli_emits_json() -> None:
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
+    assert payload["$schema"] == "modelable.usage/v0"
     assert payload["kind"] == "usage_manifest"
+
+
+def test_usage_manifest_includes_projection_signatures(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+  }
+  projection CustomerView @ 1 from customer.Customer @ 1 as c {
+    customerId <- c.customerId
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    manifest = build_usage_manifest(load_workspace(source))
+
+    assert [reference["ref"] for reference in manifest["references"]] == [
+        "customer.Customer@1",
+        "customer.CustomerView@1",
+    ]
+    assert all(len(reference["signature"]) == 64 for reference in manifest["references"])
