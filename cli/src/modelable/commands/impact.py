@@ -9,7 +9,13 @@ import click
 from modelable.commands.common import console, load_workspace_or_exit
 from modelable.compat.checker import CompatibilityReport, analyze_impact, check_model_version_compatibility
 from modelable.compiler.workspace import Workspace
-from modelable.consequence import ACTION_BREAKING, ACTION_RECOMPILE, Consequence, action_for_projection_status
+from modelable.consequence import (
+    ACTION_BREAKING,
+    ACTION_RECOMPILE,
+    Consequence,
+    action_for_projection_status,
+    build_consequence_graph,
+)
 from modelable.llm.context import parse_model_ref_version_spec
 from modelable.registry.resolver import find_dependents, resolve_model_ref
 
@@ -56,6 +62,7 @@ def impact(from_ref: str, to_ref: str, source: Path, output_format: str) -> None
         "status": report.status,
         "findings": report.findings,
         "consequences": [consequence.as_dict() for consequence in consequences],
+        "consequence_graph": build_consequence_graph(consequences),
     }
     if output_format == "json":
         click.echo(json.dumps(payload, indent=2, sort_keys=True))

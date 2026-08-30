@@ -32,6 +32,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Impact JSON now includes a deterministic consequence graph of causal
+  references and required actions.
 - Registry snapshots now persist and verify registry-ID allocations needed for
   reproducible semantic identity.
 - Registry snapshots now persist and verify Protobuf enum-number allocations

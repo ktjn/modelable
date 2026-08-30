@@ -56,3 +56,20 @@ domain billing {
     assert payload["status"] == "breaking"
     assert any(item["action"] == "breaking" for item in payload["consequences"])
     assert any("billing.BillingCustomer@1" in item["causal_path"] for item in payload["consequences"])
+    graph = payload["consequence_graph"]
+    assert graph["kind"] == "consequence_graph"
+    assert {node["id"] for node in graph["nodes"]} >= {
+        "customer.Customer@1",
+        "customer.Customer@2",
+        "billing.BillingCustomer@1",
+    }
+    assert {
+        "kind": "causes",
+        "source": "customer.Customer@1",
+        "target": "customer.Customer@2",
+    } in graph["edges"]
+    assert {
+        "kind": "causes",
+        "source": "customer.Customer@1",
+        "target": "billing.BillingCustomer@1",
+    } in graph["edges"]
