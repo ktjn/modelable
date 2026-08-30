@@ -99,6 +99,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="artifact",
         default_out_dir=Path("./dist/sql/postgres"),
+        supports_compat_check=True,
         overlay_schema="modelable/schemas/overlays/sql-postgres-v1.schema.json",
     ),
     CodegenTarget(
@@ -107,6 +108,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="artifact",
         default_out_dir=Path("./dist/sql/clickhouse"),
+        supports_compat_check=True,
         overlay_schema="modelable/schemas/overlays/sql-clickhouse-v1.schema.json",
     ),
     CodegenTarget(

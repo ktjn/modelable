@@ -266,6 +266,49 @@ def compare_json_schema_artifacts(
     return TargetCompatibilityReport(target="json-schema", status=status, severity=severity, findings=findings)
 
 
+def compare_sql_artifacts(
+    old_artifacts: list[EmittedArtifact],
+    new_artifacts: list[EmittedArtifact],
+    *,
+    target: str = "sql-postgres",
+) -> TargetCompatibilityReport:
+    """Compare emitted SQL table definitions for storage compatibility."""
+    if target not in {"sql-postgres", "sql-clickhouse"}:
+        raise ValueError(f"unsupported SQL compatibility target: {target!r}")
+
+    findings: list[TargetCompatibilityFinding] = []
+    old_tables = _sql_entries(old_artifacts, target)
+    new_tables = _sql_entries(new_artifacts, target)
+    for ref in sorted(set(old_tables) | set(new_tables)):
+        old_table = old_tables.get(ref)
+        new_table = new_tables.get(ref)
+        if old_table is None:
+            continue
+        if new_table is None:
+            findings.append(
+                _finding(
+                    "table_removed",
+                    "breaking",
+                    ref,
+                    f"{target} table definition was removed",
+                    axis="storage_migration",
+                )
+            )
+        elif old_table != new_table:
+            findings.append(
+                _finding(
+                    "table_definition_changed",
+                    "migration_required",
+                    ref,
+                    f"{target} table definition changed and requires a storage migration",
+                    axis="storage_migration",
+                )
+            )
+
+    status, severity = _worst(findings, default_status="read_compatible")
+    return TargetCompatibilityReport(target=target, status=status, severity=severity, findings=findings)
+
+
 def compare_source_representation(
     domain_name: str,
     model_name: str,
@@ -422,6 +465,14 @@ def _json_schema_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str
         artifact.ref: artifact.content
         for artifact in artifacts
         if artifact.target == "json-schema" and isinstance(artifact.ref, str) and isinstance(artifact.content, dict)
+    }
+
+
+def _sql_entries(artifacts: list[EmittedArtifact], target: str) -> dict[str, str]:
+    return {
+        artifact.ref: artifact.content
+        for artifact in artifacts
+        if artifact.target == target and isinstance(artifact.ref, str) and isinstance(artifact.content, str)
     }
 
 
