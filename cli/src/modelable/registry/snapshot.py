@@ -17,6 +17,7 @@ from modelable.compiler.workspace import (
     WorkspaceSource,
     load_workspace_from_sources,
 )
+from modelable.extensions import ExtensionDescriptorError, ExtensionPin, parse_extension_pin
 from modelable.parser.ir import (
     ArrayType,
     DomainDef,
@@ -47,6 +48,17 @@ from modelable.registry.signature import (
 
 LOCK_FORMAT = "modelable.registry.lock.v1"
 OBJECT_FORMAT = "modelable.registry.object.v1"
+
+
+def _extension_pin_sort_key(pin: ExtensionPin) -> tuple[str, str, str]:
+    return pin.id, pin.version, pin.implementation_hash
+
+
+def _canonical_extension_pins(extension_pins: tuple[ExtensionPin, ...]) -> list[dict[str, Any]]:
+    parsed_pins = [parse_extension_pin(pin.as_dict()) for pin in extension_pins]
+    if len({(pin.id, pin.version) for pin in parsed_pins}) != len(parsed_pins):
+        raise ExtensionDescriptorError("extension pins contain duplicate identities")
+    return [pin.as_dict() for pin in sorted(parsed_pins, key=_extension_pin_sort_key)]
 
 
 @dataclass(frozen=True)
@@ -88,7 +100,12 @@ class SnapshotDiff:
         }
 
 
-def resolve_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> SnapshotResult:
+def resolve_workspace_snapshot(
+    workspace: Workspace,
+    output_dir: str | Path = ".modelable",
+    *,
+    extension_pins: tuple[ExtensionPin, ...] = (),
+) -> SnapshotResult:
     """Write a deterministic, content-addressed snapshot of a validated workspace.
 
     The lock is the authoritative set of exact objects. Existing objects are retained
@@ -147,8 +164,13 @@ def resolve_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".
             )
 
     entries.sort(key=lambda item: (str(item["identity"]), int(item["version"]), str(item["kind"])))
+    try:
+        canonical_pins = _canonical_extension_pins(extension_pins)
+    except ExtensionDescriptorError as exc:
+        raise ValueError(str(exc)) from exc
     lock = {
         "format": LOCK_FORMAT,
+        "extensions": canonical_pins,
         "objects": entries,
         "requirements": _build_requirements(entries),
     }
@@ -170,6 +192,22 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
         return [f"unsupported registry lock format: {lock.get('format')!r}"]
 
     errors: list[str] = []
+    extensions = lock.get("extensions", [])
+    if not isinstance(extensions, list):
+        errors.append("registry lock extensions must be an array")
+    else:
+        parsed_pins: list[ExtensionPin] = []
+        for entry in extensions:
+            try:
+                parsed_pins.append(parse_extension_pin(entry))
+            except (ExtensionDescriptorError, TypeError) as exc:
+                errors.append(f"invalid registry lock extension pin: {exc}")
+        if len({(pin.id, pin.version) for pin in parsed_pins}) != len(parsed_pins):
+            errors.append("registry lock extension pins contain duplicate identities")
+        if extensions == [pin.as_dict() for pin in sorted(parsed_pins, key=_extension_pin_sort_key)]:
+            pass
+        elif not any("invalid registry lock extension pin" in error for error in errors):
+            errors.append("registry lock extension pins are not deterministic")
     objects = lock.get("objects")
     if not isinstance(objects, list):
         return ["registry lock objects must be an array"]
@@ -383,9 +421,10 @@ def update_workspace_snapshot(
 ) -> tuple[SnapshotResult, SnapshotDiff]:
     """Stage and atomically install a validated local snapshot candidate."""
     paths = SnapshotPaths(Path(output_dir))
+    extension_pins = _load_snapshot_extension_pins(paths)
     with tempfile.TemporaryDirectory(prefix="modelable-registry-update-") as temporary:
         candidate_dir = Path(temporary)
-        candidate = resolve_workspace_snapshot(workspace, candidate_dir)
+        candidate = resolve_workspace_snapshot(workspace, candidate_dir, extension_pins=extension_pins)
         candidate_errors = verify_snapshot(candidate_dir)
         if candidate_errors:
             raise ValueError("Candidate snapshot is invalid:\n" + "\n".join(candidate_errors))
@@ -422,6 +461,22 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
         removed=tuple(_display_key(key) for key in removed),
         changed=tuple(_display_key(key) for key in changed),
     )
+
+
+def _load_snapshot_extension_pins(paths: SnapshotPaths) -> tuple[ExtensionPin, ...]:
+    if not paths.lock.exists():
+        return ()
+    try:
+        lock = json.loads(paths.lock.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot read existing registry lock: {exc}") from exc
+    extensions = lock.get("extensions", [])
+    if not isinstance(extensions, list):
+        raise ValueError("Existing registry lock extensions must be an array")
+    try:
+        return tuple(parse_extension_pin(entry) for entry in extensions)
+    except (ExtensionDescriptorError, TypeError) as exc:
+        raise ValueError(f"Existing registry lock contains an invalid extension pin: {exc}") from exc
 
 
 def snapshot_status(output_dir: str | Path = ".modelable") -> dict[str, Any]:

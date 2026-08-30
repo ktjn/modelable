@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any
+from urllib.parse import parse_qsl, urlsplit
 
 from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
 from modelable.parser.ir import (
@@ -72,6 +74,26 @@ class ExtensionDescriptor:
         }
 
 
+@dataclass(frozen=True)
+class ExtensionPin:
+    """Immutable provenance pin for one executable extension implementation."""
+
+    id: str
+    version: str
+    implementation_hash: str
+    source: str | None
+    accepted_protocol_versions: tuple[str, ...]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "accepted_protocol_versions": list(self.accepted_protocol_versions),
+            "id": self.id,
+            "implementation_hash": self.implementation_hash,
+            "source": self.source,
+            "version": self.version,
+        }
+
+
 def parse_extension_descriptor(data: Mapping[str, Any]) -> ExtensionDescriptor:
     """Validate and normalize one modelable.extension/v1 descriptor."""
     if not isinstance(data, Mapping):
@@ -125,6 +147,88 @@ def parse_extension_descriptor(data: Mapping[str, Any]) -> ExtensionDescriptor:
         output_kinds=_string_sequence(data["output_kinds"], "output_kinds"),
         compatibility_support=compatibility_support,
     )
+
+
+def pin_extension_descriptor(
+    descriptor: ExtensionDescriptor,
+    implementation_hash: str,
+    *,
+    source: str | None = None,
+) -> ExtensionPin:
+    """Create a reproducibility pin for a validated extension descriptor."""
+    if descriptor.protocol != PROTOCOL:
+        raise ExtensionDescriptorError(f"descriptor protocol must be {PROTOCOL!r}")
+    _validate_implementation_hash(implementation_hash)
+    _validate_provenance_source(source)
+    return ExtensionPin(
+        id=descriptor.id,
+        version=descriptor.version,
+        implementation_hash=implementation_hash,
+        source=source,
+        accepted_protocol_versions=(descriptor.protocol,),
+    )
+
+
+def parse_extension_pin(data: Mapping[str, Any]) -> ExtensionPin:
+    """Validate and normalize one extension provenance pin."""
+    if not isinstance(data, Mapping):
+        raise ExtensionDescriptorError("extension pin must be an object")
+    required = {"id", "version", "implementation_hash", "source", "accepted_protocol_versions"}
+    unknown = sorted(set(data) - required)
+    missing = sorted(required - set(data))
+    if unknown:
+        raise ExtensionDescriptorError(f"unknown extension pin key(s): {', '.join(unknown)}")
+    if missing:
+        raise ExtensionDescriptorError(f"missing extension pin key(s): {', '.join(missing)}")
+    descriptor_id = data["id"]
+    extension_version = data["version"]
+    source = data["source"]
+    if not isinstance(descriptor_id, str) or not descriptor_id:
+        raise ExtensionDescriptorError("extension pin id must be a non-empty string")
+    if not isinstance(extension_version, str) or not extension_version:
+        raise ExtensionDescriptorError("extension pin version must be a non-empty string")
+    _validate_provenance_source(source)
+    implementation_hash = data["implementation_hash"]
+    if not isinstance(implementation_hash, str):
+        raise ExtensionDescriptorError("implementation_hash must be a lowercase SHA-256 hex string")
+    _validate_implementation_hash(implementation_hash)
+    accepted_protocol_versions = _string_sequence(data["accepted_protocol_versions"], "accepted_protocol_versions")
+    if not accepted_protocol_versions:
+        raise ExtensionDescriptorError("accepted_protocol_versions must not be empty")
+    return ExtensionPin(
+        id=descriptor_id,
+        version=extension_version,
+        implementation_hash=implementation_hash,
+        source=source,
+        accepted_protocol_versions=accepted_protocol_versions,
+    )
+
+
+def validate_extension_pin(descriptor: ExtensionDescriptor, pin: ExtensionPin) -> None:
+    """Ensure a provenance pin identifies and accepts the supplied descriptor."""
+    if pin.id != descriptor.id or pin.version != descriptor.version:
+        raise ExtensionDescriptorError("extension pin identity or version does not match descriptor")
+    if descriptor.protocol not in pin.accepted_protocol_versions:
+        raise ExtensionDescriptorError(f"extension pin does not accept descriptor protocol {descriptor.protocol!r}")
+    _validate_implementation_hash(pin.implementation_hash)
+
+
+def _validate_implementation_hash(value: str) -> None:
+    if re.fullmatch(r"[0-9a-f]{64}", value) is None:
+        raise ExtensionDescriptorError("implementation_hash must be a lowercase SHA-256 hex string")
+
+
+def _validate_provenance_source(source: str | None) -> None:
+    if source is not None and (not isinstance(source, str) or not source):
+        raise ExtensionDescriptorError("source must be a non-empty string or null")
+    if source is None:
+        return
+    parsed = urlsplit(source)
+    if parsed.username is not None or parsed.password is not None:
+        raise ExtensionDescriptorError("provenance source must not contain credentials")
+    sensitive_names = {"token", "secret", "password", "passwd", "api_key", "apikey", "credential", "auth"}
+    if any(any(name in key.lower() for name in sensitive_names) for key, _ in parse_qsl(parsed.query)):
+        raise ExtensionDescriptorError("provenance source must not contain credentials")
 
 
 def required_capabilities(mdl: MdlFile) -> tuple[str, ...]:
