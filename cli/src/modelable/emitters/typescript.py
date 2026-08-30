@@ -6,9 +6,10 @@ from typing import Any
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
-from modelable.emitters.diagnostics import missing_metadata, type_loss
+from modelable.emitters.diagnostics import missing_metadata
 from modelable.emitters.naming import apply_case_style
 from modelable.emitters.naming import pascalize_plain as pascalize
+from modelable.emitters.typescript_plan import emit_typescript_projection_plan
 from modelable.parser.ir import (
     ArrayType,
     ComputedMapping,
@@ -33,6 +34,7 @@ from modelable.parser.ir import (
     VersionRange,
     latest_semantic_types,
 )
+from modelable.planner.plans import build_plan_documents
 from modelable.registry.resolver import (
     ResolvedModelRef,
     resolve_enum_type_ref,
@@ -43,6 +45,7 @@ from modelable.registry.resolver import (
 
 def emit_typescript(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     artifacts: list[EmittedArtifact] = []
+    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
     for domain in workspace.mdl.domains:
         for decl in latest_semantic_types(domain):
             if isinstance(decl.underlying, EnumType):
@@ -54,7 +57,16 @@ def emit_typescript(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact
                 artifacts.append(_emit_model(domain, model_name, version, out_dir, workspace.mdl))
         for projection_name, versions in domain.projections.items():
             for version in versions:
-                artifacts.append(_emit_projection(domain, projection_name, version, out_dir, workspace.mdl))
+                artifacts.append(
+                    _emit_projection(
+                        domain,
+                        projection_name,
+                        version,
+                        out_dir,
+                        workspace.mdl,
+                        plans[(domain.name, projection_name, version.version)],
+                    )
+                )
     return artifacts
 
 
@@ -296,9 +308,8 @@ def _emit_projection(
     version: ProjectionVersion,
     out_dir: Path,
     mdl,
+    plan: dict[str, object],
 ) -> EmittedArtifact:
-    artifact_id = _artifact_id(domain.name, projection_name, version.version)
-    interface_name = _stable_interface_name(domain.name, projection_name, version.version)
     meta_lines = _metadata_lines(
         _domain_metadata_entries(
             domain,
@@ -333,42 +344,37 @@ def _emit_projection(
         local_name = _enum_import_local_name(enum_name, aid, named_enum_imports)
         alias = f" as {local_name}" if local_name != enum_name else ""
         import_lines.append(f'import {{ {enum_name}{alias} }} from "./{aid}";')
-    lines = [*meta_lines, f"export interface {interface_name} {{"]
-    warnings: list[str] = []
-    for field in version.fields:
-        field_type = _resolve_projection_field_type(field, version, mdl)
-        field_optional = _resolve_projection_field_optional(field, version, mdl)
-        if field_type is None:
-            warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
-        elif (
-            isinstance(field_type, NamedType)
-            and field_type.name not in named_types
-            and field_type.name not in named_imports
-        ):
-            warnings.append(missing_metadata(f"{domain.name}.{projection_name}.{field.name}"))
-        field_name = _apply_case(field.name, field_case) if field_case else field.name
-        field_ts = _type_to_ts(
-            field_type,
-            wire_targets=field.wire_targets(),
-            resolved_refs=resolved_refs,
-            named_imports=named_imports,
-            named_types=named_types,
-            named_enum_imports=named_enum_imports,
-        )
-        lines.append(f"  {field_name}{'?' if field_optional else ''}: {field_ts};")
-    lines.append("}")
-    lines.append(f"export type {projection_name} = {interface_name};")
-    all_lines = [*meta_lines, *([*import_lines, ""] if import_lines else []), *lines[len(meta_lines) :]]
-    content = "\n".join(all_lines) + "\n"
-    return EmittedArtifact(
-        target="typescript",
-        ref=f"{domain.name}.{projection_name}@{version.version}",
-        artifact_id=artifact_id,
-        path=out_dir / f"{artifact_id}.ts",
-        content=content,
-        content_hash=compute_content_hash(content),
-        warnings=warnings,
+    ref_names = {_typescript_plan_ref_key(key): value for key, value in resolved_refs.items()}
+    named_import_names = {name: value[0] for name, value in named_imports.items()}
+    named_enum_import_names = {
+        f"{name}|{version_number}": _enum_import_local_name(enum_name, aid, named_enum_imports)
+        for (name, version_number), (enum_name, aid) in named_enum_imports.items()
+    }
+    return emit_typescript_projection_plan(
+        plan,
+        out_dir,
+        metadata_lines=meta_lines,
+        import_lines=import_lines,
+        field_case=field_case,
+        ref_names=ref_names,
+        named_imports=named_import_names,
+        named_enum_imports=named_enum_import_names,
+        wire_by_field={field.name: field.wire_targets().get("json") for field in version.fields},
     )
+
+
+def _typescript_plan_ref_key(key: tuple[object, ...]) -> str:
+    if len(key) == 2:
+        return f"{key[0]}|?"
+    if key[1] == "exact":
+        return f"{key[0]}|{key[2]}"
+    if key[1] == "range":
+        return f"{key[0]}|>={key[2]}<{key[3]}"
+    if key[1] == "min":
+        return f"{key[0]}|>={key[2]}"
+    if key[1] == "pinned":
+        return f"{key[0]}|{key[2]}"
+    return f"{key[0]}|?"
 
 
 def _metadata_lines(entries: list[str]) -> list[str]:
