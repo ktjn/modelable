@@ -6,7 +6,7 @@ from modelable.compiler.workspace import Workspace
 from modelable.dependency_graph import build_projection_dependencies
 from modelable.graph.export import build_graph_export
 from modelable.identity import declaration_id
-from modelable.registry.signature import compute_version_signature
+from modelable.registry.signature import compute_enum_projection_signature, compute_version_signature
 
 USAGE_SCHEMA = "modelable.usage/v0"
 
@@ -32,7 +32,7 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
         {"id": application_id, "kind": "application", "label": application_name, "name": application_name},
     )
     for node in nodes:
-        if node["kind"] in {"model_version", "projection_version"}:
+        if node["kind"] in {"model_version", "projection_version", "enum_projection"}:
             _add_edge(edges, edge_keys, "consumes", application_id, node["id"])
 
     for domain in workspace.mdl.domains:
@@ -127,6 +127,17 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
                 if version_item.version == int(version)
             )
             node["signature"] = compute_version_signature(domain_name, projection_name, projection_version)
+        elif node["kind"] == "enum_projection":
+            domain_name, rest = str(node["target_ref"]).split(".", 1)
+            projection_name, version = rest.rsplit("@", 1)
+            enum_projection = next(
+                projection
+                for item in workspace.mdl.domains
+                if item.name == domain_name
+                for projection in item.enum_projections
+                if projection.name == projection_name and projection.version == int(version)
+            )
+            node["signature"] = compute_enum_projection_signature(domain_name, enum_projection)
 
     return {
         "kind": "usage_graph",
@@ -149,7 +160,7 @@ def build_usage_manifest(workspace: Workspace) -> dict[str, Any]:
 
     references = []
     for node in graph["nodes"]:
-        if node["kind"] not in {"model_version", "projection_version"}:
+        if node["kind"] not in {"model_version", "projection_version", "enum_projection"}:
             continue
         references.append(
             {
