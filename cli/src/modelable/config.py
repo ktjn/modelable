@@ -27,6 +27,18 @@ class ModelableConfig:
     path: Path | None
     values: dict[str, ConfigValue]
 
+    def overlay_for_target(self, target: str) -> Path | None:
+        """Return the workspace-relative overlay selected for a target."""
+        configured = self.values.get(f"targets.{target}.overlay")
+        if configured is None:
+            return None
+        if not isinstance(configured.value, str) or not configured.value:
+            raise ValueError(f"[targets.{target}].overlay must be a non-empty workspace-relative path")
+        path = Path(configured.value)
+        if path.is_absolute():
+            raise ValueError(f"[targets.{target}].overlay must be workspace-relative")
+        return path
+
     def explain(self, target: str | None = None) -> dict[str, Any]:
         result = {name: value.as_dict() for name, value in sorted(self.values.items())}
         if target is not None:
@@ -60,6 +72,23 @@ def load_config(path: str | Path) -> ModelableConfig:
                     values[f"targets.{target_name}.{name}"] = ConfigValue(
                         value, f"{config_path} [targets.{target_name}]"
                     )
+    target_entries = data.get("target", [])
+    if not isinstance(target_entries, list):
+        raise ValueError("[[target]] entries in modelable.toml must be tables")
+    seen_targets: set[str] = set()
+    for index, target_values in enumerate(target_entries, start=1):
+        if not isinstance(target_values, dict):
+            raise ValueError(f"[[target]] entry {index} in modelable.toml must be a table")
+        target_name = target_values.get("name")
+        if not isinstance(target_name, str) or not target_name:
+            raise ValueError(f"[[target]] entry {index} requires a non-empty string 'name'")
+        if target_name in seen_targets:
+            raise ValueError(f"duplicate [[target]] entry for {target_name!r}")
+        seen_targets.add(target_name)
+        if "overlay" in target_values:
+            values[f"targets.{target_name}.overlay"] = ConfigValue(
+                target_values["overlay"], f"{config_path} [[target]] ({target_name})"
+            )
     return ModelableConfig(config_path, values)
 
 
