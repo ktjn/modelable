@@ -51,6 +51,7 @@ from modelable.operations.file_transaction import (
     RollbackError,
     StagedFile,
 )
+from modelable.overlays import OverlayDocument, OverlayError, load_overlay
 from modelable.parser.ir import (
     ArrayType,
     EnumProjectionDecl,
@@ -138,6 +139,7 @@ class CompilationRequest:
     domains: tuple[str, ...] = ()
     descriptor_set: bool = False
     package: str | None = None
+    overlay_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -358,7 +360,8 @@ class CompilationService:
         workspace = _load_preview_workspace(request.source)
         source_paths = _validated_source_paths(workspace, workspace_root)
         layout = _validate_preview_request(request, workspace_root, source_paths, policy)
-        source_fingerprints = tuple(_fingerprint_source(path) for path in source_paths)
+        input_paths = (*source_paths, *((layout.overlay,) if layout.overlay is not None else ()))
+        source_fingerprints = tuple(_fingerprint_source(path) for path in input_paths)
         existing_registry_ids = read_lock_file(layout.registry_ids)
         if self.temp_root is not None and Path(self.temp_root).resolve().is_relative_to(workspace_root):
             raise CompilationError("Compilation staging must be created outside the workspace.")
@@ -520,6 +523,7 @@ class _PreviewLayout:
     registry: Path
     registry_ids: Path
     enum_numbers: Path
+    overlay: Path | None
 
 
 @dataclass(frozen=True)
@@ -675,7 +679,20 @@ def _validate_preview_request(
         raise CompilationError("Output path overlaps the enum number ledger control path.")
     if out_dir == registry or out_dir.is_relative_to(registry):
         raise CompilationError("Output path overlaps the registry control path.")
-    return _PreviewLayout(out_dir=out_dir, registry=registry, registry_ids=registry_ids, enum_numbers=enum_numbers)
+    overlay = _resolve_overlay_path(
+        request.overlay_path,
+        workspace_root,
+        require_relative=True,
+        source_paths=source_paths,
+        target=request.target,
+    )
+    return _PreviewLayout(
+        out_dir=out_dir,
+        registry=registry,
+        registry_ids=registry_ids,
+        enum_numbers=enum_numbers,
+        overlay=overlay,
+    )
 
 
 def _resolve_conversation_path(
@@ -714,6 +731,34 @@ def _resolve_conversation_path(
     return normalized
 
 
+def _resolve_overlay_path(
+    path: Path | None,
+    workspace_root: Path,
+    *,
+    require_relative: bool,
+    source_paths: tuple[Path, ...] | set[Path] = (),
+    target: str,
+) -> Path | None:
+    if path is None:
+        return None
+    if target not in ("sql-postgres", "sql-clickhouse"):
+        raise CompilationError("--overlay is currently supported only for SQL targets.")
+    if require_relative and path.is_absolute():
+        raise CompilationError("overlay path must be workspace-relative.")
+    candidate = path if path.is_absolute() else workspace_root / path
+    resolved = candidate.resolve(strict=False)
+    if not resolved.is_relative_to(workspace_root):
+        raise CompilationError(f"overlay path resolves outside the workspace: {path}")
+    relative_parts = tuple(_canonical_policy_component(part) for part in resolved.relative_to(workspace_root).parts)
+    if ".git" in relative_parts or relative_parts[:2] in ((".modelable", "audit"), (".modelable", "locks")):
+        raise CompilationError(f"overlay path is inside a protected workspace path: {path}")
+    if any(resolved == source or resolved.is_relative_to(source) for source in source_paths):
+        raise CompilationError(f"overlay path overlaps a .mdl source: {path}")
+    if not resolved.is_file():
+        raise CompilationError(f"overlay file does not exist: {path}")
+    return resolved
+
+
 def _canonical_policy_component(component: str) -> str:
     return component.rstrip(" .").lower()
 
@@ -734,6 +779,7 @@ def _stage_request(
         registry_path=str(staged(layout.registry)),
         registry_ids_path=staged(layout.registry_ids),
         enum_numbers_path=staged(layout.enum_numbers),
+        overlay_path=layout.overlay,
     )
 
 
@@ -1065,6 +1111,7 @@ def _manifest_fingerprint(
             "allow_orphaned_registry_ids": request.allow_orphaned_registry_ids,
             "domains": request.domains,
             "descriptor_set": request.descriptor_set,
+            "overlay_path": str(request.overlay_path) if request.overlay_path is not None else None,
         },
         "workspace_root": str(workspace_root),
         "files": [
@@ -1275,6 +1322,20 @@ def _run_compilation(
     if request.target not in TARGETS:
         raise CompilationError(f"Unknown compilation target: {request.target}")
 
+    workspace_root = _workspace_root(request.source)
+    overlay_path = _resolve_overlay_path(
+        request.overlay_path,
+        workspace_root,
+        require_relative=False,
+        target=request.target,
+    )
+    overlay: OverlayDocument | None = None
+    if overlay_path is not None:
+        try:
+            overlay = load_overlay(overlay_path)
+        except OverlayError as exc:
+            raise CompilationError(str(exc)) from exc
+
     try:
         workspace = load_workspace(request.source)
     except FileNotFoundError:
@@ -1363,6 +1424,7 @@ def _run_compilation(
             registry_ids,
             descriptor_set=request.descriptor_set,
             enum_numbers=enum_numbers,
+            overlay=overlay,
         )
     except ValueError as exc:
         raise CompilationError(str(exc)) from exc
@@ -1556,6 +1618,7 @@ def _emit_target(
     *,
     descriptor_set: bool,
     enum_numbers: dict[str, EnumNumberAllocation] | None = None,
+    overlay: OverlayDocument | None = None,
 ) -> list[EmittedArtifact]:
     if target == "json-schema":
         return emit_json_schema(workspace, output)
@@ -1608,7 +1671,7 @@ def _emit_target(
                 raise CompilationError(str(exc)) from exc
         return artifacts
     if target in ("sql-postgres", "sql-clickhouse"):
-        return emit_sql(workspace, output, target.removeprefix("sql-"))
+        return emit_sql(workspace, output, target.removeprefix("sql-"), overlay)
     raise CompilationError(f"Unknown compilation target: {target}")
 
 

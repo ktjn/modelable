@@ -93,6 +93,13 @@ def register_compile_commands(cli_group: click.Group) -> None:
     default=None,
     help="Restrict output to the named package (from workspace package {} blocks). Omit to emit every package.",
 )
+@click.option(
+    "--overlay",
+    "overlay_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Workspace overlay file for target-specific configuration.",
+)
 def compile(
     source: Path,
     target: str,
@@ -105,6 +112,7 @@ def compile(
     domains: tuple[str, ...],
     descriptor_set: bool,
     package: str | None,
+    overlay_path: Path | None,
 ) -> None:
     """Compile Modelable definitions and write the local registry index."""
     try:
@@ -126,6 +134,7 @@ def compile(
                 domains=domains,
                 descriptor_set=descriptor_set,
                 package=package,
+                overlay_path=overlay_path,
             )
         )
     except CompilationDiagnosticsError as error:

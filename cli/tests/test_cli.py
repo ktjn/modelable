@@ -51,6 +51,29 @@ def test_compile_renders_parse_failure_as_rich_error_line(tmp_path, monkeypatch)
     fake_console.print.assert_called_once_with(expected)
 
 
+def test_compile_passes_overlay_path_to_compilation_request(tmp_path, monkeypatch):
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text('domain customer { owner: "team" entity Customer @ 1 { @key id: uuid } }', encoding="utf-8")
+    overlay = tmp_path / "postgres.toml"
+    overlay.write_text('target = "sql-postgres"\nversion = 1\n', encoding="utf-8")
+    captured = {}
+
+    class FakeService:
+        def execute_direct(self, request):
+            captured["request"] = request
+            return type("Result", (), {"events": ()})()
+
+    monkeypatch.setattr("modelable.commands.compile.CompilationService", FakeService)
+
+    result = CliRunner().invoke(
+        cli,
+        ["compile", str(mdl), "--target", "sql-postgres", "--overlay", str(overlay)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["request"].overlay_path == overlay
+
+
 def test_compile_renders_each_semantic_diagnostic_as_unwrapped_rich_error_line():
     mdl = Path(__file__).parent / "fixtures" / "cel_error_cases.mdl"
     workspace = load_workspace(mdl)
