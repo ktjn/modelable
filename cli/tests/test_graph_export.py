@@ -155,6 +155,46 @@ domain customer {
     } in graph["edges"]
 
 
+def test_graph_export_links_enum_projections_to_semantic_sources(tmp_path: Path) -> None:
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(draft, approved)
+  enum projection PublicOrderStatus @ 1 (additive)
+    from OrderStatus @ 1
+    pick(approved)
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    graph = build_graph_export(workspace)
+
+    assert {
+        "id": "enum_projection:orders.PublicOrderStatus@1",
+        "kind": "enum_projection",
+        "label": "PublicOrderStatus@1",
+        "domain": "orders",
+        "name": "PublicOrderStatus",
+        "version": 1,
+        "source_ref": "orders.OrderStatus@1",
+        "target_ref": "orders.PublicOrderStatus@1",
+    } in graph["nodes"]
+    assert {
+        "kind": "has_projection",
+        "source": "domain:orders",
+        "target": "enum_projection:orders.PublicOrderStatus@1",
+    } in graph["edges"]
+    assert {
+        "kind": "projects_from",
+        "source": "enum_projection:orders.PublicOrderStatus@1",
+        "target": "semantic_type:orders.OrderStatus@1",
+    } in graph["edges"]
+
+
 def test_graph_export_focuses_on_projection_and_source_fields(tmp_path: Path) -> None:
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(

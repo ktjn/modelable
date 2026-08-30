@@ -11,6 +11,7 @@ from modelable.llm.context import parse_model_ref
 from modelable.parser.ir import (
     ArrayType,
     DirectMapping,
+    EnumProjectionDecl,
     EnumRefType,
     FieldDef,
     FieldType,
@@ -35,6 +36,7 @@ _NODE_KIND_ORDER = {
     "projection": 5,
     "projection_version": 6,
     "projection_field": 7,
+    "enum_projection": 8,
 }
 _EDGE_KIND_ORDER = {
     "owns": 0,
@@ -44,6 +46,7 @@ _EDGE_KIND_ORDER = {
     "version_of_projection": 4,
     "maps_to": 5,
     "references": 6,
+    "projects_from": 7,
 }
 _EDGE_GROUP_ORDER = {
     ("owns", "domain"): 0,
@@ -54,6 +57,7 @@ _EDGE_GROUP_ORDER = {
     ("contains_field", "projection_version"): 5,
     ("maps_to", "projection_field"): 6,
     ("references", "field"): 7,
+    ("projects_from", "enum_projection"): 8,
 }
 
 
@@ -149,6 +153,9 @@ def _add_domain(builder: _GraphBuilder, workspace: Workspace, domain) -> None:
 
     for semantic_type in sorted(domain.semantic_types, key=lambda item: (item.name, item.version)):
         _add_semantic_type(builder, workspace, domain_id, domain.name, semantic_type)
+
+    for enum_projection in sorted(domain.enum_projections, key=lambda item: (item.name, item.version)):
+        _add_enum_projection(builder, workspace, domain_id, domain.name, enum_projection)
 
     for projection_name, versions in domain.projections.items():
         _add_projection(builder, workspace, domain_id, domain.name, projection_name, versions)
@@ -287,6 +294,41 @@ def _add_semantic_type(
             f"semantic_type:{declaration_id(declaring_domain, target.name, target.version)}",
             "references",
         )
+
+
+def _add_enum_projection(
+    builder: _GraphBuilder,
+    workspace: Workspace,
+    domain_id: str,
+    domain_name: str,
+    declaration: EnumProjectionDecl,
+) -> None:
+    projection_id = f"enum_projection:{declaration_id(domain_name, declaration.name, declaration.version)}"
+    source_domain, source = resolve_semantic_type_ref(
+        workspace.mdl,
+        domain_name,
+        declaration.source_name,
+        exact_version=declaration.source_version,
+    )
+    builder.add_node(
+        {
+            "id": projection_id,
+            "kind": "enum_projection",
+            "label": f"{declaration.name}@{declaration.version}",
+            "domain": domain_name,
+            "name": declaration.name,
+            "version": declaration.version,
+            "source_ref": declaration_id(source_domain, source.name, source.version),
+            "target_ref": declaration_id(domain_name, declaration.name, declaration.version),
+        },
+        parents=(domain_id,),
+    )
+    builder.add_edge(domain_id, projection_id, "has_projection")
+    builder.add_edge(
+        projection_id,
+        f"semantic_type:{declaration_id(source_domain, source.name, source.version)}",
+        "projects_from",
+    )
 
 
 def _iter_ref_types(field_type: FieldType) -> list[RefType]:

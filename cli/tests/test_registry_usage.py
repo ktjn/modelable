@@ -97,6 +97,35 @@ domain customer {
     assert manifest["references"][0]["fields"] == ["customer.Customer@1#customerId"]
 
 
+def test_usage_manifest_includes_enum_projection_contracts(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  semantic OrderStatus @ 1 (additive): enum(draft, approved)
+  enum projection PublicOrderStatus @ 1 (additive)
+    from OrderStatus @ 1
+    pick(approved)
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(source)
+    graph = build_usage_graph(workspace)
+    manifest = build_usage_manifest(workspace)
+
+    assert {
+        "kind": "consumes",
+        "source": "application:workspace",
+        "target": "enum_projection:orders.PublicOrderStatus@1",
+    } in graph["edges"]
+    reference = next(item for item in manifest["references"] if item["ref"] == "orders.PublicOrderStatus@1")
+    assert len(reference["signature"]) == 64
+    assert reference["fields"] == []
+
+
 def test_usage_graph_links_event_projections_to_their_source_models(tmp_path: Path) -> None:
     source = tmp_path / "models.mdl"
     source.write_text(
