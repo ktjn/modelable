@@ -34,6 +34,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Impact now evaluates projection changes and surfaces projection-rebuild
+  consequences in the validated graph.
 - Impact consequence graphs now include target-evaluator storage migration
   actions for index changes.
 - Compatibility reports now expose separate semantic and storage change sets
