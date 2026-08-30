@@ -23,11 +23,12 @@ def build_artifact_manifest(
     registry_lock: Path,
     output_root: Path,
     extension_pins: tuple[ExtensionPin, ...] = (),
+    overlay_path: Path | None = None,
 ) -> dict[str, Any]:
     target_profile = get_codegen_target(target)
     extension_descriptor = target_profile.extension_descriptor()
     lock_hash = _sha256(registry_lock) if registry_lock.is_file() else None
-    return {
+    manifest: dict[str, Any] = {
         "format": MANIFEST_FORMAT,
         "compiler": {"name": "modelable", "version": _compiler_version()},
         "inputs": [
@@ -58,6 +59,12 @@ def build_artifact_manifest(
         "warnings": sorted({warning for artifact in artifacts for warning in artifact.warnings}),
         "loss_facts": sorted({warning for artifact in artifacts for warning in artifact.warnings}),
     }
+    if overlay_path is not None:
+        manifest["overlay"] = {
+            "path": _relative_path(overlay_path, workspace_root),
+            "sha256": _sha256(overlay_path),
+        }
+    return manifest
 
 
 def write_artifact_manifest(path: Path, payload: dict[str, Any]) -> None:

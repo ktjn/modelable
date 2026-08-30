@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -49,6 +50,7 @@ domain customer {
     assert manifest["inputs"][0]["path"] == "customer.mdl"
     assert manifest["inputs"][0]["signature"]
     assert manifest["snapshot"]["sha256"] is None
+    assert "overlay" not in manifest
     assert manifest["plugins"] == []
     assert manifest["extension_pins"] == []
     assert {entry["path"] for entry in manifest["artifacts"]} == {"customer.Customer.v1.ts"}
@@ -88,3 +90,51 @@ domain customer {
     assert result.exit_code == 0, result.output
     manifest = json.loads((tmp_path / "dist" / "modelable-artifact-manifest.json").read_text(encoding="utf-8"))
     assert manifest["extension_pins"] == [pin.as_dict()]
+
+
+def test_compile_records_overlay_provenance_in_manifest(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    overlay = tmp_path / "postgres.toml"
+    overlay.write_text(
+        """
+target = "sql-postgres"
+version = 1
+
+[models."customer.Customer@1"]
+table = "customers"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "compile",
+            str(source),
+            "--target",
+            "sql-postgres",
+            "--overlay",
+            str(overlay),
+            "--out",
+            str(tmp_path / "dist"),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    manifest = json.loads((tmp_path / "dist" / "modelable-artifact-manifest.json").read_text(encoding="utf-8"))
+    assert manifest["overlay"] == {
+        "path": "postgres.toml",
+        "sha256": hashlib.sha256(overlay.read_bytes()).hexdigest(),
+    }
