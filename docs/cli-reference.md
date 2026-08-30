@@ -256,7 +256,7 @@ modelable diff customer.Customer@1 customer.Customer@2
 ### 5.5 `validate-compat` — Validate target compatibility
 
 ```text
-modelable validate-compat --from OLD --to NEW --target json-schema|sql-postgres|sql-clickhouse|fhir-profile|avro|protobuf|grpc|openapi
+modelable validate-compat --from OLD --to NEW --target json-schema|sql-postgres|sql-clickhouse|fhir-profile|odcs|avro|protobuf|grpc|openapi
 ```
 
 Compares generated target artifacts from two Modelable workspaces without
@@ -264,13 +264,17 @@ requiring `protoc`. `wire_compatible` and `read_compatible` exit `0`;
 `requires_read_rebuild`, `requires_state_migration`, and `breaking` exit
 non-zero.
 
+For `odcs`, removed properties and contracts, newly required properties,
+requiredness changes, type/format changes, and removed enum values are
+breaking; optional additions and enum widening remain read-compatible.
+
 **Options:**
 
 | Flag | Required | Description |
 |:-----|:---------|:------------|
 | `--from` | Yes | Old `.mdl` file or workspace directory |
 | `--to` | Yes | New `.mdl` file or workspace directory |
-| `--target` | Yes | Target compatibility profile: `json-schema`, `sql-postgres`, `sql-clickhouse`, `fhir-profile`, `avro`, `protobuf`, `grpc`, or `openapi` |
+| `--target` | Yes | Target compatibility profile: `json-schema`, `sql-postgres`, `sql-clickhouse`, `fhir-profile`, `odcs`, `avro`, `protobuf`, `grpc`, or `openapi` |
 
 **Examples:**
 
@@ -283,6 +287,7 @@ modelable validate-compat --from ./old-models --to ./models --target json-schema
 modelable validate-compat --from ./old-models --to ./models --target sql-postgres
 modelable validate-compat --from ./old-models --to ./models --target sql-clickhouse
 modelable validate-compat --from ./old-models --to ./models --target fhir-profile
+modelable validate-compat --from ./old-models --to ./models --target odcs
 ```
 
 ---
