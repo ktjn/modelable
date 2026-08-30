@@ -689,6 +689,42 @@ def test_registry_resolve_uses_explicit_local_source_adapter(tmp_path: Path, mon
     assert calls == [FIXTURE]
 
 
+def test_registry_diff_uses_explicit_local_source_adapter(tmp_path: Path, monkeypatch) -> None:
+    calls: list[Path] = []
+    original_load = LocalSourceAdapter.load
+
+    def recording_load(adapter: LocalSourceAdapter, source: Path):
+        calls.append(source)
+        return original_load(adapter, source)
+
+    monkeypatch.setattr(LocalSourceAdapter, "load", recording_load)
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(FIXTURE), output_dir)
+
+    result = CliRunner().invoke(cli, ["registry", "diff", str(FIXTURE), "--out", str(output_dir)])
+
+    assert result.exit_code == 0, result.output
+    assert calls == [FIXTURE]
+
+
+def test_registry_update_uses_explicit_local_source_adapter(tmp_path: Path, monkeypatch) -> None:
+    calls: list[Path] = []
+    original_load = LocalSourceAdapter.load
+
+    def recording_load(adapter: LocalSourceAdapter, source: Path):
+        calls.append(source)
+        return original_load(adapter, source)
+
+    monkeypatch.setattr(LocalSourceAdapter, "load", recording_load)
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(FIXTURE), output_dir)
+
+    result = CliRunner().invoke(cli, ["registry", "update", str(FIXTURE), "--out", str(output_dir)])
+
+    assert result.exit_code == 0, result.output
+    assert calls == [FIXTURE]
+
+
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
     runner = CliRunner()
     output_dir = tmp_path / ".modelable"

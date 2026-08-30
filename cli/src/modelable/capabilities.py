@@ -203,6 +203,9 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         notes="External source-registry resolution is not included; use explicit local source paths.",
         test_refs=(
             "test_registry_snapshot.py::test_resolve_writes_deterministic_lock_and_objects",
+            "test_registry_snapshot.py::test_registry_resolve_uses_explicit_local_source_adapter",
+            "test_registry_snapshot.py::test_registry_diff_uses_explicit_local_source_adapter",
+            "test_registry_snapshot.py::test_registry_update_uses_explicit_local_source_adapter",
             "test_registry_snapshot.py::test_update_rejects_changed_content_for_existing_identity",
         ),
     ),
