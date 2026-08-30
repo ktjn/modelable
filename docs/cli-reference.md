@@ -1731,7 +1731,10 @@ connection failure.
 
 The currently implemented registry lifecycle is a local, offline snapshot
 workflow. It does not resolve external registries or dependency ranges, and it
-does not contact a source registry during ordinary compilation or analysis:
+does not contact a source registry during ordinary compilation or analysis.
+The public CLI retains `registry.db` as the stable filename for the rebuildable
+derived index; durable dependency state is stored in `registry.lock` and its
+content-addressed objects:
 
 ```text
 modelable registry resolve SOURCE [--out DIR]

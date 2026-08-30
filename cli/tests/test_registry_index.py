@@ -43,6 +43,16 @@ def test_build_registry_writes_sqlite_index(tmp_path):
     assert registry_path.exists()
 
 
+def test_registry_db_remains_the_stable_derived_index_name(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    _write_customer_model(source)
+
+    registry_path = build_registry(load_workspace(source), tmp_path / ".modelable")
+
+    assert registry_path.name == "registry.db"
+    assert registry_path.parent.name == ".modelable"
+
+
 def test_build_registry_from_snapshot_works_without_source_files(tmp_path: Path):
     source = tmp_path / "customer.mdl"
     _write_customer_model(source)
