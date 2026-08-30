@@ -79,6 +79,47 @@ domain customer {
     assert first == second
 
 
+def test_graph_export_links_ref_fields_to_target_model_versions(tmp_path: Path) -> None:
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+  entity Address @ 1 (additive) {
+    @key addressId: uuid
+  }
+}
+
+domain sales {
+  owner: "test-team"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+    customer: ref<customer.Customer @ 1>
+    addresses: array<ref<customer.Address @ 1>>
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    graph = build_graph_export(workspace)
+
+    assert {
+        "kind": "references",
+        "source": "field:sales.Order@1#customer",
+        "target": "model_version:customer.Customer@1",
+    } in graph["edges"]
+    assert {
+        "kind": "references",
+        "source": "field:sales.Order@1#addresses",
+        "target": "model_version:customer.Address@1",
+    } in graph["edges"]
+
+
 def test_graph_export_focuses_on_projection_and_source_fields(tmp_path: Path) -> None:
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(

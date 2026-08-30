@@ -32,6 +32,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Usage graphs now include deterministic `references` edges from model fields
+  to the resolved model versions named by `ref<>` types.
 - Added standalone validation, loading, and deterministic serialization for `modelable.usage/v0` manifests.
 - Usage manifests now include sorted canonical field and path references for each consumed model or projection version.
 - Usage graphs now connect the workspace application node to each compiled model and projection version.
