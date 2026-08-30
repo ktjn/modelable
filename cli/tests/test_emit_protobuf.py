@@ -8,6 +8,8 @@ from click.testing import CliRunner
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.protobuf import emit_protobuf
+from modelable.emitters.protobuf_plan import emit_protobuf_projection_plan
+from modelable.planner.plans import build_plan_documents
 from modelable.registry.signature import compute_version_signature
 
 
@@ -948,6 +950,43 @@ domain platform {
     assert schema["modelable_signature"] == compute_version_signature("platform", "SchemaView", version)
     assert schema["semantic_types"][0]["ref"] == "platform.SchemaId"
     assert "registry_id" not in schema["semantic_types"][0]
+
+
+def test_emit_protobuf_projection_plan_consumer_preserves_scalar_output(tmp_path):
+    (tmp_path / "customer.mdl").write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    email: string
+  }
+
+  projection CustomerSummary @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    email <- c.email
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerSummary")
+    projection_version = workspace.mdl.domains[0].projections["CustomerSummary"][0]
+    migrated = emit_protobuf_projection_plan(
+        plan,
+        tmp_path / "plan-out",
+        modelable_signature=compute_version_signature("customer", "CustomerSummary", projection_version),
+    )
+    routed = emit_protobuf(workspace, tmp_path / "out")
+    routed_proto = next(a for a in routed if a.ref == "customer.CustomerSummary@1" and a.path.suffix == ".proto")
+    routed_manifest = next(
+        a for a in routed if a.ref == "customer.CustomerSummary@1" and a.path.name == "schema-manifest.json"
+    )
+    assert migrated[0].content == routed_proto.content
+    assert migrated[1].content == routed_manifest.content
 
 
 def test_emit_protobuf_registry_allocation_does_not_change_wire_fingerprint(
