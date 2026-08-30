@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.governance.checker import build_projection_governance_findings
 from modelable.parser.ir import ComputedMapping, DirectMapping, MdlFile, ProjectionVersion
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
+from modelable.planner.protocol import PLAN_SCHEMA, serialize_plan
 from modelable.registry.resolver import resolve_model_ref
-
-PLAN_SCHEMA = "modelable.plan/v0"
 
 
 def build_plan(
@@ -78,10 +76,7 @@ def write_plans(workspace: Workspace, plans_dir: Path) -> list[Path]:
                 plan = build_plan(domain.name, projection_name, pv, lineage, workspace.mdl)
                 filename = f"{domain.name}.{projection_name}.v{pv.version}.plan.json"
                 out_path = plans_dir / filename
-                out_path.write_text(
-                    json.dumps(plan, indent=2, ensure_ascii=False) + "\n",
-                    encoding="utf-8",
-                )
+                out_path.write_text(serialize_plan(plan), encoding="utf-8")
                 written.append(out_path)
 
     return written
