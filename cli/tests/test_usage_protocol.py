@@ -42,6 +42,7 @@ def test_usage_protocol_round_trips_application_package_identity() -> None:
     manifest = _manifest()
     manifest["application_id"] = "application:billing-service"
     manifest["packages"] = [{"id": "package:billing-service/api", "name": "api"}]
+    manifest["references"][0]["package_id"] = "package:billing-service/api"
 
     assert protocol.validate_usage_manifest(manifest) == manifest
     assert json.loads(protocol.serialize_usage_manifest(manifest)) == manifest

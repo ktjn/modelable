@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Usage evidence now attributes packaged contract references and emits
+  package-level consumption edges alongside application-level edges.
 - Usage graphs and manifests now expose stable application and package identities
   derived from workspace and package names.
 - Added `modelable registry resolve-git` for resolving tracked `.mdl` files from
