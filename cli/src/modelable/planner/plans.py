@@ -20,6 +20,7 @@ from modelable.parser.ir import (
     ModelVersion,
     ProjectionField,
     ProjectionVersion,
+    RefType,
     VersionExact,
     VersionMin,
     VersionPinned,
@@ -28,7 +29,7 @@ from modelable.parser.ir import (
 )
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
 from modelable.planner.protocol import PLAN_SCHEMA, PlanDocument, serialize_plan
-from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_semantic_type_ref
+from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
 
 
 def build_plan(
@@ -228,6 +229,15 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
 
 def _field_type_document(field_type: FieldType, mdl: MdlFile, current_domain: str) -> dict[str, object]:
     document = field_type.model_dump(mode="json")
+    if isinstance(field_type, RefType):
+        try:
+            resolved = resolve_ref_type(field_type, mdl)
+        except LookupError:
+            resolved = None
+        if resolved is not None and isinstance(resolved.version, ModelVersion):
+            key_field = next((field for field in resolved.version.fields if field.is_key), None)
+            if key_field is not None:
+                document["resolved_key_type"] = _field_type_document(key_field.type, mdl, resolved.domain_name)
     if isinstance(field_type, EnumRefType):
         try:
             declaring_domain, declaration = resolve_semantic_type_ref(
