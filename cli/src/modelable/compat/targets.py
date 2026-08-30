@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from modelable.compat.checker import CompatibilityReport
 from modelable.compat.diff import FieldChange, ProjectionChange, describe_field_change, is_field_change_breaking
 from modelable.emitters.base import EmittedArtifact
 
@@ -245,6 +246,20 @@ def compare_source_representation(
     return TargetCompatibilityReport(target=target, status=status, severity=severity, findings=findings)
 
 
+def compare_semantic_compatibility(
+    report: CompatibilityReport,
+    *,
+    target: str = "source",
+) -> TargetCompatibilityReport:
+    """Evaluate only target-neutral semantic changes from a model report."""
+    return compare_source_representation(
+        report.domain_name,
+        report.model_name,
+        report.semantic_changes,
+        target=target,
+    )
+
+
 def compare_storage_migration(
     domain_name: str,
     model_name: str,
@@ -268,6 +283,11 @@ def compare_storage_migration(
     ]
     status, severity = _worst(findings, default_status="compatible")
     return TargetCompatibilityReport(target="sql", status=status, severity=severity, findings=findings)
+
+
+def compare_model_storage_migration(report: CompatibilityReport) -> TargetCompatibilityReport:
+    """Evaluate only storage changes from a model compatibility report."""
+    return compare_storage_migration(report.domain_name, report.model_name, report.storage_changes)
 
 
 def compare_projection_rebuild(

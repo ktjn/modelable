@@ -34,6 +34,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Compatibility reports now expose separate semantic and storage change sets
+  for target-specific evaluators.
 - Browser compatibility results now expose the validated consequence graph and
   include projections compiled against the changed model version.
 - Impact consequence graphs now declare and validate the
