@@ -3,7 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from modelable.compat.checker import CompatibilityReport, analyze_impact
+from modelable.compiler.workspace import Workspace
 from modelable.consequence_protocol import CONSEQUENCE_SCHEMA, validate_consequence_graph
+from modelable.registry.resolver import find_dependents
 
 ACTION_NO_ACTION = "no_action"
 ACTION_RECOMPILE = "recompile"
@@ -64,6 +67,73 @@ def build_consequence_graph(
         "edges": [{"kind": kind, "source": source, "target": target} for kind, source, target in sorted(edges)],
     }
     return validate_consequence_graph(graph)
+
+
+def build_model_consequences(workspace: Workspace, report: CompatibilityReport) -> list[Consequence]:
+    """Build consequences for one model transition for native and browser hosts."""
+    source_subject = f"{report.domain_name}.{report.model_name}@{report.to_version}"
+    change_ids = (
+        tuple(_change_node_id(change.kind, change.field_name) for change in report.changes)
+        if report.status != "compatible"
+        else ()
+    )
+    consequences = [
+        Consequence(
+            action=ACTION_RECOMPILE if report.status == "compatible" else ACTION_BREAKING,
+            subject=source_subject,
+            status=report.status,
+            reason="direct contract change",
+            causal_path=(f"{report.domain_name}.{report.model_name}@{report.from_version}", source_subject),
+            causal_changes=change_ids,
+        )
+    ]
+    for dependent in find_dependents(workspace.mdl, report.domain_name, report.model_name, report.from_version):
+        projection_impact = analyze_impact(workspace.mdl, report, dependent)
+        subject = f"{projection_impact.domain_name}.{projection_impact.projection_name}@{projection_impact.version}"
+        consequences.append(
+            Consequence(
+                action=action_for_projection_status(projection_impact.status),
+                subject=subject,
+                status=projection_impact.status,
+                reason=projection_impact.reason,
+                causal_path=(
+                    f"{report.domain_name}.{report.model_name}@{report.from_version}",
+                    subject,
+                ),
+                causal_changes=_projection_change_ids(projection_impact.status, projection_impact.reason, report),
+            )
+        )
+    return consequences
+
+
+def change_nodes_for_report(report: CompatibilityReport) -> list[dict[str, object]]:
+    if report.status == "compatible":
+        return []
+    return [
+        {
+            "id": _change_node_id(change.kind, change.field_name),
+            "kind": "change",
+            "change_kind": change.kind,
+            "field": change.field_name,
+        }
+        for change in report.changes
+    ]
+
+
+def _change_node_id(change_kind: str, field_name: str) -> str:
+    return f"change:{change_kind}:{field_name}"
+
+
+def _projection_change_ids(status: str, reason: str | None, report: CompatibilityReport) -> tuple[str, ...]:
+    if status == "compatible":
+        return ()
+    if reason is None or reason == "unresolved projection" or "marked breaking" in reason:
+        return tuple(_change_node_id(change.kind, change.field_name) for change in report.changes)
+    return tuple(
+        _change_node_id(change.kind, change.field_name)
+        for change in report.changes
+        if f"field '{change.field_name}'" in reason
+    )
 
 
 def action_for_projection_status(status: str) -> str:

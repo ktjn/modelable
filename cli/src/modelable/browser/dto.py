@@ -207,6 +207,7 @@ class BrowserCompatibilityResult:
     workspace_revision: int
     reports: tuple[BrowserCompatibilityReport, ...]
     impacts: tuple[BrowserProjectionImpact, ...]
+    consequence_graph: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

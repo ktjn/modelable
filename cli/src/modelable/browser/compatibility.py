@@ -9,10 +9,9 @@ from modelable.browser.dto import (
 from modelable.compat import (
     CompatibilityReport,
     check_model_version_compatibility,
-    find_projection_dependents,
 )
-from modelable.compat.checker import analyze_impact
 from modelable.compiler.workspace import Workspace
+from modelable.consequence import build_consequence_graph, build_model_consequences, change_nodes_for_report
 
 
 def build_browser_compatibility(
@@ -21,6 +20,8 @@ def build_browser_compatibility(
 ) -> BrowserCompatibilityResult:
     reports: list[BrowserCompatibilityReport] = []
     impacts: list[BrowserProjectionImpact] = []
+    consequences = []
+    change_nodes = []
 
     for domain in workspace.mdl.domains:
         for model_name, versions in sorted(domain.models.items()):
@@ -32,17 +33,19 @@ def build_browser_compatibility(
                 reports.append(_convert_report(report))
 
                 if report.status == "breaking":
-                    ref = f"{domain.name}.{model_name}@{to_v}"
-                    dependents = find_projection_dependents(workspace.mdl, ref)
-                    for dependent in dependents:
-                        impact = analyze_impact(workspace.mdl, report, dependent)
+                    report_consequences = build_model_consequences(workspace, report)
+                    consequences.extend(report_consequences)
+                    change_nodes.extend(change_nodes_for_report(report))
+                    for consequence in report_consequences[1:]:
+                        domain_name, subject = consequence.subject.split(".", 1)
+                        projection_name, version = subject.rsplit("@", 1)
                         impacts.append(
                             BrowserProjectionImpact(
-                                domain_name=impact.domain_name,
-                                projection_name=impact.projection_name,
-                                version=impact.version,
-                                status=impact.status,
-                                reason=impact.reason,
+                                domain_name=domain_name,
+                                projection_name=projection_name,
+                                version=int(version),
+                                status=consequence.status,
+                                reason=consequence.reason,
                             )
                         )
 
@@ -50,6 +53,7 @@ def build_browser_compatibility(
         workspace_revision=workspace_revision,
         reports=tuple(reports),
         impacts=tuple(impacts),
+        consequence_graph=build_consequence_graph(consequences, change_nodes),
     )
 
 

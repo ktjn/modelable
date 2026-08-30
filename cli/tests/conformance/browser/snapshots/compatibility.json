@@ -1,5 +1,73 @@
 {
   "compatibility": {
+    "consequence_graph": {
+      "$schema": "modelable.consequence/v0",
+      "edges": [
+        {
+          "kind": "causes",
+          "source": "change:added_field:description",
+          "target": "platform.Widget@2"
+        },
+        {
+          "kind": "causes",
+          "source": "change:removed_field:legacyStatus",
+          "target": "platform.Widget@2"
+        },
+        {
+          "kind": "causes",
+          "source": "platform.Widget@1",
+          "target": "change:added_field:description"
+        },
+        {
+          "kind": "causes",
+          "source": "platform.Widget@1",
+          "target": "change:removed_field:legacyStatus"
+        },
+        {
+          "kind": "causes",
+          "source": "platform.Widget@1",
+          "target": "platform.Widget@2"
+        },
+        {
+          "kind": "requires",
+          "source": "platform.Widget@2",
+          "target": "action:breaking:platform.Widget@2"
+        }
+      ],
+      "kind": "consequence_graph",
+      "nodes": [
+        {
+          "action": "breaking",
+          "id": "action:breaking:platform.Widget@2",
+          "kind": "action",
+          "label": "breaking",
+          "status": "breaking",
+          "subject": "platform.Widget@2"
+        },
+        {
+          "change_kind": "added_field",
+          "field": "description",
+          "id": "change:added_field:description",
+          "kind": "change"
+        },
+        {
+          "change_kind": "removed_field",
+          "field": "legacyStatus",
+          "id": "change:removed_field:legacyStatus",
+          "kind": "change"
+        },
+        {
+          "id": "platform.Widget@1",
+          "kind": "reference",
+          "label": "platform.Widget@1"
+        },
+        {
+          "id": "platform.Widget@2",
+          "kind": "reference",
+          "label": "platform.Widget@2"
+        }
+      ]
+    },
     "impacts": [],
     "reports": [
       {

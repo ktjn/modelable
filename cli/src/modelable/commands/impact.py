@@ -7,17 +7,14 @@ from pathlib import Path
 import click
 
 from modelable.commands.common import console, load_workspace_or_exit
-from modelable.compat.checker import CompatibilityReport, analyze_impact, check_model_version_compatibility
-from modelable.compiler.workspace import Workspace
+from modelable.compat.checker import check_model_version_compatibility
 from modelable.consequence import (
-    ACTION_BREAKING,
-    ACTION_RECOMPILE,
-    Consequence,
-    action_for_projection_status,
     build_consequence_graph,
+    build_model_consequences,
+    change_nodes_for_report,
 )
 from modelable.llm.context import parse_model_ref_version_spec
-from modelable.registry.resolver import find_dependents, resolve_model_ref
+from modelable.registry.resolver import resolve_model_ref
 
 
 def register_impact_commands(cli_group: click.Group) -> None:
@@ -54,8 +51,8 @@ def impact(from_ref: str, to_ref: str, source: Path, output_format: str) -> None
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
 
-    consequences = _model_consequences(workspace, report)
-    change_nodes = _change_nodes(report)
+    consequences = build_model_consequences(workspace, report)
+    change_nodes = change_nodes_for_report(report)
     payload = {
         "kind": "consequence_report",
         "from": from_ref,
@@ -80,69 +77,3 @@ def impact(from_ref: str, to_ref: str, source: Path, output_format: str) -> None
             console.print(f"  path: {' -> '.join(consequence.causal_path)}")
     if report.status == "breaking":
         sys.exit(1)
-
-
-def _model_consequences(workspace: Workspace, report: CompatibilityReport) -> list[Consequence]:
-    source_subject = f"{report.domain_name}.{report.model_name}@{report.to_version}"
-    change_ids = (
-        tuple(_change_node_id(change.kind, change.field_name) for change in report.changes)
-        if report.status != "compatible"
-        else ()
-    )
-    consequences = [
-        Consequence(
-            action=ACTION_RECOMPILE if report.status == "compatible" else ACTION_BREAKING,
-            subject=source_subject,
-            status=report.status,
-            reason="direct contract change",
-            causal_path=(f"{report.domain_name}.{report.model_name}@{report.from_version}", source_subject),
-            causal_changes=change_ids,
-        )
-    ]
-    for dependent in find_dependents(workspace.mdl, report.domain_name, report.model_name, report.from_version):
-        projection_impact = analyze_impact(workspace.mdl, report, dependent)
-        subject = f"{projection_impact.domain_name}.{projection_impact.projection_name}@{projection_impact.version}"
-        consequences.append(
-            Consequence(
-                action=action_for_projection_status(projection_impact.status),
-                subject=subject,
-                status=projection_impact.status,
-                reason=projection_impact.reason,
-                causal_path=(
-                    f"{report.domain_name}.{report.model_name}@{report.from_version}",
-                    subject,
-                ),
-                causal_changes=_projection_change_ids(projection_impact.status, projection_impact.reason, report),
-            )
-        )
-    return consequences
-
-
-def _change_nodes(report: CompatibilityReport) -> list[dict[str, object]]:
-    if report.status == "compatible":
-        return []
-    return [
-        {
-            "id": _change_node_id(change.kind, change.field_name),
-            "kind": "change",
-            "change_kind": change.kind,
-            "field": change.field_name,
-        }
-        for change in report.changes
-    ]
-
-
-def _change_node_id(change_kind: str, field_name: str) -> str:
-    return f"change:{change_kind}:{field_name}"
-
-
-def _projection_change_ids(status: str, reason: str | None, report: CompatibilityReport) -> tuple[str, ...]:
-    if status == "compatible":
-        return ()
-    if reason is None or reason == "unresolved projection" or "marked breaking" in reason:
-        return tuple(_change_node_id(change.kind, change.field_name) for change in report.changes)
-    return tuple(
-        _change_node_id(change.kind, change.field_name)
-        for change in report.changes
-        if f"field '{change.field_name}'" in reason
-    )

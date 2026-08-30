@@ -34,6 +34,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Browser compatibility results now expose the validated consequence graph and
+  include projections compiled against the changed model version.
 - Impact consequence graphs now declare and validate the
   `modelable.consequence/v0` protocol.
 - Impact graphs now expose the semantic changes that cause downstream
