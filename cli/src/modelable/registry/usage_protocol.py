@@ -33,7 +33,22 @@ def validate_usage_manifest(document: object) -> UsageManifest:
     seen: set[str] = set()
     for index, value in enumerate(references):
         _validate_reference(value, f"references[{index}]", seen)
-    _require_exact_keys(document, {"$schema", "kind", "application", "references"}, "usage manifest")
+    _require_string_if_present(document, "application_id")
+    packages = document.get("packages")
+    if packages is not None:
+        if not isinstance(packages, list):
+            raise UsageProtocolError("packages must be a JSON array")
+        for index, package in enumerate(packages):
+            if not isinstance(package, dict):
+                raise UsageProtocolError(f"packages[{index}] must be a JSON object")
+            _require_exact_keys(package, {"id", "name"}, f"packages[{index}]")
+            _require_string(package, "id")
+            _require_string(package, "name")
+    _require_exact_keys(
+        document,
+        {"$schema", "kind", "application", "references", "application_id", "packages"} & set(document),
+        "usage manifest",
+    )
     return cast(UsageManifest, document)
 
 
@@ -57,6 +72,10 @@ def serialize_usage_manifest(document: object) -> str:
         "application": validated["application"],
         "references": sorted(normalized_references, key=lambda item: cast(str, item["ref"])),
     }
+    if "application_id" in validated:
+        normalized["application_id"] = validated["application_id"]
+    if "packages" in validated:
+        normalized["packages"] = sorted(cast(list[dict[str, str]], validated["packages"]), key=lambda item: item["id"])
     try:
         return json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
     except (TypeError, ValueError) as error:
@@ -113,6 +132,11 @@ def _require_string(mapping: dict[str, object], name: str, *, expected: str | No
     if expected is not None and value != expected:
         raise UsageProtocolError(f"{name} must be {expected!r}")
     return value
+
+
+def _require_string_if_present(mapping: dict[str, object], name: str) -> None:
+    if name in mapping:
+        _require_string(mapping, name)
 
 
 def _require_exact_keys(mapping: Mapping[str, object], expected: set[str], name: str) -> None:
