@@ -74,6 +74,8 @@ def build_plan(
         field_type, optional = resolve_projection_field_type_and_optionality(proj_field, pv, mdl)
         entry["type"] = _field_type_document(field_type, mdl, domain_name) if field_type is not None else None
         entry["optional"] = optional
+        entry["nullable"] = _resolve_projection_field_nullable(proj_field, pv, mdl)
+        entry["constraints"] = [constraint.model_dump(mode="json") for constraint in proj_field.constraints]
         entry.update(_projection_governance_facts(proj_field, pv, mdl))
         fl = lineage_by_field.get(proj_field.name)
         entry["lineage"] = fl.lineage if fl else []
@@ -181,6 +183,11 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
                 "type": _field_type_document(field.type, mdl, resolved.domain_name),
                 "optional": field.optional,
                 "nullable": field.nullable,
+                "default": field.default,
+                "constraints": [constraint.model_dump(mode="json") for constraint in field.constraints],
+                "annotations": [
+                    annotation.model_dump(mode="json", exclude_none=True) for annotation in field.annotations
+                ],
                 **_field_governance_facts(field, owner=_field_owner(field)),
             }
             for field in version.fields
@@ -199,6 +206,10 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
                     else None,
                     "optional": optional,
                     "nullable": _resolve_projection_field_nullable(field, version, mdl),
+                    "constraints": [constraint.model_dump(mode="json") for constraint in field.constraints],
+                    "annotations": [
+                        annotation.model_dump(mode="json", exclude_none=True) for annotation in field.annotations
+                    ],
                     **_projection_governance_facts(field, version, mdl),
                 }
             )

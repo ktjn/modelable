@@ -32,6 +32,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- JSON Schema projection artifacts now consume validated `modelable.plan/v0`
+  documents while preserving existing output.
 - Markdown projection documentation now consumes validated `modelable.plan/v0`
   documents while preserving existing output and annotation rendering.
 - dbt YAML projection fragments now consume validated `modelable.plan/v0`

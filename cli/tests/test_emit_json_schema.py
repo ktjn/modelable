@@ -10,6 +10,8 @@ from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.base import EmittedArtifact, render_artifact_text
 from modelable.emitters.json_schema import emit_json_schema, emit_json_schema_artifacts
+from modelable.emitters.json_schema_plan import emit_json_schema_plan
+from modelable.planner.plans import build_plan_documents
 
 
 def test_json_schema_artifacts_are_relative_and_rendered_in_memory(tmp_path):
@@ -31,6 +33,36 @@ def test_json_schema_artifacts_are_relative_and_rendered_in_memory(tmp_path):
 
 def test_emitted_artifact_path_contract_accepts_pure_paths():
     assert get_type_hints(EmittedArtifact)["path"] is PurePath
+
+
+def test_projection_json_schema_plan_consumer_preserves_existing_output(tmp_path):
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+    age?: int
+  }
+  projection CustomerView @ 1 from Customer @ 1 as c {
+    customerId <- c.customerId
+    name <- c.name
+    age <- c.age
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerView")
+
+    existing = next(item for item in emit_json_schema_artifacts(workspace) if item.ref == "customer.CustomerView@1")
+    migrated = emit_json_schema_plan(plan, PurePosixPath(), domain_owner="customer-team")
+
+    assert migrated.content == existing.content
+    assert migrated.content_hash == existing.content_hash
 
 
 def test_discriminated_union_emits_one_of_and_discriminator(tmp_path):
