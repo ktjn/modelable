@@ -8,6 +8,8 @@ releases could contain breaking changes when called out explicitly.
 
 - `modelable impact` can now compose a validated local registry snapshot with
   candidate source for offline dependent-impact analysis.
+- `modelable impact` can now include validated usage manifests to report known
+  compiled consumers that require an update.
 - Usage evidence now attributes packaged contract references and emits
   package-level consumption edges alongside application-level edges.
 - Usage graphs and manifests now expose stable application and package identities

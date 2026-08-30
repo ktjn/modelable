@@ -19,6 +19,7 @@ from modelable.consequence import (
     build_model_consequences,
     build_projection_consequences,
     build_target_consequences,
+    build_usage_consumer_consequences,
     change_nodes_for_report,
     projection_change_nodes,
 )
@@ -27,6 +28,7 @@ from modelable.llm.context import parse_model_ref_version_spec
 from modelable.parser.ir import ProjectionVersion
 from modelable.registry.resolver import resolve_model_ref
 from modelable.registry.snapshot import load_workspace_with_snapshot
+from modelable.registry.usage_protocol import UsageProtocolError, load_usage_manifest
 
 
 def register_impact_commands(cli_group: click.Group) -> None:
@@ -44,8 +46,22 @@ def register_impact_commands(cli_group: click.Group) -> None:
     default=None,
     help="Validated local registry snapshot containing additional contracts.",
 )
+@click.option(
+    "--usage-manifest",
+    "usage_manifest_paths",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    multiple=True,
+    help="Validated usage manifest for a known compiled consumer (repeatable).",
+)
 @click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text")
-def impact(from_ref: str, to_ref: str, source: Path, snapshot_path: Path | None, output_format: str) -> None:
+def impact(
+    from_ref: str,
+    to_ref: str,
+    source: Path,
+    snapshot_path: Path | None,
+    usage_manifest_paths: tuple[Path, ...],
+    output_format: str,
+) -> None:
     """Report compatibility consequences for a version change."""
     workspace = load_workspace_or_exit(source)
     if snapshot_path is not None:
@@ -58,6 +74,11 @@ def impact(from_ref: str, to_ref: str, source: Path, snapshot_path: Path | None,
             for diagnostic in workspace.errors:
                 console.print(f"[red]ERROR[/red] {render_diagnostic(diagnostic)}", soft_wrap=True)
             sys.exit(1)
+    try:
+        usage_manifests = [load_usage_manifest(path) for path in usage_manifest_paths]
+    except UsageProtocolError as exc:
+        console.print(f"[red]ERROR[/red] Cannot load usage manifest: {exc}")
+        sys.exit(1)
     try:
         from_domain, from_name, from_spec = parse_model_ref_version_spec(from_ref)
         to_domain, to_name, to_spec = parse_model_ref_version_spec(to_ref)
@@ -100,6 +121,7 @@ def impact(from_ref: str, to_ref: str, source: Path, snapshot_path: Path | None,
         consequences = build_model_consequences(workspace, report)
         consequences.extend(build_target_consequences(report, compare_model_storage_migration(report)))
         change_nodes = change_nodes_for_report(report)
+    consequences.extend(build_usage_consumer_consequences(consequences, usage_manifests))
     payload = {
         "kind": "consequence_report",
         "from": from_ref,

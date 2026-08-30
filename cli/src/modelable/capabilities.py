@@ -243,9 +243,12 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         name="snapshot-aware-impact",
         category="registry_capability",
         status=CapabilityStatus.implemented,
-        description="Runs impact analysis with additional contracts from a validated offline snapshot",
-        notes="Aggregated usage manifests and policy-aware cross-application analysis remain deferred.",
-        test_refs=("test_cli_impact.py::test_impact_can_load_dependents_from_an_offline_snapshot",),
+        description="Runs impact analysis with validated offline snapshots and usage manifests",
+        notes="Policy-aware cross-application analysis remains deferred.",
+        test_refs=(
+            "test_cli_impact.py::test_impact_can_load_dependents_from_an_offline_snapshot",
+            "test_cli_impact.py::test_impact_includes_known_consumers_from_usage_manifest",
+        ),
     ),
     Capability(
         name="consequence-graph-analysis",
