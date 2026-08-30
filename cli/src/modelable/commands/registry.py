@@ -50,7 +50,7 @@ def resolve(source: Path, output_dir: Path) -> None:
 @click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text")
 def diff(source: Path, output_dir: Path, output_format: str) -> None:
     """Compare SOURCE with the current local snapshot without changing it."""
-    workspace = load_workspace_or_exit(source)
+    workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
         snapshot_diff = diff_workspace_snapshot(workspace, output_dir)
     except ValueError as exc:
@@ -74,7 +74,7 @@ def diff(source: Path, output_dir: Path, output_format: str) -> None:
 @click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text")
 def update(source: Path, output_dir: Path, output_format: str) -> None:
     """Stage and atomically install SOURCE as the local exact snapshot."""
-    workspace = load_workspace_or_exit(source)
+    workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
         result, snapshot_diff = update_workspace_snapshot(workspace, output_dir)
     except ValueError as exc:
