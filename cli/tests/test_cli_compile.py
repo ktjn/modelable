@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
+from modelable.extensions import PROTOCOL, ExtensionDescriptor, pin_extension_descriptor
 from modelable.registry.snapshot import resolve_workspace_snapshot
 
 _TWO_DOMAIN_MDL = """
@@ -116,12 +118,23 @@ domain analytics {
     customerId <- c.customerId
     name <- c.displayName
   }
-}
+    }
 """,
         encoding="utf-8",
     )
     snapshot = tmp_path / ".modelable"
-    resolve_workspace_snapshot(load_workspace(provider), snapshot)
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+    pin = pin_extension_descriptor(descriptor, "a" * 64, source="oci://example/target")
+    resolve_workspace_snapshot(load_workspace(provider), snapshot, extension_pins=(pin,))
     out = tmp_path / "dist" / "json-schema"
 
     result = CliRunner().invoke(
@@ -140,6 +153,8 @@ domain analytics {
 
     assert result.exit_code == 0, result.output
     assert (out / "analytics.CustomerSummary.v1.json").exists()
+    manifest = json.loads((out / "modelable-artifact-manifest.json").read_text(encoding="utf-8"))
+    assert manifest["extension_pins"] == [pin.as_dict()]
 
 
 def test_compile_without_domain_flag_compiles_whole_workspace(tmp_path):
@@ -157,6 +172,50 @@ def test_compile_without_domain_flag_compiles_whole_workspace(tmp_path):
     assert result.exit_code == 0, result.output
     assert (out / "logs" / "logs_log_entry_v1.rs").exists()
     assert (out / "nlq" / "nlq_query_v1.rs").exists()
+
+
+def test_compile_rejects_invalid_snapshot_pins_before_writing_outputs(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    snapshot = tmp_path / ".modelable"
+    snapshot.mkdir()
+    (snapshot / "registry.lock").write_text(
+        json.dumps(
+            {
+                "format": "modelable.registry.lock.v1",
+                "extensions": [
+                    {
+                        "id": "example.target",
+                        "version": "1.2.3",
+                        "implementation_hash": "not-a-hash",
+                        "source": None,
+                        "accepted_protocol_versions": ["modelable.extension/v1"],
+                    }
+                ],
+                "objects": [],
+                "requirements": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "dist"
+
+    result = CliRunner().invoke(cli, ["compile", str(source), "--target", "typescript", "--out", str(out)])
+
+    assert result.exit_code == 1
+    assert not out.exists()
+    assert not (tmp_path / "registry-ids.lock").exists()
+    assert not (tmp_path / "enum-numbers.lock").exists()
 
 
 _CROSS_DOMAIN_PROJECTION_MDL = """

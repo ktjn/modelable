@@ -6,6 +6,9 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.compiler.workspace import load_workspace
+from modelable.extensions import PROTOCOL, ExtensionDescriptor, pin_extension_descriptor
+from modelable.registry.snapshot import resolve_workspace_snapshot
 
 
 def test_compile_writes_deterministic_artifact_manifest(tmp_path: Path) -> None:
@@ -47,5 +50,41 @@ domain customer {
     assert manifest["inputs"][0]["signature"]
     assert manifest["snapshot"]["sha256"] is None
     assert manifest["plugins"] == []
+    assert manifest["extension_pins"] == []
     assert {entry["path"] for entry in manifest["artifacts"]} == {"customer.Customer.v1.ts"}
     assert all(entry["sha256"] for entry in manifest["artifacts"])
+
+
+def test_compile_carries_verified_extension_pins_into_manifest(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+    pin = pin_extension_descriptor(descriptor, "a" * 64, source="oci://example/target")
+    resolve_workspace_snapshot(load_workspace(tmp_path), tmp_path / ".modelable", extension_pins=(pin,))
+
+    result = CliRunner().invoke(
+        cli, ["compile", str(source), "--target", "typescript", "--out", str(tmp_path / "dist")]
+    )
+
+    assert result.exit_code == 0, result.output
+    manifest = json.loads((tmp_path / "dist" / "modelable-artifact-manifest.json").read_text(encoding="utf-8"))
+    assert manifest["extension_pins"] == [pin.as_dict()]

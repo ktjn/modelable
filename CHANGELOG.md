@@ -9,6 +9,7 @@ releases could contain breaking changes when called out explicitly.
 ### Added
 
 - Added deterministic extension provenance pins for exact implementation hashes and accepted protocol versions.
+- Artifact manifests now carry validated extension provenance pins from registry snapshots.
 - Artifact manifests now record the exact built-in extension descriptor used for generation.
 - Built-in code-generation targets now advertise standard semantic capabilities, and compilation rejects unsupported model constructs before writing state.
 - Code generation target inventories now expose validated `modelable.extension/v1` descriptors.
