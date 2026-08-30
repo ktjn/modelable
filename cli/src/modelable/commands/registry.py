@@ -18,6 +18,7 @@ from modelable.registry.snapshot import (
 )
 from modelable.registry.sources import LocalSourceAdapter
 from modelable.registry.usage import build_usage_graph, build_usage_manifest
+from modelable.registry.usage_protocol import serialize_usage_manifest
 
 
 def register_registry_commands(cli_group: click.Group) -> None:
@@ -156,7 +157,10 @@ def usage(source: Path, output_format: str) -> None:
     """Export application usage and exact contract references from SOURCE."""
     workspace = load_workspace_or_exit(source)
     payload = build_usage_manifest(workspace) if output_format == "manifest" else build_usage_graph(workspace)
-    if output_format in {"json", "manifest"}:
+    if output_format == "manifest":
+        click.echo(serialize_usage_manifest(payload), nl=False)
+        return
+    if output_format == "json":
         click.echo(json.dumps(payload, indent=2, sort_keys=True))
         return
     console.print(
