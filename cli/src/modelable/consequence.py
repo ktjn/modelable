@@ -17,6 +17,7 @@ class Consequence:
     status: str
     reason: str | None = None
     causal_path: tuple[str, ...] = ()
+    causal_changes: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -28,10 +29,14 @@ class Consequence:
         }
 
 
-def build_consequence_graph(consequences: list[Consequence]) -> dict[str, Any]:
+def build_consequence_graph(
+    consequences: list[Consequence], change_nodes: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
     """Build a deterministic node/edge view from consequence causal paths."""
     nodes: dict[str, dict[str, Any]] = {}
     edges: set[tuple[str, str, str]] = set()
+    for change_node in change_nodes or []:
+        nodes[change_node["id"]] = change_node
     for consequence in consequences:
         path = consequence.causal_path or (consequence.subject,)
         for reference in path:
@@ -46,6 +51,9 @@ def build_consequence_graph(consequences: list[Consequence]) -> dict[str, Any]:
             "subject": consequence.subject,
             "status": consequence.status,
         }
+        for change_id in consequence.causal_changes:
+            edges.add(("causes", path[0], change_id))
+            edges.add(("causes", change_id, path[-1]))
         edges.add(("requires", path[-1], action_id))
     return {
         "kind": "consequence_graph",
