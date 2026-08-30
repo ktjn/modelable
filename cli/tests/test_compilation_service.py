@@ -141,6 +141,83 @@ def test_compile_applies_workspace_relative_sql_overlay(tmp_path: Path) -> None:
     assert "CREATE TABLE IF NOT EXISTS orders_view" in sql
 
 
+def test_compile_applies_sql_overlay_selected_by_modelable_config(tmp_path: Path) -> None:
+    source = write_workspace(tmp_path)
+    (tmp_path / "modelable.toml").write_text(
+        '[[target]]\nname = "sql-postgres"\noverlay = "postgres.toml"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "postgres.toml").write_text(
+        'target = "sql-postgres"\nversion = 1\n\n[models."platform.Order@1"]\ntable = "configured_orders"\n',
+        encoding="utf-8",
+    )
+
+    request = request_for(tmp_path, source, "sql-postgres")
+    CompilationService().execute_direct(request)
+
+    sql = (request.out_dir / "platform.OrderView.v1.sql").read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS configured_orders" in sql
+
+
+def test_explicit_sql_overlay_overrides_modelable_config(tmp_path: Path) -> None:
+    source = write_workspace(tmp_path)
+    (tmp_path / "modelable.toml").write_text(
+        '[[target]]\nname = "sql-postgres"\noverlay = "configured.toml"\n',
+        encoding="utf-8",
+    )
+    for name, table in (("configured.toml", "configured_orders"), ("explicit.toml", "explicit_orders")):
+        (tmp_path / name).write_text(
+            f'target = "sql-postgres"\nversion = 1\n\n[models."platform.Order@1"]\ntable = "{table}"\n',
+            encoding="utf-8",
+        )
+
+    request = request_for(tmp_path, source, "sql-postgres", overlay_path=Path("explicit.toml"))
+    CompilationService().execute_direct(request)
+
+    sql = (request.out_dir / "platform.OrderView.v1.sql").read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS explicit_orders" in sql
+    assert "configured_orders" not in sql
+
+
+def test_compile_applies_conventional_sql_overlay(tmp_path: Path) -> None:
+    source = write_workspace(tmp_path)
+    overlay_dir = tmp_path / "modelable.extensions"
+    overlay_dir.mkdir()
+    (overlay_dir / "sql-postgres.toml").write_text(
+        'target = "sql-postgres"\nversion = 1\n\n[models."platform.Order@1"]\ntable = "conventional_orders"\n',
+        encoding="utf-8",
+    )
+
+    request = request_for(tmp_path, source, "sql-postgres")
+    CompilationService().execute_direct(request)
+
+    sql = (request.out_dir / "platform.OrderView.v1.sql").read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS conventional_orders" in sql
+
+
+def test_apply_rejects_changed_overlay_selection_config(tmp_path: Path) -> None:
+    source = write_workspace(tmp_path)
+    (tmp_path / "modelable.toml").write_text(
+        '[[target]]\nname = "sql-postgres"\noverlay = "postgres.toml"\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "postgres.toml").write_text('target = "sql-postgres"\nversion = 1\n', encoding="utf-8")
+    service = CompilationService(temp_root=tmp_path.parent)
+    pending = service.preview(
+        CompilationRequest(source=source, target="sql-postgres"),
+        policy=CompilationPolicy.conversation(),
+    )
+    (tmp_path / "modelable.toml").write_text(
+        '[[target]]\nname = "sql-postgres"\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(StaleCompilationError, match="source"):
+        service.apply(pending, confirmation=confirmation_for(pending))
+
+    assert not pending.staging_dir.exists()
+
+
 def test_projection_preflight_uses_current_domain_model_names(tmp_path: Path) -> None:
     source = write_workspace(
         tmp_path,

@@ -9,6 +9,7 @@ releases could contain breaking changes when called out explicitly.
 ### Added
 
 - Added `modelable compile --overlay` support for applying validated SQL target overlays.
+- `modelable.toml` can now select a target overlay when `--overlay` is omitted.
 - Enum projections can now be resolved as field-type references in the
   compiler core; unsupported code-generation targets report a specific
   diagnostic before writing artifacts or registry state.

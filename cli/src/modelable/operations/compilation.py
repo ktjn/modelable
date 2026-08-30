@@ -16,6 +16,7 @@ from typing import Literal
 
 from modelable.artifact_manifest import MANIFEST_NAME, build_artifact_manifest, write_artifact_manifest
 from modelable.compiler.workspace import Workspace, load_workspace
+from modelable.config import load_config
 from modelable.diagnostics.model import Diagnostic
 from modelable.emitters.avro import emit_avro
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
@@ -360,7 +361,12 @@ class CompilationService:
         workspace = _load_preview_workspace(request.source)
         source_paths = _validated_source_paths(workspace, workspace_root)
         layout = _validate_preview_request(request, workspace_root, source_paths, policy)
-        input_paths = (*source_paths, *((layout.overlay,) if layout.overlay is not None else ()))
+        config_path = _configuration_input_path(request, workspace_root)
+        input_paths = (
+            *source_paths,
+            *((config_path,) if config_path is not None else ()),
+            *((layout.overlay,) if layout.overlay is not None else ()),
+        )
         source_fingerprints = tuple(_fingerprint_source(path) for path in input_paths)
         existing_registry_ids = read_lock_file(layout.registry_ids)
         if self.temp_root is not None and Path(self.temp_root).resolve().is_relative_to(workspace_root):
@@ -680,7 +686,7 @@ def _validate_preview_request(
     if out_dir == registry or out_dir.is_relative_to(registry):
         raise CompilationError("Output path overlaps the registry control path.")
     overlay = _resolve_overlay_path(
-        request.overlay_path,
+        _requested_overlay_path(request, workspace_root),
         workspace_root,
         require_relative=True,
         source_paths=source_paths,
@@ -757,6 +763,26 @@ def _resolve_overlay_path(
     if not resolved.is_file():
         raise CompilationError(f"overlay file does not exist: {path}")
     return resolved
+
+
+def _requested_overlay_path(request: CompilationRequest, workspace_root: Path) -> Path | None:
+    if request.overlay_path is not None:
+        return request.overlay_path
+    try:
+        configured = load_config(workspace_root).overlay_for_target(request.target)
+    except ValueError as exc:
+        raise CompilationError(str(exc)) from exc
+    if configured is not None:
+        return configured
+    conventional = Path("modelable.extensions") / f"{request.target}.toml"
+    return conventional if (workspace_root / conventional).is_file() else None
+
+
+def _configuration_input_path(request: CompilationRequest, workspace_root: Path) -> Path | None:
+    if request.overlay_path is not None:
+        return None
+    config_path = workspace_root / "modelable.toml"
+    return config_path.resolve() if config_path.is_file() else None
 
 
 def _canonical_policy_component(component: str) -> str:
@@ -1324,7 +1350,7 @@ def _run_compilation(
 
     workspace_root = _workspace_root(request.source)
     overlay_path = _resolve_overlay_path(
-        request.overlay_path,
+        _requested_overlay_path(request, workspace_root),
         workspace_root,
         require_relative=False,
         target=request.target,

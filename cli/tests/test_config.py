@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
+from modelable.config import load_config
 
 
 def test_config_explain_reports_file_provenance(tmp_path: Path) -> None:
@@ -44,3 +46,27 @@ domain customer {
     assert not workspace.errors
     projection_names = set(workspace.mdl.domains[0].projections)
     assert projection_names == {"CustomerDb", "CustomerReply"}
+
+
+def test_config_exposes_workspace_relative_target_overlay(tmp_path: Path) -> None:
+    (tmp_path / "modelable.toml").write_text(
+        '[[target]]\nname = "sql-postgres"\noverlay = "modelable.extensions/postgres.toml"\n',
+        encoding="utf-8",
+    )
+
+    config = load_config(tmp_path)
+
+    assert config.overlay_for_target("sql-postgres") == Path("modelable.extensions/postgres.toml")
+
+
+def test_config_rejects_absolute_target_overlay(tmp_path: Path) -> None:
+    outside = tmp_path / "outside.toml"
+    (tmp_path / "modelable.toml").write_text(
+        f"[[target]]\nname = 'sql-postgres'\noverlay = '{outside.as_posix()}'\n",
+        encoding="utf-8",
+    )
+
+    config = load_config(tmp_path)
+
+    with pytest.raises(ValueError, match="workspace-relative"):
+        config.overlay_for_target("sql-postgres")
