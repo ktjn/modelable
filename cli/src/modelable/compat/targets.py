@@ -239,6 +239,33 @@ def compare_avro_artifacts(
     return TargetCompatibilityReport(target="avro", status=status, severity=severity, findings=findings)
 
 
+def compare_json_schema_artifacts(
+    old_artifacts: list[EmittedArtifact],
+    new_artifacts: list[EmittedArtifact],
+) -> TargetCompatibilityReport:
+    """Compare emitted JSON Schema documents for source compatibility."""
+    findings: list[TargetCompatibilityFinding] = []
+    old_schemas = _json_schema_entries(old_artifacts)
+    new_schemas = _json_schema_entries(new_artifacts)
+
+    for ref in sorted(set(old_schemas) | set(new_schemas)):
+        old_schema = old_schemas.get(ref)
+        new_schema = new_schemas.get(ref)
+        if old_schema is None:
+            continue
+        if new_schema is None:
+            findings.append(
+                _finding(
+                    "schema_removed", "breaking", ref, "JSON Schema document was removed", axis="source_compatibility"
+                )
+            )
+            continue
+        findings.extend(_compare_json_schema(ref, old_schema, new_schema))
+
+    status, severity = _worst(findings, default_status="read_compatible")
+    return TargetCompatibilityReport(target="json-schema", status=status, severity=severity, findings=findings)
+
+
 def compare_source_representation(
     domain_name: str,
     model_name: str,
@@ -388,6 +415,72 @@ def _schema_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str, Any
             if isinstance(schema, dict) and isinstance(schema.get("ref"), str):
                 schemas[str(schema["ref"])] = schema
     return schemas
+
+
+def _json_schema_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str, Any]]:
+    return {
+        artifact.ref: artifact.content
+        for artifact in artifacts
+        if artifact.target == "json-schema" and isinstance(artifact.ref, str) and isinstance(artifact.content, dict)
+    }
+
+
+def _compare_json_schema(
+    ref: str, old_schema: dict[str, Any], new_schema: dict[str, Any]
+) -> list[TargetCompatibilityFinding]:
+    findings: list[TargetCompatibilityFinding] = []
+    old_properties = _json_schema_properties(old_schema)
+    new_properties = _json_schema_properties(new_schema)
+    old_required = _json_schema_required(old_schema)
+    new_required = _json_schema_required(new_schema)
+
+    for field in sorted(set(old_properties) - set(new_properties)):
+        findings.append(
+            _finding(
+                "property_removed",
+                "breaking",
+                ref,
+                f"JSON Schema property '{field}' was removed",
+                axis="source_compatibility",
+                field=field,
+            )
+        )
+    for field in sorted(new_required - old_required):
+        if field in new_properties:
+            findings.append(
+                _finding(
+                    "required_property_added",
+                    "breaking",
+                    ref,
+                    f"JSON Schema required property '{field}' was added",
+                    axis="source_compatibility",
+                    field=field,
+                )
+            )
+    for field in sorted(set(old_properties) & set(new_properties)):
+        if old_properties[field] != new_properties[field]:
+            findings.append(
+                _finding(
+                    "property_type_changed",
+                    "breaking",
+                    ref,
+                    f"JSON Schema property '{field}' changed type or constraints",
+                    axis="source_compatibility",
+                    field=field,
+                )
+            )
+
+    return findings
+
+
+def _json_schema_properties(schema: dict[str, Any]) -> dict[str, object]:
+    properties = schema.get("properties")
+    return properties if isinstance(properties, dict) else {}
+
+
+def _json_schema_required(schema: dict[str, Any]) -> set[str]:
+    required = schema.get("required")
+    return {item for item in required if isinstance(item, str)} if isinstance(required, list) else set()
 
 
 def _avro_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str, Any]]:

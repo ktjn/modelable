@@ -14,6 +14,7 @@ from modelable.compat.targets import (
     compare_avro_artifacts,
     compare_governance_review,
     compare_grpc_artifacts,
+    compare_json_schema_artifacts,
     compare_model_storage_migration,
     compare_openapi_artifacts,
     compare_projection_rebuild,
@@ -27,6 +28,7 @@ from modelable.consequence_protocol import validate_consequence_graph
 from modelable.emitters.avro import emit_avro
 from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.grpc import emit_grpc
+from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.openapi import emit_openapi
 from modelable.emitters.protobuf import emit_protobuf
 from modelable.parser.parse import parse_text_to_ir
@@ -43,6 +45,21 @@ def _openapi_artifacts(path: Path):
 
 def _avro_artifacts(path: Path):
     return emit_avro(load_workspace(path), path.parent / "out")
+
+
+def _json_schema_artifacts(path: Path):
+    return emit_json_schema(load_workspace(path), path.parent / "out")
+
+
+def _synthetic_json_schema_artifact(content: object) -> EmittedArtifact:
+    return EmittedArtifact(
+        target="json-schema",
+        ref="billing.Customer@1",
+        artifact_id="billing.Customer.v1",
+        path=Path("billing/Customer.v1.json"),
+        content=content,
+        content_hash="test",
+    )
 
 
 def _synthetic_avro_artifact(content: object, *, target: str = "avro") -> EmittedArtifact:
@@ -123,6 +140,137 @@ domain billing {
     assert result.exit_code == 1
     assert "target: avro" in result.output
     assert "required_field_added" in result.output
+
+
+def test_json_schema_compat_rejects_added_required_property(tmp_path: Path):
+    old = _write(
+        tmp_path / "old-json-schema.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new-json-schema.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+  }
+}
+""",
+    )
+
+    report = compare_json_schema_artifacts(_json_schema_artifacts(old), _json_schema_artifacts(new))
+
+    assert report.target == "json-schema"
+    assert report.status == "breaking"
+    finding = next(item for item in report.findings if item.code == "required_property_added")
+    assert finding.axis == "source_compatibility"
+    assert finding.severity == "breaking"
+
+
+def test_validate_compat_cli_supports_json_schema(tmp_path: Path):
+    old = _write(
+        tmp_path / "old-json-schema-cli.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new-json-schema-cli.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+  }
+}
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["validate-compat", "--from", str(old), "--to", str(new), "--target", "json-schema"],
+    )
+
+    assert result.exit_code == 1
+    assert "target: json-schema" in result.output
+    assert "required_property_added" in result.output
+
+
+def test_json_schema_compat_reports_removed_and_changed_properties():
+    old = {
+        "type": "object",
+        "properties": {"legacy": {"type": "string"}, "amount": {"type": "integer"}},
+        "required": ["legacy", "amount"],
+    }
+    new = {
+        "type": "object",
+        "properties": {"amount": {"type": "number"}},
+        "required": ["amount"],
+    }
+
+    report = compare_json_schema_artifacts(
+        [_synthetic_json_schema_artifact(old)],
+        [_synthetic_json_schema_artifact(new)],
+    )
+
+    assert {finding.code for finding in report.findings} == {"property_removed", "property_type_changed"}
+
+
+def test_json_schema_compat_allows_optional_property_and_requiredness_widening():
+    old = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+    }
+    new = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}, "nickname": {"type": "string"}},
+        "required": [],
+    }
+
+    report = compare_json_schema_artifacts(
+        [_synthetic_json_schema_artifact(old)],
+        [_synthetic_json_schema_artifact(new)],
+    )
+
+    assert report.status == "read_compatible"
+    assert report.findings == []
+
+
+def test_json_schema_compat_rejects_making_existing_property_required():
+    old = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "required": [],
+    }
+    new = {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+    }
+
+    report = compare_json_schema_artifacts(
+        [_synthetic_json_schema_artifact(old)],
+        [_synthetic_json_schema_artifact(new)],
+    )
+
+    assert report.status == "breaking"
+    assert [finding.code for finding in report.findings] == ["required_property_added"]
 
 
 def test_avro_compat_allows_added_optional_field(tmp_path: Path):
@@ -904,6 +1052,7 @@ def test_validate_compat_target_choices_match_the_registry():
     assert "grpc" in result.output
     assert "openapi" in result.output
     assert "avro" in result.output
+    assert "json-schema" in result.output
 
 
 # --- Slice C3: common target-compatibility axis/severity IR -----------------

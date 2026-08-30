@@ -8,6 +8,7 @@ releases could contain breaking changes when called out explicitly.
 
 - `validate-compat` can emit target compatibility findings as a validated `modelable.consequence/v0` graph with `--format json`.
 - Avro is now available as a target-specific compatibility evaluator through `validate-compat`.
+- JSON Schema is now available as a target-specific compatibility evaluator through `validate-compat`.
 - Added `modelable consequence validate` for standalone
   `modelable.consequence/v0` graph validation and canonical JSON output.
 - Added `modelable plan validate` for standalone `modelable.plan/v0`
