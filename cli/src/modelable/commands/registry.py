@@ -171,10 +171,26 @@ def prune(output_dir: Path) -> None:
 @registry.command("usage")
 @click.argument("source", type=click.Path(exists=True, path_type=Path))
 @click.option("--format", "output_format", type=click.Choice(["json", "manifest", "text"]), default="text")
-def usage(source: Path, output_format: str) -> None:
+@click.option(
+    "--artifact-manifest",
+    "artifact_manifest_paths",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    multiple=True,
+    help="Generated artifact manifest to include as usage evidence (repeatable).",
+)
+def usage(source: Path, output_format: str, artifact_manifest_paths: tuple[Path, ...]) -> None:
     """Export application usage and exact contract references from SOURCE."""
     workspace = load_workspace_or_exit(source)
-    payload = build_usage_manifest(workspace) if output_format == "manifest" else build_usage_graph(workspace)
+    try:
+        artifact_manifests = [_load_artifact_manifest(path) for path in artifact_manifest_paths]
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        console.print(f"[red]ERROR[/red] Cannot load artifact manifest: {exc}")
+        sys.exit(1)
+    payload = (
+        build_usage_manifest(workspace, artifact_manifests=artifact_manifests)
+        if output_format == "manifest"
+        else build_usage_graph(workspace, artifact_manifests=artifact_manifests)
+    )
     if output_format == "manifest":
         click.echo(serialize_usage_manifest(payload), nl=False)
         return
@@ -185,3 +201,10 @@ def usage(source: Path, output_format: str) -> None:
         f"[green]OK[/green] {len(payload['nodes'])} usage node(s), "
         f"{len(payload['edges'])} usage edge(s) for {payload['application']}"
     )
+
+
+def _load_artifact_manifest(path: Path) -> dict[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("artifact manifest must be a JSON object")
+    return payload

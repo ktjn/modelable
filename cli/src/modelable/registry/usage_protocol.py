@@ -34,6 +34,13 @@ def validate_usage_manifest(document: object) -> UsageManifest:
     for index, value in enumerate(references):
         _validate_reference(value, f"references[{index}]", seen)
     _require_string_if_present(document, "application_id")
+    artifacts = document.get("artifacts")
+    if artifacts is not None:
+        if not isinstance(artifacts, list):
+            raise UsageProtocolError("artifacts must be a JSON array")
+        artifact_keys: set[tuple[str, str]] = set()
+        for index, artifact in enumerate(artifacts):
+            _validate_artifact(artifact, f"artifacts[{index}]", artifact_keys)
     packages = document.get("packages")
     if packages is not None:
         if not isinstance(packages, list):
@@ -46,7 +53,7 @@ def validate_usage_manifest(document: object) -> UsageManifest:
             _require_string(package, "name")
     _require_exact_keys(
         document,
-        {"$schema", "kind", "application", "references", "application_id", "packages"} & set(document),
+        {"$schema", "kind", "application", "references", "application_id", "packages", "artifacts"} & set(document),
         "usage manifest",
     )
     return cast(UsageManifest, document)
@@ -67,6 +74,17 @@ def serialize_usage_manifest(document: object) -> str:
                 **({"package_id": reference["package_id"]} if "package_id" in reference else {}),
             }
         )
+    normalized_artifacts = []
+    for value in cast(list[object], validated.get("artifacts", [])):
+        artifact = cast(dict[str, object], value)
+        normalized_artifact = {
+            "path": artifact["path"],
+            "sha256": artifact["sha256"],
+            "target": artifact["target"],
+        }
+        if "ref" in artifact:
+            normalized_artifact["ref"] = artifact["ref"]
+        normalized_artifacts.append(normalized_artifact)
     normalized = {
         "$schema": validated["$schema"],
         "kind": validated["kind"],
@@ -77,6 +95,10 @@ def serialize_usage_manifest(document: object) -> str:
         normalized["application_id"] = validated["application_id"]
     if "packages" in validated:
         normalized["packages"] = sorted(cast(list[dict[str, str]], validated["packages"]), key=lambda item: item["id"])
+    if "artifacts" in validated:
+        normalized["artifacts"] = sorted(
+            normalized_artifacts, key=lambda item: (cast(str, item["target"]), cast(str, item["path"]))
+        )
     try:
         return json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
     except (TypeError, ValueError) as error:
@@ -125,6 +147,26 @@ def _validate_reference(value: object, name: str, seen: set[str]) -> None:
         if field in field_names:
             raise UsageProtocolError(f"{name}.fields contains duplicate field {field!r}")
         field_names.add(field)
+
+
+def _validate_artifact(value: object, name: str, seen: set[tuple[str, str]]) -> None:
+    if not isinstance(value, dict):
+        raise UsageProtocolError(f"{name} must be a JSON object")
+    artifact = cast(dict[str, object], value)
+    _require_exact_keys(artifact, {"path", "ref", "sha256", "target"} & set(artifact), name)
+    path = _require_string(artifact, "path")
+    target = _require_string(artifact, "target")
+    key = (target, path)
+    if key in seen:
+        raise UsageProtocolError(f"duplicate artifact {target!r}/{path!r}")
+    seen.add(key)
+    _require_string(artifact, "sha256")
+    if _SHA256.fullmatch(cast(str, artifact["sha256"])) is None:
+        raise UsageProtocolError(f"{name}.sha256 must be a lowercase SHA-256 hex string")
+    if "ref" in artifact:
+        ref = _require_string(artifact, "ref")
+        if _DECLARATION_REF.fullmatch(ref) is None:
+            raise UsageProtocolError(f"{name}.ref must be a canonical declaration reference")
 
 
 def _require_string(mapping: dict[str, object], name: str, *, expected: str | None = None) -> str:
