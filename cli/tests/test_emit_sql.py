@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import hashlib
 
+import pytest
+
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.sql import emit_sql
+from modelable.overlays import OverlayError, parse_overlay
 
 
 def test_emit_sql_postgres_basic(tmp_path):
@@ -44,6 +47,61 @@ domain alerts {
     # optional field should NOT have NOT NULL
     assert "created_at TIMESTAMPTZ NOT NULL" not in art.content
     assert art.content_hash == hashlib.sha256(art.content.encode("utf-8")).hexdigest()
+
+
+def test_emit_sql_overlay_overrides_table_and_column_names(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain orders {
+  owner: "test-team"
+  entity Order @ 4 (additive) {
+    @key orderId: uuid
+    total: int
+  }
+
+  projection OrderRow @ 1
+    from orders.Order @ 4 as o
+  {
+    orderId <- o.orderId
+    total <- o.total
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    overlay = parse_overlay(
+        {
+            "target": "sql-postgres",
+            "version": 1,
+            "models": {"orders.Order@*": {"table": "order_records"}},
+            "fields": {"orders.Order@4#orderId": {"column": "id"}},
+        }
+    )
+
+    artifacts = emit_sql(workspace, tmp_path / "out", "postgres", overlay)
+    content = next(a.content for a in artifacts if a.ref == "orders.OrderRow@1")
+
+    assert "CREATE TABLE IF NOT EXISTS order_records" in content
+    assert "    id UUID NOT NULL" in content
+    assert "    total BIGINT NOT NULL" in content
+
+
+def test_emit_sql_overlay_rejects_wrong_target_and_unsupported_keys(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        'domain orders { owner: "test-team" entity Order @ 1 (additive) { id: string } }',
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    wrong_target = parse_overlay({"target": "csharp", "version": 1})
+    with pytest.raises(OverlayError, match="does not match"):
+        emit_sql(workspace, tmp_path / "out", "postgres", wrong_target)
+
+    unsupported = parse_overlay(
+        {"target": "sql-postgres", "version": 1, "models": {"orders.Order@1": {"package": "x"}}}
+    )
+    with pytest.raises(OverlayError, match="unsupported"):
+        emit_sql(workspace, tmp_path / "out", "postgres", unsupported)
 
 
 def test_emit_sql_postgres_table_name_from_binding(tmp_path):
@@ -617,6 +675,58 @@ domain customers {
     invoice = next(a for a in artifacts if a.ref == "billing.InvoiceDb@1")
 
     assert "FOREIGN KEY (customer_id) REFERENCES customer_db (customer_id)" in invoice.content
+
+
+def test_postgres_overlay_names_flow_through_keys_indexes_and_foreign_keys(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    customerId: ref<customers.Customer @ 1>
+  }
+  index Invoice @ 1 {
+    primary invoiceId
+    secondary byCustomer { key: [customerId] }
+  }
+  auto projections Invoice @ 1 { db }
+}
+
+domain customers {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+  auto projections Customer @ 1 { db }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    overlay = parse_overlay(
+        {
+            "target": "sql-postgres",
+            "version": 1,
+            "models": {
+                "billing.Invoice@1": {"table": "invoices"},
+                "customers.Customer@1": {"table": "customer_records"},
+            },
+            "fields": {
+                "billing.Invoice@1#invoiceId": {"column": "id"},
+                "billing.Invoice@1#customerId": {"column": "customerId"},
+                "customers.Customer@1#customerId": {"column": "id"},
+            },
+        }
+    )
+
+    artifacts = emit_sql(workspace, tmp_path / "out", "postgres", overlay)
+    invoice = next(a for a in artifacts if a.ref == "billing.InvoiceDb@1")
+
+    assert "CREATE TABLE IF NOT EXISTS invoices" in invoice.content
+    assert "id UUID NOT NULL PRIMARY KEY" in invoice.content
+    assert "CREATE INDEX IF NOT EXISTS invoices_by_customer ON invoices (customerId);" in invoice.content
+    assert "FOREIGN KEY (customerId) REFERENCES customer_records (id)" in invoice.content
 
 
 def test_postgres_ddl_unique_secondary_index_uses_unique_keyword(tmp_path):

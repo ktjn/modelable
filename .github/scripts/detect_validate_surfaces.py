@@ -45,6 +45,7 @@ _BROWSER_PACKAGE_FILES = {
     "emitters/rust.py",
     "emitters/sql.py",
     "emitters/typescript.py",
+    "overlays.py",
     "serialization.py",
     "config.py",
     "llm/conversation_plan.py",
