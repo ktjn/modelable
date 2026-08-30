@@ -43,7 +43,21 @@ def test_usage_manifest_is_compact() -> None:
 
     assert manifest["$schema"] == "modelable.usage/v0"
     assert manifest["kind"] == "usage_manifest"
-    assert all(set(reference) == {"ref", "signature"} for reference in manifest["references"])
+    assert all(set(reference) == {"ref", "signature", "fields"} for reference in manifest["references"])
+
+
+def test_usage_manifest_records_canonical_fields_for_each_contract() -> None:
+    manifest = build_usage_manifest(load_workspace(FIXTURE))
+
+    customer_v2 = next(reference for reference in manifest["references"] if reference["ref"] == "customer.Customer@2")
+
+    assert customer_v2["fields"] == [
+        "customer.Customer@2#createdAt",
+        "customer.Customer@2#customerId",
+        "customer.Customer@2#email",
+        "customer.Customer@2#legalName",
+        "customer.Customer@2#status",
+    ]
 
 
 def test_usage_cli_emits_json() -> None:
@@ -80,3 +94,4 @@ domain customer {
         "customer.CustomerView@1",
     ]
     assert all(len(reference["signature"]) == 64 for reference in manifest["references"])
+    assert manifest["references"][0]["fields"] == ["customer.Customer@1#customerId"]

@@ -119,15 +119,31 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
 
 def build_usage_manifest(workspace: Workspace) -> dict[str, Any]:
     graph = build_usage_graph(workspace)
+    nodes = {node["id"]: node for node in graph["nodes"]}
+    fields_by_version: dict[str, list[str]] = {}
+    for edge in graph["edges"]:
+        if edge["kind"] != "contains_field":
+            continue
+        field = nodes.get(edge["target"])
+        if field is not None and field["kind"] in {"field", "projection_field"}:
+            fields_by_version.setdefault(edge["source"], []).append(str(field["target_ref"]))
+
+    references = []
+    for node in graph["nodes"]:
+        if node["kind"] not in {"model_version", "projection_version"}:
+            continue
+        references.append(
+            {
+                "ref": node["target_ref"],
+                "signature": node["signature"],
+                "fields": sorted(fields_by_version.get(node["id"], [])),
+            }
+        )
     return {
         "$schema": USAGE_SCHEMA,
         "kind": "usage_manifest",
         "application": graph["application"],
-        "references": [
-            {"ref": node["target_ref"], "signature": node["signature"]}
-            for node in graph["nodes"]
-            if node["kind"] in {"model_version", "projection_version"}
-        ],
+        "references": references,
     }
 
 
