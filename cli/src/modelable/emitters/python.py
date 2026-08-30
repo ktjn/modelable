@@ -7,12 +7,12 @@ from typing import Any
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash, render_nested_definitions
 from modelable.emitters.base import artifact_id as _artifact_id
-from modelable.emitters.diagnostics import type_loss
 from modelable.emitters.named_types import resolve_named_ref, resolve_named_types
 from modelable.emitters.naming import find_identifier_collisions, package_name
 from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.projection_shapes import projection_field_shape
+from modelable.emitters.python_plan import emit_python_projection_plan
 from modelable.emitters.shapes import TypeShape
 from modelable.parser.ir import (
     DomainDef,
@@ -24,11 +24,13 @@ from modelable.parser.ir import (
     SemanticTypeDecl,
     latest_semantic_types,
 )
+from modelable.planner.plans import build_plan_documents
 
 
 def emit_python(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit Python dataclass modules for every published model and projection version."""
     artifacts: list[EmittedArtifact] = []
+    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
     for domain in workspace.mdl.domains:
         named_names, named_shapes = resolve_named_types(
             workspace.mdl, current_domain=domain.name, model_name=_stable_type_name, emit_nominal_enums=True
@@ -51,7 +53,14 @@ def emit_python(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
             for projection_version in projection_versions:
                 artifacts.append(
                     _emit_projection(
-                        domain, projection_name, projection_version, out_dir, workspace.mdl, named_names, named_shapes
+                        domain,
+                        projection_name,
+                        projection_version,
+                        out_dir,
+                        workspace.mdl,
+                        named_names,
+                        named_shapes,
+                        plans[(domain.name, projection_name, projection_version.version)],
                     )
                 )
     return artifacts
@@ -114,48 +123,56 @@ def _emit_projection(
     mdl: MdlFile,
     named_names: dict[str, str],
     named_shapes: dict[str, TypeShape],
+    plan: dict[str, object],
 ) -> EmittedArtifact:
-    artifact_id = _artifact_id(domain.name, projection_name, version.version)
-    type_name = _stable_type_name(domain.name, projection_name, version.version)
-    nested_definitions: dict[str, list[str]] = {}
-    imports: set[str] = set()
-    warnings: list[str] = []
-
-    field_specs: list[tuple[int, str, str, bool]] = []
-    for index, field in enumerate(version.fields):
-        field_shape = projection_field_shape(field, version, mdl)
-        if field_shape is None:
-            warnings.append(type_loss(f"{domain.name}.{projection_name}.{field.name}"))
-            field_specs.append((index, field.name, "object", False))
-            continue
-        annotation = _shape_annotation(
-            field_shape,
-            owner_type=type_name,
-            path=[field.name],
-            definitions=nested_definitions,
-            imports=imports,
-            named_names=named_names,
-            named_shapes=named_shapes,
-            mdl=mdl,
-            current_domain=domain.name,
-        )
-        optional = field_shape.optional or field_shape.nullable
-        field_specs.append((index, field.name, annotation, optional))
-
-    lines = _header_lines(imports)
-    lines.extend(_render_dataclass_definition(type_name, field_specs))
-    lines.extend(render_nested_definitions(nested_definitions))
-
-    text = "\n".join(lines) + "\n"
-    return EmittedArtifact(
-        target="python",
-        ref=f"{domain.name}.{projection_name}@{version.version}",
-        artifact_id=artifact_id,
-        path=out_dir / _module_path(domain.name, type_name),
-        content=text,
-        content_hash=compute_content_hash(text),
-        warnings=warnings,
+    return emit_python_projection_plan(
+        plan,
+        out_dir,
+        named_types=_named_plan_types(domain.name, version, mdl, named_names, named_shapes),
     )
+
+
+def _named_plan_types(
+    current_domain: str,
+    version: ProjectionVersion,
+    mdl: MdlFile,
+    named_names: dict[str, str],
+    named_shapes: dict[str, TypeShape],
+) -> dict[str, tuple[str, str]]:
+    result: dict[str, tuple[str, str]] = {}
+
+    def visit(shape: TypeShape) -> None:
+        if shape.kind == "named":
+            declaring_domain, named_name, _ = resolve_named_ref(
+                mdl,
+                current_domain=current_domain,
+                ref=shape.ref or "",
+                names=named_names,
+                shapes=named_shapes,
+                emit_nominal_enums=True,
+                emit_nominal_enum_projections=True,
+                exact_version=shape.version,
+            )
+            if declaring_domain is not None and named_name is not None:
+                key = f"{shape.ref}|{shape.version if shape.version is not None else '?'}"
+                result[key] = (named_name, declaring_domain)
+            return
+        if shape.kind == "array" and shape.element is not None:
+            visit(shape.element)
+        elif shape.kind == "map":
+            if shape.key is not None:
+                visit(shape.key)
+            if shape.value is not None:
+                visit(shape.value)
+        elif shape.kind == "object":
+            for field in shape.fields:
+                visit(field.shape)
+
+    for field in version.fields:
+        shape = projection_field_shape(field, version, mdl)
+        if shape is not None:
+            visit(shape)
+    return result
 
 
 def _header_lines(imports: set[str]) -> list[str]:

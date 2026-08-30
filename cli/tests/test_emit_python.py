@@ -5,6 +5,8 @@ from click.testing import CliRunner
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.python import emit_python
+from modelable.emitters.python_plan import emit_python_projection_plan
+from modelable.planner.plans import build_plan_documents
 
 
 def test_emit_python_model_and_projection(tmp_path):
@@ -61,7 +63,6 @@ domain customer {
     assert "class CustomerCustomerV1Address:" in model_art.content
     assert "line1: str" in model_art.content
     assert "line2: Optional[str] = None" in model_art.content
-
     proj_art = next(artifact for artifact in artifacts if artifact.ref == "customer.CustomerView@1")
     assert proj_art.content_hash == hashlib.sha256(proj_art.content.encode("utf-8")).hexdigest()
     assert proj_art.path.as_posix().endswith("customer/customer_customer_view_v1.py")
@@ -73,6 +74,36 @@ domain customer {
     assert "attributes: Optional[dict[str, int]] = None" in proj_art.content
     assert "address: Optional[CustomerCustomerViewV1Address] = None" in proj_art.content
     assert "class CustomerCustomerViewV1Address:" in proj_art.content
+
+
+def test_python_projection_plan_consumer_preserves_existing_output(tmp_path):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name: string
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    name <- c.name
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerView")
+    existing = next(item for item in emit_python(workspace, tmp_path / "out") if item.ref == "customer.CustomerView@1")
+
+    migrated = emit_python_projection_plan(plan, tmp_path / "out")
+
+    assert migrated.content == existing.content
+    assert migrated.content_hash == existing.content_hash
 
 
 def test_cli_compile_python_writes_files(tmp_path):
