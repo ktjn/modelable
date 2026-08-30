@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from modelable.compat.checker import CompatibilityReport, analyze_impact
+from modelable.compat.targets import TargetCompatibilityReport
 from modelable.compiler.workspace import Workspace
 from modelable.consequence_protocol import CONSEQUENCE_SCHEMA, validate_consequence_graph
 from modelable.registry.resolver import find_dependents
@@ -13,6 +14,9 @@ ACTION_RECOMPILE = "recompile"
 ACTION_REGENERATE = "regenerate"
 ACTION_CONSUMER_UPDATE = "consumer_update"
 ACTION_BREAKING = "breaking"
+ACTION_STORAGE_MIGRATION = "storage_migration"
+ACTION_PROJECTION_REBUILD = "projection_rebuild"
+ACTION_GOVERNANCE_REVIEW = "governance_review"
 
 
 @dataclass(frozen=True)
@@ -106,9 +110,37 @@ def build_model_consequences(workspace: Workspace, report: CompatibilityReport) 
     return consequences
 
 
+def build_target_consequences(
+    report: CompatibilityReport,
+    target_report: TargetCompatibilityReport,
+) -> list[Consequence]:
+    """Turn target-evaluator findings into graph consequences for one model change."""
+    source_ref = f"{report.domain_name}.{report.model_name}@{report.from_version}"
+    target_ref = f"{report.domain_name}.{report.model_name}@{report.to_version}"
+    consequences = []
+    for finding in target_report.findings:
+        subject = f"{target_report.target}:{finding.ref}:{finding.code}"
+        change_ids = tuple(
+            _change_node_id(change.kind, change.field_name)
+            for change in report.storage_changes
+            if finding.field == change.field_name or finding.index == change.field_name
+        )
+        consequences.append(
+            Consequence(
+                action=_action_for_target_finding(finding.axis, finding.severity),
+                subject=subject,
+                status=finding.severity,
+                reason=finding.message,
+                causal_path=(source_ref, target_ref, subject),
+                causal_changes=change_ids,
+            )
+        )
+    return consequences
+
+
 def change_nodes_for_report(report: CompatibilityReport) -> list[dict[str, object]]:
-    if report.status == "compatible":
-        return []
+    changes = report.semantic_changes if report.status != "compatible" else []
+    changes = [*changes, *report.storage_changes]
     return [
         {
             "id": _change_node_id(change.kind, change.field_name),
@@ -116,7 +148,7 @@ def change_nodes_for_report(report: CompatibilityReport) -> list[dict[str, objec
             "change_kind": change.kind,
             "field": change.field_name,
         }
-        for change in report.changes
+        for change in changes
     ]
 
 
@@ -134,6 +166,18 @@ def _projection_change_ids(status: str, reason: str | None, report: Compatibilit
         for change in report.changes
         if f"field '{change.field_name}'" in reason
     )
+
+
+def _action_for_target_finding(axis: str, severity: str) -> str:
+    if severity == "breaking":
+        return ACTION_BREAKING
+    if axis == "storage_migration":
+        return ACTION_STORAGE_MIGRATION
+    if axis == "projection_rebuild":
+        return ACTION_PROJECTION_REBUILD
+    if axis == "governance_review":
+        return ACTION_GOVERNANCE_REVIEW
+    return ACTION_RECOMPILE
 
 
 def action_for_projection_status(status: str) -> str:

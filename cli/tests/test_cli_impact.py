@@ -113,3 +113,49 @@ def test_impact_graph_omits_nonbreaking_changes(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert not any(node["kind"] == "change" for node in payload["consequence_graph"]["nodes"])
+
+
+def test_impact_graph_includes_storage_migration_consequence(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain billing {
+  owner: "billing"
+  entity Order @ 1 (additive) {
+    @key orderId: uuid
+  }
+  entity Order @ 2 (additive) {
+    @key orderId: uuid
+  }
+  index Order @ 2 {
+    primary orderId
+    secondary by_order {
+      key: [orderId]
+    }
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "billing.Order@1",
+            "--to",
+            "billing.Order@2",
+            "--path",
+            str(source),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert any(item["action"] == "storage_migration" for item in payload["consequences"])
+    graph = validate_consequence_graph(payload["consequence_graph"])
+    assert any(node["action"] == "storage_migration" for node in graph["nodes"] if node["kind"] == "action")
+    assert any(node["id"] == "change:index_changed:by_order" for node in graph["nodes"])

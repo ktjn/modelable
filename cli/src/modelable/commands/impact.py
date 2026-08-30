@@ -8,9 +8,11 @@ import click
 
 from modelable.commands.common import console, load_workspace_or_exit
 from modelable.compat.checker import check_model_version_compatibility
+from modelable.compat.targets import compare_model_storage_migration
 from modelable.consequence import (
     build_consequence_graph,
     build_model_consequences,
+    build_target_consequences,
     change_nodes_for_report,
 )
 from modelable.llm.context import parse_model_ref_version_spec
@@ -52,6 +54,7 @@ def impact(from_ref: str, to_ref: str, source: Path, output_format: str) -> None
         sys.exit(1)
 
     consequences = build_model_consequences(workspace, report)
+    consequences.extend(build_target_consequences(report, compare_model_storage_migration(report)))
     change_nodes = change_nodes_for_report(report)
     payload = {
         "kind": "consequence_report",
