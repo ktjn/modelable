@@ -8,6 +8,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added `modelable plan validate` for standalone `modelable.plan/v0`
+  validation and deterministic JSON serialization.
 - Compilation now verifies that selected targets accept the emitted plan protocol before writing state.
 - Added a deny-by-default extension trust policy contract for explicit subprocess and WASM authorization.
 - Added deterministic extension provenance pins for exact implementation hashes and accepted protocol versions.
