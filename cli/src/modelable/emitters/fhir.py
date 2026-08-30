@@ -5,6 +5,7 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
+from modelable.emitters.fhir_plan import emit_fhir_projection_plan
 from modelable.parser.ir import (
     AnnClassification,
     AnnPii,
@@ -26,6 +27,8 @@ from modelable.parser.ir import (
     RefType,
     VersionMin,
 )
+from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PlanDocument
 from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_semantic_type_ref
 
 FHIR_R4_VERSION = "4.0.1"
@@ -218,15 +221,91 @@ _BASE_RESOURCE_FIELD_TYPES: dict[str, dict[str, str]] = {
 def emit_fhir_profile(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit FHIR R4 StructureDefinition profiles and companion Extension SDs."""
     artifacts: list[EmittedArtifact] = []
+    plans: dict[tuple[object, object, object], PlanDocument] = {
+        (plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)
+    }
     annotation_extensions = _annotation_extension_artifacts(workspace, out_dir)
     artifacts.extend(annotation_extensions)
     for domain in workspace.mdl.domains:
         for projection_name, versions in domain.projections.items():
             for version in versions:
-                result = _emit_projection(domain, projection_name, version, workspace.mdl, out_dir)
-                artifacts.append(result["profile"])
-                artifacts.extend(result["extensions"])
+                plan = plans.get((domain.name, projection_name, version.version))
+                if plan is not None and _can_route_fhir_plan(plan, version):
+                    artifacts.append(
+                        emit_fhir_projection_plan(
+                            plan,
+                            out_dir,
+                            domain_metadata={
+                                "owner": domain.owner,
+                                "contact": domain.contact,
+                                "description": domain.description,
+                            },
+                        )
+                    )
+                else:
+                    result = _emit_projection(domain, projection_name, version, workspace.mdl, out_dir)
+                    artifacts.append(result["profile"])
+                    artifacts.extend(result["extensions"])
     return artifacts
+
+
+def _can_route_fhir_plan(plan: PlanDocument, version: ProjectionVersion) -> bool:
+    """Route only scalar known-base fields represented by plan/v0 in this slice."""
+    if plan.get("joins"):
+        return False
+    source = plan.get("source")
+    if not isinstance(source, dict):
+        return False
+    base_resource = str(source.get("model", "")).rsplit(".", 1)[-1]
+    known_fields = _BASE_RESOURCE_ELEMENTS.get(base_resource)
+    if base_resource not in SUPPORTED_BASE_RESOURCES or known_fields is None:
+        return False
+    source_alias = source.get("alias")
+    resolved = source.get("resolved")
+    if not isinstance(resolved, dict):
+        return False
+    source_fields = {
+        field.get("name"): field
+        for field in resolved.get("fields", [])
+        if isinstance(field, dict) and isinstance(field.get("name"), str)
+    }
+    fields = plan.get("fields")
+    if not isinstance(fields, list):
+        return False
+    scalar_kinds = {
+        "binary",
+        "bool",
+        "date",
+        "decimal",
+        "float",
+        "int",
+        "json",
+        "string",
+        "time",
+        "timestamp",
+        "uuid",
+        "u8",
+        "u16",
+        "i8",
+        "i16",
+    }
+    for field in fields:
+        if not isinstance(field, dict) or field.get("kind") != "direct" or field.get("source_alias") != source_alias:
+            return False
+        if field.get("name") not in known_fields:
+            return False
+        source_field = source_fields.get(field.get("source_field"))
+        source_type = source_field.get("type") if isinstance(source_field, dict) else None
+        if (
+            not isinstance(source_field, dict)
+            or source_field.get("annotations")
+            or not isinstance(source_type, dict)
+            or source_type.get("kind") not in scalar_kinds
+        ):
+            return False
+        if field.get("annotations"):
+            return False
+    return True
 
 
 def _annotation_extension_artifacts(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
