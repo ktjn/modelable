@@ -100,7 +100,10 @@ def _output_field(field: dict[str, object]) -> dict[str, str]:
 
 
 def _schema_field(field: dict[str, object]) -> dict[str, str]:
-    data = {"name": cast(str, field["name"]), "type": _type_name(field.get("type"))}
+    data = {
+        "name": cast(str, field["name"]),
+        "type": _type_name(field["type"]) if field.get("type") is not None else "string",
+    }
     description_parts: list[str] = []
     classification = field.get("classification")
     if isinstance(classification, str):

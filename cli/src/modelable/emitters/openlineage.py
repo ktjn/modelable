@@ -1,52 +1,51 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
+from modelable.emitters.openlineage_plan import emit_openlineage_plan
 from modelable.parser.ir import (
     AnnOwner,
     ArrayType,
-    ComputedMapping,
     DecimalType,
-    DirectMapping,
     DomainDef,
     EnumRefType,
     EnumType,
     FieldDef,
     FieldType,
     MapType,
-    MdlFile,
     ModelVersion,
     NamedType,
     ObjectType,
     PrimitiveType,
-    ProjectionField,
-    ProjectionVersion,
     RefType,
 )
-from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref
+from modelable.planner.plans import build_plan_documents
 
 PRODUCER = "https://github.com/ktjn/modelable"
 RUN_EVENT_SCHEMA_URL = "https://openlineage.io/spec/1-0-5/OpenLineage.json#/definitions/RunEvent"
 SCHEMA_FACET_URL = "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json"
-COLUMN_LINEAGE_FACET_URL = "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json"
 EVENT_TIME = "1970-01-01T00:00:00.000Z"
 
 
 def emit_openlineage(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit design-time OpenLineage run events for Modelable models and projections."""
     artifacts: list[EmittedArtifact] = []
+    projection_artifacts = {
+        f"{plan['domain']}.{plan['projection']}@{plan['version']}": emit_openlineage_plan(plan, out_dir)
+        for plan in build_plan_documents(workspace)
+    }
 
     for domain in workspace.mdl.domains:
-        for model_name, versions in domain.models.items():
-            for version in versions:
+        for model_name, model_versions in domain.models.items():
+            for version in model_versions:
                 artifacts.append(_emit_model(domain, model_name, version, out_dir))
 
-        for projection_name, versions in domain.projections.items():
-            for version in versions:
-                artifacts.append(_emit_projection(domain, projection_name, version, workspace.mdl, out_dir))
+        for projection_name, projection_versions in domain.projections.items():
+            for projection_version in projection_versions:
+                ref = f"{domain.name}.{projection_name}@{projection_version.version}"
+                artifacts.append(projection_artifacts[ref])
 
     return artifacts
 
@@ -65,32 +64,6 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
         ],
     )
     return _artifact(f"{domain.name}.{model_name}@{version.version}", artifact_id, out_dir, event)
-
-
-def _emit_projection(
-    domain: DomainDef,
-    projection_name: str,
-    version: ProjectionVersion,
-    mdl: MdlFile,
-    out_dir: Path,
-) -> EmittedArtifact:
-    artifact_id = _artifact_id(domain.name, projection_name, version.version)
-    source = _resolve_source(mdl, version)
-    source_dataset = _source_dataset(version, source)
-    output_dataset = _dataset(
-        domain.name,
-        artifact_id,
-        fields=[_projection_schema_field(field, version, source) for field in version.fields],
-    )
-    output_dataset["facets"]["columnLineage"] = _column_lineage(version, source_dataset, source)
-
-    event = _event(
-        domain=domain.name,
-        artifact_id=artifact_id,
-        inputs=[source_dataset] if source_dataset is not None else [],
-        outputs=[output_dataset],
-    )
-    return _artifact(f"{domain.name}.{projection_name}@{version.version}", artifact_id, out_dir, event)
 
 
 def _event(
@@ -132,16 +105,6 @@ def _dataset(domain: str, name: str, *, fields: list[dict[str, str]]) -> dict[st
     }
 
 
-def _source_dataset(projection: ProjectionVersion, source: ResolvedModelRef | None) -> dict[str, object] | None:
-    if source is None:
-        return None
-    return _dataset(
-        source.domain_name,
-        _artifact_id(source.domain_name, source.model_name, source.version.version),
-        fields=[_model_schema_field(field) for field in source.version.fields],
-    )
-
-
 def _model_schema_field(field: FieldDef) -> dict[str, str]:
     return _schema_field(
         name=field.name,
@@ -149,25 +112,6 @@ def _model_schema_field(field: FieldDef) -> dict[str, str]:
         pii=field.is_pii,
         classification=field.classification.value if field.classification else None,
         owner=_owner(field),
-    )
-
-
-def _projection_schema_field(
-    field: ProjectionField,
-    projection: ProjectionVersion,
-    source: ResolvedModelRef | None,
-) -> dict[str, str]:
-    source_field = _source_field(field, source)
-    field_type = source_field.type if source_field is not None else PrimitiveType(kind="string")
-    pii = field.is_pii or (source_field.is_pii if source_field is not None else False)
-    classification = field.classification or (source_field.classification if source_field is not None else None)
-    owner = _owner(source_field) if source_field is not None else None
-    return _schema_field(
-        name=field.name,
-        field_type=field_type,
-        pii=pii,
-        classification=classification.value if classification is not None else None,
-        owner=owner,
     )
 
 
@@ -190,88 +134,6 @@ def _schema_field(
     if description_parts:
         data["description"] = "; ".join(description_parts)
     return data
-
-
-def _column_lineage(
-    projection: ProjectionVersion,
-    source_dataset: dict[str, object] | None,
-    source: ResolvedModelRef | None,
-) -> dict[str, object]:
-    fields: dict[str, object] = {}
-    if source_dataset is None:
-        return _lineage_facet(fields)
-
-    for field in projection.fields:
-        lineage = _field_lineage(field, projection, source_dataset, source)
-        if lineage is not None:
-            fields[field.name] = lineage
-
-    return _lineage_facet(fields)
-
-
-def _lineage_facet(fields: dict[str, object]) -> dict[str, object]:
-    return {
-        "_producer": PRODUCER,
-        "_schemaURL": COLUMN_LINEAGE_FACET_URL,
-        "fields": fields,
-    }
-
-
-def _field_lineage(
-    field: ProjectionField,
-    projection: ProjectionVersion,
-    source_dataset: dict[str, object],
-    source: ResolvedModelRef | None,
-) -> dict[str, object] | None:
-    if isinstance(field.mapping, DirectMapping):
-        return {
-            "inputFields": [
-                {
-                    "namespace": source_dataset["namespace"],
-                    "name": source_dataset["name"],
-                    "field": field.mapping.source_field,
-                }
-            ]
-        }
-    if isinstance(field.mapping, ComputedMapping):
-        input_fields = [
-            {"namespace": source_dataset["namespace"], "name": source_dataset["name"], "field": source_field}
-            for source_field in _expression_source_fields(field.mapping.expression, projection, source)
-        ]
-        return {
-            "inputFields": input_fields,
-            "transformationDescription": field.mapping.expression,
-            "transformationType": "TRANSFORMATION",
-        }
-    return None
-
-
-def _expression_source_fields(
-    expression: str,
-    projection: ProjectionVersion,
-    source: ResolvedModelRef | None,
-) -> list[str]:
-    if source is None:
-        return []
-    candidates = set(re.findall(rf"\b{re.escape(projection.source.alias)}\.([A-Za-z_][A-Za-z0-9_]*)\b", expression))
-    known_fields = {field.name for field in source.version.fields}
-    return sorted(candidates & known_fields)
-
-
-def _resolve_source(mdl: MdlFile, projection: ProjectionVersion) -> ResolvedModelRef | None:
-    try:
-        return resolve_model_ref(mdl, projection.source.model, projection.source.version)
-    except LookupError:
-        return None
-
-
-def _source_field(field: ProjectionField, source: ResolvedModelRef | None) -> FieldDef | None:
-    if source is None or not isinstance(field.mapping, DirectMapping):
-        return None
-    return next(
-        (source_field for source_field in source.version.fields if source_field.name == field.mapping.source_field),
-        None,
-    )
 
 
 def _owner(field: FieldDef | None) -> str | None:
