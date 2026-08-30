@@ -220,6 +220,16 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         test_refs=("test_registry_offline.py::test_core_analysis_does_not_contact_network",),
     ),
     Capability(
+        name="consequence-graph-analysis",
+        category="registry_capability",
+        status=CapabilityStatus.implemented,
+        description="Builds deterministic, validated consequence graphs from semantic and target findings",
+        notes="Cross-application usage aggregation and policy-aware updates remain deferred.",
+        test_refs=(
+            "test_consequence_protocol.py::test_consequence_graph_protocol_validates_and_serializes_deterministically",
+        ),
+    ),
+    Capability(
         name="transitive-dependency-closure",
         category="registry_capability",
         status=CapabilityStatus.deferred,
