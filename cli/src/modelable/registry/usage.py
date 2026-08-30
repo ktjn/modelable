@@ -41,6 +41,8 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
                 source_ref = _resolve_source_ref(workspace, projection.source.model, projection.source.version)
                 source_id = f"model_version:{source_ref}"
                 _add_edge(edges, edge_keys, "projects_from", projection_id, source_id)
+                if projection.event_operations:
+                    _add_edge(edges, edge_keys, "emits", source_id, projection_id)
 
         for api in domain.apis:
             for api_version in [api.version]:

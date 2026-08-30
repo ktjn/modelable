@@ -32,6 +32,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Usage graphs now include `emits` edges from model versions to generated event
+  projections when event operations are configured.
 - Usage graphs now include deterministic `references` edges from model fields
   to the resolved model versions named by `ref<>` types.
 - Added standalone validation, loading, and deterministic serialization for `modelable.usage/v0` manifests.

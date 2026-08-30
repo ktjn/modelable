@@ -95,3 +95,30 @@ domain customer {
     ]
     assert all(len(reference["signature"]) == 64 for reference in manifest["references"])
     assert manifest["references"][0]["fields"] == ["customer.Customer@1#customerId"]
+
+
+def test_usage_graph_links_event_projections_to_their_source_models(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+  }
+  auto projections Customer @ 1 {
+    event on [created, updated]
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    graph = build_usage_graph(load_workspace(source))
+
+    assert {
+        "kind": "emits",
+        "source": "model_version:customer.Customer@1",
+        "target": "projection_version:customer.CustomerEvent@1",
+    } in graph["edges"]
