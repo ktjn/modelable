@@ -9,6 +9,7 @@ from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.base import artifact_id as _artifact_id
 from modelable.emitters.naming import find_identifier_collisions, proto_domain_segment, proto_package_name
+from modelable.emitters.protobuf_plan import emit_protobuf_projection_plan
 from modelable.parser.ir import (
     AnnKey,
     ArrayType,
@@ -33,6 +34,8 @@ from modelable.parser.ir import (
     SemanticTypeDecl,
     latest_semantic_types,
 )
+from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PlanDocument
 from modelable.registry.enum_numbers import EnumNumberAllocation
 from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
 from modelable.registry.signature import compute_version_signature
@@ -124,6 +127,9 @@ def emit_protobuf(
     """Emit Protocol Buffers schema artifacts for semantic types, models, and projections."""
     semantic_index = _build_semantic_index(workspace.mdl, registry_ids)
     enum_index = _build_enum_index(workspace.mdl, enum_numbers)
+    plans: dict[tuple[object, object, object], PlanDocument] = {
+        (plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)
+    }
     artifacts = _emit_semantic_bundles(semantic_index, enum_index, out_dir)
     for domain in workspace.mdl.domains:
         for model_name, model_versions in domain.models.items():
@@ -148,6 +154,7 @@ def emit_protobuf(
                     workspace.mdl,
                     semantic_index,
                     enum_index,
+                    plan=plans.get((domain.name, projection_name, projection_version.version)),
                 )
                 artifacts.extend([proto, manifest])
     return artifacts
@@ -227,7 +234,14 @@ def _emit_projection_version(
     mdl: MdlFile,
     semantic_index: _SemanticIndex,
     enum_index: _EnumIndex,
+    plan: PlanDocument | None = None,
 ) -> tuple[EmittedArtifact, EmittedArtifact]:
+    if plan is not None and _can_route_protobuf_projection_plan(plan, version):
+        return emit_protobuf_projection_plan(
+            plan,
+            out_dir,
+            modelable_signature=compute_version_signature(domain.name, projection_name, version),
+        )
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     proto_fields = [
         _projection_field_to_proto(
@@ -281,6 +295,47 @@ def _emit_projection_version(
         content_hash=compute_content_hash(manifest_content),
     )
     return proto_artifact, manifest_artifact
+
+
+def _can_route_protobuf_projection_plan(plan: PlanDocument, version: ProjectionVersion) -> bool:
+    """Route only scalar projection facts represented by plan/v0 in this slice."""
+    if plan.get("joins") or version.protobuf_reservations is not None:
+        return False
+    fields = plan.get("fields")
+    if not isinstance(fields, list):
+        return False
+    for field in fields:
+        if not isinstance(field, dict) or field.get("kind") not in {"direct", "computed"}:
+            return False
+        field_type = field.get("type")
+        if not isinstance(field_type, dict) or field_type.get("kind") not in {
+            "string",
+            "uuid",
+            "date",
+            "time",
+            "duration",
+            "int",
+            "float",
+            "bool",
+            "timestamp",
+            "binary",
+            "json",
+            "u8",
+            "u16",
+            "u32",
+            "u64",
+            "u128",
+            "i8",
+            "i16",
+            "i32",
+            "i64",
+            "i128",
+            "decimal",
+            "fixed_binary",
+            "primitive",
+        }:
+            return False
+    return True
 
 
 def _field_to_proto(
