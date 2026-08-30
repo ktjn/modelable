@@ -30,6 +30,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- OpenMetadata projection assets now consume validated `modelable.plan/v0`
+  documents while preserving existing model and domain metadata emission.
+- `modelable.plan/v0` remains unstable: consumers validate each document and
+  may reject older revisions when required neutral facts change.
 - Added a validated TOML overlay boundary with canonical declaration/path
   selectors, deterministic inheritance, and equal-specificity conflict errors.
 - Exposed deterministic `modelable.plan/v0` documents through the browser

@@ -26,10 +26,15 @@ def validate_plan(document: object) -> PlanDocument:
     _require_boolean(document, "auto_generated")
     _require_boolean(document, "requires_revalidation")
     revalidation_reasons = _require_string_list(document, "revalidation_reasons")
-    _validate_relation(_require_mapping(document, "source"), "source", on_required=False)
+    source = _require_mapping(document, "source")
+    _validate_relation(source, "source", on_required=False)
+    where = document.get("where")
+    if where is not None and (not isinstance(where, str) or not where):
+        raise PlanProtocolError("where must be a non-empty string or null")
     joins = _require_list(document, "joins")
     for index, join in enumerate(joins):
         _validate_relation(join, f"joins[{index}]", on_required=True)
+    relations = [source, *[cast(dict[str, object], join) for join in joins]]
     _require_string_list(document, "group_by")
 
     fields = _require_list(document, "fields")
@@ -39,6 +44,7 @@ def validate_plan(document: object) -> PlanDocument:
         if field_name in field_names:
             raise PlanProtocolError(f"fields contains duplicate name {field_name!r}")
         field_names.add(field_name)
+    _validate_field_sources(fields, relations)
 
     metadata = _require_mapping(document, "planner_metadata")
     _require_string(metadata, "modelable_schema")
@@ -56,6 +62,7 @@ def validate_plan(document: object) -> PlanDocument:
             "governance_findings",
             "source",
             "joins",
+            "where",
             "group_by",
             "fields",
             "planner_metadata",
@@ -154,6 +161,7 @@ def _validate_relation(value: object, name: str, *, on_required: bool) -> None:
         raise PlanProtocolError(f"{name} must be a JSON object")
     relation = cast(dict[str, object], value)
     _require_string(relation, "model")
+    _validate_version_spec(relation.get("version"), f"{name}.version")
     resolved_version = relation.get("resolved_version")
     if resolved_version is not None and (
         not isinstance(resolved_version, int) or isinstance(resolved_version, bool) or resolved_version < 1
@@ -165,14 +173,30 @@ def _validate_relation(value: object, name: str, *, on_required: bool) -> None:
         raise PlanProtocolError(f"{name}.change_kind must be a string or null")
     if on_required:
         _require_string(relation, "on")
+        _require_string(relation, "kind")
+        cardinality = relation.get("cardinality")
+        if cardinality is not None and (not isinstance(cardinality, str) or not cardinality):
+            raise PlanProtocolError(f"{name}.cardinality must be a non-empty string or null")
     resolved = relation.get("resolved")
     if resolved is not None:
         _validate_resolved_declaration(resolved, f"{name}.resolved")
+    elif resolved_version is not None:
+        raise PlanProtocolError(f"{name}.resolved_version requires a resolved declaration")
     _require_exact_keys(
         relation,
-        {"model", "resolved_version", "alias", "change_kind", "resolved", "on"}
+        {
+            "model",
+            "version",
+            "resolved_version",
+            "alias",
+            "change_kind",
+            "resolved",
+            "on",
+            "kind",
+            "cardinality",
+        }
         if on_required
-        else {"model", "resolved_version", "alias", "change_kind", "resolved"},
+        else {"model", "version", "resolved_version", "alias", "change_kind", "resolved"},
         name,
     )
     if resolved is not None:
@@ -182,6 +206,75 @@ def _validate_relation(value: object, name: str, *, on_required: bool) -> None:
             raise PlanProtocolError(f"{name}.resolved identity does not match model")
         if relation.get("resolved_version") != declaration["version"]:
             raise PlanProtocolError(f"{name}.resolved version does not match resolved_version")
+        _validate_resolution_version(relation, cast(dict[str, object], relation["version"]), name)
+
+
+def _validate_version_spec(value: object, name: str) -> None:
+    if not isinstance(value, dict):
+        raise PlanProtocolError(f"{name} must be a JSON object")
+    spec = cast(dict[str, object], value)
+    kind = _require_string(spec, "kind")
+    if kind == "exact":
+        _require_integer(spec, "version")
+        _require_exact_keys(spec, {"kind", "version"}, name)
+    elif kind == "range":
+        _require_integer(spec, "minInclusive")
+        _require_integer(spec, "maxExclusive")
+        min_inclusive = cast(int, spec["minInclusive"])
+        max_exclusive = cast(int, spec["maxExclusive"])
+        if min_inclusive >= max_exclusive:
+            raise PlanProtocolError(f"{name} must have minInclusive below maxExclusive")
+        _require_exact_keys(spec, {"kind", "minInclusive", "maxExclusive"}, name)
+    elif kind == "min":
+        _require_integer(spec, "minInclusive")
+        _require_exact_keys(spec, {"kind", "minInclusive"}, name)
+    elif kind == "pinned":
+        _require_integer(spec, "version")
+        _require_string(spec, "contentHash")
+        _require_exact_keys(spec, {"kind", "version", "contentHash"}, name)
+    else:
+        raise PlanProtocolError(f"{name}.kind must be 'exact', 'range', 'min', or 'pinned'")
+
+
+def _validate_resolution_version(relation: dict[str, object], spec: dict[str, object], name: str) -> None:
+    resolved_version = relation.get("resolved_version")
+    if resolved_version is None:
+        return
+    resolved = cast(int, resolved_version)
+    kind = cast(str, spec["kind"])
+    if kind in {"exact", "pinned"} and resolved != cast(int, spec["version"]):
+        raise PlanProtocolError(f"{name}.resolved_version does not match requested version")
+    if kind == "range" and not (cast(int, spec["minInclusive"]) <= resolved < cast(int, spec["maxExclusive"])):
+        raise PlanProtocolError(f"{name}.resolved_version is outside requested version range")
+    if kind == "min" and resolved < cast(int, spec["minInclusive"]):
+        raise PlanProtocolError(f"{name}.resolved_version is below requested minimum version")
+
+
+def _validate_field_sources(fields: list[object], relations: list[dict[str, object]]) -> None:
+    aliases: dict[str, dict[str, object]] = {}
+    for relation in relations:
+        alias = _require_string(relation, "alias")
+        if alias in aliases:
+            raise PlanProtocolError(f"plan contains duplicate relation alias {alias!r}")
+        aliases[alias] = relation
+
+    for index, value in enumerate(fields):
+        field = cast(dict[str, object], value)
+        if field["kind"] != "direct":
+            continue
+        alias = _require_string(field, "source_alias")
+        selected_relation = aliases.get(alias)
+        if selected_relation is None:
+            raise PlanProtocolError(f"fields[{index}].source_alias does not identify a plan relation")
+        resolved = selected_relation.get("resolved")
+        if resolved is None:
+            continue
+        resolved_fields = _require_list(cast(dict[str, object], resolved), "fields")
+        source_field = _require_string(field, "source_field")
+        if not any(
+            isinstance(candidate, dict) and candidate.get("name") == source_field for candidate in resolved_fields
+        ):
+            raise PlanProtocolError(f"fields[{index}].source_field is not present in its resolved relation")
 
 
 def _validate_resolved_declaration(value: object, name: str) -> None:
