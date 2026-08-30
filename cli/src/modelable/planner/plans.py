@@ -9,6 +9,7 @@ from modelable.compiler.workspace import Workspace
 from modelable.dependency_graph import resolve_projection_aliases
 from modelable.governance.checker import build_projection_governance_findings
 from modelable.parser.ir import (
+    ClassificationLevel,
     ComputedMapping,
     DirectMapping,
     FieldDef,
@@ -54,6 +55,7 @@ def build_plan(
         field_type, optional = resolve_projection_field_type_and_optionality(proj_field, pv, mdl)
         entry["type"] = field_type.model_dump(mode="json") if field_type is not None else None
         entry["optional"] = optional
+        entry.update(_projection_governance_facts(proj_field, pv, mdl))
         fl = lineage_by_field.get(proj_field.name)
         entry["lineage"] = fl.lineage if fl else []
         fields_block.append(entry)
@@ -134,6 +136,7 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
                 "type": field.type.model_dump(mode="json"),
                 "optional": field.optional,
                 "nullable": field.nullable,
+                **_field_governance_facts(field, owner=_field_owner(field)),
             }
             for field in version.fields
         ]
@@ -149,6 +152,7 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
                     "type": field_type.model_dump(mode="json") if field_type is not None else None,
                     "optional": optional,
                     "nullable": _resolve_projection_field_nullable(field, version, mdl),
+                    **_projection_governance_facts(field, version, mdl),
                 }
             )
         model_kind = None
@@ -187,6 +191,51 @@ def _resolve_field_nullable(version: ModelVersion | ProjectionVersion, field_nam
     if projection_field is None or not isinstance(projection_field.mapping, DirectMapping):
         return None
     return _resolve_projection_field_nullable(projection_field, version, mdl)
+
+
+def _projection_governance_facts(
+    field: ProjectionField, projection: ProjectionVersion, mdl: MdlFile
+) -> dict[str, object]:
+    source_field: FieldDef | ProjectionField | None = None
+    if isinstance(field.mapping, DirectMapping):
+        resolved = resolve_projection_aliases(projection, mdl).get(field.mapping.source_alias)
+        if resolved is not None:
+            source_field = next(
+                (candidate for candidate in resolved.version.fields if candidate.name == field.mapping.source_field),
+                None,
+            )
+    return _field_governance_facts(
+        field,
+        pii=field.is_pii or (source_field.is_pii if source_field is not None else False),
+        classification=field.classification or (source_field.classification if source_field is not None else None),
+        owner=_field_owner(source_field),
+    )
+
+
+def _field_governance_facts(
+    field: FieldDef | ProjectionField,
+    *,
+    pii: bool | None = None,
+    classification: ClassificationLevel | None = None,
+    owner: str | None = None,
+) -> dict[str, object]:
+    level = classification if classification is not None else field.classification
+    return {
+        "pii": field.is_pii if pii is None else pii,
+        "classification": level.value if level is not None else None,
+        "owner": owner,
+    }
+
+
+def _field_owner(field: FieldDef | ProjectionField | None) -> str | None:
+    if field is None:
+        return None
+    if not isinstance(field, FieldDef):
+        return None
+    for annotation in field.annotations:
+        if annotation.kind == "owner":
+            return annotation.team
+    return None
 
 
 def _collect_revalidation_reasons(source_block: dict, joins_block: list[dict]) -> list[str]:

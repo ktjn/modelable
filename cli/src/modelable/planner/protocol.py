@@ -226,7 +226,8 @@ def _validate_declaration_field(value: object, name: str) -> None:
     nullable = field.get("nullable")
     if nullable is not None and not isinstance(nullable, bool):
         raise PlanProtocolError(f"{name}.nullable must be a boolean or null")
-    _require_exact_keys(field, {"name", "type", "optional", "nullable"}, name)
+    _require_governance_facts(field, name)
+    _require_exact_keys(field, {"name", "type", "optional", "nullable", "pii", "classification", "owner"}, name)
 
 
 def _validate_field(value: object, name: str) -> str:
@@ -242,15 +243,33 @@ def _validate_field(value: object, name: str) -> str:
     if optional is not None and not isinstance(optional, bool):
         raise PlanProtocolError(f"{name}.optional must be a boolean or null")
     _require_string_list(field, "lineage")
+    _require_governance_facts(field, name)
     if kind == "direct":
         _require_string(field, "source_alias")
         _require_string(field, "source_field")
         _require_exact_keys(
-            field, {"name", "kind", "source_alias", "source_field", "type", "optional", "lineage"}, name
+            field,
+            {
+                "name",
+                "kind",
+                "source_alias",
+                "source_field",
+                "type",
+                "optional",
+                "lineage",
+                "pii",
+                "classification",
+                "owner",
+            },
+            name,
         )
     elif kind == "computed":
         _require_string(field, "expression")
-        _require_exact_keys(field, {"name", "kind", "expression", "type", "optional", "lineage"}, name)
+        _require_exact_keys(
+            field,
+            {"name", "kind", "expression", "type", "optional", "lineage", "pii", "classification", "owner"},
+            name,
+        )
     else:
         raise PlanProtocolError(f"{name}.kind must be 'direct' or 'computed'")
     return cast(str, field["name"])
@@ -263,6 +282,18 @@ def _validate_governance_finding(value: object, name: str) -> None:
     for key in ("code", "subject", "message"):
         _require_string(finding, key)
     _require_exact_keys(finding, {"code", "subject", "message"}, name)
+
+
+def _require_governance_facts(field: dict[str, object], name: str) -> None:
+    pii = field.get("pii")
+    if not isinstance(pii, bool):
+        raise PlanProtocolError(f"{name}.pii must be a boolean")
+    classification = field.get("classification")
+    if classification is not None and not isinstance(classification, str):
+        raise PlanProtocolError(f"{name}.classification must be a string or null")
+    owner = field.get("owner")
+    if owner is not None and not isinstance(owner, str):
+        raise PlanProtocolError(f"{name}.owner must be a string or null")
 
 
 def _require_exact_keys(mapping: dict[str, object], expected: set[str], name: str) -> None:
