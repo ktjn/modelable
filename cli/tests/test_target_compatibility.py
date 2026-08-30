@@ -11,6 +11,7 @@ from modelable.compat.diff import compare_index_decls, compare_model_versions, c
 from modelable.compat.targets import (
     AXES,
     SEVERITIES,
+    compare_avro_artifacts,
     compare_governance_review,
     compare_grpc_artifacts,
     compare_model_storage_migration,
@@ -23,6 +24,7 @@ from modelable.compat.targets import (
 )
 from modelable.compiler.workspace import load_workspace
 from modelable.consequence_protocol import validate_consequence_graph
+from modelable.emitters.avro import emit_avro
 from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.grpc import emit_grpc
 from modelable.emitters.openapi import emit_openapi
@@ -37,6 +39,165 @@ def _write(path: Path, text: str) -> Path:
 
 def _openapi_artifacts(path: Path):
     return emit_openapi(load_workspace(path), path.parent / "out")
+
+
+def _avro_artifacts(path: Path):
+    return emit_avro(load_workspace(path), path.parent / "out")
+
+
+def _synthetic_avro_artifact(content: object, *, target: str = "avro") -> EmittedArtifact:
+    return EmittedArtifact(
+        target=target,
+        ref="billing.Customer@1",
+        artifact_id="billing.Customer.v1",
+        path=Path("billing/Customer.v1.avsc"),
+        content=content,
+        content_hash="test",
+    )
+
+
+def test_avro_compat_rejects_added_required_field(tmp_path: Path):
+    old = _write(
+        tmp_path / "old.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+  }
+}
+""",
+    )
+
+    report = compare_avro_artifacts(_avro_artifacts(old), _avro_artifacts(new))
+
+    assert report.target == "avro"
+    assert report.status == "breaking"
+    finding = next(item for item in report.findings if item.code == "required_field_added")
+    assert finding.axis == "wire_compatibility"
+    assert finding.severity == "breaking"
+
+
+def test_validate_compat_cli_supports_avro(tmp_path: Path):
+    old = _write(
+        tmp_path / "old.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+  }
+}
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["validate-compat", "--from", str(old), "--to", str(new), "--target", "avro"],
+    )
+
+    assert result.exit_code == 1
+    assert "target: avro" in result.output
+    assert "required_field_added" in result.output
+
+
+def test_avro_compat_allows_added_optional_field(tmp_path: Path):
+    old = _write(
+        tmp_path / "old.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+    )
+    new = _write(
+        tmp_path / "new.mdl",
+        """
+domain billing {
+  owner: "billing"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName?: string
+  }
+}
+""",
+    )
+
+    report = compare_avro_artifacts(_avro_artifacts(old), _avro_artifacts(new))
+
+    assert report.status == "read_compatible"
+    assert report.findings == []
+
+
+def test_avro_compat_reports_schema_and_existing_field_changes():
+    old = {
+        "type": "record",
+        "name": "CustomerV1",
+        "namespace": "billing",
+        "fields": [
+            {"name": "customerId", "type": "string"},
+            {"name": "legacy", "type": "string"},
+            {"name": "amount", "type": "int"},
+        ],
+        "x-modelable": {"ref": "billing.Customer@1"},
+    }
+    new = {
+        "type": "record",
+        "name": "CustomerV2",
+        "namespace": "other",
+        "fields": [
+            {"name": "customerId", "type": "long"},
+            {"name": "amount", "type": "long"},
+        ],
+        "x-modelable": {"ref": "billing.Customer@1"},
+    }
+
+    report = compare_avro_artifacts(
+        [_synthetic_avro_artifact(old), _synthetic_avro_artifact("ignored", target="other")],
+        [_synthetic_avro_artifact(new)],
+    )
+
+    assert {finding.code for finding in report.findings} == {
+        "schema_name_changed",
+        "field_removed",
+        "field_type_changed",
+    }
+
+
+def test_avro_compat_reports_schema_type_changes():
+    old = {"type": "record", "x-modelable": {"ref": "billing.Customer@1"}}
+    new = {"type": "enum", "x-modelable": {"ref": "billing.Customer@1"}}
+
+    report = compare_avro_artifacts([_synthetic_avro_artifact(old)], [_synthetic_avro_artifact(new)])
+
+    assert [finding.code for finding in report.findings] == ["schema_type_changed"]
 
 
 def test_openapi_compat_reports_removed_operation_and_response(tmp_path: Path):
@@ -742,6 +903,7 @@ def test_validate_compat_target_choices_match_the_registry():
     assert "protobuf" in result.output
     assert "grpc" in result.output
     assert "openapi" in result.output
+    assert "avro" in result.output
 
 
 # --- Slice C3: common target-compatibility axis/severity IR -----------------

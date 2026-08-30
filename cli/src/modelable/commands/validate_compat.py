@@ -11,11 +11,13 @@ from modelable.compat.policy import EnforcementResult, load_policy
 from modelable.compat.targets import (
     PASSING_STATUSES,
     TargetCompatibilityReport,
+    compare_avro_artifacts,
     compare_grpc_artifacts,
     compare_openapi_artifacts,
     compare_protobuf_manifests,
 )
 from modelable.consequence import build_consequence_graph, build_standalone_target_consequences
+from modelable.emitters.avro import emit_avro
 from modelable.emitters.grpc import emit_grpc
 from modelable.emitters.openapi import emit_openapi
 from modelable.emitters.protobuf import emit_protobuf
@@ -48,7 +50,12 @@ def validate_compat(from_path: Path, to_path: Path, target: str, policy_path: Pa
     old_workspace = load_workspace_or_exit(from_path)
     new_workspace = load_workspace_or_exit(to_path)
 
-    if target == "protobuf":
+    if target == "avro":
+        report = compare_avro_artifacts(
+            emit_avro(old_workspace, Path(".modelable/compat/old/avro")),
+            emit_avro(new_workspace, Path(".modelable/compat/new/avro")),
+        )
+    elif target == "protobuf":
         report = compare_protobuf_manifests(
             emit_protobuf(old_workspace, Path(".modelable/compat/old/protobuf")),
             emit_protobuf(new_workspace, Path(".modelable/compat/new/protobuf")),
