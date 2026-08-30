@@ -76,7 +76,7 @@ from modelable.registry.ids import RegistryIdLock, allocate_registry_ids, read_l
 from modelable.registry.index import build_registry
 from modelable.registry.oci import OCIRegistryError
 from modelable.registry.resolver import resolve_enum_type_ref, resolve_model_ref, resolve_semantic_type_ref
-from modelable.registry.snapshot import load_workspace_with_snapshot
+from modelable.registry.snapshot import load_snapshot_extension_pins, load_workspace_with_snapshot
 
 TARGETS = tuple(target.name for target in list_implemented_codegen_targets())
 # Target support is enabled one target-family slice at a time after real
@@ -1391,6 +1391,16 @@ def _run_compilation(
             origin="workspace",
         )
 
+    registry_lock = (
+        request.snapshot_path / "registry.lock"
+        if request.snapshot_path is not None
+        else _workspace_root(request.source) / ".modelable" / "registry.lock"
+    )
+    try:
+        extension_pins = load_snapshot_extension_pins(registry_lock.parent)
+    except ValueError as exc:
+        raise CompilationError(f"Cannot load extension provenance from registry snapshot: {exc}") from exc
+
     _reject_unsupported_enum_projection_fields(workspace, request.target)
     emit_workspace = _scope_workspace(workspace, request)
     _validate_package_request(workspace, request)
@@ -1480,8 +1490,9 @@ def _run_compilation(
         tuple(artifacts),
         target=request.target,
         workspace_root=_workspace_root(request.source),
-        registry_lock=_workspace_root(request.source) / ".modelable" / "registry.lock",
+        registry_lock=registry_lock,
         output_root=output,
+        extension_pins=extension_pins,
     )
     write_artifact_manifest(manifest_path, manifest)
     written_paths.append(manifest_path)

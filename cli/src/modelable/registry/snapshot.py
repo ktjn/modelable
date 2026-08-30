@@ -474,9 +474,17 @@ def _load_snapshot_extension_pins(paths: SnapshotPaths) -> tuple[ExtensionPin, .
     if not isinstance(extensions, list):
         raise ValueError("Existing registry lock extensions must be an array")
     try:
-        return tuple(parse_extension_pin(entry) for entry in extensions)
+        pins = tuple(parse_extension_pin(entry) for entry in extensions)
     except (ExtensionDescriptorError, TypeError) as exc:
         raise ValueError(f"Existing registry lock contains an invalid extension pin: {exc}") from exc
+    if len({(pin.id, pin.version) for pin in pins}) != len(pins):
+        raise ValueError("Existing registry lock contains duplicate extension pin identities")
+    return tuple(sorted(pins, key=_extension_pin_sort_key))
+
+
+def load_snapshot_extension_pins(output_dir: str | Path = ".modelable") -> tuple[ExtensionPin, ...]:
+    """Load validated extension pins from a snapshot, if its lock exists."""
+    return _load_snapshot_extension_pins(SnapshotPaths(Path(output_dir)))
 
 
 def snapshot_status(output_dir: str | Path = ".modelable") -> dict[str, Any]:
