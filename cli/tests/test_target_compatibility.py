@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import yaml
 from click.testing import CliRunner
 
 from modelable.cli import cli
@@ -17,6 +18,7 @@ from modelable.compat.targets import (
     compare_grpc_artifacts,
     compare_json_schema_artifacts,
     compare_model_storage_migration,
+    compare_odcs_artifacts,
     compare_openapi_artifacts,
     compare_projection_rebuild,
     compare_protobuf_manifests,
@@ -70,6 +72,17 @@ def _synthetic_fhir_artifact(content: dict[str, Any], *, ref: str = "billing.Cus
         artifact_id="billing.CustomerView.v1",
         path=Path("billing/CustomerView.v1.fhir.json"),
         content=json.dumps(content),
+        content_hash="test",
+    )
+
+
+def _synthetic_odcs_artifact(content: dict[str, Any], *, ref: str = "billing.CustomerView@1") -> EmittedArtifact:
+    return EmittedArtifact(
+        target="odcs",
+        ref=ref,
+        artifact_id="billing.CustomerView.v1",
+        path=Path("billing/CustomerView.v1.odcs.yaml"),
+        content=yaml.safe_dump(content),
         content_hash="test",
     )
 
@@ -183,6 +196,7 @@ def test_fhir_compat_allows_optional_element_addition_and_widening():
     )
 
     assert report.status == "read_compatible"
+    assert report.findings == []
 
 
 def test_fhir_compat_reports_required_addition_and_maximum_narrowing():
@@ -237,6 +251,145 @@ def test_fhir_compat_ignores_malformed_and_non_profile_artifacts():
 
     assert report.status == "read_compatible"
     assert report.findings == []
+
+
+def test_odcs_compat_reports_removed_required_property():
+    old = {
+        "apiVersion": "v3.1.0",
+        "schema": [{"properties": [{"name": "customerId", "required": True}]}],
+    }
+    new = {"apiVersion": "v3.1.0", "schema": [{"properties": []}]}
+
+    report = compare_odcs_artifacts(
+        [_synthetic_odcs_artifact(old, ref="billing.Customer@1")],
+        [_synthetic_odcs_artifact(new, ref="billing.Customer@1")],
+    )
+
+    assert report.status == "breaking"
+    assert report.findings[0].code == "property_removed"
+
+
+def test_odcs_compat_reports_required_type_and_enum_narrowing():
+    old = {
+        "schema": [
+            {
+                "properties": [
+                    {
+                        "name": "status",
+                        "logicalType": "string",
+                        "required": False,
+                        "customProperties": [
+                            {"property": "modelableType", "value": "enum(active,blocked)"},
+                            {"property": "modelableEnum", "value": ["active", "blocked"]},
+                        ],
+                    }
+                ]
+            }
+        ]
+    }
+    new = {
+        "schema": [
+            {
+                "properties": [
+                    {
+                        "name": "status",
+                        "logicalType": "integer",
+                        "required": True,
+                        "customProperties": [
+                            {"property": "modelableType", "value": "enum(active)"},
+                            {"property": "modelableEnum", "value": ["active"]},
+                        ],
+                    },
+                    {"name": "email", "logicalType": "string", "required": True},
+                ]
+            }
+        ]
+    }
+
+    report = compare_odcs_artifacts([_synthetic_odcs_artifact(old)], [_synthetic_odcs_artifact(new)])
+
+    assert {finding.code for finding in report.findings} == {
+        "property_required",
+        "property_type_changed",
+        "enum_value_removed",
+        "property_required_added",
+    }
+
+
+def test_odcs_compat_allows_optional_property_and_enum_widening():
+    old = {
+        "schema": [
+            {
+                "properties": [
+                    {
+                        "name": "status",
+                        "logicalType": "string",
+                        "required": False,
+                        "customProperties": [
+                            {"property": "modelableType", "value": "enum(active)"},
+                            {"property": "modelableEnum", "value": ["active"]},
+                        ],
+                    }
+                ]
+            }
+        ]
+    }
+    new = {
+        "schema": [
+            {
+                "properties": [
+                    {
+                        "name": "status",
+                        "logicalType": "string",
+                        "required": False,
+                        "customProperties": [
+                            {"property": "modelableType", "value": "enum(active,blocked)"},
+                            {"property": "modelableEnum", "value": ["active", "blocked"]},
+                        ],
+                    },
+                    {"name": "nickname", "logicalType": "string", "required": False},
+                ]
+            }
+        ]
+    }
+
+    report = compare_odcs_artifacts([_synthetic_odcs_artifact(old)], [_synthetic_odcs_artifact(new)])
+
+    assert report.status == "read_compatible"
+    assert report.findings == []
+
+
+def test_odcs_compat_reports_new_required_and_removed_contracts():
+    required = {"schema": [{"properties": [{"name": "id", "required": True}]}]}
+
+    added = compare_odcs_artifacts([], [_synthetic_odcs_artifact(required, ref="billing.New@1")])
+    removed = compare_odcs_artifacts([_synthetic_odcs_artifact(required, ref="billing.Old@1")], [])
+
+    assert added.findings[0].code == "property_required_added"
+    assert removed.findings[0].code == "contract_removed"
+
+
+def test_odcs_compat_ignores_malformed_and_non_object_artifacts():
+    malformed = EmittedArtifact(
+        target="odcs",
+        ref="billing.Malformed@1",
+        artifact_id="billing.Malformed.v1",
+        path=Path("billing/Malformed.v1.odcs.yaml"),
+        content="schema: [",
+        content_hash="test",
+    )
+    non_object = EmittedArtifact(
+        target="odcs",
+        ref="billing.Scalar@1",
+        artifact_id="billing.Scalar.v1",
+        path=Path("billing/Scalar.v1.odcs.yaml"),
+        content="- scalar",
+        content_hash="test",
+    )
+
+    report = compare_odcs_artifacts([malformed, non_object], [])
+
+    assert report.status == "read_compatible"
     assert report.findings == []
 
 
@@ -1302,6 +1455,7 @@ def test_validate_compat_target_choices_match_the_registry():
     assert "sql-postgres" in result.output
     assert "sql-clickhouse" in result.output
     assert "fhir-profile" in result.output
+    assert "odcs" in result.output
 
 
 def test_validate_compat_cli_supports_fhir_profile(tmp_path):
@@ -1343,6 +1497,41 @@ domain clinical {
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload["target"] == "fhir-profile"
+    assert payload["status"] == "read_compatible"
+
+
+def test_validate_compat_cli_supports_odcs(tmp_path):
+    source = _write(
+        tmp_path / "model.mdl",
+        """
+domain billing {
+  owner: "billing-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    name?: string
+  }
+}
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(source),
+            "--to",
+            str(source),
+            "--target",
+            "odcs",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["target"] == "odcs"
     assert payload["status"] == "read_compatible"
 
 

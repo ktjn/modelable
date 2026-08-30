@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+import yaml
+
 from modelable.compat.checker import CompatibilityReport
 from modelable.compat.diff import FieldChange, ProjectionChange, describe_field_change, is_field_change_breaking
 from modelable.emitters.base import EmittedArtifact
@@ -331,6 +333,39 @@ def compare_fhir_artifacts(
     return TargetCompatibilityReport(target="fhir-profile", status=status, severity=severity, findings=findings)
 
 
+def compare_odcs_artifacts(
+    old_artifacts: list[EmittedArtifact],
+    new_artifacts: list[EmittedArtifact],
+) -> TargetCompatibilityReport:
+    """Compare ODCS DataContract documents for contract compatibility."""
+    findings: list[TargetCompatibilityFinding] = []
+    old_contracts = _odcs_entries(old_artifacts)
+    new_contracts = _odcs_entries(new_artifacts)
+    for ref in sorted(set(old_contracts) | set(new_contracts)):
+        old_contract = old_contracts.get(ref)
+        new_contract = new_contracts.get(ref)
+        if old_contract is None:
+            for name, property_def in _odcs_properties(new_contract).items():
+                if _odcs_required(property_def):
+                    findings.append(
+                        _finding(
+                            "property_required_added",
+                            "breaking",
+                            ref,
+                            f"ODCS required property '{name}' was added",
+                            field=name,
+                        )
+                    )
+            continue
+        if new_contract is None:
+            findings.append(_finding("contract_removed", "breaking", ref, "ODCS contract was removed"))
+            continue
+        findings.extend(_compare_odcs_contract(ref, old_contract, new_contract))
+
+    status, severity = _worst(findings, default_status="read_compatible")
+    return TargetCompatibilityReport(target="odcs", status=status, severity=severity, findings=findings)
+
+
 def compare_source_representation(
     domain_name: str,
     model_name: str,
@@ -610,6 +645,128 @@ def _fhir_max(element: dict[str, Any]) -> int:
 
 def _fhir_type_signature(element: dict[str, Any]) -> str:
     return json.dumps(element.get("type"), sort_keys=True, separators=(",", ":"))
+
+
+def _odcs_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str, Any]]:
+    entries: dict[str, dict[str, Any]] = {}
+    for artifact in artifacts:
+        if artifact.target != "odcs" or not isinstance(artifact.ref, str) or not isinstance(artifact.content, str):
+            continue
+        try:
+            content = yaml.safe_load(artifact.content)
+        except yaml.YAMLError:
+            continue
+        if isinstance(content, dict):
+            entries[artifact.ref] = content
+    return entries
+
+
+def _compare_odcs_contract(
+    ref: str, old_contract: dict[str, Any], new_contract: dict[str, Any]
+) -> list[TargetCompatibilityFinding]:
+    findings: list[TargetCompatibilityFinding] = []
+    old_properties = _odcs_properties(old_contract)
+    new_properties = _odcs_properties(new_contract)
+    for name in sorted(set(old_properties) - set(new_properties)):
+        findings.append(
+            _finding("property_removed", "breaking", ref, f"ODCS property '{name}' was removed", field=name)
+        )
+    for name in sorted(set(new_properties) - set(old_properties)):
+        if _odcs_required(new_properties[name]):
+            findings.append(
+                _finding(
+                    "property_required_added",
+                    "breaking",
+                    ref,
+                    f"ODCS required property '{name}' was added",
+                    field=name,
+                )
+            )
+    for name in sorted(set(old_properties) & set(new_properties)):
+        old_property = old_properties[name]
+        new_property = new_properties[name]
+        if not _odcs_required(old_property) and _odcs_required(new_property):
+            findings.append(
+                _finding(
+                    "property_required",
+                    "breaking",
+                    ref,
+                    f"ODCS property '{name}' became required",
+                    field=name,
+                )
+            )
+        if _odcs_type_signature(old_property) != _odcs_type_signature(new_property):
+            findings.append(
+                _finding(
+                    "property_type_changed",
+                    "breaking",
+                    ref,
+                    f"ODCS property '{name}' type changed",
+                    field=name,
+                )
+            )
+        removed_values = sorted(set(_odcs_enum_values(old_property)) - set(_odcs_enum_values(new_property)))
+        if removed_values:
+            findings.append(
+                _finding(
+                    "enum_value_removed",
+                    "breaking",
+                    ref,
+                    f"ODCS property '{name}' removed enum values: {', '.join(removed_values)}",
+                    field=name,
+                )
+            )
+    return findings
+
+
+def _odcs_properties(contract: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    if contract is None:
+        return {}
+    schemas = contract.get("schema")
+    if not isinstance(schemas, list):
+        return {}
+    properties: dict[str, dict[str, Any]] = {}
+    for schema in schemas:
+        if not isinstance(schema, dict) or not isinstance(schema.get("properties"), list):
+            continue
+        for property_def in schema["properties"]:
+            if isinstance(property_def, dict) and isinstance(property_def.get("name"), str):
+                properties[property_def["name"]] = property_def
+    return properties
+
+
+def _odcs_required(property_def: dict[str, Any]) -> bool:
+    return property_def.get("required") is True
+
+
+def _odcs_custom_properties(property_def: dict[str, Any]) -> dict[str, Any]:
+    custom_properties = property_def.get("customProperties")
+    if not isinstance(custom_properties, list):
+        return {}
+    return {
+        item["property"]: item.get("value")
+        for item in custom_properties
+        if isinstance(item, dict) and isinstance(item.get("property"), str)
+    }
+
+
+def _odcs_type_signature(property_def: dict[str, Any]) -> str:
+    custom = _odcs_custom_properties(property_def)
+    modelable_type = "enum" if isinstance(custom.get("modelableEnum"), list) else custom.get("modelableType")
+    return json.dumps(
+        {
+            "logicalType": property_def.get("logicalType"),
+            "logicalTypeOptions": property_def.get("logicalTypeOptions"),
+            "modelableType": modelable_type,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _odcs_enum_values(property_def: dict[str, Any]) -> list[str]:
+    values = _odcs_custom_properties(property_def).get("modelableEnum")
+    return [value for value in values if isinstance(value, str)] if isinstance(values, list) else []
 
 
 def _compare_json_schema(

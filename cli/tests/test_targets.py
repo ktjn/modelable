@@ -7,6 +7,7 @@ def test_protobuf_and_grpc_support_compat_check():
     assert get_codegen_target("sql-postgres").supports_compat_check is True
     assert get_codegen_target("sql-clickhouse").supports_compat_check is True
     assert get_codegen_target("fhir-profile").supports_compat_check is True
+    assert get_codegen_target("odcs").supports_compat_check is True
     assert get_codegen_target("grpc").supports_compat_check is True
     assert get_codegen_target("openapi").supports_compat_check is True
     assert get_codegen_target("avro").supports_compat_check is True
@@ -22,6 +23,7 @@ def test_other_targets_do_not_support_compat_check():
             "sql-postgres",
             "sql-clickhouse",
             "fhir-profile",
+            "odcs",
             "protobuf",
             "grpc",
             "openapi",
@@ -39,6 +41,7 @@ def test_list_compat_checkable_targets_returns_supported_target_evaluators():
         "sql-postgres",
         "sql-clickhouse",
         "fhir-profile",
+        "odcs",
         "protobuf",
         "grpc",
         "openapi",

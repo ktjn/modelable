@@ -15,6 +15,7 @@ from modelable.compat.targets import (
     compare_fhir_artifacts,
     compare_grpc_artifacts,
     compare_json_schema_artifacts,
+    compare_odcs_artifacts,
     compare_openapi_artifacts,
     compare_protobuf_manifests,
     compare_sql_artifacts,
@@ -24,6 +25,7 @@ from modelable.emitters.avro import emit_avro
 from modelable.emitters.fhir import emit_fhir_profile
 from modelable.emitters.grpc import emit_grpc
 from modelable.emitters.json_schema import emit_json_schema
+from modelable.emitters.odcs import emit_odcs
 from modelable.emitters.openapi import emit_openapi
 from modelable.emitters.protobuf import emit_protobuf
 from modelable.emitters.sql import emit_sql
@@ -60,6 +62,11 @@ def validate_compat(from_path: Path, to_path: Path, target: str, policy_path: Pa
         report = compare_fhir_artifacts(
             emit_fhir_profile(old_workspace, Path(".modelable/compat/old/fhir-profile")),
             emit_fhir_profile(new_workspace, Path(".modelable/compat/new/fhir-profile")),
+        )
+    elif target == "odcs":
+        report = compare_odcs_artifacts(
+            emit_odcs(old_workspace, Path(".modelable/compat/old/odcs")),
+            emit_odcs(new_workspace, Path(".modelable/compat/new/odcs")),
         )
     elif target in {"sql-postgres", "sql-clickhouse"}:
         dialect = target.removeprefix("sql-")

@@ -146,6 +146,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="artifact",
         default_out_dir=Path("./dist/odcs"),
+        supports_compat_check=True,
     ),
     CodegenTarget(
         name="protobuf",
