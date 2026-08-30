@@ -26,6 +26,7 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
 
     application_name = _application_name(workspace)
     application_id = f"application:{application_name}"
+    packages = _package_identities(workspace, application_id)
     _add_node(
         nodes,
         node_ids,
@@ -142,6 +143,8 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
     return {
         "kind": "usage_graph",
         "application": application_name,
+        "application_id": application_id,
+        "packages": packages,
         "nodes": sorted(nodes, key=lambda item: (item["kind"], item["id"])),
         "edges": sorted(edges, key=lambda item: (item["kind"], item["source"], item["target"])),
     }
@@ -173,6 +176,8 @@ def build_usage_manifest(workspace: Workspace) -> dict[str, Any]:
         "$schema": USAGE_SCHEMA,
         "kind": "usage_manifest",
         "application": graph["application"],
+        "application_id": graph["application_id"],
+        "packages": graph["packages"],
         "references": references,
     }
 
@@ -183,6 +188,15 @@ def _application_name(workspace: Workspace) -> str:
         if configured:
             return configured
     return "workspace"
+
+
+def _package_identities(workspace: Workspace, application_id: str) -> list[dict[str, str]]:
+    if workspace.mdl.workspace is None:
+        return []
+    return [
+        {"id": f"package:{application_id.removeprefix('application:')}/{package.name}", "name": package.name}
+        for package in sorted(workspace.mdl.workspace.packages, key=lambda item: item.name)
+    ]
 
 
 def _resolve_source_ref(workspace: Workspace, model: str, version_spec: Any) -> str:

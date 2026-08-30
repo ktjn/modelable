@@ -37,6 +37,16 @@ def test_usage_protocol_round_trips_canonical_json(tmp_path: Path) -> None:
     )
 
 
+def test_usage_protocol_round_trips_application_package_identity() -> None:
+    protocol = _protocol()
+    manifest = _manifest()
+    manifest["application_id"] = "application:billing-service"
+    manifest["packages"] = [{"id": "package:billing-service/api", "name": "api"}]
+
+    assert protocol.validate_usage_manifest(manifest) == manifest
+    assert json.loads(protocol.serialize_usage_manifest(manifest)) == manifest
+
+
 def test_usage_protocol_rejects_duplicate_references() -> None:
     protocol = _protocol()
     manifest = _manifest()

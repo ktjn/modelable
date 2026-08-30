@@ -69,7 +69,7 @@ explicitly listed for acceptance before implementation.
 
 ## Slice 2 — complete cross-application usage and consequence analysis
 
-- [ ] Add stable workspace/package application identity.
+- [x] Add stable workspace/package application identity.
 - [ ] Derive usage edges from model references, projections, API operations,
   events, persistence surfaces, and generated-artifact declarations.
 - [ ] Export a compact versioned usage manifest that can be aggregated without

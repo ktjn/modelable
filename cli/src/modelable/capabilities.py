@@ -221,6 +221,17 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         test_refs=("test_registry_snapshot.py::test_resolve_writes_deterministic_lock_and_objects",),
     ),
     Capability(
+        name="application-package-identity",
+        category="registry_capability",
+        status=CapabilityStatus.implemented,
+        description="Exposes deterministic workspace application and package identities in usage evidence",
+        notes="Identity is derived from explicit workspace and package names and is independent of source paths.",
+        test_refs=(
+            "test_registry_usage.py::test_usage_evidence_exposes_stable_application_and_package_ids",
+            "test_usage_protocol.py::test_usage_protocol_round_trips_application_package_identity",
+        ),
+    ),
+    Capability(
         name="offline-compiler-analysis",
         category="registry_capability",
         status=CapabilityStatus.implemented,

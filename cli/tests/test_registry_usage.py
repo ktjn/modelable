@@ -23,6 +23,35 @@ def test_usage_graph_contains_exact_model_signatures() -> None:
     assert all(len(node["signature"]) == 64 for node in models)
 
 
+def test_usage_evidence_exposes_stable_application_and_package_ids(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+workspace "billing-service" {
+  package "api" {
+    include: ["billing"]
+  }
+}
+domain billing {
+  entity Invoice @ 1 (additive) {
+    @key
+    invoiceId: uuid
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    graph = build_usage_graph(load_workspace(source))
+    manifest = build_usage_manifest(load_workspace(source))
+
+    assert graph["application"] == "billing-service"
+    assert graph["application_id"] == "application:billing-service"
+    assert graph["packages"] == [{"id": "package:billing-service/api", "name": "api"}]
+    assert manifest["application_id"] == "application:billing-service"
+    assert manifest["packages"] == [{"id": "package:billing-service/api", "name": "api"}]
+
+
 def test_usage_graph_connects_application_to_compiled_contract_versions() -> None:
     graph = build_usage_graph(load_workspace(FIXTURE))
 
