@@ -45,6 +45,7 @@ from modelable.registry.signature import (
     compute_semantic_signature,
     compute_version_signature,
 )
+from modelable.registry.usage import USAGE_SCHEMA, build_usage_manifest
 
 LOCK_FORMAT = "modelable.registry.lock.v1"
 OBJECT_FORMAT = "modelable.registry.object.v1"
@@ -173,6 +174,7 @@ def resolve_workspace_snapshot(
         "extensions": canonical_pins,
         "objects": entries,
         "requirements": _build_requirements(entries),
+        "usage": build_usage_manifest(workspace),
     }
     _atomic_write_json(paths.lock, lock)
     identities = tuple(str(entry["identity"]) for entry in entries)
@@ -260,6 +262,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                     actual_source_hash = _file_hash(source_path)
                     if actual_source_hash != expected_source_hash:
                         errors.append(f"registry source drift for {identity}: found {actual_source_hash}")
+    _verify_usage_evidence(lock.get("usage"), objects, errors)
     requirements = lock.get("requirements")
     if requirements is not None:
         if not isinstance(requirements, list):
@@ -312,6 +315,55 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                 if requirements != expected_requirements:
                     errors.append("registry lock requirements do not match object dependency edges")
     return errors
+
+
+def _verify_usage_evidence(
+    usage: Any,
+    objects: list[Any],
+    errors: list[str],
+) -> None:
+    if not isinstance(usage, dict):
+        errors.append("registry lock usage must be an object")
+        return
+    if usage.get("$schema") != USAGE_SCHEMA or usage.get("kind") != "usage_manifest":
+        errors.append("registry lock usage has an unsupported format")
+    if not isinstance(usage.get("application"), str):
+        errors.append("registry lock usage application must be a string")
+    references = usage.get("references")
+    if not isinstance(references, list):
+        errors.append("registry lock usage references must be an array")
+        return
+
+    entries_by_identity = {
+        str(entry["identity"]): entry
+        for entry in objects
+        if isinstance(entry, dict) and isinstance(entry.get("identity"), str)
+    }
+    seen: set[str] = set()
+    for reference in references:
+        if not isinstance(reference, dict):
+            errors.append("registry lock usage contains a non-object reference")
+            continue
+        ref = reference.get("ref")
+        signature = reference.get("signature")
+        fields = reference.get("fields")
+        if not isinstance(ref, str) or not isinstance(signature, str) or not isinstance(fields, list):
+            errors.append("registry lock usage reference requires ref, signature, and fields")
+            continue
+        if ref in seen:
+            errors.append(f"registry lock usage contains duplicate reference {ref}")
+        seen.add(ref)
+        if re.fullmatch(r"[0-9a-f]{64}", signature) is None:
+            errors.append(f"registry lock usage reference {ref} has an invalid signature")
+        entry = entries_by_identity.get(ref)
+        if entry is None:
+            errors.append(f"registry lock usage references missing object {ref}")
+        elif entry.get("signature") != signature:
+            errors.append(f"usage reference {ref} signature does not match locked object")
+        if any(not isinstance(field, str) for field in fields):
+            errors.append(f"registry lock usage fields for {ref} must be strings")
+        elif fields != sorted(set(fields)):
+            errors.append(f"registry lock usage fields for {ref} are not deterministic")
 
 
 def load_snapshot_workspace(output_dir: str | Path = ".modelable") -> Workspace:
