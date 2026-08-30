@@ -8,6 +8,7 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Built-in code-generation targets now advertise standard semantic capabilities, and compilation rejects unsupported model constructs before writing state.
 - Code generation target inventories now expose validated `modelable.extension/v1` descriptors.
 - SQL target descriptors now expose versioned local overlay schemas.
 - Added `modelable compile --overlay` support for applying validated SQL target overlays.

@@ -1,0 +1,82 @@
+from __future__ import annotations
+
+import pytest
+
+from modelable.emitters.targets import get_codegen_target
+from modelable.extensions import (
+    PROTOCOL,
+    ExtensionDescriptor,
+    ExtensionDescriptorError,
+    required_capabilities,
+    validate_extension_capabilities,
+)
+from modelable.parser.parse import parse_text_to_ir
+
+
+def _descriptor(*capabilities: str) -> ExtensionDescriptor:
+    return ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="test.target",
+        version="test",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=tuple(capabilities),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+
+
+def test_required_capabilities_are_canonical_and_derived_from_field_types() -> None:
+    mdl = parse_text_to_ir(
+        """
+        domain orders {
+          entity Order @ 1 (additive) {
+            @key id: uuid
+            labels: map<string, string>
+            method: union<kind> { card: Card, bank: Bank }
+          }
+        }
+        """
+    )
+
+    assert required_capabilities(mdl) == ("maps", "records", "unions")
+
+
+def test_capability_validation_rejects_unsupported_requirements_deterministically() -> None:
+    mdl = parse_text_to_ir(
+        """
+        domain orders {
+          entity Order @ 1 (additive) {
+            @key id: uuid
+            method: union<kind> { card: Card, bank: Bank }
+          }
+        }
+        """
+    )
+
+    with pytest.raises(
+        ExtensionDescriptorError,
+        match=r"target 'test\.target' does not support required capability 'unions'",
+    ):
+        validate_extension_capabilities(_descriptor("records"), mdl)
+
+
+def test_capability_validation_accepts_all_required_capabilities() -> None:
+    mdl = parse_text_to_ir(
+        """
+        domain orders {
+          entity Order @ 1 (additive) {
+            @key id: uuid
+            labels: map<string, string>
+          }
+        }
+        """
+    )
+
+    validate_extension_capabilities(_descriptor("maps", "records"), mdl)
+
+
+def test_builtin_targets_advertise_capabilities_they_implement() -> None:
+    assert "unions" in get_codegen_target("json-schema").extension_descriptor().capabilities
+    assert "unions" in get_codegen_target("openapi").extension_descriptor().capabilities
+    assert "unions" not in get_codegen_target("rust").extension_descriptor().capabilities

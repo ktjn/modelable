@@ -53,3 +53,19 @@ def test_extension_descriptor_round_trips_canonical_payload() -> None:
 def test_extension_descriptor_rejects_invalid_payload(payload: dict[str, object]) -> None:
     with pytest.raises(ExtensionDescriptorError):
         parse_extension_descriptor(payload)
+
+
+def test_extension_descriptor_rejects_unknown_capabilities() -> None:
+    payload = {
+        "protocol": "modelable.extension/v1",
+        "id": "example.target",
+        "version": "1.0.0",
+        "accepted_plan_versions": ["modelable.plan/v0"],
+        "capabilities": ["not-a-standard-capability"],
+        "configuration_schema": None,
+        "output_kinds": ["artifact"],
+        "compatibility_support": False,
+    }
+
+    with pytest.raises(ExtensionDescriptorError, match="unknown capability"):
+        parse_extension_descriptor(payload)

@@ -39,8 +39,9 @@ from modelable.emitters.python import emit_python
 from modelable.emitters.registry_manifest import emit_registry_manifest
 from modelable.emitters.rust import emit_rust
 from modelable.emitters.sql import emit_sql
-from modelable.emitters.targets import list_implemented_codegen_targets
+from modelable.emitters.targets import get_codegen_target, list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
+from modelable.extensions import ExtensionDescriptorError, validate_extension_capabilities
 from modelable.llm.workspace_editor import AffectedDefinition
 from modelable.operations.compilation_audit import (
     CompilationAuditDestination,
@@ -1393,6 +1394,10 @@ def _run_compilation(
     _reject_unsupported_enum_projection_fields(workspace, request.target)
     emit_workspace = _scope_workspace(workspace, request)
     _validate_package_request(workspace, request)
+    try:
+        validate_extension_capabilities(get_codegen_target(request.target).extension_descriptor(), emit_workspace.mdl)
+    except ExtensionDescriptorError as exc:
+        raise CompilationError(str(exc)) from exc
 
     existing_registry_ids = read_lock_file(request.registry_ids_path)
     try:

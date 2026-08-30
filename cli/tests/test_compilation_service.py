@@ -254,6 +254,31 @@ def test_preview_rejects_a_target_not_in_the_codegen_registry(tmp_path: Path) ->
         preview_for(tmp_path, source, target="cobol")
 
 
+def test_compile_rejects_union_before_writing_state_for_unsupported_target(tmp_path: Path) -> None:
+    source = write_workspace(
+        tmp_path,
+        """
+domain platform {
+  owner: "platform-team"
+  entity Card @ 1 (additive) { @key id: uuid }
+  entity Bank @ 1 (additive) { @key id: uuid }
+  entity Order @ 1 (additive) {
+    @key id: uuid
+    method: union<kind> { card: ref<Card>, bank: ref<Bank> }
+  }
+}
+""",
+    )
+    request = request_for(tmp_path, source, "rust")
+
+    with pytest.raises(CompilationError, match="required capability 'unions'"):
+        CompilationService().execute_direct(request)
+
+    assert not request.registry_ids_path.exists()
+    assert not Path(request.registry_path).exists()
+    assert not request.out_dir.exists()
+
+
 def confirmation_for(pending) -> CompilationConfirmation:
     return CompilationConfirmation(
         session_id="session-1",
