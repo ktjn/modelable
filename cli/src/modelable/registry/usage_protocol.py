@@ -64,6 +64,7 @@ def serialize_usage_manifest(document: object) -> str:
                 "ref": reference["ref"],
                 "signature": reference["signature"],
                 "fields": sorted(cast(list[str], reference["fields"])),
+                **({"package_id": reference["package_id"]} if "package_id" in reference else {}),
             }
         )
     normalized = {
@@ -101,8 +102,9 @@ def _validate_reference(value: object, name: str, seen: set[str]) -> None:
     if not isinstance(value, dict):
         raise UsageProtocolError(f"{name} must be a JSON object")
     reference = cast(dict[str, object], value)
-    _require_exact_keys(reference, {"ref", "signature", "fields"}, name)
+    _require_exact_keys(reference, {"ref", "signature", "fields", "package_id"} & set(reference), name)
     ref = _require_string(reference, "ref")
+    _require_string_if_present(reference, "package_id")
     if _DECLARATION_REF.fullmatch(ref) is None:
         raise UsageProtocolError(f"{name}.ref must be a canonical declaration reference")
     if ref in seen:

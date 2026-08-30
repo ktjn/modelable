@@ -27,6 +27,7 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
     application_name = _application_name(workspace)
     application_id = f"application:{application_name}"
     packages = _package_identities(workspace, application_id)
+    package_by_domain = _package_ids_by_domain(workspace, application_id)
     _add_node(
         nodes,
         node_ids,
@@ -35,6 +36,10 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
     for node in nodes:
         if node["kind"] in {"model_version", "projection_version", "enum_projection"}:
             _add_edge(edges, edge_keys, "consumes", application_id, node["id"])
+            domain_name = str(node.get("target_ref", "")).split(".", 1)[0]
+            package_id = package_by_domain.get(domain_name)
+            if package_id is not None:
+                _add_edge(edges, edge_keys, "consumes", package_id, node["id"])
 
     for domain in workspace.mdl.domains:
         for projection_name, versions in domain.projections.items():
@@ -162,16 +167,20 @@ def build_usage_manifest(workspace: Workspace) -> dict[str, Any]:
             fields_by_version.setdefault(edge["source"], []).append(str(field["target_ref"]))
 
     references = []
+    package_by_domain = _package_ids_by_domain(workspace, str(graph["application_id"]))
     for node in graph["nodes"]:
         if node["kind"] not in {"model_version", "projection_version", "enum_projection"}:
             continue
-        references.append(
-            {
-                "ref": node["target_ref"],
-                "signature": node["signature"],
-                "fields": sorted(fields_by_version.get(node["id"], [])),
-            }
-        )
+        reference = {
+            "ref": node["target_ref"],
+            "signature": node["signature"],
+            "fields": sorted(fields_by_version.get(node["id"], [])),
+        }
+        domain_name = str(node["target_ref"]).split(".", 1)[0]
+        package_id = package_by_domain.get(domain_name)
+        if package_id is not None:
+            reference["package_id"] = package_id
+        references.append(reference)
     return {
         "$schema": USAGE_SCHEMA,
         "kind": "usage_manifest",
@@ -197,6 +206,17 @@ def _package_identities(workspace: Workspace, application_id: str) -> list[dict[
         {"id": f"package:{application_id.removeprefix('application:')}/{package.name}", "name": package.name}
         for package in sorted(workspace.mdl.workspace.packages, key=lambda item: item.name)
     ]
+
+
+def _package_ids_by_domain(workspace: Workspace, application_id: str) -> dict[str, str]:
+    if workspace.mdl.workspace is None:
+        return {}
+    application_name = application_id.removeprefix("application:")
+    return {
+        domain_name: f"package:{application_name}/{package.name}"
+        for package in workspace.mdl.workspace.packages
+        for domain_name in package.include
+    }
 
 
 def _resolve_source_ref(workspace: Workspace, model: str, version_spec: Any) -> str:

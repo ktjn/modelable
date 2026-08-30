@@ -48,8 +48,14 @@ domain billing {
     assert graph["application"] == "billing-service"
     assert graph["application_id"] == "application:billing-service"
     assert graph["packages"] == [{"id": "package:billing-service/api", "name": "api"}]
+    assert {
+        "kind": "consumes",
+        "source": "package:billing-service/api",
+        "target": "model_version:billing.Invoice@1",
+    } in graph["edges"]
     assert manifest["application_id"] == "application:billing-service"
     assert manifest["packages"] == [{"id": "package:billing-service/api", "name": "api"}]
+    assert manifest["references"][0]["package_id"] == "package:billing-service/api"
 
 
 def test_usage_graph_connects_application_to_compiled_contract_versions() -> None:
