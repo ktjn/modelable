@@ -6,11 +6,20 @@ from pathlib import Path
 
 from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
 from modelable.compiler.workspace import Workspace
+from modelable.dependency_graph import resolve_projection_aliases
 from modelable.governance.checker import build_projection_governance_findings
-from modelable.parser.ir import ComputedMapping, DirectMapping, MdlFile, ProjectionVersion
+from modelable.parser.ir import (
+    ComputedMapping,
+    DirectMapping,
+    FieldDef,
+    MdlFile,
+    ModelVersion,
+    ProjectionField,
+    ProjectionVersion,
+)
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
 from modelable.planner.protocol import PLAN_SCHEMA, serialize_plan
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref
 
 
 def build_plan(
@@ -96,20 +105,88 @@ def _resolve_source_block(
     try:
         resolved = resolve_model_ref(mdl, model_ref, version_spec)
         resolved_version = resolved.version.version
-        change_kind = resolved.version.change_kind.value
+        change_kind = resolved.version.change_kind.value if isinstance(resolved.version, ModelVersion) else None
     except LookupError:
         resolved_version = None
         change_kind = None
+        resolved_block = None
+    else:
+        resolved_block = _resolved_declaration_block(resolved, mdl)
 
     block: dict = {
         "model": model_ref,
         "resolved_version": resolved_version,
         "alias": alias,
         "change_kind": change_kind,
+        "resolved": resolved_block,
     }
     if on is not None:
         block["on"] = on
     return block
+
+
+def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dict[str, object]:
+    version = resolved.version
+    if isinstance(version, ModelVersion):
+        fields = [
+            {
+                "name": field.name,
+                "type": field.type.model_dump(mode="json"),
+                "optional": field.optional,
+                "nullable": field.nullable,
+            }
+            for field in version.fields
+        ]
+        model_kind = version.model_kind.value
+        kind = "model"
+    else:
+        fields = []
+        for field in version.fields:
+            field_type, optional = resolve_projection_field_type_and_optionality(field, version, mdl)
+            fields.append(
+                {
+                    "name": field.name,
+                    "type": field_type.model_dump(mode="json") if field_type is not None else None,
+                    "optional": optional,
+                    "nullable": _resolve_projection_field_nullable(field, version, mdl),
+                }
+            )
+        model_kind = None
+        kind = "projection"
+
+    return {
+        "domain": resolved.domain_name,
+        "name": resolved.model_name,
+        "version": version.version,
+        "kind": kind,
+        "model_kind": model_kind,
+        "fields": fields,
+    }
+
+
+def _resolve_projection_field_nullable(
+    field: ProjectionField, projection: ProjectionVersion, mdl: MdlFile
+) -> bool | None:
+    if not isinstance(field.mapping, DirectMapping):
+        return None
+    resolved = resolve_projection_aliases(projection, mdl).get(field.mapping.source_alias)
+    if resolved is None:
+        return None
+    return _resolve_field_nullable(resolved.version, field.mapping.source_field, mdl)
+
+
+def _resolve_field_nullable(version: ModelVersion | ProjectionVersion, field_name: str, mdl: MdlFile) -> bool | None:
+    if isinstance(version, ModelVersion):
+        model_field: FieldDef | None = next(
+            (candidate for candidate in version.fields if candidate.name == field_name), None
+        )
+        return model_field.nullable if model_field is not None else None
+    projection_field: ProjectionField | None = next(
+        (candidate for candidate in version.fields if candidate.name == field_name), None
+    )
+    if projection_field is None or not isinstance(projection_field.mapping, DirectMapping):
+        return None
+    return _resolve_projection_field_nullable(projection_field, version, mdl)
 
 
 def _collect_revalidation_reasons(source_block: dict, joins_block: list[dict]) -> list[str]:
