@@ -41,7 +41,7 @@ from modelable.emitters.rust import emit_rust
 from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import get_codegen_target, list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
-from modelable.extensions import ExtensionDescriptorError, validate_extension_capabilities
+from modelable.extensions import ExtensionDescriptorError, authorize_extension, validate_extension_capabilities
 from modelable.llm.workspace_editor import AffectedDefinition
 from modelable.operations.compilation_audit import (
     CompilationAuditDestination,
@@ -1405,7 +1405,9 @@ def _run_compilation(
     emit_workspace = _scope_workspace(workspace, request)
     _validate_package_request(workspace, request)
     try:
-        validate_extension_capabilities(get_codegen_target(request.target).extension_descriptor(), emit_workspace.mdl)
+        target_descriptor = get_codegen_target(request.target).extension_descriptor()
+        authorize_extension(target_descriptor, execution_kind="builtin")
+        validate_extension_capabilities(target_descriptor, emit_workspace.mdl)
     except ExtensionDescriptorError as exc:
         raise CompilationError(str(exc)) from exc
 

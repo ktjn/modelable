@@ -11,6 +11,9 @@ from modelable.extensions import (
     PROTOCOL,
     ExtensionDescriptor,
     ExtensionDescriptorError,
+    ExtensionPin,
+    ExtensionTrustPolicy,
+    authorize_extension,
     parse_extension_descriptor,
     parse_extension_pin,
     pin_extension_descriptor,
@@ -180,3 +183,150 @@ def test_extension_pin_rejects_credential_bearing_source() -> None:
 
     with pytest.raises(ExtensionDescriptorError, match="credentials"):
         pin_extension_descriptor(descriptor, "a" * 64, source="https://user:password@example.com/target")
+
+
+def test_default_extension_trust_policy_allows_builtins_only() -> None:
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+    pin = pin_extension_descriptor(descriptor, "a" * 64, source="oci://example/target")
+    policy = ExtensionTrustPolicy()
+
+    authorize_extension(descriptor, execution_kind="builtin", policy=policy)
+
+    with pytest.raises(ExtensionDescriptorError, match="explicitly trusted"):
+        authorize_extension(descriptor, pin=pin, execution_kind="subprocess", policy=policy)
+    with pytest.raises(ExtensionDescriptorError, match="explicitly trusted"):
+        authorize_extension(descriptor, pin=pin, execution_kind="wasm", policy=policy)
+    assert policy.as_dict() == {
+        "allowed_subprocess_pins": [],
+        "allowed_wasm_pins": [],
+        "filesystem_access": "none",
+        "network_enabled": False,
+    }
+    with pytest.raises(ExtensionDescriptorError, match="network"):
+        authorize_extension(descriptor, execution_kind="builtin", policy=policy, network_requested=True)
+    with pytest.raises(ExtensionDescriptorError, match="filesystem"):
+        authorize_extension(
+            descriptor,
+            execution_kind="builtin",
+            policy=policy,
+            requested_filesystem_access="workspace-read",
+        )
+
+
+def test_extension_trust_policy_requires_explicit_allowlist_and_capability_opt_in() -> None:
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+    pin = pin_extension_descriptor(descriptor, "a" * 64, source="oci://example/target")
+    policy = ExtensionTrustPolicy(
+        allowed_subprocess_pins=(pin,),
+        allowed_wasm_pins=(pin,),
+        filesystem_access="workspace-read",
+        network_enabled=True,
+    )
+
+    authorize_extension(
+        descriptor,
+        pin=pin,
+        execution_kind="subprocess",
+        policy=policy,
+        requested_filesystem_access="workspace-read",
+        network_requested=True,
+    )
+    authorize_extension(descriptor, pin=pin, execution_kind="wasm", policy=policy)
+    assert policy.as_dict() == {
+        "allowed_subprocess_pins": [pin.as_dict()],
+        "allowed_wasm_pins": [pin.as_dict()],
+        "filesystem_access": "workspace-read",
+        "network_enabled": True,
+    }
+
+
+def test_extension_trust_policy_rejects_unknown_execution_kind() -> None:
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+
+    with pytest.raises(ExtensionDescriptorError, match="execution kind"):
+        authorize_extension(descriptor, execution_kind="downloaded", policy=ExtensionTrustPolicy())
+
+
+def test_extension_trust_policy_rejects_unrequested_resources_by_default() -> None:
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+    pin = pin_extension_descriptor(descriptor, "a" * 64, source="oci://example/target")
+    policy = ExtensionTrustPolicy(allowed_subprocess_pins=(pin,))
+
+    with pytest.raises(ExtensionDescriptorError, match="network"):
+        authorize_extension(descriptor, pin=pin, execution_kind="subprocess", policy=policy, network_requested=True)
+    with pytest.raises(ExtensionDescriptorError, match="filesystem"):
+        authorize_extension(
+            descriptor,
+            pin=pin,
+            execution_kind="subprocess",
+            policy=policy,
+            requested_filesystem_access="workspace-read",
+        )
+
+
+def test_extension_trust_policy_requires_exact_pinned_implementation() -> None:
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+    trusted_pin = pin_extension_descriptor(descriptor, "a" * 64, source="oci://example/target")
+    replacement_pin = pin_extension_descriptor(descriptor, "b" * 64, source="oci://example/target")
+    policy = ExtensionTrustPolicy(allowed_subprocess_pins=(trusted_pin,))
+
+    with pytest.raises(ExtensionDescriptorError, match="explicitly trusted"):
+        authorize_extension(descriptor, pin=replacement_pin, execution_kind="subprocess", policy=policy)
+
+
+def test_extension_trust_policy_rejects_noncanonical_pins() -> None:
+    pin = ExtensionPin(
+        id="example.target",
+        version="1.2.3",
+        implementation_hash="a" * 64,
+        source=None,
+        accepted_protocol_versions=("modelable.extension/v2", PROTOCOL),
+    )
+
+    with pytest.raises(ExtensionDescriptorError, match="canonical"):
+        ExtensionTrustPolicy(allowed_subprocess_pins=(pin,))

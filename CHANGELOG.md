@@ -8,6 +8,7 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Added a deny-by-default extension trust policy contract for explicit subprocess and WASM authorization.
 - Added deterministic extension provenance pins for exact implementation hashes and accepted protocol versions.
 - Artifact manifests now carry validated extension provenance pins from registry snapshots.
 - Artifact manifests now record the exact built-in extension descriptor used for generation.
