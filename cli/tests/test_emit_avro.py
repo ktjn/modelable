@@ -7,6 +7,8 @@ from click.testing import CliRunner
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.avro import emit_avro
+from modelable.emitters.avro_plan import emit_avro_projection_plan
+from modelable.planner.plans import build_plan_documents
 
 SOURCE = """
 domain customer {
@@ -65,6 +67,44 @@ def test_emit_avro_models_and_event_records_with_logical_types(tmp_path) -> None
 
     event = by_ref["customer.CustomerEvent@1"].content
     assert [field["name"] for field in event["fields"]] == ["customerId", "status"]
+
+
+def test_avro_event_plan_consumer_preserves_existing_output(tmp_path) -> None:
+    (tmp_path / "customer.mdl").write_text(SOURCE, encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerEvent")
+    existing = next(item for item in emit_avro(workspace, tmp_path / "out") if item.ref == "customer.CustomerEvent@1")
+
+    migrated = emit_avro_projection_plan(plan, tmp_path / "out")
+
+    assert migrated.content == existing.content
+    assert migrated.content_hash == existing.content_hash
+
+
+def test_avro_event_plan_consumer_warns_for_computed_fields(tmp_path) -> None:
+    source = """
+domain customer {
+  owner: "customer-team"
+
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+
+  projection CustomerEvent @ 1
+    from customer.Customer @ 1 as c
+  {
+    displayName = c.customerId
+  }
+}
+"""
+    (tmp_path / "customer.mdl").write_text(source, encoding="utf-8")
+
+    artifact = next(
+        item for item in emit_avro(load_workspace(tmp_path), tmp_path / "out") if item.ref == "customer.CustomerEvent@1"
+    )
+
+    assert artifact.content["fields"] == [{"name": "displayName", "type": "string"}]
+    assert any("Avro computed field displayName" in warning for warning in artifact.warnings)
 
 
 def test_compile_avro_writes_deterministic_avsc_artifacts(tmp_path) -> None:
