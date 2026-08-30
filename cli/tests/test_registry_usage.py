@@ -23,6 +23,21 @@ def test_usage_graph_contains_exact_model_signatures() -> None:
     assert all(len(node["signature"]) == 64 for node in models)
 
 
+def test_usage_graph_connects_application_to_compiled_contract_versions() -> None:
+    graph = build_usage_graph(load_workspace(FIXTURE))
+
+    consumed = {
+        edge["target"]
+        for edge in graph["edges"]
+        if edge["kind"] == "consumes" and edge["source"] == "application:workspace"
+    }
+
+    assert consumed == {
+        "model_version:customer.Customer@1",
+        "model_version:customer.Customer@2",
+    }
+
+
 def test_usage_manifest_is_compact() -> None:
     manifest = build_usage_manifest(load_workspace(FIXTURE))
 
