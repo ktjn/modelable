@@ -32,6 +32,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Usage graphs now include semantic-type declaration nodes and resolver-backed
+  `references` edges from named fields and semantic-type aliases.
 - Usage graphs now expose `field_depends_on` edges for computed, join, filter,
   and group projection dependencies.
 - Usage graphs now include `emits` edges from model versions to generated event
