@@ -13,6 +13,7 @@ releases could contain breaking changes when called out explicitly.
 - FHIR profiles are now available as target-specific compatibility evaluators through `validate-compat`.
 - ODCS contracts are now available as target-specific compatibility evaluators through `validate-compat`.
 - Registry snapshot verification now rejects malformed or non-deterministically serialized lock and object JSON.
+- The capability manifest now reports deterministic consequence-graph analysis as implemented while keeping cross-application aggregation deferred.
 - Added `modelable consequence validate` for standalone
   `modelable.consequence/v0` graph validation and canonical JSON output.
 - Added `modelable plan validate` for standalone `modelable.plan/v0`

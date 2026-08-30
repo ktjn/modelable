@@ -136,6 +136,18 @@ def test_registry_capability_scope_is_explicit():
     assert capabilities["cross-application-consequence-analysis"].status is CapabilityStatus.deferred
 
 
+def test_manifest_declares_consequence_graph_coverage():
+    manifest = build_capability_manifest()
+    capabilities = {capability.name: capability for capability in manifest.registry_capabilities}
+
+    consequence = capabilities["consequence-graph-analysis"]
+    assert consequence.status is CapabilityStatus.implemented
+    assert consequence.category == "registry_capability"
+    assert consequence.test_refs == (
+        "test_consequence_protocol.py::test_consequence_graph_protocol_validates_and_serializes_deterministically",
+    )
+
+
 def test_model_version_has_no_lifecycle_status_field():
     """Proves the "model-lifecycle-status" capability's deferred status:
     ModelVersion carries no draft/published/deprecated/retired state, only
