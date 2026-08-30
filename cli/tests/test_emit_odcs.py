@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
+from pathlib import Path
 
 import yaml
 from click.testing import CliRunner
@@ -10,6 +12,8 @@ from click.testing import CliRunner
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.odcs import emit_odcs
+from modelable.emitters.odcs_plan import emit_odcs_projection_plan
+from modelable.planner.protocol import load_plan
 
 
 def test_emit_odcs_model_and_projection(tmp_path):
@@ -202,6 +206,51 @@ domain customer {
     )
 
     assert lint.returncode == 0, lint.stdout + lint.stderr
+
+
+def test_odcs_projection_consumer_uses_validated_plan_data(tmp_path):
+    fixture = Path(__file__).parent / "fixtures" / "plan_v0" / "billing.BillingCustomer.v1.plan.json"
+    artifact = emit_odcs_projection_plan(load_plan(fixture), tmp_path)
+
+    document = yaml.safe_load(artifact.content)
+    assert document["name"] == "billing.BillingCustomer.v1"
+    assert document["version"] == "1"
+    properties = document["schema"][0]["properties"]
+    assert properties == [
+        {
+            "name": "billingId",
+            "logicalType": "string",
+            "logicalTypeOptions": {"format": "uuid"},
+            "required": True,
+            "customProperties": [
+                {"property": "modelableType", "value": "uuid"},
+                {"property": "modelableMapping", "value": "direct"},
+                {"property": "modelableLineage", "value": ["customer.Customer@1.customerId"]},
+            ],
+        }
+    ]
+
+
+def test_odcs_plan_consumer_imports_without_parser_modules() -> None:
+    source_root = Path(__file__).parents[1] / "src"
+    script = """
+import builtins
+
+real_import = builtins.__import__
+
+def guarded_import(name, *args, **kwargs):
+    if name.startswith('modelable.parser'):
+        raise AssertionError('ODCS plan consumer imported parser internals')
+    return real_import(name, *args, **kwargs)
+
+builtins.__import__ = guarded_import
+from modelable.emitters.odcs_plan import emit_odcs_projection_plan
+assert emit_odcs_projection_plan
+"""
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(source_root)
+    result = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
 
 
 def _custom_properties(node: dict) -> dict:

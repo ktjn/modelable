@@ -12,7 +12,10 @@ from modelable.parser.ir import (
     ClassificationLevel,
     ComputedMapping,
     DirectMapping,
+    EnumRefType,
+    EnumType,
     FieldDef,
+    FieldType,
     MdlFile,
     ModelVersion,
     ProjectionField,
@@ -25,7 +28,7 @@ from modelable.parser.ir import (
 )
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
 from modelable.planner.protocol import PLAN_SCHEMA, PlanDocument, serialize_plan
-from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref
+from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_semantic_type_ref
 
 
 def build_plan(
@@ -69,7 +72,7 @@ def build_plan(
             entry["kind"] = "computed"
             entry["expression"] = mapping.expression
         field_type, optional = resolve_projection_field_type_and_optionality(proj_field, pv, mdl)
-        entry["type"] = field_type.model_dump(mode="json") if field_type is not None else None
+        entry["type"] = _field_type_document(field_type, mdl, domain_name) if field_type is not None else None
         entry["optional"] = optional
         entry.update(_projection_governance_facts(proj_field, pv, mdl))
         fl = lineage_by_field.get(proj_field.name)
@@ -171,7 +174,7 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
         fields = [
             {
                 "name": field.name,
-                "type": field.type.model_dump(mode="json"),
+                "type": _field_type_document(field.type, mdl, resolved.domain_name),
                 "optional": field.optional,
                 "nullable": field.nullable,
                 **_field_governance_facts(field, owner=_field_owner(field)),
@@ -187,7 +190,9 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
             fields.append(
                 {
                     "name": field.name,
-                    "type": field_type.model_dump(mode="json") if field_type is not None else None,
+                    "type": _field_type_document(field_type, mdl, resolved.domain_name)
+                    if field_type is not None
+                    else None,
                     "optional": optional,
                     "nullable": _resolve_projection_field_nullable(field, version, mdl),
                     **_projection_governance_facts(field, version, mdl),
@@ -204,6 +209,21 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
         "model_kind": model_kind,
         "fields": fields,
     }
+
+
+def _field_type_document(field_type: FieldType, mdl: MdlFile, current_domain: str) -> dict[str, object]:
+    document = field_type.model_dump(mode="json")
+    if isinstance(field_type, EnumRefType):
+        try:
+            declaring_domain, declaration = resolve_semantic_type_ref(
+                mdl, current_domain, field_type.name, field_type.version
+            )
+        except LookupError:
+            return document
+        if isinstance(declaration.underlying, EnumType):
+            document["values"] = list(declaration.underlying.values)
+            document["declaring_domain"] = declaring_domain
+    return document
 
 
 def _resolve_projection_field_nullable(
