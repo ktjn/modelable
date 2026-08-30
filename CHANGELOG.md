@@ -30,6 +30,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- dbt YAML projection fragments now consume validated `modelable.plan/v0`
+  documents while preserving existing model emission.
 - ODCS projection assets now consume validated `modelable.plan/v0`
   documents while preserving existing model and domain metadata emission.
 - OpenMetadata projection assets now consume validated `modelable.plan/v0`

@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import yaml
 
 from modelable.compiler.workspace import load_workspace
+from modelable.emitters.dbt_plan import emit_dbt_projection_plan
 from modelable.emitters.dbt_yaml import emit_dbt_yaml
+from modelable.planner.protocol import load_plan
 
 
 def test_emit_dbt_yaml_model_and_projection(tmp_path):
@@ -120,3 +127,92 @@ domain customer {
     proj_col_name = next(c for c in proj_columns if c["name"] == "name")
     assert proj_col_name["data_type"] == "text"
     assert proj_col_name["meta"]["modelable_lineage"] == ["customer.Customer@1.name"]
+
+
+def test_dbt_projection_consumer_uses_validated_plan_data(tmp_path):
+    fixture = Path(__file__).parent / "fixtures" / "plan_v0" / "billing.BillingCustomer.v1.plan.json"
+    artifact = emit_dbt_projection_plan(load_plan(fixture), tmp_path, domain_owner="billing-team")
+
+    document = yaml.safe_load(artifact.content)
+    assert document == {
+        "version": 2,
+        "models": [
+            {
+                "name": "BillingCustomer",
+                "latest_version": 1,
+                "meta": {
+                    "modelable_domain": "billing",
+                    "modelable_name": "BillingCustomer",
+                    "modelable_kind": "projection",
+                    "modelable_version": 1,
+                    "modelable_source": "customer.Customer@1",
+                    "modelable_owner": "billing-team",
+                },
+                "versions": [
+                    {
+                        "v": 1,
+                        "columns": [
+                            {
+                                "name": "billingId",
+                                "data_type": "uuid",
+                                "meta": {
+                                    "modelable_lineage": ["customer.Customer@1.customerId"],
+                                    "modelable_owner": "billing-team",
+                                },
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def test_dbt_projection_consumer_preserves_filter_grouping_and_computed_fields(tmp_path):
+    fixture = Path(__file__).parent / "fixtures" / "plan_v0" / "billing.BillingCustomer.v1.plan.json"
+    plan = load_plan(fixture)
+    plan["where"] = "c.customerId != null"
+    plan["group_by"] = ["c.customerId"]
+    plan["fields"] = [
+        *plan["fields"],
+        {
+            "name": "displayName",
+            "kind": "computed",
+            "expression": "c.customerId",
+            "type": {"kind": "string", "version": 4},
+            "optional": None,
+            "pii": False,
+            "classification": None,
+            "owner": None,
+            "lineage": [],
+        },
+    ]
+
+    document = yaml.safe_load(emit_dbt_projection_plan(plan, tmp_path).content)
+    model = document["models"][0]
+    assert model["meta"]["modelable_where"] == "c.customerId != null"
+    assert model["meta"]["modelable_group_by"] == "c.customerId"
+    computed = model["versions"][0]["columns"][1]
+    assert computed == {"name": "displayName", "data_type": "text"}
+
+
+def test_dbt_plan_consumer_imports_without_parser_modules() -> None:
+    source_root = Path(__file__).parents[1] / "src"
+    script = """
+import builtins
+
+real_import = builtins.__import__
+
+def guarded_import(name, *args, **kwargs):
+    if name.startswith('modelable.parser'):
+        raise AssertionError('dbt plan consumer imported parser internals')
+    return real_import(name, *args, **kwargs)
+
+builtins.__import__ = guarded_import
+from modelable.emitters.dbt_plan import emit_dbt_projection_plan
+assert emit_dbt_projection_plan
+"""
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(source_root)
+    result = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
