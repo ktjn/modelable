@@ -32,6 +32,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- OpenAPI projection component schemas now consume validated `modelable.plan/v0`
+  documents while preserving existing schema output.
 - JSON Schema projection artifacts now consume validated `modelable.plan/v0`
   documents while preserving existing output.
 - Markdown projection documentation now consumes validated `modelable.plan/v0`

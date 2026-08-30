@@ -8,23 +8,17 @@ from openapi_spec_validator import validate as validate_openapi
 from modelable.compiler.workspace import Workspace
 from modelable.emitters._schema_mapping import (
     _field_to_json_schema,
-    _resolve_projection_field_type,
-    _resolve_projection_source_field,
 )
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import validation_failed
-from modelable.governance.por import build_por_reference
+from modelable.emitters.openapi_plan import emit_openapi_projection_plan
 from modelable.parser.ir import (
     ApiOperation,
     DomainDef,
     MdlFile,
     ProjectionVersion,
-    VersionExact,
-    VersionMin,
-    VersionPinned,
-    VersionRange,
-    VersionSpec,
 )
+from modelable.planner.plans import build_plan_documents
 
 _REF_BASE = "#/components/schemas/"
 
@@ -48,6 +42,7 @@ def emit_openapi(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifac
     mdl = workspace.mdl
     schemas: dict[str, dict[str, Any]] = {}
     warnings: list[str] = []
+    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
 
     for domain in sorted(mdl.domains, key=lambda item: item.name):
         kind_lookup = _projection_kind_lookup(domain)
@@ -57,9 +52,10 @@ def emit_openapi(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifac
             for version in sorted(versions, key=lambda item: item.version):
                 if not _should_emit(version, projection_kind):
                     continue
-                schema_id, schema, field_warnings = _projection_to_schema(
-                    domain, projection_name, version, projection_kind, mdl, schemas
-                )
+                schema_id = f"{domain.name}.{projection_name}.v{version.version}"
+                plan = plans[(domain.name, projection_name, version.version)]
+                schema = emit_openapi_projection_plan(plan, projection_kind, schemas)
+                field_warnings: list[str] = []
                 schemas[schema_id] = schema
                 warnings.extend(field_warnings)
 
@@ -183,74 +179,6 @@ def _should_emit(version: ProjectionVersion, kind: str | None) -> bool:
     if kind is None:
         return True  # hand-authored: always included by default (design §6.2)
     return kind in _EMITTED_AUTO_KINDS
-
-
-def _projection_to_schema(
-    domain: DomainDef,
-    projection_name: str,
-    version: ProjectionVersion,
-    projection_kind: str | None,
-    mdl: MdlFile,
-    defs: dict[str, dict[str, Any]],
-) -> tuple[str, dict[str, Any], list[str]]:
-    """Build a components.schemas entry for one projection version, reusing
-    _field_to_json_schema/_resolve_projection_field_type from
-    _schema_mapping.py. Mirrors json_schema.py::_emit_projection_version's
-    schema shape (title, x-modelable, x-modelable-por, properties/required),
-    with two differences: `x-modelable.kind` is the specific
-    request/reply/event kind (falling back to "projection" for
-    hand-authored projections) instead of json_schema.py's hardcoded
-    "projection", and nested NamedType/ObjectType sub-schemas are written
-    into `defs` (a view onto the same `schemas` dict emit_openapi is
-    building) so they become sibling components.schemas entries instead of
-    a separate $defs block.
-    """
-    warnings: list[str] = []
-    properties: dict[str, Any] = {}
-    required: list[str] = []
-    for field in version.fields:
-        source_field = _resolve_projection_source_field(field, version, mdl)
-        field_type = (
-            source_field.type if source_field is not None else _resolve_projection_field_type(field, version, mdl)
-        )
-        property_schema = _field_to_json_schema(field, field_type, defs, [field.name], mdl=mdl, ref_base=_REF_BASE)
-        if source_field is not None and source_field.nullable:
-            if isinstance(property_schema.get("type"), str):
-                property_schema["type"] = [property_schema["type"], "null"]
-            else:
-                property_schema = {"anyOf": [property_schema, {"type": "null"}]}
-        properties[field.name] = property_schema
-        if source_field is None or not source_field.optional:
-            required.append(field.name)
-
-    schema = {
-        "type": "object",
-        "title": projection_name,
-        "x-modelable": {
-            "domain": domain.name,
-            "name": projection_name,
-            "kind": projection_kind or "projection",
-            "sourceEntity": f"{version.source.model}@{_version_label(version.source.version)}",
-            "version": version.version,
-        },
-        "x-modelable-por": build_por_reference(f"{domain.name}.{projection_name}.v{version.version}"),
-        "properties": properties,
-        "required": required,
-    }
-    schema_id = f"{domain.name}.{projection_name}.v{version.version}"
-    return schema_id, schema, warnings
-
-
-def _version_label(version_spec: VersionSpec) -> str:
-    if isinstance(version_spec, VersionExact):
-        return str(version_spec.version)
-    if isinstance(version_spec, VersionRange):
-        return f">={version_spec.min_inclusive}<{version_spec.max_exclusive}"
-    if isinstance(version_spec, VersionMin):
-        return f">={version_spec.min_inclusive}"
-    if isinstance(version_spec, VersionPinned):
-        return f"{version_spec.version}#{version_spec.content_hash}"
-    return "?"
 
 
 def _validate_document(document: dict[str, Any]) -> list[str]:

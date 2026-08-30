@@ -31,6 +31,7 @@ _BROWSER_PACKAGE_FILES = {
     "emitters/_schema_mapping.py",
     "emitters/json_schema.py",
     "emitters/json_schema_plan.py",
+    "emitters/openapi_plan.py",
     "emitters/naming.py",
     "emitters/named_types.py",
     "emitters/package_graph.py",

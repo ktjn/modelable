@@ -8,6 +8,8 @@ from jsonschema import Draft202012Validator
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.openapi import _validate_document, emit_openapi
+from modelable.emitters.openapi_plan import emit_openapi_projection_plan
+from modelable.planner.plans import build_plan_documents
 
 _AUTO_PROJECTION_FIXTURE = """
 domain customer {
@@ -75,6 +77,20 @@ def test_emit_openapi_emits_one_document_with_request_and_reply_schemas(tmp_path
     assert schemas["customer.CustomerReply.v1"]["x-modelable"]["kind"] == "reply"
     assert schemas["customer.CustomerRequest.v1"]["x-modelable"]["domain"] == "customer"
     assert "customer.CustomerDb.v1" not in schemas  # db kind excluded by default
+
+
+def test_openapi_projection_plan_consumer_preserves_component_schema(tmp_path):
+    (tmp_path / "customer.mdl").write_text(_AUTO_PROJECTION_FIXTURE, encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerReply")
+    components: dict[str, object] = {}
+
+    migrated = emit_openapi_projection_plan(plan, "reply", components)
+    existing = emit_openapi(workspace, tmp_path / "out")[0].content["components"]["schemas"][
+        "customer.CustomerReply.v1"
+    ]
+
+    assert migrated == existing
 
 
 def test_emit_openapi_includes_hand_authored_and_event_excludes_db(tmp_path):
