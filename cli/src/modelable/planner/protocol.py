@@ -319,8 +319,17 @@ def _validate_declaration_field(value: object, name: str) -> None:
     nullable = field.get("nullable")
     if nullable is not None and not isinstance(nullable, bool):
         raise PlanProtocolError(f"{name}.nullable must be a boolean or null")
+    default = field.get("default")
+    if default is not None and not isinstance(default, str):
+        raise PlanProtocolError(f"{name}.default must be a string or null")
+    _validate_constraints(field.get("constraints"), f"{name}.constraints")
+    _validate_annotations(field.get("annotations"), f"{name}.annotations")
     _require_governance_facts(field, name)
-    _require_exact_keys(field, {"name", "type", "optional", "nullable", "pii", "classification", "owner"}, name)
+    expected_keys = {"name", "type", "optional", "nullable", "pii", "classification", "owner"}
+    for optional_key in ("default", "constraints", "annotations"):
+        if optional_key in field:
+            expected_keys.add(optional_key)
+    _require_exact_keys(field, expected_keys, name)
 
 
 def _validate_field(value: object, name: str) -> str:
@@ -335,6 +344,10 @@ def _validate_field(value: object, name: str) -> str:
     optional = field.get("optional")
     if optional is not None and not isinstance(optional, bool):
         raise PlanProtocolError(f"{name}.optional must be a boolean or null")
+    nullable = field.get("nullable")
+    if nullable is not None and not isinstance(nullable, bool):
+        raise PlanProtocolError(f"{name}.nullable must be a boolean or null")
+    _validate_constraints(field.get("constraints"), f"{name}.constraints")
     _require_string_list(field, "lineage")
     _require_governance_facts(field, name)
     _validate_annotations(field.get("annotations"), f"{name}.annotations")
@@ -353,8 +366,9 @@ def _validate_field(value: object, name: str) -> str:
             "classification",
             "owner",
         }
-        if "annotations" in field:
-            expected_keys.add("annotations")
+        for optional_key in ("nullable", "constraints", "annotations"):
+            if optional_key in field:
+                expected_keys.add(optional_key)
         _require_exact_keys(
             field,
             expected_keys,
@@ -363,8 +377,9 @@ def _validate_field(value: object, name: str) -> str:
     elif kind == "computed":
         _require_string(field, "expression")
         expected_keys = {"name", "kind", "expression", "type", "optional", "lineage", "pii", "classification", "owner"}
-        if "annotations" in field:
-            expected_keys.add("annotations")
+        for optional_key in ("nullable", "constraints", "annotations"):
+            if optional_key in field:
+                expected_keys.add(optional_key)
         _require_exact_keys(
             field,
             expected_keys,
@@ -382,6 +397,22 @@ def _validate_governance_finding(value: object, name: str) -> None:
     for key in ("code", "subject", "message"):
         _require_string(finding, key)
     _require_exact_keys(finding, {"code", "subject", "message"}, name)
+
+
+def _validate_constraints(value: object, name: str) -> None:
+    if value is None:
+        return
+    if not isinstance(value, list):
+        raise PlanProtocolError(f"{name} must be an array")
+    for index, constraint in enumerate(value):
+        if not isinstance(constraint, dict):
+            raise PlanProtocolError(f"{name}[{index}] must be an object")
+        kind = constraint.get("kind")
+        if not isinstance(kind, str) or not kind:
+            raise PlanProtocolError(f"{name}[{index}].kind must be a non-empty string")
+        if "value" not in constraint or not isinstance(constraint["value"], (bool, int, float, str)):
+            raise PlanProtocolError(f"{name}[{index}].value must be a scalar")
+        _require_exact_keys(constraint, {"kind", "value"}, f"{name}[{index}]")
 
 
 def _require_governance_facts(field: dict[str, object], name: str) -> None:
