@@ -1755,7 +1755,9 @@ validation and target generation.
   it never contacts a network source and retains reusable objects.
 - `registry verify` checks lock/object presence, hashes, signatures, and
   identities entirely offline, and reports source drift when a recorded local
-  source is still available but no longer matches its provenance hash.
+  source is still available but no longer matches its provenance hash. It also
+  rejects duplicate keys, non-finite JSON values, non-object payloads, and
+  non-deterministic lock/object serialization.
 - `registry rebuild-index` reconstructs the derived `registry.db` from the
   validated lock and objects, without loading or refreshing source files.
 - `registry status` reports the local snapshot without refreshing it.

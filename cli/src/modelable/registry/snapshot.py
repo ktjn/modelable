@@ -204,13 +204,19 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
     if not paths.lock.exists():
         return [f"missing registry lock: {paths.lock}"]
     try:
-        lock = json.loads(paths.lock.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        lock_text = paths.lock.read_text(encoding="utf-8")
+        lock = _load_json_document(lock_text)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         return [f"cannot read registry lock {paths.lock}: {exc}"]
+    if not isinstance(lock, dict):
+        return ["registry lock payload must be a JSON object"]
+    serialization_error = lock_text != _serialize_json_document(lock)
     if lock.get("format") != LOCK_FORMAT:
         return [f"unsupported registry lock format: {lock.get('format')!r}"]
 
     errors: list[str] = []
+    if serialization_error:
+        errors.append("registry lock is not deterministically serialized")
     extensions = lock.get("extensions", [])
     if not isinstance(extensions, list):
         errors.append("registry lock extensions must be an array")
@@ -255,10 +261,16 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
             errors.append(f"missing registry object {content_hash} for {identity}")
             continue
         try:
-            payload = json.loads(object_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+            object_text = object_path.read_text(encoding="utf-8")
+            payload = _load_json_document(object_text)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
             errors.append(f"cannot read registry object {content_hash}: {exc}")
             continue
+        if not isinstance(payload, dict):
+            errors.append(f"registry object payload must be a JSON object for {identity}")
+            continue
+        if object_text != _serialize_json_document(payload):
+            errors.append(f"registry object {content_hash} is not deterministically serialized")
         if payload.get("format") != OBJECT_FORMAT:
             errors.append(f"unsupported registry object format for {content_hash}")
             continue
@@ -846,10 +858,14 @@ def _load_lock_entries(lock_path: Path) -> list[dict[str, Any]]:
     if not lock_path.exists():
         return []
     try:
-        payload = json.loads(lock_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        payload = _load_json_document(lock_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise ValueError(f"cannot read registry lock {lock_path}: {exc}") from exc
-    if payload.get("format") != LOCK_FORMAT or not isinstance(payload.get("objects"), list):
+    if (
+        not isinstance(payload, dict)
+        or payload.get("format") != LOCK_FORMAT
+        or not isinstance(payload.get("objects"), list)
+    ):
         raise ValueError(f"invalid registry lock {lock_path}")
     return [entry for entry in payload["objects"] if isinstance(entry, dict)]
 
@@ -1049,7 +1065,28 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
     temporary.write_text(
-        json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
+        _serialize_json_document(payload),
         encoding="utf-8",
     )
     os.replace(temporary, path)
+
+
+def _load_json_document(text: str) -> object:
+    return json.loads(text, object_pairs_hook=_reject_duplicate_keys, parse_constant=_reject_non_finite)
+
+
+def _serialize_json_document(document: object) -> str:
+    return json.dumps(document, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    document: dict[str, object] = {}
+    for key, value in pairs:
+        if key in document:
+            raise ValueError(f"Duplicate JSON key {key!r}")
+        document[key] = value
+    return document
+
+
+def _reject_non_finite(value: str) -> object:
+    raise ValueError(f"Non-finite JSON number {value!r}")
