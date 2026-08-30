@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
 from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
@@ -33,6 +34,14 @@ STANDARD_CAPABILITIES = frozenset(
         "compatibility",
     }
 )
+
+
+def modelable_version() -> str:
+    """Return the installed package version used by compiler metadata."""
+    try:
+        return version("modelable")
+    except PackageNotFoundError:
+        return "development"
 
 
 class ExtensionDescriptorError(ValueError):

@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError
+from unittest.mock import patch
+
 import pytest
 
+from modelable.artifact_manifest import _compiler_version
+from modelable.emitters.targets import get_codegen_target
 from modelable.extensions import ExtensionDescriptorError, parse_extension_descriptor
 
 
@@ -69,3 +74,9 @@ def test_extension_descriptor_rejects_unknown_capabilities() -> None:
 
     with pytest.raises(ExtensionDescriptorError, match="unknown capability"):
         parse_extension_descriptor(payload)
+
+
+def test_target_descriptor_and_manifest_share_package_version_fallback() -> None:
+    with patch("modelable.extensions.version", side_effect=PackageNotFoundError):
+        descriptor_version = get_codegen_target("typescript").extension_descriptor().version
+        assert descriptor_version == _compiler_version()

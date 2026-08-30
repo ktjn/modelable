@@ -31,6 +31,18 @@ domain customer {
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["format"] == "modelable.artifact-manifest.v1"
     assert manifest["target"] == {"kind": "language", "name": "typescript", "status": "implemented"}
+    assert manifest["extensions"] == [
+        {
+            "accepted_plan_versions": ["modelable.plan/v0"],
+            "capabilities": ["enums", "maps", "records", "semantic-types"],
+            "compatibility_support": False,
+            "configuration_schema": None,
+            "id": "modelable.target.typescript",
+            "output_kinds": ["language"],
+            "protocol": "modelable.extension/v1",
+            "version": manifest["compiler"]["version"],
+        }
+    ]
     assert manifest["inputs"][0]["path"] == "customer.mdl"
     assert manifest["inputs"][0]["signature"]
     assert manifest["snapshot"]["sha256"] is None
