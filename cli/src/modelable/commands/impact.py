@@ -22,9 +22,11 @@ from modelable.consequence import (
     change_nodes_for_report,
     projection_change_nodes,
 )
+from modelable.diagnostics.model import render_diagnostic
 from modelable.llm.context import parse_model_ref_version_spec
 from modelable.parser.ir import ProjectionVersion
 from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.snapshot import load_workspace_with_snapshot
 
 
 def register_impact_commands(cli_group: click.Group) -> None:
@@ -35,10 +37,27 @@ def register_impact_commands(cli_group: click.Group) -> None:
 @click.option("--from", "from_ref", required=True, help="Previous exact model version reference.")
 @click.option("--to", "to_ref", required=True, help="Candidate exact model version reference.")
 @click.option("--path", "source", required=True, type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--snapshot",
+    "snapshot_path",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Validated local registry snapshot containing additional contracts.",
+)
 @click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text")
-def impact(from_ref: str, to_ref: str, source: Path, output_format: str) -> None:
+def impact(from_ref: str, to_ref: str, source: Path, snapshot_path: Path | None, output_format: str) -> None:
     """Report compatibility consequences for a version change."""
     workspace = load_workspace_or_exit(source)
+    if snapshot_path is not None:
+        try:
+            workspace = load_workspace_with_snapshot(workspace, snapshot_path)
+        except (FileNotFoundError, ValueError) as exc:
+            console.print(f"[red]ERROR[/red] Cannot load offline registry snapshot: {exc}")
+            sys.exit(1)
+        if workspace.errors:
+            for diagnostic in workspace.errors:
+                console.print(f"[red]ERROR[/red] {render_diagnostic(diagnostic)}", soft_wrap=True)
+            sys.exit(1)
     try:
         from_domain, from_name, from_spec = parse_model_ref_version_spec(from_ref)
         to_domain, to_name, to_spec = parse_model_ref_version_spec(to_ref)
