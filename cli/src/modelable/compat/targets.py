@@ -216,6 +216,29 @@ def compare_openapi_artifacts(
     return TargetCompatibilityReport(target="openapi", status=status, severity=severity, findings=findings)
 
 
+def compare_avro_artifacts(
+    old_artifacts: list[EmittedArtifact],
+    new_artifacts: list[EmittedArtifact],
+) -> TargetCompatibilityReport:
+    """Compare Avro record schemas using the shared target finding vocabulary."""
+    findings: list[TargetCompatibilityFinding] = []
+    old_schemas = _avro_entries(old_artifacts)
+    new_schemas = _avro_entries(new_artifacts)
+
+    for ref in sorted(set(old_schemas) | set(new_schemas)):
+        old_schema = old_schemas.get(ref)
+        new_schema = new_schemas.get(ref)
+        if old_schema is None:
+            continue
+        if new_schema is None:
+            findings.append(_finding("schema_removed", "breaking", ref, "Avro schema was removed"))
+            continue
+        findings.extend(_compare_avro_schema(ref, old_schema, new_schema))
+
+    status, severity = _worst(findings, default_status="read_compatible")
+    return TargetCompatibilityReport(target="avro", status=status, severity=severity, findings=findings)
+
+
 def compare_source_representation(
     domain_name: str,
     model_name: str,
@@ -365,6 +388,69 @@ def _schema_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str, Any
             if isinstance(schema, dict) and isinstance(schema.get("ref"), str):
                 schemas[str(schema["ref"])] = schema
     return schemas
+
+
+def _avro_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str, Any]]:
+    schemas: dict[str, dict[str, Any]] = {}
+    for artifact in artifacts:
+        if artifact.target != "avro" or not isinstance(artifact.content, dict):
+            continue
+        metadata = artifact.content.get("x-modelable")
+        ref = metadata.get("ref") if isinstance(metadata, dict) else None
+        if isinstance(ref, str):
+            schemas[ref] = artifact.content
+    return schemas
+
+
+def _compare_avro_schema(
+    ref: str, old_schema: dict[str, Any], new_schema: dict[str, Any]
+) -> list[TargetCompatibilityFinding]:
+    findings: list[TargetCompatibilityFinding] = []
+    if old_schema.get("type") != new_schema.get("type"):
+        findings.append(_finding("schema_type_changed", "breaking", ref, "Avro schema type changed"))
+        return findings
+    if old_schema.get("name") != new_schema.get("name") or old_schema.get("namespace") != new_schema.get("namespace"):
+        findings.append(_finding("schema_name_changed", "breaking", ref, "Avro schema name or namespace changed"))
+
+    old_fields = _avro_fields(old_schema)
+    new_fields = _avro_fields(new_schema)
+    for field in sorted(set(old_fields) - set(new_fields)):
+        findings.append(_finding("field_removed", "breaking", ref, f"Avro field '{field}' was removed", field=field))
+    for field in sorted(set(new_fields) - set(old_fields)):
+        new_field = new_fields[field]
+        if "default" not in new_field and not _avro_is_nullable(new_field.get("type")):
+            findings.append(
+                _finding(
+                    "required_field_added",
+                    "breaking",
+                    ref,
+                    f"Avro required field '{field}' was added without a default",
+                    field=field,
+                )
+            )
+    for field in sorted(set(old_fields) & set(new_fields)):
+        if old_fields[field].get("type") != new_fields[field].get("type"):
+            findings.append(
+                _finding(
+                    "field_type_changed",
+                    "breaking",
+                    ref,
+                    f"Avro field '{field}' type changed",
+                    field=field,
+                )
+            )
+    return findings
+
+
+def _avro_fields(schema: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    fields = schema.get("fields")
+    if not isinstance(fields, list):
+        return {}
+    return {field["name"]: field for field in fields if isinstance(field, dict) and isinstance(field.get("name"), str)}
+
+
+def _avro_is_nullable(schema: object) -> bool:
+    return isinstance(schema, list) and "null" in schema
 
 
 def _service_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str, Any]]:
