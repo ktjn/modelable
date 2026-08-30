@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
 from modelable.compiler.workspace import Workspace
 from modelable.governance.checker import build_projection_governance_findings
 from modelable.parser.ir import ComputedMapping, DirectMapping, MdlFile, ProjectionVersion
@@ -41,6 +42,9 @@ def build_plan(
         elif isinstance(mapping, ComputedMapping):
             entry["kind"] = "computed"
             entry["expression"] = mapping.expression
+        field_type, optional = resolve_projection_field_type_and_optionality(proj_field, pv, mdl)
+        entry["type"] = field_type.model_dump(mode="json") if field_type is not None else None
+        entry["optional"] = optional
         fl = lineage_by_field.get(proj_field.name)
         entry["lineage"] = fl.lineage if fl else []
         fields_block.append(entry)

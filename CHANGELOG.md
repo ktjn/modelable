@@ -20,6 +20,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Emitted `modelable.plan/v0` projection fields now include target-neutral
+  resolved type and optionality facts where available.
 - `modelable.plan/v0` plans now have a standalone loader, structural
   validator, and deterministic canonical JSON serialization boundary.
 - Emitted projection plans are now explicitly tagged as the unstable

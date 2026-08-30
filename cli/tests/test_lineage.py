@@ -125,8 +125,12 @@ def test_plan_field_kinds():
     assert by_name["billingId"]["kind"] == "direct"
     assert by_name["billingId"]["source_alias"] == "c"
     assert by_name["billingId"]["source_field"] == "customerId"
+    assert by_name["billingId"]["type"] == {"kind": "uuid", "version": 4}
+    assert by_name["billingId"]["optional"] is False
     assert by_name["isActive"]["kind"] == "computed"
     assert "expression" in by_name["isActive"]
+    assert by_name["isActive"]["type"] is None
+    assert by_name["isActive"]["optional"] is None
 
 
 def test_plan_includes_lineage():

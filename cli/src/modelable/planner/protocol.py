@@ -180,14 +180,24 @@ def _validate_field(value: object, name: str) -> str:
     field = cast(dict[str, object], value)
     _require_string(field, "name")
     kind = _require_string(field, "kind")
+    field_type = field.get("type")
+    if field_type is not None and not isinstance(field_type, dict):
+        raise PlanProtocolError(f"{name}.type must be a JSON object or null")
+    optional = field.get("optional")
+    if optional is not None and not isinstance(optional, bool):
+        raise PlanProtocolError(f"{name}.optional must be a boolean or null")
     _require_string_list(field, "lineage")
     if kind == "direct":
         _require_string(field, "source_alias")
         _require_string(field, "source_field")
-        _require_exact_keys(field, {"name", "kind", "source_alias", "source_field", "lineage"}, name)
+        _require_exact_keys(
+            field,
+            {"name", "kind", "source_alias", "source_field", "type", "optional", "lineage"},
+            name,
+        )
     elif kind == "computed":
         _require_string(field, "expression")
-        _require_exact_keys(field, {"name", "kind", "expression", "lineage"}, name)
+        _require_exact_keys(field, {"name", "kind", "expression", "type", "optional", "lineage"}, name)
     else:
         raise PlanProtocolError(f"{name}.kind must be 'direct' or 'computed'")
     return cast(str, field["name"])
