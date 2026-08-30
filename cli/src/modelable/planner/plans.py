@@ -18,9 +18,11 @@ from modelable.parser.ir import (
     FieldType,
     MdlFile,
     ModelVersion,
+    NamedType,
     ProjectionField,
     ProjectionVersion,
     RefType,
+    SemanticTypeDecl,
     VersionExact,
     VersionMin,
     VersionPinned,
@@ -248,6 +250,24 @@ def _field_type_document(field_type: FieldType, mdl: MdlFile, current_domain: st
         if isinstance(declaration.underlying, EnumType):
             document["values"] = list(declaration.underlying.values)
             document["declaring_domain"] = declaring_domain
+    if isinstance(field_type, NamedType):
+        semantic_declaration: SemanticTypeDecl | None = None
+        try:
+            declaring_domain, semantic_declaration = resolve_semantic_type_ref(mdl, current_domain, field_type.name)
+        except LookupError:
+            declaring_domain = current_domain
+        if semantic_declaration is not None:
+            document["resolved_underlying_type"] = _field_type_document(
+                semantic_declaration.underlying, mdl, declaring_domain
+            )
+        else:
+            model_ref = field_type.name if "." in field_type.name else f"{current_domain}.{field_type.name}"
+            try:
+                resolved = resolve_model_ref(mdl, model_ref, VersionMin(min_inclusive=1))
+            except LookupError:
+                resolved = None
+            if resolved is not None and isinstance(resolved.version, ModelVersion):
+                document["resolved_model"] = _resolved_declaration_block(resolved, mdl)
     return document
 
 

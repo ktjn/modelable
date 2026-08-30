@@ -7,7 +7,7 @@ from pathlib import PurePath
 from typing import Any
 
 from modelable.compiler.workspace import Workspace
-from modelable.emitters._schema_mapping import _resolve_projection_source_field
+from modelable.emitters.avro_plan import emit_avro_projection_plan
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.diagnostics import emit_warning, enum_member_collision, type_loss
 from modelable.emitters.naming import find_identifier_collisions
@@ -24,11 +24,11 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     PrimitiveType,
-    ProjectionVersion,
     RefType,
     UnionType,
     VersionMin,
 )
+from modelable.planner.plans import build_plan_documents
 from modelable.registry.resolver import resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
 
 
@@ -43,6 +43,7 @@ class _AvroContext:
 def emit_avro(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifact]:
     """Emit deterministic Avro record schemas for models and event projections."""
     artifacts: list[EmittedArtifact] = []
+    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
     for domain in sorted(workspace.mdl.domains, key=lambda item: item.name):
         for name in sorted(domain.models):
             for model_version in sorted(domain.models[name], key=lambda item: item.version):
@@ -53,7 +54,8 @@ def emit_avro(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifact]:
                 continue
             for projection_version in sorted(domain.projections[name], key=lambda item: item.version):
                 ref = f"{domain.name}.{name}@{projection_version.version}"
-                artifacts.append(_emit_projection(domain.name, name, projection_version, ref, workspace, out_dir))
+                plan = plans[(domain.name, name, projection_version.version)]
+                artifacts.append(emit_avro_projection_plan(plan, out_dir))
     return artifacts
 
 
@@ -67,27 +69,6 @@ def _emit_record(
 ) -> EmittedArtifact:
     context = _AvroContext(workspace.mdl, domain_name)
     schema = _record_schema(name, version.fields, version.version, "model", ref, context)
-    return _artifact(ref, domain_name, name, version.version, schema, context.warnings, out_dir)
-
-
-def _emit_projection(
-    domain_name: str,
-    name: str,
-    version: ProjectionVersion,
-    ref: str,
-    workspace: Workspace,
-    out_dir: PurePath,
-) -> EmittedArtifact:
-    context = _AvroContext(workspace.mdl, domain_name)
-    fields: list[FieldDef] = []
-    for projection_field in version.fields:
-        source = _resolve_projection_source_field(projection_field, version, workspace.mdl)
-        if source is None:
-            context.warnings.append(type_loss(f"Avro computed field {projection_field.name}"))
-            fields.append(FieldDef(name=projection_field.name, type=PrimitiveType(kind="string")))
-        else:
-            fields.append(source.model_copy(update={"name": projection_field.name}))
-    schema = _record_schema(name, fields, version.version, "event", ref, context)
     return _artifact(ref, domain_name, name, version.version, schema, context.warnings, out_dir)
 
 
