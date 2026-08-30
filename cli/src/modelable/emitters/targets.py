@@ -41,6 +41,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="artifact",
         default_out_dir=Path("./dist/jsonschema"),
+        supports_compat_check=True,
         capabilities=("constraints", "enums", "maps", "records", "semantic-types", "unions"),
     ),
     CodegenTarget(
