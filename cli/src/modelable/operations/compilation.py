@@ -41,7 +41,12 @@ from modelable.emitters.rust import emit_rust
 from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import get_codegen_target, list_implemented_codegen_targets
 from modelable.emitters.typescript import emit_typescript
-from modelable.extensions import ExtensionDescriptorError, authorize_extension, validate_extension_capabilities
+from modelable.extensions import (
+    ExtensionDescriptorError,
+    authorize_extension,
+    validate_extension_capabilities,
+    validate_extension_plan_version,
+)
 from modelable.llm.workspace_editor import AffectedDefinition
 from modelable.operations.compilation_audit import (
     CompilationAuditDestination,
@@ -68,6 +73,7 @@ from modelable.parser.ir import (
     UnionType,
 )
 from modelable.planner.plans import write_plans
+from modelable.planner.protocol import PLAN_SCHEMA
 from modelable.registry.enum_numbers import EnumNumberAllocation, EnumNumberConflictError, allocate_enum_numbers
 from modelable.registry.enum_numbers import read_lock_file as read_enum_numbers_lock_file
 from modelable.registry.enum_numbers import write_lock_file as write_enum_numbers_lock_file
@@ -1407,6 +1413,7 @@ def _run_compilation(
     try:
         target_descriptor = get_codegen_target(request.target).extension_descriptor()
         authorize_extension(target_descriptor, execution_kind="builtin")
+        validate_extension_plan_version(target_descriptor, PLAN_SCHEMA)
         validate_extension_capabilities(target_descriptor, emit_workspace.mdl)
     except ExtensionDescriptorError as exc:
         raise CompilationError(str(exc)) from exc

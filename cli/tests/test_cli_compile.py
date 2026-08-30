@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.extensions import PROTOCOL, ExtensionDescriptor, pin_extension_descriptor
+from modelable.operations import compilation as compilation_module
 from modelable.registry.snapshot import resolve_workspace_snapshot
 
 _TWO_DOMAIN_MDL = """
@@ -172,6 +174,47 @@ def test_compile_without_domain_flag_compiles_whole_workspace(tmp_path):
     assert result.exit_code == 0, result.output
     assert (out / "logs" / "logs_log_entry_v1.rs").exists()
     assert (out / "nlq" / "nlq_query_v1.rs").exists()
+
+
+def test_compile_rejects_unsupported_plan_protocol_before_writing_state(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v1",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("language",),
+        compatibility_support=False,
+    )
+    monkeypatch.setattr(
+        compilation_module,
+        "get_codegen_target",
+        lambda _name: SimpleNamespace(extension_descriptor=lambda: descriptor),
+    )
+    out = tmp_path / "dist"
+
+    result = CliRunner().invoke(cli, ["compile", str(source), "--target", "typescript", "--out", str(out)])
+
+    assert result.exit_code == 1
+    assert "does not accept plan protocol" in result.output
+    assert not out.exists()
+    assert not (tmp_path / ".modelable" / "registry.db").exists()
+    assert not (tmp_path / ".modelable" / "plans").exists()
+    assert not (tmp_path / "registry-ids.lock").exists()
+    assert not (tmp_path / "enum-numbers.lock").exists()
 
 
 def test_compile_rejects_invalid_snapshot_pins_before_writing_outputs(tmp_path: Path) -> None:
