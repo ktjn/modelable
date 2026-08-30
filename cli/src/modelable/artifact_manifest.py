@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.targets import get_codegen_target
+from modelable.extensions import modelable_version
 
 MANIFEST_NAME = "modelable-artifact-manifest.json"
 MANIFEST_FORMAT = "modelable.artifact-manifest.v1"
@@ -24,6 +24,7 @@ def build_artifact_manifest(
     output_root: Path,
 ) -> dict[str, Any]:
     target_profile = get_codegen_target(target)
+    extension_descriptor = target_profile.extension_descriptor()
     lock_hash = _sha256(registry_lock) if registry_lock.is_file() else None
     return {
         "format": MANIFEST_FORMAT,
@@ -38,6 +39,7 @@ def build_artifact_manifest(
         ],
         "snapshot": {"registry_lock": _relative_path(registry_lock, workspace_root), "sha256": lock_hash},
         "plugins": [],
+        "extensions": [extension_descriptor.as_dict()],
         "target": {
             "name": target_profile.name,
             "kind": target_profile.kind,
@@ -61,10 +63,7 @@ def write_artifact_manifest(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _compiler_version() -> str:
-    try:
-        return version("modelable")
-    except PackageNotFoundError:
-        return "development"
+    return modelable_version()
 
 
 def _sha256(path: Path) -> str:
