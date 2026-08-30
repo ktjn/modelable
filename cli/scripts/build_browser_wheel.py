@@ -49,6 +49,7 @@ INCLUDE_FILES = (
     "emitters/python_plan.py",
     "emitters/go_plan.py",
     "emitters/java_plan.py",
+    "emitters/csharp_plan.py",
     "emitters/avro_plan.py",
     "emitters/naming.py",
     "emitters/named_types.py",
