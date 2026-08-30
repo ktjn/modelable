@@ -122,3 +122,31 @@ domain customer {
         "source": "model_version:customer.Customer@1",
         "target": "projection_version:customer.CustomerEvent@1",
     } in graph["edges"]
+
+
+def test_usage_graph_links_computed_projection_fields_to_dependencies(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    status: string
+  }
+  projection CustomerView @ 1 from customer.Customer @ 1 as c {
+    isActive = c.status == "active"
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    graph = build_usage_graph(load_workspace(source))
+
+    assert {
+        "kind": "field_depends_on",
+        "source": "projection_field:customer.CustomerView@1#isActive",
+        "target": "field:customer.Customer@1#status",
+    } in graph["edges"]

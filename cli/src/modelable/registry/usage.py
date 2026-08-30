@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from modelable.compiler.workspace import Workspace
+from modelable.dependency_graph import build_projection_dependencies
 from modelable.graph.export import build_graph_export
 from modelable.identity import declaration_id
 from modelable.registry.signature import compute_version_signature
@@ -43,6 +44,22 @@ def build_usage_graph(workspace: Workspace) -> dict[str, Any]:
                 _add_edge(edges, edge_keys, "projects_from", projection_id, source_id)
                 if projection.event_operations:
                     _add_edge(edges, edge_keys, "emits", source_id, projection_id)
+                consumer_ref = declaration_id(domain.name, projection_name, projection.version)
+                for dependency in build_projection_dependencies(
+                    workspace.mdl,
+                    domain.name,
+                    projection_name,
+                    projection,
+                ):
+                    if dependency.usage_kind == "direct":
+                        continue
+                    dependency_source = (
+                        f"projection_field:{consumer_ref}#{dependency.target_property}"
+                        if dependency.target_property is not None
+                        else f"projection_version:{consumer_ref}"
+                    )
+                    dependency_target = f"field:{dependency.source_ref}#{dependency.source_property}"
+                    _add_edge(edges, edge_keys, "field_depends_on", dependency_source, dependency_target)
 
         for api in domain.apis:
             for api_version in [api.version]:
