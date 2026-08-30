@@ -45,6 +45,17 @@ def _avro_artifacts(path: Path):
     return emit_avro(load_workspace(path), path.parent / "out")
 
 
+def _synthetic_avro_artifact(content: object, *, target: str = "avro") -> EmittedArtifact:
+    return EmittedArtifact(
+        target=target,
+        ref="billing.Customer@1",
+        artifact_id="billing.Customer.v1",
+        path=Path("billing/Customer.v1.avsc"),
+        content=content,
+        content_hash="test",
+    )
+
+
 def test_avro_compat_rejects_added_required_field(tmp_path: Path):
     old = _write(
         tmp_path / "old.mdl",
@@ -143,6 +154,50 @@ domain billing {
 
     assert report.status == "read_compatible"
     assert report.findings == []
+
+
+def test_avro_compat_reports_schema_and_existing_field_changes():
+    old = {
+        "type": "record",
+        "name": "CustomerV1",
+        "namespace": "billing",
+        "fields": [
+            {"name": "customerId", "type": "string"},
+            {"name": "legacy", "type": "string"},
+            {"name": "amount", "type": "int"},
+        ],
+        "x-modelable": {"ref": "billing.Customer@1"},
+    }
+    new = {
+        "type": "record",
+        "name": "CustomerV2",
+        "namespace": "other",
+        "fields": [
+            {"name": "customerId", "type": "long"},
+            {"name": "amount", "type": "long"},
+        ],
+        "x-modelable": {"ref": "billing.Customer@1"},
+    }
+
+    report = compare_avro_artifacts(
+        [_synthetic_avro_artifact(old), _synthetic_avro_artifact("ignored", target="other")],
+        [_synthetic_avro_artifact(new)],
+    )
+
+    assert {finding.code for finding in report.findings} == {
+        "schema_name_changed",
+        "field_removed",
+        "field_type_changed",
+    }
+
+
+def test_avro_compat_reports_schema_type_changes():
+    old = {"type": "record", "x-modelable": {"ref": "billing.Customer@1"}}
+    new = {"type": "enum", "x-modelable": {"ref": "billing.Customer@1"}}
+
+    report = compare_avro_artifacts([_synthetic_avro_artifact(old)], [_synthetic_avro_artifact(new)])
+
+    assert [finding.code for finding in report.findings] == ["schema_type_changed"]
 
 
 def test_openapi_compat_reports_removed_operation_and_response(tmp_path: Path):
