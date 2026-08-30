@@ -37,6 +37,8 @@ releases could contain breaking changes when called out explicitly.
   documents while preserving existing schema output.
 - SQL projection columns now consume validated `modelable.plan/v0` documents
   while preserving existing DDL output.
+- TypeScript projection fields now consume validated `modelable.plan/v0`
+  documents while preserving existing generated interfaces.
 - JSON Schema projection artifacts now consume validated `modelable.plan/v0`
   documents while preserving existing output.
 - Markdown projection documentation now consumes validated `modelable.plan/v0`

@@ -45,6 +45,7 @@ INCLUDE_FILES = (
     "emitters/json_schema_plan.py",
     "emitters/openapi_plan.py",
     "emitters/sql_plan.py",
+    "emitters/typescript_plan.py",
     "emitters/avro_plan.py",
     "emitters/naming.py",
     "emitters/named_types.py",
