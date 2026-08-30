@@ -337,30 +337,37 @@ def _validate_field(value: object, name: str) -> str:
         raise PlanProtocolError(f"{name}.optional must be a boolean or null")
     _require_string_list(field, "lineage")
     _require_governance_facts(field, name)
+    _validate_annotations(field.get("annotations"), f"{name}.annotations")
     if kind == "direct":
         _require_string(field, "source_alias")
         _require_string(field, "source_field")
+        expected_keys = {
+            "name",
+            "kind",
+            "source_alias",
+            "source_field",
+            "type",
+            "optional",
+            "lineage",
+            "pii",
+            "classification",
+            "owner",
+        }
+        if "annotations" in field:
+            expected_keys.add("annotations")
         _require_exact_keys(
             field,
-            {
-                "name",
-                "kind",
-                "source_alias",
-                "source_field",
-                "type",
-                "optional",
-                "lineage",
-                "pii",
-                "classification",
-                "owner",
-            },
+            expected_keys,
             name,
         )
     elif kind == "computed":
         _require_string(field, "expression")
+        expected_keys = {"name", "kind", "expression", "type", "optional", "lineage", "pii", "classification", "owner"}
+        if "annotations" in field:
+            expected_keys.add("annotations")
         _require_exact_keys(
             field,
-            {"name", "kind", "expression", "type", "optional", "lineage", "pii", "classification", "owner"},
+            expected_keys,
             name,
         )
     else:
@@ -387,6 +394,51 @@ def _require_governance_facts(field: dict[str, object], name: str) -> None:
     owner = field.get("owner")
     if owner is not None and not isinstance(owner, str):
         raise PlanProtocolError(f"{name}.owner must be a string or null")
+
+
+def _validate_annotations(value: object, name: str) -> None:
+    if value is None:
+        return
+    if not isinstance(value, list):
+        raise PlanProtocolError(f"{name} must be an array")
+    for index, annotation in enumerate(value):
+        if not isinstance(annotation, dict):
+            raise PlanProtocolError(f"{name}[{index}] must be an object")
+        kind = annotation.get("kind")
+        if not isinstance(kind, str) or not kind:
+            raise PlanProtocolError(f"{name}[{index}].kind must be a non-empty string")
+        expected = {
+            "key": {"kind"},
+            "pii": {"kind"},
+            "classification": {"kind", "level"},
+            "deprecated": {"kind", "replaced_by"},
+            "owner": {"kind", "team"},
+            "server": {"kind"},
+            "wire": {"kind", "targets"},
+            "pit_cutoff": {"kind", "expression"},
+            "latest_before": {"kind", "expression"},
+            "latest_only": {"kind"},
+            "custom": {"kind", "name"},
+        }.get(kind)
+        if expected is None:
+            raise PlanProtocolError(f"{name}[{index}].kind is unsupported")
+        _require_exact_keys(
+            annotation,
+            expected | ({"expression"} if kind == "custom" and "expression" in annotation else set()),
+            f"{name}[{index}]",
+        )
+        for key in expected - {"kind", "targets"}:
+            if not isinstance(annotation.get(key), str) or not annotation[key]:
+                raise PlanProtocolError(f"{name}[{index}].{key} must be a non-empty string")
+        if "expression" in annotation and not isinstance(annotation["expression"], str):
+            raise PlanProtocolError(f"{name}[{index}].expression must be a string")
+        if kind == "wire":
+            targets = annotation.get("targets")
+            if not isinstance(targets, dict) or not targets:
+                raise PlanProtocolError(f"{name}[{index}].targets must be a non-empty object")
+            for target, hint in targets.items():
+                if not isinstance(target, str) or not target or not isinstance(hint, dict):
+                    raise PlanProtocolError(f"{name}[{index}].targets must map names to objects")
 
 
 def _require_exact_keys(mapping: dict[str, object], expected: set[str], name: str) -> None:

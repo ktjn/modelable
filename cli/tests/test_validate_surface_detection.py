@@ -132,6 +132,7 @@ def test_shared_model_graph_change_runs_all_export_smokes() -> None:
         "cli/src/modelable/emitters/go.py",
         "cli/src/modelable/emitters/java.py",
         "cli/src/modelable/emitters/markdown.py",
+        "cli/src/modelable/emitters/markdown_plan.py",
         "cli/src/modelable/emitters/protobuf.py",
         "cli/src/modelable/emitters/python.py",
         "cli/src/modelable/emitters/registry_manifest.py",

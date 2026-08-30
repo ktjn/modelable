@@ -77,6 +77,10 @@ def build_plan(
         entry.update(_projection_governance_facts(proj_field, pv, mdl))
         fl = lineage_by_field.get(proj_field.name)
         entry["lineage"] = fl.lineage if fl else []
+        if proj_field.annotations:
+            entry["annotations"] = [
+                annotation.model_dump(mode="json", exclude_none=True) for annotation in proj_field.annotations
+            ]
         fields_block.append(entry)
 
     return {

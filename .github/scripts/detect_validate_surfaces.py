@@ -39,6 +39,7 @@ _BROWSER_PACKAGE_FILES = {
     "emitters/go.py",
     "emitters/java.py",
     "emitters/markdown.py",
+    "emitters/markdown_plan.py",
     "emitters/protobuf.py",
     "emitters/python.py",
     "emitters/registry_manifest.py",
