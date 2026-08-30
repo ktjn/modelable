@@ -12,6 +12,7 @@ from modelable.compat.targets import (
     AXES,
     SEVERITIES,
     compare_avro_artifacts,
+    compare_fhir_artifacts,
     compare_governance_review,
     compare_grpc_artifacts,
     compare_json_schema_artifacts,
@@ -28,6 +29,7 @@ from modelable.compiler.workspace import load_workspace
 from modelable.consequence_protocol import validate_consequence_graph
 from modelable.emitters.avro import emit_avro
 from modelable.emitters.base import EmittedArtifact
+from modelable.emitters.fhir import emit_fhir_profile
 from modelable.emitters.grpc import emit_grpc
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.openapi import emit_openapi
@@ -55,6 +57,21 @@ def _json_schema_artifacts(path: Path):
 
 def _sql_artifacts(path: Path, dialect: str):
     return emit_sql(load_workspace(path), path.parent / "out", dialect)
+
+
+def _fhir_artifacts(path: Path):
+    return emit_fhir_profile(load_workspace(path), path.parent / "out")
+
+
+def _synthetic_fhir_artifact(content: dict[str, Any], *, ref: str = "billing.CustomerView@1") -> EmittedArtifact:
+    return EmittedArtifact(
+        target="fhir-profile",
+        ref=ref,
+        artifact_id="billing.CustomerView.v1",
+        path=Path("billing/CustomerView.v1.fhir.json"),
+        content=json.dumps(content),
+        content_hash="test",
+    )
 
 
 def _synthetic_sql_artifact(content: object, *, target: str = "sql-postgres") -> EmittedArtifact:
@@ -88,6 +105,139 @@ def _synthetic_avro_artifact(content: object, *, target: str = "avro") -> Emitte
         content=content,
         content_hash="test",
     )
+
+
+def test_fhir_compat_reports_element_cardinality_narrowing():
+    old = {
+        "resourceType": "StructureDefinition",
+        "snapshot": {
+            "element": [
+                {"path": "Patient", "min": 0, "max": "1"},
+                {"path": "Patient.name", "min": 0, "max": "1", "type": [{"code": "string"}]},
+            ]
+        },
+    }
+    new = {
+        "resourceType": "StructureDefinition",
+        "snapshot": {
+            "element": [
+                {"path": "Patient", "min": 0, "max": "1"},
+                {"path": "Patient.name", "min": 1, "max": "1", "type": [{"code": "string"}]},
+            ]
+        },
+    }
+
+    report = compare_fhir_artifacts(
+        [_synthetic_fhir_artifact(old)],
+        [_synthetic_fhir_artifact(new)],
+    )
+
+    assert report.target == "fhir-profile"
+    assert report.status == "breaking"
+    finding = next(item for item in report.findings if item.code == "element_min_increased")
+    assert finding.axis == "wire_compatibility"
+    assert finding.severity == "breaking"
+
+
+def test_fhir_compat_reports_removed_and_type_changed_elements():
+    old = {
+        "snapshot": {
+            "element": [
+                {"path": "Patient", "min": 0, "max": "1"},
+                {"path": "Patient.name", "min": 0, "max": "1", "type": [{"code": "string"}]},
+                {"path": "Patient.birthDate", "min": 0, "max": "1", "type": [{"code": "date"}]},
+            ]
+        }
+    }
+    new = {
+        "snapshot": {
+            "element": [
+                {"path": "Patient", "min": 0, "max": "1"},
+                {"path": "Patient.name", "min": 0, "max": "1", "type": [{"code": "HumanName"}]},
+            ]
+        }
+    }
+
+    report = compare_fhir_artifacts(
+        [_synthetic_fhir_artifact(old)],
+        [_synthetic_fhir_artifact(new)],
+    )
+
+    assert {finding.code for finding in report.findings} == {"element_removed", "element_type_changed"}
+
+
+def test_fhir_compat_allows_optional_element_addition_and_widening():
+    old = {"snapshot": {"element": [{"path": "Patient", "min": 0, "max": "1"}]}}
+    new = {
+        "snapshot": {
+            "element": [
+                {"path": "Patient", "min": 0, "max": "1"},
+                {"path": "Patient.name", "min": 0, "max": "*", "type": [{"code": "string"}]},
+            ]
+        }
+    }
+
+    report = compare_fhir_artifacts(
+        [_synthetic_fhir_artifact(old)],
+        [_synthetic_fhir_artifact(new)],
+    )
+
+    assert report.status == "read_compatible"
+
+
+def test_fhir_compat_reports_required_addition_and_maximum_narrowing():
+    old = {
+        "snapshot": {
+            "element": [
+                {"path": "Patient"},
+                {"path": "Patient.name", "min": 0, "max": "*"},
+            ]
+        }
+    }
+    new = {
+        "snapshot": {
+            "element": [
+                {"path": "Patient"},
+                {"path": "Patient.name", "min": 0, "max": "1"},
+                {"path": "Patient.birthDate", "min": 1, "max": "1"},
+            ]
+        }
+    }
+
+    report = compare_fhir_artifacts(
+        [_synthetic_fhir_artifact(old)],
+        [_synthetic_fhir_artifact(new)],
+    )
+
+    assert {finding.code for finding in report.findings} == {
+        "element_required_added",
+        "element_max_decreased",
+    }
+
+
+def test_fhir_compat_ignores_malformed_and_non_profile_artifacts():
+    malformed = EmittedArtifact(
+        target="fhir-profile",
+        ref="billing.Malformed@1",
+        artifact_id="billing.Malformed.v1",
+        path=Path("billing/Malformed.v1.fhir.json"),
+        content="not json",
+        content_hash="test",
+    )
+    other_target = EmittedArtifact(
+        target="json-schema",
+        ref="billing.Other@1",
+        artifact_id="billing.Other.v1",
+        path=Path("billing/Other.v1.json"),
+        content="{}",
+        content_hash="test",
+    )
+
+    report = compare_fhir_artifacts([malformed, other_target], [])
+
+    assert report.status == "read_compatible"
+    assert report.findings == []
+    assert report.findings == []
 
 
 def test_sql_compat_reports_changed_table_as_storage_migration():
@@ -1151,6 +1301,49 @@ def test_validate_compat_target_choices_match_the_registry():
     assert "json-schema" in result.output
     assert "sql-postgres" in result.output
     assert "sql-clickhouse" in result.output
+    assert "fhir-profile" in result.output
+
+
+def test_validate_compat_cli_supports_fhir_profile(tmp_path):
+    source = _write(
+        tmp_path / "model.mdl",
+        """
+domain clinical {
+  owner: "clinical-platform"
+  entity Patient @ 1 (additive) {
+    @key patientId: uuid
+    birthDate?: date
+  }
+
+  projection PatientProfile @ 1
+    from clinical.Patient @ 1 as p
+  {
+    patientId <- p.patientId
+    birthDate <- p.birthDate
+  }
+}
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "validate-compat",
+            "--from",
+            str(source),
+            "--to",
+            str(source),
+            "--target",
+            "fhir-profile",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["target"] == "fhir-profile"
+    assert payload["status"] == "read_compatible"
 
 
 # --- Slice C3: common target-compatibility axis/severity IR -----------------

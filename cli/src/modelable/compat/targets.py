@@ -309,6 +309,28 @@ def compare_sql_artifacts(
     return TargetCompatibilityReport(target=target, status=status, severity=severity, findings=findings)
 
 
+def compare_fhir_artifacts(
+    old_artifacts: list[EmittedArtifact],
+    new_artifacts: list[EmittedArtifact],
+) -> TargetCompatibilityReport:
+    """Compare FHIR StructureDefinitions for profile compatibility."""
+    findings: list[TargetCompatibilityFinding] = []
+    old_profiles = _fhir_entries(old_artifacts)
+    new_profiles = _fhir_entries(new_artifacts)
+    for ref in sorted(set(old_profiles) | set(new_profiles)):
+        old_profile = old_profiles.get(ref)
+        new_profile = new_profiles.get(ref)
+        if old_profile is None:
+            continue
+        if new_profile is None:
+            findings.append(_finding("profile_removed", "breaking", ref, "FHIR profile was removed"))
+            continue
+        findings.extend(_compare_fhir_profile(ref, old_profile, new_profile))
+
+    status, severity = _worst(findings, default_status="read_compatible")
+    return TargetCompatibilityReport(target="fhir-profile", status=status, severity=severity, findings=findings)
+
+
 def compare_source_representation(
     domain_name: str,
     model_name: str,
@@ -474,6 +496,120 @@ def _sql_entries(artifacts: list[EmittedArtifact], target: str) -> dict[str, str
         for artifact in artifacts
         if artifact.target == target and isinstance(artifact.ref, str) and isinstance(artifact.content, str)
     }
+
+
+def _fhir_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str, Any]]:
+    entries: dict[str, dict[str, Any]] = {}
+    for artifact in artifacts:
+        if (
+            artifact.target != "fhir-profile"
+            or not isinstance(artifact.ref, str)
+            or not isinstance(artifact.content, str)
+        ):
+            continue
+        try:
+            content = json.loads(artifact.content)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(content, dict):
+            entries[artifact.ref] = content
+    return entries
+
+
+def _compare_fhir_profile(
+    ref: str, old_profile: dict[str, Any], new_profile: dict[str, Any]
+) -> list[TargetCompatibilityFinding]:
+    findings: list[TargetCompatibilityFinding] = []
+    old_elements = _fhir_elements(old_profile)
+    new_elements = _fhir_elements(new_profile)
+    for path in sorted(set(old_elements) - set(new_elements)):
+        findings.append(
+            _finding(
+                "element_removed",
+                "breaking",
+                ref,
+                f"FHIR element '{path}' was removed",
+                field=path,
+            )
+        )
+    for path in sorted(set(new_elements) - set(old_elements)):
+        element = new_elements[path]
+        if _fhir_min(element) > 0:
+            findings.append(
+                _finding(
+                    "element_required_added",
+                    "breaking",
+                    ref,
+                    f"FHIR required element '{path}' was added",
+                    field=path,
+                )
+            )
+    for path in sorted(set(old_elements) & set(new_elements)):
+        old_element = old_elements[path]
+        new_element = new_elements[path]
+        if _fhir_min(new_element) > _fhir_min(old_element):
+            findings.append(
+                _finding(
+                    "element_min_increased",
+                    "breaking",
+                    ref,
+                    f"FHIR element '{path}' minimum cardinality increased",
+                    field=path,
+                )
+            )
+        previous_max = _fhir_max(old_element)
+        current_max = _fhir_max(new_element)
+        if current_max < previous_max:
+            findings.append(
+                _finding(
+                    "element_max_decreased",
+                    "breaking",
+                    ref,
+                    f"FHIR element '{path}' maximum cardinality decreased",
+                    field=path,
+                )
+            )
+        if _fhir_type_signature(old_element) != _fhir_type_signature(new_element):
+            findings.append(
+                _finding(
+                    "element_type_changed",
+                    "breaking",
+                    ref,
+                    f"FHIR element '{path}' type binding changed",
+                    field=path,
+                )
+            )
+    return findings
+
+
+def _fhir_elements(profile: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    snapshot = profile.get("snapshot")
+    elements = snapshot.get("element") if isinstance(snapshot, dict) else None
+    if not isinstance(elements, list):
+        return {}
+    return {
+        element["path"]: element
+        for element in elements
+        if isinstance(element, dict) and isinstance(element.get("path"), str)
+    }
+
+
+def _fhir_min(element: dict[str, Any]) -> int:
+    value = element.get("min")
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def _fhir_max(element: dict[str, Any]) -> int:
+    value = element.get("max")
+    if value == "*":
+        return 2**31 - 1
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return value if isinstance(value, int) and not isinstance(value, bool) else 2**31 - 1
+
+
+def _fhir_type_signature(element: dict[str, Any]) -> str:
+    return json.dumps(element.get("type"), sort_keys=True, separators=(",", ":"))
 
 
 def _compare_json_schema(

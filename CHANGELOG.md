@@ -10,6 +10,7 @@ releases could contain breaking changes when called out explicitly.
 - Avro is now available as a target-specific compatibility evaluator through `validate-compat`.
 - JSON Schema is now available as a target-specific compatibility evaluator through `validate-compat`.
 - SQL Postgres and ClickHouse are now available as storage-migration compatibility evaluators through `validate-compat`.
+- FHIR profiles are now available as target-specific compatibility evaluators through `validate-compat`.
 - Added `modelable consequence validate` for standalone
   `modelable.consequence/v0` graph validation and canonical JSON output.
 - Added `modelable plan validate` for standalone `modelable.plan/v0`

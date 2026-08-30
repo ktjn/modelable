@@ -12,6 +12,7 @@ from modelable.compat.targets import (
     PASSING_STATUSES,
     TargetCompatibilityReport,
     compare_avro_artifacts,
+    compare_fhir_artifacts,
     compare_grpc_artifacts,
     compare_json_schema_artifacts,
     compare_openapi_artifacts,
@@ -20,6 +21,7 @@ from modelable.compat.targets import (
 )
 from modelable.consequence import build_consequence_graph, build_standalone_target_consequences
 from modelable.emitters.avro import emit_avro
+from modelable.emitters.fhir import emit_fhir_profile
 from modelable.emitters.grpc import emit_grpc
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.openapi import emit_openapi
@@ -54,7 +56,12 @@ def validate_compat(from_path: Path, to_path: Path, target: str, policy_path: Pa
     old_workspace = load_workspace_or_exit(from_path)
     new_workspace = load_workspace_or_exit(to_path)
 
-    if target in {"sql-postgres", "sql-clickhouse"}:
+    if target == "fhir-profile":
+        report = compare_fhir_artifacts(
+            emit_fhir_profile(old_workspace, Path(".modelable/compat/old/fhir-profile")),
+            emit_fhir_profile(new_workspace, Path(".modelable/compat/new/fhir-profile")),
+        )
+    elif target in {"sql-postgres", "sql-clickhouse"}:
         dialect = target.removeprefix("sql-")
         report = compare_sql_artifacts(
             emit_sql(old_workspace, Path(f".modelable/compat/old/{target}"), dialect),
