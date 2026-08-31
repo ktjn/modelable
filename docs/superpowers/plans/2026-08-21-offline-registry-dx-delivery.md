@@ -98,6 +98,7 @@ explicitly listed for acceptance before implementation.
   mapping.
 - [x] Expose deterministic data-backfill consequences for newly added required
   model fields with declared defaults.
+- [x] Expose data-backfill consequences consistently through `modelable impact`.
 - [ ] Generalize all remaining compatibility findings into consequence facts
   with causal paths and actions such as regeneration, consumer update,
   migration, backfill, projection rebuild, replay, review, and breaking change.
