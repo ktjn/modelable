@@ -287,6 +287,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
         return ["registry lock objects must be an array"]
     seen: set[str] = set()
     identity_hashes: dict[str, str] = {}
+    contracts_by_identity: dict[str, Any] = {}
     for entry in objects:
         if not isinstance(entry, dict):
             errors.append("registry lock contains a non-object entry")
@@ -328,6 +329,13 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
             errors.append(f"registry object hash mismatch for {content_hash}: found {actual_hash}")
         if payload.get("identity") != identity:
             errors.append(f"registry object identity mismatch for {content_hash}")
+        contracts_by_identity[identity] = payload.get("contract")
+        entry_change_kind = entry.get("change_kind")
+        contract = payload.get("contract")
+        if entry_change_kind is not None and (
+            not isinstance(contract, dict) or contract.get("change_kind") != entry_change_kind
+        ):
+            errors.append(f"registry object change kind mismatch for {identity}")
         if payload.get("signature") != entry.get("signature"):
             errors.append(f"registry object signature mismatch for {identity}")
         provenance = payload.get("provenance")
@@ -352,6 +360,16 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                 for entry in objects
                 if isinstance(entry, dict) and isinstance(entry.get("identity"), str)
             }
+            requirement_entries = [
+                {
+                    **entry,
+                    "contract": contracts_by_identity.get(str(entry["identity"]))
+                    if isinstance(entry.get("identity"), str)
+                    else None,
+                }
+                for entry in objects
+                if isinstance(entry, dict)
+            ]
             for requirement in requirements:
                 if not isinstance(requirement, dict):
                     errors.append("registry lock contains a non-object requirement")
@@ -373,7 +391,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                     errors.append(f"registry lock requirement resolves to missing object {resolved}")
                     continue
                 try:
-                    expected = _resolve_dependency_entry(requested_value, objects, source_value)
+                    expected = _resolve_dependency_entry(requested_value, requirement_entries, source_value)
                 except ValueError as exc:
                     errors.append(f"invalid registry lock requirement {source} -> {resolved}: {exc}")
                 else:
@@ -389,7 +407,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                 if target.get("provenance") != requirement.get("provenance"):
                     errors.append(f"registry lock requirement provenance mismatch for {source} -> {resolved}")
             try:
-                expected_requirements = _build_requirements(objects)
+                expected_requirements = _build_requirements(requirement_entries)
             except ValueError as exc:
                 errors.append(f"cannot reconstruct registry lock requirements: {exc}")
             else:
@@ -1040,6 +1058,7 @@ def _write_object(
         "identity": identity,
         "kind": kind,
         "version": version.version,
+        **({"change_kind": version.change_kind.value} if isinstance(version, ModelVersion) else {}),
         "signature": payload["signature"],
         "content_hash": content_hash,
         "dependencies": dependencies,
@@ -1537,8 +1556,10 @@ def _resolve_dependency_entry(
         selector, expected_hash = selector.split("#", 1)
     if selector == "latest":
         matching = candidates
+        minimum = min((_entry_version(entry) for entry in candidates), default=None)
     elif selector.isdigit():
         matching = [entry for entry in candidates if _entry_version(entry) == int(selector)]
+        minimum = None
     else:
         range_match = re.fullmatch(r">=(\d+)<(\d+)", selector)
         minimum_match = re.fullmatch(r">=(\d+)", selector)
@@ -1553,6 +1574,15 @@ def _resolve_dependency_entry(
     if not matching:
         raise ValueError(f"unresolved registry dependency {requested!r}")
     selected = max(matching, key=lambda entry: (_entry_version(entry), str(entry["kind"])))
+    selected_version = _entry_version(selected)
+    if minimum is not None:
+        for entry in candidates:
+            version = _entry_version(entry)
+            if minimum < version <= selected_version and _entry_is_breaking(entry):
+                raise ValueError(
+                    f"unresolved registry dependency {requested!r}: "
+                    f"breaking change at version {version} blocks automatic resolution"
+                )
     if expected_hash is not None and selected.get("content_hash") != expected_hash:
         raise ValueError(f"pinned registry dependency hash mismatch for {requested!r}")
     return selected
@@ -1569,6 +1599,13 @@ def _entry_version(entry: dict[str, Any]) -> int:
     if version is None:
         raise ValueError(f"registry object identity has no numeric version: {identity!r}")
     return version
+
+
+def _entry_is_breaking(entry: dict[str, Any]) -> bool:
+    if entry.get("change_kind") == "breaking":
+        return True
+    contract = entry.get("contract")
+    return isinstance(contract, dict) and contract.get("change_kind") == "breaking"
 
 
 def _content_hash(payload: dict[str, Any]) -> str:

@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry dependency ranges now reject automatic resolution across a breaking
+  model version while preserving explicit exact-version selections.
 - Generated artifact hashes now match the exact UTF-8 bytes written on disk,
   including on Windows.
 - Registry diffs now propagate breaking model-version consequences to dependent

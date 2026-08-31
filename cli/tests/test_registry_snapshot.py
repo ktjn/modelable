@@ -19,6 +19,7 @@ from modelable.registry.ids import write_lock_file as write_registry_ids_lock_fi
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.resolver import find_dependents
 from modelable.registry.snapshot import (
+    _build_requirements,
     diff_workspace_snapshot,
     evaluate_registry_policy,
     load_snapshot_workspace,
@@ -370,6 +371,39 @@ domain billing {
         )
     )
     assert requirement["provenance"] == target_payload["provenance"]
+
+
+def test_build_requirements_rejects_breaking_version_inside_dependency_range() -> None:
+    entries = [
+        {
+            "identity": "customer.Customer@1",
+            "kind": "model",
+            "signature": "signature-v1",
+            "content_hash": "hash-v1",
+            "provenance": {"source": "provider-v1.mdl", "source_hash": None},
+            "contract": {"change_kind": "additive"},
+        },
+        {
+            "identity": "customer.Customer@2",
+            "kind": "model",
+            "signature": "signature-v2",
+            "content_hash": "hash-v2",
+            "provenance": {"source": "provider-v2.mdl", "source_hash": None},
+            "contract": {"change_kind": "breaking"},
+        },
+        {
+            "identity": "billing.Billing@1",
+            "kind": "projection",
+            "signature": "billing-signature",
+            "content_hash": "billing-hash",
+            "provenance": {"source": "billing.mdl", "source_hash": None},
+            "dependencies": ["customer.Customer@>=1<3"],
+            "contract": {},
+        },
+    ]
+
+    with pytest.raises(ValueError, match="breaking change at version 2 blocks automatic resolution"):
+        _build_requirements(entries)
 
 
 def test_verify_detects_dependency_requirement_provenance_drift(tmp_path: Path) -> None:
