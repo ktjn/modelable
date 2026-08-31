@@ -18,6 +18,7 @@ from modelable.compat.checker import (
     check_projection_version_compatibility,
 )
 from modelable.compat.targets import (
+    compare_data_backfill,
     compare_governance_review,
     compare_model_storage_migration,
     compare_projection_rebuild,
@@ -1195,6 +1196,8 @@ def _compatibility_consequences(
             consequences.extend(build_target_consequences(report, semantic_report))
             storage_report = compare_model_storage_migration(report)
             consequences.extend(build_target_consequences(report, storage_report))
+            backfill_report = compare_data_backfill(report)
+            consequences.extend(build_target_consequences(report, backfill_report))
         else:
             rebuild_report = compare_projection_rebuild(domain_name, model_name, projection_report.changes)
             consequences.extend(build_projection_consequences(projection_report, rebuild_report)[1:])

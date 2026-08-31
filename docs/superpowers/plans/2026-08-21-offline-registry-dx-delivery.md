@@ -94,6 +94,8 @@ explicitly listed for acceptance before implementation.
 - [x] Expose per-change source-compatibility consequences for semantic changes
   on newly added model versions using the existing target compatibility
   mapping.
+- [x] Expose deterministic data-backfill consequences for newly added required
+  model fields with declared defaults.
 - [ ] Generalize all remaining compatibility findings into consequence facts
   with causal paths and actions such as regeneration, consumer update,
   migration, backfill, projection rebuild, replay, review, and breaking change.

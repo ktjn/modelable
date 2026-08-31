@@ -9,7 +9,7 @@ from .checker import (
     find_projection_dependents,
 )
 from .diff import FieldChange, compare_model_versions
-from .targets import compare_model_storage_migration, compare_semantic_compatibility
+from .targets import compare_data_backfill, compare_model_storage_migration, compare_semantic_compatibility
 
 __all__ = [
     "ApiChange",
@@ -18,6 +18,7 @@ __all__ = [
     "FieldChange",
     "check_api_version_compatibility",
     "check_model_version_compatibility",
+    "compare_data_backfill",
     "compare_model_storage_migration",
     "compare_model_versions",
     "compare_semantic_compatibility",

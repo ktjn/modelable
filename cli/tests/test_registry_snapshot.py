@@ -1159,6 +1159,46 @@ domain customer {
     } in snapshot_diff.usage["consequences"]
 
 
+def test_registry_diff_reports_data_backfill_for_added_required_field_with_default(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    id: uuid
+    name: string
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "  entity Customer @ 1 (additive) {\n    @key\n    id: uuid\n    name: string\n  }",
+            '  entity Customer @ 1 (additive) {\n    @key\n    id: uuid\n    name: string\n  }\n  entity Customer @ 2 (breaking) {\n    @key\n    id: uuid\n    name: string\n    status: string = "active"\n  }',
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    assert {
+        "action": "data_backfill",
+        "causal_path": [
+            "customer.Customer@1",
+            "customer.Customer@2",
+            "data-backfill:customer.Customer:field_added_with_default",
+        ],
+        "reason": "field 'status' has a default and requires a data backfill",
+        "status": "migration_required",
+        "subject": "data-backfill:customer.Customer:field_added_with_default",
+    } in snapshot_diff.usage["consequences"]
+
+
 def test_registry_diff_reports_breaking_consequence_for_added_incompatible_projection(tmp_path: Path) -> None:
     source = tmp_path / "models.mdl"
     source.write_text(
