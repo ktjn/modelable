@@ -138,13 +138,13 @@ separate modelable compile scenario per target.
 
 - [x] Prepare producer v1 and v2 Modelable workspaces plus a consumer workspace
   that resolves the producer contract through the local snapshot.
-- [ ] Keep the fixture intentionally tiny: one producer domain, one referenced
+- [x] Keep the fixture intentionally tiny: one producer domain, one referenced
   model, one projection, and one Rust consumer crate. Do not turn this into a
   second golden-artifact matrix.
 - [ ] Resolve the exact dependency, rebuild the local registry index from the
   lock and objects, and run ordinary `validate`, `compile`, `diff`, and
   `impact` with network access disabled.
-- [ ] Generate the consumer's Rust package from the resolved snapshot,
+- [x] Generate the consumer's Rust package from the resolved snapshot,
   including model/projection types, semantic identity constants, canonical
   version signatures, and any generated conversion surface covered by the
   fixture.
@@ -182,7 +182,7 @@ separate modelable compile scenario per target.
   parallel against the same generated output, extending
   `cli/tests/test_codegen_docker_smoke.py` or adding a dedicated feature test
   rather than relying only on string assertions.
-- [ ] Keep the network-isolation assertion independent from Cargo dependency
+- [x] Keep the network-isolation assertion independent from Cargo dependency
   acquisition: use a locked/vendorable fixture or a prepared Cargo cache so
   `cargo test --offline` validates generated code without making the compiler's
   offline guarantee ambiguous.
