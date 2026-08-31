@@ -150,9 +150,41 @@ class SnapshotDiff:
 class RegistryPolicyEvaluator(Protocol):
     """Evaluate a staged snapshot's semantic, usage, and consequence facts."""
 
-    def evaluate(self, snapshot_diff: SnapshotDiff) -> Sequence[str]:
-        """Return action names that should block installation."""
+    def evaluate(self, snapshot_diff: SnapshotDiff) -> PolicyEvaluation:
+        """Return policy findings and action names that should block installation."""
         ...
+
+
+@dataclass(frozen=True)
+class PolicyFinding:
+    """A policy diagnostic tied to a consequence and its causal path."""
+
+    action: str
+    status: str
+    reason: str | None = None
+    causal_path: tuple[str, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "action": self.action,
+            "status": self.status,
+            "reason": self.reason,
+            "causal_path": list(self.causal_path),
+        }
+
+
+@dataclass(frozen=True)
+class PolicyEvaluation:
+    """Structured policy output for a staged snapshot."""
+
+    blocked_actions: tuple[str, ...] = ()
+    findings: tuple[PolicyFinding, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "blocked_actions": list(self.blocked_actions),
+            "findings": [finding.as_dict() for finding in self.findings],
+        }
 
 
 @dataclass(frozen=True)
@@ -161,8 +193,8 @@ class BlockedActionPolicy:
 
     blocked_actions: tuple[str, ...] = ()
 
-    def evaluate(self, snapshot_diff: SnapshotDiff) -> list[str]:
-        return _blocked_registry_actions(snapshot_diff, self.blocked_actions)
+    def evaluate(self, snapshot_diff: SnapshotDiff) -> PolicyEvaluation:
+        return _blocked_registry_policy(snapshot_diff, self.blocked_actions)
 
 
 def resolve_workspace_snapshot(
@@ -892,7 +924,8 @@ def update_workspace_snapshot(
         _reject_mutable_identity_replacements(paths.root, _load_lock_entries(SnapshotPaths(candidate_dir).lock))
         snapshot_diff = diff_snapshot_paths(paths.root, candidate_dir)
         evaluator = policy_evaluator or BlockedActionPolicy(blocked_actions)
-        blocked = sorted(set(evaluator.evaluate(snapshot_diff)))
+        evaluation = _normalize_policy_evaluation(evaluator.evaluate(snapshot_diff))
+        blocked = sorted(set(evaluation.blocked_actions))
         if blocked:
             retained = _retain_candidate(paths, candidate_dir)
             raise ValueError(
@@ -924,20 +957,34 @@ def update_workspace_snapshot(
 
 def evaluate_registry_policy(snapshot_diff: SnapshotDiff, blocked_actions: tuple[str, ...]) -> list[str]:
     """Return configured actions that would block a staged snapshot update."""
-    return BlockedActionPolicy(blocked_actions).evaluate(snapshot_diff)
+    return list(BlockedActionPolicy(blocked_actions).evaluate(snapshot_diff).blocked_actions)
 
 
-def _blocked_registry_actions(snapshot_diff: SnapshotDiff, blocked_actions: tuple[str, ...]) -> list[str]:
+def _normalize_policy_evaluation(value: PolicyEvaluation | Sequence[str]) -> PolicyEvaluation:
+    if isinstance(value, PolicyEvaluation):
+        return value
+    return PolicyEvaluation(blocked_actions=tuple(sorted(set(value))))
+
+
+def _blocked_registry_policy(snapshot_diff: SnapshotDiff, blocked_actions: tuple[str, ...]) -> PolicyEvaluation:
     blocked = set(blocked_actions)
     consequences = snapshot_diff.usage.get("consequences", [])
-    return sorted(
-        {
-            str(consequence["action"])
-            for consequence in consequences
-            if isinstance(consequence, dict)
-            and consequence.get("status") != "compatible"
-            and consequence.get("action") in blocked
-        }
+    findings = [
+        PolicyFinding(
+            action=str(consequence["action"]),
+            status=str(consequence.get("status")),
+            reason=consequence.get("reason") if isinstance(consequence.get("reason"), str) else None,
+            causal_path=tuple(item for item in consequence.get("causal_path", []) if isinstance(item, str)),
+        )
+        for consequence in consequences
+        if isinstance(consequence, dict)
+        and consequence.get("status") != "compatible"
+        and consequence.get("action") in blocked
+    ]
+    findings.sort(key=lambda finding: (finding.action, finding.status, finding.reason or "", finding.causal_path))
+    return PolicyEvaluation(
+        blocked_actions=tuple(sorted({finding.action for finding in findings})),
+        findings=tuple(findings),
     )
 
 

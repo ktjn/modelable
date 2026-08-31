@@ -581,10 +581,12 @@ Terminal actions may include no action, recompile, regenerate, migrate data, upd
 Every reported consequence retains its causal path.
 
 Registry updates pass the complete staged `SnapshotDiff` through a
-`RegistryPolicyEvaluator`. The built-in blocked-action policy preserves the
-current configuration behavior, while host integrations can add policy
-evaluators over semantic, usage, and consequence facts without changing the
-language grammar or semantic IR.
+`RegistryPolicyEvaluator`. Evaluators return structured policy findings with
+status, reason, and causal path, together with the actions that block
+installation. The built-in blocked-action policy preserves the current
+configuration behavior, while host integrations can add policy evaluators over
+semantic, usage, and consequence facts without changing the language grammar
+or semantic IR.
 
 ## 16. Security requirements
 

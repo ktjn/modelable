@@ -20,6 +20,9 @@ from modelable.registry.ids import write_lock_file as write_registry_ids_lock_fi
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.resolver import find_dependents
 from modelable.registry.snapshot import (
+    BlockedActionPolicy,
+    PolicyEvaluation,
+    PolicyFinding,
     SnapshotDiff,
     _build_requirements,
     diff_workspace_snapshot,
@@ -1480,9 +1483,9 @@ def test_update_accepts_a_policy_evaluator_over_snapshot_diff(tmp_path: Path) ->
     observed: list[SnapshotDiff] = []
 
     class Policy:
-        def evaluate(self, snapshot_diff: SnapshotDiff) -> list[str]:
+        def evaluate(self, snapshot_diff: SnapshotDiff) -> PolicyEvaluation:
             observed.append(snapshot_diff)
-            return ["custom_policy"]
+            return PolicyEvaluation(blocked_actions=("custom_policy",))
 
     with pytest.raises(ValueError, match="custom_policy"):
         update_workspace_snapshot(
@@ -1493,6 +1496,40 @@ def test_update_accepts_a_policy_evaluator_over_snapshot_diff(tmp_path: Path) ->
 
     assert len(observed) == 1
     assert observed[0].added
+
+
+def test_blocked_action_policy_returns_structured_findings() -> None:
+    snapshot_diff = SnapshotDiff(
+        added=(),
+        removed=(),
+        changed=(),
+        usage={
+            "consequences": [
+                {
+                    "action": "regenerate",
+                    "status": "required",
+                    "reason": "generated artifact changed",
+                    "causal_path": ["customer.Customer@1", "artifact:typescript/customer.ts"],
+                }
+            ]
+        },
+    )
+
+    evaluation = BlockedActionPolicy(("regenerate",)).evaluate(snapshot_diff)
+
+    assert evaluation.blocked_actions == ("regenerate",)
+    assert evaluation.findings == (
+        PolicyFinding(
+            action="regenerate",
+            status="required",
+            reason="generated artifact changed",
+            causal_path=("customer.Customer@1", "artifact:typescript/customer.ts"),
+        ),
+    )
+    assert evaluation.as_dict()["findings"][0]["causal_path"] == [
+        "customer.Customer@1",
+        "artifact:typescript/customer.ts",
+    ]
 
 
 def test_registry_diff_reports_breaking_consequence_for_added_incompatible_model(tmp_path: Path) -> None:
