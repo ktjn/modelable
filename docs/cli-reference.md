@@ -1760,7 +1760,7 @@ modelable registry rebuild-index [--out DIR]
 modelable registry status [--out DIR] [--format text|json]
 modelable registry prune [--out DIR]
 modelable registry usage SOURCE [--format text|json|manifest]
-  [--artifact-manifest FILE]...
+  [--usage-manifest FILE]... [--artifact-manifest FILE]...
 ```
 
 Compilation can compose local source files with a validated offline snapshot
@@ -1843,6 +1843,12 @@ validation and target generation.
   generated artifact declarations; the graph adds `generated_artifact` nodes and
   `generated_from` edges, while the manifest carries their target, path, ref,
   and SHA-256 hash. The option is repeatable for multiple target outputs.
+  Pass `--usage-manifest FILE` to add validated compiled-consumer evidence to
+  the graph; repeat it to aggregate multiple applications or repositories.
+  Matching requires the exact contract reference and signature, so stale or
+  unrelated evidence is ignored. Aggregated output uses `--format json` or
+  `--format text`; `--format manifest` remains the single application's
+  compact manifest.
 
 The lock and object files are the durable snapshot; `registry.db` remains a
 rebuildable compiler index. Lock requirements retain the requested version
@@ -1854,8 +1860,9 @@ Semantic and enum-projection objects retain source paths and hashes when
 resolved from a local file. Snapshot objects also retain the domain metadata
 and declarations required to generate equivalent target artifacts offline.
 
-Network-backed source adapters and
-cross-application usage aggregation remain deferred. Registry updates now
+Network-backed source adapters remain deferred. Cross-application usage
+aggregation is available through repeatable `registry usage --usage-manifest`
+inputs. Registry updates now
 apply configured policies to known surface consequences; full policy coverage
 is still planned. The similarly named
 federated `init`, `peer`, `graph`, and `sync` commands are not part of the

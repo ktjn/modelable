@@ -7,7 +7,7 @@ from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
-from modelable.registry.usage import build_usage_graph, build_usage_manifest
+from modelable.registry.usage import aggregate_usage_graph, build_usage_graph, build_usage_manifest
 
 FIXTURE = Path(__file__).parent / "fixtures" / "customer.mdl"
 
@@ -102,6 +102,57 @@ def test_usage_cli_emits_json() -> None:
     payload = json.loads(result.output)
     assert payload["$schema"] == "modelable.usage/v0"
     assert payload["kind"] == "usage_manifest"
+
+
+def test_usage_cli_aggregates_compiled_consumer_manifests(tmp_path: Path) -> None:
+    workspace = load_workspace(FIXTURE)
+    manifests = []
+    for application in ("billing-web", "analytics-worker"):
+        manifest = build_usage_manifest(workspace)
+        manifest["application"] = application
+        manifest["application_id"] = f"application:{application}"
+        path = tmp_path / f"{application}.json"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        manifests.append(path)
+
+    args = ["registry", "usage", str(FIXTURE), "--format", "json"]
+    for path in manifests:
+        args.extend(["--usage-manifest", str(path)])
+
+    result = CliRunner().invoke(cli, args)
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    applications = [node["id"] for node in payload["nodes"] if node["kind"] == "application"]
+    assert applications == ["application:analytics-worker", "application:billing-web", "application:workspace"]
+    assert {
+        (edge["source"], edge["target"])
+        for edge in payload["edges"]
+        if edge["kind"] == "consumes" and edge["source"] != "application:workspace"
+    } == {
+        ("application:analytics-worker", "model_version:customer.Customer@1"),
+        ("application:analytics-worker", "model_version:customer.Customer@2"),
+        ("application:billing-web", "model_version:customer.Customer@1"),
+        ("application:billing-web", "model_version:customer.Customer@2"),
+    }
+
+
+def test_usage_aggregation_ignores_stale_compiled_signatures() -> None:
+    workspace = load_workspace(FIXTURE)
+    manifest = build_usage_manifest(workspace)
+    manifest["application"] = "stale-consumer"
+    manifest["application_id"] = "application:stale-consumer"
+    manifest["references"][0]["signature"] = "0" * 64
+
+    graph = aggregate_usage_graph(workspace, [manifest])
+
+    assert {
+        (edge["source"], edge["target"])
+        for edge in graph["edges"]
+        if edge["kind"] == "consumes" and edge["source"] == "application:stale-consumer"
+    } == {
+        ("application:stale-consumer", "model_version:customer.Customer@2"),
+    }
 
 
 def test_usage_cli_includes_explicit_artifact_manifest(tmp_path: Path) -> None:

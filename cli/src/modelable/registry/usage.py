@@ -188,6 +188,76 @@ def build_usage_graph(
     }
 
 
+def aggregate_usage_graph(
+    workspace: Workspace,
+    usage_manifests: Sequence[Mapping[str, Any]],
+    *,
+    artifact_manifests: Sequence[Mapping[str, Any]] = (),
+) -> dict[str, Any]:
+    """Add exact compiled-consumer evidence to a workspace usage graph."""
+    graph = build_usage_graph(workspace, artifact_manifests=artifact_manifests)
+    nodes = list(graph["nodes"])
+    edges = list(graph["edges"])
+    node_ids = {str(node["id"]) for node in nodes}
+    edge_keys = {(edge["kind"], edge["source"], edge["target"]) for edge in edges}
+    contracts = {
+        str(node["target_ref"]): node
+        for node in nodes
+        if node.get("kind") in {"model_version", "projection_version", "enum_projection"}
+    }
+
+    for manifest in usage_manifests:
+        application = manifest.get("application")
+        if not isinstance(application, str):
+            continue
+        application_id = manifest.get("application_id")
+        if not isinstance(application_id, str) or not application_id:
+            application_id = f"application:{application}"
+        _add_node(
+            nodes,
+            node_ids,
+            {"id": application_id, "kind": "application", "label": application, "name": application},
+        )
+        package_ids: set[str] = set()
+        packages = manifest.get("packages")
+        if isinstance(packages, list):
+            for package in packages:
+                if not isinstance(package, Mapping):
+                    continue
+                package_id = package.get("id")
+                package_name = package.get("name")
+                if not isinstance(package_id, str) or not isinstance(package_name, str):
+                    continue
+                package_ids.add(package_id)
+                _add_node(
+                    nodes,
+                    node_ids,
+                    {"id": package_id, "kind": "package", "label": package_name, "name": package_name},
+                )
+        references = manifest.get("references")
+        if not isinstance(references, list):
+            continue
+        for reference in references:
+            if not isinstance(reference, Mapping):
+                continue
+            ref = reference.get("ref")
+            signature = reference.get("signature")
+            contract = contracts.get(ref) if isinstance(ref, str) else None
+            if contract is None or contract.get("signature") != signature:
+                continue
+            target = str(contract["id"])
+            _add_edge(edges, edge_keys, "consumes", application_id, target)
+            package_id = reference.get("package_id")
+            if isinstance(package_id, str) and package_id in package_ids:
+                _add_edge(edges, edge_keys, "consumes", package_id, target)
+
+    return {
+        **graph,
+        "nodes": sorted(nodes, key=lambda item: (item["kind"], item["id"])),
+        "edges": sorted(edges, key=lambda item: (item["kind"], item["source"], item["target"])),
+    }
+
+
 def build_usage_manifest(
     workspace: Workspace,
     *,
