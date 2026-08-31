@@ -36,11 +36,20 @@ def registry() -> None:
 @registry.command("resolve")
 @click.argument("source", type=click.Path(exists=True, path_type=Path))
 @click.option("--out", "output_dir", type=click.Path(path_type=Path), default=Path(".modelable"), show_default=True)
-def resolve(source: Path, output_dir: Path) -> None:
+@click.option(
+    "--artifact-manifest",
+    "artifact_manifest_paths",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    multiple=True,
+    help="Generated artifact manifest to include as usage evidence (repeatable).",
+)
+def resolve(source: Path, output_dir: Path, artifact_manifest_paths: tuple[Path, ...]) -> None:
     """Resolve SOURCE into an exact local registry snapshot."""
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
-        result = resolve_workspace_snapshot(workspace, output_dir)
+        result = resolve_workspace_snapshot(
+            workspace, output_dir, artifact_manifests=_read_artifact_manifests(artifact_manifest_paths)
+        )
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
@@ -51,11 +60,20 @@ def resolve(source: Path, output_dir: Path) -> None:
 @click.argument("repository", type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.option("--ref", required=True)
 @click.option("--out", "output_dir", type=click.Path(path_type=Path), default=Path(".modelable"), show_default=True)
-def resolve_git(repository: Path, ref: str, output_dir: Path) -> None:
+@click.option(
+    "--artifact-manifest",
+    "artifact_manifest_paths",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    multiple=True,
+    help="Generated artifact manifest to include as usage evidence (repeatable).",
+)
+def resolve_git(repository: Path, ref: str, output_dir: Path, artifact_manifest_paths: tuple[Path, ...]) -> None:
     """Resolve tracked .mdl files from a local Git REPOSITORY ref."""
     try:
         workspace = load_workspace_or_exit(repository, source_adapter=GitSourceAdapter(repository, ref))
-        result = resolve_workspace_snapshot(workspace, output_dir)
+        result = resolve_workspace_snapshot(
+            workspace, output_dir, artifact_manifests=_read_artifact_manifests(artifact_manifest_paths)
+        )
     except GitSourceError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
@@ -69,11 +87,20 @@ def resolve_git(repository: Path, ref: str, output_dir: Path) -> None:
 @click.argument("source", type=click.Path(exists=True, path_type=Path))
 @click.option("--out", "output_dir", type=click.Path(path_type=Path), default=Path(".modelable"), show_default=True)
 @click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text")
-def diff(source: Path, output_dir: Path, output_format: str) -> None:
+@click.option(
+    "--artifact-manifest",
+    "artifact_manifest_paths",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    multiple=True,
+    help="Generated artifact manifest to include as usage evidence (repeatable).",
+)
+def diff(source: Path, output_dir: Path, output_format: str, artifact_manifest_paths: tuple[Path, ...]) -> None:
     """Compare SOURCE with the current local snapshot without changing it."""
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
-        snapshot_diff = diff_workspace_snapshot(workspace, output_dir)
+        snapshot_diff = diff_workspace_snapshot(
+            workspace, output_dir, artifact_manifests=_read_artifact_manifests(artifact_manifest_paths)
+        )
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
@@ -94,15 +121,36 @@ def diff(source: Path, output_dir: Path, output_format: str) -> None:
 @click.option("--out", "output_dir", type=click.Path(path_type=Path), default=Path(".modelable"), show_default=True)
 @click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text")
 @click.option("--dry-run", is_flag=True, help="Resolve and validate the candidate without replacing the snapshot.")
-def update(source: Path, output_dir: Path, output_format: str, dry_run: bool) -> None:
+@click.option(
+    "--artifact-manifest",
+    "artifact_manifest_paths",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    multiple=True,
+    help="Generated artifact manifest to include as usage evidence (repeatable).",
+)
+def update(
+    source: Path,
+    output_dir: Path,
+    output_format: str,
+    dry_run: bool,
+    artifact_manifest_paths: tuple[Path, ...],
+) -> None:
     """Stage and atomically install SOURCE as the local exact snapshot."""
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
+        artifact_manifests = _read_artifact_manifests(artifact_manifest_paths)
         blocked_actions = load_config(source).blocked_registry_actions()
         if dry_run:
-            snapshot_diff, object_count = preview_workspace_snapshot(workspace, output_dir)
+            snapshot_diff, object_count = preview_workspace_snapshot(
+                workspace, output_dir, artifact_manifests=artifact_manifests
+            )
         else:
-            result, snapshot_diff = update_workspace_snapshot(workspace, output_dir, blocked_actions=blocked_actions)
+            result, snapshot_diff = update_workspace_snapshot(
+                workspace,
+                output_dir,
+                blocked_actions=blocked_actions,
+                artifact_manifests=artifact_manifests,
+            )
             object_count = result.object_count
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
@@ -227,3 +275,10 @@ def _load_artifact_manifest(path: Path) -> dict[str, object]:
     if not isinstance(payload, dict):
         raise ValueError("artifact manifest must be a JSON object")
     return payload
+
+
+def _read_artifact_manifests(paths: tuple[Path, ...]) -> tuple[dict[str, object], ...]:
+    try:
+        return tuple(_load_artifact_manifest(path) for path in paths)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(f"Cannot load artifact manifest: {exc}") from exc

@@ -6,6 +6,9 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry snapshot resolve, diff, and update commands can now include compiler
+  artifact manifests; changed generated artifacts produce required `regenerate`
+  consequences and can be blocked by registry policy.
 - Registry updates can now block configured consequence actions via
   `[registry] blocked_actions` and retain validated blocked candidates for review.
 - Registry diffs now include consequence facts with causal paths for changed

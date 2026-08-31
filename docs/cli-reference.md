@@ -1748,10 +1748,11 @@ derived index; durable dependency state is stored in `registry.lock` and its
 content-addressed objects:
 
 ```text
-modelable registry resolve SOURCE [--out DIR]
-modelable registry resolve-git REPOSITORY --ref REF [--out DIR]
-modelable registry diff SOURCE [--out DIR] [--format text|json]
+modelable registry resolve SOURCE [--out DIR] [--artifact-manifest FILE]...
+modelable registry resolve-git REPOSITORY --ref REF [--out DIR] [--artifact-manifest FILE]...
+modelable registry diff SOURCE [--out DIR] [--format text|json] [--artifact-manifest FILE]...
 modelable registry update SOURCE [--out DIR] [--format text|json] [--dry-run]
+  [--artifact-manifest FILE]...
 modelable registry verify [--out DIR] [--format text|json]
 modelable registry rebuild-index [--out DIR]
 modelable registry status [--out DIR] [--format text|json]
@@ -1775,7 +1776,8 @@ validation and target generation.
   changing local state. Its JSON output also includes required consumer-update
   and storage-migration actions for changed application surfaces, plus
   consequence facts with causal paths from the contract reference to each
-  affected surface.
+  affected surface. Pass `--artifact-manifest FILE` to include compiler output
+  evidence; changed generated artifacts add required `regenerate` consequences.
 - `registry update --dry-run` resolves, validates, and diffs the candidate while
   leaving the durable lock and objects unchanged. Without `--dry-run`, update
   validates that candidate and atomically replaces the lock;
