@@ -10,6 +10,7 @@ from modelable.compiler.workspace import load_workspace
 from modelable.emitters.openapi import _validate_document, emit_openapi
 from modelable.emitters.openapi_plan import emit_openapi_projection_plan
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 _AUTO_PROJECTION_FIXTURE = """
 domain customer {
@@ -41,6 +42,22 @@ domain customer {
   }
 }
 """
+
+
+def test_openapi_emitter_requests_v1_plan_documents(monkeypatch, tmp_path):
+    (tmp_path / "customer.mdl").write_text(_AUTO_PROJECTION_FIXTURE, encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, str]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.openapi.build_plan_documents", observe_plan_request)
+
+    emit_openapi(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_emit_openapi_emits_one_document_with_request_and_reply_schemas(tmp_path):
