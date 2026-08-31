@@ -1228,6 +1228,59 @@ domain orders {
     ]
 
 
+def test_registry_diff_reports_governance_review_for_added_projection_grant(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key
+    orderId: uuid
+    status: string
+  }
+  projection OrderView @ 1 from orders.Order @ 1 as o {
+    access {
+      entity orders [read, project]
+    }
+    orderId <- o.orderId
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "    access {\n      entity orders [read, project]\n    }\n    orderId <- o.orderId",
+            "    access {\n      entity orders [read, project]\n    }\n    orderId <- o.orderId\n  }\n  projection OrderView @ 2 from orders.Order @ 1 as o {\n    access {\n      entity orders [read, project]\n      entity analytics [read]\n    }\n    orderId <- o.orderId",
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    governance_consequences = [
+        consequence
+        for consequence in snapshot_diff.usage["consequences"]
+        if consequence["action"] == "governance_review"
+    ]
+    assert governance_consequences == [
+        {
+            "action": "governance_review",
+            "causal_path": [
+                "orders.OrderView@1",
+                "orders.OrderView@2",
+                "governance-review:orders.OrderView:access_grant_added",
+            ],
+            "reason": "access grant added: entity principal 'analytics' permission 'read'",
+            "status": "review_required",
+            "subject": "governance-review:orders.OrderView:access_grant_added",
+        }
+    ]
+
+
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
     runner = CliRunner()
     output_dir = tmp_path / ".modelable"

@@ -1782,6 +1782,8 @@ validation and target generation.
   model versions with index changes also add `storage_migration` consequences.
   Projection changes that require rebuilding materialized state add
   `projection_rebuild` consequences.
+  Projection access and classification changes add `governance_review`
+  consequences when human review is required.
   Changed locked contract identities also add required `recompile` consequences.
   Pass `--artifact-manifest FILE` to include
   compiler output evidence; changed generated artifacts add required

@@ -17,7 +17,11 @@ from modelable.compat.checker import (
     check_model_version_compatibility,
     check_projection_version_compatibility,
 )
-from modelable.compat.targets import compare_model_storage_migration, compare_projection_rebuild
+from modelable.compat.targets import (
+    compare_governance_review,
+    compare_model_storage_migration,
+    compare_projection_rebuild,
+)
 from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import (
     Workspace,
@@ -1190,6 +1194,8 @@ def _compatibility_consequences(
         else:
             rebuild_report = compare_projection_rebuild(domain_name, model_name, projection_report.changes)
             consequences.extend(build_projection_consequences(projection_report, rebuild_report)[1:])
+            governance_report = compare_governance_review(domain_name, model_name, projection_report.changes)
+            consequences.extend(build_projection_consequences(projection_report, governance_report)[1:])
     return consequences
 
 
