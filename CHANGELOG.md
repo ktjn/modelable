@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Generated artifact hashes now match the exact UTF-8 bytes written on disk,
+  including on Windows.
 - Registry diffs now propagate breaking model-version consequences to dependent
   projections with causal paths.
 - Registry diffs now report direct compatibility consequences for newly added

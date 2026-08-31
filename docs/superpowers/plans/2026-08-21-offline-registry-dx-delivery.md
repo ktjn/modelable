@@ -152,7 +152,7 @@ separate modelable compile scenario per target.
   implemented target from the same fixture. A newly implemented target must
   either join this feature matrix or be explicitly marked as exempt with a
   documented validator.
-- [ ] Run fast structural contract checks over every generated artifact:
+- [x] Run fast structural contract checks over every generated artifact:
   parse JSON/YAML/Avro/OpenAPI/manifest outputs, validate required identity and
   signature fields, parse SQL/Markdown/ODCS/dbt outputs, and run the available
   schema/protocol validators without network access.
