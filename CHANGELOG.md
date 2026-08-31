@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry lock requirements now preserve the selected object's source
+  provenance and verify it alongside the resolved signature and content hash.
 - Registry diffs now report deterministic `data_backfill` consequences for
   newly added required model fields with declared defaults.
 - Registry diffs now report changed event surfaces as deterministic `event_replay`

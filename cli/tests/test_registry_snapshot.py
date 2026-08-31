@@ -268,6 +268,44 @@ domain billing {
     target = next(item for item in lock["objects"] if item["identity"] == requirement["resolved"])
     assert requirement["signature"] == target["signature"]
     assert requirement["object"] == target["content_hash"]
+    target_payload = json.loads(
+        (tmp_path / ".modelable" / "registry" / "objects" / f"{target['content_hash']}.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert requirement["provenance"] == target_payload["provenance"]
+
+
+def test_verify_detects_dependency_requirement_provenance_drift(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key id: uuid
+  }
+}
+domain billing {
+  owner: "billing-platform"
+  projection Billing @ 1
+    from customer.Customer @ 1 as c
+  {
+    id <- c.id
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    result = resolve_workspace_snapshot(load_workspace(source), output_dir)
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    lock["requirements"][0]["provenance"] = {"source": "other.mdl", "source_hash": None}
+    result.lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    errors = verify_snapshot(output_dir)
+
+    assert any("requirement provenance mismatch" in error for error in errors)
 
 
 def test_resolve_records_enum_source_provenance(tmp_path: Path) -> None:
