@@ -5,6 +5,7 @@ from typing import Any
 
 from modelable.compat.checker import CompatibilityReport, ProjectionCompatibilityReport, analyze_impact
 from modelable.compat.diff import ProjectionChange
+from modelable.compat.enums import EXHAUSTIVE_MATCH
 from modelable.compat.targets import TargetCompatibilityReport
 from modelable.compiler.workspace import Workspace
 from modelable.consequence_protocol import CONSEQUENCE_SCHEMA, validate_consequence_graph
@@ -94,6 +95,7 @@ def build_model_consequences(workspace: Workspace, report: CompatibilityReport) 
             causal_changes=change_ids,
         )
     ]
+    consequences.extend(build_enum_consequences(report))
     for dependent in find_dependents(workspace.mdl, report.domain_name, report.model_name, report.from_version):
         projection_impact = analyze_impact(workspace.mdl, report, dependent)
         subject = f"{projection_impact.domain_name}.{projection_impact.projection_name}@{projection_impact.version}"
@@ -108,6 +110,28 @@ def build_model_consequences(workspace: Workspace, report: CompatibilityReport) 
                     subject,
                 ),
                 causal_changes=_projection_change_ids(projection_impact.status, projection_impact.reason, report),
+            )
+        )
+    return consequences
+
+
+def build_enum_consequences(report: CompatibilityReport) -> list[Consequence]:
+    """Build review actions implied by declaration-level enum evolution."""
+    source_ref = f"{report.domain_name}.{report.model_name}@{report.from_version}"
+    target_ref = f"{report.domain_name}.{report.model_name}@{report.to_version}"
+    consequences = []
+    for change in report.semantic_changes:
+        if EXHAUSTIVE_MATCH not in change.consequences:
+            continue
+        subject = f"enum-exhaustive-match:{report.domain_name}.{report.model_name}:{change.field_name}"
+        consequences.append(
+            Consequence(
+                action=ACTION_CONSUMER_UPDATE,
+                subject=subject,
+                status="review_required",
+                reason=change.note,
+                causal_path=(source_ref, target_ref, subject),
+                causal_changes=(_change_node_id(change.kind, change.field_name),),
             )
         )
     return consequences
@@ -276,7 +300,11 @@ def build_projection_consequences(
 
 
 def change_nodes_for_report(report: CompatibilityReport) -> list[dict[str, object]]:
-    changes = report.semantic_changes if report.status != "compatible" else []
+    changes = (
+        report.semantic_changes
+        if report.status != "compatible"
+        else [change for change in report.semantic_changes if change.consequences]
+    )
     changes = [*changes, *report.storage_changes]
     return [
         {

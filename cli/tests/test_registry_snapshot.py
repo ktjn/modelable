@@ -1293,6 +1293,55 @@ domain customer {
     } in snapshot_diff.usage["consequences"]
 
 
+def test_registry_diff_reports_enum_exhaustive_consumer_review(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  semantic Status @ 1 (additive): enum(active, blocked)
+  entity Order @ 1 (additive) {
+    @key
+    orderId: uuid
+    status: Status @ 1
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "    status: Status @ 1\n  }\n}",
+            "    status: Status @ 1\n  }\n"
+            "  semantic Status @ 2 (additive): enum(active, blocked, deleted)\n"
+            "  entity Order @ 2 (breaking) {\n"
+            "    @key\n"
+            "    orderId: uuid\n"
+            "    status: Status @ 2\n"
+            "  }\n}",
+        ),
+        encoding="utf-8",
+    )
+
+    candidate_workspace = load_workspace(source)
+    assert not candidate_workspace.errors, candidate_workspace.errors
+    snapshot_diff = diff_workspace_snapshot(candidate_workspace, output_dir)
+
+    assert {
+        "action": "consumer_update",
+        "causal_path": [
+            "orders.Order@1",
+            "orders.Order@2",
+            "enum-exhaustive-match:orders.Order:status",
+        ],
+        "reason": "Status@2: adds member 'deleted' (exhaustive consumers must extend their handling)",
+        "status": "review_required",
+        "subject": "enum-exhaustive-match:orders.Order:status",
+    } in snapshot_diff.usage["consequences"]
+
+
 def test_registry_diff_reports_data_backfill_for_added_required_field_with_default(tmp_path: Path) -> None:
     source = tmp_path / "models.mdl"
     source.write_text(

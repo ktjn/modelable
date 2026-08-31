@@ -1795,6 +1795,8 @@ validation and target generation.
   `modelable impact` for a direct projection version transition.
   Projection `@wire` hint changes add target-neutral `breaking` or `recompile`
   consequences with causal paths.
+  Additive enum-member growth that carries an exhaustive-consumer implication
+  adds a `consumer_update` review consequence with a causal path.
   Newly added required model fields with defaults add `data_backfill`
   consequences because existing records need a deterministic backfill.
   Changed locked contract identities also add required `recompile` consequences.

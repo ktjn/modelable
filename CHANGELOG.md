@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Additive enum-member growth now reports exhaustive-consumer review
+  consequences in registry diffs and `modelable impact` output.
 - Projection `@wire` hint changes now appear as structured `breaking` or
   `recompile` consequences in registry diffs and `modelable impact` output.
 - `modelable impact` now reports projection governance-review consequences

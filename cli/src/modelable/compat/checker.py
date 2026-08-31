@@ -180,7 +180,8 @@ def _refine_enum_version_changes(
         notes = [describe_enum_change(item) for item in enum_changes]
         breaking = any(item.breaking for item in enum_changes)
         note = "; ".join(notes) if notes else "member sets are identical"
-        refined.append(dataclasses.replace(change, breaking_override=breaking, note=note))
+        consequences = tuple(sorted({value for item in enum_changes for value in item.consequences}))
+        refined.append(dataclasses.replace(change, breaking_override=breaking, note=note, consequences=consequences))
     return refined
 
 
