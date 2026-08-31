@@ -1,4 +1,4 @@
-"""ODCS projection emission from validated ``modelable.plan/v0`` documents."""
+"""ODCS projection emission from validated ``modelable.plan/v1`` documents."""
 
 from __future__ import annotations
 

@@ -26,6 +26,7 @@ from modelable.parser.ir import (
     RefType,
 )
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 from modelable.registry.resolver import resolve_semantic_type_ref
 
 ODCS_VERSION = "v3.1.0"
@@ -34,7 +35,10 @@ ODCS_VERSION = "v3.1.0"
 def emit_odcs(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit Open Data Contract Standard YAML documents for each model and projection version."""
     artifacts: list[EmittedArtifact] = []
-    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
+    plans = {
+        (plan["domain"], plan["projection"], plan["version"]): plan
+        for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
+    }
 
     for domain in workspace.mdl.domains:
         for model_name, versions in domain.models.items():
