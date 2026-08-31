@@ -216,6 +216,7 @@ def build_usage_manifest(
         if package_id is not None:
             reference["package_id"] = package_id
         references.append(reference)
+    event_operations = _event_operations_by_ref(workspace)
     payload: dict[str, Any] = {
         "$schema": USAGE_SCHEMA,
         "kind": "usage_manifest",
@@ -223,7 +224,7 @@ def build_usage_manifest(
         "application_id": graph["application_id"],
         "packages": graph["packages"],
         "references": references,
-        "surfaces": _surface_declarations(graph),
+        "surfaces": _surface_declarations(graph, event_operations),
     }
     artifacts = _artifact_declarations(artifact_manifests)
     if artifacts:
@@ -231,7 +232,7 @@ def build_usage_manifest(
     return payload
 
 
-def _surface_declarations(graph: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _surface_declarations(graph: Mapping[str, Any], event_operations: Mapping[str, list[str]]) -> list[dict[str, Any]]:
     """Return compact declarations for application-facing graph surfaces."""
     nodes = {str(node["id"]): node for node in graph["nodes"]}
     surfaces: dict[str, dict[str, Any]] = {}
@@ -253,7 +254,12 @@ def _surface_declarations(graph: Mapping[str, Any]) -> list[dict[str, Any]]:
                 ref = target.get("target_ref")
                 if isinstance(ref, str):
                     surface_id = f"event:{ref}"
-                    surfaces[surface_id] = {"id": surface_id, "kind": "event", "ref": ref}
+                    surfaces[surface_id] = {
+                        "id": surface_id,
+                        "kind": "event",
+                        "ref": ref,
+                        "operations": event_operations[ref],
+                    }
         elif edge["kind"] == "persists_as":
             source = nodes.get(str(edge["source"]))
             target = nodes.get(str(edge["target"]))
@@ -273,6 +279,16 @@ def _surface_declarations(graph: Mapping[str, Any]) -> list[dict[str, Any]]:
                 surface["table"] = target["table"]
             surfaces[surface_id] = surface
     return [surfaces[key] for key in sorted(surfaces)]
+
+
+def _event_operations_by_ref(workspace: Workspace) -> dict[str, list[str]]:
+    return {
+        declaration_id(domain.name, projection_name, projection.version): list(projection.event_operations)
+        for domain in workspace.mdl.domains
+        for projection_name, versions in domain.projections.items()
+        for projection in versions
+        if projection.event_operations
+    }
 
 
 def _application_name(workspace: Workspace) -> str:

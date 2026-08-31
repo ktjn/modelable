@@ -18,6 +18,7 @@ ACTION_BREAKING = "breaking"
 ACTION_STORAGE_MIGRATION = "storage_migration"
 ACTION_PROJECTION_REBUILD = "projection_rebuild"
 ACTION_GOVERNANCE_REVIEW = "governance_review"
+ACTION_REPLAY = "replay"
 
 
 @dataclass(frozen=True)

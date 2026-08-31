@@ -961,6 +961,7 @@ binding customerStore {
     source.write_text(
         source.read_text(encoding="utf-8")
         .replace('path: "/customers"', 'path: "/v2/customers"')
+        .replace("event on [created]", "event on [created, updated]")
         .replace('table: "customers"', 'table: "customer_records"'),
         encoding="utf-8",
     )
@@ -968,9 +969,14 @@ binding customerStore {
     snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
 
     changed = snapshot_diff.usage["surfaces"]["changed"]
-    assert [item["key"] for item in changed] == [["api_operation:customer.Customer@1:getCustomer"]]
+    assert [item["key"] for item in changed] == [
+        ["api_operation:customer.Customer@1:getCustomer"],
+        ["event:customer.CustomerEvent@1"],
+    ]
     assert changed[0]["current"]["path"] == "/customers"
     assert changed[0]["candidate"]["path"] == "/v2/customers"
+    assert changed[1]["current"]["operations"] == ["created"]
+    assert changed[1]["candidate"]["operations"] == ["created", "updated"]
     assert snapshot_diff.usage["surfaces"]["removed"] == [
         {
             "adapter": "postgres",
@@ -997,6 +1003,12 @@ binding customerStore {
             "subject": "api_operation:customer.Customer@1:getCustomer",
         },
         {
+            "action": "replay",
+            "reason": "event surface changed",
+            "status": "required",
+            "subject": "event:customer.CustomerEvent@1",
+        },
+        {
             "action": "storage_migration",
             "reason": "persistence surface changed",
             "status": "required",
@@ -1013,6 +1025,16 @@ binding customerStore {
             "reason": "API operation surface changed",
             "status": "required",
             "subject": "api_operation:customer.Customer@1:getCustomer",
+        },
+        {
+            "action": "replay",
+            "causal_path": [
+                "customer.CustomerEvent@1",
+                "event:customer.CustomerEvent@1",
+            ],
+            "reason": "event surface changed",
+            "status": "required",
+            "subject": "event:customer.CustomerEvent@1",
         },
         {
             "action": "storage_migration",

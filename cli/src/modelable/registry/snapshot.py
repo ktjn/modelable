@@ -35,6 +35,7 @@ from modelable.consequence import (
     ACTION_CONSUMER_UPDATE,
     ACTION_RECOMPILE,
     ACTION_REGENERATE,
+    ACTION_REPLAY,
     ACTION_STORAGE_MIGRATION,
     Consequence,
     build_projection_consequences,
@@ -1242,6 +1243,10 @@ def _surface_consequences(current: Any, candidate: Any) -> list[Consequence]:
                 action = ACTION_STORAGE_MIGRATION
                 subject = ref
                 reason = "persistence surface changed"
+            elif kind == "event":
+                action = ACTION_REPLAY
+                subject = str(new["id"])
+                reason = "event surface changed"
             else:
                 action = ACTION_CONSUMER_UPDATE
                 subject = str(new["id"])

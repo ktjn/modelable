@@ -251,6 +251,7 @@ binding customerStore {
         {
             "id": "event:customer.CustomerEvent@1",
             "kind": "event",
+            "operations": ["created", "updated"],
             "ref": "customer.CustomerEvent@1",
         },
         {
