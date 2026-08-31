@@ -25,12 +25,16 @@ from modelable.parser.ir import (
     latest_semantic_types,
 )
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 
 def emit_go(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit Go source files for every model and projection version."""
     artifacts: list[EmittedArtifact] = []
-    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
+    plans = {
+        (plan["domain"], plan["projection"], plan["version"]): plan
+        for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
+    }
     module_name = _go_module_name(workspace.mdl)
     artifacts.append(_emit_go_mod(workspace.mdl, out_dir))
     for domain in workspace.mdl.domains:

@@ -9,6 +9,35 @@ from modelable.compiler.workspace import load_workspace
 from modelable.emitters.go import emit_go
 from modelable.emitters.go_plan import emit_go_projection_plan
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
+
+
+def test_emit_go_requests_v1_plan_documents(tmp_path, monkeypatch):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    customerId: uuid
+  }
+  projection CustomerView @ 1 from customer.Customer @ 1 as c {
+    customerId <- c.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, str]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.go.build_plan_documents", observe_plan_request)
+
+    emit_go(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_emit_go_model_and_projection(tmp_path):
@@ -100,7 +129,9 @@ domain customer {
         encoding="utf-8",
     )
     workspace = load_workspace(tmp_path)
-    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerView")
+    plan = next(
+        item for item in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA) if item["projection"] == "CustomerView"
+    )
     existing = next(item for item in emit_go(workspace, tmp_path / "out") if item.ref == "customer.CustomerView@1")
 
     migrated = emit_go_projection_plan(plan, tmp_path / "out")

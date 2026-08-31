@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- The Go emitter now consumes normalized `modelable.plan/v1` documents through
+  its parser-free projection renderer.
+
 - The TypeScript emitter now consumes normalized `modelable.plan/v1` documents
   through its parser-free projection renderer.
 
