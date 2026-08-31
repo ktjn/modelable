@@ -118,3 +118,13 @@ def test_usage_protocol_rejects_unknown_surface_kind() -> None:
 
     with pytest.raises(protocol.UsageProtocolError, match=r"surface.*kind"):
         protocol.validate_usage_manifest(manifest)
+
+
+def test_usage_protocol_accepts_legacy_event_surface_without_operations() -> None:
+    protocol = _protocol()
+    manifest = _manifest()
+    manifest["surfaces"] = [
+        {"id": "event:customer.CustomerEvent@1", "kind": "event", "ref": "customer.CustomerEvent@1"}
+    ]
+
+    assert protocol.validate_usage_manifest(manifest)["surfaces"] == manifest["surfaces"]

@@ -97,9 +97,9 @@ def serialize_usage_manifest(document: object) -> str:
     for value in cast(list[object], validated.get("surfaces", [])):
         surface = cast(dict[str, object], value)
         normalized_surface = {key: surface[key] for key in ("id", "kind", "ref") if key in surface}
-        for key in ("name", "method", "path", "adapter", "table"):
+        for key in ("name", "method", "path", "adapter", "table", "operations"):
             if key in surface:
-                normalized_surface[key] = surface[key]
+                normalized_surface[key] = sorted(cast(list[str], surface[key])) if key == "operations" else surface[key]
         normalized_surfaces.append(normalized_surface)
     normalized = {
         "$schema": validated["$schema"],
@@ -207,7 +207,15 @@ def _validate_surface(value: object, name: str, seen: set[str]) -> None:
             raise UsageProtocolError(f"{name}.method must be a supported HTTP method")
         _require_string(surface, "path")
     elif kind == "event":
-        _require_exact_keys(surface, {"id", "kind", "ref"}, name)
+        _require_exact_keys(surface, {"id", "kind", "ref", "operations"} & set(surface), name)
+        if "operations" in surface:
+            operations = surface["operations"]
+            if (
+                not isinstance(operations, list)
+                or not operations
+                or not all(isinstance(operation, str) and operation for operation in operations)
+            ):
+                raise UsageProtocolError(f"{name}.operations must be a non-empty string array")
     elif kind == "storage":
         _require_exact_keys(surface, {"id", "kind", "ref", "adapter", "table"} & set(surface), name)
         _require_string(surface, "adapter")
