@@ -402,6 +402,12 @@ It should already be deterministic, JSON-compatible, schema-tagged, and suitable
 
 The v1 plan contains normalized declarations, resolved nominal references, projections, derivation/lineage, compatibility-relevant semantic facts, and target-neutral generation facts.
 
+The current protocol implementation accepts the v1 envelope with the same
+normalized shape as v0 while the stable shape is frozen. The standalone
+protocol boundary can deterministically migrate a v0 document to v1 and
+records `modelable.plan/v0` in `planner_metadata.migrated_from`. Unknown plan
+schema versions are rejected rather than guessed.
+
 ## 13. Extension protocol
 
 Extensions depend on versioned protocols rather than compiler implementation classes.

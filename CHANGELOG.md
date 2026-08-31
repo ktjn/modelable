@@ -16,6 +16,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Plan documents now have a version-aware protocol boundary with deterministic
+  migration from `modelable.plan/v0` to the compatible `modelable.plan/v1`
+  envelope, including migration provenance.
+
 - Conversational target transforms now apply extension capability admission
   before emitting transformed artifacts.
 
