@@ -125,6 +125,79 @@ def test_offline_feature_fixture_rust_consumer_runs_locked_offline(tmp_path: Pat
     assert result.returncode == 0, f"cargo test failed\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
 
+def test_offline_feature_fixture_commands_use_snapshot_without_network(tmp_path: Path, monkeypatch) -> None:
+    producer_v1 = tmp_path / "producer-v1.mdl"
+    producer_v1.write_text(PRODUCER_V1.strip() + "\n", encoding="utf-8")
+    producer_v2 = tmp_path / "producer-v2.mdl"
+    producer_v2.write_text(PRODUCER_V2.strip() + "\n", encoding="utf-8")
+    candidate_v2 = tmp_path / "candidate-v2.mdl"
+    candidate_v2.write_text(
+        PRODUCER_V2.replace(
+            "  entity Customer @ 1 (additive) {\n    @key customerId: uuid\n    displayName: string\n  }\n",
+            "",
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(CONSUMER.strip() + "\n", encoding="utf-8")
+    snapshot = tmp_path / ".modelable"
+    runner = CliRunner()
+
+    def forbidden_network_call(*_args, **_kwargs):
+        raise AssertionError("offline feature qualification contacted the network")
+
+    monkeypatch.setattr("urllib.request.urlopen", forbidden_network_call)
+    resolved = runner.invoke(cli, ["registry", "resolve", str(producer_v1), "--out", str(snapshot)])
+    assert resolved.exit_code == 0, resolved.output
+
+    for arguments in (
+        ["validate", str(producer_v1)],
+        [
+            "compile",
+            str(consumer),
+            "--target",
+            "json-schema",
+            "--snapshot",
+            str(snapshot),
+            "--out",
+            str(tmp_path / "validated-artifacts"),
+        ],
+    ):
+        result = runner.invoke(cli, arguments)
+        assert result.exit_code == 0, f"{arguments}: {result.output}"
+
+    diff = runner.invoke(
+        cli,
+        ["registry", "diff", str(producer_v2), "--out", str(snapshot), "--format", "json"],
+    )
+    assert diff.exit_code == 0, diff.output
+    assert "customer.Customer@2 (model)" in json.loads(diff.output)["added"]
+
+    impact = runner.invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "customer.Customer@1",
+            "--to",
+            "customer.Customer@2",
+            "--path",
+            str(candidate_v2),
+            "--snapshot",
+            str(snapshot),
+            "--format",
+            "json",
+        ],
+    )
+    assert impact.exit_code == 0, impact.output
+    assert json.loads(impact.output)["consequences"]
+
+    rebuilt = runner.invoke(cli, ["registry", "rebuild-index", "--out", str(snapshot)])
+    assert rebuilt.exit_code == 0, rebuilt.output
+    assert (snapshot / "registry.db").exists()
+
+
 def _write_rust_consumer(tmp_path: Path) -> None:
     shutil.copytree(RUST_FIXTURE, tmp_path, dirs_exist_ok=True)
     source = tmp_path / "src"

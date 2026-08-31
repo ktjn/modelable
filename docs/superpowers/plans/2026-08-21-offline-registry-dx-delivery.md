@@ -141,7 +141,7 @@ separate modelable compile scenario per target.
 - [x] Keep the fixture intentionally tiny: one producer domain, one referenced
   model, one projection, and one Rust consumer crate. Do not turn this into a
   second golden-artifact matrix.
-- [ ] Resolve the exact dependency, rebuild the local registry index from the
+- [x] Resolve the exact dependency, rebuild the local registry index from the
   lock and objects, and run ordinary `validate`, `compile`, `diff`, and
   `impact` with network access disabled.
 - [x] Generate the consumer's Rust package from the resolved snapshot,
