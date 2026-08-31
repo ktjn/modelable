@@ -1776,10 +1776,11 @@ validation and target generation.
   changing local state. Its JSON output also includes required consumer-update
   and storage-migration actions for changed application surfaces, plus
   consequence facts with causal paths from the contract reference to each
-  affected surface. Newly added model versions are checked against the latest
-  prior locked version and add a direct `breaking` or `recompile` consequence
-  when compatibility work is required. Changed locked contract identities also
-  add required `recompile` consequences. Pass `--artifact-manifest FILE` to include
+  affected surface. Newly added model and projection versions are checked
+  against the latest prior locked version and add a direct `breaking` or
+  `recompile` consequence when compatibility work is required. Changed locked
+  contract identities also add required `recompile` consequences. Pass
+  `--artifact-manifest FILE` to include
   compiler output evidence; changed generated artifacts add required
   `regenerate` consequences.
 - `registry update --dry-run` resolves, validates, and diffs the candidate while

@@ -1097,6 +1097,46 @@ domain customer {
     } in snapshot_diff.usage["consequences"]
 
 
+def test_registry_diff_reports_breaking_consequence_for_added_incompatible_projection(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key
+    orderId: uuid
+    status: string
+  }
+  projection OrderView @ 1 from orders.Order @ 1 as o {
+    orderId <- o.orderId
+    status <- o.status
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "  projection OrderView @ 1 from orders.Order @ 1 as o {\n    orderId <- o.orderId\n    status <- o.status\n  }",
+            "  projection OrderView @ 1 from orders.Order @ 1 as o {\n    orderId <- o.orderId\n    status <- o.status\n  }\n  projection OrderView @ 2 from orders.Order @ 1 as o {\n    orderId <- o.orderId\n  }",
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    assert {
+        "action": "breaking",
+        "causal_path": ["orders.OrderView@1", "orders.OrderView@2"],
+        "reason": "direct projection change",
+        "status": "breaking",
+        "subject": "orders.OrderView@2",
+    } in snapshot_diff.usage["consequences"]
+
+
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
     runner = CliRunner()
     output_dir = tmp_path / ".modelable"

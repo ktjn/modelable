@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from modelable.compat.checker import check_model_version_compatibility
+from modelable.compat.checker import check_model_version_compatibility, check_projection_version_compatibility
 from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import (
     Workspace,
@@ -1119,12 +1119,17 @@ def _compatibility_consequences(
     current_dir: Path, candidate_dir: Path, added: list[tuple[str, str]]
 ) -> list[Consequence]:
     candidate_workspace = load_snapshot_workspace(candidate_dir)
-    current_model_versions: dict[tuple[str, str], list[int]] = {}
+    current_versions: dict[tuple[str, str, str], list[int]] = {}
     current_lock = _load_lock_payload(SnapshotPaths(current_dir).lock)
     for entry in _lock_objects(current_lock):
         kind = entry.get("kind")
         identity = entry.get("identity")
-        if kind != "model" or not isinstance(identity, str) or "@" not in identity or "." not in identity:
+        if (
+            kind not in {"model", "projection"}
+            or not isinstance(identity, str)
+            or "@" not in identity
+            or "." not in identity
+        ):
             continue
         qualified_name, version_text = identity.rsplit("@", 1)
         try:
@@ -1132,10 +1137,10 @@ def _compatibility_consequences(
         except ValueError:
             continue
         domain_name, model_name = qualified_name.rsplit(".", 1)
-        current_model_versions.setdefault((domain_name, model_name), []).append(version)
+        current_versions.setdefault((str(kind), domain_name, model_name), []).append(version)
     consequences: list[Consequence] = []
     for kind, identity in added:
-        if kind != "model" or "@" not in identity or "." not in identity:
+        if kind not in {"model", "projection"} or "@" not in identity or "." not in identity:
             continue
         qualified_name, version_text = identity.rsplit("@", 1)
         domain_name, model_name = qualified_name.rsplit(".", 1)
@@ -1144,21 +1149,28 @@ def _compatibility_consequences(
         except ValueError:
             continue
         previous_versions = [
-            version for version in current_model_versions.get((domain_name, model_name), ()) if version < to_version
+            version for version in current_versions.get((kind, domain_name, model_name), ()) if version < to_version
         ]
         if not previous_versions:
             continue
         from_version = max(previous_versions)
-        report = check_model_version_compatibility(
-            candidate_workspace.mdl, domain_name, model_name, from_version, to_version
-        )
-        action = ACTION_BREAKING if report.status == "breaking" else ACTION_RECOMPILE
+        if kind == "model":
+            status = check_model_version_compatibility(
+                candidate_workspace.mdl, domain_name, model_name, from_version, to_version
+            ).status
+            reason = "direct contract change"
+        else:
+            status = check_projection_version_compatibility(
+                candidate_workspace.mdl, domain_name, model_name, from_version, to_version
+            ).status
+            reason = "direct projection change"
+        action = ACTION_BREAKING if status == "breaking" else ACTION_RECOMPILE
         consequences.append(
             Consequence(
                 action=action,
                 subject=identity,
-                status=report.status,
-                reason="direct contract change",
+                status=status,
+                reason=reason,
                 causal_path=(f"{domain_name}.{model_name}@{from_version}", identity),
             )
         )
