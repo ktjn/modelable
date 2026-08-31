@@ -262,6 +262,60 @@ domain customer {
     assert validate_consequence_graph(payload["consequence_graph"]) == payload["consequence_graph"]
 
 
+def test_impact_json_reports_enum_exhaustive_consumer_review(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  semantic Status @ 1 (additive): enum(active, blocked)
+  semantic Status @ 2 (additive): enum(active, blocked, deleted)
+  entity Order @ 1 (additive) {
+    @key
+    orderId: uuid
+    status: Status @ 1
+  }
+  entity Order @ 2 (breaking) {
+    @key
+    orderId: uuid
+    status: Status @ 2
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "orders.Order@1",
+            "--to",
+            "orders.Order@2",
+            "--path",
+            str(source),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert {
+        "action": "consumer_update",
+        "causal_path": [
+            "orders.Order@1",
+            "orders.Order@2",
+            "enum-exhaustive-match:orders.Order:status",
+        ],
+        "reason": "Status@2: adds member 'deleted' (exhaustive consumers must extend their handling)",
+        "status": "review_required",
+        "subject": "enum-exhaustive-match:orders.Order:status",
+    } in payload["consequences"]
+    assert validate_consequence_graph(payload["consequence_graph"]) == payload["consequence_graph"]
+
+
 def test_impact_json_reports_source_consequence_for_added_optional_field(tmp_path: Path) -> None:
     source = tmp_path / "workspace.mdl"
     source.write_text(

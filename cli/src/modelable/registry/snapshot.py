@@ -40,6 +40,7 @@ from modelable.consequence import (
     ACTION_REGENERATE,
     ACTION_STORAGE_MIGRATION,
     Consequence,
+    build_enum_consequences,
     build_projection_consequences,
     build_target_consequences,
 )
@@ -1199,6 +1200,7 @@ def _compatibility_consequences(
             )
         )
         if kind == "model":
+            consequences.extend(build_enum_consequences(report))
             semantic_report = compare_semantic_compatibility(report)
             consequences.extend(build_target_consequences(report, semantic_report))
             storage_report = compare_model_storage_migration(report)

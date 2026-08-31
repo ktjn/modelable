@@ -41,6 +41,7 @@ class FieldChange:
     # non-breaking when the referenced declaration diff only adds members).
     breaking_override: bool | None = None
     note: str = ""
+    consequences: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
