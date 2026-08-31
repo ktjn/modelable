@@ -810,7 +810,7 @@ def evaluate_registry_policy(snapshot_diff: SnapshotDiff, blocked_actions: tuple
             str(consequence["action"])
             for consequence in consequences
             if isinstance(consequence, dict)
-            and consequence.get("status") == "required"
+            and consequence.get("status") != "compatible"
             and consequence.get("action") in blocked
         }
     )
