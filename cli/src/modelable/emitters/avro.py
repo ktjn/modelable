@@ -29,6 +29,7 @@ from modelable.parser.ir import (
     VersionMin,
 )
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 from modelable.registry.resolver import resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
 
 
@@ -43,7 +44,10 @@ class _AvroContext:
 def emit_avro(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifact]:
     """Emit deterministic Avro record schemas for models and event projections."""
     artifacts: list[EmittedArtifact] = []
-    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
+    plans = {
+        (plan["domain"], plan["projection"], plan["version"]): plan
+        for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
+    }
     for domain in sorted(workspace.mdl.domains, key=lambda item: item.name):
         for name in sorted(domain.models):
             for model_version in sorted(domain.models[name], key=lambda item: item.version):
