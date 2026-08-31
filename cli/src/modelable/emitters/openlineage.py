@@ -22,6 +22,7 @@ from modelable.parser.ir import (
     RefType,
 )
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 PRODUCER = "https://github.com/ktjn/modelable"
 RUN_EVENT_SCHEMA_URL = "https://openlineage.io/spec/1-0-5/OpenLineage.json#/definitions/RunEvent"
@@ -34,7 +35,7 @@ def emit_openlineage(workspace: Workspace, out_dir: Path) -> list[EmittedArtifac
     artifacts: list[EmittedArtifact] = []
     projection_artifacts = {
         f"{plan['domain']}.{plan['projection']}@{plan['version']}": emit_openlineage_plan(plan, out_dir)
-        for plan in build_plan_documents(workspace)
+        for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
     }
 
     for domain in workspace.mdl.domains:
