@@ -5,6 +5,8 @@ import json
 import shutil
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -16,6 +18,8 @@ from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.targets import list_implemented_codegen_targets
 
 RUST_FIXTURE = Path(__file__).parent / "fixtures" / "offline-rust-consumer"
+FAST_GENERATION_BUDGET_SECONDS = 30
+LANGUAGE_MATRIX_BUDGET_SECONDS = 120
 
 PRODUCER_V1 = """
 domain customer {
@@ -238,6 +242,7 @@ def test_offline_feature_fixture_compatible_v2_regenerates_all_targets(tmp_path:
     snapshot = tmp_path / ".modelable"
     runner = CliRunner()
 
+    lane_started = time.perf_counter()
     resolved = runner.invoke(cli, ["registry", "resolve", str(producer_v1), "--out", str(snapshot)])
     assert resolved.exit_code == 0, resolved.output
     baseline_outputs = _compile_feature_targets(runner, consumer_v1, snapshot, tmp_path / "baseline")
@@ -255,25 +260,36 @@ def test_offline_feature_fixture_compatible_v2_regenerates_all_targets(tmp_path:
     for target, output in candidate_outputs.items():
         _assert_artifact_manifest(output, target)
         assert (output / "modelable-artifact-manifest.json").read_bytes() != baseline_manifest_hashes[target]
+    generation_seconds = time.perf_counter() - lane_started
+    assert generation_seconds <= FAST_GENERATION_BUDGET_SECONDS, (
+        f"fast PR generation lane exceeded {FAST_GENERATION_BUDGET_SECONDS}s: {generation_seconds:.2f}s"
+    )
 
     _write_python_language_smoke(tmp_path, model_version=2)
-    _run_language_command([sys.executable, "smoke.py"], tmp_path, "python v2")
     _write_typescript_language_smoke(tmp_path, model_version=2)
-    _run_language_command(
-        [compiler_commands["typescript"], "--noEmit", "--strict", "smoke.ts"], tmp_path, "typescript v2"
-    )
     _write_java_language_smoke(tmp_path, model_version=2)
     java_files = [
         str(path) for root in (candidate_outputs["java"], tmp_path / "analytics") for path in root.rglob("*.java")
     ]
-    _run_language_command(["javac", "-d", "build-v2", *java_files], tmp_path, "java v2 compile")
-    _run_language_command(["java", "-cp", "build-v2", "analytics.Smoke"], tmp_path, "java v2 runtime")
     _write_go_language_smoke(candidate_outputs["go"], model_version=2)
-    _run_language_command(["go", "test", "./..."], candidate_outputs["go"], "go v2")
     _write_csharp_language_smoke(tmp_path, model_version=2)
-    _run_language_command(["dotnet", "run", "--project", "Smoke.csproj"], tmp_path, "csharp v2")
     _write_rust_consumer(tmp_path, model_version=2)
-    _run_language_command(["cargo", "test", "--quiet", "--locked", "--offline"], tmp_path, "rust v2")
+    matrix_started = time.perf_counter()
+    _run_language_matrix(
+        [
+            ([sys.executable, "smoke.py"], tmp_path, "python v2"),
+            ([compiler_commands["typescript"], "--noEmit", "--strict", "smoke.ts"], tmp_path, "typescript v2"),
+            (["javac", "-d", "build-v2", *java_files], tmp_path, "java v2 compile"),
+            (["go", "test", "./..."], candidate_outputs["go"], "go v2"),
+            (["dotnet", "run", "--project", "Smoke.csproj"], tmp_path, "csharp v2"),
+            (["cargo", "test", "--quiet", "--locked", "--offline"], tmp_path, "rust v2"),
+        ]
+    )
+    _run_language_command(["java", "-cp", "build-v2", "analytics.Smoke"], tmp_path, "java v2 runtime")
+    matrix_seconds = time.perf_counter() - matrix_started
+    assert matrix_seconds <= LANGUAGE_MATRIX_BUDGET_SECONDS, (
+        f"cached language smoke matrix exceeded {LANGUAGE_MATRIX_BUDGET_SECONDS}s: {matrix_seconds:.2f}s"
+    )
 
 
 def test_offline_feature_fixture_rust_consumer_runs_locked_offline(tmp_path: Path) -> None:
@@ -674,6 +690,30 @@ def _assert_artifact_manifest(output: Path, target: str) -> None:
 def _run_language_command(command: list[str], cwd: Path, label: str) -> None:
     result = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
     assert result.returncode == 0, f"{label} smoke failed\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+
+
+def _run_language_matrix(commands: list[tuple[list[str], Path, str]]) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=len(commands)) as executor:
+        futures = [executor.submit(_run_language_command, command, cwd, label) for command, cwd, label in commands]
+        for future in futures:
+            future.result()
+
+
+def test_language_matrix_runs_commands_in_parallel(monkeypatch, tmp_path: Path) -> None:
+    barrier = threading.Barrier(2)
+
+    def fake_run(_command: list[str], _cwd: Path, _label: str) -> None:
+        barrier.wait(timeout=1)
+
+    monkeypatch.setattr(sys.modules[__name__], "_run_language_command", fake_run)
+    _run_language_matrix(
+        [
+            (["first"], tmp_path, "first"),
+            (["second"], tmp_path, "second"),
+        ]
+    )
 
 
 def _write_python_language_smoke(tmp_path: Path, model_version: int = 1) -> None:

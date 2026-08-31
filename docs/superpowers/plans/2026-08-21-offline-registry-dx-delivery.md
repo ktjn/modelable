@@ -186,7 +186,7 @@ separate modelable compile scenario per target.
   acquisition: use a locked/vendorable fixture or a prepared Cargo cache so
   `cargo test --offline` validates generated code without making the compiler's
   offline guarantee ambiguous.
-- [ ] Keep the fast PR lane bounded: one Modelable load/validation, one
+- [x] Keep the fast PR lane bounded: one Modelable load/validation, one
   baseline generation pass plus one compatible-candidate generation pass for
   all targets, one snapshot transition, one impact report, and cached
   structural checks, with a 30-second warm-run budget. Run the language
