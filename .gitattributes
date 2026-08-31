@@ -1,2 +1,3 @@
 cli/tests/conformance/browser/*.mdl text eol=lf
 web/public/fixtures/*.mdl text eol=lf
+cli/tests/fixtures/offline-rust-consumer/vendor/** -text
