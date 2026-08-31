@@ -89,7 +89,8 @@ explicitly listed for acceptance before implementation.
   usage manifests.
 - [ ] Calculate consequences and apply configured policy to the staged result.
 - [x] Show generated-artifact regeneration consequences from usage manifests.
-- [ ] Show exact dependency and remaining required-action changes.
+- [x] Show exact dependency changes in the staged update diff.
+- [ ] Show remaining required-action changes.
 - [ ] Replace lock/object state atomically only after validation and policy
   acceptance; retain the candidate for review when rejected.
 - [x] Add failure-injection tests proving that rejected or interrupted updates
