@@ -628,6 +628,25 @@ domain analytics {
     compatible_composed = load_workspace_with_snapshot(consumer_workspace, compatible_dir)
     assert compatible_composed.errors == []
     assert {domain.name for domain in compatible_composed.mdl.domains} == {"analytics", "customer"}
+    compatible_diff = diff_workspace_snapshot(compatible_workspace, current_dir)
+    assert {
+        "action": "recompile",
+        "causal_path": ["customer.Customer@1", "customer.Customer@2"],
+        "reason": "direct contract change",
+        "status": "compatible",
+        "subject": "customer.Customer@2",
+    } in compatible_diff.usage["consequences"]
+    assert {
+        "action": "recompile",
+        "causal_path": [
+            "customer.Customer@1",
+            "customer.Customer@2",
+            "source:customer.Customer:added_field",
+        ],
+        "reason": "added_field segment",
+        "status": "compatible",
+        "subject": "source:customer.Customer:added_field",
+    } in compatible_diff.usage["consequences"]
 
     breaking_workspace = load_workspace(provider_breaking)
     breaking_report = check_model_version_compatibility(breaking_workspace.mdl, "customer", "Customer", 1, 2)
@@ -639,6 +658,14 @@ domain analytics {
     assert breaking_cli.exit_code != 0
     assert "status: breaking" in breaking_cli.output
     assert analyze_impact(current_composed.mdl, breaking_report, compatible_dependents[0]).status == "broken"
+    breaking_diff = diff_workspace_snapshot(breaking_workspace, current_dir)
+    assert {
+        "action": "breaking",
+        "causal_path": ["customer.Customer@1", "customer.Customer@2"],
+        "reason": "direct contract change",
+        "status": "breaking",
+        "subject": "customer.Customer@2",
+    } in breaking_diff.usage["consequences"]
     assert json.loads((current_dir / "registry.lock").read_text(encoding="utf-8"))["objects"][-1]["identity"] == (
         "customer.Customer@1"
     )
