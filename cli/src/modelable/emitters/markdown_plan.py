@@ -1,4 +1,4 @@
-"""Markdown projection emission from validated ``modelable.plan/v0`` documents."""
+"""Markdown projection emission from validated ``modelable.plan/v1`` documents."""
 
 from __future__ import annotations
 
