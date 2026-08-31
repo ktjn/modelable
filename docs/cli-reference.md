@@ -1831,9 +1831,9 @@ validation and target generation.
 
 The lock and object files are the durable snapshot; `registry.db` remains a
 rebuildable compiler index. Lock requirements retain the requested version
-selector and the exact resolved identity, signature, and object hash used
-offline. Verification also checks that this list is complete and matches every
-dependency edge in the locked objects.
+selector, exact resolved identity, source provenance, signature, and object
+hash used offline. Verification also checks that this list is complete and
+matches every dependency edge in the locked objects.
 Verification also rejects conflicting content hashes for one logical identity.
 Semantic and enum-projection objects retain source paths and hashes when
 resolved from a local file. Snapshot objects also retain the domain metadata

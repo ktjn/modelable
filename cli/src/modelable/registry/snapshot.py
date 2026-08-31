@@ -380,6 +380,8 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                     errors.append(f"registry lock requirement signature mismatch for {source} -> {resolved}")
                 if target.get("content_hash") != requirement.get("object"):
                     errors.append(f"registry lock requirement object mismatch for {source} -> {resolved}")
+                if target.get("provenance") != requirement.get("provenance"):
+                    errors.append(f"registry lock requirement provenance mismatch for {source} -> {resolved}")
             try:
                 expected_requirements = _build_requirements(objects)
             except ValueError as exc:
@@ -986,6 +988,7 @@ def _write_enum_object(
         "signature": payload["signature"],
         "content_hash": content_hash,
         "dependencies": dependencies,
+        "provenance": payload["provenance"],
     }
 
 
@@ -1033,6 +1036,7 @@ def _write_object(
         "signature": payload["signature"],
         "content_hash": content_hash,
         "dependencies": dependencies,
+        "provenance": payload["provenance"],
     }
 
 
@@ -1439,6 +1443,7 @@ def _build_requirements(entries: list[dict[str, Any]]) -> list[dict[str, str]]:
                     "resolved": str(resolved["identity"]),
                     "signature": str(resolved["signature"]),
                     "object": str(resolved["content_hash"]),
+                    "provenance": resolved["provenance"],
                 }
             )
     return sorted(requirements, key=lambda item: (item["from"], item["requested"], item["resolved"]))
