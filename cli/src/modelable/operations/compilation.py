@@ -1833,12 +1833,9 @@ def _write_artifact(artifact: EmittedArtifact) -> None:
     if isinstance(artifact.content, bytes):
         path.write_bytes(artifact.content)
     elif isinstance(artifact.content, dict):
-        path.write_text(
-            json.dumps(artifact.content, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
+        path.write_bytes((json.dumps(artifact.content, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
     else:
-        path.write_text(artifact.content, encoding="utf-8")
+        path.write_bytes(artifact.content.encode("utf-8"))
 
 
 def _emit_protobuf_with_descriptors(

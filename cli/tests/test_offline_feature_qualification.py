@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
 from pathlib import Path
 
 from click.testing import CliRunner
+from test_golden_artifacts import _assert_artifact_structurally_valid
 
 from modelable.cli import cli
+from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.targets import list_implemented_codegen_targets
 
 RUST_FIXTURE = Path(__file__).parent / "fixtures" / "offline-rust-consumer"
@@ -86,7 +89,7 @@ def test_offline_feature_fixture_compiles_consumer_for_every_implemented_target(
             ],
         )
         assert compiled.exit_code == 0, f"{target.name}: {compiled.output}"
-        assert any(output.rglob("*")), f"{target.name} emitted no artifacts"
+        _assert_artifact_manifest(output, target.name)
 
 
 def test_offline_feature_fixture_rust_consumer_runs_locked_offline(tmp_path: Path) -> None:
@@ -232,3 +235,37 @@ mod tests {
         + "\n",
         encoding="utf-8",
     )
+
+
+def _assert_artifact_manifest(output: Path, target: str) -> None:
+    manifest_path = output / "modelable-artifact-manifest.json"
+    assert manifest_path.is_file(), f"{target} did not write an artifact manifest"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["format"] == "modelable.artifact-manifest.v1"
+    assert manifest["target"]["name"] == target
+    artifacts = manifest["artifacts"]
+    assert artifacts, f"{target} emitted no artifacts"
+
+    for entry in artifacts:
+        relative_path = Path(entry["path"])
+        assert not relative_path.is_absolute()
+        artifact_path = output / relative_path
+        assert artifact_path.resolve().is_relative_to(output.resolve())
+        assert artifact_path.is_file(), f"{target} manifest references missing artifact {entry['path']}"
+        content = artifact_path.read_bytes()
+        assert content, f"{target} emitted empty artifact {entry['path']}"
+        assert entry["ref"]
+        assert hashlib.sha256(content).hexdigest() == entry["sha256"]
+        try:
+            rendered = content.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise AssertionError(f"{target} emitted non-UTF-8 artifact {entry['path']}") from error
+        artifact = EmittedArtifact(
+            target=target,
+            ref=entry["ref"],
+            artifact_id=entry["ref"],
+            path=relative_path,
+            content=rendered,
+            content_hash=entry["sha256"],
+        )
+        _assert_artifact_structurally_valid(target, artifact, rendered)
