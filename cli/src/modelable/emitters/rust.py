@@ -39,7 +39,7 @@ from modelable.parser.ir import (
     latest_semantic_types,
 )
 from modelable.planner.plans import build_plan_documents
-from modelable.planner.protocol import PlanDocument
+from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanDocument
 from modelable.registry.resolver import (
     AmbiguousSemanticTypeError,
     resolve_enum_type_ref,
@@ -140,7 +140,8 @@ def emit_rust(
     _validate_rust_enum_projection_versions(workspace)
     package_graph = build_package_graph(workspace.mdl)
     plans: dict[tuple[object, object, object], PlanDocument] = {
-        (plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)
+        (plan["domain"], plan["projection"], plan["version"]): plan
+        for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
     }
     if package_graph.package_for_domain:
         return _emit_rust_packages(workspace, out_dir, package_graph, registry_ids=registry_ids, plans=plans)

@@ -13,6 +13,7 @@ from modelable.compiler.workspace import load_workspace
 from modelable.emitters.rust import emit_rust
 from modelable.emitters.rust_plan import emit_rust_projection_plan
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 from modelable.registry.signature import compute_version_signature
 
 
@@ -26,6 +27,34 @@ def _emitted_schema_signature(content: str) -> str:
     byte_literals = re.findall(r"0x([0-9a-f]{2})", match.group(1))
     assert len(byte_literals) == 32
     return "".join(byte_literals)
+
+
+def test_emit_rust_requests_v1_plan_documents(tmp_path, monkeypatch):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    customerId: uuid
+  }
+  projection CustomerView @ 1 from customer.Customer @ 1 as c {
+    customerId <- c.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, str]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.rust.build_plan_documents", observe_plan_request)
+
+    emit_rust(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_emit_rust_model_and_projection(tmp_path):
@@ -564,7 +593,9 @@ domain customer {
     from modelable.compiler.workspace import load_workspace
 
     workspace = load_workspace(tmp_path)
-    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerView")
+    plan = next(
+        item for item in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA) if item["projection"] == "CustomerView"
+    )
     projection_version = workspace.mdl.domains[0].projections["CustomerView"][0]
     migrated = emit_rust_projection_plan(
         plan,
