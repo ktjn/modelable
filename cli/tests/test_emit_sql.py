@@ -9,6 +9,31 @@ from modelable.emitters.sql import emit_sql
 from modelable.emitters.sql_plan import emit_sql_projection_plan
 from modelable.overlays import OverlayError, parse_overlay
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
+
+
+def test_sql_emitter_requests_v1_plan_documents(monkeypatch, tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain alerts {
+  entity AlertRule @ 1 (additive) { @key ruleId: uuid }
+  projection AlertRuleRow @ 1 from alerts.AlertRule @ 1 as a { ruleId <- a.ruleId }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, str]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.sql.build_plan_documents", observe_plan_request)
+
+    emit_sql(workspace, tmp_path / "out", "postgres")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_emit_sql_postgres_basic(tmp_path):
