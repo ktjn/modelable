@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- `modelable registry usage --format manifest` now includes deterministic,
+  protocol-validated API-operation, event, and persistence surface declarations.
 - `modelable impact` can now compose a validated local registry snapshot with
   candidate source for offline dependent-impact analysis.
 - `modelable impact` can now include validated usage manifests to report known

@@ -51,9 +51,17 @@ def validate_usage_manifest(document: object) -> UsageManifest:
             _require_exact_keys(package, {"id", "name"}, f"packages[{index}]")
             _require_string(package, "id")
             _require_string(package, "name")
+    surfaces = document.get("surfaces")
+    if surfaces is not None:
+        if not isinstance(surfaces, list):
+            raise UsageProtocolError("surfaces must be a JSON array")
+        surface_ids: set[str] = set()
+        for index, surface in enumerate(surfaces):
+            _validate_surface(surface, f"surfaces[{index}]", surface_ids)
     _require_exact_keys(
         document,
-        {"$schema", "kind", "application", "references", "application_id", "packages", "artifacts"} & set(document),
+        {"$schema", "kind", "application", "references", "application_id", "packages", "artifacts", "surfaces"}
+        & set(document),
         "usage manifest",
     )
     return cast(UsageManifest, document)
@@ -85,6 +93,14 @@ def serialize_usage_manifest(document: object) -> str:
         if "ref" in artifact:
             normalized_artifact["ref"] = artifact["ref"]
         normalized_artifacts.append(normalized_artifact)
+    normalized_surfaces = []
+    for value in cast(list[object], validated.get("surfaces", [])):
+        surface = cast(dict[str, object], value)
+        normalized_surface = {key: surface[key] for key in ("id", "kind", "ref") if key in surface}
+        for key in ("name", "method", "path", "adapter", "table"):
+            if key in surface:
+                normalized_surface[key] = surface[key]
+        normalized_surfaces.append(normalized_surface)
     normalized = {
         "$schema": validated["$schema"],
         "kind": validated["kind"],
@@ -99,6 +115,8 @@ def serialize_usage_manifest(document: object) -> str:
         normalized["artifacts"] = sorted(
             normalized_artifacts, key=lambda item: (cast(str, item["target"]), cast(str, item["path"]))
         )
+    if "surfaces" in validated:
+        normalized["surfaces"] = sorted(normalized_surfaces, key=lambda item: cast(str, item["id"]))
     try:
         return json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n"
     except (TypeError, ValueError) as error:
@@ -167,6 +185,35 @@ def _validate_artifact(value: object, name: str, seen: set[tuple[str, str]]) -> 
         ref = _require_string(artifact, "ref")
         if _DECLARATION_REF.fullmatch(ref) is None:
             raise UsageProtocolError(f"{name}.ref must be a canonical declaration reference")
+
+
+def _validate_surface(value: object, name: str, seen: set[str]) -> None:
+    if not isinstance(value, dict):
+        raise UsageProtocolError(f"{name} must be a JSON object")
+    surface = cast(dict[str, object], value)
+    kind = _require_string(surface, "kind")
+    surface_id = _require_string(surface, "id")
+    if surface_id in seen:
+        raise UsageProtocolError(f"duplicate surface {surface_id!r}")
+    seen.add(surface_id)
+    ref = _require_string(surface, "ref")
+    if _DECLARATION_REF.fullmatch(ref) is None:
+        raise UsageProtocolError(f"{name}.ref must be a canonical declaration reference")
+    if kind == "api_operation":
+        _require_exact_keys(surface, {"id", "kind", "ref", "name", "method", "path"}, name)
+        _require_string(surface, "name")
+        method = _require_string(surface, "method")
+        if method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
+            raise UsageProtocolError(f"{name}.method must be a supported HTTP method")
+        _require_string(surface, "path")
+    elif kind == "event":
+        _require_exact_keys(surface, {"id", "kind", "ref"}, name)
+    elif kind == "storage":
+        _require_exact_keys(surface, {"id", "kind", "ref", "adapter", "table"} & set(surface), name)
+        _require_string(surface, "adapter")
+        _require_string_if_present(surface, "table")
+    else:
+        raise UsageProtocolError(f"{name}.kind must be api_operation, event, or storage")
 
 
 def _require_string(mapping: dict[str, object], name: str, *, expected: str | None = None) -> str:

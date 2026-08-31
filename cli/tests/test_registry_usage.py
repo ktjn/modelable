@@ -202,6 +202,67 @@ domain orders {
     assert reference["fields"] == []
 
 
+def test_usage_manifest_includes_application_surface_declarations(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+  }
+  projection CustomerReply @ 1 from customer.Customer @ 1 as c {
+    customerId <- c.customerId
+  }
+  auto projections Customer @ 1 {
+    event on [created, updated]
+  }
+  api Customer @ 1 {
+    operation "getCustomer" {
+      method: GET
+      path: "/customers/{id}"
+      responses {
+        200: CustomerReply @ 1
+      }
+    }
+  }
+}
+binding customerStore {
+  adapter: postgres
+  model: customer.Customer @ 1
+  table: "customers"
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    manifest = build_usage_manifest(load_workspace(source))
+
+    assert manifest["surfaces"] == [
+        {
+            "id": "api_operation:customer.Customer@1:getCustomer",
+            "kind": "api_operation",
+            "method": "GET",
+            "name": "getCustomer",
+            "path": "/customers/{id}",
+            "ref": "customer.Customer@1",
+        },
+        {
+            "id": "event:customer.CustomerEvent@1",
+            "kind": "event",
+            "ref": "customer.CustomerEvent@1",
+        },
+        {
+            "adapter": "postgres",
+            "id": "storage:postgres:customers",
+            "kind": "storage",
+            "ref": "customer.Customer@1",
+            "table": "customers",
+        },
+    ]
+
+
 def test_usage_graph_links_event_projections_to_their_source_models(tmp_path: Path) -> None:
     source = tmp_path / "models.mdl"
     source.write_text(

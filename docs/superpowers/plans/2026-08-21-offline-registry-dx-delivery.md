@@ -70,10 +70,10 @@ explicitly listed for acceptance before implementation.
 ## Slice 2 — complete cross-application usage and consequence analysis
 
 - [x] Add stable workspace/package application identity.
-- [ ] Derive usage edges from model references, projections, API operations,
+- [x] Derive usage edges from model references, projections, API operations,
   events, and persistence surfaces.
 - [x] Derive generated-artifact usage edges from compiler artifact manifests.
-- [ ] Export a compact versioned usage manifest that can be aggregated without
+- [x] Export a compact versioned usage manifest that can be aggregated without
   loading every application source tree.
 - [ ] Generalize existing compatibility findings into consequence facts with
   causal paths and actions such as regeneration, consumer update, migration,
