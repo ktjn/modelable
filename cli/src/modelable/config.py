@@ -12,6 +12,21 @@ BUILTIN_DEFAULTS: dict[str, Any] = {
     "generate_conversions": True,
 }
 
+REGISTRY_POLICY_ACTIONS = frozenset(
+    {
+        "breaking",
+        "consumer_update",
+        "data_backfill",
+        "event_replay",
+        "governance_review",
+        "no_action",
+        "projection_rebuild",
+        "recompile",
+        "regenerate",
+        "storage_migration",
+    }
+)
+
 
 @dataclass(frozen=True)
 class ConfigValue:
@@ -39,6 +54,12 @@ class ModelableConfig:
             raise ValueError(f"[targets.{target}].overlay must be workspace-relative")
         return path
 
+    def blocked_registry_actions(self) -> tuple[str, ...]:
+        configured = self.values.get("registry.blocked_actions")
+        if configured is None:
+            return ()
+        return tuple(configured.value)
+
     def explain(self, target: str | None = None) -> dict[str, Any]:
         result = {name: value.as_dict() for name, value in sorted(self.values.items())}
         if target is not None:
@@ -49,6 +70,7 @@ class ModelableConfig:
 def load_config(path: str | Path) -> ModelableConfig:
     config_path = _find_config_path(Path(path))
     values = {name: ConfigValue(value=value, provenance="built-in default") for name, value in BUILTIN_DEFAULTS.items()}
+    values["registry.blocked_actions"] = ConfigValue([], "built-in default")
     if config_path is None:
         return ModelableConfig(None, values)
 
@@ -72,6 +94,18 @@ def load_config(path: str | Path) -> ModelableConfig:
                     values[f"targets.{target_name}.{name}"] = ConfigValue(
                         value, f"{config_path} [targets.{target_name}]"
                     )
+    registry = data.get("registry", {})
+    if not isinstance(registry, dict):
+        raise ValueError("[registry] in modelable.toml must be a table")
+    blocked_actions = registry.get("blocked_actions", [])
+    if not isinstance(blocked_actions, list) or not all(isinstance(item, str) for item in blocked_actions):
+        raise ValueError("[registry].blocked_actions must be an array of action names")
+    unknown_actions = sorted(set(blocked_actions) - REGISTRY_POLICY_ACTIONS)
+    if unknown_actions:
+        raise ValueError(f"unsupported registry blocked action(s): {', '.join(unknown_actions)}")
+    if len(set(blocked_actions)) != len(blocked_actions):
+        raise ValueError("[registry].blocked_actions contains duplicate actions")
+    values["registry.blocked_actions"] = ConfigValue(sorted(blocked_actions), f"{config_path} [registry]")
     target_entries = data.get("target", [])
     if not isinstance(target_entries, list):
         raise ValueError("[[target]] entries in modelable.toml must be tables")
