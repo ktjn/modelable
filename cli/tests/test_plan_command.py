@@ -5,6 +5,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from modelable.cli import cli
+from modelable.planner.protocol import PLAN_V1_SCHEMA, load_plan, migrate_plan, serialize_plan
 
 
 def _fixture() -> Path:
@@ -36,3 +37,18 @@ def test_plan_validate_reports_protocol_errors(tmp_path: Path) -> None:
     assert result.exit_code == 1
     assert "Error:" in result.output
     assert "unsupported plan schema 'modelable.plan/v2'" in result.output
+
+
+def test_plan_migrate_emits_canonical_v1_json() -> None:
+    result = CliRunner().invoke(cli, ["plan", "migrate", str(_fixture()), "--to", PLAN_V1_SCHEMA])
+
+    assert result.exit_code == 0, result.output
+    expected = serialize_plan(migrate_plan(load_plan(_fixture()), PLAN_V1_SCHEMA))
+    assert result.output == expected
+
+
+def test_plan_migrate_rejects_unsupported_target() -> None:
+    result = CliRunner().invoke(cli, ["plan", "migrate", str(_fixture()), "--to", "modelable.plan/v2"])
+
+    assert result.exit_code != 0
+    assert "Invalid value for '--to'" in result.output
