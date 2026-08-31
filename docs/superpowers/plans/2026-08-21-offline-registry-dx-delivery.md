@@ -107,7 +107,7 @@ explicitly listed for acceptance before implementation.
 - [ ] Calculate all consequence facts and actions.
 - [x] Apply configured blocked-action policy to changed surface and generated-
   artifact consequences.
-- [ ] Apply the full configured policy to the staged result.
+- [x] Apply the full configured policy to the staged result.
 - [x] Show generated-artifact regeneration consequences from usage manifests.
 - [x] Show exact dependency changes in the staged update diff.
 - [x] Show remaining required-action changes.

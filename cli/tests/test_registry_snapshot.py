@@ -1281,6 +1281,42 @@ domain orders {
     ]
 
 
+def test_registry_policy_blocks_review_required_compatibility_consequence(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key
+    orderId: uuid
+    status: string
+  }
+  projection OrderView @ 1 from orders.Order @ 1 as o {
+    access {
+      entity orders [read, project]
+    }
+    orderId <- o.orderId
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "    access {\n      entity orders [read, project]\n    }\n    orderId <- o.orderId",
+            "    access {\n      entity orders [read, project]\n    }\n    orderId <- o.orderId\n  }\n  projection OrderView @ 2 from orders.Order @ 1 as o {\n    access {\n      entity orders [read, project]\n      entity analytics [read]\n    }\n    orderId <- o.orderId",
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    assert evaluate_registry_policy(snapshot_diff, ("governance_review",)) == ["governance_review"]
+
+
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
     runner = CliRunner()
     output_dir = tmp_path / ".modelable"

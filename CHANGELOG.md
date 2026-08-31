@@ -6,6 +6,9 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry update policies now apply configured blocked actions to all
+  non-compatible consequence statuses, including breaking, migration-required,
+  and review-required findings.
 - Registry diffs now report governance changes on newly added projection
   versions as deterministic `governance_review` consequences with causal paths.
 - Registry diffs now report projection changes on newly added projection
