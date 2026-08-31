@@ -10,7 +10,36 @@ from modelable.compiler.workspace import load_workspace
 from modelable.emitters.protobuf import emit_protobuf
 from modelable.emitters.protobuf_plan import emit_protobuf_projection_plan
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 from modelable.registry.signature import compute_version_signature
+
+
+def test_emit_protobuf_requests_v1_plan_documents(tmp_path, monkeypatch):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    customerId: uuid
+  }
+  projection CustomerView @ 1 from customer.Customer @ 1 as c {
+    customerId <- c.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, str]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.protobuf.build_plan_documents", observe_plan_request)
+
+    emit_protobuf(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_emit_protobuf_entity_proto_and_manifest(tmp_path):
@@ -973,7 +1002,11 @@ domain customer {
         encoding="utf-8",
     )
     workspace = load_workspace(tmp_path)
-    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerSummary")
+    plan = next(
+        item
+        for item in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
+        if item["projection"] == "CustomerSummary"
+    )
     projection_version = workspace.mdl.domains[0].projections["CustomerSummary"][0]
     migrated = emit_protobuf_projection_plan(
         plan,
