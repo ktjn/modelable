@@ -1,4 +1,4 @@
-"""Emit OpenLineage events from standalone ``modelable.plan/v0`` documents."""
+"""Emit OpenLineage events from standalone ``modelable.plan/v1`` documents."""
 
 from __future__ import annotations
 

@@ -7,6 +7,31 @@ from click.testing import CliRunner
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.openlineage import emit_openlineage
+from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
+
+
+def test_openlineage_emitter_requests_v1_plan_documents(monkeypatch, tmp_path):
+    source = """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) { @key customerId: uuid }
+  projection CustomerSummary @ 1 from customer.Customer @ 1 as c { customerId <- c.customerId }
+}
+"""
+    (tmp_path / "customer.mdl").write_text(source, encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, str]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.openlineage.build_plan_documents", observe_plan_request)
+
+    emit_openlineage(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_emit_openlineage_projection_event_with_column_lineage(tmp_path):
