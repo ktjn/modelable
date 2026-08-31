@@ -162,8 +162,9 @@ def detect_surfaces(changed_files: Iterable[str], *, event_name: str = "pull_req
         outputs["openlineage"] = True
         outputs["fhir"] = True
 
-    if any(path == "cli/src/modelable/emitters/targets.py" for path in paths):
+    if any(path in {"cli/src/modelable/emitters/targets.py", "cli/src/modelable/extensions.py"} for path in paths):
         outputs["cli"] = True
+        outputs["browser"] = True
         outputs["odcs"] = True
         outputs["openmetadata"] = True
         outputs["openlineage"] = True

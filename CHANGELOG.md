@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Browser compilation now applies the same compiler-owned extension capability
+  admission as native target compilation.
+
 - Compatibility validation now uses the compiler-owned extension admission gate
   to reject targets that do not advertise compatibility support.
 

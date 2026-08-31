@@ -212,6 +212,31 @@ def test_compile_surfaces_emitter_warnings_on_the_artifact():
     assert "cannot enforce uniqueness" in result.artifacts[0].warnings[0]
 
 
+def test_compile_rejects_target_when_browser_model_requires_unsupported_capability():
+    source = BrowserSource(
+        uri="inmemory:///payments.mdl",
+        text=(
+            "domain payments {\n"
+            '  owner: "payments-team"\n'
+            "  entity Card @ 1 (additive) { @key id: uuid }\n"
+            "  entity Bank @ 1 (additive) { @key id: uuid }\n"
+            "  entity Payment @ 1 (additive) {\n"
+            "    @key id: uuid\n"
+            "    method: union<kind> { card: ref<Card>, bank: ref<Bank> }\n"
+            "  }\n"
+            "}\n"
+        ),
+        version=1,
+    )
+
+    result = BrowserCompiler().compile((source,), "rust")
+
+    assert result.artifacts == ()
+    assert len(result.diagnostics) == 1
+    assert result.diagnostics[0].severity == "error"
+    assert "does not support required capability 'unions'" in result.diagnostics[0].message
+
+
 def test_compile_json_schema_blocks_duplicate_definitions_across_uris():
     sources = (
         BrowserSource(uri="inmemory:///customer-a.mdl", text=VALID, version=1),

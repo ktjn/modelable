@@ -44,7 +44,9 @@ from modelable.emitters.protobuf import emit_protobuf
 from modelable.emitters.python import emit_python
 from modelable.emitters.rust import emit_rust
 from modelable.emitters.sql import emit_sql
+from modelable.emitters.targets import get_codegen_target
 from modelable.emitters.typescript import emit_typescript
+from modelable.extensions import ExtensionDescriptorError, validate_extension_admission
 from modelable.language.completion import complete
 from modelable.language.definition import definition
 from modelable.language.dto import LanguagePosition
@@ -58,7 +60,7 @@ from modelable.language.workspace import LanguageDocument, LanguageWorkspace
 from modelable.parser.ir import ParseError
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.plans import build_plan_documents
-from modelable.planner.protocol import serialize_plan
+from modelable.planner.protocol import PLAN_SCHEMA, serialize_plan
 from modelable.validation.semantic import validate_diagnostics
 
 
@@ -374,6 +376,29 @@ class BrowserCompiler:
 
         out = Path(".")
         media_type = "text/plain"
+        target_name = "json-schema" if target == "jsonSchema" else target
+        try:
+            target_descriptor = get_codegen_target(target_name).extension_descriptor()
+        except KeyError as error:
+            raise BrowserRequestValidationError(f"Unknown compile target: {target}") from error
+        try:
+            validate_extension_admission(target_descriptor, workspace.mdl, plan_version=PLAN_SCHEMA)
+        except ExtensionDescriptorError as error:
+            return BrowserCompileResult(
+                diagnostics=(
+                    BrowserDiagnostic(
+                        code="EXT",
+                        severity="error",
+                        message=str(error),
+                        uri=sources[0].uri,
+                        line=None,
+                        column=None,
+                        end_line=None,
+                        end_column=None,
+                    ),
+                ),
+                artifacts=(),
+            )
 
         if target == "jsonSchema":
             emitted = emit_json_schema_artifacts(workspace)
