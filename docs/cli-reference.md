@@ -1800,6 +1800,8 @@ validation and target generation.
   Newly added enum-projection versions are also classified as direct
   `breaking` or `recompile` consequences, with any enum-consumer implications
   retained as additional actions.
+  Breaking model-version changes also propagate consequences to dependent
+  projections with causal paths.
   Newly added required model fields with defaults add `data_backfill`
   consequences because existing records need a deterministic backfill.
   Changed locked contract identities also add required `recompile` consequences.

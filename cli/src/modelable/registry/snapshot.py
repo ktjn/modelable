@@ -43,6 +43,7 @@ from modelable.consequence import (
     Consequence,
     build_enum_consequences,
     build_enum_projection_consequences,
+    build_model_consequences,
     build_projection_consequences,
     build_target_consequences,
 )
@@ -1221,6 +1222,13 @@ def _compatibility_consequences(
             consequences.extend(build_target_consequences(report, storage_report))
             backfill_report = compare_data_backfill(report)
             consequences.extend(build_target_consequences(report, backfill_report))
+            direct_subject = f"{domain_name}.{model_name}@{to_version}"
+            consequences.extend(
+                consequence
+                for consequence in build_model_consequences(candidate_workspace, report)
+                if consequence.subject != direct_subject
+                and not consequence.subject.startswith("enum-exhaustive-match:")
+            )
         elif kind == "projection":
             rebuild_report = compare_projection_rebuild(domain_name, model_name, projection_report.changes)
             consequences.extend(build_projection_consequences(projection_report, rebuild_report)[1:])

@@ -1280,6 +1280,53 @@ domain customer {
     } in snapshot_diff.usage["consequences"]
 
 
+def test_registry_diff_propagates_model_breaking_consequence_to_dependent_projection(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    id: uuid
+    name: string
+  }
+}
+domain analytics {
+  owner: "analytics-team"
+  projection CustomerSummary @ 1
+    from customer.Customer @ 1 as c
+  {
+    id <- c.id
+    name <- c.name
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "  entity Customer @ 1 (additive) {\n    @key\n    id: uuid\n    name: string\n  }",
+            "  entity Customer @ 1 (additive) {\n    @key\n    id: uuid\n    name: string\n  }\n"
+            "  entity Customer @ 2 (breaking) {\n    @key\n    id: uuid\n  }",
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    dependent = next(
+        consequence
+        for consequence in snapshot_diff.usage["consequences"]
+        if consequence["subject"] == "analytics.CustomerSummary@1"
+    )
+    assert dependent["action"] == "breaking"
+    assert dependent["status"] == "broken"
+    assert dependent["causal_path"] == ["customer.Customer@1", "analytics.CustomerSummary@1"]
+
+
 def test_registry_diff_reports_source_consequence_for_added_compatible_model(tmp_path: Path) -> None:
     source = tmp_path / "models.mdl"
     source.write_text(
