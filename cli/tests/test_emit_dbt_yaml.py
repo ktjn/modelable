@@ -10,7 +10,37 @@ import yaml
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.dbt_plan import emit_dbt_projection_plan
 from modelable.emitters.dbt_yaml import emit_dbt_yaml
-from modelable.planner.protocol import load_plan
+from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA, load_plan
+
+
+def test_emit_dbt_yaml_requests_v1_plan_documents(tmp_path, monkeypatch):
+    (tmp_path / "customer.mdl").write_text(
+        """
+domain customer {
+  entity Customer @ 1 { @key customerId: uuid }
+
+  projection CustomerSummary @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, object]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.dbt_yaml.build_plan_documents", observe_plan_request)
+
+    emit_dbt_yaml(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_emit_dbt_yaml_model_and_projection(tmp_path):
