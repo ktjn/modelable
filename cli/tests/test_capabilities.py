@@ -136,6 +136,13 @@ def test_registry_capability_scope_is_explicit():
     cross_application = capabilities["cross-application-consequence-analysis"]
     assert cross_application.status is CapabilityStatus.implemented
 
+    policy = capabilities["policy-evaluator-boundary"]
+    assert policy.status is CapabilityStatus.implemented
+    assert policy.test_refs == (
+        "test_registry_snapshot.py::test_blocked_action_policy_returns_structured_findings",
+        "test_registry_snapshot.py::test_update_accepts_a_policy_evaluator_over_snapshot_diff",
+    )
+
 
 def test_manifest_declares_consequence_graph_coverage():
     manifest = build_capability_manifest()

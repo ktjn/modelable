@@ -244,7 +244,7 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         category="registry_capability",
         status=CapabilityStatus.implemented,
         description="Runs impact analysis with validated offline snapshots and usage manifests",
-        notes="Policy-aware updates remain deferred.",
+        notes="Policy findings are evaluated through the policy-evaluator boundary during snapshot updates.",
         test_refs=(
             "test_cli_impact.py::test_impact_can_load_dependents_from_an_offline_snapshot",
             "test_cli_impact.py::test_impact_includes_known_consumers_from_multiple_usage_manifests",
@@ -255,7 +255,7 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         category="registry_capability",
         status=CapabilityStatus.implemented,
         description="Builds deterministic, validated consequence graphs from semantic and target findings",
-        notes="Policy-aware updates remain deferred.",
+        notes="Policy findings retain consequence status, reasons, and causal paths through the policy-evaluator boundary.",
         test_refs=(
             "test_consequence_protocol.py::test_consequence_graph_protocol_validates_and_serializes_deterministically",
         ),
@@ -278,6 +278,17 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         description="Aggregates usage manifests across applications and applies update consequences",
         notes="Impact analysis accepts repeatable validated usage manifests and emits deterministic consumer and artifact consequences for each known application.",
         test_refs=("test_cli_impact.py::test_impact_includes_known_consumers_from_multiple_usage_manifests",),
+    ),
+    Capability(
+        name="policy-evaluator-boundary",
+        category="registry_capability",
+        status=CapabilityStatus.implemented,
+        description="Evaluates staged semantic, usage, and consequence facts with structured policy findings",
+        notes="Host-specific policy evaluators can block updates without grammar or semantic-IR changes.",
+        test_refs=(
+            "test_registry_snapshot.py::test_blocked_action_policy_returns_structured_findings",
+            "test_registry_snapshot.py::test_update_accepts_a_policy_evaluator_over_snapshot_diff",
+        ),
     ),
 )
 
