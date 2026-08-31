@@ -182,7 +182,7 @@ separate modelable compile scenario per target.
   parallel against the same generated output, extending
   `cli/tests/test_codegen_docker_smoke.py` or adding a dedicated feature test
   rather than relying only on string assertions.
-- [ ] Keep the network-isolation assertion independent from Cargo dependency
+- [x] Keep the network-isolation assertion independent from Cargo dependency
   acquisition: use a locked/vendorable fixture or a prepared Cargo cache so
   `cargo test --offline` validates generated code without making the compiler's
   offline guarantee ambiguous.

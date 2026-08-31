@@ -1,0 +1,8 @@
+[package]
+name = "modelable_offline_feature_smoke"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+uuid = { version = "1", features = ["serde"] }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.emitters.targets import list_implemented_codegen_targets
+
+RUST_FIXTURE = Path(__file__).parent / "fixtures" / "offline-rust-consumer"
 
 PRODUCER_V1 = """
 domain customer {
@@ -113,13 +116,6 @@ def test_offline_feature_fixture_rust_consumer_runs_locked_offline(tmp_path: Pat
     assert compiled.exit_code == 0, compiled.output
 
     _write_rust_consumer(tmp_path)
-    lock = subprocess.run(
-        ["cargo", "generate-lockfile", "--offline"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-    )
-    assert lock.returncode == 0, f"cargo lock generation failed\nSTDOUT:\n{lock.stdout}\nSTDERR:\n{lock.stderr}"
     result = subprocess.run(
         ["cargo", "test", "--quiet", "--locked", "--offline"],
         cwd=tmp_path,
@@ -130,20 +126,7 @@ def test_offline_feature_fixture_rust_consumer_runs_locked_offline(tmp_path: Pat
 
 
 def _write_rust_consumer(tmp_path: Path) -> None:
-    (tmp_path / "Cargo.toml").write_text(
-        """
-[package]
-name = "modelable_offline_feature_smoke"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-serde = { version = "1", features = ["derive"] }
-uuid = { version = "1", features = ["serde"] }
-""".strip()
-        + "\n",
-        encoding="utf-8",
-    )
+    shutil.copytree(RUST_FIXTURE, tmp_path, dirs_exist_ok=True)
     source = tmp_path / "src"
     source.mkdir()
     (source / "lib.rs").write_text(
