@@ -42,6 +42,19 @@ domain customer {
 }
 """
 
+PRODUCER_V2_BREAKING = """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+  }
+  entity Customer @ 2 (breaking) {
+    @key customerId: uuid
+  }
+}
+"""
+
 CONSUMER = """
 domain analytics {
   owner: "analytics-platform"
@@ -264,6 +277,127 @@ def test_offline_feature_fixture_commands_use_snapshot_without_network(tmp_path:
     rebuilt = runner.invoke(cli, ["registry", "rebuild-index", "--out", str(snapshot)])
     assert rebuilt.exit_code == 0, rebuilt.output
     assert (snapshot / "registry.db").exists()
+
+
+def test_offline_feature_fixture_v2_transition_reports_compatibility_before_replacement(tmp_path: Path) -> None:
+    producer_v1 = tmp_path / "producer-v1.mdl"
+    producer_v1.write_text(PRODUCER_V1.strip() + "\n", encoding="utf-8")
+    producer_v2 = tmp_path / "producer-v2.mdl"
+    producer_v2.write_text(PRODUCER_V2.strip() + "\n", encoding="utf-8")
+    candidate_v2 = tmp_path / "candidate-v2.mdl"
+    candidate_v2.write_text(
+        PRODUCER_V2.replace(
+            "  entity Customer @ 1 (additive) {\n    @key customerId: uuid\n    displayName: string\n  }\n",
+            "",
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    producer_v2_breaking = tmp_path / "producer-v2-breaking.mdl"
+    producer_v2_breaking.write_text(PRODUCER_V2_BREAKING.strip() + "\n", encoding="utf-8")
+    candidate_v2_breaking = tmp_path / "candidate-v2-breaking.mdl"
+    candidate_v2_breaking.write_text(
+        PRODUCER_V2_BREAKING.replace(
+            "  entity Customer @ 1 (additive) {\n    @key customerId: uuid\n    displayName: string\n  }\n",
+            "",
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    snapshot = tmp_path / ".modelable"
+    runner = CliRunner()
+
+    resolved = runner.invoke(cli, ["registry", "resolve", str(producer_v1), "--out", str(snapshot)])
+    assert resolved.exit_code == 0, resolved.output
+    original_lock = (snapshot / "registry.lock").read_bytes()
+
+    compatible_impact = runner.invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "customer.Customer@1",
+            "--to",
+            "customer.Customer@2",
+            "--path",
+            str(candidate_v2),
+            "--snapshot",
+            str(snapshot),
+            "--format",
+            "json",
+        ],
+    )
+    assert compatible_impact.exit_code == 0, compatible_impact.output
+    compatible_payload = json.loads(compatible_impact.output)
+    assert compatible_payload["status"] == "compatible"
+    assert any(
+        consequence["action"] == "recompile"
+        and consequence["status"] == "compatible"
+        and consequence["causal_path"] == ["customer.Customer@1", "customer.Customer@2"]
+        for consequence in compatible_payload["consequences"]
+    )
+
+    compatible_update = runner.invoke(
+        cli,
+        ["registry", "update", str(producer_v2), "--out", str(snapshot), "--format", "json", "--dry-run"],
+    )
+    assert compatible_update.exit_code == 0, compatible_update.output
+    compatible_update_payload = json.loads(compatible_update.output)
+    assert "customer.Customer@2 (model)" in compatible_update_payload["added"]
+    assert compatible_update_payload["policy"]["violations"] == []
+    assert (snapshot / "registry.lock").read_bytes() == original_lock
+
+    installed_compatible = runner.invoke(
+        cli,
+        ["registry", "update", str(producer_v2), "--out", str(snapshot), "--format", "json"],
+    )
+    assert installed_compatible.exit_code == 0, installed_compatible.output
+    installed_payload = json.loads(installed_compatible.output)
+    assert installed_payload["dry_run"] is False
+    assert "customer.Customer@2 (model)" in installed_payload["added"]
+    assert (snapshot / "registry.lock").read_bytes() != original_lock
+
+    breaking_snapshot = tmp_path / ".modelable-breaking"
+    resolved_breaking_baseline = runner.invoke(
+        cli, ["registry", "resolve", str(producer_v1), "--out", str(breaking_snapshot)]
+    )
+    assert resolved_breaking_baseline.exit_code == 0, resolved_breaking_baseline.output
+    breaking_lock = (breaking_snapshot / "registry.lock").read_bytes()
+    (tmp_path / "modelable.toml").write_text('[registry]\nblocked_actions = ["breaking"]\n', encoding="utf-8")
+
+    breaking_impact = runner.invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "customer.Customer@1",
+            "--to",
+            "customer.Customer@2",
+            "--path",
+            str(candidate_v2_breaking),
+            "--snapshot",
+            str(breaking_snapshot),
+            "--format",
+            "json",
+        ],
+    )
+    assert breaking_impact.exit_code == 1, breaking_impact.output
+    breaking_payload = json.loads(breaking_impact.output)
+    assert breaking_payload["status"] == "breaking"
+    assert any(
+        consequence["action"] == "breaking"
+        and consequence["status"] == "breaking"
+        and consequence["causal_path"] == ["customer.Customer@1", "customer.Customer@2"]
+        for consequence in breaking_payload["consequences"]
+    )
+
+    blocked_update = runner.invoke(
+        cli,
+        ["registry", "update", str(producer_v2_breaking), "--out", str(breaking_snapshot), "--format", "json"],
+    )
+    assert blocked_update.exit_code == 1, blocked_update.output
+    assert "registry update blocked by registry policy" in blocked_update.output
+    assert (breaking_snapshot / "registry.lock").read_bytes() == breaking_lock
 
 
 def _write_rust_consumer(tmp_path: Path) -> None:
