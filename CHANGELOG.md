@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry diffs now report governance changes on newly added projection
+  versions as deterministic `governance_review` consequences with causal paths.
 - Registry diffs now report projection changes on newly added projection
   versions that require a materialized-state rebuild as `projection_rebuild`
   consequences with deterministic causal paths.
