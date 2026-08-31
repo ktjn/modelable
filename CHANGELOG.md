@@ -6,6 +6,9 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry diffs now classify newly added model versions with the existing
+  compatibility checker and report deterministic `breaking` or `recompile`
+  consequences with old-to-new causal paths.
 - Registry diffs now report required `recompile` consequences with causal paths
   when a locked contract identity changes; configured `recompile` policy is
   evaluated alongside surface and generated-artifact actions.

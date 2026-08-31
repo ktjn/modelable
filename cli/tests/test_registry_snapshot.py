@@ -1061,6 +1061,42 @@ domain customer {
     assert evaluate_registry_policy(snapshot_diff, ("recompile",)) == ["recompile"]
 
 
+def test_registry_diff_reports_breaking_consequence_for_added_incompatible_model(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    id: uuid
+    name: string
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "  entity Customer @ 1 (additive) {\n    @key\n    id: uuid\n    name: string\n  }",
+            "  entity Customer @ 1 (additive) {\n    @key\n    id: uuid\n    name: string\n  }\n  entity Customer @ 2 (breaking) {\n    @key\n    id: uuid\n  }",
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    assert {
+        "action": "breaking",
+        "causal_path": ["customer.Customer@1", "customer.Customer@2"],
+        "reason": "direct contract change",
+        "status": "breaking",
+        "subject": "customer.Customer@2",
+    } in snapshot_diff.usage["consequences"]
+
+
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
     runner = CliRunner()
     output_dir = tmp_path / ".modelable"
