@@ -6,6 +6,11 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+### Changed
+
+- The TypeScript emitter now consumes normalized `modelable.plan/v1` documents
+  through its parser-free projection renderer.
+
 ### Fixed
 
 - Browser compilation now applies the same compiler-owned extension capability
