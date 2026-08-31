@@ -1820,8 +1820,10 @@ Semantic and enum-projection objects retain source paths and hashes when
 resolved from a local file. Snapshot objects also retain the domain metadata
 and declarations required to generate equivalent target artifacts offline.
 
-Network-backed source adapters, transitive dependency closure, cross-application
-usage aggregation, and policy-aware updates are deferred. The similarly named
+Network-backed source adapters, transitive dependency closure, and
+cross-application usage aggregation remain deferred. Registry updates now
+apply configured policies to known surface consequences; full policy coverage
+is still planned. The similarly named
 federated `init`, `peer`, `graph`, and `sync` commands are not part of the
 current CLI and must not be treated as available interfaces.
 
