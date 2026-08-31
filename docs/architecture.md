@@ -580,6 +580,12 @@ Terminal actions may include no action, recompile, regenerate, migrate data, upd
 
 Every reported consequence retains its causal path.
 
+Registry updates pass the complete staged `SnapshotDiff` through a
+`RegistryPolicyEvaluator`. The built-in blocked-action policy preserves the
+current configuration behavior, while host integrations can add policy
+evaluators over semantic, usage, and consequence facts without changing the
+language grammar or semantic IR.
+
 ## 16. Security requirements
 
 Stabilization adds explicit extension and overlay trust boundaries. Security requirements therefore remain first-class architecture, not deferred implementation detail.
