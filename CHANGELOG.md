@@ -6,6 +6,9 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry diffs now expose per-change source-compatibility consequences for
+  newly added model versions, preserving deterministic causal paths for
+  individual semantic changes.
 - Registry update policies now apply configured blocked actions to all
   non-compatible consequence statuses, including breaking, migration-required,
   and review-required findings.

@@ -1780,6 +1780,8 @@ validation and target generation.
   against the latest prior locked version and add a direct `breaking` or
   `recompile` consequence when compatibility work is required. Changed locked
   model versions with index changes also add `storage_migration` consequences.
+  Added model versions also expose per-change source-compatibility findings as
+  target-neutral consequences.
   Projection changes that require rebuilding materialized state add
   `projection_rebuild` consequences.
   Projection access and classification changes add `governance_review`

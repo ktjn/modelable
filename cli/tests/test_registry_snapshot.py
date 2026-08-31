@@ -1097,6 +1097,46 @@ domain customer {
     } in snapshot_diff.usage["consequences"]
 
 
+def test_registry_diff_reports_source_consequence_for_added_compatible_model(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    id: uuid
+    name: string
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "  entity Customer @ 1 (additive) {\n    @key\n    id: uuid\n    name: string\n  }",
+            "  entity Customer @ 1 (additive) {\n    @key\n    id: uuid\n    name: string\n  }\n  entity Customer @ 2 (additive) {\n    @key\n    id: uuid\n    name: string\n    nickname?: string\n  }",
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    assert {
+        "action": "recompile",
+        "causal_path": [
+            "customer.Customer@1",
+            "customer.Customer@2",
+            "source:customer.Customer:added_field",
+        ],
+        "reason": "added_field nickname",
+        "status": "compatible",
+        "subject": "source:customer.Customer:added_field",
+    } in snapshot_diff.usage["consequences"]
+
+
 def test_registry_diff_reports_breaking_consequence_for_added_incompatible_projection(tmp_path: Path) -> None:
     source = tmp_path / "models.mdl"
     source.write_text(

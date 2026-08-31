@@ -21,6 +21,7 @@ from modelable.compat.targets import (
     compare_governance_review,
     compare_model_storage_migration,
     compare_projection_rebuild,
+    compare_semantic_compatibility,
 )
 from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import (
@@ -1189,6 +1190,8 @@ def _compatibility_consequences(
             )
         )
         if kind == "model":
+            semantic_report = compare_semantic_compatibility(report)
+            consequences.extend(build_target_consequences(report, semantic_report))
             storage_report = compare_model_storage_migration(report)
             consequences.extend(build_target_consequences(report, storage_report))
         else:
