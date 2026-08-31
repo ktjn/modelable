@@ -79,6 +79,9 @@ explicitly listed for acceptance before implementation.
   persistence usage surfaces in registry diffs.
 - [x] Expose direct compatibility consequences for newly added model versions,
   including deterministic breaking and recompile actions with causal paths.
+- [x] Expose direct compatibility consequences for newly added projection
+  versions, including deterministic breaking and recompile actions with causal
+  paths.
 - [ ] Generalize all remaining compatibility findings into consequence facts
   with causal paths and actions such as regeneration, consumer update,
   migration, backfill, projection rebuild, replay, review, and breaking change.

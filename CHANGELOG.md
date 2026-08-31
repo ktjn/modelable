@@ -6,6 +6,9 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry diffs now classify newly added projection versions with the existing
+  projection compatibility checker and report deterministic `breaking` or
+  `recompile` consequences with old-to-new causal paths.
 - Registry diffs now classify newly added model versions with the existing
   compatibility checker and report deterministic `breaking` or `recompile`
   consequences with old-to-new causal paths.
