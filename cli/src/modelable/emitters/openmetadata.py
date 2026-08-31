@@ -22,12 +22,16 @@ from modelable.parser.ir import (
     RefType,
 )
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 
 def emit_openmetadata(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit OpenMetadata-oriented catalog assets with ownership, governance, and lineage."""
     artifacts: list[EmittedArtifact] = []
-    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
+    plans = {
+        (plan["domain"], plan["projection"], plan["version"]): plan
+        for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
+    }
 
     for domain in sorted(workspace.mdl.domains, key=lambda item: item.name):
         artifact_id = f"{domain.name}.openmetadata"
