@@ -90,6 +90,7 @@ explicitly listed for acceptance before implementation.
 - [x] Compare current and candidate semantic graphs plus affected application
   usage manifests.
 - [x] Calculate changed application-surface consequences for the staged result.
+- [x] Emit recompile consequences for changed locked contract identities.
 - [ ] Calculate all consequence facts and actions.
 - [x] Apply configured blocked-action policy to changed surface and generated-
   artifact consequences.

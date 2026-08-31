@@ -20,6 +20,7 @@ from modelable.compiler.workspace import (
 )
 from modelable.consequence import (
     ACTION_CONSUMER_UPDATE,
+    ACTION_RECOMPILE,
     ACTION_REGENERATE,
     ACTION_STORAGE_MIGRATION,
     Consequence,
@@ -844,12 +845,21 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
         if current_by_key[key].get("content_hash") != candidate_by_key[key].get("content_hash")
         or current_by_key[key].get("signature") != candidate_by_key[key].get("signature")
     )
+    canonical_changed = sorted(
+        key
+        for key in set(current_by_key) & set(candidate_by_key)
+        if current_by_key[key].get("signature") != candidate_by_key[key].get("signature")
+    )
+    usage = _diff_usage_manifests(current_lock.get("usage"), candidate_lock.get("usage"))
+    contract_consequences = _contract_consequences(candidate_by_key, canonical_changed)
+    usage["consequences"].extend(consequence.as_dict() for consequence in contract_consequences)
+    usage["required_actions"].extend(_required_surface_actions(contract_consequences))
     return SnapshotDiff(
         added=tuple(_display_key(key) for key in added),
         removed=tuple(_display_key(key) for key in removed),
         changed=tuple(_display_key(key) for key in changed),
         dependencies=_diff_lock_requirements(current_lock, candidate_lock),
-        usage=_diff_usage_manifests(current_lock.get("usage"), candidate_lock.get("usage")),
+        usage=usage,
     )
 
 
@@ -1079,6 +1089,25 @@ def _diff_usage_manifests(current: Any, candidate: Any) -> dict[str, Any]:
         "required_actions": _required_surface_actions(consequences),
         "consequences": [consequence.as_dict() for consequence in consequences],
     }
+
+
+def _contract_consequences(
+    candidate_by_key: dict[tuple[str, str], dict[str, Any]], changed: list[tuple[str, str]]
+) -> list[Consequence]:
+    consequences: list[Consequence] = []
+    for key in changed:
+        entry = candidate_by_key[key]
+        subject = str(entry["identity"])
+        consequences.append(
+            Consequence(
+                action=ACTION_RECOMPILE,
+                subject=subject,
+                status="required",
+                reason="contract content changed",
+                causal_path=(subject,),
+            )
+        )
+    return consequences
 
 
 def _artifact_consequences(current: Any, candidate: Any) -> list[Consequence]:

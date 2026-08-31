@@ -6,6 +6,9 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry diffs now report required `recompile` consequences with causal paths
+  when a locked contract identity changes; configured `recompile` policy is
+  evaluated alongside surface and generated-artifact actions.
 - Registry snapshot resolve, diff, and update commands can now include compiler
   artifact manifests; changed generated artifacts produce required `regenerate`
   consequences and can be blocked by registry policy.

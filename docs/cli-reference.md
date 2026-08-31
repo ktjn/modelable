@@ -1776,8 +1776,10 @@ validation and target generation.
   changing local state. Its JSON output also includes required consumer-update
   and storage-migration actions for changed application surfaces, plus
   consequence facts with causal paths from the contract reference to each
-  affected surface. Pass `--artifact-manifest FILE` to include compiler output
-  evidence; changed generated artifacts add required `regenerate` consequences.
+  affected surface. Changed locked contract identities also add required
+  `recompile` consequences. Pass `--artifact-manifest FILE` to include
+  compiler output evidence; changed generated artifacts add required
+  `regenerate` consequences.
 - `registry update --dry-run` resolves, validates, and diffs the candidate while
   leaving the durable lock and objects unchanged. Without `--dry-run`, update
   validates that candidate and atomically replaces the lock;
