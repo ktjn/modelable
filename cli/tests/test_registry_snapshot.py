@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+import modelable.registry.snapshot as snapshot_module
 from modelable.cli import cli
 from modelable.compat.checker import analyze_impact, check_model_version_compatibility
 from modelable.compiler.workspace import load_workspace
@@ -885,6 +886,49 @@ def test_update_stages_new_version_and_preserves_old_lock_on_diff(tmp_path: Path
 
     assert applied_diff.added == snapshot_diff.added
     assert verify_snapshot(output_dir) == []
+
+
+def test_update_rolls_back_new_objects_when_lock_replacement_fails(tmp_path: Path, monkeypatch) -> None:
+    output_dir = tmp_path / ".modelable"
+    source = tmp_path / "customer.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        FIXTURE.read_text(encoding="utf-8").rsplit("}", 1)[0]
+        + """
+  entity Customer @ 3 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    @pii
+    email?: string
+    status?: enum(active, blocked, deleted)
+    createdAt: timestamp
+    region?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    lock_path = output_dir / "registry.lock"
+    objects_dir = output_dir / "registry" / "objects"
+    original_lock = lock_path.read_bytes()
+    original_objects = {path.name: path.read_bytes() for path in objects_dir.glob("*.json")}
+    original_replace = snapshot_module.os.replace
+
+    def fail_replace(source_path: Path, destination: Path) -> None:
+        if destination == lock_path:
+            raise OSError(f"injected replacement failure for {destination}")
+        original_replace(source_path, destination)
+
+    monkeypatch.setattr(snapshot_module.os, "replace", fail_replace)
+
+    with pytest.raises(OSError, match="injected replacement failure"):
+        update_workspace_snapshot(load_workspace(source), output_dir)
+
+    assert lock_path.read_bytes() == original_lock
+    assert {path.name: path.read_bytes() for path in objects_dir.glob("*.json")} == original_objects
+    assert not list(output_dir.glob(".registry.lock.tmp-*"))
 
 
 def test_update_preserves_extension_pins(tmp_path: Path) -> None:

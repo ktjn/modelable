@@ -92,8 +92,8 @@ explicitly listed for acceptance before implementation.
 - [ ] Show exact dependency and remaining required-action changes.
 - [ ] Replace lock/object state atomically only after validation and policy
   acceptance; retain the candidate for review when rejected.
-- [ ] Add failure-injection tests proving that rejected or interrupted updates
-  leave the prior snapshot unchanged.
+- [x] Add failure-injection tests proving that rejected or interrupted updates
+  leave the prior snapshot unchanged when lock replacement fails.
 
 ## Feature qualification — prove the complete generated-contract path
 
