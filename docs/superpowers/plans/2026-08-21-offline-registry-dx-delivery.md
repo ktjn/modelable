@@ -170,7 +170,7 @@ separate modelable compile scenario per target.
   the breaking v2 must be rejected or marked breaking before durable snapshot
   replacement. Exercise the existing semantic compatibility and, where the
   fixture emits them, Protobuf/gRPC target-compatibility checks.
-- [ ] Regenerate the complete implemented target set for the compatible v2 and
+- [x] Regenerate the complete implemented target set for the compatible v2 and
   rerun the structural checks plus the language smoke matrix against that
   candidate. Compile/test only the candidate version; compare it with the v1
   baseline for compatibility. The breaking v2 must not reach any generation or
