@@ -8,6 +8,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Migrate event-sink projection emission to the stable `modelable.plan/v1` contract.
+
 - Migrate dbt YAML projection emission to the stable `modelable.plan/v1` contract.
 
 - The Avro emitter now consumes normalized `modelable.plan/v1` documents through
