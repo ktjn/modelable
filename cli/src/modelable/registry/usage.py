@@ -223,11 +223,56 @@ def build_usage_manifest(
         "application_id": graph["application_id"],
         "packages": graph["packages"],
         "references": references,
+        "surfaces": _surface_declarations(graph),
     }
     artifacts = _artifact_declarations(artifact_manifests)
     if artifacts:
         payload["artifacts"] = artifacts
     return payload
+
+
+def _surface_declarations(graph: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Return compact declarations for application-facing graph surfaces."""
+    nodes = {str(node["id"]): node for node in graph["nodes"]}
+    surfaces: dict[str, dict[str, Any]] = {}
+    for node in graph["nodes"]:
+        if node.get("kind") == "api_operation":
+            surfaces[str(node["id"])] = {
+                "id": node["id"],
+                "kind": "api_operation",
+                "ref": node["target_ref"],
+                "name": node["label"],
+                "method": node["method"],
+                "path": node["path"],
+            }
+
+    for edge in graph["edges"]:
+        if edge["kind"] == "emits":
+            target = nodes.get(str(edge["target"]))
+            if target is not None and target.get("kind") == "projection_version":
+                ref = target.get("target_ref")
+                if isinstance(ref, str):
+                    surface_id = f"event:{ref}"
+                    surfaces[surface_id] = {"id": surface_id, "kind": "event", "ref": ref}
+        elif edge["kind"] == "persists_as":
+            source = nodes.get(str(edge["source"]))
+            target = nodes.get(str(edge["target"]))
+            if source is None or target is None or source.get("kind") != "model_version":
+                continue
+            ref = source.get("target_ref")
+            if not isinstance(ref, str):
+                continue
+            surface_id = str(target["id"])
+            surface = {
+                "id": surface_id,
+                "kind": "storage",
+                "ref": ref,
+                "adapter": target["adapter"],
+            }
+            if target.get("table") is not None:
+                surface["table"] = target["table"]
+            surfaces[surface_id] = surface
+    return [surfaces[key] for key in sorted(surfaces)]
 
 
 def _application_name(workspace: Workspace) -> str:

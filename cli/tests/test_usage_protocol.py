@@ -79,3 +79,42 @@ def test_usage_protocol_round_trips_generated_artifacts() -> None:
     ]
 
     assert json.loads(protocol.serialize_usage_manifest(manifest)) == manifest
+
+
+def test_usage_protocol_round_trips_surface_declarations() -> None:
+    protocol = _protocol()
+    manifest = _manifest()
+    manifest["surfaces"] = [
+        {
+            "id": "storage:postgres:customers",
+            "kind": "storage",
+            "ref": "customer.Customer@1",
+            "adapter": "postgres",
+            "table": "customers",
+        },
+        {
+            "id": "api_operation:customer.Customer@1:getCustomer",
+            "kind": "api_operation",
+            "ref": "customer.Customer@1",
+            "name": "getCustomer",
+            "method": "GET",
+            "path": "/customers/{id}",
+        },
+    ]
+
+    serialized = protocol.serialize_usage_manifest(manifest)
+
+    assert json.loads(serialized)["surfaces"] == [
+        manifest["surfaces"][1],
+        manifest["surfaces"][0],
+    ]
+    assert protocol.validate_usage_manifest(json.loads(serialized)) == json.loads(serialized)
+
+
+def test_usage_protocol_rejects_unknown_surface_kind() -> None:
+    protocol = _protocol()
+    manifest = _manifest()
+    manifest["surfaces"] = [{"id": "unknown:1", "kind": "unknown", "ref": "customer.Customer@1"}]
+
+    with pytest.raises(protocol.UsageProtocolError, match=r"surface.*kind"):
+        protocol.validate_usage_manifest(manifest)

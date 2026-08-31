@@ -1790,7 +1790,8 @@ validation and target generation.
 - `registry prune` removes object files that are not reachable from the current
   lock after validation succeeds.
 - `registry usage` exports the normalized usage graph, or the compact manifest
-  of exact model references and signatures with `--format manifest`. Both forms
+  of exact model references, signatures, and application-facing API, event, and
+  persistence surfaces with `--format manifest`. Both forms
   include a path-independent `application_id`, configured package IDs, and
   `package_id` on references assigned to a package; the existing `application`
   name remains for compatibility. Pass `--artifact-manifest FILE` to include
