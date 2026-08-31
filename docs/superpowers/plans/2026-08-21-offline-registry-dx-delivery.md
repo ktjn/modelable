@@ -156,7 +156,7 @@ separate modelable compile scenario per target.
   parse JSON/YAML/Avro/OpenAPI/manifest outputs, validate required identity and
   signature fields, parse SQL/Markdown/ODCS/dbt outputs, and run the available
   schema/protocol validators without network access.
-- [ ] Run cached compiler smoke tests for every generated language target:
+- [x] Run cached compiler smoke tests for every generated language target:
   Python import/test, TypeScript `tsc`, C# build/test, Java compile/run, Go
   `go test`, and a small Rust consumer crate with one `cargo test
   --locked --offline` invocation. Each test must exercise representative

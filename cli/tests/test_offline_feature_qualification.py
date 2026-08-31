@@ -4,8 +4,10 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 from test_golden_artifacts import _assert_artifact_structurally_valid
 
@@ -90,6 +92,69 @@ def test_offline_feature_fixture_compiles_consumer_for_every_implemented_target(
         )
         assert compiled.exit_code == 0, f"{target.name}: {compiled.output}"
         _assert_artifact_manifest(output, target.name)
+
+
+def test_offline_feature_fixture_language_smoke_matrix(tmp_path: Path) -> None:
+    compiler_commands = {
+        "typescript": "tsc.cmd" if sys.platform == "win32" else "tsc",
+        "java": "javac",
+        "go": "go",
+        "csharp": "dotnet",
+        "rust": "cargo",
+    }
+    missing = [name for name, command in compiler_commands.items() if shutil.which(command) is None]
+    if missing:
+        pytest.skip(f"language compiler(s) unavailable: {', '.join(missing)}")
+
+    producer = tmp_path / "producer.mdl"
+    producer.write_text(PRODUCER_V1.strip() + "\n", encoding="utf-8")
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(CONSUMER.strip() + "\n", encoding="utf-8")
+    snapshot = tmp_path / ".modelable"
+    runner = CliRunner()
+
+    resolved = runner.invoke(cli, ["registry", "resolve", str(producer), "--out", str(snapshot)])
+    assert resolved.exit_code == 0, resolved.output
+
+    outputs: dict[str, Path] = {}
+    for target in ("python", "typescript", "java", "go", "csharp", "rust"):
+        output = tmp_path / "generated" / target
+        compiled = runner.invoke(
+            cli,
+            [
+                "compile",
+                str(consumer),
+                "--target",
+                target,
+                "--snapshot",
+                str(snapshot),
+                "--out",
+                str(output),
+            ],
+        )
+        assert compiled.exit_code == 0, f"{target}: {compiled.output}"
+        _assert_artifact_manifest(output, target)
+        outputs[target] = output
+
+    _write_python_language_smoke(tmp_path)
+    _run_language_command([sys.executable, "smoke.py"], tmp_path, "python")
+
+    _write_typescript_language_smoke(tmp_path)
+    _run_language_command([compiler_commands["typescript"], "--noEmit", "--strict", "smoke.ts"], tmp_path, "typescript")
+
+    _write_java_language_smoke(tmp_path)
+    java_files = [str(path) for root in (outputs["java"], tmp_path / "analytics") for path in root.rglob("*.java")]
+    _run_language_command(["javac", "-d", "build", *java_files], tmp_path, "java compile")
+    _run_language_command(["java", "-cp", "build", "analytics.Smoke"], tmp_path, "java runtime")
+
+    _write_go_language_smoke(outputs["go"])
+    _run_language_command(["go", "test", "./..."], outputs["go"], "go")
+
+    _write_csharp_language_smoke(tmp_path)
+    _run_language_command(["dotnet", "run", "--project", "Smoke.csproj"], tmp_path, "csharp")
+
+    _write_rust_consumer(tmp_path)
+    _run_language_command(["cargo", "test", "--quiet", "--locked", "--offline"], tmp_path, "rust")
 
 
 def test_offline_feature_fixture_rust_consumer_runs_locked_offline(tmp_path: Path) -> None:
@@ -269,3 +334,153 @@ def _assert_artifact_manifest(output: Path, target: str) -> None:
             content_hash=entry["sha256"],
         )
         _assert_artifact_structurally_valid(target, artifact, rendered)
+
+
+def _run_language_command(command: list[str], cwd: Path, label: str) -> None:
+    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
+    assert result.returncode == 0, f"{label} smoke failed\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+
+
+def _write_python_language_smoke(tmp_path: Path) -> None:
+    (tmp_path / "smoke.py").write_text(
+        """
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+from uuid import UUID
+
+
+def load_module(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+customer = load_module(
+    Path("generated/python/customer/customer_customer_v1.py"), "customer_customer_v1"
+)
+analytics = load_module(
+    Path("generated/python/analytics/analytics_customer_summary_v1.py"),
+    "analytics_customer_summary_v1",
+)
+customer_obj = customer.CustomerCustomerV1(customerId=UUID("123e4567-e89b-12d3-a456-426614174000"), displayName="Alice")
+summary_obj = analytics.AnalyticsCustomerSummaryV1(customerId=customer_obj.customerId, name=customer_obj.displayName)
+assert summary_obj.name == "Alice"
+assert "customerId" in customer.CustomerCustomerV1.__dataclass_fields__
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_typescript_language_smoke(tmp_path: Path) -> None:
+    (tmp_path / "smoke.ts").write_text(
+        """
+import type { CustomerCustomerV1 } from "./generated/typescript/customer.Customer.v1";
+import type { AnalyticsCustomerSummaryV1 } from "./generated/typescript/analytics.CustomerSummary.v1";
+
+const customer: CustomerCustomerV1 = {
+  customerId: "123e4567-e89b-12d3-a456-426614174000",
+  displayName: "Alice",
+};
+const summary: AnalyticsCustomerSummaryV1 = {
+  customerId: customer.customerId,
+  name: customer.displayName,
+};
+if (summary.name !== "Alice") throw new Error("generated identity fields did not type-check");
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_java_language_smoke(tmp_path: Path) -> None:
+    smoke_dir = tmp_path / "analytics"
+    smoke_dir.mkdir(parents=True, exist_ok=True)
+    (smoke_dir / "Smoke.java").write_text(
+        """
+package analytics;
+
+import customer.CustomerV1;
+import java.util.UUID;
+
+public final class Smoke {
+  public static void main(String[] args) {
+    var id = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
+    var customer = new CustomerV1(id, "Alice");
+    var summary = new CustomerSummaryV1(id, "Alice");
+    if (!customer.customerId().equals(summary.customerId()) || !customer.displayName().equals(summary.name())) {
+      throw new IllegalStateException("generated identity fields did not survive Java compilation");
+    }
+  }
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_go_language_smoke(output: Path) -> None:
+    (output / "go.mod").write_text("module example.com/modelable-offline-feature\n\ngo 1.26\n", encoding="utf-8")
+    customer_dir = output / "customer"
+    customer_dir.mkdir(parents=True, exist_ok=True)
+    (customer_dir / "smoke_test.go").write_text(
+        """
+package customer
+
+import (
+  "testing"
+  "example.com/modelable-offline-feature/analytics"
+)
+
+func TestGeneratedIdentity(t *testing.T) {
+  customer := CustomerCustomerV1{CustomerId: "123e4567-e89b-12d3-a456-426614174000", DisplayName: "Alice"}
+  summary := analytics.AnalyticsCustomerSummaryV1{CustomerId: customer.CustomerId, Name: customer.DisplayName}
+  if summary.CustomerId != customer.CustomerId || summary.Name != "Alice" { t.Fatal("generated identity fields did not survive Go compilation") }
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_csharp_language_smoke(tmp_path: Path) -> None:
+    (tmp_path / "Smoke.csproj").write_text(
+        """
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="generated/csharp/**/*.cs" />
+  </ItemGroup>
+</Project>
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "Program.cs").write_text(
+        """
+using System;
+using Modelable.Customer;
+using Modelable.Analytics;
+
+var id = Guid.Parse("123e4567-e89b-12d3-a456-426614174000");
+var customer = new CustomerCustomerV1 { CustomerId = id, DisplayName = "Alice" };
+var summary = new AnalyticsCustomerSummaryV1 { CustomerId = customer.CustomerId, Name = customer.DisplayName };
+if (summary.CustomerId != customer.CustomerId || summary.Name != "Alice")
+    throw new InvalidOperationException("generated identity fields did not survive C# compilation");
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
