@@ -225,6 +225,7 @@ def resolve_workspace_snapshot(
         "format": LOCK_FORMAT,
         "extensions": canonical_pins,
         "objects": entries,
+        "imports": _serialize_imports(workspace.mdl.imports),
         "requirements": _build_requirements(entries),
         "usage": build_usage_manifest(workspace, artifact_manifests=artifact_manifests),
         "allocations": {
@@ -389,6 +390,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
             else:
                 if requirements != expected_requirements:
                     errors.append("registry lock requirements do not match object dependency edges")
+    _verify_imports(lock.get("imports", []), errors)
     return errors
 
 
@@ -1447,6 +1449,32 @@ def _build_requirements(entries: list[dict[str, Any]]) -> list[dict[str, str]]:
                 }
             )
     return sorted(requirements, key=lambda item: (item["from"], item["requested"], item["resolved"]))
+
+
+def _serialize_imports(imports: Sequence[Any]) -> list[dict[str, Any]]:
+    serialized = [imported.model_dump(mode="json") for imported in imports if hasattr(imported, "model_dump")]
+    return sorted(serialized, key=lambda item: (str(item.get("domain")), str(item.get("registry"))))
+
+
+def _verify_imports(value: Any, errors: list[str]) -> None:
+    if not isinstance(value, list):
+        errors.append("registry lock imports must be an array")
+        return
+    keys: list[tuple[str, str]] = []
+    for imported in value:
+        if not isinstance(imported, dict):
+            errors.append("registry lock contains a non-object import")
+            continue
+        domain = imported.get("domain")
+        registry = imported.get("registry")
+        if not isinstance(domain, str) or (registry is not None and not isinstance(registry, str)):
+            errors.append("registry lock import requires a domain and optional registry")
+            continue
+        keys.append((domain, registry or ""))
+    if keys != sorted(keys):
+        errors.append("registry lock imports are not deterministic")
+    if len(keys) != len(set(keys)):
+        errors.append("registry lock imports contain duplicate domains and registries")
 
 
 def _resolve_dependency_entry(

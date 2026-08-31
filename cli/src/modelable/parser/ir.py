@@ -488,6 +488,15 @@ VersionSpec = Annotated[
 ]
 
 
+class DomainImport(BaseModel):
+    domain: str
+    registry: str | None = None
+    version: VersionSpec | None = None
+    pinned_ref: str | None = None
+    pinned_version: int | None = None
+    pinned_signature: str | None = None
+
+
 class SourceRef(BaseModel):
     model: str
     version: VersionSpec
@@ -750,6 +759,7 @@ class WorkspaceDef(BaseModel):
 class MdlFile(BaseModel):
     domains: list[DomainDef] = Field(default_factory=list)
     bindings: list[BindingDef] = Field(default_factory=list)
+    imports: list[DomainImport] = Field(default_factory=list)
     workspace: WorkspaceDef | None = None
 
 

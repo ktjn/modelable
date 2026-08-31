@@ -129,6 +129,7 @@ def load_workspace_from_sources(
         warnings.extend(source_warnings)
         merged.domains.extend(mdl.domains)
         _merge_bindings(merged.bindings, mdl.bindings)
+        merged.imports.extend(mdl.imports)
         if mdl.workspace is not None:
             merged.workspace = mdl.workspace
 

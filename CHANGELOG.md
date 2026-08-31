@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Modelable now retains `import domain` requirements, resolves explicitly
+  imported local registry mirrors, and rejects mismatched pinned signatures.
 - `modelable impact` now reports per-change source-compatibility consequences
   for model version transitions.
 - `modelable impact` now reports deterministic `data_backfill` consequences

@@ -368,8 +368,7 @@ permission: "read" -> p_read
           | "derive" -> p_derive
           | "redact" -> p_redact
 
-version_selector: "@" version_expr
-version_expr: INT | VERSION_RANGE
+version_selector: "@" version_spec
 dotted_ref: IDENT ("." IDENT)*
 
 ignored_block_item: /[^{}]+/ | "{" ignored_block_item* "}"
@@ -535,8 +534,7 @@ Alphabetical listing of every named rule and its production.
 | `union_type` | `"union" "<" IDENT ">" "{" union_variant ("," union_variant)* "}"` |
 | `union_variant` | `IDENT ":" type_expr` |
 | `unique_item` | `"unique" ":" bool_literal` |
-| `version_expr` | `INT \| VERSION_RANGE` |
-| `version_selector` | `"@" version_expr` |
+| `version_selector` | `"@" version_spec` |
 | `version_spec` | `INT                  -> version_exact \| INT "#" HASH        -> version_pinned \| ">=" INT "<" INT     -> version_range \| ">=" INT             -> version_min` |
 | `where_clause` | `"where" FIELD_EXPRESSION` |
 | `wire_annotation` | `"@wire" "(" wire_option ("," wire_option)* ")" -> ann_wire` |

@@ -351,8 +351,7 @@ permission: "read" -> p_read
           | "derive" -> p_derive
           | "redact" -> p_redact
 
-version_selector: "@" version_expr
-version_expr: INT | VERSION_RANGE
+version_selector: "@" version_spec
 dotted_ref: IDENT ("." IDENT)*
 
 ignored_block_item: /[^{}]+/ | "{" ignored_block_item* "}"
