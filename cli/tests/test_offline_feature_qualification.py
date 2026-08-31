@@ -100,6 +100,18 @@ domain analytics {
 }
 """
 
+CONSUMER_V2 = """
+domain analytics {
+  owner: "analytics-platform"
+  projection CustomerSummary @ 1
+    from customer.Customer @ 2 as c
+  {
+    customerId <- c.customerId
+    name <- c.displayName
+  }
+}
+"""
+
 
 def test_offline_feature_fixture_compiles_consumer_for_every_implemented_target(tmp_path: Path) -> None:
     producer_v1 = tmp_path / "producer-v1.mdl"
@@ -201,6 +213,67 @@ def test_offline_feature_fixture_language_smoke_matrix(tmp_path: Path) -> None:
 
     _write_rust_consumer(tmp_path)
     _run_language_command(["cargo", "test", "--quiet", "--locked", "--offline"], tmp_path, "rust")
+
+
+def test_offline_feature_fixture_compatible_v2_regenerates_all_targets(tmp_path: Path) -> None:
+    compiler_commands = {
+        "typescript": "tsc.cmd" if sys.platform == "win32" else "tsc",
+        "java": "javac",
+        "go": "go",
+        "csharp": "dotnet",
+        "rust": "cargo",
+    }
+    missing = [name for name, command in compiler_commands.items() if shutil.which(command) is None]
+    if missing:
+        pytest.skip(f"language compiler(s) unavailable: {', '.join(missing)}")
+
+    producer_v1 = tmp_path / "producer-v1.mdl"
+    producer_v1.write_text(PRODUCER_V1.strip() + "\n", encoding="utf-8")
+    producer_v2 = tmp_path / "producer-v2.mdl"
+    producer_v2.write_text(PRODUCER_V2.strip() + "\n", encoding="utf-8")
+    consumer_v1 = tmp_path / "consumer-v1.mdl"
+    consumer_v1.write_text(CONSUMER.strip() + "\n", encoding="utf-8")
+    consumer_v2 = tmp_path / "consumer-v2.mdl"
+    consumer_v2.write_text(CONSUMER_V2.strip() + "\n", encoding="utf-8")
+    snapshot = tmp_path / ".modelable"
+    runner = CliRunner()
+
+    resolved = runner.invoke(cli, ["registry", "resolve", str(producer_v1), "--out", str(snapshot)])
+    assert resolved.exit_code == 0, resolved.output
+    baseline_outputs = _compile_feature_targets(runner, consumer_v1, snapshot, tmp_path / "baseline")
+    baseline_manifest_hashes = {
+        target: (output / "modelable-artifact-manifest.json").read_bytes()
+        for target, output in baseline_outputs.items()
+    }
+
+    updated = runner.invoke(cli, ["registry", "update", str(producer_v2), "--out", str(snapshot), "--format", "json"])
+    assert updated.exit_code == 0, updated.output
+    updated_payload = json.loads(updated.output)
+    assert "customer.Customer@2 (model)" in updated_payload["added"]
+
+    candidate_outputs = _compile_feature_targets(runner, consumer_v2, snapshot, tmp_path / "generated")
+    for target, output in candidate_outputs.items():
+        _assert_artifact_manifest(output, target)
+        assert (output / "modelable-artifact-manifest.json").read_bytes() != baseline_manifest_hashes[target]
+
+    _write_python_language_smoke(tmp_path, model_version=2)
+    _run_language_command([sys.executable, "smoke.py"], tmp_path, "python v2")
+    _write_typescript_language_smoke(tmp_path, model_version=2)
+    _run_language_command(
+        [compiler_commands["typescript"], "--noEmit", "--strict", "smoke.ts"], tmp_path, "typescript v2"
+    )
+    _write_java_language_smoke(tmp_path, model_version=2)
+    java_files = [
+        str(path) for root in (candidate_outputs["java"], tmp_path / "analytics") for path in root.rglob("*.java")
+    ]
+    _run_language_command(["javac", "-d", "build-v2", *java_files], tmp_path, "java v2 compile")
+    _run_language_command(["java", "-cp", "build-v2", "analytics.Smoke"], tmp_path, "java v2 runtime")
+    _write_go_language_smoke(candidate_outputs["go"], model_version=2)
+    _run_language_command(["go", "test", "./..."], candidate_outputs["go"], "go v2")
+    _write_csharp_language_smoke(tmp_path, model_version=2)
+    _run_language_command(["dotnet", "run", "--project", "Smoke.csproj"], tmp_path, "csharp v2")
+    _write_rust_consumer(tmp_path, model_version=2)
+    _run_language_command(["cargo", "test", "--quiet", "--locked", "--offline"], tmp_path, "rust v2")
 
 
 def test_offline_feature_fixture_rust_consumer_runs_locked_offline(tmp_path: Path) -> None:
@@ -496,12 +569,34 @@ def test_offline_feature_fixture_v2_transition_reports_compatibility_before_repl
     assert (breaking_snapshot / "registry.lock").read_bytes() == breaking_lock
 
 
-def _write_rust_consumer(tmp_path: Path) -> None:
+def _compile_feature_targets(runner: CliRunner, consumer: Path, snapshot: Path, output_root: Path) -> dict[str, Path]:
+    outputs: dict[str, Path] = {}
+    for target in list_implemented_codegen_targets():
+        output = output_root / target.name
+        compiled = runner.invoke(
+            cli,
+            [
+                "compile",
+                str(consumer),
+                "--target",
+                target.name,
+                "--snapshot",
+                str(snapshot),
+                "--out",
+                str(output),
+            ],
+        )
+        assert compiled.exit_code == 0, f"{target.name}: {compiled.output}"
+        _assert_artifact_manifest(output, target.name)
+        outputs[target.name] = output
+    return outputs
+
+
+def _write_rust_consumer(tmp_path: Path, model_version: int = 1) -> None:
     shutil.copytree(RUST_FIXTURE, tmp_path, dirs_exist_ok=True)
     source = tmp_path / "src"
     source.mkdir()
-    (source / "lib.rs").write_text(
-        """
+    source_text = """
 #[path = "../generated/rust/customer/customer_customer_v1.rs"]
 mod customer;
 #[path = "../generated/rust/analytics/analytics_customer_summary_v1.rs"]
@@ -527,9 +622,19 @@ mod tests {
     }
 }
 """.strip()
-        + "\n",
-        encoding="utf-8",
+    source_text = source_text.replace("customer_customer_v1.rs", f"customer_customer_v{model_version}.rs").replace(
+        "CustomerCustomerV1", f"CustomerCustomerV{model_version}"
     )
+    source_text = source_text.replace(
+        f"CustomerCustomerV{model_version}::SCHEMA_VERSION, 1",
+        f"CustomerCustomerV{model_version}::SCHEMA_VERSION, {model_version}",
+    )
+    if model_version == 2:
+        source_text = source_text.replace(
+            'CustomerCustomerV2 { customer_id: id, display_name: String::from("Alice") }',
+            'CustomerCustomerV2 { customer_id: id, display_name: String::from("Alice"), nickname: None }',
+        )
+    (source / "lib.rs").write_text(source_text + "\n", encoding="utf-8")
 
 
 def _assert_artifact_manifest(output: Path, target: str) -> None:
@@ -571,9 +676,8 @@ def _run_language_command(command: list[str], cwd: Path, label: str) -> None:
     assert result.returncode == 0, f"{label} smoke failed\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
 
-def _write_python_language_smoke(tmp_path: Path) -> None:
-    (tmp_path / "smoke.py").write_text(
-        """
+def _write_python_language_smoke(tmp_path: Path, model_version: int = 1) -> None:
+    smoke = """
 from __future__ import annotations
 
 import importlib.util
@@ -603,14 +707,13 @@ summary_obj = analytics.AnalyticsCustomerSummaryV1(customerId=customer_obj.custo
 assert summary_obj.name == "Alice"
 assert "customerId" in customer.CustomerCustomerV1.__dataclass_fields__
 """.strip()
-        + "\n",
-        encoding="utf-8",
-    )
+    smoke = smoke.replace("customer_customer_v1", f"customer_customer_v{model_version}")
+    smoke = smoke.replace("CustomerCustomerV1", f"CustomerCustomerV{model_version}")
+    (tmp_path / "smoke.py").write_text(smoke + "\n", encoding="utf-8")
 
 
-def _write_typescript_language_smoke(tmp_path: Path) -> None:
-    (tmp_path / "smoke.ts").write_text(
-        """
+def _write_typescript_language_smoke(tmp_path: Path, model_version: int = 1) -> None:
+    smoke = """
 import type { CustomerCustomerV1 } from "./generated/typescript/customer.Customer.v1";
 import type { AnalyticsCustomerSummaryV1 } from "./generated/typescript/analytics.CustomerSummary.v1";
 
@@ -624,16 +727,15 @@ const summary: AnalyticsCustomerSummaryV1 = {
 };
 if (summary.name !== "Alice") throw new Error("generated identity fields did not type-check");
 """.strip()
-        + "\n",
-        encoding="utf-8",
-    )
+    smoke = smoke.replace("customer.Customer.v1", f"customer.Customer.v{model_version}")
+    smoke = smoke.replace("CustomerCustomerV1", f"CustomerCustomerV{model_version}")
+    (tmp_path / "smoke.ts").write_text(smoke + "\n", encoding="utf-8")
 
 
-def _write_java_language_smoke(tmp_path: Path) -> None:
+def _write_java_language_smoke(tmp_path: Path, model_version: int = 1) -> None:
     smoke_dir = tmp_path / "analytics"
     smoke_dir.mkdir(parents=True, exist_ok=True)
-    (smoke_dir / "Smoke.java").write_text(
-        """
+    smoke = """
 package analytics;
 
 import customer.CustomerV1;
@@ -650,17 +752,18 @@ public final class Smoke {
   }
 }
 """.strip()
-        + "\n",
-        encoding="utf-8",
-    )
+    smoke = smoke.replace("CustomerV1", f"CustomerV{model_version}")
+    if model_version == 2:
+        smoke = smoke.replace("import java.util.UUID;", "import java.util.UUID;\nimport java.util.Optional;")
+        smoke = smoke.replace('new CustomerV2(id, "Alice")', 'new CustomerV2(id, "Alice", Optional.empty())')
+    (smoke_dir / "Smoke.java").write_text(smoke + "\n", encoding="utf-8")
 
 
-def _write_go_language_smoke(output: Path) -> None:
+def _write_go_language_smoke(output: Path, model_version: int = 1) -> None:
     (output / "go.mod").write_text("module example.com/modelable-offline-feature\n\ngo 1.26\n", encoding="utf-8")
     customer_dir = output / "customer"
     customer_dir.mkdir(parents=True, exist_ok=True)
-    (customer_dir / "smoke_test.go").write_text(
-        """
+    smoke = """
 package customer
 
 import (
@@ -674,12 +777,11 @@ func TestGeneratedIdentity(t *testing.T) {
   if summary.CustomerId != customer.CustomerId || summary.Name != "Alice" { t.Fatal("generated identity fields did not survive Go compilation") }
 }
 """.strip()
-        + "\n",
-        encoding="utf-8",
-    )
+    smoke = smoke.replace("CustomerCustomerV1", f"CustomerCustomerV{model_version}")
+    (customer_dir / "smoke_test.go").write_text(smoke + "\n", encoding="utf-8")
 
 
-def _write_csharp_language_smoke(tmp_path: Path) -> None:
+def _write_csharp_language_smoke(tmp_path: Path, model_version: int = 1) -> None:
     (tmp_path / "Smoke.csproj").write_text(
         """
 <Project Sdk="Microsoft.NET.Sdk">
@@ -699,8 +801,7 @@ def _write_csharp_language_smoke(tmp_path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
-    (tmp_path / "Program.cs").write_text(
-        """
+    smoke = """
 using System;
 using Modelable.Customer;
 using Modelable.Analytics;
@@ -711,6 +812,5 @@ var summary = new AnalyticsCustomerSummaryV1 { CustomerId = customer.CustomerId,
 if (summary.CustomerId != customer.CustomerId || summary.Name != "Alice")
     throw new InvalidOperationException("generated identity fields did not survive C# compilation");
 """.strip()
-        + "\n",
-        encoding="utf-8",
-    )
+    smoke = smoke.replace("CustomerCustomerV1", f"CustomerCustomerV{model_version}")
+    (tmp_path / "Program.cs").write_text(smoke + "\n", encoding="utf-8")
