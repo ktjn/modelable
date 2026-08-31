@@ -77,9 +77,11 @@ explicitly listed for acceptance before implementation.
   loading every application source tree.
 - [x] Emit consequence facts with causal paths for changed API, event, and
   persistence usage surfaces in registry diffs.
-- [ ] Generalize all existing compatibility findings into consequence facts with
-  causal paths and actions such as regeneration, consumer update, migration,
-  backfill, projection rebuild, replay, review, and breaking change.
+- [x] Expose direct compatibility consequences for newly added model versions,
+  including deterministic breaking and recompile actions with causal paths.
+- [ ] Generalize all remaining compatibility findings into consequence facts
+  with causal paths and actions such as regeneration, consumer update,
+  migration, backfill, projection rebuild, replay, review, and breaking change.
 - [x] Extend `modelable impact --from OLD --to NEW` to consume local snapshots
   and aggregated usage manifests in both human and JSON output.
 
