@@ -215,7 +215,7 @@ domain customer {
     ]
 
 
-def test_compile_rejects_unsupported_plan_protocol_before_writing_state(tmp_path: Path, monkeypatch) -> None:
+def test_compile_rejects_target_without_plan_v1_before_writing_state(tmp_path: Path, monkeypatch) -> None:
     source = tmp_path / "customer.mdl"
     source.write_text(
         """
@@ -232,7 +232,7 @@ domain customer {
         protocol=PROTOCOL,
         id="example.target",
         version="1.2.3",
-        accepted_plan_versions=("modelable.plan/v1",),
+        accepted_plan_versions=("modelable.plan/v0",),
         capabilities=("records",),
         configuration_schema=None,
         output_kinds=("language",),
