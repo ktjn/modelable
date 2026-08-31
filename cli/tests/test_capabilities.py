@@ -134,6 +134,7 @@ def test_registry_capability_scope_is_explicit():
     assert capabilities["offline-compiler-analysis"].status is CapabilityStatus.implemented
     assert capabilities["transitive-dependency-closure"].status is CapabilityStatus.deferred
     assert capabilities["cross-application-consequence-analysis"].status is CapabilityStatus.deferred
+    assert "configured policies" in capabilities["cross-application-consequence-analysis"].notes
 
 
 def test_manifest_declares_consequence_graph_coverage():

@@ -273,7 +273,7 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         category="registry_capability",
         status=CapabilityStatus.deferred,
         description="Aggregates usage manifests across applications and applies update consequences",
-        notes="Current usage and impact commands operate on one loaded workspace; aggregation and policy-aware updates are planned.",
+        notes="Current usage and impact commands operate on one loaded workspace; cross-application aggregation remains planned, while registry updates apply configured policies to known surface consequences.",
         test_refs=("test_capabilities.py::test_registry_capability_scope_is_explicit",),
     ),
 )
