@@ -1748,7 +1748,7 @@ content-addressed objects:
 modelable registry resolve SOURCE [--out DIR]
 modelable registry resolve-git REPOSITORY --ref REF [--out DIR]
 modelable registry diff SOURCE [--out DIR] [--format text|json]
-modelable registry update SOURCE [--out DIR] [--format text|json]
+modelable registry update SOURCE [--out DIR] [--format text|json] [--dry-run]
 modelable registry verify [--out DIR] [--format text|json]
 modelable registry rebuild-index [--out DIR]
 modelable registry status [--out DIR] [--format text|json]
@@ -1769,7 +1769,9 @@ validation and target generation.
   Git URI provenance. Network-backed adapters remain disabled by this CLI.
 - `registry diff` stages a candidate in a temporary directory and reports exact
   added, removed, and changed contract identities without changing local state.
-- `registry update` validates that candidate and atomically replaces the lock;
+- `registry update --dry-run` resolves, validates, and diffs the candidate while
+  leaving the durable lock and objects unchanged. Without `--dry-run`, update
+  validates that candidate and atomically replaces the lock;
   it never contacts a network source and retains reusable objects. It rejects a
   candidate that changes the canonical content of an existing logical identity;
   new versions remain valid candidates.

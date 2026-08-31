@@ -791,6 +791,51 @@ def test_registry_update_uses_explicit_local_source_adapter(tmp_path: Path, monk
     assert calls == [FIXTURE]
 
 
+def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_path: Path) -> None:
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(FIXTURE), output_dir)
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        FIXTURE.read_text(encoding="utf-8").rsplit("}", 1)[0]
+        + """
+  entity Customer @ 3 (additive) {
+    @key
+    customerId: uuid
+    legalName: string
+    @pii
+    email?: string
+    status?: enum(active, blocked, deleted)
+    createdAt: timestamp
+    region?: string
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    original_lock = (output_dir / "registry.lock").read_bytes()
+    objects_dir = output_dir / "registry" / "objects"
+    original_objects = {path.name: path.read_bytes() for path in objects_dir.glob("*.json")}
+
+    result = CliRunner().invoke(
+        cli,
+        ["registry", "update", str(source), "--out", str(output_dir), "--format", "json", "--dry-run"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output[result.output.index("{") :])
+    assert payload == {
+        "added": ["customer.Customer@3 (model)"],
+        "changed": ["customer.Customer@1 (model)", "customer.Customer@2 (model)"],
+        "dry_run": True,
+        "empty": False,
+        "lock": str(output_dir / "registry.lock"),
+        "objects": 3,
+        "removed": [],
+    }
+    assert (output_dir / "registry.lock").read_bytes() == original_lock
+    assert {path.name: path.read_bytes() for path in objects_dir.glob("*.json")} == original_objects
+
+
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
     runner = CliRunner()
     output_dir = tmp_path / ".modelable"

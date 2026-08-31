@@ -681,6 +681,20 @@ def diff_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".mod
         return diff_snapshot_paths(Path(output_dir), candidate.lock_path.parent)
 
 
+def preview_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> tuple[SnapshotDiff, int]:
+    """Resolve and validate an update candidate without changing durable state."""
+    paths = SnapshotPaths(Path(output_dir))
+    extension_pins = _load_snapshot_extension_pins(paths)
+    with tempfile.TemporaryDirectory(prefix="modelable-registry-preview-") as temporary:
+        candidate_dir = Path(temporary)
+        candidate = resolve_workspace_snapshot(workspace, candidate_dir, extension_pins=extension_pins)
+        candidate_errors = verify_snapshot(candidate_dir)
+        if candidate_errors:
+            raise ValueError("Candidate snapshot is invalid:\n" + "\n".join(candidate_errors))
+        _reject_mutable_identity_replacements(paths.root, _load_lock_entries(SnapshotPaths(candidate_dir).lock))
+        return diff_snapshot_paths(paths.root, candidate_dir), candidate.object_count
+
+
 def update_workspace_snapshot(
     workspace: Workspace, output_dir: str | Path = ".modelable"
 ) -> tuple[SnapshotResult, SnapshotDiff]:
