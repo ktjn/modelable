@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- `modelable impact` now reports projection governance-review consequences
+  for access and classification changes.
 - Modelable now retains `import domain` requirements, resolves explicitly
   imported local registry mirrors, and rejects mismatched pinned signatures.
 - `modelable impact` now reports per-change source-compatibility consequences

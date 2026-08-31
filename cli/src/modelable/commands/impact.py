@@ -15,6 +15,7 @@ from modelable.compat.checker import (
 )
 from modelable.compat.targets import (
     compare_data_backfill,
+    compare_governance_review,
     compare_model_storage_migration,
     compare_projection_rebuild,
     compare_semantic_compatibility,
@@ -121,6 +122,11 @@ def impact(
             report,
             compare_projection_rebuild(report.domain_name, report.projection_name, report.changes),
         )
+        governance_consequences = build_projection_consequences(
+            report,
+            compare_governance_review(report.domain_name, report.projection_name, report.changes),
+        )
+        consequences.extend(governance_consequences[1:])
         change_nodes = projection_change_nodes(report)
     else:
         consequences = build_model_consequences(workspace, report)
