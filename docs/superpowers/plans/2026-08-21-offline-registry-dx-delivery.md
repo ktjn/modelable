@@ -136,7 +136,7 @@ feature fixture that exercises every implemented code-generation target. The
 fixture must be generated once and its outputs reused; it must not create a
 separate modelable compile scenario per target.
 
-- [ ] Prepare producer v1 and v2 Modelable workspaces plus a consumer workspace
+- [x] Prepare producer v1 and v2 Modelable workspaces plus a consumer workspace
   that resolves the producer contract through the local snapshot.
 - [ ] Keep the fixture intentionally tiny: one producer domain, one referenced
   model, one projection, and one Rust consumer crate. Do not turn this into a
@@ -148,7 +148,7 @@ separate modelable compile scenario per target.
   including model/projection types, semantic identity constants, canonical
   version signatures, and any generated conversion surface covered by the
   fixture.
-- [ ] Enumerate `list_implemented_codegen_targets()` and generate every
+- [x] Enumerate `list_implemented_codegen_targets()` and generate every
   implemented target from the same fixture. A newly implemented target must
   either join this feature matrix or be explicitly marked as exempt with a
   documented validator.
