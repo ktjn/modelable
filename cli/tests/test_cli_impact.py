@@ -96,6 +96,59 @@ domain billing {
     } in graph["edges"]
 
 
+def test_impact_json_reports_data_backfill_for_defaulted_required_field(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    id: uuid
+    name: string
+  }
+  entity Customer @ 2 (breaking) {
+    @key
+    id: uuid
+    name: string
+    status: string = "active"
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "customer.Customer@1",
+            "--to",
+            "customer.Customer@2",
+            "--path",
+            str(source),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert {
+        "action": "data_backfill",
+        "causal_path": [
+            "customer.Customer@1",
+            "customer.Customer@2",
+            "data-backfill:customer.Customer:field_added_with_default",
+        ],
+        "reason": "field 'status' has a default and requires a data backfill",
+        "status": "migration_required",
+        "subject": "data-backfill:customer.Customer:field_added_with_default",
+    } in payload["consequences"]
+    assert validate_consequence_graph(payload["consequence_graph"]) == payload["consequence_graph"]
+
+
 def test_impact_can_load_dependents_from_an_offline_snapshot(tmp_path: Path) -> None:
     provider = tmp_path / "provider.mdl"
     provider.write_text(
