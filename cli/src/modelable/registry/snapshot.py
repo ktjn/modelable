@@ -79,6 +79,7 @@ from modelable.registry.signature import (
     compute_version_signature,
 )
 from modelable.registry.usage import USAGE_SCHEMA, build_usage_manifest
+from modelable.registry.usage_protocol import UsageProtocolError, serialize_usage_manifest, validate_usage_manifest
 
 LOCK_FORMAT = "modelable.registry.lock.v1"
 OBJECT_FORMAT = "modelable.registry.object.v1"
@@ -153,6 +154,7 @@ def resolve_workspace_snapshot(
     registry_ids_path: str | Path | None = None,
     allow_mutable_identity_replacements: bool = False,
     artifact_manifests: Sequence[Mapping[str, Any]] = (),
+    usage_manifest: Mapping[str, Any] | None = None,
 ) -> SnapshotResult:
     """Write a deterministic, content-addressed snapshot of a validated workspace.
 
@@ -226,13 +228,24 @@ def resolve_workspace_snapshot(
         canonical_pins = _canonical_extension_pins(extension_pins)
     except ExtensionDescriptorError as exc:
         raise ValueError(str(exc)) from exc
+    if usage_manifest is None:
+        snapshot_usage = build_usage_manifest(workspace, artifact_manifests=artifact_manifests)
+    else:
+        try:
+            snapshot_usage = validate_usage_manifest(json.loads(serialize_usage_manifest(usage_manifest)))
+        except (UsageProtocolError, TypeError, ValueError) as exc:
+            raise ValueError(f"Cannot load compiled usage manifest: {exc}") from exc
+        usage_errors: list[str] = []
+        _verify_usage_evidence(snapshot_usage, entries, usage_errors)
+        if usage_errors:
+            raise ValueError(usage_errors[0])
     lock = {
         "format": LOCK_FORMAT,
         "extensions": canonical_pins,
         "objects": entries,
         "imports": _serialize_imports(workspace.mdl.imports),
         "requirements": _build_requirements(entries),
-        "usage": build_usage_manifest(workspace, artifact_manifests=artifact_manifests),
+        "usage": snapshot_usage,
         "allocations": {
             "registry_ids": _serialize_registry_ids(
                 read_registry_ids_lock_file(Path(registry_ids_path)) if registry_ids_path is not None else {}
