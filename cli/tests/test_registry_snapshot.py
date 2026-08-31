@@ -196,6 +196,46 @@ def test_resolve_persists_deterministic_usage_evidence(tmp_path: Path) -> None:
     assert result.lock_path.read_bytes() == first_lock
 
 
+def test_resolve_persists_supplied_compiled_usage_manifest(tmp_path: Path) -> None:
+    workspace = load_workspace(FIXTURE)
+    usage = build_usage_manifest(workspace)
+    usage["application"] = "compiled-customer-service"
+    usage["application_id"] = "application:compiled-customer-service"
+
+    result = resolve_workspace_snapshot(workspace, tmp_path / ".modelable", usage_manifest=usage)
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+
+    assert lock["usage"] == usage
+    assert verify_snapshot(tmp_path / ".modelable") == []
+
+
+def test_resolve_cli_accepts_compiled_usage_manifest(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    usage_path = tmp_path / "usage.json"
+    usage = build_usage_manifest(load_workspace(source))
+    usage["application"] = "compiled-customer-service"
+    usage_path.write_text(json.dumps(usage), encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "registry",
+            "resolve",
+            str(source),
+            "--out",
+            str(tmp_path / ".modelable"),
+            "--usage-manifest",
+            str(usage_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads((tmp_path / ".modelable" / "registry.lock").read_text(encoding="utf-8"))["usage"][
+        "application"
+    ] == ("compiled-customer-service")
+
+
 def test_verify_rejects_usage_evidence_with_a_mismatched_signature(tmp_path: Path) -> None:
     output_dir = tmp_path / ".modelable"
     result = resolve_workspace_snapshot(load_workspace(FIXTURE), output_dir)

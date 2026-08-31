@@ -43,12 +43,27 @@ def registry() -> None:
     multiple=True,
     help="Generated artifact manifest to include as usage evidence (repeatable).",
 )
-def resolve(source: Path, output_dir: Path, artifact_manifest_paths: tuple[Path, ...]) -> None:
+@click.option(
+    "--usage-manifest",
+    "usage_manifest_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Validated usage manifest produced by compilation to persist in the snapshot lock.",
+)
+def resolve(
+    source: Path,
+    output_dir: Path,
+    artifact_manifest_paths: tuple[Path, ...],
+    usage_manifest_path: Path | None,
+) -> None:
     """Resolve SOURCE into an exact local registry snapshot."""
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
         result = resolve_workspace_snapshot(
-            workspace, output_dir, artifact_manifests=_read_artifact_manifests(artifact_manifest_paths)
+            workspace,
+            output_dir,
+            artifact_manifests=_read_artifact_manifests(artifact_manifest_paths),
+            usage_manifest=_read_usage_manifest(usage_manifest_path) if usage_manifest_path is not None else None,
         )
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
@@ -282,3 +297,13 @@ def _read_artifact_manifests(paths: tuple[Path, ...]) -> tuple[dict[str, object]
         return tuple(_load_artifact_manifest(path) for path in paths)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise ValueError(f"Cannot load artifact manifest: {exc}") from exc
+
+
+def _read_usage_manifest(path: Path) -> dict[str, object]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(f"Cannot load compiled usage manifest: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("compiled usage manifest must be a JSON object")
+    return payload
