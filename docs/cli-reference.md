@@ -1856,14 +1856,16 @@ validation and target generation.
 The lock and object files are the durable snapshot; `registry.db` remains a
 rebuildable compiler index. Lock requirements retain the requested version
 selector, exact resolved identity, source provenance, signature, and object
-hash used offline. Verification also checks that this list is complete and
-matches every dependency edge in the locked objects.
+hash used offline, including direct and transitive dependencies. Verification
+also checks that this list is complete and matches every dependency edge in the
+locked objects.
 Verification also rejects conflicting content hashes for one logical identity.
 Semantic and enum-projection objects retain source paths and hashes when
 resolved from a local file. Snapshot objects also retain the domain metadata
 and declarations required to generate equivalent target artifacts offline.
 
-Network-backed source adapters remain deferred. Cross-application usage
+Network-backed source adapters remain deferred; local mirrored sources resolve
+and pin their transitive dependency closure. Cross-application usage
 aggregation is available through repeatable `registry usage --usage-manifest`
 inputs. Registry updates now
 apply configured policies to known surface consequences; full policy coverage

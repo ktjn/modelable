@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Capability reporting now recognizes direct and transitive dependency closure
+  from local mirrored registry sources.
+
 - Capability reporting now recognizes cross-application consequence analysis
   from repeatable compiled usage manifests.
 

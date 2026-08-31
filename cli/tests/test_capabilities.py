@@ -132,7 +132,7 @@ def test_registry_capability_scope_is_explicit():
     assert capabilities["local-registry-snapshot"].status is CapabilityStatus.implemented
     assert capabilities["snapshot-provenance"].status is CapabilityStatus.implemented
     assert capabilities["offline-compiler-analysis"].status is CapabilityStatus.implemented
-    assert capabilities["transitive-dependency-closure"].status is CapabilityStatus.deferred
+    assert capabilities["transitive-dependency-closure"].status is CapabilityStatus.implemented
     cross_application = capabilities["cross-application-consequence-analysis"]
     assert cross_application.status is CapabilityStatus.implemented
 

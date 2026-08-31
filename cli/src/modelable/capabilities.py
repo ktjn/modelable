@@ -263,10 +263,13 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
     Capability(
         name="transitive-dependency-closure",
         category="registry_capability",
-        status=CapabilityStatus.deferred,
-        description="Resolves and pins direct and transitive external dependency requirements",
-        notes="Current snapshot commands accept local workspace source only; external source adapters are planned.",
-        test_refs=("test_capabilities.py::test_registry_capability_scope_is_explicit",),
+        status=CapabilityStatus.implemented,
+        description="Resolves and pins direct and transitive dependencies from local mirrored sources",
+        notes="Network-backed source adapters remain deferred.",
+        test_refs=(
+            "test_registry_snapshot.py::test_transitive_dependency_closure_rebuilds_offline_index",
+            "test_registry_snapshot.py::test_local_source_adapter_loads_transitive_imported_mirrors",
+        ),
     ),
     Capability(
         name="cross-application-consequence-analysis",
