@@ -1,4 +1,4 @@
-"""OpenMetadata projection emission from validated modelable.plan/v0 data."""
+"""OpenMetadata projection emission from validated modelable.plan/v1 data."""
 
 from __future__ import annotations
 

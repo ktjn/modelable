@@ -9,7 +9,32 @@ from modelable.compiler.workspace import load_workspace
 from modelable.emitters.openmetadata import emit_openmetadata
 from modelable.emitters.openmetadata_plan import emit_openmetadata_projection_plan
 from modelable.planner.plans import build_plan_documents
-from modelable.planner.protocol import load_plan
+from modelable.planner.protocol import PLAN_V1_SCHEMA, load_plan
+
+
+def test_openmetadata_emitter_requests_v1_plan_documents(monkeypatch, tmp_path):
+    (tmp_path / "customer.mdl").write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) { @key customerId: uuid }
+  projection CustomerSummary @ 1 from customer.Customer @ 1 as c { customerId <- c.customerId }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, str]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.openmetadata.build_plan_documents", observe_plan_request)
+
+    emit_openmetadata(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_emit_openmetadata(tmp_path):
