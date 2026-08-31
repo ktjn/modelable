@@ -6,6 +6,36 @@ from modelable.compiler.workspace import load_workspace
 from modelable.emitters.fhir import _can_route_fhir_plan, emit_fhir_profile
 from modelable.emitters.fhir_plan import emit_fhir_projection_plan
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
+
+
+def test_emit_fhir_profile_requests_v1_plan_documents(tmp_path, monkeypatch):
+    (tmp_path / "clinical.mdl").write_text(
+        """
+domain clinical {
+  entity Patient @ 1 { patientId: uuid }
+
+  projection PatientProfile @ 1
+    from clinical.Patient @ 1 as p
+  {
+    patientId <- p.patientId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, object]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.fhir.build_plan_documents", observe_plan_request)
+
+    emit_fhir_profile(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_emit_fhir_profile_maps_known_fields_direct_and_unknown_as_extensions(tmp_path):
@@ -151,7 +181,11 @@ domain clinical {
         encoding="utf-8",
     )
     workspace = load_workspace(tmp_path)
-    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "PatientProfile")
+    plan = next(
+        item
+        for item in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
+        if item["projection"] == "PatientProfile"
+    )
     version = workspace.mdl.domains[0].projections["PatientProfile"][0]
     assert _can_route_fhir_plan(plan, version)
     migrated = emit_fhir_projection_plan(
