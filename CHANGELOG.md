@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry updates can now block configured consequence actions via
+  `[registry] blocked_actions` and retain validated blocked candidates for review.
 - Registry diffs now include consequence facts with causal paths for changed
   API, event, and persistence usage surfaces.
 - Registry diffs now include deterministic required actions for changed API,

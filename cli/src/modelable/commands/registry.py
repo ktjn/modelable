@@ -7,9 +7,11 @@ from pathlib import Path
 import click
 
 from modelable.commands.common import console, load_workspace_or_exit
+from modelable.config import load_config
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.snapshot import (
     diff_workspace_snapshot,
+    evaluate_registry_policy,
     preview_workspace_snapshot,
     prune_snapshot,
     resolve_workspace_snapshot,
@@ -96,10 +98,11 @@ def update(source: Path, output_dir: Path, output_format: str, dry_run: bool) ->
     """Stage and atomically install SOURCE as the local exact snapshot."""
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
+        blocked_actions = load_config(source).blocked_registry_actions()
         if dry_run:
             snapshot_diff, object_count = preview_workspace_snapshot(workspace, output_dir)
         else:
-            result, snapshot_diff = update_workspace_snapshot(workspace, output_dir)
+            result, snapshot_diff = update_workspace_snapshot(workspace, output_dir, blocked_actions=blocked_actions)
             object_count = result.object_count
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
@@ -108,6 +111,10 @@ def update(source: Path, output_dir: Path, output_format: str, dry_run: bool) ->
         "dry_run": dry_run,
         "lock": str(output_dir / "registry.lock"),
         "objects": object_count,
+        "policy": {
+            "blocked_actions": list(blocked_actions),
+            "violations": evaluate_registry_policy(snapshot_diff, blocked_actions),
+        },
         **snapshot_diff.as_dict(),
     }
     if output_format == "json":

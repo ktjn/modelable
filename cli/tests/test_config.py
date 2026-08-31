@@ -70,3 +70,20 @@ def test_config_rejects_absolute_target_overlay(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="workspace-relative"):
         config.overlay_for_target("sql-postgres")
+
+
+def test_config_loads_registry_blocked_actions(tmp_path: Path) -> None:
+    (tmp_path / "modelable.toml").write_text(
+        '[registry]\nblocked_actions = ["breaking", "storage_migration"]\n', encoding="utf-8"
+    )
+
+    config = load_config(tmp_path)
+
+    assert config.blocked_registry_actions() == ("breaking", "storage_migration")
+
+
+def test_config_rejects_unknown_registry_blocked_action(tmp_path: Path) -> None:
+    (tmp_path / "modelable.toml").write_text('[registry]\nblocked_actions = ["unknown"]\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsupported registry blocked action"):
+        load_config(tmp_path)

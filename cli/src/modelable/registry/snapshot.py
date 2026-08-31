@@ -711,7 +711,10 @@ def preview_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".
 
 
 def update_workspace_snapshot(
-    workspace: Workspace, output_dir: str | Path = ".modelable"
+    workspace: Workspace,
+    output_dir: str | Path = ".modelable",
+    *,
+    blocked_actions: tuple[str, ...] = (),
 ) -> tuple[SnapshotResult, SnapshotDiff]:
     """Stage and atomically install a validated local snapshot candidate."""
     paths = SnapshotPaths(Path(output_dir))
@@ -724,6 +727,14 @@ def update_workspace_snapshot(
             raise ValueError("Candidate snapshot is invalid:\n" + "\n".join(candidate_errors))
         _reject_mutable_identity_replacements(paths.root, _load_lock_entries(SnapshotPaths(candidate_dir).lock))
         snapshot_diff = diff_snapshot_paths(paths.root, candidate_dir)
+        blocked = evaluate_registry_policy(snapshot_diff, blocked_actions)
+        if blocked:
+            retained = _retain_candidate(paths, candidate_dir)
+            raise ValueError(
+                "registry update blocked by registry policy for action(s): "
+                + ", ".join(blocked)
+                + f"; candidate retained at {retained}"
+            )
 
         paths.root.mkdir(parents=True, exist_ok=True)
         paths.objects.mkdir(parents=True, exist_ok=True)
@@ -744,6 +755,29 @@ def update_workspace_snapshot(
             temporary_lock.unlink(missing_ok=True)
             raise
         return SnapshotResult(paths.lock, candidate.object_count, candidate.identities), snapshot_diff
+
+
+def evaluate_registry_policy(snapshot_diff: SnapshotDiff, blocked_actions: tuple[str, ...]) -> list[str]:
+    """Return configured actions that would block a staged snapshot update."""
+    blocked = set(blocked_actions)
+    consequences = snapshot_diff.usage.get("consequences", [])
+    return sorted(
+        {
+            str(consequence["action"])
+            for consequence in consequences
+            if isinstance(consequence, dict)
+            and consequence.get("status") == "required"
+            and consequence.get("action") in blocked
+        }
+    )
+
+
+def _retain_candidate(paths: SnapshotPaths, candidate_dir: Path) -> Path:
+    candidate_id = hashlib.sha256((candidate_dir / "registry.lock").read_bytes()).hexdigest()
+    retained = paths.root / "registry" / "candidates" / candidate_id
+    retained.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(candidate_dir, retained, dirs_exist_ok=True)
+    return retained
 
 
 def _reject_mutable_identity_replacements(current_dir: Path, candidate_entries: list[dict[str, Any]]) -> None:

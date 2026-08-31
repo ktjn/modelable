@@ -106,7 +106,10 @@ modelable config explain [REF] [--path PATH] [--target TARGET] [--format text|js
 provenance. A configured `[defaults] auto_projections = ["db", "request",
 "reply", "event"]` setting is lowered into the existing auto-projection
 planner for workspaces under that configuration file; explicit IDL
-declarations remain authoritative.
+declarations remain authoritative. A `[registry] blocked_actions = [...]`
+setting can block matching required consequences during a real registry update;
+supported action names are the canonical consequence actions. Use
+`config explain` to inspect the setting and its provenance.
 
 ### 5.0.2 `doctor` — Check local toolchain health
 
@@ -1782,7 +1785,9 @@ validation and target generation.
   `dependencies` and `usage` sections, classifying exact requirement and usage
   evidence additions, removals, and changes. The `usage.consequences` entries
   use the same action, status, reason, and causal-path shape as `impact` output.
-  If an update is interrupted or
+  The JSON payload includes a `policy` object with configured blocked actions
+  and any violations; a blocked real update retains its validated candidate
+  under `registry/candidates/<lock-hash>/` for review. If an update is interrupted or
   lock replacement fails, newly copied objects and temporary lock files are
   removed.
 - `registry verify` checks lock/object presence, hashes, signatures, and

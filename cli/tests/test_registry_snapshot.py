@@ -832,6 +832,7 @@ def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_pa
     assert payload["objects"] == 3
     assert payload["removed"] == []
     assert payload["dependencies"] == {"added": [], "changed": [], "removed": []}
+    assert payload["policy"] == {"blocked_actions": [], "violations": []}
     assert [item["ref"] for item in payload["usage"]["references"]["added"]] == ["customer.Customer@3"]
     assert payload["usage"]["references"]["removed"] == []
     assert payload["usage"]["references"]["changed"] == []
@@ -1084,6 +1085,39 @@ def test_update_rolls_back_new_objects_when_lock_replacement_fails(tmp_path: Pat
     assert lock_path.read_bytes() == original_lock
     assert {path.name: path.read_bytes() for path in objects_dir.glob("*.json")} == original_objects
     assert not list(output_dir.glob(".registry.lock.tmp-*"))
+
+
+def test_update_policy_retains_blocked_candidate(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        FIXTURE.read_text(encoding="utf-8")
+        + """
+binding customerStore {
+  adapter: postgres
+  model: customer.Customer @ 1
+  table: "customers"
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "modelable.toml").write_text('[registry]\nblocked_actions = ["storage_migration"]\n', encoding="utf-8")
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    original_lock = (output_dir / "registry.lock").read_bytes()
+    source.write_text(
+        source.read_text(encoding="utf-8").replace('table: "customers"', 'table: "customer_records"'), encoding="utf-8"
+    )
+
+    result = CliRunner().invoke(cli, ["registry", "update", str(source), "--out", str(output_dir)])
+
+    assert result.exit_code == 1
+    assert "blocked by registry policy" in result.output
+
+    assert (output_dir / "registry.lock").read_bytes() == original_lock
+    candidates = list((output_dir / "registry" / "candidates").iterdir())
+    assert len(candidates) == 1
+    assert (candidates[0] / "registry.lock").exists()
+    assert verify_snapshot(candidates[0]) == []
 
 
 def test_update_preserves_extension_pins(tmp_path: Path) -> None:

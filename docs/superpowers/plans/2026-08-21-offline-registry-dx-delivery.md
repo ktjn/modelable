@@ -90,13 +90,16 @@ explicitly listed for acceptance before implementation.
 - [x] Compare current and candidate semantic graphs plus affected application
   usage manifests.
 - [x] Calculate changed application-surface consequences for the staged result.
-- [ ] Calculate all consequence facts and
-- [ ] Apply configured policy to the staged result.
+- [ ] Calculate all consequence facts and actions.
+- [x] Apply configured blocked-action policy to changed surface consequences.
+- [ ] Apply the full configured policy to the staged result.
 - [x] Show generated-artifact regeneration consequences from usage manifests.
 - [x] Show exact dependency changes in the staged update diff.
 - [x] Show remaining required-action changes.
 - [ ] Replace lock/object state atomically only after validation and policy
-  acceptance; retain the candidate for review when rejected.
+  acceptance.
+- [x] Retain a validated candidate for review when the configured surface policy
+  rejects it.
 - [x] Add failure-injection tests proving that rejected or interrupted updates
   leave the prior snapshot unchanged when lock replacement fails.
 
