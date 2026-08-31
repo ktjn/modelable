@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import cast
 
 PLAN_SCHEMA = "modelable.plan/v0"
+PLAN_V1_SCHEMA = "modelable.plan/v1"
 type PlanDocument = dict[str, object]
 
 
@@ -15,11 +17,36 @@ class PlanProtocolError(ValueError):
 
 
 def validate_plan(document: object) -> PlanDocument:
-    """Validate and return a JSON object that conforms to the v0 envelope."""
+    """Validate and return a JSON object for a supported plan protocol."""
     if not isinstance(document, dict):
         raise PlanProtocolError("Plan document must be a JSON object")
 
-    _require_string(document, "$schema", expected=PLAN_SCHEMA)
+    schema = document.get("$schema")
+    if not isinstance(schema, str) or not schema:
+        raise PlanProtocolError(f"$schema must be {PLAN_SCHEMA!r}")
+    if schema not in {PLAN_SCHEMA, PLAN_V1_SCHEMA}:
+        raise PlanProtocolError(f"unsupported plan schema {schema!r}")
+    return _validate_plan_shape(document, schema)
+
+
+def migrate_plan(document: object, target_schema: str) -> PlanDocument:
+    """Migrate a supported plan document to a newer compatible protocol."""
+    source = validate_plan(document)
+    source_schema = _require_string(source, "$schema")
+    if source_schema == target_schema:
+        return deepcopy(source)
+    if source_schema != PLAN_SCHEMA or target_schema != PLAN_V1_SCHEMA:
+        raise PlanProtocolError(f"unsupported plan migration {source_schema!r} -> {target_schema!r}")
+
+    migrated = deepcopy(source)
+    migrated["$schema"] = PLAN_V1_SCHEMA
+    metadata = cast(dict[str, object], migrated["planner_metadata"])
+    metadata["migrated_from"] = PLAN_SCHEMA
+    return validate_plan(migrated)
+
+
+def _validate_plan_shape(document: dict[str, object], schema: str) -> PlanDocument:
+    _require_string(document, "$schema", expected=schema)
     _require_string(document, "domain")
     _require_string(document, "projection")
     _require_integer(document, "version")
@@ -48,7 +75,11 @@ def validate_plan(document: object) -> PlanDocument:
 
     metadata = _require_mapping(document, "planner_metadata")
     _require_string(metadata, "modelable_schema")
-    _require_exact_keys(metadata, {"modelable_schema"}, "planner_metadata")
+    metadata_keys = {"modelable_schema"}
+    if schema == PLAN_V1_SCHEMA and "migrated_from" in metadata:
+        _require_string(metadata, "migrated_from", expected=PLAN_SCHEMA)
+        metadata_keys.add("migrated_from")
+    _require_exact_keys(metadata, metadata_keys, "planner_metadata")
     _require_exact_keys(
         document,
         {
@@ -74,7 +105,7 @@ def validate_plan(document: object) -> PlanDocument:
         _validate_governance_finding(finding, f"governance_findings[{index}]")
     if document["requires_revalidation"] != bool(revalidation_reasons):
         raise PlanProtocolError("requires_revalidation must match revalidation_reasons")
-    return cast(PlanDocument, document)
+    return document
 
 
 def serialize_plan(document: object) -> str:

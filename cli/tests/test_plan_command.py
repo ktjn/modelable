@@ -29,10 +29,10 @@ def test_plan_validate_json_format_is_canonical_serialization() -> None:
 
 def test_plan_validate_reports_protocol_errors(tmp_path: Path) -> None:
     invalid = tmp_path / "invalid.plan.json"
-    invalid.write_text('{"$schema":"modelable.plan/v1"}', encoding="utf-8")
+    invalid.write_text('{"$schema":"modelable.plan/v2"}', encoding="utf-8")
 
     result = CliRunner().invoke(cli, ["plan", "validate", str(invalid)])
 
     assert result.exit_code == 1
     assert "Error:" in result.output
-    assert "$schema must be 'modelable.plan/v0'" in result.output
+    assert "unsupported plan schema 'modelable.plan/v2'" in result.output

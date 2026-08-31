@@ -227,10 +227,10 @@ def test_plan_protocol_fixture_round_trips():
     assert serialize_plan(loaded) == fixture.read_text(encoding="utf-8")
 
 
-def test_plan_protocol_rejects_unknown_schema(tmp_path):
+def test_plan_protocol_rejects_unsupported_schema(tmp_path):
     path = tmp_path / "invalid.plan.json"
-    path.write_text(json.dumps({"$schema": "modelable.plan/v1"}), encoding="utf-8")
-    with pytest.raises(PlanProtocolError, match=r"\$schema"):
+    path.write_text(json.dumps({"$schema": "modelable.plan/v2"}), encoding="utf-8")
+    with pytest.raises(PlanProtocolError, match="unsupported plan schema"):
         load_plan(path)
 
 
