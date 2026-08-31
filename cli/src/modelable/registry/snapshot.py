@@ -17,6 +17,7 @@ from modelable.compat.checker import (
     check_model_version_compatibility,
     check_projection_version_compatibility,
 )
+from modelable.compat.enums import compare_enum_projections
 from modelable.compat.targets import (
     compare_data_backfill,
     compare_governance_review,
@@ -41,6 +42,7 @@ from modelable.consequence import (
     ACTION_STORAGE_MIGRATION,
     Consequence,
     build_enum_consequences,
+    build_enum_projection_consequences,
     build_projection_consequences,
     build_target_consequences,
 )
@@ -1148,7 +1150,7 @@ def _compatibility_consequences(
         kind = entry.get("kind")
         identity = entry.get("identity")
         if (
-            kind not in {"model", "projection"}
+            kind not in {"model", "projection", "enum_projection"}
             or not isinstance(identity, str)
             or "@" not in identity
             or "." not in identity
@@ -1163,7 +1165,7 @@ def _compatibility_consequences(
         current_versions.setdefault((str(kind), domain_name, model_name), []).append(version)
     consequences: list[Consequence] = []
     for kind, identity in added:
-        if kind not in {"model", "projection"} or "@" not in identity or "." not in identity:
+        if kind not in {"model", "projection", "enum_projection"} or "@" not in identity or "." not in identity:
             continue
         qualified_name, version_text = identity.rsplit("@", 1)
         domain_name, model_name = qualified_name.rsplit(".", 1)
@@ -1183,12 +1185,24 @@ def _compatibility_consequences(
             )
             status = report.status
             reason = "direct contract change"
-        else:
+        elif kind == "projection":
             projection_report: ProjectionCompatibilityReport = check_projection_version_compatibility(
                 candidate_workspace.mdl, domain_name, model_name, from_version, to_version
             )
             status = projection_report.status
             reason = "direct projection change"
+        else:
+            declarations = next(
+                (domain.enum_projections for domain in candidate_workspace.mdl.domains if domain.name == domain_name),
+                [],
+            )
+            new_declaration = next((item for item in declarations if item.version == to_version), None)
+            old_declaration = next((item for item in declarations if item.version == from_version), None)
+            if new_declaration is None or old_declaration is None:
+                continue
+            enum_changes = compare_enum_projections(domain_name, old_declaration, new_declaration)
+            status = "breaking" if any(change.breaking for change in enum_changes) else "compatible"
+            reason = "direct enum projection change"
         action = ACTION_BREAKING if status == "breaking" else ACTION_RECOMPILE
         consequences.append(
             Consequence(
@@ -1207,13 +1221,23 @@ def _compatibility_consequences(
             consequences.extend(build_target_consequences(report, storage_report))
             backfill_report = compare_data_backfill(report)
             consequences.extend(build_target_consequences(report, backfill_report))
-        else:
+        elif kind == "projection":
             rebuild_report = compare_projection_rebuild(domain_name, model_name, projection_report.changes)
             consequences.extend(build_projection_consequences(projection_report, rebuild_report)[1:])
             governance_report = compare_governance_review(domain_name, model_name, projection_report.changes)
             consequences.extend(build_projection_consequences(projection_report, governance_report)[1:])
             wire_report = compare_projection_wire_compatibility(domain_name, model_name, projection_report.changes)
             consequences.extend(build_projection_consequences(projection_report, wire_report)[1:])
+        else:
+            consequences.extend(
+                build_enum_projection_consequences(
+                    domain_name,
+                    model_name,
+                    from_version,
+                    to_version,
+                    enum_changes,
+                )[1:]
+            )
     return consequences
 
 

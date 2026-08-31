@@ -1342,6 +1342,47 @@ domain orders {
     } in snapshot_diff.usage["consequences"]
 
 
+def test_registry_diff_reports_direct_enum_projection_consequence(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  semantic Status @ 1 (additive): enum(active, blocked)
+  enum projection PublicStatus @ 1 (additive)
+    from Status @ 1
+    pick(active, blocked)
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "    pick(active, blocked)\n}",
+            "    pick(active, blocked)\n"
+            "  enum projection PublicStatus @ 2 (breaking)\n"
+            "    from Status @ 1\n"
+            "    pick(active)\n}",
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    assert {
+        "action": "breaking",
+        "causal_path": [
+            "orders.PublicStatus@1",
+            "orders.PublicStatus@2",
+        ],
+        "reason": "direct enum projection change",
+        "status": "breaking",
+        "subject": "orders.PublicStatus@2",
+    } in snapshot_diff.usage["consequences"]
+
+
 def test_registry_diff_reports_data_backfill_for_added_required_field_with_default(tmp_path: Path) -> None:
     source = tmp_path / "models.mdl"
     source.write_text(

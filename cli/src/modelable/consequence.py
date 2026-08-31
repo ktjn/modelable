@@ -5,7 +5,7 @@ from typing import Any
 
 from modelable.compat.checker import CompatibilityReport, ProjectionCompatibilityReport, analyze_impact
 from modelable.compat.diff import ProjectionChange
-from modelable.compat.enums import EXHAUSTIVE_MATCH
+from modelable.compat.enums import EXHAUSTIVE_MATCH, EnumChange, describe_enum_change
 from modelable.compat.targets import TargetCompatibilityReport
 from modelable.compiler.workspace import Workspace
 from modelable.consequence_protocol import CONSEQUENCE_SCHEMA, validate_consequence_graph
@@ -134,6 +134,46 @@ def build_enum_consequences(report: CompatibilityReport) -> list[Consequence]:
                 causal_changes=(_change_node_id(change.kind, change.field_name),),
             )
         )
+    return consequences
+
+
+def build_enum_projection_consequences(
+    domain_name: str,
+    projection_name: str,
+    from_version: int,
+    to_version: int,
+    changes: list[EnumChange],
+) -> list[Consequence]:
+    """Build direct and consumer-review consequences for an enum projection transition."""
+    source_ref = f"{domain_name}.{projection_name}@{from_version}"
+    target_ref = f"{domain_name}.{projection_name}@{to_version}"
+    status = "breaking" if any(change.breaking for change in changes) else "compatible"
+    consequences = [
+        Consequence(
+            action=ACTION_BREAKING if status == "breaking" else ACTION_RECOMPILE,
+            subject=target_ref,
+            status=status,
+            reason="direct enum projection change",
+            causal_path=(source_ref, target_ref),
+        )
+    ]
+    for change in changes:
+        for implication in change.consequences:
+            if implication == EXHAUSTIVE_MATCH:
+                subject = f"enum-exhaustive-match:{target_ref}"
+            elif implication == "implicit_growth":
+                subject = f"enum-implicit-growth:{target_ref}"
+            else:
+                continue
+            consequences.append(
+                Consequence(
+                    action=ACTION_CONSUMER_UPDATE,
+                    subject=subject,
+                    status="review_required",
+                    reason=describe_enum_change(change),
+                    causal_path=(source_ref, target_ref, subject),
+                )
+            )
     return consequences
 
 
