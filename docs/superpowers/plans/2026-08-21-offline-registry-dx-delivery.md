@@ -165,7 +165,7 @@ separate modelable compile scenario per target.
 - [x] Update the producer snapshot to v2 and verify that the feature fixture
   produces the expected causal impact report before lock replacement; include
   at least one compatible and one breaking change.
-- [ ] Treat contract compatibility as an acceptance assertion, not an output
+- [x] Treat contract compatibility as an acceptance assertion, not an output
   inspection: the additive v2 must preserve the consumer-visible contract and
   the breaking v2 must be rejected or marked breaking before durable snapshot
   replacement. Exercise the existing semantic compatibility and, where the
