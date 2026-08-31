@@ -6,7 +6,7 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
-- Registry diffs now report changed event surfaces as deterministic `replay`
+- Registry diffs now report changed event surfaces as deterministic `event_replay`
   consequences with causal paths.
 - Registry diffs now expose per-change source-compatibility consequences for
   newly added model versions, preserving deterministic causal paths for
