@@ -12,6 +12,31 @@ from modelable.emitters.base import EmittedArtifact, render_artifact_text
 from modelable.emitters.json_schema import emit_json_schema, emit_json_schema_artifacts
 from modelable.emitters.json_schema_plan import emit_json_schema_plan
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
+
+
+def test_json_schema_emitter_requests_v1_plan_documents(tmp_path, monkeypatch):
+    (tmp_path / "workspace.mdl").write_text(
+        """
+domain customer {
+  entity Customer @ 1 { id: uuid }
+  projection CustomerView @ 1 from Customer @ 1 as c { id <- c.id }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, object]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.json_schema.build_plan_documents", observe_plan_request)
+
+    emit_json_schema_artifacts(workspace)
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_json_schema_artifacts_are_relative_and_rendered_in_memory(tmp_path):
@@ -56,7 +81,9 @@ domain customer {
         encoding="utf-8",
     )
     workspace = load_workspace(tmp_path)
-    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerView")
+    plan = next(
+        item for item in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA) if item["projection"] == "CustomerView"
+    )
 
     existing = next(item for item in emit_json_schema_artifacts(workspace) if item.ref == "customer.CustomerView@1")
     migrated = emit_json_schema_plan(plan, PurePosixPath(), domain_owner="customer-team")
