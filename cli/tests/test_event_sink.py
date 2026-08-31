@@ -4,6 +4,8 @@ import json
 
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.event_sink import emit_event_sink
+from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 _MODEL = """
 domain booking {
@@ -18,6 +20,22 @@ domain booking {
   }
 }
 """
+
+
+def test_event_sink_requests_v1_plan_documents(tmp_path, monkeypatch):
+    (tmp_path / "booking.mdl").write_text(_MODEL, encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, object]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.event_sink.build_plan_documents", observe_plan_request)
+
+    emit_event_sink(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_event_sink_emits_envelope_outbox_and_event_payload_schema(tmp_path):

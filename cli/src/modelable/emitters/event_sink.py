@@ -9,6 +9,7 @@ from modelable.emitters.base import EmittedArtifact, compute_content_hash
 from modelable.emitters.openapi_plan import emit_openapi_projection_plan
 from modelable.parser.ir import ProjectionVersion
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 
 def emit_event_sink(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
@@ -21,7 +22,10 @@ def emit_event_sink(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact
     """
     schemas: dict[str, dict[str, Any]] = {}
     events: list[dict[str, Any]] = []
-    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
+    plans = {
+        (plan["domain"], plan["projection"], plan["version"]): plan
+        for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
+    }
     for domain in sorted(workspace.mdl.domains, key=lambda item: item.name):
         for projection_name, versions in sorted(domain.projections.items()):
             if not projection_name.endswith("Event"):
