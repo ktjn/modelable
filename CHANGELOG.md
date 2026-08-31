@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- The capability manifest now reports the policy-evaluator boundary as implemented,
+  including structured findings and host-specific update blocking.
+
 - Registry policy evaluators can now return structured findings with causal
   paths alongside blocking actions.
 
