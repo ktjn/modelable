@@ -83,6 +83,8 @@ from modelable.registry.index import build_registry
 from modelable.registry.oci import OCIRegistryError
 from modelable.registry.resolver import resolve_enum_type_ref, resolve_model_ref, resolve_semantic_type_ref
 from modelable.registry.snapshot import load_snapshot_extension_pins, load_workspace_with_snapshot
+from modelable.registry.usage import build_usage_manifest
+from modelable.registry.usage_protocol import USAGE_MANIFEST_NAME, write_usage_manifest
 
 TARGETS = tuple(target.name for target in list_implemented_codegen_targets())
 # Target support is enabled one target-family slice at a time after real
@@ -148,6 +150,7 @@ class CompilationRequest:
     descriptor_set: bool = False
     package: str | None = None
     overlay_path: Path | None = None
+    usage_manifest: bool = False
 
 
 @dataclass(frozen=True)
@@ -874,7 +877,7 @@ def _file_category(
         return "descriptor"
     if destination.name.endswith(".plan.json"):
         return "plan"
-    if destination.name == MANIFEST_NAME:
+    if destination.name in {MANIFEST_NAME, USAGE_MANIFEST_NAME}:
         return "manifest"
     return "artifact"
 
@@ -1145,6 +1148,7 @@ def _manifest_fingerprint(
             "domains": request.domains,
             "descriptor_set": request.descriptor_set,
             "overlay_path": str(request.overlay_path) if request.overlay_path is not None else None,
+            "usage_manifest": request.usage_manifest,
         },
         "workspace_root": str(workspace_root),
         "files": [
@@ -1507,6 +1511,14 @@ def _run_compilation(
     write_artifact_manifest(manifest_path, manifest)
     written_paths.append(manifest_path)
     events.append(CompilationEvent("ok", str(manifest_path), path=manifest_path))
+    if request.usage_manifest:
+        usage_manifest_path = output / USAGE_MANIFEST_NAME
+        write_usage_manifest(
+            usage_manifest_path,
+            build_usage_manifest(emit_workspace, artifact_manifests=(manifest,)),
+        )
+        written_paths.append(usage_manifest_path)
+        events.append(CompilationEvent("ok", str(usage_manifest_path), path=usage_manifest_path))
     if not artifacts:
         events.append(CompilationEvent("warning", "No artifacts generated."))
 

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import cast
 
 USAGE_SCHEMA = "modelable.usage/v0"
+USAGE_MANIFEST_NAME = "modelable-usage-manifest.json"
 type UsageManifest = dict[str, object]
 
 _DECLARATION_REF = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*@[1-9][0-9]*$")
@@ -136,6 +137,11 @@ def load_usage_manifest(path: Path) -> UsageManifest:
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
         raise UsageProtocolError(f"Could not read usage manifest {path}: {error}") from error
     return validate_usage_manifest(document)
+
+
+def write_usage_manifest(path: Path, document: object) -> None:
+    """Write one validated usage manifest using its canonical JSON form."""
+    path.write_text(serialize_usage_manifest(document), encoding="utf-8")
 
 
 def _validate_reference(value: object, name: str, seen: set[str]) -> None:

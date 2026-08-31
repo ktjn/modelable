@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -10,6 +11,7 @@ from modelable.identity import declaration_id
 from modelable.registry.signature import compute_enum_projection_signature, compute_version_signature
 
 USAGE_SCHEMA = "modelable.usage/v0"
+_DECLARATION_REF = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*@[1-9][0-9]*$")
 
 
 def build_usage_graph(
@@ -351,7 +353,7 @@ def _artifact_declarations(manifests: Sequence[Mapping[str, Any]]) -> list[dict[
                 "sha256": sha256,
                 "target": target_name,
             }
-            if isinstance(ref, str):
+            if isinstance(ref, str) and _DECLARATION_REF.fullmatch(ref) is not None:
                 declaration["ref"] = ref
             declarations[(target_name, path)] = declaration
     return [declarations[key] for key in sorted(declarations)]
