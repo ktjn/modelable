@@ -246,6 +246,7 @@ def resolve_workspace_snapshot(
         "imports": _serialize_imports(workspace.mdl.imports),
         "requirements": _build_requirements(entries),
         "usage": snapshot_usage,
+        "generation": _generation_fingerprints(artifact_manifests),
         "allocations": {
             "registry_ids": _serialize_registry_ids(
                 read_registry_ids_lock_file(Path(registry_ids_path)) if registry_ids_path is not None else {}
@@ -362,6 +363,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                     if actual_source_hash != expected_source_hash:
                         errors.append(f"registry source drift for {identity}: found {actual_source_hash}")
     _verify_usage_evidence(lock.get("usage"), objects, errors)
+    _verify_generation_fingerprints(lock.get("generation", []), errors)
     _verify_allocations(lock.get("allocations"), errors)
     requirements = lock.get("requirements")
     if requirements is not None:
@@ -428,6 +430,41 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                     errors.append("registry lock requirements do not match object dependency edges")
     _verify_imports(lock.get("imports", []), errors)
     return errors
+
+
+def _generation_fingerprints(manifests: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]:
+    fingerprints = []
+    for manifest in manifests:
+        target = manifest.get("target")
+        target_name = target.get("name") if isinstance(target, Mapping) else None
+        if not isinstance(target_name, str):
+            raise ValueError("artifact manifest target.name must be a string")
+        encoded = json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        fingerprints.append({"target": target_name, "sha256": hashlib.sha256(encoded.encode("utf-8")).hexdigest()})
+    return sorted(fingerprints, key=lambda item: (item["target"], item["sha256"]))
+
+
+def _verify_generation_fingerprints(generation: Any, errors: list[str]) -> None:
+    if not isinstance(generation, list):
+        errors.append("registry lock generation must be an array")
+        return
+    normalized: list[dict[str, str]] = []
+    for entry in generation:
+        if not isinstance(entry, dict) or set(entry) != {"target", "sha256"}:
+            errors.append("registry lock generation entries require target and sha256")
+            continue
+        target = entry.get("target")
+        fingerprint = entry.get("sha256")
+        if not isinstance(target, str) or not isinstance(fingerprint, str):
+            errors.append("registry lock generation entries require string target and sha256")
+            continue
+        if re.fullmatch(r"[0-9a-f]{64}", fingerprint) is None:
+            errors.append(f"registry lock generation fingerprint for {target} is invalid")
+        normalized.append({"target": target, "sha256": fingerprint})
+    if generation == sorted(normalized, key=lambda item: (item["target"], item["sha256"])):
+        return
+    if not any("registry lock generation" in error for error in errors):
+        errors.append("registry lock generation is not deterministic")
 
 
 def _verify_usage_evidence(

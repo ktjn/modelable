@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Registry locks now retain deterministic fingerprints for supplied generated
+  artifact manifests, making generation evidence reproducible offline.
+
 - Registry snapshot resolution can persist a validated compiled usage manifest with `modelable registry resolve --usage-manifest`.
 
 - Compile can now write a deterministic `modelable-usage-manifest.json` with exact contract and generated-artifact usage evidence using `--usage-manifest`.
