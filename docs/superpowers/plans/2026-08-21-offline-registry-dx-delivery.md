@@ -177,7 +177,7 @@ separate modelable compile scenario per target.
   consumer step. This proves that a compatible contract remains usable across
   the target surface while an incompatible contract cannot silently become a
   generated dependency.
-- [ ] Reuse the existing pinned Docker codegen-smoke environment for language
+- [x] Reuse the existing pinned Docker codegen-smoke environment for language
   compilers where the host toolchain is not guaranteed. Run those checks in
   parallel against the same generated output, extending
   `cli/tests/test_codegen_docker_smoke.py` or adding a dedicated feature test
