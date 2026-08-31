@@ -75,7 +75,9 @@ explicitly listed for acceptance before implementation.
 - [x] Derive generated-artifact usage edges from compiler artifact manifests.
 - [x] Export a compact versioned usage manifest that can be aggregated without
   loading every application source tree.
-- [ ] Generalize existing compatibility findings into consequence facts with
+- [x] Emit consequence facts with causal paths for changed API, event, and
+  persistence usage surfaces in registry diffs.
+- [ ] Generalize all existing compatibility findings into consequence facts with
   causal paths and actions such as regeneration, consumer update, migration,
   backfill, projection rebuild, replay, review, and breaking change.
 - [x] Extend `modelable impact --from OLD --to NEW` to consume local snapshots
@@ -87,7 +89,9 @@ explicitly listed for acceptance before implementation.
   `registry update --dry-run`.
 - [x] Compare current and candidate semantic graphs plus affected application
   usage manifests.
-- [ ] Calculate consequences and apply configured policy to the staged result.
+- [x] Calculate changed application-surface consequences for the staged result.
+- [ ] Calculate all consequence facts and
+- [ ] Apply configured policy to the staged result.
 - [x] Show generated-artifact regeneration consequences from usage manifests.
 - [x] Show exact dependency changes in the staged update diff.
 - [x] Show remaining required-action changes.

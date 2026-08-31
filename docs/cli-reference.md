@@ -1770,7 +1770,9 @@ validation and target generation.
 - `registry diff` stages a candidate in a temporary directory and reports exact
   added, removed, and changed contract identities and usage surfaces without
   changing local state. Its JSON output also includes required consumer-update
-  and storage-migration actions for changed application surfaces.
+  and storage-migration actions for changed application surfaces, plus
+  consequence facts with causal paths from the contract reference to each
+  affected surface.
 - `registry update --dry-run` resolves, validates, and diffs the candidate while
   leaving the durable lock and objects unchanged. Without `--dry-run`, update
   validates that candidate and atomically replaces the lock;
@@ -1778,7 +1780,9 @@ validation and target generation.
   candidate that changes the canonical content of an existing logical identity;
   new versions remain valid candidates. JSON output also includes deterministic
   `dependencies` and `usage` sections, classifying exact requirement and usage
-  evidence additions, removals, and changes. If an update is interrupted or
+  evidence additions, removals, and changes. The `usage.consequences` entries
+  use the same action, status, reason, and causal-path shape as `impact` output.
+  If an update is interrupted or
   lock replacement fails, newly copied objects and temporary lock files are
   removed.
 - `registry verify` checks lock/object presence, hashes, signatures, and
