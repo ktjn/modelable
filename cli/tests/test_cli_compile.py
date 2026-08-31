@@ -274,7 +274,7 @@ domain customer {
     (snapshot / "registry.lock").write_text(
         json.dumps(
             {
-                "format": "modelable.registry.lock.v1",
+                "format": "modelable.lock/v1",
                 "extensions": [
                     {
                         "id": "example.target",
