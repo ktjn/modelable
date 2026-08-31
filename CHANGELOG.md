@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Target compatibility validation now applies extension capability admission
+  before generating comparison artifacts.
+
 - OpenLineage sync and Apicurio publication now apply the compiler-owned
   extension execution, plan-protocol, and capability admission checks before
   emitting artifacts.

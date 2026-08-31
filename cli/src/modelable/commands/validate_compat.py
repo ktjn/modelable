@@ -29,7 +29,9 @@ from modelable.emitters.odcs import emit_odcs
 from modelable.emitters.openapi import emit_openapi
 from modelable.emitters.protobuf import emit_protobuf
 from modelable.emitters.sql import emit_sql
-from modelable.emitters.targets import list_compat_checkable_targets
+from modelable.emitters.targets import get_codegen_target, list_compat_checkable_targets
+from modelable.extensions import ExtensionDescriptorError, validate_extension_admission
+from modelable.planner.protocol import PLAN_SCHEMA
 
 
 def register_validate_compat_commands(cli_group: click.Group) -> None:
@@ -57,6 +59,13 @@ def validate_compat(from_path: Path, to_path: Path, target: str, policy_path: Pa
     """Validate target-specific compatibility between two Modelable workspaces."""
     old_workspace = load_workspace_or_exit(from_path)
     new_workspace = load_workspace_or_exit(to_path)
+
+    try:
+        target_descriptor = get_codegen_target(target).extension_descriptor()
+        validate_extension_admission(target_descriptor, old_workspace.mdl, plan_version=PLAN_SCHEMA)
+        validate_extension_admission(target_descriptor, new_workspace.mdl, plan_version=PLAN_SCHEMA)
+    except ExtensionDescriptorError as error:
+        raise click.ClickException(str(error)) from error
 
     if target == "fhir-profile":
         report = compare_fhir_artifacts(

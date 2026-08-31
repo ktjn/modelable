@@ -1287,6 +1287,31 @@ domain billing {
     assert "- no target compatibility findings" in result.output
 
 
+def test_validate_compat_rejects_unsupported_target_capabilities_before_emission(tmp_path):
+    source = _write(
+        tmp_path / "union.mdl",
+        """
+domain payments {
+  owner: "payments"
+  entity Card @ 1 (additive) { @key id: uuid }
+  entity Bank @ 1 (additive) { @key id: uuid }
+  entity Payment @ 1 (additive) {
+    @key id: uuid
+    method: union<kind> { card: ref<Card>, bank: ref<Bank> }
+  }
+}
+""",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["validate-compat", "--from", str(source), "--to", str(source), "--target", "protobuf"],
+    )
+
+    assert result.exit_code != 0
+    assert "does not support required capability 'unions'" in result.output
+
+
 def test_validate_compat_cli_passes_openapi_without_operations(tmp_path):
     source = """
 domain billing {
