@@ -9,6 +9,36 @@ from modelable.compiler.workspace import load_workspace
 from modelable.emitters.avro import emit_avro
 from modelable.emitters.avro_plan import emit_avro_projection_plan
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
+
+
+def test_emit_avro_requests_v1_plan_documents(tmp_path, monkeypatch):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    customerId: uuid
+  }
+  projection CustomerEvent @ 1 from customer.Customer @ 1 as c {
+    customerId <- c.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, str]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.avro.build_plan_documents", observe_plan_request)
+
+    emit_avro(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
+
 
 SOURCE = """
 domain customer {
@@ -72,7 +102,9 @@ def test_emit_avro_models_and_event_records_with_logical_types(tmp_path) -> None
 def test_avro_event_plan_consumer_preserves_existing_output(tmp_path) -> None:
     (tmp_path / "customer.mdl").write_text(SOURCE, encoding="utf-8")
     workspace = load_workspace(tmp_path)
-    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerEvent")
+    plan = next(
+        item for item in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA) if item["projection"] == "CustomerEvent"
+    )
     existing = next(item for item in emit_avro(workspace, tmp_path / "out") if item.ref == "customer.CustomerEvent@1")
 
     migrated = emit_avro_projection_plan(plan, tmp_path / "out")
