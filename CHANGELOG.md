@@ -6,6 +6,10 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+### Added
+
+- Compile can now write a deterministic `modelable-usage-manifest.json` with exact contract and generated-artifact usage evidence using `--usage-manifest`.
+
 - Registry dependency ranges now reject automatic resolution across a breaking
   model version while preserving explicit exact-version selections.
 - Generated artifact hashes now match the exact UTF-8 bytes written on disk,

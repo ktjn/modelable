@@ -176,6 +176,45 @@ def test_compile_without_domain_flag_compiles_whole_workspace(tmp_path):
     assert (out / "nlq" / "nlq_query_v1.rs").exists()
 
 
+def test_compile_writes_usage_manifest_with_generated_artifact_evidence(tmp_path: Path) -> None:
+    source = tmp_path / "customer.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    out = tmp_path / "dist" / "typescript"
+
+    result = CliRunner().invoke(
+        cli,
+        ["compile", str(source), "--target", "typescript", "--out", str(out), "--usage-manifest"],
+    )
+
+    assert result.exit_code == 0, result.output
+    usage_path = out / "modelable-usage-manifest.json"
+    manifest = json.loads(usage_path.read_text(encoding="utf-8"))
+    assert manifest["$schema"] == "modelable.usage/v0"
+    assert manifest["kind"] == "usage_manifest"
+    assert manifest["references"][0]["ref"] == "customer.Customer@1"
+    assert manifest["artifacts"] == [
+        {
+            "path": "customer.Customer.v1.ts",
+            "ref": "customer.Customer@1",
+            "sha256": json.loads((out / "modelable-artifact-manifest.json").read_text(encoding="utf-8"))["artifacts"][
+                0
+            ]["sha256"],
+            "target": "typescript",
+        }
+    ]
+
+
 def test_compile_rejects_unsupported_plan_protocol_before_writing_state(tmp_path: Path, monkeypatch) -> None:
     source = tmp_path / "customer.mdl"
     source.write_text(

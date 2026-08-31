@@ -100,6 +100,11 @@ def register_compile_commands(cli_group: click.Group) -> None:
     default=None,
     help="Workspace overlay file for target-specific configuration.",
 )
+@click.option(
+    "--usage-manifest",
+    is_flag=True,
+    help="Write a deterministic modelable-usage-manifest.json beside the target artifacts.",
+)
 def compile(
     source: Path,
     target: str,
@@ -113,6 +118,7 @@ def compile(
     descriptor_set: bool,
     package: str | None,
     overlay_path: Path | None,
+    usage_manifest: bool,
 ) -> None:
     """Compile Modelable definitions and write the local registry index."""
     try:
@@ -135,6 +141,7 @@ def compile(
                 descriptor_set=descriptor_set,
                 package=package,
                 overlay_path=overlay_path,
+                usage_manifest=usage_manifest,
             )
         )
     except CompilationDiagnosticsError as error:
