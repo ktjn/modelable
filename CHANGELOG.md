@@ -20,6 +20,9 @@ releases could contain breaking changes when called out explicitly.
   extension execution, plan-protocol, and capability admission checks before
   emitting artifacts.
 
+- Markdown documentation generation now applies the compiler-owned extension
+  capability checks before emission.
+
 ### Changed
 
 ### Fixed
@@ -181,9 +184,6 @@ releases could contain breaking changes when called out explicitly.
 - Target compatibility validation now applies extension capability admission
   before generating comparison artifacts.
 
-
-- Markdown documentation generation now applies the compiler-owned extension
-  capability checks before emission.
 
 - `modelable impact --snapshot` now includes the compiled usage evidence stored
   in the snapshot when reporting affected consumers.
