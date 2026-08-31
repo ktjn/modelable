@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Markdown documentation generation now applies the compiler-owned extension
+  capability checks before emission.
+
 - `modelable impact --snapshot` now includes the compiled usage evidence stored
   in the snapshot when reporting affected consumers.
 
