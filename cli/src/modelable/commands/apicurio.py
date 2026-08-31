@@ -8,6 +8,9 @@ import click
 
 from modelable.commands.common import console, load_workspace_or_exit
 from modelable.emitters.json_schema import emit_json_schema
+from modelable.emitters.targets import get_codegen_target
+from modelable.extensions import ExtensionDescriptorError, validate_extension_admission
+from modelable.planner.protocol import PLAN_SCHEMA
 from modelable.registry.apicurio import ApicurioArtifact, ApicurioRegistryClient, ApicurioRegistryError
 
 
@@ -30,6 +33,14 @@ def publish() -> None:
 def publish_apicurio(source: Path, url: str, group: str, token: str | None, dry_run: bool) -> None:
     """Publish JSON Schema artifacts generated from SOURCE to Apicurio Registry."""
     workspace = load_workspace_or_exit(source)
+    try:
+        validate_extension_admission(
+            get_codegen_target("json-schema").extension_descriptor(),
+            workspace.mdl,
+            plan_version=PLAN_SCHEMA,
+        )
+    except ExtensionDescriptorError as error:
+        raise click.ClickException(str(error)) from error
     emitted = emit_json_schema(workspace, Path(".modelable/apicurio"))
     artifacts = [
         ApicurioArtifact(

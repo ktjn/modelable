@@ -43,9 +43,7 @@ from modelable.emitters.targets import get_codegen_target, list_implemented_code
 from modelable.emitters.typescript import emit_typescript
 from modelable.extensions import (
     ExtensionDescriptorError,
-    authorize_extension,
-    validate_extension_capabilities,
-    validate_extension_plan_version,
+    validate_extension_admission,
 )
 from modelable.llm.workspace_editor import AffectedDefinition
 from modelable.operations.compilation_audit import (
@@ -1416,9 +1414,7 @@ def _run_compilation(
     _validate_package_request(workspace, request)
     try:
         target_descriptor = get_codegen_target(request.target).extension_descriptor()
-        authorize_extension(target_descriptor, execution_kind="builtin")
-        validate_extension_plan_version(target_descriptor, PLAN_SCHEMA)
-        validate_extension_capabilities(target_descriptor, emit_workspace.mdl)
+        validate_extension_admission(target_descriptor, emit_workspace.mdl, plan_version=PLAN_SCHEMA)
     except ExtensionDescriptorError as exc:
         raise CompilationError(str(exc)) from exc
 

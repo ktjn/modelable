@@ -72,3 +72,29 @@ domain customer {
     assert "DRY RUN" in result.output
     assert "customer.Customer.v1" in result.output
     assert "http://marquez.example" in result.output
+
+
+def test_sync_rejects_models_requiring_unsupported_target_capabilities(tmp_path: Path) -> None:
+    mdl = tmp_path / "orders.mdl"
+    mdl.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  entity Card @ 1 (additive) { @key id: uuid }
+  entity Bank @ 1 (additive) { @key id: uuid }
+  entity Order @ 1 (additive) {
+    @key id: uuid
+    payment: union<kind> { card: ref<Card>, bank: ref<Bank> }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        ["sync", str(mdl), "--lineage", "marquez", "--url", "http://marquez.example", "--dry-run"],
+    )
+
+    assert result.exit_code != 0
+    assert "does not support required capability 'unions'" in result.output

@@ -8,6 +8,9 @@ import click
 
 from modelable.commands.common import console, load_workspace_or_exit
 from modelable.emitters.openlineage import emit_openlineage
+from modelable.emitters.targets import get_codegen_target
+from modelable.extensions import ExtensionDescriptorError, validate_extension_admission
+from modelable.planner.protocol import PLAN_SCHEMA
 from modelable.registry.openlineage import OpenLineageClient, OpenLineageSyncError
 
 
@@ -43,6 +46,14 @@ def sync(source: Path, lineage: str | None, catalog: str | None, url: str, token
         sys.exit(2)
 
     workspace = load_workspace_or_exit(source)
+    try:
+        validate_extension_admission(
+            get_codegen_target("openlineage").extension_descriptor(),
+            workspace.mdl,
+            plan_version=PLAN_SCHEMA,
+        )
+    except ExtensionDescriptorError as error:
+        raise click.ClickException(str(error)) from error
     artifacts = emit_openlineage(workspace, Path(".modelable/openlineage-sync"))
     events = [artifact for artifact in artifacts if isinstance(artifact.content, dict)]
 
