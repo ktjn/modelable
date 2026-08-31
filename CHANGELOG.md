@@ -29,6 +29,9 @@ releases could contain breaking changes when called out explicitly.
 - Native compilation now writes versioned plan/v1 documents and admits targets
   against the same protocol boundary.
 
+- The Python emitter now consumes normalized plan/v1 documents through its
+  parser-free projection renderer.
+
 - Conversational target transforms now apply extension capability admission
   before emitting transformed artifacts.
 

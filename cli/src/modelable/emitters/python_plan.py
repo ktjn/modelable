@@ -1,4 +1,4 @@
-"""Parser-free Python projection rendering for ``modelable.plan/v0``."""
+"""Parser-free Python projection rendering for supported plan protocols."""
 
 from __future__ import annotations
 

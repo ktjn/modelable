@@ -4,9 +4,44 @@ from click.testing import CliRunner
 
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
+from modelable.emitters import python as python_emitter
 from modelable.emitters.python import emit_python
 from modelable.emitters.python_plan import emit_python_projection_plan
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
+
+
+def test_emit_python_requests_v1_plan_documents(tmp_path, monkeypatch):
+    mdl = tmp_path / "test.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    observed: list[dict[str, object]] = []
+    original = python_emitter.build_plan_documents
+
+    def build_plans(workspace, **kwargs):
+        observed.append(kwargs)
+        return original(workspace, **kwargs)
+
+    monkeypatch.setattr(python_emitter, "build_plan_documents", build_plans)
+
+    emit_python(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def test_emit_python_model_and_projection(tmp_path):
@@ -97,7 +132,9 @@ domain customer {
         encoding="utf-8",
     )
     workspace = load_workspace(tmp_path)
-    plan = next(item for item in build_plan_documents(workspace) if item["projection"] == "CustomerView")
+    plan = next(
+        item for item in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA) if item["projection"] == "CustomerView"
+    )
     existing = next(item for item in emit_python(workspace, tmp_path / "out") if item.ref == "customer.CustomerView@1")
 
     migrated = emit_python_projection_plan(plan, tmp_path / "out")
