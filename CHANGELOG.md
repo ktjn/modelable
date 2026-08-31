@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Projection `@wire` hint changes now appear as structured `breaking` or
+  `recompile` consequences in registry diffs and `modelable impact` output.
 - `modelable impact` now reports projection governance-review consequences
   for access and classification changes.
 - Modelable now retains `import domain` requirements, resolves explicitly
