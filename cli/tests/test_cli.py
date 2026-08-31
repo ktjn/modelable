@@ -1035,6 +1035,29 @@ def test_codegen_formats_and_types():
     assert "rendered as canonical .mdl text" in markdown_result.output
 
 
+def test_docs_rejects_models_requiring_unsupported_target_capabilities(tmp_path):
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  entity Card @ 1 (additive) { @key id: uuid }
+  entity Bank @ 1 (additive) { @key id: uuid }
+  entity Order @ 1 (additive) {
+    @key id: uuid
+    payment: union<kind> { card: ref<Card>, bank: ref<Bank> }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(cli, ["docs", str(source)])
+
+    assert result.exit_code != 0
+    assert "does not support required capability 'unions'" in result.output
+
+
 def test_scenario_list_show_and_load(tmp_path):
     runner = CliRunner()
 

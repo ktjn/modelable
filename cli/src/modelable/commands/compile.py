@@ -10,7 +10,13 @@ from modelable.commands.common import console, load_workspace_or_exit
 from modelable.diagnostics.model import render_diagnostic
 from modelable.emitters.base import EmittedArtifact
 from modelable.emitters.markdown import emit_markdown
-from modelable.emitters.targets import list_implemented_codegen_targets
+from modelable.emitters.targets import get_codegen_target, list_implemented_codegen_targets
+from modelable.extensions import (
+    ExtensionDescriptorError,
+    authorize_extension,
+    validate_extension_capabilities,
+    validate_extension_plan_version,
+)
 from modelable.operations.compilation import (
     CompilationDiagnosticsError,
     CompilationError,
@@ -18,6 +24,7 @@ from modelable.operations.compilation import (
     CompilationRequest,
     CompilationService,
 )
+from modelable.planner.protocol import PLAN_SCHEMA
 
 
 def register_compile_commands(cli_group: click.Group) -> None:
@@ -187,6 +194,14 @@ def render_compilation_event(event: CompilationEvent, output_console: Console) -
 def docs(source: Path, out_dir: Path | None) -> None:
     """Generate Markdown documentation from Modelable definitions at SOURCE."""
     workspace = load_workspace_or_exit(source)
+
+    try:
+        target_descriptor = get_codegen_target("markdown").extension_descriptor()
+        authorize_extension(target_descriptor, execution_kind="builtin")
+        validate_extension_plan_version(target_descriptor, PLAN_SCHEMA)
+        validate_extension_capabilities(target_descriptor, workspace.mdl)
+    except ExtensionDescriptorError as error:
+        raise click.ClickException(str(error)) from error
 
     output = out_dir or Path("./dist/docs")
     output.mkdir(parents=True, exist_ok=True)
