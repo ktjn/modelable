@@ -58,7 +58,7 @@ explicitly listed for acceptance before implementation.
 
 - [x] Introduce a source-adapter interface with explicit resolution commands;
   ordinary compiler services receive only a resolved snapshot.
-- [ ] Parse dependency requirements, resolve direct and transitive ranges, and
+- [x] Parse dependency requirements, resolve direct and transitive ranges, and
   record the exact selected identity and canonical signature in the lock.
 - [x] Preserve selected object provenance on each durable dependency
   requirement and verify it against the resolved object.

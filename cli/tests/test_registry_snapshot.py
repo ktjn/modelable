@@ -417,6 +417,81 @@ def test_build_requirements_rejects_breaking_version_inside_dependency_range() -
         _build_requirements(entries)
 
 
+def test_build_requirements_parses_spaced_range_selector() -> None:
+    entries = [
+        {
+            "identity": "customer.Customer@1",
+            "kind": "model",
+            "signature": "signature-v1",
+            "content_hash": "hash-v1",
+            "provenance": {"source": "provider-v1.mdl", "source_hash": None},
+            "contract": {"change_kind": "additive"},
+        },
+        {
+            "identity": "customer.Customer@2",
+            "kind": "model",
+            "signature": "signature-v2",
+            "content_hash": "hash-v2",
+            "provenance": {"source": "provider-v2.mdl", "source_hash": None},
+            "contract": {"change_kind": "additive"},
+        },
+        {
+            "identity": "billing.Billing@1",
+            "kind": "projection",
+            "signature": "billing-signature",
+            "content_hash": "billing-hash",
+            "provenance": {"source": "billing.mdl", "source_hash": None},
+            "dependencies": ["customer.Customer@>=1 <3"],
+            "contract": {},
+        },
+    ]
+
+    requirements = _build_requirements(entries)
+
+    assert requirements[0]["requested"] == "customer.Customer@>=1 <3"
+    assert requirements[0]["resolved"] == "customer.Customer@2"
+    assert requirements[0]["signature"] == "signature-v2"
+
+
+def test_build_requirements_resolves_ranges_through_transitive_chain() -> None:
+    entries = [
+        {
+            "identity": "customer.Customer@1",
+            "kind": "model",
+            "signature": "customer-signature-v1",
+            "content_hash": "customer-hash-v1",
+            "provenance": {"source": "customer.mdl", "source_hash": None},
+            "contract": {"change_kind": "additive"},
+        },
+        {
+            "identity": "billing.Billing@1",
+            "kind": "projection",
+            "signature": "billing-signature-v1",
+            "content_hash": "billing-hash-v1",
+            "provenance": {"source": "billing.mdl", "source_hash": None},
+            "dependencies": ["customer.Customer@>=1 <2"],
+            "contract": {},
+        },
+        {
+            "identity": "reporting.Report@1",
+            "kind": "projection",
+            "signature": "report-signature-v1",
+            "content_hash": "report-hash-v1",
+            "provenance": {"source": "reporting.mdl", "source_hash": None},
+            "dependencies": ["billing.Billing@>=1 <2"],
+            "contract": {},
+        },
+    ]
+
+    requirements = _build_requirements(entries)
+
+    assert [(item["from"], item["requested"], item["resolved"]) for item in requirements] == [
+        ("billing.Billing@1", "customer.Customer@>=1 <2", "customer.Customer@1"),
+        ("reporting.Report@1", "billing.Billing@>=1 <2", "billing.Billing@1"),
+    ]
+    assert [item["signature"] for item in requirements] == ["customer-signature-v1", "billing-signature-v1"]
+
+
 def test_verify_detects_dependency_requirement_provenance_drift(tmp_path: Path) -> None:
     source = tmp_path / "workspace.mdl"
     source.write_text(

@@ -1536,10 +1536,7 @@ def _verify_imports(value: Any, errors: list[str]) -> None:
 def _resolve_dependency_entry(
     requested: str, entries: list[dict[str, Any]], source: str | None = None
 ) -> dict[str, Any]:
-    if "@" in requested:
-        target, selector = requested.rsplit("@", 1)
-    else:
-        target, selector = requested, "latest"
+    target, selector = _parse_dependency_requirement(requested)
     source_domain = source.split(".", 1)[0] if source is not None and "." in source else None
     target_names = {target}
     if source_domain is not None and "." not in target:
@@ -1586,6 +1583,14 @@ def _resolve_dependency_entry(
     if expected_hash is not None and selected.get("content_hash") != expected_hash:
         raise ValueError(f"pinned registry dependency hash mismatch for {requested!r}")
     return selected
+
+
+def _parse_dependency_requirement(requested: str) -> tuple[str, str]:
+    if "@" in requested:
+        target, selector = requested.rsplit("@", 1)
+    else:
+        target, selector = requested, "latest"
+    return target.strip(), "".join(selector.split()) or "latest"
 
 
 def _identity_version(identity: str) -> int | None:
