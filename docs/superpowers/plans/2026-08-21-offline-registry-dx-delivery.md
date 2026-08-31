@@ -162,7 +162,7 @@ separate modelable compile scenario per target.
   --locked --offline` invocation. Each test must exercise representative
   generated types and assert the generated identity metadata; Rust must also
   exercise serialization or conversion behavior.
-- [ ] Update the producer snapshot to v2 and verify that the feature fixture
+- [x] Update the producer snapshot to v2 and verify that the feature fixture
   produces the expected causal impact report before lock replacement; include
   at least one compatible and one breaking change.
 - [ ] Treat contract compatibility as an acceptance assertion, not an output
