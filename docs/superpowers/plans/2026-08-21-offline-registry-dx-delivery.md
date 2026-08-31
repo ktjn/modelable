@@ -77,7 +77,7 @@ explicitly listed for acceptance before implementation.
   loading every application source tree.
 - [x] Emit consequence facts with causal paths for changed API, event, and
   persistence usage surfaces in registry diffs.
-- [x] Classify event operation changes as replay consequences with causal paths.
+- [x] Classify event operation changes as event-replay consequences with causal paths.
 - [x] Expose direct compatibility consequences for newly added model versions,
   including deterministic breaking and recompile actions with causal paths.
 - [x] Expose direct compatibility consequences for newly added projection

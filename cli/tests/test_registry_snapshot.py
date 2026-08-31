@@ -1003,7 +1003,7 @@ binding customerStore {
             "subject": "api_operation:customer.Customer@1:getCustomer",
         },
         {
-            "action": "replay",
+            "action": "event_replay",
             "reason": "event surface changed",
             "status": "required",
             "subject": "event:customer.CustomerEvent@1",
@@ -1027,7 +1027,7 @@ binding customerStore {
             "subject": "api_operation:customer.Customer@1:getCustomer",
         },
         {
-            "action": "replay",
+            "action": "event_replay",
             "causal_path": [
                 "customer.CustomerEvent@1",
                 "event:customer.CustomerEvent@1",

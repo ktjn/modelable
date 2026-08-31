@@ -1774,14 +1774,14 @@ validation and target generation.
 - `registry diff` stages a candidate in a temporary directory and reports exact
   added, removed, and changed contract identities and usage surfaces without
   changing local state. Its JSON output also includes required consumer-update,
-  replay, and storage-migration actions for changed application surfaces, plus
+  event-replay, and storage-migration actions for changed application surfaces, plus
   consequence facts with causal paths from the contract reference to each
   affected surface. Newly added model and projection versions are checked
   against the latest prior locked version and add a direct `breaking` or
   `recompile` consequence when compatibility work is required. Changed locked
   model versions with index changes also add `storage_migration` consequences.
   Added model versions also expose per-change source-compatibility findings as
-  target-neutral consequences. Event-surface operation changes add `replay`
+  target-neutral consequences. Event-surface operation changes add `event_replay`
   consequences with causal paths.
   Projection changes that require rebuilding materialized state add
   `projection_rebuild` consequences.
