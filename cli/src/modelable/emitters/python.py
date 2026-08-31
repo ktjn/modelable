@@ -25,12 +25,16 @@ from modelable.parser.ir import (
     latest_semantic_types,
 )
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 
 def emit_python(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
     """Emit Python dataclass modules for every published model and projection version."""
     artifacts: list[EmittedArtifact] = []
-    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
+    plans = {
+        (plan["domain"], plan["projection"], plan["version"]): plan
+        for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
+    }
     for domain in workspace.mdl.domains:
         named_names, named_shapes = resolve_named_types(
             workspace.mdl, current_domain=domain.name, model_name=_stable_type_name, emit_nominal_enums=True
