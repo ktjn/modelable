@@ -100,7 +100,7 @@ explicitly listed for acceptance before implementation.
   model fields with declared defaults.
 - [x] Expose data-backfill consequences consistently through `modelable impact`.
 - [x] Expose per-change source consequences consistently through `modelable impact`.
-- [ ] Generalize all remaining compatibility findings into consequence facts
+- [x] Generalize all remaining compatibility findings into consequence facts
   with causal paths and actions such as regeneration, consumer update,
   migration, backfill, projection rebuild, replay, review, and breaking change.
 - [x] Extend `modelable impact --from OLD --to NEW` to consume local snapshots
@@ -114,14 +114,14 @@ explicitly listed for acceptance before implementation.
   usage manifests.
 - [x] Calculate changed application-surface consequences for the staged result.
 - [x] Emit recompile consequences for changed locked contract identities.
-- [ ] Calculate all consequence facts and actions.
+- [x] Calculate all consequence facts and actions.
 - [x] Apply configured blocked-action policy to changed surface and generated-
   artifact consequences.
 - [x] Apply the full configured policy to the staged result.
 - [x] Show generated-artifact regeneration consequences from usage manifests.
 - [x] Show exact dependency changes in the staged update diff.
 - [x] Show remaining required-action changes.
-- [ ] Replace lock/object state atomically only after validation and policy
+- [x] Replace lock/object state atomically only after validation and policy
   acceptance.
 - [x] Retain a validated candidate for review when the configured surface policy
   rejects it.
