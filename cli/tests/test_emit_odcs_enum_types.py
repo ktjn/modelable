@@ -9,6 +9,8 @@ import yaml
 
 from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
 from modelable.emitters.odcs import emit_odcs
+from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 
 def _workspace(source: str):
@@ -17,6 +19,29 @@ def _workspace(source: str):
     )
     assert not workspace.errors, workspace.errors
     return workspace
+
+
+def test_odcs_emitter_requests_v1_plan_documents(monkeypatch, tmp_path):
+    workspace = _workspace(
+        """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) { @key orderId: uuid }
+  projection OrderView @ 1 from orders.Order @ 1 as o { orderId <- o.orderId }
+}
+"""
+    )
+    observed: list[dict[str, str]] = []
+
+    def observe_plan_request(workspace, **kwargs):
+        observed.append(kwargs)
+        return build_plan_documents(workspace, **kwargs)
+
+    monkeypatch.setattr("modelable.emitters.odcs.build_plan_documents", observe_plan_request)
+
+    emit_odcs(workspace, tmp_path / "out")
+
+    assert observed == [{"schema": PLAN_V1_SCHEMA}]
 
 
 def _properties(artifact) -> dict[str, dict]:
