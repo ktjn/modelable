@@ -110,6 +110,17 @@ def test_resolve_persists_normalized_import_requirements(tmp_path: Path) -> None
             "version": None,
         }
     ]
+    object_entry = next(item for item in lock["objects"] if item["identity"] == "customer.Customer@1")
+    object_path = result.lock_path.parent / "registry" / "objects" / f"{object_entry['content_hash']}.json"
+    object_payload = json.loads(object_path.read_text(encoding="utf-8"))
+    assert object_payload["format"] == "modelable.registry.object.v1"
+    assert object_payload["identity"] == object_entry["identity"]
+    assert object_payload["signature"] == object_entry["signature"]
+    assert object_payload["content_hash"] == object_entry["content_hash"]
+    assert object_payload["provenance"]["source"] == str(mirror / "customer.mdl")
+    assert len(object_payload["provenance"]["source_hash"]) == 64
+    assert object_payload["contract"]["version"] == 1
+    assert verify_snapshot(result.lock_path.parent) == []
 
 
 def test_local_source_adapter_rejects_mismatched_import_signature(tmp_path: Path) -> None:
