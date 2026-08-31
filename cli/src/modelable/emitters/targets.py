@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 from modelable.extensions import ExtensionDescriptor, modelable_version
+from modelable.planner.protocol import PLAN_SCHEMA, PLAN_V1_SCHEMA
 
 TargetStatus = Literal["implemented", "deferred"]
 TargetKind = Literal["artifact", "language"]
@@ -26,7 +27,7 @@ class CodegenTarget:
             protocol="modelable.extension/v1",
             id=f"modelable.target.{self.name}",
             version=modelable_version(),
-            accepted_plan_versions=("modelable.plan/v0",),
+            accepted_plan_versions=(PLAN_SCHEMA, PLAN_V1_SCHEMA),
             capabilities=self.capabilities,
             configuration_schema=self.overlay_schema,
             output_kinds=(self.kind,),

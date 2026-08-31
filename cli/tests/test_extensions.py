@@ -388,6 +388,7 @@ def test_extension_plan_version_admission_rejects_invalid_descriptor_protocol() 
         validate_extension_plan_version(descriptor, "modelable.plan/v0")
 
 
-def test_implemented_targets_advertise_plan_v0() -> None:
+def test_implemented_targets_advertise_supported_plan_protocols() -> None:
     for target in list_implemented_codegen_targets():
         validate_extension_plan_version(target.extension_descriptor(), "modelable.plan/v0")
+        validate_extension_plan_version(target.extension_descriptor(), "modelable.plan/v1")

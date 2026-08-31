@@ -23,6 +23,9 @@ releases could contain breaking changes when called out explicitly.
 - `modelable plan migrate` now exposes deterministic v0-to-v1 migration without
   requiring callers to import compiler internals.
 
+- Built-in target descriptors now advertise support for both plan/v0 and the
+  compatible plan/v1 protocol.
+
 - Conversational target transforms now apply extension capability admission
   before emitting transformed artifacts.
 
