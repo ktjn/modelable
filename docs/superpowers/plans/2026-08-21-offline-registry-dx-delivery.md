@@ -62,7 +62,7 @@ explicitly listed for acceptance before implementation.
   record the exact selected identity and canonical signature in the lock.
 - [x] Preserve selected object provenance on each durable dependency
   requirement and verify it against the resolved object.
-- [ ] Store normalized external contract objects with provenance and reject a
+- [x] Store normalized external contract objects with provenance and reject a
   mutable logical version whose canonical content changes.
 - [x] Rebuild the derived registry index from local source plus the exact lock
   and objects, with no implicit refresh.
