@@ -20,6 +20,7 @@ from modelable.registry.ids import write_lock_file as write_registry_ids_lock_fi
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.resolver import find_dependents
 from modelable.registry.snapshot import (
+    SnapshotDiff,
     _build_requirements,
     diff_workspace_snapshot,
     evaluate_registry_policy,
@@ -1473,6 +1474,25 @@ domain customer {
         "subject": "customer.Customer@1",
     } in snapshot_diff.usage["consequences"]
     assert evaluate_registry_policy(snapshot_diff, ("recompile",)) == ["recompile"]
+
+
+def test_update_accepts_a_policy_evaluator_over_snapshot_diff(tmp_path: Path) -> None:
+    observed: list[SnapshotDiff] = []
+
+    class Policy:
+        def evaluate(self, snapshot_diff: SnapshotDiff) -> list[str]:
+            observed.append(snapshot_diff)
+            return ["custom_policy"]
+
+    with pytest.raises(ValueError, match="custom_policy"):
+        update_workspace_snapshot(
+            load_workspace(FIXTURE),
+            tmp_path / ".modelable",
+            policy_evaluator=Policy(),
+        )
+
+    assert len(observed) == 1
+    assert observed[0].added
 
 
 def test_registry_diff_reports_breaking_consequence_for_added_incompatible_model(tmp_path: Path) -> None:

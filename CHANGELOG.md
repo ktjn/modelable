@@ -8,6 +8,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Registry snapshot updates now expose a policy-evaluator boundary over staged
+  semantic, usage, and consequence facts while preserving blocked-action
+  configuration behavior.
+
 - Capability reporting now recognizes direct and transitive dependency closure
   from local mirrored registry sources.
 

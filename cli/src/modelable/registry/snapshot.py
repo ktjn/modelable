@@ -9,7 +9,7 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from modelable.compat.checker import (
     CompatibilityReport,
@@ -145,6 +145,24 @@ class SnapshotDiff:
             "usage": self.usage,
             "empty": self.empty,
         }
+
+
+class RegistryPolicyEvaluator(Protocol):
+    """Evaluate a staged snapshot's semantic, usage, and consequence facts."""
+
+    def evaluate(self, snapshot_diff: SnapshotDiff) -> Sequence[str]:
+        """Return action names that should block installation."""
+        ...
+
+
+@dataclass(frozen=True)
+class BlockedActionPolicy:
+    """Built-in policy that blocks configured consequence actions."""
+
+    blocked_actions: tuple[str, ...] = ()
+
+    def evaluate(self, snapshot_diff: SnapshotDiff) -> list[str]:
+        return _blocked_registry_actions(snapshot_diff, self.blocked_actions)
 
 
 def resolve_workspace_snapshot(
@@ -854,6 +872,7 @@ def update_workspace_snapshot(
     output_dir: str | Path = ".modelable",
     *,
     blocked_actions: tuple[str, ...] = (),
+    policy_evaluator: RegistryPolicyEvaluator | None = None,
     artifact_manifests: Sequence[Mapping[str, Any]] = (),
 ) -> tuple[SnapshotResult, SnapshotDiff]:
     """Stage and atomically install a validated local snapshot candidate."""
@@ -872,7 +891,8 @@ def update_workspace_snapshot(
             raise ValueError("Candidate snapshot is invalid:\n" + "\n".join(candidate_errors))
         _reject_mutable_identity_replacements(paths.root, _load_lock_entries(SnapshotPaths(candidate_dir).lock))
         snapshot_diff = diff_snapshot_paths(paths.root, candidate_dir)
-        blocked = evaluate_registry_policy(snapshot_diff, blocked_actions)
+        evaluator = policy_evaluator or BlockedActionPolicy(blocked_actions)
+        blocked = sorted(set(evaluator.evaluate(snapshot_diff)))
         if blocked:
             retained = _retain_candidate(paths, candidate_dir)
             raise ValueError(
@@ -904,6 +924,10 @@ def update_workspace_snapshot(
 
 def evaluate_registry_policy(snapshot_diff: SnapshotDiff, blocked_actions: tuple[str, ...]) -> list[str]:
     """Return configured actions that would block a staged snapshot update."""
+    return BlockedActionPolicy(blocked_actions).evaluate(snapshot_diff)
+
+
+def _blocked_registry_actions(snapshot_diff: SnapshotDiff, blocked_actions: tuple[str, ...]) -> list[str]:
     blocked = set(blocked_actions)
     consequences = snapshot_diff.usage.get("consequences", [])
     return sorted(
