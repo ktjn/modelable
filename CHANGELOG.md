@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry diffs now report direct compatibility consequences for newly added
+  enum-projection versions, including their enum-consumer implications.
 - Additive enum-member growth now reports exhaustive-consumer review
   consequences in registry diffs and `modelable impact` output.
 - Projection `@wire` hint changes now appear as structured `breaking` or
