@@ -251,6 +251,20 @@ def validate_extension_plan_version(descriptor: ExtensionDescriptor, plan_versio
         raise ExtensionDescriptorError(f"extension {descriptor.id!r} does not accept plan protocol {plan_version!r}")
 
 
+def validate_extension_admission(
+    descriptor: ExtensionDescriptor,
+    mdl: MdlFile,
+    *,
+    plan_version: str,
+    execution_kind: ExtensionExecutionKind = "builtin",
+    policy: ExtensionTrustPolicy | None = None,
+) -> None:
+    """Apply the compiler-owned execution, protocol, and capability gates."""
+    authorize_extension(descriptor, execution_kind=execution_kind, policy=policy)
+    validate_extension_plan_version(descriptor, plan_version)
+    validate_extension_capabilities(descriptor, mdl)
+
+
 def pin_extension_descriptor(
     descriptor: ExtensionDescriptor,
     implementation_hash: str,

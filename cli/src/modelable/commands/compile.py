@@ -13,9 +13,7 @@ from modelable.emitters.markdown import emit_markdown
 from modelable.emitters.targets import get_codegen_target, list_implemented_codegen_targets
 from modelable.extensions import (
     ExtensionDescriptorError,
-    authorize_extension,
-    validate_extension_capabilities,
-    validate_extension_plan_version,
+    validate_extension_admission,
 )
 from modelable.operations.compilation import (
     CompilationDiagnosticsError,
@@ -197,9 +195,7 @@ def docs(source: Path, out_dir: Path | None) -> None:
 
     try:
         target_descriptor = get_codegen_target("markdown").extension_descriptor()
-        authorize_extension(target_descriptor, execution_kind="builtin")
-        validate_extension_plan_version(target_descriptor, PLAN_SCHEMA)
-        validate_extension_capabilities(target_descriptor, workspace.mdl)
+        validate_extension_admission(target_descriptor, workspace.mdl, plan_version=PLAN_SCHEMA)
     except ExtensionDescriptorError as error:
         raise click.ClickException(str(error)) from error
 
