@@ -187,6 +187,28 @@ class PolicyEvaluation:
         }
 
 
+class RegistryPolicyError(ValueError):
+    """A staged registry update was blocked after its candidate was retained."""
+
+    def __init__(
+        self,
+        snapshot_diff: SnapshotDiff,
+        evaluation: PolicyEvaluation,
+        retained_candidate: Path,
+        object_count: int,
+    ) -> None:
+        self.snapshot_diff = snapshot_diff
+        self.evaluation = evaluation
+        self.retained_candidate = retained_candidate
+        self.object_count = object_count
+        blocked = ", ".join(evaluation.blocked_actions)
+        super().__init__(
+            "registry update blocked by registry policy for action(s): "
+            + blocked
+            + f"; candidate retained at {retained_candidate}"
+        )
+
+
 @dataclass(frozen=True)
 class BlockedActionPolicy:
     """Built-in policy that blocks configured consequence actions."""
@@ -928,11 +950,7 @@ def update_workspace_snapshot(
         blocked = sorted(set(evaluation.blocked_actions))
         if blocked:
             retained = _retain_candidate(paths, candidate_dir)
-            raise ValueError(
-                "registry update blocked by registry policy for action(s): "
-                + ", ".join(blocked)
-                + f"; candidate retained at {retained}"
-            )
+            raise RegistryPolicyError(snapshot_diff, evaluation, retained, candidate.object_count)
 
         paths.root.mkdir(parents=True, exist_ok=True)
         paths.objects.mkdir(parents=True, exist_ok=True)

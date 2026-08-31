@@ -2218,10 +2218,16 @@ binding customerStore {
         source.read_text(encoding="utf-8").replace('table: "customers"', 'table: "customer_records"'), encoding="utf-8"
     )
 
-    result = CliRunner().invoke(cli, ["registry", "update", str(source), "--out", str(output_dir)])
+    result = CliRunner().invoke(cli, ["registry", "update", str(source), "--out", str(output_dir), "--format", "json"])
 
     assert result.exit_code == 1
-    assert "blocked by registry policy" in result.output
+    payload = json.loads(result.output)
+    assert payload["dry_run"] is False
+    assert payload["candidate"]["retained"]
+    assert payload["policy"]["blocked_actions"] == ["storage_migration"]
+    assert payload["policy"]["violations"] == ["storage_migration"]
+    assert payload["policy"]["findings"]
+    assert payload["policy"]["findings"][0]["causal_path"]
 
     assert (output_dir / "registry.lock").read_bytes() == original_lock
     candidates = list((output_dir / "registry" / "candidates").iterdir())

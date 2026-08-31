@@ -11,6 +11,7 @@ from modelable.config import load_config
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.snapshot import (
     BlockedActionPolicy,
+    RegistryPolicyError,
     diff_workspace_snapshot,
     preview_workspace_snapshot,
     prune_snapshot,
@@ -167,6 +168,25 @@ def update(
                 artifact_manifests=artifact_manifests,
             )
             object_count = result.object_count
+    except RegistryPolicyError as exc:
+        if output_format == "json":
+            evaluation = exc.evaluation
+            payload = {
+                "dry_run": False,
+                "lock": str(output_dir / "registry.lock"),
+                "objects": exc.object_count,
+                "candidate": {"retained": str(exc.retained_candidate)},
+                "policy": {
+                    "blocked_actions": list(blocked_actions),
+                    "violations": list(evaluation.blocked_actions),
+                    "findings": [finding.as_dict() for finding in evaluation.findings],
+                },
+                **exc.snapshot_diff.as_dict(),
+            }
+            click.echo(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)

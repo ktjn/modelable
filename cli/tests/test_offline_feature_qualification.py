@@ -581,7 +581,9 @@ def test_offline_feature_fixture_v2_transition_reports_compatibility_before_repl
         ["registry", "update", str(producer_v2_breaking), "--out", str(breaking_snapshot), "--format", "json"],
     )
     assert blocked_update.exit_code == 1, blocked_update.output
-    assert "registry update blocked by registry policy" in blocked_update.output
+    blocked_payload = json.loads(blocked_update.output)
+    assert blocked_payload["policy"]["violations"] == ["breaking"]
+    assert blocked_payload["policy"]["findings"]
     assert (breaking_snapshot / "registry.lock").read_bytes() == breaking_lock
 
 
