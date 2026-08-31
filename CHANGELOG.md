@@ -6,6 +6,11 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+### Fixed
+
+- Compatibility validation now uses the compiler-owned extension admission gate
+  to reject targets that do not advertise compatibility support.
+
 ### Added
 
 - Conversational target transforms now apply extension capability admission
