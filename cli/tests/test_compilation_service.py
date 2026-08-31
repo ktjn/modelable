@@ -29,6 +29,7 @@ from modelable.operations.file_transaction import (
     FileTransactionCommittedError,
     FileTransactionError,
 )
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -673,12 +674,14 @@ def test_overlapping_previews_use_explicit_isolated_plan_destinations(
     initial_cwd = Path.cwd()
     barrier = threading.Barrier(2)
     observed_plan_dirs: list[Path] = []
+    observed_plan_kwargs: list[dict[str, object]] = []
     original_write_plans = compilation.write_plans
 
-    def synchronized_write_plans(workspace, plans_dir: Path):
+    def synchronized_write_plans(workspace, plans_dir: Path, **kwargs):
         observed_plan_dirs.append(plans_dir)
+        observed_plan_kwargs.append(kwargs)
         barrier.wait(timeout=10)
-        return original_write_plans(workspace, plans_dir)
+        return original_write_plans(workspace, plans_dir, **kwargs)
 
     monkeypatch.setattr(compilation, "write_plans", synchronized_write_plans)
     service = CompilationService(temp_root=tmp_path)
@@ -697,6 +700,12 @@ def test_overlapping_previews_use_explicit_isolated_plan_destinations(
 
         assert Path.cwd() == initial_cwd
         assert all(path.is_absolute() for path in observed_plan_dirs)
+        assert all(item == {"schema": PLAN_V1_SCHEMA} for item in observed_plan_kwargs)
+        plan_files = [file for item in pending for file in item.files if file.staged_path.name.endswith(".plan.json")]
+        assert plan_files
+        assert all(
+            json.loads(file.staged_path.read_text(encoding="utf-8"))["$schema"] == PLAN_V1_SCHEMA for file in plan_files
+        )
         assert all(file.staged_path.is_relative_to(item.staging_dir) for item in pending for file in item.files)
         assert snapshot_tree(first_root) == {Path("workspace.mdl"): first_source.read_bytes()}
         assert snapshot_tree(second_root) == {Path("workspace.mdl"): second_source.read_bytes()}

@@ -13,7 +13,7 @@ from modelable.compiler.workspace import Workspace, load_workspace
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.lineage import build_projection_lineage
 from modelable.planner.plans import PLAN_SCHEMA, build_plan, write_plans
-from modelable.planner.protocol import PlanProtocolError, load_plan, serialize_plan, validate_plan
+from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanProtocolError, load_plan, serialize_plan, validate_plan
 
 _MDL = textwrap.dedent("""\
     domain customer {
@@ -191,6 +191,17 @@ def test_plan_includes_lineage():
     assert "customer.Customer@1.status" in by_name["isActive"]["lineage"]
 
 
+def test_build_plan_can_emit_v1_documents():
+    mdl = parse_text_to_ir(_MDL)
+    pv = mdl.domains[1].projections["BillingCustomer"][0]
+    lineage = build_projection_lineage("billing", "BillingCustomer", pv, mdl)
+
+    plan = build_plan("billing", "BillingCustomer", pv, lineage, mdl, schema=PLAN_V1_SCHEMA)
+
+    assert plan["$schema"] == PLAN_V1_SCHEMA
+    assert validate_plan(plan) == plan
+
+
 # ── Plan file writing ──────────────────────────────────────────────────────────
 
 
@@ -208,6 +219,17 @@ def test_write_plans_creates_files(tmp_path):
         data = json.loads(path.read_text(encoding="utf-8"))
         assert data["$schema"] == PLAN_SCHEMA
         assert load_plan(path) == data
+
+
+def test_write_plans_can_emit_v1_documents(tmp_path):
+    mdl_path = tmp_path / "test.mdl"
+    mdl_path.write_text(_MDL, encoding="utf-8")
+    ws = load_workspace(tmp_path)
+
+    written = write_plans(ws, tmp_path / "plans", schema=PLAN_V1_SCHEMA)
+
+    assert written
+    assert all(json.loads(path.read_text(encoding="utf-8"))["$schema"] == PLAN_V1_SCHEMA for path in written)
 
 
 def test_plan_protocol_serialization_is_deterministic(tmp_path):

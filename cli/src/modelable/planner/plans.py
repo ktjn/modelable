@@ -30,7 +30,7 @@ from modelable.parser.ir import (
     VersionSpec,
 )
 from modelable.planner.lineage import ProjectionLineage, build_projection_lineage
-from modelable.planner.protocol import PLAN_SCHEMA, PlanDocument, serialize_plan
+from modelable.planner.protocol import PLAN_SCHEMA, PLAN_V1_SCHEMA, PlanDocument, serialize_plan
 from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_ref_type, resolve_semantic_type_ref
 
 
@@ -40,8 +40,12 @@ def build_plan(
     pv: ProjectionVersion,
     lineage: ProjectionLineage,
     mdl: MdlFile,
+    *,
+    schema: str = PLAN_SCHEMA,
 ) -> PlanDocument:
     """Return the plan document dict for a single projection version."""
+    if schema not in {PLAN_SCHEMA, PLAN_V1_SCHEMA}:
+        raise ValueError(f"unsupported plan schema {schema!r}")
     source_block = _resolve_source_block(pv.source.model, pv.source.version, pv.source.alias, mdl)
 
     joins_block = [
@@ -89,7 +93,7 @@ def build_plan(
         fields_block.append(entry)
 
     return {
-        "$schema": PLAN_SCHEMA,
+        "$schema": schema,
         "domain": domain_name,
         "projection": projection_name,
         "version": pv.version,
@@ -108,12 +112,12 @@ def build_plan(
     }
 
 
-def write_plans(workspace: Workspace, plans_dir: Path) -> list[Path]:
+def write_plans(workspace: Workspace, plans_dir: Path, *, schema: str = PLAN_SCHEMA) -> list[Path]:
     """Write a plan JSON file for every projection version in the workspace."""
     plans_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
 
-    for plan in build_plan_documents(workspace):
+    for plan in build_plan_documents(workspace, schema=schema):
         domain = plan["domain"]
         projection_name = plan["projection"]
         version = plan["version"]
@@ -352,12 +356,12 @@ def _collect_revalidation_reasons(source_block: dict[str, object], joins_block: 
     return reasons
 
 
-def build_plan_documents(workspace: Workspace) -> list[PlanDocument]:
-    """Build plan/v0 documents for every workspace projection."""
+def build_plan_documents(workspace: Workspace, *, schema: str = PLAN_SCHEMA) -> list[PlanDocument]:
+    """Build plan documents for every workspace projection."""
     documents: list[PlanDocument] = []
     for domain in workspace.mdl.domains:
         for projection_name, versions in domain.projections.items():
             for pv in versions:
                 lineage = build_projection_lineage(domain.name, projection_name, pv, workspace.mdl)
-                documents.append(build_plan(domain.name, projection_name, pv, lineage, workspace.mdl))
+                documents.append(build_plan(domain.name, projection_name, pv, lineage, workspace.mdl, schema=schema))
     return documents

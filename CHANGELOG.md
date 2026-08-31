@@ -26,6 +26,9 @@ releases could contain breaking changes when called out explicitly.
 - Built-in target descriptors now advertise support for both plan/v0 and the
   compatible plan/v1 protocol.
 
+- Native compilation now writes versioned plan/v1 documents and admits targets
+  against the same protocol boundary.
+
 - Conversational target transforms now apply extension capability admission
   before emitting transformed artifacts.
 

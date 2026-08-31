@@ -71,7 +71,7 @@ from modelable.parser.ir import (
     UnionType,
 )
 from modelable.planner.plans import write_plans
-from modelable.planner.protocol import PLAN_SCHEMA
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 from modelable.registry.enum_numbers import EnumNumberAllocation, EnumNumberConflictError, allocate_enum_numbers
 from modelable.registry.enum_numbers import read_lock_file as read_enum_numbers_lock_file
 from modelable.registry.enum_numbers import write_lock_file as write_enum_numbers_lock_file
@@ -1414,7 +1414,7 @@ def _run_compilation(
     _validate_package_request(workspace, request)
     try:
         target_descriptor = get_codegen_target(request.target).extension_descriptor()
-        validate_extension_admission(target_descriptor, emit_workspace.mdl, plan_version=PLAN_SCHEMA)
+        validate_extension_admission(target_descriptor, emit_workspace.mdl, plan_version=PLAN_V1_SCHEMA)
     except ExtensionDescriptorError as exc:
         raise CompilationError(str(exc)) from exc
 
@@ -1460,7 +1460,7 @@ def _run_compilation(
     if not request.registry_path.startswith("oci://"):
         written_paths.append(Path(request.registry_path))
 
-    plan_paths = write_plans(workspace, plans_dir)
+    plan_paths = write_plans(workspace, plans_dir, schema=PLAN_V1_SCHEMA)
     written_paths.extend(Path(path).resolve() for path in plan_paths)
     events.extend(CompilationEvent("ok", f"wrote {path}", path=Path(path)) for path in plan_paths)
 
