@@ -20,8 +20,8 @@ from modelable.registry.snapshot import (
     verify_snapshot,
 )
 from modelable.registry.sources import GitSourceAdapter, GitSourceError, LocalSourceAdapter
-from modelable.registry.usage import build_usage_graph, build_usage_manifest
-from modelable.registry.usage_protocol import serialize_usage_manifest
+from modelable.registry.usage import aggregate_usage_graph, build_usage_graph, build_usage_manifest
+from modelable.registry.usage_protocol import UsageProtocolError, load_usage_manifest, serialize_usage_manifest
 
 
 def register_registry_commands(cli_group: click.Group) -> None:
@@ -254,24 +254,44 @@ def prune(output_dir: Path) -> None:
 @click.argument("source", type=click.Path(exists=True, path_type=Path))
 @click.option("--format", "output_format", type=click.Choice(["json", "manifest", "text"]), default="text")
 @click.option(
+    "--usage-manifest",
+    "usage_manifest_paths",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    multiple=True,
+    help="Validated compiled-consumer usage manifest to aggregate (repeatable).",
+)
+@click.option(
     "--artifact-manifest",
     "artifact_manifest_paths",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     multiple=True,
     help="Generated artifact manifest to include as usage evidence (repeatable).",
 )
-def usage(source: Path, output_format: str, artifact_manifest_paths: tuple[Path, ...]) -> None:
+def usage(
+    source: Path,
+    output_format: str,
+    usage_manifest_paths: tuple[Path, ...],
+    artifact_manifest_paths: tuple[Path, ...],
+) -> None:
     """Export application usage and exact contract references from SOURCE."""
     workspace = load_workspace_or_exit(source)
     try:
         artifact_manifests = [_load_artifact_manifest(path) for path in artifact_manifest_paths]
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-        console.print(f"[red]ERROR[/red] Cannot load artifact manifest: {exc}")
+        usage_manifests = [load_usage_manifest(path) for path in usage_manifest_paths]
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, UsageProtocolError, ValueError) as exc:
+        console.print(f"[red]ERROR[/red] Cannot load usage or artifact manifest: {exc}")
+        sys.exit(1)
+    if output_format == "manifest" and usage_manifests:
+        console.print("[red]ERROR[/red] --usage-manifest requires --format json or text")
         sys.exit(1)
     payload = (
         build_usage_manifest(workspace, artifact_manifests=artifact_manifests)
         if output_format == "manifest"
-        else build_usage_graph(workspace, artifact_manifests=artifact_manifests)
+        else (
+            aggregate_usage_graph(workspace, usage_manifests, artifact_manifests=artifact_manifests)
+            if usage_manifests
+            else build_usage_graph(workspace, artifact_manifests=artifact_manifests)
+        )
     )
     if output_format == "manifest":
         click.echo(serialize_usage_manifest(payload), nl=False)
