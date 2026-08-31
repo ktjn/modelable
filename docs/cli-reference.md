@@ -1793,6 +1793,8 @@ validation and target generation.
   Projection access and classification changes add `governance_review`
   consequences when human review is required, including through
   `modelable impact` for a direct projection version transition.
+  Projection `@wire` hint changes add target-neutral `breaking` or `recompile`
+  consequences with causal paths.
   Newly added required model fields with defaults add `data_backfill`
   consequences because existing records need a deterministic backfill.
   Changed locked contract identities also add required `recompile` consequences.

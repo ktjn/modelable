@@ -1517,6 +1517,51 @@ domain orders {
     ]
 
 
+def test_registry_diff_reports_wire_consequence_for_added_projection_hint(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key
+    orderId: int
+  }
+  projection OrderView @ 1 from orders.Order @ 1 as o {
+    @wire(rust.type: "u32")
+    orderId <- o.orderId
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            '  projection OrderView @ 1 from orders.Order @ 1 as o {\n    @wire(rust.type: "u32")\n    orderId <- o.orderId\n  }',
+            '  projection OrderView @ 1 from orders.Order @ 1 as o {\n    @wire(rust.type: "u32")\n    orderId <- o.orderId\n  }\n  projection OrderView @ 2 from orders.Order @ 1 as o {\n    @wire(rust.type: "u64")\n    orderId <- o.orderId\n  }',
+        ),
+        encoding="utf-8",
+    )
+
+    candidate_workspace = load_workspace(source)
+    assert not candidate_workspace.errors, candidate_workspace.errors
+    snapshot_diff = diff_workspace_snapshot(candidate_workspace, output_dir)
+
+    assert {
+        "action": "breaking",
+        "causal_path": [
+            "orders.OrderView@1",
+            "orders.OrderView@2",
+            "wire:orders.OrderView:wire_hint_changed",
+        ],
+        "reason": "field 'orderId' @wire hint for 'rust' changed",
+        "status": "breaking",
+        "subject": "wire:orders.OrderView:wire_hint_changed",
+    } in snapshot_diff.usage["consequences"]
+
+
 def test_registry_policy_blocks_review_required_compatibility_consequence(tmp_path: Path) -> None:
     source = tmp_path / "models.mdl"
     source.write_text(

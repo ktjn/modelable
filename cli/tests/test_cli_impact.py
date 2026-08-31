@@ -155,6 +155,60 @@ domain orders {
     assert validate_consequence_graph(payload["consequence_graph"]) == payload["consequence_graph"]
 
 
+def test_impact_json_reports_projection_wire_consequence(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key
+    orderId: int
+  }
+  projection OrderView @ 1 from orders.Order @ 1 as o {
+    @wire(rust.type: "u32")
+    orderId <- o.orderId
+  }
+  projection OrderView @ 2 from orders.Order @ 1 as o {
+    @wire(rust.type: "u64")
+    orderId <- o.orderId
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "orders.OrderView@1",
+            "--to",
+            "orders.OrderView@2",
+            "--path",
+            str(source),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert {
+        "action": "breaking",
+        "causal_path": [
+            "orders.OrderView@1",
+            "orders.OrderView@2",
+            "wire:orders.OrderView:wire_hint_changed",
+        ],
+        "reason": "field 'orderId' @wire hint for 'rust' changed",
+        "status": "breaking",
+        "subject": "wire:orders.OrderView:wire_hint_changed",
+    } in payload["consequences"]
+    assert validate_consequence_graph(payload["consequence_graph"]) == payload["consequence_graph"]
+
+
 def test_impact_json_reports_data_backfill_for_defaulted_required_field(tmp_path: Path) -> None:
     source = tmp_path / "workspace.mdl"
     source.write_text(

@@ -524,6 +524,28 @@ def compare_governance_review(
     return TargetCompatibilityReport(target="governance-review", status=status, severity=severity, findings=findings)
 
 
+def compare_projection_wire_compatibility(
+    domain_name: str,
+    projection_name: str,
+    changes: list[ProjectionChange],
+) -> TargetCompatibilityReport:
+    """Surface projection wire-hint changes as structured compatibility findings."""
+    findings = [
+        _finding(
+            change.kind,
+            "breaking" if change.breaking else "compatible",
+            f"{domain_name}.{projection_name}",
+            change.message,
+            axis="wire_compatibility",
+            field=change.field_name,
+        )
+        for change in changes
+        if change.dimension == "wire"
+    ]
+    status, severity = _worst(findings, default_status="compatible")
+    return TargetCompatibilityReport(target="wire", status=status, severity=severity, findings=findings)
+
+
 def _schema_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str, Any]]:
     schemas: dict[str, dict[str, Any]] = {}
     for artifact in artifacts:
