@@ -20,6 +20,7 @@ from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.resolver import find_dependents
 from modelable.registry.snapshot import (
     diff_workspace_snapshot,
+    evaluate_registry_policy,
     load_snapshot_workspace,
     load_workspace_with_snapshot,
     prune_snapshot,
@@ -1024,6 +1025,40 @@ binding customerStore {
             "subject": "customer.Customer@1",
         },
     ]
+
+
+def test_registry_diff_reports_recompile_for_changed_contract(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    id: uuid
+    name: string
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace("name: string", "name: uuid", 1),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    assert {
+        "action": "recompile",
+        "causal_path": ["customer.Customer@1"],
+        "reason": "contract content changed",
+        "status": "required",
+        "subject": "customer.Customer@1",
+    } in snapshot_diff.usage["consequences"]
+    assert evaluate_registry_policy(snapshot_diff, ("recompile",)) == ["recompile"]
 
 
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
