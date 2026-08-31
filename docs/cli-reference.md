@@ -1779,8 +1779,9 @@ validation and target generation.
   affected surface. Newly added model and projection versions are checked
   against the latest prior locked version and add a direct `breaking` or
   `recompile` consequence when compatibility work is required. Changed locked
-  contract identities also add required `recompile` consequences. Pass
-  `--artifact-manifest FILE` to include
+  model versions with index changes also add `storage_migration` consequences.
+  Changed locked contract identities also add required `recompile` consequences.
+  Pass `--artifact-manifest FILE` to include
   compiler output evidence; changed generated artifacts add required
   `regenerate` consequences.
 - `registry update --dry-run` resolves, validates, and diffs the candidate while

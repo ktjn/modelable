@@ -11,7 +11,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from modelable.compat.checker import check_model_version_compatibility, check_projection_version_compatibility
+from modelable.compat.checker import (
+    CompatibilityReport,
+    check_model_version_compatibility,
+    check_projection_version_compatibility,
+)
+from modelable.compat.targets import compare_model_storage_migration
 from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import (
     Workspace,
@@ -26,6 +31,7 @@ from modelable.consequence import (
     ACTION_REGENERATE,
     ACTION_STORAGE_MIGRATION,
     Consequence,
+    build_target_consequences,
 )
 from modelable.extensions import ExtensionDescriptorError, ExtensionPin, parse_extension_pin
 from modelable.parser.ir import (
@@ -1155,9 +1161,10 @@ def _compatibility_consequences(
             continue
         from_version = max(previous_versions)
         if kind == "model":
-            status = check_model_version_compatibility(
+            report: CompatibilityReport = check_model_version_compatibility(
                 candidate_workspace.mdl, domain_name, model_name, from_version, to_version
-            ).status
+            )
+            status = report.status
             reason = "direct contract change"
         else:
             status = check_projection_version_compatibility(
@@ -1174,6 +1181,9 @@ def _compatibility_consequences(
                 causal_path=(f"{domain_name}.{model_name}@{from_version}", identity),
             )
         )
+        if kind == "model":
+            storage_report = compare_model_storage_migration(report)
+            consequences.extend(build_target_consequences(report, storage_report))
     return consequences
 
 
