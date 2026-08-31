@@ -258,11 +258,16 @@ def validate_extension_admission(
     plan_version: str,
     execution_kind: ExtensionExecutionKind = "builtin",
     policy: ExtensionTrustPolicy | None = None,
+    require_compatibility_support: bool = False,
 ) -> None:
     """Apply the compiler-owned execution, protocol, and capability gates."""
     authorize_extension(descriptor, execution_kind=execution_kind, policy=policy)
     validate_extension_plan_version(descriptor, plan_version)
     validate_extension_capabilities(descriptor, mdl)
+    if not isinstance(require_compatibility_support, bool):
+        raise ExtensionDescriptorError("require_compatibility_support must be a boolean")
+    if require_compatibility_support and not descriptor.compatibility_support:
+        raise ExtensionDescriptorError(f"extension {descriptor.id!r} does not support compatibility analysis")
 
 
 def pin_extension_descriptor(

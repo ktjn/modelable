@@ -62,8 +62,18 @@ def validate_compat(from_path: Path, to_path: Path, target: str, policy_path: Pa
 
     try:
         target_descriptor = get_codegen_target(target).extension_descriptor()
-        validate_extension_admission(target_descriptor, old_workspace.mdl, plan_version=PLAN_SCHEMA)
-        validate_extension_admission(target_descriptor, new_workspace.mdl, plan_version=PLAN_SCHEMA)
+        validate_extension_admission(
+            target_descriptor,
+            old_workspace.mdl,
+            plan_version=PLAN_SCHEMA,
+            require_compatibility_support=True,
+        )
+        validate_extension_admission(
+            target_descriptor,
+            new_workspace.mdl,
+            plan_version=PLAN_SCHEMA,
+            require_compatibility_support=True,
+        )
     except ExtensionDescriptorError as error:
         raise click.ClickException(str(error)) from error
 

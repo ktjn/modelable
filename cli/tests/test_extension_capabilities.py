@@ -8,9 +8,11 @@ from modelable.extensions import (
     ExtensionDescriptor,
     ExtensionDescriptorError,
     required_capabilities,
+    validate_extension_admission,
     validate_extension_capabilities,
 )
 from modelable.parser.parse import parse_text_to_ir
+from modelable.planner.protocol import PLAN_SCHEMA
 
 
 def _descriptor(*capabilities: str) -> ExtensionDescriptor:
@@ -80,3 +82,21 @@ def test_builtin_targets_advertise_capabilities_they_implement() -> None:
     assert "unions" in get_codegen_target("json-schema").extension_descriptor().capabilities
     assert "unions" in get_codegen_target("openapi").extension_descriptor().capabilities
     assert "unions" not in get_codegen_target("rust").extension_descriptor().capabilities
+
+
+def test_extension_admission_rejects_targets_without_compatibility_support() -> None:
+    mdl = parse_text_to_ir(
+        """
+        domain orders {
+          entity Order @ 1 (additive) { @key id: uuid }
+        }
+        """
+    )
+
+    with pytest.raises(ExtensionDescriptorError, match="does not support compatibility analysis"):
+        validate_extension_admission(
+            _descriptor("records"),
+            mdl,
+            plan_version=PLAN_SCHEMA,
+            require_compatibility_support=True,
+        )
