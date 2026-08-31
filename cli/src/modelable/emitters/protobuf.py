@@ -35,7 +35,7 @@ from modelable.parser.ir import (
     latest_semantic_types,
 )
 from modelable.planner.plans import build_plan_documents
-from modelable.planner.protocol import PlanDocument
+from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanDocument
 from modelable.registry.enum_numbers import EnumNumberAllocation
 from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
 from modelable.registry.signature import compute_version_signature
@@ -128,7 +128,8 @@ def emit_protobuf(
     semantic_index = _build_semantic_index(workspace.mdl, registry_ids)
     enum_index = _build_enum_index(workspace.mdl, enum_numbers)
     plans: dict[tuple[object, object, object], PlanDocument] = {
-        (plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)
+        (plan["domain"], plan["projection"], plan["version"]): plan
+        for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
     }
     artifacts = _emit_semantic_bundles(semantic_index, enum_index, out_dir)
     for domain in workspace.mdl.domains:
