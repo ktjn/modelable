@@ -20,6 +20,9 @@ releases could contain breaking changes when called out explicitly.
   migration from `modelable.plan/v0` to the compatible `modelable.plan/v1`
   envelope, including migration provenance.
 
+- `modelable plan migrate` now exposes deterministic v0-to-v1 migration without
+  requiring callers to import compiler internals.
+
 - Conversational target transforms now apply extension capability admission
   before emitting transformed artifacts.
 
