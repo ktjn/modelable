@@ -55,6 +55,39 @@ domain customer {
 }
 """
 
+TARGET_V1 = """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+  }
+  index Customer @ 1 {
+    primary customerId
+  }
+}
+"""
+
+TARGET_V1_COMPATIBLE = """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+    nickname?: string
+  }
+  index Customer @ 1 {
+    primary customerId
+  }
+}
+"""
+
+TARGET_V1_BREAKING = """
+domain customer {
+  owner: "customer-platform"
+}
+"""
+
 CONSUMER = """
 domain analytics {
   owner: "analytics-platform"
@@ -295,6 +328,14 @@ def test_offline_feature_fixture_v2_transition_reports_compatibility_before_repl
     )
     producer_v2_breaking = tmp_path / "producer-v2-breaking.mdl"
     producer_v2_breaking.write_text(PRODUCER_V2_BREAKING.strip() + "\n", encoding="utf-8")
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(CONSUMER.strip() + "\n", encoding="utf-8")
+    target_v1 = tmp_path / "target-v1.mdl"
+    target_v1.write_text(TARGET_V1.strip() + "\n", encoding="utf-8")
+    target_v1_compatible = tmp_path / "target-v1-compatible.mdl"
+    target_v1_compatible.write_text(TARGET_V1_COMPATIBLE.strip() + "\n", encoding="utf-8")
+    target_v1_breaking = tmp_path / "target-v1-breaking.mdl"
+    target_v1_breaking.write_text(TARGET_V1_BREAKING.strip() + "\n", encoding="utf-8")
     candidate_v2_breaking = tmp_path / "candidate-v2-breaking.mdl"
     candidate_v2_breaking.write_text(
         PRODUCER_V2_BREAKING.replace(
@@ -356,6 +397,61 @@ def test_offline_feature_fixture_v2_transition_reports_compatibility_before_repl
     assert installed_payload["dry_run"] is False
     assert "customer.Customer@2 (model)" in installed_payload["added"]
     assert (snapshot / "registry.lock").read_bytes() != original_lock
+
+    compatible_consumer = runner.invoke(
+        cli,
+        [
+            "compile",
+            str(consumer),
+            "--target",
+            "python",
+            "--snapshot",
+            str(snapshot),
+            "--out",
+            str(tmp_path / "compatible-consumer"),
+        ],
+    )
+    assert compatible_consumer.exit_code == 0, compatible_consumer.output
+    _assert_artifact_manifest(tmp_path / "compatible-consumer", "python")
+
+    for target in ("protobuf", "grpc"):
+        compatible_target = runner.invoke(
+            cli,
+            [
+                "validate-compat",
+                "--from",
+                str(target_v1),
+                "--to",
+                str(target_v1_compatible),
+                "--target",
+                target,
+                "--format",
+                "json",
+            ],
+        )
+        assert compatible_target.exit_code == 0, f"{target}: {compatible_target.output}"
+        compatible_target_payload = json.loads(compatible_target.output)
+        assert compatible_target_payload["status"] in {"wire_compatible", "read_compatible"}
+        assert compatible_target_payload["findings"] == []
+
+        breaking_target = runner.invoke(
+            cli,
+            [
+                "validate-compat",
+                "--from",
+                str(target_v1),
+                "--to",
+                str(target_v1_breaking),
+                "--target",
+                target,
+                "--format",
+                "json",
+            ],
+        )
+        assert breaking_target.exit_code == 1, f"{target}: {breaking_target.output}"
+        breaking_target_payload = json.loads(breaking_target.output)
+        assert breaking_target_payload["status"] == "breaking"
+        assert breaking_target_payload["findings"]
 
     breaking_snapshot = tmp_path / ".modelable-breaking"
     resolved_breaking_baseline = runner.invoke(
