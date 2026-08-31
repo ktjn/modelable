@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -207,6 +208,47 @@ def test_resolve_persists_supplied_compiled_usage_manifest(tmp_path: Path) -> No
 
     assert lock["usage"] == usage
     assert verify_snapshot(tmp_path / ".modelable") == []
+
+
+def test_resolve_persists_deterministic_generation_fingerprints(tmp_path: Path) -> None:
+    workspace = load_workspace(FIXTURE)
+    manifests = (
+        {"target": {"name": "typescript"}, "artifacts": [{"path": "customer.ts"}]},
+        {"target": {"name": "python"}, "artifacts": [{"path": "customer.py"}]},
+    )
+
+    result = resolve_workspace_snapshot(workspace, tmp_path / ".modelable", artifact_manifests=manifests)
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+
+    expected = []
+    for manifest in manifests:
+        encoded = json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        expected.append(
+            {
+                "target": manifest["target"]["name"],
+                "sha256": hashlib.sha256(encoded.encode("utf-8")).hexdigest(),
+            }
+        )
+    assert lock["generation"] == sorted(expected, key=lambda item: item["target"])
+    assert verify_snapshot(tmp_path / ".modelable") == []
+
+    first_lock = result.lock_path.read_bytes()
+    resolve_workspace_snapshot(workspace, tmp_path / ".modelable", artifact_manifests=tuple(reversed(manifests)))
+    assert result.lock_path.read_bytes() == first_lock
+
+
+def test_verify_rejects_invalid_generation_fingerprint(tmp_path: Path) -> None:
+    workspace = load_workspace(FIXTURE)
+    result = resolve_workspace_snapshot(
+        workspace,
+        tmp_path / ".modelable",
+        artifact_manifests=({"target": {"name": "python"}, "artifacts": []},),
+    )
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    lock["generation"][0]["sha256"] = "not-a-sha256"
+    result.lock_path.write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    assert verify_snapshot(tmp_path / ".modelable") == ["registry lock generation fingerprint for python is invalid"]
 
 
 def test_resolve_cli_accepts_compiled_usage_manifest(tmp_path: Path) -> None:
