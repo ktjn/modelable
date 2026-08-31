@@ -713,13 +713,21 @@ def update_workspace_snapshot(
         paths.root.mkdir(parents=True, exist_ok=True)
         paths.objects.mkdir(parents=True, exist_ok=True)
         candidate_objects = candidate_dir / "registry" / "objects"
-        for object_path in candidate_objects.glob("*.json"):
-            destination = paths.objects / object_path.name
-            if not destination.exists():
-                shutil.copyfile(object_path, destination)
         temporary_lock = paths.root / f".registry.lock.tmp-{os.getpid()}"
-        shutil.copyfile(candidate.lock_path, temporary_lock)
-        os.replace(temporary_lock, paths.lock)
+        new_objects: list[Path] = []
+        try:
+            for object_path in candidate_objects.glob("*.json"):
+                destination = paths.objects / object_path.name
+                if not destination.exists():
+                    new_objects.append(destination)
+                    shutil.copyfile(object_path, destination)
+            shutil.copyfile(candidate.lock_path, temporary_lock)
+            os.replace(temporary_lock, paths.lock)
+        except BaseException:
+            for object_path in new_objects:
+                object_path.unlink(missing_ok=True)
+            temporary_lock.unlink(missing_ok=True)
+            raise
         return SnapshotResult(paths.lock, candidate.object_count, candidate.identities), snapshot_diff
 
 

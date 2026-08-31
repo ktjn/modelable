@@ -1774,7 +1774,8 @@ validation and target generation.
   validates that candidate and atomically replaces the lock;
   it never contacts a network source and retains reusable objects. It rejects a
   candidate that changes the canonical content of an existing logical identity;
-  new versions remain valid candidates.
+  new versions remain valid candidates. If an update is interrupted or lock
+  replacement fails, newly copied objects and temporary lock files are removed.
 - `registry verify` checks lock/object presence, hashes, signatures, and
   identities entirely offline, and reports source drift when a recorded local
   source is still available but no longer matches its provenance hash. It also
