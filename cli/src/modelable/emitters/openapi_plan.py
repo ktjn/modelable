@@ -1,4 +1,4 @@
-"""OpenAPI component-schema emission from validated ``modelable.plan/v0``."""
+"""OpenAPI component-schema emission from validated ``modelable.plan/v1``."""
 
 from __future__ import annotations
 

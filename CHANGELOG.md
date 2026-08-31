@@ -16,6 +16,8 @@ releases could contain breaking changes when called out explicitly.
 
 - OpenMetadata projection emission now consumes validated `modelable.plan/v1` documents.
 
+- OpenAPI projection emission now consumes validated `modelable.plan/v1` documents.
+
 - Migrate JSON Schema projection emission to the stable `modelable.plan/v1` contract.
 
 - Migrate FHIR profile projection emission to the stable `modelable.plan/v1` contract.
