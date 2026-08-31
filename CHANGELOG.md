@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Registry policy evaluators can now return structured findings with causal
+  paths alongside blocking actions.
+
 - Registry snapshot updates now expose a policy-evaluator boundary over staged
   semantic, usage, and consequence facts while preserving blocked-action
   configuration behavior.
