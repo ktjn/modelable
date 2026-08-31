@@ -28,7 +28,7 @@ from modelable.parser.ir import (
     VersionMin,
 )
 from modelable.planner.plans import build_plan_documents
-from modelable.planner.protocol import PlanDocument
+from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanDocument
 from modelable.registry.resolver import ResolvedModelRef, resolve_model_ref, resolve_semantic_type_ref
 
 FHIR_R4_VERSION = "4.0.1"
@@ -222,7 +222,8 @@ def emit_fhir_profile(workspace: Workspace, out_dir: Path) -> list[EmittedArtifa
     """Emit FHIR R4 StructureDefinition profiles and companion Extension SDs."""
     artifacts: list[EmittedArtifact] = []
     plans: dict[tuple[object, object, object], PlanDocument] = {
-        (plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)
+        (plan["domain"], plan["projection"], plan["version"]): plan
+        for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
     }
     annotation_extensions = _annotation_extension_artifacts(workspace, out_dir)
     artifacts.extend(annotation_extensions)
