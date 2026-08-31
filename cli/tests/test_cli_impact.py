@@ -96,6 +96,65 @@ domain billing {
     } in graph["edges"]
 
 
+def test_impact_json_reports_projection_governance_review(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key
+    orderId: uuid
+  }
+  projection OrderView @ 1 from orders.Order @ 1 as o {
+    access {
+      entity orders [read, project]
+    }
+    orderId <- o.orderId
+  }
+  projection OrderView @ 2 from orders.Order @ 1 as o {
+    access {
+      entity orders [read, project]
+      entity analytics [read]
+    }
+    orderId <- o.orderId
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "orders.OrderView@1",
+            "--to",
+            "orders.OrderView@2",
+            "--path",
+            str(source),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert {
+        "action": "governance_review",
+        "causal_path": [
+            "orders.OrderView@1",
+            "orders.OrderView@2",
+            "governance-review:orders.OrderView:access_grant_added",
+        ],
+        "reason": "access grant added: entity principal 'analytics' permission 'read'",
+        "status": "review_required",
+        "subject": "governance-review:orders.OrderView:access_grant_added",
+    } in payload["consequences"]
+    assert validate_consequence_graph(payload["consequence_graph"]) == payload["consequence_graph"]
+
+
 def test_impact_json_reports_data_backfill_for_defaulted_required_field(tmp_path: Path) -> None:
     source = tmp_path / "workspace.mdl"
     source.write_text(
