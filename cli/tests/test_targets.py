@@ -65,6 +65,6 @@ def test_builtin_targets_expose_extension_descriptors():
     assert descriptor.protocol == "modelable.extension/v1"
     assert descriptor.id == "modelable.target.sql-postgres"
     assert descriptor.version
-    assert descriptor.accepted_plan_versions == ("modelable.plan/v0",)
+    assert descriptor.accepted_plan_versions == ("modelable.plan/v0", "modelable.plan/v1")
     assert descriptor.output_kinds == ("artifact",)
     assert descriptor.configuration_schema == "modelable/schemas/overlays/sql-postgres-v1.schema.json"
