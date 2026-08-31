@@ -21,12 +21,16 @@ from modelable.parser.ir import (
     PrimitiveType,
 )
 from modelable.planner.plans import build_plan_documents
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 
 def emit_json_schema(workspace: Workspace, out_dir: PurePath) -> list[EmittedArtifact]:
     """Emit JSON Schema 2020-12 artifacts for every model and projection version."""
     artifacts: list[EmittedArtifact] = []
-    plans = {(plan["domain"], plan["projection"], plan["version"]): plan for plan in build_plan_documents(workspace)}
+    plans = {
+        (plan["domain"], plan["projection"], plan["version"]): plan
+        for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
+    }
     for domain in workspace.mdl.domains:
         for model_name, model_versions in domain.models.items():
             for version in model_versions:
