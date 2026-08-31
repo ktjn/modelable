@@ -34,7 +34,7 @@ from modelable.diagnostics.model import render_diagnostic
 from modelable.llm.context import parse_model_ref_version_spec
 from modelable.parser.ir import ProjectionVersion
 from modelable.registry.resolver import resolve_model_ref
-from modelable.registry.snapshot import load_workspace_with_snapshot
+from modelable.registry.snapshot import load_snapshot_usage_manifest, load_workspace_with_snapshot
 from modelable.registry.usage_protocol import UsageProtocolError, load_usage_manifest
 
 
@@ -83,7 +83,11 @@ def impact(
             sys.exit(1)
     try:
         usage_manifests = [load_usage_manifest(path) for path in usage_manifest_paths]
-    except UsageProtocolError as exc:
+        if snapshot_path is not None:
+            snapshot_usage = load_snapshot_usage_manifest(snapshot_path)
+            if snapshot_usage is not None:
+                usage_manifests.append(snapshot_usage)
+    except (UsageProtocolError, ValueError) as exc:
         console.print(f"[red]ERROR[/red] Cannot load usage manifest: {exc}")
         sys.exit(1)
     try:

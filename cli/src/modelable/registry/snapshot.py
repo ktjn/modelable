@@ -246,6 +246,7 @@ def resolve_workspace_snapshot(
         "imports": _serialize_imports(workspace.mdl.imports),
         "requirements": _build_requirements(entries),
         "usage": snapshot_usage,
+        "usage_source": "compiled" if usage_manifest is not None else "derived",
         "generation": _generation_fingerprints(artifact_manifests),
         "allocations": {
             "registry_ids": _serialize_registry_ids(
@@ -280,6 +281,9 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
     errors: list[str] = []
     if serialization_error:
         errors.append("registry lock is not deterministically serialized")
+    usage_source = lock.get("usage_source", "derived")
+    if usage_source not in {"compiled", "derived"}:
+        errors.append("registry lock usage_source must be 'compiled' or 'derived'")
     extensions = lock.get("extensions", [])
     if not isinstance(extensions, list):
         errors.append("registry lock extensions must be an array")
@@ -715,6 +719,21 @@ def load_snapshot_workspace(output_dir: str | Path = ".modelable") -> Workspace:
         for source in [source_paths.get(domain_name)]
     ]
     return Workspace(sources=sources, mdl=mdl, errors=[], warnings=[])
+
+
+def load_snapshot_usage_manifest(output_dir: str | Path = ".modelable") -> dict[str, Any] | None:
+    """Load the validated compiled-usage evidence stored in a snapshot lock."""
+    paths = SnapshotPaths(Path(output_dir))
+    errors = verify_snapshot(paths.root)
+    if errors:
+        raise ValueError("Cannot load an invalid registry snapshot:\n" + "\n".join(errors))
+    lock = json.loads(paths.lock.read_text(encoding="utf-8"))
+    if lock.get("usage_source") != "compiled":
+        return None
+    try:
+        return validate_usage_manifest(json.loads(serialize_usage_manifest(lock["usage"])))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError(f"Cannot load snapshot usage manifest: {exc}") from exc
 
 
 def load_workspace_with_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> Workspace:
