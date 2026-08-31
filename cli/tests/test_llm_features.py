@@ -1701,6 +1701,28 @@ def test_transform_rust(tmp_path):
     assert "Customer" in result.content
 
 
+def test_transform_rejects_unsupported_target_capabilities(tmp_path):
+    from modelable.llm.engine import transform_ref_to_target
+
+    (tmp_path / "payments.mdl").write_text(
+        """
+domain payments {
+  owner: "payments-team"
+  entity Card @ 1 (additive) { @key id: uuid }
+  entity Bank @ 1 (additive) { @key id: uuid }
+  entity Payment @ 1 (additive) {
+    @key id: uuid
+    method: union<kind> { card: ref<Card>, bank: ref<Bank> }
+  }
+}
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"does not support required capability 'unions'"):
+        transform_ref_to_target(tmp_path, "payments.Payment@1", "rust")
+
+
 def test_transform_go(tmp_path):
     from modelable.llm.engine import transform_ref_to_target
 
