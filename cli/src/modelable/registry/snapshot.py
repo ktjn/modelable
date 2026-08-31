@@ -1004,6 +1004,7 @@ def _diff_usage_manifests(current: Any, candidate: Any) -> dict[str, Any]:
         "artifacts": _diff_usage_entries(
             current_manifest.get("artifacts"), candidate_manifest.get("artifacts"), "target", "path"
         ),
+        "surfaces": _diff_usage_entries(current_manifest.get("surfaces"), candidate_manifest.get("surfaces"), "id"),
     }
 
 

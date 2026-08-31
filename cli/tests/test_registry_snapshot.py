@@ -888,6 +888,74 @@ domain billing {
     ]
 
 
+def test_registry_diff_reports_changed_usage_surfaces(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key id: uuid
+  }
+  projection CustomerReply @ 1 from customer.Customer @ 1 as c {
+    id <- c.id
+  }
+  auto projections Customer @ 1 {
+    event on [created]
+  }
+  api Customer @ 1 {
+    operation "getCustomer" {
+      method: GET
+      path: "/customers"
+      responses {
+        200: CustomerReply @ 1
+      }
+    }
+  }
+}
+binding customerStore {
+  adapter: postgres
+  model: customer.Customer @ 1
+  table: "customers"
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8")
+        .replace('path: "/customers"', 'path: "/v2/customers"')
+        .replace('table: "customers"', 'table: "customer_records"'),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    changed = snapshot_diff.usage["surfaces"]["changed"]
+    assert [item["key"] for item in changed] == [["api_operation:customer.Customer@1:getCustomer"]]
+    assert changed[0]["current"]["path"] == "/customers"
+    assert changed[0]["candidate"]["path"] == "/v2/customers"
+    assert snapshot_diff.usage["surfaces"]["removed"] == [
+        {
+            "adapter": "postgres",
+            "id": "storage:postgres:customers",
+            "kind": "storage",
+            "ref": "customer.Customer@1",
+            "table": "customers",
+        }
+    ]
+    assert snapshot_diff.usage["surfaces"]["added"] == [
+        {
+            "adapter": "postgres",
+            "id": "storage:postgres:customer_records",
+            "kind": "storage",
+            "ref": "customer.Customer@1",
+            "table": "customer_records",
+        }
+    ]
+
+
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
     runner = CliRunner()
     output_dir = tmp_path / ".modelable"
