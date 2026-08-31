@@ -1177,6 +1177,57 @@ domain billing {
     } in snapshot_diff.usage["consequences"]
 
 
+def test_registry_diff_reports_projection_rebuild_for_added_projection_expression(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-team"
+  entity Order @ 1 (additive) {
+    @key
+    orderId: uuid
+    status: string
+  }
+  projection OrderView @ 1 from orders.Order @ 1 as o {
+    orderId <- o.orderId
+    isShipped = o.status == "shipped"
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            '  projection OrderView @ 1 from orders.Order @ 1 as o {\n    orderId <- o.orderId\n    isShipped = o.status == "shipped"\n  }',
+            '  projection OrderView @ 1 from orders.Order @ 1 as o {\n    orderId <- o.orderId\n    isShipped = o.status == "shipped"\n  }\n  projection OrderView @ 2 from orders.Order @ 1 as o {\n    orderId <- o.orderId\n    isShipped = o.status == "delivered"\n  }',
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    rebuild_consequences = [
+        consequence
+        for consequence in snapshot_diff.usage["consequences"]
+        if consequence["action"] == "projection_rebuild"
+    ]
+    assert rebuild_consequences == [
+        {
+            "action": "projection_rebuild",
+            "causal_path": [
+                "orders.OrderView@1",
+                "orders.OrderView@2",
+                "projection-rebuild:orders.OrderView:expression_changed",
+            ],
+            "reason": "field 'isShipped' computed expression changed",
+            "status": "migration_required",
+            "subject": "projection-rebuild:orders.OrderView:expression_changed",
+        }
+    ]
+
+
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
     runner = CliRunner()
     output_dir = tmp_path / ".modelable"
