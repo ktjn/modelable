@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import textwrap
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import pytest
@@ -31,6 +32,58 @@ domain customer {
 
   projection CustomerView @ 1
     from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    displayName <- c.displayName
+    tags <- c.tags
+    nickname <- c.nickname
+    metadata <- c.metadata
+    address <- c.address
+  }
+}
+"""
+
+COMPATIBLE_V2_PROVIDER_MDL = """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    displayName: string
+    tags: array<string>
+    nickname?: string
+    metadata?: map<string, int>
+    address?: object {
+      line1: string
+      line2?: string
+    }
+  }
+
+  entity Customer @ 2 (additive) {
+    @key customerId: uuid
+    displayName: string
+    tags: array<string>
+    nickname?: string
+    metadata?: map<string, int>
+    address?: object {
+      line1: string
+      line2?: string
+    }
+    loyaltyScore?: int
+  }
+
+  projection CustomerView @ 1
+    from customer.Customer @ 1 as c
+  {
+    customerId <- c.customerId
+    displayName <- c.displayName
+    tags <- c.tags
+    nickname <- c.nickname
+    metadata <- c.metadata
+    address <- c.address
+  }
+
+  projection CustomerView @ 2
+    from customer.Customer @ 2 as c
   {
     customerId <- c.customerId
     displayName <- c.displayName
@@ -211,6 +264,51 @@ def test_codegen_backends_compile_inside_docker(tmp_path, target: str, image: st
         return
 
     raise AssertionError(f"Unhandled target: {target}")
+
+
+@pytest.mark.docker
+@pytest.mark.skipif(
+    os.getenv("MODELABLE_DOCKER_TESTS") != "1",
+    reason="set MODELABLE_DOCKER_TESTS=1 to run the Docker-based codegen smoke tests",
+)
+@pytest.mark.skipif(not _docker_available(), reason="docker is required for generated-language smoke tests")
+def test_compatible_v2_feature_candidate_compiles_in_pinned_docker_matrix(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mdl"
+    provider.write_text(textwrap.dedent(COMPATIBLE_V2_PROVIDER_MDL).strip() + "\n", encoding="utf-8")
+
+    resolved = CliRunner().invoke(cli, ["registry", "resolve", str(provider), "--out", str(tmp_path / ".modelable")])
+    assert resolved.exit_code == 0, resolved.output
+
+    outputs: dict[str, Path] = {}
+    for target, _ in TARGETS:
+        output = tmp_path / "generated" / target
+        compiled = CliRunner().invoke(
+            cli,
+            [
+                "compile",
+                str(provider),
+                "--target",
+                target,
+                "--snapshot",
+                str(tmp_path / ".modelable"),
+                "--out",
+                str(output),
+            ],
+        )
+        assert compiled.exit_code == 0, f"{target}: {compiled.output}"
+        outputs[target] = output
+
+    _write_compatible_v2_smokes(tmp_path, outputs)
+    commands = _docker_v2_commands()
+    with ThreadPoolExecutor(max_workers=len(commands)) as executor:
+        futures = {
+            executor.submit(_run_docker, tmp_path, image, command): target
+            for target, (image, command) in commands.items()
+        }
+        results = {futures[future]: future.result() for future in as_completed(futures)}
+
+    for target, result in results.items():
+        _assert_docker_success(result, f"compatible v2 {target}")
 
 
 @pytest.mark.docker
@@ -740,6 +838,70 @@ def _write_python_smoke(tmp_path: Path, out: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
+
+
+def _write_compatible_v2_smokes(tmp_path: Path, outputs: dict[str, Path]) -> None:
+    writers = {
+        "csharp": _write_csharp_smoke,
+        "java": _write_java_smoke,
+        "python": _write_python_smoke,
+        "rust": _write_rust_smoke,
+        "go": _write_go_smoke,
+        "typescript": _write_typescript_smoke,
+    }
+    for target, writer in writers.items():
+        writer(tmp_path, outputs[target])
+
+    smoke_files = (
+        "Cargo.toml",
+        "Program.cs",
+        "Smoke.csproj",
+        "go.mod",
+        "smoke.py",
+        "smoke.ts",
+        "tsconfig.json",
+        "src/lib.rs",
+        "customer/Smoke.java",
+        "generated/go/customer/smoke_test.go",
+    )
+    for relative_path in smoke_files:
+        path = tmp_path / relative_path
+        if not path.exists():
+            continue
+        content = path.read_text(encoding="utf-8")
+        content = content.replace("customer_customer_view_v1", "customer_customer_view_v2")
+        content = content.replace("customer_customer_v1", "customer_customer_v2")
+        content = content.replace("CustomerCustomerViewV1", "CustomerCustomerViewV2")
+        content = content.replace("CustomerCustomerV1", "CustomerCustomerV2")
+        content = content.replace("CustomerViewV1", "CustomerViewV2")
+        content = content.replace("CustomerV1", "CustomerV2")
+        content = content.replace(".Customer.v1", ".Customer.v2")
+        path.write_text(content, encoding="utf-8")
+
+
+def _docker_v2_commands() -> dict[str, tuple[str, str]]:
+    return {
+        "csharp": ("mcr.microsoft.com/dotnet/sdk:10.0", "dotnet build Smoke.csproj -nologo"),
+        "java": (
+            "eclipse-temurin:25.0.3_9-jdk-ubi10-minimal",
+            "javac -d build $(find . -name '*.java') && java -cp build customer.Smoke",
+        ),
+        "python": ("python:3.14.4-slim", "/usr/local/bin/python smoke.py"),
+        "rust": ("rust:1.95.0", "/usr/local/cargo/bin/cargo test --quiet"),
+        "go": ("golang:1.26.3", "/usr/local/go/bin/go test ./..."),
+        "typescript": (
+            "node:26.0.0-slim",
+            "/usr/local/bin/npx --yes -p typescript@5.9.2 tsc -p tsconfig.json",
+        ),
+        "protobuf": (
+            "python:3.14.4-slim",
+            "apt-get update >/dev/null"
+            " && apt-get install -y --no-install-recommends protobuf-compiler >/dev/null"
+            " && find generated/protobuf -name '*.proto' -print0"
+            " | xargs -0 protoc -I generated/protobuf"
+            " --descriptor_set_out=/tmp/modelable-compatible-v2.pb --include_imports",
+        ),
+    }
 
 
 def _write_csharp_smoke(tmp_path: Path, out: Path) -> None:
