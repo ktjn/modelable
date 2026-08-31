@@ -1191,7 +1191,29 @@ def test_registry_update_uses_explicit_local_source_adapter(tmp_path: Path, monk
 
 def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_path: Path) -> None:
     output_dir = tmp_path / ".modelable"
-    resolve_workspace_snapshot(load_workspace(FIXTURE), output_dir)
+    old_manifest = tmp_path / "old-artifact-manifest.json"
+    old_manifest.write_text(
+        json.dumps(
+            {
+                "target": {"name": "python"},
+                "artifacts": [{"path": "customer.py", "ref": "customer.Customer@1", "sha256": "a" * 64}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    new_manifest = tmp_path / "new-artifact-manifest.json"
+    new_manifest.write_text(
+        json.dumps(
+            {
+                "target": {"name": "python"},
+                "artifacts": [{"path": "customer.py", "ref": "customer.Customer@1", "sha256": "b" * 64}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    resolve_workspace_snapshot(
+        load_workspace(FIXTURE), output_dir, artifact_manifests=(json.loads(old_manifest.read_text(encoding="utf-8")),)
+    )
     source = tmp_path / "customer.mdl"
     source.write_text(
         FIXTURE.read_text(encoding="utf-8").rsplit("}", 1)[0]
@@ -1213,10 +1235,22 @@ def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_pa
     original_lock = (output_dir / "registry.lock").read_bytes()
     objects_dir = output_dir / "registry" / "objects"
     original_objects = {path.name: path.read_bytes() for path in objects_dir.glob("*.json")}
+    (tmp_path / "modelable.toml").write_text('[registry]\nblocked_actions = ["regenerate"]\n', encoding="utf-8")
 
     result = CliRunner().invoke(
         cli,
-        ["registry", "update", str(source), "--out", str(output_dir), "--format", "json", "--dry-run"],
+        [
+            "registry",
+            "update",
+            str(source),
+            "--out",
+            str(output_dir),
+            "--format",
+            "json",
+            "--dry-run",
+            "--artifact-manifest",
+            str(new_manifest),
+        ],
     )
 
     assert result.exit_code == 0, result.output
@@ -1229,11 +1263,30 @@ def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_pa
     assert payload["objects"] == 3
     assert payload["removed"] == []
     assert payload["dependencies"] == {"added": [], "changed": [], "removed": []}
-    assert payload["policy"] == {"blocked_actions": [], "violations": []}
+    assert payload["policy"]["blocked_actions"] == ["regenerate"]
+    assert payload["policy"]["violations"] == ["regenerate"]
+    assert payload["policy"]["findings"]
+    assert all("causal_path" in finding for finding in payload["policy"]["findings"])
     assert [item["ref"] for item in payload["usage"]["references"]["added"]] == ["customer.Customer@3"]
     assert payload["usage"]["references"]["removed"] == []
     assert payload["usage"]["references"]["changed"] == []
-    assert payload["usage"]["artifacts"] == {"added": [], "changed": [], "removed": []}
+    assert payload["usage"]["artifacts"]["changed"] == [
+        {
+            "candidate": {
+                "path": "customer.py",
+                "ref": "customer.Customer@1",
+                "sha256": "b" * 64,
+                "target": "python",
+            },
+            "current": {
+                "path": "customer.py",
+                "ref": "customer.Customer@1",
+                "sha256": "a" * 64,
+                "target": "python",
+            },
+            "key": ["python", "customer.py"],
+        }
+    ]
     assert (output_dir / "registry.lock").read_bytes() == original_lock
     assert {path.name: path.read_bytes() for path in objects_dir.glob("*.json")} == original_objects
 
@@ -2165,10 +2218,16 @@ binding customerStore {
         source.read_text(encoding="utf-8").replace('table: "customers"', 'table: "customer_records"'), encoding="utf-8"
     )
 
-    result = CliRunner().invoke(cli, ["registry", "update", str(source), "--out", str(output_dir)])
+    result = CliRunner().invoke(cli, ["registry", "update", str(source), "--out", str(output_dir), "--format", "json"])
 
     assert result.exit_code == 1
-    assert "blocked by registry policy" in result.output
+    payload = json.loads(result.output)
+    assert payload["dry_run"] is False
+    assert payload["candidate"]["retained"]
+    assert payload["policy"]["blocked_actions"] == ["storage_migration"]
+    assert payload["policy"]["violations"] == ["storage_migration"]
+    assert payload["policy"]["findings"]
+    assert payload["policy"]["findings"][0]["causal_path"]
 
     assert (output_dir / "registry.lock").read_bytes() == original_lock
     candidates = list((output_dir / "registry" / "candidates").iterdir())

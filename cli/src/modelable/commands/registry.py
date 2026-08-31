@@ -10,8 +10,9 @@ from modelable.commands.common import console, load_workspace_or_exit
 from modelable.config import load_config
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.snapshot import (
+    BlockedActionPolicy,
+    RegistryPolicyError,
     diff_workspace_snapshot,
-    evaluate_registry_policy,
     preview_workspace_snapshot,
     prune_snapshot,
     resolve_workspace_snapshot,
@@ -167,16 +168,37 @@ def update(
                 artifact_manifests=artifact_manifests,
             )
             object_count = result.object_count
+    except RegistryPolicyError as exc:
+        if output_format == "json":
+            evaluation = exc.evaluation
+            payload = {
+                "dry_run": False,
+                "lock": str(output_dir / "registry.lock"),
+                "objects": exc.object_count,
+                "candidate": {"retained": str(exc.retained_candidate)},
+                "policy": {
+                    "blocked_actions": list(blocked_actions),
+                    "violations": list(evaluation.blocked_actions),
+                    "findings": [finding.as_dict() for finding in evaluation.findings],
+                },
+                **exc.snapshot_diff.as_dict(),
+            }
+            click.echo(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
+    policy_evaluation = BlockedActionPolicy(tuple(blocked_actions)).evaluate(snapshot_diff)
     payload = {
         "dry_run": dry_run,
         "lock": str(output_dir / "registry.lock"),
         "objects": object_count,
         "policy": {
             "blocked_actions": list(blocked_actions),
-            "violations": evaluate_registry_policy(snapshot_diff, blocked_actions),
+            "violations": list(policy_evaluation.blocked_actions),
+            "findings": [finding.as_dict() for finding in policy_evaluation.findings],
         },
         **snapshot_diff.as_dict(),
     }

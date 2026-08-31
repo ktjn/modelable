@@ -1820,11 +1820,14 @@ validation and target generation.
   `dependencies` and `usage` sections, classifying exact requirement and usage
   evidence additions, removals, and changes. The `usage.consequences` entries
   use the same action, status, reason, and causal-path shape as `impact` output.
-  The JSON payload includes a `policy` object with configured blocked actions
-  and any violations. Policy applies to every non-compatible consequence,
+  The JSON payload includes a `policy` object with configured blocked actions,
+  any violating action names, and structured `findings` containing each
+  finding's action, status, reason, and causal path. Policy applies to every
+  non-compatible consequence,
   including breaking, migration-required, and review-required findings. A
-  blocked real update retains its validated candidate
-  under `registry/candidates/<lock-hash>/` for review. If an update is interrupted or
+  blocked real update exits nonzero, retains its validated candidate under
+  `registry/candidates/<lock-hash>/` for review, and includes that retained
+  candidate path in JSON output. If an update is interrupted or
   lock replacement fails, newly copied objects and temporary lock files are
   removed.
 - `registry verify` checks lock/object presence, hashes, signatures, and
