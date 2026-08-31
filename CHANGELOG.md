@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Conversational target transforms now apply extension capability admission
+  before emitting transformed artifacts.
+
 - Target compatibility validation now applies extension capability admission
   before generating comparison artifacts.
 

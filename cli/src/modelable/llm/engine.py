@@ -17,7 +17,9 @@ from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.markdown import emit_markdown
 from modelable.emitters.python import emit_python
 from modelable.emitters.rust import emit_rust
+from modelable.emitters.targets import get_codegen_target
 from modelable.emitters.typescript import emit_typescript
+from modelable.extensions import validate_extension_admission
 from modelable.llm.config import LlmConfig, resolve_llm_config
 from modelable.llm.context import (
     build_model_summary,
@@ -48,6 +50,7 @@ from modelable.parser.ir import (
 )
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.planner import expand_auto_projections
+from modelable.planner.protocol import PLAN_SCHEMA
 from modelable.validation.semantic import validate
 
 
@@ -150,6 +153,11 @@ def transform_ref_to_target(path: Path, ref: str, target: str) -> AssistantResul
 
     if target in emitters:
         emitter_fn, out_path, is_json = emitters[target]
+        validate_extension_admission(
+            get_codegen_target(target).extension_descriptor(),
+            workspace.mdl,
+            plan_version=PLAN_SCHEMA,
+        )
         artifacts = emitter_fn(workspace, out_path)
         art = next(a for a in artifacts if a.ref == ref)
         content = _json_dump(art.content) if is_json else str(art.content)
