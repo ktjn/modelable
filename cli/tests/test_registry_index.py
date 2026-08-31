@@ -67,6 +67,29 @@ def test_build_registry_from_snapshot_works_without_source_files(tmp_path: Path)
         assert conn.execute("select source_path from model_versions").fetchall() == [(str(source),)]
 
 
+def test_build_registry_from_snapshot_restores_locked_registry_ids(tmp_path: Path) -> None:
+    source = tmp_path / "platform.mdl"
+    source.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic SchemaId : u32 { registry: true }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    (tmp_path / "registry-ids.lock").write_text('{"platform.SchemaId": 17}\n', encoding="utf-8")
+    snapshot_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), snapshot_dir)
+    source.unlink()
+    (tmp_path / "registry-ids.lock").unlink()
+
+    registry_path = build_registry_from_snapshot(snapshot_dir)
+
+    with sqlite3.connect(registry_path) as conn:
+        assert conn.execute("select name, allocated_id from registry_ids").fetchall() == [("platform.SchemaId", 17)]
+
+
 def test_rebuild_index_cli_works_without_source_files(tmp_path: Path):
     source = tmp_path / "customer.mdl"
     _write_customer_model(source)
