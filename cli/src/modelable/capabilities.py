@@ -244,10 +244,10 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         category="registry_capability",
         status=CapabilityStatus.implemented,
         description="Runs impact analysis with validated offline snapshots and usage manifests",
-        notes="Policy-aware cross-application analysis remains deferred.",
+        notes="Policy-aware updates remain deferred.",
         test_refs=(
             "test_cli_impact.py::test_impact_can_load_dependents_from_an_offline_snapshot",
-            "test_cli_impact.py::test_impact_includes_known_consumers_from_usage_manifest",
+            "test_cli_impact.py::test_impact_includes_known_consumers_from_multiple_usage_manifests",
         ),
     ),
     Capability(
@@ -255,7 +255,7 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
         category="registry_capability",
         status=CapabilityStatus.implemented,
         description="Builds deterministic, validated consequence graphs from semantic and target findings",
-        notes="Cross-application usage aggregation and policy-aware updates remain deferred.",
+        notes="Policy-aware updates remain deferred.",
         test_refs=(
             "test_consequence_protocol.py::test_consequence_graph_protocol_validates_and_serializes_deterministically",
         ),
@@ -271,10 +271,10 @@ _REGISTRY_CAPABILITIES: tuple[Capability, ...] = (
     Capability(
         name="cross-application-consequence-analysis",
         category="registry_capability",
-        status=CapabilityStatus.deferred,
+        status=CapabilityStatus.implemented,
         description="Aggregates usage manifests across applications and applies update consequences",
-        notes="Current usage and impact commands operate on one loaded workspace; cross-application aggregation remains planned, while registry updates apply configured policies to known surface consequences.",
-        test_refs=("test_capabilities.py::test_registry_capability_scope_is_explicit",),
+        notes="Impact analysis accepts repeatable validated usage manifests and emits deterministic consumer and artifact consequences for each known application.",
+        test_refs=("test_cli_impact.py::test_impact_includes_known_consumers_from_multiple_usage_manifests",),
     ),
 )
 
