@@ -182,6 +182,35 @@ def test_resolve_writes_deterministic_lock_and_objects(tmp_path: Path) -> None:
     assert [entry["identity"] for entry in lock["objects"]] == ["customer.Customer@1", "customer.Customer@2"]
 
 
+def test_resolve_uses_formal_modelable_lock_protocol(tmp_path: Path) -> None:
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
+
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+
+    assert lock["format"] == "modelable.lock/v1"
+
+
+def test_verify_accepts_legacy_registry_lock_protocol(tmp_path: Path) -> None:
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    lock["format"] = "modelable.registry.lock.v1"
+    result.lock_path.write_text(json.dumps(lock, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+    assert verify_snapshot(tmp_path / ".modelable") == []
+
+
+def test_load_snapshot_accepts_legacy_registry_lock_protocol(tmp_path: Path) -> None:
+    output_dir = tmp_path / ".modelable"
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), output_dir)
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    lock["format"] = "modelable.registry.lock.v1"
+    result.lock_path.write_text(json.dumps(lock, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+    loaded = load_snapshot_workspace(output_dir)
+
+    assert loaded.errors == []
+
+
 def test_resolve_persists_deterministic_usage_evidence(tmp_path: Path) -> None:
     workspace = load_workspace(FIXTURE)
     output_dir = tmp_path / ".modelable"
@@ -985,7 +1014,7 @@ def test_verify_rejects_duplicate_lock_keys(tmp_path: Path) -> None:
     result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
     lock_path = result.lock_path
     text = lock_path.read_text(encoding="utf-8").rstrip()
-    lock_path.write_text(text[:-1] + ', "format": "modelable.registry.lock.v1"}\n', encoding="utf-8")
+    lock_path.write_text(text[:-1] + ', "format": "modelable.lock/v1"}\n', encoding="utf-8")
 
     errors = verify_snapshot(lock_path.parent)
 
@@ -996,7 +1025,7 @@ def test_verify_rejects_non_finite_lock_values(tmp_path: Path) -> None:
     output_dir = tmp_path / ".modelable"
     (output_dir / "registry" / "objects").mkdir(parents=True)
     (output_dir / "registry.lock").write_text(
-        '{"format":"modelable.registry.lock.v1","objects":[],"requirements":[NaN]}\n', encoding="utf-8"
+        '{"format":"modelable.lock/v1","objects":[],"requirements":[NaN]}\n', encoding="utf-8"
     )
 
     errors = verify_snapshot(output_dir)

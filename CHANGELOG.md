@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Registry snapshots now declare the formal `modelable.lock/v1` protocol while
+  retaining `.modelable/registry.lock` as the on-disk path.
+
 - Markdown projection emission now consumes validated `modelable.plan/v1` documents.
 
 - ODCS projection emission now consumes validated `modelable.plan/v1` documents.

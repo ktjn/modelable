@@ -81,7 +81,9 @@ from modelable.registry.signature import (
 from modelable.registry.usage import USAGE_SCHEMA, build_usage_manifest
 from modelable.registry.usage_protocol import UsageProtocolError, serialize_usage_manifest, validate_usage_manifest
 
-LOCK_FORMAT = "modelable.registry.lock.v1"
+LOCK_FORMAT = "modelable.lock/v1"
+LEGACY_LOCK_FORMAT = "modelable.registry.lock.v1"
+SUPPORTED_LOCK_FORMATS = frozenset({LOCK_FORMAT, LEGACY_LOCK_FORMAT})
 OBJECT_FORMAT = "modelable.registry.object.v1"
 
 
@@ -275,7 +277,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
     if not isinstance(lock, dict):
         return ["registry lock payload must be a JSON object"]
     serialization_error = lock_text != _serialize_json_document(lock)
-    if lock.get("format") != LOCK_FORMAT:
+    if lock.get("format") not in SUPPORTED_LOCK_FORMATS:
         return [f"unsupported registry lock format: {lock.get('format')!r}"]
 
     errors: list[str] = []
@@ -1148,7 +1150,7 @@ def _load_lock_payload(lock_path: Path) -> dict[str, Any]:
         raise ValueError(f"cannot read registry lock {lock_path}: {exc}") from exc
     if (
         not isinstance(payload, dict)
-        or payload.get("format") != LOCK_FORMAT
+        or payload.get("format") not in SUPPORTED_LOCK_FORMATS
         or not isinstance(payload.get("objects"), list)
     ):
         raise ValueError(f"invalid registry lock {lock_path}")

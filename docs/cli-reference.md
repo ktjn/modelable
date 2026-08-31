@@ -1769,6 +1769,8 @@ validation and target generation.
 
 - `registry resolve` writes `.modelable/registry.lock` and deterministic,
   content-addressed contract objects under `.modelable/registry/objects/`.
+  New lock documents declare the `modelable.lock/v1` protocol; readers retain
+  compatibility with the legacy `modelable.registry.lock.v1` identifier.
   The current `SOURCE` implementation is the explicit offline local source
   adapter. When a source declares an imported registry domain, the adapter
   loads only the matching local `mirror/<registry>/` tree and records the
