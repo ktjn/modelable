@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- `registry update --format json` now includes structured policy findings with
+  status, reason, and causal path alongside violating action names.
+
 - The capability manifest now reports the policy-evaluator boundary as implemented,
   including structured findings and host-specific update blocking.
 

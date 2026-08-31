@@ -10,8 +10,8 @@ from modelable.commands.common import console, load_workspace_or_exit
 from modelable.config import load_config
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.snapshot import (
+    BlockedActionPolicy,
     diff_workspace_snapshot,
-    evaluate_registry_policy,
     preview_workspace_snapshot,
     prune_snapshot,
     resolve_workspace_snapshot,
@@ -170,13 +170,15 @@ def update(
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
+    policy_evaluation = BlockedActionPolicy(tuple(blocked_actions)).evaluate(snapshot_diff)
     payload = {
         "dry_run": dry_run,
         "lock": str(output_dir / "registry.lock"),
         "objects": object_count,
         "policy": {
             "blocked_actions": list(blocked_actions),
-            "violations": evaluate_registry_policy(snapshot_diff, blocked_actions),
+            "violations": list(policy_evaluation.blocked_actions),
+            "findings": [finding.as_dict() for finding in policy_evaluation.findings],
         },
         **snapshot_diff.as_dict(),
     }
