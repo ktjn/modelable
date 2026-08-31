@@ -968,6 +968,28 @@ binding customerStore {
             "subject": "customer.Customer@1",
         },
     ]
+    assert snapshot_diff.usage["consequences"] == [
+        {
+            "action": "consumer_update",
+            "causal_path": [
+                "customer.Customer@1",
+                "api_operation:customer.Customer@1:getCustomer",
+            ],
+            "reason": "API operation surface changed",
+            "status": "required",
+            "subject": "api_operation:customer.Customer@1:getCustomer",
+        },
+        {
+            "action": "storage_migration",
+            "causal_path": [
+                "customer.Customer@1",
+                "storage:postgres:customer_records",
+            ],
+            "reason": "persistence surface changed",
+            "status": "required",
+            "subject": "customer.Customer@1",
+        },
+    ]
 
 
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:

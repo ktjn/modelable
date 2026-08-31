@@ -17,6 +17,11 @@ from modelable.compiler.workspace import (
     WorkspaceSource,
     load_workspace_from_sources,
 )
+from modelable.consequence import (
+    ACTION_CONSUMER_UPDATE,
+    ACTION_STORAGE_MIGRATION,
+    Consequence,
+)
 from modelable.extensions import ExtensionDescriptorError, ExtensionPin, parse_extension_pin
 from modelable.parser.ir import (
     ArrayType,
@@ -998,6 +1003,7 @@ def _diff_usage_manifests(current: Any, candidate: Any) -> dict[str, Any]:
     current_manifest = current if isinstance(current, dict) else {}
     candidate_manifest = candidate if isinstance(candidate, dict) else {}
     surface_diff = _diff_usage_entries(current_manifest.get("surfaces"), candidate_manifest.get("surfaces"), "id")
+    consequences = _surface_consequences(current_manifest.get("surfaces"), candidate_manifest.get("surfaces"))
     return {
         "references": _diff_usage_entries(
             current_manifest.get("references"), candidate_manifest.get("references"), "ref"
@@ -1006,37 +1012,49 @@ def _diff_usage_manifests(current: Any, candidate: Any) -> dict[str, Any]:
             current_manifest.get("artifacts"), candidate_manifest.get("artifacts"), "target", "path"
         ),
         "surfaces": surface_diff,
-        "required_actions": _required_surface_actions(
-            current_manifest.get("surfaces"), candidate_manifest.get("surfaces")
-        ),
+        "required_actions": _required_surface_actions(consequences),
+        "consequences": [consequence.as_dict() for consequence in consequences],
     }
 
 
-def _required_surface_actions(current: Any, candidate: Any) -> list[dict[str, str]]:
+def _surface_consequences(current: Any, candidate: Any) -> list[Consequence]:
     current_surfaces = _surface_entries_by_logical_key(current)
     candidate_surfaces = _surface_entries_by_logical_key(candidate)
-    actions: dict[tuple[str, str], dict[str, str]] = {}
+    consequences: dict[tuple[str, str], Consequence] = {}
     for key in sorted(set(current_surfaces) & set(candidate_surfaces)):
         for old, new in zip(current_surfaces[key], candidate_surfaces[key], strict=False):
             if old == new:
                 continue
             kind, ref = key
             if kind == "storage":
-                action = "storage_migration"
+                action = ACTION_STORAGE_MIGRATION
                 subject = ref
                 reason = "persistence surface changed"
             else:
-                action = "consumer_update"
+                action = ACTION_CONSUMER_UPDATE
                 subject = str(new["id"])
                 reason = _surface_change_reason(kind)
-            actions[(action, subject)] = {
-                "action": action,
-                "subject": subject,
-                "status": "required",
-                "reason": reason,
-            }
+            consequences[(action, subject)] = Consequence(
+                action=action,
+                subject=subject,
+                status="required",
+                reason=reason,
+                causal_path=(ref, str(new["id"])),
+            )
 
-    return [actions[key] for key in sorted(actions)]
+    return [consequences[key] for key in sorted(consequences)]
+
+
+def _required_surface_actions(consequences: list[Consequence]) -> list[dict[str, str]]:
+    return [
+        {
+            "action": consequence.action,
+            "subject": consequence.subject,
+            "status": consequence.status,
+            "reason": consequence.reason or "",
+        }
+        for consequence in consequences
+    ]
 
 
 def _surface_change_reason(kind: str) -> str:
