@@ -1769,7 +1769,8 @@ validation and target generation.
   Git URI provenance. Network-backed adapters remain disabled by this CLI.
 - `registry diff` stages a candidate in a temporary directory and reports exact
   added, removed, and changed contract identities and usage surfaces without
-  changing local state.
+  changing local state. Its JSON output also includes required consumer-update
+  and storage-migration actions for changed application surfaces.
 - `registry update --dry-run` resolves, validates, and diffs the candidate while
   leaving the durable lock and objects unchanged. Without `--dry-run`, update
   validates that candidate and atomically replaces the lock;
