@@ -9,6 +9,7 @@ from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.consequence_protocol import validate_consequence_graph
 from modelable.registry.snapshot import resolve_workspace_snapshot
+from modelable.registry.usage import build_usage_manifest
 
 FIXTURE = Path(__file__).parent / "fixtures" / "customer.mdl"
 
@@ -533,6 +534,69 @@ domain customer {
     )
     assert text_result.exit_code == 1, text_result.output
     assert "consumer_update: package:billing-service/api (compiled usage manifest)" in text_result.output
+
+
+def test_impact_loads_compiled_usage_from_offline_snapshot(tmp_path: Path) -> None:
+    provider = tmp_path / "provider.mdl"
+    provider.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    customerId: uuid
+    email: string
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    usage = build_usage_manifest(load_workspace(provider))
+    usage["application"] = "billing-service"
+    usage["application_id"] = "application:billing-service"
+    snapshot = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(provider), snapshot, usage_manifest=usage)
+
+    candidate = tmp_path / "candidate.mdl"
+    candidate.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 2 (breaking) {
+    @key
+    customerId: uuid
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "customer.Customer@1",
+            "--to",
+            "customer.Customer@2",
+            "--path",
+            str(candidate),
+            "--snapshot",
+            str(snapshot),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert {
+        "action": "consumer_update",
+        "subject": "application:billing-service",
+        "status": "breaking",
+        "reason": "compiled usage manifest",
+        "causal_path": ["customer.Customer@1", "customer.Customer@2", "application:billing-service"],
+    } in payload["consequences"]
 
 
 def test_impact_graph_omits_nonbreaking_changes(tmp_path: Path) -> None:

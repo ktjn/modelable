@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- `modelable impact --snapshot` now includes the compiled usage evidence stored
+  in the snapshot when reporting affected consumers.
+
 - Offline SQLite registry-index rebuilds now restore compatibility-critical
   registry-ID allocations from the verified snapshot lock.
 
