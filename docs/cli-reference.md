@@ -1741,9 +1741,10 @@ connection failure.
 
 ### 10.7 `registry` — Local offline registry snapshots
 
-The currently implemented registry lifecycle is a local, offline snapshot
-workflow. It does not resolve external registries or dependency ranges, and it
-does not contact a source registry during ordinary compilation or analysis.
+The currently implemented registry lifecycle is an offline snapshot workflow.
+An explicit `import domain ... from registry "..."` may resolve a local mirror
+under `mirror/<registry>/`; remote registry adapters remain deferred. It does
+not contact a source registry during ordinary compilation or analysis.
 The public CLI retains `registry.db` as the stable filename for the rebuildable
 derived index; durable dependency state is stored in `registry.lock` and its
 content-addressed objects:
@@ -1769,9 +1770,12 @@ validation and target generation.
 - `registry resolve` writes `.modelable/registry.lock` and deterministic,
   content-addressed contract objects under `.modelable/registry/objects/`.
   The current `SOURCE` implementation is the explicit offline local source
-  adapter. `registry resolve-git` is an explicit local-only adapter: it reads
-  tracked `.mdl` files from `REPOSITORY` at `REF`, never fetches, and records
-  Git URI provenance. Network-backed adapters remain disabled by this CLI.
+  adapter. When a source declares an imported registry domain, the adapter
+  loads only the matching local `mirror/<registry>/` tree and records the
+  normalized import requirements in the lock. `registry resolve-git` is an
+  explicit local-only adapter: it reads tracked `.mdl` files from `REPOSITORY`
+  at `REF`, never fetches, and records Git URI provenance. Network-backed
+  adapters remain disabled by this CLI.
 - `registry diff` stages a candidate in a temporary directory and reports exact
   added, removed, and changed contract identities and usage surfaces without
   changing local state. Its JSON output also includes required consumer-update,
@@ -1840,7 +1844,7 @@ Semantic and enum-projection objects retain source paths and hashes when
 resolved from a local file. Snapshot objects also retain the domain metadata
 and declarations required to generate equivalent target artifacts offline.
 
-Network-backed source adapters, transitive dependency closure, and
+Network-backed source adapters and
 cross-application usage aggregation remain deferred. Registry updates now
 apply configured policies to known surface consequences; full policy coverage
 is still planned. The similarly named

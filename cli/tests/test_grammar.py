@@ -2,7 +2,7 @@ import pytest
 from lark import Tree
 
 from modelable.compiler.render import render_mdl
-from modelable.parser.ir import MdlFile, SortField
+from modelable.parser.ir import MdlFile, SortField, VersionRange
 from modelable.parser.parse import ParseError, parse_file, parse_text, parse_text_to_ir, parse_text_to_ir_with_tree
 
 
@@ -24,6 +24,25 @@ def test_parse_text_to_ir_with_tree_returns_ir_and_raw_tree():
     assert mdl.domains[0].name == "customer"
     assert isinstance(tree, Tree)
     assert tree.data == "start"
+
+
+def test_parse_import_domain_retains_registry_requirement() -> None:
+    mdl = parse_text_to_ir(
+        """
+        import domain customer from registry "customer-platform-registry"
+          at customer.Customer@3#abc123 @ >=2 <4
+        domain analytics {}
+        """
+    )
+
+    assert len(mdl.imports) == 1
+    requirement = mdl.imports[0]
+    assert requirement.domain == "customer"
+    assert requirement.registry == "customer-platform-registry"
+    assert requirement.version == VersionRange(min_inclusive=2, max_exclusive=4)
+    assert requirement.pinned_ref == "customer.Customer"
+    assert requirement.pinned_version == 3
+    assert requirement.pinned_signature == "abc123"
 
 
 SIMPLE_MODEL = """

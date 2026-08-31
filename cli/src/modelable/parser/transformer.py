@@ -33,6 +33,7 @@ from modelable.parser.ir import (
     DecimalType,
     DirectMapping,
     DomainDef,
+    DomainImport,
     EnumProjectionDecl,
     EnumRefType,
     EnumType,
@@ -121,17 +122,54 @@ class MdlTransformer(Transformer[list[object], Any]):
     def start(self, items: list[object]) -> MdlFile:
         domains: list[DomainDef] = []
         bindings: list[BindingDef] = []
+        imports: list[DomainImport] = []
         workspace: WorkspaceDef | None = None
         for item in items:
             if isinstance(item, DomainDef):
                 domains.append(item)
             elif isinstance(item, BindingDef):
                 bindings.append(item)
+            elif isinstance(item, DomainImport):
+                imports.append(item)
             elif isinstance(item, WorkspaceDef):
                 workspace = item
-        return MdlFile(domains=domains, bindings=bindings, workspace=workspace)
+        return MdlFile(domains=domains, bindings=bindings, imports=imports, workspace=workspace)
 
     def statement(self, items: list[object]) -> object:
+        return items[0]
+
+    def import_domain_stmt(self, items: list[object]) -> DomainImport:
+        registry = None
+        version = None
+        pinned_ref = None
+        pinned_version = None
+        pinned_signature = None
+        for item in items[1:]:
+            if isinstance(item, tuple) and item[0] == "registry":
+                registry = item[1]
+            elif isinstance(item, tuple) and item[0] == "pinned":
+                _, pinned_ref, pinned_version, pinned_signature = item
+            elif isinstance(item, (VersionExact, VersionRange, VersionMin, VersionPinned)):
+                version = item
+        return DomainImport(
+            domain=str(items[0]),
+            registry=registry,
+            version=version,
+            pinned_ref=pinned_ref,
+            pinned_version=pinned_version,
+            pinned_signature=pinned_signature,
+        )
+
+    def import_source(self, items: list[Any]) -> tuple[str, str]:
+        return ("registry", _str(items[0]))
+
+    def pinned_import(self, items: list[Any]) -> tuple[str, str, int, str]:
+        return ("pinned", str(items[0]), int(items[1]), str(items[2]))
+
+    def version_selector(self, items: list[Any]) -> Any:
+        return items[0]
+
+    def version_expr(self, items: list[Any]) -> Any:
         return items[0]
 
     def domain_decl(self, items: list[object]) -> DomainDef:

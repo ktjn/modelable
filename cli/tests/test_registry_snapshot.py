@@ -57,6 +57,102 @@ def test_git_source_adapter_loads_tracked_mdl_from_local_ref(tmp_path: Path) -> 
     assert "@HEAD/customer.mdl" in workspace.sources[0].uri
 
 
+def test_local_source_adapter_loads_explicit_imported_domain_from_mirror(tmp_path: Path) -> None:
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        """
+        import domain customer from registry "customer-platform-registry"
+        domain analytics {
+          owner: "analytics-platform"
+          projection CustomerSummary @ 1
+            from customer.Customer @ 1 as c
+          {
+            customerId <- c.customerId
+          }
+        }
+        """.strip(),
+        encoding="utf-8",
+    )
+    mirror = tmp_path / "mirror" / "customer-platform-registry"
+    mirror.mkdir(parents=True)
+    (mirror / "customer.mdl").write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+
+    workspace = LocalSourceAdapter().load(consumer)
+
+    assert workspace.errors == []
+    assert {domain.name for domain in workspace.mdl.domains} == {"analytics", "customer"}
+
+
+def test_resolve_persists_normalized_import_requirements(tmp_path: Path) -> None:
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        'import domain customer from registry "customer-platform-registry"\n'
+        'domain analytics { owner: "analytics-platform" }',
+        encoding="utf-8",
+    )
+    mirror = tmp_path / "mirror" / "customer-platform-registry"
+    mirror.mkdir(parents=True)
+    (mirror / "customer.mdl").write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+
+    workspace = LocalSourceAdapter().load(consumer)
+    assert workspace.errors == [], workspace.errors
+    result = resolve_workspace_snapshot(workspace, tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+
+    assert lock["imports"] == [
+        {
+            "domain": "customer",
+            "pinned_ref": None,
+            "pinned_signature": None,
+            "pinned_version": None,
+            "registry": "customer-platform-registry",
+            "version": None,
+        }
+    ]
+
+
+def test_local_source_adapter_rejects_mismatched_import_signature(tmp_path: Path) -> None:
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        'import domain customer from registry "customer-platform-registry" '
+        "at customer.Customer@1#wrong-signature\n"
+        'domain analytics { owner: "analytics-platform" }',
+        encoding="utf-8",
+    )
+    mirror = tmp_path / "mirror" / "customer-platform-registry"
+    mirror.mkdir(parents=True)
+    (mirror / "customer.mdl").write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="pinned import signature mismatch"):
+        LocalSourceAdapter().load(consumer)
+
+
+def test_local_source_adapter_loads_transitive_imported_mirrors(tmp_path: Path) -> None:
+    consumer = tmp_path / "consumer.mdl"
+    consumer.write_text(
+        'import domain customer from registry "customer-platform-registry"\n'
+        'domain analytics { owner: "analytics-platform" }',
+        encoding="utf-8",
+    )
+    customer_mirror = tmp_path / "mirror" / "customer-platform-registry"
+    customer_mirror.mkdir(parents=True)
+    (customer_mirror / "customer.mdl").write_text(
+        'import domain common from registry "common-platform-registry"\ndomain customer { owner: "customer-platform" }',
+        encoding="utf-8",
+    )
+    common_mirror = tmp_path / "mirror" / "common-platform-registry"
+    common_mirror.mkdir(parents=True)
+    (common_mirror / "common.mdl").write_text(
+        'domain common { owner: "common-platform" }',
+        encoding="utf-8",
+    )
+
+    workspace = LocalSourceAdapter().load(consumer)
+
+    assert workspace.errors == []
+    assert {domain.name for domain in workspace.mdl.domains} == {"analytics", "common", "customer"}
+
+
 def test_resolve_writes_deterministic_lock_and_objects(tmp_path: Path) -> None:
     workspace = load_workspace(FIXTURE)
     first = resolve_workspace_snapshot(workspace, tmp_path / ".modelable")
