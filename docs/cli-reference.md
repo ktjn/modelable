@@ -84,8 +84,9 @@ modelable impact --from OLD --to NEW --path SOURCE [--snapshot DIR]
 ```
 
 `impact` compares two model versions, reports compatibility findings, and
-classifies direct and projection consequences as actions such as
-`no_action`, `recompile`, `regenerate`, `data_backfill`, or `breaking`. JSON
+classifies direct and per-change source consequences, plus projection
+consequences, as actions such as `no_action`, `recompile`, `regenerate`,
+`data_backfill`, or `breaking`. JSON
 output includes a causal path for each consequence. The command is entirely local and does not
 refresh registry snapshots. When supplied, `--snapshot DIR` loads and verifies
 the durable local snapshot before composing its contracts with `SOURCE`; this

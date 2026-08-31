@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- `modelable impact` now reports per-change source-compatibility consequences
+  for model version transitions.
 - `modelable impact` now reports deterministic `data_backfill` consequences
   for newly added required model fields with declared defaults.
 - Registry lock requirements now preserve the selected object's source
