@@ -85,7 +85,7 @@ explicitly listed for acceptance before implementation.
 
 - [x] Resolve and stage a candidate snapshot without changing durable state via
   `registry update --dry-run`.
-- [ ] Compare current and candidate semantic graphs plus affected application
+- [x] Compare current and candidate semantic graphs plus affected application
   usage manifests.
 - [ ] Calculate consequences and apply configured policy to the staged result.
 - [x] Show generated-artifact regeneration consequences from usage manifests.

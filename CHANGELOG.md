@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- `modelable registry diff` and `registry update --dry-run` now report added,
+  removed, and changed API, event, and persistence usage surfaces.
 - `modelable registry usage --format manifest` now includes deterministic,
   protocol-validated API-operation, event, and persistence surface declarations.
 - `modelable impact` can now compose a validated local registry snapshot with

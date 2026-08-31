@@ -1768,7 +1768,8 @@ validation and target generation.
   tracked `.mdl` files from `REPOSITORY` at `REF`, never fetches, and records
   Git URI provenance. Network-backed adapters remain disabled by this CLI.
 - `registry diff` stages a candidate in a temporary directory and reports exact
-  added, removed, and changed contract identities without changing local state.
+  added, removed, and changed contract identities and usage surfaces without
+  changing local state.
 - `registry update --dry-run` resolves, validates, and diffs the candidate while
   leaving the durable lock and objects unchanged. Without `--dry-run`, update
   validates that candidate and atomically replaces the lock;
