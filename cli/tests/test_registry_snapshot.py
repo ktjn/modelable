@@ -1137,6 +1137,46 @@ domain orders {
     } in snapshot_diff.usage["consequences"]
 
 
+def test_registry_diff_reports_storage_migration_for_added_model_index(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain billing {
+  owner: "billing-team"
+  entity Order @ 1 (additive) {
+    @key
+    orderId: uuid
+    customerId: uuid
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "  entity Order @ 1 (additive) {\n    @key\n    orderId: uuid\n    customerId: uuid\n  }",
+            "  entity Order @ 1 (additive) {\n    @key\n    orderId: uuid\n    customerId: uuid\n  }\n  entity Order @ 2 (additive) {\n    @key\n    orderId: uuid\n    customerId: uuid\n  }\n  index Order @ 2 {\n    primary orderId\n    secondary by_customer {\n      key: [customerId]\n    }\n  }",
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    assert {
+        "action": "storage_migration",
+        "causal_path": [
+            "billing.Order@1",
+            "billing.Order@2",
+            "sql:billing.Order:index_changed",
+        ],
+        "reason": "index 'by_customer' changed and requires a storage migration",
+        "status": "migration_required",
+        "subject": "sql:billing.Order:index_changed",
+    } in snapshot_diff.usage["consequences"]
+
+
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:
     runner = CliRunner()
     output_dir = tmp_path / ".modelable"
