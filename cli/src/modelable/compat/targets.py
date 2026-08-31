@@ -22,6 +22,7 @@ AXES = (
     "source_compatibility",
     "wire_compatibility",
     "storage_migration",
+    "data_backfill",
     "projection_rebuild",
     "governance_review",
 )
@@ -438,6 +439,24 @@ def compare_storage_migration(
 def compare_model_storage_migration(report: CompatibilityReport) -> TargetCompatibilityReport:
     """Evaluate only storage changes from a model compatibility report."""
     return compare_storage_migration(report.domain_name, report.model_name, report.storage_changes)
+
+
+def compare_data_backfill(report: CompatibilityReport) -> TargetCompatibilityReport:
+    """Report deterministic backfills for newly added required fields with defaults."""
+    findings = [
+        _finding(
+            "field_added_with_default",
+            "migration_required",
+            f"{report.domain_name}.{report.model_name}",
+            f"field '{change.field_name}' has a default and requires a data backfill",
+            axis="data_backfill",
+            field=change.field_name,
+        )
+        for change in report.semantic_changes
+        if change.kind == "added_field" and change.to_optional is False and change.to_default is not None
+    ]
+    status, severity = _worst(findings, default_status="compatible")
+    return TargetCompatibilityReport(target="data-backfill", status=status, severity=severity, findings=findings)
 
 
 def compare_projection_rebuild(

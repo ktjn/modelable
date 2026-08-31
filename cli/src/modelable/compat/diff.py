@@ -35,6 +35,7 @@ class FieldChange:
     to_nullable: bool | None = None
     from_type: str | None = None
     to_type: str | None = None
+    to_default: str | None = None
     # Explicit classification override for kinds whose breaking-ness depends
     # on context the structural diff cannot see (e.g. an enum version bump is
     # non-breaking when the referenced declaration diff only adds members).
@@ -242,6 +243,7 @@ def compare_model_versions(old_version: ModelVersion, new_version: ModelVersion)
                     field_name=new_field.name,
                     to_optional=new_field.optional,
                     to_type=_type_signature(new_field),
+                    to_default=new_field.default,
                 )
             )
 

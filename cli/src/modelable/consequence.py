@@ -16,6 +16,7 @@ ACTION_REGENERATE = "regenerate"
 ACTION_CONSUMER_UPDATE = "consumer_update"
 ACTION_BREAKING = "breaking"
 ACTION_STORAGE_MIGRATION = "storage_migration"
+ACTION_DATA_BACKFILL = "data_backfill"
 ACTION_PROJECTION_REBUILD = "projection_rebuild"
 ACTION_GOVERNANCE_REVIEW = "governance_review"
 ACTION_EVENT_REPLAY = "event_replay"
@@ -323,6 +324,8 @@ def _projection_change_ids(status: str, reason: str | None, report: Compatibilit
 def _action_for_target_finding(axis: str, severity: str) -> str:
     if severity == "breaking":
         return ACTION_BREAKING
+    if axis == "data_backfill":
+        return ACTION_DATA_BACKFILL
     if axis == "storage_migration":
         return ACTION_STORAGE_MIGRATION
     if axis == "projection_rebuild":

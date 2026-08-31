@@ -13,6 +13,7 @@ from modelable.compat.targets import (
     AXES,
     SEVERITIES,
     compare_avro_artifacts,
+    compare_data_backfill,
     compare_fhir_artifacts,
     compare_governance_review,
     compare_grpc_artifacts,
@@ -1695,6 +1696,33 @@ def test_semantic_compatibility_ignores_storage_changes_from_model_report():
     storage_report = compare_model_storage_migration(model_report)
     assert storage_report.status == "migration_required"
     assert len(storage_report.findings) == 2
+
+
+def test_data_backfill_reports_required_added_field_with_default():
+    from modelable.compat.checker import check_model_version_compatibility
+
+    mdl = parse_text_to_ir(
+        """
+        domain customer {
+          owner: "test-team"
+          entity Customer @ 1 (additive) {
+            @key id: uuid
+            name: string
+          }
+          entity Customer @ 2 (breaking) {
+            @key id: uuid
+            name: string
+            status: string = "active"
+          }
+        }
+        """
+    )
+
+    report = compare_data_backfill(check_model_version_compatibility(mdl, "customer", "Customer", 1, 2))
+
+    assert report.status == "migration_required"
+    assert report.severity == "migration_required"
+    assert [(finding.code, finding.field) for finding in report.findings] == [("field_added_with_default", "status")]
 
 
 def test_source_representation_is_the_json_representation_axis_by_reuse():

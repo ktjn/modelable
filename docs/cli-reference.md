@@ -1787,6 +1787,8 @@ validation and target generation.
   `projection_rebuild` consequences.
   Projection access and classification changes add `governance_review`
   consequences when human review is required.
+  Newly added required model fields with defaults add `data_backfill`
+  consequences because existing records need a deterministic backfill.
   Changed locked contract identities also add required `recompile` consequences.
   Pass `--artifact-manifest FILE` to include
   compiler output evidence; changed generated artifacts add required
