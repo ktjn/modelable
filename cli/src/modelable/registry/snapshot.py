@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import tempfile
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from modelable.compiler.workspace import (
 )
 from modelable.consequence import (
     ACTION_CONSUMER_UPDATE,
+    ACTION_REGENERATE,
     ACTION_STORAGE_MIGRATION,
     Consequence,
 )
@@ -127,6 +129,7 @@ def resolve_workspace_snapshot(
     enum_numbers_path: str | Path | None = None,
     registry_ids_path: str | Path | None = None,
     allow_mutable_identity_replacements: bool = False,
+    artifact_manifests: Sequence[Mapping[str, Any]] = (),
 ) -> SnapshotResult:
     """Write a deterministic, content-addressed snapshot of a validated workspace.
 
@@ -205,7 +208,7 @@ def resolve_workspace_snapshot(
         "extensions": canonical_pins,
         "objects": entries,
         "requirements": _build_requirements(entries),
-        "usage": build_usage_manifest(workspace),
+        "usage": build_usage_manifest(workspace, artifact_manifests=artifact_manifests),
         "allocations": {
             "registry_ids": _serialize_registry_ids(
                 read_registry_ids_lock_file(Path(registry_ids_path)) if registry_ids_path is not None else {}
@@ -689,20 +692,40 @@ def _snapshot_domain(name: str, metadata: Any = None) -> DomainDef:
     )
 
 
-def diff_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> SnapshotDiff:
+def diff_workspace_snapshot(
+    workspace: Workspace,
+    output_dir: str | Path = ".modelable",
+    *,
+    artifact_manifests: Sequence[Mapping[str, Any]] = (),
+) -> SnapshotDiff:
     """Compare a validated workspace with the current local snapshot offline."""
     with tempfile.TemporaryDirectory(prefix="modelable-registry-diff-") as temporary:
-        candidate = resolve_workspace_snapshot(workspace, temporary, allow_mutable_identity_replacements=True)
+        candidate = resolve_workspace_snapshot(
+            workspace,
+            temporary,
+            allow_mutable_identity_replacements=True,
+            artifact_manifests=artifact_manifests,
+        )
         return diff_snapshot_paths(Path(output_dir), candidate.lock_path.parent)
 
 
-def preview_workspace_snapshot(workspace: Workspace, output_dir: str | Path = ".modelable") -> tuple[SnapshotDiff, int]:
+def preview_workspace_snapshot(
+    workspace: Workspace,
+    output_dir: str | Path = ".modelable",
+    *,
+    artifact_manifests: Sequence[Mapping[str, Any]] = (),
+) -> tuple[SnapshotDiff, int]:
     """Resolve and validate an update candidate without changing durable state."""
     paths = SnapshotPaths(Path(output_dir))
     extension_pins = _load_snapshot_extension_pins(paths)
     with tempfile.TemporaryDirectory(prefix="modelable-registry-preview-") as temporary:
         candidate_dir = Path(temporary)
-        candidate = resolve_workspace_snapshot(workspace, candidate_dir, extension_pins=extension_pins)
+        candidate = resolve_workspace_snapshot(
+            workspace,
+            candidate_dir,
+            extension_pins=extension_pins,
+            artifact_manifests=artifact_manifests,
+        )
         candidate_errors = verify_snapshot(candidate_dir)
         if candidate_errors:
             raise ValueError("Candidate snapshot is invalid:\n" + "\n".join(candidate_errors))
@@ -715,13 +738,19 @@ def update_workspace_snapshot(
     output_dir: str | Path = ".modelable",
     *,
     blocked_actions: tuple[str, ...] = (),
+    artifact_manifests: Sequence[Mapping[str, Any]] = (),
 ) -> tuple[SnapshotResult, SnapshotDiff]:
     """Stage and atomically install a validated local snapshot candidate."""
     paths = SnapshotPaths(Path(output_dir))
     extension_pins = _load_snapshot_extension_pins(paths)
     with tempfile.TemporaryDirectory(prefix="modelable-registry-update-") as temporary:
         candidate_dir = Path(temporary)
-        candidate = resolve_workspace_snapshot(workspace, candidate_dir, extension_pins=extension_pins)
+        candidate = resolve_workspace_snapshot(
+            workspace,
+            candidate_dir,
+            extension_pins=extension_pins,
+            artifact_manifests=artifact_manifests,
+        )
         candidate_errors = verify_snapshot(candidate_dir)
         if candidate_errors:
             raise ValueError("Candidate snapshot is invalid:\n" + "\n".join(candidate_errors))
@@ -1038,6 +1067,7 @@ def _diff_usage_manifests(current: Any, candidate: Any) -> dict[str, Any]:
     candidate_manifest = candidate if isinstance(candidate, dict) else {}
     surface_diff = _diff_usage_entries(current_manifest.get("surfaces"), candidate_manifest.get("surfaces"), "id")
     consequences = _surface_consequences(current_manifest.get("surfaces"), candidate_manifest.get("surfaces"))
+    consequences.extend(_artifact_consequences(current_manifest.get("artifacts"), candidate_manifest.get("artifacts")))
     return {
         "references": _diff_usage_entries(
             current_manifest.get("references"), candidate_manifest.get("references"), "ref"
@@ -1049,6 +1079,33 @@ def _diff_usage_manifests(current: Any, candidate: Any) -> dict[str, Any]:
         "required_actions": _required_surface_actions(consequences),
         "consequences": [consequence.as_dict() for consequence in consequences],
     }
+
+
+def _artifact_consequences(current: Any, candidate: Any) -> list[Consequence]:
+    artifact_diff = _diff_usage_entries(current, candidate, "target", "path")
+    consequences: list[Consequence] = []
+    for change in artifact_diff["changed"]:
+        current_entry = change["current"]
+        candidate_entry = change["candidate"]
+        target = str(candidate_entry["target"])
+        path = str(candidate_entry["path"])
+        subject = f"generated_artifact:{target}/{path}"
+        current_ref = current_entry.get("ref")
+        candidate_ref = candidate_entry.get("ref")
+        causal_path_values: list[str] = []
+        for ref in (current_ref, candidate_ref, subject):
+            if isinstance(ref, str) and (not causal_path_values or causal_path_values[-1] != ref):
+                causal_path_values.append(ref)
+        consequences.append(
+            Consequence(
+                action=ACTION_REGENERATE,
+                subject=subject,
+                status="required",
+                reason="generated artifact changed",
+                causal_path=tuple(causal_path_values),
+            )
+        )
+    return consequences
 
 
 def _surface_consequences(current: Any, candidate: Any) -> list[Consequence]:

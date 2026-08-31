@@ -91,7 +91,8 @@ explicitly listed for acceptance before implementation.
   usage manifests.
 - [x] Calculate changed application-surface consequences for the staged result.
 - [ ] Calculate all consequence facts and actions.
-- [x] Apply configured blocked-action policy to changed surface consequences.
+- [x] Apply configured blocked-action policy to changed surface and generated-
+  artifact consequences.
 - [ ] Apply the full configured policy to the staged result.
 - [x] Show generated-artifact regeneration consequences from usage manifests.
 - [x] Show exact dependency changes in the staged update diff.

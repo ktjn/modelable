@@ -889,6 +889,39 @@ domain billing {
     ]
 
 
+def test_registry_resolve_includes_artifact_manifest_evidence(tmp_path: Path) -> None:
+    manifest = tmp_path / "artifact-manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "target": {"name": "python"},
+                "artifacts": [{"path": "customer.py", "ref": "customer.Customer@1", "sha256": "a" * 64}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "registry",
+            "resolve",
+            str(FIXTURE),
+            "--out",
+            str(output_dir),
+            "--artifact-manifest",
+            str(manifest),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    lock = json.loads((output_dir / "registry.lock").read_text(encoding="utf-8"))
+    assert lock["usage"]["artifacts"] == [
+        {"path": "customer.py", "ref": "customer.Customer@1", "sha256": "a" * 64, "target": "python"}
+    ]
+
+
 def test_registry_diff_reports_changed_usage_surfaces(tmp_path: Path) -> None:
     source = tmp_path / "models.mdl"
     source.write_text(
@@ -1117,6 +1150,49 @@ binding customerStore {
     candidates = list((output_dir / "registry" / "candidates").iterdir())
     assert len(candidates) == 1
     assert (candidates[0] / "registry.lock").exists()
+    assert verify_snapshot(candidates[0]) == []
+
+
+def test_update_policy_blocks_changed_generated_artifact(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    output_dir = tmp_path / ".modelable"
+    old_manifest = {
+        "target": {"name": "python"},
+        "artifacts": [{"path": "customer.py", "ref": "customer.Customer@1", "sha256": "a" * 64}],
+    }
+    new_manifest = {
+        "target": {"name": "python"},
+        "artifacts": [{"path": "customer.py", "ref": "customer.Customer@1", "sha256": "b" * 64}],
+    }
+    resolve_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(old_manifest,))
+    original_lock = (output_dir / "registry.lock").read_bytes()
+    diff = diff_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(new_manifest,))
+
+    assert diff.usage["consequences"] == [
+        {
+            "action": "regenerate",
+            "causal_path": ["customer.Customer@1", "generated_artifact:python/customer.py"],
+            "reason": "generated artifact changed",
+            "status": "required",
+            "subject": "generated_artifact:python/customer.py",
+        }
+    ]
+
+    with pytest.raises(ValueError, match="regenerate"):
+        update_workspace_snapshot(
+            load_workspace(source),
+            output_dir,
+            artifact_manifests=(new_manifest,),
+            blocked_actions=("regenerate",),
+        )
+
+    assert (output_dir / "registry.lock").read_bytes() == original_lock
+    candidates = list((output_dir / "registry" / "candidates").iterdir())
+    assert len(candidates) == 1
+    assert json.loads((candidates[0] / "registry.lock").read_text(encoding="utf-8"))["usage"]["artifacts"] == [
+        {"path": "customer.py", "ref": "customer.Customer@1", "sha256": "b" * 64, "target": "python"}
+    ]
     assert verify_snapshot(candidates[0]) == []
 
 
