@@ -13,7 +13,12 @@ from modelable.compat.checker import (
     check_model_version_compatibility,
     check_projection_version_compatibility,
 )
-from modelable.compat.targets import compare_data_backfill, compare_model_storage_migration, compare_projection_rebuild
+from modelable.compat.targets import (
+    compare_data_backfill,
+    compare_model_storage_migration,
+    compare_projection_rebuild,
+    compare_semantic_compatibility,
+)
 from modelable.consequence import (
     build_consequence_graph,
     build_model_consequences,
@@ -119,6 +124,7 @@ def impact(
         change_nodes = projection_change_nodes(report)
     else:
         consequences = build_model_consequences(workspace, report)
+        consequences.extend(build_target_consequences(report, compare_semantic_compatibility(report)))
         consequences.extend(build_target_consequences(report, compare_model_storage_migration(report)))
         consequences.extend(build_target_consequences(report, compare_data_backfill(report)))
         change_nodes = change_nodes_for_report(report)

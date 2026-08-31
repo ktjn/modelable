@@ -149,6 +149,59 @@ domain customer {
     assert validate_consequence_graph(payload["consequence_graph"]) == payload["consequence_graph"]
 
 
+def test_impact_json_reports_source_consequence_for_added_optional_field(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    id: uuid
+    name: string
+  }
+  entity Customer @ 2 (additive) {
+    @key
+    id: uuid
+    name: string
+    nickname?: string
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "impact",
+            "--from",
+            "customer.Customer@1",
+            "--to",
+            "customer.Customer@2",
+            "--path",
+            str(source),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert {
+        "action": "recompile",
+        "causal_path": [
+            "customer.Customer@1",
+            "customer.Customer@2",
+            "source:customer.Customer:added_field",
+        ],
+        "reason": "added_field nickname",
+        "status": "compatible",
+        "subject": "source:customer.Customer:added_field",
+    } in payload["consequences"]
+    assert validate_consequence_graph(payload["consequence_graph"]) == payload["consequence_graph"]
+
+
 def test_impact_can_load_dependents_from_an_offline_snapshot(tmp_path: Path) -> None:
     provider = tmp_path / "provider.mdl"
     provider.write_text(
