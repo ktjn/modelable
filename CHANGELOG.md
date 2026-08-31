@@ -12,6 +12,8 @@ releases could contain breaking changes when called out explicitly.
   compiled consumers that require an update.
 - `modelable impact` now reports regeneration consequences for generated
   artifacts declared by those usage manifests.
+- `modelable registry update --dry-run` now resolves and validates a candidate
+  snapshot without replacing the durable lock or objects.
 - Usage evidence now attributes packaged contract references and emits
   package-level consumption edges alongside application-level edges.
 - Usage graphs and manifests now expose stable application and package identities

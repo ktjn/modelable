@@ -83,7 +83,8 @@ explicitly listed for acceptance before implementation.
 
 ## Slice 3 — make registry updates consequence-aware
 
-- [ ] Resolve and stage a candidate snapshot without changing durable state.
+- [x] Resolve and stage a candidate snapshot without changing durable state via
+  `registry update --dry-run`.
 - [ ] Compare current and candidate semantic graphs plus affected application
   usage manifests.
 - [ ] Calculate consequences and apply configured policy to the staged result.

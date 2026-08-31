@@ -10,6 +10,7 @@ from modelable.commands.common import console, load_workspace_or_exit
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.snapshot import (
     diff_workspace_snapshot,
+    preview_workspace_snapshot,
     prune_snapshot,
     resolve_workspace_snapshot,
     snapshot_status,
@@ -90,20 +91,31 @@ def diff(source: Path, output_dir: Path, output_format: str) -> None:
 @click.argument("source", type=click.Path(exists=True, path_type=Path))
 @click.option("--out", "output_dir", type=click.Path(path_type=Path), default=Path(".modelable"), show_default=True)
 @click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text")
-def update(source: Path, output_dir: Path, output_format: str) -> None:
+@click.option("--dry-run", is_flag=True, help="Resolve and validate the candidate without replacing the snapshot.")
+def update(source: Path, output_dir: Path, output_format: str, dry_run: bool) -> None:
     """Stage and atomically install SOURCE as the local exact snapshot."""
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
-        result, snapshot_diff = update_workspace_snapshot(workspace, output_dir)
+        if dry_run:
+            snapshot_diff, object_count = preview_workspace_snapshot(workspace, output_dir)
+        else:
+            result, snapshot_diff = update_workspace_snapshot(workspace, output_dir)
+            object_count = result.object_count
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
-    payload = {"lock": str(result.lock_path), "objects": result.object_count, **snapshot_diff.as_dict()}
+    payload = {
+        "dry_run": dry_run,
+        "lock": str(output_dir / "registry.lock"),
+        "objects": object_count,
+        **snapshot_diff.as_dict(),
+    }
     if output_format == "json":
         click.echo(json.dumps(payload, indent=2, sort_keys=True))
         return
+    action = "validated candidate" if dry_run else "updated"
     console.print(
-        f"[green]OK[/green] updated {result.lock_path} "
+        f"[green]OK[/green] {action} {output_dir / 'registry.lock'} "
         f"({len(snapshot_diff.added)} added, {len(snapshot_diff.changed)} changed, "
         f"{len(snapshot_diff.removed)} removed from the lock)"
     )
