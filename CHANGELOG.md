@@ -16,6 +16,8 @@ releases could contain breaking changes when called out explicitly.
   snapshot without replacing the durable lock or objects.
 - Failed registry updates now roll back newly copied objects and temporary lock
   files, leaving the prior durable snapshot intact.
+- `modelable registry update --dry-run --format json` now reports exact
+  dependency-resolution and usage-evidence additions, removals, and changes.
 - Usage evidence now attributes packaged contract references and emits
   package-level consumption edges alongside application-level edges.
 - Usage graphs and manifests now expose stable application and package identities

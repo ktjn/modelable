@@ -824,17 +824,68 @@ def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_pa
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output[result.output.index("{") :])
-    assert payload == {
-        "added": ["customer.Customer@3 (model)"],
-        "changed": ["customer.Customer@1 (model)", "customer.Customer@2 (model)"],
-        "dry_run": True,
-        "empty": False,
-        "lock": str(output_dir / "registry.lock"),
-        "objects": 3,
-        "removed": [],
-    }
+    assert payload["added"] == ["customer.Customer@3 (model)"]
+    assert payload["changed"] == ["customer.Customer@1 (model)", "customer.Customer@2 (model)"]
+    assert payload["dry_run"] is True
+    assert payload["empty"] is False
+    assert payload["lock"] == str(output_dir / "registry.lock")
+    assert payload["objects"] == 3
+    assert payload["removed"] == []
+    assert payload["dependencies"] == {"added": [], "changed": [], "removed": []}
+    assert [item["ref"] for item in payload["usage"]["references"]["added"]] == ["customer.Customer@3"]
+    assert payload["usage"]["references"]["removed"] == []
+    assert payload["usage"]["references"]["changed"] == []
+    assert payload["usage"]["artifacts"] == {"added": [], "changed": [], "removed": []}
     assert (output_dir / "registry.lock").read_bytes() == original_lock
     assert {path.name: path.read_bytes() for path in objects_dir.glob("*.json")} == original_objects
+
+
+def test_registry_update_dry_run_reports_dependency_and_usage_changes(tmp_path: Path) -> None:
+    output_dir = tmp_path / ".modelable"
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key id: uuid
+  }
+}
+domain billing {
+  owner: "billing-platform"
+  projection BillingCustomer @ 1 from customer.Customer @ >=1 <2 as c {
+    id <- c.id
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8")
+        .replace("customer.Customer @ >=1 <2", "customer.Customer @ >=1 <3")
+        .replace(
+            "  }\n}\n",
+            "  }\n  entity Customer @ 2 (additive) {\n    @key id: uuid\n    name?: string\n  }\n}\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(source), output_dir)
+
+    dependency_changes = snapshot_diff.dependencies["changed"]
+    assert len(dependency_changes) == 1
+    assert dependency_changes[0]["from"] == "billing.BillingCustomer@1"
+    assert dependency_changes[0]["current"]["requested"] == "customer.Customer@>=1<2"
+    assert dependency_changes[0]["current"]["resolved"] == "customer.Customer@1"
+    assert dependency_changes[0]["candidate"]["requested"] == "customer.Customer@>=1<3"
+    assert dependency_changes[0]["candidate"]["resolved"] == "customer.Customer@2"
+    assert snapshot_diff.usage["references"]["added"][0]["ref"] == "customer.Customer@2"
+    assert snapshot_diff.usage["references"]["added"][0]["fields"] == [
+        "customer.Customer@2#id",
+        "customer.Customer@2#name",
+    ]
 
 
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:

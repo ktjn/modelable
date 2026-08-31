@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -90,16 +90,26 @@ class SnapshotDiff:
     added: tuple[str, ...]
     removed: tuple[str, ...]
     changed: tuple[str, ...]
+    dependencies: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    usage: dict[str, Any] = field(default_factory=dict)
 
     @property
     def empty(self) -> bool:
-        return not self.added and not self.removed and not self.changed
+        return (
+            not self.added
+            and not self.removed
+            and not self.changed
+            and not any(self.dependencies.values())
+            and not any(isinstance(category, dict) and any(category.values()) for category in self.usage.values())
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "added": list(self.added),
             "removed": list(self.removed),
             "changed": list(self.changed),
+            "dependencies": self.dependencies,
+            "usage": self.usage,
             "empty": self.empty,
         }
 
@@ -752,8 +762,10 @@ def _reject_mutable_identity_replacements(current_dir: Path, candidate_entries: 
 
 
 def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
-    current_entries = _load_lock_entries(SnapshotPaths(current_dir).lock)
-    candidate_entries = _load_lock_entries(SnapshotPaths(candidate_dir).lock)
+    current_lock = _load_lock_payload(SnapshotPaths(current_dir).lock)
+    candidate_lock = _load_lock_payload(SnapshotPaths(candidate_dir).lock)
+    current_entries = _lock_objects(current_lock)
+    candidate_entries = _lock_objects(candidate_lock)
     current_by_key = {_entry_key(entry): entry for entry in current_entries}
     candidate_by_key = {_entry_key(entry): entry for entry in candidate_entries}
     added = sorted(set(candidate_by_key) - set(current_by_key))
@@ -768,6 +780,8 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
         added=tuple(_display_key(key) for key in added),
         removed=tuple(_display_key(key) for key in removed),
         changed=tuple(_display_key(key) for key in changed),
+        dependencies=_diff_lock_requirements(current_lock, candidate_lock),
+        usage=_diff_usage_manifests(current_lock.get("usage"), candidate_lock.get("usage")),
     )
 
 
@@ -925,8 +939,12 @@ def _write_object(
 
 
 def _load_lock_entries(lock_path: Path) -> list[dict[str, Any]]:
+    return _lock_objects(_load_lock_payload(lock_path))
+
+
+def _load_lock_payload(lock_path: Path) -> dict[str, Any]:
     if not lock_path.exists():
-        return []
+        return {}
     try:
         payload = _load_json_document(lock_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
@@ -937,7 +955,83 @@ def _load_lock_entries(lock_path: Path) -> list[dict[str, Any]]:
         or not isinstance(payload.get("objects"), list)
     ):
         raise ValueError(f"invalid registry lock {lock_path}")
-    return [entry for entry in payload["objects"] if isinstance(entry, dict)]
+    return payload
+
+
+def _lock_objects(lock: dict[str, Any]) -> list[dict[str, Any]]:
+    objects = lock.get("objects", [])
+    return [entry for entry in objects if isinstance(entry, dict)] if isinstance(objects, list) else []
+
+
+def _diff_lock_requirements(current: dict[str, Any], candidate: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    current_requirements = _requirements_by_source(current.get("requirements"))
+    candidate_requirements = _requirements_by_source(candidate.get("requirements"))
+    added = sorted(set(candidate_requirements) - set(current_requirements))
+    removed = sorted(set(current_requirements) - set(candidate_requirements))
+    changed = sorted(set(current_requirements) & set(candidate_requirements))
+    return {
+        "added": [candidate_requirements[source] for source in added],
+        "removed": [current_requirements[source] for source in removed],
+        "changed": [
+            {
+                "from": source,
+                "current": current_requirements[source],
+                "candidate": candidate_requirements[source],
+            }
+            for source in changed
+            if current_requirements[source] != candidate_requirements[source]
+        ],
+    }
+
+
+def _requirements_by_source(value: Any) -> dict[str, dict[str, Any]]:
+    if not isinstance(value, list):
+        return {}
+    result: dict[str, dict[str, Any]] = {}
+    for requirement in value:
+        if isinstance(requirement, dict) and isinstance(requirement.get("from"), str):
+            result[requirement["from"]] = requirement
+    return result
+
+
+def _diff_usage_manifests(current: Any, candidate: Any) -> dict[str, Any]:
+    current_manifest = current if isinstance(current, dict) else {}
+    candidate_manifest = candidate if isinstance(candidate, dict) else {}
+    return {
+        "references": _diff_usage_entries(
+            current_manifest.get("references"), candidate_manifest.get("references"), "ref"
+        ),
+        "artifacts": _diff_usage_entries(
+            current_manifest.get("artifacts"), candidate_manifest.get("artifacts"), "target", "path"
+        ),
+    }
+
+
+def _diff_usage_entries(current: Any, candidate: Any, *key_fields: str) -> dict[str, list[dict[str, Any]]]:
+    current_entries = _usage_entries_by_key(current, key_fields)
+    candidate_entries = _usage_entries_by_key(candidate, key_fields)
+    added = sorted(set(candidate_entries) - set(current_entries))
+    removed = sorted(set(current_entries) - set(candidate_entries))
+    changed = sorted(set(current_entries) & set(candidate_entries))
+    return {
+        "added": [candidate_entries[key] for key in added],
+        "removed": [current_entries[key] for key in removed],
+        "changed": [
+            {"key": list(key), "current": current_entries[key], "candidate": candidate_entries[key]}
+            for key in changed
+            if current_entries[key] != candidate_entries[key]
+        ],
+    }
+
+
+def _usage_entries_by_key(value: Any, key_fields: tuple[str, ...]) -> dict[tuple[str, ...], dict[str, Any]]:
+    if not isinstance(value, list):
+        return {}
+    result: dict[tuple[str, ...], dict[str, Any]] = {}
+    for entry in value:
+        if isinstance(entry, dict) and all(isinstance(entry.get(field_name), str) for field_name in key_fields):
+            result[tuple(entry[field_name] for field_name in key_fields)] = entry
+    return result
 
 
 def _entry_key(entry: dict[str, Any]) -> tuple[str, str]:
