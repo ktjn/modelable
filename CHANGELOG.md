@@ -6,6 +6,8 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+- Registry diffs now include deterministic required actions for changed API,
+  event, and persistence usage surfaces.
 - `modelable registry diff` and `registry update --dry-run` now report added,
   removed, and changed API, event, and persistence usage surfaces.
 - `modelable registry usage --format manifest` now includes deterministic,

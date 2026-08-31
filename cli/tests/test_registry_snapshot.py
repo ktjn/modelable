@@ -954,6 +954,20 @@ binding customerStore {
             "table": "customer_records",
         }
     ]
+    assert snapshot_diff.usage["required_actions"] == [
+        {
+            "action": "consumer_update",
+            "reason": "API operation surface changed",
+            "status": "required",
+            "subject": "api_operation:customer.Customer@1:getCustomer",
+        },
+        {
+            "action": "storage_migration",
+            "reason": "persistence surface changed",
+            "status": "required",
+            "subject": "customer.Customer@1",
+        },
+    ]
 
 
 def test_registry_cli_status_reports_missing_object(tmp_path: Path) -> None:

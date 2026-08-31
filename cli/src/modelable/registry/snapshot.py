@@ -997,6 +997,7 @@ def _requirements_by_source(value: Any) -> dict[str, dict[str, Any]]:
 def _diff_usage_manifests(current: Any, candidate: Any) -> dict[str, Any]:
     current_manifest = current if isinstance(current, dict) else {}
     candidate_manifest = candidate if isinstance(candidate, dict) else {}
+    surface_diff = _diff_usage_entries(current_manifest.get("surfaces"), candidate_manifest.get("surfaces"), "id")
     return {
         "references": _diff_usage_entries(
             current_manifest.get("references"), candidate_manifest.get("references"), "ref"
@@ -1004,8 +1005,59 @@ def _diff_usage_manifests(current: Any, candidate: Any) -> dict[str, Any]:
         "artifacts": _diff_usage_entries(
             current_manifest.get("artifacts"), candidate_manifest.get("artifacts"), "target", "path"
         ),
-        "surfaces": _diff_usage_entries(current_manifest.get("surfaces"), candidate_manifest.get("surfaces"), "id"),
+        "surfaces": surface_diff,
+        "required_actions": _required_surface_actions(
+            current_manifest.get("surfaces"), candidate_manifest.get("surfaces")
+        ),
     }
+
+
+def _required_surface_actions(current: Any, candidate: Any) -> list[dict[str, str]]:
+    current_surfaces = _surface_entries_by_logical_key(current)
+    candidate_surfaces = _surface_entries_by_logical_key(candidate)
+    actions: dict[tuple[str, str], dict[str, str]] = {}
+    for key in sorted(set(current_surfaces) & set(candidate_surfaces)):
+        for old, new in zip(current_surfaces[key], candidate_surfaces[key], strict=False):
+            if old == new:
+                continue
+            kind, ref = key
+            if kind == "storage":
+                action = "storage_migration"
+                subject = ref
+                reason = "persistence surface changed"
+            else:
+                action = "consumer_update"
+                subject = str(new["id"])
+                reason = _surface_change_reason(kind)
+            actions[(action, subject)] = {
+                "action": action,
+                "subject": subject,
+                "status": "required",
+                "reason": reason,
+            }
+
+    return [actions[key] for key in sorted(actions)]
+
+
+def _surface_change_reason(kind: str) -> str:
+    label = "API operation" if kind == "api_operation" else kind
+    return f"{label} surface changed"
+
+
+def _surface_entries_by_logical_key(value: Any) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    if not isinstance(value, list):
+        return {}
+    result: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for entry in value:
+        if not isinstance(entry, dict):
+            continue
+        kind = entry.get("kind")
+        ref = entry.get("ref")
+        if isinstance(kind, str) and isinstance(ref, str):
+            result.setdefault((kind, ref), []).append(entry)
+    for entries in result.values():
+        entries.sort(key=lambda entry: str(entry.get("id", "")))
+    return result
 
 
 def _diff_usage_entries(current: Any, candidate: Any, *key_fields: str) -> dict[str, list[dict[str, Any]]]:
