@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Offline SQLite registry-index rebuilds now restore compatibility-critical
+  registry-ID allocations from the verified snapshot lock.
+
 - Registry locks now retain deterministic fingerprints for supplied generated
   artifact manifests, making generation evidence reproducible offline.
 

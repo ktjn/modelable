@@ -58,8 +58,17 @@ def build_registry_from_snapshot(
     output_dir: str | Path | None = None,
 ) -> Path:
     """Rebuild the derived SQLite index from a durable snapshot offline."""
-    workspace = load_snapshot_workspace(snapshot_dir)
-    return build_registry(workspace, output_dir if output_dir is not None else snapshot_dir)
+    snapshot_path = Path(snapshot_dir)
+    workspace = load_snapshot_workspace(snapshot_path)
+    lock = json.loads((snapshot_path / "registry.lock").read_text(encoding="utf-8"))
+    registry_ids = {
+        str(entry["name"]): int(entry["id"]) for entry in lock["allocations"]["registry_ids"] if isinstance(entry, dict)
+    }
+    return build_registry(
+        workspace,
+        output_dir if output_dir is not None else snapshot_path,
+        registry_ids=registry_ids,
+    )
 
 
 def _insert_registry_ids(conn: sqlite3.Connection, registry_ids: dict[str, int] | None) -> None:
