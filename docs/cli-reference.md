@@ -130,8 +130,9 @@ modelable doctor .
 modelable doctor . --format json
 ```
 
-The `capabilities` command reports deterministic consequence-graph analysis as
-implemented while keeping cross-application consequence aggregation deferred.
+The `capabilities` command reports deterministic consequence-graph analysis and
+cross-application consequence aggregation as implemented. Policy-aware update
+enforcement remains deferred.
 
 ### 5.1 `validate` — Validate definition files
 

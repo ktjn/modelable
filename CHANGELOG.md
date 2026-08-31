@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Capability reporting now recognizes cross-application consequence analysis
+  from repeatable compiled usage manifests.
+
 - Registry snapshots now declare the formal `modelable.lock/v1` protocol while
   retaining `.modelable/registry.lock` as the on-disk path.
 
