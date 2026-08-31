@@ -13,10 +13,11 @@ from typing import Any
 
 from modelable.compat.checker import (
     CompatibilityReport,
+    ProjectionCompatibilityReport,
     check_model_version_compatibility,
     check_projection_version_compatibility,
 )
-from modelable.compat.targets import compare_model_storage_migration
+from modelable.compat.targets import compare_model_storage_migration, compare_projection_rebuild
 from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import (
     Workspace,
@@ -31,6 +32,7 @@ from modelable.consequence import (
     ACTION_REGENERATE,
     ACTION_STORAGE_MIGRATION,
     Consequence,
+    build_projection_consequences,
     build_target_consequences,
 )
 from modelable.extensions import ExtensionDescriptorError, ExtensionPin, parse_extension_pin
@@ -1167,9 +1169,10 @@ def _compatibility_consequences(
             status = report.status
             reason = "direct contract change"
         else:
-            status = check_projection_version_compatibility(
+            projection_report: ProjectionCompatibilityReport = check_projection_version_compatibility(
                 candidate_workspace.mdl, domain_name, model_name, from_version, to_version
-            ).status
+            )
+            status = projection_report.status
             reason = "direct projection change"
         action = ACTION_BREAKING if status == "breaking" else ACTION_RECOMPILE
         consequences.append(
@@ -1184,6 +1187,9 @@ def _compatibility_consequences(
         if kind == "model":
             storage_report = compare_model_storage_migration(report)
             consequences.extend(build_target_consequences(report, storage_report))
+        else:
+            rebuild_report = compare_projection_rebuild(domain_name, model_name, projection_report.changes)
+            consequences.extend(build_projection_consequences(projection_report, rebuild_report)[1:])
     return consequences
 
 

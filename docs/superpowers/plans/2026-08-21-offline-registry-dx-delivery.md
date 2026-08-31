@@ -84,6 +84,9 @@ explicitly listed for acceptance before implementation.
   paths.
 - [x] Expose storage-migration consequences for index changes on newly added
   model versions using the existing target compatibility mapping.
+- [x] Expose projection-rebuild consequences for materialized-state changes on
+  newly added projection versions using the existing target compatibility
+  mapping.
 - [ ] Generalize all remaining compatibility findings into consequence facts
   with causal paths and actions such as regeneration, consumer update,
   migration, backfill, projection rebuild, replay, review, and breaking change.
