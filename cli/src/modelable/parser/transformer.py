@@ -967,20 +967,20 @@ class MdlTransformer(Transformer[list[object], Any]):
     def http_delete(self, _items: list[Any]) -> str:
         return "DELETE"
 
-    def version_spec(self, items):
+    def version_spec(self, items: list[object]) -> object:
         return items[0]
 
-    def version_exact(self, items):
-        return VersionExact(version=int(items[0]))
+    def version_exact(self, items: list[object]) -> VersionExact:
+        return VersionExact(version=int(cast(int | str, items[0])))
 
-    def version_pinned(self, items):
-        return VersionPinned(version=int(items[0]), content_hash=str(items[1]))
+    def version_pinned(self, items: list[object]) -> VersionPinned:
+        return VersionPinned(version=int(cast(int | str, items[0])), content_hash=str(items[1]))
 
-    def version_range(self, items):
-        return VersionRange(min_inclusive=int(items[0]), max_exclusive=int(items[1]))
+    def version_range(self, items: list[object]) -> VersionRange:
+        return VersionRange(min_inclusive=int(cast(int | str, items[0])), max_exclusive=int(cast(int | str, items[1])))  # fmt: skip
 
-    def version_min(self, items):
-        return VersionMin(min_inclusive=int(items[0]))
+    def version_min(self, items: list[object]) -> VersionMin:
+        return VersionMin(min_inclusive=int(cast(int | str, items[0])))
 
     def qualified_field(self, items):
         return f"{items[0]}.{items[1]}"
