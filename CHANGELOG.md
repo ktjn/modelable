@@ -6,10 +6,6 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
-### Added
-
-### Changed
-
 ### Fixed
 
 - Preserve declaring-domain imports for bare cross-domain semantic enum references.
