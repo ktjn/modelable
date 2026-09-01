@@ -1004,6 +1004,26 @@ def test_verify_rejects_noncanonical_usage_fields(tmp_path: Path) -> None:
     assert any("registry lock usage is invalid" in error for error in errors)
 
 
+@pytest.mark.parametrize("field", ["kind", "version", "dependencies", "provenance"])
+def test_verify_binds_lock_entry_metadata_to_object(tmp_path: Path, field: str) -> None:
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    entry = lock["objects"][0]
+    if field == "version":
+        entry[field] += 1
+    elif field == "dependencies":
+        entry[field] = ["customer.Other@1"]
+    elif field == "provenance":
+        entry[field] = {"source": "tampered.mdl", "source_hash": "0" * 64}
+    else:
+        entry[field] = "tampered"
+    result.lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    errors = verify_snapshot(tmp_path / ".modelable")
+
+    assert any(f"registry object {field} mismatch" in error for error in errors)
+
+
 def test_verify_detects_tampered_object(tmp_path: Path) -> None:
     result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
     object_path = next((result.lock_path.parent / "registry" / "objects").glob("*.json"))

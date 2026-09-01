@@ -15,6 +15,7 @@ releases could contain breaking changes when called out explicitly.
 - Store canonical semantic paths for both endpoints of registry lineage edges.
 - Reuse canonical declaration and semantic-path validation across usage manifests
   and registry lock verification.
+- Bind registry lock object metadata to its content-addressed object payload.
 
 ## [1.13.1] - 2026-09-01
 
