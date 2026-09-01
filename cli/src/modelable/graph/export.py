@@ -24,8 +24,13 @@ from modelable.parser.ir import (
     RefType,
     SemanticTypeDecl,
     UnionType,
+    VersionMin,
 )
-from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
+from modelable.registry.resolver import (
+    AmbiguousSemanticTypeError,
+    resolve_model_ref,
+    resolve_semantic_type_ref,
+)
 
 _NODE_KIND_ORDER = {
     "domain": 0,
@@ -248,17 +253,32 @@ def _add_model_field(
         target_id = _resolve_version_ref(workspace, ref_type.target, ref_type.version)
         builder.add_edge(field_id, f"model_version:{target_id}", "references")
     for type_name, exact_version in _iter_semantic_type_refs(field.type):
-        declaring_domain, declaration = resolve_semantic_type_ref(
-            workspace.mdl,
-            domain_name,
-            type_name,
-            exact_version=exact_version,
-        )
-        builder.add_edge(
-            field_id,
-            f"semantic_type:{declaration_id(declaring_domain, declaration.name, declaration.version)}",
-            "references",
-        )
+        try:
+            declaring_domain, declaration = resolve_semantic_type_ref(
+                workspace.mdl,
+                domain_name,
+                type_name,
+                exact_version=exact_version,
+            )
+        except LookupError as semantic_error:
+            if isinstance(semantic_error, AmbiguousSemanticTypeError) or exact_version is not None:
+                raise
+            model_ref = type_name if "." in type_name else f"{domain_name}.{type_name}"
+            try:
+                resolved_model = resolve_model_ref(workspace.mdl, model_ref, VersionMin(min_inclusive=1))
+            except LookupError:
+                raise semantic_error from semantic_error
+            builder.add_edge(
+                field_id,
+                f"model_version:{resolved_model.domain_name}.{resolved_model.model_name}@{resolved_model.version.version}",
+                "references",
+            )
+        else:
+            builder.add_edge(
+                field_id,
+                f"semantic_type:{declaration_id(declaring_domain, declaration.name, declaration.version)}",
+                "references",
+            )
 
 
 def _add_semantic_type(

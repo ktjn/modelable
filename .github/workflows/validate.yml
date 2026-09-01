@@ -213,9 +213,6 @@ jobs:
   browser-e2e:
     name: E2E (${{ matrix.browser }})
     needs: browser-build
-    # TEMPORARILY DISABLED while working on the roadmap — CI only, still runs
-    # locally via `npx playwright test`. Remove this `if:` line to re-enable.
-    if: false
     runs-on: ubuntu-latest
 
     strategy:

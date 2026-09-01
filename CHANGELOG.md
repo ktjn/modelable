@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Playground graph visualization now handles fields backed by same-domain value
+  models without failing browser graph requests.
+
 - Browser/playground plan responses now use the stable `modelable.plan/v1`
   protocol, including browser target admission and TypeScript validation.
 

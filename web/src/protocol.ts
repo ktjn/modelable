@@ -286,6 +286,7 @@ export interface BrowserCompatibilityResult {
   workspace_revision: number;
   reports: BrowserCompatibilityReport[];
   impacts: BrowserProjectionImpact[];
+  consequence_graph: Record<string, unknown>;
 }
 
 export interface BrowserGovernanceFinding {
@@ -904,12 +905,18 @@ export function isBrowserCompatibilityResult(
 ): value is BrowserCompatibilityResult {
   return (
     isRecord(value) &&
-    hasExactKeys(value, ['workspace_revision', 'reports', 'impacts']) &&
+    hasExactKeys(value, [
+      'workspace_revision',
+      'reports',
+      'impacts',
+      'consequence_graph',
+    ]) &&
     isIntegerAtLeast(value.workspace_revision, 1) &&
     Array.isArray(value.reports) &&
     value.reports.every(isBrowserCompatibilityReport) &&
     Array.isArray(value.impacts) &&
-    value.impacts.every(isBrowserProjectionImpact)
+    value.impacts.every(isBrowserProjectionImpact) &&
+    isRecord(value.consequence_graph)
   );
 }
 
