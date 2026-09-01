@@ -6,6 +6,14 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+### Fixed
+
+- `compile --target rust` no longer emits an enum-lineage `From` conversion
+  impl for a ClickHouse-bound projection field whose enum type was forced to
+  `String` (clickhouse-rs 0.15's `serialize_unit_variant` panic workaround,
+  issue #119). The conversion impl referenced a projection enum type that was
+  never emitted for that field, so the generated Rust failed to compile.
+
 ### Changed
 
 - Playground graph visualization now handles fields backed by same-domain value

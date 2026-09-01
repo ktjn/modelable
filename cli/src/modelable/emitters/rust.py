@@ -66,6 +66,7 @@ def _lineage_enum_from_impl_lines(
     *,
     current_pkg: str | None = None,
     package_for_domain: dict[str, str] | None = None,
+    clickhouse_row: bool = False,
 ) -> list[str]:
     """Generate `From` impls between a source model's nested enum types and the
     projection's re-declared copies of them, for direct-mapped fields only.
@@ -108,6 +109,12 @@ def _lineage_enum_from_impl_lines(
             continue
         shape = _resolve_projection_field_shape(field, version, mdl)
         if shape is None or shape.kind != "enum":
+            continue
+        if clickhouse_row:
+            # ClickHouse-bound enum fields are forced to String at the struct
+            # definition site (clickhouse-rs 0.15 panics on
+            # serialize_unit_variant for typed enums); no target enum type
+            # exists for this field to convert into.
             continue
         src_enum = _nested_type_name(src_type_name, [field.mapping.source_field])
         proj_enum = _nested_type_name(proj_type_name, [field.name])
@@ -1152,6 +1159,7 @@ def _emit_projection(
             type_name,
             current_pkg=current_pkg,
             package_for_domain=package_for_domain,
+            clickhouse_row=clickhouse_row,
         )
     )
 

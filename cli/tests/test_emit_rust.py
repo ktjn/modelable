@@ -1881,6 +1881,10 @@ binding span-binding {
     assert "pub enum TelemetrySpanRowV1SpanKind" not in proj.content
     # Ensure typed enum is not used as field type
     assert "pub span_kind: TelemetrySpanV1SpanKind," not in proj.content
+    # No lineage conversion impl to a never-emitted projection enum type
+    # (regression: the enum field was forced to String above, so a `From<...>
+    # for TelemetrySpanRowV1SpanKind` impl would reference an undefined type)
+    assert "TelemetrySpanRowV1SpanKind" not in proj.content
 
 
 def test_emit_rust_clickhouse_row_from_impl_enum_becomes_match_arm(tmp_path):
