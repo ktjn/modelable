@@ -163,11 +163,13 @@ class PolicyFinding:
     status: str
     reason: str | None = None
     causal_path: tuple[str, ...] = ()
+    severity: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "action": self.action,
             "status": self.status,
+            "severity": self.severity,
             "reason": self.reason,
             "causal_path": list(self.causal_path),
         }
@@ -217,6 +219,42 @@ class BlockedActionPolicy:
 
     def evaluate(self, snapshot_diff: SnapshotDiff) -> PolicyEvaluation:
         return _blocked_registry_policy(snapshot_diff, self.blocked_actions)
+
+
+@dataclass(frozen=True)
+class ConfiguredRegistryPolicy:
+    """Apply built-in action blocks and configured external policy rules."""
+
+    blocked_actions: tuple[str, ...] = ()
+    pii_change_severity: str = "off"
+
+    def evaluate(self, snapshot_diff: SnapshotDiff) -> PolicyEvaluation:
+        base = BlockedActionPolicy(self.blocked_actions).evaluate(snapshot_diff)
+        findings = list(base.findings)
+        pii_findings: list[PolicyFinding] = []
+        pii_facts = snapshot_diff.usage.get("policy_facts", [])
+        if self.pii_change_severity != "off" and isinstance(pii_facts, list):
+            for fact in pii_facts:
+                if not isinstance(fact, dict) or fact.get("kind") != "pii_change":
+                    continue
+                reason = fact.get("reason")
+                if not isinstance(reason, str):
+                    continue
+                pii_findings.append(
+                    PolicyFinding(
+                        action="governance_review",
+                        status=str(fact.get("status")),
+                        severity=self.pii_change_severity,
+                        reason=reason,
+                        causal_path=tuple(item for item in fact.get("causal_path", []) if isinstance(item, str)),
+                    )
+                )
+        findings.extend(pii_findings)
+        blocked = set(base.blocked_actions)
+        if self.pii_change_severity == "error" and pii_findings:
+            blocked.add("governance_review")
+        findings.sort(key=lambda finding: (finding.action, finding.status, finding.reason or "", finding.causal_path))
+        return PolicyEvaluation(blocked_actions=tuple(sorted(blocked)), findings=tuple(findings))
 
 
 def resolve_workspace_snapshot(
@@ -1061,6 +1099,9 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
     compatibility_consequences = _compatibility_consequences(current_dir, candidate_dir, added)
     usage["consequences"].extend(consequence.as_dict() for consequence in compatibility_consequences)
     usage["required_actions"].extend(_required_surface_actions(compatibility_consequences))
+    policy_facts = _policy_facts(compatibility_consequences)
+    if policy_facts:
+        usage["policy_facts"] = policy_facts
     return SnapshotDiff(
         added=tuple(_display_key(key) for key in added),
         removed=tuple(_display_key(key) for key in removed),
@@ -1318,6 +1359,32 @@ def _contract_consequences(
             )
         )
     return consequences
+
+
+def _policy_facts(consequences: list[Consequence]) -> list[dict[str, Any]]:
+    """Project stable semantic change facts for external policy evaluators."""
+    facts = []
+    for consequence in consequences:
+        if not any(change.startswith("change:pii_changed:") for change in consequence.causal_changes):
+            continue
+        facts.append(
+            {
+                "kind": "pii_change",
+                "action": consequence.action,
+                "status": consequence.status,
+                "reason": consequence.reason,
+                "causal_path": list(consequence.causal_path),
+            }
+        )
+    return sorted(
+        facts,
+        key=lambda fact: (
+            str(fact["action"]),
+            str(fact["status"]),
+            str(fact["reason"]),
+            tuple(str(item) for item in fact["causal_path"]),
+        ),
+    )
 
 
 def _compatibility_consequences(

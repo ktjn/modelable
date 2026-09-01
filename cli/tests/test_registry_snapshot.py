@@ -21,6 +21,7 @@ from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.resolver import find_dependents
 from modelable.registry.snapshot import (
     BlockedActionPolicy,
+    ConfiguredRegistryPolicy,
     PolicyEvaluation,
     PolicyFinding,
     SnapshotDiff,
@@ -1583,6 +1584,167 @@ def test_blocked_action_policy_returns_structured_findings() -> None:
         "customer.Customer@1",
         "artifact:typescript/customer.ts",
     ]
+
+
+def test_configured_policy_reports_warning_for_pii_change_without_blocking() -> None:
+    snapshot_diff = SnapshotDiff(
+        added=(),
+        removed=(),
+        changed=(),
+        usage={
+            "consequences": [
+                {
+                    "action": "governance_review",
+                    "status": "review_required",
+                    "reason": "organization policy context",
+                    "causal_path": ["customer.CustomerView@1", "customer.CustomerView@2"],
+                }
+            ],
+            "policy_facts": [
+                {
+                    "kind": "pii_change",
+                    "action": "governance_review",
+                    "status": "review_required",
+                    "reason": "field 'email' @pii changed: false -> true",
+                    "causal_path": ["customer.CustomerView@1", "customer.CustomerView@2"],
+                }
+            ],
+        },
+    )
+
+    evaluation = ConfiguredRegistryPolicy(pii_change_severity="warning").evaluate(snapshot_diff)
+
+    assert evaluation.blocked_actions == ()
+    assert evaluation.findings[0].severity == "warning"
+    assert evaluation.findings[0].action == "governance_review"
+
+
+def test_configured_policy_blocks_error_severity_for_pii_change() -> None:
+    snapshot_diff = SnapshotDiff(
+        added=(),
+        removed=(),
+        changed=(),
+        usage={
+            "consequences": [
+                {
+                    "action": "governance_review",
+                    "status": "review_required",
+                    "reason": "organization policy context",
+                    "causal_path": ["customer.CustomerView@1", "customer.CustomerView@2"],
+                }
+            ],
+            "policy_facts": [
+                {
+                    "kind": "pii_change",
+                    "action": "governance_review",
+                    "status": "review_required",
+                    "reason": "field 'email' @pii changed: false -> true",
+                    "causal_path": ["customer.CustomerView@1", "customer.CustomerView@2"],
+                }
+            ],
+        },
+    )
+
+    evaluation = ConfiguredRegistryPolicy(pii_change_severity="error").evaluate(snapshot_diff)
+
+    assert evaluation.blocked_actions == ("governance_review",)
+    assert evaluation.findings[0].severity == "error"
+    assert evaluation.as_dict()["findings"][0]["severity"] == "error"
+
+
+def test_configured_policy_does_not_infer_pii_from_reason_text() -> None:
+    snapshot_diff = SnapshotDiff(
+        added=(),
+        removed=(),
+        changed=(),
+        usage={
+            "consequences": [
+                {
+                    "action": "governance_review",
+                    "status": "review_required",
+                    "reason": "untrusted text @pii changed: false -> true",
+                    "causal_path": ["customer.CustomerView@1", "customer.CustomerView@2"],
+                }
+            ]
+        },
+    )
+
+    evaluation = ConfiguredRegistryPolicy(pii_change_severity="error").evaluate(snapshot_diff)
+
+    assert evaluation.blocked_actions == ()
+    assert evaluation.findings == ()
+
+
+def test_configured_policy_allows_unrelated_update_at_error_severity() -> None:
+    evaluation = ConfiguredRegistryPolicy(pii_change_severity="error").evaluate(
+        SnapshotDiff(added=("customer.Customer@2 (model)",), removed=(), changed=(), usage={})
+    )
+
+    assert evaluation.blocked_actions == ()
+
+
+def test_configured_policy_keeps_unrelated_blocked_action_separate_from_pii_rule() -> None:
+    evaluation = ConfiguredRegistryPolicy(blocked_actions=("regenerate",), pii_change_severity="error").evaluate(
+        SnapshotDiff(
+            added=(),
+            removed=(),
+            changed=(),
+            usage={
+                "consequences": [
+                    {
+                        "action": "regenerate",
+                        "status": "required",
+                        "reason": "generated artifact changed",
+                        "causal_path": ["customer.Customer@1", "artifact:python/customer.py"],
+                    }
+                ]
+            },
+        )
+    )
+
+    assert evaluation.blocked_actions == ("regenerate",)
+
+
+def test_registry_update_json_applies_configured_pii_policy(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    id: uuid
+    email: string
+  }
+  projection CustomerView @ 1 from customer.Customer @ 1 as c {
+    email <- c.email
+  }
+  projection CustomerView @ 2 from customer.Customer @ 1 as c {
+    email <- c.email
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "  projection CustomerView @ 1 from customer.Customer @ 1 as c {\n    email <- c.email\n  }",
+            "  projection CustomerView @ 1 from customer.Customer @ 1 as c {\n    email <- c.email\n  }\n  projection CustomerView @ 3 from customer.Customer @ 1 as c {\n    @pii\n    email <- c.email\n  }",
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "modelable.toml").write_text('[registry.policy]\npii_changes = "error"\n', encoding="utf-8")
+
+    result = CliRunner().invoke(cli, ["registry", "update", str(source), "--out", str(output_dir), "--format", "json"])
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert payload["policy"]["violations"] == ["governance_review"]
+    assert payload["policy"]["findings"], payload
+    assert payload["policy"]["findings"][0]["severity"] == "error"
+    assert payload["candidate"]["retained"]
 
 
 def test_registry_diff_reports_breaking_consequence_for_added_incompatible_model(tmp_path: Path) -> None:

@@ -82,6 +82,21 @@ def test_config_loads_registry_blocked_actions(tmp_path: Path) -> None:
     assert config.blocked_registry_actions() == ("breaking", "storage_migration")
 
 
+def test_config_loads_registry_policy_severity(tmp_path: Path) -> None:
+    (tmp_path / "modelable.toml").write_text('[registry.policy]\npii_changes = "error"\n', encoding="utf-8")
+
+    config = load_config(tmp_path)
+
+    assert config.registry_policy_severities() == {"pii_changes": "error"}
+
+
+def test_config_rejects_invalid_registry_policy_severity(tmp_path: Path) -> None:
+    (tmp_path / "modelable.toml").write_text('[registry.policy]\npii_changes = "critical"\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsupported registry policy severity"):
+        load_config(tmp_path)
+
+
 def test_config_rejects_unknown_registry_blocked_action(tmp_path: Path) -> None:
     (tmp_path / "modelable.toml").write_text('[registry]\nblocked_actions = ["unknown"]\n', encoding="utf-8")
 

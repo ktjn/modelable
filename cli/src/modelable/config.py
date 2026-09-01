@@ -26,6 +26,8 @@ REGISTRY_POLICY_ACTIONS = frozenset(
         "storage_migration",
     }
 )
+REGISTRY_POLICY_RULES = frozenset({"pii_changes"})
+REGISTRY_POLICY_SEVERITIES = frozenset({"off", "warning", "error"})
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,9 @@ class ModelableConfig:
             return ()
         return tuple(configured.value)
 
+    def registry_policy_severities(self) -> dict[str, str]:
+        return {rule: str(self.values[f"registry.policy.{rule}"].value) for rule in sorted(REGISTRY_POLICY_RULES)}
+
     def explain(self, target: str | None = None) -> dict[str, Any]:
         result = {name: value.as_dict() for name, value in sorted(self.values.items())}
         if target is not None:
@@ -71,6 +76,8 @@ def load_config(path: str | Path) -> ModelableConfig:
     config_path = _find_config_path(Path(path))
     values = {name: ConfigValue(value=value, provenance="built-in default") for name, value in BUILTIN_DEFAULTS.items()}
     values["registry.blocked_actions"] = ConfigValue([], "built-in default")
+    for rule in REGISTRY_POLICY_RULES:
+        values[f"registry.policy.{rule}"] = ConfigValue("off", "built-in default")
     if config_path is None:
         return ModelableConfig(None, values)
 
@@ -106,6 +113,17 @@ def load_config(path: str | Path) -> ModelableConfig:
     if len(set(blocked_actions)) != len(blocked_actions):
         raise ValueError("[registry].blocked_actions contains duplicate actions")
     values["registry.blocked_actions"] = ConfigValue(sorted(blocked_actions), f"{config_path} [registry]")
+    policy = registry.get("policy", {})
+    if not isinstance(policy, dict):
+        raise ValueError("[registry.policy] in modelable.toml must be a table")
+    unknown_rules = sorted(set(policy) - REGISTRY_POLICY_RULES)
+    if unknown_rules:
+        raise ValueError(f"unsupported registry policy rule(s): {', '.join(unknown_rules)}")
+    for rule in REGISTRY_POLICY_RULES:
+        severity = policy.get(rule, "off")
+        if not isinstance(severity, str) or severity not in REGISTRY_POLICY_SEVERITIES:
+            raise ValueError(f"unsupported registry policy severity for {rule!r}: {severity!r}")
+        values[f"registry.policy.{rule}"] = ConfigValue(severity, f"{config_path} [registry.policy]")
     target_entries = data.get("target", [])
     if not isinstance(target_entries, list):
         raise ValueError("[[target]] entries in modelable.toml must be tables")
