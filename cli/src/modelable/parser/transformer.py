@@ -985,7 +985,7 @@ class MdlTransformer(Transformer[list[object], Any]):
     def qualified_field(self, items: list[object]) -> str:
         return f"{items[0]}.{items[1]}"
 
-    def direct_field(self, items):
+    def direct_field(self, items: list[object]) -> ProjectionField:
         annotations = [item for item in items if isinstance(item, ANNOTATION_TYPES)]
         rest = [item for item in items if not isinstance(item, ANNOTATION_TYPES)]
         source_alias, source_field = str(rest[1]).split(".", 1)
@@ -995,7 +995,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             annotations=annotations,
         )
 
-    def computed_field(self, items):
+    def computed_field(self, items: list[object]) -> ProjectionField:
         annotations = [item for item in items if isinstance(item, ANNOTATION_TYPES)]
         rest = [item for item in items if not isinstance(item, ANNOTATION_TYPES)]
         return ProjectionField(
