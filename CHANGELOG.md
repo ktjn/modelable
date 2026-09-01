@@ -16,6 +16,7 @@ releases could contain breaking changes when called out explicitly.
 - Reuse canonical declaration and semantic-path validation across usage manifests
   and registry lock verification.
 - Bind registry lock object metadata to its content-addressed object payload.
+- Reject registry ID allocations that do not bind to a locked registry semantic type.
 
 ## [1.13.1] - 2026-09-01
 
