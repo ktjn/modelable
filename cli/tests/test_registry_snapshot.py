@@ -2531,6 +2531,43 @@ def test_update_stages_new_version_and_preserves_old_lock_on_diff(tmp_path: Path
     assert verify_snapshot(output_dir) == []
 
 
+def test_registry_diff_reports_sql_target_compatibility_for_changed_artifact(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    output_dir = tmp_path / ".modelable"
+    old_manifest = {
+        "target": {"name": "sql-postgres"},
+        "artifacts": [
+            {
+                "path": "customer.sql",
+                "ref": "customer.Customer@1",
+                "sha256": "a" * 64,
+                "content": 'CREATE TABLE "customer" ("id" UUID);',
+            }
+        ],
+    }
+    new_manifest = {
+        "target": {"name": "sql-postgres"},
+        "artifacts": [
+            {
+                "path": "customer.sql",
+                "ref": "customer.Customer@1",
+                "sha256": "b" * 64,
+                "content": 'CREATE TABLE "customer" ("id" UUID, "name" TEXT);',
+            }
+        ],
+    }
+
+    resolve_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(old_manifest,))
+    diff = diff_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(new_manifest,))
+
+    assert any(
+        consequence["action"] == "storage_migration" and consequence["status"] == "migration_required"
+        for consequence in diff.usage["consequences"]
+    )
+    assert validate_consequence_graph(diff.usage["consequence_graph"]) == diff.usage["consequence_graph"]
+
+
 def test_update_rolls_back_new_objects_when_lock_replacement_fails(tmp_path: Path, monkeypatch) -> None:
     output_dir = tmp_path / ".modelable"
     source = tmp_path / "customer.mdl"

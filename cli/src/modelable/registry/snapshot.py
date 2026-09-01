@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Protocol
 
 from modelable.compat.checker import (
@@ -25,6 +25,7 @@ from modelable.compat.targets import (
     compare_projection_rebuild,
     compare_projection_wire_compatibility,
     compare_semantic_compatibility,
+    compare_sql_artifacts,
 )
 from modelable.compiler.render import render_mdl
 from modelable.compiler.workspace import (
@@ -46,10 +47,12 @@ from modelable.consequence import (
     build_enum_projection_consequences,
     build_model_consequences,
     build_projection_consequences,
+    build_standalone_target_consequences,
     build_target_consequences,
     build_usage_consumer_consequences,
 )
 from modelable.consequence_protocol import validate_consequence_graph
+from modelable.emitters.base import EmittedArtifact
 from modelable.extensions import ExtensionDescriptorError, ExtensionPin, parse_extension_pin, validate_extension_pin
 from modelable.parser.ir import (
     ArrayType,
@@ -1178,6 +1181,9 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
         if current_by_key[key].get("signature") != candidate_by_key[key].get("signature")
     )
     usage = _diff_usage_manifests(current_lock.get("usage"), candidate_lock.get("usage"))
+    artifact_target_consequences = _artifact_target_consequences(current_lock.get("usage"), candidate_lock.get("usage"))
+    usage["consequences"].extend(consequence.as_dict() for consequence in artifact_target_consequences)
+    usage["required_actions"].extend(_required_surface_actions(artifact_target_consequences))
     contract_consequences = _contract_consequences(candidate_by_key, canonical_changed)
     usage["consequences"].extend(consequence.as_dict() for consequence in contract_consequences)
     usage["required_actions"].extend(_required_surface_actions(contract_consequences))
@@ -1192,7 +1198,12 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
         )
         usage["consequences"].extend(consequence.as_dict() for consequence in consumer_consequences)
         usage["required_actions"].extend(_required_surface_actions(consumer_consequences))
-    all_consequences = [*contract_consequences, *compatibility_consequences, *consumer_consequences]
+    all_consequences = [
+        *contract_consequences,
+        *compatibility_consequences,
+        *consumer_consequences,
+        *artifact_target_consequences,
+    ]
     usage["consequence_graph"] = build_consequence_graph(
         all_consequences, _change_nodes_for_consequences(all_consequences)
     )
@@ -1437,6 +1448,67 @@ def _diff_usage_manifests(current: Any, candidate: Any) -> dict[str, Any]:
         "required_actions": _required_surface_actions(consequences),
         "consequences": [consequence.as_dict() for consequence in consequences],
     }
+
+
+def _artifact_target_consequences(current: Any, candidate: Any) -> list[Consequence]:
+    current_artifacts = _usage_artifacts_by_key(current)
+    candidate_artifacts = _usage_artifacts_by_key(candidate)
+    consequences: list[Consequence] = []
+    for key in sorted(set(current_artifacts) & set(candidate_artifacts)):
+        old = _emitted_artifact_from_usage(current_artifacts[key])
+        new = _emitted_artifact_from_usage(candidate_artifacts[key])
+        if old is None or new is None or old.content == new.content:
+            continue
+        if old.target != "sql-postgres" and old.target != "sql-clickhouse":
+            continue
+        report = compare_sql_artifacts([old], [new], target=old.target)
+        artifact_ref = f"generated_artifact:{old.target}/{old.path.as_posix()}"
+        consequences.extend(
+            build_standalone_target_consequences(
+                report,
+                source_ref=artifact_ref,
+                target_ref=f"{artifact_ref}:target",
+            )
+        )
+    return consequences
+
+
+def _usage_artifacts_by_key(value: Any) -> dict[tuple[str, str], Mapping[str, Any]]:
+    if not isinstance(value, dict) or not isinstance(value.get("artifacts"), list):
+        return {}
+    result: dict[tuple[str, str], Mapping[str, Any]] = {}
+    for artifact in value["artifacts"]:
+        if not isinstance(artifact, Mapping):
+            continue
+        target = artifact.get("target")
+        path = artifact.get("path")
+        if isinstance(target, str) and isinstance(path, str):
+            result[(target, path)] = artifact
+    return result
+
+
+def _emitted_artifact_from_usage(entry: Mapping[str, Any]) -> EmittedArtifact | None:
+    content = entry.get("content")
+    target = entry.get("target")
+    ref = entry.get("ref")
+    path = entry.get("path")
+    content_hash = entry.get("sha256")
+    if not isinstance(content, (dict, str)):
+        return None
+    if not all(isinstance(value, str) for value in (target, ref, path, content_hash)):
+        return None
+    assert isinstance(target, str)
+    assert isinstance(ref, str)
+    assert isinstance(path, str)
+    assert isinstance(content_hash, str)
+    return EmittedArtifact(
+        target=target,
+        ref=ref,
+        artifact_id=path,
+        path=PurePath(path),
+        content=content,
+        content_hash=content_hash,
+    )
 
 
 def _contract_consequences(
