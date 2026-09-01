@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from modelable.expressions.cel import extract_field_refs, parse_cel
+from modelable.identity import semantic_path
 from modelable.parser.ir import ComputedMapping, DirectMapping, MdlFile, ProjectionVersion
 from modelable.registry.resolver import resolved_version_spec
 
@@ -39,8 +40,8 @@ def build_projection_lineage(
         mapping = proj_field.mapping
 
         if isinstance(mapping, DirectMapping):
-            ref = alias_map.get(mapping.source_alias, mapping.source_alias)
-            lineage_refs = [f"{ref}.{mapping.source_field}"]
+            ref = alias_map.get(mapping.source_alias)
+            lineage_refs = [_canonical_lineage_ref(ref, mapping.source_field)] if ref is not None else []
             fields.append(
                 FieldLineage(
                     field_name=proj_field.name,
@@ -54,8 +55,9 @@ def build_projection_lineage(
             cel_refs = extract_field_refs(expr_ast) if expr_ast is not None else []
             lineage_refs = []
             for alias, field_name in cel_refs:
-                model_ref = alias_map.get(alias, alias)
-                lineage_refs.append(f"{model_ref}.{field_name}")
+                model_ref = alias_map.get(alias)
+                if model_ref is not None:
+                    lineage_refs.append(_canonical_lineage_ref(model_ref, field_name))
             fields.append(
                 FieldLineage(
                     field_name=proj_field.name,
@@ -89,3 +91,8 @@ def _build_alias_map(pv: ProjectionVersion, mdl: MdlFile) -> dict[str, str]:
             pass
 
     return alias_map
+
+
+def _canonical_lineage_ref(declaration: str, field_path: str) -> str:
+    """Render a source field reference using the canonical semantic-path grammar."""
+    return semantic_path(declaration, *field_path.split("."))

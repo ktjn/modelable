@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import json
+import re
 from copy import deepcopy
 from pathlib import Path
 from typing import cast
 
+from modelable.identity import parse_semantic_path, semantic_path
+
 PLAN_SCHEMA = "modelable.plan/v0"
 PLAN_V1_SCHEMA = "modelable.plan/v1"
+_LEGACY_LINEAGE = re.compile(r"^(?P<declaration>.+@[0-9]+)\.(?P<path>.+)$")
 type PlanDocument = dict[str, object]
 
 
@@ -42,6 +46,8 @@ def migrate_plan(document: object, target_schema: str) -> PlanDocument:
     migrated["$schema"] = PLAN_V1_SCHEMA
     metadata = cast(dict[str, object], migrated["planner_metadata"])
     metadata["migrated_from"] = PLAN_SCHEMA
+    for field in cast(list[dict[str, object]], migrated["fields"]):
+        field["lineage"] = [_migrate_lineage_ref(ref) for ref in cast(list[object], field["lineage"])]
     return validate_plan(migrated)
 
 
@@ -67,7 +73,7 @@ def _validate_plan_shape(document: dict[str, object], schema: str) -> PlanDocume
     fields = _require_list(document, "fields")
     field_names: set[str] = set()
     for index, field in enumerate(fields):
-        field_name = _validate_field(field, f"fields[{index}]")
+        field_name = _validate_field(field, f"fields[{index}]", schema=schema)
         if field_name in field_names:
             raise PlanProtocolError(f"fields contains duplicate name {field_name!r}")
         field_names.add(field_name)
@@ -363,7 +369,7 @@ def _validate_declaration_field(value: object, name: str) -> None:
     _require_exact_keys(field, expected_keys, name)
 
 
-def _validate_field(value: object, name: str) -> str:
+def _validate_field(value: object, name: str, *, schema: str) -> str:
     if not isinstance(value, dict):
         raise PlanProtocolError(f"{name} must be a JSON object")
     field = cast(dict[str, object], value)
@@ -379,7 +385,13 @@ def _validate_field(value: object, name: str) -> str:
     if nullable is not None and not isinstance(nullable, bool):
         raise PlanProtocolError(f"{name}.nullable must be a boolean or null")
     _validate_constraints(field.get("constraints"), f"{name}.constraints")
-    _require_string_list(field, "lineage")
+    lineage = _require_string_list(field, "lineage")
+    if schema == PLAN_V1_SCHEMA:
+        for index, ref in enumerate(lineage):
+            try:
+                parse_semantic_path(cast(str, ref))
+            except ValueError as error:
+                raise PlanProtocolError(f"{name}.lineage[{index}] must be a canonical semantic path") from error
     _require_governance_facts(field, name)
     _validate_annotations(field.get("annotations"), f"{name}.annotations")
     if kind == "direct":
@@ -419,6 +431,21 @@ def _validate_field(value: object, name: str) -> str:
     else:
         raise PlanProtocolError(f"{name}.kind must be 'direct' or 'computed'")
     return cast(str, field["name"])
+
+
+def _migrate_lineage_ref(value: object) -> str:
+    if not isinstance(value, str):
+        raise PlanProtocolError("v0 lineage entries must be strings")
+    if "#" in value:
+        try:
+            return parse_semantic_path(value).render()
+        except ValueError as error:
+            raise PlanProtocolError("v0 lineage contains an invalid semantic path") from error
+    match = _LEGACY_LINEAGE.fullmatch(value)
+    if match is None:
+        raise PlanProtocolError(f"cannot migrate legacy lineage entry {value!r}")
+    declaration = match["declaration"]
+    return semantic_path(declaration, *match["path"].split("."))
 
 
 def _validate_governance_finding(value: object, name: str) -> None:

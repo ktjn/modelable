@@ -23,7 +23,7 @@ schema:
       value: direct
     - property: modelableLineage
       value:
-      - customer.Customer@1.customerId
+      - customer.Customer@1#customerId
     logicalTypeOptions:
       format: uuid
   - name: displayName
@@ -36,7 +36,7 @@ schema:
       value: direct
     - property: modelableLineage
       value:
-      - customer.Customer@1.displayName
+      - customer.Customer@1#displayName
   - name: status
     logicalType: string
     required: true
@@ -52,7 +52,7 @@ schema:
       value: direct
     - property: modelableLineage
       value:
-      - customer.Customer@1.status
+      - customer.Customer@1#status
   - name: tags
     logicalType: array
     required: true
@@ -65,7 +65,7 @@ schema:
       value: direct
     - property: modelableLineage
       value:
-      - customer.Customer@1.tags
+      - customer.Customer@1#tags
   - name: metadata
     logicalType: object
     required: true
@@ -80,7 +80,7 @@ schema:
       value: direct
     - property: modelableLineage
       value:
-      - customer.Customer@1.metadata
+      - customer.Customer@1#metadata
   - name: address
     logicalType: object
     required: false
@@ -91,7 +91,7 @@ schema:
       value: direct
     - property: modelableLineage
       value:
-      - customer.Customer@1.address
+      - customer.Customer@1#address
   - name: favoriteProduct
     logicalType: string
     required: false
@@ -104,7 +104,7 @@ schema:
       value: direct
     - property: modelableLineage
       value:
-      - customer.Customer@1.favoriteProduct
+      - customer.Customer@1#favoriteProduct
   - name: createdAt
     logicalType: timestamp
     required: true
@@ -115,7 +115,7 @@ schema:
       value: direct
     - property: modelableLineage
       value:
-      - customer.Customer@1.createdAt
+      - customer.Customer@1#createdAt
   - name: updatedAt
     logicalType: timestamp
     required: false
@@ -126,7 +126,7 @@ schema:
       value: direct
     - property: modelableLineage
       value:
-      - customer.Customer@1.updatedAt
+      - customer.Customer@1#updatedAt
   customProperties:
   - property: modelableKind
     value: projection

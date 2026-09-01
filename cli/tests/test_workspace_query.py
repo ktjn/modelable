@@ -121,7 +121,7 @@ def test_executes_all_remaining_query_kinds(query_service: WorkspaceQueryService
         ).text
     )
     assert (
-        "customer.Customer@1.customerId"
+        "customer.Customer@1#customerId"
         in query_service.execute(
             QueryPlan(
                 query_kind="lineage",

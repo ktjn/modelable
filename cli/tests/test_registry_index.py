@@ -360,12 +360,12 @@ domain billing {
 
     assert rows == [
         (
-            "customer.Customer@1.customerId",
+            "customer.Customer@1#customerId",
             "billing.BillingCustomer@1.billingId",
             "direct",
         ),
         (
-            "customer.Customer@1.legalName",
+            "customer.Customer@1#legalName",
             "billing.BillingCustomer@1.displayName",
             "computed",
         ),

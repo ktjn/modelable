@@ -23,7 +23,7 @@ schema:
       value: direct
     - property: modelableLineage
       value:
-      - catalog.Product@1.productId
+      - catalog.Product@1#productId
     logicalTypeOptions:
       format: uuid
   - name: name
@@ -36,7 +36,7 @@ schema:
       value: direct
     - property: modelableLineage
       value:
-      - catalog.Product@1.name
+      - catalog.Product@1#name
   customProperties:
   - property: modelableKind
     value: projection

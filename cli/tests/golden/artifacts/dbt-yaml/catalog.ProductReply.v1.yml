@@ -17,11 +17,11 @@ models:
       data_type: uuid
       meta:
         modelable_lineage:
-        - catalog.Product@1.productId
+        - catalog.Product@1#productId
         modelable_owner: catalog-team
     - name: name
       data_type: text
       meta:
         modelable_lineage:
-        - catalog.Product@1.name
+        - catalog.Product@1#name
         modelable_owner: catalog-team

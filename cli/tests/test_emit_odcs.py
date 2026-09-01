@@ -129,7 +129,7 @@ domain customer {
     assert projection_email["logicalType"] == "string"
     assert projection_email["classification"] == "confidential"
     assert _custom_properties(projection_email)["modelablePii"] is True
-    assert _custom_properties(projection_email)["modelableLineage"] == ["customer.Customer@1.email"]
+    assert _custom_properties(projection_email)["modelableLineage"] == ["customer.Customer@1#email"]
 
     display_name = next(prop for prop in projection_fields if prop["name"] == "displayName")
     assert display_name["logicalType"] == "string"

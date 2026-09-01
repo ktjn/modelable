@@ -54,7 +54,7 @@ def test_openlineage_plan_consumer_emits_resolved_joins_and_type_shapes(tmp_path
             "cardinality": None,
         }
     ]
-    plan["fields"][0]["lineage"] = ["customer.Customer@1.customerId", "account.Account@2.accountId"]
+    plan["fields"][0]["lineage"] = ["customer.Customer@1#customerId", "account.Account@2#accountId"]
     plan["fields"][0]["type"] = {"kind": "enum", "values": ["active", "inactive"]}
     plan["fields"][0]["pii"] = True
     plan["fields"][0]["classification"] = "confidential"

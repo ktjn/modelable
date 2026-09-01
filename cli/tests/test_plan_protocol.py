@@ -24,6 +24,7 @@ def test_migrate_v0_plan_to_v1_records_source_schema() -> None:
         "modelable_schema": "1.0",
         "migrated_from": "modelable.plan/v0",
     }
+    assert all("#" in ref for field in v1["fields"] for ref in field["lineage"])
     assert validate_plan(v1) == v1
     assert serialize_plan(v1) == serialize_plan(migrate_plan(v0, PLAN_V1_SCHEMA))
 
@@ -37,6 +38,14 @@ def test_validate_plan_dispatches_v1_and_rejects_unknown_schema() -> None:
     unknown["$schema"] = "modelable.plan/v2"
     with pytest.raises(PlanProtocolError, match="unsupported plan schema"):
         validate_plan(unknown)
+
+
+def test_validate_v1_rejects_legacy_dotted_lineage() -> None:
+    v1 = migrate_plan(load_plan(FIXTURE), PLAN_V1_SCHEMA)
+    v1["fields"][0]["lineage"] = ["customer.Customer@1.customerId"]
+
+    with pytest.raises(PlanProtocolError, match="canonical semantic path"):
+        validate_plan(v1)
 
 
 def test_migrate_plan_rejects_unsupported_direction() -> None:

@@ -893,7 +893,7 @@ domain billing {
     assert "billing.BillingCustomer@1" in projection_result.output
     assert "source: customer.Customer @ 1 as c" in projection_result.output
     assert "- email: direct" in projection_result.output
-    assert "<- customer.Customer@1.email" in projection_result.output
+    assert "<- customer.Customer@1#email" in projection_result.output
     assert "- domainName: computed" in projection_result.output
     assert 'expr: "billing"' in projection_result.output
 
