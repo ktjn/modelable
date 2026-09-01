@@ -21,6 +21,7 @@ releases could contain breaking changes when called out explicitly.
 - Expose validated consequence graphs in registry diff and update JSON output.
 - Propagate compiled-consumer update and regeneration actions into registry diffs.
 - Allow registry policy evaluators to contribute structured consequences to diff graphs.
+- Persist canonical extension descriptors with provenance pins and verify descriptor drift offline.
 
 ## [1.13.1] - 2026-09-01
 

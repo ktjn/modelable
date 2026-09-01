@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -83,15 +85,22 @@ class ExtensionPin:
     implementation_hash: str
     source: str | None
     accepted_protocol_versions: tuple[str, ...]
+    descriptor_hash: str | None = None
+    descriptor: ExtensionDescriptor | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "accepted_protocol_versions": list(self.accepted_protocol_versions),
             "id": self.id,
             "implementation_hash": self.implementation_hash,
             "source": self.source,
             "version": self.version,
         }
+        if self.descriptor_hash is not None:
+            payload["descriptor_hash"] = self.descriptor_hash
+        if self.descriptor is not None:
+            payload["descriptor"] = self.descriptor.as_dict()
+        return payload
 
 
 ExtensionExecutionKind = Literal["builtin", "subprocess", "wasm"]
@@ -287,6 +296,8 @@ def pin_extension_descriptor(
         implementation_hash=implementation_hash,
         source=source,
         accepted_protocol_versions=(descriptor.protocol,),
+        descriptor_hash=_descriptor_hash(descriptor),
+        descriptor=descriptor,
     )
 
 
@@ -295,7 +306,8 @@ def parse_extension_pin(data: Mapping[str, Any]) -> ExtensionPin:
     if not isinstance(data, Mapping):
         raise ExtensionDescriptorError("extension pin must be an object")
     required = {"id", "version", "implementation_hash", "source", "accepted_protocol_versions"}
-    unknown = sorted(set(data) - required)
+    optional = {"descriptor_hash", "descriptor"}
+    unknown = sorted(set(data) - required - optional)
     missing = sorted(required - set(data))
     if unknown:
         raise ExtensionDescriptorError(f"unknown extension pin key(s): {', '.join(unknown)}")
@@ -313,6 +325,17 @@ def parse_extension_pin(data: Mapping[str, Any]) -> ExtensionPin:
     if not isinstance(implementation_hash, str):
         raise ExtensionDescriptorError("implementation_hash must be a lowercase SHA-256 hex string")
     _validate_implementation_hash(implementation_hash)
+    descriptor_hash = data.get("descriptor_hash")
+    if descriptor_hash is not None:
+        if not isinstance(descriptor_hash, str):
+            raise ExtensionDescriptorError("descriptor_hash must be a lowercase SHA-256 hex string")
+        _validate_hash(descriptor_hash, "descriptor_hash")
+    descriptor_payload = data.get("descriptor")
+    descriptor = None
+    if descriptor_payload is not None:
+        if not isinstance(descriptor_payload, Mapping):
+            raise ExtensionDescriptorError("descriptor must be an object")
+        descriptor = parse_extension_descriptor(descriptor_payload)
     accepted_protocol_versions = _string_sequence(data["accepted_protocol_versions"], "accepted_protocol_versions")
     if not accepted_protocol_versions:
         raise ExtensionDescriptorError("accepted_protocol_versions must not be empty")
@@ -322,6 +345,8 @@ def parse_extension_pin(data: Mapping[str, Any]) -> ExtensionPin:
         implementation_hash=implementation_hash,
         source=source,
         accepted_protocol_versions=accepted_protocol_versions,
+        descriptor_hash=descriptor_hash,
+        descriptor=descriptor,
     )
 
 
@@ -331,12 +356,25 @@ def validate_extension_pin(descriptor: ExtensionDescriptor, pin: ExtensionPin) -
         raise ExtensionDescriptorError("extension pin identity or version does not match descriptor")
     if descriptor.protocol not in pin.accepted_protocol_versions:
         raise ExtensionDescriptorError(f"extension pin does not accept descriptor protocol {descriptor.protocol!r}")
+    if pin.descriptor_hash is not None and pin.descriptor_hash != _descriptor_hash(descriptor):
+        raise ExtensionDescriptorError("extension pin descriptor hash does not match descriptor")
+    if pin.descriptor is not None and pin.descriptor != descriptor:
+        raise ExtensionDescriptorError("extension pin descriptor does not match descriptor")
     _validate_implementation_hash(pin.implementation_hash)
 
 
 def _validate_implementation_hash(value: str) -> None:
+    _validate_hash(value, "implementation_hash")
+
+
+def _validate_hash(value: str, name: str) -> None:
     if re.fullmatch(r"[0-9a-f]{64}", value) is None:
-        raise ExtensionDescriptorError("implementation_hash must be a lowercase SHA-256 hex string")
+        raise ExtensionDescriptorError(f"{name} must be a lowercase SHA-256 hex string")
+
+
+def _descriptor_hash(descriptor: ExtensionDescriptor) -> str:
+    payload = json.dumps(descriptor.as_dict(), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _validate_provenance_source(source: str | None) -> None:
