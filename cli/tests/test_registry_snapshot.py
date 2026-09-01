@@ -2662,7 +2662,7 @@ def test_registry_diff_reports_openapi_target_compatibility_for_changed_artifact
             {
                 "path": "openapi.json",
                 "sha256": "a" * 64,
-                "ref": "workspace",
+                "ref": "customer.Customer@1",
                 "content": old_content,
             }
         ],
@@ -2673,7 +2673,7 @@ def test_registry_diff_reports_openapi_target_compatibility_for_changed_artifact
             {
                 "path": "openapi.json",
                 "sha256": "b" * 64,
-                "ref": "workspace",
+                "ref": "customer.Customer@1",
                 "content": new_content,
             }
         ],
