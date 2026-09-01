@@ -38,3 +38,10 @@ def test_declaration_id_rejects_noncanonical_components() -> None:
         declaration_id("customer", "Customer.Name", 1)
     with pytest.raises(ValueError):
         declaration_id("customer", "Customer", -1)
+
+
+def test_declaration_id_supports_quoted_domain_names() -> None:
+    declaration = declaration_id("marketplace-api", "Product", 1)
+
+    assert declaration == "marketplace-api.Product@1"
+    assert parse_semantic_path(f"{declaration}#sku").render() == f"{declaration}#sku"
