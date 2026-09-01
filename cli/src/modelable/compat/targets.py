@@ -177,6 +177,37 @@ def compare_event_sink_artifacts(
     return TargetCompatibilityReport(target="event-sink", status=status, severity=severity, findings=findings)
 
 
+def compare_registry_artifacts(
+    old_artifacts: list[EmittedArtifact],
+    new_artifacts: list[EmittedArtifact],
+) -> TargetCompatibilityReport:
+    """Compare registry inventories for immutable contract and ID changes."""
+    findings: list[TargetCompatibilityFinding] = []
+    old_contracts = _registry_entries(_registry_document(old_artifacts))
+    new_contracts = _registry_entries(_registry_document(new_artifacts))
+
+    for ref in sorted(set(old_contracts) | set(new_contracts)):
+        old_contract = old_contracts.get(ref)
+        new_contract = new_contracts.get(ref)
+        if old_contract is None:
+            continue
+        if new_contract is None:
+            findings.append(_finding("contract_removed", "breaking", ref, "registry contract was removed"))
+            continue
+
+        if old_contract.get("kind") != new_contract.get("kind"):
+            findings.append(_finding("contract_kind_changed", "breaking", ref, "registry contract kind changed"))
+        if old_contract.get("signature") != new_contract.get("signature"):
+            findings.append(_finding("contract_changed", "breaking", ref, "registry contract signature changed"))
+        if old_contract.get("registry_id") != new_contract.get("registry_id"):
+            findings.append(_finding("registry_id_changed", "breaking", ref, "registry contract ID changed"))
+        if old_contract.get("schema_version") != new_contract.get("schema_version"):
+            findings.append(_finding("schema_version_changed", "breaking", ref, "registry schema version changed"))
+
+    status, severity = _worst(findings, default_status="read_compatible")
+    return TargetCompatibilityReport(target="registry", status=status, severity=severity, findings=findings)
+
+
 def compare_openapi_artifacts(
     old_artifacts: list[EmittedArtifact],
     new_artifacts: list[EmittedArtifact],
@@ -1021,6 +1052,30 @@ def _event_payload_schema(event: dict[str, Any], schemas: dict[str, dict[str, An
     if not isinstance(schema_ref, str) or not schema_ref.startswith("#/components/schemas/"):
         return payload_schema
     return schemas.get(schema_ref.removeprefix("#/components/schemas/"), payload_schema)
+
+
+def _registry_document(artifacts: list[EmittedArtifact]) -> dict[str, Any]:
+    artifact = next(
+        (item for item in artifacts if item.path.name == "registry.json" and isinstance(item.content, str)), None
+    )
+    if artifact is None:
+        return {}
+    content = artifact.content
+    if not isinstance(content, str):
+        return {}
+    document = json.loads(content)
+    return document if isinstance(document, dict) else {}
+
+
+def _registry_entries(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    contracts = document.get("contracts")
+    if not isinstance(contracts, list):
+        return {}
+    return {
+        contract["ref"]: contract
+        for contract in contracts
+        if isinstance(contract, dict) and isinstance(contract.get("ref"), str)
+    }
 
 
 def _compare_schema(

@@ -1793,7 +1793,9 @@ validation and target generation.
 - `registry diff` stages a candidate in a temporary directory and reports exact
   added, removed, and changed contract identities and usage surfaces without
   changing local state. Its JSON output also includes required consumer-update,
-  event-replay, and storage-migration actions for changed application surfaces, plus
+  event-replay, and storage-migration actions for changed application surfaces,
+  target-specific compatibility consequences for changed generated registry
+  manifests, and the validated consequence graph, plus
   consequence facts with causal paths from the contract reference to each
   affected surface. Newly added model and projection versions are checked
   against the latest prior locked version and add a direct `breaking` or
