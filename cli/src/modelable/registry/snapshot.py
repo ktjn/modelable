@@ -50,7 +50,7 @@ from modelable.consequence import (
     build_usage_consumer_consequences,
 )
 from modelable.consequence_protocol import validate_consequence_graph
-from modelable.extensions import ExtensionDescriptorError, ExtensionPin, parse_extension_pin
+from modelable.extensions import ExtensionDescriptorError, ExtensionPin, parse_extension_pin, validate_extension_pin
 from modelable.parser.ir import (
     ArrayType,
     DomainDef,
@@ -408,7 +408,10 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
         parsed_pins: list[ExtensionPin] = []
         for entry in extensions:
             try:
-                parsed_pins.append(parse_extension_pin(entry))
+                pin = parse_extension_pin(entry)
+                if pin.descriptor is not None:
+                    validate_extension_pin(pin.descriptor, pin)
+                parsed_pins.append(pin)
             except (ExtensionDescriptorError, TypeError) as exc:
                 errors.append(f"invalid registry lock extension pin: {exc}")
         if len({(pin.id, pin.version) for pin in parsed_pins}) != len(parsed_pins):

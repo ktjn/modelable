@@ -346,6 +346,28 @@ def test_resolve_persists_deterministic_extension_pins(tmp_path: Path) -> None:
     assert verify_snapshot(tmp_path / ".modelable") == []
 
 
+def test_verify_rejects_drifted_pinned_extension_descriptor(tmp_path: Path) -> None:
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+    pin = pin_extension_descriptor(descriptor, "a" * 64)
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable", extension_pins=(pin,))
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    lock["extensions"][0]["descriptor"]["capabilities"] = ["lineage"]
+    result.lock_path.write_text(json.dumps(lock, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+    errors = verify_snapshot(tmp_path / ".modelable")
+
+    assert any("descriptor hash" in error for error in errors)
+
+
 def test_resolve_captures_protobuf_enum_allocations_in_lock(tmp_path: Path) -> None:
     source = tmp_path / "workspace.mdl"
     source.write_text(

@@ -1783,6 +1783,10 @@ validation and target generation.
   explicit local-only adapter: it reads tracked `.mdl` files from `REPOSITORY`
   at `REF`, never fetches, and records Git URI provenance. Network-backed
   adapters remain disabled by this CLI.
+  Extension pins created from descriptors persist the canonical descriptor and
+  its SHA-256 descriptor hash in the lock. `registry verify` validates that
+  embedded descriptor metadata still matches the pin; legacy pins without an
+  embedded descriptor remain readable but cannot provide this additional check.
 - `registry diff` stages a candidate in a temporary directory and reports exact
   added, removed, and changed contract identities and usage surfaces without
   changing local state. Its JSON output also includes required consumer-update,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from importlib.metadata import PackageNotFoundError
 from unittest.mock import patch
 
@@ -107,9 +109,14 @@ def test_extension_pin_round_trips_identity_hash_and_protocol() -> None:
     )
 
     pin = pin_extension_descriptor(descriptor, "a" * 64, source="oci://example/target")
+    descriptor_hash = hashlib.sha256(
+        json.dumps(descriptor.as_dict(), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
     assert pin.as_dict() == {
         "accepted_protocol_versions": [PROTOCOL],
+        "descriptor": descriptor.as_dict(),
+        "descriptor_hash": descriptor_hash,
         "id": "example.target",
         "implementation_hash": "a" * 64,
         "source": "oci://example/target",
@@ -117,6 +124,33 @@ def test_extension_pin_round_trips_identity_hash_and_protocol() -> None:
     }
     assert parse_extension_pin(pin.as_dict()) == pin
     validate_extension_pin(descriptor, pin)
+
+
+def test_extension_pin_rejects_descriptor_drift() -> None:
+    descriptor = ExtensionDescriptor(
+        protocol=PROTOCOL,
+        id="example.target",
+        version="1.2.3",
+        accepted_plan_versions=("modelable.plan/v0",),
+        capabilities=("records",),
+        configuration_schema=None,
+        output_kinds=("artifact",),
+        compatibility_support=False,
+    )
+    pin = pin_extension_descriptor(descriptor, "a" * 64)
+    drifted = ExtensionDescriptor(
+        protocol=descriptor.protocol,
+        id=descriptor.id,
+        version=descriptor.version,
+        accepted_plan_versions=descriptor.accepted_plan_versions,
+        capabilities=("lineage",),
+        configuration_schema=descriptor.configuration_schema,
+        output_kinds=descriptor.output_kinds,
+        compatibility_support=descriptor.compatibility_support,
+    )
+
+    with pytest.raises(ExtensionDescriptorError, match="descriptor hash"):
+        validate_extension_pin(drifted, pin)
 
 
 @pytest.mark.parametrize(
