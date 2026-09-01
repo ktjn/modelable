@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from lark import Tree
 
 from modelable.diagnostics.model import Diagnostic
@@ -40,7 +42,7 @@ _BINDING_OPAQUE_CONTENT_MESSAGE = (
 )
 
 
-def find_deferred_syntax_diagnostics(tree: Tree, path: str) -> list[Diagnostic]:
+def find_deferred_syntax_diagnostics(tree: Tree[Any], path: str) -> list[Diagnostic]:
     """Diagnose grammar constructs that parse successfully but are discarded before IR."""
     diagnostics = [
         Diagnostic(code="DEFERRED", message=message, severity="warning", path=path)
