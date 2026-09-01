@@ -32,6 +32,7 @@ from modelable.compat.targets import (
     compare_projection_rebuild,
     compare_projection_wire_compatibility,
     compare_protobuf_manifests,
+    compare_registry_artifacts,
     compare_semantic_compatibility,
     compare_sql_artifacts,
 )
@@ -1485,6 +1486,8 @@ def _artifact_target_consequences(current: Any, candidate: Any) -> list[Conseque
             report = compare_grpc_artifacts([old], [new])
         elif old.target == "event-sink":
             report = compare_event_sink_artifacts([old], [new])
+        elif old.target == "registry":
+            report = compare_registry_artifacts([old], [new])
         else:
             continue
         artifact_ref = f"generated_artifact:{old.target}/{old.path.as_posix()}"

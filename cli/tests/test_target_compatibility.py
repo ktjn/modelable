@@ -24,6 +24,7 @@ from modelable.compat.targets import (
     compare_openapi_artifacts,
     compare_projection_rebuild,
     compare_protobuf_manifests,
+    compare_registry_artifacts,
     compare_semantic_compatibility,
     compare_source_representation,
     compare_sql_artifacts,
@@ -1085,6 +1086,38 @@ def test_event_sink_compat_flags_changed_payload_schema_for_review():
     assert report.status == "review_required"
     assert [(finding.code, finding.severity) for finding in report.findings] == [
         ("payload_schema_changed", "review_required")
+    ]
+
+
+def test_registry_compat_flags_changed_contract_signature_as_breaking():
+    def artifact(signature: str) -> EmittedArtifact:
+        return EmittedArtifact(
+            target="registry",
+            ref="workspace#registry",
+            artifact_id="registry",
+            path=Path("registry.json"),
+            content=json.dumps(
+                {
+                    "format": "modelable.registry.v1",
+                    "contracts": [
+                        {
+                            "ref": "billing.Order@1",
+                            "kind": "model",
+                            "signature": signature,
+                            "registry_id": None,
+                            "schema_version": 1,
+                        }
+                    ],
+                }
+            ),
+            content_hash=signature,
+        )
+
+    report = compare_registry_artifacts([artifact("old")], [artifact("new")])
+
+    assert report.status == "breaking"
+    assert [(finding.code, finding.severity, finding.ref) for finding in report.findings] == [
+        ("contract_changed", "breaking", "billing.Order@1")
     ]
 
 

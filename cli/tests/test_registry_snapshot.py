@@ -3069,3 +3069,54 @@ def test_registry_diff_reports_event_sink_operation_removal(tmp_path: Path) -> N
         for consequence in diff.usage["consequences"]
     )
     assert validate_consequence_graph(diff.usage["consequence_graph"]) == diff.usage["consequence_graph"]
+
+
+def test_registry_diff_reports_registry_contract_change(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    output_dir = tmp_path / ".modelable"
+    old_content = json.dumps(
+        {
+            "format": "modelable.registry.v1",
+            "contracts": [{"ref": "customer.Customer@1", "kind": "model", "signature": "old"}],
+        }
+    )
+    new_content = json.dumps(
+        {
+            "format": "modelable.registry.v1",
+            "contracts": [{"ref": "customer.Customer@1", "kind": "model", "signature": "new"}],
+        }
+    )
+    old_manifest = {
+        "target": {"name": "registry"},
+        "artifacts": [
+            {
+                "path": "registry.json",
+                "sha256": "a" * 64,
+                "ref": "customer.Customer@1",
+                "content": old_content,
+            }
+        ],
+    }
+    new_manifest = {
+        "target": {"name": "registry"},
+        "artifacts": [
+            {
+                "path": "registry.json",
+                "sha256": "b" * 64,
+                "ref": "customer.Customer@1",
+                "content": new_content,
+            }
+        ],
+    }
+
+    resolve_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(old_manifest,))
+    diff = diff_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(new_manifest,))
+
+    assert any(
+        consequence["subject"] == "registry:customer.Customer@1:contract_changed"
+        and consequence["action"] == "breaking"
+        and consequence["status"] == "breaking"
+        for consequence in diff.usage["consequences"]
+    )
+    assert validate_consequence_graph(diff.usage["consequence_graph"]) == diff.usage["consequence_graph"]
