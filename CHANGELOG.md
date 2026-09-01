@@ -30,6 +30,7 @@ releases could contain breaking changes when called out explicitly.
 - Include FHIR target-compatibility consequences for changed generated artifacts in registry diffs.
 - Include ODCS target-compatibility consequences for changed generated artifacts in registry diffs.
 - Include Protobuf target-compatibility consequences for changed generated artifacts in registry diffs.
+- Include gRPC target-compatibility consequences for changed generated artifacts in registry diffs.
 
 ## [1.13.1] - 2026-09-01
 
