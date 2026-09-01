@@ -2662,7 +2662,7 @@ def test_registry_diff_reports_openapi_target_compatibility_for_changed_artifact
             {
                 "path": "openapi.json",
                 "sha256": "a" * 64,
-                "ref": "customer.Customer@1",
+                "ref": "workspace",
                 "content": old_content,
             }
         ],
@@ -2673,7 +2673,7 @@ def test_registry_diff_reports_openapi_target_compatibility_for_changed_artifact
             {
                 "path": "openapi.json",
                 "sha256": "b" * 64,
-                "ref": "customer.Customer@1",
+                "ref": "workspace",
                 "content": new_content,
             }
         ],
@@ -2683,7 +2683,9 @@ def test_registry_diff_reports_openapi_target_compatibility_for_changed_artifact
     diff = diff_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(new_manifest,))
 
     assert any(
-        consequence["action"] == "breaking" and consequence["status"] == "breaking"
+        consequence["subject"] == "openapi:get /customers/{id}:operation_removed"
+        and consequence["action"] == "breaking"
+        and consequence["status"] == "breaking"
         for consequence in diff.usage["consequences"]
     )
     assert validate_consequence_graph(diff.usage["consequence_graph"]) == diff.usage["consequence_graph"]
