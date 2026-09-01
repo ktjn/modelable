@@ -127,6 +127,56 @@ def compare_grpc_artifacts(
     return TargetCompatibilityReport(target="grpc", status=status, severity=severity, findings=findings)
 
 
+def compare_event_sink_artifacts(
+    old_artifacts: list[EmittedArtifact],
+    new_artifacts: list[EmittedArtifact],
+) -> TargetCompatibilityReport:
+    """Compare event-sink envelopes and payload contracts for compatibility."""
+    findings: list[TargetCompatibilityFinding] = []
+    old_document = _event_sink_document(old_artifacts)
+    new_document = _event_sink_document(new_artifacts)
+    old_events = _event_sink_entries(old_document)
+    new_events = _event_sink_entries(new_document)
+    old_schemas = _openapi_schemas(old_document)
+    new_schemas = _openapi_schemas(new_document)
+
+    for ref in sorted(set(old_events) | set(new_events)):
+        old_event = old_events.get(ref)
+        new_event = new_events.get(ref)
+        if old_event is None:
+            continue
+        if new_event is None:
+            findings.append(_finding("event_removed", "breaking", ref, "event contract was removed"))
+            continue
+
+        old_operations = _string_list(old_event.get("operations"))
+        new_operations = _string_list(new_event.get("operations"))
+        for operation in sorted(set(old_operations) - set(new_operations)):
+            findings.append(
+                _finding(
+                    "event_operation_removed",
+                    "breaking",
+                    ref,
+                    f"event operation {operation!r} was removed",
+                )
+            )
+
+        old_schema = _event_payload_schema(old_event, old_schemas)
+        new_schema = _event_payload_schema(new_event, new_schemas)
+        if old_schema != new_schema:
+            findings.append(
+                _finding(
+                    "payload_schema_changed",
+                    "review_required",
+                    ref,
+                    "event payload schema changed and requires compatibility review",
+                )
+            )
+
+    status, severity = _worst(findings, default_status="read_compatible")
+    return TargetCompatibilityReport(target="event-sink", status=status, severity=severity, findings=findings)
+
+
 def compare_openapi_artifacts(
     old_artifacts: list[EmittedArtifact],
     new_artifacts: list[EmittedArtifact],
@@ -941,6 +991,36 @@ def _service_entries(artifacts: list[EmittedArtifact]) -> dict[str, dict[str, An
         if isinstance(ref, str):
             services[ref] = manifest
     return services
+
+
+def _event_sink_document(artifacts: list[EmittedArtifact]) -> dict[str, Any]:
+    artifact = next(
+        (item for item in artifacts if item.path.name == "event-sink.json" and isinstance(item.content, str)), None
+    )
+    if artifact is None:
+        return {}
+    content = artifact.content
+    if not isinstance(content, str):
+        return {}
+    document = json.loads(content)
+    return document if isinstance(document, dict) else {}
+
+
+def _event_sink_entries(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    events = document.get("events")
+    if not isinstance(events, list):
+        return {}
+    return {event["ref"]: event for event in events if isinstance(event, dict) and isinstance(event.get("ref"), str)}
+
+
+def _event_payload_schema(event: dict[str, Any], schemas: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    payload_schema = event.get("payload_schema")
+    if not isinstance(payload_schema, dict):
+        return None
+    schema_ref = payload_schema.get("$ref")
+    if not isinstance(schema_ref, str) or not schema_ref.startswith("#/components/schemas/"):
+        return payload_schema
+    return schemas.get(schema_ref.removeprefix("#/components/schemas/"), payload_schema)
 
 
 def _compare_schema(

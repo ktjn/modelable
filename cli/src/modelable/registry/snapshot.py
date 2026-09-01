@@ -21,6 +21,7 @@ from modelable.compat.enums import compare_enum_projections
 from modelable.compat.targets import (
     compare_avro_artifacts,
     compare_data_backfill,
+    compare_event_sink_artifacts,
     compare_fhir_artifacts,
     compare_governance_review,
     compare_grpc_artifacts,
@@ -1482,6 +1483,8 @@ def _artifact_target_consequences(current: Any, candidate: Any) -> list[Conseque
             report = compare_protobuf_manifests([old], [new])
         elif old.target == "grpc":
             report = compare_grpc_artifacts([old], [new])
+        elif old.target == "event-sink":
+            report = compare_event_sink_artifacts([old], [new])
         else:
             continue
         artifact_ref = f"generated_artifact:{old.target}/{old.path.as_posix()}"

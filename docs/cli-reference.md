@@ -1189,6 +1189,9 @@ transactional outbox/deduplication contract. This is an adapter-neutral
 contract artifact; broker delivery and live materialization are runtime
 follow-up work.
 
+Changed event-sink artifacts additionally produce target-specific compatibility
+consequences for removed event operations and changed payload schemas.
+
 ### 5.24 `spec` — Track external specifications
 
 ```text
