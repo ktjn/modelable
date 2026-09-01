@@ -21,6 +21,7 @@ from modelable.compat.enums import compare_enum_projections
 from modelable.compat.targets import (
     compare_data_backfill,
     compare_governance_review,
+    compare_json_schema_artifacts,
     compare_model_storage_migration,
     compare_projection_rebuild,
     compare_projection_wire_compatibility,
@@ -1459,9 +1460,12 @@ def _artifact_target_consequences(current: Any, candidate: Any) -> list[Conseque
         new = _emitted_artifact_from_usage(candidate_artifacts[key])
         if old is None or new is None or old.content == new.content:
             continue
-        if old.target != "sql-postgres" and old.target != "sql-clickhouse":
+        if old.target in {"sql-postgres", "sql-clickhouse"}:
+            report = compare_sql_artifacts([old], [new], target=old.target)
+        elif old.target == "json-schema":
+            report = compare_json_schema_artifacts([old], [new])
+        else:
             continue
-        report = compare_sql_artifacts([old], [new], target=old.target)
         artifact_ref = f"generated_artifact:{old.target}/{old.path.as_posix()}"
         consequences.extend(
             build_standalone_target_consequences(
