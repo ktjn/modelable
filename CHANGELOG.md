@@ -9,6 +9,7 @@ releases could contain breaking changes when called out explicitly.
 ### Fixed
 
 - Preserve declaring-domain imports for bare cross-domain semantic enum references.
+- Generate projection plans in canonical domain, projection, and version order.
 
 ## [1.13.1] - 2026-09-01
 
