@@ -1826,6 +1826,8 @@ validation and target generation.
   target-specific storage-migration consequences when their definitions change.
   Changed `json-schema` artifacts additionally produce target-specific source-
   compatibility consequences when properties or requiredness change.
+  Changed `avro` artifacts additionally produce target-specific compatibility
+  consequences when schema fields or types change.
   Registry-diff JSON also includes a validated `usage.consequence_graph` using
   the `modelable.consequence/v0` node and edge contract; the flat consequence
   list remains available as a compatibility view.
