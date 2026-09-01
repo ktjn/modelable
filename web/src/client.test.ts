@@ -562,7 +562,7 @@ describe('BrowserCompilerClient', () => {
         workspace_revision: 7,
         plans: [
           JSON.stringify({
-            $schema: 'modelable.plan/v0',
+            $schema: 'modelable.plan/v1',
             domain: 'billing',
             projection: 'BillingCustomer',
             version: 1,

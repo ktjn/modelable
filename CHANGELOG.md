@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Browser/playground plan responses now use the stable `modelable.plan/v1`
+  protocol, including browser target admission and TypeScript validation.
+
 - Markdown projection emission now consumes validated `modelable.plan/v1` documents.
 
 - ODCS projection emission now consumes validated `modelable.plan/v1` documents.

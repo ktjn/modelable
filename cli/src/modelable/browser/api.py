@@ -60,7 +60,7 @@ from modelable.language.workspace import LanguageDocument, LanguageWorkspace
 from modelable.parser.ir import ParseError
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.plans import build_plan_documents
-from modelable.planner.protocol import PLAN_SCHEMA, serialize_plan
+from modelable.planner.protocol import PLAN_V1_SCHEMA, serialize_plan
 from modelable.validation.semantic import validate_diagnostics
 
 
@@ -284,7 +284,7 @@ class BrowserCompiler:
             raise BrowserLanguageError("LANGUAGE_UNAVAILABLE")
         return BrowserPlanResult(
             workspace_revision=workspace_revision,
-            plans=tuple(serialize_plan(plan) for plan in build_plan_documents(semantic)),
+            plans=tuple(serialize_plan(plan) for plan in build_plan_documents(semantic, schema=PLAN_V1_SCHEMA)),
         )
 
     def compatibility(
@@ -382,7 +382,7 @@ class BrowserCompiler:
         except KeyError as error:
             raise BrowserRequestValidationError(f"Unknown compile target: {target}") from error
         try:
-            validate_extension_admission(target_descriptor, workspace.mdl, plan_version=PLAN_SCHEMA)
+            validate_extension_admission(target_descriptor, workspace.mdl, plan_version=PLAN_V1_SCHEMA)
         except ExtensionDescriptorError as error:
             return BrowserCompileResult(
                 diagnostics=(

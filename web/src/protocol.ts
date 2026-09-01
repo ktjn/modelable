@@ -833,7 +833,7 @@ function isPlanJson(value: unknown): value is string {
         'fields',
         'planner_metadata',
       ]) &&
-      plan.$schema === 'modelable.plan/v0' &&
+      plan.$schema === 'modelable.plan/v1' &&
       typeof plan.domain === 'string' &&
       typeof plan.projection === 'string' &&
       isIntegerAtLeast(plan.version, 1) &&

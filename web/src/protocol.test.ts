@@ -370,7 +370,7 @@ describe('isBrowserLineageResult', () => {
 
 describe('isBrowserPlanResult', () => {
   const validPlan = JSON.stringify({
-    $schema: 'modelable.plan/v0',
+    $schema: 'modelable.plan/v1',
     domain: 'billing',
     projection: 'BillingCustomer',
     version: 1,
@@ -398,7 +398,7 @@ describe('isBrowserPlanResult', () => {
     expect(
       isBrowserPlanResult({
         workspace_revision: 3,
-        plans: [validPlan.replace('modelable.plan/v0', 'modelable.plan/v1')],
+        plans: [validPlan.replace('modelable.plan/v1', 'modelable.plan/v0')],
       }),
     ).toBe(false);
   });
