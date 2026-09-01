@@ -6,14 +6,16 @@ import re
 from dataclasses import dataclass
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_DOMAIN = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 _PATH_SEGMENT = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*(?:\[\]|\{\}|\{key\})?|\[\]|\{\}|\{key\})$")
 
 
 def declaration_id(domain: str, name: str, version: int) -> str:
     """Render an exact, source-location-independent declaration identity."""
-    for label, value in (("domain", domain), ("name", name)):
-        if not _IDENTIFIER.fullmatch(value):
-            raise ValueError(f"{label} must be a language identifier: {value!r}")
+    if not _DOMAIN.fullmatch(domain):
+        raise ValueError(f"domain must be a valid domain name: {domain!r}")
+    if not _IDENTIFIER.fullmatch(name):
+        raise ValueError(f"name must be a language identifier: {name!r}")
     if version < 0:
         raise ValueError("declaration version must be non-negative")
     return f"{domain}.{name}@{version}"

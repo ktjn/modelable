@@ -11,6 +11,7 @@ from modelable.compat.checker import check_model_version_compatibility
 from modelable.compiler.workspace import Workspace
 from modelable.diagnostics.model import render_diagnostic
 from modelable.governance.por import build_por_record
+from modelable.identity import declaration_id, semantic_path
 from modelable.parser.ir import (
     AccessBlock,
     AccessGrant,
@@ -432,9 +433,9 @@ def _insert_lineage_edges(
     version: ProjectionVersion,
 ) -> None:
     lineage = build_projection_lineage(domain_name, projection_name, version, workspace.mdl)
-    target_prefix = f"{domain_name}.{projection_name}@{version.version}"
+    target_declaration = declaration_id(domain_name, projection_name, version.version)
     for field_lineage in lineage.fields:
-        target_ref = f"{target_prefix}.{field_lineage.field_name}"
+        target_ref = semantic_path(target_declaration, field_lineage.field_name)
         for source_ref in field_lineage.lineage:
             conn.execute(
                 """
