@@ -8,6 +8,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Registry updates can apply an externally configured PII-change policy with
+  warning or error severity, emitting structured governance findings and
+  retaining blocked candidates.
+
 - `registry update --format json` now includes structured policy findings with
   status, reason, and causal path alongside violating action names.
 

@@ -111,6 +111,10 @@ declarations remain authoritative. A `[registry] blocked_actions = [...]`
 setting can block matching required consequences during a real registry update;
 supported action names are the canonical consequence actions. Use
 `config explain` to inspect the setting and its provenance.
+External policy rules can be configured under `[registry.policy]`. Set
+`pii_changes = "warning"` to report PII changes without blocking, or
+`pii_changes = "error"` to retain the candidate and block the update with a
+structured governance finding. The default is `"off"`.
 
 ### 5.0.2 `doctor` — Check local toolchain health
 
@@ -131,8 +135,8 @@ modelable doctor . --format json
 ```
 
 The `capabilities` command reports deterministic consequence-graph analysis and
-cross-application consequence aggregation as implemented. Policy-aware update
-enforcement remains deferred.
+cross-application consequence aggregation as implemented. Registry updates
+support configured action blocks and the external PII policy evaluator.
 
 ### 5.1 `validate` — Validate definition files
 
@@ -1870,9 +1874,10 @@ and declarations required to generate equivalent target artifacts offline.
 Network-backed source adapters remain deferred; local mirrored sources resolve
 and pin their transitive dependency closure. Cross-application usage
 aggregation is available through repeatable `registry usage --usage-manifest`
-inputs. Registry updates now
-apply configured policies to known surface consequences; full policy coverage
-is still planned. The similarly named
+inputs. Registry updates now apply configured action blocks and external PII
+policy checks to known surface consequences. Additional organization-specific
+policy rules can be added at this evaluator boundary without changing `.mdl`
+grammar or semantic IR. The similarly named
 federated `init`, `peer`, `graph`, and `sync` commands are not part of the
 current CLI and must not be treated as available interfaces.
 
