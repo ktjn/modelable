@@ -455,6 +455,32 @@ domain platform {
     assert any("registry ID allocation platform.CommandId content hash" in error for error in errors)
 
 
+def test_verify_rejects_registry_id_for_unlocked_declaration(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain platform {
+  owner: "platform-team"
+  semantic CommandId : u32 { registry: true }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    registry_ids_path = tmp_path / "registry-ids.lock"
+    write_registry_ids_lock_file(registry_ids_path, allocate_registry_ids(workspace.mdl, {}))
+    result = resolve_workspace_snapshot(workspace, tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    forged = {"name": "platform.NotDeclared", "id": 2}
+    forged["content_hash"] = snapshot_module._content_hash(forged)
+    lock["allocations"]["registry_ids"].append(forged)
+    result.lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    errors = verify_snapshot(result.lock_path.parent)
+
+    assert any("has no matching registry declaration" in error for error in errors)
+
+
 def test_resolve_records_exact_dependency_requirement(tmp_path: Path) -> None:
     source = tmp_path / "workspace.mdl"
     source.write_text(

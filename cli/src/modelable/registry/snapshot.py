@@ -418,6 +418,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
     seen: set[str] = set()
     identity_hashes: dict[str, str] = {}
     contracts_by_identity: dict[str, Any] = {}
+    registry_declarations: set[str] = set()
     for entry in objects:
         if not isinstance(entry, dict):
             errors.append("registry lock contains a non-object entry")
@@ -463,6 +464,12 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
             if entry.get(metadata_field) != payload.get(metadata_field):
                 errors.append(f"registry object {metadata_field} mismatch for {identity}")
         contracts_by_identity[identity] = payload.get("contract")
+        if (
+            payload.get("kind") == "semantic"
+            and isinstance(payload.get("contract"), dict)
+            and payload["contract"].get("registry") is True
+        ):
+            registry_declarations.add(identity.rsplit("@", 1)[0])
         entry_change_kind = entry.get("change_kind")
         contract = payload.get("contract")
         if entry_change_kind is not None and (
@@ -483,7 +490,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                         errors.append(f"registry source drift for {identity}: found {actual_source_hash}")
     _verify_usage_evidence(lock.get("usage"), objects, errors)
     _verify_generation_fingerprints(lock.get("generation", []), errors)
-    _verify_allocations(lock.get("allocations"), errors)
+    _verify_allocations(lock.get("allocations"), errors, registry_declarations)
     requirements = lock.get("requirements")
     if requirements is not None:
         if not isinstance(requirements, list):
@@ -682,7 +689,7 @@ def _serialize_registry_ids(ids: dict[str, int]) -> list[dict[str, Any]]:
     return serialized
 
 
-def _verify_allocations(allocations: Any, errors: list[str]) -> None:
+def _verify_allocations(allocations: Any, errors: list[str], registry_declarations: set[str]) -> None:
     if not isinstance(allocations, dict):
         errors.append("registry lock allocations must be an object")
         return
@@ -695,10 +702,10 @@ def _verify_allocations(allocations: Any, errors: list[str]) -> None:
     if not isinstance(registry_ids, list):
         errors.append("registry lock registry ID allocations must be an array")
     else:
-        _verify_registry_ids(registry_ids, errors)
+        _verify_registry_ids(registry_ids, errors, registry_declarations)
 
 
-def _verify_registry_ids(entries: list[Any], errors: list[str]) -> None:
+def _verify_registry_ids(entries: list[Any], errors: list[str], registry_declarations: set[str]) -> None:
     ids: list[int] = []
     for entry in entries:
         if not isinstance(entry, dict):
@@ -713,6 +720,8 @@ def _verify_registry_ids(entries: list[Any], errors: list[str]) -> None:
         ids.append(allocated_id)
         if _content_hash({"name": name, "id": allocated_id}) != content_hash:
             errors.append(f"registry ID allocation {name} content hash mismatch")
+        if name not in registry_declarations:
+            errors.append(f"registry ID allocation {name} has no matching registry declaration")
         if allocated_id <= 0:
             errors.append(f"registry ID allocation {name} must be positive")
     if ids != sorted(ids):
