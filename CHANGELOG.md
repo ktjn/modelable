@@ -20,6 +20,7 @@ releases could contain breaking changes when called out explicitly.
 - Reject Protobuf enum allocations that do not bind to a locked enum semantic type.
 - Expose validated consequence graphs in registry diff and update JSON output.
 - Propagate compiled-consumer update and regeneration actions into registry diffs.
+- Allow registry policy evaluators to contribute structured consequences to diff graphs.
 
 ## [1.13.1] - 2026-09-01
 
