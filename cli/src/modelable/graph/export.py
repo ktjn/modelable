@@ -263,9 +263,8 @@ def _add_model_field(
         except LookupError as semantic_error:
             if isinstance(semantic_error, AmbiguousSemanticTypeError) or exact_version is not None:
                 raise
-            model_ref = type_name if "." in type_name else f"{domain_name}.{type_name}"
             try:
-                resolved_model = resolve_model_ref(workspace.mdl, model_ref, VersionMin(min_inclusive=0))
+                resolved_model = _resolve_named_model_ref(workspace, domain_name, type_name)
             except LookupError:
                 raise semantic_error from semantic_error
             builder.add_edge(
@@ -622,3 +621,15 @@ def _source_neighbors_for_projection_focus(builder: _GraphBuilder, selected_ids:
             related.add(edge["source"])
             related.add(edge["target"])
     return related
+
+
+def _resolve_named_model_ref(workspace: Workspace, current_domain: str, type_name: str) -> Any:
+    if "." in type_name:
+        return resolve_model_ref(workspace.mdl, type_name, VersionMin(min_inclusive=0))
+    candidates = [current_domain, *(domain.name for domain in workspace.mdl.domains if domain.name != current_domain)]
+    for domain_name in candidates:
+        try:
+            return resolve_model_ref(workspace.mdl, f"{domain_name}.{type_name}", VersionMin(min_inclusive=0))
+        except LookupError:
+            continue
+    raise LookupError(f"unknown model '{type_name}'")

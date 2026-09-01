@@ -284,17 +284,28 @@ def _field_type_document(field_type: FieldType, mdl: MdlFile, current_domain: st
                 semantic_declaration.underlying, mdl, declaring_domain
             )
         else:
-            model_ref = field_type.name if "." in field_type.name else f"{current_domain}.{field_type.name}"
             try:
                 # Value objects are conventionally published at version 0;
                 # named model references must include those versions in their
                 # generated target-neutral facts.
-                resolved = resolve_model_ref(mdl, model_ref, VersionMin(min_inclusive=0))
+                resolved = _resolve_named_model_ref(mdl, current_domain, field_type.name)
             except LookupError:
                 resolved = None
             if resolved is not None and isinstance(resolved.version, ModelVersion):
                 document["resolved_model"] = _resolved_declaration_block(resolved, mdl)
     return document
+
+
+def _resolve_named_model_ref(mdl: MdlFile, current_domain: str, type_name: str) -> ResolvedModelRef:
+    if "." in type_name:
+        return resolve_model_ref(mdl, type_name, VersionMin(min_inclusive=0))
+    candidates = [current_domain, *(domain.name for domain in mdl.domains if domain.name != current_domain)]
+    for domain_name in candidates:
+        try:
+            return resolve_model_ref(mdl, f"{domain_name}.{type_name}", VersionMin(min_inclusive=0))
+        except LookupError:
+            continue
+    raise LookupError(f"unknown model '{type_name}'")
 
 
 def _resolve_projection_field_nullable(

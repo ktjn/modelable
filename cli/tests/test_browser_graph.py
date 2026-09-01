@@ -8,6 +8,7 @@ from modelable.browser import (
 )
 from modelable.browser.graph import build_browser_graph
 from modelable.compiler.workspace import load_workspace
+from modelable.graph.export import build_graph_export
 
 VALID_SOURCE = (
     "domain customer {\n"
@@ -55,6 +56,31 @@ def test_graph_domain_mode_excludes_version_and_field_nodes():
     assert node_kinds <= {"domain", "entity", "projection"}
     assert "version" not in node_kinds
     assert "field" not in node_kinds
+
+
+def test_graph_export_resolves_bare_version_zero_value_models_across_domains(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain foundation {
+  owner: "foundation-team"
+  value Address @ 0 (additive) { street: string }
+}
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    address: Address
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    graph = build_graph_export(load_workspace(source))
+
+    assert any(
+        edge["target"] == "model_version:foundation.Address@0" and edge["kind"] == "references"
+        for edge in graph["edges"]
+    )
 
 
 def test_graph_entity_mode_includes_all_node_kinds():

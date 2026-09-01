@@ -213,6 +213,31 @@ domain billing {
     assert "LegacyAddressV0 Address" not in artifact.content
 
 
+def test_emit_csharp_bare_value_reference_prefers_current_domain_on_name_collision(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain foundation {
+  owner: "foundation-team"
+  value Address @ 0 (additive) { street: string }
+}
+domain billing {
+  owner: "billing-team"
+  value Address @ 0 (additive) { line1: string }
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    address: Address
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(item for item in emit_csharp(workspace, tmp_path / "out") if item.ref == "billing.Invoice@1")
+
+    assert "BillingAddressV0 Address" in artifact.content
+    assert "FoundationAddressV0 Address" not in artifact.content
+
+
 def test_emit_csharp_pure_value_type_does_not_import_other_domains(tmp_path):
     source = tmp_path / "model.mdl"
     source.write_text(
