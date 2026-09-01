@@ -58,7 +58,7 @@ def test_projection_of_projection_lineage_chains_through_two_hops():
         ["lineage", "billing.BillingCustomerSummary@1", "--path", str(FIXTURES / "projection_of_projection.mdl")],
     )
     assert result.exit_code == 0, result.output
-    assert "billing.BillingCustomer@1.invoiceEmail" in result.output
+    assert "billing.BillingCustomer@1#invoiceEmail" in result.output
     del workspace  # load_workspace above only smoke-tests the directory form
 
 
@@ -90,9 +90,9 @@ def test_multi_domain_joins_fixture_resolves_three_way_join_lineage():
         ["lineage", "analytics.CustomerOrderPayment@1", "--path", str(FIXTURES / "multi_domain_joins.mdl")],
     )
     assert result.exit_code == 0, result.output
-    assert "customer.Customer@1.legalName" in result.output
-    assert "payments.Payment@1.paymentId" in result.output
-    assert "orders.Order@1.totalAmount" in result.output
+    assert "customer.Customer@1#legalName" in result.output
+    assert "payments.Payment@1#paymentId" in result.output
+    assert "orders.Order@1#totalAmount" in result.output
 
 
 def test_pii_governance_fixture_flags_secret_and_confidential_exposure():
@@ -254,5 +254,5 @@ def test_materialized_projection_chain_fixture_carries_lineage_through_materiali
         ["lineage", "analytics.CustomerMart@1", "--path", str(FIXTURES / "materialized_projection_chain.mdl")],
     )
     assert result.exit_code == 0, result.output
-    assert "analytics.CustomerOds@1.customerId" in result.output
-    assert "analytics.CustomerOds@1.name" in result.output
+    assert "analytics.CustomerOds@1#customerId" in result.output
+    assert "analytics.CustomerOds@1#name" in result.output

@@ -17,53 +17,53 @@ models:
       data_type: uuid
       meta:
         modelable_lineage:
-        - customer.Customer@1.customerId
+        - customer.Customer@1#customerId
         modelable_owner: customer-team
     - name: displayName
       data_type: text
       meta:
         modelable_lineage:
-        - customer.Customer@1.displayName
+        - customer.Customer@1#displayName
         modelable_owner: customer-team
     - name: status
       data_type: text
       meta:
         modelable_lineage:
-        - customer.Customer@1.status
+        - customer.Customer@1#status
         modelable_owner: customer-team
     - name: tags
       data_type: text[]
       meta:
         modelable_lineage:
-        - customer.Customer@1.tags
+        - customer.Customer@1#tags
         modelable_owner: customer-team
     - name: metadata
       data_type: text
       meta:
         modelable_lineage:
-        - customer.Customer@1.metadata
+        - customer.Customer@1#metadata
         modelable_owner: customer-team
     - name: address
       data_type: text
       meta:
         modelable_lineage:
-        - customer.Customer@1.address
+        - customer.Customer@1#address
         modelable_owner: customer-team
     - name: favoriteProduct
       data_type: text
       meta:
         modelable_lineage:
-        - customer.Customer@1.favoriteProduct
+        - customer.Customer@1#favoriteProduct
         modelable_owner: customer-team
     - name: createdAt
       data_type: timestamp
       meta:
         modelable_lineage:
-        - customer.Customer@1.createdAt
+        - customer.Customer@1#createdAt
         modelable_owner: customer-team
     - name: updatedAt
       data_type: timestamp
       meta:
         modelable_lineage:
-        - customer.Customer@1.updatedAt
+        - customer.Customer@1#updatedAt
         modelable_owner: customer-team

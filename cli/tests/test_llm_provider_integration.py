@@ -1116,7 +1116,7 @@ def test_chat_honors_zero_configured_plan_repair_attempts(tmp_path, monkeypatch)
         ("/describe customer.Customer@1", "customerId"),
         ("/context", "projection CustomerView @ 1"),
         ("Who owns customer.Customer@1?", "customer-team"),
-        ("Show lineage for customer.CustomerView@1", "customer.Customer@1.customerId"),
+        ("Show lineage for customer.CustomerView@1", "customer.Customer@1#customerId"),
         ("What depends on customer.Customer@1?", "customer.CustomerView@1"),
     ],
 )

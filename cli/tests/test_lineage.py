@@ -54,7 +54,7 @@ def test_direct_mapping_lineage():
 
     by_name = {fl.field_name: fl for fl in lineage.fields}
     assert by_name["billingId"].kind == "direct"
-    assert "customer.Customer@1.customerId" in by_name["billingId"].lineage
+    assert "customer.Customer@1#customerId" in by_name["billingId"].lineage
 
 
 def test_direct_mapping_resolves_alias():
@@ -63,7 +63,7 @@ def test_direct_mapping_resolves_alias():
     lineage = build_projection_lineage("billing", "BillingCustomer", pv, mdl)
 
     by_name = {fl.field_name: fl for fl in lineage.fields}
-    assert "customer.Customer@1.legalName" in by_name["name"].lineage
+    assert "customer.Customer@1#legalName" in by_name["name"].lineage
 
 
 # ── Computed mapping lineage ───────────────────────────────────────────────────
@@ -76,7 +76,7 @@ def test_computed_mapping_lineage():
 
     by_name = {fl.field_name: fl for fl in lineage.fields}
     assert by_name["isActive"].kind == "computed"
-    assert "customer.Customer@1.status" in by_name["isActive"].lineage
+    assert "customer.Customer@1#status" in by_name["isActive"].lineage
 
 
 def test_computed_mapping_stores_expression():
@@ -187,8 +187,8 @@ def test_plan_includes_lineage():
     plan = build_plan("billing", "BillingCustomer", pv, lineage, mdl)
 
     by_name = {f["name"]: f for f in plan["fields"]}
-    assert "customer.Customer@1.customerId" in by_name["billingId"]["lineage"]
-    assert "customer.Customer@1.status" in by_name["isActive"]["lineage"]
+    assert "customer.Customer@1#customerId" in by_name["billingId"]["lineage"]
+    assert "customer.Customer@1#status" in by_name["isActive"]["lineage"]
 
 
 def test_build_plan_can_emit_v1_documents():

@@ -18,7 +18,10 @@ def test_emit_dbt_yaml_requests_v1_plan_documents(tmp_path, monkeypatch):
     (tmp_path / "customer.mdl").write_text(
         """
 domain customer {
-  entity Customer @ 1 { @key customerId: uuid }
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
 
   projection CustomerSummary @ 1
     from customer.Customer @ 1 as c
@@ -152,11 +155,11 @@ domain customer {
 
     proj_col_id = next(c for c in proj_columns if c["name"] == "customerId")
     assert proj_col_id["data_type"] == "uuid"
-    assert proj_col_id["meta"]["modelable_lineage"] == ["customer.Customer@1.customerId"]
+    assert proj_col_id["meta"]["modelable_lineage"] == ["customer.Customer@1#customerId"]
 
     proj_col_name = next(c for c in proj_columns if c["name"] == "name")
     assert proj_col_name["data_type"] == "text"
-    assert proj_col_name["meta"]["modelable_lineage"] == ["customer.Customer@1.name"]
+    assert proj_col_name["meta"]["modelable_lineage"] == ["customer.Customer@1#name"]
 
 
 def test_dbt_projection_consumer_uses_validated_plan_data(tmp_path):

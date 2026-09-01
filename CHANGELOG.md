@@ -10,6 +10,8 @@ releases could contain breaking changes when called out explicitly.
 
 - Preserve declaring-domain imports for bare cross-domain semantic enum references.
 - Generate projection plans in canonical domain, projection, and version order.
+- Emit and validate v1 plan lineage using canonical `#` semantic paths; migrate
+  legacy dotted v0 lineage during v0-to-v1 conversion.
 
 ## [1.13.1] - 2026-09-01
 

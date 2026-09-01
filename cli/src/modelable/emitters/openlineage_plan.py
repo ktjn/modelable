@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import cast
 
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
+from modelable.identity import parse_semantic_path
 from modelable.planner.protocol import validate_plan
 
 PRODUCER = "https://github.com/ktjn/modelable"
@@ -177,12 +178,16 @@ def _column_lineage(fields: list[object], datasets_by_ref: dict[str, dict[str, o
 
 
 def _lineage_input(source: str, datasets_by_ref: dict[str, dict[str, object]]) -> dict[str, str] | None:
-    source_ref, _, field = source.rpartition(".")
-    if "@" not in source_ref or not field or source_ref not in datasets_by_ref:
+    try:
+        parsed = parse_semantic_path(source)
+    except ValueError:
+        return None
+    source_ref = parsed.declaration
+    if source_ref not in datasets_by_ref:
         return None
     dataset = datasets_by_ref[source_ref]
     return {
         "namespace": cast(str, dataset["namespace"]),
         "name": cast(str, dataset["name"]),
-        "field": field,
+        "field": ".".join(parsed.segments),
     }
