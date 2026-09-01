@@ -155,6 +155,33 @@ domain customer {
     } in graph["edges"]
 
 
+def test_graph_export_links_named_fields_to_value_model_versions(tmp_path: Path) -> None:
+    mdl = tmp_path / "workspace.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    billingAddress?: Address
+  }
+  value Address @ 1 (additive) {
+    street: string
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    workspace = load_workspace(tmp_path)
+    graph = build_graph_export(workspace)
+
+    assert {
+        "kind": "references",
+        "source": "field:customer.Customer@1#billingAddress",
+        "target": "model_version:customer.Address@1",
+    } in graph["edges"]
+
+
 def test_graph_export_links_enum_projections_to_semantic_sources(tmp_path: Path) -> None:
     mdl = tmp_path / "workspace.mdl"
     mdl.write_text(

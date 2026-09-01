@@ -430,6 +430,7 @@ describe('isBrowserCompatibilityResult', () => {
       },
     ],
     impacts: [],
+    consequence_graph: {},
   };
 
   test('accepts valid compatibility result', () => {
@@ -442,6 +443,7 @@ describe('isBrowserCompatibilityResult', () => {
         workspace_revision: 1,
         reports: [],
         impacts: [],
+        consequence_graph: {},
       }),
     ).toBe(true);
   });

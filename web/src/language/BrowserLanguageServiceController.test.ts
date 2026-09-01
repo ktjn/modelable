@@ -132,6 +132,7 @@ class FakeClient implements BrowserCompilerClientLike {
       workspace_revision: _workspaceRevision,
       reports: [],
       impacts: [],
+      consequence_graph: {},
     }),
   );
   readonly governance = vi.fn(
