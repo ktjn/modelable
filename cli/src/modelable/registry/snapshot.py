@@ -21,6 +21,7 @@ from modelable.compat.enums import compare_enum_projections
 from modelable.compat.targets import (
     compare_avro_artifacts,
     compare_data_backfill,
+    compare_fhir_artifacts,
     compare_governance_review,
     compare_json_schema_artifacts,
     compare_model_storage_migration,
@@ -1470,6 +1471,8 @@ def _artifact_target_consequences(current: Any, candidate: Any) -> list[Conseque
             report = compare_avro_artifacts([old], [new])
         elif old.target == "openapi":
             report = compare_openapi_artifacts([old], [new])
+        elif old.target == "fhir-profile":
+            report = compare_fhir_artifacts([old], [new])
         else:
             continue
         artifact_ref = f"generated_artifact:{old.target}/{old.path.as_posix()}"
