@@ -41,6 +41,7 @@ from modelable.consequence import (
     ACTION_REGENERATE,
     ACTION_STORAGE_MIGRATION,
     Consequence,
+    build_consequence_graph,
     build_enum_consequences,
     build_enum_projection_consequences,
     build_model_consequences,
@@ -1132,6 +1133,7 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
     compatibility_consequences = _compatibility_consequences(current_dir, candidate_dir, added)
     usage["consequences"].extend(consequence.as_dict() for consequence in compatibility_consequences)
     usage["required_actions"].extend(_required_surface_actions(compatibility_consequences))
+    consumer_consequences: list[Consequence] = []
     compiled_usage = current_lock.get("usage") if current_lock.get("usage_source") == "compiled" else None
     if isinstance(compiled_usage, dict):
         consumer_consequences = build_usage_consumer_consequences(
@@ -1139,6 +1141,10 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
         )
         usage["consequences"].extend(consequence.as_dict() for consequence in consumer_consequences)
         usage["required_actions"].extend(_required_surface_actions(consumer_consequences))
+    all_consequences = [*contract_consequences, *compatibility_consequences, *consumer_consequences]
+    usage["consequence_graph"] = build_consequence_graph(
+        all_consequences, _change_nodes_for_consequences(all_consequences)
+    )
     policy_facts = _policy_facts(compatibility_consequences)
     if policy_facts:
         usage["policy_facts"] = policy_facts
@@ -1604,6 +1610,23 @@ def _required_surface_actions(consequences: list[Consequence]) -> list[dict[str,
         }
         for consequence in consequences
     ]
+
+
+def _change_nodes_for_consequences(consequences: Sequence[Consequence]) -> list[dict[str, str]]:
+    nodes: dict[str, dict[str, str]] = {}
+    for consequence in consequences:
+        for change_id in consequence.causal_changes:
+            prefix, separator, remainder = change_id.partition(":")
+            change_kind, separator, field = remainder.partition(":")
+            if prefix != "change" or not separator or not change_kind or not field:
+                continue
+            nodes[change_id] = {
+                "id": change_id,
+                "kind": "change",
+                "change_kind": change_kind,
+                "field": field,
+            }
+    return [nodes[node_id] for node_id in sorted(nodes)]
 
 
 def _surface_change_reason(kind: str) -> str:

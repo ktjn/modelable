@@ -1815,6 +1815,9 @@ validation and target generation.
   Pass `--artifact-manifest FILE` to include
   compiler output evidence; changed generated artifacts add required
   `regenerate` consequences.
+  Registry-diff JSON also includes a validated `usage.consequence_graph` using
+  the `modelable.consequence/v0` node and edge contract; the flat consequence
+  list remains available as a compatibility view.
 - `registry update --dry-run` resolves, validates, and diffs the candidate while
   leaving the durable lock and objects unchanged. Without `--dry-run`, update
   validates that candidate and atomically replaces the lock;
@@ -1824,6 +1827,8 @@ validation and target generation.
   `dependencies` and `usage` sections, classifying exact requirement and usage
   evidence additions, removals, and changes. The `usage.consequences` entries
   use the same action, status, reason, and causal-path shape as `impact` output.
+  The same `usage.consequence_graph` is included in dry-run and policy-error
+  JSON responses.
   The JSON payload includes a `policy` object with configured blocked actions,
   any violating action names, and structured `findings` containing each
   finding's action, status, reason, and causal path. Policy applies to every
