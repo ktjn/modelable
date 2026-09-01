@@ -46,6 +46,7 @@ from modelable.consequence import (
     build_model_consequences,
     build_projection_consequences,
     build_target_consequences,
+    build_usage_consumer_consequences,
 )
 from modelable.extensions import ExtensionDescriptorError, ExtensionPin, parse_extension_pin
 from modelable.parser.ir import (
@@ -1131,6 +1132,13 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
     compatibility_consequences = _compatibility_consequences(current_dir, candidate_dir, added)
     usage["consequences"].extend(consequence.as_dict() for consequence in compatibility_consequences)
     usage["required_actions"].extend(_required_surface_actions(compatibility_consequences))
+    compiled_usage = current_lock.get("usage") if current_lock.get("usage_source") == "compiled" else None
+    if isinstance(compiled_usage, dict):
+        consumer_consequences = build_usage_consumer_consequences(
+            [*contract_consequences, *compatibility_consequences], [compiled_usage]
+        )
+        usage["consequences"].extend(consequence.as_dict() for consequence in consumer_consequences)
+        usage["required_actions"].extend(_required_surface_actions(consumer_consequences))
     policy_facts = _policy_facts(compatibility_consequences)
     if policy_facts:
         usage["policy_facts"] = policy_facts

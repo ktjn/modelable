@@ -1061,6 +1061,46 @@ def test_verify_rejects_noncanonical_usage_fields(tmp_path: Path) -> None:
     assert any("registry lock usage is invalid" in error for error in errors)
 
 
+def test_snapshot_diff_propagates_compiled_consumer_consequences(tmp_path: Path) -> None:
+    provider_v1 = tmp_path / "provider-v1.mdl"
+    provider_v1.write_text(
+        """
+domain customer {
+  owner: "customer-platform"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+    legalName: string
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    provider_v2 = tmp_path / "provider-v2.mdl"
+    provider_v2.write_text(
+        provider_v1.read_text(encoding="utf-8").replace(
+            "  }\n}", "  }\n  entity Customer @ 2 (breaking) {\n    @key customerId: uuid\n  }\n}"
+        ),
+        encoding="utf-8",
+    )
+    current_dir = tmp_path / "current"
+    resolve_workspace_snapshot(load_workspace(provider_v1), current_dir)
+    lock_path = current_dir / "registry.lock"
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock["usage_source"] = "compiled"
+    lock["usage"] = build_usage_manifest(load_workspace(provider_v1))
+    lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    snapshot_diff = diff_workspace_snapshot(load_workspace(provider_v2), current_dir)
+
+    assert {
+        "action": "consumer_update",
+        "subject": "application:workspace",
+        "status": "breaking",
+        "reason": "compiled usage manifest",
+        "causal_path": ["customer.Customer@1", "customer.Customer@2", "application:workspace"],
+    } in snapshot_diff.usage["consequences"]
+
+
 @pytest.mark.parametrize("field", ["kind", "version", "dependencies", "provenance"])
 def test_verify_binds_lock_entry_metadata_to_object(tmp_path: Path, field: str) -> None:
     result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
