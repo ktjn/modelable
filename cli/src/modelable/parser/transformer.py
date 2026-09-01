@@ -854,16 +854,16 @@ class MdlTransformer(Transformer[list[object], Any]):
         )
         return ("projection", (str(items[0]), projection_version))
 
-    def selection_clause(self, items):
+    def selection_clause(self, items: list[object]) -> object:
         return items[0]
 
-    def pick_clause(self, items):
+    def pick_clause(self, items: list[object]) -> SelectionClause:
         return _build_selection_clause("pick", items)
 
-    def omit_clause(self, items):
+    def omit_clause(self, items: list[object]) -> SelectionClause:
         return _build_selection_clause("omit", items)
 
-    def selector(self, items):
+    def selector(self, items: list[object]) -> object:
         return items[0]
 
     def join_prefix(self, items):
@@ -871,10 +871,10 @@ class MdlTransformer(Transformer[list[object], Any]):
             return ("join", "left", str(items[1]), items[2], str(items[3]), str(items[4]).strip())
         return ("join", "inner", str(items[0]), items[1], str(items[2]), str(items[3]).strip())
 
-    def projection_body_item(self, items):
+    def projection_body_item(self, items: list[object]) -> object:
         return items[0]
 
-    def projection_source_block(self, items):
+    def projection_source_block(self, items: list[object]) -> object:
         return items[0]
 
     def source_clause(self, items):
@@ -904,19 +904,19 @@ class MdlTransformer(Transformer[list[object], Any]):
             annotations=annotations,
         )
 
-    def where_clause(self, items):
+    def where_clause(self, items: list[object]) -> str:
         return str(items[0]).strip()
 
-    def join_modifier(self, _items):
+    def join_modifier(self, _items: list[object]) -> str:
         return "left"
 
-    def cardinality_attr(self, items):
+    def cardinality_attr(self, items: list[object]) -> tuple[str, str]:
         return ("cardinality", str(items[0]))
 
-    def group_clause(self, items):
+    def group_clause(self, items: list[object]) -> list[str]:
         return [str(item) for item in items]
 
-    def group_item(self, items):
+    def group_item(self, items: list[object]) -> str:
         return str(items[0]).strip()
 
     def api_decl(self, items: list[Any]) -> tuple[str, ApiDecl]:
