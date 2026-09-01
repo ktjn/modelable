@@ -24,6 +24,7 @@ from modelable.compat.targets import (
     compare_governance_review,
     compare_json_schema_artifacts,
     compare_model_storage_migration,
+    compare_openapi_artifacts,
     compare_projection_rebuild,
     compare_projection_wire_compatibility,
     compare_semantic_compatibility,
@@ -1467,6 +1468,8 @@ def _artifact_target_consequences(current: Any, candidate: Any) -> list[Conseque
             report = compare_json_schema_artifacts([old], [new])
         elif old.target == "avro":
             report = compare_avro_artifacts([old], [new])
+        elif old.target == "openapi":
+            report = compare_openapi_artifacts([old], [new])
         else:
             continue
         artifact_ref = f"generated_artifact:{old.target}/{old.path.as_posix()}"
