@@ -3018,3 +3018,54 @@ def test_registry_diff_reports_grpc_target_compatibility_for_changed_artifact(tm
         for consequence in diff.usage["consequences"]
     )
     assert validate_consequence_graph(diff.usage["consequence_graph"]) == diff.usage["consequence_graph"]
+
+
+def test_registry_diff_reports_event_sink_operation_removal(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    output_dir = tmp_path / ".modelable"
+    old_content = json.dumps(
+        {
+            "format": "modelable.event-sink.v1",
+            "events": [{"ref": "customer.CustomerEvent@1", "operations": ["insert", "delete"]}],
+        }
+    )
+    new_content = json.dumps(
+        {
+            "format": "modelable.event-sink.v1",
+            "events": [{"ref": "customer.CustomerEvent@1", "operations": ["insert"]}],
+        }
+    )
+    old_manifest = {
+        "target": {"name": "event-sink"},
+        "artifacts": [
+            {
+                "path": "event-sink.json",
+                "sha256": "a" * 64,
+                "ref": "customer.CustomerEvent@1",
+                "content": old_content,
+            }
+        ],
+    }
+    new_manifest = {
+        "target": {"name": "event-sink"},
+        "artifacts": [
+            {
+                "path": "event-sink.json",
+                "sha256": "b" * 64,
+                "ref": "customer.CustomerEvent@1",
+                "content": new_content,
+            }
+        ],
+    }
+
+    resolve_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(old_manifest,))
+    diff = diff_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(new_manifest,))
+
+    assert any(
+        consequence["subject"] == "event-sink:customer.CustomerEvent@1:event_operation_removed"
+        and consequence["action"] == "breaking"
+        and consequence["status"] == "breaking"
+        for consequence in diff.usage["consequences"]
+    )
+    assert validate_consequence_graph(diff.usage["consequence_graph"]) == diff.usage["consequence_graph"]

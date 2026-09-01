@@ -14,6 +14,7 @@ from modelable.compat.targets import (
     SEVERITIES,
     compare_avro_artifacts,
     compare_data_backfill,
+    compare_event_sink_artifacts,
     compare_fhir_artifacts,
     compare_governance_review,
     compare_grpc_artifacts,
@@ -1018,6 +1019,73 @@ domain billing {
 
     assert report.status == "review_required"
     assert [finding.code for finding in report.findings] == ["descriptor_changed"]
+
+
+def test_event_sink_compat_flags_removed_operation_as_breaking():
+    old = EmittedArtifact(
+        target="event-sink",
+        ref="workspace#event-sink",
+        artifact_id="event-sink",
+        path=Path("event-sink.json"),
+        content=json.dumps(
+            {
+                "format": "modelable.event-sink.v1",
+                "events": [{"ref": "billing.OrderEvent@1", "operations": ["insert", "delete"]}],
+            }
+        ),
+        content_hash="old",
+    )
+    new = EmittedArtifact(
+        target="event-sink",
+        ref="workspace#event-sink",
+        artifact_id="event-sink",
+        path=Path("event-sink.json"),
+        content=json.dumps(
+            {
+                "format": "modelable.event-sink.v1",
+                "events": [{"ref": "billing.OrderEvent@1", "operations": ["insert"]}],
+            }
+        ),
+        content_hash="new",
+    )
+
+    report = compare_event_sink_artifacts([old], [new])
+
+    assert report.status == "breaking"
+    assert [(finding.code, finding.severity, finding.ref) for finding in report.findings] == [
+        ("event_operation_removed", "breaking", "billing.OrderEvent@1")
+    ]
+
+
+def test_event_sink_compat_flags_changed_payload_schema_for_review():
+    def artifact(schema_type: str) -> EmittedArtifact:
+        return EmittedArtifact(
+            target="event-sink",
+            ref="workspace#event-sink",
+            artifact_id="event-sink",
+            path=Path("event-sink.json"),
+            content=json.dumps(
+                {
+                    "format": "modelable.event-sink.v1",
+                    "events": [
+                        {
+                            "ref": "billing.OrderEvent@1",
+                            "operations": ["insert"],
+                            "payload_schema": {"$ref": "#/components/schemas/OrderEvent"},
+                        }
+                    ],
+                    "components": {"schemas": {"OrderEvent": {"type": schema_type}}},
+                }
+            ),
+            content_hash=schema_type,
+        )
+
+    report = compare_event_sink_artifacts([artifact("string")], [artifact("integer")])
+
+    assert report.status == "review_required"
+    assert [(finding.code, finding.severity) for finding in report.findings] == [
+        ("payload_schema_changed", "review_required")
+    ]
 
 
 def test_compat_accepts_unchanged_descriptor_hash(tmp_path):
