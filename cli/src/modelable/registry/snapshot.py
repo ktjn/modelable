@@ -459,6 +459,9 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
             errors.append(f"registry object hash mismatch for {content_hash}: found {actual_hash}")
         if payload.get("identity") != identity:
             errors.append(f"registry object identity mismatch for {content_hash}")
+        for metadata_field in ("kind", "version", "dependencies", "provenance"):
+            if entry.get(metadata_field) != payload.get(metadata_field):
+                errors.append(f"registry object {metadata_field} mismatch for {identity}")
         contracts_by_identity[identity] = payload.get("contract")
         entry_change_kind = entry.get("change_kind")
         contract = payload.get("contract")
