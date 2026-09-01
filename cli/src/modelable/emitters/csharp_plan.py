@@ -143,7 +143,12 @@ def _base_annotation(
         return "string"
     if kind == "enum_ref":
         resolved = named_types.get(_named_key(str(field_type.get("name", "")), field_type.get("version")))
-        return resolved[0] if resolved else "string"
+        if resolved is None:
+            return "string"
+        name, declaring_domain = resolved
+        if declaring_domain != current_domain:
+            imports.add(f"using Modelable.{_pascalize(declaring_domain)};")
+        return name
     if kind == "named":
         underlying = field_type.get("resolved_underlying_type")
         if isinstance(underlying, dict):

@@ -9,6 +9,7 @@ from modelable.compiler.workspace import Workspace
 from modelable.dependency_graph import resolve_projection_aliases
 from modelable.governance.checker import build_projection_governance_findings
 from modelable.parser.ir import (
+    ArrayType,
     ClassificationLevel,
     ComputedMapping,
     DirectMapping,
@@ -16,13 +17,16 @@ from modelable.parser.ir import (
     EnumType,
     FieldDef,
     FieldType,
+    MapType,
     MdlFile,
     ModelVersion,
     NamedType,
+    ObjectType,
     ProjectionField,
     ProjectionVersion,
     RefType,
     SemanticTypeDecl,
+    UnionType,
     VersionExact,
     VersionMin,
     VersionPinned,
@@ -235,6 +239,21 @@ def _resolved_declaration_block(resolved: ResolvedModelRef, mdl: MdlFile) -> dic
 
 def _field_type_document(field_type: FieldType, mdl: MdlFile, current_domain: str) -> dict[str, object]:
     document = field_type.model_dump(mode="json")
+    if isinstance(field_type, ArrayType):
+        document["item"] = _field_type_document(field_type.item, mdl, current_domain)
+    elif isinstance(field_type, MapType):
+        document["key"] = _field_type_document(field_type.key, mdl, current_domain)
+        document["value"] = _field_type_document(field_type.value, mdl, current_domain)
+    elif isinstance(field_type, ObjectType):
+        document["fields"] = [
+            {**field.model_dump(mode="json"), "type": _field_type_document(field.type, mdl, current_domain)}
+            for field in field_type.fields
+        ]
+    elif isinstance(field_type, UnionType):
+        document["variants"] = [
+            {**variant.model_dump(mode="json"), "type": _field_type_document(variant.type, mdl, current_domain)}
+            for variant in field_type.variants
+        ]
     if isinstance(field_type, RefType):
         try:
             resolved = resolve_ref_type(field_type, mdl)
@@ -265,14 +284,28 @@ def _field_type_document(field_type: FieldType, mdl: MdlFile, current_domain: st
                 semantic_declaration.underlying, mdl, declaring_domain
             )
         else:
-            model_ref = field_type.name if "." in field_type.name else f"{current_domain}.{field_type.name}"
             try:
-                resolved = resolve_model_ref(mdl, model_ref, VersionMin(min_inclusive=1))
+                # Value objects are conventionally published at version 0;
+                # named model references must include those versions in their
+                # generated target-neutral facts.
+                resolved = _resolve_named_model_ref(mdl, current_domain, field_type.name)
             except LookupError:
                 resolved = None
             if resolved is not None and isinstance(resolved.version, ModelVersion):
                 document["resolved_model"] = _resolved_declaration_block(resolved, mdl)
     return document
+
+
+def _resolve_named_model_ref(mdl: MdlFile, current_domain: str, type_name: str) -> ResolvedModelRef:
+    if "." in type_name:
+        return resolve_model_ref(mdl, type_name, VersionMin(min_inclusive=0))
+    candidates = [current_domain, *(domain.name for domain in mdl.domains if domain.name != current_domain)]
+    for domain_name in candidates:
+        try:
+            return resolve_model_ref(mdl, f"{domain_name}.{type_name}", VersionMin(min_inclusive=0))
+        except LookupError:
+            continue
+    raise LookupError(f"unknown model '{type_name}'")
 
 
 def _resolve_projection_field_nullable(

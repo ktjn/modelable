@@ -216,9 +216,12 @@ def _version_label(version: dict[str, Any]) -> str:
     if version.get("kind") in {"exact", "pinned"}:
         return str(version.get("version"))
     if version.get("kind") == "range":
-        return f">={version.get('minInclusive')}<{version.get('maxExclusive')}"
+        minimum = version.get("minInclusive", version.get("min_inclusive"))
+        maximum = version.get("maxExclusive", version.get("max_exclusive"))
+        return f">={minimum}<{maximum}"
     if version.get("kind") == "min":
-        return f">={version.get('minInclusive')}"
+        minimum = version.get("minInclusive", version.get("min_inclusive"))
+        return f">={minimum}"
     return "?"
 
 

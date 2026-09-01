@@ -489,10 +489,15 @@ def _validate_named_field_types(merged: MdlFile) -> tuple[list[Diagnostic], list
 
     def visit(field_type: FieldType, domain_name: str, context: str) -> None:
         if isinstance(field_type, NamedType):
-            current_domain = next((domain for domain in merged.domains if domain.name == domain_name), None)
-            if (
-                current_domain is not None and field_type.name in current_domain.models
-            ) or field_type.name in opaque_names:
+            if "." in field_type.name:
+                qualified_domain, _, model_name = field_type.name.partition(".")
+                is_model_reference = any(
+                    domain.name == qualified_domain and model_name in domain.models for domain in merged.domains
+                )
+            else:
+                model_names = {model_name for domain in merged.domains for model_name in domain.models}
+                is_model_reference = field_type.name in model_names
+            if is_model_reference or field_type.name in opaque_names:
                 return
             try:
                 _declaring_domain, decl = resolve_enum_type_ref(merged, domain_name, field_type.name)

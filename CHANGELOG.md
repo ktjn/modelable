@@ -8,11 +8,23 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
-- `compile --target rust` no longer emits an enum-lineage `From` conversion
-  impl for a ClickHouse-bound projection field whose enum type was forced to
-  `String` (clickhouse-rs 0.15's `serialize_unit_variant` panic workaround,
-  issue #119). The conversion impl referenced a projection enum type that was
-  never emitted for that field, so the generated Rust failed to compile.
+- Preserve declaring-domain imports for bare cross-domain semantic enum references.
+
+## [1.13.1] - 2026-09-01
+
+### Added
+
+### Changed
+
+### Fixed
+
+- Fixed cross-domain and versioned named-model references in compiler validation,
+  graph export, plan facts, and generated C#, Go, Java, Python, and TypeScript
+  targets, including value objects published at version 0.
+- Fixed PostgreSQL plan generation preserving value-object fields as `JSONB`.
+- Reject `ref<>` fields that target models without an identity key.
+
+## [1.13.0] - 2026-09-01
 
 ### Changed
 

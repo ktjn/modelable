@@ -37,7 +37,11 @@ def resolve_named_types(
     for domain in mdl.domains:
         for name, versions in domain.models.items():
             if versions:
-                names.setdefault(name, model_name(domain.name, name, versions[-1].version))
+                emitted_name = model_name(domain.name, name, versions[-1].version)
+                names.setdefault(name, emitted_name)
+                names.setdefault(f"{domain.name}.{name}", emitted_name)
+                for version in versions:
+                    names[f"{domain.name}.{name}@{version.version}"] = model_name(domain.name, name, version.version)
 
     for domain in mdl.domains:
         for declaration in latest_semantic_types(domain):
@@ -97,13 +101,34 @@ def resolve_named_ref(
     """
     declaring_domain, bare = split_domain_qualifier(ref)
     if declaring_domain is None:
+        local_model_name = f"{current_domain}.{bare}"
+        if local_model_name in names:
+            return (current_domain, names[local_model_name], None)
+        if exact_version is not None:
+            model_domain = _unique_model_domain(mdl, bare)
+            if model_domain is not None:
+                versioned_name = names.get(f"{model_domain}.{bare}@{exact_version}")
+                if versioned_name is not None:
+                    return (model_domain, versioned_name, None)
         if exact_version is None and ref in names:
-            return (_declaring_domain(mdl, ref) or current_domain, names[ref], None)
+            model_domain = _unique_model_domain(mdl, bare)
+            if model_domain is not None:
+                return (model_domain, names[ref], None)
+            semantic_domains = _semantic_type_domains(mdl, bare)
+            if current_domain in semantic_domains:
+                return (current_domain, names[ref], None)
+            if len(semantic_domains) == 1:
+                return (semantic_domains[0], names[ref], None)
+            return (current_domain, names[ref], None)
         if exact_version is None and ref in shapes:
             return (current_domain, None, shapes[ref])
     else:
-        if exact_version is None and bare in names and declaring_domain != current_domain:
-            return (declaring_domain, names[bare], None)
+        if exact_version is not None:
+            versioned_name = names.get(f"{declaring_domain}.{bare}@{exact_version}")
+            if versioned_name is not None:
+                return (declaring_domain, versioned_name, None)
+        if exact_version is None and f"{declaring_domain}.{bare}" in names:
+            return (declaring_domain, names[f"{declaring_domain}.{bare}"], None)
         if exact_version is None and bare in shapes and declaring_domain != current_domain:
             return (declaring_domain, None, shapes[bare])
     # Qualified semantic reference not visible in the per-domain dicts (or a
@@ -138,6 +163,19 @@ def _declaring_domain(mdl: MdlFile, name: str) -> str | None:
             if declaration.name == name and isinstance(declaration.underlying, EnumType):
                 return domain.name
     return None
+
+
+def _unique_model_domain(mdl: MdlFile, name: str) -> str | None:
+    domains = [domain.name for domain in mdl.domains if name in domain.models]
+    return domains[0] if len(domains) == 1 else None
+
+
+def _semantic_type_domains(mdl: MdlFile, name: str) -> list[str]:
+    return [
+        domain.name
+        for domain in mdl.domains
+        if any(declaration.name == name for declaration in latest_semantic_types(domain))
+    ]
 
 
 def resolve_named_type_domains(mdl: MdlFile, *, current_domain: str) -> dict[str, str]:
