@@ -866,7 +866,7 @@ class MdlTransformer(Transformer[list[object], Any]):
     def selector(self, items: list[object]) -> object:
         return items[0]
 
-    def join_prefix(self, items):
+    def join_prefix(self, items: list[Any]) -> tuple[str, str, str, Any, str, str]:
         if len(items) == 5:
             return ("join", "left", str(items[1]), items[2], str(items[3]), str(items[4]).strip())
         return ("join", "inner", str(items[0]), items[1], str(items[2]), str(items[3]).strip())
@@ -877,7 +877,7 @@ class MdlTransformer(Transformer[list[object], Any]):
     def projection_source_block(self, items: list[object]) -> object:
         return items[0]
 
-    def source_clause(self, items):
+    def source_clause(self, items: list[Any]) -> tuple[SourceRef, list[JoinRef], str | None, list[str]]:
         joins = [item for item in items[3:] if isinstance(item, JoinRef)]
         where = next((item for item in items[3:] if isinstance(item, str)), None)
         group_by = next((item for item in items[3:] if isinstance(item, list)), [])
@@ -888,7 +888,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             group_by,
         )
 
-    def join_clause(self, items):
+    def join_clause(self, items: list[Any]) -> JoinRef:
         prefix = items[0]
         annotations = [item for item in items[1:] if isinstance(item, ANNOTATION_TYPES)]
         cardinality = next(
