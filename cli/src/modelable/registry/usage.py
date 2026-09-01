@@ -400,8 +400,8 @@ def _projection_id(domain: str, projection: str, version: int) -> str:
     return "projection_version:" + declaration_id(domain, projection, version)
 
 
-def _artifact_declarations(manifests: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]:
-    declarations: dict[tuple[str, str], dict[str, str]] = {}
+def _artifact_declarations(manifests: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    declarations: dict[tuple[str, str], dict[str, Any]] = {}
     for manifest in manifests:
         target = manifest.get("target")
         target_name = target.get("name") if isinstance(target, Mapping) else None
@@ -421,6 +421,8 @@ def _artifact_declarations(manifests: Sequence[Mapping[str, Any]]) -> list[dict[
                 "sha256": sha256,
                 "target": target_name,
             }
+            if isinstance(entry.get("content"), (dict, str)):
+                declaration["content"] = entry["content"]
             if isinstance(ref, str):
                 try:
                     parse_declaration_id(ref)
