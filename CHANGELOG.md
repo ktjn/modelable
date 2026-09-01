@@ -23,6 +23,7 @@ releases could contain breaking changes when called out explicitly.
 - Allow registry policy evaluators to contribute structured consequences to diff graphs.
 - Persist canonical extension descriptors with provenance pins and verify descriptor drift offline.
 - Preserve JSON and text generated-artifact content in artifact and usage manifests for offline compatibility analysis.
+- Include SQL target-compatibility consequences for changed generated artifacts in registry diffs.
 
 ## [1.13.1] - 2026-09-01
 

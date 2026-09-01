@@ -1822,6 +1822,8 @@ validation and target generation.
   Artifact manifests also preserve JSON and text artifact content in their
   entries, and registry usage evidence carries that content forward for
   offline target-compatibility evaluation. Binary artifacts remain hash-only.
+  Changed `sql-postgres` and `sql-clickhouse` artifacts additionally produce
+  target-specific storage-migration consequences when their definitions change.
   Registry-diff JSON also includes a validated `usage.consequence_graph` using
   the `modelable.consequence/v0` node and edge contract; the flat consequence
   list remains available as a compatibility view.
