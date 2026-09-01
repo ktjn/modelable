@@ -145,7 +145,12 @@ def _base_annotation(
         return "String"
     if kind == "enum_ref":
         resolved = named_types.get(_named_key(str(field_type.get("name", "")), field_type.get("version")))
-        return resolved[0] if resolved else "String"
+        if resolved is None:
+            return "String"
+        name, declaring_domain = resolved
+        if declaring_domain != current_domain:
+            imports.add(f"import {package_name(declaring_domain)}.{name};")
+        return name
     if kind == "named":
         underlying = field_type.get("resolved_underlying_type")
         if isinstance(underlying, dict):

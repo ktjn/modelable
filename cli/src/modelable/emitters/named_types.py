@@ -112,7 +112,14 @@ def resolve_named_ref(
                     return (model_domain, versioned_name, None)
         if exact_version is None and ref in names:
             model_domain = _unique_model_domain(mdl, bare)
-            return (model_domain or current_domain, names[ref], None)
+            if model_domain is not None:
+                return (model_domain, names[ref], None)
+            semantic_domains = _semantic_type_domains(mdl, bare)
+            if current_domain in semantic_domains:
+                return (current_domain, names[ref], None)
+            if len(semantic_domains) == 1:
+                return (semantic_domains[0], names[ref], None)
+            return (current_domain, names[ref], None)
         if exact_version is None and ref in shapes:
             return (current_domain, None, shapes[ref])
     else:
@@ -161,6 +168,14 @@ def _declaring_domain(mdl: MdlFile, name: str) -> str | None:
 def _unique_model_domain(mdl: MdlFile, name: str) -> str | None:
     domains = [domain.name for domain in mdl.domains if name in domain.models]
     return domains[0] if len(domains) == 1 else None
+
+
+def _semantic_type_domains(mdl: MdlFile, name: str) -> list[str]:
+    return [
+        domain.name
+        for domain in mdl.domains
+        if any(declaration.name == name for declaration in latest_semantic_types(domain))
+    ]
 
 
 def resolve_named_type_domains(mdl: MdlFile, *, current_domain: str) -> dict[str, str]:
