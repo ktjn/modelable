@@ -1,6 +1,6 @@
 import pytest
 
-from modelable.identity import declaration_id, parse_semantic_path, semantic_path
+from modelable.identity import declaration_id, parse_declaration_id, parse_semantic_path, semantic_path
 
 
 @pytest.mark.parametrize(
@@ -45,3 +45,7 @@ def test_declaration_id_supports_quoted_domain_names() -> None:
 
     assert declaration == "marketplace-api.Product@1"
     assert parse_semantic_path(f"{declaration}#sku").render() == f"{declaration}#sku"
+
+
+def test_parse_declaration_id_round_trips_canonical_identity() -> None:
+    assert parse_declaration_id("marketplace-api.Product@0") == ("marketplace-api", "Product", 0)

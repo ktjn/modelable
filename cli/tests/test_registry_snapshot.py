@@ -993,6 +993,17 @@ def test_verify_detects_conflicting_content_for_one_identity(tmp_path: Path) -> 
     assert any("identity customer.Customer@1 has conflicting content hashes" in error for error in errors)
 
 
+def test_verify_rejects_noncanonical_usage_fields(tmp_path: Path) -> None:
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    lock["usage"]["references"][0]["fields"] = ["not-a-semantic-path"]
+    result.lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    errors = verify_snapshot(tmp_path / ".modelable")
+
+    assert any("registry lock usage is invalid" in error for error in errors)
+
+
 def test_verify_detects_tampered_object(tmp_path: Path) -> None:
     result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
     object_path = next((result.lock_path.parent / "registry" / "objects").glob("*.json"))

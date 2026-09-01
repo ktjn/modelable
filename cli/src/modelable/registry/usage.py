@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 from modelable.compiler.workspace import Workspace
 from modelable.dependency_graph import build_projection_dependencies
 from modelable.graph.export import build_graph_export
-from modelable.identity import declaration_id
+from modelable.identity import declaration_id, parse_declaration_id
 from modelable.registry.signature import compute_enum_projection_signature, compute_version_signature
 
 USAGE_SCHEMA = "modelable.usage/v0"
-_DECLARATION_REF = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*@[1-9][0-9]*$")
 
 
 def build_usage_graph(
@@ -423,8 +421,13 @@ def _artifact_declarations(manifests: Sequence[Mapping[str, Any]]) -> list[dict[
                 "sha256": sha256,
                 "target": target_name,
             }
-            if isinstance(ref, str) and _DECLARATION_REF.fullmatch(ref) is not None:
-                declaration["ref"] = ref
+            if isinstance(ref, str):
+                try:
+                    parse_declaration_id(ref)
+                except ValueError:
+                    pass
+                else:
+                    declaration["ref"] = ref
             declarations[(target_name, path)] = declaration
     return [declarations[key] for key in sorted(declarations)]
 
