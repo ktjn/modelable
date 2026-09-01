@@ -6,6 +6,14 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+## [1.13.0] - 2026-09-01
+
 ### Changed
 
 - Playground graph visualization now handles fields backed by same-domain value
