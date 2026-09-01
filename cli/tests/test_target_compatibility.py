@@ -1121,6 +1121,11 @@ def test_registry_compat_flags_changed_contract_signature_as_breaking():
     ]
 
 
+def test_artifact_compatibility_reports_empty_contracts_as_compatible():
+    assert compare_event_sink_artifacts([], []).findings == []
+    assert compare_registry_artifacts([], []).findings == []
+
+
 def test_compat_accepts_unchanged_descriptor_hash(tmp_path):
     source = _write(
         tmp_path / "source.mdl",
