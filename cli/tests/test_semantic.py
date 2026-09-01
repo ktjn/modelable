@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace_from_sources
+from modelable.compiler.workspace import WorkspaceDocumentSource, load_workspace, load_workspace_from_sources
 from modelable.parser.parse import parse_text_to_ir
 from modelable.validation.semantic import validate
 
@@ -793,6 +793,31 @@ def test_semantic_type_name_colliding_with_projection_is_error():
     """)
     errors = validate(mdl)
     assert any("Status" in e and "projection" in e for e in errors)
+
+
+def test_ref_type_requires_identity_bearing_model(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """
+    domain foundation {
+      owner: "test-team"
+      value Address @ 1 (additive) {
+        street: string
+      }
+    }
+    domain billing {
+      owner: "test-team"
+      entity Invoice @ 1 (additive) {
+        @key invoiceId: uuid
+        address: ref<foundation.Address @ 1>
+      }
+    }
+    """
+    )
+    workspace = load_workspace(source)
+    assert any(
+        "ref<foundation.Address" in error.message and "identity" in error.message.lower() for error in workspace.errors
+    )
 
 
 def test_index_decl_primary_must_match_key_field():

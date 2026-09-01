@@ -1294,6 +1294,20 @@ def validate_ref_type_field(
             )
             continue
 
+        if (
+            isinstance(resolved.version, ModelVersion)
+            and resolved.version.model_kind.value == "value"
+            and not any(item.is_key for item in resolved.version.fields)
+        ):
+            diagnostics.append(
+                _diag(
+                    "SEM",
+                    f"{fqn}: field '{field.name}' has ref<{ref_type.target}> targeting a model without an identity key",
+                    path,
+                )
+            )
+            continue
+
         if ref_type.version is None:
             warnings.append(
                 Diagnostic(

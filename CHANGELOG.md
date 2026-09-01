@@ -12,6 +12,12 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Fixed cross-domain and versioned named-model references in compiler validation,
+  graph export, plan facts, and generated C#, Go, Java, Python, and TypeScript
+  targets, including value objects published at version 0.
+- Fixed PostgreSQL plan generation preserving value-object fields as `JSONB`.
+- Reject `ref<>` fields that target models without an identity key.
+
 ## [1.13.0] - 2026-09-01
 
 ### Changed

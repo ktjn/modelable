@@ -37,7 +37,11 @@ def resolve_named_types(
     for domain in mdl.domains:
         for name, versions in domain.models.items():
             if versions:
-                names.setdefault(name, model_name(domain.name, name, versions[-1].version))
+                emitted_name = model_name(domain.name, name, versions[-1].version)
+                names.setdefault(name, emitted_name)
+                names.setdefault(f"{domain.name}.{name}", emitted_name)
+                for version in versions:
+                    names[f"{domain.name}.{name}@{version.version}"] = model_name(domain.name, name, version.version)
 
     for domain in mdl.domains:
         for declaration in latest_semantic_types(domain):
@@ -97,13 +101,23 @@ def resolve_named_ref(
     """
     declaring_domain, bare = split_domain_qualifier(ref)
     if declaring_domain is None:
+        if exact_version is not None:
+            model_domain = _declaring_domain(mdl, bare)
+            if model_domain is not None:
+                versioned_name = names.get(f"{model_domain}.{bare}@{exact_version}")
+                if versioned_name is not None:
+                    return (model_domain, versioned_name, None)
         if exact_version is None and ref in names:
             return (_declaring_domain(mdl, ref) or current_domain, names[ref], None)
         if exact_version is None and ref in shapes:
             return (current_domain, None, shapes[ref])
     else:
-        if exact_version is None and bare in names and declaring_domain != current_domain:
-            return (declaring_domain, names[bare], None)
+        if exact_version is not None:
+            versioned_name = names.get(f"{declaring_domain}.{bare}@{exact_version}")
+            if versioned_name is not None:
+                return (declaring_domain, versioned_name, None)
+        if exact_version is None and f"{declaring_domain}.{bare}" in names:
+            return (declaring_domain, names[f"{declaring_domain}.{bare}"], None)
         if exact_version is None and bare in shapes and declaring_domain != current_domain:
             return (declaring_domain, None, shapes[bare])
     # Qualified semantic reference not visible in the per-domain dicts (or a

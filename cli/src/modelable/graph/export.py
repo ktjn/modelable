@@ -265,7 +265,7 @@ def _add_model_field(
                 raise
             model_ref = type_name if "." in type_name else f"{domain_name}.{type_name}"
             try:
-                resolved_model = resolve_model_ref(workspace.mdl, model_ref, VersionMin(min_inclusive=1))
+                resolved_model = resolve_model_ref(workspace.mdl, model_ref, VersionMin(min_inclusive=0))
             except LookupError:
                 raise semantic_error from semantic_error
             builder.add_edge(
