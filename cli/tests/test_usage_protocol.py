@@ -48,6 +48,15 @@ def test_usage_protocol_round_trips_application_package_identity() -> None:
     assert json.loads(protocol.serialize_usage_manifest(manifest)) == manifest
 
 
+def test_usage_protocol_accepts_quoted_hyphenated_domain_references() -> None:
+    protocol = _protocol()
+    manifest = _manifest()
+    manifest["references"][0]["ref"] = "marketplace-api.Invoice@1"
+    manifest["references"][0]["fields"] = ["marketplace-api.Invoice@1#invoiceId"]
+
+    assert protocol.validate_usage_manifest(manifest) == manifest
+
+
 def test_usage_protocol_rejects_duplicate_references() -> None:
     protocol = _protocol()
     manifest = _manifest()

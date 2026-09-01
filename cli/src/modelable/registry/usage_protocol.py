@@ -8,11 +8,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
+from modelable.identity import parse_declaration_id, parse_semantic_path
+
 USAGE_SCHEMA = "modelable.usage/v0"
 USAGE_MANIFEST_NAME = "modelable-usage-manifest.json"
 type UsageManifest = dict[str, object]
 
-_DECLARATION_REF = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*@[1-9][0-9]*$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -151,8 +152,10 @@ def _validate_reference(value: object, name: str, seen: set[str]) -> None:
     _require_exact_keys(reference, {"ref", "signature", "fields", "package_id"} & set(reference), name)
     ref = _require_string(reference, "ref")
     _require_string_if_present(reference, "package_id")
-    if _DECLARATION_REF.fullmatch(ref) is None:
-        raise UsageProtocolError(f"{name}.ref must be a canonical declaration reference")
+    try:
+        parse_declaration_id(ref)
+    except ValueError:
+        raise UsageProtocolError(f"{name}.ref must be a canonical declaration reference") from None
     if ref in seen:
         raise UsageProtocolError(f"duplicate reference {ref!r}")
     seen.add(ref)
@@ -166,7 +169,11 @@ def _validate_reference(value: object, name: str, seen: set[str]) -> None:
     for index, field in enumerate(fields):
         if not isinstance(field, str) or not field:
             raise UsageProtocolError(f"{name}.fields[{index}] must be a non-empty string")
-        if not field.startswith(ref + "#") or len(field) == len(ref) + 1:
+        try:
+            parsed_field = parse_semantic_path(field)
+        except ValueError:
+            parsed_field = None
+        if parsed_field is None or parsed_field.declaration != ref:
             raise UsageProtocolError(f"{name}.fields[{index}] must belong to reference {ref!r}")
         if field in field_names:
             raise UsageProtocolError(f"{name}.fields contains duplicate field {field!r}")
@@ -189,8 +196,10 @@ def _validate_artifact(value: object, name: str, seen: set[tuple[str, str]]) -> 
         raise UsageProtocolError(f"{name}.sha256 must be a lowercase SHA-256 hex string")
     if "ref" in artifact:
         ref = _require_string(artifact, "ref")
-        if _DECLARATION_REF.fullmatch(ref) is None:
-            raise UsageProtocolError(f"{name}.ref must be a canonical declaration reference")
+        try:
+            parse_declaration_id(ref)
+        except ValueError:
+            raise UsageProtocolError(f"{name}.ref must be a canonical declaration reference") from None
 
 
 def _validate_surface(value: object, name: str, seen: set[str]) -> None:
@@ -203,8 +212,10 @@ def _validate_surface(value: object, name: str, seen: set[str]) -> None:
         raise UsageProtocolError(f"duplicate surface {surface_id!r}")
     seen.add(surface_id)
     ref = _require_string(surface, "ref")
-    if _DECLARATION_REF.fullmatch(ref) is None:
-        raise UsageProtocolError(f"{name}.ref must be a canonical declaration reference")
+    try:
+        parse_declaration_id(ref)
+    except ValueError:
+        raise UsageProtocolError(f"{name}.ref must be a canonical declaration reference") from None
     if kind == "api_operation":
         _require_exact_keys(surface, {"id", "kind", "ref", "name", "method", "path"}, name)
         _require_string(surface, "name")

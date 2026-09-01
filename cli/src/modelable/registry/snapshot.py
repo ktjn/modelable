@@ -591,6 +591,10 @@ def _verify_usage_evidence(
     if not isinstance(usage, dict):
         errors.append("registry lock usage must be an object")
         return
+    try:
+        validate_usage_manifest(usage)
+    except UsageProtocolError as error:
+        errors.append(f"registry lock usage is invalid: {error}")
     if usage.get("$schema") != USAGE_SCHEMA or usage.get("kind") != "usage_manifest":
         errors.append("registry lock usage has an unsupported format")
     if not isinstance(usage.get("application"), str):

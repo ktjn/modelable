@@ -13,6 +13,8 @@ releases could contain breaking changes when called out explicitly.
 - Emit and validate v1 plan lineage using canonical `#` semantic paths; migrate
   legacy dotted v0 lineage during v0-to-v1 conversion.
 - Store canonical semantic paths for both endpoints of registry lineage edges.
+- Reuse canonical declaration and semantic-path validation across usage manifests
+  and registry lock verification.
 
 ## [1.13.1] - 2026-09-01
 

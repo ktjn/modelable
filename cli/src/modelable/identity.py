@@ -21,6 +21,18 @@ def declaration_id(domain: str, name: str, version: int) -> str:
     return f"{domain}.{name}@{version}"
 
 
+def parse_declaration_id(value: str) -> tuple[str, str, int]:
+    """Parse and validate an exact canonical declaration identity."""
+    domain_name, at, version_text = value.rpartition("@")
+    domain, dot, name = domain_name.partition(".")
+    if not at or not dot or not version_text.isdigit():
+        raise ValueError(f"invalid declaration identity: {value!r}")
+    canonical = declaration_id(domain, name, int(version_text))
+    if canonical != value:
+        raise ValueError(f"non-canonical declaration identity: {value!r}")
+    return domain, name, int(version_text)
+
+
 @dataclass(frozen=True)
 class SemanticPath:
     """A declaration identity plus typed field/container path segments."""
