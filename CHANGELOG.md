@@ -26,6 +26,7 @@ releases could contain breaking changes when called out explicitly.
 - Include SQL target-compatibility consequences for changed generated artifacts in registry diffs.
 - Include JSON Schema target-compatibility consequences for changed generated artifacts in registry diffs.
 - Include Avro target-compatibility consequences for changed generated artifacts in registry diffs.
+- Include OpenAPI target-compatibility consequences for changed generated artifacts in registry diffs.
 
 ## [1.13.1] - 2026-09-01
 
