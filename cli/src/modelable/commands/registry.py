@@ -13,6 +13,7 @@ from modelable.registry.snapshot import (
     ConfiguredRegistryPolicy,
     RegistryPolicyError,
     diff_workspace_snapshot,
+    include_policy_consequences,
     preview_workspace_snapshot,
     prune_snapshot,
     resolve_workspace_snapshot,
@@ -154,6 +155,7 @@ def update(
     """Stage and atomically install SOURCE as the local exact snapshot."""
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
+        policy_evaluation = None
         artifact_manifests = _read_artifact_manifests(artifact_manifest_paths)
         config = load_config(source)
         blocked_actions = config.blocked_registry_actions()
@@ -165,6 +167,8 @@ def update(
             snapshot_diff, object_count = preview_workspace_snapshot(
                 workspace, output_dir, artifact_manifests=artifact_manifests
             )
+            policy_evaluation = policy_evaluator.evaluate(snapshot_diff)
+            snapshot_diff = include_policy_consequences(snapshot_diff, policy_evaluation.consequences)
         else:
             result, snapshot_diff = update_workspace_snapshot(
                 workspace,
@@ -196,7 +200,8 @@ def update(
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
-    policy_evaluation = policy_evaluator.evaluate(snapshot_diff)
+    if policy_evaluation is None:
+        policy_evaluation = policy_evaluator.evaluate(snapshot_diff)
     payload = {
         "dry_run": dry_run,
         "lock": str(output_dir / "registry.lock"),

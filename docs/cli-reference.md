@@ -1829,6 +1829,10 @@ validation and target generation.
   use the same action, status, reason, and causal-path shape as `impact` output.
   The same `usage.consequence_graph` is included in dry-run and policy-error
   JSON responses.
+  Custom registry policy evaluators may return structured `Consequence` values
+  in `PolicyEvaluation.consequences`; these are included in
+  `usage.consequences`, `usage.required_actions`, and the validated graph in
+  successful and policy-blocked update output.
   The JSON payload includes a `policy` object with configured blocked actions,
   any violating action names, and structured `findings` containing each
   finding's action, status, reason, and causal path. Policy applies to every

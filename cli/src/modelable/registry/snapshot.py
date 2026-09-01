@@ -7,7 +7,7 @@ import re
 import shutil
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -49,6 +49,7 @@ from modelable.consequence import (
     build_target_consequences,
     build_usage_consumer_consequences,
 )
+from modelable.consequence_protocol import validate_consequence_graph
 from modelable.extensions import ExtensionDescriptorError, ExtensionPin, parse_extension_pin
 from modelable.parser.ir import (
     ArrayType,
@@ -183,11 +184,13 @@ class PolicyEvaluation:
 
     blocked_actions: tuple[str, ...] = ()
     findings: tuple[PolicyFinding, ...] = ()
+    consequences: tuple[Consequence, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "blocked_actions": list(self.blocked_actions),
             "findings": [finding.as_dict() for finding in self.findings],
+            "consequences": [consequence.as_dict() for consequence in self.consequences],
         }
 
 
@@ -1019,6 +1022,7 @@ def update_workspace_snapshot(
         snapshot_diff = diff_snapshot_paths(paths.root, candidate_dir)
         evaluator = policy_evaluator or BlockedActionPolicy(blocked_actions)
         evaluation = _normalize_policy_evaluation(evaluator.evaluate(snapshot_diff))
+        snapshot_diff = include_policy_consequences(snapshot_diff, evaluation.consequences)
         blocked = sorted(set(evaluation.blocked_actions))
         if blocked:
             retained = _retain_candidate(paths, candidate_dir)
@@ -1054,6 +1058,50 @@ def _normalize_policy_evaluation(value: PolicyEvaluation | Sequence[str]) -> Pol
     if isinstance(value, PolicyEvaluation):
         return value
     return PolicyEvaluation(blocked_actions=tuple(sorted(set(value))))
+
+
+def include_policy_consequences(snapshot_diff: SnapshotDiff, consequences: Sequence[Consequence]) -> SnapshotDiff:
+    if not consequences:
+        return snapshot_diff
+    usage = dict(snapshot_diff.usage)
+    existing_consequences = list(usage.get("consequences", []))
+    existing_consequences.extend(consequence.as_dict() for consequence in consequences)
+    usage["consequences"] = existing_consequences
+    usage["required_actions"] = [
+        *usage.get("required_actions", []),
+        *_required_surface_actions(list(consequences)),
+    ]
+    policy_graph = build_consequence_graph(list(consequences))
+    graph = snapshot_diff.usage.get("consequence_graph", {})
+    if not isinstance(graph, dict):
+        graph = policy_graph
+    else:
+        nodes = {node["id"]: node for node in graph.get("nodes", []) if isinstance(node, dict) and "id" in node}
+        nodes.update(
+            {str(node["id"]): node for node in policy_graph["nodes"] if isinstance(node, dict) and "id" in node}
+        )
+        edges = {
+            (edge["kind"], edge["source"], edge["target"]): edge
+            for edge in graph.get("edges", [])
+            if isinstance(edge, dict) and all(key in edge for key in ("kind", "source", "target"))
+        }
+        edges.update(
+            {
+                (edge["kind"], edge["source"], edge["target"]): edge
+                for edge in policy_graph["edges"]
+                if isinstance(edge, dict) and all(key in edge for key in ("kind", "source", "target"))
+            }
+        )
+        graph = {
+            "$schema": policy_graph["$schema"],
+            "kind": policy_graph["kind"],
+            "nodes": sorted(nodes.values(), key=lambda node: str(node["id"])),
+            "edges": sorted(
+                edges.values(), key=lambda edge: (str(edge["kind"]), str(edge["source"]), str(edge["target"]))
+            ),
+        }
+    usage["consequence_graph"] = validate_consequence_graph(graph)
+    return replace(snapshot_diff, usage=usage)
 
 
 def _blocked_registry_policy(snapshot_diff: SnapshotDiff, blocked_actions: tuple[str, ...]) -> PolicyEvaluation:

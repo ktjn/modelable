@@ -12,6 +12,7 @@ import modelable.registry.snapshot as snapshot_module
 from modelable.cli import cli
 from modelable.compat.checker import analyze_impact, check_model_version_compatibility
 from modelable.compiler.workspace import load_workspace
+from modelable.consequence import Consequence
 from modelable.consequence_protocol import validate_consequence_graph
 from modelable.extensions import PROTOCOL, ExtensionDescriptor, pin_extension_descriptor
 from modelable.registry.enum_numbers import allocate_enum_numbers
@@ -1681,6 +1682,38 @@ def test_update_accepts_a_policy_evaluator_over_snapshot_diff(tmp_path: Path) ->
 
     assert len(observed) == 1
     assert observed[0].added
+
+
+def test_update_includes_policy_consequences_in_diff_graph(tmp_path: Path) -> None:
+    class Policy:
+        def evaluate(self, snapshot_diff: SnapshotDiff) -> PolicyEvaluation:
+            return PolicyEvaluation(
+                consequences=(
+                    Consequence(
+                        action="governance_review",
+                        subject="customer.Customer@1",
+                        status="review_required",
+                        reason="customer data requires review",
+                        causal_path=("customer.Customer@1", "customer.Customer@1:policy"),
+                    ),
+                ),
+            )
+
+    _, snapshot_diff = update_workspace_snapshot(
+        load_workspace(FIXTURE),
+        tmp_path / ".modelable",
+        policy_evaluator=Policy(),
+    )
+
+    assert {
+        "action": "governance_review",
+        "causal_path": ["customer.Customer@1", "customer.Customer@1:policy"],
+        "reason": "customer data requires review",
+        "status": "review_required",
+        "subject": "customer.Customer@1",
+    } in snapshot_diff.usage["consequences"]
+    graph = validate_consequence_graph(snapshot_diff.usage["consequence_graph"])
+    assert any(node["kind"] == "action" and node["action"] == "governance_review" for node in graph["nodes"])
 
 
 def test_blocked_action_policy_returns_structured_findings() -> None:
