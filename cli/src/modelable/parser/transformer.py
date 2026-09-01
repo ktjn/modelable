@@ -590,7 +590,7 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def ann_wire(self, items: list[object]) -> AnnWire:
         targets: dict[str, WireTargetHint] = {}
-        for target, modifier, value in items:
+        for target, modifier, value in cast(list[tuple[str, str | None, Any]], items):
             hint = targets.get(target, WireTargetHint())
             if modifier is None:
                 if hint.encoding is not None and hint.encoding != value:
@@ -644,7 +644,7 @@ class MdlTransformer(Transformer[list[object], Any]):
         return items[0]
 
     def wire_option(self, items: list[object]) -> tuple[object, object, object]:
-        target, modifier = items[0]
+        target, modifier = cast(tuple[str, str | None], items[0])
         return target, modifier, items[1]
 
     def wire_key(self, items: list[object]) -> tuple[str, str | None]:
@@ -659,7 +659,7 @@ class MdlTransformer(Transformer[list[object], Any]):
         return items[0]
 
     def wire_map(self, items: list[object]) -> dict[str, object]:
-        return dict(items)
+        return dict(cast(tuple[str, object], item) for item in items)
 
     def wire_map_item(self, items: list[object]) -> tuple[str, str]:
         return str(items[0]), _str(items[1])
