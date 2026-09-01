@@ -425,3 +425,29 @@ domain billing {
     artifact = next(item for item in emit_java(workspace, tmp_path / "out") if item.ref == "billing.Invoice@1")
     assert artifact.content.count("import patient.PatientIdV1;") == 1
     assert "PatientIdV1 patientId" in artifact.content
+
+
+def test_emit_java_cross_domain_enum_ref_adds_one_import(tmp_path):
+    source = tmp_path / "model.mdl"
+    source.write_text(
+        """domain billing {
+  owner: "billing-team"
+  semantic InvoiceStatus @ 1 (additive): enum(draft, issued)
+}
+
+domain reporting {
+  owner: "reporting-team"
+  entity OutstandingInvoice @ 1 (additive) {
+    @key invoiceId: uuid
+    status: InvoiceStatus
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    artifact = next(
+        item for item in emit_java(workspace, tmp_path / "out") if item.ref == "reporting.OutstandingInvoice@1"
+    )
+    assert artifact.content.count("import billing.InvoiceStatus;") == 1
+    assert "InvoiceStatus status" in artifact.content
