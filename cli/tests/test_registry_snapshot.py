@@ -2568,6 +2568,47 @@ def test_registry_diff_reports_sql_target_compatibility_for_changed_artifact(tmp
     assert validate_consequence_graph(diff.usage["consequence_graph"]) == diff.usage["consequence_graph"]
 
 
+def test_registry_diff_reports_json_schema_target_compatibility_for_changed_artifact(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    output_dir = tmp_path / ".modelable"
+    old_manifest = {
+        "target": {"name": "json-schema"},
+        "artifacts": [
+            {
+                "path": "customer.json",
+                "ref": "customer.Customer@1",
+                "sha256": "a" * 64,
+                "content": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]},
+            }
+        ],
+    }
+    new_manifest = {
+        "target": {"name": "json-schema"},
+        "artifacts": [
+            {
+                "path": "customer.json",
+                "ref": "customer.Customer@1",
+                "sha256": "b" * 64,
+                "content": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+                    "required": ["id", "name"],
+                },
+            }
+        ],
+    }
+
+    resolve_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(old_manifest,))
+    diff = diff_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(new_manifest,))
+
+    assert any(
+        consequence["action"] == "breaking" and consequence["status"] == "breaking"
+        for consequence in diff.usage["consequences"]
+    )
+    assert validate_consequence_graph(diff.usage["consequence_graph"]) == diff.usage["consequence_graph"]
+
+
 def test_update_rolls_back_new_objects_when_lock_replacement_fails(tmp_path: Path, monkeypatch) -> None:
     output_dir = tmp_path / ".modelable"
     source = tmp_path / "customer.mdl"
