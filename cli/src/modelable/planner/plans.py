@@ -392,9 +392,9 @@ def _collect_revalidation_reasons(source_block: dict[str, object], joins_block: 
 def build_plan_documents(workspace: Workspace, *, schema: str = PLAN_SCHEMA) -> list[PlanDocument]:
     """Build plan documents for every workspace projection."""
     documents: list[PlanDocument] = []
-    for domain in workspace.mdl.domains:
-        for projection_name, versions in domain.projections.items():
-            for pv in versions:
+    for domain in sorted(workspace.mdl.domains, key=lambda item: item.name):
+        for projection_name in sorted(domain.projections):
+            for pv in sorted(domain.projections[projection_name], key=lambda item: item.version):
                 lineage = build_projection_lineage(domain.name, projection_name, pv, workspace.mdl)
                 documents.append(build_plan(domain.name, projection_name, pv, lineage, workspace.mdl, schema=schema))
     return documents

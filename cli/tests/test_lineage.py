@@ -12,7 +12,7 @@ import pytest
 from modelable.compiler.workspace import Workspace, load_workspace
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.lineage import build_projection_lineage
-from modelable.planner.plans import PLAN_SCHEMA, build_plan, write_plans
+from modelable.planner.plans import PLAN_SCHEMA, build_plan, build_plan_documents, write_plans
 from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanProtocolError, load_plan, serialize_plan, validate_plan
 
 _MDL = textwrap.dedent("""\
@@ -230,6 +230,16 @@ def test_write_plans_can_emit_v1_documents(tmp_path):
 
     assert written
     assert all(json.loads(path.read_text(encoding="utf-8"))["$schema"] == PLAN_V1_SCHEMA for path in written)
+
+
+def test_build_plan_documents_are_sorted_by_canonical_identity(tmp_path: Path) -> None:
+    (tmp_path / "models.mdl").write_text(_MDL, encoding="utf-8")
+    workspace = load_workspace(tmp_path)
+
+    documents = build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
+    identities = [(document["domain"], document["projection"], document["version"]) for document in documents]
+
+    assert identities == sorted(identities)
 
 
 def test_plan_protocol_serialization_is_deterministic(tmp_path):
