@@ -2837,6 +2837,47 @@ def test_update_preserves_extension_pins(tmp_path: Path) -> None:
     assert lock["extensions"] == [pin.as_dict()]
 
 
+def test_registry_diff_reports_odcs_target_compatibility_for_changed_artifact(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    output_dir = tmp_path / ".modelable"
+    old_content = """schema:\n  - name: customers\n    properties:\n      - name: email\n        required: false\n"""
+    new_content = """schema:\n  - name: customers\n    properties:\n      - name: email\n        required: true\n"""
+    old_manifest = {
+        "target": {"name": "odcs"},
+        "artifacts": [
+            {
+                "path": "customer.yaml",
+                "sha256": "a" * 64,
+                "ref": "customer.Customer@1",
+                "content": old_content,
+            }
+        ],
+    }
+    new_manifest = {
+        "target": {"name": "odcs"},
+        "artifacts": [
+            {
+                "path": "customer.yaml",
+                "sha256": "b" * 64,
+                "ref": "customer.Customer@1",
+                "content": new_content,
+            }
+        ],
+    }
+
+    resolve_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(old_manifest,))
+    diff = diff_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(new_manifest,))
+
+    assert any(
+        consequence["subject"] == "odcs:customer.Customer@1:property_required"
+        and consequence["action"] == "breaking"
+        and consequence["status"] == "breaking"
+        for consequence in diff.usage["consequences"]
+    )
+    assert validate_consequence_graph(diff.usage["consequence_graph"]) == diff.usage["consequence_graph"]
+
+
 def test_registry_diff_reports_fhir_target_compatibility_for_changed_artifact(tmp_path: Path) -> None:
     source = tmp_path / "models.mdl"
     source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")

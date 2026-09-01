@@ -1832,6 +1832,8 @@ validation and target generation.
   consequences when operations, bindings, or schemas change.
   Changed `fhir-profile` artifacts additionally produce target-specific
   compatibility consequences when profile elements or cardinalities change.
+  Changed `odcs` artifacts additionally produce target-specific compatibility
+  consequences when contract properties or requiredness change.
   Registry-diff JSON also includes a validated `usage.consequence_graph` using
   the `modelable.consequence/v0` node and edge contract; the flat consequence
   list remains available as a compatibility view.
