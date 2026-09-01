@@ -12,6 +12,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+## [1.13.1] - 2026-09-01
+
+### Added
+
+### Changed
+
+### Fixed
+
 - Fixed cross-domain and versioned named-model references in compiler validation,
   graph export, plan facts, and generated C#, Go, Java, Python, and TypeScript
   targets, including value objects published at version 0.
