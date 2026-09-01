@@ -463,7 +463,7 @@ class MdlTransformer(Transformer[list[object], Any]):
 
     def index_decl(self, items: list[object]) -> tuple[str, IndexDecl]:
         model = str(items[0])
-        version = int(items[1])
+        version = int(cast(int | str, items[1]))
         primary: list[str] = []
         secondary: list[SecondaryIndexDecl] = []
         for item in items[2:]:
