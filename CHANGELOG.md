@@ -8,6 +8,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Browser/playground plan responses now use the stable `modelable.plan/v1`
+  protocol, including browser target admission and TypeScript validation.
+
 - Registry updates can apply an externally configured PII-change policy with
   warning or error severity, emitting structured governance findings and
   retaining blocked candidates.
