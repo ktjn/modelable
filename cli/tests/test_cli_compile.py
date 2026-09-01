@@ -205,6 +205,9 @@ domain customer {
     assert manifest["references"][0]["ref"] == "customer.Customer@1"
     assert manifest["artifacts"] == [
         {
+            "content": json.loads((out / "modelable-artifact-manifest.json").read_text(encoding="utf-8"))["artifacts"][
+                0
+            ]["content"],
             "path": "customer.Customer.v1.ts",
             "ref": "customer.Customer@1",
             "sha256": json.loads((out / "modelable-artifact-manifest.json").read_text(encoding="utf-8"))["artifacts"][

@@ -48,14 +48,7 @@ def build_artifact_manifest(
             "kind": target_profile.kind,
             "status": target_profile.status,
         },
-        "artifacts": [
-            {
-                "path": _relative_path(Path(artifact.path), output_root),
-                "ref": artifact.ref,
-                "sha256": artifact.content_hash,
-            }
-            for artifact in artifacts
-        ],
+        "artifacts": [_artifact_entry(artifact, output_root) for artifact in artifacts],
         "warnings": sorted({warning for artifact in artifacts for warning in artifact.warnings}),
         "loss_facts": sorted({warning for artifact in artifacts for warning in artifact.warnings}),
     }
@@ -73,6 +66,17 @@ def write_artifact_manifest(path: Path, payload: dict[str, Any]) -> None:
 
 def _compiler_version() -> str:
     return modelable_version()
+
+
+def _artifact_entry(artifact: EmittedArtifact, output_root: Path) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "path": _relative_path(Path(artifact.path), output_root),
+        "ref": artifact.ref,
+        "sha256": artifact.content_hash,
+    }
+    if isinstance(artifact.content, (dict, str)):
+        entry["content"] = artifact.content
+    return entry
 
 
 def _sha256(path: Path) -> str:

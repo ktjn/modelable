@@ -1351,7 +1351,14 @@ def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_pa
         json.dumps(
             {
                 "target": {"name": "python"},
-                "artifacts": [{"path": "customer.py", "ref": "customer.Customer@1", "sha256": "a" * 64}],
+                "artifacts": [
+                    {
+                        "path": "customer.py",
+                        "ref": "customer.Customer@1",
+                        "sha256": "a" * 64,
+                        "content": "class Customer: pass\n",
+                    }
+                ],
             }
         ),
         encoding="utf-8",
@@ -1361,7 +1368,14 @@ def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_pa
         json.dumps(
             {
                 "target": {"name": "python"},
-                "artifacts": [{"path": "customer.py", "ref": "customer.Customer@1", "sha256": "b" * 64}],
+                "artifacts": [
+                    {
+                        "path": "customer.py",
+                        "ref": "customer.Customer@1",
+                        "sha256": "b" * 64,
+                        "content": "class Customer: updated\n",
+                    }
+                ],
             }
         ),
         encoding="utf-8",
@@ -1428,12 +1442,14 @@ def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_pa
     assert payload["usage"]["artifacts"]["changed"] == [
         {
             "candidate": {
+                "content": "class Customer: updated\n",
                 "path": "customer.py",
                 "ref": "customer.Customer@1",
                 "sha256": "b" * 64,
                 "target": "python",
             },
             "current": {
+                "content": "class Customer: pass\n",
                 "path": "customer.py",
                 "ref": "customer.Customer@1",
                 "sha256": "a" * 64,
@@ -1500,7 +1516,14 @@ def test_registry_resolve_includes_artifact_manifest_evidence(tmp_path: Path) ->
         json.dumps(
             {
                 "target": {"name": "python"},
-                "artifacts": [{"path": "customer.py", "ref": "customer.Customer@1", "sha256": "a" * 64}],
+                "artifacts": [
+                    {
+                        "path": "customer.py",
+                        "ref": "customer.Customer@1",
+                        "sha256": "a" * 64,
+                        "content": "class Customer: pass\n",
+                    }
+                ],
             }
         ),
         encoding="utf-8",
@@ -1523,7 +1546,13 @@ def test_registry_resolve_includes_artifact_manifest_evidence(tmp_path: Path) ->
     assert result.exit_code == 0, result.output
     lock = json.loads((output_dir / "registry.lock").read_text(encoding="utf-8"))
     assert lock["usage"]["artifacts"] == [
-        {"path": "customer.py", "ref": "customer.Customer@1", "sha256": "a" * 64, "target": "python"}
+        {
+            "path": "customer.py",
+            "ref": "customer.Customer@1",
+            "sha256": "a" * 64,
+            "target": "python",
+            "content": "class Customer: pass\n",
+        }
     ]
 
 

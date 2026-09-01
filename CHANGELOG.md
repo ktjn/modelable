@@ -22,6 +22,7 @@ releases could contain breaking changes when called out explicitly.
 - Propagate compiled-consumer update and regeneration actions into registry diffs.
 - Allow registry policy evaluators to contribute structured consequences to diff graphs.
 - Persist canonical extension descriptors with provenance pins and verify descriptor drift offline.
+- Preserve JSON and text generated-artifact content in artifact and usage manifests for offline compatibility analysis.
 
 ## [1.13.1] - 2026-09-01
 

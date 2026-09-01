@@ -55,6 +55,7 @@ domain customer {
     assert manifest["extension_pins"] == []
     assert {entry["path"] for entry in manifest["artifacts"]} == {"customer.Customer.v1.ts"}
     assert all(entry["sha256"] for entry in manifest["artifacts"])
+    assert all("content" in entry for entry in manifest["artifacts"])
 
 
 def test_compile_carries_verified_extension_pins_into_manifest(tmp_path: Path) -> None:

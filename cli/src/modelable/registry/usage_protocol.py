@@ -92,6 +92,8 @@ def serialize_usage_manifest(document: object) -> str:
             "sha256": artifact["sha256"],
             "target": artifact["target"],
         }
+        if "content" in artifact:
+            normalized_artifact["content"] = artifact["content"]
         if "ref" in artifact:
             normalized_artifact["ref"] = artifact["ref"]
         normalized_artifacts.append(normalized_artifact)
@@ -184,7 +186,7 @@ def _validate_artifact(value: object, name: str, seen: set[tuple[str, str]]) -> 
     if not isinstance(value, dict):
         raise UsageProtocolError(f"{name} must be a JSON object")
     artifact = cast(dict[str, object], value)
-    _require_exact_keys(artifact, {"path", "ref", "sha256", "target"} & set(artifact), name)
+    _require_exact_keys(artifact, {"path", "ref", "sha256", "target", "content"} & set(artifact), name)
     path = _require_string(artifact, "path")
     target = _require_string(artifact, "target")
     key = (target, path)
@@ -200,6 +202,8 @@ def _validate_artifact(value: object, name: str, seen: set[tuple[str, str]]) -> 
             parse_declaration_id(ref)
         except ValueError:
             raise UsageProtocolError(f"{name}.ref must be a canonical declaration reference") from None
+    if "content" in artifact and not isinstance(artifact["content"], (dict, str)):
+        raise UsageProtocolError(f"{name}.content must be a JSON object or string")
 
 
 def _validate_surface(value: object, name: str, seen: set[str]) -> None:
