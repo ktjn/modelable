@@ -7,7 +7,7 @@ from click.testing import CliRunner
 from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.emitters.typescript import emit_typescript
-from modelable.emitters.typescript_plan import emit_typescript_projection_plan
+from modelable.emitters.typescript_plan import _version_label, emit_typescript_projection_plan
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA
 
@@ -126,6 +126,10 @@ domain customer {
 
     assert migrated.content == existing.content
     assert migrated.content_hash == existing.content_hash
+
+
+def test_typescript_plan_version_label_accepts_serialized_snake_case_range():
+    assert _version_label({"kind": "range", "min_inclusive": 1, "max_exclusive": 2}) == ">=1<2"
 
 
 def test_emit_typescript_projection_uses_source_version_types(tmp_path):

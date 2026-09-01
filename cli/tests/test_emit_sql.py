@@ -570,6 +570,35 @@ domain events {
     assert "metadata JSONB NOT NULL" in art.content
 
 
+def test_emit_sql_postgres_qualified_value_type_is_jsonb(tmp_path):
+    (tmp_path / "model.mdl").write_text(
+        """
+domain patient {
+  owner: "patient-team"
+  value Address @ 0 (additive) {
+    street: string
+  }
+}
+domain billing {
+  owner: "billing-team"
+  entity Invoice @ 1 (additive) {
+    @key invoiceId: uuid
+    address: patient.Address
+  }
+  projection InvoiceRow @ 1 from billing.Invoice @ 1 as i {
+    invoiceId <- i.invoiceId
+    address <- i.address
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_sql(workspace, tmp_path / "out", "postgres")
+    art = next(a for a in artifacts if a.ref == "billing.InvoiceRow@1")
+    assert "address JSONB NOT NULL" in art.content
+
+
 def test_emit_sql_no_artifacts_for_models_only(tmp_path):
     """emit_sql only emits DDL for projections, not standalone models."""
     (tmp_path / "model.mdl").write_text(
