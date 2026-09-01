@@ -731,7 +731,7 @@ class MdlTransformer(Transformer[list[object], Any]):
     def pt_uuid(self, items: list[object]) -> PrimitiveType:
         if not items:
             return PrimitiveType(kind="uuid")
-        version = int(items[0])
+        version = cast(Literal[4, 7], int(cast(int | str, items[0])))
         if version not in (4, 7):
             raise ValueError(f"uuid version must be 4 or 7, got {version}")
         return PrimitiveType(kind="uuid", version=version)
@@ -779,10 +779,10 @@ class MdlTransformer(Transformer[list[object], Any]):
         return items[0]
 
     def decimal_type(self, items: list[object]) -> DecimalType:
-        return DecimalType(precision=int(items[0]), scale=int(items[1]))
+        return DecimalType(precision=int(cast(int | str, items[0])), scale=int(cast(int | str, items[1])))
 
     def fixed_binary_type(self, items: list[object]) -> FixedBinaryType:
-        return FixedBinaryType(length=int(items[0]))
+        return FixedBinaryType(length=int(cast(int | str, items[0])))
 
     def enum_member(self, items: list[object]) -> str:
         return str(items[0])
@@ -791,20 +791,20 @@ class MdlTransformer(Transformer[list[object], Any]):
         return EnumType(values=[str(item) for item in items])
 
     def array_type(self, items: list[object]) -> ArrayType:
-        return ArrayType(item=items[0])
+        return ArrayType(item=cast(FieldType, items[0]))
 
     def map_type(self, items: list[object]) -> MapType:
-        return MapType(key=items[0], value=items[1])
+        return MapType(key=cast(FieldType, items[0]), value=cast(FieldType, items[1]))
 
     def ref_type(self, items: list[object]) -> RefType:
         version = items[1] if len(items) > 1 else None
-        return RefType(target=str(items[0]), version=version)
+        return RefType(target=str(items[0]), version=cast(Any, version))
 
     def object_type(self, items: list[object]) -> ObjectType:
         return ObjectType(fields=[item for item in items if isinstance(item, FieldDef)])
 
     def union_variant(self, items: list[object]) -> UnionVariant:
-        return UnionVariant(tag=str(items[0]), type=items[1])
+        return UnionVariant(tag=str(items[0]), type=cast(FieldType, items[1]))
 
     def union_type(self, items: list[object]) -> UnionType:
         return UnionType(
@@ -835,13 +835,13 @@ class MdlTransformer(Transformer[list[object], Any]):
             group_by: list[str] = []
             body_start = 2
         else:
-            source, joins, where, group_by = items[source_index]
+            source, joins, where, group_by = cast(tuple[SourceRef, list[JoinRef], str | None, list[str]], items[source_index])  # fmt: skip
             body_start = source_index + 1
         access = next((item for item in items[body_start:] if isinstance(item, AccessBlock)), None)
         reservation = next((item for item in items[body_start:] if isinstance(item, ProtobufReservations)), None)
         selection = next((item for item in items[body_start:] if isinstance(item, SelectionClause)), None)
         projection_version = ProjectionVersion(
-            version=int(items[1]),
+            version=int(cast(int | str, items[1])),
             source=source,
             joins=joins,
             where=where,
