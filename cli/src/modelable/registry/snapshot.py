@@ -419,6 +419,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
     identity_hashes: dict[str, str] = {}
     contracts_by_identity: dict[str, Any] = {}
     registry_declarations: set[str] = set()
+    enum_declarations: set[str] = set()
     for entry in objects:
         if not isinstance(entry, dict):
             errors.append("registry lock contains a non-object entry")
@@ -470,6 +471,14 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
             and payload["contract"].get("registry") is True
         ):
             registry_declarations.add(identity.rsplit("@", 1)[0])
+        contract = payload.get("contract")
+        if (
+            payload.get("kind") == "semantic"
+            and isinstance(contract, dict)
+            and isinstance(contract.get("underlying"), dict)
+            and contract["underlying"].get("kind") == "enum"
+        ):
+            enum_declarations.add(identity.rsplit("@", 1)[0])
         entry_change_kind = entry.get("change_kind")
         contract = payload.get("contract")
         if entry_change_kind is not None and (
@@ -490,7 +499,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
                         errors.append(f"registry source drift for {identity}: found {actual_source_hash}")
     _verify_usage_evidence(lock.get("usage"), objects, errors)
     _verify_generation_fingerprints(lock.get("generation", []), errors)
-    _verify_allocations(lock.get("allocations"), errors, registry_declarations)
+    _verify_allocations(lock.get("allocations"), errors, registry_declarations, enum_declarations)
     requirements = lock.get("requirements")
     if requirements is not None:
         if not isinstance(requirements, list):
@@ -689,7 +698,12 @@ def _serialize_registry_ids(ids: dict[str, int]) -> list[dict[str, Any]]:
     return serialized
 
 
-def _verify_allocations(allocations: Any, errors: list[str], registry_declarations: set[str]) -> None:
+def _verify_allocations(
+    allocations: Any,
+    errors: list[str],
+    registry_declarations: set[str],
+    enum_declarations: set[str],
+) -> None:
     if not isinstance(allocations, dict):
         errors.append("registry lock allocations must be an object")
         return
@@ -697,7 +711,7 @@ def _verify_allocations(allocations: Any, errors: list[str], registry_declaratio
     if not isinstance(protobuf_enums, list):
         errors.append("registry lock protobuf enum allocations must be an array")
     else:
-        _verify_enum_allocations(protobuf_enums, errors)
+        _verify_enum_allocations(protobuf_enums, errors, enum_declarations)
     registry_ids = allocations.get("registry_ids")
     if not isinstance(registry_ids, list):
         errors.append("registry lock registry ID allocations must be an array")
@@ -730,7 +744,7 @@ def _verify_registry_ids(entries: list[Any], errors: list[str], registry_declara
         errors.append("registry lock registry ID allocations contain duplicate IDs")
 
 
-def _verify_enum_allocations(protobuf_enums: list[Any], errors: list[str]) -> None:
+def _verify_enum_allocations(protobuf_enums: list[Any], errors: list[str], enum_declarations: set[str]) -> None:
     names: list[str] = []
     for entry in protobuf_enums:
         if not isinstance(entry, dict):
@@ -751,6 +765,8 @@ def _verify_enum_allocations(protobuf_enums: list[Any], errors: list[str]) -> No
             errors.append("registry lock protobuf enum allocation requires name, numbers, and content_hash")
             continue
         names.append(name)
+        if name not in enum_declarations:
+            errors.append(f"protobuf enum allocation {name} has no matching enum declaration")
         canonical = {
             "name": name,
             "unspecified": unspecified,
