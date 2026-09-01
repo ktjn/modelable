@@ -12,6 +12,7 @@ import modelable.registry.snapshot as snapshot_module
 from modelable.cli import cli
 from modelable.compat.checker import analyze_impact, check_model_version_compatibility
 from modelable.compiler.workspace import load_workspace
+from modelable.consequence_protocol import validate_consequence_graph
 from modelable.extensions import PROTOCOL, ExtensionDescriptor, pin_extension_descriptor
 from modelable.registry.enum_numbers import allocate_enum_numbers
 from modelable.registry.enum_numbers import write_lock_file as write_enum_numbers_lock_file
@@ -1099,6 +1100,8 @@ domain customer {
         "reason": "compiled usage manifest",
         "causal_path": ["customer.Customer@1", "customer.Customer@2", "application:workspace"],
     } in snapshot_diff.usage["consequences"]
+    graph = validate_consequence_graph(snapshot_diff.usage["consequence_graph"])
+    assert any(node["kind"] == "action" and node["subject"] == "application:workspace" for node in graph["nodes"])
 
 
 @pytest.mark.parametrize("field", ["kind", "version", "dependencies", "provenance"])
