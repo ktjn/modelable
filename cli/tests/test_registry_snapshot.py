@@ -2835,3 +2835,54 @@ def test_update_preserves_extension_pins(tmp_path: Path) -> None:
 
     lock = json.loads((output_dir / "registry.lock").read_text(encoding="utf-8"))
     assert lock["extensions"] == [pin.as_dict()]
+
+
+def test_registry_diff_reports_fhir_target_compatibility_for_changed_artifact(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    output_dir = tmp_path / ".modelable"
+    old_content = json.dumps(
+        {
+            "resourceType": "StructureDefinition",
+            "snapshot": {"element": [{"path": "Patient.name", "min": 0, "max": "1"}]},
+        }
+    )
+    new_content = json.dumps(
+        {
+            "resourceType": "StructureDefinition",
+            "snapshot": {"element": [{"path": "Patient.name", "min": 1, "max": "1"}]},
+        }
+    )
+    old_manifest = {
+        "target": {"name": "fhir-profile"},
+        "artifacts": [
+            {
+                "path": "customer.fhir.json",
+                "sha256": "a" * 64,
+                "ref": "customer.Customer@1",
+                "content": old_content,
+            }
+        ],
+    }
+    new_manifest = {
+        "target": {"name": "fhir-profile"},
+        "artifacts": [
+            {
+                "path": "customer.fhir.json",
+                "sha256": "b" * 64,
+                "ref": "customer.Customer@1",
+                "content": new_content,
+            }
+        ],
+    }
+
+    resolve_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(old_manifest,))
+    diff = diff_workspace_snapshot(load_workspace(source), output_dir, artifact_manifests=(new_manifest,))
+
+    assert any(
+        consequence["subject"] == "fhir-profile:customer.Customer@1:element_min_increased"
+        and consequence["action"] == "breaking"
+        and consequence["status"] == "breaking"
+        for consequence in diff.usage["consequences"]
+    )
+    assert validate_consequence_graph(diff.usage["consequence_graph"]) == diff.usage["consequence_graph"]
