@@ -23,6 +23,7 @@ from modelable.compat.targets import (
     compare_data_backfill,
     compare_fhir_artifacts,
     compare_governance_review,
+    compare_grpc_artifacts,
     compare_json_schema_artifacts,
     compare_model_storage_migration,
     compare_odcs_artifacts,
@@ -1479,6 +1480,8 @@ def _artifact_target_consequences(current: Any, candidate: Any) -> list[Conseque
             report = compare_odcs_artifacts([old], [new])
         elif old.target == "protobuf":
             report = compare_protobuf_manifests([old], [new])
+        elif old.target == "grpc":
+            report = compare_grpc_artifacts([old], [new])
         else:
             continue
         artifact_ref = f"generated_artifact:{old.target}/{old.path.as_posix()}"
