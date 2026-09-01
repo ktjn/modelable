@@ -982,7 +982,7 @@ class MdlTransformer(Transformer[list[object], Any]):
     def version_min(self, items: list[object]) -> VersionMin:
         return VersionMin(min_inclusive=int(cast(int | str, items[0])))
 
-    def qualified_field(self, items):
+    def qualified_field(self, items: list[object]) -> str:
         return f"{items[0]}.{items[1]}"
 
     def direct_field(self, items):
@@ -1004,7 +1004,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             annotations=annotations,
         )
 
-    def proj_field(self, items):
+    def proj_field(self, items: list[object]) -> object:
         return items[0]
 
     def auto_projections_decl(self, items):
