@@ -406,6 +406,37 @@ domain orders {
     assert any("protobuf enum allocation orders.OrderStatus content hash" in error for error in errors)
 
 
+def test_verify_rejects_protobuf_allocation_for_unlocked_enum(tmp_path: Path) -> None:
+    source = tmp_path / "workspace.mdl"
+    source.write_text(
+        """
+domain orders {
+  owner: "orders-platform"
+  semantic OrderStatus @ 1 (additive): enum(pending, active)
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    workspace = load_workspace(source)
+    enum_numbers_path = tmp_path / "enum-numbers.lock"
+    write_enum_numbers_lock_file(enum_numbers_path, allocate_enum_numbers(workspace.mdl, {}))
+    result = resolve_workspace_snapshot(workspace, tmp_path / ".modelable", enum_numbers_path=enum_numbers_path)
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    forged = {
+        "name": "orders.NotDeclared",
+        "unspecified": 0,
+        "members": [{"name": "unknown", "number": 1}],
+        "reservations": [],
+    }
+    forged["content_hash"] = snapshot_module._content_hash(forged)
+    lock["allocations"]["protobuf_enums"].append(forged)
+    result.lock_path.write_text(json.dumps(lock), encoding="utf-8")
+
+    errors = verify_snapshot(result.lock_path.parent)
+
+    assert any("has no matching enum declaration" in error for error in errors)
+
+
 def test_resolve_captures_registry_ids_in_lock(tmp_path: Path) -> None:
     source = tmp_path / "workspace.mdl"
     source.write_text(

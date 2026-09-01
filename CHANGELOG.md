@@ -17,6 +17,7 @@ releases could contain breaking changes when called out explicitly.
   and registry lock verification.
 - Bind registry lock object metadata to its content-addressed object payload.
 - Reject registry ID allocations that do not bind to a locked registry semantic type.
+- Reject Protobuf enum allocations that do not bind to a locked enum semantic type.
 
 ## [1.13.1] - 2026-09-01
 
