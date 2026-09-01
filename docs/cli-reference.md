@@ -111,6 +111,10 @@ declarations remain authoritative. A `[registry] blocked_actions = [...]`
 setting can block matching required consequences during a real registry update;
 supported action names are the canonical consequence actions. Use
 `config explain` to inspect the setting and its provenance.
+External policy rules can be configured under `[registry.policy]`. Set
+`pii_changes = "warning"` to report PII changes without blocking, or
+`pii_changes = "error"` to retain the candidate and block the update with a
+structured governance finding. The default is `"off"`.
 
 ### 5.0.2 `doctor` — Check local toolchain health
 
@@ -130,8 +134,9 @@ modelable doctor .
 modelable doctor . --format json
 ```
 
-The `capabilities` command reports deterministic consequence-graph analysis as
-implemented while keeping cross-application consequence aggregation deferred.
+The `capabilities` command reports deterministic consequence-graph analysis and
+cross-application consequence aggregation as implemented. Registry updates
+support configured action blocks and the external PII policy evaluator.
 
 ### 5.1 `validate` — Validate definition files
 
@@ -1769,6 +1774,8 @@ validation and target generation.
 
 - `registry resolve` writes `.modelable/registry.lock` and deterministic,
   content-addressed contract objects under `.modelable/registry/objects/`.
+  New lock documents declare the `modelable.lock/v1` protocol; readers retain
+  compatibility with the legacy `modelable.registry.lock.v1` identifier.
   The current `SOURCE` implementation is the explicit offline local source
   adapter. When a source declares an imported registry domain, the adapter
   loads only the matching local `mirror/<registry>/` tree and records the
@@ -1817,11 +1824,14 @@ validation and target generation.
   `dependencies` and `usage` sections, classifying exact requirement and usage
   evidence additions, removals, and changes. The `usage.consequences` entries
   use the same action, status, reason, and causal-path shape as `impact` output.
-  The JSON payload includes a `policy` object with configured blocked actions
-  and any violations. Policy applies to every non-compatible consequence,
+  The JSON payload includes a `policy` object with configured blocked actions,
+  any violating action names, and structured `findings` containing each
+  finding's action, status, reason, and causal path. Policy applies to every
+  non-compatible consequence,
   including breaking, migration-required, and review-required findings. A
-  blocked real update retains its validated candidate
-  under `registry/candidates/<lock-hash>/` for review. If an update is interrupted or
+  blocked real update exits nonzero, retains its validated candidate under
+  `registry/candidates/<lock-hash>/` for review, and includes that retained
+  candidate path in JSON output. If an update is interrupted or
   lock replacement fails, newly copied objects and temporary lock files are
   removed.
 - `registry verify` checks lock/object presence, hashes, signatures, and
@@ -1853,18 +1863,21 @@ validation and target generation.
 The lock and object files are the durable snapshot; `registry.db` remains a
 rebuildable compiler index. Lock requirements retain the requested version
 selector, exact resolved identity, source provenance, signature, and object
-hash used offline. Verification also checks that this list is complete and
-matches every dependency edge in the locked objects.
+hash used offline, including direct and transitive dependencies. Verification
+also checks that this list is complete and matches every dependency edge in the
+locked objects.
 Verification also rejects conflicting content hashes for one logical identity.
 Semantic and enum-projection objects retain source paths and hashes when
 resolved from a local file. Snapshot objects also retain the domain metadata
 and declarations required to generate equivalent target artifacts offline.
 
-Network-backed source adapters remain deferred. Cross-application usage
+Network-backed source adapters remain deferred; local mirrored sources resolve
+and pin their transitive dependency closure. Cross-application usage
 aggregation is available through repeatable `registry usage --usage-manifest`
-inputs. Registry updates now
-apply configured policies to known surface consequences; full policy coverage
-is still planned. The similarly named
+inputs. Registry updates now apply configured action blocks and external PII
+policy checks to known surface consequences. Additional organization-specific
+policy rules can be added at this evaluator boundary without changing `.mdl`
+grammar or semantic IR. The similarly named
 federated `init`, `peer`, `graph`, and `sync` commands are not part of the
 current CLI and must not be treated as available interfaces.
 

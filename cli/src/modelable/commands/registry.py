@@ -10,8 +10,9 @@ from modelable.commands.common import console, load_workspace_or_exit
 from modelable.config import load_config
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.snapshot import (
+    ConfiguredRegistryPolicy,
+    RegistryPolicyError,
     diff_workspace_snapshot,
-    evaluate_registry_policy,
     preview_workspace_snapshot,
     prune_snapshot,
     resolve_workspace_snapshot,
@@ -154,7 +155,12 @@ def update(
     workspace = load_workspace_or_exit(source, source_adapter=LocalSourceAdapter())
     try:
         artifact_manifests = _read_artifact_manifests(artifact_manifest_paths)
-        blocked_actions = load_config(source).blocked_registry_actions()
+        config = load_config(source)
+        blocked_actions = config.blocked_registry_actions()
+        policy_evaluator = ConfiguredRegistryPolicy(
+            blocked_actions=blocked_actions,
+            pii_change_severity=config.registry_policy_severities()["pii_changes"],
+        )
         if dry_run:
             snapshot_diff, object_count = preview_workspace_snapshot(
                 workspace, output_dir, artifact_manifests=artifact_manifests
@@ -164,19 +170,41 @@ def update(
                 workspace,
                 output_dir,
                 blocked_actions=blocked_actions,
+                policy_evaluator=policy_evaluator,
                 artifact_manifests=artifact_manifests,
             )
             object_count = result.object_count
+    except RegistryPolicyError as exc:
+        if output_format == "json":
+            evaluation = exc.evaluation
+            payload = {
+                "dry_run": False,
+                "lock": str(output_dir / "registry.lock"),
+                "objects": exc.object_count,
+                "candidate": {"retained": str(exc.retained_candidate)},
+                "policy": {
+                    "blocked_actions": list(blocked_actions),
+                    "violations": list(evaluation.blocked_actions),
+                    "findings": [finding.as_dict() for finding in evaluation.findings],
+                },
+                **exc.snapshot_diff.as_dict(),
+            }
+            click.echo(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            console.print(f"[red]ERROR[/red] {exc}")
+        sys.exit(1)
     except ValueError as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
+    policy_evaluation = policy_evaluator.evaluate(snapshot_diff)
     payload = {
         "dry_run": dry_run,
         "lock": str(output_dir / "registry.lock"),
         "objects": object_count,
         "policy": {
             "blocked_actions": list(blocked_actions),
-            "violations": evaluate_registry_policy(snapshot_diff, blocked_actions),
+            "violations": list(policy_evaluation.blocked_actions),
+            "findings": [finding.as_dict() for finding in policy_evaluation.findings],
         },
         **snapshot_diff.as_dict(),
     }

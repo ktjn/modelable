@@ -11,6 +11,32 @@ releases could contain breaking changes when called out explicitly.
 - Browser/playground plan responses now use the stable `modelable.plan/v1`
   protocol, including browser target admission and TypeScript validation.
 
+- Registry updates can apply an externally configured PII-change policy with
+  warning or error severity, emitting structured governance findings and
+  retaining blocked candidates.
+
+- `registry update --format json` now includes structured policy findings with
+  status, reason, and causal path alongside violating action names.
+
+- The capability manifest now reports the policy-evaluator boundary as implemented,
+  including structured findings and host-specific update blocking.
+
+- Registry policy evaluators can now return structured findings with causal
+  paths alongside blocking actions.
+
+- Registry snapshot updates now expose a policy-evaluator boundary over staged
+  semantic, usage, and consequence facts while preserving blocked-action
+  configuration behavior.
+
+- Capability reporting now recognizes direct and transitive dependency closure
+  from local mirrored registry sources.
+
+- Capability reporting now recognizes cross-application consequence analysis
+  from repeatable compiled usage manifests.
+
+- Registry snapshots now declare the formal `modelable.lock/v1` protocol while
+  retaining `.modelable/registry.lock` as the on-disk path.
+
 - Markdown projection emission now consumes validated `modelable.plan/v1` documents.
 
 - ODCS projection emission now consumes validated `modelable.plan/v1` documents.

@@ -431,7 +431,7 @@ domain customer {
     assert any("billing.BillingCustomer@1" in item["causal_path"] for item in payload["consequences"])
 
 
-def test_impact_includes_known_consumers_from_usage_manifest(tmp_path: Path) -> None:
+def test_impact_includes_known_consumers_from_multiple_usage_manifests(tmp_path: Path) -> None:
     source = tmp_path / "candidate.mdl"
     source.write_text(
         """
@@ -479,6 +479,14 @@ domain customer {
         ),
         encoding="utf-8",
     )
+    second_manifest = json.loads(manifest.read_text(encoding="utf-8"))
+    second_manifest["application"] = "orders-service"
+    second_manifest["application_id"] = "application:orders-service"
+    second_manifest["packages"] = []
+    second_manifest["references"][0].pop("package_id")
+    second_manifest.pop("artifacts")
+    second_manifest_path = tmp_path / "orders-usage.json"
+    second_manifest_path.write_text(json.dumps(second_manifest), encoding="utf-8")
 
     result = CliRunner().invoke(
         cli,
@@ -492,6 +500,8 @@ domain customer {
             str(source),
             "--usage-manifest",
             str(manifest),
+            "--usage-manifest",
+            str(second_manifest_path),
             "--format",
             "json",
         ],
@@ -505,6 +515,13 @@ domain customer {
         "status": "breaking",
         "reason": "compiled usage manifest",
         "causal_path": ["customer.Customer@1", "customer.Customer@2", "package:billing-service/api"],
+    } in payload["consequences"]
+    assert {
+        "action": "consumer_update",
+        "subject": "application:orders-service",
+        "status": "breaking",
+        "reason": "compiled usage manifest",
+        "causal_path": ["customer.Customer@1", "customer.Customer@2", "application:orders-service"],
     } in payload["consequences"]
     assert {
         "action": "regenerate",

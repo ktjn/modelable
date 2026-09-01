@@ -20,6 +20,11 @@ from modelable.registry.ids import write_lock_file as write_registry_ids_lock_fi
 from modelable.registry.index import build_registry_from_snapshot
 from modelable.registry.resolver import find_dependents
 from modelable.registry.snapshot import (
+    BlockedActionPolicy,
+    ConfiguredRegistryPolicy,
+    PolicyEvaluation,
+    PolicyFinding,
+    SnapshotDiff,
     _build_requirements,
     diff_workspace_snapshot,
     evaluate_registry_policy,
@@ -180,6 +185,35 @@ def test_resolve_writes_deterministic_lock_and_objects(tmp_path: Path) -> None:
     assert verify_snapshot(tmp_path / ".modelable") == []
     lock = json.loads(first.lock_path.read_text(encoding="utf-8"))
     assert [entry["identity"] for entry in lock["objects"]] == ["customer.Customer@1", "customer.Customer@2"]
+
+
+def test_resolve_uses_formal_modelable_lock_protocol(tmp_path: Path) -> None:
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
+
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+
+    assert lock["format"] == "modelable.lock/v1"
+
+
+def test_verify_accepts_legacy_registry_lock_protocol(tmp_path: Path) -> None:
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    lock["format"] = "modelable.registry.lock.v1"
+    result.lock_path.write_text(json.dumps(lock, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+    assert verify_snapshot(tmp_path / ".modelable") == []
+
+
+def test_load_snapshot_accepts_legacy_registry_lock_protocol(tmp_path: Path) -> None:
+    output_dir = tmp_path / ".modelable"
+    result = resolve_workspace_snapshot(load_workspace(FIXTURE), output_dir)
+    lock = json.loads(result.lock_path.read_text(encoding="utf-8"))
+    lock["format"] = "modelable.registry.lock.v1"
+    result.lock_path.write_text(json.dumps(lock, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+    loaded = load_snapshot_workspace(output_dir)
+
+    assert loaded.errors == []
 
 
 def test_resolve_persists_deterministic_usage_evidence(tmp_path: Path) -> None:
@@ -985,7 +1019,7 @@ def test_verify_rejects_duplicate_lock_keys(tmp_path: Path) -> None:
     result = resolve_workspace_snapshot(load_workspace(FIXTURE), tmp_path / ".modelable")
     lock_path = result.lock_path
     text = lock_path.read_text(encoding="utf-8").rstrip()
-    lock_path.write_text(text[:-1] + ', "format": "modelable.registry.lock.v1"}\n', encoding="utf-8")
+    lock_path.write_text(text[:-1] + ', "format": "modelable.lock/v1"}\n', encoding="utf-8")
 
     errors = verify_snapshot(lock_path.parent)
 
@@ -996,7 +1030,7 @@ def test_verify_rejects_non_finite_lock_values(tmp_path: Path) -> None:
     output_dir = tmp_path / ".modelable"
     (output_dir / "registry" / "objects").mkdir(parents=True)
     (output_dir / "registry.lock").write_text(
-        '{"format":"modelable.registry.lock.v1","objects":[],"requirements":[NaN]}\n', encoding="utf-8"
+        '{"format":"modelable.lock/v1","objects":[],"requirements":[NaN]}\n', encoding="utf-8"
     )
 
     errors = verify_snapshot(output_dir)
@@ -1158,7 +1192,29 @@ def test_registry_update_uses_explicit_local_source_adapter(tmp_path: Path, monk
 
 def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_path: Path) -> None:
     output_dir = tmp_path / ".modelable"
-    resolve_workspace_snapshot(load_workspace(FIXTURE), output_dir)
+    old_manifest = tmp_path / "old-artifact-manifest.json"
+    old_manifest.write_text(
+        json.dumps(
+            {
+                "target": {"name": "python"},
+                "artifacts": [{"path": "customer.py", "ref": "customer.Customer@1", "sha256": "a" * 64}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    new_manifest = tmp_path / "new-artifact-manifest.json"
+    new_manifest.write_text(
+        json.dumps(
+            {
+                "target": {"name": "python"},
+                "artifacts": [{"path": "customer.py", "ref": "customer.Customer@1", "sha256": "b" * 64}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    resolve_workspace_snapshot(
+        load_workspace(FIXTURE), output_dir, artifact_manifests=(json.loads(old_manifest.read_text(encoding="utf-8")),)
+    )
     source = tmp_path / "customer.mdl"
     source.write_text(
         FIXTURE.read_text(encoding="utf-8").rsplit("}", 1)[0]
@@ -1180,10 +1236,22 @@ def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_pa
     original_lock = (output_dir / "registry.lock").read_bytes()
     objects_dir = output_dir / "registry" / "objects"
     original_objects = {path.name: path.read_bytes() for path in objects_dir.glob("*.json")}
+    (tmp_path / "modelable.toml").write_text('[registry]\nblocked_actions = ["regenerate"]\n', encoding="utf-8")
 
     result = CliRunner().invoke(
         cli,
-        ["registry", "update", str(source), "--out", str(output_dir), "--format", "json", "--dry-run"],
+        [
+            "registry",
+            "update",
+            str(source),
+            "--out",
+            str(output_dir),
+            "--format",
+            "json",
+            "--dry-run",
+            "--artifact-manifest",
+            str(new_manifest),
+        ],
     )
 
     assert result.exit_code == 0, result.output
@@ -1196,11 +1264,30 @@ def test_registry_update_dry_run_reports_candidate_without_replacing_lock(tmp_pa
     assert payload["objects"] == 3
     assert payload["removed"] == []
     assert payload["dependencies"] == {"added": [], "changed": [], "removed": []}
-    assert payload["policy"] == {"blocked_actions": [], "violations": []}
+    assert payload["policy"]["blocked_actions"] == ["regenerate"]
+    assert payload["policy"]["violations"] == ["regenerate"]
+    assert payload["policy"]["findings"]
+    assert all("causal_path" in finding for finding in payload["policy"]["findings"])
     assert [item["ref"] for item in payload["usage"]["references"]["added"]] == ["customer.Customer@3"]
     assert payload["usage"]["references"]["removed"] == []
     assert payload["usage"]["references"]["changed"] == []
-    assert payload["usage"]["artifacts"] == {"added": [], "changed": [], "removed": []}
+    assert payload["usage"]["artifacts"]["changed"] == [
+        {
+            "candidate": {
+                "path": "customer.py",
+                "ref": "customer.Customer@1",
+                "sha256": "b" * 64,
+                "target": "python",
+            },
+            "current": {
+                "path": "customer.py",
+                "ref": "customer.Customer@1",
+                "sha256": "a" * 64,
+                "target": "python",
+            },
+            "key": ["python", "customer.py"],
+        }
+    ]
     assert (output_dir / "registry.lock").read_bytes() == original_lock
     assert {path.name: path.read_bytes() for path in objects_dir.glob("*.json")} == original_objects
 
@@ -1444,6 +1531,220 @@ domain customer {
         "subject": "customer.Customer@1",
     } in snapshot_diff.usage["consequences"]
     assert evaluate_registry_policy(snapshot_diff, ("recompile",)) == ["recompile"]
+
+
+def test_update_accepts_a_policy_evaluator_over_snapshot_diff(tmp_path: Path) -> None:
+    observed: list[SnapshotDiff] = []
+
+    class Policy:
+        def evaluate(self, snapshot_diff: SnapshotDiff) -> PolicyEvaluation:
+            observed.append(snapshot_diff)
+            return PolicyEvaluation(blocked_actions=("custom_policy",))
+
+    with pytest.raises(ValueError, match="custom_policy"):
+        update_workspace_snapshot(
+            load_workspace(FIXTURE),
+            tmp_path / ".modelable",
+            policy_evaluator=Policy(),
+        )
+
+    assert len(observed) == 1
+    assert observed[0].added
+
+
+def test_blocked_action_policy_returns_structured_findings() -> None:
+    snapshot_diff = SnapshotDiff(
+        added=(),
+        removed=(),
+        changed=(),
+        usage={
+            "consequences": [
+                {
+                    "action": "regenerate",
+                    "status": "required",
+                    "reason": "generated artifact changed",
+                    "causal_path": ["customer.Customer@1", "artifact:typescript/customer.ts"],
+                }
+            ]
+        },
+    )
+
+    evaluation = BlockedActionPolicy(("regenerate",)).evaluate(snapshot_diff)
+
+    assert evaluation.blocked_actions == ("regenerate",)
+    assert evaluation.findings == (
+        PolicyFinding(
+            action="regenerate",
+            status="required",
+            reason="generated artifact changed",
+            causal_path=("customer.Customer@1", "artifact:typescript/customer.ts"),
+        ),
+    )
+    assert evaluation.as_dict()["findings"][0]["causal_path"] == [
+        "customer.Customer@1",
+        "artifact:typescript/customer.ts",
+    ]
+
+
+def test_configured_policy_reports_warning_for_pii_change_without_blocking() -> None:
+    snapshot_diff = SnapshotDiff(
+        added=(),
+        removed=(),
+        changed=(),
+        usage={
+            "consequences": [
+                {
+                    "action": "governance_review",
+                    "status": "review_required",
+                    "reason": "organization policy context",
+                    "causal_path": ["customer.CustomerView@1", "customer.CustomerView@2"],
+                }
+            ],
+            "policy_facts": [
+                {
+                    "kind": "pii_change",
+                    "action": "governance_review",
+                    "status": "review_required",
+                    "reason": "field 'email' @pii changed: false -> true",
+                    "causal_path": ["customer.CustomerView@1", "customer.CustomerView@2"],
+                }
+            ],
+        },
+    )
+
+    evaluation = ConfiguredRegistryPolicy(pii_change_severity="warning").evaluate(snapshot_diff)
+
+    assert evaluation.blocked_actions == ()
+    assert evaluation.findings[0].severity == "warning"
+    assert evaluation.findings[0].action == "governance_review"
+
+
+def test_configured_policy_blocks_error_severity_for_pii_change() -> None:
+    snapshot_diff = SnapshotDiff(
+        added=(),
+        removed=(),
+        changed=(),
+        usage={
+            "consequences": [
+                {
+                    "action": "governance_review",
+                    "status": "review_required",
+                    "reason": "organization policy context",
+                    "causal_path": ["customer.CustomerView@1", "customer.CustomerView@2"],
+                }
+            ],
+            "policy_facts": [
+                {
+                    "kind": "pii_change",
+                    "action": "governance_review",
+                    "status": "review_required",
+                    "reason": "field 'email' @pii changed: false -> true",
+                    "causal_path": ["customer.CustomerView@1", "customer.CustomerView@2"],
+                }
+            ],
+        },
+    )
+
+    evaluation = ConfiguredRegistryPolicy(pii_change_severity="error").evaluate(snapshot_diff)
+
+    assert evaluation.blocked_actions == ("governance_review",)
+    assert evaluation.findings[0].severity == "error"
+    assert evaluation.as_dict()["findings"][0]["severity"] == "error"
+
+
+def test_configured_policy_does_not_infer_pii_from_reason_text() -> None:
+    snapshot_diff = SnapshotDiff(
+        added=(),
+        removed=(),
+        changed=(),
+        usage={
+            "consequences": [
+                {
+                    "action": "governance_review",
+                    "status": "review_required",
+                    "reason": "untrusted text @pii changed: false -> true",
+                    "causal_path": ["customer.CustomerView@1", "customer.CustomerView@2"],
+                }
+            ]
+        },
+    )
+
+    evaluation = ConfiguredRegistryPolicy(pii_change_severity="error").evaluate(snapshot_diff)
+
+    assert evaluation.blocked_actions == ()
+    assert evaluation.findings == ()
+
+
+def test_configured_policy_allows_unrelated_update_at_error_severity() -> None:
+    evaluation = ConfiguredRegistryPolicy(pii_change_severity="error").evaluate(
+        SnapshotDiff(added=("customer.Customer@2 (model)",), removed=(), changed=(), usage={})
+    )
+
+    assert evaluation.blocked_actions == ()
+
+
+def test_configured_policy_keeps_unrelated_blocked_action_separate_from_pii_rule() -> None:
+    evaluation = ConfiguredRegistryPolicy(blocked_actions=("regenerate",), pii_change_severity="error").evaluate(
+        SnapshotDiff(
+            added=(),
+            removed=(),
+            changed=(),
+            usage={
+                "consequences": [
+                    {
+                        "action": "regenerate",
+                        "status": "required",
+                        "reason": "generated artifact changed",
+                        "causal_path": ["customer.Customer@1", "artifact:python/customer.py"],
+                    }
+                ]
+            },
+        )
+    )
+
+    assert evaluation.blocked_actions == ("regenerate",)
+
+
+def test_registry_update_json_applies_configured_pii_policy(tmp_path: Path) -> None:
+    source = tmp_path / "models.mdl"
+    source.write_text(
+        """
+domain customer {
+  owner: "customer-team"
+  entity Customer @ 1 (additive) {
+    @key
+    id: uuid
+    email: string
+  }
+  projection CustomerView @ 1 from customer.Customer @ 1 as c {
+    email <- c.email
+  }
+  projection CustomerView @ 2 from customer.Customer @ 1 as c {
+    email <- c.email
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / ".modelable"
+    resolve_workspace_snapshot(load_workspace(source), output_dir)
+    source.write_text(
+        source.read_text(encoding="utf-8").replace(
+            "  projection CustomerView @ 1 from customer.Customer @ 1 as c {\n    email <- c.email\n  }",
+            "  projection CustomerView @ 1 from customer.Customer @ 1 as c {\n    email <- c.email\n  }\n  projection CustomerView @ 3 from customer.Customer @ 1 as c {\n    @pii\n    email <- c.email\n  }",
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "modelable.toml").write_text('[registry.policy]\npii_changes = "error"\n', encoding="utf-8")
+
+    result = CliRunner().invoke(cli, ["registry", "update", str(source), "--out", str(output_dir), "--format", "json"])
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert payload["policy"]["violations"] == ["governance_review"]
+    assert payload["policy"]["findings"], payload
+    assert payload["policy"]["findings"][0]["severity"] == "error"
+    assert payload["candidate"]["retained"]
 
 
 def test_registry_diff_reports_breaking_consequence_for_added_incompatible_model(tmp_path: Path) -> None:
@@ -2079,10 +2380,16 @@ binding customerStore {
         source.read_text(encoding="utf-8").replace('table: "customers"', 'table: "customer_records"'), encoding="utf-8"
     )
 
-    result = CliRunner().invoke(cli, ["registry", "update", str(source), "--out", str(output_dir)])
+    result = CliRunner().invoke(cli, ["registry", "update", str(source), "--out", str(output_dir), "--format", "json"])
 
     assert result.exit_code == 1
-    assert "blocked by registry policy" in result.output
+    payload = json.loads(result.output)
+    assert payload["dry_run"] is False
+    assert payload["candidate"]["retained"]
+    assert payload["policy"]["blocked_actions"] == ["storage_migration"]
+    assert payload["policy"]["violations"] == ["storage_migration"]
+    assert payload["policy"]["findings"]
+    assert payload["policy"]["findings"][0]["causal_path"]
 
     assert (output_dir / "registry.lock").read_bytes() == original_lock
     candidates = list((output_dir / "registry" / "candidates").iterdir())

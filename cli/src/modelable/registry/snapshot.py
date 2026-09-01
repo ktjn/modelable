@@ -9,7 +9,7 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from modelable.compat.checker import (
     CompatibilityReport,
@@ -81,7 +81,9 @@ from modelable.registry.signature import (
 from modelable.registry.usage import USAGE_SCHEMA, build_usage_manifest
 from modelable.registry.usage_protocol import UsageProtocolError, serialize_usage_manifest, validate_usage_manifest
 
-LOCK_FORMAT = "modelable.registry.lock.v1"
+LOCK_FORMAT = "modelable.lock/v1"
+LEGACY_LOCK_FORMAT = "modelable.registry.lock.v1"
+SUPPORTED_LOCK_FORMATS = frozenset({LOCK_FORMAT, LEGACY_LOCK_FORMAT})
 OBJECT_FORMAT = "modelable.registry.object.v1"
 
 
@@ -143,6 +145,116 @@ class SnapshotDiff:
             "usage": self.usage,
             "empty": self.empty,
         }
+
+
+class RegistryPolicyEvaluator(Protocol):
+    """Evaluate a staged snapshot's semantic, usage, and consequence facts."""
+
+    def evaluate(self, snapshot_diff: SnapshotDiff) -> PolicyEvaluation:
+        """Return policy findings and action names that should block installation."""
+        ...
+
+
+@dataclass(frozen=True)
+class PolicyFinding:
+    """A policy diagnostic tied to a consequence and its causal path."""
+
+    action: str
+    status: str
+    reason: str | None = None
+    causal_path: tuple[str, ...] = ()
+    severity: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "action": self.action,
+            "status": self.status,
+            "severity": self.severity,
+            "reason": self.reason,
+            "causal_path": list(self.causal_path),
+        }
+
+
+@dataclass(frozen=True)
+class PolicyEvaluation:
+    """Structured policy output for a staged snapshot."""
+
+    blocked_actions: tuple[str, ...] = ()
+    findings: tuple[PolicyFinding, ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "blocked_actions": list(self.blocked_actions),
+            "findings": [finding.as_dict() for finding in self.findings],
+        }
+
+
+class RegistryPolicyError(ValueError):
+    """A staged registry update was blocked after its candidate was retained."""
+
+    def __init__(
+        self,
+        snapshot_diff: SnapshotDiff,
+        evaluation: PolicyEvaluation,
+        retained_candidate: Path,
+        object_count: int,
+    ) -> None:
+        self.snapshot_diff = snapshot_diff
+        self.evaluation = evaluation
+        self.retained_candidate = retained_candidate
+        self.object_count = object_count
+        blocked = ", ".join(evaluation.blocked_actions)
+        super().__init__(
+            "registry update blocked by registry policy for action(s): "
+            + blocked
+            + f"; candidate retained at {retained_candidate}"
+        )
+
+
+@dataclass(frozen=True)
+class BlockedActionPolicy:
+    """Built-in policy that blocks configured consequence actions."""
+
+    blocked_actions: tuple[str, ...] = ()
+
+    def evaluate(self, snapshot_diff: SnapshotDiff) -> PolicyEvaluation:
+        return _blocked_registry_policy(snapshot_diff, self.blocked_actions)
+
+
+@dataclass(frozen=True)
+class ConfiguredRegistryPolicy:
+    """Apply built-in action blocks and configured external policy rules."""
+
+    blocked_actions: tuple[str, ...] = ()
+    pii_change_severity: str = "off"
+
+    def evaluate(self, snapshot_diff: SnapshotDiff) -> PolicyEvaluation:
+        base = BlockedActionPolicy(self.blocked_actions).evaluate(snapshot_diff)
+        findings = list(base.findings)
+        pii_findings: list[PolicyFinding] = []
+        pii_facts = snapshot_diff.usage.get("policy_facts", [])
+        if self.pii_change_severity != "off" and isinstance(pii_facts, list):
+            for fact in pii_facts:
+                if not isinstance(fact, dict) or fact.get("kind") != "pii_change":
+                    continue
+                reason = fact.get("reason")
+                if not isinstance(reason, str):
+                    continue
+                pii_findings.append(
+                    PolicyFinding(
+                        action="governance_review",
+                        status=str(fact.get("status")),
+                        severity=self.pii_change_severity,
+                        reason=reason,
+                        causal_path=tuple(item for item in fact.get("causal_path", []) if isinstance(item, str)),
+                    )
+                )
+        findings.extend(pii_findings)
+        blocked = set(base.blocked_actions)
+        if self.pii_change_severity == "error" and pii_findings:
+            blocked.add("governance_review")
+        findings.sort(key=lambda finding: (finding.action, finding.status, finding.reason or "", finding.causal_path))
+        return PolicyEvaluation(blocked_actions=tuple(sorted(blocked)), findings=tuple(findings))
 
 
 def resolve_workspace_snapshot(
@@ -275,7 +387,7 @@ def verify_snapshot(output_dir: str | Path = ".modelable") -> list[str]:
     if not isinstance(lock, dict):
         return ["registry lock payload must be a JSON object"]
     serialization_error = lock_text != _serialize_json_document(lock)
-    if lock.get("format") != LOCK_FORMAT:
+    if lock.get("format") not in SUPPORTED_LOCK_FORMATS:
         return [f"unsupported registry lock format: {lock.get('format')!r}"]
 
     errors: list[str] = []
@@ -852,6 +964,7 @@ def update_workspace_snapshot(
     output_dir: str | Path = ".modelable",
     *,
     blocked_actions: tuple[str, ...] = (),
+    policy_evaluator: RegistryPolicyEvaluator | None = None,
     artifact_manifests: Sequence[Mapping[str, Any]] = (),
 ) -> tuple[SnapshotResult, SnapshotDiff]:
     """Stage and atomically install a validated local snapshot candidate."""
@@ -870,14 +983,12 @@ def update_workspace_snapshot(
             raise ValueError("Candidate snapshot is invalid:\n" + "\n".join(candidate_errors))
         _reject_mutable_identity_replacements(paths.root, _load_lock_entries(SnapshotPaths(candidate_dir).lock))
         snapshot_diff = diff_snapshot_paths(paths.root, candidate_dir)
-        blocked = evaluate_registry_policy(snapshot_diff, blocked_actions)
+        evaluator = policy_evaluator or BlockedActionPolicy(blocked_actions)
+        evaluation = _normalize_policy_evaluation(evaluator.evaluate(snapshot_diff))
+        blocked = sorted(set(evaluation.blocked_actions))
         if blocked:
             retained = _retain_candidate(paths, candidate_dir)
-            raise ValueError(
-                "registry update blocked by registry policy for action(s): "
-                + ", ".join(blocked)
-                + f"; candidate retained at {retained}"
-            )
+            raise RegistryPolicyError(snapshot_diff, evaluation, retained, candidate.object_count)
 
         paths.root.mkdir(parents=True, exist_ok=True)
         paths.objects.mkdir(parents=True, exist_ok=True)
@@ -902,16 +1013,34 @@ def update_workspace_snapshot(
 
 def evaluate_registry_policy(snapshot_diff: SnapshotDiff, blocked_actions: tuple[str, ...]) -> list[str]:
     """Return configured actions that would block a staged snapshot update."""
+    return list(BlockedActionPolicy(blocked_actions).evaluate(snapshot_diff).blocked_actions)
+
+
+def _normalize_policy_evaluation(value: PolicyEvaluation | Sequence[str]) -> PolicyEvaluation:
+    if isinstance(value, PolicyEvaluation):
+        return value
+    return PolicyEvaluation(blocked_actions=tuple(sorted(set(value))))
+
+
+def _blocked_registry_policy(snapshot_diff: SnapshotDiff, blocked_actions: tuple[str, ...]) -> PolicyEvaluation:
     blocked = set(blocked_actions)
     consequences = snapshot_diff.usage.get("consequences", [])
-    return sorted(
-        {
-            str(consequence["action"])
-            for consequence in consequences
-            if isinstance(consequence, dict)
-            and consequence.get("status") != "compatible"
-            and consequence.get("action") in blocked
-        }
+    findings = [
+        PolicyFinding(
+            action=str(consequence["action"]),
+            status=str(consequence.get("status")),
+            reason=consequence.get("reason") if isinstance(consequence.get("reason"), str) else None,
+            causal_path=tuple(item for item in consequence.get("causal_path", []) if isinstance(item, str)),
+        )
+        for consequence in consequences
+        if isinstance(consequence, dict)
+        and consequence.get("status") != "compatible"
+        and consequence.get("action") in blocked
+    ]
+    findings.sort(key=lambda finding: (finding.action, finding.status, finding.reason or "", finding.causal_path))
+    return PolicyEvaluation(
+        blocked_actions=tuple(sorted({finding.action for finding in findings})),
+        findings=tuple(findings),
     )
 
 
@@ -970,6 +1099,9 @@ def diff_snapshot_paths(current_dir: Path, candidate_dir: Path) -> SnapshotDiff:
     compatibility_consequences = _compatibility_consequences(current_dir, candidate_dir, added)
     usage["consequences"].extend(consequence.as_dict() for consequence in compatibility_consequences)
     usage["required_actions"].extend(_required_surface_actions(compatibility_consequences))
+    policy_facts = _policy_facts(compatibility_consequences)
+    if policy_facts:
+        usage["policy_facts"] = policy_facts
     return SnapshotDiff(
         added=tuple(_display_key(key) for key in added),
         removed=tuple(_display_key(key) for key in removed),
@@ -1148,7 +1280,7 @@ def _load_lock_payload(lock_path: Path) -> dict[str, Any]:
         raise ValueError(f"cannot read registry lock {lock_path}: {exc}") from exc
     if (
         not isinstance(payload, dict)
-        or payload.get("format") != LOCK_FORMAT
+        or payload.get("format") not in SUPPORTED_LOCK_FORMATS
         or not isinstance(payload.get("objects"), list)
     ):
         raise ValueError(f"invalid registry lock {lock_path}")
@@ -1227,6 +1359,32 @@ def _contract_consequences(
             )
         )
     return consequences
+
+
+def _policy_facts(consequences: list[Consequence]) -> list[dict[str, Any]]:
+    """Project stable semantic change facts for external policy evaluators."""
+    facts = []
+    for consequence in consequences:
+        if not any(change.startswith("change:pii_changed:") for change in consequence.causal_changes):
+            continue
+        facts.append(
+            {
+                "kind": "pii_change",
+                "action": consequence.action,
+                "status": consequence.status,
+                "reason": consequence.reason,
+                "causal_path": list(consequence.causal_path),
+            }
+        )
+    return sorted(
+        facts,
+        key=lambda fact: (
+            str(fact["action"]),
+            str(fact["status"]),
+            str(fact["reason"]),
+            tuple(str(item) for item in fact["causal_path"]),
+        ),
+    )
 
 
 def _compatibility_consequences(
