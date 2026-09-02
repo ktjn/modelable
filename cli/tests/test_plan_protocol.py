@@ -1,4 +1,5 @@
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +18,7 @@ from modelable.planner.protocol import (
 
 FIXTURE = Path(__file__).parent / "fixtures" / "plan_v0" / "billing.BillingCustomer.v1.plan.json"
 V1_SCHEMA = Path(__file__).parents[1] / "src" / "modelable" / "schemas" / "plan-v1.schema.json"
+SOURCE_ROOT = Path(__file__).parents[1] / "src" / "modelable"
 
 
 def test_migrate_v0_plan_to_v1_records_source_schema() -> None:
@@ -97,3 +99,17 @@ load_plan(__import__("pathlib").Path(sys.argv[1]))
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_plan_consumers_do_not_import_parser_or_validation_modules() -> None:
+    consumers = [*sorted(SOURCE_ROOT.glob("emitters/*_plan.py")), SOURCE_ROOT / "conversion_plan.py"]
+    forbidden_import = re.compile(r"^(?:from|import) modelable\\.(?:parser|validation)(?:\\.|\\s|$)")
+
+    offenders = {
+        str(path.relative_to(SOURCE_ROOT)): [
+            line for line in path.read_text(encoding="utf-8").splitlines() if forbidden_import.match(line)
+        ]
+        for path in consumers
+    }
+
+    assert all(not lines for lines in offenders.values()), offenders
