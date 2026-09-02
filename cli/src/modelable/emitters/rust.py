@@ -8,7 +8,12 @@ from typing import cast
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
-from modelable.emitters.diagnostics import enum_member_collision, missing_metadata, type_loss
+from modelable.emitters.diagnostics import (
+    enum_member_collision,
+    missing_metadata,
+    storage_bound_field_case_default,
+    type_loss,
+)
 from modelable.emitters.naming import find_identifier_collisions
 from modelable.emitters.naming import pascalize_titlecase as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
@@ -1060,6 +1065,8 @@ def _emit_projection(
 
     field_specs: list[_FieldSpec] = []
     warnings: list[str] = []
+    storage_gated = sqlx_fromrow or clickhouse_row
+    default_cased_fields: list[str] = []
     for index, field in enumerate(version.fields):
         field_shape = field_shapes[field.name]
         if field_shape is None:
@@ -1093,8 +1100,12 @@ def _emit_projection(
             )
         optional = field_shape.optional or field_shape.nullable
         serde_attrs = _serde_attrs_for_field(wire, field_shape, clickhouse=clickhouse_row)
+        merged_json_wire = {**version.wire_targets(), **wire}
+        json_name_attrs = _serde_json_name_attrs(field.name, merged_json_wire)
+        if storage_gated and json_name_attrs and getattr(merged_json_wire.get("json"), "field_case", None) is None:
+            default_cased_fields.append(field.name)
         serde_attrs = [
-            *_serde_json_name_attrs(field.name, {**version.wire_targets(), **wire}),
+            *json_name_attrs,
             *serde_attrs,
         ]
         if field_shape.optional and not clickhouse_row:
@@ -1105,6 +1116,9 @@ def _emit_projection(
             _FieldSpec(index=index, name=field.name, annotation=annotation, optional=optional, serde_attrs=serde_attrs)
         )
 
+    if default_cased_fields:
+        warnings.append(storage_bound_field_case_default("rust", type_name, default_cased_fields))
+
     needs_serde_with = _any_needs_serde_with(field_specs)
     needs_uuid = _any_needs_uuid(field_specs)
     needs_serde_json = _any_needs_serde_json(field_specs) or any(
@@ -1112,7 +1126,6 @@ def _emit_projection(
     )
     needs_hashmap = _any_needs_hashmap(field_specs, nested_definitions)
     needs_chrono = _any_needs_chrono(field_specs)
-    storage_gated = sqlx_fromrow or clickhouse_row
     extra_derives: list[str] = []
     if sqlx_fromrow:
         extra_derives.append("sqlx::FromRow")

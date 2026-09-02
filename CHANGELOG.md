@@ -8,6 +8,14 @@ releases could contain breaking changes when called out explicitly.
 
 ### Added
 
+- Emit an `EMIT007` diagnostic when compiling a Rust projection that is bound
+  to a storage adapter (`postgres`, `clickhouse`, directly or via an
+  indirect connector binding) but has no explicit
+  `@wire(json.fieldCase: ...)` override: the generated struct's serde wire
+  name silently keeps the projection's declared IDL casing, which usually
+  does not match a snake_case physical column and previously failed only at
+  runtime (#779).
+
 ### Changed
 
 ### Fixed
