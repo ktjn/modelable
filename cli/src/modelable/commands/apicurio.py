@@ -10,7 +10,7 @@ from modelable.commands.common import console, load_workspace_or_exit
 from modelable.emitters.json_schema import emit_json_schema
 from modelable.emitters.targets import get_codegen_target
 from modelable.extensions import ExtensionDescriptorError, validate_extension_admission
-from modelable.planner.protocol import PLAN_SCHEMA
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 from modelable.registry.apicurio import ApicurioArtifact, ApicurioRegistryClient, ApicurioRegistryError
 
 
@@ -37,7 +37,7 @@ def publish_apicurio(source: Path, url: str, group: str, token: str | None, dry_
         validate_extension_admission(
             get_codegen_target("json-schema").extension_descriptor(),
             workspace.mdl,
-            plan_version=PLAN_SCHEMA,
+            plan_version=PLAN_V1_SCHEMA,
         )
     except ExtensionDescriptorError as error:
         raise click.ClickException(str(error)) from error

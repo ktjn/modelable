@@ -31,7 +31,7 @@ from modelable.emitters.protobuf import emit_protobuf
 from modelable.emitters.sql import emit_sql
 from modelable.emitters.targets import get_codegen_target, list_compat_checkable_targets
 from modelable.extensions import ExtensionDescriptorError, validate_extension_admission
-from modelable.planner.protocol import PLAN_SCHEMA
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 
 def register_validate_compat_commands(cli_group: click.Group) -> None:
@@ -65,13 +65,13 @@ def validate_compat(from_path: Path, to_path: Path, target: str, policy_path: Pa
         validate_extension_admission(
             target_descriptor,
             old_workspace.mdl,
-            plan_version=PLAN_SCHEMA,
+            plan_version=PLAN_V1_SCHEMA,
             require_compatibility_support=True,
         )
         validate_extension_admission(
             target_descriptor,
             new_workspace.mdl,
-            plan_version=PLAN_SCHEMA,
+            plan_version=PLAN_V1_SCHEMA,
             require_compatibility_support=True,
         )
     except ExtensionDescriptorError as error:
