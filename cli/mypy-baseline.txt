@@ -1,8 +1,3 @@
 # Current strict mypy errors for the Modelable CLI.
 # This file is a ratchet baseline: remove lines as typing issues are fixed,
 # but do not add new lines unless intentionally accepting existing debt.
-src/modelable/lsp/server.py:41: error: Module "pygls.feature_manager" does not explicitly export attribute "asyncio"  [attr-defined]
-src/modelable/lsp/server.py:41: error: Module has no attribute "iscoroutinefunction"  [attr-defined]
-src/modelable/lsp/server.py:42: error: Module "pygls.protocol.json_rpc" does not explicitly export attribute "asyncio"  [attr-defined]
-src/modelable/lsp/server.py:42: error: Module has no attribute "iscoroutinefunction"  [attr-defined]
-src/modelable/lsp/server.py:52: error: Missing type arguments for generic type "Task"  [type-arg]

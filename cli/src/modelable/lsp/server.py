@@ -38,8 +38,8 @@ from modelable.lsp.semantic_tokens import build_semantic_tokens, semantic_tokens
 from modelable.lsp.workspace import LspWorkspaceIndex, find_workspace_root, uri_to_path
 from modelable.lsp.workspace_symbols import build_workspace_symbols
 
-feature_manager.asyncio.iscoroutinefunction = inspect.iscoroutinefunction
-json_rpc.asyncio.iscoroutinefunction = inspect.iscoroutinefunction
+feature_manager.asyncio.iscoroutinefunction = inspect.iscoroutinefunction  # type: ignore[attr-defined]
+json_rpc.asyncio.iscoroutinefunction = inspect.iscoroutinefunction  # type: ignore[attr-defined]
 
 _DEBOUNCE_DELAY = 0.2
 
@@ -49,7 +49,7 @@ class ModelableLanguageServer(LanguageServer):
         super().__init__("modelable-lsp", "0.1.0")
         self.index = LspWorkspaceIndex()
         self._indexes: dict[Path, LspWorkspaceIndex] = {}
-        self._debounce_tasks: dict[str, asyncio.Task] = {}
+        self._debounce_tasks: dict[str, asyncio.Task[None]] = {}
         self._root_uri: str | None = None
         self._scanned_dirs: set[Path] = set()
         self.conversations = LspConversationService()
