@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from itertools import pairwise
 from pathlib import Path
+from typing import cast
 
 from modelable.compat.diff import FieldChange, compare_model_versions, is_field_change_breaking, is_optionality_breaking
 from modelable.diagnostics.model import Diagnostic
@@ -21,6 +22,7 @@ from modelable.parser.ir import (
     FieldType,
     FixedBinaryType,
     IndexDecl,
+    JoinRef,
     MapType,
     MdlFile,
     ModelKind,
@@ -28,7 +30,10 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     PrimitiveType,
+    ProjectionField,
+    ProjectionVersion,
     RefType,
+    SourceRef,
     UnionType,
     WireTargetHint,
 )
@@ -249,8 +254,8 @@ def _validate_classification_level(
 
 
 def _validate_models(
-    domain_name,
-    models,
+    domain_name: str,
+    models: dict[str, list[ModelVersion]],
     diagnostics: list[Diagnostic],
     path: str | Path | None,
 ) -> None:
@@ -327,14 +332,14 @@ def _validate_models(
                 _validate_enum_members(f"{fqn}@{version.version}", field.name, field.type, diagnostics, path)
 
         for index in range(1, len(versions)):
-            previous = versions[index - 1]
-            current = versions[index]
-            _validate_change_kind(fqn, previous, current, diagnostics, path)
+            previous_version = versions[index - 1]
+            current_version = versions[index]
+            _validate_change_kind(fqn, previous_version, current_version, diagnostics, path)
 
 
 def _validate_projections(
-    domain_name,
-    projections,
+    domain_name: str,
+    projections: dict[str, list[ProjectionVersion]],
     diagnostics: list[Diagnostic],
     path: str | Path | None,
     mdl: MdlFile,
@@ -446,7 +451,7 @@ def _validate_change_kind(
 
 def _validate_declaration_wire_annotations(
     fqn: str,
-    version,
+    version: ModelVersion | ProjectionVersion,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
 ) -> None:
@@ -498,7 +503,7 @@ def _validate_declaration_wire_annotations(
 
 def _validate_value_constraints(
     fqn: str,
-    field: FieldDef,
+    field: FieldDef | ProjectionField,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
     *,
@@ -507,7 +512,7 @@ def _validate_value_constraints(
     constraints = getattr(field, "constraints", [])
     if not constraints:
         return
-    field_type = field_type or field.type
+    field_type = field_type or getattr(field, "type", None)
     is_numeric = isinstance(field_type, DecimalType) or (
         isinstance(field_type, PrimitiveType)
         and field_type.kind in {"int", "float", "u8", "u16", "u32", "u64", "u128", "i8", "i16", "i32", "i64", "i128"}
@@ -749,12 +754,12 @@ def _validate_semantic_types(
 
 def _validate_field_annotations(
     fqn: str,
-    field: FieldDef,
+    field: FieldDef | ProjectionField,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
     *,
     field_path: list[str],
-    field_type=None,
+    field_type: FieldType | None = None,
 ) -> None:
     field_label = ".".join(field_path)
     try:
@@ -795,13 +800,13 @@ def _validate_field_annotations(
 
 def _validate_wire_hints(
     fqn: str,
-    field: FieldDef,
+    field: FieldDef | ProjectionField,
     annotation: AnnWire,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
     *,
     field_label: str | None = None,
-    field_type=None,
+    field_type: FieldType | None = None,
 ) -> None:
     label = field_label or field.name
     for target_name, hint in annotation.targets.items():
@@ -881,7 +886,7 @@ def _validate_json_wire_value_collisions(
 
 def _validate_json_wire_hint(
     fqn: str,
-    field: FieldDef,
+    field: FieldDef | ProjectionField,
     hint,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
@@ -964,7 +969,7 @@ def _validate_json_wire_hint(
 
 def _validate_rust_wire_hint(
     fqn: str,
-    field: FieldDef,
+    field: FieldDef | ProjectionField,
     hint,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
@@ -1030,7 +1035,7 @@ def _validate_rust_wire_hint(
 
 def _validate_clickhouse_wire_hint(
     fqn: str,
-    field: FieldDef,
+    field: FieldDef | ProjectionField,
     hint,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
@@ -1060,18 +1065,21 @@ def _validate_clickhouse_wire_hint(
         return
 
 
-def _resolve_projection_field_type(field, projection, mdl):
+def _resolve_projection_field_type(
+    field: FieldDef | ProjectionField, projection: ProjectionVersion, mdl: MdlFile
+) -> FieldType | None:
     if not hasattr(field, "mapping"):
         return getattr(field, "type", None)
     mapping = field.mapping
     if isinstance(mapping, ComputedMapping):
         return None
     if mapping.source_alias == projection.source.alias:
-        source_ref = projection.source
+        source_ref: SourceRef | JoinRef = projection.source
     else:
-        source_ref = next((j for j in projection.joins if j.alias == mapping.source_alias), None)
-        if source_ref is None:
+        joined_ref = next((j for j in projection.joins if j.alias == mapping.source_alias), None)
+        if joined_ref is None:
             return None
+        source_ref = joined_ref
     try:
         source_domain, source_model = source_ref.model.rsplit(".", 1)
     except ValueError:
@@ -1087,16 +1095,20 @@ def _resolve_projection_field_type(field, projection, mdl):
     )
 
 
-def _resolve_field_type_from_version(mdl: MdlFile, version, field_name: str):
+def _resolve_field_type_from_version(
+    mdl: MdlFile, version: ModelVersion | ProjectionVersion, field_name: str
+) -> FieldType | None:
     if hasattr(version, "fields"):
         field = next((item for item in version.fields if item.name == field_name), None)
         if field is None:
             return None
         field_type = getattr(field, "type", None)
         if field_type is not None:
-            return field_type
+            return cast(FieldType, field_type)
         mapping = getattr(field, "mapping", None)
         if mapping is None or mapping.kind != "direct":
+            return None
+        if not isinstance(version, ProjectionVersion):
             return None
         try:
             source_domain, source_model = version.source.model.rsplit(".", 1)
