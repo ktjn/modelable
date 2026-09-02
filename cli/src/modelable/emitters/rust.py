@@ -469,7 +469,7 @@ def _stable_type_name(domain: str, name: str, version: int) -> str:
     return f"{_pascalize(domain)}{_pascalize(name)}V{version}"
 
 
-def _collect_named_type_refs(field_type, result: set) -> None:
+def _collect_named_type_refs(field_type: FieldType, result: set[str]) -> None:
     """Recursively collect NamedType/EnumRefType names from a field type."""
     if isinstance(field_type, (NamedType, EnumRefType)):
         result.add(field_type.name)
@@ -549,7 +549,7 @@ def _domain_for_named_type(name: str, current_domain: str | None, mdl: MdlFile) 
 
 
 def _resolve_named_type_map(
-    named_refs: set,
+    named_refs: set[str],
     mdl: MdlFile | None,
     *,
     current_domain: str | None = None,
