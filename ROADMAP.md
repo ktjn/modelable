@@ -1,12 +1,16 @@
 # Roadmap
 
-Modelable is entering a stabilization phase.
+Modelable's stabilization baseline is complete.
 
 The latest published release is **1.13.2**.
 
 The product already has broad language, compatibility, lineage, code generation, import, browser, and tooling capability. The next priority is not adding more surface area. It is making the semantic core stable enough that future capability can be added without repeatedly changing grammar, IR, compatibility logic, and every emitter.
 
 ## Current execution status
+
+The stabilization completion criteria below are satisfied by the shipped
+1.13.2 baseline. Modelable can now resume broader feature growth while the
+conformance and repository-health checks remain release gates.
 
 The completed offline-registry/consequence and model-evolution programmes are
 archived with their implementation plans and remain part of the shipped
@@ -15,9 +19,10 @@ stabilization baseline:
 - [Offline registry and consequence delivery](docs/superpowers/plans/archived/2026-08-21-offline-registry-dx-delivery.md)
 - [Model evolution slices](docs/superpowers/plans/archived/2026-08-22-model-evolution-slices-roadmap.md)
 
-The active follow-ups are deliberately narrower:
+The ongoing release gates are deliberately narrower:
 
-- Phase 12 host/showcase conformance and sibling-project validation remain continuous release gates.
+- Phase 12 host/showcase conformance and sibling-project validation remain
+  continuous release gates.
 
 The phase sections below are the canonical architectural roadmap; archived
 plans provide the detailed delivery history and acceptance evidence for work
@@ -613,4 +618,5 @@ Stabilization is complete when:
 - showcase provides realistic cross-target conformance;
 - significant new integrations can be added without changing `.mdl`.
 
-At that point Modelable can resume broad feature growth with substantially lower architectural cost.
+Modelable can resume broad feature growth with substantially lower
+architectural cost.

@@ -27,6 +27,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Restore the browser E2E release gate after fixing nested flex-panel sizing so
+  the source editor and graph viewport retain usable dimensions at desktop
+  sizes.
+
 ## [1.13.2] - 2026-09-02
 
 ### Fixed
