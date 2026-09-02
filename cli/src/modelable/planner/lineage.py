@@ -107,9 +107,7 @@ def _expand_lineage_ref(
     stack: tuple[tuple[str, str], ...],
 ) -> list[str]:
     """Resolve a source field through projection hops to canonical model lineage."""
-    declaration, separator, version_text = declaration_ref.rpartition("@")
-    if not separator or not version_text.isdigit():
-        return [_canonical_lineage_ref(declaration_ref, field_path)]
+    declaration, _, version_text = declaration_ref.rpartition("@")
 
     try:
         resolved = resolve_model_ref(mdl, declaration, int(version_text))
