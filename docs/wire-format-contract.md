@@ -139,6 +139,19 @@ the canonical JSON wire names (`widgetId` remains `"widgetId"`). A
 model/projection-level `@wire(json.fieldCase: ...)` override changes that JSON
 name deliberately; Protobuf field names remain snake_case.
 
+**Storage-bound projections:** this default (preserve the declared IDL
+casing on the wire) is a compile-time, no-error, no-diagnostic decision —
+it is not itself a bug, but it silently mismatches a differently-cased
+physical schema. A projection whose source model is reachable from a
+`binding` targeting `postgres` or `clickhouse` (directly, or indirectly via
+a connector binding) gets `sqlx::FromRow`/`clickhouse::Row` derives; if such
+a projection has no explicit `@wire(json.fieldCase: ...)` override, the
+Rust emitter reports an `EMIT007` warning per field whose wire name would
+diverge from the Rust identifier, since that mismatch (e.g. `spanId` on the
+wire vs. a `span_id` physical column) fails only at runtime, not at compile
+time. Add `@wire(json.fieldCase: "snake_case")` to the projection (or its
+source model) when the physical schema uses snake_case columns.
+
 ## 6. How This Is Enforced
 
 [`cli/tests/fixtures/wire_golden/wire_golden.mdl`](https://github.com/ktjn/modelable/blob/main/cli/tests/fixtures/wire_golden/wire_golden.mdl)

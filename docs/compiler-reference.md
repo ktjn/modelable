@@ -318,6 +318,8 @@ Emitter diagnostics are warnings unless the artifact cannot be generated correct
 | `EMIT003` | Missing metadata required by target |
 | `EMIT004` | Generated artifact failed validation |
 | `EMIT005` | Deferred target requested in current phase |
+| `EMIT006` | Rust enum member collision: distinct canonical members generate the same identifier |
+| `EMIT007` | Storage-bound Rust projection has no explicit `@wire(json.fieldCase: ...)` override, so the wire name may not match the physical column casing |
 
 ## 12. Open Decisions
 

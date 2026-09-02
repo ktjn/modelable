@@ -1121,6 +1121,134 @@ domain metrics {
     assert '#[cfg(feature = "storage")]' not in proj.content
 
 
+def test_emit_rust_clickhouse_binding_without_field_case_warns_emit007(tmp_path):
+    """Issue #779: a clickhouse-bound projection with no explicit
+    @wire(json.fieldCase) silently keeps the declared camelCase name on the
+    wire, which won't match a snake_case physical column. EMIT007 flags it."""
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    traceId: string
+    tenantId: uuid
+  }
+
+  projection SpanRow @ 1
+    from tracing.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    traceId <- s.traceId
+    @wire(clickhouse: "uuid")
+    tenantId <- s.tenantId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "bindings.mdl").write_text(
+        """
+binding ch-observable {
+  adapter: clickhouse
+}
+
+binding span-binding {
+  model: tracing.Span @ 1
+  adapter: ch-observable
+  table: "spans"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    proj = next(a for a in artifacts if a.ref == "tracing.SpanRow@1")
+    risky = [w for w in proj.warnings if "EMIT007" in w]
+    assert len(risky) == 1
+    assert "'spanId'" in risky[0]
+    assert "'traceId'" in risky[0]
+    assert "'tenantId'" in risky[0]
+    assert "TracingSpanRowV1" in risky[0]
+
+    # Model struct itself is never storage-gated, so it gets no EMIT007.
+    model = next(a for a in artifacts if a.ref == "tracing.Span@1")
+    assert not [w for w in model.warnings if "EMIT007" in w]
+
+
+def test_emit_rust_clickhouse_binding_with_snake_case_field_case_no_warning(tmp_path):
+    """The documented workaround (explicit @wire(json.fieldCase: "snake_case"))
+    silences EMIT007, since the wire name now matches the Rust identifier."""
+    (tmp_path / "model.mdl").write_text(
+        """
+domain tracing {
+  owner: "test-team"
+  entity Span @ 1 (additive) {
+    @key spanId: string
+    traceId: string
+  }
+
+  @wire(json.fieldCase: "snake_case")
+  projection SpanRow @ 1
+    from tracing.Span @ 1 as s
+  {
+    spanId <- s.spanId
+    traceId <- s.traceId
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "bindings.mdl").write_text(
+        """
+binding ch-observable {
+  adapter: clickhouse
+}
+
+binding span-binding {
+  model: tracing.Span @ 1
+  adapter: ch-observable
+  table: "spans"
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+
+    proj = next(a for a in artifacts if a.ref == "tracing.SpanRow@1")
+    assert not [w for w in proj.warnings if "EMIT007" in w]
+
+
+def test_emit_rust_no_clickhouse_binding_no_emit007(tmp_path):
+    """Without a storage binding, the default camelCase-preserving wire name
+    is not a bug (there is no physical schema to mismatch), so no EMIT007."""
+    (tmp_path / "model.mdl").write_text(
+        """
+domain metrics {
+  owner: "test-team"
+  entity Metric @ 1 (additive) {
+    @key metricId: uuid
+    value: float
+  }
+
+  projection MetricView @ 1
+    from metrics.Metric @ 1 as m
+  {
+    metricId <- m.metricId
+    value <- m.value
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    workspace = load_workspace(tmp_path)
+    artifacts = emit_rust(workspace, tmp_path / "out")
+    proj = next(a for a in artifacts if a.ref == "metrics.MetricView@1")
+    assert not [w for w in proj.warnings if "EMIT007" in w]
+
+
 def test_emit_rust_from_impl_basic(tmp_path):
     (tmp_path / "model.mdl").write_text(
         """

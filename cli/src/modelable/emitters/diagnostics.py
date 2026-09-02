@@ -31,3 +31,15 @@ def enum_member_collision(target: str, owner: str, identifier: str, members: lis
         "EMIT006",
         f"{target} enum '{owner}' member collision: {quoted} all generate identifier '{identifier}'",
     )
+
+
+def storage_bound_field_case_default(target: str, owner: str, fields: list[str]) -> str:
+    quoted = ", ".join(f"'{field}'" for field in fields)
+    return emit_warning(
+        "EMIT007",
+        f"{target} struct '{owner}' is bound to a storage adapter but has no explicit "
+        f"@wire(json.fieldCase: ...) override: field(s) {quoted} default to their declared "
+        "IDL casing on the wire, which will not match a differently-cased physical column "
+        'name; add @wire(json.fieldCase: "snake_case") to the projection (or source model) '
+        "if the physical schema uses snake_case columns",
+    )
