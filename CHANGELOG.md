@@ -25,6 +25,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Route Apicurio publication, lineage/catalog sync, compatibility validation,
+  and conversational target transforms through the stable `modelable.plan/v1`
+  admission boundary.
+
 ### Fixed
 
 - Restore the browser E2E release gate after fixing nested flex-panel sizing so

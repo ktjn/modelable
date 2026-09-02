@@ -50,7 +50,7 @@ from modelable.parser.ir import (
 )
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.planner import expand_auto_projections
-from modelable.planner.protocol import PLAN_SCHEMA
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 from modelable.validation.semantic import validate
 
 
@@ -156,7 +156,7 @@ def transform_ref_to_target(path: Path, ref: str, target: str) -> AssistantResul
         validate_extension_admission(
             get_codegen_target(target).extension_descriptor(),
             workspace.mdl,
-            plan_version=PLAN_SCHEMA,
+            plan_version=PLAN_V1_SCHEMA,
         )
         artifacts = emitter_fn(workspace, out_path)
         art = next(a for a in artifacts if a.ref == ref)

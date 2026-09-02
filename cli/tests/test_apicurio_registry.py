@@ -77,6 +77,33 @@ domain customer {
     assert "customer.Customer.v1" in result.output
 
 
+def test_publish_apicurio_uses_stable_plan_v1_admission(tmp_path: Path, monkeypatch) -> None:
+    mdl = tmp_path / "customer.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) { @key customerId: uuid }
+}
+""",
+        encoding="utf-8",
+    )
+    observed: list[str] = []
+
+    def record_admission(*args: object, **kwargs: object) -> None:
+        observed.append(str(kwargs["plan_version"]))
+
+    monkeypatch.setattr(apicurio_command, "validate_extension_admission", record_admission)
+
+    result = CliRunner().invoke(
+        cli,
+        ["publish", "apicurio", str(mdl), "--url", "http://registry.example", "--dry-run"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert observed == ["modelable.plan/v1"]
+
+
 def test_publish_apicurio_rejects_models_requiring_unsupported_target_capabilities(tmp_path: Path, monkeypatch) -> None:
     mdl = tmp_path / "orders.mdl"
     mdl.write_text(
@@ -98,7 +125,7 @@ domain orders {
         protocol=PROTOCOL,
         id="test.apicurio",
         version="test",
-        accepted_plan_versions=("modelable.plan/v0",),
+        accepted_plan_versions=("modelable.plan/v1",),
         capabilities=("records",),
         configuration_schema=None,
         output_kinds=("artifact",),
