@@ -59,16 +59,16 @@ def emit_typescript(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact
         for model_name, versions in domain.models.items():
             for version in versions:
                 artifacts.append(_emit_model(domain, model_name, version, out_dir, workspace.mdl))
-        for projection_name, versions in domain.projections.items():
-            for version in versions:
+        for projection_name, projection_versions in domain.projections.items():
+            for projection_version in projection_versions:
                 artifacts.append(
                     _emit_projection(
                         domain,
                         projection_name,
-                        version,
+                        projection_version,
                         out_dir,
                         workspace.mdl,
-                        plans[(domain.name, projection_name, version.version)],
+                        plans[(domain.name, projection_name, projection_version.version)],
                     )
                 )
     return artifacts
