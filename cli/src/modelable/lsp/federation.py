@@ -5,6 +5,7 @@ from pathlib import Path
 
 from modelable.diagnostics.model import Diagnostic
 from modelable.lsp.workspace import LspWorkspaceIndex
+from modelable.parser.ir import MdlFile
 from modelable.parser.parse import parse_text_to_ir
 from modelable.registry.signature import compute_version_signature
 
@@ -218,7 +219,7 @@ def _declared_peer_ids(index: LspWorkspaceIndex) -> set[str] | None:
     return {item.group("id") for item in _PEER_ID_PATTERN.finditer(match.group("body"))}
 
 
-def _mirror_sources(index: LspWorkspaceIndex):
+def _mirror_sources(index: LspWorkspaceIndex) -> list[MdlFile]:
     root = _workspace_root(index)
     if root is None:
         return []
@@ -227,7 +228,7 @@ def _mirror_sources(index: LspWorkspaceIndex):
     if not mirror_root.exists():
         return []
 
-    parsed_sources = []
+    parsed_sources: list[MdlFile] = []
     for path in sorted(mirror_root.rglob("*.mdl"), key=lambda item: item.as_posix()):
         try:
             parsed_sources.append(parse_text_to_ir(path.read_text(encoding="utf-8"), path=path))
