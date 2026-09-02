@@ -14,7 +14,7 @@ from modelable.emitters.naming import pascalize_titlecase as _pascalize
 from modelable.emitters.naming import snake_case as _snake_case
 from modelable.emitters.package_graph import PackageGraph, build_package_graph
 from modelable.emitters.rust_plan import emit_rust_projection_plan
-from modelable.emitters.shapes import TypeShape
+from modelable.emitters.shapes import TypeShape, TypeShapeField
 from modelable.parser.ir import (
     ArrayType,
     DecimalType,
@@ -23,6 +23,7 @@ from modelable.parser.ir import (
     EnumProjectionDecl,
     EnumRefType,
     EnumType,
+    FieldDef,
     FieldType,
     FixedBinaryType,
     MapType,
@@ -32,9 +33,11 @@ from modelable.parser.ir import (
     ObjectType,
     PackageConfig,
     PrimitiveType,
+    ProjectionField,
     ProjectionVersion,
     SemanticTypeDecl,
     UnionType,
+    WireTargetHint,
     latest_enum_projections,
     latest_semantic_types,
 )
@@ -233,20 +236,20 @@ def _emit_rust_single_crate(
                         suppress_skip_serializing=f"{domain.name}.{model_name}" in postcard_sources,
                     )
                 )
-        for projection_name, versions in domain.projections.items():
-            for version in versions:
-                source = version.source.model
+        for projection_name, projection_versions in domain.projections.items():
+            for projection_version in projection_versions:
+                source = projection_version.source.model
                 artifacts.append(
                     _emit_projection(
                         domain,
                         projection_name,
-                        version,
+                        projection_version,
                         out_dir,
                         workspace.mdl,
                         sqlx_fromrow=source in postgres_sources,
                         clickhouse_row=source in clickhouse_sources,
                         suppress_skip_serializing=source in postcard_sources,
-                        plan=plans.get((domain.name, projection_name, version.version)) if plans else None,
+                        plan=plans.get((domain.name, projection_name, projection_version.version)) if plans else None,
                     )
                 )
     return artifacts
@@ -321,13 +324,13 @@ def _emit_rust_packages(
                     )
                     artifacts.append(artifact)
                     modules.append(artifact.path.stem)
-            for projection_name, versions in domain.projections.items():
-                for version in versions:
-                    source = version.source.model
+            for projection_name, projection_versions in domain.projections.items():
+                for projection_version in projection_versions:
+                    source = projection_version.source.model
                     artifact = _emit_projection(
                         domain,
                         projection_name,
-                        version,
+                        projection_version,
                         pkg_dir,
                         mdl,
                         sqlx_fromrow=source in postgres_sources,
@@ -335,7 +338,7 @@ def _emit_rust_packages(
                         suppress_skip_serializing=source in postcard_sources,
                         current_pkg=pkg.name,
                         package_for_domain=package_for_domain,
-                        plan=plans.get((domain.name, projection_name, version.version)) if plans else None,
+                        plan=plans.get((domain.name, projection_name, projection_version.version)) if plans else None,
                     )
                     artifacts.append(artifact)
                     modules.append(artifact.path.stem)
@@ -1016,14 +1019,14 @@ def _emit_projection(
     projection_name: str,
     version: ProjectionVersion,
     out_dir: Path,
-    mdl,
+    mdl: MdlFile,
     *,
     sqlx_fromrow: bool = False,
     clickhouse_row: bool = False,
     suppress_skip_serializing: bool = False,
     current_pkg: str | None = None,
     package_for_domain: dict[str, str] | None = None,
-    plan=None,
+    plan: PlanDocument | None = None,
 ) -> EmittedArtifact:
     if plan is not None and _can_route_rust_projection_plan(
         plan,
@@ -1242,7 +1245,9 @@ def _rust_plan_type_is_plain(field_type: dict[str, object]) -> bool:
     return False
 
 
-def _projection_field_is_json_passthrough_to_string(proj_field, version: ProjectionVersion, mdl: MdlFile) -> bool:
+def _projection_field_is_json_passthrough_to_string(
+    proj_field: ProjectionField, version: ProjectionVersion, mdl: MdlFile
+) -> bool:
     """True if this projection field maps a map<K, json> (or bare json) source
     field to a @wire(clickhouse: "string") String target — i.e. needs a
     generated serde_json::to_string conversion in the From impl, and a
@@ -1384,7 +1389,7 @@ def _emit_from_impl(
     return lines
 
 
-def _serde_attrs_for_field(wire: dict, shape: TypeShape, *, clickhouse: bool = False) -> list[str]:
+def _serde_attrs_for_field(wire: dict[str, WireTargetHint], shape: TypeShape, *, clickhouse: bool = False) -> list[str]:
     """Return per-field #[serde(...)] attributes derived from @wire hints."""
     rust_hint = wire.get("rust")
     json_hint = wire.get("json")
@@ -1411,7 +1416,7 @@ def _serde_attrs_for_field(wire: dict, shape: TypeShape, *, clickhouse: bool = F
     return []
 
 
-def _serde_json_name_attrs(field_name: str, wire: dict) -> list[str]:
+def _serde_json_name_attrs(field_name: str, wire: dict[str, WireTargetHint]) -> list[str]:
     """Keep Rust's identifier spelling separate from the canonical JSON name."""
     json_hint = wire.get("json")
     field_case = getattr(json_hint, "field_case", None) if json_hint is not None else None
@@ -1704,14 +1709,14 @@ def _append_enum_collision_warnings(
 
 
 def _field_specs_from_model_fields(
-    fields,
+    fields: list[FieldDef],
     *,
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
     enum_info: dict[str, list[str]] | None = None,
     named_type_map: dict[str, str] | None = None,
-    declaration_wire: dict | None = None,
+    declaration_wire: dict[str, WireTargetHint] | None = None,
     suppress_skip_serializing: bool = False,
 ) -> list[_FieldSpec]:
     specs: list[_FieldSpec] = []
@@ -1760,7 +1765,7 @@ def _field_specs_from_model_fields(
 
 
 def _field_specs_from_object_fields(
-    fields,
+    fields: tuple[TypeShapeField, ...],
     *,
     owner_type: str,
     path: list[str],
@@ -1799,8 +1804,8 @@ def _shape_annotation(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
-    rust_hint=None,
-    clickhouse_hint=None,
+    rust_hint: WireTargetHint | None = None,
+    clickhouse_hint: WireTargetHint | None = None,
     enum_info: dict[str, list[str]] | None = None,
     named_type_map: dict[str, str] | None = None,
 ) -> str:
@@ -1825,15 +1830,17 @@ def _shape_base_annotation(
     owner_type: str,
     path: list[str],
     definitions: dict[str, list[str]],
-    rust_hint=None,
-    clickhouse_hint=None,
+    rust_hint: WireTargetHint | None = None,
+    clickhouse_hint: WireTargetHint | None = None,
     enum_info: dict[str, list[str]] | None = None,
     named_type_map: dict[str, str] | None = None,
 ) -> str:
     clickhouse_string = clickhouse_hint is not None and getattr(clickhouse_hint, "encoding", None) == "string"
     if shape.kind == "primitive":
-        if rust_hint is not None and getattr(rust_hint, "type", None):
-            return rust_hint.type
+        if rust_hint is not None:
+            rust_type = rust_hint.type
+            if isinstance(rust_type, str):
+                return rust_type
         if shape.ref == "json" and clickhouse_string:
             return "String"
         return _primitive_to_rust(shape.ref or "string")
@@ -1929,7 +1936,9 @@ def _nested_type_name(owner_type: str, path: list[str]) -> str:
     return f"{owner_type}{suffix}" if suffix else owner_type
 
 
-def _resolve_projection_field_shape(field, projection: ProjectionVersion, mdl):
+def _resolve_projection_field_shape(
+    field: ProjectionField, projection: ProjectionVersion, mdl: MdlFile
+) -> TypeShape | None:
     if not isinstance(field.mapping, DirectMapping):
         return None
     try:
@@ -1942,12 +1951,14 @@ def _resolve_projection_field_shape(field, projection: ProjectionVersion, mdl):
         return None
     source_mv = resolved.version
     for src_field in source_mv.fields:
-        if src_field.name == field.mapping.source_field:
+        if isinstance(src_field, FieldDef) and src_field.name == field.mapping.source_field:
             return TypeShape.from_field_type(src_field.type, optional=src_field.optional)
     return None
 
 
-def _resolve_merged_projection_wire(field, projection: ProjectionVersion, mdl) -> dict:
+def _resolve_merged_projection_wire(
+    field: ProjectionField, projection: ProjectionVersion, mdl: MdlFile
+) -> dict[str, WireTargetHint]:
     """Merge wire targets from the source entity field and the projection field.
 
     Projection-level annotations win; entity-level annotations provide defaults.
@@ -1962,6 +1973,6 @@ def _resolve_merged_projection_wire(field, projection: ProjectionVersion, mdl) -
     except ValueError, LookupError:
         return field.wire_targets()
     for src_field in resolved.version.fields:
-        if src_field.name == field.mapping.source_field:
+        if isinstance(src_field, FieldDef) and src_field.name == field.mapping.source_field:
             return {**src_field.wire_targets(), **field.wire_targets()}
     return field.wire_targets()
