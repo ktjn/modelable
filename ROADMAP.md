@@ -18,7 +18,6 @@ stabilization baseline:
 The active follow-ups are deliberately narrower:
 
 - [Enum projections as field types](docs/superpowers/specs/2026-08-28-enum-projection-field-references-design.md) is the next compiler-facing design slice.
-- [Playground UI uplift](docs/superpowers/plans/2026-08-13-playground-ui-uplift.md) remains an independent web workstream.
 - Phase 12 host/showcase conformance and sibling-project validation remain continuous release gates.
 
 The phase sections below are the canonical architectural roadmap; archived
