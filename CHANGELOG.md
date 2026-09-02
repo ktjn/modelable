@@ -6,6 +6,14 @@ releases could contain breaking changes when called out explicitly.
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Fixed
+
+## [1.13.2] - 2026-09-02
+
 ### Fixed
 
 - Correct stale plan-protocol and enum-projection references in developer
