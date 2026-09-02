@@ -1076,7 +1076,7 @@ class MdlTransformer(Transformer[list[object], Any]):
     def p_redact(self, _items: list[Any]) -> str:
         return "redact"
 
-    def auto_projection_item(self, items):
+    def auto_projection_item(self, items: list[Any]) -> AutoProjectionTarget:
         kind = items[0]
         excluded_fields = []
         excluded_annotations = []
@@ -1100,31 +1100,31 @@ class MdlTransformer(Transformer[list[object], Any]):
             operations=operations,
         )
 
-    def auto_projection_kind(self, items):
+    def auto_projection_kind(self, items: list[Any]) -> Any:
         return items[0]
 
-    def apk_db(self, _items):
+    def apk_db(self, _items: list[Any]) -> str:
         return "db"
 
-    def apk_request(self, _items):
+    def apk_request(self, _items: list[Any]) -> str:
         return "request"
 
-    def apk_reply(self, _items):
+    def apk_reply(self, _items: list[Any]) -> str:
         return "reply"
 
-    def apk_event(self, _items):
+    def apk_event(self, _items: list[Any]) -> str:
         return "event"
 
-    def auto_projection_option(self, items):
+    def auto_projection_option(self, items: list[Any]) -> Any:
         return items[0]
 
-    def exclude_option(self, items):
+    def exclude_option(self, items: list[Any]) -> tuple[str, list[Any]]:
         return ("exclude", [item for item in items if item is not None])
 
-    def on_option(self, items):
+    def on_option(self, items: list[Any]) -> tuple[str, list[str]]:
         return ("on", [str(item) for item in items if item is not None])
 
-    def auto_projection_exclusion(self, items):
+    def auto_projection_exclusion(self, items: list[Any]) -> Any:
         return items[0]
 
     def generate_block(self, items):
