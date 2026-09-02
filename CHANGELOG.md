@@ -25,6 +25,10 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Route emitter and registry declaration selection through the shared resolver
+  candidate boundary for consistent latest semantic-type and enum-projection
+  resolution.
+
 - Route resolver declaration-family lookup through one private candidate boundary while preserving legacy result wrapper compatibility.
 - Normalize auto-generated and explicit projection versions into ascending
   order at workspace expansion, keeping downstream projection consumers deterministic.

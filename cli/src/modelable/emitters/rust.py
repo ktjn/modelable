@@ -43,13 +43,13 @@ from modelable.parser.ir import (
     SemanticTypeDecl,
     UnionType,
     WireTargetHint,
-    latest_enum_projections,
-    latest_semantic_types,
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanDocument
 from modelable.registry.resolver import (
     AmbiguousSemanticTypeError,
+    latest_enum_projection_declarations,
+    latest_semantic_type_declarations,
     resolve_enum_type_ref,
     resolve_model_ref,
     resolve_semantic_type_ref,
@@ -168,7 +168,7 @@ def _validate_rust_enum_projection_versions(workspace: Workspace) -> None:
     latest_by_domain_and_name = {
         (domain.name, projection.name): projection.version
         for domain in workspace.mdl.domains
-        for projection in latest_enum_projections(domain)
+        for projection in latest_enum_projection_declarations(domain)
     }
 
     def visit(field_type: FieldType, domain_name: str, owner: str) -> None:
@@ -220,11 +220,11 @@ def _emit_rust_single_crate(
     postcard_sources = _adapter_bound_sources(workspace.mdl, "postcard")
     artifacts: list[EmittedArtifact] = []
     for domain in workspace.mdl.domains:
-        for decl in latest_semantic_types(domain):
+        for decl in latest_semantic_type_declarations(domain):
             qualified_name = f"{domain.name}.{decl.name}"
             allocated_id = (registry_ids or {}).get(qualified_name) if decl.registry else None
             artifacts.append(_emit_semantic_type(domain, decl, out_dir, allocated_id=allocated_id))
-        for projection in latest_enum_projections(domain):
+        for projection in latest_enum_projection_declarations(domain):
             source_domain, source_decl = resolve_semantic_type_ref(
                 workspace.mdl, domain.name, projection.source_name, projection.source_version
             )
@@ -286,7 +286,7 @@ def _emit_rust_packages(
             if domain is None:
                 continue
             modules: list[str] = []
-            for decl in latest_semantic_types(domain):
+            for decl in latest_semantic_type_declarations(domain):
                 qualified_name = f"{domain.name}.{decl.name}"
                 allocated_id = (registry_ids or {}).get(qualified_name) if decl.registry else None
                 artifact = _emit_semantic_type(
@@ -300,7 +300,7 @@ def _emit_rust_packages(
                 )
                 artifacts.append(artifact)
                 modules.append(artifact.path.stem)
-            for projection in latest_enum_projections(domain):
+            for projection in latest_enum_projection_declarations(domain):
                 source_domain, source_decl = resolve_semantic_type_ref(
                     mdl, domain.name, projection.source_name, projection.source_version
                 )
@@ -575,7 +575,14 @@ def _resolve_named_type_map(
     for name in sorted(named_refs):
         local_domain = next((domain for domain in mdl.domains if domain.name == current_domain), None)
         local_projection = (
-            next((projection for projection in latest_enum_projections(local_domain) if projection.name == name), None)
+            next(
+                (
+                    projection
+                    for projection in latest_enum_projection_declarations(local_domain)
+                    if projection.name == name
+                ),
+                None,
+            )
             if local_domain is not None
             else None
         )

@@ -4,8 +4,13 @@ from collections.abc import Callable
 
 from modelable.emitters.naming import pascalize_plain as _pascalize
 from modelable.emitters.shapes import TypeShape
-from modelable.parser.ir import EnumProjectionDecl, EnumType, MdlFile, SemanticTypeDecl, latest_semantic_types
-from modelable.registry.resolver import AmbiguousSemanticTypeError, resolve_enum_type_ref, resolve_semantic_type_ref
+from modelable.parser.ir import EnumProjectionDecl, EnumType, MdlFile, SemanticTypeDecl
+from modelable.registry.resolver import (
+    AmbiguousSemanticTypeError,
+    latest_semantic_type_declarations,
+    resolve_enum_type_ref,
+    resolve_semantic_type_ref,
+)
 
 
 def resolve_named_types(
@@ -44,7 +49,7 @@ def resolve_named_types(
                     names[f"{domain.name}.{name}@{version.version}"] = model_name(domain.name, name, version.version)
 
     for domain in mdl.domains:
-        for declaration in latest_semantic_types(domain):
+        for declaration in latest_semantic_type_declarations(domain):
             if declaration.name in names:
                 continue
             try:
@@ -159,7 +164,7 @@ def _declaring_domain(mdl: MdlFile, name: str) -> str | None:
         if name in domain.models:
             return domain.name
     for domain in mdl.domains:
-        for declaration in latest_semantic_types(domain):
+        for declaration in latest_semantic_type_declarations(domain):
             if declaration.name == name and isinstance(declaration.underlying, EnumType):
                 return domain.name
     return None
@@ -174,7 +179,7 @@ def _semantic_type_domains(mdl: MdlFile, name: str) -> list[str]:
     return [
         domain.name
         for domain in mdl.domains
-        if any(declaration.name == name for declaration in latest_semantic_types(domain))
+        if any(declaration.name == name for declaration in latest_semantic_type_declarations(domain))
     ]
 
 
@@ -184,7 +189,7 @@ def resolve_named_type_domains(mdl: MdlFile, *, current_domain: str) -> dict[str
     for domain in mdl.domains:
         for name in domain.models:
             result.setdefault(name, domain.name)
-        for declaration in latest_semantic_types(domain):
+        for declaration in latest_semantic_type_declarations(domain):
             try:
                 resolved_domain, _ = resolve_semantic_type_ref(mdl, current_domain, declaration.name)
             except LookupError, AmbiguousSemanticTypeError:
@@ -201,7 +206,7 @@ def _semantic_enum_type_name(mdl: MdlFile, domain: str, declaration: SemanticTyp
     latest = next(
         (
             item
-            for item in latest_semantic_types(next(item for item in mdl.domains if item.name == domain))
+            for item in latest_semantic_type_declarations(next(item for item in mdl.domains if item.name == domain))
             if item.name == declaration.name
         ),
         declaration,

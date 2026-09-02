@@ -9,7 +9,8 @@ from contextlib import suppress
 from pathlib import Path
 from typing import cast
 
-from modelable.parser.ir import MdlFile, latest_semantic_types
+from modelable.parser.ir import MdlFile
+from modelable.registry.resolver import latest_semantic_type_declarations
 
 
 class RegistryIdLockContentionError(Exception):
@@ -114,7 +115,7 @@ def _qualified_registry_names(mdl: MdlFile) -> list[str]:
     return sorted(
         f"{domain.name}.{decl.name}"
         for domain in mdl.domains
-        for decl in latest_semantic_types(domain)
+        for decl in latest_semantic_type_declarations(domain)
         if decl.registry
     )
 

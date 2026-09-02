@@ -66,6 +66,35 @@ def _iter_domain_declaration_candidates(domain: DomainDef) -> Iterator[_Declarat
         yield _DeclarationCandidate(domain.name, enum_declaration.name, enum_declaration)
 
 
+def _latest_declaration_candidates(domain: DomainDef, kind: str) -> list[_DeclarationCandidate]:
+    latest: dict[str, _DeclarationCandidate] = {}
+    for candidate in _iter_domain_declaration_candidates(domain):
+        if candidate.kind != kind:
+            continue
+        current = latest.get(candidate.name)
+        if current is None or candidate.version_number > current.version_number:
+            latest[candidate.name] = candidate
+    return list(latest.values())
+
+
+def latest_semantic_type_declarations(domain: DomainDef) -> list[SemanticTypeDecl]:
+    """Return the latest semantic-type version for each declaration name."""
+    return [
+        candidate.declaration
+        for candidate in _latest_declaration_candidates(domain, "semantic_type")
+        if isinstance(candidate.declaration, SemanticTypeDecl)
+    ]
+
+
+def latest_enum_projection_declarations(domain: DomainDef) -> list[EnumProjectionDecl]:
+    """Return the latest enum-projection version for each declaration name."""
+    return [
+        candidate.declaration
+        for candidate in _latest_declaration_candidates(domain, "enum_projection")
+        if isinstance(candidate.declaration, EnumProjectionDecl)
+    ]
+
+
 @runtime_checkable
 class ResolvedDeclarationView(Protocol):
     """Common identity view for every named, versioned declaration."""
