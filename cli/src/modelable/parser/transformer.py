@@ -1127,10 +1127,10 @@ class MdlTransformer(Transformer[list[object], Any]):
     def auto_projection_exclusion(self, items: list[Any]) -> Any:
         return items[0]
 
-    def generate_block(self, items):
+    def generate_block(self, items: list[Any]) -> tuple[str, list[GenerateTarget]]:
         return ("generate", [item for item in items if isinstance(item, GenerateTarget)])
 
-    def generate_target(self, items):
+    def generate_target(self, items: list[Any]) -> GenerateTarget:
         target = items[0]
         output_path = _str(items[1]) if len(items) > 1 else None
         if isinstance(target, tuple):
@@ -1139,31 +1139,31 @@ class MdlTransformer(Transformer[list[object], Any]):
             name, dialect = target, None
         return GenerateTarget(name=name, dialect=dialect, output_path=output_path)
 
-    def target_name(self, items):
+    def target_name(self, items: list[Any]) -> Any:
         return items[0]
 
-    def tn_openapi(self, _items):
+    def tn_openapi(self, _items: list[Any]) -> str:
         return "openapi"
 
-    def tn_typescript(self, _items):
+    def tn_typescript(self, _items: list[Any]) -> str:
         return "typescript"
 
-    def tn_avro(self, _items):
+    def tn_avro(self, _items: list[Any]) -> str:
         return "avro"
 
-    def tn_protobuf(self, _items):
+    def tn_protobuf(self, _items: list[Any]) -> str:
         return "protobuf"
 
-    def tn_sql(self, items):
+    def tn_sql(self, items: list[Any]) -> tuple[str, str]:
         return ("sql", str(items[0]))
 
-    def tn_jsonschema(self, _items):
+    def tn_jsonschema(self, _items: list[Any]) -> str:
         return "jsonschema"
 
-    def tn_asyncapi(self, _items):
+    def tn_asyncapi(self, _items: list[Any]) -> str:
         return "asyncapi"
 
-    def tn_docs(self, _items):
+    def tn_docs(self, _items: list[Any]) -> str:
         return "docs"
 
     def db_dialect(self, items):
