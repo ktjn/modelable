@@ -3,8 +3,9 @@ import sqlite3
 from pathlib import Path
 
 from modelable.compiler.workspace import load_workspace
+from modelable.parser.parse import parse_text_to_ir
 from modelable.registry.index import build_registry
-from modelable.registry.resolver import ResolvedDeclarationView, resolve_model_ref
+from modelable.registry.resolver import ResolvedDeclarationView, _iter_declaration_candidates, resolve_model_ref
 
 
 def _write_workspace(path: Path) -> None:
@@ -39,6 +40,31 @@ domain billing {
 """,
         encoding="utf-8",
     )
+
+
+def test_declaration_candidate_boundary_covers_all_named_declaration_families():
+    mdl = parse_text_to_ir("""
+    domain catalog {
+      owner: "test-team"
+      entity Product @ 1 (additive) { @key productId: uuid }
+      projection ProductView @ 1 from catalog.Product @ 1 as product {
+        productId <- product.productId
+      }
+      semantic Status @ 1 (additive): enum(active, retired)
+      enum projection PublicStatus @ 1 (additive)
+        from Status @ 1
+        pick(active)
+    }
+    """)
+
+    candidates = list(_iter_declaration_candidates(mdl))
+
+    assert [(candidate.name, candidate.kind, candidate.version_number) for candidate in candidates] == [
+        ("Product", "model", 1),
+        ("ProductView", "projection", 1),
+        ("Status", "semantic_type", 1),
+        ("PublicStatus", "enum_projection", 1),
+    ]
 
 
 def test_resolve_model_ref_exact_version(tmp_path):

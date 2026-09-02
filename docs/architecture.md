@@ -143,7 +143,7 @@ Shared declaration behavior should be modeled once:
 - lineage
 - semantic annotations
 
-Declaration kinds may impose different constraints but should not create parallel resolution, identity, versioning, or compatibility systems. The resolver's `ResolvedDeclarationView` is the shared identity surface for model versions, projections, semantic types, and enum projections; compatibility-specific properties remain on the legacy result wrappers while consumers migrate to the common `name`, `declaration`, `kind`, and `version_number` fields.
+Declaration kinds may impose different constraints but should not create parallel resolution, identity, versioning, or compatibility systems. The resolver's `ResolvedDeclarationView` is the shared identity surface for model versions, projections, semantic types, and enum projections; a private candidate boundary supplies those concrete declarations to generic lookup logic. Compatibility-specific properties remain on the legacy result wrappers while consumers migrate to the common `name`, `declaration`, `kind`, and `version_number` fields.
 
 ### 3.3 Model version
 
