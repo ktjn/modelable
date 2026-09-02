@@ -12,6 +12,31 @@ The stabilization completion criteria below are satisfied by the shipped
 1.13.2 baseline. Modelable can now resume broader feature growth while the
 conformance and repository-health checks remain release gates.
 
+### Phase execution status
+
+The phase headings below describe the architectural destination; they are not
+an unstarted twelve-item queue. The shipped stabilization baseline already
+delivered the following portions:
+
+| Phase | Current state | Modelable evidence |
+| --- | --- | --- |
+| 1. Identity/path grammar | Baseline implemented | `modelable.identity`, overlays, lineage, graph export, and usage validation share canonical identities and semantic paths. |
+| 2. Declaration/projection unification | Baseline implemented | Shared resolver/version/lineage and projection compatibility paths cover models, projections, enums, and semantic types. |
+| 3. `plan/v0` | Baseline implemented | `modelable.planner.protocol` validates deterministic plans and rejects malformed or non-canonical references. |
+| 4. Overlays | Baseline implemented | Version-aware overlay selectors are validated against canonical identities and paths. |
+| 5. Extensions/capabilities/trust | Baseline implemented | Extension descriptors, capability admission, provenance pins, and explicit subprocess/WASM trust policy are enforced. |
+| 6. `plan/v1` | Baseline implemented | `plan/v1` migration and parser-free target consumers are covered by protocol, emitter, and artifact tests. |
+| 7. Usage graph | Baseline implemented | Compiled usage manifests, application/package identity, field references, aggregation, and dependent queries are available. |
+| 8. `lock/v1` | Baseline implemented | Deterministic registry snapshots, provenance, usage evidence, and compatibility-critical allocation ledgers are validated. |
+| 9. Consequence graph | Baseline implemented | Structured causal nodes/edges and terminal actions are emitted for compatibility, projection, consumer, and policy findings. |
+| 10. Layered compatibility | Baseline implemented | Target-neutral semantic changes are interpreted by target compatibility evaluators and admitted through extension capabilities. |
+| 11. Policy boundary | Baseline implemented | External policy evaluators return structured findings and consequences without grammar or semantic-IR changes. |
+| 12. Host/showcase conformance | Continuous gate | Browser/native conformance, generated-target smoke coverage, and external showcase validation remain release criteria. |
+
+The next implementation slice is therefore a demand-driven extension of this
+baseline, not a second pass over already-shipped stabilization plumbing. The
+deferred Playground UI uplift remains intentionally outside the current queue.
+
 The completed offline-registry/consequence and model-evolution programmes are
 archived with their implementation plans and remain part of the shipped
 stabilization baseline:
