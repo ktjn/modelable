@@ -38,7 +38,7 @@ domain customer {
     assert manifest["extensions"] == [
         {
             "accepted_plan_versions": ["modelable.plan/v0", "modelable.plan/v1"],
-            "capabilities": ["enums", "maps", "records", "semantic-types"],
+            "capabilities": ["enum-projections", "enums", "maps", "records", "semantic-types"],
             "compatibility_support": False,
             "configuration_schema": None,
             "id": "modelable.target.typescript",

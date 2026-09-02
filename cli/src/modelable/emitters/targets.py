@@ -58,6 +58,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="language",
         default_out_dir=Path("./dist/types"),
+        capabilities=("enum-projections", "enums", "maps", "records", "semantic-types"),
     ),
     CodegenTarget(
         name="csharp",
@@ -65,6 +66,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="language",
         default_out_dir=Path("./dist/csharp"),
+        capabilities=("enum-projections", "enums", "maps", "records", "semantic-types"),
     ),
     CodegenTarget(
         name="java",
@@ -72,6 +74,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="language",
         default_out_dir=Path("./dist/java"),
+        capabilities=("enum-projections", "enums", "maps", "records", "semantic-types"),
     ),
     CodegenTarget(
         name="python",
@@ -79,6 +82,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="language",
         default_out_dir=Path("./dist/python"),
+        capabilities=("enum-projections", "enums", "maps", "records", "semantic-types"),
     ),
     CodegenTarget(
         name="rust",
@@ -86,6 +90,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="language",
         default_out_dir=Path("./dist/rust"),
+        capabilities=("enum-projections", "enums", "maps", "records", "semantic-types"),
     ),
     CodegenTarget(
         name="go",
@@ -93,6 +98,7 @@ CODEGEN_TARGETS: tuple[CodegenTarget, ...] = (
         status="implemented",
         kind="language",
         default_out_dir=Path("./dist/go"),
+        capabilities=("enum-projections", "enums", "maps", "records", "semantic-types"),
     ),
     CodegenTarget(
         name="sql-postgres",

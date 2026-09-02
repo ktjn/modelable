@@ -14,22 +14,26 @@ from urllib.parse import parse_qsl, urlsplit
 from modelable.compat.projection_fields import resolve_projection_field_type_and_optionality
 from modelable.parser.ir import (
     ArrayType,
+    EnumProjectionDecl,
     EnumRefType,
     EnumType,
     FieldDef,
     FieldType,
     MapType,
     MdlFile,
+    NamedType,
     ObjectType,
     ProjectionField,
     UnionType,
 )
+from modelable.registry.resolver import resolve_enum_type_ref
 
 PROTOCOL = "modelable.extension/v1"
 STANDARD_CAPABILITIES = frozenset(
     {
         "records",
         "enums",
+        "enum-projections",
         "semantic-types",
         "maps",
         "unions",
@@ -394,23 +398,44 @@ def required_capabilities(mdl: MdlFile) -> tuple[str, ...]:
     """Return standard capabilities required by the normalized model."""
     required: set[str] = set()
 
-    def visit(field_type: FieldType, field: FieldDef | ProjectionField | None = None) -> None:
-        if isinstance(field_type, (EnumType, EnumRefType)):
+    def visit(
+        field_type: FieldType,
+        field: FieldDef | ProjectionField | None = None,
+        *,
+        current_domain: str | None = None,
+    ) -> None:
+        if isinstance(field_type, EnumType):
             required.add("enums")
+        elif isinstance(field_type, (EnumRefType, NamedType)):
+            if isinstance(field_type, EnumRefType):
+                required.add("enums")
+            if current_domain is not None:
+                try:
+                    _, declaration = resolve_enum_type_ref(
+                        mdl,
+                        current_domain,
+                        field_type.name,
+                        exact_version=field_type.version if isinstance(field_type, EnumRefType) else None,
+                    )
+                except LookupError, TypeError:
+                    pass
+                else:
+                    if isinstance(declaration, EnumProjectionDecl):
+                        required.add("enum-projections")
         elif isinstance(field_type, MapType):
             required.add("maps")
-            visit(field_type.key, field)
-            visit(field_type.value, field)
+            visit(field_type.key, field, current_domain=current_domain)
+            visit(field_type.value, field, current_domain=current_domain)
         elif isinstance(field_type, ArrayType):
-            visit(field_type.item, field)
+            visit(field_type.item, field, current_domain=current_domain)
         elif isinstance(field_type, ObjectType):
             required.add("records")
             for nested in field_type.fields:
-                visit(nested.type, nested)
+                visit(nested.type, nested, current_domain=current_domain)
         elif isinstance(field_type, UnionType):
             required.add("unions")
             for variant in field_type.variants:
-                visit(variant.type, field)
+                visit(variant.type, field, current_domain=current_domain)
         if field is not None and field.constraints:
             required.add("constraints")
 
@@ -419,7 +444,7 @@ def required_capabilities(mdl: MdlFile) -> tuple[str, ...]:
             for model_version in model_versions:
                 required.add("records")
                 for model_field in model_version.fields:
-                    visit(model_field.type, model_field)
+                    visit(model_field.type, model_field, current_domain=domain.name)
         for projection_versions in domain.projections.values():
             for projection_version in projection_versions:
                 required.add("records")
@@ -428,10 +453,10 @@ def required_capabilities(mdl: MdlFile) -> tuple[str, ...]:
                         projection_field, projection_version, mdl
                     )
                     if field_type is not None:
-                        visit(field_type, projection_field)
+                        visit(field_type, projection_field, current_domain=domain.name)
         for semantic_type in domain.semantic_types:
             required.add("semantic-types")
-            visit(semantic_type.underlying)
+            visit(semantic_type.underlying, current_domain=domain.name)
 
     return tuple(sorted(required))
 
