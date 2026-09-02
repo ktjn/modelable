@@ -558,7 +558,7 @@ def _validate_value_constraints(
             )
 
 
-def _find_field(version: ModelVersion, field_name: str):
+def _find_field(version: ModelVersion, field_name: str) -> FieldDef | None:
     return next((field for field in version.fields if field.name == field_name), None)
 
 
@@ -887,14 +887,15 @@ def _validate_json_wire_value_collisions(
 def _validate_json_wire_hint(
     fqn: str,
     field: FieldDef | ProjectionField,
-    hint,
+    hint: WireTargetHint,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
     *,
     field_label: str | None = None,
-    field_type=None,
+    field_type: FieldType | None = None,
 ) -> None:
     label = field_label or field.name
+    is_enum = isinstance(field_type, EnumType)
     if hint.field_case is not None:
         diagnostics.append(
             _diag(
@@ -905,12 +906,10 @@ def _validate_json_wire_hint(
             )
         )
         return
-    is_enum = isinstance(field_type, EnumType)
-
     if hint.encoding is None:
         # json.case / json.overrides on enum fields are valid without an encoding,
         # but two canonical members must never map to the same wire value.
-        if is_enum and (hint.case is not None or hint.overrides):
+        if isinstance(field_type, EnumType) and (hint.case is not None or hint.overrides):
             _validate_json_wire_value_collisions(fqn, label, field_type, hint, diagnostics, path)
             return
         diagnostics.append(
@@ -970,12 +969,12 @@ def _validate_json_wire_hint(
 def _validate_rust_wire_hint(
     fqn: str,
     field: FieldDef | ProjectionField,
-    hint,
+    hint: WireTargetHint,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
     *,
     field_label: str | None = None,
-    field_type=None,
+    field_type: FieldType | None = None,
 ) -> None:
     label = field_label or field.name
     if hint.encoding is not None:
@@ -1036,12 +1035,12 @@ def _validate_rust_wire_hint(
 def _validate_clickhouse_wire_hint(
     fqn: str,
     field: FieldDef | ProjectionField,
-    hint,
+    hint: WireTargetHint,
     diagnostics: list[Diagnostic],
     path: str | Path | None,
     *,
     field_label: str | None = None,
-    field_type=None,
+    field_type: FieldType | None = None,
 ) -> None:
     label = field_label or field.name
     if hint.encoding is None:
