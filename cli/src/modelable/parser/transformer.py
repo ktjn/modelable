@@ -1166,22 +1166,22 @@ class MdlTransformer(Transformer[list[object], Any]):
     def tn_docs(self, _items: list[Any]) -> str:
         return "docs"
 
-    def db_dialect(self, items: list[Any]) -> Any:
+    def db_dialect(self, items):
         return items[0]
 
-    def dd_postgres(self, _items: list[Any]) -> str:
+    def dd_postgres(self, _items):
         return "postgres"
 
-    def dd_mysql(self, _items: list[Any]) -> str:
+    def dd_mysql(self, _items):
         return "mysql"
 
-    def dd_clickhouse(self, _items: list[Any]) -> str:
+    def dd_clickhouse(self, _items):
         return "clickhouse"
 
-    def dd_sqlite(self, _items: list[Any]) -> str:
+    def dd_sqlite(self, _items):
         return "sqlite"
 
-    def binding_decl(self, items: list[Any]) -> BindingDef:
+    def binding_decl(self, items):
         name = str(items[0])
         model = ""
         model_version = 0
@@ -1199,21 +1199,21 @@ class MdlTransformer(Transformer[list[object], Any]):
                 table = vals[0]
         return BindingDef(name=name, model=model, model_version=model_version, adapter=adapter, table=table)
 
-    def binding_item(self, items: list[Any]) -> Any:
+    def binding_item(self, items):
         return items[0]
 
-    def binding_adapter_attr(self, items: list[Any]) -> tuple[str, str]:
+    def binding_adapter_attr(self, items):
         return ("adapter", str(items[0]))
 
-    def binding_model_attr(self, items: list[Any]) -> tuple[str, str, int]:
+    def binding_model_attr(self, items):
         model_fqn = str(items[0])
         version = int(items[1])
         return ("model", model_fqn, version)
 
-    def binding_table_attr(self, items: list[Any]) -> tuple[str, str]:
+    def binding_table_attr(self, items):
         return ("table", _str(items[0]))
 
-    def workspace_decl(self, _items: list[Any]) -> WorkspaceDef:
+    def workspace_decl(self, _items):
         label = None
         name = None
         description = None
@@ -1246,7 +1246,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             packages=packages,
         )
 
-    def package_block(self, items: list[Any]) -> PackageConfig:
+    def package_block(self, items):
         name = _str(items[0])
         include: list[str] = []
         description = None
@@ -1260,28 +1260,28 @@ class MdlTransformer(Transformer[list[object], Any]):
                 description = value
         return PackageConfig(name=name, include=include, description=description)
 
-    def package_item(self, items: list[Any]) -> Any:
+    def package_item(self, items):
         return items[0]
 
-    def package_include_attr(self, items: list[Any]) -> tuple[str, list[str]]:
+    def package_include_attr(self, items):
         return ("include", [_str(item) for item in items if item is not None])
 
-    def package_description_attr(self, items: list[Any]) -> tuple[str, str]:
+    def package_description_attr(self, items):
         return ("description", _str(items[0]))
 
-    def workspace_item(self, items: list[Any]) -> Any:
+    def workspace_item(self, items):
         return items[0]
 
-    def workspace_label(self, items: list[Any]) -> str:
+    def workspace_label(self, items):
         return _str(items[0])
 
-    def workspace_name_attr(self, items: list[Any]) -> tuple[str, str]:
+    def workspace_name_attr(self, items):
         return ("name", _str(items[0]))
 
-    def workspace_description_attr(self, items: list[Any]) -> tuple[str, str]:
+    def workspace_description_attr(self, items):
         return ("description", _str(items[0]))
 
-    def ai_block(self, items: list[Any]) -> tuple[str, AiConfig]:
+    def ai_block(self, items):
         attrs = dict(items)
         return (
             "ai",
@@ -1292,19 +1292,19 @@ class MdlTransformer(Transformer[list[object], Any]):
             ),
         )
 
-    def ai_provider(self, items: list[Any]) -> tuple[str, str]:
+    def ai_provider(self, items):
         return ("provider", _str(items[0]))
 
-    def ai_model(self, items: list[Any]) -> tuple[str, str]:
+    def ai_model(self, items):
         return ("model", _str(items[0]))
 
-    def ai_repair_attempts(self, items: list[Any]) -> tuple[str, int]:
+    def ai_repair_attempts(self, items):
         return ("repair_attempts", int(items[0]))
 
-    def field_mapping(self, items: list[Any]) -> FieldMapping:
+    def field_mapping(self, items):
         return FieldMapping(source=str(items[0]), target=str(items[1]))
 
-    def ai_item(self, items: list[Any]) -> Any:
+    def ai_item(self, items):
         return items[0]
 
     def join_option(self, items: list[object]) -> object:
