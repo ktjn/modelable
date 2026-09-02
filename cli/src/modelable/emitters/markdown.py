@@ -19,6 +19,7 @@ from modelable.parser.ir import (
     EnumRefType,
     EnumType,
     FieldDef,
+    FieldType,
     MapType,
     ModelVersion,
     NamedType,
@@ -105,7 +106,7 @@ def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_d
     )
 
 
-def _type_str(field_type) -> str:
+def _type_str(field_type: FieldType) -> str:
     if isinstance(field_type, PrimitiveType):
         if field_type.kind == "uuid" and field_type.version == 7:
             return "uuid(7)"
