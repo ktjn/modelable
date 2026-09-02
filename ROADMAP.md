@@ -25,7 +25,7 @@ delivered the following portions:
 | 3. `plan/v0` | Baseline implemented | `modelable.planner.protocol` validates deterministic plans and rejects malformed or non-canonical references. |
 | 4. Overlays | Baseline implemented | Version-aware overlay selectors, including full-segment semantic-path wildcards, are validated against canonical identities and paths. |
 | 5. Extensions/capabilities/trust | Partial | Extension descriptors, capability admission, provenance pins, and deny-by-default trust policy are enforced; no third-party discovery or subprocess/WASM execution path exists yet. |
-| 6. `plan/v1` | Mostly implemented; freeze follow-up remains | `plan/v1` migration, parser-free target consumers, checked-in JSON Schema, command admission defaults, and repository guards for protocol/consumer import isolation are covered; final v0 compatibility rules remain. |
+| 6. `plan/v1` | Baseline implemented | `plan/v1` migration, parser-free target consumers, checked-in JSON Schema, command admission defaults, repository guards for protocol/consumer import isolation, and explicit one-way v0-to-v1 compatibility rules are covered. |
 | 7. Usage graph | Baseline implemented | Compiled usage manifests, application/package identity, field references, aggregation, and dependent queries are available. |
 | 8. `lock/v1` | Baseline implemented | Deterministic registry snapshots, provenance, usage evidence, and compatibility-critical allocation ledgers are validated. |
 | 9. Consequence graph | Baseline implemented | Structured causal nodes/edges and terminal actions are emitted for compatibility, projection, consumer, and policy findings. |
