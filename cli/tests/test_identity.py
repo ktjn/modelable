@@ -54,3 +54,31 @@ def test_declaration_id_supports_quoted_domain_names() -> None:
 
 def test_parse_declaration_id_round_trips_canonical_identity() -> None:
     assert parse_declaration_id("marketplace-api.Product@0") == ("marketplace-api", "Product", 0)
+
+
+@pytest.mark.parametrize(
+    ("domain", "name", "version"),
+    [
+        ("customer", "Customer", 4),
+        ("marketplace-api", "Product", 0),
+        ("foo-bar", "Thing", 2),
+        ("foo_bar", "Thing", 2),
+        ("customer", "customer", 4),
+    ],
+)
+def test_declaration_id_round_trip_fixtures_are_collision_free(domain: str, name: str, version: int) -> None:
+    value = declaration_id(domain, name, version)
+
+    assert declaration_id(*parse_declaration_id(value)) == value
+
+
+def test_declaration_id_keeps_similar_components_distinct() -> None:
+    values = {
+        declaration_id("foo-bar", "Thing", 2),
+        declaration_id("foo_bar", "Thing", 2),
+        declaration_id("customer", "Thing", 2),
+        declaration_id("customer", "thing", 2),
+        declaration_id("customer", "Thing", 3),
+    }
+
+    assert len(values) == 5
