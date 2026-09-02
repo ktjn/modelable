@@ -1007,7 +1007,7 @@ class MdlTransformer(Transformer[list[object], Any]):
     def proj_field(self, items: list[object]) -> object:
         return items[0]
 
-    def auto_projections_decl(self, items):
+    def auto_projections_decl(self, items: list[Any]) -> tuple[str, AutoProjectionDecl]:
         return (
             "auto_projection",
             AutoProjectionDecl(
@@ -1017,7 +1017,7 @@ class MdlTransformer(Transformer[list[object], Any]):
             ),
         )
 
-    def access_block(self, items):
+    def access_block(self, items: list[Any]) -> AccessBlock:
         entity = []
         properties: dict[str, list[AccessGrant]] = {}
         for item in items:
@@ -1030,10 +1030,10 @@ class MdlTransformer(Transformer[list[object], Any]):
                 properties.setdefault(field_name, []).append(grant)
         return AccessBlock(entity=entity, properties=properties)
 
-    def entity_grant(self, items):
+    def entity_grant(self, items: list[Any]) -> tuple[str, AccessGrant]:
         return ("entity", AccessGrant(principal=str(items[0]), permissions=list(items[1])))
 
-    def property_grant(self, items):
+    def property_grant(self, items: list[Any]) -> tuple[str, tuple[str, AccessGrant]]:
         field_name = str(items[0])
         return (
             "property",
@@ -1043,37 +1043,37 @@ class MdlTransformer(Transformer[list[object], Any]):
             ),
         )
 
-    def access_item(self, items):
+    def access_item(self, items: list[Any]) -> Any:
         return items[0]
 
-    def principal(self, items):
+    def principal(self, items: list[Any]) -> str:
         return str(items[0])
 
-    def permission_list(self, items):
+    def permission_list(self, items: list[Any]) -> list[str]:
         return [str(item) for item in items]
 
-    def p_read(self, _items):
+    def p_read(self, _items: list[Any]) -> str:
         return "read"
 
-    def p_project(self, _items):
+    def p_project(self, _items: list[Any]) -> str:
         return "project"
 
-    def p_subscribe(self, _items):
+    def p_subscribe(self, _items: list[Any]) -> str:
         return "subscribe"
 
-    def p_write(self, _items):
+    def p_write(self, _items: list[Any]) -> str:
         return "write"
 
-    def p_transfer(self, _items):
+    def p_transfer(self, _items: list[Any]) -> str:
         return "transfer"
 
-    def p_manage_access(self, _items):
+    def p_manage_access(self, _items: list[Any]) -> str:
         return "manage_access"
 
-    def p_derive(self, _items):
+    def p_derive(self, _items: list[Any]) -> str:
         return "derive"
 
-    def p_redact(self, _items):
+    def p_redact(self, _items: list[Any]) -> str:
         return "redact"
 
     def auto_projection_item(self, items):
