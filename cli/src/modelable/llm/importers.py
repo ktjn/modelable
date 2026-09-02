@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 import yaml
 
@@ -35,6 +35,30 @@ from modelable.parser.ir import (
     UnionVariant,
     VersionExact,
 )
+
+PrimitiveKind = Literal[
+    "string",
+    "int",
+    "float",
+    "bool",
+    "date",
+    "time",
+    "timestamp",
+    "uuid",
+    "duration",
+    "binary",
+    "json",
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    "u128",
+    "i8",
+    "i16",
+    "i32",
+    "i64",
+    "i128",
+]
 
 
 @dataclass(frozen=True)
@@ -1012,7 +1036,7 @@ def _field_from_fhir_extension_slice(
 def _fhir_type_to_field_type(type_entry: dict[str, Any], path: str, warnings: list[str]) -> FieldType:
     code = type_entry.get("code", "")
     if code in _FHIR_PRIMITIVE_TYPES:
-        return PrimitiveType(kind=_FHIR_PRIMITIVE_TYPES[code])
+        return PrimitiveType(kind=cast(PrimitiveKind, _FHIR_PRIMITIVE_TYPES[code]))
     if code == "Reference":
         targets = type_entry.get("targetProfile") or []
         if targets:
@@ -1028,7 +1052,9 @@ def _fhir_type_to_field_type(type_entry: dict[str, Any], path: str, warnings: li
     return NamedType(name=code or "Unknown")
 
 
-def _fields_from_json_schema(schema: dict, *, warn_unsupported: bool = False) -> tuple[list[FieldDef], list[str]]:
+def _fields_from_json_schema(
+    schema: dict[str, Any], *, warn_unsupported: bool = False
+) -> tuple[list[FieldDef], list[str]]:
     warnings: list[str] = []
     if warn_unsupported:
         _warn_openapi_loss(schema, warnings, "<schema>")
@@ -1041,7 +1067,7 @@ def _fields_from_json_schema(schema: dict, *, warn_unsupported: bool = False) ->
     fields: list[FieldDef] = []
     for name, prop in properties.items():
         field_type = _field_type_from_json_schema(prop, warnings, path=name, warn_unsupported=warn_unsupported)
-        annotations: list = []
+        annotations: list[Annotation] = []
         modelable_field = prop.get("x-modelable-field") or {}
         if name == key_field_name or name in schema.get("x-modelable-key-fields", []) or modelable_field.get("key"):
             annotations.append(AnnKey())
@@ -1065,8 +1091,8 @@ def _fields_from_json_schema(schema: dict, *, warn_unsupported: bool = False) ->
 
 
 def _field_type_from_json_schema(
-    prop: dict, warnings: list[str], *, path: str = "<schema>", warn_unsupported: bool = False
-):
+    prop: dict[str, Any], warnings: list[str], *, path: str = "<schema>", warn_unsupported: bool = False
+) -> FieldType:
     union = _discriminated_union_from_json_schema(prop, warnings, path=path, warn_unsupported=warn_unsupported)
     if union is not None:
         return union
@@ -1136,7 +1162,7 @@ def _field_type_from_json_schema(
 
 
 def _discriminated_union_from_json_schema(
-    prop: dict, warnings: list[str], *, path: str, warn_unsupported: bool
+    prop: dict[str, Any], warnings: list[str], *, path: str, warn_unsupported: bool
 ) -> UnionType | None:
     discriminator = prop.get("discriminator")
     one_of = prop.get("oneOf")
@@ -1170,7 +1196,7 @@ def _discriminated_union_from_json_schema(
     return UnionType(discriminator=discriminator["propertyName"], variants=variants)
 
 
-def _warn_openapi_loss(schema: dict, warnings: list[str], path: str) -> None:
+def _warn_openapi_loss(schema: dict[str, Any], warnings: list[str], path: str) -> None:
     unsupported = {
         "allOf": "composition",
         "anyOf": "union",
