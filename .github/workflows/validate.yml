@@ -213,9 +213,6 @@ jobs:
   browser-e2e:
     name: E2E (${{ matrix.browser }})
     needs: browser-build
-    # Temporary pause while the roadmap slices are advanced; browser build,
-    # type checks, unit tests, and budgets remain required.
-    if: ${{ false }}
     runs-on: ubuntu-latest
 
     strategy:

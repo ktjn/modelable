@@ -433,10 +433,12 @@ button.view-tab--active:hover:not(:disabled) {
 }
 
 .resizable-layout__main {
+  min-height: 0;
   overflow: hidden;
 }
 
 .resizable-layout__columns {
+  min-height: 0;
   height: 100%;
 }
 
@@ -449,12 +451,14 @@ button.view-tab--active:hover:not(:disabled) {
 }
 
 .resizable-layout__editor {
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .resizable-layout__visualization {
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -755,6 +759,7 @@ button.view-tab--active:hover:not(:disabled) {
 
 .editor-pane {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -816,6 +821,7 @@ button.view-tab--active:hover:not(:disabled) {
 
 .graph-pane {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
