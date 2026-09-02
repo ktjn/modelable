@@ -10,6 +10,7 @@ from modelable.cli import cli
 from modelable.compiler.workspace import load_workspace
 from modelable.diagnostics.model import render_diagnostic
 from modelable.parser.ir import ParseError
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 from modelable.registry.signature import compute_version_signature
 
 
@@ -253,6 +254,33 @@ domain customer {
         assert result.exit_code == 0
         assert Path(".modelable/registry.db").exists()
         assert "registry.db" in result.output
+
+
+def test_docs_admission_uses_the_v1_plan_emitted_by_markdown(tmp_path, monkeypatch):
+    mdl = tmp_path / "customer.mdl"
+    mdl.write_text(
+        """
+domain customer {
+  owner: "test-team"
+  entity Customer @ 1 (additive) {
+    @key customerId: uuid
+  }
+}
+""",
+        encoding="utf-8",
+    )
+    compile_module = import_module("modelable.commands.compile")
+    observed: list[str] = []
+
+    def observe_admission(_descriptor, _mdl, *, plan_version, **_kwargs):
+        observed.append(plan_version)
+
+    monkeypatch.setattr(compile_module, "validate_extension_admission", observe_admission)
+
+    result = CliRunner().invoke(cli, ["docs", str(mdl), "--out", str(tmp_path / "docs")])
+
+    assert result.exit_code == 0, result.output
+    assert observed == [PLAN_V1_SCHEMA]
 
 
 def test_compile_with_oci_registry_fails_loudly(tmp_path):
