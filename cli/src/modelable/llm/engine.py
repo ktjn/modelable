@@ -7,7 +7,7 @@ from pathlib import Path
 
 from modelable.compat.diff import FieldChange, compare_model_versions
 from modelable.compiler.render import render_mdl, render_model_version, render_projection_version
-from modelable.compiler.workspace import load_workspace
+from modelable.compiler.workspace import Workspace, load_workspace
 from modelable.diagnostics.model import render_diagnostic
 from modelable.emitters.csharp import emit_csharp
 from modelable.emitters.dbt_yaml import emit_dbt_yaml
@@ -117,7 +117,7 @@ def generate_entity_from_prompt(
         FieldDef(name=_key_field_name(name), type=_uuid_field(), annotations=[AnnKey()]),
         FieldDef(name="name", type=_string_field()),
     ]
-    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind="additive", fields=fields)
+    version = ModelVersion(model_kind=ModelKind.entity, version=1, change_kind=ChangeKind.additive, fields=fields)
     return render_model_version(domain, name, version, owner=owner or "generated")
 
 
@@ -279,7 +279,7 @@ def update_definition(
     original_text = source_path.read_text(encoding="utf-8")
 
     if llm_config is None:
-        llm_config = resolve_llm_config(workspace=workspace.mdl.workspace, env=environ)
+        llm_config = resolve_llm_config(workspace=workspace.mdl.workspace, env=dict(environ))
     provider_name = llm_config.provider or "local"
     model_name = llm_config.model or "modelable-local"
     if provider is None:
@@ -573,7 +573,7 @@ def _split_ref(ref: str) -> tuple[str, str, int]:
     return model_ref.domain, model_ref.name, model_ref.version
 
 
-def _find_source_path_for_ref(workspace, domain_name: str, model_name: str) -> Path | None:
+def _find_source_path_for_ref(workspace: Workspace, domain_name: str, model_name: str) -> Path | None:
     for source in workspace.sources:
         domain = next((item for item in source.mdl.domains if item.name == domain_name), None)
         if domain is None:
@@ -583,7 +583,7 @@ def _find_source_path_for_ref(workspace, domain_name: str, model_name: str) -> P
     return None
 
 
-def _json_dump(value) -> str:
+def _json_dump(value: object) -> str:
     import json
 
     return json.dumps(value, indent=2, ensure_ascii=False)
