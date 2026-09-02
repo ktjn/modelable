@@ -55,7 +55,7 @@ class _Selector:
         return (
             self.declaration == declaration
             and self.version.matches(version)
-            and (self.path is None or self.path == path)
+            and (self.path is None or _path_selector_matches(self.path, path))
         )
 
 
@@ -229,17 +229,38 @@ def _parse_selector(value: str, section: str) -> _Selector:
         version_specificity = 3 if version.exact else 2
     declaration = f"{domain}.{name}"
     if path:
-        exact_path = f"{declaration}@{version_text}#{path}"
         try:
-            if any(part in path for part in ("*", "#")):
-                raise ValueError
-            parse_semantic_path(exact_path if version.exact else f"{declaration}@0#{path}")
+            _validate_path_selector(declaration, path)
         except ValueError as exc:
             raise OverlayError(f"invalid semantic path in selector: {value!r}") from exc
-        specificity = 5 if version.exact else 4
+        specificity = 4 if "*" in path or not version.exact else 5
     else:
         specificity = version_specificity
     return _Selector(value, declaration, version, path or None, specificity)
+
+
+def _validate_path_selector(declaration: str, path: str) -> None:
+    """Validate a concrete path or a path with full-segment wildcards."""
+    if not path or "#" in path:
+        raise ValueError
+    if "*" not in path:
+        parse_semantic_path(f"{declaration}@0#{path}")
+        return
+    for segment in path.split("."):
+        if segment == "*":
+            continue
+        parse_semantic_path(f"{declaration}@0#{segment}")
+
+
+def _path_selector_matches(selector: str, path: str | None) -> bool:
+    if path is None:
+        return False
+    selector_segments = selector.split(".")
+    path_segments = path.split(".")
+    return len(selector_segments) == len(path_segments) and all(
+        selector_segment == "*" or selector_segment == path_segment
+        for selector_segment, path_segment in zip(selector_segments, path_segments, strict=True)
+    )
 
 
 def _parse_version_selector(value: str, selector: str) -> _VersionSelector:

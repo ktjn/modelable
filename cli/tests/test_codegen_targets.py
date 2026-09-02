@@ -76,6 +76,13 @@ def test_codegen_descriptors_reference_valid_local_overlay_schemas():
                 "models": {"customer.Customer@<3": {"table": "legacy_customers"}},
             }
         )
+        Draft202012Validator(schema).validate(
+            {
+                "target": target_name,
+                "version": 1,
+                "fields": {"customer.Customer@>=4,<7#address.*": {"column": "address_value"}},
+            }
+        )
         validator = Draft202012Validator(schema)
         for payload in (
             {

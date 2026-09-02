@@ -50,6 +50,27 @@ def test_overlay_range_is_not_copied_to_an_unmatched_version() -> None:
     assert document.resolve("customer.Customer@7").values == {}
 
 
+def test_overlay_path_wildcard_matches_one_nested_segment() -> None:
+    document = parse_overlay(
+        {
+            "target": "csharp",
+            "version": 1,
+            "fields": {
+                "customer.Customer@>=4,<7#address.*": {"nullable": True},
+                "customer.Customer@6#address.street": {"nullable": False},
+            },
+        }
+    )
+
+    street = document.resolve("customer.Customer@6", "customer.Customer@6#address.street")
+    city = document.resolve("customer.Customer@6", "customer.Customer@6#address.city")
+    name = document.resolve("customer.Customer@6", "customer.Customer@6#name")
+
+    assert street.values["nullable"] is False
+    assert city.values["nullable"] is True
+    assert name.values == {}
+
+
 def test_equal_specificity_conflicts_are_rejected() -> None:
     document = parse_overlay(
         {

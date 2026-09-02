@@ -100,11 +100,16 @@ column = "customer_id"
 
 [fields."customer.Customer@6#customerId"]
 column = "customer_id_v2"
+
+[fields."customer.Customer@>=4,<7#address.*"]
+column = "address_value"
 ```
 
 Rules:
 
 - more-specific selectors override less-specific selectors;
+- `*` matches exactly one semantic-path segment and must occupy a complete segment;
+- a path wildcard may be combined with an exact version or version range;
 - equal-specificity conflicting values are errors;
 - file order is not a conflict-resolution mechanism;
 - targets may prohibit inheritance for properties that must be exact;
