@@ -2,9 +2,28 @@
 
 Modelable is entering a stabilization phase.
 
-The latest published release is **1.11.0**.
+The latest published release is **1.13.1**.
 
 The product already has broad language, compatibility, lineage, code generation, import, browser, and tooling capability. The next priority is not adding more surface area. It is making the semantic core stable enough that future capability can be added without repeatedly changing grammar, IR, compatibility logic, and every emitter.
+
+## Current execution status
+
+The completed offline-registry/consequence and model-evolution programmes are
+archived with their implementation plans and remain part of the shipped
+stabilization baseline:
+
+- [Offline registry and consequence delivery](docs/superpowers/plans/archived/2026-08-21-offline-registry-dx-delivery.md)
+- [Model evolution slices](docs/superpowers/plans/archived/2026-08-22-model-evolution-slices-roadmap.md)
+
+The active follow-ups are deliberately narrower:
+
+- [Enum projections as field types](docs/superpowers/specs/2026-08-28-enum-projection-field-references-design.md) is the next compiler-facing design slice.
+- [Playground UI uplift](docs/superpowers/plans/2026-08-13-playground-ui-uplift.md) remains an independent web workstream.
+- Phase 12 host/showcase conformance and sibling-project validation remain continuous release gates.
+
+The phase sections below are the canonical architectural roadmap; archived
+plans provide the detailed delivery history and acceptance evidence for work
+already completed.
 
 The architecture source of truth is [docs/architecture.md](docs/architecture.md). The previous shipped-state roadmap has been retained as [docs/roadmap-archive-2026-08.md](docs/roadmap-archive-2026-08.md) so historical slice names and shipped decisions remain discoverable.
 

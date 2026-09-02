@@ -1,7 +1,7 @@
 # Offline Registry and Consequence-Driven DX Delivery Plan
 
 This plan decomposes the proposed design in
-`docs/superpowers/specs/2026-08-16-offline-registry-dx-design.md` into
+`docs/superpowers/specs/archived/2026-08-16-offline-registry-dx-design.md` into
 reviewable implementation slices. The repository already contains an initial
 foundation for local snapshots, staged snapshot updates, usage manifests, and
 model/projection consequence reports. This plan closes the gaps between that

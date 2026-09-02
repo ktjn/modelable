@@ -1,4 +1,4 @@
-"""Standalone JSON protocol helpers for ``modelable.plan/v0`` documents."""
+"""Standalone JSON protocol helpers for the Modelable plan protocols."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ type PlanDocument = dict[str, object]
 
 
 class PlanProtocolError(ValueError):
-    """Raised when a plan does not satisfy the modelable.plan/v0 boundary."""
+    """Raised when a plan does not satisfy a supported plan protocol."""
 
 
 def validate_plan(document: object) -> PlanDocument:

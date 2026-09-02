@@ -1,4 +1,4 @@
-"""Parser-free Java projection rendering for ``modelable.plan/v0``."""
+"""Parser-free Java projection rendering for ``modelable.plan/v1``."""
 
 from __future__ import annotations
 

@@ -521,7 +521,7 @@ is mechanical and does not judge the changelog content.
 8. Install the published wheel in a clean environment and run
    `modelable --version` plus strict sample validation.
 
-The concrete commands for the manual path are given [below](#concrete-command-sequence).
+The concrete commands for the manual path are given [below](#concrete-command-sequence-manual-path).
 
 PyPI publishing uses trusted publishing through the protected `pypi`
 environment. Do not add long-lived package-index credentials. Do not blindly

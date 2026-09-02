@@ -299,7 +299,7 @@ def _emit_projection_version(
 
 
 def _can_route_protobuf_projection_plan(plan: PlanDocument, version: ProjectionVersion) -> bool:
-    """Route only scalar projection facts represented by plan/v0 in this slice."""
+    """Route only scalar projection facts represented by plan/v1 in this slice."""
     if plan.get("joins") or version.protobuf_reservations is not None:
         return False
     fields = plan.get("fields")

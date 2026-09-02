@@ -1,4 +1,4 @@
-"""Parser-free Avro event projection consumer for ``modelable.plan/v0``."""
+"""Parser-free Avro event projection consumer for ``modelable.plan/v1``."""
 
 from __future__ import annotations
 

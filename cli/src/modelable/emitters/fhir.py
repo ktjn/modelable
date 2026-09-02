@@ -258,7 +258,7 @@ def emit_fhir_profile(workspace: Workspace, out_dir: Path) -> list[EmittedArtifa
 
 
 def _can_route_fhir_plan(plan: PlanDocument, version: ProjectionVersion) -> bool:
-    """Route only scalar known-base fields represented by plan/v0 in this slice."""
+    """Route only scalar known-base fields represented by plan/v1 in this slice."""
     if plan.get("joins"):
         return False
     source = plan.get("source")

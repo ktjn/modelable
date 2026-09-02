@@ -6,7 +6,7 @@ Scope: Allow a model or projection field to reference an `enum projection` decla
 
 ## 1. Context
 
-The [Model Evolution Slices Roadmap](../plans/2026-08-22-model-evolution-slices-roadmap.md) shipped `enum projection` declarations (E3) with full compatibility, registry, and editor support (E4, E5, E11), plus nominal codegen across every implemented target when a projection is reached through its own declaration or through a *record* projection's field mapping (E6-E10).
+The [Model Evolution Slices Roadmap](../plans/archived/2026-08-22-model-evolution-slices-roadmap.md) shipped `enum projection` declarations (E3) with full compatibility, registry, and editor support (E4, E5, E11), plus nominal codegen across every implemented target when a projection is reached through its own declaration or through a *record* projection's field mapping (E6-E10).
 
 What was never built — and was explicitly flagged as a real, discovered gap rather than an assumption, while shipping A1's `extract-enum` tool — is using an enum projection as a field's own type:
 

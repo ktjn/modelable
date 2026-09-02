@@ -1190,7 +1190,7 @@ def _can_route_rust_projection_plan(
     clickhouse_row: bool,
     suppress_skip_serializing: bool,
 ) -> bool:
-    """Route only facts fully represented by plan/v0 in this migration slice."""
+    """Route only facts fully represented by plan/v1 in this migration slice."""
     fields = cast(list[dict[str, object]], plan.get("fields", []))
     joins = cast(list[dict[str, object]], plan.get("joins", []))
     if sqlx_fromrow or clickhouse_row or suppress_skip_serializing or joins:
