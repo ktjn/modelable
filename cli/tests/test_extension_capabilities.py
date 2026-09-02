@@ -44,6 +44,26 @@ def test_required_capabilities_are_canonical_and_derived_from_field_types() -> N
     assert required_capabilities(mdl) == ("maps", "records", "unions")
 
 
+def test_enum_projection_fields_require_the_target_capability() -> None:
+    mdl = parse_text_to_ir(
+        """
+        domain orders {
+          semantic OrderStatus @ 1 (additive): enum(active, blocked)
+          enum projection PublicStatus @ 1 (additive) from OrderStatus @ 1 pick(active)
+          entity Order @ 1 (additive) {
+            @key id: uuid
+            status: PublicStatus
+          }
+        }
+        """
+    )
+
+    assert required_capabilities(mdl) == ("enum-projections", "enums", "records", "semantic-types")
+    validate_extension_capabilities(_descriptor("enum-projections", "enums", "records", "semantic-types"), mdl)
+    with pytest.raises(ExtensionDescriptorError, match="enum-projections"):
+        validate_extension_capabilities(_descriptor("enums", "records"), mdl)
+
+
 def test_capability_validation_rejects_unsupported_requirements_deterministically() -> None:
     mdl = parse_text_to_ir(
         """
@@ -82,6 +102,8 @@ def test_builtin_targets_advertise_capabilities_they_implement() -> None:
     assert "unions" in get_codegen_target("json-schema").extension_descriptor().capabilities
     assert "unions" in get_codegen_target("openapi").extension_descriptor().capabilities
     assert "unions" not in get_codegen_target("rust").extension_descriptor().capabilities
+    assert "enum-projections" in get_codegen_target("rust").extension_descriptor().capabilities
+    assert "enum-projections" not in get_codegen_target("markdown").extension_descriptor().capabilities
 
 
 def test_extension_admission_rejects_targets_without_compatibility_support() -> None:
