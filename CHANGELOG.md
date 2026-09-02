@@ -25,6 +25,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Formalize the one-way `modelable.plan/v0` to `modelable.plan/v1` migration
+  boundary, including compatibility for already-canonical lineage references.
+
 - Route emitter and registry declaration selection through the shared resolver
   candidate boundary for consistent latest semantic-type and enum-projection
   resolution.

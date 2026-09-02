@@ -8,6 +8,7 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from modelable.planner.protocol import (
+    PLAN_SCHEMA,
     PLAN_V1_SCHEMA,
     PlanProtocolError,
     load_plan,
@@ -55,9 +56,22 @@ def test_validate_v1_rejects_legacy_dotted_lineage() -> None:
         validate_plan(v1)
 
 
+def test_migrate_v0_accepts_already_canonical_lineage() -> None:
+    v0 = load_plan(FIXTURE)
+    v0["fields"][0]["lineage"] = ["customer.Customer@1#customerId"]
+
+    v1 = migrate_plan(v0, PLAN_V1_SCHEMA)
+
+    assert v1["fields"][0]["lineage"] == ["customer.Customer@1#customerId"]
+
+
 def test_migrate_plan_rejects_unsupported_direction() -> None:
     with pytest.raises(PlanProtocolError, match="unsupported plan migration"):
         migrate_plan(load_plan(FIXTURE), "modelable.plan/v2")
+
+    v1 = migrate_plan(load_plan(FIXTURE), PLAN_V1_SCHEMA)
+    with pytest.raises(PlanProtocolError, match="unsupported plan migration"):
+        migrate_plan(v1, PLAN_SCHEMA)
 
 
 def test_checked_in_v1_schema_accepts_migrated_plan() -> None:

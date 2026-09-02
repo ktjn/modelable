@@ -12,6 +12,7 @@ from modelable.identity import parse_semantic_path, semantic_path
 
 PLAN_SCHEMA = "modelable.plan/v0"
 PLAN_V1_SCHEMA = "modelable.plan/v1"
+_SUPPORTED_PLAN_MIGRATIONS = frozenset({(PLAN_SCHEMA, PLAN_V1_SCHEMA)})
 _LEGACY_LINEAGE = re.compile(r"^(?P<declaration>.+@[0-9]+)\.(?P<path>.+)$")
 type PlanDocument = dict[str, object]
 
@@ -39,7 +40,7 @@ def migrate_plan(document: object, target_schema: str) -> PlanDocument:
     source_schema = _require_string(source, "$schema")
     if source_schema == target_schema:
         return deepcopy(source)
-    if source_schema != PLAN_SCHEMA or target_schema != PLAN_V1_SCHEMA:
+    if (source_schema, target_schema) not in _SUPPORTED_PLAN_MIGRATIONS:
         raise PlanProtocolError(f"unsupported plan migration {source_schema!r} -> {target_schema!r}")
 
     migrated = deepcopy(source)
