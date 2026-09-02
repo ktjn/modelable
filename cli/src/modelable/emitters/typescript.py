@@ -20,12 +20,16 @@ from modelable.parser.ir import (
     EnumProjectionDecl,
     EnumRefType,
     EnumType,
+    FieldDef,
+    FieldType,
     FixedBinaryType,
     MapType,
+    MdlFile,
     ModelVersion,
     NamedType,
     ObjectType,
     PrimitiveType,
+    ProjectionField,
     ProjectionVersion,
     RefType,
     SemanticTypeDecl,
@@ -33,6 +37,7 @@ from modelable.parser.ir import (
     VersionMin,
     VersionPinned,
     VersionRange,
+    VersionSpec,
     latest_semantic_types,
 )
 from modelable.planner.plans import build_plan_documents
@@ -145,7 +150,7 @@ def _ref_cache_key(field_type: RefType) -> tuple[object, ...]:
     return (field_type.target, None)
 
 
-def _collect_ref_imports(field_type, mdl, resolved_refs: dict[tuple[object, ...], str]) -> None:
+def _collect_ref_imports(field_type: FieldType, mdl: MdlFile, resolved_refs: dict[tuple[object, ...], str]) -> None:
     """Recursively collect resolved RefType targets into resolved_refs, keyed by (target, version)."""
     if isinstance(field_type, RefType):
         key = _ref_cache_key(field_type)
@@ -166,10 +171,10 @@ def _collect_ref_imports(field_type, mdl, resolved_refs: dict[tuple[object, ...]
 
 
 def _collect_named_imports(
-    field_type,
-    mdl,
+    field_type: FieldType,
+    mdl: MdlFile,
     named_imports: dict[str, tuple[str, str]],
-    named_types: dict[str, object] | None = None,
+    named_types: dict[str, FieldType] | None = None,
     current_domain: str = "",
     named_enum_imports: dict[tuple[str, int | None], tuple[str, str]] | None = None,
 ) -> None:
@@ -232,14 +237,20 @@ def _collect_named_imports(
             _collect_named_imports(f.type, mdl, named_imports, named_types, current_domain, named_enum_imports)
 
 
-def _emit_model(domain: DomainDef, model_name: str, version: ModelVersion, out_dir: Path, mdl=None) -> EmittedArtifact:
+def _emit_model(
+    domain: DomainDef,
+    model_name: str,
+    version: ModelVersion,
+    out_dir: Path,
+    mdl: MdlFile | None = None,
+) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
     interface_name = _stable_interface_name(domain.name, model_name, version.version)
 
     # Resolve ref<X> fields to stable interface names; collect imports.
     resolved_refs: dict[tuple[object, ...], str] = {}  # (target, version-key) → stable interface name
     named_imports: dict[str, tuple[str, str]] = {}  # bare name → (stable iface name, artifact_id)
-    named_types: dict[str, object] = {}
+    named_types: dict[str, FieldType] = {}
     named_enum_imports: dict[tuple[str, int | None], tuple[str, str]] = {}
     if mdl is not None:
         for field in version.fields:
@@ -312,7 +323,7 @@ def _emit_projection(
     projection_name: str,
     version: ProjectionVersion,
     out_dir: Path,
-    mdl,
+    mdl: MdlFile,
     plan: dict[str, object],
 ) -> EmittedArtifact:
     meta_lines = _metadata_lines(
@@ -330,7 +341,7 @@ def _emit_projection(
     field_case = declaration_json_wire.field_case if declaration_json_wire is not None else None
     resolved_refs: dict[tuple[object, ...], str] = {}
     named_imports: dict[str, tuple[str, str]] = {}
-    named_types: dict[str, object] = {}
+    named_types: dict[str, FieldType] = {}
     named_enum_imports: dict[tuple[str, int | None], tuple[str, str]] = {}
     for field in version.fields:
         field_type = _resolve_projection_field_type(field, version, mdl)
@@ -423,10 +434,10 @@ def _domain_metadata_entries(
 
 
 def _resolve_projection_field_type(
-    field: Any,
+    field: ProjectionField,
     projection: ProjectionVersion,
-    mdl: Any,
-) -> Any:
+    mdl: MdlFile,
+) -> FieldType | None:
     if not isinstance(field.mapping, DirectMapping):
         return None
     try:
@@ -439,12 +450,12 @@ def _resolve_projection_field_type(
         return None
     source_mv = resolved.version
     for src_field in source_mv.fields:
-        if src_field.name == field.mapping.source_field:
+        if isinstance(src_field, FieldDef) and src_field.name == field.mapping.source_field:
             return src_field.type
     return None
 
 
-def _resolve_projection_field_optional(field: Any, projection: ProjectionVersion, mdl: Any) -> bool:
+def _resolve_projection_field_optional(field: ProjectionField, projection: ProjectionVersion, mdl: MdlFile) -> bool:
     if not isinstance(field.mapping, DirectMapping):
         return False
     try:
@@ -453,11 +464,12 @@ def _resolve_projection_field_optional(field: Any, projection: ProjectionVersion
     except LookupError, ValueError:
         return False
     return any(
-        src_field.name == field.mapping.source_field and src_field.optional for src_field in resolved.version.fields
+        isinstance(src_field, FieldDef) and src_field.name == field.mapping.source_field and src_field.optional
+        for src_field in resolved.version.fields
     )
 
 
-def _version_label(version_spec) -> str:
+def _version_label(version_spec: VersionSpec) -> str:
     if isinstance(version_spec, VersionExact):
         return str(version_spec.version)
     if isinstance(version_spec, VersionRange):
@@ -475,12 +487,12 @@ def _apply_case(value: str, case: str) -> str:
 
 
 def _type_to_ts(
-    field_type,
+    field_type: FieldType,
     *,
     wire_targets: Mapping[str, Any] | None = None,
     resolved_refs: dict[tuple[object, ...], str] | None = None,
     named_imports: dict[str, tuple[str, str]] | None = None,
-    named_types: dict[str, object] | None = None,
+    named_types: dict[str, FieldType] | None = None,
     named_enum_imports: dict[tuple[str, int | None], tuple[str, str]] | None = None,
 ) -> str:
     json_wire = None
