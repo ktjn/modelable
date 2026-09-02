@@ -20,7 +20,7 @@ delivered the following portions:
 
 | Phase | Current state | Modelable evidence |
 | --- | --- | --- |
-| 1. Identity/path grammar | Baseline implemented; lineage follow-up remains | `modelable.identity`, overlays, lineage, graph export, and usage validation share canonical identities and semantic paths; projection-chain lineage still needs a stronger ultimate-source invariant. |
+| 1. Identity/path grammar | Baseline implemented; fixture hardening remains | `modelable.identity`, overlays, lineage, graph export, and usage validation share canonical identities and semantic paths; projection-chain lineage now resolves through projection sources to the ultimate canonical model path. |
 | 2. Declaration/projection unification | Partial | `ResolvedNamedDeclaration` now provides a shared identity view, but the IR still has parallel declaration families and enum projections retain specialized resolution paths. |
 | 3. `plan/v0` | Baseline implemented | `modelable.planner.protocol` validates deterministic plans and rejects malformed or non-canonical references. |
 | 4. Overlays | Baseline implemented | Version-aware overlay selectors, including full-segment semantic-path wildcards, are validated against canonical identities and paths. |

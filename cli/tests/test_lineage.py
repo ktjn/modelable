@@ -89,6 +89,18 @@ def test_computed_mapping_stores_expression():
     assert "c.status" in by_name["isActive"].expression
 
 
+def test_projection_lineage_resolves_through_projection_sources() -> None:
+    fixture = Path(__file__).parent / "fixtures" / "materialized_projection_chain.mdl"
+    mdl = parse_text_to_ir(fixture.read_text(encoding="utf-8"))
+    pv = mdl.domains[1].projections["CustomerMart"][0]
+
+    lineage = build_projection_lineage("analytics", "CustomerMart", pv, mdl)
+
+    by_name = {item.field_name: item for item in lineage.fields}
+    assert by_name["customerId"].lineage == ["customer.Customer@1#customerId"]
+    assert by_name["displayName"].lineage == ["customer.Customer@1#legalName"]
+
+
 # ── Plan document structure ────────────────────────────────────────────────────
 
 
