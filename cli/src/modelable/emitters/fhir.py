@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import TypedDict
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
@@ -155,6 +156,12 @@ _BASE_RESOURCE_ELEMENTS: dict[str, frozenset[str]] = {
         }
     ),
 }
+
+
+class _FhirProjectionArtifacts(TypedDict):
+    profile: EmittedArtifact
+    extensions: list[EmittedArtifact]
+
 
 # Real base FHIR R4 type for each supported base resource element whose type is
 # a single complex datatype. When a profile maps a Modelable composite (value
@@ -399,7 +406,7 @@ def _emit_projection(
     version: ProjectionVersion,
     mdl: MdlFile,
     out_dir: Path,
-) -> dict[str, object]:
+) -> _FhirProjectionArtifacts:
     artifact_id = _artifact_id(domain.name, projection_name, version.version)
     source = _resolve_source(mdl, version)
     base_resource, warnings = _base_resource(source)
