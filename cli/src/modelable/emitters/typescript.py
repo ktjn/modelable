@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -476,7 +477,7 @@ def _apply_case(value: str, case: str) -> str:
 def _type_to_ts(
     field_type,
     *,
-    wire_targets: dict[str, object] | None = None,
+    wire_targets: Mapping[str, Any] | None = None,
     resolved_refs: dict[tuple[object, ...], str] | None = None,
     named_imports: dict[str, tuple[str, str]] | None = None,
     named_types: dict[str, object] | None = None,
