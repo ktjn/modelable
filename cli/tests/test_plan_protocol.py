@@ -1,6 +1,8 @@
+import json
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator
 
 from modelable.planner.protocol import (
     PLAN_V1_SCHEMA,
@@ -12,6 +14,7 @@ from modelable.planner.protocol import (
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "plan_v0" / "billing.BillingCustomer.v1.plan.json"
+V1_SCHEMA = Path(__file__).parents[1] / "src" / "modelable" / "schemas" / "plan-v1.schema.json"
 
 
 def test_migrate_v0_plan_to_v1_records_source_schema() -> None:
@@ -51,3 +54,13 @@ def test_validate_v1_rejects_legacy_dotted_lineage() -> None:
 def test_migrate_plan_rejects_unsupported_direction() -> None:
     with pytest.raises(PlanProtocolError, match="unsupported plan migration"):
         migrate_plan(load_plan(FIXTURE), "modelable.plan/v2")
+
+
+def test_checked_in_v1_schema_accepts_migrated_plan() -> None:
+    schema = json.loads(V1_SCHEMA.read_text(encoding="utf-8"))
+    plan = migrate_plan(load_plan(FIXTURE), PLAN_V1_SCHEMA)
+
+    errors = list(Draft202012Validator(schema).iter_errors(plan))
+
+    assert errors == []
+    assert schema["$id"] == PLAN_V1_SCHEMA

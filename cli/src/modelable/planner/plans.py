@@ -45,7 +45,7 @@ def build_plan(
     lineage: ProjectionLineage,
     mdl: MdlFile,
     *,
-    schema: str = PLAN_SCHEMA,
+    schema: str = PLAN_V1_SCHEMA,
 ) -> PlanDocument:
     """Return the plan document dict for a single projection version."""
     if schema not in {PLAN_SCHEMA, PLAN_V1_SCHEMA}:
@@ -116,7 +116,7 @@ def build_plan(
     }
 
 
-def write_plans(workspace: Workspace, plans_dir: Path, *, schema: str = PLAN_SCHEMA) -> list[Path]:
+def write_plans(workspace: Workspace, plans_dir: Path, *, schema: str = PLAN_V1_SCHEMA) -> list[Path]:
     """Write a plan JSON file for every projection version in the workspace."""
     plans_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
@@ -389,7 +389,7 @@ def _collect_revalidation_reasons(source_block: dict[str, object], joins_block: 
     return reasons
 
 
-def build_plan_documents(workspace: Workspace, *, schema: str = PLAN_SCHEMA) -> list[PlanDocument]:
+def build_plan_documents(workspace: Workspace, *, schema: str = PLAN_V1_SCHEMA) -> list[PlanDocument]:
     """Build plan documents for every workspace projection."""
     documents: list[PlanDocument] = []
     for domain in sorted(workspace.mdl.domains, key=lambda item: item.name):

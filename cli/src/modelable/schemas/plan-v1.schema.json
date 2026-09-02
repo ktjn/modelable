@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "modelable.plan/v1",
+  "title": "Modelable plan protocol v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "domain", "projection", "version", "auto_generated", "requires_revalidation", "revalidation_reasons", "governance_findings", "source", "joins", "where", "group_by", "fields", "planner_metadata"],
+  "properties": {
+    "$schema": {"const": "modelable.plan/v1"},
+    "domain": {"type": "string", "minLength": 1},
+    "projection": {"type": "string", "minLength": 1},
+    "version": {"type": "integer", "minimum": 1},
+    "auto_generated": {"type": "boolean"},
+    "requires_revalidation": {"type": "boolean"},
+    "revalidation_reasons": {"type": "array", "items": {"type": "string"}},
+    "governance_findings": {"type": "array", "items": {"$ref": "#/$defs/governanceFinding"}},
+    "source": {"$ref": "#/$defs/sourceRelation"},
+    "joins": {"type": "array", "items": {"$ref": "#/$defs/joinRelation"}},
+    "where": {"type": ["string", "null"], "minLength": 1},
+    "group_by": {"type": "array", "items": {"type": "string"}},
+    "fields": {"type": "array", "items": {"$ref": "#/$defs/field"}},
+    "planner_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modelable_schema"],
+      "properties": {
+        "modelable_schema": {"type": "string", "minLength": 1},
+        "migrated_from": {"const": "modelable.plan/v0"}
+      }
+    }
+  },
+  "$defs": {
+    "versionSpec": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["kind", "version"], "properties": {"kind": {"const": "exact"}, "version": {"type": "integer", "minimum": 1}}},
+        {"type": "object", "additionalProperties": false, "required": ["kind", "minInclusive", "maxExclusive"], "properties": {"kind": {"const": "range"}, "minInclusive": {"type": "integer", "minimum": 1}, "maxExclusive": {"type": "integer", "minimum": 1}}},
+        {"type": "object", "additionalProperties": false, "required": ["kind", "minInclusive"], "properties": {"kind": {"const": "min"}, "minInclusive": {"type": "integer", "minimum": 1}}},
+        {"type": "object", "additionalProperties": false, "required": ["kind", "version", "contentHash"], "properties": {"kind": {"const": "pinned"}, "version": {"type": "integer", "minimum": 1}, "contentHash": {"type": "string", "minLength": 1}}}
+      ]
+    },
+    "resolvedField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "optional", "nullable", "pii", "classification", "owner"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1}, "type": {"type": ["object", "null"]}, "optional": {"type": ["boolean", "null"]}, "nullable": {"type": ["boolean", "null"]}, "default": {"type": ["string", "null"]}, "pii": {"type": "boolean"}, "classification": {"type": ["string", "null"]}, "owner": {"type": ["string", "null"]}, "constraints": {"type": ["array", "null"]}, "annotations": {"type": ["array", "null"]}
+      }
+    },
+    "resolvedDeclaration": {
+      "type": "object", "additionalProperties": false, "required": ["domain", "name", "version", "kind", "model_kind", "fields"],
+      "properties": {"domain": {"type": "string", "minLength": 1}, "name": {"type": "string", "minLength": 1}, "version": {"type": "integer", "minimum": 1}, "kind": {"enum": ["model", "projection"]}, "model_kind": {"type": ["string", "null"]}, "fields": {"type": "array", "items": {"$ref": "#/$defs/resolvedField"}}}
+    },
+    "relationBase": {
+      "type": "object", "required": ["model", "version", "resolved_version", "alias", "change_kind", "resolved"],
+      "properties": {"model": {"type": "string", "minLength": 1}, "version": {"$ref": "#/$defs/versionSpec"}, "resolved_version": {"type": ["integer", "null"], "minimum": 1}, "alias": {"type": "string", "minLength": 1}, "change_kind": {"type": ["string", "null"]}, "resolved": {"anyOf": [{"$ref": "#/$defs/resolvedDeclaration"}, {"type": "null"}]}}
+    },
+    "sourceRelation": {"$ref": "#/$defs/relationBase"},
+    "joinRelation": {
+      "allOf": [{"$ref": "#/$defs/relationBase"}, {"type": "object", "required": ["on", "kind", "cardinality"], "properties": {"on": {"type": "string", "minLength": 1}, "kind": {"type": "string", "minLength": 1}, "cardinality": {"type": ["string", "null"], "minLength": 1}}}]
+    },
+    "field": {
+      "oneOf": [
+        {"$ref": "#/$defs/directField"},
+        {"$ref": "#/$defs/computedField"}
+      ]
+    },
+    "fieldCommon": {
+      "type": "object", "required": ["name", "type", "optional", "lineage", "pii", "classification", "owner"],
+      "properties": {"name": {"type": "string", "minLength": 1}, "type": {"type": ["object", "null"]}, "optional": {"type": ["boolean", "null"]}, "nullable": {"type": ["boolean", "null"]}, "lineage": {"type": "array", "items": {"type": "string", "pattern": "#"}}, "pii": {"type": "boolean"}, "classification": {"type": ["string", "null"]}, "owner": {"type": ["string", "null"]}, "constraints": {"type": ["array", "null"]}, "annotations": {"type": ["array", "null"]}}
+    },
+    "directField": {"allOf": [{"$ref": "#/$defs/fieldCommon"}, {"type": "object", "required": ["kind", "source_alias", "source_field"], "properties": {"kind": {"const": "direct"}, "source_alias": {"type": "string", "minLength": 1}, "source_field": {"type": "string", "minLength": 1}}}]},
+    "computedField": {"allOf": [{"$ref": "#/$defs/fieldCommon"}, {"type": "object", "required": ["kind", "expression"], "properties": {"kind": {"const": "computed"}, "expression": {"type": "string", "minLength": 1}}}]},
+    "governanceFinding": {"type": "object", "additionalProperties": false, "required": ["code", "subject", "message"], "properties": {"code": {"type": "string", "minLength": 1}, "subject": {"type": "string", "minLength": 1}, "message": {"type": "string", "minLength": 1}}}
+  }
+}

@@ -408,6 +408,15 @@ protocol boundary can deterministically migrate a v0 document to v1 and records
 `modelable.plan/v0` in `planner_metadata.migrated_from`. Unknown plan schema
 versions are rejected rather than guessed.
 
+The normative v1 JSON Schema is checked in at
+`cli/src/modelable/schemas/plan-v1.schema.json` and is included in published
+Python distributions for non-Python consumers. The imperative validator remains
+the source of cross-field and semantic invariants. The current v1 envelope is
+strict about unknown keys, so an additive field requires a coordinated schema
+and validator update plus compatibility review. Changing the meaning or type
+of an existing field requires a new plan protocol version; v0 remains the only
+legacy migration source.
+
 ## 13. Extension protocol
 
 Extensions depend on versioned protocols rather than compiler implementation classes.
