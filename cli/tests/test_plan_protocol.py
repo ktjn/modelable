@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -64,3 +66,34 @@ def test_checked_in_v1_schema_accepts_migrated_plan() -> None:
 
     assert errors == []
     assert schema["$id"] == PLAN_V1_SCHEMA
+
+
+def test_plan_protocol_loads_without_parser_or_validation_imports() -> None:
+    script = """
+import importlib.abc
+import sys
+
+
+class ForbiddenImport(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "modelable.parser" or fullname.startswith("modelable.parser."):
+            raise AssertionError(f"parser import: {fullname}")
+        if fullname == "modelable.validation" or fullname.startswith("modelable.validation."):
+            raise AssertionError(f"validation import: {fullname}")
+        return None
+
+
+sys.meta_path.insert(0, ForbiddenImport())
+from modelable.planner.protocol import load_plan
+
+load_plan(__import__("pathlib").Path(sys.argv[1]))
+"""
+
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(FIXTURE)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
