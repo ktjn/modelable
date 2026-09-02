@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import TypedDict
 
 import click
 
@@ -49,6 +50,19 @@ _FIELD_TYPES = [
 ]
 
 
+class _ModelField(TypedDict):
+    name: str
+    type: str
+    optional: bool
+    is_key: bool
+    is_pii: bool
+
+
+class _ProjectionField(TypedDict):
+    name: str
+    mapping: str
+
+
 @create.command(name="model")
 @click.option("--output-dir", "-d", default=".", type=click.Path(path_type=Path), show_default=True)
 def create_model(output_dir: Path) -> None:
@@ -59,7 +73,7 @@ def create_model(output_dir: Path) -> None:
     version = click.prompt("Version", default=1, type=int)
     change_kind = click.prompt("Change kind", type=click.Choice(["additive", "breaking"]), default="additive")
 
-    fields: list[dict] = []
+    fields: list[_ModelField] = []
     while True:
         field_name = click.prompt("Field name (leave blank to finish)", default="", show_default=False)
         if not field_name:
@@ -90,7 +104,7 @@ def _model_text(
     name: str,
     version: int,
     change_kind: str,
-    fields: list[dict],
+    fields: list[_ModelField],
 ) -> str:
     lines = [f"domain {domain} {{", '  owner: "required-team"', f"  {kind} {name} @ {version} ({change_kind}) {{"]
     for field in fields:
@@ -116,7 +130,7 @@ def create_projection(output_dir: Path) -> None:
     source_version = click.prompt("Source version", default=1, type=int)
     alias = click.prompt("Source alias")
 
-    fields: list[dict] = []
+    fields: list[_ProjectionField] = []
     while True:
         field_name = click.prompt("Field name (leave blank to finish)", default="", show_default=False)
         if not field_name:
@@ -145,7 +159,7 @@ def _projection_text(
     source_model: str,
     source_version: int,
     alias: str,
-    fields: list[dict],
+    fields: list[_ProjectionField],
 ) -> str:
     lines = [
         f"domain {domain} {{",
