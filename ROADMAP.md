@@ -20,12 +20,12 @@ delivered the following portions:
 
 | Phase | Current state | Modelable evidence |
 | --- | --- | --- |
-| 1. Identity/path grammar | Baseline implemented | `modelable.identity`, overlays, lineage, graph export, and usage validation share canonical identities and semantic paths. |
-| 2. Declaration/projection unification | Baseline implemented | Shared resolver/version/lineage and projection compatibility paths cover models, projections, enums, and semantic types. |
+| 1. Identity/path grammar | Baseline implemented; lineage follow-up remains | `modelable.identity`, overlays, lineage, graph export, and usage validation share canonical identities and semantic paths; projection-chain lineage still needs a stronger ultimate-source invariant. |
+| 2. Declaration/projection unification | Partial | `ResolvedNamedDeclaration` now provides a shared identity view, but the IR still has parallel declaration families and enum projections retain specialized resolution paths. |
 | 3. `plan/v0` | Baseline implemented | `modelable.planner.protocol` validates deterministic plans and rejects malformed or non-canonical references. |
-| 4. Overlays | Baseline implemented | Version-aware overlay selectors are validated against canonical identities and paths. |
-| 5. Extensions/capabilities/trust | Baseline implemented | Extension descriptors, capability admission, provenance pins, and explicit subprocess/WASM trust policy are enforced. |
-| 6. `plan/v1` | Baseline implemented | `plan/v1` migration and parser-free target consumers are covered by protocol, emitter, and artifact tests. |
+| 4. Overlays | Baseline implemented | Version-aware overlay selectors, including full-segment semantic-path wildcards, are validated against canonical identities and paths. |
+| 5. Extensions/capabilities/trust | Partial | Extension descriptors, capability admission, provenance pins, and deny-by-default trust policy are enforced; no third-party discovery or subprocess/WASM execution path exists yet. |
+| 6. `plan/v1` | Mostly implemented; freeze follow-up remains | `plan/v1` migration, parser-free target consumers, and remaining command admission paths are covered; a separate published JSON Schema artifact and final v0 isolation remain. |
 | 7. Usage graph | Baseline implemented | Compiled usage manifests, application/package identity, field references, aggregation, and dependent queries are available. |
 | 8. `lock/v1` | Baseline implemented | Deterministic registry snapshots, provenance, usage evidence, and compatibility-critical allocation ledgers are validated. |
 | 9. Consequence graph | Baseline implemented | Structured causal nodes/edges and terminal actions are emitted for compatibility, projection, consumer, and policy findings. |

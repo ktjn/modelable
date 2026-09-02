@@ -28,6 +28,26 @@ class ResolvedModelRef:
     version: ModelVersion | ProjectionVersion
 
 
+@dataclass(frozen=True)
+class ResolvedNamedDeclaration:
+    """Common identity view for named semantic declarations."""
+
+    domain_name: str
+    declaration: SemanticTypeDecl | EnumProjectionDecl
+
+    @property
+    def name(self) -> str:
+        return self.declaration.name
+
+    @property
+    def version(self) -> int:
+        return self.declaration.version
+
+    @property
+    def kind(self) -> str:
+        return "semantic_type" if isinstance(self.declaration, SemanticTypeDecl) else "enum_projection"
+
+
 def resolve_model_ref(
     mdl: MdlFile,
     model_ref: str,
@@ -140,7 +160,7 @@ class AmbiguousSemanticTypeError(LookupError):
     """
 
 
-def resolve_semantic_type_ref(
+def _resolve_semantic_type_ref(
     mdl: MdlFile,
     current_domain: str,
     name: str,
@@ -194,7 +214,7 @@ def resolve_semantic_type_ref(
     return matches[0]
 
 
-def resolve_enum_type_ref(
+def _resolve_enum_type_ref(
     mdl: MdlFile,
     current_domain: str,
     name: str,
@@ -208,7 +228,7 @@ def resolve_enum_type_ref(
     sources intentionally continue to use ``resolve_semantic_type_ref``.
     """
     try:
-        return resolve_semantic_type_ref(mdl, current_domain, name, exact_version)
+        return _resolve_semantic_type_ref(mdl, current_domain, name, exact_version)
     except LookupError as semantic_error:
         if isinstance(semantic_error, AmbiguousSemanticTypeError):
             raise
@@ -250,6 +270,52 @@ def resolve_enum_type_ref(
                 f"ambiguous enum type '{name}'; candidates: {candidates}"
             ) from semantic_error
         return matches[0]
+
+
+def resolve_named_declaration(
+    mdl: MdlFile,
+    current_domain: str,
+    name: str,
+    exact_version: int | None = None,
+    *,
+    include_enum_projections: bool = True,
+) -> ResolvedNamedDeclaration:
+    """Resolve one named declaration through the shared identity service."""
+    if include_enum_projections:
+        domain_name, declaration = _resolve_enum_type_ref(mdl, current_domain, name, exact_version)
+    else:
+        domain_name, declaration = _resolve_semantic_type_ref(mdl, current_domain, name, exact_version)
+    return ResolvedNamedDeclaration(domain_name, declaration)
+
+
+def resolve_semantic_type_ref(
+    mdl: MdlFile,
+    current_domain: str,
+    name: str,
+    exact_version: int | None = None,
+) -> tuple[str, SemanticTypeDecl]:
+    """Resolve a semantic type using the shared named-declaration service."""
+    resolved = resolve_named_declaration(
+        mdl,
+        current_domain,
+        name,
+        exact_version,
+        include_enum_projections=False,
+    )
+    if not isinstance(resolved.declaration, SemanticTypeDecl):
+        raise TypeError("shared named-declaration service returned a non-semantic declaration")
+    return resolved.domain_name, resolved.declaration
+
+
+def resolve_enum_type_ref(
+    mdl: MdlFile,
+    current_domain: str,
+    name: str,
+    exact_version: int | None = None,
+) -> tuple[str, SemanticTypeDecl | EnumProjectionDecl]:
+    """Resolve an enum type or projection using the shared identity service."""
+    resolved = resolve_named_declaration(mdl, current_domain, name, exact_version)
+    return resolved.domain_name, resolved.declaration
 
 
 def _find_semantic_decl(

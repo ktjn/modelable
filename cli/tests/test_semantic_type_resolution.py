@@ -1,7 +1,11 @@
 import pytest
 
 from modelable.parser.parse import parse_text_to_ir
-from modelable.registry.resolver import resolve_enum_type_ref, resolve_semantic_type_ref
+from modelable.registry.resolver import (
+    resolve_enum_type_ref,
+    resolve_named_declaration,
+    resolve_semantic_type_ref,
+)
 from modelable.registry.signature import compute_version_signature
 from modelable.registry.snapshot import _dependencies
 
@@ -145,6 +149,34 @@ def test_enum_type_reference_resolves_projection_and_exact_version():
     assert domain_name == "orders"
     assert decl.name == "PublicStatus"
     assert decl.version == 1
+
+
+def test_named_declaration_view_unifies_semantic_and_enum_projection_identity():
+    mdl = parse_text_to_ir("""
+    domain orders {
+      owner: "test-team"
+      semantic OrderStatus @ 1 (additive): enum(pending, paid)
+      enum projection PublicStatus @ 1 (additive)
+        from OrderStatus @ 1
+        pick(paid)
+    }
+    """)
+
+    semantic = resolve_named_declaration(mdl, "orders", "OrderStatus", exact_version=1)
+    projection = resolve_named_declaration(mdl, "orders", "PublicStatus", exact_version=1)
+
+    assert (semantic.domain_name, semantic.name, semantic.version, semantic.kind) == (
+        "orders",
+        "OrderStatus",
+        1,
+        "semantic_type",
+    )
+    assert (projection.domain_name, projection.name, projection.version, projection.kind) == (
+        "orders",
+        "PublicStatus",
+        1,
+        "enum_projection",
+    )
 
 
 def test_enum_type_reference_rejects_ambiguous_cross_domain_projections():
