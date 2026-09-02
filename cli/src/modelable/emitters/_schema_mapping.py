@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from modelable.parser.ir import (
     AnnClassification,
     AnnDeprecated,
@@ -44,11 +46,11 @@ _INTEGER_BOUNDS: dict[str, tuple[int, int]] = {
 }
 
 
-def _primitive_to_json_schema(kind: str) -> dict:
+def _primitive_to_json_schema(kind: str) -> dict[str, Any]:
     if kind in _INTEGER_BOUNDS:
         low, high = _INTEGER_BOUNDS[kind]
         return {"type": "integer", "minimum": low, "maximum": high}
-    mapping: dict[str, dict] = {
+    mapping: dict[str, dict[str, Any]] = {
         "string": {"type": "string"},
         "bool": {"type": "boolean"},
         "int": {"type": "integer", "format": "int64"},
@@ -112,14 +114,14 @@ def _resolve_projection_source_field(
 
 def _field_to_json_schema(
     field: FieldDef | ProjectionField,
-    field_type=None,
-    defs: dict[str, dict] | None = None,
+    field_type: FieldType | None = None,
+    defs: dict[str, dict[str, Any]] | None = None,
     path: list[str] | None = None,
     *,
     mdl: MdlFile | None = None,
     ref_base: str = "#/$defs/",
     inherited_constraints: tuple[ValueConstraint, ...] = (),
-) -> dict:
+) -> dict[str, Any]:
     prop = (
         _type_to_json_schema(field_type, defs=defs, path=path, mdl=mdl, ref_base=ref_base)
         if field_type is not None
@@ -191,13 +193,13 @@ def _field_to_json_schema(
 
 
 def _type_to_json_schema(
-    field_type,
-    defs: dict[str, dict] | None = None,
+    field_type: FieldType | None,
+    defs: dict[str, dict[str, Any]] | None = None,
     path: list[str] | None = None,
     *,
     mdl: MdlFile | None = None,
     ref_base: str = "#/$defs/",
-) -> dict:
+) -> dict[str, Any]:
     if isinstance(field_type, PrimitiveType):
         schema = _primitive_to_json_schema(field_type.kind)
         if field_type.kind == "uuid" and field_type.version == 7:
@@ -323,9 +325,9 @@ def _enum_semantic_to_json_schema(
     declaring_domain: str,
     decl: SemanticTypeDecl,
     *,
-    defs: dict[str, dict] | None,
+    defs: dict[str, dict[str, Any]] | None,
     ref_base: str,
-) -> dict:
+) -> dict[str, Any]:
     """Render an enum-backed semantic declaration as one reusable named
     schema (evolution plan E9), referenced via ``$ref`` everywhere it's used
     instead of re-expanding an inline ``enum`` array per occurrence.
@@ -341,14 +343,14 @@ def _enum_semantic_to_json_schema(
 
 def _object_type_to_json_schema(
     field_type: ObjectType,
-    defs: dict[str, dict] | None = None,
+    defs: dict[str, dict[str, Any]] | None = None,
     path: list[str] | None = None,
     *,
     mdl: MdlFile | None = None,
     ref_base: str = "#/$defs/",
-) -> dict:
-    prop: dict = {"title": _definition_name(path or ["InlineObject"]), "type": "object"}
-    props: dict[str, dict] = {}
+) -> dict[str, Any]:
+    prop: dict[str, Any] = {"title": _definition_name(path or ["InlineObject"]), "type": "object"}
+    props: dict[str, dict[str, Any]] = {}
     req: list[str] = []
     for f in field_type.fields:
         child_path = [*(path or []), f.name]
@@ -361,7 +363,7 @@ def _object_type_to_json_schema(
     return prop
 
 
-def _wire_hint_to_json(hint) -> dict:
+def _wire_hint_to_json(hint: Any) -> dict[str, object]:
     data: dict[str, object] = {}
     if hint.encoding is not None:
         data["encoding"] = hint.encoding
