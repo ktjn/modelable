@@ -153,11 +153,11 @@ def _has_property_derivation(
 
 def _iter_projection_field_sources(
     pv: ProjectionVersion,
-    resolved_sources: dict[str, tuple[str, ModelVersion]],
-) -> list[tuple[ProjectionField, list[tuple[str, ModelVersion, str]]]]:
-    result: list[tuple[ProjectionField, list[tuple[str, ModelVersion, str]]]] = []
+    resolved_sources: dict[str, tuple[str, ModelVersion | ProjectionVersion]],
+) -> list[tuple[ProjectionField, list[tuple[str, ModelVersion | ProjectionVersion, str]]]]:
+    result: list[tuple[ProjectionField, list[tuple[str, ModelVersion | ProjectionVersion, str]]]] = []
     for proj_field in pv.fields:
-        source_refs: list[tuple[str, ModelVersion, str]] = []
+        source_refs: list[tuple[str, ModelVersion | ProjectionVersion, str]] = []
         mapping = proj_field.mapping
 
         if isinstance(mapping, DirectMapping):
@@ -184,7 +184,7 @@ def _check_pii_preservation(
     subject: str,
     proj_field: ProjectionField,
     source_ref: str,
-    source_field: FieldDef,
+    source_field: FieldDef | ProjectionField,
     findings: list[GovernanceFinding],
 ) -> None:
     if not source_field.is_pii or proj_field.is_pii:
@@ -206,7 +206,7 @@ def _check_classification_preservation(
     subject: str,
     proj_field: ProjectionField,
     source_ref: str,
-    source_field: FieldDef,
+    source_field: FieldDef | ProjectionField,
     findings: list[GovernanceFinding],
 ) -> None:
     source_level = source_field.classification
@@ -251,12 +251,14 @@ def _classification_rank(level: ClassificationLevel) -> int:
     return order[level]
 
 
-def _find_field(version: ModelVersion, field_name: str) -> FieldDef | None:
+def _find_field(version: ModelVersion | ProjectionVersion, field_name: str) -> FieldDef | ProjectionField | None:
     return next((field for field in version.fields if field.name == field_name), None)
 
 
-def _build_resolved_sources(pv: ProjectionVersion, mdl: MdlFile) -> dict[str, tuple[str, ModelVersion]]:
-    resolved_sources: dict[str, tuple[str, ModelVersion]] = {}
+def _build_resolved_sources(
+    pv: ProjectionVersion, mdl: MdlFile
+) -> dict[str, tuple[str, ModelVersion | ProjectionVersion]]:
+    resolved_sources: dict[str, tuple[str, ModelVersion | ProjectionVersion]] = {}
     for alias, resolved in resolve_projection_aliases(pv, mdl).items():
         ref = f"{resolved.domain_name}.{resolved.model_name}@{resolved.version.version}"
         resolved_sources[alias] = (ref, resolved.version)
