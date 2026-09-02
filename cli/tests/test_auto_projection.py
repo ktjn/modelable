@@ -132,3 +132,27 @@ def test_auto_generated_flag_set():
     expand_auto_projections(mdl)
     pv = mdl.domains[0].projections["ItemDb"][0]
     assert pv.auto_generated is True
+
+
+def test_auto_projection_normalization_keeps_projection_versions_sorted():
+    mdl = parse_text_to_ir("""
+    domain catalog {
+      owner: "test-team"
+      entity Product @ 1 (additive) {
+        @key productId: uuid
+      }
+
+      projection ProductDb @ 2
+        from catalog.Product @ 1 as product
+      {
+        productId <- product.productId
+      }
+
+      auto projections Product @ 1 {
+        db
+      }
+    }
+    """)
+
+    assert expand_auto_projections(mdl) == []
+    assert [version.version for version in mdl.domains[0].projections["ProductDb"]] == [1, 2]

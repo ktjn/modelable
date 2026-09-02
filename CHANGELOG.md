@@ -25,6 +25,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Normalize auto-generated and explicit projection versions into ascending
+  order at workspace expansion, keeping downstream projection consumers deterministic.
 - Consolidate semantic-type and enum-projection version selection behind the
   shared declaration resolution path without changing namespace precedence or
   diagnostics.
