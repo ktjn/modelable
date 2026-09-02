@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -22,6 +23,7 @@ from modelable.parser.ir import (
 from modelable.registry.signature import compute_version_signature
 
 ResolvedDeclaration = ModelVersion | ProjectionVersion | SemanticTypeDecl | EnumProjectionDecl
+NamedDeclaration = SemanticTypeDecl | EnumProjectionDecl
 
 
 @runtime_checkable
@@ -359,11 +361,11 @@ def _find_semantic_decl(
     name: str,
     exact_version: int | None,
 ) -> SemanticTypeDecl | None:
-    if exact_version is None:
-        return next((item for item in latest_semantic_types(domain) if item.name == name), None)
-    return next(
-        (item for item in domain.semantic_types if item.name == name and item.version == exact_version),
-        None,
+    return _find_named_decl(
+        latest_semantic_types(domain),
+        domain.semantic_types,
+        name,
+        exact_version,
     )
 
 
@@ -372,10 +374,23 @@ def _find_enum_projection_decl(
     name: str,
     exact_version: int | None,
 ) -> EnumProjectionDecl | None:
-    if exact_version is None:
-        return next((item for item in latest_enum_projections(domain) if item.name == name), None)
+    return _find_named_decl(
+        latest_enum_projections(domain),
+        domain.enum_projections,
+        name,
+        exact_version,
+    )
+
+
+def _find_named_decl[DeclarationT: (SemanticTypeDecl, EnumProjectionDecl)](
+    latest: Sequence[DeclarationT],
+    all_versions: Sequence[DeclarationT],
+    name: str,
+    exact_version: int | None,
+) -> DeclarationT | None:
+    candidates = latest if exact_version is None else all_versions
     return next(
-        (item for item in domain.enum_projections if item.name == name and item.version == exact_version),
+        (item for item in candidates if item.name == name and (exact_version is None or item.version == exact_version)),
         None,
     )
 
