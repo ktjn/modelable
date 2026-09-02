@@ -1,8 +1,6 @@
 # Current strict mypy errors for the Modelable CLI.
 # This file is a ratchet baseline: remove lines as typing issues are fixed,
 # but do not add new lines unless intentionally accepting existing debt.
-src/modelable/commands/spec.py:140: error: "object" has no attribute "__iter__"; maybe "__dir__" or "__str__"? (not iterable)  [attr-defined]
-src/modelable/commands/spec.py:194: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
 src/modelable/lsp/federation.py:221: error: Function is missing a return type annotation  [no-untyped-def]
 src/modelable/lsp/server.py:41: error: Module "pygls.feature_manager" does not explicitly export attribute "asyncio"  [attr-defined]
 src/modelable/lsp/server.py:41: error: Module has no attribute "iscoroutinefunction"  [attr-defined]

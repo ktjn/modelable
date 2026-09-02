@@ -11,6 +11,7 @@ from rich.console import Console
 
 from modelable.specs.tracking import (
     SpecEntry,
+    SpecEvaluation,
     add_spec,
     change_dicts,
     evaluate_spec,
@@ -137,8 +138,9 @@ def diff(spec_id: str, workspace_path: Path, json_output: bool) -> None:
         console.print(f"[green]OK[/green] {spec_id} is clean")
         return
     console.print(f"{spec_id}: {evaluation.change_kind} drift")
-    for change in payload.get("changes", []):
-        console.print(f"- {change['kind']}: {change['field_name']}")
+    if evaluation.result is not None:
+        for change in evaluation.result.changes:
+            console.print(f"- {change.kind}: {change.field_name}")
 
 
 @spec.command(name="sync")
@@ -191,7 +193,7 @@ def _render_preview(original: str, updated: str) -> str:
     )
 
 
-def _write_spec_attachment_record(spec_id: str, artifact_path: Path, evaluation) -> Path:
+def _write_spec_attachment_record(spec_id: str, artifact_path: Path, evaluation: SpecEvaluation) -> Path:
     result = evaluation.result
     if result is None:
         raise ValueError("cannot write attachment record without an attach result")
