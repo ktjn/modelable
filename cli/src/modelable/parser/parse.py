@@ -1,6 +1,7 @@
 from functools import cache
 from importlib.resources import files
 from pathlib import Path
+from typing import Any
 
 from lark import Lark, Tree, UnexpectedInput
 from lark.exceptions import VisitError
@@ -19,7 +20,7 @@ def _parser() -> Lark:
     )
 
 
-def parse_text(text: str) -> Tree:
+def parse_text(text: str) -> Tree[Any]:
     try:
         return _parser().parse(text)
     except UnexpectedInput as exc:
@@ -32,11 +33,11 @@ def parse_text(text: str) -> Tree:
         ) from exc
 
 
-def parse_file(path: str | Path) -> Tree:
+def parse_file(path: str | Path) -> Tree[Any]:
     return parse_text(Path(path).read_text(encoding="utf-8"))
 
 
-def parse_text_to_ir_with_tree(text: str, path: str | Path | None = None) -> tuple[MdlFile, Tree]:
+def parse_text_to_ir_with_tree(text: str, path: str | Path | None = None) -> tuple[MdlFile, Tree[Any]]:
     """Parse one source document into its per-file IR plus syntax tree.
 
     Parsing-level API: the returned ``MdlFile`` is an *unresolved, per-source*
