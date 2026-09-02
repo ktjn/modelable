@@ -2,7 +2,7 @@
 
 Modelable is entering a stabilization phase.
 
-The latest published release is **1.13.1**.
+The latest published release is **1.13.2**.
 
 The product already has broad language, compatibility, lineage, code generation, import, browser, and tooling capability. The next priority is not adding more surface area. It is making the semantic core stable enough that future capability can be added without repeatedly changing grammar, IR, compatibility logic, and every emitter.
 
