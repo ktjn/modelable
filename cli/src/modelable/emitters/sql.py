@@ -16,6 +16,8 @@ from modelable.parser.ir import (
     DirectMapping,
     DomainDef,
     EnumType,
+    FieldDef,
+    FieldType,
     FixedBinaryType,
     IndexDecl,
     MapType,
@@ -24,8 +26,10 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     PrimitiveType,
+    ProjectionField,
     ProjectionVersion,
     RefType,
+    WireTargetHint,
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA
@@ -497,7 +501,7 @@ def _resolve_ref_target(
     return (table, _snake_case(key)) if key is not None else None
 
 
-def _resolve_source_field(field, version: ProjectionVersion, mdl: MdlFile):
+def _resolve_source_field(field: ProjectionField, version: ProjectionVersion, mdl: MdlFile) -> FieldDef | None:
     """Return the source FieldDef for a direct-mapped projection field, or None."""
     if not isinstance(field.mapping, DirectMapping):
         return None
@@ -507,18 +511,18 @@ def _resolve_source_field(field, version: ProjectionVersion, mdl: MdlFile):
     except ValueError, LookupError:
         return None
     for src_field in resolved.version.fields:
-        if src_field.name == field.mapping.source_field:
+        if isinstance(src_field, FieldDef) and src_field.name == field.mapping.source_field:
             return src_field
     return None
 
 
-def _resolve_field_type(field, version: ProjectionVersion, mdl: MdlFile):
+def _resolve_field_type(field: ProjectionField, version: ProjectionVersion, mdl: MdlFile) -> FieldType | None:
     """Resolve the source field type for a projection field."""
     src = _resolve_source_field(field, version, mdl)
     return src.type if src is not None else None
 
 
-def _resolve_merged_wire(field, version: ProjectionVersion, mdl: MdlFile) -> dict:
+def _resolve_merged_wire(field: ProjectionField, version: ProjectionVersion, mdl: MdlFile) -> dict[str, WireTargetHint]:
     """Merge wire targets from the projection field and its source entity field.
 
     Projection-field annotations take precedence over source-field annotations
@@ -530,7 +534,7 @@ def _resolve_merged_wire(field, version: ProjectionVersion, mdl: MdlFile) -> dic
     return {**src_wire, **proj_wire}
 
 
-def _is_optional(field, version: ProjectionVersion, mdl: MdlFile) -> bool:
+def _is_optional(field: ProjectionField, version: ProjectionVersion, mdl: MdlFile) -> bool:
     src = _resolve_source_field(field, version, mdl)
     if src is None:
         return True
@@ -573,7 +577,9 @@ _PG_UNSIGNED_KINDS = frozenset({"u8", "u16", "u32", "u64", "u128"})
 def _pg_base_type(field_type: Any, wire: dict[str, Any], mdl: MdlFile | None = None) -> str:
     pg_hint = wire.get("postgres")
     if pg_hint and getattr(pg_hint, "type", None):
-        return pg_hint.type
+        hint_type = pg_hint.type
+        if isinstance(hint_type, str):
+            return hint_type
     if isinstance(field_type, PrimitiveType):
         rust_hint = wire.get("rust")
         if rust_hint and getattr(rust_hint, "type", None) == "u64":
@@ -604,7 +610,7 @@ def _pg_col_type(field_type: Any, wire: dict[str, Any], *, optional: bool, mdl: 
     return base if optional else f"{base} NOT NULL"
 
 
-def _pg_needs_unsigned_check(field_type) -> bool:
+def _pg_needs_unsigned_check(field_type: FieldType) -> bool:
     return isinstance(field_type, PrimitiveType) and field_type.kind in _PG_UNSIGNED_KINDS
 
 
@@ -636,7 +642,7 @@ _CH_PRIMITIVE: dict[str, str] = {
 }
 
 
-def _ch_base_type(field_type, wire: dict) -> str:
+def _ch_base_type(field_type: FieldType, wire: dict[str, WireTargetHint]) -> str:
     ch_hint = wire.get("clickhouse")
     if ch_hint:
         encoding = getattr(ch_hint, "encoding", None)
@@ -669,7 +675,7 @@ def _ch_base_type(field_type, wire: dict) -> str:
     return "String"
 
 
-def _ch_col_type(field_type, wire: dict, *, optional: bool) -> str:
+def _ch_col_type(field_type: FieldType, wire: dict[str, WireTargetHint], *, optional: bool) -> str:
     base = _ch_base_type(field_type, wire)
     if optional and isinstance(field_type, ArrayType):
         return base
