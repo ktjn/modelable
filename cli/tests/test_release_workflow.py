@@ -168,6 +168,7 @@ def test_validation_workflow_is_split_and_path_gated() -> None:
             assert jobs["browser-build"]["needs"] == "changes"
             assert jobs["browser-build"]["if"] == "needs.changes.outputs.browser == 'true'"
             assert jobs["browser-e2e"]["needs"] == "browser-build"
+            assert jobs["browser-e2e"].get("if") != "${{ false }}"
         else:
             assert jobs[surface]["needs"] == "changes"
             assert jobs[surface]["if"] == f"needs.changes.outputs.{surface} == 'true'"
