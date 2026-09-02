@@ -25,6 +25,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Changed
 
+- Expose a shared resolver declaration view across model versions, projections,
+  semantic types, and enum projections while preserving legacy result properties.
 - Route Apicurio publication, lineage/catalog sync, compatibility validation,
   and conversational target transforms through the stable `modelable.plan/v1`
   admission boundary.

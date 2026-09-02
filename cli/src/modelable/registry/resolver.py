@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 from modelable.parser.ir import (
     DomainDef,
@@ -20,17 +21,48 @@ from modelable.parser.ir import (
 )
 from modelable.registry.signature import compute_version_signature
 
+ResolvedDeclaration = ModelVersion | ProjectionVersion | SemanticTypeDecl | EnumProjectionDecl
+
+
+@runtime_checkable
+class ResolvedDeclarationView(Protocol):
+    """Common identity view for every named, versioned declaration."""
+
+    domain_name: str
+    name: str
+    declaration: ResolvedDeclaration
+    kind: str
+    version_number: int
+
 
 @dataclass(frozen=True)
 class ResolvedModelRef:
+    """Compatibility view for model and projection references."""
+
     domain_name: str
     model_name: str
     version: ModelVersion | ProjectionVersion
 
+    @property
+    def name(self) -> str:
+        return self.model_name
+
+    @property
+    def declaration(self) -> ModelVersion | ProjectionVersion:
+        return self.version
+
+    @property
+    def kind(self) -> str:
+        return "model" if isinstance(self.version, ModelVersion) else "projection"
+
+    @property
+    def version_number(self) -> int:
+        return self.version.version
+
 
 @dataclass(frozen=True)
 class ResolvedNamedDeclaration:
-    """Common identity view for named semantic declarations."""
+    """Compatibility view for semantic types and enum projections."""
 
     domain_name: str
     declaration: SemanticTypeDecl | EnumProjectionDecl
@@ -40,12 +72,16 @@ class ResolvedNamedDeclaration:
         return self.declaration.name
 
     @property
+    def kind(self) -> str:
+        return "semantic_type" if isinstance(self.declaration, SemanticTypeDecl) else "enum_projection"
+
+    @property
     def version(self) -> int:
         return self.declaration.version
 
     @property
-    def kind(self) -> str:
-        return "semantic_type" if isinstance(self.declaration, SemanticTypeDecl) else "enum_projection"
+    def version_number(self) -> int:
+        return self.version
 
 
 def resolve_model_ref(

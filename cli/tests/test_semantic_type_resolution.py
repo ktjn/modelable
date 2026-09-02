@@ -2,6 +2,7 @@ import pytest
 
 from modelable.parser.parse import parse_text_to_ir
 from modelable.registry.resolver import (
+    ResolvedDeclarationView,
     resolve_enum_type_ref,
     resolve_named_declaration,
     resolve_semantic_type_ref,
@@ -177,6 +178,9 @@ def test_named_declaration_view_unifies_semantic_and_enum_projection_identity():
         1,
         "enum_projection",
     )
+    assert isinstance(semantic, ResolvedDeclarationView)
+    assert isinstance(projection, ResolvedDeclarationView)
+    assert semantic.version_number == projection.version_number == 1
 
 
 def test_enum_type_reference_rejects_ambiguous_cross_domain_projections():
