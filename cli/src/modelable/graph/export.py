@@ -7,10 +7,11 @@ from typing import Any
 
 from modelable.compiler.workspace import Workspace
 from modelable.identity import declaration_id, semantic_path
-from modelable.llm.context import parse_model_ref
+from modelable.llm.context import ModelRef, parse_model_ref
 from modelable.parser.ir import (
     ArrayType,
     DirectMapping,
+    DomainDef,
     EnumProjectionDecl,
     EnumRefType,
     FieldDef,
@@ -25,6 +26,7 @@ from modelable.parser.ir import (
     SemanticTypeDecl,
     UnionType,
     VersionMin,
+    VersionSpec,
 )
 from modelable.registry.resolver import (
     AmbiguousSemanticTypeError,
@@ -141,7 +143,7 @@ def _edge_sort_key(item: dict[str, Any]) -> tuple[int, str, str]:
     return (rank, item["source"], item["target"])
 
 
-def _add_domain(builder: _GraphBuilder, workspace: Workspace, domain) -> None:
+def _add_domain(builder: _GraphBuilder, workspace: Workspace, domain: DomainDef) -> None:
     domain_id = f"domain:{domain.name}"
     builder.add_node(
         {
@@ -162,8 +164,8 @@ def _add_domain(builder: _GraphBuilder, workspace: Workspace, domain) -> None:
     for enum_projection in sorted(domain.enum_projections, key=lambda item: (item.name, item.version)):
         _add_enum_projection(builder, workspace, domain_id, domain.name, enum_projection)
 
-    for projection_name, versions in domain.projections.items():
-        _add_projection(builder, workspace, domain_id, domain.name, projection_name, versions)
+    for projection_name, projection_versions in domain.projections.items():
+        _add_projection(builder, workspace, domain_id, domain.name, projection_name, projection_versions)
 
 
 def _add_model(
@@ -250,7 +252,11 @@ def _add_model_field(
     for ref_type in _iter_ref_types(field.type):
         if "." not in ref_type.target:
             continue
-        target_id = _resolve_version_ref(workspace, ref_type.target, ref_type.version)
+        target_id = _resolve_version_ref(
+            workspace,
+            ref_type.target,
+            ref_type.version if ref_type.version is not None else VersionMin(min_inclusive=1),
+        )
         builder.add_edge(field_id, f"model_version:{target_id}", "references")
     for type_name, exact_version in _iter_semantic_type_refs(field.type):
         try:
@@ -507,7 +513,7 @@ def _add_projection_field(
         builder.add_edge(field_id, source_node_id, "maps_to")
 
 
-def _resolve_version_ref(workspace: Workspace, model_ref: str, version_spec) -> str:
+def _resolve_version_ref(workspace: Workspace, model_ref: str, version_spec: VersionSpec | int) -> str:
     resolved = resolve_model_ref(workspace.mdl, model_ref, version_spec)
     return declaration_id(resolved.domain_name, resolved.model_name, resolved.version.version)
 
@@ -535,7 +541,7 @@ def _alias_map(projection_version: ProjectionVersion) -> dict[str, Any]:
     return aliases
 
 
-def _select_focus_subgraph(builder: _GraphBuilder, focus_ref) -> set[str]:
+def _select_focus_subgraph(builder: _GraphBuilder, focus_ref: ModelRef) -> set[str]:
     model_version_id = f"model_version:{focus_ref.domain}.{focus_ref.name}@{focus_ref.version}"
     projection_version_id = f"projection_version:{focus_ref.domain}.{focus_ref.name}@{focus_ref.version}"
     model_node_id = f"model:{focus_ref.domain}.{focus_ref.name}"
