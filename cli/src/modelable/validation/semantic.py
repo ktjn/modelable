@@ -76,7 +76,7 @@ _AGGREGATE_PATTERN = re.compile(
 _SCALAR_MAX_MIN = frozenset({"max", "min"})
 
 
-def _is_scalar_max_min(expression: str, match: re.Match) -> bool:
+def _is_scalar_max_min(expression: str, match: re.Match[str]) -> bool:
     """Return True when max/min is called with 2+ args (scalar greatest/least)."""
     if match.group(1).lower() not in _SCALAR_MAX_MIN:
         return False
