@@ -978,7 +978,7 @@ def _odcs_type_to_field_type(type_name: str, warnings: list[str]) -> FieldType:
     if normalized in {"boolean", "bool"}:
         return PrimitiveType(kind="bool")
     if normalized in {"date", "time", "timestamp", "uuid", "binary"}:
-        return PrimitiveType(kind=normalized)
+        return PrimitiveType(kind=cast(PrimitiveKind, normalized))
     warnings.append(f"Falling back to named type for ODCS type: {type_name}")
     return NamedType(name=_sanitize_ident(type_name))
 
@@ -1221,7 +1221,7 @@ def _warn_openapi_loss(schema: dict[str, Any], warnings: list[str], path: str) -
         warnings.append(f"OpenAPI import drops unsupported nullability at {path} (type includes 'null')")
 
 
-def _field_from_avro(item: dict, warnings: list[str]) -> FieldDef:
+def _field_from_avro(item: dict[str, Any], warnings: list[str]) -> FieldDef:
     name = item["name"]
     field_type = item.get("type")
     optional = False
@@ -1231,7 +1231,7 @@ def _field_from_avro(item: dict, warnings: list[str]) -> FieldDef:
     return FieldDef(name=name, type=_avro_type_to_field_type(field_type, warnings), optional=optional)
 
 
-def _avro_type_to_field_type(field_type, warnings: list[str]):
+def _avro_type_to_field_type(field_type: Any, warnings: list[str]) -> FieldType:
     if isinstance(field_type, dict):
         kind = field_type.get("type")
         if kind == "record":
@@ -1252,7 +1252,7 @@ def _avro_type_to_field_type(field_type, warnings: list[str]):
     return NamedType(name=str(field_type))
 
 
-def _sql_type_to_field_type(type_name: str):
+def _sql_type_to_field_type(type_name: str) -> FieldType:
     normalized = type_name.strip().lower()
     if normalized.startswith("varchar") or normalized in {"text", "char", "character varying"}:
         return PrimitiveType(kind="string")
@@ -1278,7 +1278,7 @@ def _sql_type_to_field_type(type_name: str):
 
 def _split_sql_columns(body: str) -> list[str]:
     chunks: list[str] = []
-    current = []
+    current: list[str] = []
     depth = 0
     for char in body:
         if char == "," and depth == 0:
@@ -1298,7 +1298,7 @@ def _split_sql_columns(body: str) -> list[str]:
     return chunks
 
 
-def _primitive_or_named_type(type_name: str):
+def _primitive_or_named_type(type_name: str) -> FieldType:
     normalized = type_name.lower()
     if normalized in {"string", "bytes"}:
         return PrimitiveType(kind="string" if normalized == "string" else "binary")
