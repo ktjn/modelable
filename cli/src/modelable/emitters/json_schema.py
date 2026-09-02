@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import PurePath, PurePosixPath
+from typing import Any
 
 from jsonschema import Draft202012Validator
 
@@ -64,7 +65,7 @@ def _emit_model_version(
     domain: DomainDef, model_name: str, version: ModelVersion, out_dir: PurePath, mdl: MdlFile
 ) -> EmittedArtifact:
     artifact_id = _artifact_id(domain.name, model_name, version.version)
-    schema: dict = {
+    schema: dict[str, Any] = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": artifact_id,
         "type": "object",
@@ -80,10 +81,10 @@ def _emit_model_version(
     }
     _add_domain_metadata(schema["x-modelable"], domain)
 
-    properties: dict[str, dict] = {}
+    properties: dict[str, dict[str, Any]] = {}
     required: list[str] = []
     warnings: list[str] = []
-    defs: dict[str, dict] = {}
+    defs: dict[str, dict[str, Any]] = {}
 
     for field in version.fields:
         prop = _field_to_json_schema(field, field.type, defs=defs, path=[field.name], mdl=mdl)
@@ -117,7 +118,7 @@ def _emit_model_version(
     return artifact
 
 
-def _field_default(field: FieldDef):
+def _field_default(field: FieldDef) -> Any:
     if field.default is None:
         return None
     raw = field.default.strip()
@@ -142,7 +143,7 @@ def _field_default(field: FieldDef):
     return raw
 
 
-def _add_domain_metadata(container: dict, domain: DomainDef) -> None:
+def _add_domain_metadata(container: dict[str, Any], domain: DomainDef) -> None:
     if domain.owner is not None:
         container["owner"] = domain.owner
     if domain.contact is not None:
