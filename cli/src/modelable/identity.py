@@ -67,4 +67,5 @@ def parse_semantic_path(value: str) -> SemanticPath:
 
 def semantic_path(declaration: str, *segments: str) -> str:
     """Render a canonical semantic path rooted in an exact declaration ID."""
+    parse_declaration_id(declaration)
     return SemanticPath(declaration, tuple(segments)).render()

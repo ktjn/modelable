@@ -40,6 +40,11 @@ def test_declaration_id_rejects_noncanonical_components() -> None:
         declaration_id("customer", "Customer", -1)
 
 
+def test_semantic_path_rejects_noncanonical_declaration_root() -> None:
+    with pytest.raises(ValueError):
+        semantic_path("customer.Customer", "email")
+
+
 def test_declaration_id_supports_quoted_domain_names() -> None:
     declaration = declaration_id("marketplace-api", "Product", 1)
 
