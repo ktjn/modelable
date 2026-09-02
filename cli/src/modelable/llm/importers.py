@@ -300,6 +300,8 @@ def _import_dbt(source_text: str, *, domain_name: str | None, source_name: str |
     if not models:
         return _import_dbt_source_yaml(doc, domain_name=domain_name, source_name=source_name)
     model, versioned_model = _select_dbt_model(models, source_name=source_name)
+    if model is None:
+        raise ValueError("dbt model selection returned no model")
     name = model.get("name") or "DbtModel"
     domain = domain_name or _guess_domain_name(name)
     warnings: list[str] = []
@@ -370,6 +372,8 @@ def _import_dbt_manifest(
         source = sources[sorted(sources.keys())[0]] if model is None else None
 
     selected = model or source
+    if selected is None:
+        raise ValueError("dbt manifest selection returned no model or source")
     name = selected["name"]
     domain = domain_name or _guess_domain_name(name)
     warnings: list[str] = []
@@ -398,9 +402,9 @@ def _select_dbt_model(
             return None, None
         raise ValueError(f"dbt model '{source_name}' not found in source")
 
-    model = _select_manifest_model_version(matching, requested_version=requested_version)
-    if model is not None:
-        return model, None
+    manifest_model = _select_manifest_model_version(matching, requested_version=requested_version)
+    if manifest_model is not None:
+        return manifest_model, None
 
     model = matching[0]
     versioned_model = _select_dbt_model_version(model, requested_version=requested_version)
