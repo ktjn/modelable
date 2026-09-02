@@ -52,15 +52,15 @@ def types(format_name: str) -> None:
     console.print(f"{entry.description}", markup=False)
     console.print("", markup=False)
     console.print("Type shape catalog:", markup=False)
-    for label, shape, note in type_shape_catalog():
+    for label, shape, shape_note in type_shape_catalog():
         line = f"- {label}: {shape.describe()}"
-        if note:
-            line += f" ({note})"
+        if shape_note:
+            line += f" ({shape_note})"
         console.print(line, markup=False)
     console.print("", markup=False)
 
-    for source_type, target_type, note in _type_mappings_for(format_name):
-        line = f"- {source_type} -> {target_type}"
+    for source_type, mapped_type, note in _type_mappings_for(format_name):
+        line = f"- {source_type} -> {mapped_type}"
         if note:
             line += f" ({note})"
         console.print(line, markup=False)
