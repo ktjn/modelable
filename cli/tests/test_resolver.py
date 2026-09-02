@@ -4,7 +4,7 @@ from pathlib import Path
 
 from modelable.compiler.workspace import load_workspace
 from modelable.registry.index import build_registry
-from modelable.registry.resolver import resolve_model_ref
+from modelable.registry.resolver import ResolvedDeclarationView, resolve_model_ref
 
 
 def _write_workspace(path: Path) -> None:
@@ -51,6 +51,8 @@ def test_resolve_model_ref_exact_version(tmp_path):
     assert resolved.domain_name == "customer"
     assert resolved.model_name == "Customer"
     assert resolved.version.version == 2
+    assert isinstance(resolved, ResolvedDeclarationView)
+    assert (resolved.name, resolved.kind, resolved.version_number) == ("Customer", "model", 2)
 
 
 def test_resolve_model_ref_range_uses_highest_matching_version(tmp_path):
@@ -66,6 +68,14 @@ def test_resolve_model_ref_range_uses_highest_matching_version(tmp_path):
     )
 
     assert resolved.version.version == 2
+    assert (resolved.name, resolved.kind, resolved.version_number) == ("Customer", "model", 2)
+
+    projection_resolved = resolve_model_ref(workspace.mdl, "billing.BillingCustomer", 1)
+    assert (projection_resolved.name, projection_resolved.kind, projection_resolved.version_number) == (
+        "BillingCustomer",
+        "projection",
+        1,
+    )
 
 
 def test_load_workspace_reports_unresolved_projection_source(tmp_path):
