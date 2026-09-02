@@ -376,6 +376,12 @@ Every derivation should retain enough information to answer:
 
 One compiler-owned dependency graph should feed lineage, compatibility, governance, plan generation, editor tooling, and consequences.
 
+Projection-derived field lineage resolves recursively through projection sources
+to the ultimate model declaration and canonical semantic path. The immediate
+projection remains available from the projection declaration and plan relation
+metadata; lineage consumers should not need to infer the ultimate source from
+display names.
+
 ## 11. Generated artifacts
 
 Generated artifacts are replaceable views of semantic meaning. Current and future outputs may include schemas, SDK/code types, database DDL, catalog/lineage formats, event contracts, migrations, documentation, and runtime-validation packages.

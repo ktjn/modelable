@@ -35,6 +35,9 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Resolve field lineage through projection-of-projection chains to the ultimate
+  canonical model semantic path instead of stopping at the immediate projection.
+
 - Restore the browser E2E release gate after fixing nested flex-panel sizing so
   the source editor and graph viewport retain usable dimensions at desktop
   sizes.

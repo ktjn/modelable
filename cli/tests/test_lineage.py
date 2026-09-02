@@ -11,7 +11,7 @@ import pytest
 
 from modelable.compiler.workspace import Workspace, load_workspace
 from modelable.parser.parse import parse_text_to_ir
-from modelable.planner.lineage import build_projection_lineage
+from modelable.planner.lineage import _expand_lineage_ref, build_projection_lineage
 from modelable.planner.plans import build_plan, build_plan_documents, write_plans
 from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanProtocolError, load_plan, serialize_plan, validate_plan
 
@@ -87,6 +87,61 @@ def test_computed_mapping_stores_expression():
     by_name = {fl.field_name: fl for fl in lineage.fields}
     assert by_name["isActive"].expression is not None
     assert "c.status" in by_name["isActive"].expression
+
+
+def test_projection_lineage_resolves_through_projection_sources() -> None:
+    fixture = Path(__file__).parent / "fixtures" / "materialized_projection_chain.mdl"
+    mdl = parse_text_to_ir(fixture.read_text(encoding="utf-8"))
+    pv = mdl.domains[1].projections["CustomerMart"][0]
+
+    lineage = build_projection_lineage("analytics", "CustomerMart", pv, mdl)
+
+    by_name = {item.field_name: item for item in lineage.fields}
+    assert by_name["customerId"].lineage == ["customer.Customer@1#customerId"]
+    assert by_name["displayName"].lineage == ["customer.Customer@1#legalName"]
+
+
+def test_projection_lineage_expands_computed_projection_fields() -> None:
+    mdl = parse_text_to_ir(
+        textwrap.dedent(
+            """
+            domain customer {
+              owner: "customer-platform"
+              entity Customer @ 1 (additive) { name: string }
+            }
+            domain analytics {
+              owner: "analytics-platform"
+              projection CustomerFlags @ 1 from customer.Customer @ 1 as c {
+                hasName = c.name != ""
+              }
+              projection CustomerSummary @ 1 from analytics.CustomerFlags @ 1 as f {
+                hasName <- f.hasName
+              }
+            }
+            """
+        )
+    )
+    pv = mdl.domains[1].projections["CustomerSummary"][0]
+
+    lineage = build_projection_lineage("analytics", "CustomerSummary", pv, mdl)
+
+    assert lineage.fields[0].lineage == ["customer.Customer@1#name"]
+
+
+def test_projection_lineage_stops_on_unresolved_cycle_or_field() -> None:
+    fixture = Path(__file__).parent / "fixtures" / "materialized_projection_chain.mdl"
+    mdl = parse_text_to_ir(fixture.read_text(encoding="utf-8"))
+
+    assert _expand_lineage_ref("missing.Missing@1", "field", mdl, stack=()) == ["missing.Missing@1#field"]
+    assert _expand_lineage_ref("analytics.CustomerOds@1", "missing", mdl, stack=()) == [
+        "analytics.CustomerOds@1#missing"
+    ]
+    assert _expand_lineage_ref(
+        "analytics.CustomerOds@1",
+        "customerId",
+        mdl,
+        stack=(("analytics.CustomerOds@1", "customerId"),),
+    ) == ["analytics.CustomerOds@1#customerId"]
 
 
 # ── Plan document structure ────────────────────────────────────────────────────
