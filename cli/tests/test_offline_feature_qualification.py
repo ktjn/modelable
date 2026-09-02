@@ -148,6 +148,8 @@ def test_offline_feature_fixture_compiles_consumer_for_every_implemented_target(
                 target.name,
                 "--snapshot",
                 str(snapshot),
+                "--registry",
+                str(tmp_path / ".registry.db"),
                 "--out",
                 str(output),
             ],
@@ -190,6 +192,8 @@ def test_offline_feature_fixture_language_smoke_matrix(tmp_path: Path) -> None:
                 target,
                 "--snapshot",
                 str(snapshot),
+                "--registry",
+                str(tmp_path / ".registry.db"),
                 "--out",
                 str(output),
             ],
@@ -612,6 +616,17 @@ def _compile_feature_targets(runner: CliRunner, consumer: Path, snapshot: Path, 
 
 def _write_rust_consumer(tmp_path: Path, model_version: int = 1) -> None:
     shutil.copytree(RUST_FIXTURE, tmp_path, dirs_exist_ok=True)
+    # Vendored sources are checksummed byte-for-byte by Cargo. On Windows,
+    # core.autocrlf can still materialize a fixture copy with CRLF even when
+    # the repository marks the vendor tree as binary. Normalize only the
+    # temporary copy so locked offline tests behave like CI/Linux.
+    for path in (tmp_path / "vendor").rglob("*"):
+        if path.is_file():
+            content = path.read_bytes()
+            # Do not touch binary assets (the fixture includes Unicode
+            # identifier automata); a CRLF byte pair can be valid binary data.
+            if b"\x00" not in content and b"\r\n" in content:
+                path.write_bytes(content.replace(b"\r\n", b"\n"))
     source = tmp_path / "src"
     source.mkdir()
     source_text = """
