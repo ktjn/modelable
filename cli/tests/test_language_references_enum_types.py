@@ -69,9 +69,7 @@ def test_references_on_qualified_enum_ref_field_excludes_declaration_when_reques
 
 
 def test_references_for_qualified_enum_projection_ref_finds_its_declaration() -> None:
-    """No valid syntax today lets a field reference an enum projection (E3),
-    so this exercises the resolver directly rather than through a cursor
-    position -- forward-compatible infrastructure for when that lands."""
+    """Resolve references to a qualified enum projection through the language workspace."""
     state = _workspace()
     semantic_workspace = state.semantic_workspace()
     assert semantic_workspace is not None

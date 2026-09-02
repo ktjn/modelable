@@ -8,6 +8,8 @@ releases could contain breaking changes when called out explicitly.
 
 ### Fixed
 
+- Correct stale plan-protocol and enum-projection references in developer
+  documentation and test descriptions.
 - Preserve declaring-domain imports for bare cross-domain semantic enum references.
 - Generate projection plans in canonical domain, projection, and version order.
 - Emit and validate v1 plan lineage using canonical `#` semantic paths; migrate

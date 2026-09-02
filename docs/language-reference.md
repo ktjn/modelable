@@ -338,10 +338,10 @@ plan A2) is never required — a full-form and an `evolves`-form declaration
 of the same version are indistinguishable at every downstream boundary (see
 §3.10's "Normalized version" row), so switching between them is purely an
 authoring-ergonomics choice. `modelable compact-version domain.Model@version`
-(see [CLI Reference §5.26](cli-reference.md#526-compact-version--compact-a-version-into-an-evolves-delta))
+(see [CLI Reference §5.26](cli-reference.md#526-compact-version-compact-a-version-into-an-evolves-delta))
 proposes an `evolves` delta against the version's base for review, and
 `modelable expand-version domain.Model@version` (see [CLI Reference
-§5.27](cli-reference.md#527-expand-version--expand-an-evolves-declared-version-to-full-form))
+§5.27](cli-reference.md#527-expand-version-expand-an-evolves-declared-version-to-full-form))
 renders an `evolves`-form version back out as a complete declaration.
 Both verify every implemented codegen target's output is byte-identical
 before writing anything, and both refuse to touch a version whose field
@@ -896,7 +896,7 @@ reference is never flagged (it already has a name and its own version
 history). Whether to extract a shared `semantic` enum declaration for a
 reported group remains an explicit human decision — `modelable
 extract-enum` (see [CLI Reference
-§5.25](cli-reference.md#525-extract-enum--extract-a-shared-semantic-enum))
+§5.25](cli-reference.md#525-extract-enum-extract-a-shared-semantic-enum))
 performs that extraction once the human has made it, taking the exact
 `domain.Model@version.field` locations this warning lists.
 

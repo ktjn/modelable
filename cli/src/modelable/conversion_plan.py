@@ -1,4 +1,4 @@
-"""Parser-free conversion classification for ``modelable.plan/v0`` documents."""
+"""Parser-free conversion classification for ``modelable.plan/v1`` documents."""
 
 from __future__ import annotations
 
