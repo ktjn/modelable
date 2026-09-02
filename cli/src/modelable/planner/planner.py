@@ -70,6 +70,9 @@ def _expand_domain_auto_projections(domain: DomainDef) -> list[str]:
             )
             domain.projections.setdefault(projection_name, []).append(projection)
 
+    for versions in domain.projections.values():
+        versions.sort(key=lambda version: version.version)
+
     return errors
 
 

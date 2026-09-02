@@ -176,7 +176,7 @@ Projection-of-projection remains a derivation chain and must preserve lineage to
 
 Auto projections are authoring sugar. They must normalize into ordinary explicit projection semantics before later compiler phases.
 
-Generated request, reply, database, and event projections therefore use the same identity, lineage, compatibility, planning, and emitter paths as hand-authored projections.
+Generated request, reply, database, and event projections therefore use the same identity, lineage, compatibility, planning, and emitter paths as hand-authored projections. Workspace expansion materializes them into the ordinary projection collections and sorts each named version sequence before downstream consumers run.
 
 ## 4. Canonical semantic identity
 
