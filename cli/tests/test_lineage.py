@@ -12,7 +12,7 @@ import pytest
 from modelable.compiler.workspace import Workspace, load_workspace
 from modelable.parser.parse import parse_text_to_ir
 from modelable.planner.lineage import build_projection_lineage
-from modelable.planner.plans import PLAN_SCHEMA, build_plan, build_plan_documents, write_plans
+from modelable.planner.plans import build_plan, build_plan_documents, write_plans
 from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanProtocolError, load_plan, serialize_plan, validate_plan
 
 _MDL = textwrap.dedent("""\
@@ -98,7 +98,7 @@ def test_plan_document_structure():
     lineage = build_projection_lineage("billing", "BillingCustomer", pv, mdl)
     plan = build_plan("billing", "BillingCustomer", pv, lineage, mdl)
 
-    assert plan["$schema"] == PLAN_SCHEMA == "modelable.plan/v0"
+    assert plan["$schema"] == PLAN_V1_SCHEMA == "modelable.plan/v1"
     assert plan["domain"] == "billing"
     assert plan["projection"] == "BillingCustomer"
     assert plan["version"] == 1
@@ -217,7 +217,7 @@ def test_write_plans_creates_files(tmp_path):
     for path in written:
         assert path.exists()
         data = json.loads(path.read_text(encoding="utf-8"))
-        assert data["$schema"] == PLAN_SCHEMA
+        assert data["$schema"] == PLAN_V1_SCHEMA
         assert load_plan(path) == data
 
 

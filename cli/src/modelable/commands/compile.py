@@ -22,7 +22,7 @@ from modelable.operations.compilation import (
     CompilationRequest,
     CompilationService,
 )
-from modelable.planner.protocol import PLAN_SCHEMA
+from modelable.planner.protocol import PLAN_V1_SCHEMA
 
 
 def register_compile_commands(cli_group: click.Group) -> None:
@@ -195,7 +195,7 @@ def docs(source: Path, out_dir: Path | None) -> None:
 
     try:
         target_descriptor = get_codegen_target("markdown").extension_descriptor()
-        validate_extension_admission(target_descriptor, workspace.mdl, plan_version=PLAN_SCHEMA)
+        validate_extension_admission(target_descriptor, workspace.mdl, plan_version=PLAN_V1_SCHEMA)
     except ExtensionDescriptorError as error:
         raise click.ClickException(str(error)) from error
 

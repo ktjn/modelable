@@ -28,6 +28,10 @@ releases could contain breaking changes when called out explicitly.
 - Route Apicurio publication, lineage/catalog sync, compatibility validation,
   and conversational target transforms through the stable `modelable.plan/v1`
   admission boundary.
+- Make generated plans and the remaining compile admission path default to
+  `modelable.plan/v1`, while retaining explicit v0 migration support.
+- Publish the checked-in `modelable.plan/v1` JSON Schema for non-Python plan
+  consumers.
 
 ### Fixed
 
