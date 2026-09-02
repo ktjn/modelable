@@ -32,12 +32,11 @@ from modelable.parser.ir import (
     ProjectionVersion,
     ProtobufReservations,
     SemanticTypeDecl,
-    latest_semantic_types,
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA, PlanDocument
 from modelable.registry.enum_numbers import EnumNumberAllocation
-from modelable.registry.resolver import resolve_model_ref, resolve_semantic_type_ref
+from modelable.registry.resolver import latest_semantic_type_declarations, resolve_model_ref, resolve_semantic_type_ref
 from modelable.registry.signature import compute_version_signature
 
 
@@ -610,7 +609,7 @@ def _semantic_declarations(
 ) -> dict[str, tuple[tuple[str, SemanticTypeDecl], ...]]:
     grouped: dict[str, list[tuple[str, SemanticTypeDecl]]] = {}
     for domain in mdl.domains:
-        for decl in latest_semantic_types(domain):
+        for decl in latest_semantic_type_declarations(domain):
             grouped.setdefault(decl.name, []).append((domain.name, decl))
     return {name: tuple(sorted(candidates, key=lambda candidate: candidate[0])) for name, candidates in grouped.items()}
 
@@ -677,7 +676,7 @@ def _build_semantic_index(
     by_name: dict[str, list[_SemanticProtoType]] = {}
     by_domain: dict[str, list[_SemanticProtoType]] = {}
     for domain in sorted(mdl.domains, key=lambda item: item.name):
-        for decl in sorted(latest_semantic_types(domain), key=lambda item: item.name):
+        for decl in sorted(latest_semantic_type_declarations(domain), key=lambda item: item.name):
             ref = f"{domain.name}.{decl.name}"
             try:
                 terminal_type = _semantic_terminal_type(decl, declarations)
@@ -717,7 +716,7 @@ def _build_enum_index(
     """
     by_ref: dict[str, _ProtoEnumType] = {}
     for domain in sorted(mdl.domains, key=lambda item: item.name):
-        for decl in sorted(latest_semantic_types(domain), key=lambda item: item.name):
+        for decl in sorted(latest_semantic_type_declarations(domain), key=lambda item: item.name):
             if not isinstance(decl.underlying, EnumType):
                 continue
             ref = f"{domain.name}.{decl.name}"

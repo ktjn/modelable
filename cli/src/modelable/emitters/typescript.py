@@ -38,12 +38,12 @@ from modelable.parser.ir import (
     VersionPinned,
     VersionRange,
     VersionSpec,
-    latest_semantic_types,
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA
 from modelable.registry.resolver import (
     ResolvedModelRef,
+    latest_semantic_type_declarations,
     resolve_enum_type_ref,
     resolve_model_ref,
     resolve_ref_type,
@@ -57,7 +57,7 @@ def emit_typescript(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact
         for plan in build_plan_documents(workspace, schema=PLAN_V1_SCHEMA)
     }
     for domain in workspace.mdl.domains:
-        for decl in latest_semantic_types(domain):
+        for decl in latest_semantic_type_declarations(domain):
             if isinstance(decl.underlying, EnumType):
                 artifacts.append(_emit_enum_type(domain, decl, out_dir))
         for projection in domain.enum_projections:

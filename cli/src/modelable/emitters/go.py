@@ -22,10 +22,10 @@ from modelable.parser.ir import (
     ModelVersion,
     ProjectionVersion,
     SemanticTypeDecl,
-    latest_semantic_types,
 )
 from modelable.planner.plans import build_plan_documents
 from modelable.planner.protocol import PLAN_V1_SCHEMA
+from modelable.registry.resolver import latest_semantic_type_declarations
 
 
 def emit_go(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
@@ -41,7 +41,7 @@ def emit_go(workspace: Workspace, out_dir: Path) -> list[EmittedArtifact]:
         named_names, named_shapes = resolve_named_types(
             workspace.mdl, current_domain=domain.name, model_name=_stable_type_name, emit_nominal_enums=True
         )
-        latest_decls = latest_semantic_types(domain)
+        latest_decls = latest_semantic_type_declarations(domain)
         for decl in latest_decls:
             if isinstance(decl.underlying, EnumType):
                 artifacts.append(_emit_enum_type(domain, decl, out_dir))

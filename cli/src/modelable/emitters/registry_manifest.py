@@ -5,7 +5,8 @@ from pathlib import Path
 
 from modelable.compiler.workspace import Workspace
 from modelable.emitters.base import EmittedArtifact, compute_content_hash
-from modelable.parser.ir import MdlFile, ModelVersion, NamedType, SemanticTypeDecl, latest_semantic_types
+from modelable.parser.ir import MdlFile, ModelVersion, NamedType, SemanticTypeDecl
+from modelable.registry.resolver import latest_semantic_type_declarations
 from modelable.registry.signature import compute_version_signature
 
 
@@ -42,7 +43,7 @@ def emit_registry_manifest(
                         registry_id=None,
                     )
                 )
-        for declaration in sorted(latest_semantic_types(domain), key=lambda item: item.name):
+        for declaration in sorted(latest_semantic_type_declarations(domain), key=lambda item: item.name):
             ref = f"{domain.name}.{declaration.name}"
             entries.append(
                 {
@@ -108,4 +109,8 @@ def _model_registry_id(
 def _find_semantic_type(mdl: MdlFile, qualified_name: str) -> SemanticTypeDecl | None:
     domain_name, name = qualified_name.rsplit(".", 1)
     domain = next((item for item in mdl.domains if item.name == domain_name), None)
-    return next((item for item in latest_semantic_types(domain) if item.name == name), None) if domain else None
+    return (
+        next((item for item in latest_semantic_type_declarations(domain) if item.name == name), None)
+        if domain
+        else None
+    )

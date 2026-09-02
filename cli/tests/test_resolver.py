@@ -5,7 +5,13 @@ from pathlib import Path
 from modelable.compiler.workspace import load_workspace
 from modelable.parser.parse import parse_text_to_ir
 from modelable.registry.index import build_registry
-from modelable.registry.resolver import ResolvedDeclarationView, _iter_declaration_candidates, resolve_model_ref
+from modelable.registry.resolver import (
+    ResolvedDeclarationView,
+    _iter_declaration_candidates,
+    latest_enum_projection_declarations,
+    latest_semantic_type_declarations,
+    resolve_model_ref,
+)
 
 
 def _write_workspace(path: Path) -> None:
@@ -64,6 +70,28 @@ def test_declaration_candidate_boundary_covers_all_named_declaration_families():
         ("ProductView", "projection", 1),
         ("Status", "semantic_type", 1),
         ("PublicStatus", "enum_projection", 1),
+    ]
+
+
+def test_latest_declaration_helpers_share_candidate_version_selection():
+    mdl = parse_text_to_ir("""
+    domain catalog {
+      owner: "test-team"
+      semantic Status @ 2 (additive): enum(active, retired)
+      semantic Status @ 1 (additive): enum(active)
+      semantic Region @ 1 (additive): string
+      enum projection PublicStatus @ 2 (additive) from Status @ 2 pick(active)
+      enum projection PublicStatus @ 1 (additive) from Status @ 1 pick(active)
+    }
+    """)
+    domain = mdl.domains[0]
+
+    assert [(declaration.name, declaration.version) for declaration in latest_semantic_type_declarations(domain)] == [
+        ("Status", 2),
+        ("Region", 1),
+    ]
+    assert [(declaration.name, declaration.version) for declaration in latest_enum_projection_declarations(domain)] == [
+        ("PublicStatus", 2),
     ]
 
 

@@ -11,9 +11,12 @@ from modelable.parser.ir import (
     NamedType,
     ObjectType,
     RefType,
-    latest_semantic_types,
 )
-from modelable.registry.resolver import AmbiguousSemanticTypeError, resolve_semantic_type_ref
+from modelable.registry.resolver import (
+    AmbiguousSemanticTypeError,
+    latest_semantic_type_declarations,
+    resolve_semantic_type_ref,
+)
 
 
 @dataclass(frozen=True)
@@ -51,7 +54,7 @@ def build_package_graph(mdl: MdlFile) -> PackageGraph:
                 for model_field in version.fields:
                     _collect_field_deps(model_field.type, domain, mdl, package_for_domain, current_pkg, into)
 
-        for semantic_decl in latest_semantic_types(domain):
+        for semantic_decl in latest_semantic_type_declarations(domain):
             _collect_field_deps(semantic_decl.underlying, domain, mdl, package_for_domain, current_pkg, into)
 
         for projection_versions in domain.projections.values():
