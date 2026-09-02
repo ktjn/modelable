@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -17,13 +17,53 @@ from modelable.parser.ir import (
     VersionPinned,
     VersionRange,
     VersionSpec,
-    latest_enum_projections,
-    latest_semantic_types,
 )
 from modelable.registry.signature import compute_version_signature
 
 ResolvedDeclaration = ModelVersion | ProjectionVersion | SemanticTypeDecl | EnumProjectionDecl
-NamedDeclaration = SemanticTypeDecl | EnumProjectionDecl
+
+
+@dataclass(frozen=True)
+class _DeclarationCandidate:
+    """Private normalized identity record for one concrete declaration version."""
+
+    domain_name: str
+    name: str
+    declaration: ResolvedDeclaration
+
+    @property
+    def version_number(self) -> int:
+        return self.declaration.version
+
+    @property
+    def kind(self) -> str:
+        if isinstance(self.declaration, ModelVersion):
+            return "model"
+        if isinstance(self.declaration, ProjectionVersion):
+            return "projection"
+        if isinstance(self.declaration, SemanticTypeDecl):
+            return "semantic_type"
+        return "enum_projection"
+
+
+def _iter_declaration_candidates(mdl: MdlFile) -> Iterator[_DeclarationCandidate]:
+    """Yield all concrete named declaration versions through one boundary."""
+    for domain in mdl.domains:
+        yield from _iter_domain_declaration_candidates(domain)
+
+
+def _iter_domain_declaration_candidates(domain: DomainDef) -> Iterator[_DeclarationCandidate]:
+    """Yield all concrete named declarations belonging to one domain."""
+    for model_name, model_versions in domain.models.items():
+        for model_declaration in model_versions:
+            yield _DeclarationCandidate(domain.name, model_name, model_declaration)
+    for projection_name, projection_versions in domain.projections.items():
+        for projection_declaration in projection_versions:
+            yield _DeclarationCandidate(domain.name, projection_name, projection_declaration)
+    for semantic_declaration in domain.semantic_types:
+        yield _DeclarationCandidate(domain.name, semantic_declaration.name, semantic_declaration)
+    for enum_declaration in domain.enum_projections:
+        yield _DeclarationCandidate(domain.name, enum_declaration.name, enum_declaration)
 
 
 @runtime_checkable
@@ -361,11 +401,9 @@ def _find_semantic_decl(
     name: str,
     exact_version: int | None,
 ) -> SemanticTypeDecl | None:
-    return _find_named_decl(
-        latest_semantic_types(domain),
-        domain.semantic_types,
-        name,
-        exact_version,
+    candidate = _find_named_candidate(domain, name, "semantic_type", exact_version)
+    return (
+        candidate.declaration if candidate is not None and isinstance(candidate.declaration, SemanticTypeDecl) else None
     )
 
 
@@ -374,25 +412,28 @@ def _find_enum_projection_decl(
     name: str,
     exact_version: int | None,
 ) -> EnumProjectionDecl | None:
-    return _find_named_decl(
-        latest_enum_projections(domain),
-        domain.enum_projections,
-        name,
-        exact_version,
+    candidate = _find_named_candidate(domain, name, "enum_projection", exact_version)
+    return (
+        candidate.declaration
+        if candidate is not None and isinstance(candidate.declaration, EnumProjectionDecl)
+        else None
     )
 
 
-def _find_named_decl[DeclarationT: (SemanticTypeDecl, EnumProjectionDecl)](
-    latest: Sequence[DeclarationT],
-    all_versions: Sequence[DeclarationT],
+def _find_named_candidate(
+    domain: DomainDef,
     name: str,
+    kind: str,
     exact_version: int | None,
-) -> DeclarationT | None:
-    candidates = latest if exact_version is None else all_versions
-    return next(
-        (item for item in candidates if item.name == name and (exact_version is None or item.version == exact_version)),
-        None,
-    )
+) -> _DeclarationCandidate | None:
+    candidates = [
+        candidate
+        for candidate in _iter_domain_declaration_candidates(domain)
+        if candidate.name == name and candidate.kind == kind
+    ]
+    if exact_version is None:
+        return max(candidates, key=lambda candidate: candidate.version_number, default=None)
+    return next((candidate for candidate in candidates if candidate.version_number == exact_version), None)
 
 
 def _unknown_semantic_type_error(
@@ -457,13 +498,16 @@ def _find_model_versions(
     domain_name: str,
     model_name: str,
 ) -> list[ModelVersion | ProjectionVersion]:
-    for domain in mdl.domains:
-        if domain.name == domain_name:
-            versions: list[ModelVersion | ProjectionVersion] = []
-            versions.extend(domain.models.get(model_name, []))
-            versions.extend(domain.projections.get(model_name, []))
-            return versions
-    return []
+    versions: list[ModelVersion | ProjectionVersion] = []
+    for candidate in _iter_declaration_candidates(mdl):
+        if (
+            candidate.domain_name == domain_name
+            and candidate.name == model_name
+            and candidate.kind in {"model", "projection"}
+            and isinstance(candidate.declaration, (ModelVersion, ProjectionVersion))
+        ):
+            versions.append(candidate.declaration)
+    return versions
 
 
 def _split_model_ref(model_ref: str) -> tuple[str, str]:
