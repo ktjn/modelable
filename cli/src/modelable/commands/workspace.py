@@ -8,6 +8,7 @@ import click
 from modelable.commands.common import console, load_workspace_or_exit, render_version_spec
 from modelable.compiler.render import render_model_version, render_projection_version
 from modelable.llm.context import parse_model_ref_version_spec
+from modelable.parser.ir import VersionSpec
 from modelable.planner.lineage import build_projection_lineage
 from modelable.registry.resolver import resolve_model_ref
 
@@ -42,8 +43,8 @@ def resolve(ref: str, path: Path) -> None:
     workspace = load_workspace_or_exit(path)
 
     try:
-        domain, name, version_spec = parse_model_ref_version_spec(ref)
-        resolved = resolve_model_ref(workspace.mdl, domain + "." + name, version_spec)
+        domain_name, name, version_spec = parse_model_ref_version_spec(ref)
+        resolved = resolve_model_ref(workspace.mdl, domain_name + "." + name, version_spec)
     except (ValueError, LookupError) as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
@@ -92,8 +93,8 @@ def lineage(ref: str, path: Path) -> None:
     workspace = load_workspace_or_exit(path)
 
     try:
-        domain, name, version_spec = parse_model_ref_version_spec(ref)
-        resolved = resolve_model_ref(workspace.mdl, domain + "." + name, version_spec)
+        domain_name, name, version_spec = parse_model_ref_version_spec(ref)
+        resolved = resolve_model_ref(workspace.mdl, domain_name + "." + name, version_spec)
     except (ValueError, LookupError) as exc:
         console.print(f"[red]ERROR[/red] {exc}")
         sys.exit(1)
@@ -226,7 +227,7 @@ def inspect(ref: str, auto: bool, path: Path) -> None:
     sys.exit(1)
 
 
-def _parse_entity_ref_version_spec(ref: str) -> tuple[str, str, int | object]:
+def _parse_entity_ref_version_spec(ref: str) -> tuple[str, str, VersionSpec | int]:
     if "@" not in ref:
         raise click.BadParameter("REF must be in the form domain.Model@version")
     model_ref, _version_str = ref.rsplit("@", 1)
