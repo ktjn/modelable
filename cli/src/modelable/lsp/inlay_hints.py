@@ -4,7 +4,9 @@ import re
 
 from lsprotocol import types
 
+from modelable.compiler.workspace import Workspace
 from modelable.lsp.workspace import LspWorkspaceIndex
+from modelable.parser.ir import JoinRef, SourceRef
 from modelable.registry.resolver import resolve_model_ref
 
 _DOMAIN_PATTERN = re.compile(r'^\s*domain\s+(?:"(?P<quoted>[^"]+)"|(?P<name>[A-Za-z_][A-Za-z0-9_]*))')
@@ -101,22 +103,22 @@ def build_inlay_hints(
     return hints
 
 
-def _resolve_model_kind(workspace, domain_name: str, model_name: str, version: int) -> str | None:
+def _resolve_model_kind(workspace: Workspace, domain_name: str, model_name: str, version: int) -> str | None:
     domain = next((d for d in workspace.mdl.domains if d.name == domain_name), None)
     if domain is None:
         return None
     versions = domain.models.get(model_name, [])
     model_version = next((item for item in versions if item.version == version), None)
     if model_version is not None:
-        return model_version.model_kind.value
-    versions = domain.projections.get(model_name, [])
-    if any(item.version == version for item in versions):
+        return str(model_version.model_kind.value)
+    projection_versions = domain.projections.get(model_name, [])
+    if any(item.version == version for item in projection_versions):
         return "projection"
     return None
 
 
 def _resolve_field_type(
-    workspace,
+    workspace: Workspace,
     domain_name: str,
     model_name: str,
     version: int,
@@ -131,7 +133,7 @@ def _resolve_field_type(
         field = next((f for f in model_version.fields if f.name == field_name), None)
         if field is None:
             return None
-        return field.type.kind
+        return str(field.type.kind)
     # Source is a projection: follow a direct mapping one level to its backing model field
     proj_versions = domain.projections.get(model_name, [])
     proj_version = next((item for item in proj_versions if item.version == version), None)
@@ -141,7 +143,8 @@ def _resolve_field_type(
     if proj_field is None or proj_field.mapping.kind != "direct":
         return None
     mapping = proj_field.mapping
-    for source_ref in [proj_version.source, *proj_version.joins]:
+    source_refs: tuple[SourceRef | JoinRef, ...] = (proj_version.source, *proj_version.joins)
+    for source_ref in source_refs:
         if source_ref.alias != mapping.source_alias:
             continue
         try:
