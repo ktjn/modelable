@@ -16,6 +16,13 @@ releases could contain breaking changes when called out explicitly.
   does not match a snake_case physical column and previously failed only at
   runtime (#779).
 
+- OpenLineage sync and Apicurio publication now apply the compiler-owned
+  extension execution, plan-protocol, and capability admission checks before
+  emitting artifacts.
+
+- Markdown documentation generation now applies the compiler-owned extension
+  capability checks before emission.
+
 ### Changed
 
 ### Fixed
@@ -177,12 +184,6 @@ releases could contain breaking changes when called out explicitly.
 - Target compatibility validation now applies extension capability admission
   before generating comparison artifacts.
 
-- OpenLineage sync and Apicurio publication now apply the compiler-owned
-  extension execution, plan-protocol, and capability admission checks before
-  emitting artifacts.
-
-- Markdown documentation generation now applies the compiler-owned extension
-  capability checks before emission.
 
 - `modelable impact --snapshot` now includes the compiled usage evidence stored
   in the snapshot when reporting affected consumers.
